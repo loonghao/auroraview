@@ -117,8 +117,6 @@ impl WebViewEventHandler {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_event_loop_state_creation() {
         // This test would require creating actual window/webview

@@ -332,7 +332,7 @@ impl PyWebView {
         if config.dev_tools {
             webview_builder = webview_builder.with_devtools(true);
         }
-        let mut webview = webview_builder.build(&window)?;
+        let webview = webview_builder.build(&window)?;
 
         // Apply initial content from config if provided
         if let Some(ref url) = config.url {
@@ -410,6 +410,7 @@ impl WebViewInner {
     }
 
     /// Run the event loop (standalone mode only)
+    #[allow(dead_code)]
     pub fn run_event_loop(&mut self, _py: Python) -> PyResult<()> {
         use tao::event_loop::ControlFlow;
 
