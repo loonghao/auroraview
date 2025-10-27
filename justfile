@@ -41,6 +41,59 @@ test-fast:
     @echo "🧪 Running fast tests..."
     uv run pytest tests/ -v -m "not slow"
 
+# Test with Python 3.7
+test-py37:
+    @echo "🧪 Testing with Python 3.7..."
+    uv venv --python 3.7 .venv-py37
+    uv pip install -e . pytest pytest-cov --python .venv-py37\Scripts\python.exe
+    .venv-py37\Scripts\python.exe -m pytest tests/ -v -o addopts=""
+
+# Test with Python 3.8
+test-py38:
+    @echo "🧪 Testing with Python 3.8..."
+    uv venv --python 3.8 .venv-py38
+    uv pip install -e . pytest pytest-cov --python .venv-py38\Scripts\python.exe
+    .venv-py38\Scripts\python.exe -m pytest tests/ -v -o addopts=""
+
+# Test with Python 3.9
+test-py39:
+    @echo "🧪 Testing with Python 3.9..."
+    uv venv --python 3.9 .venv-py39
+    uv pip install -e . pytest pytest-cov --python .venv-py39\Scripts\python.exe
+    .venv-py39\Scripts\python.exe -m pytest tests/ -v -o addopts=""
+
+# Test with Python 3.10
+test-py310:
+    @echo "🧪 Testing with Python 3.10..."
+    uv venv --python 3.10 .venv-py310
+    uv pip install -e . pytest pytest-cov --python .venv-py310\Scripts\python.exe
+    .venv-py310\Scripts\python.exe -m pytest tests/ -v -o addopts=""
+
+# Test with Python 3.11
+test-py311:
+    @echo "🧪 Testing with Python 3.11..."
+    uv venv --python 3.11 .venv-py311
+    uv pip install -e . pytest pytest-cov --python .venv-py311\Scripts\python.exe
+    .venv-py311\Scripts\python.exe -m pytest tests/ -v -o addopts=""
+
+# Test with Python 3.12
+test-py312:
+    @echo "🧪 Testing with Python 3.12..."
+    uv venv --python 3.12 .venv-py312
+    uv pip install -e . pytest pytest-cov --python .venv-py312\Scripts\python.exe
+    .venv-py312\Scripts\python.exe -m pytest tests/ -v -o addopts=""
+
+# Test with all supported Python versions
+test-all-python:
+    @echo "🧪 Testing with all supported Python versions..."
+    just test-py37
+    just test-py38
+    just test-py39
+    just test-py310
+    just test-py311
+    just test-py312
+    @echo "✅ All Python versions tested successfully!"
+
 # Run only unit tests
 test-unit:
     @echo "🧪 Running unit tests..."
