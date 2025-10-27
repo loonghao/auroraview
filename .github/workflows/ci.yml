@@ -85,12 +85,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
         continue-on-error: true
 
-      - name: Install Python 3.7 from deadsnakes (if needed)
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: "latest"
+
+      - name: Install Python ${{ matrix.python-version }} with uv (if needed)
         if: matrix.python-version == '3.7'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3.7 python3.7-venv python3.7-dev
-          sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
+          uv python install 3.7
+          uv python pin 3.7
           python --version
 
       - name: Setup Rust toolchain
@@ -188,7 +192,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
         exclude:
-          # Python 3.7 only on Ubuntu (not available on Windows/macOS in GitHub Actions)
+          # Python 3.7 only on Ubuntu (use uv to install)
           - os: windows-latest
             python-version: "3.7"
           - os: macos-latest
@@ -203,12 +207,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
         continue-on-error: true
 
-      - name: Install Python 3.7 from deadsnakes (if needed)
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: "latest"
+
+      - name: Install Python ${{ matrix.python-version }} with uv (if needed)
         if: matrix.python-version == '3.7' && runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3.7 python3.7-venv python3.7-dev
-          sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
+          uv python install 3.7
+          uv python pin 3.7
           python --version
 
       - name: Setup Rust toolchain

@@ -53,14 +53,14 @@ just check       # 格式化 + Linting + 测试
 #### 2. 多版本 CI 测试（每个 PR）
 - 运行在 Ubuntu 上
 - 测试 Python 3.7 - 3.12（6 个版本）
-- Python 3.7 通过虚拟环境安装（deadsnakes PPA）
+- Python 3.7 通过 `uv python` 安装
 - 验证 ABI3 兼容性
 - 预计时间: ~15-22 分钟
 
 #### 3. 完整 CI 测试（main 分支）
 - 运行在 Ubuntu、Windows、macOS
 - 测试 Python 3.7 - 3.12（6 个版本）
-- Python 3.7 仅在 Ubuntu 上测试
+- Python 3.7 仅在 Ubuntu 上测试（使用 `uv python`）
 - 生成覆盖率报告
 - 预计时间: ~30-40 分钟
 
@@ -81,14 +81,14 @@ just check       # 格式化 + Linting + 测试
 
 | Python 版本 | 状态 | 测试数 | 通过 | 备注 |
 |-----------|------|-------|------|------|
-| 3.7.9     | ✅   | 39    | 39   | 本地 + CI (deadsnakes) |
+| 3.7.9     | ✅   | 39    | 39   | 本地 + CI (uv python) |
 | 3.8.20    | ✅   | 39    | 39   | 本地 + CI |
 | 3.9.21    | ✅   | 39    | 39   | 本地 + CI |
 | 3.10.16   | ✅   | 39    | 39   | 本地 + CI |
 | 3.11.11   | ✅   | 39    | 39   | 本地 + CI |
 | 3.12.8    | ✅   | 39    | 39   | 本地 + CI |
 
-**注**: Python 3.7 通过虚拟环境在 CI 中测试（使用 deadsnakes PPA）。
+**注**: Python 3.7 通过 `uv python` 在 CI 中测试。
 
 ### 测试覆盖范围
 
