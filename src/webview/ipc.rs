@@ -35,6 +35,7 @@ impl IpcHandler {
     }
 
     /// Register a callback for an event
+    #[allow(dead_code)]
     pub fn on<F>(&self, event: &str, callback: F)
     where
         F: Fn(IpcMessage) -> Result<serde_json::Value, String> + Send + Sync + 'static,
@@ -47,6 +48,7 @@ impl IpcHandler {
     }
 
     /// Emit an event to JavaScript
+    #[allow(dead_code)]
     pub fn emit(&self, event: &str, data: serde_json::Value) -> Result<(), String> {
         let _message = IpcMessage {
             event: event.to_string(),
@@ -61,6 +63,7 @@ impl IpcHandler {
     }
 
     /// Handle incoming message from JavaScript
+    #[allow(dead_code)]
     pub fn handle_message(&self, message: IpcMessage) -> Result<serde_json::Value, String> {
         tracing::debug!("Handling IPC message: {}", message.event);
 
@@ -87,12 +90,14 @@ impl IpcHandler {
     }
 
     /// Remove all callbacks for an event
+    #[allow(dead_code)]
     pub fn off(&self, event: &str) {
         let mut callbacks = self.callbacks.lock().unwrap();
         callbacks.remove(event);
     }
 
     /// Clear all callbacks
+    #[allow(dead_code)]
     pub fn clear(&self) {
         let mut callbacks = self.callbacks.lock().unwrap();
         callbacks.clear();

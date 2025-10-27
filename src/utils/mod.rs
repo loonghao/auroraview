@@ -21,6 +21,7 @@ pub fn init_logging() {
 
 /// Thread-safe counter for generating unique IDs
 pub struct IdGenerator {
+    #[allow(dead_code)]
     counter: std::sync::atomic::AtomicU64,
 }
 
@@ -33,12 +34,14 @@ impl IdGenerator {
     }
 
     /// Generate a new unique ID
+    #[allow(dead_code)]
     pub fn next(&self) -> u64 {
         self.counter
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Generate a new unique ID as a string
+    #[allow(dead_code)]
     pub fn next_string(&self) -> String {
         format!("id_{}", self.next())
     }
