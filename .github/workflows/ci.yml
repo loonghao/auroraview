@@ -45,6 +45,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgobject-2.0-dev libgtk-3-dev
+
       - name: Install build dependencies
         run: |
           python -m pip install -U pip setuptools wheel
@@ -131,6 +136,12 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgobject-2.0-dev libgtk-3-dev
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
