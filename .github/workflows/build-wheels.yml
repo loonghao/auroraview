@@ -1,52 +1,76 @@
 name: Build Wheels (abi3)
 
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - '0.*.*'
+    branches: [main]
+    tags: ['*']
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'python/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'pyproject.toml'
+  workflow_dispatch:
+  workflow_call:
 
 permissions:
-  contents: write
+  contents: read
+  actions: write # Required for uploading artifacts
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  # Linux builds
+  linux:
+    runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        target: [x86_64, i686]
 
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build wheels with maturin (abi3)
-        uses: PyO3/maturin-action@v1
+      - name: Build and Test Wheel
+        uses: ./.github/actions/build-wheel
         with:
-          manylinux: auto
-          args: --release --out dist --features python-bindings
+          target: ${{ matrix.target }}
+          python-version: '3.11'
+          test-wheel: ${{ matrix.target == 'x86_64' }}
+          artifact-name: 'wheels-linux-${{ matrix.target }}'
 
-      - name: List artifacts
-        shell: bash
-        run: |
-          ls -la dist || dir dist
+  # Windows builds
+  windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        target: [x64, x86]
 
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build and Test Wheel
+        uses: ./.github/actions/build-wheel
         with:
-          name: wheels-${{ matrix.os }}
-          path: dist/*.whl
+          target: ${{ matrix.target }}
+          python-version: '3.11'
+          test-wheel: 'true'
+          artifact-name: 'wheels-windows-${{ matrix.target }}'
 
-      - name: Create or update GitHub Release
-        uses: softprops/action-gh-release@v2
+  # macOS builds
+  macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [x86_64, universal2-apple-darwin]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build and Test Wheel
+        uses: ./.github/actions/build-wheel
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          files: dist/*.whl
-          draft: false
-          prerelease: false
+          target: ${{ matrix.target }}
+          python-version: '3.11'
+          maturin-args: ${{ matrix.target == 'x86_64' && '--release --out dist --sdist --find-interpreter' || '--release --out dist --find-interpreter' }}
+          test-wheel: 'true'
+          artifact-name: 'wheels-macos-${{ matrix.target }}'
 

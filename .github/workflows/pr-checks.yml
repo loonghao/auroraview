@@ -1,0 +1,93 @@
+name: PR Checks
+
+# This workflow runs comprehensive checks on PRs to ensure quality before merging.
+# It's designed to catch all issues that could cause release failures.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write # For commenting on PRs
+
+jobs:
+  # Essential tests that must pass for PR approval
+  essential-tests:
+    name: Essential Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false  # Don't fail fast - we want to see all Python version results
+      matrix:
+        python-version: ["3.8", "3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
+        with:
+          python-version: ${{ matrix.python-version }}
+          rust-components: 'clippy'
+          cache-key-suffix: 'essential-test'
+
+      - name: Build and Test
+        uses: ./.github/actions/build-and-test
+        with:
+          test-type: 'full'  # Run full tests instead of just basic
+          generate-stubs: 'true'
+          upload-artifacts: 'true'
+          artifact-name: 'essential-test-results-py${{ matrix.python-version }}'
+
+  # Code quality checks
+  quality-checks:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
+        with:
+          python-version: "3.10"
+          rust-components: 'rustfmt,clippy'
+          cache-key-suffix: 'quality'
+
+      - name: Run linting and formatting checks
+        run: just ci-lint
+
+  # PR approval gate - all essential checks must pass
+  pr-ready:
+    name: PR Ready for Merge
+    runs-on: ubuntu-latest
+    needs: [essential-tests, quality-checks]
+    if: always()
+
+    steps:
+      - name: Check all required jobs
+        run: |
+          echo "🔍 Checking PR readiness..."
+
+          # Check essential tests
+          if [[ "${{ needs.essential-tests.result }}" != "success" ]]; then
+            echo "❌ Essential tests failed"
+            exit 1
+          fi
+
+          # Check quality
+          if [[ "${{ needs.quality-checks.result }}" != "success" ]]; then
+            echo "❌ Code quality checks failed"
+            exit 1
+          fi
+
+          echo "✅ PR is ready for merge!"
+          echo "## ✅ PR Ready for Merge" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All essential checks have passed:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Essential tests (Python 3.8, 3.10, 3.12)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Code quality and linting (Rust + Python)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This PR can be safely merged." >> $GITHUB_STEP_SUMMARY
+

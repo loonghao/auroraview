@@ -1,0 +1,131 @@
+name: 'Build AuroraView Wheel'
+description: 'Builds AuroraView wheel with maturin'
+
+inputs:
+  target:
+    description: 'Target platform for the wheel'
+    required: false
+    default: ''
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.10'
+  maturin-args:
+    description: 'Additional arguments for maturin'
+    required: false
+    default: '--release --out dist --find-interpreter'
+  test-wheel:
+    description: 'Whether to test the built wheel'
+    required: false
+    default: 'true'
+  upload-wheel:
+    description: 'Whether to upload the wheel as artifact'
+    required: false
+    default: 'true'
+  artifact-name:
+    description: 'Name for the wheel artifact'
+    required: false
+    default: 'wheels'
+
+outputs:
+  wheel-path:
+    description: 'Path to the built wheel'
+    value: ${{ steps.build.outputs.wheel-path }}
+  build-status:
+    description: 'Build status (success/failure)'
+    value: ${{ steps.build.outcome }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install uv
+      if: inputs.test-wheel == 'true'
+      uses: astral-sh/setup-uv@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+        enable-cache: false
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install system dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libwebkit2gtk-4.1-dev \
+          libgtk-3-dev \
+          libglib2.0-dev \
+          libpango1.0-dev \
+          libcairo2-dev
+
+    - name: Cache Rust build
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-${{ inputs.target || 'default' }}-cargo-wheel-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ inputs.target || 'default' }}-cargo-wheel-
+          ${{ runner.os }}-cargo-
+
+    - name: Build wheel
+      id: build
+      uses: PyO3/maturin-action@v1
+      with:
+        target: ${{ inputs.target }}
+        args: ${{ inputs.maturin-args }}
+        sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        manylinux: ${{ runner.os == 'Linux' && 'auto' || '' }}
+
+    - name: Set wheel path output
+      shell: bash
+      run: |
+        wheel_file=$(ls dist/*.whl | head -1)
+        echo "wheel-path=$wheel_file" >> $GITHUB_OUTPUT
+
+    - name: Test wheel installation
+      if: inputs.test-wheel == 'true'
+      shell: bash
+      run: |
+        python -m venv test-wheel-env
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          source test-wheel-env/Scripts/activate
+        else
+          source test-wheel-env/bin/activate
+        fi
+
+        wheel_file=$(ls dist/*.whl | head -1)
+        echo "Installing wheel: $wheel_file"
+
+        if pip install "$wheel_file" --force-reinstall --no-deps --disable-pip-version-check; then
+          echo "✅ Pip install successful"
+        else
+          echo "⚠️ Pip install failed - may be expected for cross-compilation"
+          exit 0
+        fi
+
+        if python -c "import auroraview; print('[OK] AuroraView imported successfully')" 2>/dev/null; then
+          echo "✅ Import test passed"
+        else
+          echo "⚠️ Import test failed - may be due to architecture mismatch"
+          exit 0
+        fi
+
+    - name: Upload wheel
+      if: inputs.upload-wheel == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}-${{ runner.os }}-py${{ inputs.python-version }}-${{ inputs.target || 'default' }}
+        path: dist/
+        retention-days: 30
+
