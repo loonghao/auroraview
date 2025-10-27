@@ -34,8 +34,7 @@ mod tests {
 
     #[test]
     fn test_module_creation() {
-        // Basic module creation test
-        assert!(true);
+        // Basic module creation test - if we reach here, the module was created successfully
     }
 
     #[test]

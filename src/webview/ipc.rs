@@ -43,7 +43,7 @@ impl IpcHandler {
         let mut callbacks = self.callbacks.lock().unwrap();
         callbacks
             .entry(event.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(Arc::new(callback));
     }
 
@@ -70,8 +70,8 @@ impl IpcHandler {
         let callbacks = self.callbacks.lock().unwrap();
 
         if let Some(event_callbacks) = callbacks.get(&message.event) {
-            // Execute all registered callbacks for this event
-            for callback in event_callbacks {
+            // Execute the first registered callback for this event
+            if let Some(callback) = event_callbacks.first() {
                 match callback(message.clone()) {
                     Ok(result) => return Ok(result),
                     Err(e) => {

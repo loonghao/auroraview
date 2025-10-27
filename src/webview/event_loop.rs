@@ -1,5 +1,5 @@
 //! Improved event loop handling using ApplicationHandler pattern
-//! 
+//!
 //! This module provides a better event loop implementation that:
 //! - Uses a dedicated event handler structure
 //! - Supports both blocking and non-blocking modes
@@ -37,10 +37,7 @@ impl EventLoopState {
 
     /// Check if exit was requested
     pub fn should_exit(&self) -> bool {
-        self.should_exit
-            .lock()
-            .map(|flag| *flag)
-            .unwrap_or(false)
+        self.should_exit.lock().map(|flag| *flag).unwrap_or(false)
     }
 }
 
@@ -60,10 +57,9 @@ impl WebViewEventHandler {
         match event {
             WindowEvent::CloseRequested => {
                 tracing::info!("Close requested");
-                self.state
-                    .lock()
-                    .ok()
-                    .map(|state| state.request_exit());
+                if let Ok(state) = self.state.lock() {
+                    state.request_exit();
+                }
             }
             WindowEvent::Resized(size) => {
                 tracing::debug!("Window resized: {:?}", size);
@@ -77,10 +73,7 @@ impl WebViewEventHandler {
     }
 
     /// Run the event loop (blocking)
-    pub fn run_blocking(
-        event_loop: EventLoop<()>,
-        state: Arc<Mutex<EventLoopState>>,
-    ) {
+    pub fn run_blocking(event_loop: EventLoop<()>, state: Arc<Mutex<EventLoopState>>) {
         tracing::info!("Starting event loop (blocking mode)");
 
         // Show the window
@@ -123,4 +116,3 @@ mod tests {
         // which is complex in unit tests, so we skip it for now
     }
 }
-

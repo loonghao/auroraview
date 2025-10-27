@@ -1,28 +1,30 @@
 //! WebView module - Core WebView functionality
 
+#![allow(clippy::useless_conversion)]
+
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use wry::WebViewBuilder as WryWebViewBuilder;
 use wry::WebView as WryWebView;
-
-
+use wry::WebViewBuilder as WryWebViewBuilder;
 
 mod config;
+mod event_loop;
 mod ipc;
 mod protocol;
-mod event_loop;
 
 pub use config::{WebViewBuilder, WebViewConfig};
-pub use ipc::IpcHandler;
 pub use event_loop::{EventLoopState, WebViewEventHandler};
+pub use ipc::IpcHandler;
 
 /// Python-facing WebView class
 /// Supports both standalone and embedded modes (for DCC integration)
 #[pyclass(name = "WebView", unsendable)]
 pub struct PyWebView {
-    inner: Arc<Mutex<Option<WebViewInner>>>,
-    config: Arc<Mutex<WebViewConfig>>,
+    inner: Rc<RefCell<Option<WebViewInner>>>,
+    config: Rc<RefCell<WebViewConfig>>,
     ipc_handler: Arc<IpcHandler>,
 }
 
@@ -37,6 +39,7 @@ pub struct WebViewInner {
 }
 
 #[pymethods]
+#[allow(clippy::useless_conversion)]
 impl PyWebView {
     /// Create a new WebView instance
     ///
@@ -70,42 +73,43 @@ impl PyWebView {
         };
 
         Ok(PyWebView {
-            inner: Arc::new(Mutex::new(None)),
-            config: Arc::new(Mutex::new(config)),
+            inner: Rc::new(RefCell::new(None)),
+            config: Rc::new(RefCell::new(config)),
             ipc_handler: Arc::new(IpcHandler::new()),
         })
     }
 
     /// Test method to verify Python bindings work
+    #[allow(clippy::useless_conversion)]
     fn test_method(&self) -> PyResult<String> {
         tracing::info!("test_method() called!");
         Ok("test_method works!".to_string())
     }
 
     /// Create WebView for standalone mode (creates its own window)
+    #[allow(clippy::useless_conversion)]
     fn show_window(&self) -> PyResult<()> {
-        let title = self.config.lock().map(|c| c.title.clone()).unwrap_or_else(|_| "<locked>".to_string());
+        let title = self.config.borrow().title.clone();
         tracing::info!("Showing WebView (standalone mode): {}", title);
 
         // Create WebView instance if not already created
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.borrow_mut();
         if inner.is_none() {
-            let webview = Self::create_standalone(self.config.lock().unwrap().clone(), self.ipc_handler.clone())
-                .map_err(|e| {
-                    tracing::error!("Failed to create standalone WebView: {}", e);
-                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
-                })?;
+            let webview =
+                Self::create_standalone(self.config.borrow().clone(), self.ipc_handler.clone())
+                    .map_err(|e| {
+                        tracing::error!("Failed to create standalone WebView: {}", e);
+                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                    })?;
             *inner = Some(webview);
         }
 
-        // Release the lock before running the event loop
+        // Release the borrow before running the event loop
         drop(inner);
 
         // Run the event loop (this will block until window is closed)
-        if let Ok(mut inner) = self.inner.lock() {
-            if let Some(webview_inner) = inner.as_mut() {
-                webview_inner.run_event_loop_blocking();
-            }
+        if let Some(webview_inner) = self.inner.borrow_mut().as_mut() {
+            webview_inner.run_event_loop_blocking();
         }
 
         Ok(())
@@ -122,16 +126,17 @@ impl PyWebView {
     ///     parent_hwnd (int): Parent window handle (Windows HWND)
     ///     width (int): Width in pixels
     ///     height (int): Height in pixels
+    #[allow(clippy::useless_conversion)]
     fn create_embedded(&self, parent_hwnd: u64, width: u32, height: u32) -> PyResult<()> {
         tracing::info!("Creating embedded WebView for parent HWND: {}", parent_hwnd);
 
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.borrow_mut();
         if inner.is_none() {
             let webview = Self::create_embedded_impl(
                 parent_hwnd,
                 width,
                 height,
-                self.config.lock().unwrap().clone(),
+                self.config.borrow().clone(),
                 self.ipc_handler.clone(),
             )
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
@@ -145,23 +150,22 @@ impl PyWebView {
     ///
     /// Args:
     ///     url (str): URL to load
+    #[allow(clippy::useless_conversion)]
     fn load_url(&self, url: &str) -> PyResult<()> {
         tracing::info!("Loading URL: {}", url);
 
         // If created, load immediately; otherwise store for later
         let mut loaded = false;
-        if let Ok(mut inner) = self.inner.lock() {
-            if let Some(webview) = inner.as_mut() {
-                webview.load_url(url)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-                loaded = true;
-            }
+        if let Some(webview) = self.inner.borrow_mut().as_mut() {
+            webview
+                .load_url(url)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+            loaded = true;
         }
         if !loaded {
-            if let Ok(mut cfg) = self.config.lock() {
-                cfg.url = Some(url.to_string());
-                cfg.html = None; // last-write-wins
-            }
+            let mut cfg = self.config.borrow_mut();
+            cfg.url = Some(url.to_string());
+            cfg.html = None; // last-write-wins
             tracing::debug!("WebView not yet created; stored URL in config to load on show()");
         }
         Ok(())
@@ -171,23 +175,22 @@ impl PyWebView {
     ///
     /// Args:
     ///     html (str): HTML content to load
+    #[allow(clippy::useless_conversion)]
     fn load_html(&self, html: &str) -> PyResult<()> {
         tracing::info!("Loading HTML content ({} bytes)", html.len());
 
         // If created, load immediately; otherwise store for later
         let mut loaded = false;
-        if let Ok(mut inner) = self.inner.lock() {
-            if let Some(webview) = inner.as_mut() {
-                webview.load_html(html)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-                loaded = true;
-            }
+        if let Some(webview) = self.inner.borrow_mut().as_mut() {
+            webview
+                .load_html(html)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+            loaded = true;
         }
         if !loaded {
-            if let Ok(mut cfg) = self.config.lock() {
-                cfg.html = Some(html.to_string());
-                cfg.url = None; // last-write-wins
-            }
+            let mut cfg = self.config.borrow_mut();
+            cfg.html = Some(html.to_string());
+            cfg.url = None; // last-write-wins
             tracing::debug!("WebView not yet created; stored HTML in config to load on show()");
         }
         Ok(())
@@ -197,14 +200,14 @@ impl PyWebView {
     ///
     /// Args:
     ///     script (str): JavaScript code to execute
+    #[allow(clippy::useless_conversion)]
     fn eval_js(&self, script: &str) -> PyResult<()> {
         tracing::info!("Executing JavaScript: {}", script);
 
-        if let Ok(mut inner) = self.inner.lock() {
-            if let Some(webview) = inner.as_mut() {
-                webview.eval_js(script)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-            }
+        if let Some(webview) = self.inner.borrow_mut().as_mut() {
+            webview
+                .eval_js(script)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
         }
         Ok(())
     }
@@ -214,18 +217,19 @@ impl PyWebView {
     /// Args:
     ///     event_name (str): Name of the event
     ///     data (dict): Data to send with the event
+    #[allow(clippy::useless_conversion)]
     fn emit(&self, event_name: &str, data: &Bound<'_, PyDict>) -> PyResult<()> {
         tracing::info!("Emitting event: {}", event_name);
 
         // Convert Python dict to JSON
-        let json_data = self.py_dict_to_json(data)
+        let json_data = self
+            .py_dict_to_json(data)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
-        if let Ok(mut inner) = self.inner.lock() {
-            if let Some(webview_inner) = inner.as_mut() {
-                webview_inner.emit(event_name, json_data)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-            }
+        if let Some(webview_inner) = self.inner.borrow_mut().as_mut() {
+            webview_inner
+                .emit(event_name, json_data)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
         }
         Ok(())
     }
@@ -235,6 +239,7 @@ impl PyWebView {
     /// Args:
     ///     event_name (str): Name of the event to listen for
     ///     callback (callable): Python function to call when event occurs
+    #[allow(clippy::useless_conversion)]
     fn on(&self, event_name: &str, _callback: PyObject) -> PyResult<()> {
         tracing::info!("Registering callback for event: {}", event_name);
 
@@ -250,6 +255,7 @@ impl PyWebView {
     }
 
     /// Close the WebView window
+    #[allow(clippy::useless_conversion)]
     fn close(&self) -> PyResult<()> {
         tracing::info!("Closing WebView");
         // TODO: Implement window closing
@@ -259,29 +265,24 @@ impl PyWebView {
     /// Get the window title
     #[getter]
     fn title(&self) -> PyResult<String> {
-        Ok(self.config.lock().map(|cfg| cfg.title.clone()).unwrap_or_default())
+        Ok(self.config.borrow().title.clone())
     }
 
     /// Set the window title
     #[setter]
     fn set_title(&mut self, title: String) -> PyResult<()> {
-        if let Ok(mut cfg) = self.config.lock() {
-            cfg.title = title;
-        }
+        self.config.borrow_mut().title = title;
         // TODO: Update actual window title
         Ok(())
     }
 
     /// Python representation
     fn __repr__(&self) -> String {
-        if let Ok(cfg) = self.config.lock() {
-            format!(
-                "WebView(title='{}', width={}, height={})",
-                cfg.title, cfg.width, cfg.height
-            )
-        } else {
-            "WebView(<locked config>)".to_string()
-        }
+        let cfg = self.config.borrow();
+        format!(
+            "WebView(title='{}', width={}, height={})",
+            cfg.title, cfg.width, cfg.height
+        )
     }
 }
 
@@ -399,11 +400,14 @@ impl WebViewInner {
     }
 
     /// Emit an event to JavaScript
-    pub fn emit(&mut self, event_name: &str, data: serde_json::Value) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn emit(
+        &mut self,
+        event_name: &str,
+        data: serde_json::Value,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let script = format!(
             "window.dispatchEvent(new CustomEvent('{}', {{ detail: {} }}))",
-            event_name,
-            data.to_string()
+            event_name, data
         );
         self.webview.evaluate_script(&script)?;
         Ok(())
@@ -453,7 +457,7 @@ impl WebViewInner {
             Ok(())
         } else {
             Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                "Event loop not available (embedded mode?)"
+                "Event loop not available (embedded mode?)",
             ))
         }
     }
@@ -527,26 +531,14 @@ mod tests {
     #[test]
     fn test_webview_creation_with_url() {
         // Test WebView creation with URL
-        let webview = PyWebView::new(
-            "Test Window",
-            1024,
-            768,
-            Some("https://example.com"),
-            None,
-        );
+        let webview = PyWebView::new("Test Window", 1024, 768, Some("https://example.com"), None);
         assert!(webview.is_ok());
     }
 
     #[test]
     fn test_webview_creation_with_html() {
         // Test WebView creation with HTML
-        let webview = PyWebView::new(
-            "Test Window",
-            1024,
-            768,
-            None,
-            Some("<h1>Hello</h1>"),
-        );
+        let webview = PyWebView::new("Test Window", 1024, 768, None, Some("<h1>Hello</h1>"));
         assert!(webview.is_ok());
     }
 

@@ -1,7 +1,6 @@
 """Unit tests for WebView class."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 
 
 @pytest.mark.unit
@@ -12,6 +11,7 @@ class TestWebViewCreation:
         """Test that WebView can be imported."""
         try:
             from auroraview import WebView
+
             assert WebView is not None
         except ImportError:
             pytest.skip("Package not built yet")
@@ -20,6 +20,7 @@ class TestWebViewCreation:
         """Test WebView creation with default parameters."""
         try:
             from auroraview import WebView
+
             webview = WebView()
             assert webview is not None
             assert webview._title == "AuroraView"
@@ -32,6 +33,7 @@ class TestWebViewCreation:
         """Test WebView creation with custom parameters."""
         try:
             from auroraview import WebView
+
             webview = WebView(
                 title="Custom Title",
                 width=1024,
@@ -47,10 +49,8 @@ class TestWebViewCreation:
         """Test WebView creation with URL."""
         try:
             from auroraview import WebView
-            webview = WebView(
-                title="Test",
-                url="https://example.com"
-            )
+
+            webview = WebView(title="Test", url="https://example.com")
             assert webview is not None
         except ImportError:
             pytest.skip("Package not built yet")
@@ -59,10 +59,8 @@ class TestWebViewCreation:
         """Test WebView creation with HTML."""
         try:
             from auroraview import WebView
-            webview = WebView(
-                title="Test",
-                html="<h1>Hello</h1>"
-            )
+
+            webview = WebView(title="Test", html="<h1>Hello</h1>")
             assert webview is not None
         except ImportError:
             pytest.skip("Package not built yet")
@@ -76,6 +74,7 @@ class TestWebViewMethods:
         """Test WebView string representation."""
         try:
             from auroraview import WebView
+
             webview = WebView(title="Test", width=800, height=600)
             repr_str = repr(webview)
             assert "Test" in repr_str
@@ -88,6 +87,7 @@ class TestWebViewMethods:
         """Test WebView title property."""
         try:
             from auroraview import WebView
+
             webview = WebView(title="Original Title")
             assert webview.title == "Original Title"
         except ImportError:
@@ -97,6 +97,7 @@ class TestWebViewMethods:
         """Test WebView as context manager."""
         try:
             from auroraview import WebView
+
             with WebView(title="Test") as webview:
                 assert webview is not None
         except ImportError:
@@ -111,11 +112,12 @@ class TestWebViewEventHandling:
         """Test event handler registration."""
         try:
             from auroraview import WebView
+
             webview = WebView()
-            
+
             def handler(data):
                 pass
-            
+
             webview.register_callback("test_event", handler)
             assert "test_event" in webview._event_handlers
             assert handler in webview._event_handlers["test_event"]
@@ -126,12 +128,13 @@ class TestWebViewEventHandling:
         """Test event decorator."""
         try:
             from auroraview import WebView
+
             webview = WebView()
-            
+
             @webview.on("test_event")
             def handler(data):
                 pass
-            
+
             assert "test_event" in webview._event_handlers
         except ImportError:
             pytest.skip("Package not built yet")
@@ -140,17 +143,18 @@ class TestWebViewEventHandling:
         """Test multiple handlers for same event."""
         try:
             from auroraview import WebView
+
             webview = WebView()
-            
+
             def handler1(data):
                 pass
-            
+
             def handler2(data):
                 pass
-            
+
             webview.register_callback("test_event", handler1)
             webview.register_callback("test_event", handler2)
-            
+
             assert len(webview._event_handlers["test_event"]) == 2
         except ImportError:
             pytest.skip("Package not built yet")
@@ -164,6 +168,7 @@ class TestWebViewDataConversion:
         """Test emit with dictionary data."""
         try:
             from auroraview import WebView
+
             webview = WebView()
             # Should not raise
             webview.emit("test_event", {"key": "value"})
@@ -174,6 +179,7 @@ class TestWebViewDataConversion:
         """Test emit with None data."""
         try:
             from auroraview import WebView
+
             webview = WebView()
             # Should not raise
             webview.emit("test_event", None)
@@ -184,6 +190,7 @@ class TestWebViewDataConversion:
         """Test emit with scalar data."""
         try:
             from auroraview import WebView
+
             webview = WebView()
             # Should not raise
             webview.emit("test_event", 42)
@@ -191,4 +198,3 @@ class TestWebViewDataConversion:
             webview.emit("test_event", 3.14)
         except ImportError:
             pytest.skip("Package not built yet")
-
