@@ -275,7 +275,7 @@ jobs:
 
       - name: Run all tests
         run: |
-          cargo test --lib
+          cargo test --lib --no-default-features
           if [ "${{ matrix.python-version }}" = "3.7" ] && [ "${{ runner.os }}" = "Linux" ]; then
             .venv-py37/bin/python -m pytest tests/ -v --cov=auroraview --cov-report=xml
           else
