@@ -141,7 +141,7 @@ check: format lint test
 # CI-specific commands
 ci-install:
     @echo "📦 Installing CI dependencies..."
-    uv pip install -e ".[dev]"
+    uv sync --group dev --group test
 
 ci-build:
     @echo "🔧 Building extension for CI..."
