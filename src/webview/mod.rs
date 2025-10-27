@@ -522,28 +522,36 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_webview_creation() {
         // Test WebView creation with default parameters
+        // Requires GUI environment, skipped in CI
         let webview = AuroraView::new("Test Window", 1024, 768, None, None);
         assert!(webview.is_ok());
     }
 
     #[test]
+    #[ignore]
     fn test_webview_creation_with_url() {
         // Test WebView creation with URL
+        // Requires GUI environment, skipped in CI
         let webview = AuroraView::new("Test Window", 1024, 768, Some("https://example.com"), None);
         assert!(webview.is_ok());
     }
 
     #[test]
+    #[ignore]
     fn test_webview_creation_with_html() {
         // Test WebView creation with HTML
+        // Requires GUI environment, skipped in CI
         let webview = AuroraView::new("Test Window", 1024, 768, None, Some("<h1>Hello</h1>"));
         assert!(webview.is_ok());
     }
 
     #[test]
+    #[ignore]
     fn test_webview_repr() {
+        // Requires GUI environment, skipped in CI
         let webview = AuroraView::new("Test", 800, 600, None, None).unwrap();
         let repr = webview.__repr__();
         assert!(repr.contains("Test"));
@@ -552,7 +560,9 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_webview_title_getter() {
+        // Requires GUI environment, skipped in CI
         let webview = AuroraView::new("My Title", 800, 600, None, None).unwrap();
         let title = webview.title().unwrap();
         assert_eq!(title, "My Title");
