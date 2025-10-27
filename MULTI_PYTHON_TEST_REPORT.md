@@ -22,13 +22,13 @@
 | 3.11.11   | ✅   | 39    | 39   | 0    | N/A    |
 | 3.12.8    | ✅   | 39    | 39   | 0    | N/A    |
 
-**注**: Python 3.7 通过虚拟环境在 CI 中测试（使用 deadsnakes PPA）。
+**注**: Python 3.7 通过 `uv python` 在 CI 中测试。
 
 ## 详细测试结果
 
 ### Python 3.7.9 ✅
 ```
-Platform: Linux (via deadsnakes PPA)
+Platform: Linux (via uv python)
 Pytest: 7.4.4
 Result: 39 passed in 0.61s
 ```
