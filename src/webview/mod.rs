@@ -22,7 +22,7 @@ pub use ipc::IpcHandler;
 /// Python-facing WebView class
 /// Supports both standalone and embedded modes (for DCC integration)
 #[pyclass(name = "WebView", unsendable)]
-pub struct PyWebView {
+pub struct AuroraView {
     inner: Rc<RefCell<Option<WebViewInner>>>,
     config: Rc<RefCell<WebViewConfig>>,
     ipc_handler: Arc<IpcHandler>,
@@ -40,7 +40,7 @@ pub struct WebViewInner {
 
 #[pymethods]
 #[allow(clippy::useless_conversion)]
-impl PyWebView {
+impl AuroraView {
     /// Create a new WebView instance
     ///
     /// Args:
@@ -72,7 +72,7 @@ impl PyWebView {
             ..Default::default()
         };
 
-        Ok(PyWebView {
+        Ok(AuroraView {
             inner: Rc::new(RefCell::new(None)),
             config: Rc::new(RefCell::new(config)),
             ipc_handler: Arc::new(IpcHandler::new()),
@@ -286,7 +286,7 @@ impl PyWebView {
     }
 }
 
-impl PyWebView {
+impl AuroraView {
     /// Helper method to convert Python dict to JSON (private, not exposed to Python)
     fn py_dict_to_json(&self, dict: &Bound<'_, PyDict>) -> PyResult<serde_json::Value> {
         let mut json_obj = serde_json::Map::new();
@@ -524,27 +524,27 @@ mod tests {
     #[test]
     fn test_webview_creation() {
         // Test WebView creation with default parameters
-        let webview = PyWebView::new("Test Window", 1024, 768, None, None);
+        let webview = AuroraView::new("Test Window", 1024, 768, None, None);
         assert!(webview.is_ok());
     }
 
     #[test]
     fn test_webview_creation_with_url() {
         // Test WebView creation with URL
-        let webview = PyWebView::new("Test Window", 1024, 768, Some("https://example.com"), None);
+        let webview = AuroraView::new("Test Window", 1024, 768, Some("https://example.com"), None);
         assert!(webview.is_ok());
     }
 
     #[test]
     fn test_webview_creation_with_html() {
         // Test WebView creation with HTML
-        let webview = PyWebView::new("Test Window", 1024, 768, None, Some("<h1>Hello</h1>"));
+        let webview = AuroraView::new("Test Window", 1024, 768, None, Some("<h1>Hello</h1>"));
         assert!(webview.is_ok());
     }
 
     #[test]
     fn test_webview_repr() {
-        let webview = PyWebView::new("Test", 800, 600, None, None).unwrap();
+        let webview = AuroraView::new("Test", 800, 600, None, None).unwrap();
         let repr = webview.__repr__();
         assert!(repr.contains("Test"));
         assert!(repr.contains("800"));
@@ -553,7 +553,7 @@ mod tests {
 
     #[test]
     fn test_webview_title_getter() {
-        let webview = PyWebView::new("My Title", 800, 600, None, None).unwrap();
+        let webview = AuroraView::new("My Title", 800, 600, None, None).unwrap();
         let title = webview.title().unwrap();
         assert_eq!(title, "My Title");
     }

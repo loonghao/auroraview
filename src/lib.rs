@@ -9,7 +9,7 @@ mod utils;
 mod webview;
 
 #[allow(unused_imports)]
-use webview::PyWebView;
+use webview::AuroraView;
 
 pub use webview::{WebViewBuilder, WebViewConfig};
 
@@ -20,7 +20,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     utils::init_logging();
 
     // Register WebView class
-    m.add_class::<webview::PyWebView>()?;
+    m.add_class::<webview::AuroraView>()?;
 
     // Add module metadata
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
