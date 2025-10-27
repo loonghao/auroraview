@@ -1,0 +1,24 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.11, pytest-8.4.2, pluggy-1.6.0
+rootdir: C:\Users\hallo\Documents\augment-projects\dcc_webview
+configfile: pyproject.toml
+plugins: cov-7.0.0
+collected 39 items
+
+tests\test_basic.py ......                                               [ 15%]
+tests\test_decorators.py ...........                                     [ 43%]
+tests\test_integration.py ........                                       [ 64%]
+tests\test_webview.py ..............                                     [100%]
+
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.11.11-final-0 _______________
+
+Name                              Stmts   Miss  Cover   Missing
+---------------------------------------------------------------
+python\auroraview\__init__.py        11      4    64%   38-42
+python\auroraview\decorators.py      36      0   100%
+python\auroraview\webview.py         66     19    71%   8-9, 47, 69-76, 87-88, 99-100, 111-112, 185-186
+---------------------------------------------------------------
+TOTAL                               113     23    80%
+Coverage HTML written to dir htmlcov
+============================= 39 passed in 0.70s ==============================
