@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v5
@@ -88,13 +88,6 @@ jobs:
         uses: astral-sh/setup-uv@v2
         with:
           version: "latest"
-
-      - name: Create Python venv (for Python 3.7)
-        if: matrix.python-version == '3.7'
-        run: |
-          # Use the Python installed by setup-python
-          python -m venv .venv-py37
-          .venv-py37/bin/python --version
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -117,33 +110,20 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libglib2.0-dev
 
       - name: Install build dependencies
         run: |
-          if [ "${{ matrix.python-version }}" = "3.7" ]; then
-            .venv-py37/bin/python -m pip install -U pip setuptools wheel
-            .venv-py37/bin/python -m pip install maturin pytest pytest-cov
-          else
-            python -m pip install -U pip setuptools wheel
-            python -m pip install maturin pytest pytest-cov
-          fi
+          python -m pip install -U pip setuptools wheel
+          python -m pip install maturin pytest pytest-cov
 
       - name: Build extension
         run: |
-          if [ "${{ matrix.python-version }}" = "3.7" ]; then
-            .venv-py37/bin/python -m pip install -e .
-          else
-            python -m pip install -e .
-          fi
+          python -m pip install -e .
 
       - name: Run Python tests
         run: |
-          if [ "${{ matrix.python-version }}" = "3.7" ]; then
-            .venv-py37/bin/python -m pytest tests/ -v --tb=short -o addopts=""
-          else
-            pytest tests/ -v --tb=short -o addopts=""
-          fi
+          pytest tests/ -v --tb=short -o addopts=""
 
   # Code quality checks
   lint:
@@ -202,13 +182,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
-        exclude:
-          # Python 3.7 only on Ubuntu (use uv to install)
-          - os: windows-latest
-            python-version: "3.7"
-          - os: macos-latest
-            python-version: "3.7"
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v5
@@ -223,13 +197,6 @@ jobs:
         with:
           version: "latest"
 
-      - name: Create Python venv (for Python 3.7)
-        if: matrix.python-version == '3.7' && runner.os == 'Linux'
-        run: |
-          # Use the Python installed by setup-python
-          python -m venv .venv-py37
-          .venv-py37/bin/python --version
-
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -237,7 +204,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libglib2.0-dev
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -255,32 +222,19 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          if [ "${{ matrix.python-version }}" = "3.7" ] && [ "${{ runner.os }}" = "Linux" ]; then
-            .venv-py37/bin/python -m pip install -U pip setuptools wheel
-            .venv-py37/bin/python -m pip install maturin pytest pytest-cov
-          else
-            python -m pip install -U pip setuptools wheel
-            python -m pip install maturin pytest pytest-cov
-          fi
+          python -m pip install -U pip setuptools wheel
+          python -m pip install maturin pytest pytest-cov
         shell: bash
 
       - name: Build extension
         run: |
-          if [ "${{ matrix.python-version }}" = "3.7" ] && [ "${{ runner.os }}" = "Linux" ]; then
-            .venv-py37/bin/python -m pip install -e .
-          else
-            python -m pip install -e .
-          fi
+          python -m pip install -e .
         shell: bash
 
       - name: Run all tests
         run: |
           cargo test --lib --no-default-features
-          if [ "${{ matrix.python-version }}" = "3.7" ] && [ "${{ runner.os }}" = "Linux" ]; then
-            .venv-py37/bin/python -m pytest tests/ -v --cov=auroraview --cov-report=xml
-          else
-            pytest tests/ -v --cov=auroraview --cov-report=xml
-          fi
+          pytest tests/ -v --cov=auroraview --cov-report=xml
         shell: bash
 
       - name: Upload coverage
