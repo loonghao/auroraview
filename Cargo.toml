@@ -1,0 +1,79 @@
+[package]
+name = "auroraview"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Hal Long <hal.long@outlook.com>"]
+description = "AuroraView: Rust-powered WebView for Python apps & DCC embedding (PyO3/abi3)"
+license = "MIT"
+repository = "https://github.com/loonghao/auroraview"
+keywords = ["webview", "rust", "python", "wry", "pyo3", "dcc"]
+categories = ["gui", "multimedia", "graphics"]
+
+[lib]
+name = "auroraview_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# PyO3 for Python bindings
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py37"], optional = true }
+
+# Wry for WebView
+wry = "0.47"
+tao = "0.30"
+
+# Window handle for DCC integration
+raw-window-handle = "0.6"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async runtime
+tokio = { version = "1.42", features = ["full"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# URL handling
+url = "2.5"
+
+# Thread safety
+parking_lot = "0.12"
+once_cell = "1.20"
+
+[dev-dependencies]
+# Testing
+criterion = "0.5"
+tempfile = "3.14"
+
+[build-dependencies]
+# Build script dependencies if needed
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+
+[features]
+default = ["python-bindings"]
+python-bindings = ["pyo3"]
+
+# Platform-specific features
+windows = []
+macos = []
+linux = []
+
+# Development features
+dev-tools = []
+hot-reload = []
+

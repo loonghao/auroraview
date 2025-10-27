@@ -1,0 +1,52 @@
+name: Build Wheels (abi3)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - '0.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build wheels with maturin (abi3)
+        uses: PyO3/maturin-action@v1
+        with:
+          manylinux: auto
+          args: --release --out dist --features python-bindings
+
+      - name: List artifacts
+        shell: bash
+        run: |
+          ls -la dist || dir dist
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist/*.whl
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: dist/*.whl
+          draft: false
+          prerelease: false
+

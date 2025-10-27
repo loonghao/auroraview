@@ -1,0 +1,174 @@
+# justfile for AuroraView development
+# Run `just --list` to see all available commands
+
+# Set shell for Windows compatibility
+set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
+set shell := ["sh", "-c"]
+
+# Default recipe to display help
+default:
+    @just --list
+
+# Install dependencies
+install:
+    @echo "📦 Installing dependencies..."
+    uv sync --group dev
+
+# Build the extension module
+build:
+    @echo "🔧 Building extension module..."
+    uv run maturin develop
+
+# Build with release optimizations
+build-release:
+    @echo "🚀 Building release version..."
+    uv run maturin develop --release
+
+# Run all tests
+test:
+    @echo "🧪 Running Rust tests..."
+    cargo test --lib
+    @echo "🧪 Running Python tests..."
+    uv run pytest tests/ -v
+
+# Run tests with coverage
+test-cov:
+    @echo "🧪 Running tests with coverage..."
+    uv run pytest tests/ -v --cov=auroraview --cov-report=html --cov-report=term-missing
+
+# Run only fast tests (exclude slow tests)
+test-fast:
+    @echo "🧪 Running fast tests..."
+    uv run pytest tests/ -v -m "not slow"
+
+# Run only unit tests
+test-unit:
+    @echo "🧪 Running unit tests..."
+    uv run pytest tests/ -v -m "unit"
+
+# Run only integration tests
+test-integration:
+    @echo "🧪 Running integration tests..."
+    uv run pytest tests/ -v -m "integration"
+
+# Run specific test file
+test-file FILE:
+    @echo "🧪 Running tests in {{FILE}}..."
+    uv run pytest {{FILE}} -v
+
+# Run tests with specific marker
+test-marker MARKER:
+    @echo "🧪 Running tests with marker {{MARKER}}..."
+    uv run pytest tests/ -v -m {{MARKER}}
+
+# Format code
+format:
+    @echo "🎨 Formatting Rust code..."
+    cargo fmt --all
+    @echo "🎨 Formatting Python code..."
+    uv run ruff format python/ tests/ examples/
+
+# Run linting
+lint:
+    @echo "🔍 Linting Rust code..."
+    cargo clippy --all-targets --all-features -- -D warnings
+    @echo "🔍 Linting Python code..."
+    uv run ruff check python/ tests/ examples/
+
+# Fix linting issues automatically
+fix:
+    @echo "🔧 Fixing linting issues..."
+    cargo clippy --fix --allow-dirty --allow-staged
+    uv run ruff check --fix python/ tests/ examples/
+
+# Run all checks (format, lint, test)
+check: format lint test
+    @echo "✅ All checks passed!"
+
+# CI-specific commands
+ci-build:
+    @echo "🔧 Building extension for CI..."
+    uv pip install maturin
+    uv run maturin develop
+
+ci-test-rust:
+    @echo "🧪 Running Rust tests..."
+    cargo test --lib
+
+ci-test-python:
+    @echo "🧪 Running Python tests..."
+    uv run pytest tests/ -v --tb=short -m "not slow"
+
+ci-lint:
+    @echo "🔍 Running CI linting..."
+    cargo fmt --all -- --check
+    cargo clippy --all-targets --all-features -- -D warnings
+    uv run ruff check python/ tests/ examples/
+    uv run ruff format --check python/ tests/ examples/
+
+# Coverage commands
+coverage-python:
+    @echo "📊 Running Python tests with coverage..."
+    uv run pytest tests/ -v --cov=auroraview --cov-report=html --cov-report=term-missing --cov-report=xml
+
+coverage-rust:
+    @echo "📊 Running Rust tests with coverage..."
+    @if command -v cargo-tarpaulin >/dev/null 2>&1; then \
+        cargo tarpaulin --out Html --out Xml --output-dir target/tarpaulin; \
+    else \
+        echo "⚠️  cargo-tarpaulin not installed. Installing..."; \
+        cargo install cargo-tarpaulin; \
+        cargo tarpaulin --out Html --out Xml --output-dir target/tarpaulin; \
+    fi
+
+coverage-all: coverage-rust coverage-python
+    @echo "📊 All coverage reports generated!"
+
+# Clean build artifacts
+clean:
+    @echo "🧹 Cleaning build artifacts..."
+    cargo clean
+    rm -rf dist/ build/ htmlcov/
+    find . -type d -name "__pycache__" -exec rm -rf {} +
+    find . -type f -name "*.pyc" -delete
+    find . -type f -name "*.pyo" -delete
+    find . -type f -name "*.so" -delete
+    find . -type f -name "*.pyd" -delete
+
+# Setup development environment
+dev: install build
+    @echo "🚀 Development environment ready!"
+    @echo "💡 Try: just test"
+
+# Build release wheels
+release:
+    @echo "📦 Building release wheels..."
+    uv run maturin build --release
+    @echo "✅ Wheels built in target/wheels/"
+
+# Run examples
+example EXAMPLE:
+    @echo "🚀 Running example: {{EXAMPLE}}"
+    uv run python examples/{{EXAMPLE}}.py
+
+# Show project info
+info:
+    @echo "📊 Project Information:"
+    @echo "  Rust version: $(rustc --version)"
+    @echo "  Python version: $(python --version)"
+    @echo "  UV version: $(uv --version)"
+
+# Run security audit
+audit:
+    @echo "🔒 Running security audit..."
+    cargo audit
+
+# Documentation
+docs:
+    @echo "📚 Building documentation..."
+    cargo doc --no-deps --document-private-items --open
+
+# Comprehensive checks
+check-all: format lint test coverage-all
+    @echo "🎉 All checks completed!"
+
