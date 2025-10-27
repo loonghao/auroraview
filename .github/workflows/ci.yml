@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v5
@@ -83,6 +83,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+        continue-on-error: true
+
+      - name: Install Python 3.7 from deadsnakes (if needed)
+        if: matrix.python-version == '3.7'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3.7 python3.7-venv python3.7-dev
+          sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
+          python --version
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -177,7 +186,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        exclude:
+          # Python 3.7 only on Ubuntu (not available on Windows/macOS in GitHub Actions)
+          - os: windows-latest
+            python-version: "3.7"
+          - os: macos-latest
+            python-version: "3.7"
 
     steps:
       - uses: actions/checkout@v5
@@ -186,6 +201,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+        continue-on-error: true
+
+      - name: Install Python 3.7 from deadsnakes (if needed)
+        if: matrix.python-version == '3.7' && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3.7 python3.7-venv python3.7-dev
+          sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
+          python --version
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
