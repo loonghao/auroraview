@@ -19,6 +19,54 @@ jobs:
       matrix:
         python-version: ["3.8", "3.10", "3.12"]
 
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install -U pip setuptools wheel
+          python -m pip install maturin pytest pytest-cov
+
+      - name: Build extension
+        run: |
+          python -m pip install -e .
+
+      - name: Run Rust tests
+        run: |
+          cargo test --lib
+
+      - name: Run Python tests
+        run: |
+          pytest tests/ -v --tb=short -m "not slow"
+
   # Multi-version Python testing - validates ABI3 compatibility
   multi-python-test:
     name: Multi-Python Test (Python ${{ matrix.python-version }})
@@ -71,54 +119,6 @@ jobs:
       - name: Run Python tests
         run: |
           pytest tests/ -v --tb=short -o addopts=""
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev
-
-      - name: Install build dependencies
-        run: |
-          python -m pip install -U pip setuptools wheel
-          python -m pip install maturin pytest pytest-cov
-
-      - name: Build extension
-        run: |
-          python -m pip install -e .
-
-      - name: Run Rust tests
-        run: |
-          cargo test --lib
-
-      - name: Run Python tests
-        run: |
-          pytest tests/ -v --tb=short -m "not slow"
 
   # Code quality checks
   lint:
