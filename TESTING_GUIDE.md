@@ -144,7 +144,7 @@ just test-all-python
 
 **预期结果**: 所有版本都应该通过 39 个测试。
 
-**注**: Python 3.7 在本地可用，但 GitHub Actions CI 使用 Ubuntu 24.04，不支持 Python 3.7。CI 测试 Python 3.8-3.12。
+**注**: Python 3.7 在本地和 CI 中都支持（CI 使用 deadsnakes PPA 虚拟环境）。
 
 ## CI/CD 测试
 
@@ -155,16 +155,18 @@ just test-all-python
 
 ### 多版本 CI 测试
 在每个 PR 上运行：
-- Python 3.8 - 3.12 的完整测试
+- Python 3.7 - 3.12 的完整测试
+- Python 3.7 通过虚拟环境安装（deadsnakes PPA）
 - 验证 ABI3 兼容性
 
 ### 完整 CI 测试
 在 main 分支上运行：
 - 所有操作系统（Ubuntu、Windows、macOS）
-- 所有 Python 版本（3.8 - 3.12）
+- 所有 Python 版本（3.7 - 3.12）
+- Python 3.7 仅在 Ubuntu 上测试
 - 覆盖率报告
 
-**注**: Python 3.7 在本地验证通过，但 GitHub Actions Ubuntu 24.04 不支持。
+**注**: Python 3.7 通过虚拟环境在 CI 中测试（使用 deadsnakes PPA）。
 
 ## 开发工作流
 
