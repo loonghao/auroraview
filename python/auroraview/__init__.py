@@ -30,19 +30,19 @@ Example:
             print(f"Exporting to: {data['path']}")
 """
 
-from typing import Optional, Dict, Any, Callable
+from typing import Any, Callable, Dict, Optional
 
 try:
     from ._core import WebView as _CoreWebView
-    from ._core import __version__, __author__
+    from ._core import __author__, __version__
 except ImportError:
     # Fallback for development without compiled extension
     _CoreWebView = None
     __version__ = "0.1.0"
     __author__ = "Hal Long <hal.long@outlook.com>"
 
-from .webview import WebView
 from .decorators import on_event
+from .webview import WebView
 
 __all__ = [
     "WebView",
@@ -50,4 +50,3 @@ __all__ = [
     "__version__",
     "__author__",
 ]
-

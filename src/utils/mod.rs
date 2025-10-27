@@ -130,6 +130,5 @@ mod tests {
         // Call again to ensure it's idempotent
         init_logging();
         // If we get here without panicking, the test passes
-        assert!(true);
     }
 }

@@ -1,5 +1,5 @@
 // Simple Rust test to verify Tao event loop works
-use tao::event_loop::{EventLoop, ControlFlow};
+use tao::event_loop::{ControlFlow, EventLoop};
 use tao::window::WindowBuilder;
 use wry::WebViewBuilder;
 
@@ -27,18 +27,13 @@ fn main() {
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        match event {
-            tao::event::Event::WindowEvent {
-                event: tao::event::WindowEvent::CloseRequested,
-                ..
-            } => {
-                println!("Close requested");
-                *control_flow = ControlFlow::Exit;
-            }
-            _ => {}
+        if let tao::event::Event::WindowEvent {
+            event: tao::event::WindowEvent::CloseRequested,
+            ..
+        } = event
+        {
+            println!("Close requested");
+            *control_flow = ControlFlow::Exit;
         }
     });
-
-    println!("Event loop finished");
 }
-
