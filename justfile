@@ -139,6 +139,10 @@ check: format lint test
     @echo "✅ All checks passed!"
 
 # CI-specific commands
+ci-install:
+    @echo "📦 Installing CI dependencies..."
+    uv sync --group dev
+
 ci-build:
     @echo "🔧 Building extension for CI..."
     uv pip install maturin
@@ -149,8 +153,12 @@ ci-test-rust:
     cargo test --lib
 
 ci-test-python:
-    @echo "🧪 Running Python tests..."
+    @echo "🧪 Running Python unit tests..."
     uv run pytest tests/ -v --tb=short -m "not slow"
+
+ci-test-basic:
+    @echo "🧪 Running basic import tests..."
+    uv run python -c "import auroraview; print('AuroraView imported successfully')"
 
 ci-lint:
     @echo "🔍 Running CI linting..."

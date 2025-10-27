@@ -1,0 +1,98 @@
+name: 'Build and Test AuroraView'
+description: 'Builds AuroraView extension and runs tests'
+
+inputs:
+  test-type:
+    description: 'Type of tests to run (basic, full, rust, python, benchmark)'
+    required: true
+    default: 'basic'
+  generate-stubs:
+    description: 'Whether to generate type stubs'
+    required: false
+    default: 'true'
+  upload-artifacts:
+    description: 'Whether to upload test artifacts'
+    required: false
+    default: 'false'
+  artifact-name:
+    description: 'Name for uploaded artifacts'
+    required: false
+    default: 'test-results'
+
+outputs:
+  build-status:
+    description: 'Build status (success/failure)'
+    value: ${{ steps.build.outcome }}
+  test-status:
+    description: 'Test status (success/failure)'
+    value: ${{ steps.test.outcome }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Cache build artifacts
+      uses: actions/cache@v4
+      with:
+        path: |
+          target/release/
+          target/debug/
+          build/
+        key: ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-
+          ${{ runner.os }}-build-
+
+    - name: Build extension
+      id: build
+      shell: bash
+      run: just ci-build
+      env:
+        RUST_BACKTRACE: 1
+
+    - name: Run tests
+      id: test
+      shell: bash
+      run: |
+        case "${{ inputs.test-type }}" in
+          "basic")
+            echo "🧪 Running basic import tests..."
+            just ci-test-basic
+            ;;
+          "rust")
+            echo "🧪 Running Rust tests..."
+            just ci-test-rust
+            ;;
+          "python")
+            echo "🧪 Running Python unit tests..."
+            just ci-test-python
+            ;;
+          "full")
+            echo "🧪 Running comprehensive test suite..."
+            echo "  → Rust tests..."
+            just ci-test-rust
+            echo "  → Python unit tests..."
+            just ci-test-python
+            echo "  → Basic functionality tests..."
+            just ci-test-basic
+            echo "✅ All tests completed"
+            ;;
+          *)
+            echo "❌ Unknown test type: ${{ inputs.test-type }}"
+            echo "Available types: basic, rust, python, full"
+            exit 1
+            ;;
+        esac
+      env:
+        PYTHONUNBUFFERED: 1
+
+    - name: Upload test artifacts
+      if: inputs.upload-artifacts == 'true' && always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}-${{ runner.os }}-${{ github.run_id }}
+        path: |
+          .pytest_cache/
+          htmlcov/
+          coverage.xml
+        retention-days: 7
+

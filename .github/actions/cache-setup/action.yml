@@ -1,0 +1,97 @@
+name: 'Advanced Cache Setup'
+description: 'Sets up advanced caching for AuroraView builds with intelligent cache keys'
+
+inputs:
+  cache-type:
+    description: 'Type of cache to setup (rust, python, build, test)'
+    required: true
+  cache-key-suffix:
+    description: 'Additional suffix for cache keys'
+    required: false
+    default: ''
+  python-version:
+    description: 'Python version for cache key'
+    required: false
+    default: '3.11'
+
+outputs:
+  cache-hit:
+    description: 'Whether cache was hit'
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Rust cache
+      if: inputs.cache-type == 'rust' || inputs.cache-type == 'build'
+      id: rust-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}-${{ inputs.cache-key-suffix }}
+        restore-keys: |
+          ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}-
+          ${{ runner.os }}-rust-
+
+    - name: Setup Python cache
+      if: inputs.cache-type == 'python' || inputs.cache-type == 'build'
+      id: python-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/uv
+          .venv
+        key: ${{ runner.os }}-python-${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}-${{ inputs.cache-key-suffix }}
+        restore-keys: |
+          ${{ runner.os }}-python-${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}-
+          ${{ runner.os }}-python-${{ inputs.python-version }}-
+
+    - name: Setup build cache
+      if: inputs.cache-type == 'build'
+      id: build-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          target/release/
+          target/debug/
+          build/
+          dist/
+        key: ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-${{ github.sha }}-${{ inputs.cache-key-suffix }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-${{ github.sha }}-
+          ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-
+          ${{ runner.os }}-build-
+
+    - name: Setup test cache
+      if: inputs.cache-type == 'test'
+      id: test-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          .pytest_cache/
+          .coverage
+          htmlcov/
+          target/tarpaulin/
+        key: ${{ runner.os }}-test-${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', 'tests/**/*.py') }}-${{ inputs.cache-key-suffix }}
+        restore-keys: |
+          ${{ runner.os }}-test-${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', 'tests/**/*.py') }}-
+          ${{ runner.os }}-test-${{ inputs.python-version }}-
+
+    - name: Set cache hit output
+      id: cache
+      shell: bash
+      run: |
+        if [[ "${{ steps.rust-cache.outputs.cache-hit }}" == "true" ]] || \
+           [[ "${{ steps.python-cache.outputs.cache-hit }}" == "true" ]] || \
+           [[ "${{ steps.build-cache.outputs.cache-hit }}" == "true" ]] || \
+           [[ "${{ steps.test-cache.outputs.cache-hit }}" == "true" ]]; then
+          echo "cache-hit=true" >> $GITHUB_OUTPUT
+        else
+          echo "cache-hit=false" >> $GITHUB_OUTPUT
+        fi
+
