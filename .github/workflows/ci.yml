@@ -90,11 +90,11 @@ jobs:
         with:
           version: "latest"
 
-      - name: Install Python ${{ matrix.python-version }} with uv (if needed)
+      - name: Create Python ${{ matrix.python-version }} venv with uv (if needed)
         if: matrix.python-version == '3.7'
         run: |
-          uv python install 3.7
-          uv python pin 3.7
+          uv venv --python 3.7 .venv-py37
+          source .venv-py37/bin/activate
           python --version
 
       - name: Setup Rust toolchain
@@ -122,15 +122,24 @@ jobs:
 
       - name: Install build dependencies
         run: |
+          if [ "${{ matrix.python-version }}" = "3.7" ]; then
+            source .venv-py37/bin/activate
+          fi
           python -m pip install -U pip setuptools wheel
           python -m pip install maturin pytest pytest-cov
 
       - name: Build extension
         run: |
+          if [ "${{ matrix.python-version }}" = "3.7" ]; then
+            source .venv-py37/bin/activate
+          fi
           python -m pip install -e .
 
       - name: Run Python tests
         run: |
+          if [ "${{ matrix.python-version }}" = "3.7" ]; then
+            source .venv-py37/bin/activate
+          fi
           pytest tests/ -v --tb=short -o addopts=""
 
   # Code quality checks
@@ -212,11 +221,11 @@ jobs:
         with:
           version: "latest"
 
-      - name: Install Python ${{ matrix.python-version }} with uv (if needed)
+      - name: Create Python ${{ matrix.python-version }} venv with uv (if needed)
         if: matrix.python-version == '3.7' && runner.os == 'Linux'
         run: |
-          uv python install 3.7
-          uv python pin 3.7
+          uv venv --python 3.7 .venv-py37
+          source .venv-py37/bin/activate
           python --version
 
       - name: Setup Rust toolchain
@@ -244,17 +253,29 @@ jobs:
 
       - name: Install build dependencies
         run: |
+          if [ "${{ matrix.python-version }}" = "3.7" ] && [ "${{ runner.os }}" = "Linux" ]; then
+            source .venv-py37/bin/activate
+          fi
           python -m pip install -U pip setuptools wheel
           python -m pip install maturin pytest pytest-cov
+        shell: bash
 
       - name: Build extension
         run: |
+          if [ "${{ matrix.python-version }}" = "3.7" ] && [ "${{ runner.os }}" = "Linux" ]; then
+            source .venv-py37/bin/activate
+          fi
           python -m pip install -e .
+        shell: bash
 
       - name: Run all tests
         run: |
+          if [ "${{ matrix.python-version }}" = "3.7" ] && [ "${{ runner.os }}" = "Linux" ]; then
+            source .venv-py37/bin/activate
+          fi
           cargo test --lib
           pytest tests/ -v --cov=auroraview --cov-report=xml
+        shell: bash
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
