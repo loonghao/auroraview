@@ -1,8 +1,8 @@
 """Unit tests for WebView class."""
 
-import pytest
-import threading
 import time
+
+import pytest
 
 
 @pytest.mark.unit
