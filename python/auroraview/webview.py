@@ -150,7 +150,7 @@ class WebView:
                 logger.info("Background thread: WebView thread finished")
 
         # Create and start the background thread
-        self._show_thread = threading.Thread(target=_run_webview, daemon=True)
+        self._show_thread = threading.Thread(target=_run_webview, daemon=False)
         self._show_thread.start()
         logger.info("WebView background thread started")
 
@@ -319,3 +319,4 @@ class WebView:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit."""
         self.close()
+
