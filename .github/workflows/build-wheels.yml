@@ -25,13 +25,6 @@ jobs:
     strategy:
       matrix:
         target: [x86_64]
-        include:
-          # i686 builds without testing due to architecture mismatch
-          - target: i686
-            test-wheel: 'false'
-          # x86_64 builds with testing
-          - target: x86_64
-            test-wheel: 'true'
 
     steps:
       - uses: actions/checkout@v5
@@ -41,7 +34,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           python-version: '3.11'
-          test-wheel: ${{ matrix.test-wheel }}
+          test-wheel: 'true'
           artifact-name: 'wheels-linux-${{ matrix.target }}'
 
   # Windows builds
