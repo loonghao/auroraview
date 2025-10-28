@@ -1,6 +1,7 @@
 """High-level Python API for WebView."""
 
 import logging
+import threading
 from typing import Any, Callable, Dict, Optional, Union
 
 try:
@@ -60,11 +61,16 @@ class WebView:
         self._title = title
         self._width = width
         self._height = height
+        self._show_thread: Optional[threading.Thread] = None
+        self._is_running = False
 
     def show(self) -> None:
         """Show the WebView window.
 
         This method displays the WebView window and starts the event loop.
+        This is a blocking call - the method will not return until the window is closed.
+
+        For non-blocking usage (e.g., in DCC applications like Maya), use show_async() instead.
         """
         logger.info(f"Showing WebView: {self._title}")
         logger.info("Calling _core.show()...")
@@ -74,6 +80,45 @@ class WebView:
         except Exception as e:
             logger.error(f"Error in _core.show(): {e}", exc_info=True)
             raise
+
+    def show_async(self) -> None:
+        """Show the WebView window in a background thread (non-blocking).
+
+        This method is designed for DCC integration (e.g., Maya, Houdini, Blender).
+        It starts the WebView in a separate thread, allowing the main thread to continue.
+
+        This prevents blocking the DCC application's main thread while the WebView is running.
+
+        Example:
+            >>> webview = WebView(title="Maya Tool", width=600, height=500)
+            >>> webview.load_html("<h1>Hello Maya</h1>")
+            >>> webview.show_async()  # Returns immediately
+            >>> # Main thread continues here
+            >>> print("WebView is running in background")
+        """
+        if self._is_running:
+            logger.warning("WebView is already running")
+            return
+
+        logger.info(f"Showing WebView in background thread: {self._title}")
+        self._is_running = True
+
+        def _run_webview():
+            """Run the WebView in a background thread."""
+            try:
+                logger.info("Background thread: Starting WebView event loop")
+                self._core.show()
+                logger.info("Background thread: WebView event loop exited")
+            except Exception as e:
+                logger.error(f"Error in background WebView: {e}", exc_info=True)
+            finally:
+                self._is_running = False
+                logger.info("Background thread: WebView thread finished")
+
+        # Create and start the background thread
+        self._show_thread = threading.Thread(target=_run_webview, daemon=True)
+        self._show_thread.start()
+        logger.info("WebView background thread started")
 
     def load_url(self, url: str) -> None:
         """Load a URL in the WebView.
@@ -169,10 +214,50 @@ class WebView:
         # Register with core
         self._core.on(event_name, callback)
 
+    def wait(self, timeout: Optional[float] = None) -> bool:
+        """Wait for the WebView to close.
+
+        This method blocks until the WebView window is closed or the timeout expires.
+        Useful when using show_async() to wait for user interaction.
+
+        Args:
+            timeout: Maximum time to wait in seconds (None = wait indefinitely)
+
+        Returns:
+            True if the WebView closed, False if timeout expired
+
+        Example:
+            >>> webview.show_async()
+            >>> if webview.wait(timeout=60):
+            ...     print("WebView closed by user")
+            ... else:
+            ...     print("Timeout waiting for WebView")
+        """
+        if self._show_thread is None:
+            logger.warning("WebView is not running")
+            return True
+
+        logger.info(f"Waiting for WebView to close (timeout={timeout})")
+        self._show_thread.join(timeout=timeout)
+
+        if self._show_thread.is_alive():
+            logger.warning("Timeout waiting for WebView to close")
+            return False
+
+        logger.info("WebView closed")
+        return True
+
     def close(self) -> None:
         """Close the WebView window."""
         logger.info("Closing WebView")
         self._core.close()
+
+        # Wait for background thread if running
+        if self._show_thread is not None and self._show_thread.is_alive():
+            logger.info("Waiting for background thread to finish...")
+            self._show_thread.join(timeout=5.0)
+            if self._show_thread.is_alive():
+                logger.warning("Background thread did not finish within timeout")
 
     @property
     def title(self) -> str:

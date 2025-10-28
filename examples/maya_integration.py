@@ -28,12 +28,16 @@ logger = logging.getLogger(__name__)
 
 
 def create_maya_tool():
-    """Create a DCC WebView tool for Maya."""
+    """Create a DCC WebView tool for Maya.
+
+    This example demonstrates how to use show_async() to prevent blocking
+    Maya's main thread while the WebView is running.
+    """
     logger.info("=" * 60)
     logger.info("AuroraView - Maya Integration Example")
     logger.info("=" * 60)
     logger.info("")
-    
+
     # Create WebView
     logger.info("Creating Maya WebView tool...")
     webview = WebView(
@@ -301,22 +305,34 @@ def create_maya_tool():
     logger.info("✓ Event handlers registered")
     logger.info("")
     
-    # Show the tool
-    logger.info("Showing Maya tool...")
-    logger.info("Close the window to exit.")
+    # Show the tool in background thread (non-blocking)
+    logger.info("Showing Maya tool in background thread...")
+    logger.info("The WebView will run without blocking Maya's main thread.")
     logger.info("")
-    
+
     try:
-        webview.show()
+        webview.show_async()
+        logger.info("✓ WebView started in background thread")
+        logger.info("")
+        logger.info("Maya is now responsive. You can:")
+        logger.info("  - Use the WebView UI")
+        logger.info("  - Continue working in Maya")
+        logger.info("  - Close the WebView window to finish")
+        logger.info("")
+
+        # Wait for the WebView to close
+        # This allows the script to complete when the user closes the window
+        webview.wait()
+
     except Exception as e:
         logger.error(f"Error showing WebView: {e}")
         return 1
-    
+
     logger.info("")
     logger.info("=" * 60)
     logger.info("Maya tool closed.")
     logger.info("=" * 60)
-    
+
     return 0
 
 
