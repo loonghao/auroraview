@@ -1,0 +1,39 @@
+# Cargo configuration for AuroraView
+
+# Profile configurations
+[profile.test]
+# Use debug symbols for better test output
+debug = true
+opt-level = 0
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+# Build settings
+[build]
+# Use default number of jobs (don't set to 0 as it causes errors)
+# jobs = 0  # Disabled: causes "jobs may not be 0" error
+
+# Linker settings for different platforms
+[target.x86_64-unknown-linux-gnu]
+# Link Python libraries for testing
+rustflags = ["-l", "python3"]
+
+[target.x86_64-pc-windows-msvc]
+# Windows MSVC linker settings
+rustflags = []
+
+[target.x86_64-apple-darwin]
+# macOS linker settings
+rustflags = []
+
+[target.aarch64-apple-darwin]
+# Apple Silicon linker settings
+rustflags = []
+

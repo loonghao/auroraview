@@ -55,6 +55,19 @@ tempfile = "3.14"
 [build-dependencies]
 # Build script dependencies if needed
 
+# Platform-specific linking for Python
+[target.x86_64-unknown-linux-gnu.dependencies]
+# Python linking for Linux tests
+
+[target.x86_64-pc-windows-msvc.dependencies]
+# Python linking for Windows tests
+
+[target.x86_64-apple-darwin.dependencies]
+# Python linking for macOS tests
+
+[target.aarch64-apple-darwin.dependencies]
+# Python linking for Apple Silicon tests
+
 [profile.release]
 opt-level = 3
 lto = true
