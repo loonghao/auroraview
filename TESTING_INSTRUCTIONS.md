@@ -2,7 +2,7 @@
 
 ## 快速开始（5 分钟）
 
-### 方式 1：独立窗口（最简单）
+### 方式 1：独立窗口（最简单）✨ 现在可以工作了！
 
 1. **打开 Maya 2022**
    ```bash
@@ -25,10 +25,11 @@
    - 点击 **Execute** 或按 `Ctrl + Enter`
 
 6. **验证**
-   - ✓ WebView 窗口出现
+   - ✓ WebView 窗口出现（现在应该能看到了！）
    - ✓ Maya 保持响应
    - ✓ 可以创建立方体
    - ✓ 可以查看场景信息
+   - ✓ 没有 PanicException 错误
 
 ---
 
@@ -126,12 +127,19 @@
 3. 查看脚本编辑器的错误消息
 4. 尝试重启 Maya
 
-### 问题：看到 PanicException 错误
+### 问题：看到 PanicException 错误（已修复！✨）
 
-**解决方案：**
-1. 这已经修复了！更新 AuroraView：`pip install --upgrade auroraview`
-2. 确保使用最新版本
-3. 检查是否使用了 `create_embedded()` 而不是 `show()`
+**之前的错误：**
+```
+pyo3_runtime.PanicException: Initializing the event loop outside of the main thread 
+is a significant cross-platform compatibility hazard.
+```
+
+**修复方案：**
+1. ✓ 这已经修复了！使用最新版本
+2. ✓ Rust 代码现在使用 `EventLoopBuilderExtWindows::with_any_thread(true)`
+3. ✓ WebView 现在可以在后台线程中创建
+4. ✓ `show_async()` 现在可以正常工作
 
 ### 问题：Maya 仍然冻结
 
