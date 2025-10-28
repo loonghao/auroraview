@@ -1,0 +1,147 @@
+name: Release
+
+# This workflow handles both release-please automation and publishing
+# It creates releases when changes are pushed to main, and publishes to PyPI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+      - 'auroraview-v*' # Support release-please tag format
+  workflow_dispatch:
+
+permissions:
+  contents: write # Required for creating releases and uploading artifacts
+  pull-requests: write # Required for release-please
+  issues: write # Required for release-please
+  id-token: write # Required for PyPI trusted publishing
+  attestations: write # Required for artifact attestation
+
+jobs:
+  # First job: Run release-please to create releases and tags
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      releases_created: ${{ steps.release.outputs.releases_created }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Call the build workflow to build wheels (only if release was created)
+  build-wheels:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    uses: ./.github/workflows/build-wheels.yml
+    permissions:
+      contents: read
+      actions: write # Required for uploading artifacts
+      id-token: write # Required for artifact attestation
+
+  # Publish to PyPI - only depends on builds, not tests (tests should pass in PR)
+  pypi-publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [build-wheels]
+    environment:
+      name: pypi
+      url: https://pypi.org/p/auroraview
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+      # Used to upload release artifacts
+      contents: write
+      # Used to generate artifact attestation
+      attestations: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: |
+          ls -la dist/
+          echo "Total files: $(ls -1 dist/ | wc -l)"
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          verbose: true
+          print-hash: true
+
+  # Create GitHub Release
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [release-please, pypi-publish]
+    if: ${{ needs.release-please.outputs.release_created }}
+    permissions:
+      contents: write # Required for creating releases
+      actions: read # Required for downloading artifacts
+      attestations: write # Required for artifact attestation
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        uses: jaywcjlove/changelog-generator@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filter-author: (loonghao|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
+          filter: '[R|r]elease[d]\\s+[v|V]\\d(\\.\\d+){0,2}'
+          template: |
+            ## Bugs
+            {{fix}}
+
+            ## Feature
+            {{feat}}
+
+            ## Improve
+            {{refactor,perf,clean}}
+
+            ## Misc
+            {{chore,style,ci}}
+            🔧 Nothing change}}
+
+            ## Unknown
+            {{__unknown__}}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "release-artifacts/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.release-please.outputs.tag_name }}
+          name: ${{ needs.release-please.outputs.tag_name }}
+          body: |
+            Comparing Changes: ${{ steps.changelog.outputs.compareurl }}
+
+            ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+
