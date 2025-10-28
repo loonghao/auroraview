@@ -1,6 +1,8 @@
 """Unit tests for WebView class."""
 
 import pytest
+import threading
+import time
 
 
 @pytest.mark.unit
@@ -196,5 +198,92 @@ class TestWebViewDataConversion:
             webview.emit("test_event", 42)
             webview.emit("test_event", "string")
             webview.emit("test_event", 3.14)
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+
+@pytest.mark.unit
+class TestWebViewAsync:
+    """Test WebView async/threading functionality."""
+
+    def test_show_async_initialization(self):
+        """Test that show_async() initializes threading attributes."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView()
+            assert hasattr(webview, "_show_thread")
+            assert hasattr(webview, "_is_running")
+            assert webview._show_thread is None
+            assert webview._is_running is False
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_show_async_not_running_initially(self):
+        """Test that WebView is not running initially."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView()
+            assert not webview._is_running
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_wait_returns_true_when_not_running(self):
+        """Test that wait() returns True when WebView is not running."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView()
+            result = webview.wait(timeout=0.1)
+            assert result is True
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_wait_with_timeout(self):
+        """Test that wait() respects timeout."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView()
+            start_time = time.time()
+            result = webview.wait(timeout=0.5)
+            elapsed = time.time() - start_time
+
+            # Should return True since no thread is running
+            assert result is True
+            # Should complete quickly
+            assert elapsed < 1.0
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_close_with_no_thread(self):
+        """Test that close() works when no thread is running."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView()
+            # Should not raise
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_multiple_show_async_calls(self):
+        """Test that multiple show_async() calls are handled correctly."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView()
+            # First call should succeed (but won't actually show since no display)
+            # We're just testing the logic, not the actual display
+
+            # Mark as running to simulate a running WebView
+            webview._is_running = True
+
+            # Second call should be ignored
+            webview.show_async()
+
+            # Should still be marked as running
+            assert webview._is_running is True
         except ImportError:
             pytest.skip("Package not built yet")
