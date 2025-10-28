@@ -59,7 +59,7 @@ runs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          libwebkit2gtk-4.0-dev \
+          libwebkit2gtk-4.1-dev \
           build-essential \
           curl \
           wget \
@@ -90,7 +90,7 @@ runs:
         target: ${{ inputs.target }}
         args: ${{ inputs.maturin-args }}
         sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        manylinux: ${{ runner.os == 'Linux' && 'auto' || '' }}
+        manylinux: off
 
     - name: Set wheel path output
       shell: bash
