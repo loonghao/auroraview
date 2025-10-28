@@ -35,6 +35,8 @@ venv/
 env/
 ENV/
 .venv
+.venv-*
+.ruff_cache/
 
 # IDEs
 .vscode/
@@ -67,3 +69,4 @@ Thumbs.db
 # Maturin
 .maturin/
 
+htmlcov/
