@@ -63,6 +63,9 @@ class WebView:
         self._height = height
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
+        # Store content for async mode
+        self._stored_url: Optional[str] = None
+        self._stored_html: Optional[str] = None
 
     def show(self) -> None:
         """Show the WebView window.
@@ -89,6 +92,11 @@ class WebView:
 
         This prevents blocking the DCC application's main thread while the WebView is running.
 
+        IMPORTANT: Due to GUI thread requirements, this method uses a workaround:
+        - The WebView is created and shown in a separate thread
+        - The thread must be a daemon thread to avoid blocking the main application
+        - The WebView will run until the user closes the window
+
         Example:
             >>> webview = WebView(title="Maya Tool", width=600, height=500)
             >>> webview.load_html("<h1>Hello Maya</h1>")
@@ -104,10 +112,36 @@ class WebView:
         self._is_running = True
 
         def _run_webview():
-            """Run the WebView in a background thread."""
+            """Run the WebView in a background thread.
+
+            Note: We create a new WebView instance in the background thread
+            because the Rust core requires the WebView to be created and shown
+            in the same thread due to GUI event loop requirements.
+            """
             try:
+                logger.info("Background thread: Creating WebView instance")
+                # Create a new WebView instance in this thread
+                # This is necessary because the Rust core is not Send/Sync
+                from ._core import WebView as _CoreWebView
+
+                core = _CoreWebView(
+                    title=self._title,
+                    width=self._width,
+                    height=self._height,
+                )
+
+                # Load the same content that was loaded in the main thread
+                if self._stored_html:
+                    logger.info("Background thread: Loading stored HTML")
+                    core.load_html(self._stored_html)
+                elif self._stored_url:
+                    logger.info("Background thread: Loading stored URL")
+                    core.load_url(self._stored_url)
+                else:
+                    logger.warning("Background thread: No content loaded")
+
                 logger.info("Background thread: Starting WebView event loop")
-                self._core.show()
+                core.show()
                 logger.info("Background thread: WebView event loop exited")
             except Exception as e:
                 logger.error(f"Error in background WebView: {e}", exc_info=True)
@@ -130,6 +164,8 @@ class WebView:
             >>> webview.load_url("https://example.com")
         """
         logger.info(f"Loading URL: {url}")
+        self._stored_url = url
+        self._stored_html = None
         self._core.load_url(url)
 
     def load_html(self, html: str) -> None:
@@ -142,6 +178,8 @@ class WebView:
             >>> webview.load_html("<h1>Hello, World!</h1>")
         """
         logger.info(f"Loading HTML ({len(html)} bytes)")
+        self._stored_html = html
+        self._stored_url = None
         self._core.load_html(html)
 
     def eval_js(self, script: str) -> None:
