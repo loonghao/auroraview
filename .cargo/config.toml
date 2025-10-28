@@ -21,19 +21,6 @@ strip = true
 # jobs = 0  # Disabled: causes "jobs may not be 0" error
 
 # Linker settings for different platforms
-[target.x86_64-unknown-linux-gnu]
-# Link Python libraries for testing
-rustflags = ["-l", "python3"]
-
-[target.x86_64-pc-windows-msvc]
-# Windows MSVC linker settings
-rustflags = []
-
-[target.x86_64-apple-darwin]
-# macOS linker settings
-rustflags = []
-
-[target.aarch64-apple-darwin]
-# Apple Silicon linker settings
-rustflags = []
+# Note: Do not add rustflags here as it will break CI builds
+# PyO3 handles Python linking automatically
 
