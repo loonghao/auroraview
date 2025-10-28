@@ -63,23 +63,37 @@ C:\Program Files\Autodesk\Maya2022\bin\maya.exe
 
 ---
 
-## 🎯 两个测试脚本
+## 🎯 三个集成方式
 
-### 快速测试（推荐）
+### 1️⃣ 独立窗口模式（最简单）
 📄 `examples/maya_quick_test.py`
 - ⏱️ 5 分钟
-- 🎯 基本功能
+- 🎯 快速原型
 - 📝 最小代码
+- ✓ 非阻塞
+- ✗ 不集成到 Maya UI
 
-**复制这个脚本到 Maya 脚本编辑器执行**
+**适合：** 快速测试、原型开发
 
-### 完整测试
-📄 `examples/maya_test_tool.py`
-- ⏱️ 10-15 分钟
+### 2️⃣ 嵌入式模式 - 基础（推荐）
+📄 `examples/maya_embedded_integration.py`
+- ⏱️ 10 分钟
+- 🎯 集成到 Maya
+- 📊 完整功能
+- ✓ 作为 Maya 面板出现
+- ✓ 可以停靠
+
+**适合：** 生产工具、专业集成
+
+### 3️⃣ 嵌入式模式 - 完整（最专业）
+📄 `examples/maya_workspace_control.py`
+- ⏱️ 15 分钟
 - 🎯 完整功能
 - 📊 详细 UI
+- ✓ 完全集成
+- ✓ 工作区保存/恢复
 
-**用于深入测试所有功能**
+**适合：** 完整工具、生产环境
 
 ---
 
@@ -128,6 +142,49 @@ print(auroraview.__file__)
 - **完整测试指南：** `docs/MAYA_TESTING_GUIDE.md`
 - **异步集成指南：** `docs/ASYNC_DCC_INTEGRATION.md`
 - **示例说明：** `examples/README_MAYA_TESTING.md`
+
+---
+
+## 🚀 推荐：使用嵌入式模式
+
+### 为什么选择嵌入式模式？
+
+**独立窗口模式的问题：**
+- ✗ WebView 在单独的窗口中
+- ✗ 不是 Maya UI 的一部分
+- ✗ 可能被移到 Maya 窗口外
+- ✗ 不能停靠
+
+**嵌入式模式的优势：**
+- ✓ WebView 集成到 Maya UI
+- ✓ 作为可停靠面板出现
+- ✓ 与 Maya 工作区集成
+- ✓ 专业外观
+- ✓ 工作区保存/恢复
+
+### 快速开始嵌入式模式
+
+```python
+import maya.OpenMayaUI as omui
+from auroraview import WebView
+
+# 获取 Maya 主窗口句柄
+main_window_ptr = omui.MQtUtil.mainWindow()
+hwnd = int(main_window_ptr)
+
+# 创建 WebView
+webview = WebView(title="My Tool", width=600, height=500)
+webview.load_html(html_content)
+
+# 创建嵌入式 WebView
+webview._core.create_embedded(hwnd, 600, 500)
+
+# 完成！WebView 现在是 Maya 的一部分
+```
+
+### 完整示例
+
+复制 `examples/maya_workspace_control.py` 到 Maya 脚本编辑器并执行！
 
 ---
 
