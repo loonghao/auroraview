@@ -318,6 +318,14 @@ impl AuroraView {
         use tao::event_loop::EventLoopBuilder;
         use tao::window::WindowBuilder;
 
+        // Allow event loop to be created on any thread (required for DCC integration)
+        #[cfg(target_os = "windows")]
+        let event_loop = {
+            use tao::platform::windows::EventLoopBuilderExtWindows;
+            EventLoopBuilder::new().with_any_thread(true).build()
+        };
+        
+        #[cfg(not(target_os = "windows"))]
         let event_loop = EventLoopBuilder::new().build();
 
         let window = WindowBuilder::new()
