@@ -63,6 +63,7 @@ runs:
           libgtk-3-dev \
           libglib2.0-dev \
           libglib2.0-0 \
+          libgio-2.0-dev \
           libpango1.0-dev \
           libcairo2-dev \
           pkg-config
