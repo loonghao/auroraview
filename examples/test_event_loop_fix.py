@@ -14,8 +14,19 @@ Run this in Maya:
 """
 
 import logging
-import threading
-import time
+import sys
+import os
+
+# IMPORTANT: Add the project path to sys.path to ensure we load the latest compiled version
+project_root = r"C:\Users\hallo\Documents\augment-projects\dcc_webview"
+python_path = os.path.join(project_root, "python")
+if python_path not in sys.path:
+    sys.path.insert(0, python_path)
+
+# Also add the target/release directory to ensure we load the latest .pyd file
+release_path = os.path.join(project_root, "target", "release")
+if release_path not in sys.path:
+    sys.path.insert(0, release_path)
 
 # Configure logging
 logging.basicConfig(
@@ -29,9 +40,21 @@ def test_event_loop_fix():
     logger.info("=" * 70)
     logger.info("Testing Event Loop Fix for DCC Integration")
     logger.info("=" * 70)
+    logger.info("")
+    logger.info("Python paths:")
+    for i, path in enumerate(sys.path[:5]):
+        logger.info(f"  {i}: {path}")
+    logger.info("")
     
     try:
+        logger.info("Importing auroraview...")
         from auroraview import WebView
+        logger.info(f"✓ Successfully imported WebView from: {WebView.__module__}")
+        
+        # Check if the _core module is loaded
+        import auroraview._core
+        logger.info(f"✓ Successfully imported _core from: {auroraview._core.__file__}")
+        logger.info("")
         
         # Create HTML content
         html = """
