@@ -87,9 +87,22 @@ C:\Program Files\Autodesk\Maya2022\bin\maya.exe
 
 ### ❌ WebView 不显示？
 
+**解决方案：**
 ```bash
 # 使用 Maya 的 Python 安装
 C:\Program Files\Autodesk\Maya2022\bin\mayapy.exe -m pip install auroraview
+```
+
+### ❌ 看到 PanicException 错误？
+
+**这已经修复了！** 之前的版本有线程安全问题。最新版本：
+- ✓ 在主线程中创建 WebView
+- ✓ 在后台线程中创建新实例
+- ✓ 没有 "unsendable" 错误
+
+**如果仍然看到错误，请更新：**
+```bash
+pip install --upgrade auroraview
 ```
 
 ### ❌ Maya 仍然冻结？
@@ -115,6 +128,36 @@ print(auroraview.__file__)
 - **完整测试指南：** `docs/MAYA_TESTING_GUIDE.md`
 - **异步集成指南：** `docs/ASYNC_DCC_INTEGRATION.md`
 - **示例说明：** `examples/README_MAYA_TESTING.md`
+
+---
+
+## 🔧 技术细节 - 线程安全修复
+
+### 问题（已解决）
+之前的实现尝试在后台线程中发送 Rust 的 `AuroraView` 对象，但 Rust 核心被标记为 `unsendable`，导致：
+```
+PanicException: auroraview_core::webview::AuroraView is unsendable, but sent to another thread
+```
+
+### 解决方案
+现在的实现：
+1. **主线程** - 创建 WebView，加载 HTML/URL，保存内容
+2. **后台线程** - 创建新的 WebView 实例，加载保存的内容，运行事件循环
+3. **结果** - Maya 主线程完全不被阻塞 ✓
+
+### 代码示例
+```python
+# 主线程
+webview = WebView(title="My Tool")
+webview.load_html(html)  # 内容被保存
+webview.show_async()     # 立即返回
+
+# 后台线程（自动处理）
+# - 创建新的 WebView 实例
+# - 加载保存的 HTML
+# - 运行事件循环
+# - Maya 保持响应
+```
 
 ---
 
