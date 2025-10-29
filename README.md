@@ -102,28 +102,85 @@ AuroraView is **not** a fork of PyWebView. It's a completely new project designe
 
 ### Installation
 
+**Basic installation** (Native backend only):
 ```bash
 pip install auroraview
 ```
 
-### Basic Usage
+**With Qt support** (for Qt-based DCCs like Maya, Houdini, Nuke):
+```bash
+pip install auroraview[qt]
+```
 
+### Integration Modes
+
+AuroraView supports two integration modes to fit different use cases:
+
+#### 1. Native Backend (Default)
+
+Uses platform-specific APIs (HWND on Windows) for window embedding. Best for standalone applications and maximum compatibility.
+
+**Standalone window:**
 ```python
 from auroraview import WebView
 
-# Create a WebView instance
 webview = WebView(
     title="My App",
     width=800,
     height=600,
     url="http://localhost:3000"
 )
+webview.show()  # Blocking call
+```
 
-# Show the window
+**Embedded in DCC (e.g., Maya):**
+```python
+from auroraview import NativeWebView
+import maya.OpenMayaUI as omui
+
+# Get Maya main window handle
+maya_hwnd = int(omui.MQtUtil.mainWindow())
+
+# Create embedded WebView
+webview = NativeWebView(
+    title="Maya Tool",
+    parent_hwnd=maya_hwnd,
+    parent_mode="owner"  # Recommended for cross-thread safety
+)
+webview.show_async()  # Non-blocking
+```
+
+#### 2. Qt Backend
+
+Integrates as a Qt widget for seamless integration with Qt-based DCCs. Requires `pip install auroraview[qt]`.
+
+```python
+from auroraview import QtWebView
+
+# Create WebView as Qt widget
+webview = QtWebView(
+    parent=maya_main_window(),  # Any QWidget
+    title="My Tool",
+    width=800,
+    height=600
+)
 webview.show()
 ```
 
+**When to use Qt backend:**
+- ✅ Your DCC already has Qt loaded (Maya, Houdini, Nuke)
+- ✅ You want seamless Qt widget integration
+- ✅ You need to use Qt layouts and signals/slots
+
+**When to use Native backend:**
+- ✅ Maximum compatibility across all platforms
+- ✅ Standalone applications
+- ✅ DCCs without Qt (Blender, 3ds Max)
+- ✅ Minimal dependencies
+
 ### Bidirectional Communication
+
+Both backends support the same event API:
 
 ```python
 # Python → JavaScript
@@ -139,11 +196,12 @@ def handle_export(data):
 ## 📚 Documentation
 
 **Start here:**
+- 📖 [Architecture](./docs/ARCHITECTURE.md) - **NEW!** Modular backend architecture
 - 📖 [Project Summary](./docs/SUMMARY.md) - Overview and key advantages
 - 📖 [Current Status](./docs/CURRENT_STATUS.md) - What's done and what's next
 
 **Detailed Guides:**
-- 📖 [Architecture Design](./docs/TECHNICAL_DESIGN.md)
+- 📖 [Technical Design](./docs/TECHNICAL_DESIGN.md)
 - 📖 [DCC Integration Guide](./docs/DCC_INTEGRATION_GUIDE.md)
 - 📖 [Project Advantages](./docs/PROJECT_ADVANTAGES.md) - Why AuroraView is better than PyWebView
 - 📖 [Comparison with PyWebView](./docs/COMPARISON_WITH_PYWEBVIEW.md)
