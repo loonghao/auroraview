@@ -690,6 +690,10 @@ html = """
                     detail: { timestamp: Date.now() }
                 }));
                 console.log('✅ [init] webview_ready event dispatched');
+
+                // Also trigger an immediate refresh in case the event doesn't reach Python
+                console.log('📤 [init] Triggering immediate refresh as fallback...');
+                refreshScene();
             } catch (e) {
                 console.error('❌ [init] Failed to dispatch webview_ready event:', e);
             }
