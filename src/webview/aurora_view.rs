@@ -1,0 +1,566 @@
+//! AuroraView - Python-facing WebView class
+//!
+//! This module provides the Python API for creating and managing WebView instances.
+
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
+
+use super::config::WebViewConfig;
+use super::python_bindings::py_dict_to_json;
+use super::webview_inner::WebViewInner;
+use crate::ipc::{IpcHandler, MessageQueue, WebViewMessage};
+
+/// Python-facing WebView class
+/// Supports both standalone and embedded modes (for DCC integration)
+#[pyclass(name = "WebView", unsendable)]
+pub struct AuroraView {
+    pub(crate) inner: Rc<RefCell<Option<WebViewInner>>>,
+    pub(crate) config: Rc<RefCell<WebViewConfig>>,
+    pub(crate) ipc_handler: Arc<IpcHandler>,
+    /// Thread-safe message queue for cross-thread communication
+    pub(crate) message_queue: Arc<MessageQueue>,
+}
+
+#[pymethods]
+#[allow(clippy::useless_conversion)]
+impl AuroraView {
+    /// Create a new WebView instance
+    ///
+    /// Args:
+    ///     title (str): Window title
+    ///     width (int): Window width in pixels
+    ///     height (int): Window height in pixels
+    ///     url (str, optional): URL to load
+    ///     html (str, optional): HTML content to load
+    ///     dev_tools (bool, optional): Enable developer tools (default: True)
+    ///     resizable (bool, optional): Make window resizable (default: True)
+    ///     parent_hwnd (int, optional): Parent window handle (HWND on Windows)
+    ///     parent_mode (str, optional): "child" or "owner" (Windows only)
+    ///
+    /// Returns:
+    ///     WebView: A new WebView instance
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None))]
+    fn new(
+        title: &str,
+        width: u32,
+        height: u32,
+        url: Option<&str>,
+        html: Option<&str>,
+        dev_tools: bool,
+        resizable: bool,
+        decorations: bool,
+        parent_hwnd: Option<u64>,
+        parent_mode: Option<&str>,
+    ) -> PyResult<Self> {
+        tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}",
+            title, dev_tools, resizable, decorations, parent_hwnd, parent_mode);
+
+        let mut config = WebViewConfig {
+            title: title.to_string(),
+            width,
+            height,
+            url: url.map(|s| s.to_string()),
+            html: html.map(|s| s.to_string()),
+            dev_tools,
+            resizable,
+            decorations,
+            parent_hwnd,
+            ..Default::default()
+        };
+
+        // Map string to EmbedMode (Windows)
+        #[cfg(target_os = "windows")]
+        {
+            use crate::webview::config::EmbedMode;
+            config.embed_mode = match parent_mode.map(|s| s.to_ascii_lowercase()) {
+                Some(ref m) if m == "child" => EmbedMode::Child,
+                Some(ref m) if m == "owner" => EmbedMode::Owner,
+                _ => {
+                    if parent_hwnd.is_some() {
+                        EmbedMode::Child
+                    } else {
+                        EmbedMode::None
+                    }
+                }
+            };
+        }
+
+        Ok(AuroraView {
+            inner: Rc::new(RefCell::new(None)),
+            config: Rc::new(RefCell::new(config)),
+            ipc_handler: Arc::new(IpcHandler::new()),
+            message_queue: Arc::new(MessageQueue::new()),
+        })
+    }
+
+    /// Test method to verify Python bindings work
+    #[allow(clippy::useless_conversion)]
+    fn test_method(&self) -> PyResult<String> {
+        tracing::info!("test_method() called!");
+        Ok("test_method works!".to_string())
+    }
+
+    /// Create WebView for standalone mode (creates its own window)
+    #[allow(clippy::useless_conversion)]
+    fn show_window(&self) -> PyResult<()> {
+        let title = self.config.borrow().title.clone();
+        tracing::info!("Showing WebView (standalone mode): {}", title);
+
+        // Create or re-create WebView instance
+        let mut inner = self.inner.borrow_mut();
+        let need_create = if let Some(existing) = inner.as_ref() {
+            // If previous event loop already ran, we must recreate
+            existing.event_loop.is_none()
+        } else {
+            true
+        };
+
+        if need_create {
+            let webview = WebViewInner::create_standalone(
+                self.config.borrow().clone(),
+                self.ipc_handler.clone(),
+                self.message_queue.clone(),
+            )
+            .map_err(|e| {
+                tracing::error!("Failed to create standalone WebView: {}", e);
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+            })?;
+            *inner = Some(webview);
+        }
+
+        // Release the borrow before running the event loop
+        drop(inner);
+
+        // Run the event loop (this will block until window is closed)
+        if let Some(webview_inner) = self.inner.borrow_mut().as_mut() {
+            webview_inner.run_event_loop_blocking();
+        }
+
+        // After event loop exits, drop inner so next show() recreates cleanly
+        let mut inner_after = self.inner.borrow_mut();
+        *inner_after = None;
+
+        Ok(())
+    }
+
+    /// Show WebView window
+    ///
+    /// Behavior depends on embed_mode:
+    /// - EmbedMode::None: Creates standalone window and runs event loop (blocking)
+    /// - EmbedMode::Child/Owner: Creates embedded window and returns immediately (non-blocking)
+    fn show(&self) -> PyResult<()> {
+        use crate::webview::config::EmbedMode;
+
+        let embed_mode = self.config.borrow().embed_mode;
+
+        match embed_mode {
+            EmbedMode::None => {
+                // Standalone mode: run event loop (blocking)
+                tracing::info!("🟣 [show] Standalone mode - will run event loop (blocking)");
+                self.show_window()
+            }
+            #[cfg(target_os = "windows")]
+            EmbedMode::Child | EmbedMode::Owner => {
+                // Embedded mode: create window but don't run event loop (non-blocking)
+                tracing::info!(
+                    "🟢 [show] Embedded mode ({:?}) - creating window without event loop",
+                    embed_mode
+                );
+                self.show_embedded()
+            }
+        }
+    }
+
+    /// Show embedded WebView (non-blocking)
+    ///
+    /// Creates the WebView window as a child/owned window of the parent.
+    /// Does NOT run the event loop - the parent window's event loop handles events.
+    /// Returns immediately, allowing the parent application to continue running.
+    #[cfg(target_os = "windows")]
+    fn show_embedded(&self) -> PyResult<()> {
+        let title = self.config.borrow().title.clone();
+        let embed_mode = self.config.borrow().embed_mode;
+        tracing::info!(
+            "🟢 [show_embedded] Creating embedded WebView: {} (mode: {:?})",
+            title,
+            embed_mode
+        );
+
+        // Create or re-create WebView instance
+        let mut inner = self.inner.borrow_mut();
+        let need_create = if let Some(existing) = inner.as_ref() {
+            // If previous event loop already ran, we must recreate
+            existing.event_loop.is_none()
+        } else {
+            true
+        };
+
+        if need_create {
+            tracing::info!("🟢 [show_embedded] Creating new embedded WebView instance...");
+
+            let config = self.config.borrow().clone();
+            let parent_hwnd = config.parent_hwnd.unwrap_or(0);
+            let width = config.width;
+            let height = config.height;
+
+            let webview = WebViewInner::create_embedded(
+                parent_hwnd,
+                width,
+                height,
+                config,
+                self.ipc_handler.clone(),
+            )
+            .map_err(|e| {
+                tracing::error!(
+                    "❌ [show_embedded] Failed to create embedded WebView: {}",
+                    e
+                );
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+            })?;
+            *inner = Some(webview);
+            tracing::info!("✅ [show_embedded] Embedded WebView instance created");
+        }
+
+        // For embedded mode, we DON'T run the event loop
+        // The parent window's event loop will handle our window's events
+        tracing::info!("✅ [show_embedded] Embedded WebView created successfully (non-blocking)");
+        tracing::info!("📌 [show_embedded] IMPORTANT: Keep the Python WebView object alive!");
+        tracing::info!(
+            "📌 [show_embedded] If the Python object is destroyed, the window will close"
+        );
+        tracing::info!(
+            "📌 [show_embedded] Store it in a global variable: __main__.webview = webview"
+        );
+
+        Ok(())
+    }
+
+    /// Create WebView for embedded mode (for DCC integration)
+    ///
+    /// Args:
+    ///     parent_hwnd (int): Parent window handle (Windows HWND)
+    ///     width (int): Width in pixels
+    ///     height (int): Height in pixels
+    #[allow(clippy::useless_conversion)]
+    fn create_embedded(&self, parent_hwnd: u64, width: u32, height: u32) -> PyResult<()> {
+        tracing::info!("Creating embedded WebView for parent HWND: {}", parent_hwnd);
+
+        let mut inner = self.inner.borrow_mut();
+        if inner.is_none() {
+            let webview = WebViewInner::create_embedded(
+                parent_hwnd,
+                width,
+                height,
+                self.config.borrow().clone(),
+                self.ipc_handler.clone(),
+            )
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+            *inner = Some(webview);
+        }
+
+        Ok(())
+    }
+
+    /// Load a URL in the WebView
+    ///
+    /// Args:
+    ///     url (str): URL to load
+    #[allow(clippy::useless_conversion)]
+    fn load_url(&self, url: &str) -> PyResult<()> {
+        tracing::info!("Loading URL: {}", url);
+
+        // If created, load immediately; otherwise store for later
+        let mut loaded = false;
+        if let Some(webview) = self.inner.borrow_mut().as_mut() {
+            webview
+                .load_url(url)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+            loaded = true;
+        }
+        if !loaded {
+            let mut cfg = self.config.borrow_mut();
+            cfg.url = Some(url.to_string());
+            cfg.html = None; // last-write-wins
+            tracing::debug!("WebView not yet created; stored URL in config to load on show()");
+        }
+        Ok(())
+    }
+
+    /// Load HTML content in the WebView
+    ///
+    /// Args:
+    ///     html (str): HTML content to load
+    #[allow(clippy::useless_conversion)]
+    fn load_html(&self, html: &str) -> PyResult<()> {
+        tracing::info!("Loading HTML content ({} bytes)", html.len());
+
+        // If created, load immediately; otherwise store for later
+        let mut loaded = false;
+        if let Some(webview) = self.inner.borrow_mut().as_mut() {
+            webview
+                .load_html(html)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+            loaded = true;
+        }
+        if !loaded {
+            let mut cfg = self.config.borrow_mut();
+            cfg.html = Some(html.to_string());
+            cfg.url = None; // last-write-wins
+            tracing::debug!("WebView not yet created; stored HTML in config to load on show()");
+        }
+        Ok(())
+    }
+
+    /// Execute JavaScript code in the WebView
+    ///
+    /// Args:
+    ///     script (str): JavaScript code to execute
+    ///
+    /// Note: This method is thread-safe. It pushes the script to a message queue
+    /// that is processed by the WebView thread's event loop.
+    #[allow(clippy::useless_conversion)]
+    fn eval_js(&self, script: &str) -> PyResult<()> {
+        tracing::info!("Queueing JavaScript execution: {}", script);
+
+        // Push to message queue for thread-safe execution
+        self.message_queue
+            .push(WebViewMessage::EvalJs(script.to_string()));
+
+        Ok(())
+    }
+
+    /// Emit an event to JavaScript
+    ///
+    /// Args:
+    ///     event_name (str): Name of the event
+    ///     data (dict): Data to send with the event
+    ///
+    /// Note: This method is thread-safe. It pushes the event to a message queue
+    /// that is processed by the WebView thread's event loop.
+    #[allow(clippy::useless_conversion)]
+    fn emit(&self, event_name: &str, data: &Bound<'_, PyDict>) -> PyResult<()> {
+        tracing::info!("🔴 [AuroraView::emit] START - Event: {}", event_name);
+
+        // Convert Python dict to JSON
+        tracing::info!("🔴 [AuroraView::emit] Converting Python dict to JSON...");
+        let json_data = py_dict_to_json(data).map_err(|e| {
+            tracing::error!(
+                "❌ [AuroraView::emit] Failed to convert dict to JSON: {}",
+                e
+            );
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+        })?;
+        tracing::info!("🔴 [AuroraView::emit] JSON data: {}", json_data);
+
+        // Push to message queue for thread-safe execution
+        tracing::info!("🔴 [AuroraView::emit] Pushing to message queue...");
+        self.message_queue.push(WebViewMessage::EmitEvent {
+            event_name: event_name.to_string(),
+            data: json_data,
+        });
+        tracing::info!("✅ [AuroraView::emit] Message pushed to queue successfully");
+
+        Ok(())
+    }
+
+    /// Register a Python callback for JavaScript events
+    ///
+    /// Args:
+    ///     event_name (str): Name of the event to listen for
+    ///     callback (callable): Python function to call when event occurs
+    #[allow(clippy::useless_conversion)]
+    fn on(&self, event_name: &str, callback: PyObject) -> PyResult<()> {
+        tracing::info!("Registering callback for event: {}", event_name);
+
+        // Store the callback in the IPC handler
+        self.ipc_handler
+            .register_python_callback(event_name, callback);
+
+        tracing::debug!("Callback registered for event: {}", event_name);
+
+        Ok(())
+    }
+
+    /// Close the WebView window
+    #[allow(clippy::useless_conversion)]
+    fn close(&self) -> PyResult<()> {
+        tracing::info!("{}", "=".repeat(80));
+        tracing::info!("🔴 [AuroraView::close] Close method called");
+
+        // Try to close the window if it exists
+        if let Ok(mut inner_opt) = self.inner.try_borrow_mut() {
+            tracing::info!("🔴 [AuroraView::close] Successfully borrowed inner");
+
+            if let Some(inner) = inner_opt.as_mut() {
+                tracing::info!("🔴 [AuroraView::close] Inner exists");
+
+                if let Some(window) = &inner.window {
+                    tracing::info!("🔴 [AuroraView::close] Window exists, attempting to close...");
+
+                    // Set window invisible first
+                    window.set_visible(false);
+                    tracing::info!("✅ [AuroraView::close] Window set to invisible");
+
+                    // For embedded windows, we need special handling to ensure proper cleanup
+                    #[cfg(target_os = "windows")]
+                    {
+                        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+                        use std::ffi::c_void;
+                        use windows::Win32::Foundation::HWND;
+                        use windows::Win32::UI::WindowsAndMessaging::{
+                            DestroyWindow, DispatchMessageW, PeekMessageW, TranslateMessage,
+                            MSG, PM_REMOVE, WM_DESTROY, WM_NCDESTROY,
+                        };
+
+                        if let Ok(window_handle) = window.window_handle() {
+                            let raw_handle = window_handle.as_raw();
+                            if let RawWindowHandle::Win32(handle) = raw_handle {
+                                let hwnd_value = handle.hwnd.get();
+                                let hwnd = HWND(hwnd_value as *mut c_void);
+
+                                tracing::info!("🔴 [AuroraView::close] HWND: {:?}", hwnd);
+
+                                // Step 1: Destroy the window
+                                tracing::info!("🔴 [AuroraView::close] Calling DestroyWindow...");
+                                unsafe {
+                                    let result = DestroyWindow(hwnd);
+                                    if result.is_ok() {
+                                        tracing::info!(
+                                            "✅ [AuroraView::close] DestroyWindow succeeded"
+                                        );
+
+                                        // Step 2: CRITICAL - Process pending messages for this window
+                                        // This ensures WM_DESTROY and WM_NCDESTROY are handled
+                                        tracing::info!("🔴 [AuroraView::close] Processing pending window messages...");
+                                        let mut msg = MSG::default();
+                                        let mut processed_count = 0;
+                                        let max_iterations = 100; // Prevent infinite loop
+
+                                        // Process all pending messages for this specific window
+                                        while processed_count < max_iterations
+                                            && PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool()
+                                        {
+                                            processed_count += 1;
+
+                                            // Log important messages
+                                            if msg.message == WM_DESTROY {
+                                                tracing::info!(
+                                                    "🔴 [AuroraView::close] Processing WM_DESTROY"
+                                                );
+                                            } else if msg.message == WM_NCDESTROY {
+                                                tracing::info!(
+                                                    "🔴 [AuroraView::close] Processing WM_NCDESTROY (final cleanup)"
+                                                );
+                                            }
+
+                                            let _ = TranslateMessage(&msg);
+                                            DispatchMessageW(&msg);
+                                        }
+
+                                        tracing::info!(
+                                            "✅ [AuroraView::close] Processed {} window messages",
+                                            processed_count
+                                        );
+
+                                        // Step 3: Small delay to allow window to fully disappear
+                                        std::thread::sleep(std::time::Duration::from_millis(50));
+                                        tracing::info!("✅ [AuroraView::close] Window cleanup completed");
+                                    } else {
+                                        tracing::error!(
+                                            "❌ [AuroraView::close] DestroyWindow failed: {:?}",
+                                            result
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    tracing::warn!("⚠️ [AuroraView::close] No window found");
+                }
+            } else {
+                tracing::warn!("⚠️ [AuroraView::close] Inner is None");
+            }
+        } else {
+            tracing::error!("❌ [AuroraView::close] Failed to borrow inner (already borrowed?)");
+        }
+
+        tracing::info!("{}", "=".repeat(80));
+        Ok(())
+    }
+
+    /// Get the window title
+    #[getter]
+    fn title(&self) -> PyResult<String> {
+        Ok(self.config.borrow().title.clone())
+    }
+
+    /// Set the window title
+    #[setter]
+    fn set_title(&mut self, title: String) -> PyResult<()> {
+        self.config.borrow_mut().title = title;
+        // TODO: Update actual window title
+        Ok(())
+    }
+
+    /// Process pending window events (for embedded mode)
+    ///
+    /// This method processes all pending Windows messages without blocking.
+    /// It should be called periodically (e.g., from a Maya timer) to keep
+    /// the window responsive in embedded mode.
+    ///
+    /// Returns:
+    ///     bool: True if the window should be closed, False otherwise
+    ///
+    /// Example:
+    ///     ```python
+    ///     # In Maya, create a timer to process events
+    ///     import maya.cmds as cmds
+    ///
+    ///     def process_webview_events():
+    ///         if webview._core.process_events():
+    ///             # Window should close
+    ///             cmds.scriptJob(kill=job_id)
+    ///
+    ///     job_id = cmds.scriptJob(event=["idle", process_webview_events])
+    ///     ```
+    fn process_events(&self) -> PyResult<bool> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.process_events())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Python representation
+    fn __repr__(&self) -> String {
+        let cfg = self.config.borrow();
+        format!(
+            "WebView(title='{}', width={}, height={})",
+            cfg.title, cfg.width, cfg.height
+        )
+    }
+}
+
+/// Implement Drop to track when AuroraView is destroyed
+impl Drop for AuroraView {
+    fn drop(&mut self) {
+        let title = self.config.borrow().title.clone();
+        tracing::warn!(
+            "🔴 [AuroraView::drop] WebView '{}' is being destroyed!",
+            title
+        );
+        tracing::warn!("🔴 [AuroraView::drop] This will close the WebView window");
+
+        // The inner WebViewInner will be dropped automatically
+        // which will close the window
+    }
+}

@@ -76,6 +76,7 @@ class NativeWebView(WebView):
         html: Optional[str] = None,
         dev_tools: bool = True,
         resizable: bool = True,
+        decorations: bool = True,
         parent_hwnd: Optional[int] = None,
         parent_mode: Optional[str] = "owner",
     ) -> None:
@@ -88,10 +89,11 @@ class NativeWebView(WebView):
             html=html,
             dev_tools=dev_tools,
             resizable=resizable,
+            decorations=decorations,
             parent_hwnd=parent_hwnd,
             parent_mode=parent_mode,
         )
-        logger.debug(f"NativeWebView initialized (parent_hwnd={parent_hwnd}, mode={parent_mode})")
+        logger.debug(f"NativeWebView initialized (decorations={decorations}, parent_hwnd={parent_hwnd}, mode={parent_mode})")
 
 
 # Backward compatibility: AuroraView is an alias for NativeWebView

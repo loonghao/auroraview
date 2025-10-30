@@ -26,11 +26,20 @@ class WebView:
         html: HTML content to load (optional)
         dev_tools: Enable developer tools (default: True)
         resizable: Make window resizable (default: True)
+        parent_hwnd: Parent window handle (HWND on Windows) for embedding/ownership (optional)
+        parent_mode: "child" | "owner" (Windows only). "owner" is safer for cross-thread usage; "child" requires same-thread parenting with the host window.
 
     Example:
         >>> webview = WebView(title="My Tool", width=1024, height=768)
         >>> webview.load_url("http://localhost:3000")
         >>> webview.show()
+
+        >>> # For DCC integration (e.g., Maya)
+        >>> import maya.OpenMayaUI as omui
+        >>> maya_hwnd = int(omui.MQtUtil.mainWindow())
+        >>> # Prefer owner mode to avoid cross-thread freezes
+        >>> webview = WebView(title="My Tool", parent_hwnd=maya_hwnd, parent_mode="owner")
+        >>> webview.show_async()
     """
 
     def __init__(
@@ -42,8 +51,24 @@ class WebView:
         html: Optional[str] = None,
         dev_tools: bool = True,
         resizable: bool = True,
+        decorations: bool = True,
+        parent_hwnd: Optional[int] = None,
+        parent_mode: Optional[str] = None,
     ) -> None:
-        """Initialize the WebView."""
+        """Initialize the WebView.
+
+        Args:
+            title: Window title
+            width: Window width in pixels
+            height: Window height in pixels
+            url: URL to load (optional)
+            html: HTML content to load (optional)
+            dev_tools: Enable developer tools (default: True)
+            resizable: Make window resizable (default: True)
+            decorations: Show window decorations (title bar, borders) (default: True)
+            parent_hwnd: Parent window handle for embedding (optional)
+            parent_mode: Embedding mode - "child" or "owner" (optional)
+        """
         if _CoreWebView is None:
             raise RuntimeError(
                 "AuroraView core library not found. "
@@ -56,33 +81,67 @@ class WebView:
             height=height,
             url=url,
             html=html,
+            dev_tools=dev_tools,
+            resizable=resizable,
+            decorations=decorations,
+            parent_hwnd=parent_hwnd,
+            parent_mode=parent_mode,
         )
         self._event_handlers: Dict[str, list[Callable]] = {}
         self._title = title
         self._width = width
         self._height = height
+        self._dev_tools = dev_tools
+        self._resizable = resizable
+        self._decorations = decorations
+        self._parent_hwnd = parent_hwnd
+        self._parent_mode = parent_mode
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
         # Store content for async mode
         self._stored_url: Optional[str] = None
         self._stored_html: Optional[str] = None
+        # Store the background thread's core instance
+        self._async_core: Optional[Any] = None
+        self._async_core_lock = threading.Lock()
 
     def show(self) -> None:
         """Show the WebView window.
 
-        This method displays the WebView window and starts the event loop.
-        This is a blocking call - the method will not return until the window is closed.
+        Behavior depends on the mode:
+        - Standalone mode (no parent_hwnd): Blocking call, runs event loop until window closes
+        - Embedded mode (with parent_hwnd): Non-blocking call, returns immediately
 
-        For non-blocking usage (e.g., in DCC applications like Maya), use show_async() instead.
+        In embedded mode, the window remains open until explicitly closed or the Python object is destroyed.
+        To keep the window open, store the WebView object in a persistent variable (e.g., global).
+
+        For background thread usage, use show_async() instead.
         """
         logger.info(f"Showing WebView: {self._title}")
         logger.info("Calling _core.show()...")
+
+        # Check if we're in embedded mode
+        is_embedded = self._parent_hwnd is not None
+
         try:
             self._core.show()
-            logger.info("_core.show() returned")
+            logger.info("_core.show() returned successfully")
         except Exception as e:
             logger.error(f"Error in _core.show(): {e}", exc_info=True)
             raise
+
+        # IMPORTANT: Only cleanup in standalone mode
+        # In embedded mode, the window should stay open until explicitly closed
+        if not is_embedded:
+            logger.info("Standalone mode: WebView show() completed, cleaning up...")
+            try:
+                self.close()
+            except Exception as cleanup_error:
+                logger.warning(f"Error during cleanup: {cleanup_error}")
+        else:
+            logger.info("Embedded mode: WebView window is now open (non-blocking)")
+            logger.info("IMPORTANT: Keep this Python object alive to prevent window from closing")
+            logger.info("Example: __main__.webview = webview")
 
     def show_async(self) -> None:
         """Show the WebView window in a background thread (non-blocking).
@@ -94,7 +153,8 @@ class WebView:
 
         IMPORTANT: Due to GUI thread requirements, this method uses a workaround:
         - The WebView is created and shown in a separate thread
-        - The thread must be a daemon thread to avoid blocking the main application
+        - The thread is a daemon thread so it won't prevent the application from exiting
+        - Event handlers are re-registered in the background thread
         - The WebView will run until the user closes the window
 
         Example:
@@ -128,7 +188,23 @@ class WebView:
                     title=self._title,
                     width=self._width,
                     height=self._height,
+                    dev_tools=self._dev_tools,
+                    resizable=self._resizable,
+                    decorations=self._decorations,
+                    parent_hwnd=self._parent_hwnd,
+                    parent_mode=self._parent_mode,
                 )
+
+                # Store the core instance for use by emit() and other methods
+                with self._async_core_lock:
+                    self._async_core = core
+
+                # Re-register all event handlers in the background thread
+                logger.info(f"Background thread: Re-registering {len(self._event_handlers)} event handlers")
+                for event_name, handlers in self._event_handlers.items():
+                    for handler in handlers:
+                        logger.debug(f"Background thread: Registering handler for '{event_name}'")
+                        core.on(event_name, handler)
 
                 # Load the same content that was loaded in the main thread
                 if self._stored_html:
@@ -146,13 +222,19 @@ class WebView:
             except Exception as e:
                 logger.error(f"Error in background WebView: {e}", exc_info=True)
             finally:
+                # Clear the async core reference
+                with self._async_core_lock:
+                    self._async_core = None
                 self._is_running = False
                 logger.info("Background thread: WebView thread finished")
 
-        # Create and start the background thread
-        self._show_thread = threading.Thread(target=_run_webview, daemon=False)
+        # Create and start the background thread as daemon
+        # CRITICAL: daemon=True allows Maya to exit cleanly when user closes Maya
+        # The event loop now uses run_return() instead of run(), which prevents
+        # the WebView from calling std::process::exit() and terminating Maya
+        self._show_thread = threading.Thread(target=_run_webview, daemon=True)
         self._show_thread.start()
-        logger.info("WebView background thread started")
+        logger.info("WebView background thread started (daemon=True)")
 
     def load_url(self, url: str) -> None:
         """Load a URL in the WebView.
@@ -192,7 +274,12 @@ class WebView:
             >>> webview.eval_js("console.log('Hello from Python')")
         """
         logger.debug(f"Executing JavaScript: {script[:100]}...")
-        self._core.eval_js(script)
+
+        # Use the async core if available (when running in background thread)
+        with self._async_core_lock:
+            core = self._async_core if self._async_core is not None else self._core
+
+        core.eval_js(script)
 
     def emit(self, event_name: str, data: Union[Dict[str, Any], Any] = None) -> None:
         """Emit an event to JavaScript.
@@ -213,7 +300,11 @@ class WebView:
         if not isinstance(data, dict):
             data = {"value": data}
 
-        self._core.emit(event_name, data)
+        # Use the async core if available (when running in background thread)
+        with self._async_core_lock:
+            core = self._async_core if self._async_core is not None else self._core
+
+        core.emit(event_name, data)
 
     def on(self, event_name: str) -> Callable:
         """Decorator to register a Python callback for JavaScript events.
@@ -285,10 +376,37 @@ class WebView:
         logger.info("WebView closed")
         return True
 
+    def process_events(self) -> bool:
+        """Process pending window events.
+
+        This method should be called periodically in embedded mode to handle
+        window messages and user interactions. Returns True if the window
+        should be closed.
+
+        Returns:
+            True if the window should close, False otherwise
+
+        Example:
+            >>> # In Maya, use a scriptJob to process events
+            >>> def process_webview_events():
+            ...     if webview.process_events():
+            ...         # Window should close
+            ...         cmds.scriptJob(kill=job_id)
+            ...
+            >>> job_id = cmds.scriptJob(event=["idle", process_webview_events])
+        """
+        return self._core.process_events()
+
     def close(self) -> None:
         """Close the WebView window."""
         logger.info("Closing WebView")
-        self._core.close()
+
+        try:
+            # Close the core WebView
+            self._core.close()
+            logger.info("Core WebView closed")
+        except Exception as e:
+            logger.warning(f"Error closing core WebView: {e}")
 
         # Wait for background thread if running
         if self._show_thread is not None and self._show_thread.is_alive():
@@ -296,6 +414,10 @@ class WebView:
             self._show_thread.join(timeout=5.0)
             if self._show_thread.is_alive():
                 logger.warning("Background thread did not finish within timeout")
+            else:
+                logger.info("Background thread finished successfully")
+
+        logger.info("WebView closed successfully")
 
     @property
     def title(self) -> str:
