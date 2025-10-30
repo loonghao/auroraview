@@ -158,11 +158,15 @@ pub fn create_standalone(
         webview.load_html(html)?;
     }
 
+    // Create event loop proxy for sending close events
+    let event_loop_proxy = event_loop.create_proxy();
+
     #[allow(clippy::arc_with_non_send_sync)]
     Ok(WebViewInner {
         webview: Arc::new(Mutex::new(webview)),
         window: Some(window),
         event_loop: Some(event_loop),
         message_queue,
+        event_loop_proxy: Some(event_loop_proxy),
     })
 }

@@ -22,6 +22,8 @@ pub struct AuroraView {
     pub(crate) ipc_handler: Arc<IpcHandler>,
     /// Thread-safe message queue for cross-thread communication
     pub(crate) message_queue: Arc<MessageQueue>,
+    /// Event loop proxy for sending close events (standalone mode only)
+    pub(crate) event_loop_proxy: Rc<RefCell<Option<tao::event_loop::EventLoopProxy<super::event_loop::UserEvent>>>>,
 }
 
 #[pymethods]
@@ -95,6 +97,7 @@ impl AuroraView {
             config: Rc::new(RefCell::new(config)),
             ipc_handler: Arc::new(IpcHandler::new()),
             message_queue: Arc::new(MessageQueue::new()),
+            event_loop_proxy: Rc::new(RefCell::new(None)),  // Will be set when creating standalone WebView
         })
     }
 
@@ -121,7 +124,7 @@ impl AuroraView {
         };
 
         if need_create {
-            let webview = WebViewInner::create_standalone(
+            let mut webview = WebViewInner::create_standalone(
                 self.config.borrow().clone(),
                 self.ipc_handler.clone(),
                 self.message_queue.clone(),
@@ -130,6 +133,13 @@ impl AuroraView {
                 tracing::error!("Failed to create standalone WebView: {}", e);
                 PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
             })?;
+
+            // Extract and store event loop proxy for close() method
+            if let Some(proxy) = webview.event_loop_proxy.take() {
+                *self.event_loop_proxy.borrow_mut() = Some(proxy);
+                tracing::info!("✅ Event loop proxy extracted and stored in AuroraView");
+            }
+
             *inner = Some(webview);
         }
 
@@ -392,9 +402,31 @@ impl AuroraView {
         tracing::info!("{}", "=".repeat(80));
         tracing::info!("🔴 [AuroraView::close] Close method called");
 
-        // Try to close the window if it exists
+        // Try to use event loop proxy first (standalone mode)
+        if let Ok(proxy_opt) = self.event_loop_proxy.try_borrow() {
+            if let Some(proxy) = proxy_opt.as_ref() {
+                tracing::info!("🔴 [AuroraView::close] Using event loop proxy to send close event");
+                match proxy.send_event(crate::webview::event_loop::UserEvent::CloseWindow) {
+                    Ok(_) => {
+                        tracing::info!("✅ [AuroraView::close] Close event sent successfully");
+                        tracing::info!("{}", "=".repeat(80));
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        tracing::error!("❌ [AuroraView::close] Failed to send close event: {:?}", e);
+                        // Fall through to direct close method
+                    }
+                }
+            } else {
+                tracing::info!("🔴 [AuroraView::close] No event loop proxy (embedded mode), using direct close");
+            }
+        } else {
+            tracing::warn!("⚠️ [AuroraView::close] Failed to borrow event_loop_proxy");
+        }
+
+        // Fallback: Direct close (for embedded mode or if proxy fails)
         if let Ok(mut inner_opt) = self.inner.try_borrow_mut() {
-            tracing::info!("🔴 [AuroraView::close] Successfully borrowed inner");
+            tracing::info!("🔴 [AuroraView::close] Successfully borrowed inner for direct close");
 
             if let Some(inner) = inner_opt.as_mut() {
                 tracing::info!("🔴 [AuroraView::close] Inner exists");

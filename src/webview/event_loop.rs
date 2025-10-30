@@ -20,6 +20,8 @@ use crate::ipc::{MessageQueue, WebViewMessage};
 pub enum UserEvent {
     /// Wake up the event loop to process pending messages
     ProcessMessages,
+    /// Request to close the window
+    CloseWindow,
 }
 
 /// Event loop state management
@@ -241,6 +243,27 @@ impl WebViewEventHandler {
                         }
                     } else {
                         tracing::error!("❌ [EventLoop] Failed to lock state");
+                    }
+                }
+                Event::UserEvent(UserEvent::CloseWindow) => {
+                    tracing::info!("🔴 [EventLoop] UserEvent::CloseWindow received");
+                    tracing::info!("🔴 [EventLoop] Requesting window close via event loop");
+
+                    // Request exit through the state
+                    if let Ok(state_guard) = state_clone.lock() {
+                        state_guard.request_exit();
+
+                        // Hide window immediately
+                        if let Some(window) = &state_guard.window {
+                            window.set_visible(false);
+                            tracing::info!("✅ [EventLoop] Window hidden");
+                        }
+
+                        // Set control flow to exit
+                        *control_flow = ControlFlow::Exit;
+                        tracing::info!("✅ [EventLoop] Control flow set to Exit");
+                    } else {
+                        tracing::error!("❌ [EventLoop] Failed to lock state for close");
                     }
                 }
                 Event::WindowEvent { event, .. } => {
