@@ -20,7 +20,7 @@ import json
 import traceback
 import maya.cmds as cmds
 import maya.OpenMayaUI as omui
-from auroraview import WebView
+from auroraview import NativeWebView
 from shiboken2 import wrapInstance
 from PySide2.QtWidgets import QWidget
 
@@ -34,7 +34,7 @@ maya_window = wrapInstance(int(main_window_ptr), QWidget)
 hwnd = maya_window.winId()
 
 # Create WebView
-webview = WebView(
+webview = NativeWebView(
     title="Maya Outliner",
     width=400,
     height=600,
@@ -425,27 +425,28 @@ html = """
             nodes.forEach(node => {
                 const nodeEl = document.createElement('div');
                 nodeEl.className = 'tree-node';
-                nodeEl.innerHTML = \`
-                    <div class="tree-node-content">
-                        <span class="tree-node-icon">\${node.children && node.children.length > 0 ? '📁' : '📄'}</span>
-                        <span class="tree-node-name">\${node.name}</span>
-                        <span class="tree-node-type">\${node.type}</span>
-                    </div>
-                \`;
-                
+
+                const icon = node.children && node.children.length > 0 ? '📁' : '📄';
+                nodeEl.innerHTML =
+                    '<div class="tree-node-content">' +
+                        '<span class="tree-node-icon">' + icon + '</span>' +
+                        '<span class="tree-node-name">' + node.name + '</span>' +
+                        '<span class="tree-node-type">' + node.type + '</span>' +
+                    '</div>';
+
                 nodeEl.addEventListener('click', (e) => {
                     e.stopPropagation();
                     selectNode(node, nodeEl);
                 });
-                
+
                 nodeEl.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     showContextMenu(e.clientX, e.clientY, node);
                 });
-                
+
                 container.appendChild(nodeEl);
-                
+
                 if (node.children && node.children.length > 0) {
                     const childrenEl = document.createElement('div');
                     childrenEl.className = 'tree-children';
@@ -534,7 +535,7 @@ html = """
 
         function deleteSelected() {
             if (!contextMenuNode) return;
-            if (confirm(\`Delete "\${contextMenuNode.name}"?\`)) {
+            if (confirm('Delete "' + contextMenuNode.name + '"?')) {
                 try {
                     window.dispatchEvent(new CustomEvent('delete_object', {
                         detail: { fullPath: contextMenuNode.fullPath }
@@ -592,10 +593,10 @@ print("📄 [main] Loading HTML...")
 webview.load_html(html)
 print("✅ [main] HTML loaded")
 
-# Show window
+# Show window (use show_async for non-blocking display in Maya)
 print("🪟 [main] Showing window...")
-webview.show()
-print("✅ [main] Window shown")
+webview.show_async()
+print("✅ [main] Window shown (async)")
 
 # Store in global variable
 import __main__
