@@ -56,10 +56,12 @@ print("")
 print("🔨 Creating WebView in main thread...")
 print("   - Mode: Owner (cross-thread safe)")
 print("   - Parent HWND:", hwnd)
+print("   - Decorations: False (no title bar)")
 webview = NativeWebView(
     title="Maya Outliner",
     width=400,
     height=600,
+    decorations=False,  # Remove title bar - use custom HTML controls
     parent_hwnd=hwnd,
     parent_mode="owner",  # Owner mode is safer for cross-thread scenarios
 )

@@ -47,10 +47,22 @@ url = "2.5"
 parking_lot = "0.12"
 once_cell = "1.20"
 
+# IPC communication
+crossbeam-channel = "0.5"
+dashmap = "5.5"
+ipc-channel = { version = "0.18", optional = true }
+
 [dev-dependencies]
-# Testing
+# Testing frameworks
 criterion = "0.5"
 tempfile = "3.14"
+
+# Enhanced testing
+rstest = "0.23"              # Parameterized testing
+test-case = "3.3"            # Table-driven tests
+proptest = "1.5"             # Property-based testing
+mockall = "0.13"             # Mocking framework
+serial_test = "3.2"          # Serial test execution
 
 [build-dependencies]
 # Build script dependencies if needed
@@ -61,6 +73,8 @@ tempfile = "3.14"
 
 [target.x86_64-pc-windows-msvc.dependencies]
 # Python linking for Windows tests
+# Windows API for parent window support
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 
 [target.x86_64-apple-darwin.dependencies]
 # Python linking for macOS tests
@@ -78,8 +92,12 @@ strip = true
 opt-level = 0
 
 [features]
-default = ["python-bindings"]
+default = ["python-bindings", "threaded-ipc"]
 python-bindings = ["pyo3"]
+
+# IPC backend features
+threaded-ipc = []
+process-ipc = ["ipc-channel"]
 
 # Platform-specific features
 windows = []

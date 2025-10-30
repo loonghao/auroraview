@@ -1,5 +1,12 @@
 # justfile for AuroraView development
 # Run `just --list` to see all available commands
+#
+# Quick Start:
+#   just rebuild-core        - Rebuild Rust core with maturin (release mode)
+#   just rebuild-core-verbose - Same as above with verbose output
+#   just test                - Run all tests
+#   just format              - Format code
+#   just lint                - Run linting
 
 # Set shell for Windows compatibility
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
@@ -24,13 +31,28 @@ build-release:
     @echo "🚀 Building release version..."
     uv run maturin develop --release
 
+# Rebuild and install in development mode (recommended)
+rebuild-core:
+    @echo "🔧 Rebuilding Rust core with maturin..."
+    uv run maturin develop --release
+    @echo "✅ Core module rebuilt and installed successfully!"
+
+# Rebuild with verbose output
+rebuild-core-verbose:
+    @echo "🔧 Rebuilding Rust core with maturin (verbose)..."
+    uv run maturin develop --release --verbose
+    @echo "✅ Core module rebuilt and installed successfully!"
+
 # Run all tests
 test:
+    @echo "🧪 Running Rust unit tests..."
+    cargo test --lib
+    @echo "🧪 Running Rust integration tests..."
+    cargo test --test '*'
     @echo "🧪 Running Rust doc tests..."
-    @echo "⚠️  Note: lib tests are skipped due to abi3 linking issues with PyO3"
     cargo test --doc
     @echo "🧪 Running Python tests..."
-    uv run pytest tests/ -v
+    uv run pytest tests/ -v --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
 
 # Run tests with coverage
 test-cov:
@@ -95,15 +117,24 @@ test-all-python:
     just test-py312
     @echo "✅ All Python versions tested successfully!"
 
-# Run only unit tests
+# Run only Rust unit tests
 test-unit:
-    @echo "🧪 Running unit tests..."
-    uv run pytest tests/ -v -m "unit"
+    @echo "🧪 Running Rust unit tests..."
+    cargo test --lib
+    @echo "🧪 Running Python unit tests..."
+    uv run pytest tests/ -v -m "unit" --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
 
-# Run only integration tests
+# Run only Rust integration tests
 test-integration:
-    @echo "🧪 Running integration tests..."
-    uv run pytest tests/ -v -m "integration"
+    @echo "🧪 Running Rust integration tests..."
+    cargo test --test '*'
+    @echo "🧪 Running Python integration tests..."
+    uv run pytest tests/ -v -m "integration" --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
+
+# Watch mode for continuous testing
+test-watch:
+    @echo "🔄 Running tests in watch mode..."
+    cargo watch -x test
 
 # Run specific test file
 test-file FILE:

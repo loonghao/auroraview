@@ -2,6 +2,25 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Embedding mode on Windows.
+#[cfg(target_os = "windows")]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum EmbedMode {
+    /// No parent/owner specified (standalone top-level window)
+    None,
+    /// Create as real child window (WS_CHILD). Requires same-thread parenting; can freeze GUIs if cross-thread.
+    Child,
+    /// Create as owned top-level window (GWLP_HWNDPARENT). Safe across threads; follows minimize/activate of owner.
+    Owner,
+}
+
+/// Dummy enum for non-Windows (compile-time placeholder)
+#[cfg(not(target_os = "windows"))]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum EmbedMode {
+    None,
+}
+
 /// WebView configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebViewConfig {
@@ -37,6 +56,12 @@ pub struct WebViewConfig {
 
     /// Transparent window
     pub transparent: bool,
+
+    /// Parent window handle (HWND on Windows) for embedding/ownership
+    pub parent_hwnd: Option<u64>,
+
+    /// Embedding mode (Windows): Child vs Owner vs None
+    pub embed_mode: EmbedMode,
 }
 
 impl Default for WebViewConfig {
@@ -53,6 +78,11 @@ impl Default for WebViewConfig {
             decorations: true,
             always_on_top: false,
             transparent: false,
+            parent_hwnd: None,
+            #[cfg(target_os = "windows")]
+            embed_mode: EmbedMode::None,
+            #[cfg(not(target_os = "windows"))]
+            embed_mode: EmbedMode::None,
         }
     }
 }
@@ -140,35 +170,5 @@ impl WebViewBuilder {
 impl Default for WebViewBuilder {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_default_config() {
-        let config = WebViewConfig::default();
-        assert_eq!(config.title, "AuroraView");
-        assert_eq!(config.width, 800);
-        assert_eq!(config.height, 600);
-        assert!(config.dev_tools);
-    }
-
-    #[test]
-    fn test_builder() {
-        let config = WebViewBuilder::new()
-            .title("Test Window")
-            .size(1024, 768)
-            .url("https://example.com")
-            .dev_tools(false)
-            .build();
-
-        assert_eq!(config.title, "Test Window");
-        assert_eq!(config.width, 1024);
-        assert_eq!(config.height, 768);
-        assert_eq!(config.url, Some("https://example.com".to_string()));
-        assert!(!config.dev_tools);
     }
 }
