@@ -8,6 +8,7 @@ pub mod backend;
 mod config;
 pub(crate) mod embedded; // TODO: Remove after migration to backend::native
 pub(crate) mod event_loop;
+pub(crate) mod loading;
 mod message_pump;
 mod protocol;
 mod python_bindings;

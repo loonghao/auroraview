@@ -6,6 +6,7 @@
 use pyo3::prelude::*;
 
 mod ipc;
+mod performance;
 mod utils;
 mod webview;
 
