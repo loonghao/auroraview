@@ -33,6 +33,7 @@
 pub mod backend;
 pub mod handler;
 pub mod message_queue;
+pub mod optimized;
 pub mod threaded;
 
 // Optional process-based backend
