@@ -202,18 +202,16 @@ html = """
 </html>
 """
 
-# Create WebView without decorations
+# Create WebView without decorations using factory method
 print("Creating WebView without decorations...")
-print("This is a standalone window (no parent)")
-webview = NativeWebView(
+print("Using NativeWebView.standalone() factory method")
+webview = NativeWebView.standalone(
     title="No Decorations Demo",
     width=600,
     height=400,
     decorations=False,  # No title bar!
     resizable=True,
     dev_tools=True,
-    parent_hwnd=None,  # Standalone mode
-    parent_mode=None,  # No parent mode
 )
 
 # Event handlers

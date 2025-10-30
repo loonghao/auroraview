@@ -52,18 +52,19 @@ hwnd = maya_window.winId()
 print(f"✅ Maya window HWND: {hwnd}")
 print("")
 
-# Create WebView in Maya's main thread
-print("🔨 Creating WebView in main thread...")
+# Create WebView using new factory method (cleaner API)
+print("🔨 Creating embedded WebView...")
+print("   - Using NativeWebView.embedded() factory method")
 print("   - Mode: Owner (cross-thread safe)")
 print("   - Parent HWND:", hwnd)
 print("   - Decorations: False (no title bar)")
-webview = NativeWebView(
+webview = NativeWebView.embedded(
+    parent_hwnd=hwnd,
     title="Maya Outliner",
     width=400,
     height=600,
     decorations=False,  # Remove title bar - use custom HTML controls
-    parent_hwnd=hwnd,
-    parent_mode="owner",  # Owner mode is safer for cross-thread scenarios
+    mode="owner",  # Safer for cross-thread scenarios
 )
 print("✅ WebView created successfully")
 print("")
@@ -367,22 +368,39 @@ html = """
             padding: 8px;
         }
         .tree-node {
-            padding: 4px 8px;
-            margin: 2px 0;
-            cursor: pointer;
-            border-radius: 4px;
             user-select: none;
-        }
-        .tree-node:hover {
-            background: #3e3e3e;
-        }
-        .tree-node.selected {
-            background: #0e639c;
         }
         .tree-node-content {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
+            padding: 4px 8px;
+            margin: 1px 0;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .tree-node-content:hover {
+            background: #3e3e3e;
+        }
+        .tree-node-content.selected {
+            background: #0e639c;
+        }
+        .tree-toggle {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 10px;
+            color: #888;
+            transition: transform 0.2s;
+        }
+        .tree-toggle.expanded {
+            transform: rotate(90deg);
+        }
+        .tree-toggle.empty {
+            visibility: hidden;
         }
         .tree-node-icon {
             width: 16px;
@@ -396,9 +414,14 @@ html = """
         .tree-node-type {
             font-size: 11px;
             color: #888;
+            margin-left: 8px;
         }
         .tree-children {
-            margin-left: 20px;
+            margin-left: 16px;
+            display: none;
+        }
+        .tree-children.expanded {
+            display: block;
         }
         .context-menu {
             position: fixed;
@@ -445,48 +468,110 @@ html = """
         let sceneData = [];
         let selectedNode = null;
         let contextMenuNode = null;
+        let expandedNodes = new Set();  // Track expanded nodes
 
-        function renderTree(nodes, container) {
+        function renderTree(nodes, container, level = 0) {
             container.innerHTML = '';
             nodes.forEach(node => {
                 const nodeEl = document.createElement('div');
                 nodeEl.className = 'tree-node';
+                nodeEl.dataset.nodePath = node.fullPath;
 
-                const icon = node.children && node.children.length > 0 ? '📁' : '📄';
-                nodeEl.innerHTML =
-                    '<div class="tree-node-content">' +
-                        '<span class="tree-node-icon">' + icon + '</span>' +
-                        '<span class="tree-node-name">' + node.name + '</span>' +
-                        '<span class="tree-node-type">' + node.type + '</span>' +
-                    '</div>';
+                // Create node content
+                const contentEl = document.createElement('div');
+                contentEl.className = 'tree-node-content';
 
-                nodeEl.addEventListener('click', (e) => {
+                // Add toggle arrow for nodes with children
+                const hasChildren = node.children && node.children.length > 0;
+                const isExpanded = expandedNodes.has(node.fullPath);
+
+                const toggleEl = document.createElement('span');
+                toggleEl.className = 'tree-toggle' + (hasChildren ? (isExpanded ? ' expanded' : '') : ' empty');
+                toggleEl.textContent = hasChildren ? '▶' : '';
+                toggleEl.onclick = (e) => {
                     e.stopPropagation();
-                    selectNode(node, nodeEl);
+                    toggleNode(node, nodeEl);
+                };
+
+                // Add icon
+                const iconEl = document.createElement('span');
+                iconEl.className = 'tree-node-icon';
+                iconEl.textContent = hasChildren ? '📁' : '📄';
+
+                // Add name
+                const nameEl = document.createElement('span');
+                nameEl.className = 'tree-node-name';
+                nameEl.textContent = node.name;
+
+                // Add type
+                const typeEl = document.createElement('span');
+                typeEl.className = 'tree-node-type';
+                typeEl.textContent = node.type;
+
+                contentEl.appendChild(toggleEl);
+                contentEl.appendChild(iconEl);
+                contentEl.appendChild(nameEl);
+                contentEl.appendChild(typeEl);
+
+                // Click handler for selection
+                contentEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectNode(node, contentEl);
                 });
 
-                nodeEl.addEventListener('contextmenu', (e) => {
+                // Context menu
+                contentEl.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     showContextMenu(e.clientX, e.clientY, node);
                 });
 
-                container.appendChild(nodeEl);
+                nodeEl.appendChild(contentEl);
 
-                if (node.children && node.children.length > 0) {
+                // Add children container
+                if (hasChildren) {
                     const childrenEl = document.createElement('div');
-                    childrenEl.className = 'tree-children';
-                    renderTree(node.children, childrenEl);
-                    container.appendChild(childrenEl);
+                    childrenEl.className = 'tree-children' + (isExpanded ? ' expanded' : '');
+                    renderTree(node.children, childrenEl, level + 1);
+                    nodeEl.appendChild(childrenEl);
                 }
+
+                container.appendChild(nodeEl);
             });
         }
 
-        function selectNode(node, element) {
-            document.querySelectorAll('.tree-node').forEach(el => el.classList.remove('selected'));
-            element.classList.add('selected');
+        function toggleNode(node, nodeEl) {
+            const childrenEl = nodeEl.querySelector('.tree-children');
+            const toggleEl = nodeEl.querySelector('.tree-toggle');
+
+            if (!childrenEl) return;
+
+            const isExpanded = expandedNodes.has(node.fullPath);
+
+            if (isExpanded) {
+                // Collapse
+                expandedNodes.delete(node.fullPath);
+                childrenEl.classList.remove('expanded');
+                toggleEl.classList.remove('expanded');
+            } else {
+                // Expand
+                expandedNodes.add(node.fullPath);
+                childrenEl.classList.add('expanded');
+                toggleEl.classList.add('expanded');
+            }
+        }
+
+        function selectNode(node, contentEl) {
+            // Remove previous selection
+            document.querySelectorAll('.tree-node-content').forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            // Add selection to clicked node
+            contentEl.classList.add('selected');
             selectedNode = node;
 
+            // Notify Python
             try {
                 window.dispatchEvent(new CustomEvent('select_object', {
                     detail: { fullPath: node.fullPath }

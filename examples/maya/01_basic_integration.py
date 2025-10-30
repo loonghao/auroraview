@@ -39,13 +39,13 @@ class MayaWebViewPanel:
         maya_window = wrapInstance(int(main_window_ptr), QWidget)
         hwnd = maya_window.winId()
 
-        # Create WebView instance with Native backend
-        self.webview = NativeWebView(
+        # Create WebView instance using factory method (cleaner API)
+        self.webview = NativeWebView.embedded(
+            parent_hwnd=hwnd,
             title="Maya WebView Panel",
             width=800,
             height=600,
-            parent_hwnd=hwnd,
-            parent_mode="owner"  # Recommended for cross-thread safety
+            mode="owner"  # Recommended for cross-thread safety
         )
 
         # Load HTML content
