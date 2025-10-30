@@ -1,8 +1,17 @@
 #!/usr/bin/env python
 """
-Simple WebView Window Example
+Example 01: Basic WebView Window
 
-This example demonstrates how to create a simple WebView window with HTML content.
+This example demonstrates how to create a simple standalone WebView window
+with HTML content using the Native backend.
+
+Features:
+- Standalone window creation
+- HTML/CSS/JavaScript rendering
+- Basic UI interactions
+
+Usage:
+    python examples/01_basic_window.py
 """
 
 import sys
@@ -12,7 +21,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auroraview import WebView
+from auroraview import NativeWebView
 
 # Configure logging
 logging.basicConfig(
@@ -25,14 +34,14 @@ logger = logging.getLogger(__name__)
 def main():
     """Main function to run the simple window example."""
     logger.info("=" * 60)
-    logger.info("AuroraView - Simple Window Example")
+    logger.info("AuroraView - Example 01: Basic Window")
     logger.info("=" * 60)
     logger.info("")
-    
-    # Create a WebView instance
-    logger.info("Creating WebView instance...")
-    webview = WebView(
-        title="AuroraView - Simple Example",
+
+    # Create a WebView instance using Native backend
+    logger.info("Creating WebView instance (Native backend)...")
+    webview = NativeWebView(
+        title="AuroraView - Basic Window",
         width=800,
         height=600
     )

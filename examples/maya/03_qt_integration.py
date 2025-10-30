@@ -1,21 +1,47 @@
-"""Simple WebView panel example for Maya.
+"""
+Example 03: Maya Integration (Qt Backend)
 
-This example demonstrates how to create a basic WebView panel in Maya
-that can communicate with the Maya scene.
+This example demonstrates how to create a WebView panel in Maya
+using the Qt backend for seamless Qt widget integration.
+
+Features:
+- Qt backend integration
+- Seamless Qt widget parenting
+- No HWND handling required
+- Better integration with Maya's Qt UI
+
+Requirements:
+    pip install auroraview[qt]
 
 Usage:
-    1. Copy this file to your Maya scripts directory
-    2. Run in Maya's Script Editor:
-        import simple_panel
-        simple_panel.show()
+    Run in Maya's Script Editor:
+        import sys
+        sys.path.insert(0, r'C:\Users\hallo\Documents\augment-projects\dcc_webview\examples')
+        import maya.03_qt_integration as example
+        example.show()
 """
 
-from auroraview import WebView
+try:
+    from auroraview import QtWebView
+except ImportError:
+    print("❌ Qt backend not available!")
+    print("Install with: pip install auroraview[qt]")
+    raise
+
 import maya.cmds as cmds
+import maya.OpenMayaUI as omui
+from shiboken2 import wrapInstance
+from PySide2.QtWidgets import QWidget
 
 
-class MayaWebViewPanel:
-    """A simple WebView panel for Maya."""
+def get_maya_main_window():
+    """Get Maya's main window as a QWidget."""
+    main_window_ptr = omui.MQtUtil.mainWindow()
+    return wrapInstance(int(main_window_ptr), QWidget)
+
+
+class MayaQtWebViewPanel:
+    """A WebView panel for Maya using Qt backend."""
 
     def __init__(self):
         """Initialize the panel."""
@@ -23,13 +49,19 @@ class MayaWebViewPanel:
 
     def create_panel(self):
         """Create and configure the WebView panel."""
-        # Create WebView instance
-        self.webview = WebView(
-            title="Maya WebView Panel",
+        # Get Maya main window as Qt widget
+        maya_window = get_maya_main_window()
+        
+        # Create WebView instance with Qt backend
+        self.webview = QtWebView(
+            parent=maya_window,
+            title="Maya Qt WebView Panel",
             width=800,
-            height=600,
-            html=self._get_html_content()
+            height=600
         )
+        
+        # Load HTML content
+        self.webview.load_html(self._get_html_content())
 
         # Register event handlers
         self._register_handlers()
@@ -43,7 +75,7 @@ class MayaWebViewPanel:
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>Maya WebView Panel</title>
+            <title>Maya Qt WebView Panel</title>
             <style>
                 body {
                     font-family: Arial, sans-serif;
@@ -79,11 +111,20 @@ class MayaWebViewPanel:
                 .info-item {
                     margin: 10px 0;
                 }
+                .badge {
+                    display: inline-block;
+                    background: #667eea;
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    margin-left: 10px;
+                }
             </style>
         </head>
         <body>
             <div class="container">
-                <h1>Maya WebView Panel</h1>
+                <h1>Maya Qt WebView Panel <span class="badge">Qt Backend</span></h1>
                 
                 <div>
                     <button onclick="getSceneInfo()">Get Scene Info</button>
@@ -102,7 +143,6 @@ class MayaWebViewPanel:
             <script>
                 // Request scene information from Maya
                 function getSceneInfo() {
-                    // This will trigger the Python callback
                     window.emit('get_scene_info', {});
                 }
                 
@@ -181,6 +221,7 @@ class MayaWebViewPanel:
         if self.webview is None:
             self.create_panel()
         
+        # Qt widgets use show() directly
         self.webview.show()
 
 
@@ -189,15 +230,14 @@ _panel = None
 
 
 def show():
-    """Show the Maya WebView panel."""
+    """Show the Maya Qt WebView panel."""
     global _panel
     
     if _panel is None:
-        _panel = MayaWebViewPanel()
+        _panel = MayaQtWebViewPanel()
     
     _panel.show()
 
 
 if __name__ == '__main__':
     show()
-
