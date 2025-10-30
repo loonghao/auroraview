@@ -31,7 +31,24 @@ Legacy Usage (Direct Constructor):
 """
 
 import logging
-from typing import Optional, Literal
+import sys
+from typing import Optional
+
+# Python 3.7 compatibility - Literal was added in Python 3.8
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    try:
+        from typing_extensions import Literal
+    except ImportError:
+        # Fallback for environments without typing_extensions
+        # This is a simple stub that won't provide type checking but allows the code to run
+        class _LiteralMeta(type):
+            def __getitem__(cls, item):
+                return str
+
+        class Literal(metaclass=_LiteralMeta):
+            pass
 
 from .webview import WebView
 
