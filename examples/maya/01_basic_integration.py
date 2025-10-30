@@ -197,12 +197,42 @@ class MayaWebViewPanel:
             })
 
     def show(self):
-        """Show the panel."""
+        """Show the panel.
+
+        IMPORTANT: In embedded mode (with parent_hwnd), show() is non-blocking.
+        It creates the window and returns immediately.
+        We need to create a scriptJob to process events.
+        """
         if self.webview is None:
             self.create_panel()
 
-        # Use show_async() for non-blocking display
-        self.webview.show_async()
+        # Store in __main__ for scriptJob access
+        import __main__
+        __main__.maya_webview_panel = self.webview
+
+        # Create scriptJob to process events
+        def process_events():
+            """Process WebView events periodically."""
+            if hasattr(__main__, 'maya_webview_panel'):
+                try:
+                    should_close = __main__.maya_webview_panel._core.process_events()
+                    if should_close:
+                        # Clean up
+                        if hasattr(__main__, 'maya_webview_panel_timer'):
+                            cmds.scriptJob(kill=__main__.maya_webview_panel_timer)
+                            del __main__.maya_webview_panel_timer
+                        del __main__.maya_webview_panel
+                except Exception as e:
+                    print(f"Error processing events: {e}")
+
+        # Create timer before showing window
+        timer_id = cmds.scriptJob(event=["idle", process_events])
+        __main__.maya_webview_panel_timer = timer_id
+
+        # Now show the window (non-blocking in embedded mode)
+        self.webview.show()
+
+        print(f"✅ WebView panel shown (timer ID: {timer_id})")
 
 
 # Global instance
@@ -212,10 +242,10 @@ _panel = None
 def show():
     """Show the Maya WebView panel."""
     global _panel
-    
+
     if _panel is None:
         _panel = MayaWebViewPanel()
-    
+
     _panel.show()
 
 

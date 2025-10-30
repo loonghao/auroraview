@@ -8,9 +8,18 @@ This example demonstrates:
 3. Bidirectional communication (Python ↔ JavaScript)
 4. Event-driven updates
 
-CRITICAL THREADING PATTERN:
-All Maya commands MUST be queued with maya.utils.executeDeferred()
-to avoid freezing Maya's main thread.
+CRITICAL THREADING PATTERN FOR MAYA:
+- WebView MUST be created in Maya's main thread (not in background thread)
+- Use scriptJob to periodically call process_events() for message processing
+- All Maya commands MUST be queued with maya.utils.executeDeferred()
+- DO NOT use show_async() - it creates the window in a background thread which causes freezing
+
+CORRECT PATTERN:
+1. Create WebView in main thread (this script runs in main thread)
+2. Load HTML content
+3. Register event handlers
+4. Create scriptJob to call process_events() periodically
+5. Window will be responsive and Maya won't freeze
 """
 
 import sys
@@ -25,22 +34,37 @@ from shiboken2 import wrapInstance
 from PySide2.QtWidgets import QWidget
 
 print("=" * 70)
-print("Maya Scene Outliner - DEBUG VERSION")
+print("Maya Scene Outliner - FIXED VERSION")
 print("=" * 70)
+print("")
+print("THREADING MODEL:")
+print("✓ WebView created in Maya's main thread")
+print("✓ scriptJob handles event processing via process_events()")
+print("✓ Maya remains responsive while WebView is open")
+print("=" * 70)
+print("")
 
 # Get Maya main window
+print("🔍 Getting Maya main window handle...")
 main_window_ptr = omui.MQtUtil.mainWindow()
 maya_window = wrapInstance(int(main_window_ptr), QWidget)
 hwnd = maya_window.winId()
+print(f"✅ Maya window HWND: {hwnd}")
+print("")
 
-# Create WebView
+# Create WebView in Maya's main thread
+print("🔨 Creating WebView in main thread...")
+print("   - Mode: Owner (cross-thread safe)")
+print("   - Parent HWND:", hwnd)
 webview = NativeWebView(
     title="Maya Outliner",
     width=400,
     height=600,
     parent_hwnd=hwnd,
-    parent_mode="owner",
+    parent_mode="owner",  # Owner mode is safer for cross-thread scenarios
 )
+print("✅ WebView created successfully")
+print("")
 
 def get_scene_hierarchy():
     """Get Maya scene hierarchy as a tree structure"""
@@ -593,64 +617,72 @@ print("📄 [main] Loading HTML...")
 webview.load_html(html)
 print("✅ [main] HTML loaded")
 
-# Show window (use show_async for non-blocking display in Maya)
-print("🪟 [main] Showing window...")
-webview.show_async()
-print("✅ [main] Window shown (async)")
-
-# Store in global variable
+# Store in global variable BEFORE showing
 import __main__
 __main__.maya_outliner = webview
 print("✅ [main] WebView stored in __main__.maya_outliner")
 
-# Initial refresh will be triggered by the webview_ready event from JavaScript
-print("✅ [main] Initial refresh will be triggered by webview_ready event")
-
-# Create event processing timer
+# CRITICAL: Create event processing timer BEFORE showing window
+# This ensures process_events() is called immediately after window creation
 print("⏱️ [main] Creating event processing timer...")
 
 def process_webview_events():
-    """Process WebView events and check if window should close"""
+    """Process WebView events and check if window should close.
+
+    This function is called by Maya's scriptJob on every idle event.
+    It processes Windows messages for the WebView window without blocking.
+    """
     try:
         if hasattr(__main__, 'maya_outliner'):
             # Process events and check if window should close
+            # This is NON-BLOCKING - it only processes pending messages
             should_close = __main__.maya_outliner._core.process_events()
 
-            # Add debug logging
             if should_close:
                 print("=" * 80)
-                print("🔴 [process_webview_events] should_close = True")
                 print("🔴 [process_webview_events] Window close signal detected!")
                 print("🔴 [process_webview_events] Cleaning up resources...")
                 print("=" * 80)
 
                 # Kill all related scriptJobs
                 if hasattr(__main__, 'maya_outliner_timer'):
-                    print(f"🔴 [process_webview_events] Killing timer job: {__main__.maya_outliner_timer}")
+                    print(f"🔴 Killing timer job: {__main__.maya_outliner_timer}")
                     cmds.scriptJob(kill=__main__.maya_outliner_timer)
                     del __main__.maya_outliner_timer
-                    print("✅ [process_webview_events] Timer job killed")
+                    print("✅ Timer job killed")
 
                 if hasattr(__main__, 'maya_outliner_scene_jobs'):
-                    print(f"🔴 [process_webview_events] Killing {len(__main__.maya_outliner_scene_jobs)} scene jobs")
+                    print(f"🔴 Killing {len(__main__.maya_outliner_scene_jobs)} scene jobs")
                     for job_id in __main__.maya_outliner_scene_jobs:
                         cmds.scriptJob(kill=job_id)
                     del __main__.maya_outliner_scene_jobs
-                    print("✅ [process_webview_events] Scene jobs killed")
+                    print("✅ Scene jobs killed")
 
                 # Delete the WebView object
-                print("🔴 [process_webview_events] Deleting WebView object...")
+                print("🔴 Deleting WebView object...")
                 del __main__.maya_outliner
-                print("✅ [process_webview_events] WebView object deleted")
+                print("✅ WebView object deleted")
                 print("=" * 80)
 
     except Exception as e:
         print(f"⚠️ [process_webview_events] Error: {e}")
         traceback.print_exc()
 
+# Create the timer BEFORE showing the window
 timer_id = cmds.scriptJob(event=["idle", process_webview_events])
 __main__.maya_outliner_timer = timer_id
 print(f"✅ [main] Event processing timer created (ID: {timer_id})")
+
+# NOW show the window
+# CRITICAL: Use show() NOT show_async()
+# The window is created in Maya's main thread (this thread)
+# The scriptJob will handle message processing via process_events()
+print("🪟 [main] Showing window in main thread...")
+webview.show()
+print("✅ [main] Window shown (non-blocking via scriptJob)")
+
+# Initial refresh will be triggered by the webview_ready event from JavaScript
+print("✅ [main] Initial refresh will be triggered by webview_ready event")
 
 # Create scene change listeners for auto-refresh
 print("👂 [main] Creating scene change listeners...")
