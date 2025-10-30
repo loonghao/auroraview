@@ -23,6 +23,8 @@ pub struct WebViewInner {
     pub(crate) event_loop: Option<tao::event_loop::EventLoop<UserEvent>>,
     /// Message queue for thread-safe communication
     pub(crate) message_queue: Arc<MessageQueue>,
+    /// Event loop proxy for sending close events (standalone mode only)
+    pub(crate) event_loop_proxy: Option<tao::event_loop::EventLoopProxy<UserEvent>>,
 }
 
 impl Drop for WebViewInner {

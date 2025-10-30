@@ -347,6 +347,7 @@ pub fn create_embedded(
         window: Some(window),
         event_loop: Some(event_loop),
         message_queue,
+        event_loop_proxy: None,  // Embedded mode doesn't use event loop proxy
     })
 }
 
