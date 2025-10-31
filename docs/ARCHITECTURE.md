@@ -260,10 +260,10 @@ def handle_export(data):
 
 ### Short Term
 
-1. ✅ Complete Qt backend implementation
-2. ✅ Add macOS support for Native backend
-3. ✅ Add Linux support for Native backend
-4. ✅ Improve error handling and diagnostics
+1. [OK] Complete Qt backend implementation
+2. [OK] Add macOS support for Native backend
+3. [OK] Add Linux support for Native backend
+4. [OK] Improve error handling and diagnostics
 
 ### Long Term
 

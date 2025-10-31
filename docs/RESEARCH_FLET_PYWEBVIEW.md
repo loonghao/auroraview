@@ -33,14 +33,14 @@ ft.run(main)  # 创建独立的 Flutter 窗口
 ```
 
 **关键发现:**
-- ✅ Flet **不支持嵌入到其他应用** (如 Maya)
-- ✅ 所有窗口都是**独立的顶层窗口**
-- ✅ 使用 Flutter 的窗口生命周期管理
-- ✅ 不涉及 Windows HWND 父子关系
+- [OK] Flet **不支持嵌入到其他应用** (如 Maya)
+- [OK] 所有窗口都是**独立的顶层窗口**
+- [OK] 使用 Flutter 的窗口生命周期管理
+- [OK] 不涉及 Windows HWND 父子关系
 
 ### 1.3 对 AuroraView 的启示
 
-❌ **Flet 不适用于我们的场景**,因为:
+[ERROR] **Flet 不适用于我们的场景**,因为:
 1. 不支持嵌入到 DCC 应用(Maya, Houdini 等)
 2. 必须是独立应用
 3. 无法解决我们的 HWND 嵌入问题
@@ -58,9 +58,9 @@ ft.run(main)  # 创建独立的 Flutter 窗口
 - **语言**: Python (使用 pythonnet 调用 .NET)
 
 **关键特点:**
-1. ✅ **支持嵌入模式** - 可以设置 parent window
-2. ✅ **轻量级** - 使用系统原生 WebView
-3. ✅ **跨平台** - 支持主流桌面平台
+1. [OK] **支持嵌入模式** - 可以设置 parent window
+2. [OK] **轻量级** - 使用系统原生 WebView
+3. [OK] **跨平台** - 支持主流桌面平台
 
 ### 2.2 Windows 实现 (WinForms)
 
@@ -127,9 +127,9 @@ def set_parent(self, parent_handle):
 ```
 
 **关键点:**
-- ✅ 使用 `SetParent` API 设置父子关系
-- ✅ WinForms 自动处理所有窗口消息
-- ✅ 不需要手动 pump 消息
+- [OK] 使用 `SetParent` API 设置父子关系
+- [OK] WinForms 自动处理所有窗口消息
+- [OK] 不需要手动 pump 消息
 
 ### 2.5 为什么 pywebview 没有我们的问题?
 
@@ -158,9 +158,9 @@ Rust (wry/tao) → Windows API → HWND
 ```
 
 **问题:**
-- ❌ 使用 `tao` 创建窗口,但在嵌入模式下**不运行事件循环**
-- ❌ 调用 `DestroyWindow()` 后,消息队列中的 WM_DESTROY 无人处理
-- ❌ 窗口句柄被销毁,但窗口仍然可见
+- [ERROR] 使用 `tao` 创建窗口,但在嵌入模式下**不运行事件循环**
+- [ERROR] 调用 `DestroyWindow()` 后,消息队列中的 WM_DESTROY 无人处理
+- [ERROR] 窗口句柄被销毁,但窗口仍然可见
 
 ### 3.2 pywebview 的架构
 
@@ -169,9 +169,9 @@ Python → pythonnet → C# WinForms → Windows API
 ```
 
 **优势:**
-- ✅ WinForms 提供完整的消息循环
-- ✅ 事件系统自动处理窗口关闭
-- ✅ 框架级别的资源管理
+- [OK] WinForms 提供完整的消息循环
+- [OK] 事件系统自动处理窗口关闭
+- [OK] 框架级别的资源管理
 
 ---
 
@@ -185,9 +185,9 @@ Python → pythonnet → C# WinForms → Windows API
 - 性能优秀
 
 **缺点:**
-- ❌ 需要手动处理 Windows 消息
-- ❌ 嵌入模式下的窗口管理复杂
-- ❌ 需要自己实现消息泵
+- [ERROR] 需要手动处理 Windows 消息
+- [ERROR] 嵌入模式下的窗口管理复杂
+- [ERROR] 需要自己实现消息泵
 
 **当前修复:**
 ```rust
@@ -204,11 +204,11 @@ while PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool() {
 ### 方案 B: 使用 Qt WebEngine (推荐)
 
 **优点:**
-- ✅ 完整的窗口管理框架
-- ✅ 自动处理所有消息
-- ✅ 与 DCC 应用(Maya/Houdini)完美集成
-- ✅ 跨平台支持
-- ✅ 成熟稳定
+- [OK] 完整的窗口管理框架
+- [OK] 自动处理所有消息
+- [OK] 与 DCC 应用(Maya/Houdini)完美集成
+- [OK] 跨平台支持
+- [OK] 成熟稳定
 
 **缺点:**
 - 需要 Qt 依赖
@@ -227,14 +227,14 @@ class AuroraViewQt(QWebEngineView):
 ### 方案 C: 使用 WinForms (类似 pywebview)
 
 **优点:**
-- ✅ 完整的消息循环
-- ✅ 事件驱动模型
-- ✅ 自动资源管理
+- [OK] 完整的消息循环
+- [OK] 事件驱动模型
+- [OK] 自动资源管理
 
 **缺点:**
-- ❌ 仅支持 Windows
-- ❌ 需要 pythonnet 依赖
-- ❌ 跨平台支持差
+- [ERROR] 仅支持 Windows
+- [ERROR] 需要 pythonnet 依赖
+- [ERROR] 跨平台支持差
 
 ---
 
@@ -261,21 +261,21 @@ unsafe {
 }
 ```
 
-**状态**: ✅ 已实现并测试
+**状态**: [OK] 已实现并测试
 
 ### 5.2 长期方案 (推荐)
 
 **迁移到 Qt WebEngine**
 
 **理由:**
-1. ✅ **完全避免 HWND 问题** - Qt 框架自动处理
-2. ✅ **与 DCC 应用完美集成** - Maya/Houdini 都使用 Qt
-3. ✅ **跨平台支持** - Windows, macOS, Linux
-4. ✅ **成熟稳定** - Qt WebEngine 是成熟的解决方案
-5. ✅ **简化代码** - 不需要处理底层 Windows API
+1. [OK] **完全避免 HWND 问题** - Qt 框架自动处理
+2. [OK] **与 DCC 应用完美集成** - Maya/Houdini 都使用 Qt
+3. [OK] **跨平台支持** - Windows, macOS, Linux
+4. [OK] **成熟稳定** - Qt WebEngine 是成熟的解决方案
+5. [OK] **简化代码** - 不需要处理底层 Windows API
 
 **实现路径:**
-1. 创建 `python/auroraview/qt_webview.py` (✅ 已完成)
+1. 创建 `python/auroraview/qt_webview.py` ([OK] 已完成)
 2. 提供与现有 API 兼容的接口
 3. 逐步迁移用户到 Qt 版本
 4. 长期废弃 Rust 版本
@@ -286,13 +286,13 @@ unsafe {
 
 ### 6.1 Flet
 
-- ❌ **不适用** - 不支持嵌入模式
+- [ERROR] **不适用** - 不支持嵌入模式
 - 使用 Flutter 独立窗口
 - 无法解决我们的问题
 
 ### 6.2 pywebview
 
-- ✅ **部分适用** - 支持嵌入模式
+- [OK] **部分适用** - 支持嵌入模式
 - 使用 WinForms 框架避免手动消息处理
 - 关键: **框架级别的消息循环**
 
@@ -325,8 +325,8 @@ unsafe {
 **pywebview**: 使用 WinForms 框架避免手动消息处理,这是关键
 
 **AuroraView 最佳方案**: 
-- **短期**: 继续使用 Rust + 手动消息处理 ✅
-- **长期**: 迁移到 Qt WebEngine 🎯
+- **短期**: 继续使用 Rust + 手动消息处理 [OK]
+- **长期**: 迁移到 Qt WebEngine [GOAL]
 
 Qt WebEngine 方案可以完全避免当前的所有 HWND 相关问题,并提供更好的 DCC 集成。
 

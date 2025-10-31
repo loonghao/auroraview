@@ -2,7 +2,7 @@
 
 This directory contains examples for integrating AuroraView with Autodesk Maya.
 
-## 📋 Examples Overview
+##  Examples Overview
 
 ### 01: Basic Integration (Native Backend)
 **File**: `01_basic_integration.py`
@@ -69,19 +69,19 @@ import maya.03_qt_integration as example
 example.show()
 ```
 
-## 🔧 Backend Comparison
+## [CONFIG] Backend Comparison
 
 ### Native Backend (`01_basic_integration.py`, `02_outliner_native.py`)
 
 **Pros**:
-- ✅ No additional dependencies
-- ✅ Works in all Maya versions
-- ✅ Maximum compatibility
-- ✅ Lightweight
+- [OK] No additional dependencies
+- [OK] Works in all Maya versions
+- [OK] Maximum compatibility
+- [OK] Lightweight
 
 **Cons**:
-- ⚠️ Requires HWND handling
-- ⚠️ Need to use `show_async()` for non-blocking display
+- [WARNING] Requires HWND handling
+- [WARNING] Need to use `show_async()` for non-blocking display
 
 **Code Pattern**:
 ```python
@@ -107,14 +107,14 @@ webview.show_async()  # Non-blocking
 ### Qt Backend (`03_qt_integration.py`)
 
 **Pros**:
-- ✅ Seamless Qt integration
-- ✅ No HWND handling
-- ✅ Can use Qt layouts/signals/slots
-- ✅ Better UI integration
+- [OK] Seamless Qt integration
+- [OK] No HWND handling
+- [OK] Can use Qt layouts/signals/slots
+- [OK] Better UI integration
 
 **Cons**:
-- ⚠️ Requires `pip install auroraview[qt]`
-- ⚠️ Additional dependency (qtpy)
+- [WARNING] Requires `pip install auroraview[qt]`
+- [WARNING] Additional dependency (qtpy)
 
 **Code Pattern**:
 ```python
@@ -135,7 +135,7 @@ webview = QtWebView(
 webview.show()  # Standard Qt show()
 ```
 
-## 🎯 Choosing the Right Backend
+## [GOAL] Choosing the Right Backend
 
 ### Use Native Backend When:
 - You want minimal dependencies
@@ -149,7 +149,7 @@ webview.show()  # Standard Qt show()
 - You need to use Qt layouts
 - You want to connect Qt signals/slots
 
-## 💡 Best Practices
+## [INFO] Best Practices
 
 ### 1. Thread Safety
 Always use `maya.utils.executeDeferred()` for Maya commands triggered from JavaScript:
@@ -207,7 +207,7 @@ timer_id = cmds.scriptJob(event=["idle", process_events])
 __main__.my_webview_timer = timer_id
 ```
 
-## 🐛 Common Issues
+##  Common Issues
 
 ### Issue: Window doesn't appear
 **Solution**: Make sure you're using `show_async()` for Native backend:
@@ -237,13 +237,13 @@ sys.path.insert(0, r'C:\path\to\dcc_webview')
 from auroraview import NativeWebView
 ```
 
-## 📚 Additional Resources
+## [DOCS] Additional Resources
 
 - [Main Examples README](../README.md)
 - [Architecture Documentation](../../docs/ARCHITECTURE.md)
 - [API Reference](../../README.md)
 
-## 🎓 Learning Path
+## [LEARN] Learning Path
 
 1. **Start with `01_basic_integration.py`**
    - Understand basic Maya integration
@@ -260,6 +260,6 @@ from auroraview import NativeWebView
    - Learn advanced patterns
    - Understand event processing
 
-## 🤝 Contributing
+## [HANDSHAKE] Contributing
 
 Found a bug or have an improvement? Please open an issue or submit a pull request!

@@ -47,10 +47,10 @@ pub fn process_events(&self) -> bool {
     
     // Use specific HWND if available, otherwise fall back to all windows
     let should_quit = if let Some(hwnd_value) = hwnd {
-        tracing::debug!("🟢 [process_events] Processing messages for HWND: 0x{:X}", hwnd_value);
+        tracing::debug!("[OK] [process_events] Processing messages for HWND: 0x{:X}", hwnd_value);
         message_pump::process_messages_for_hwnd(hwnd_value)
     } else {
-        tracing::debug!("🟢 [process_events] Processing messages for all windows");
+        tracing::debug!("[OK] [process_events] Processing messages for all windows");
         message_pump::process_all_messages()
     };
     
@@ -78,7 +78,7 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
 
             // Check for window close messages
             if msg.message == WM_CLOSE {
-                tracing::info!("🟢 [process_messages_for_hwnd] WM_CLOSE received");
+                tracing::info!("[OK] [process_messages_for_hwnd] WM_CLOSE received");
                 should_close = true;
                 continue;  // Don't dispatch WM_CLOSE
             }
@@ -104,7 +104,7 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
 **Before**:
 ```rust
 if msg.message == WM_CLOSE {
-    let result = DestroyWindow(msg.hwnd);  // ❌ Immediate destruction
+    let result = DestroyWindow(msg.hwnd);  // [ERROR] Immediate destruction
     should_close = true;
     continue;
 }
@@ -113,7 +113,7 @@ if msg.message == WM_CLOSE {
 **After**:
 ```rust
 if msg.message == WM_CLOSE {
-    should_close = true;  // ✅ Just set flag
+    should_close = true;  // [OK] Just set flag
     continue;  // Let Python handle cleanup
 }
 ```
@@ -133,9 +133,9 @@ Added HWND logging during window creation:
         let raw_handle = window_handle.as_raw();
         if let RawWindowHandle::Win32(handle) = raw_handle {
             let hwnd_value = handle.hwnd.get();
-            tracing::info!("✅ [create_embedded] Window created successfully");
-            tracing::info!("🟢 [create_embedded] WebView HWND: 0x{:X} ({})", hwnd_value, hwnd_value);
-            tracing::info!("🟢 [create_embedded] Parent HWND: 0x{:X} ({})", parent_hwnd, parent_hwnd);
+            tracing::info!("[OK] [create_embedded] Window created successfully");
+            tracing::info!("[OK] [create_embedded] WebView HWND: 0x{:X} ({})", hwnd_value, hwnd_value);
+            tracing::info!("[OK] [create_embedded] Parent HWND: 0x{:X} ({})", parent_hwnd, parent_hwnd);
         }
     }
 }
@@ -152,7 +152,7 @@ Added HWND logging during window creation:
    ```
 3. **Verify build success**:
    ```
-   ✅ Core module rebuilt and installed successfully!
+   [OK] Core module rebuilt and installed successfully!
    ```
 
 ### Test Procedure
@@ -173,19 +173,19 @@ Added HWND logging during window creation:
 4. **Verify window creation logs**:
    Look for these lines in Maya Script Editor:
    ```
-   ✅ [create_embedded] Window created successfully
-   🟢 [create_embedded] WebView HWND: 0x... (...)
-   🟢 [create_embedded] Parent HWND: 0x... (...)
+   [OK] [create_embedded] Window created successfully
+   [OK] [create_embedded] WebView HWND: 0x... (...)
+   [OK] [create_embedded] Parent HWND: 0x... (...)
    ```
 
 5. **Test HTML button close**:
-   - Click the "✕ Close" button in the WebView UI
+   - Click the "[CLOSE] Close" button in the WebView UI
    - Expected: Window closes normally
    - Expected logs:
      ```
-     📤 [closeWindow] Button clicked!
-     🔒 [handle_close] CLOSE EVENT RECEIVED!
-     ✅ [_do_close] webview.close() completed
+     [SEND] [closeWindow] Button clicked!
+     [LOCK] [handle_close] CLOSE EVENT RECEIVED!
+     [OK] [_do_close] webview.close() completed
      ```
 
 6. **Test system X button close**:
@@ -194,10 +194,10 @@ Added HWND logging during window creation:
    - Expected: Window closes normally
    - Expected logs:
      ```
-     🟢 [process_messages_for_hwnd] WM_CLOSE received (X button clicked)
-     🟢 [process_messages_for_hwnd] should_close set to true
-     🟢 [process_events] should_quit = true
-     🟢 [process_events] Window close signal detected!
+     [OK] [process_messages_for_hwnd] WM_CLOSE received (X button clicked)
+     [OK] [process_messages_for_hwnd] should_close set to true
+     [OK] [process_events] should_quit = true
+     [OK] [process_events] Window close signal detected!
      ```
 
 7. **Test DevTools**:
@@ -207,7 +207,7 @@ Added HWND logging during window creation:
 
 8. **Test refresh functionality**:
    - Create some objects in Maya scene
-   - Click "🔄 Refresh" button
+   - Click "[REFRESH] Refresh" button
    - Expected: Object list updates
 
 9. **Test process cleanup**:
@@ -218,7 +218,7 @@ Added HWND logging during window creation:
 
 ## Expected Behavior
 
-### ✅ Success Criteria
+### [OK] Success Criteria
 
 1. **HTML button close**: Works (already working before fix)
 2. **System X button close**: Works (fixed by this PR)
@@ -227,27 +227,27 @@ Added HWND logging during window creation:
 5. **Process cleanup**: No residual processes after Maya exit
 6. **Logs**: Complete event flow visible in Maya Script Editor
 
-### 📋 Log Sequence for System X Button
+###  Log Sequence for System X Button
 
 ```
-🟢 [process_events] Processing messages for HWND: 0x...
-🟢 [process_messages_for_hwnd] Message #1: 0x0010 (HWND: ...)
+[OK] [process_events] Processing messages for HWND: 0x...
+[OK] [process_messages_for_hwnd] Message #1: 0x0010 (HWND: ...)
 ================================================================================
-🟢 [process_messages_for_hwnd] WM_CLOSE received (X button clicked)
-🟢 [process_messages_for_hwnd] Message HWND: ...
-🟢 [process_messages_for_hwnd] Setting should_close flag...
-🟢 [process_messages_for_hwnd] should_close set to true
-🟢 [process_messages_for_hwnd] Will return to Python for cleanup
+[OK] [process_messages_for_hwnd] WM_CLOSE received (X button clicked)
+[OK] [process_messages_for_hwnd] Message HWND: ...
+[OK] [process_messages_for_hwnd] Setting should_close flag...
+[OK] [process_messages_for_hwnd] should_close set to true
+[OK] [process_messages_for_hwnd] Will return to Python for cleanup
 ================================================================================
-🟢 [process_messages_for_hwnd] Returning should_close = true
+[OK] [process_messages_for_hwnd] Returning should_close = true
 ================================================================================
-🟢 [process_events] should_quit = true
-🟢 [process_events] Window close signal detected!
-🟢 [process_events] Returning true to Python...
+[OK] [process_events] should_quit = true
+[OK] [process_events] Window close signal detected!
+[OK] [process_events] Returning true to Python...
 ================================================================================
-🔴 [process_events] should_close = True
-🔴 [process_events] Window close signal detected!
-🔴 [process_events] Cleaning up resources...
+[CLOSE] [process_events] should_close = True
+[CLOSE] [process_events] Window close signal detected!
+[CLOSE] [process_events] Cleaning up resources...
 ```
 
 ## Technical Details

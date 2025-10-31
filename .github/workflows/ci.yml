@@ -156,12 +156,12 @@ jobs:
         run: |
           # Check if all required jobs passed
           if [[ "${{ needs.quick-test.result }}" != "success" ]]; then
-            echo "❌ Quick tests failed"
+            echo "[ERROR] Quick tests failed"
             exit 1
           fi
           if [[ "${{ needs.lint.result }}" != "success" ]]; then
-            echo "❌ Linting failed"
+            echo "[ERROR] Linting failed"
             exit 1
           fi
-          echo "✅ All required CI checks passed"
+          echo "[OK] All required CI checks passed"
 

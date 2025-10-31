@@ -47,41 +47,41 @@ def main():
         width=900,
         height=700
     )
-    logger.info("✓ WebView created")
+    logger.info("[OK] WebView created")
     logger.info("")
-    
+
     # Register event handlers
     logger.info("Registering event handlers...")
-    
+
     @webview.on("button_clicked")
     def handle_button_click(data):
         """Handle button click from JavaScript."""
-        logger.info(f"📥 Button clicked: {data}")
-        
+        logger.info(f"[RECV] Button clicked: {data}")
+
         # Send response back to JavaScript
         webview.emit("python_response", {
             "message": f"Received your click on '{data.get('button')}'!",
             "timestamp": datetime.now().isoformat()
         })
-    
+
     @webview.on("get_data")
     def handle_get_data(data):
         """Handle data request from JavaScript."""
-        logger.info(f"📥 Data requested: {data}")
-        
+        logger.info(f"[RECV] Data requested: {data}")
+
         # Send data to JavaScript
         webview.emit("data_response", {
             "items": ["Item 1", "Item 2", "Item 3"],
             "count": 3,
             "timestamp": datetime.now().isoformat()
         })
-    
+
     @webview.on("log_message")
     def handle_log(data):
         """Handle log message from JavaScript."""
-        logger.info(f"📥 JavaScript log: {data.get('message')}")
-    
-    logger.info("✓ Event handlers registered")
+        logger.info(f"[RECV] JavaScript log: {data.get('message')}")
+
+    logger.info("[OK] Event handlers registered")
     logger.info("")
     
     # HTML content with event communication
@@ -154,7 +154,7 @@ def main():
     </head>
     <body>
         <div class="container">
-            <h1>🔄 Event Communication</h1>
+            <h1>Event Communication</h1>
             <p class="subtitle">Bidirectional Python ↔ JavaScript Communication</p>
             
             <div class="section">
@@ -229,7 +229,7 @@ def main():
     # Load HTML
     logger.info("Loading HTML content...")
     webview.load_html(html_content)
-    logger.info("✓ HTML loaded")
+    logger.info("[OK] HTML loaded")
     logger.info("")
     
     # Show window

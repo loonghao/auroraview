@@ -5,7 +5,7 @@
 //!
 //! ## Status
 //!
-//! ⚠️ **EXPERIMENTAL** - This backend is under development and not ready for production use.
+//! [WARNING] **EXPERIMENTAL** - This backend is under development and not ready for production use.
 //!
 //! ## Architecture
 //!
@@ -139,8 +139,8 @@ impl ServoBackend {
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        tracing::warn!("⚠️ Servo backend is experimental and not yet implemented");
-        tracing::info!("📋 Configuration: {:?}", config);
+        tracing::warn!("[WARNING] Servo backend is experimental and not yet implemented");
+        tracing::info!(" Configuration: {:?}", config);
         
         // TODO: Implement Servo initialization
         // For now, return an error
@@ -191,19 +191,19 @@ impl WebViewBackend for ServoBackend {
     }
 
     fn load_url(&mut self, url: &str) -> Result<(), Box<dyn std::error::Error>> {
-        tracing::info!("📄 Loading URL: {}", url);
+        tracing::info!("[DOCUMENT] Loading URL: {}", url);
         // TODO: Implement URL loading in Servo
         Err("Not yet implemented".into())
     }
 
     fn load_html(&mut self, html: &str) -> Result<(), Box<dyn std::error::Error>> {
-        tracing::info!("📄 Loading HTML ({} bytes)", html.len());
+        tracing::info!("[DOCUMENT] Loading HTML ({} bytes)", html.len());
         // TODO: Implement HTML loading in Servo
         Err("Not yet implemented".into())
     }
 
     fn eval_js(&mut self, script: &str) -> Result<(), Box<dyn std::error::Error>> {
-        tracing::info!("🔧 Evaluating JavaScript ({} bytes)", script.len());
+        tracing::info!("[CONFIG] Evaluating JavaScript ({} bytes)", script.len());
         // TODO: Implement JavaScript execution in Servo
         Err("Not yet implemented".into())
     }
@@ -213,7 +213,7 @@ impl WebViewBackend for ServoBackend {
         event_name: &str,
         data: serde_json::Value,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        tracing::info!("📤 Emitting event: {}", event_name);
+        tracing::info!("[SEND] Emitting event: {}", event_name);
         // TODO: Implement event emission to JavaScript
         Err("Not yet implemented".into())
     }

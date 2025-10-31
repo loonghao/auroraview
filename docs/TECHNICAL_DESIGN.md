@@ -215,12 +215,12 @@ Compare to:
 
 | DCC Software | Python Version | Status | Notes |
 |--------------|----------------|--------|-------|
-| Maya 2022+ | 3.7+ | ✅ Supported | Full support |
-| 3ds Max 2023+ | 3.7+ | ✅ Supported | Windows only |
-| Houdini 19+ | 3.7+ | ✅ Supported | All platforms |
-| Blender 3.0+ | 3.9+ | ✅ Supported | All platforms |
-| Photoshop 2024+ | 3.7+ | 🚧 Planned | Via UXP |
-| Unreal Engine 5+ | 3.7+ | 🚧 Planned | Via Python API |
+| Maya 2022+ | 3.7+ | [OK] Supported | Full support |
+| 3ds Max 2023+ | 3.7+ | [OK] Supported | Windows only |
+| Houdini 19+ | 3.7+ | [OK] Supported | All platforms |
+| Blender 3.0+ | 3.9+ | [OK] Supported | All platforms |
+| Photoshop 2024+ | 3.7+ | [CONSTRUCTION] Planned | Via UXP |
+| Unreal Engine 5+ | 3.7+ | [CONSTRUCTION] Planned | Via Python API |
 
 ### Integration Patterns
 

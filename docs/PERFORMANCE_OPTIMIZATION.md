@@ -44,7 +44,7 @@
 
 ## 优化方案
 
-### 1. Loading 页面（立即实施）✅
+### 1. Loading 页面（立即实施）[OK]
 
 **原理**: 先显示轻量级的 loading 页面，然后异步加载实际内容。
 
@@ -107,11 +107,11 @@ threading.Thread(target=load_content).start()
 ```
 
 **效果**:
-- ✅ 用户立即看到 loading 动画（100-200ms）
-- ✅ 感知性能提升 60-80%
-- ✅ 实际加载时间不变，但体验更好
+- [OK] 用户立即看到 loading 动画（100-200ms）
+- [OK] 感知性能提升 60-80%
+- [OK] 实际加载时间不变，但体验更好
 
-### 2. 性能监控（立即实施）✅
+### 2. 性能监控（立即实施）[OK]
 
 **原理**: 测量各个阶段的加载时间，识别瓶颈。
 
@@ -151,10 +151,10 @@ window.addEventListener('load', () => {
 ```python
 @webview.on("first_paint")
 def handle_first_paint(data):
-    print(f"✅ First paint: {data.get('time', 0):.2f} ms")
+    print(f"[OK] First paint: {data.get('time', 0):.2f} ms")
 ```
 
-### 3. HTML 优化（立即实施）✅
+### 3. HTML 优化（立即实施）[OK]
 
 **原理**: 优化 HTML 结构，减少解析时间。
 
@@ -206,7 +206,7 @@ def handle_first_paint(data):
 </html>
 ```
 
-### 4. IPC 性能优化（短期实施）🔄
+### 4. IPC 性能优化（短期实施）[REFRESH]
 
 **原理**: 减少 Python GIL 锁定时间，批量处理消息。
 
@@ -233,11 +233,11 @@ def handle_event_batch(batch):
 ```
 
 **性能提升**:
-- ✅ GIL 锁定次数减少 90%
-- ✅ 吞吐量提升 5-10x
-- ✅ 延迟略微增加（16ms）
+- [OK] GIL 锁定次数减少 90%
+- [OK] 吞吐量提升 5-10x
+- [OK] 延迟略微增加（16ms）
 
-### 5. 资源优化（短期实施）🔄
+### 5. 资源优化（短期实施）[REFRESH]
 
 **图片优化**:
 
@@ -444,26 +444,26 @@ cmds.scriptJob(event=["idle", process_events])
 
 ### 立即实施（高优先级）
 
-1. ✅ 添加 loading 页面
-2. ✅ 实现性能监控
-3. ✅ 优化 HTML 结构
+1. [OK] 添加 loading 页面
+2. [OK] 实现性能监控
+3. [OK] 优化 HTML 结构
 
 ### 短期实施（中优先级）
 
-1. 🔄 启用 IPC 批处理
-2. 🔄 优化资源加载
-3. 🔄 实现懒加载
+1. [REFRESH] 启用 IPC 批处理
+2. [REFRESH] 优化资源加载
+3. [REFRESH] 实现懒加载
 
 ### 长期规划（低优先级）
 
-1. 📌 评估 Servo 集成
-2. 📌 考虑其他优化方案
-3. 📌 持续性能监控
+1.  评估 Servo 集成
+2.  考虑其他优化方案
+3.  持续性能监控
 
 ### 预期效果
 
-- ✅ 首屏可见时间减少 75%
-- ✅ IPC 吞吐量提升 700%
-- ✅ 用户满意度提升 50%
-- ✅ 整体性能提升 40-60%
+- [OK] 首屏可见时间减少 75%
+- [OK] IPC 吞吐量提升 700%
+- [OK] 用户满意度提升 50%
+- [OK] 整体性能提升 40-60%
 

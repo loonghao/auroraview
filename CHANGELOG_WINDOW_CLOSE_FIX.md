@@ -9,9 +9,9 @@
 
 ### 症状
 当创建嵌入式窗口(设置了 `parent_hwnd`)时:
-- ✅ `DestroyWindow()` 调用成功
-- ✅ 所有清理步骤完成
-- ❌ **窗口仍然显示在屏幕上**
+- [OK] `DestroyWindow()` 调用成功
+- [OK] 所有清理步骤完成
+- [ERROR] **窗口仍然显示在屏幕上**
 
 ### 根本原因
 Windows 窗口销毁机制:
@@ -138,14 +138,14 @@ std::thread::sleep(std::time::Duration::from_millis(50));
 1. 编译最新代码: `cargo build --release`
 2. 复制 DLL: `Copy-Item target\release\auroraview_core.dll python\auroraview\_core.pyd`
 3. 在 Maya 中运行测试脚本
-4. 点击 "✕ Close Window" 按钮
+4. 点击 "[CLOSE] Close Window" 按钮
 5. 验证窗口消失
 
 ### 预期结果
-- ✅ 窗口从屏幕上完全消失
-- ✅ 没有残留的窗口或视觉伪影
-- ✅ Maya 仍然正常运行
-- ✅ 日志显示处理了 WM_DESTROY 和 WM_NCDESTROY 消息
+- [OK] 窗口从屏幕上完全消失
+- [OK] 没有残留的窗口或视觉伪影
+- [OK] Maya 仍然正常运行
+- [OK] 日志显示处理了 WM_DESTROY 和 WM_NCDESTROY 消息
 
 ### 实际结果
 待测试...
@@ -182,12 +182,12 @@ std::thread::sleep(std::time::Duration::from_millis(50));
 
 ### 兼容性
 
-- ✅ Windows 10/11
-- ✅ Maya 2020+
-- ✅ 独立模式(无 parent_hwnd)
-- ✅ 嵌入模式(有 parent_hwnd)
-- ✅ Child 模式
-- ✅ Owner 模式
+- [OK] Windows 10/11
+- [OK] Maya 2020+
+- [OK] 独立模式(无 parent_hwnd)
+- [OK] 嵌入模式(有 parent_hwnd)
+- [OK] Child 模式
+- [OK] Owner 模式
 
 ## 后续改进
 

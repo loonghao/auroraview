@@ -2,7 +2,7 @@
 
 This directory contains examples demonstrating AuroraView's capabilities in different scenarios.
 
-## 📁 Directory Structure
+## [FOLDER] Directory Structure
 
 ```
 examples/
@@ -16,7 +16,7 @@ examples/
     └── 03_qt_integration.py       # Qt backend integration
 ```
 
-## 🚀 Standalone Examples
+## [LAUNCH] Standalone Examples
 
 ### 01: Basic Window
 **File**: `01_basic_window.py`
@@ -49,7 +49,7 @@ Demonstrates bidirectional communication between Python and JavaScript.
 python examples/02_event_communication.py
 ```
 
-## 🎨 Maya Examples
+## [PALETTE] Maya Examples
 
 See [maya/README.md](maya/README.md) for detailed Maya integration examples.
 
@@ -73,7 +73,7 @@ import maya.03_qt_integration as example
 example.show()
 ```
 
-## 📚 Learning Path
+## [DOCS] Learning Path
 
 1. **Start with standalone examples** to understand basic concepts:
    - `01_basic_window.py` - Window creation and HTML rendering
@@ -84,7 +84,7 @@ example.show()
    - `maya/03_qt_integration.py` - Qt backend alternative
    - `maya/02_outliner_native.py` - Advanced real-world example
 
-## 🔧 Backend Comparison
+## [CONFIG] Backend Comparison
 
 | Feature | Native Backend | Qt Backend |
 |---------|---------------|------------|
@@ -95,18 +95,18 @@ example.show()
 | **Example** | `01_basic_integration.py` | `03_qt_integration.py` |
 
 ### When to Use Native Backend
-- ✅ Maximum compatibility
-- ✅ Minimal dependencies
-- ✅ Standalone applications
-- ✅ DCCs without Qt (Blender, 3ds Max)
+- [OK] Maximum compatibility
+- [OK] Minimal dependencies
+- [OK] Standalone applications
+- [OK] DCCs without Qt (Blender, 3ds Max)
 
 ### When to Use Qt Backend
-- ✅ Qt-based DCCs (Maya, Houdini, Nuke)
-- ✅ Need Qt widget integration
-- ✅ Want to use Qt layouts/signals/slots
-- ✅ Seamless UI integration
+- [OK] Qt-based DCCs (Maya, Houdini, Nuke)
+- [OK] Need Qt widget integration
+- [OK] Want to use Qt layouts/signals/slots
+- [OK] Seamless UI integration
 
-## 💡 Tips
+## [INFO] Tips
 
 ### Debugging
 Enable debug logging:
@@ -126,7 +126,7 @@ logging.basicConfig(level=logging.DEBUG)
 - Clean up resources when closing windows
 - Use `parent_mode="owner"` for cross-thread safety in Maya
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Import Errors
 ```python
@@ -147,12 +147,12 @@ pip install auroraview[qt]
 - Use `parent_mode="owner"` for better stability
 - Check Maya's Python version matches your installation
 
-## 📖 Additional Resources
+##  Additional Resources
 
 - [Architecture Documentation](../docs/ARCHITECTURE.md)
 - [API Reference](../README.md)
 - [Project Repository](https://github.com/loonghao/auroraview)
 
-## 🤝 Contributing
+## [HANDSHAKE] Contributing
 
 Found a bug or have an improvement? Please open an issue or submit a pull request!

@@ -6,7 +6,8 @@ Test script for window decorations (title bar) control.
 This script demonstrates:
 1. Creating a WebView without decorations (no title bar)
 2. Custom HTML-based window controls
-3. Proper window closing via JavaScript events
+3. Custom window dragging using JavaScript events
+4. Proper window closing via JavaScript events
 """
 
 import sys
@@ -41,20 +42,20 @@ html = """
             display: flex;
             justify-content: space-between;
             align-items: center;
-            -webkit-app-region: drag; /* Make it draggable */
+            cursor: move; /* Indicate draggable area */
+            user-select: none; /* Prevent text selection during drag */
             backdrop-filter: blur(10px);
         }
-        
+
         .title-bar h1 {
             font-size: 14px;
             font-weight: 600;
             letter-spacing: 0.5px;
         }
-        
+
         .window-controls {
             display: flex;
             gap: 8px;
-            -webkit-app-region: no-drag; /* Buttons should be clickable */
         }
         
         .window-controls button {
@@ -136,22 +137,22 @@ html = """
 <body>
     <!-- Custom title bar -->
     <div class="title-bar">
-        <h1>✨ AuroraView - No Decorations Demo</h1>
+        <h1>AuroraView - No Decorations Demo</h1>
         <div class="window-controls">
-            <button onclick="testEvent()" title="Test Event">🔔</button>
-            <button class="close" onclick="closeWindow()" title="Close">✕</button>
+            <button onclick="testEvent()" title="Test Event">[BELL]</button>
+            <button class="close" onclick="closeWindow()" title="Close">[X]</button>
         </div>
     </div>
-    
+
     <!-- Content -->
     <div class="content">
-        <h2>🎨 Custom Window Controls</h2>
+        <h2>Custom Window Controls</h2>
         <p>
             This window has no native title bar (decorations=False).
             All controls are custom HTML/CSS/JavaScript.
         </p>
         <button class="demo-button" onclick="testEvent()">
-            🚀 Test Event
+            Test Event
         </button>
         <div class="status" id="status">
             Ready. Click the test button or close button.
@@ -159,10 +160,10 @@ html = """
     </div>
     
     <script>
-        console.log('🟢 [init] Script loaded');
+        console.log('[OK] [init] Script loaded');
         
         function testEvent() {
-            console.log('📤 [testEvent] Sending test event to Python...');
+            console.log('[SEND] [testEvent] Sending test event to Python...');
             const event = new CustomEvent('test_event', {
                 detail: {
                     message: 'Hello from JavaScript!',
@@ -176,7 +177,7 @@ html = """
         }
         
         function closeWindow() {
-            console.log('📤 [closeWindow] Sending close event to Python...');
+            console.log('[SEND] [closeWindow] Sending close event to Python...');
             const event = new CustomEvent('close_window', {
                 detail: {
                     source: 'close_button',
@@ -184,14 +185,72 @@ html = """
                 }
             });
             window.dispatchEvent(event);
-            
-            document.getElementById('status').textContent = 
+
+            document.getElementById('status').textContent =
                 'Close requested...';
         }
-        
+
+        // Window dragging functionality
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let windowStartX = 0;
+        let windowStartY = 0;
+
+        const titleBar = document.querySelector('.title-bar');
+
+        titleBar.addEventListener('mousedown', (e) => {
+            // Don't drag if clicking on buttons
+            if (e.target.closest('.window-controls')) {
+                return;
+            }
+
+            isDragging = true;
+            dragStartX = e.screenX;
+            dragStartY = e.screenY;
+
+            // Calculate current window position from screen coordinates
+            windowStartX = e.screenX - e.clientX;
+            windowStartY = e.screenY - e.clientY;
+
+            titleBar.style.opacity = '0.8';
+            console.log('[OK] [drag] Started:', { dragStartX, dragStartY, windowStartX, windowStartY });
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            // Calculate new window position
+            const deltaX = e.screenX - dragStartX;
+            const deltaY = e.screenY - dragStartY;
+
+            const newX = windowStartX + deltaX;
+            const newY = windowStartY + deltaY;
+
+            // Send move_window event to Python
+            try {
+                window.dispatchEvent(new CustomEvent('move_window', {
+                    detail: {
+                        x: newX,
+                        y: newY
+                    }
+                }));
+            } catch (err) {
+                console.error('[ERROR] [drag] Failed to send move_window event:', err);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                titleBar.style.opacity = '1';
+                console.log('[OK] [drag] Stopped');
+            }
+        });
+
         // Notify Python that we're ready
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('🟢 [DOMContentLoaded] Page ready');
+            console.log('[OK] [DOMContentLoaded] Page ready');
             const event = new CustomEvent('webview_ready', {
                 detail: { timestamp: Date.now() }
             });
@@ -217,18 +276,30 @@ webview = NativeWebView.standalone(
 # Event handlers
 @webview.on("webview_ready")
 def handle_ready(data):
-    print(f"✅ WebView ready: {data}")
+    print(f"[OK] WebView ready: {data}")
 
 @webview.on("test_event")
 def handle_test(data):
-    print(f"🔔 Test event received: {data}")
+    print(f" Test event received: {data}")
+
+@webview.on("move_window")
+def handle_move_window(data):
+    """Handle window move request from JavaScript (for custom title bar dragging)"""
+    x = data.get('x', 0)
+    y = data.get('y', 0)
+
+    # Call the Rust backend to move the window
+    try:
+        webview._core.set_window_position(int(x), int(y))
+    except Exception as e:
+        print(f"[ERROR] Failed to move window: {e}")
 
 @webview.on("close_window")
 def handle_close(data):
-    print(f"🔴 Close requested: {data}")
+    print(f"[CLOSE] Close requested: {data}")
     print("Closing window...")
     webview.close()
-    print("✅ Window closed")
+    print("[OK] Window closed")
 
 # Load HTML
 webview.load_html(html)
@@ -237,5 +308,5 @@ webview.load_html(html)
 print("Showing window...")
 print("NOTE: In standalone mode, show() is blocking until window closes")
 webview.show()
-print("✅ Window closed by user")
+print("[OK] Window closed by user")
 

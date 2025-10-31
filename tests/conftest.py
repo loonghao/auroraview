@@ -94,17 +94,17 @@ def setup_test_environment():
 def test_logger(request):
     """
     Auto-use fixture that logs test start/end.
-    
+
     Provides better visibility into test execution.
     """
     test_name = request.node.name
     print(f"\n{'='*80}")
-    print(f"Starting test: {test_name}")
+    print(f"[START] test: {test_name}")
     print(f"{'='*80}")
-    
+
     yield
-    
+
     print(f"\n{'='*80}")
-    print(f"Finished test: {test_name}")
+    print(f"[END] test: {test_name}")
     print(f"{'='*80}")
 

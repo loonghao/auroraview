@@ -27,71 +27,71 @@ function Show-Help {
 }
 
 function Build-Package {
-    Write-Host "🔨 Building package..." -ForegroundColor Cyan
+    Write-Host " Building package..." -ForegroundColor Cyan
     maturin develop --release
 }
 
 function Run-Tests {
-    Write-Host "🧪 Running tests..." -ForegroundColor Cyan
-    
+    Write-Host "Running tests..." -ForegroundColor Cyan
+
     Write-Host ""
     Write-Host "Running Rust tests..." -ForegroundColor Yellow
     cargo test
-    
+
     Write-Host ""
     Write-Host "Running Python tests..." -ForegroundColor Yellow
     uv run pytest tests/ -v
-    
+
     Write-Host ""
     Write-Host "Running standalone test..." -ForegroundColor Yellow
     uv run python examples/standalone_test.py
 }
 
 function Format-Code {
-    Write-Host "🎨 Formatting code..." -ForegroundColor Cyan
-    
+    Write-Host "Formatting code..." -ForegroundColor Cyan
+
     Write-Host ""
     Write-Host "Formatting Rust code..." -ForegroundColor Yellow
     cargo fmt --all
-    
+
     Write-Host ""
     Write-Host "Formatting Python code..." -ForegroundColor Yellow
     uv run ruff format python/ tests/ examples/
 }
 
 function Run-Linters {
-    Write-Host "🔍 Running linters..." -ForegroundColor Cyan
-    
+    Write-Host "Running linters..." -ForegroundColor Cyan
+
     Write-Host ""
     Write-Host "Running Rust clippy..." -ForegroundColor Yellow
     cargo clippy --all-targets --all-features
-    
+
     Write-Host ""
     Write-Host "Running Python ruff..." -ForegroundColor Yellow
     uv run ruff check python/ tests/ examples/
 }
 
 function Clean-Artifacts {
-    Write-Host "🧹 Cleaning build artifacts..." -ForegroundColor Cyan
-    
+    Write-Host "Cleaning build artifacts..." -ForegroundColor Cyan
+
     if (Test-Path "target") {
         Remove-Item -Recurse -Force "target"
-        Write-Host "✓ Removed target/" -ForegroundColor Green
+        Write-Host "[OK] Removed target/" -ForegroundColor Green
     }
-    
+
     if (Test-Path "dist") {
         Remove-Item -Recurse -Force "dist"
-        Write-Host "✓ Removed dist/" -ForegroundColor Green
+        Write-Host "[OK] Removed dist/" -ForegroundColor Green
     }
-    
+
     Get-ChildItem -Recurse -Filter "__pycache__" | Remove-Item -Recurse -Force
-    Write-Host "✓ Removed __pycache__/" -ForegroundColor Green
-    
+    Write-Host "[OK] Removed __pycache__/" -ForegroundColor Green
+
     Get-ChildItem -Recurse -Filter "*.pyc" | Remove-Item -Force
-    Write-Host "✓ Removed *.pyc files" -ForegroundColor Green
-    
+    Write-Host "[OK] Removed *.pyc files" -ForegroundColor Green
+
     Write-Host ""
-    Write-Host "✅ Clean completed!" -ForegroundColor Green
+    Write-Host "Clean completed!" -ForegroundColor Green
 }
 
 # Main script logic
@@ -103,7 +103,7 @@ switch ($Command.ToLower()) {
     "clean" { Clean-Artifacts }
     "help" { Show-Help }
     default {
-        Write-Host "❌ Unknown command: $Command" -ForegroundColor Red
+        Write-Host "[ERROR] Unknown command: $Command" -ForegroundColor Red
         Write-Host ""
         Show-Help
         exit 1

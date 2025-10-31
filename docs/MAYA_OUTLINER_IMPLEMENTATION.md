@@ -1,8 +1,8 @@
 # Maya Outliner WebView - 修复总结
 
-## 🔧 修复的三个问题
+## [CONFIG] 修复的三个问题
 
-### 问题1：WebView 无法关闭 ✅
+### 问题1：WebView 无法关闭 [OK]
 
 **根源**：
 - 事件处理器监听了错误的事件名称 `av.close`
@@ -11,7 +11,7 @@
 
 **修复方案**：
 1. 将事件处理器改为监听 `close_window` 事件
-2. 在 HTML UI 中添加关闭按钮（红色 ✕ 按钮）
+2. 在 HTML UI 中添加关闭按钮（红色 [CLOSE] 按钮）
 3. 添加 `closeWindow()` JavaScript 函数，通过 IPC 发送关闭事件
 4. 改进 Python 端的关闭处理，添加更好的错误处理和日志
 
@@ -28,7 +28,7 @@
 
 ---
 
-### 问题2：场景物体未显示 ❌ → ✅
+### 问题2：场景物体未显示 [ERROR] → [OK]
 
 **根源**：
 - 初始刷新时序问题：`delayed_initial_refresh()` 在 WebView 完全初始化前被调用
@@ -54,7 +54,7 @@ for _ in range(3):
 
 ---
 
-### 问题3：手动刷新功能失效 ❌ → ✅
+### 问题3：手动刷新功能失效 [ERROR] → [OK]
 
 **根源**：
 - JavaScript 使用 `window.dispatchEvent()` 发送自定义事件
@@ -97,7 +97,7 @@ window.ipc.postMessage(JSON.stringify({
 
 ---
 
-## 📋 修改清单
+##  修改清单
 
 | 文件 | 修改项 | 行号 |
 |------|--------|------|
@@ -113,7 +113,7 @@ window.ipc.postMessage(JSON.stringify({
 
 ---
 
-## 🧪 测试方法
+## [TEST] 测试方法
 
 ### 在 Maya 中测试
 
@@ -125,11 +125,11 @@ exec(open(r'C:\path\to\outliner_view.py').read())
 # - 应该看到 pSphere1-6 等物体在 Outliner 中显示
 
 # 3. 测试刷新功能
-# - 点击 "🔄 Refresh" 按钮
+# - 点击 "[REFRESH] Refresh" 按钮
 # - 应该看到物体列表更新
 
 # 4. 测试关闭功能
-# - 点击 "✕ Close" 按钮
+# - 点击 "[CLOSE] Close" 按钮
 # - WebView 窗口应该正常关闭
 
 # 5. 测试选择功能
@@ -138,13 +138,13 @@ exec(open(r'C:\path\to\outliner_view.py').read())
 
 # 6. 测试右键菜单
 # - 右键点击物体
-# - 选择 "✏️ Rename" 或 "🗑️ Delete"
+# - 选择 "[EDIT] Rename" 或 "[DELETE] Delete"
 # - 应该能正常重命名或删除
 ```
 
 ---
 
-## 🔍 技术细节
+## [SEARCH] 技术细节
 
 ### IPC 通信机制
 
@@ -169,7 +169,7 @@ AuroraView 使用 IPC (Inter-Process Communication) 实现 Python-JavaScript 通
 
 ---
 
-## ✅ 验证清单
+## [OK] 验证清单
 
 - [x] WebView 可以通过关闭按钮正常关闭
 - [x] 场景物体在 WebView 启动时显示
@@ -180,7 +180,7 @@ AuroraView 使用 IPC (Inter-Process Communication) 实现 Python-JavaScript 通
 
 ---
 
-## 📚 相关文档
+## [DOCS] 相关文档
 
 - `README_MAYA_INTEGRATION.md` - Maya 集成指南
 - `TECHNICAL_DESIGN.md` - 技术设计文档

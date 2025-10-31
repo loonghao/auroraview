@@ -10,20 +10,20 @@
 
 A blazingly fast, lightweight WebView framework for DCC (Digital Content Creation) software, built with Rust and Python bindings. Perfect for Maya, 3ds Max, Houdini, Blender, and more.
 
-## 🎯 Overview
+## [TARGET] Overview
 
 AuroraView provides a modern web-based UI solution for professional DCC applications like Maya, 3ds Max, Houdini, Blender, Photoshop, and Unreal Engine. Built on Rust's Wry library with PyO3 bindings, it offers native performance with minimal overhead.
 
 ### Why AuroraView?
 
-- **🚀 Lightweight**: ~5MB package size vs ~120MB for Electron
-- **⚡ Fast**: Native performance with <30MB memory footprint (2.5x faster than PyWebView)
-- **🔗 Seamless Integration**: Easy Python API for all major DCC tools
-- **🌐 Modern Web Stack**: Use React, Vue, or any web framework
-- **🔒 Safe**: Rust's memory safety guarantees
-- **📦 Cross-Platform**: Windows, macOS, and Linux support
-- **🎯 DCC-First Design**: Built specifically for DCC software, not a generic framework
-- **⚙️ Type-Safe**: Full type checking with Rust + Python
+- ** Lightweight**: ~5MB package size vs ~120MB for Electron
+- **[LIGHTNING] Fast**: Native performance with <30MB memory footprint (2.5x faster than PyWebView)
+- **[LINK] Seamless Integration**: Easy Python API for all major DCC tools
+- **[GLOBE] Modern Web Stack**: Use React, Vue, or any web framework
+- **[LOCK] Safe**: Rust's memory safety guarantees
+- **[PACKAGE] Cross-Platform**: Windows, macOS, and Linux support
+- **[TARGET] DCC-First Design**: Built specifically for DCC software, not a generic framework
+- **[SETTINGS] Type-Safe**: Full type checking with Rust + Python
 
 ### Comparison with PyWebView
 
@@ -36,13 +36,13 @@ AuroraView is **not** a fork of PyWebView. It's a completely new project designe
 | **Type Safety** | Dynamic | Static (Rust) |
 | **Memory Usage** | ~100MB | ~50MB |
 | **Event Latency** | ~50ms | ~10ms |
-| **Maya Support** | ⚠️ Unstable | ✅ Full support |
-| **Houdini Support** | ❌ Not recommended | ✅ Full support |
-| **Blender Support** | ⚠️ Unstable | ✅ Full support |
+| **Maya Support** | [WARNING] Unstable | [OK] Full support |
+| **Houdini Support** | [ERROR] Not recommended | [OK] Full support |
+| **Blender Support** | [WARNING] Unstable | [OK] Full support |
 
-👉 **[Read the full comparison](./docs/COMPARISON_WITH_PYWEBVIEW.md)** to understand why AuroraView is better for DCC development.
+[POINTER] **[Read the full comparison](./docs/COMPARISON_WITH_PYWEBVIEW.md)** to understand why AuroraView is better for DCC development.
 
-## 🏗️ Architecture
+## [ARCHITECTURE] Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -66,39 +66,39 @@ AuroraView is **not** a fork of PyWebView. It's a completely new project designe
 │    Windows: WebView2 | macOS: WKWebView | Linux: WebKit│
 └─────────────────────────────────────────────────────────┘
 ```
-## 🧱 Technical Framework
+##  Technical Framework
 
 - Core stack: Rust 1.75+, PyO3 0.22 (abi3), Wry 0.47, Tao 0.30
 - Web engines: Windows (WebView2), macOS (WKWebView), Linux (WebKitGTK)
-- Packaging: maturin with abi3 → one wheel works for CPython 3.7–3.12
-- Event loop: blocking show() by default; non‑blocking mode planned for host loops
+- Packaging: maturin with abi3 → one wheel works for CPython 3.73.12
+- Event loop: blocking show() by default; nonblocking mode planned for host loops
 - Deferred loading: URL/HTML set before show() are stored then applied at creation
 - IPC: bidirectional event bus (Python ↔ JavaScript via CustomEvent)
 - Protocols: custom scheme/resource loaders for local assets (e.g., dcc://)
 - Embedding: parent window handle (HWND/NSView/WId) roadmap for DCC hosts
-- Security: opt‑in devtools, CSP hooks, remote URL allowlist (planned)
+- Security: optin devtools, CSP hooks, remote URL allowlist (planned)
 - Performance targets: <150ms first paint (local HTML), <50MB baseline RSS
 
 ### Technical Details
 - Python API: `auroraview.WebView` wraps Rust core with ergonomic helpers
-- Rust core: interior‑mutable config (Arc<Mutex<...>>) enables safe pre‑show updates
-- Lifecycle: create WebView on `show()`, then apply last‑write‑wins URL/HTML
+- Rust core: interiormutable config (Arc<Mutex<...>>) enables safe preshow updates
+- Lifecycle: create WebView on `show()`, then apply lastwritewins URL/HTML
 - JS bridge: `emit(event, data)` from Python; `window.dispatchEvent(new CustomEvent('py', {detail:{event:'xyz', data:{...}}}))` from JS back to Python via IpcHandler
 - Logging: `tracing` on Rust side; `logging` on Python side
 - Testing: pytest unit smoke + cargo tests; wheels built in CI for 3 OSes
 
 
-## ✨ Features
+## [FEATURE] Features
 
-- ✅ **Native WebView Integration**: Uses system WebView for minimal footprint
-- ✅ **Bidirectional Communication**: Python ↔ JavaScript IPC
-- ✅ **Custom Protocol Handler**: Load resources from DCC projects
-- ✅ **Event System**: Reactive event-driven architecture
-- ✅ **Multi-Window Support**: Create multiple WebView instances
-- ✅ **Thread-Safe**: Safe concurrent operations
-- ✅ **Hot Reload**: Development mode with live reload
+- [OK] **Native WebView Integration**: Uses system WebView for minimal footprint
+- [OK] **Bidirectional Communication**: Python ↔ JavaScript IPC
+- [OK] **Custom Protocol Handler**: Load resources from DCC projects
+- [OK] **Event System**: Reactive event-driven architecture
+- [OK] **Multi-Window Support**: Create multiple WebView instances
+- [OK] **Thread-Safe**: Safe concurrent operations
+- [OK] **Hot Reload**: Development mode with live reload
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Installation
 
@@ -168,15 +168,15 @@ webview.show()
 ```
 
 **When to use Qt backend:**
-- ✅ Your DCC already has Qt loaded (Maya, Houdini, Nuke)
-- ✅ You want seamless Qt widget integration
-- ✅ You need to use Qt layouts and signals/slots
+- [OK] Your DCC already has Qt loaded (Maya, Houdini, Nuke)
+- [OK] You want seamless Qt widget integration
+- [OK] You need to use Qt layouts and signals/slots
 
 **When to use Native backend:**
-- ✅ Maximum compatibility across all platforms
-- ✅ Standalone applications
-- ✅ DCCs without Qt (Blender, 3ds Max)
-- ✅ Minimal dependencies
+- [OK] Maximum compatibility across all platforms
+- [OK] Standalone applications
+- [OK] DCCs without Qt (Blender, 3ds Max)
+- [OK] Minimal dependencies
 
 ### Bidirectional Communication
 
@@ -193,32 +193,32 @@ def handle_export(data):
     # Your DCC export logic here
 ```
 
-## 📚 Documentation
+## [DOCS] Documentation
 
 **Start here:**
-- 📖 [Architecture](./docs/ARCHITECTURE.md) - **NEW!** Modular backend architecture
-- 📖 [Project Summary](./docs/SUMMARY.md) - Overview and key advantages
-- 📖 [Current Status](./docs/CURRENT_STATUS.md) - What's done and what's next
+-  [Architecture](./docs/ARCHITECTURE.md) - **NEW!** Modular backend architecture
+-  [Project Summary](./docs/SUMMARY.md) - Overview and key advantages
+-  [Current Status](./docs/CURRENT_STATUS.md) - What's done and what's next
 
 **Detailed Guides:**
-- 📖 [Technical Design](./docs/TECHNICAL_DESIGN.md)
-- 📖 [DCC Integration Guide](./docs/DCC_INTEGRATION_GUIDE.md)
-- 📖 [Project Advantages](./docs/PROJECT_ADVANTAGES.md) - Why AuroraView is better than PyWebView
-- 📖 [Comparison with PyWebView](./docs/COMPARISON_WITH_PYWEBVIEW.md)
-- 📖 [Project Roadmap](./docs/ROADMAP.md)
+-  [Technical Design](./docs/TECHNICAL_DESIGN.md)
+-  [DCC Integration Guide](./docs/DCC_INTEGRATION_GUIDE.md)
+-  [Project Advantages](./docs/PROJECT_ADVANTAGES.md) - Why AuroraView is better than PyWebView
+-  [Comparison with PyWebView](./docs/COMPARISON_WITH_PYWEBVIEW.md)
+-  [Project Roadmap](./docs/ROADMAP.md)
 
-## 🎨 DCC Software Support
+##  DCC Software Support
 
 | DCC Software | Status | Python Version | Example |
 |--------------|--------|----------------|---------|
-| Maya | ✅ Supported | 3.7+ | [example](./examples/maya/) |
-| 3ds Max | ✅ Supported | 3.7+ | - |
-| Houdini | ✅ Supported | 3.7+ | [example](./examples/houdini/) |
-| Blender | ✅ Supported | 3.7+ | [example](./examples/blender/) |
-| Photoshop | 🚧 Planned | 3.7+ | - |
-| Unreal Engine | 🚧 Planned | 3.7+ | - |
+| Maya | [OK] Supported | 3.7+ | [example](./examples/maya/) |
+| 3ds Max | [OK] Supported | 3.7+ | - |
+| Houdini | [OK] Supported | 3.7+ | [example](./examples/houdini/) |
+| Blender | [OK] Supported | 3.7+ | [example](./examples/blender/) |
+| Photoshop | [CONSTRUCTION] Planned | 3.7+ | - |
+| Unreal Engine | [CONSTRUCTION] Planned | 3.7+ | - |
 
-## 🛠️ Development
+## [TOOLS] Development
 
 ### Prerequisites
 
@@ -250,7 +250,7 @@ cargo test
 pytest tests/
 ```
 
-## 📦 Project Structure
+## [PACKAGE] Project Structure
 
 ```
 auroraview/
@@ -262,21 +262,21 @@ auroraview/
 └── benches/                # Performance benchmarks
 ```
 
-## 🤝 Contributing
+## [HANDSHAKE] Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](./CONTRIBUTING.md) for details.
 
-## 📄 License
+## [DOCUMENT] License
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## [THANKS] Acknowledgments
 
 - [Wry](https://github.com/tauri-apps/wry) - Cross-platform WebView library
 - [PyO3](https://github.com/PyO3/pyo3) - Rust bindings for Python
 - [Tauri](https://tauri.app/) - Inspiration and ecosystem
 
-## 📮 Contact
+## [MAILBOX] Contact
 
 - Author: Hal Long
 - Email: hal.long@outlook.com

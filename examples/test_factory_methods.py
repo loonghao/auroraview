@@ -77,7 +77,7 @@ def test_standalone():
     </head>
     <body>
         <div class="container">
-            <h1>✨ Standalone Window</h1>
+            <h1>[FEATURE] Standalone Window</h1>
             <p>Created using factory method</p>
             <div class="api-info">
                 <strong>API Usage:</strong><br>
@@ -95,7 +95,7 @@ def test_standalone():
     
     webview.load_html(html)
     
-    print("✅ Standalone window created successfully")
+    print("[OK] Standalone window created successfully")
     print("   - Using: NativeWebView.standalone()")
     print("   - No parent_hwnd or parent_mode needed")
     print("   - Clear and intuitive API")
@@ -104,7 +104,7 @@ def test_standalone():
     
     webview.show()
     
-    print("✅ Window closed")
+    print("[OK] Window closed")
 
 
 def test_api_comparison():
@@ -113,7 +113,7 @@ def test_api_comparison():
     print("API Comparison: Old vs New")
     print("=" * 60)
     
-    print("\n❌ OLD API (Confusing):")
+    print("\n[ERROR] OLD API (Confusing):")
     print("-" * 60)
     print("""
 # Standalone window - unclear what None means
@@ -131,7 +131,7 @@ webview = NativeWebView(
 )
     """)
     
-    print("\n✅ NEW API (Clear):")
+    print("\n[OK] NEW API (Clear):")
     print("-" * 60)
     print("""
 # Standalone window - crystal clear
@@ -149,14 +149,14 @@ webview = NativeWebView.embedded(
 )
     """)
     
-    print("\n📚 Benefits of New API:")
+    print("\n[DOCS] Benefits of New API:")
     print("-" * 60)
-    print("1. ✅ Clear intent - standalone() vs embedded()")
-    print("2. ✅ No confusing None parameters")
-    print("3. ✅ Better parameter names (mode vs parent_mode)")
-    print("4. ✅ Self-documenting code")
-    print("5. ✅ Easier to discover via IDE autocomplete")
-    print("6. ✅ Backward compatible - old API still works")
+    print("1. [OK] Clear intent - standalone() vs embedded()")
+    print("2. [OK] No confusing None parameters")
+    print("3. [OK] Better parameter names (mode vs parent_mode)")
+    print("4. [OK] Self-documenting code")
+    print("5. [OK] Easier to discover via IDE autocomplete")
+    print("6. [OK] Backward compatible - old API still works")
     print("")
 
 
@@ -169,6 +169,6 @@ if __name__ == "__main__":
     test_standalone()
     
     print("\n" + "=" * 60)
-    print("✅ All tests completed successfully!")
+    print("[OK] All tests completed successfully!")
     print("=" * 60)
 

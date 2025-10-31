@@ -29,11 +29,11 @@ pub struct WebViewInner {
 
 impl Drop for WebViewInner {
     fn drop(&mut self) {
-        tracing::info!("🔴 [WebViewInner::drop] Cleaning up WebView resources");
+        tracing::info!("[CLOSE] [WebViewInner::drop] Cleaning up WebView resources");
 
         // Close the window if it exists
         if let Some(window) = self.window.take() {
-            tracing::info!("🔴 [WebViewInner::drop] Setting window invisible");
+            tracing::info!("[CLOSE] [WebViewInner::drop] Setting window invisible");
             window.set_visible(false);
 
             // On Windows, explicitly destroy the window and process cleanup messages
@@ -54,17 +54,17 @@ impl Drop for WebViewInner {
                         let hwnd = HWND(hwnd_value as *mut c_void);
 
                         tracing::info!(
-                            "🔴 [WebViewInner::drop] Calling DestroyWindow on HWND: {:?}",
+                            "[CLOSE] [WebViewInner::drop] Calling DestroyWindow on HWND: {:?}",
                             hwnd
                         );
                         unsafe {
                             let result = DestroyWindow(hwnd);
                             if result.is_ok() {
-                                tracing::info!("✅ [WebViewInner::drop] DestroyWindow succeeded");
+                                tracing::info!("[OK] [WebViewInner::drop] DestroyWindow succeeded");
 
                                 // Process pending messages to ensure proper cleanup
                                 tracing::info!(
-                                    "🔴 [WebViewInner::drop] Processing pending window messages..."
+                                    "[CLOSE] [WebViewInner::drop] Processing pending window messages..."
                                 );
                                 let mut msg = MSG::default();
                                 let mut processed_count = 0;
@@ -77,11 +77,11 @@ impl Drop for WebViewInner {
 
                                     if msg.message == WM_DESTROY {
                                         tracing::info!(
-                                            "🔴 [WebViewInner::drop] Processing WM_DESTROY"
+                                            "[CLOSE] [WebViewInner::drop] Processing WM_DESTROY"
                                         );
                                     } else if msg.message == WM_NCDESTROY {
                                         tracing::info!(
-                                            "🔴 [WebViewInner::drop] Processing WM_NCDESTROY"
+                                            "[CLOSE] [WebViewInner::drop] Processing WM_NCDESTROY"
                                         );
                                     }
 
@@ -90,7 +90,7 @@ impl Drop for WebViewInner {
                                 }
 
                                 tracing::info!(
-                                    "✅ [WebViewInner::drop] Processed {} messages",
+                                    "[OK] [WebViewInner::drop] Processed {} messages",
                                     processed_count
                                 );
 
@@ -98,7 +98,7 @@ impl Drop for WebViewInner {
                                 std::thread::sleep(std::time::Duration::from_millis(50));
                             } else {
                                 tracing::warn!(
-                                    "⚠️ [WebViewInner::drop] DestroyWindow failed: {:?}",
+                                    "[WARNING] [WebViewInner::drop] DestroyWindow failed: {:?}",
                                     result
                                 );
                             }
@@ -110,10 +110,10 @@ impl Drop for WebViewInner {
 
         // Drop the event loop (this will clean up any associated resources)
         if let Some(_event_loop) = self.event_loop.take() {
-            tracing::info!("🔴 [WebViewInner::drop] Event loop dropped");
+            tracing::info!("[CLOSE] [WebViewInner::drop] Event loop dropped");
         }
 
-        tracing::info!("✅ [WebViewInner::drop] Cleanup completed");
+        tracing::info!("[OK] [WebViewInner::drop] Cleanup completed");
     }
 }
 
@@ -300,6 +300,75 @@ impl WebViewInner {
         tracing::info!("Event loop exited");
     }
 
+    /// Set window position
+    ///
+    /// Moves the window to the specified screen coordinates.
+    /// This is useful for implementing custom window dragging in frameless windows.
+    ///
+    /// # Arguments
+    /// * `x` - X coordinate in screen pixels
+    /// * `y` - Y coordinate in screen pixels
+    ///
+    /// # Platform-specific behavior
+    /// - Windows: Uses SetWindowPos API
+    /// - macOS/Linux: Uses platform-specific window positioning
+    pub fn set_window_position(&self, x: i32, y: i32) {
+        if let Some(window) = &self.window {
+            #[cfg(target_os = "windows")]
+            {
+                use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+                use std::ffi::c_void;
+                use windows::Win32::Foundation::HWND;
+                use windows::Win32::UI::WindowsAndMessaging::{
+                    SetWindowPos, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER,
+                };
+
+                if let Ok(window_handle) = window.window_handle() {
+                    let raw_handle = window_handle.as_raw();
+                    if let RawWindowHandle::Win32(handle) = raw_handle {
+                        let hwnd_value = handle.hwnd.get();
+                        let hwnd = HWND(hwnd_value as *mut c_void);
+
+                        unsafe {
+                            let result = SetWindowPos(
+                                hwnd,
+                                None,
+                                x,
+                                y,
+                                0,
+                                0,
+                                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                            );
+
+                            if result.is_ok() {
+                                tracing::debug!(
+                                    "[OK] [set_window_position] Window moved to ({}, {})",
+                                    x,
+                                    y
+                                );
+                            } else {
+                                tracing::error!(
+                                    "[ERROR] [set_window_position] Failed to move window to ({}, {})",
+                                    x,
+                                    y
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                use tao::dpi::PhysicalPosition;
+                window.set_outer_position(PhysicalPosition::new(x, y));
+                tracing::debug!("[OK] [set_window_position] Window moved to ({}, {})", x, y);
+            }
+        } else {
+            tracing::warn!("[WARNING] [set_window_position] No window available");
+        }
+    }
+
     /// Process pending window messages (for embedded mode)
     ///
     /// This method processes all pending Windows messages without blocking.
@@ -308,6 +377,9 @@ impl WebViewInner {
     ///
     /// Returns true if the window should be closed, false otherwise.
     pub fn process_events(&self) -> bool {
+        println!("[CLOSE] [process_events] START - Processing events...");
+        tracing::info!("[CLOSE] [process_events] START - Processing events...");
+
         // CRITICAL: For embedded windows, check if window handle is still valid
         // This is the ONLY reliable way to detect when user clicks the X button
         #[cfg(target_os = "windows")]
@@ -329,17 +401,17 @@ impl WebViewInner {
                         let is_valid = unsafe { IsWindow(hwnd).as_bool() };
 
                         // Use println! for direct output to Maya Script Editor
-                        println!("🔍 [process_events] Checking window validity...");
-                        println!("🔍 [process_events] HWND: {:?}", hwnd);
-                        println!("🔍 [process_events] is_valid: {}", is_valid);
+                        println!("[SEARCH] [process_events] Checking window validity...");
+                        println!("[SEARCH] [process_events] HWND: {:?}", hwnd);
+                        println!("[SEARCH] [process_events] is_valid: {}", is_valid);
 
                         if !is_valid {
                             println!("{}", "=".repeat(80));
                             println!(
-                                "🔴 [process_events] ⚠️ Window handle is INVALID - user closed window!"
+                                "[CLOSE] [process_events] [WARNING] Window handle is INVALID - user closed window!"
                             );
-                            println!("🔴 [process_events] HWND: {:?}", hwnd);
-                            println!("🔴 [process_events] Returning true to Python...");
+                            println!("[CLOSE] [process_events] HWND: {:?}", hwnd);
+                            println!("[CLOSE] [process_events] Returning true to Python...");
                             println!("{}", "=".repeat(80));
                             return true;
                         }
@@ -382,16 +454,21 @@ impl WebViewInner {
 
         if should_quit {
             tracing::info!("{}", "=".repeat(80));
-            tracing::info!("🟢 [process_events] should_quit = true");
-            tracing::info!("🟢 [process_events] Window close signal detected!");
-            tracing::info!("🟢 [process_events] Returning true to Python...");
+            tracing::info!("[OK] [process_events] should_quit = true");
+            tracing::info!("[OK] [process_events] Window close signal detected!");
+            tracing::info!("[OK] [process_events] Returning true to Python...");
             tracing::info!("{}", "=".repeat(80));
             return true;
         }
 
         // Process message queue
+        println!("[CLOSE] [process_events] Processing message queue...");
+        tracing::info!("[CLOSE] [process_events] Processing message queue...");
+
         if let Ok(webview) = self.webview.lock() {
+            println!("[CLOSE] [process_events] WebView lock acquired");
             let count = self.message_queue.process_all(|message| {
+                println!("[CLOSE] [process_events] Processing message: {:?}", message);
                 use crate::ipc::WebViewMessage;
                 match message {
                     WebViewMessage::EvalJs(script) => {
@@ -402,18 +479,22 @@ impl WebViewInner {
                     }
                     WebViewMessage::EmitEvent { event_name, data } => {
                         tracing::debug!(
-                            "🟢 [process_events] Emitting event: {} with data: {}",
+                            "[OK] [process_events] Emitting event: {} with data: {}",
                             event_name,
                             data
                         );
+                        // Properly escape JSON data to avoid JavaScript syntax errors
+                        let json_str = data.to_string();
+                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
                         let script = format!(
-                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: {} }}));",
-                            event_name, data
+                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
+                            event_name, escaped_json
                         );
+                        tracing::debug!("[CLOSE] [process_events] Generated script: {}", script);
                         if let Err(e) = webview.evaluate_script(&script) {
                             tracing::error!("Failed to emit event: {}", e);
                         } else {
-                            tracing::debug!("✅ [process_events] Event emitted successfully");
+                            tracing::debug!("[OK] [process_events] Event emitted successfully");
                         }
                     }
                     WebViewMessage::LoadUrl(url) => {
@@ -432,12 +513,20 @@ impl WebViewInner {
             });
 
             if count > 0 {
+                println!("[OK] [process_events] Processed {} messages from queue", count);
                 tracing::debug!(
-                    "🟢 [process_events] Processed {} messages from queue",
+                    "[OK] [process_events] Processed {} messages from queue",
                     count
                 );
+            } else {
+                println!("[OK] [process_events] No messages in queue");
             }
+        } else {
+            println!("[ERROR] [process_events] Failed to lock WebView");
         }
+
+        println!("[CLOSE] [process_events] END - Returning false");
+        tracing::info!("[CLOSE] [process_events] END - Returning false");
 
         false
     }

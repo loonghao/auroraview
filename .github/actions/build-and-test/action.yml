@@ -55,29 +55,29 @@ runs:
       run: |
         case "${{ inputs.test-type }}" in
           "basic")
-            echo "🧪 Running basic import tests..."
+            echo "Running basic import tests..."
             just ci-test-basic
             ;;
           "rust")
-            echo "🧪 Running Rust doc tests (lib tests skipped due to abi3 linking issues)..."
+            echo "Running Rust doc tests (lib tests skipped due to abi3 linking issues)..."
             cargo test --doc
             ;;
           "python")
-            echo "🧪 Running Python unit tests..."
+            echo "Running Python unit tests..."
             just ci-test-python
             ;;
           "full")
-            echo "🧪 Running comprehensive test suite..."
-            echo "  → Rust doc tests..."
+            echo "Running comprehensive test suite..."
+            echo "  -> Rust doc tests..."
             cargo test --doc
-            echo "  → Python unit tests..."
+            echo "  -> Python unit tests..."
             just ci-test-python
-            echo "  → Basic functionality tests..."
+            echo "  -> Basic functionality tests..."
             just ci-test-basic
-            echo "✅ All tests completed"
+            echo "[OK] All tests completed"
             ;;
           *)
-            echo "❌ Unknown test type: ${{ inputs.test-type }}"
+            echo "[ERROR] Unknown test type: ${{ inputs.test-type }}"
             echo "Available types: basic, rust, python, full"
             exit 1
             ;;

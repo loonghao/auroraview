@@ -1,7 +1,43 @@
 //! WebView backend abstraction layer
 //!
 //! This module defines the trait-based architecture for supporting multiple
-//! window integration modes (native embedding, Qt integration, etc.).
+//! rendering engines and window integration modes.
+//!
+//! ## Architecture
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────┐
+//! │              WebViewBackend Trait                       │
+//! │  (Common interface for all rendering engines)           │
+//! └─────────────────────────────────────────────────────────┘
+//!                          ↓
+//!     ┌────────────────────┼────────────────────┐
+//!     ↓                    ↓                    ↓
+//! ┌─────────┐      ┌──────────┐        ┌──────────┐
+//! │  Wry    │      │  Servo   │        │   Qt     │
+//! │ Backend │      │ Backend  │        │ Backend  │
+//! │(Current)│      │ (Future) │        │ (Future) │
+//! └─────────┘      └──────────┘        └──────────┘
+//!     ↓                    ↓                    ↓
+//! WebView2/          WebRender/           Qt WebEngine
+//! WebKit             Stylo
+//! ```
+//!
+//! ## Supported Backends
+//!
+//! - **Native (Wry)**: Current implementation using system WebView
+//!   - Windows: WebView2 (Chromium-based)
+//!   - macOS: WebKit
+//!   - Linux: WebKitGTK
+//!
+//! - **Servo**: Future implementation using Servo rendering engine
+//!   - Pure Rust implementation
+//!   - High-performance parallel rendering
+//!   - Full control over rendering pipeline
+//!
+//! - **Qt**: Future implementation for Qt-based DCC applications
+//!   - Qt WebEngine integration
+//!   - Native Qt widget embedding
 
 use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
@@ -12,6 +48,13 @@ use super::event_loop::UserEvent;
 
 pub mod native;
 pub mod qt;
+
+// Future backends (feature-gated)
+#[cfg(feature = "servo-backend")]
+pub mod servo;
+
+#[cfg(feature = "custom-backend")]
+pub mod custom;
 
 /// Backend trait that all WebView implementations must implement
 ///
@@ -89,9 +132,12 @@ pub trait WebViewBackend {
         event_name: &str,
         data: serde_json::Value,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Properly escape JSON data to avoid JavaScript syntax errors
+        let json_str = data.to_string();
+        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
         let script = format!(
-            "window.dispatchEvent(new CustomEvent('{}', {{ detail: Object.assign({{}}, {{__aurora_from_python: true}}, {}) }}))",
-            event_name, data
+            "window.dispatchEvent(new CustomEvent('{}', {{ detail: Object.assign({{}}, {{__aurora_from_python: true}}, JSON.parse('{}')) }}))",
+            event_name, escaped_json
         );
         if let Ok(webview) = self.webview().lock() {
             webview.evaluate_script(&script)?;
@@ -100,21 +146,83 @@ pub trait WebViewBackend {
     }
 }
 
+/// Rendering engine type for backend selection
+///
+/// This enum allows runtime selection of different rendering engines.
+/// New engines can be added without breaking existing code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RenderingEngine {
+    /// System WebView (WebView2/WebKit/WebKitGTK)
+    ///
+    /// **Pros**: Small binary, system integration, mature
+    /// **Cons**: Version inconsistency, limited control
+    SystemWebView,
+
+    /// Servo rendering engine (future)
+    ///
+    /// **Pros**: Full control, high performance, pure Rust
+    /// **Cons**: Large binary, experimental, limited compatibility
+    #[cfg(feature = "servo-backend")]
+    Servo,
+
+    /// Custom rendering engine (future)
+    ///
+    /// Allows users to provide their own rendering implementation
+    #[cfg(feature = "custom-backend")]
+    Custom,
+}
+
 /// Backend type enum for runtime selection
+///
+/// Combines rendering engine with integration mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackendType {
     /// Native embedding mode (using platform-specific APIs)
-    Native,
+    ///
+    /// Uses system WebView by default, but can be configured
+    /// to use other rendering engines.
+    Native {
+        /// Rendering engine to use
+        engine: RenderingEngine,
+    },
+
     /// Qt integration mode (for DCC environments with Qt)
-    Qt,
+    Qt {
+        /// Rendering engine to use
+        engine: RenderingEngine,
+    },
 }
 
 impl BackendType {
+    /// Create a native backend with system WebView
+    pub fn native() -> Self {
+        BackendType::Native {
+            engine: RenderingEngine::SystemWebView,
+        }
+    }
+
+    /// Create a native backend with Servo (if available)
+    #[cfg(feature = "servo-backend")]
+    pub fn native_servo() -> Self {
+        BackendType::Native {
+            engine: RenderingEngine::Servo,
+        }
+    }
+
+    /// Create a Qt backend with system WebView
+    pub fn qt() -> Self {
+        BackendType::Qt {
+            engine: RenderingEngine::SystemWebView,
+        }
+    }
+
     /// Parse backend type from string
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
-            "native" => Some(BackendType::Native),
-            "qt" => Some(BackendType::Qt),
+            "native" => Some(Self::native()),
+            "qt" => Some(Self::qt()),
+            #[cfg(feature = "servo-backend")]
+            "native-servo" | "servo" => Some(Self::native_servo()),
             _ => None,
         }
     }
@@ -122,8 +230,16 @@ impl BackendType {
     /// Auto-detect the best backend for the current environment
     pub fn auto_detect() -> Self {
         // TODO: Implement Qt detection logic
-        // For now, always use native backend
-        BackendType::Native
+        // For now, always use native backend with system WebView
+        Self::native()
+    }
+
+    /// Get the rendering engine
+    pub fn engine(&self) -> RenderingEngine {
+        match self {
+            BackendType::Native { engine } => *engine,
+            BackendType::Qt { engine } => *engine,
+        }
     }
 }
 

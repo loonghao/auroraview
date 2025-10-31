@@ -2,13 +2,13 @@
 
 ## Threading Model
 
-### ❌ WRONG: Using `show_async()`
+### [ERROR] WRONG: Using `show_async()`
 
 ```python
 # DON'T DO THIS - Will cause Maya to freeze!
 webview = NativeWebView(parent_hwnd=hwnd, parent_mode="owner")
 webview.load_html(html)
-webview.show_async()  # ❌ Creates window in background thread
+webview.show_async()  # [ERROR] Creates window in background thread
 ```
 
 **Why this fails:**
@@ -18,7 +18,7 @@ webview.show_async()  # ❌ Creates window in background thread
 4. Background thread creates the window, but Maya's main thread can't properly handle its messages
 5. Result: **Maya freezes**
 
-### ✅ CORRECT: Using `show()` with scriptJob
+### [OK] CORRECT: Using `show()` with scriptJob
 
 ```python
 # CORRECT PATTERN
@@ -64,11 +64,11 @@ When `parent_hwnd` is set, `show()` behaves differently:
 ```python
 # Standalone mode (no parent_hwnd)
 webview = NativeWebView(title="Standalone")
-webview.show()  # ❌ BLOCKING - runs event loop until window closes
+webview.show()  # [ERROR] BLOCKING - runs event loop until window closes
 
 # Embedded mode (with parent_hwnd)
 webview = NativeWebView(parent_hwnd=hwnd, parent_mode="owner")
-webview.show()  # ✅ NON-BLOCKING - creates window and returns immediately
+webview.show()  # [OK] NON-BLOCKING - creates window and returns immediately
 ```
 
 ### Parent Modes
@@ -155,7 +155,7 @@ __main__.my_webview_timer = timer_id
 # Show window
 webview.show()
 
-print(f"✅ WebView shown (timer ID: {timer_id})")
+print(f"[OK] WebView shown (timer ID: {timer_id})")
 ```
 
 ## Cleanup

@@ -25,17 +25,17 @@
 ```
 
 **优势**:
-- ✅ 使用系统原生 WebView（体积小）
-- ✅ 成熟稳定（WebView2 基于 Chromium）
-- ✅ 与 Tauri 生态系统集成良好
-- ✅ 跨平台支持完善
-- ✅ 文档和社区支持丰富
+- [OK] 使用系统原生 WebView（体积小）
+- [OK] 成熟稳定（WebView2 基于 Chromium）
+- [OK] 与 Tauri 生态系统集成良好
+- [OK] 跨平台支持完善
+- [OK] 文档和社区支持丰富
 
 **劣势**:
-- ❌ 依赖系统 WebView（版本不一致）
-- ❌ 性能受限于系统 WebView
-- ❌ 无法完全控制渲染引擎
-- ❌ 首屏加载时间较长（WebView2 初始化）
+- [ERROR] 依赖系统 WebView（版本不一致）
+- [ERROR] 性能受限于系统 WebView
+- [ERROR] 无法完全控制渲染引擎
+- [ERROR] 首屏加载时间较长（WebView2 初始化）
 
 ### Servo 技术栈（假设集成）
 
@@ -56,20 +56,20 @@
 ```
 
 **优势**:
-- ✅ 完全控制渲染引擎
-- ✅ 高性能并行渲染（WebRender）
-- ✅ 现代化 CSS 引擎（Stylo）
-- ✅ 纯 Rust 实现（类型安全）
-- ✅ 可定制性强
-- ✅ 潜在的更快首屏渲染
+- [OK] 完全控制渲染引擎
+- [OK] 高性能并行渲染（WebRender）
+- [OK] 现代化 CSS 引擎（Stylo）
+- [OK] 纯 Rust 实现（类型安全）
+- [OK] 可定制性强
+- [OK] 潜在的更快首屏渲染
 
 **劣势**:
-- ❌ 体积大（需要打包整个引擎）
-- ❌ 不成熟（仍在开发中）
-- ❌ API 不稳定（频繁变化）
-- ❌ 文档不完善
-- ❌ 集成复杂度高
-- ❌ 可能的兼容性问题
+- [ERROR] 体积大（需要打包整个引擎）
+- [ERROR] 不成熟（仍在开发中）
+- [ERROR] API 不稳定（频繁变化）
+- [ERROR] 文档不完善
+- [ERROR] 集成复杂度高
+- [ERROR] 可能的兼容性问题
 
 ## 性能对比
 
@@ -104,11 +104,11 @@
 #### 当前 Servo 状态（2025年）
 
 根据 [Servo GitHub](https://github.com/servo/servo):
-- ✅ 基本的 HTML/CSS 渲染
-- ✅ JavaScript 支持（SpiderMonkey）
-- ✅ WebGL 支持
-- ⚠️ 部分 Web API 缺失
-- ⚠️ 兼容性问题（非标准行为）
+- [OK] 基本的 HTML/CSS 渲染
+- [OK] JavaScript 支持（SpiderMonkey）
+- [OK] WebGL 支持
+- [WARNING] 部分 Web API 缺失
+- [WARNING] 兼容性问题（非标准行为）
 
 #### 集成步骤
 
@@ -174,14 +174,14 @@
 
 ### 短期（当前项目）
 
-**保持 Wry + WebView2** ✅
+**保持 Wry + WebView2** [OK]
 
 **原因**:
-1. ✅ 成熟稳定
-2. ✅ 集成简单
-3. ✅ 社区支持好
-4. ✅ 体积小
-5. ✅ 跨平台支持完善
+1. [OK] 成熟稳定
+2. [OK] 集成简单
+3. [OK] 社区支持好
+4. [OK] 体积小
+5. [OK] 跨平台支持完善
 
 **优化方向**:
 1. 实现 loading 页面（减少白屏时间）
@@ -191,7 +191,7 @@
 
 ### 中期（6-12个月）
 
-**评估 Servo 集成** 🔍
+**评估 Servo 集成** [SEARCH]
 
 **条件**:
 1. Servo 达到稳定版本
@@ -214,7 +214,7 @@ servo-backend = ["servo", "winit"]
 
 ### 长期（1-2年）
 
-**根据 Servo 发展决定** 🚀
+**根据 Servo 发展决定** [LAUNCH]
 
 **如果 Servo 成熟**:
 - 逐步迁移到 Servo
@@ -269,7 +269,7 @@ button.addEventListener('click', async () => {
 
 ## 结论
 
-### 当前推荐：保持 Wry + WebView2 ✅
+### 当前推荐：保持 Wry + WebView2 [OK]
 
 **原因**:
 1. 成熟稳定，风险低
@@ -277,7 +277,7 @@ button.addEventListener('click', async () => {
 3. 社区支持好
 4. 通过优化可以达到良好性能
 
-### Servo 集成：暂不推荐 ❌
+### Servo 集成：暂不推荐 [ERROR]
 
 **原因**:
 1. 不成熟，风险高
@@ -289,23 +289,23 @@ button.addEventListener('click', async () => {
 ### 建议的优化路径
 
 1. **立即实施**:
-   - ✅ 添加 loading 页面
-   - ✅ 实现性能监控
-   - ✅ 优化 HTML 加载顺序
+   - [OK] 添加 loading 页面
+   - [OK] 实现性能监控
+   - [OK] 优化 HTML 加载顺序
 
 2. **短期（1-3个月）**:
-   - ✅ 优化 IPC 性能（批处理）
-   - ✅ 减少 GIL 锁定时间
-   - ✅ 实现资源预加载
+   - [OK] 优化 IPC 性能（批处理）
+   - [OK] 减少 GIL 锁定时间
+   - [OK] 实现资源预加载
 
 3. **中期（6-12个月）**:
-   - 🔍 评估 Servo 进展
-   - 🔍 考虑其他替代方案
-   - 🔍 持续性能优化
+   - [SEARCH] 评估 Servo 进展
+   - [SEARCH] 考虑其他替代方案
+   - [SEARCH] 持续性能优化
 
 4. **长期（1-2年）**:
-   - 🚀 根据技术发展调整方案
-   - 🚀 保持技术栈现代化
+   - [LAUNCH] 根据技术发展调整方案
+   - [LAUNCH] 保持技术栈现代化
 
 ## 参考资料
 

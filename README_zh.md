@@ -10,20 +10,20 @@
 
 一个为DCC（数字内容创作）软件设计的超快速、轻量级WebView框架，使用Rust构建并提供Python绑定。完美支持Maya、3ds Max、Houdini、Blender等。
 
-## 🎯 概述
+## [TARGET] 概述
 
 AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Photoshop和Unreal Engine）提供现代化的Web UI解决方案。基于Rust的Wry库和PyO3绑定构建，提供原生性能和最小开销。
 
 ### 为什么选择 AuroraView？
 
-- **🚀 轻量级**: 约5MB包体积，而Electron约120MB
-- **⚡ 快速**: 原生性能，内存占用<30MB
-- **🔗 无缝集成**: 为所有主流DCC工具提供简单的Python API
-- **🌐 现代Web技术栈**: 支持React、Vue或任何Web框架
-- **🔒 安全**: Rust的内存安全保证
-- **📦 跨平台**: 支持Windows、macOS和Linux
+- ** 轻量级**: 约5MB包体积，而Electron约120MB
+- **[LIGHTNING] 快速**: 原生性能，内存占用<30MB
+- **[LINK] 无缝集成**: 为所有主流DCC工具提供简单的Python API
+- **[GLOBE] 现代Web技术栈**: 支持React、Vue或任何Web框架
+- **[LOCK] 安全**: Rust的内存安全保证
+- **[PACKAGE] 跨平台**: 支持Windows、macOS和Linux
 
-## 🏗️ 架构
+## [ARCHITECTURE] 架构
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -47,11 +47,11 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 │    Windows: WebView2 | macOS: WKWebView | Linux: WebKit│
 └─────────────────────────────────────────────────────────┘
 ```
-## 🧱 技术框架
+##  技术框架
 
 - 核心栈：Rust 1.75+、PyO3 0.22（abi3）、Wry 0.47、Tao 0.30
 - 引擎：Windows（WebView2）、macOS（WKWebView）、Linux（WebKitGTK）
-- 打包：maturin + abi3 → 单个 wheel 兼容 CPython 3.7–3.12
+- 打包：maturin + abi3 → 单个 wheel 兼容 CPython 3.73.12
 - 事件循环：默认阻塞式 show()；后续提供非阻塞模式以适配宿主循环
 - 延迟加载：在 show() 前设置的 URL/HTML 会保存并在创建时应用（最后写入生效）
 - IPC：Python ↔ JavaScript 双向事件总线（基于 CustomEvent）
@@ -69,17 +69,17 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 - 测试：pytest 冒烟 + cargo 测试；CI 构建三平台 wheel
 
 
-## ✨ 特性
+## 特性
 
-- ✅ **原生WebView集成**: 使用系统WebView，占用空间最小
-- ✅ **双向通信**: Python ↔ JavaScript IPC
-- ✅ **自定义协议处理器**: 从DCC项目加载资源
-- ✅ **事件系统**: 响应式事件驱动架构
-- ✅ **多窗口支持**: 创建多个WebView实例
-- ✅ **线程安全**: 安全的并发操作
-- ✅ **热重载**: 开发模式支持实时重载
+- [OK] **原生WebView集成**: 使用系统WebView，占用空间最小
+- [OK] **双向通信**: Python ↔ JavaScript IPC
+- [OK] **自定义协议处理器**: 从DCC项目加载资源
+- [OK] **事件系统**: 响应式事件驱动架构
+- [OK] **多窗口支持**: 创建多个WebView实例
+- [OK] **线程安全**: 安全的并发操作
+- [OK] **热重载**: 开发模式支持实时重载
 
-## 🚀 快速开始
+## 快速开始
 
 ### 安装
 
@@ -117,28 +117,28 @@ def handle_export(data):
     # 你的DCC导出逻辑
 ```
 
-## 📚 文档
+## [DOCS] 文档
 
-- 📖 [项目综述](./docs/SUMMARY.md)
-- 📖 [当前进展](./docs/CURRENT_STATUS.md)
-- 📖 [技术设计](./docs/TECHNICAL_DESIGN.md)
-- 📖 [DCC 集成指南](./docs/DCC_INTEGRATION_GUIDE.md)
-- 📖 [项目优势](./docs/PROJECT_ADVANTAGES.md)
-- 📖 [与 PyWebView 的对比](./docs/COMPARISON_WITH_PYWEBVIEW.md)
-- 📖 [路线图](./docs/ROADMAP.md)
+-  [项目综述](./docs/SUMMARY.md)
+-  [当前进展](./docs/CURRENT_STATUS.md)
+-  [技术设计](./docs/TECHNICAL_DESIGN.md)
+-  [DCC 集成指南](./docs/DCC_INTEGRATION_GUIDE.md)
+-  [项目优势](./docs/PROJECT_ADVANTAGES.md)
+-  [与 PyWebView 的对比](./docs/COMPARISON_WITH_PYWEBVIEW.md)
+-  [路线图](./docs/ROADMAP.md)
 
-## 🎨 DCC软件支持
+##  DCC软件支持
 
 | DCC软件 | 状态 | Python版本 | 示例 |
 |---------|------|-----------|------|
-| Maya | ✅ 已支持 | 3.7+ | [示例](./examples/maya/) |
-| 3ds Max | ✅ 已支持 | 3.7+ | - |
-| Houdini | ✅ 已支持 | 3.7+ | [示例](./examples/houdini/) |
-| Blender | ✅ 已支持 | 3.7+ | [示例](./examples/blender/) |
-| Photoshop | 🚧 计划中 | 3.7+ | - |
-| Unreal Engine | 🚧 计划中 | 3.7+ | - |
+| Maya | [OK] 已支持 | 3.7+ | [示例](./examples/maya/) |
+| 3ds Max | [OK] 已支持 | 3.7+ | - |
+| Houdini | [OK] 已支持 | 3.7+ | [示例](./examples/houdini/) |
+| Blender | [OK] 已支持 | 3.7+ | [示例](./examples/blender/) |
+| Photoshop | [CONSTRUCTION] 计划中 | 3.7+ | - |
+| Unreal Engine | [CONSTRUCTION] 计划中 | 3.7+ | - |
 
-## 🛠️ 开发
+## [TOOLS] 开发
 
 ### 前置要求
 
@@ -170,7 +170,7 @@ cargo test
 pytest tests/
 ```
 
-## 📦 项目结构
+## [PACKAGE] 项目结构
 
 ```
 auroraview/
@@ -182,21 +182,21 @@ auroraview/
 └── benches/                # 性能基准测试
 ```
 
-## 🤝 贡献
+## [HANDSHAKE] 贡献
 
 欢迎贡献！请阅读我们的[贡献指南](./CONTRIBUTING.md)了解详情。
 
-## 📄 许可证
+## [DOCUMENT] 许可证
 
 本项目采用MIT许可证 - 详见[LICENSE](./LICENSE)文件。
 
-## 🙏 致谢
+## [THANKS] 致谢
 
 - [Wry](https://github.com/tauri-apps/wry) - 跨平台WebView库
 - [PyO3](https://github.com/PyO3/pyo3) - Python的Rust绑定
 - [Tauri](https://tauri.app/) - 灵感和生态系统
 
-## 📮 联系方式
+## [MAILBOX] 联系方式
 
 - 作者: Hal Long
 - 邮箱: hal.long@outlook.com

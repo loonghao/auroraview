@@ -30,10 +30,10 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
         let mut message_count = 0;
 
         tracing::info!(
-            "🟢 [process_messages_for_hwnd] START - Processing messages for HWND: 0x{:X}",
+            "[OK] [process_messages_for_hwnd] START - Processing messages for HWND: 0x{:X}",
             hwnd_value
         );
-        tracing::info!("🟢 [process_messages_for_hwnd] HWND pointer: {:?}", hwnd);
+        tracing::info!("[OK] [process_messages_for_hwnd] HWND pointer: {:?}", hwnd);
 
         // Process all pending messages for this specific window (non-blocking)
         while PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool() {
@@ -46,7 +46,7 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
                 || msg.message == WM_QUIT
             {
                 tracing::debug!(
-                    "🟢 [process_messages_for_hwnd] Message #{}: 0x{:04X} (HWND: {:?})",
+                    "[OK] [process_messages_for_hwnd] Message #{}: 0x{:04X} (HWND: {:?})",
                     message_count,
                     msg.message,
                     msg.hwnd
@@ -57,18 +57,18 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
             if msg.message == WM_CLOSE {
                 tracing::info!("{}", "=".repeat(80));
                 tracing::info!(
-                    "🟢 [process_messages_for_hwnd] WM_CLOSE received (X button clicked)"
+                    "[OK] [process_messages_for_hwnd] WM_CLOSE received (X button clicked)"
                 );
                 tracing::info!(
-                    "🟢 [process_messages_for_hwnd] Message HWND: {:?}",
+                    "[OK] [process_messages_for_hwnd] Message HWND: {:?}",
                     msg.hwnd
                 );
-                tracing::info!("🟢 [process_messages_for_hwnd] Setting should_close flag...");
+                tracing::info!("[OK] [process_messages_for_hwnd] Setting should_close flag...");
 
                 // Set the close flag to notify Python
                 should_close = true;
-                tracing::info!("🟢 [process_messages_for_hwnd] should_close set to true");
-                tracing::info!("🟢 [process_messages_for_hwnd] Will return to Python for cleanup");
+                tracing::info!("[OK] [process_messages_for_hwnd] should_close set to true");
+                tracing::info!("[OK] [process_messages_for_hwnd] Will return to Python for cleanup");
                 tracing::info!("{}", "=".repeat(80));
 
                 // IMPORTANT: Still dispatch WM_CLOSE to allow default window processing
@@ -78,19 +78,19 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
                 continue;
             } else if msg.message == WM_DESTROY {
                 tracing::info!("{}", "=".repeat(80));
-                tracing::info!("🟢 [process_messages_for_hwnd] WM_DESTROY received");
+                tracing::info!("[OK] [process_messages_for_hwnd] WM_DESTROY received");
                 tracing::info!(
-                    "🟢 [process_messages_for_hwnd] Message HWND: {:?}",
+                    "[OK] [process_messages_for_hwnd] Message HWND: {:?}",
                     msg.hwnd
                 );
                 should_close = true;
-                tracing::info!("🟢 [process_messages_for_hwnd] should_close set to true");
+                tracing::info!("[OK] [process_messages_for_hwnd] should_close set to true");
                 tracing::info!("{}", "=".repeat(80));
             } else if msg.message == WM_QUIT {
                 tracing::info!("{}", "=".repeat(80));
-                tracing::info!("🟢 [process_messages_for_hwnd] WM_QUIT received");
+                tracing::info!("[OK] [process_messages_for_hwnd] WM_QUIT received");
                 should_close = true;
-                tracing::info!("🟢 [process_messages_for_hwnd] should_close set to true");
+                tracing::info!("[OK] [process_messages_for_hwnd] should_close set to true");
                 tracing::info!("{}", "=".repeat(80));
             }
 
@@ -100,17 +100,17 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
 
         if message_count > 0 {
             tracing::info!(
-                "🟢 [process_messages_for_hwnd] Processed {} messages total",
+                "[OK] [process_messages_for_hwnd] Processed {} messages total",
                 message_count
             );
         } else {
-            tracing::info!("🟢 [process_messages_for_hwnd] No messages found for this HWND");
+            tracing::info!("[OK] [process_messages_for_hwnd] No messages found for this HWND");
         }
 
         if should_close {
-            tracing::info!("🟢 [process_messages_for_hwnd] END - Returning should_close = true");
+            tracing::info!("[OK] [process_messages_for_hwnd] END - Returning should_close = true");
         } else {
-            tracing::info!("🟢 [process_messages_for_hwnd] END - Returning should_close = false");
+            tracing::info!("[OK] [process_messages_for_hwnd] END - Returning should_close = false");
         }
 
         should_close
@@ -141,7 +141,7 @@ pub fn process_all_messages() -> bool {
                 || msg.message == WM_QUIT
             {
                 tracing::debug!(
-                    "🟢 [message_pump] Message #{}: 0x{:04X} (HWND: {:?})",
+                    "[OK] [message_pump] Message #{}: 0x{:04X} (HWND: {:?})",
                     message_count,
                     msg.message,
                     msg.hwnd
@@ -151,31 +151,31 @@ pub fn process_all_messages() -> bool {
             // Check for window close messages
             if msg.message == WM_CLOSE {
                 tracing::info!("{}", "=".repeat(80));
-                tracing::info!("🟢 [message_pump] WM_CLOSE received (X button clicked)");
-                tracing::info!("🟢 [message_pump] Message HWND: {:?}", msg.hwnd);
-                tracing::info!("🟢 [message_pump] Setting should_close flag...");
+                tracing::info!("[OK] [message_pump] WM_CLOSE received (X button clicked)");
+                tracing::info!("[OK] [message_pump] Message HWND: {:?}", msg.hwnd);
+                tracing::info!("[OK] [message_pump] Setting should_close flag...");
 
                 // Set the close flag - let Python handle the actual window destruction
                 // This ensures proper cleanup order and prevents race conditions
                 should_close = true;
-                tracing::info!("🟢 [message_pump] should_close set to true");
-                tracing::info!("🟢 [message_pump] Will return to Python for cleanup");
+                tracing::info!("[OK] [message_pump] should_close set to true");
+                tracing::info!("[OK] [message_pump] Will return to Python for cleanup");
                 tracing::info!("{}", "=".repeat(80));
 
                 // Don't dispatch WM_CLOSE, we've already handled it
                 continue;
             } else if msg.message == WM_DESTROY {
                 tracing::info!("{}", "=".repeat(80));
-                tracing::info!("🟢 [message_pump] WM_DESTROY received");
-                tracing::info!("🟢 [message_pump] Message HWND: {:?}", msg.hwnd);
+                tracing::info!("[OK] [message_pump] WM_DESTROY received");
+                tracing::info!("[OK] [message_pump] Message HWND: {:?}", msg.hwnd);
                 should_close = true;
-                tracing::info!("🟢 [message_pump] should_close set to true");
+                tracing::info!("[OK] [message_pump] should_close set to true");
                 tracing::info!("{}", "=".repeat(80));
             } else if msg.message == WM_QUIT {
                 tracing::info!("{}", "=".repeat(80));
-                tracing::info!("🟢 [message_pump] WM_QUIT received");
+                tracing::info!("[OK] [message_pump] WM_QUIT received");
                 should_close = true;
-                tracing::info!("🟢 [message_pump] should_close set to true");
+                tracing::info!("[OK] [message_pump] should_close set to true");
                 tracing::info!("{}", "=".repeat(80));
             }
 
@@ -185,13 +185,13 @@ pub fn process_all_messages() -> bool {
 
         if message_count > 0 {
             tracing::debug!(
-                "🟢 [message_pump] Processed {} messages total",
+                "[OK] [message_pump] Processed {} messages total",
                 message_count
             );
         }
 
         if should_close {
-            tracing::info!("🟢 [message_pump] Returning should_close = true");
+            tracing::info!("[OK] [message_pump] Returning should_close = true");
         }
 
         should_close

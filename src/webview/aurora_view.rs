@@ -137,7 +137,7 @@ impl AuroraView {
             // Extract and store event loop proxy for close() method
             if let Some(proxy) = webview.event_loop_proxy.take() {
                 *self.event_loop_proxy.borrow_mut() = Some(proxy);
-                tracing::info!("✅ Event loop proxy extracted and stored in AuroraView");
+                tracing::info!("[OK] Event loop proxy extracted and stored in AuroraView");
             }
 
             *inner = Some(webview);
@@ -171,14 +171,14 @@ impl AuroraView {
         match embed_mode {
             EmbedMode::None => {
                 // Standalone mode: run event loop (blocking)
-                tracing::info!("🟣 [show] Standalone mode - will run event loop (blocking)");
+                tracing::info!(" [show] Standalone mode - will run event loop (blocking)");
                 self.show_window()
             }
             #[cfg(target_os = "windows")]
             EmbedMode::Child | EmbedMode::Owner => {
                 // Embedded mode: create window but don't run event loop (non-blocking)
                 tracing::info!(
-                    "🟢 [show] Embedded mode ({:?}) - creating window without event loop",
+                    "[OK] [show] Embedded mode ({:?}) - creating window without event loop",
                     embed_mode
                 );
                 self.show_embedded()
@@ -196,7 +196,7 @@ impl AuroraView {
         let title = self.config.borrow().title.clone();
         let embed_mode = self.config.borrow().embed_mode;
         tracing::info!(
-            "🟢 [show_embedded] Creating embedded WebView: {} (mode: {:?})",
+            "[OK] [show_embedded] Creating embedded WebView: {} (mode: {:?})",
             title,
             embed_mode
         );
@@ -211,7 +211,7 @@ impl AuroraView {
         };
 
         if need_create {
-            tracing::info!("🟢 [show_embedded] Creating new embedded WebView instance...");
+            tracing::info!("[OK] [show_embedded] Creating new embedded WebView instance...");
 
             let config = self.config.borrow().clone();
             let parent_hwnd = config.parent_hwnd.unwrap_or(0);
@@ -227,24 +227,24 @@ impl AuroraView {
             )
             .map_err(|e| {
                 tracing::error!(
-                    "❌ [show_embedded] Failed to create embedded WebView: {}",
+                    "[ERROR] [show_embedded] Failed to create embedded WebView: {}",
                     e
                 );
                 PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
             })?;
             *inner = Some(webview);
-            tracing::info!("✅ [show_embedded] Embedded WebView instance created");
+            tracing::info!("[OK] [show_embedded] Embedded WebView instance created");
         }
 
         // For embedded mode, we DON'T run the event loop
         // The parent window's event loop will handle our window's events
-        tracing::info!("✅ [show_embedded] Embedded WebView created successfully (non-blocking)");
-        tracing::info!("📌 [show_embedded] IMPORTANT: Keep the Python WebView object alive!");
+        tracing::info!("[OK] [show_embedded] Embedded WebView created successfully (non-blocking)");
+        tracing::info!(" [show_embedded] IMPORTANT: Keep the Python WebView object alive!");
         tracing::info!(
-            "📌 [show_embedded] If the Python object is destroyed, the window will close"
+            " [show_embedded] If the Python object is destroyed, the window will close"
         );
         tracing::info!(
-            "📌 [show_embedded] Store it in a global variable: __main__.webview = webview"
+            " [show_embedded] Store it in a global variable: __main__.webview = webview"
         );
 
         Ok(())
@@ -354,26 +354,26 @@ impl AuroraView {
     /// that is processed by the WebView thread's event loop.
     #[allow(clippy::useless_conversion)]
     fn emit(&self, event_name: &str, data: &Bound<'_, PyDict>) -> PyResult<()> {
-        tracing::info!("🔴 [AuroraView::emit] START - Event: {}", event_name);
+        tracing::info!("[CLOSE] [AuroraView::emit] START - Event: {}", event_name);
 
         // Convert Python dict to JSON
-        tracing::info!("🔴 [AuroraView::emit] Converting Python dict to JSON...");
+        tracing::info!("[CLOSE] [AuroraView::emit] Converting Python dict to JSON...");
         let json_data = py_dict_to_json(data).map_err(|e| {
             tracing::error!(
-                "❌ [AuroraView::emit] Failed to convert dict to JSON: {}",
+                "[ERROR] [AuroraView::emit] Failed to convert dict to JSON: {}",
                 e
             );
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
         })?;
-        tracing::info!("🔴 [AuroraView::emit] JSON data: {}", json_data);
+        tracing::info!("[CLOSE] [AuroraView::emit] JSON data: {}", json_data);
 
         // Push to message queue for thread-safe execution
-        tracing::info!("🔴 [AuroraView::emit] Pushing to message queue...");
+        tracing::info!("[CLOSE] [AuroraView::emit] Pushing to message queue...");
         self.message_queue.push(WebViewMessage::EmitEvent {
             event_name: event_name.to_string(),
             data: json_data,
         });
-        tracing::info!("✅ [AuroraView::emit] Message pushed to queue successfully");
+        tracing::info!("[OK] [AuroraView::emit] Message pushed to queue successfully");
 
         Ok(())
     }
@@ -400,43 +400,43 @@ impl AuroraView {
     #[allow(clippy::useless_conversion)]
     fn close(&self) -> PyResult<()> {
         tracing::info!("{}", "=".repeat(80));
-        tracing::info!("🔴 [AuroraView::close] Close method called");
+        tracing::info!("[CLOSE] [AuroraView::close] Close method called");
 
         // Try to use event loop proxy first (standalone mode)
         if let Ok(proxy_opt) = self.event_loop_proxy.try_borrow() {
             if let Some(proxy) = proxy_opt.as_ref() {
-                tracing::info!("🔴 [AuroraView::close] Using event loop proxy to send close event");
+                tracing::info!("[CLOSE] [AuroraView::close] Using event loop proxy to send close event");
                 match proxy.send_event(crate::webview::event_loop::UserEvent::CloseWindow) {
                     Ok(_) => {
-                        tracing::info!("✅ [AuroraView::close] Close event sent successfully");
+                        tracing::info!("[OK] [AuroraView::close] Close event sent successfully");
                         tracing::info!("{}", "=".repeat(80));
                         return Ok(());
                     }
                     Err(e) => {
-                        tracing::error!("❌ [AuroraView::close] Failed to send close event: {:?}", e);
+                        tracing::error!("[ERROR] [AuroraView::close] Failed to send close event: {:?}", e);
                         // Fall through to direct close method
                     }
                 }
             } else {
-                tracing::info!("🔴 [AuroraView::close] No event loop proxy (embedded mode), using direct close");
+                tracing::info!("[CLOSE] [AuroraView::close] No event loop proxy (embedded mode), using direct close");
             }
         } else {
-            tracing::warn!("⚠️ [AuroraView::close] Failed to borrow event_loop_proxy");
+            tracing::warn!("[WARNING] [AuroraView::close] Failed to borrow event_loop_proxy");
         }
 
         // Fallback: Direct close (for embedded mode or if proxy fails)
         if let Ok(mut inner_opt) = self.inner.try_borrow_mut() {
-            tracing::info!("🔴 [AuroraView::close] Successfully borrowed inner for direct close");
+            tracing::info!("[CLOSE] [AuroraView::close] Successfully borrowed inner for direct close");
 
             if let Some(inner) = inner_opt.as_mut() {
-                tracing::info!("🔴 [AuroraView::close] Inner exists");
+                tracing::info!("[CLOSE] [AuroraView::close] Inner exists");
 
                 if let Some(window) = &inner.window {
-                    tracing::info!("🔴 [AuroraView::close] Window exists, attempting to close...");
+                    tracing::info!("[CLOSE] [AuroraView::close] Window exists, attempting to close...");
 
                     // Set window invisible first
                     window.set_visible(false);
-                    tracing::info!("✅ [AuroraView::close] Window set to invisible");
+                    tracing::info!("[OK] [AuroraView::close] Window set to invisible");
 
                     // For embedded windows, we need special handling to ensure proper cleanup
                     #[cfg(target_os = "windows")]
@@ -455,20 +455,20 @@ impl AuroraView {
                                 let hwnd_value = handle.hwnd.get();
                                 let hwnd = HWND(hwnd_value as *mut c_void);
 
-                                tracing::info!("🔴 [AuroraView::close] HWND: {:?}", hwnd);
+                                tracing::info!("[CLOSE] [AuroraView::close] HWND: {:?}", hwnd);
 
                                 // Step 1: Destroy the window
-                                tracing::info!("🔴 [AuroraView::close] Calling DestroyWindow...");
+                                tracing::info!("[CLOSE] [AuroraView::close] Calling DestroyWindow...");
                                 unsafe {
                                     let result = DestroyWindow(hwnd);
                                     if result.is_ok() {
                                         tracing::info!(
-                                            "✅ [AuroraView::close] DestroyWindow succeeded"
+                                            "[OK] [AuroraView::close] DestroyWindow succeeded"
                                         );
 
                                         // Step 2: CRITICAL - Process pending messages for this window
                                         // This ensures WM_DESTROY and WM_NCDESTROY are handled
-                                        tracing::info!("🔴 [AuroraView::close] Processing pending window messages...");
+                                        tracing::info!("[CLOSE] [AuroraView::close] Processing pending window messages...");
                                         let mut msg = MSG::default();
                                         let mut processed_count = 0;
                                         let max_iterations = 100; // Prevent infinite loop
@@ -482,11 +482,11 @@ impl AuroraView {
                                             // Log important messages
                                             if msg.message == WM_DESTROY {
                                                 tracing::info!(
-                                                    "🔴 [AuroraView::close] Processing WM_DESTROY"
+                                                    "[CLOSE] [AuroraView::close] Processing WM_DESTROY"
                                                 );
                                             } else if msg.message == WM_NCDESTROY {
                                                 tracing::info!(
-                                                    "🔴 [AuroraView::close] Processing WM_NCDESTROY (final cleanup)"
+                                                    "[CLOSE] [AuroraView::close] Processing WM_NCDESTROY (final cleanup)"
                                                 );
                                             }
 
@@ -495,16 +495,16 @@ impl AuroraView {
                                         }
 
                                         tracing::info!(
-                                            "✅ [AuroraView::close] Processed {} window messages",
+                                            "[OK] [AuroraView::close] Processed {} window messages",
                                             processed_count
                                         );
 
                                         // Step 3: Small delay to allow window to fully disappear
                                         std::thread::sleep(std::time::Duration::from_millis(50));
-                                        tracing::info!("✅ [AuroraView::close] Window cleanup completed");
+                                        tracing::info!("[OK] [AuroraView::close] Window cleanup completed");
                                     } else {
                                         tracing::error!(
-                                            "❌ [AuroraView::close] DestroyWindow failed: {:?}",
+                                            "[ERROR] [AuroraView::close] DestroyWindow failed: {:?}",
                                             result
                                         );
                                     }
@@ -513,13 +513,13 @@ impl AuroraView {
                         }
                     }
                 } else {
-                    tracing::warn!("⚠️ [AuroraView::close] No window found");
+                    tracing::warn!("[WARNING] [AuroraView::close] No window found");
                 }
             } else {
-                tracing::warn!("⚠️ [AuroraView::close] Inner is None");
+                tracing::warn!("[WARNING] [AuroraView::close] Inner is None");
             }
         } else {
-            tracing::error!("❌ [AuroraView::close] Failed to borrow inner (already borrowed?)");
+            tracing::error!("[ERROR] [AuroraView::close] Failed to borrow inner (already borrowed?)");
         }
 
         tracing::info!("{}", "=".repeat(80));
@@ -572,6 +572,32 @@ impl AuroraView {
         }
     }
 
+    /// Set window position
+    ///
+    /// Moves the window to the specified screen coordinates.
+    /// This is useful for implementing custom window dragging in frameless windows.
+    ///
+    /// Args:
+    ///     x (int): X coordinate in screen pixels
+    ///     y (int): Y coordinate in screen pixels
+    ///
+    /// Example:
+    ///     ```python
+    ///     # Move window to position (100, 100)
+    ///     webview._core.set_window_position(100, 100)
+    ///     ```
+    fn set_window_position(&self, x: i32, y: i32) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_window_position(x, y);
+            Ok(())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
     /// Python representation
     fn __repr__(&self) -> String {
         let cfg = self.config.borrow();
@@ -587,10 +613,10 @@ impl Drop for AuroraView {
     fn drop(&mut self) {
         let title = self.config.borrow().title.clone();
         tracing::warn!(
-            "🔴 [AuroraView::drop] WebView '{}' is being destroyed!",
+            "[CLOSE] [AuroraView::drop] WebView '{}' is being destroyed!",
             title
         );
-        tracing::warn!("🔴 [AuroraView::drop] This will close the WebView window");
+        tracing::warn!("[CLOSE] [AuroraView::drop] This will close the WebView window");
 
         // The inner WebViewInner will be dropped automatically
         // which will close the window
