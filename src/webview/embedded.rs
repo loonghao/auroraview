@@ -68,14 +68,14 @@ fn set_parent_window(
 
             if !child_valid {
                 tracing::error!(
-                    "❌ Child window handle is invalid: 0x{:x}",
+                    "[ERROR] Child window handle is invalid: 0x{:x}",
                     child_hwnd_value
                 );
                 return Err("Child window handle is invalid".into());
             }
 
             if !parent_valid {
-                tracing::error!("❌ Parent window handle is invalid: 0x{:x}", parent_hwnd);
+                tracing::error!("[ERROR] Parent window handle is invalid: 0x{:x}", parent_hwnd);
                 tracing::warn!("Parent HWND may be from a different process, not yet created, or already destroyed");
                 tracing::warn!(
                     "Attempting SetParent anyway - it may still work if the handle is valid"
@@ -87,16 +87,16 @@ fn set_parent_window(
             match SetParent(child_hwnd, parent_hwnd_hwnd) {
                 Ok(previous_parent) => {
                     if previous_parent.is_invalid() {
-                        tracing::info!("✅ Window had no previous parent");
+                        tracing::info!("[OK] Window had no previous parent");
                     } else {
                         tracing::info!(
-                            "✅ Successfully set parent window: previous_parent=0x{:x}",
+                            "[OK] Successfully set parent window: previous_parent=0x{:x}",
                             previous_parent.0 as usize
                         );
                     }
                 }
                 Err(e) => {
-                    tracing::error!("❌ SetParent failed: {:?}", e);
+                    tracing::error!("[ERROR] SetParent failed: {:?}", e);
                     tracing::error!(
                         "Parent HWND: 0x{:x}, Child HWND: 0x{:x}",
                         parent_hwnd,
@@ -120,16 +120,16 @@ fn set_parent_window(
                 let new_style = (current_style & !(WS_POPUP.0 as isize)) | (WS_CHILD.0 as isize);
                 let result = SetWindowLongPtrW(child_hwnd, GWL_STYLE, new_style);
                 if result != 0 {
-                    tracing::info!("✅ Window style modified successfully");
+                    tracing::info!("[OK] Window style modified successfully");
                 } else {
-                    tracing::warn!("⚠️ Failed to modify window style, but SetParent succeeded");
+                    tracing::warn!("[WARNING] Failed to modify window style, but SetParent succeeded");
                 }
             } else {
-                tracing::warn!("⚠️ Failed to get current window style");
+                tracing::warn!("[WARNING] Failed to get current window style");
             }
         }
 
-        tracing::info!("✅ Parent window set successfully");
+        tracing::info!("[OK] Parent window set successfully");
         Ok(())
     } else {
         Err("Window handle is not a Win32 handle".into())
@@ -149,7 +149,7 @@ pub fn create_embedded(
     use tao::platform::windows::WindowBuilderExtWindows;
 
     tracing::info!(
-        "🟢 [create_embedded] Creating embedded WebView (parent_hwnd: {}, mode: {:?})",
+        "[OK] [create_embedded] Creating embedded WebView (parent_hwnd: {}, mode: {:?})",
         parent_hwnd,
         config.embed_mode
     );
@@ -179,16 +179,16 @@ pub fn create_embedded(
     match config.embed_mode {
         EmbedMode::Child => {
             // Child mode: WS_CHILD style
-            tracing::info!("🟢 [create_embedded] Using Child mode (WS_CHILD)");
+            tracing::info!("[OK] [create_embedded] Using Child mode (WS_CHILD)");
             window_builder = window_builder.with_parent_window(parent_hwnd as isize);
         }
         EmbedMode::Owner => {
             // Owner mode: GWLP_HWNDPARENT
-            tracing::info!("🟢 [create_embedded] Using Owner mode (GWLP_HWNDPARENT)");
+            tracing::info!("[OK] [create_embedded] Using Owner mode (GWLP_HWNDPARENT)");
             window_builder = window_builder.with_owner_window(parent_hwnd as isize);
         }
         EmbedMode::None => {
-            tracing::warn!("🟡 [create_embedded] EmbedMode::None - creating standalone window");
+            tracing::warn!("[WARNING] [create_embedded] EmbedMode::None - creating standalone window");
         }
     }
 
@@ -205,14 +205,14 @@ pub fn create_embedded(
             let raw_handle = window_handle.as_raw();
             if let RawWindowHandle::Win32(handle) = raw_handle {
                 let hwnd_value = handle.hwnd.get();
-                tracing::info!("✅ [create_embedded] Window created successfully");
+                tracing::info!("[OK] [create_embedded] Window created successfully");
                 tracing::info!(
-                    "🟢 [create_embedded] WebView HWND: 0x{:X} ({})",
+                    "[OK] [create_embedded] WebView HWND: 0x{:X} ({})",
                     hwnd_value,
                     hwnd_value
                 );
                 tracing::info!(
-                    "🟢 [create_embedded] Parent HWND: 0x{:X} ({})",
+                    "[OK] [create_embedded] Parent HWND: 0x{:X} ({})",
                     parent_hwnd,
                     parent_hwnd
                 );
@@ -221,12 +221,12 @@ pub fn create_embedded(
     }
 
     #[cfg(not(target_os = "windows"))]
-    tracing::info!("✅ [create_embedded] Window created successfully");
+    tracing::info!("[OK] [create_embedded] Window created successfully");
 
     // CRITICAL: Make window visible
-    tracing::info!("🟢 [create_embedded] Setting window visible...");
+    tracing::info!("[OK] [create_embedded] Setting window visible...");
     window.set_visible(true);
-    tracing::info!("✅ [create_embedded] Window is now visible");
+    tracing::info!("[OK] [create_embedded] Window is now visible");
 
     // Create WebView
     let webview = {
@@ -234,7 +234,7 @@ pub fn create_embedded(
 
         // Enable developer tools if configured
         if config.dev_tools {
-            tracing::info!("🟢 [create_embedded] Enabling developer tools");
+            tracing::info!("[OK] [create_embedded] Enabling developer tools");
             builder = builder.with_devtools(true);
         }
 
@@ -273,10 +273,10 @@ pub fn create_embedded(
         // Set IPC handler (same as standalone mode)
         let ipc_handler_clone = ipc_handler.clone();
         builder = builder.with_ipc_handler(move |request| {
-            tracing::debug!("🟢 [embedded] IPC message received");
+            tracing::debug!("[OK] [embedded] IPC message received");
 
             let body_str = request.body();
-            tracing::debug!("🟢 [embedded] IPC body: {}", body_str);
+            tracing::debug!("[OK] [embedded] IPC body: {}", body_str);
 
             if let Ok(message) = serde_json::from_str::<serde_json::Value>(body_str) {
                 if let Some(msg_type) = message.get("type").and_then(|v| v.as_str()) {
@@ -287,7 +287,7 @@ pub fn create_embedded(
                                 .cloned()
                                 .unwrap_or(serde_json::json!({}));
                             tracing::info!(
-                                "🟢 [embedded] Event received: {} with detail: {}",
+                                "[OK] [embedded] Event received: {} with detail: {}",
                                 event_name,
                                 detail
                             );
@@ -302,10 +302,10 @@ pub fn create_embedded(
                             // Call the IPC handler to invoke Python callbacks
                             match ipc_handler_clone.handle_message(ipc_message) {
                                 Ok(_) => {
-                                    tracing::info!("✅ [embedded] Event handled successfully");
+                                    tracing::info!("[OK] [embedded] Event handled successfully");
                                 }
                                 Err(e) => {
-                                    tracing::error!("❌ [embedded] Error handling event: {}", e);
+                                    tracing::error!("[ERROR] [embedded] Error handling event: {}", e);
                                 }
                             }
                         }
@@ -320,22 +320,22 @@ pub fn create_embedded(
             .map_err(|e| format!("Failed to create WebView: {}", e))?
     };
 
-    tracing::info!("✅ [create_embedded] WebView created successfully");
+    tracing::info!("[OK] [create_embedded] WebView created successfully");
 
     // Load initial content from config (same as standalone mode)
     if let Some(ref url) = config.url {
-        tracing::info!("🟢 [create_embedded] Loading URL: {}", url);
+        tracing::info!("[OK] [create_embedded] Loading URL: {}", url);
         let script = format!("window.location.href = '{}';", url);
         webview
             .evaluate_script(&script)
             .map_err(|e| format!("Failed to load URL: {}", e))?;
     } else if let Some(ref html) = config.html {
-        tracing::info!("🟢 [create_embedded] Loading HTML ({} bytes)", html.len());
+        tracing::info!("[OK] [create_embedded] Loading HTML ({} bytes)", html.len());
         webview
             .load_html(html)
             .map_err(|e| format!("Failed to load HTML: {}", e))?;
     } else {
-        tracing::warn!("⚠️ [create_embedded] No initial content specified");
+        tracing::warn!("[WARNING] [create_embedded] No initial content specified");
     }
 
     // Create message queue

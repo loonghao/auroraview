@@ -16,7 +16,7 @@ from shiboken2 import wrapInstance
 from PySide2.QtWidgets import QWidget
 
 print("=" * 80)
-print("🔧 WINDOW CLOSE FIX TEST")
+print("[CONFIG] WINDOW CLOSE FIX TEST")
 print("=" * 80)
 print("This test verifies the fix for embedded window close issue.")
 print("The fix adds proper Windows message processing after DestroyWindow().")
@@ -33,11 +33,11 @@ def get_maya_main_window():
 # Get Maya main window HWND
 maya_window = get_maya_main_window()
 if maya_window is None:
-    print("❌ Failed to get Maya main window")
+    print("[ERROR] Failed to get Maya main window")
     raise RuntimeError("Cannot get Maya main window")
 
 hwnd = maya_window.winId()
-print(f"✅ Got Maya main window HWND: {hwnd}")
+print(f"[OK] Got Maya main window HWND: {hwnd}")
 
 # HTML content with close button
 html_content = """
@@ -125,14 +125,14 @@ html_content = """
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Window Close Fix Test</h1>
+        <h1>[CONFIG] Window Close Fix Test</h1>
         <div class="info">
             <p><strong>Fix Applied:</strong> Proper Windows message processing</p>
             <p>After DestroyWindow(), we now process WM_DESTROY and WM_NCDESTROY messages</p>
         </div>
         <div>
-            <button class="test-btn" onclick="testEvent()">🧪 Test Event</button>
-            <button class="close-btn" onclick="closeWindow()">✕ Close Window</button>
+            <button class="test-btn" onclick="testEvent()">[TEST] Test Event</button>
+            <button class="close-btn" onclick="closeWindow()">[CLOSE] Close Window</button>
         </div>
         <div id="log"></div>
     </div>
@@ -148,43 +148,43 @@ html_content = """
         }
 
         function testEvent() {
-            addLog('📤 Sending test event to Python...');
+            addLog('[SEND] Sending test event to Python...');
             if (window.auroraview) {
                 window.auroraview.send_event('test', {
                     test: 'data',
                     timestamp: Date.now()
                 });
-                addLog('✅ Test event sent successfully');
+                addLog('[OK] Test event sent successfully');
             } else {
-                addLog('❌ auroraview bridge not available');
+                addLog('[ERROR] auroraview bridge not available');
             }
         }
 
         function closeWindow() {
-            addLog('🔒 Sending close event to Python...');
+            addLog('[LOCK] Sending close event to Python...');
             if (window.auroraview) {
                 window.auroraview.send_event('close', {
                     source: 'close_button',
                     timestamp: Date.now()
                 });
-                addLog('✅ Close event sent');
-                addLog('⏳ Waiting for window to close...');
+                addLog('[OK] Close event sent');
+                addLog(' Waiting for window to close...');
             } else {
-                addLog('❌ auroraview bridge not available');
+                addLog('[ERROR] auroraview bridge not available');
             }
         }
 
         // Log when page loads
         window.addEventListener('DOMContentLoaded', () => {
-            addLog('✅ Page loaded successfully');
-            addLog('🔌 Event bridge ready');
+            addLog('[OK] Page loaded successfully');
+            addLog(' Event bridge ready');
         });
     </script>
 </body>
 </html>
 """
 
-print("📄 Loading HTML...")
+print("[DOCUMENT] Loading HTML...")
 webview = WebView(
     title="Close Fix Test",
     width=500,
@@ -195,40 +195,40 @@ webview = WebView(
 # Event handlers
 def handle_test(data):
     print("=" * 80)
-    print(f"📥 [handle_test] Test event received: {data}")
+    print(f"[RECV] [handle_test] Test event received: {data}")
     print("=" * 80)
 
 def handle_close(data):
     print("=" * 80)
-    print("🔒 [handle_close] CLOSE EVENT RECEIVED!")
-    print(f"🔒 [handle_close] Event data: {data}")
+    print("[LOCK] [handle_close] CLOSE EVENT RECEIVED!")
+    print(f"[LOCK] [handle_close] Event data: {data}")
     print("=" * 80)
 
     # Queue close operation to Maya main thread
-    print("🔒 [handle_close] Queueing close operation to Maya main thread...")
+    print("[LOCK] [handle_close] Queueing close operation to Maya main thread...")
     cmds.evalDeferred(_do_close)
 
 def _do_close():
     """Execute close operation on Maya main thread"""
-    print("🔒 [_do_close] Starting close operation...")
-    print(f"🔒 [_do_close] WebView object: {__main__.test_close_webview}")
+    print("[LOCK] [_do_close] Starting close operation...")
+    print(f"[LOCK] [_do_close] WebView object: {__main__.test_close_webview}")
 
     # Close the webview
-    print("🔒 [_do_close] Calling webview.close()...")
+    print("[LOCK] [_do_close] Calling webview.close()...")
     __main__.test_close_webview.close()
-    print("✅ [_do_close] webview.close() completed")
+    print("[OK] [_do_close] webview.close() completed")
 
     # Kill the timer
-    print(f"🔒 [_do_close] Killing timer: {__main__.test_close_timer}")
+    print(f"[LOCK] [_do_close] Killing timer: {__main__.test_close_timer}")
     cmds.scriptJob(kill=__main__.test_close_timer)
-    print("✅ [_do_close] Timer killed")
+    print("[OK] [_do_close] Timer killed")
 
     # Delete the webview reference
-    print("🔒 [_do_close] Deleting webview reference...")
+    print("[LOCK] [_do_close] Deleting webview reference...")
     del __main__.test_close_webview
-    print("✅ [_do_close] WebView reference deleted")
+    print("[OK] [_do_close] WebView reference deleted")
 
-    print("✅ [_do_close] Close operation completed successfully")
+    print("[OK] [_do_close] Close operation completed successfully")
     print("=" * 80)
 
 # Register event handlers using register_callback
@@ -237,20 +237,20 @@ webview.register_callback('close', handle_close)
 
 # Load HTML
 webview.load_html(html_content)
-print("✅ HTML loaded")
+print("[OK] HTML loaded")
 
 # Show window
-print("🪟 Showing window...")
+print("[WINDOW] Showing window...")
 webview.show_async()
-print("✅ Window shown")
+print("[OK] Window shown")
 
 # Store in __main__ to prevent garbage collection
 import __main__
 __main__.test_close_webview = webview
-print("✅ WebView stored in __main__.test_close_webview")
+print("[OK] WebView stored in __main__.test_close_webview")
 
 # Create timer for event processing
-print("⏱️ Creating event processing timer...")
+print("[TIMER] Creating event processing timer...")
 
 def process_webview_events():
     """Process WebView events and check for close signal"""
@@ -287,22 +287,22 @@ __main__.test_close_timer = cmds.scriptJob(
     event=["idle", process_webview_events],
     protected=True
 )
-print(f"✅ Event processing timer created (ID: {__main__.test_close_timer})")
+print(f"[OK] Event processing timer created (ID: {__main__.test_close_timer})")
 
 print("=" * 80)
-print("✅ Test window created!")
+print("[OK] Test window created!")
 print()
-print("📋 Instructions:")
+print(" Instructions:")
 print("1. Press F12 to open DevTools")
 print("2. Go to Console tab")
-print("3. Click '🧪 Test Event' button to verify event system works")
-print("4. Click '✕ Close Window' button to test close functionality")
+print("3. Click '[TEST] Test Event' button to verify event system works")
+print("4. Click '[CLOSE] Close Window' button to test close functionality")
 print("5. Watch the logs in:")
 print("   - WebView window (on-screen log panel)")
 print("   - Browser DevTools Console")
 print("   - Maya Script Editor")
 print()
-print("🔧 Manual cleanup (if needed):")
+print("[CONFIG] Manual cleanup (if needed):")
 print("  del __main__.test_close_webview")
 print("  cmds.scriptJob(kill=__main__.test_close_timer)")
 print("=" * 80)

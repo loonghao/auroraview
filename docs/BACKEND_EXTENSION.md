@@ -353,12 +353,12 @@ impl WebViewBackend for MyBackend {
 ```rust
 impl MyBackend {
     fn initialize(&mut self) -> Result<()> {
-        tracing::info!("🚀 Initializing MyBackend");
+        tracing::info!("[LAUNCH] Initializing MyBackend");
         
         let start = Instant::now();
         self.setup()?;
         
-        tracing::info!("✅ MyBackend initialized in {:?}", start.elapsed());
+        tracing::info!("[OK] MyBackend initialized in {:?}", start.elapsed());
         Ok(())
     }
 }

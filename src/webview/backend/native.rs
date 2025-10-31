@@ -75,7 +75,7 @@ impl WebViewBackend for NativeBackend {
                         let is_valid = unsafe { IsWindow(hwnd).as_bool() };
 
                         if !is_valid {
-                            tracing::info!("🔴 [NativeBackend::process_events] Window handle invalid - user closed window");
+                            tracing::info!("[CLOSE] [NativeBackend::process_events] Window handle invalid - user closed window");
                             return true;
                         }
                     }
@@ -115,7 +115,7 @@ impl WebViewBackend for NativeBackend {
         };
 
         if should_quit {
-            tracing::info!("🔴 [NativeBackend::process_events] Window close signal detected");
+            tracing::info!("[CLOSE] [NativeBackend::process_events] Window close signal detected");
             return true;
         }
 
@@ -130,10 +130,14 @@ impl WebViewBackend for NativeBackend {
                         }
                     }
                     WebViewMessage::EmitEvent { event_name, data } => {
+                        // Properly escape JSON data to avoid JavaScript syntax errors
+                        let json_str = data.to_string();
+                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
                         let script = format!(
-                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: {} }}));",
-                            event_name, data
+                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
+                            event_name, escaped_json
                         );
+                        tracing::debug!("[CLOSE] [NativeBackend] Generated script: {}", script);
                         if let Err(e) = webview.evaluate_script(&script) {
                             tracing::error!("Failed to emit event: {}", e);
                         }
@@ -153,7 +157,7 @@ impl WebViewBackend for NativeBackend {
             });
 
             if count > 0 {
-                tracing::debug!("🟢 [NativeBackend::process_events] Processed {} messages", count);
+                tracing::debug!("[OK] [NativeBackend::process_events] Processed {} messages", count);
             }
         }
 
@@ -163,7 +167,7 @@ impl WebViewBackend for NativeBackend {
     fn run_event_loop_blocking(&mut self) {
         use crate::webview::event_loop::{EventLoopState, WebViewEventHandler};
 
-        tracing::info!("🟢 [NativeBackend::run_event_loop_blocking] Starting event loop");
+        tracing::info!("[OK] [NativeBackend::run_event_loop_blocking] Starting event loop");
 
         if self.window.is_none() || self.event_loop.is_none() {
             tracing::error!("Window or event loop is None!");
@@ -243,7 +247,7 @@ impl NativeBackend {
         use tao::platform::windows::WindowBuilderExtWindows;
 
         tracing::info!(
-            "🟢 [NativeBackend::create_embedded] Creating embedded WebView (parent_hwnd: {}, mode: {:?})",
+            "[OK] [NativeBackend::create_embedded] Creating embedded WebView (parent_hwnd: {}, mode: {:?})",
             parent_hwnd,
             config.embed_mode
         );
@@ -268,15 +272,15 @@ impl NativeBackend {
         // Set parent window based on embed mode
         match config.embed_mode {
             EmbedMode::Child => {
-                tracing::info!("🟢 [NativeBackend] Using Child mode (WS_CHILD)");
+                tracing::info!("[OK] [NativeBackend] Using Child mode (WS_CHILD)");
                 window_builder = window_builder.with_parent_window(parent_hwnd as isize);
             }
             EmbedMode::Owner => {
-                tracing::info!("🟢 [NativeBackend] Using Owner mode (GWLP_HWNDPARENT)");
+                tracing::info!("[OK] [NativeBackend] Using Owner mode (GWLP_HWNDPARENT)");
                 window_builder = window_builder.with_owner_window(parent_hwnd as isize);
             }
             EmbedMode::None => {
-                tracing::warn!("🟡 [NativeBackend] EmbedMode::None - creating standalone window");
+                tracing::warn!("[WARNING] [NativeBackend] EmbedMode::None - creating standalone window");
             }
         }
 
@@ -293,7 +297,7 @@ impl NativeBackend {
                 let raw_handle = window_handle.as_raw();
                 if let RawWindowHandle::Win32(handle) = raw_handle {
                     let hwnd_value = handle.hwnd.get();
-                    tracing::info!("✅ [NativeBackend] Window created: HWND 0x{:X}", hwnd_value);
+                    tracing::info!("[OK] [NativeBackend] Window created: HWND 0x{:X}", hwnd_value);
                 }
             }
         }
@@ -334,7 +338,7 @@ impl NativeBackend {
 
         // Enable developer tools if configured
         if config.dev_tools {
-            tracing::info!("🟢 [NativeBackend] Enabling developer tools");
+            tracing::info!("[OK] [NativeBackend] Enabling developer tools");
             builder = builder.with_devtools(true);
         }
 
@@ -373,10 +377,10 @@ impl NativeBackend {
         // Set IPC handler
         let ipc_handler_clone = ipc_handler.clone();
         builder = builder.with_ipc_handler(move |request| {
-            tracing::debug!("🟢 [NativeBackend] IPC message received");
+            tracing::debug!("[OK] [NativeBackend] IPC message received");
 
             let body_str = request.body();
-            tracing::debug!("🟢 [NativeBackend] IPC body: {}", body_str);
+            tracing::debug!("[OK] [NativeBackend] IPC body: {}", body_str);
 
             if let Ok(message) = serde_json::from_str::<serde_json::Value>(body_str) {
                 if let Some(msg_type) = message.get("type").and_then(|v| v.as_str()) {
@@ -387,7 +391,7 @@ impl NativeBackend {
                                 .cloned()
                                 .unwrap_or(serde_json::json!({}));
                             tracing::info!(
-                                "🟢 [NativeBackend] Event received: {} with detail: {}",
+                                "[OK] [NativeBackend] Event received: {} with detail: {}",
                                 event_name,
                                 detail
                             );
@@ -400,10 +404,10 @@ impl NativeBackend {
 
                             match ipc_handler_clone.handle_message(ipc_message) {
                                 Ok(_) => {
-                                    tracing::info!("✅ [NativeBackend] Event handled successfully");
+                                    tracing::info!("[OK] [NativeBackend] Event handled successfully");
                                 }
                                 Err(e) => {
-                                    tracing::error!("❌ [NativeBackend] Error handling event: {}", e);
+                                    tracing::error!("[ERROR] [NativeBackend] Error handling event: {}", e);
                                 }
                             }
                         }
@@ -417,17 +421,17 @@ impl NativeBackend {
             .build(window)
             .map_err(|e| format!("Failed to create WebView: {}", e))?;
 
-        tracing::info!("✅ [NativeBackend] WebView created successfully");
+        tracing::info!("[OK] [NativeBackend] WebView created successfully");
 
         // Load initial content
         if let Some(ref url) = config.url {
-            tracing::info!("🟢 [NativeBackend] Loading URL: {}", url);
+            tracing::info!("[OK] [NativeBackend] Loading URL: {}", url);
             let script = format!("window.location.href = '{}';", url);
             webview
                 .evaluate_script(&script)
                 .map_err(|e| format!("Failed to load URL: {}", e))?;
         } else if let Some(ref html) = config.html {
-            tracing::info!("🟢 [NativeBackend] Loading HTML ({} bytes)", html.len());
+            tracing::info!("[OK] [NativeBackend] Loading HTML ({} bytes)", html.len());
             webview
                 .load_html(html)
                 .map_err(|e| format!("Failed to load HTML: {}", e))?;

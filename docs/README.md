@@ -1,6 +1,6 @@
 # AuroraView Documentation
 
-## 📚 Documentation Index
+## [DOCS] Documentation Index
 
 ### Getting Started
 - **[Project Status](PROJECT_STATUS.md)** - Current status, recent fixes, and roadmap
@@ -21,7 +21,7 @@
 - **[Comparison with PyWebView](COMPARISON_WITH_PYWEBVIEW.md)** - Why AuroraView vs PyWebView
 - **[Project Advantages](PROJECT_ADVANTAGES.md)** - Key advantages and features
 
-## 🎯 Quick Navigation
+## [GOAL] Quick Navigation
 
 ### I want to...
 
@@ -44,7 +44,7 @@
 1. Read [Comparison with PyWebView](COMPARISON_WITH_PYWEBVIEW.md)
 2. Read [Project Advantages](PROJECT_ADVANTAGES.md)
 
-## 📖 Documentation Structure
+##  Documentation Structure
 
 ```
 docs/
@@ -61,7 +61,7 @@ docs/
 └── PROJECT_ADVANTAGES.md           # Key features
 ```
 
-## 🔍 Document Summaries
+## [SEARCH] Document Summaries
 
 ### PROJECT_STATUS.md
 **What**: Current project status, completed features, known issues, and recent fixes
@@ -235,12 +235,12 @@ docs/
 - `docs/README.md` - This documentation index
 
 **Result**:
-- ✅ Cleaner repository structure
-- ✅ Easier to find information
-- ✅ No duplicate content
-- ✅ Clear documentation hierarchy
+- [OK] Cleaner repository structure
+- [OK] Easier to find information
+- [OK] No duplicate content
+- [OK] Clear documentation hierarchy
 
-## 📝 Documentation Guidelines
+## [NOTE] Documentation Guidelines
 
 ### When adding new documentation:
 
@@ -268,14 +268,14 @@ Practical examples
 Links to related docs
 ```
 
-## 🔗 External Resources
+## [LINK] External Resources
 
 - **GitHub Repository**: https://github.com/loonghao/auroraview
 - **Wry Documentation**: https://docs.rs/wry/
 - **PyO3 Guide**: https://pyo3.rs/
 - **Maya Python API**: https://help.autodesk.com/view/MAYAUL/2024/ENU/?guid=Maya_SDK_py_ref_index_html
 
-## 📞 Getting Help
+##  Getting Help
 
 - **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/loonghao/auroraview/issues)
 - **Discussions**: Ask questions on [GitHub Discussions](https://github.com/loonghao/auroraview/discussions)

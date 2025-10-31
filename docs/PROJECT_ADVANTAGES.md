@@ -2,7 +2,7 @@
 
 ## 为什么AuroraView比PyWebView更好？
 
-### 1. 🎯 专为DCC设计
+### 1. [GOAL] 专为DCC设计
 
 **PyWebView**: 通用桌面应用框架
 - 设计用于独立应用
@@ -10,12 +10,12 @@
 - 线程模型不适合DCC
 
 **AuroraView**: DCC优先设计
-- ✅ 从设计之初就考虑DCC集成
-- ✅ 支持DCC的主线程模型
-- ✅ 原生DCC事件系统
-- ✅ DCC资源访问协议
+- [OK] 从设计之初就考虑DCC集成
+- [OK] 支持DCC的主线程模型
+- [OK] 原生DCC事件系统
+- [OK] DCC资源访问协议
 
-### 2. ⚡ 性能优势
+### 2. [LIGHTNING] 性能优势
 
 | 指标 | PyWebView | AuroraView | 改进 |
 |------|-----------|------------|------|
@@ -26,7 +26,7 @@
 
 **原因**: Rust核心层提供零成本抽象和优化
 
-### 3. 🔒 类型安全
+### 3. [LOCK] 类型安全
 
 **PyWebView**: 动态类型
 ```python
@@ -46,7 +46,7 @@ pub fn emit(&self, event_name: &str, data: serde_json::Value) -> PyResult<()>
 - 更好的文档
 - 更少的运行时错误
 
-### 4. 🏗️ 现代架构
+### 4. [ARCHITECTURE] 现代架构
 
 **PyWebView** (2014年设计)
 ```
@@ -64,35 +64,35 @@ Python → Rust核心 → Wry → Tao → 浏览器引擎
 - 完全可定制
 - 现代化的依赖
 
-### 5. 🔧 DCC集成功能
+### 5. [CONFIG] DCC集成功能
 
 #### PyWebView不支持:
-- ❌ DCC事件系统
-- ❌ DCC资源访问
-- ❌ 线程安全的DCC互操作
-- ❌ DCC插件集成
-- ❌ 实时数据绑定
+- [ERROR] DCC事件系统
+- [ERROR] DCC资源访问
+- [ERROR] 线程安全的DCC互操作
+- [ERROR] DCC插件集成
+- [ERROR] 实时数据绑定
 
 #### AuroraView支持:
-- ✅ 原生DCC事件系统
-- ✅ 自定义协议 (`dcc://`)
-- ✅ 线程安全的Python-Rust互操作
-- ✅ DCC插件集成示例
-- ✅ 实时数据绑定
-- ✅ DCC主线程模型支持
+- [OK] 原生DCC事件系统
+- [OK] 自定义协议 (`dcc://`)
+- [OK] 线程安全的Python-Rust互操作
+- [OK] DCC插件集成示例
+- [OK] 实时数据绑定
+- [OK] DCC主线程模型支持
 
-### 6. 📊 DCC软件支持
+### 6. [STATS] DCC软件支持
 
 | DCC | PyWebView | AuroraView |
 |-----|-----------|------------|
-| Maya | ⚠️ 可用但不稳定 | ✅ 完全支持 |
-| Houdini | ❌ 不推荐 | ✅ 完全支持 |
-| Blender | ⚠️ 可用但不稳定 | ✅ 完全支持 |
-| 3ds Max | ❌ 不支持 | ✅ 计划支持 |
-| Unreal Engine | ❌ 不支持 | ✅ 计划支持 |
-| Nuke | ❌ 不支持 | ✅ 计划支持 |
+| Maya | [WARNING] 可用但不稳定 | [OK] 完全支持 |
+| Houdini | [ERROR] 不推荐 | [OK] 完全支持 |
+| Blender | [WARNING] 可用但不稳定 | [OK] 完全支持 |
+| 3ds Max | [ERROR] 不支持 | [OK] 计划支持 |
+| Unreal Engine | [ERROR] 不支持 | [OK] 计划支持 |
+| Nuke | [ERROR] 不支持 | [OK] 计划支持 |
 
-### 7. 🚀 性能特性
+### 7. [LAUNCH] 性能特性
 
 **PyWebView**:
 - 基础WebView功能
@@ -100,14 +100,14 @@ Python → Rust核心 → Wry → Tao → 浏览器引擎
 - 无性能优化
 
 **AuroraView**:
-- ✅ 异步事件处理
-- ✅ 事件节流/防抖
-- ✅ 内存池管理
-- ✅ 智能缓存
-- ✅ 并发安全
-- ✅ 零拷贝数据传输
+- [OK] 异步事件处理
+- [OK] 事件节流/防抖
+- [OK] 内存池管理
+- [OK] 智能缓存
+- [OK] 并发安全
+- [OK] 零拷贝数据传输
 
-### 8. 🛡️ 安全性
+### 8. ️ 安全性
 
 **PyWebView**:
 - Python的动态特性
@@ -121,22 +121,22 @@ Python → Rust核心 → Wry → Tao → 浏览器引擎
 - 无缓冲区溢出
 - 自动资源管理
 
-### 9. 📚 开发体验
+### 9. [DOCS] 开发体验
 
 **PyWebView**:
-- ✅ 快速上手
-- ✅ 简单API
-- ❌ 调试困难
-- ❌ 性能调优复杂
+- [OK] 快速上手
+- [OK] 简单API
+- [ERROR] 调试困难
+- [ERROR] 性能调优复杂
 
 **AuroraView**:
-- ✅ 清晰的类型
-- ✅ 完整的IDE支持
-- ✅ 易于调试
-- ✅ 性能可预测
-- ⚠️ 学习曲线陡峭
+- [OK] 清晰的类型
+- [OK] 完整的IDE支持
+- [OK] 易于调试
+- [OK] 性能可预测
+- [WARNING] 学习曲线陡峭
 
-### 10. 🔄 维护性
+### 10. [REFRESH] 维护性
 
 **PyWebView**:
 - 单一维护者
@@ -211,12 +211,12 @@ webview.emit("update", data)  # 自动在正确的线程中执行
 
 | 方面 | PyWebView | AuroraView |
 |------|-----------|------------|
-| 通用性 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
-| DCC支持 | ⭐ | ⭐⭐⭐⭐⭐ |
-| 性能 | ⭐⭐ | ⭐⭐⭐⭐⭐ |
-| 类型安全 | ⭐⭐ | ⭐⭐⭐⭐⭐ |
-| 易用性 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
-| 维护性 | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| 通用性 | [STAR][STAR][STAR][STAR][STAR] | [STAR][STAR][STAR] |
+| DCC支持 | [STAR] | [STAR][STAR][STAR][STAR][STAR] |
+| 性能 | [STAR][STAR] | [STAR][STAR][STAR][STAR][STAR] |
+| 类型安全 | [STAR][STAR] | [STAR][STAR][STAR][STAR][STAR] |
+| 易用性 | [STAR][STAR][STAR][STAR][STAR] | [STAR][STAR][STAR] |
+| 维护性 | [STAR][STAR][STAR] | [STAR][STAR][STAR][STAR][STAR] |
 
 **结论**: AuroraView 是为现代DCC开发而设计的下一代框架，提供了PyWebView无法提供的DCC集成、性能和安全性。
 

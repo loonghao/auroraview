@@ -87,32 +87,32 @@ impl IpcBackend for ThreadedBackend {
         };
 
         tracing::debug!(
-            "🔵 [ThreadedBackend::send_message] Sending event: {}",
+            "[SEND] [ThreadedBackend::send_message] Sending event: {}",
             event
         );
 
         match self.tx.try_send(message.clone()) {
             Ok(_) => {
-                tracing::debug!("✅ [ThreadedBackend::send_message] Message sent successfully");
+                tracing::debug!("[OK] [ThreadedBackend::send_message] Message sent successfully");
                 Ok(())
             }
             Err(TrySendError::Full(_)) => {
                 if self.config.block_on_full {
                     // Block until space is available
-                    tracing::warn!("⚠️ [ThreadedBackend::send_message] Queue full, blocking...");
+                    tracing::warn!("[WARNING] [ThreadedBackend::send_message] Queue full, blocking...");
                     self.tx
                         .send(message)
                         .map_err(|e| format!("Failed to send message: {}", e))
                 } else {
                     // Drop the message
                     let err = format!("Queue full, dropping message for event: {}", event);
-                    tracing::error!("❌ [ThreadedBackend::send_message] {}", err);
+                    tracing::error!("[ERROR] [ThreadedBackend::send_message] {}", err);
                     Err(err)
                 }
             }
             Err(TrySendError::Disconnected(_)) => {
                 let err = "Channel disconnected".to_string();
-                tracing::error!("❌ [ThreadedBackend::send_message] {}", err);
+                tracing::error!("[ERROR] [ThreadedBackend::send_message] {}", err);
                 Err(err)
             }
         }
@@ -125,7 +125,7 @@ impl IpcBackend for ThreadedBackend {
             .push(PythonCallback::new(callback));
 
         tracing::info!(
-            "✅ [ThreadedBackend] Registered callback for event: {}",
+            "[OK] [ThreadedBackend] Registered callback for event: {}",
             event
         );
         Ok(())
@@ -137,7 +137,7 @@ impl IpcBackend for ThreadedBackend {
         // Process all pending messages
         while let Ok(message) = self.rx.try_recv() {
             tracing::debug!(
-                "🔵 [ThreadedBackend::process_pending] Processing event: {}",
+                "[PROCESS] [ThreadedBackend::process_pending] Processing event: {}",
                 message.event
             );
 
@@ -146,7 +146,7 @@ impl IpcBackend for ThreadedBackend {
                 for callback in event_callbacks.value() {
                     if let Err(e) = callback.call(message.data.clone()) {
                         tracing::error!(
-                            "❌ [ThreadedBackend] Callback error for event {}: {}",
+                            "[ERROR] [ThreadedBackend] Callback error for event {}: {}",
                             message.event,
                             e
                         );
@@ -155,7 +155,7 @@ impl IpcBackend for ThreadedBackend {
                 }
             } else {
                 tracing::warn!(
-                    "⚠️ [ThreadedBackend] No callback registered for event: {}",
+                    "[WARNING] [ThreadedBackend] No callback registered for event: {}",
                     message.event
                 );
             }
@@ -165,7 +165,7 @@ impl IpcBackend for ThreadedBackend {
 
         if count > 0 {
             tracing::debug!(
-                "✅ [ThreadedBackend::process_pending] Processed {} messages",
+                "[OK] [ThreadedBackend::process_pending] Processed {} messages",
                 count
             );
         }
@@ -179,14 +179,14 @@ impl IpcBackend for ThreadedBackend {
 
     fn clear_callbacks(&self) -> Result<(), String> {
         self.callbacks.clear();
-        tracing::info!("✅ [ThreadedBackend] Cleared all callbacks");
+        tracing::info!("[OK] [ThreadedBackend] Cleared all callbacks");
         Ok(())
     }
 
     fn remove_callbacks(&self, event: &str) -> Result<(), String> {
         self.callbacks.remove(event);
         tracing::info!(
-            "✅ [ThreadedBackend] Removed callbacks for event: {}",
+            "[OK] [ThreadedBackend] Removed callbacks for event: {}",
             event
         );
         Ok(())

@@ -209,9 +209,9 @@ webview.show()
 
 | 方案 | 优点 | 缺点 | 推荐度 |
 |------|------|------|--------|
-| QWidget 包装器 | - 保留现有 Rust 代码<br>- 最小改动 | - 仍然依赖 HWND<br>- 仍有消息处理问题 | ⭐⭐⭐ |
-| QWindow 集成 | - 更好的 Qt 集成<br>- 自动处理 resize | - 需要修改 Rust 代码<br>- 复杂度中等 | ⭐⭐⭐⭐ |
-| QWebEngineView | - 完全 Qt 原生<br>- 无 HWND 问题<br>- 跨平台 | - 需要重写所有代码<br>- 放弃 wry/tao | ⭐⭐⭐⭐⭐ |
+| QWidget 包装器 | - 保留现有 Rust 代码<br>- 最小改动 | - 仍然依赖 HWND<br>- 仍有消息处理问题 | [STAR][STAR][STAR] |
+| QWindow 集成 | - 更好的 Qt 集成<br>- 自动处理 resize | - 需要修改 Rust 代码<br>- 复杂度中等 | [STAR][STAR][STAR][STAR] |
+| QWebEngineView | - 完全 Qt 原生<br>- 无 HWND 问题<br>- 跨平台 | - 需要重写所有代码<br>- 放弃 wry/tao | [STAR][STAR][STAR][STAR][STAR] |
 
 ## 推荐方案: QWebEngineView
 

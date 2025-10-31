@@ -68,26 +68,26 @@ jobs:
     steps:
       - name: Check all required jobs
         run: |
-          echo "🔍 Checking PR readiness..."
+          echo "Checking PR readiness..."
 
           # Check essential tests
           if [[ "${{ needs.essential-tests.result }}" != "success" ]]; then
-            echo "❌ Essential tests failed"
+            echo "Essential tests failed"
             exit 1
           fi
 
           # Check quality
           if [[ "${{ needs.quality-checks.result }}" != "success" ]]; then
-            echo "❌ Code quality checks failed"
+            echo "Code quality checks failed"
             exit 1
           fi
 
-          echo "✅ PR is ready for merge!"
-          echo "## ✅ PR Ready for Merge" >> $GITHUB_STEP_SUMMARY
+          echo "[OK] PR is ready for merge!"
+          echo "## [OK] PR Ready for Merge" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "All essential checks have passed:" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Essential tests (Python 3.8, 3.10, 3.12)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Code quality and linting (Rust + Python)" >> $GITHUB_STEP_SUMMARY
+          echo "- [OK] Essential tests (Python 3.8, 3.10, 3.12)" >> $GITHUB_STEP_SUMMARY
+          echo "- [OK] Code quality and linting (Rust + Python)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "This PR can be safely merged." >> $GITHUB_STEP_SUMMARY
 

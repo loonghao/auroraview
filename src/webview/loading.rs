@@ -68,14 +68,14 @@ pub const LOADING_HTML: &str = r#"<!DOCTYPE html>
     
     <script>
         // Notify Rust that loading screen is ready
-        console.log('⏱️ Loading screen rendered');
+        console.log('[TIMER] Loading screen rendered');
         
         // Mark performance timing
         window.loadingScreenReady = performance.now();
         
         // Listen for content ready event
         window.addEventListener('content_ready', () => {
-            console.log('✅ Content ready, hiding loading screen');
+            console.log('[OK] Content ready, hiding loading screen');
             document.body.style.opacity = '0';
             document.body.style.transition = 'opacity 0.3s';
             
@@ -134,14 +134,14 @@ pub fn wrap_html_with_optimizations(user_html: &str) -> String {
         if (document.readyState === 'loading') {{
             document.addEventListener('DOMContentLoaded', () => {{
                 window.auroraViewPerf.marks.domReady = performance.now();
-                console.log('⏱️ DOM ready:', window.auroraViewPerf.marks.domReady - window.auroraViewPerf.start, 'ms');
+                console.log('[TIMER] DOM ready:', window.auroraViewPerf.marks.domReady - window.auroraViewPerf.start, 'ms');
             }});
         }}
         
         // Mark when fully loaded
         window.addEventListener('load', () => {{
             window.auroraViewPerf.marks.loaded = performance.now();
-            console.log('⏱️ Fully loaded:', window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start, 'ms');
+            console.log('[TIMER] Fully loaded:', window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start, 'ms');
             
             // Show content
             document.body.classList.add('ready');
@@ -160,7 +160,7 @@ pub fn wrap_html_with_optimizations(user_html: &str) -> String {
         
         // Mark when JavaScript is initialized
         window.auroraViewPerf.marks.jsInit = performance.now();
-        console.log('⏱️ JavaScript initialized:', window.auroraViewPerf.marks.jsInit - window.auroraViewPerf.start, 'ms');
+        console.log('[TIMER] JavaScript initialized:', window.auroraViewPerf.marks.jsInit - window.auroraViewPerf.start, 'ms');
     </script>
 </body>
 </html>"#,
@@ -187,7 +187,7 @@ fn add_performance_monitoring(html: &str) -> String {
     if (document.readyState === 'loading') {{
         document.addEventListener('DOMContentLoaded', () => {{
             window.auroraViewPerf.marks.domReady = performance.now();
-            console.log('⏱️ DOM ready:', window.auroraViewPerf.marks.domReady - window.auroraViewPerf.start, 'ms');
+            console.log('[TIMER] DOM ready:', window.auroraViewPerf.marks.domReady - window.auroraViewPerf.start, 'ms');
         }});
     }} else {{
         window.auroraViewPerf.marks.domReady = performance.now();
@@ -196,7 +196,7 @@ fn add_performance_monitoring(html: &str) -> String {
     // Mark when fully loaded
     window.addEventListener('load', () => {{
         window.auroraViewPerf.marks.loaded = performance.now();
-        console.log('⏱️ Fully loaded:', window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start, 'ms');
+        console.log('[TIMER] Fully loaded:', window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start, 'ms');
         
         // Notify Rust
         try {{
@@ -212,7 +212,7 @@ fn add_performance_monitoring(html: &str) -> String {
     
     // Mark when JavaScript is initialized
     window.auroraViewPerf.marks.jsInit = performance.now();
-    console.log('⏱️ JavaScript initialized:', window.auroraViewPerf.marks.jsInit - window.auroraViewPerf.start, 'ms');
+    console.log('[TIMER] JavaScript initialized:', window.auroraViewPerf.marks.jsInit - window.auroraViewPerf.start, 'ms');
 }})();
 </script>
 {}"#,
@@ -224,7 +224,7 @@ fn add_performance_monitoring(html: &str) -> String {
             r#"{}<script>
 // AuroraView Performance Monitoring
 window.auroraViewPerf = {{ start: performance.now(), marks: {{}} }};
-console.log('⏱️ Performance monitoring initialized');
+console.log('[TIMER] Performance monitoring initialized');
 </script>"#,
             html
         )

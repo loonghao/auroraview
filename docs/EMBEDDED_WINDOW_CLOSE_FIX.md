@@ -5,10 +5,10 @@
 在嵌入式模式下(设置了 `parent_hwnd`),调用 `DestroyWindow()` 后窗口无法正确关闭,窗口仍然可见。
 
 ### 症状
-- ✅ `DestroyWindow()` 返回成功
-- ✅ Timer 被正确 kill
-- ✅ WebView 引用被删除
-- ❌ **窗口仍然显示在屏幕上**
+- [OK] `DestroyWindow()` 返回成功
+- [OK] Timer 被正确 kill
+- [OK] WebView 引用被删除
+- [ERROR] **窗口仍然显示在屏幕上**
 
 ## 根本原因
 
@@ -29,7 +29,7 @@
 **关键问题**:
 ```rust
 // 调用 DestroyWindow() 后
-DestroyWindow(hwnd);  // ✅ 成功
+DestroyWindow(hwnd);  // [OK] 成功
 
 // 但是 WM_DESTROY 和 WM_NCDESTROY 消息在队列中
 // 没有消息循环来处理它们!
@@ -111,19 +111,19 @@ std::thread::sleep(std::time::Duration::from_millis(50));
 
 ### 测试步骤
 1. 在 Maya 中运行测试脚本
-2. 点击 "✕ Close Window" 按钮
+2. 点击 "[CLOSE] Close Window" 按钮
 3. 观察日志输出
 4. 验证窗口是否正确关闭
 
 ### 预期结果
 ```
-🔒 [AuroraView::close] Calling DestroyWindow...
-✅ [AuroraView::close] DestroyWindow succeeded
-🔴 [AuroraView::close] Processing pending window messages...
-🔴 [AuroraView::close] Processing WM_DESTROY
-🔴 [AuroraView::close] Processing WM_NCDESTROY (final cleanup)
-✅ [AuroraView::close] Processed 5 window messages
-✅ [AuroraView::close] Window cleanup completed
+[LOCK] [AuroraView::close] Calling DestroyWindow...
+[OK] [AuroraView::close] DestroyWindow succeeded
+[CLOSE] [AuroraView::close] Processing pending window messages...
+[CLOSE] [AuroraView::close] Processing WM_DESTROY
+[CLOSE] [AuroraView::close] Processing WM_NCDESTROY (final cleanup)
+[OK] [AuroraView::close] Processed 5 window messages
+[OK] [AuroraView::close] Window cleanup completed
 ```
 
 ## 参考
@@ -153,19 +153,19 @@ Flet 使用 Flutter,它的窗口管理:
 
 ### 尝试 1: 只调用 `DestroyWindow()`
 ```rust
-DestroyWindow(hwnd);  // ❌ 窗口仍然可见
+DestroyWindow(hwnd);  // [ERROR] 窗口仍然可见
 ```
 **问题**: 没有处理 `WM_DESTROY` 和 `WM_NCDESTROY` 消息
 
 ### 尝试 2: 发送 `WM_CLOSE` 消息
 ```rust
-PostMessageW(hwnd, WM_CLOSE, None, None);  // ❌ 没有效果
+PostMessageW(hwnd, WM_CLOSE, None, None);  // [ERROR] 没有效果
 ```
 **问题**: 消息被发送,但没有消息循环来处理它
 
 ### 尝试 3: 使用 `window.set_visible(false)`
 ```rust
-window.set_visible(false);  // ❌ 窗口隐藏但未销毁
+window.set_visible(false);  // [ERROR] 窗口隐藏但未销毁
 ```
 **问题**: 只是隐藏,没有真正销毁窗口
 

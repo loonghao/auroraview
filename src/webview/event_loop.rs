@@ -124,42 +124,42 @@ impl WebViewEventHandler {
     /// which would terminate the entire DCC application (Maya, Houdini, etc.).
     /// The run_return() method returns normally, allowing the DCC to continue running.
     pub fn run_blocking(mut event_loop: EventLoop<UserEvent>, state: Arc<Mutex<EventLoopState>>) {
-        tracing::info!("🟡 [run_blocking] Starting event loop (blocking mode with run_return)");
+        tracing::info!("[WARNING] [run_blocking] Starting event loop (blocking mode with run_return)");
 
         // Create event loop proxy and store it in state
-        tracing::info!("🟡 [run_blocking] Creating event loop proxy...");
+        tracing::info!("[WARNING] [run_blocking] Creating event loop proxy...");
         let proxy = event_loop.create_proxy();
 
-        tracing::info!("🟡 [run_blocking] Storing proxy in EventLoopState...");
+        tracing::info!("[WARNING] [run_blocking] Storing proxy in EventLoopState...");
         if let Ok(mut state_guard) = state.lock() {
             state_guard.set_event_loop_proxy(proxy.clone());
-            tracing::info!("✅ [run_blocking] Event loop proxy stored in EventLoopState");
+            tracing::info!("[OK] [run_blocking] Event loop proxy stored in EventLoopState");
         } else {
-            tracing::error!("❌ [run_blocking] Failed to lock state for storing proxy");
+            tracing::error!("[ERROR] [run_blocking] Failed to lock state for storing proxy");
         }
 
         // Also store proxy in message queue for immediate wake-up
-        tracing::info!("🟡 [run_blocking] Storing proxy in MessageQueue...");
+        tracing::info!("[WARNING] [run_blocking] Storing proxy in MessageQueue...");
         if let Ok(state_guard) = state.lock() {
             state_guard.message_queue.set_event_loop_proxy(proxy);
-            tracing::info!("✅ [run_blocking] Event loop proxy stored in MessageQueue");
+            tracing::info!("[OK] [run_blocking] Event loop proxy stored in MessageQueue");
         } else {
             tracing::error!(
-                "❌ [run_blocking] Failed to lock state for storing proxy in MessageQueue"
+                "[ERROR] [run_blocking] Failed to lock state for storing proxy in MessageQueue"
             );
         }
 
         // Show the window
-        tracing::info!("🟡 [run_blocking] Making window visible...");
+        tracing::info!("[WARNING] [run_blocking] Making window visible...");
         if let Ok(state_guard) = state.lock() {
             if let Some(window) = &state_guard.window {
                 window.set_visible(true);
-                tracing::info!("✅ [run_blocking] Window is now visible");
+                tracing::info!("[OK] [run_blocking] Window is now visible");
             } else {
-                tracing::warn!("⚠️ [run_blocking] Window is None");
+                tracing::warn!("[WARNING] [run_blocking] Window is None");
             }
         } else {
-            tracing::error!("❌ [run_blocking] Failed to lock state for showing window");
+            tracing::error!("[ERROR] [run_blocking] Failed to lock state for showing window");
         }
 
         let state_clone = state.clone();
@@ -168,15 +168,15 @@ impl WebViewEventHandler {
 
             match event {
                 Event::UserEvent(UserEvent::ProcessMessages) => {
-                    tracing::info!("🟢 [EventLoop] Received UserEvent::ProcessMessages - processing queue immediately");
+                    tracing::info!("[OK] [EventLoop] Received UserEvent::ProcessMessages - processing queue immediately");
                     // Process messages immediately when woken up
                     if let Ok(state_guard) = state_clone.lock() {
-                        tracing::info!("🟢 [EventLoop] State lock acquired");
+                        tracing::info!("[OK] [EventLoop] State lock acquired");
                         let queue_len = state_guard.message_queue.len();
-                        tracing::info!("🟢 [EventLoop] Queue length: {}", queue_len);
+                        tracing::info!("[OK] [EventLoop] Queue length: {}", queue_len);
 
                         let count = state_guard.message_queue.process_all(|message| {
-                            tracing::info!("🟢 [EventLoop] Processing message: {:?}",
+                            tracing::info!("[OK] [EventLoop] Processing message: {:?}",
                                 match &message {
                                     WebViewMessage::EvalJs(_) => "EvalJs",
                                     WebViewMessage::EmitEvent { event_name, .. } => event_name.as_str(),
@@ -186,68 +186,72 @@ impl WebViewEventHandler {
                             );
 
                             if let Some(webview_arc) = &state_guard.webview {
-                                tracing::info!("🟢 [EventLoop] WebView exists, locking...");
+                                tracing::info!("[OK] [EventLoop] WebView exists, locking...");
                                 if let Ok(webview) = webview_arc.lock() {
-                                    tracing::info!("🟢 [EventLoop] WebView locked, executing message...");
+                                    tracing::info!("[OK] [EventLoop] WebView locked, executing message...");
                                     match message {
                                         WebViewMessage::EvalJs(script) => {
-                                            tracing::info!("🟢 [EventLoop] Executing EvalJs: {}", script);
+                                            tracing::info!("[OK] [EventLoop] Executing EvalJs: {}", script);
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("❌ [EventLoop] Failed to execute JavaScript: {}", e);
+                                                tracing::error!("[ERROR] [EventLoop] Failed to execute JavaScript: {}", e);
                                             } else {
-                                                tracing::info!("✅ [EventLoop] EvalJs executed successfully");
+                                                tracing::info!("[OK] [EventLoop] EvalJs executed successfully");
                                             }
                                         }
                                         WebViewMessage::EmitEvent { event_name, data } => {
-                                            tracing::info!("🟢 [EventLoop] Emitting event: {}", event_name);
+                                            tracing::info!("[OK] [EventLoop] Emitting event: {}", event_name);
+                                            // Properly escape JSON data to avoid JavaScript syntax errors
+                                            let json_str = data.to_string();
+                                            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
                                             let script = format!(
-                                                "window.dispatchEvent(new CustomEvent('{}', {{ detail: Object.assign({{}}, {{__aurora_from_python: true}}, {}) }}))",
-                                                event_name, data
+                                                "window.dispatchEvent(new CustomEvent('{}', {{ detail: Object.assign({{}}, {{__aurora_from_python: true}}, JSON.parse('{}')) }}))",
+                                                event_name, escaped_json
                                             );
+                                            tracing::debug!("[CLOSE] [EventLoop] Generated script: {}", script);
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("❌ [EventLoop] Failed to emit event: {}", e);
+                                                tracing::error!("[ERROR] [EventLoop] Failed to emit event: {}", e);
                                             } else {
-                                                tracing::info!("✅ [EventLoop] Event emitted successfully");
+                                                tracing::info!("[OK] [EventLoop] Event emitted successfully");
                                             }
                                         }
                                         WebViewMessage::LoadUrl(url) => {
-                                            tracing::info!("🟢 [EventLoop] Loading URL: {}", url);
+                                            tracing::info!("[OK] [EventLoop] Loading URL: {}", url);
                                             let script = format!("window.location.href = '{}';", url);
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("❌ [EventLoop] Failed to load URL: {}", e);
+                                                tracing::error!("[ERROR] [EventLoop] Failed to load URL: {}", e);
                                             } else {
-                                                tracing::info!("✅ [EventLoop] URL loaded successfully");
+                                                tracing::info!("[OK] [EventLoop] URL loaded successfully");
                                             }
                                         }
                                         WebViewMessage::LoadHtml(html) => {
-                                            tracing::info!("🟢 [EventLoop] Loading HTML ({} bytes)", html.len());
+                                            tracing::info!("[OK] [EventLoop] Loading HTML ({} bytes)", html.len());
                                             if let Err(e) = webview.load_html(&html) {
-                                                tracing::error!("❌ [EventLoop] Failed to load HTML: {}", e);
+                                                tracing::error!("[ERROR] [EventLoop] Failed to load HTML: {}", e);
                                             } else {
-                                                tracing::info!("✅ [EventLoop] HTML loaded successfully");
+                                                tracing::info!("[OK] [EventLoop] HTML loaded successfully");
                                             }
                                         }
                                     }
                                 } else {
-                                    tracing::error!("❌ [EventLoop] Failed to lock WebView");
+                                    tracing::error!("[ERROR] [EventLoop] Failed to lock WebView");
                                 }
                             } else {
-                                tracing::error!("❌ [EventLoop] WebView is None!");
+                                tracing::error!("[ERROR] [EventLoop] WebView is None!");
                             }
                         });
 
                         if count > 0 {
-                            tracing::info!("✅ [EventLoop] Processed {} messages immediately via UserEvent", count);
+                            tracing::info!("[OK] [EventLoop] Processed {} messages immediately via UserEvent", count);
                         } else {
-                            tracing::warn!("⚠️ [EventLoop] No messages processed (queue was empty)");
+                            tracing::warn!("[WARNING] [EventLoop] No messages processed (queue was empty)");
                         }
                     } else {
-                        tracing::error!("❌ [EventLoop] Failed to lock state");
+                        tracing::error!("[ERROR] [EventLoop] Failed to lock state");
                     }
                 }
                 Event::UserEvent(UserEvent::CloseWindow) => {
-                    tracing::info!("🔴 [EventLoop] UserEvent::CloseWindow received");
-                    tracing::info!("🔴 [EventLoop] Requesting window close via event loop");
+                    tracing::info!("[CLOSE] [EventLoop] UserEvent::CloseWindow received");
+                    tracing::info!("[CLOSE] [EventLoop] Requesting window close via event loop");
 
                     // Request exit through the state
                     if let Ok(state_guard) = state_clone.lock() {
@@ -256,14 +260,14 @@ impl WebViewEventHandler {
                         // Hide window immediately
                         if let Some(window) = &state_guard.window {
                             window.set_visible(false);
-                            tracing::info!("✅ [EventLoop] Window hidden");
+                            tracing::info!("[OK] [EventLoop] Window hidden");
                         }
 
                         // Set control flow to exit
                         *control_flow = ControlFlow::Exit;
-                        tracing::info!("✅ [EventLoop] Control flow set to Exit");
+                        tracing::info!("[OK] [EventLoop] Control flow set to Exit");
                     } else {
-                        tracing::error!("❌ [EventLoop] Failed to lock state for close");
+                        tracing::error!("[ERROR] [EventLoop] Failed to lock state for close");
                     }
                 }
                 Event::WindowEvent { event, .. } => {
@@ -301,10 +305,14 @@ impl WebViewEventHandler {
                                         }
                                         WebViewMessage::EmitEvent { event_name, data } => {
                                             tracing::debug!("Processing EmitEvent: {}", event_name);
+                                            // Properly escape JSON data to avoid JavaScript syntax errors
+                                            let json_str = data.to_string();
+                                            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
                                             let script = format!(
-                                                "window.dispatchEvent(new CustomEvent('{}', {{ detail: Object.assign({{}}, {{__aurora_from_python: true}}, {}) }}))",
-                                                event_name, data
+                                                "window.dispatchEvent(new CustomEvent('{}', {{ detail: Object.assign({{}}, {{__aurora_from_python: true}}, JSON.parse('{}')) }}))",
+                                                event_name, escaped_json
                                             );
+                                            tracing::debug!("[CLOSE] [EmitEvent] Generated script: {}", script);
                                             if let Err(e) = webview.evaluate_script(&script) {
                                                 tracing::error!("Failed to emit event: {}", e);
                                             }
@@ -370,7 +378,7 @@ impl WebViewEventHandler {
 
             match event {
                 Event::UserEvent(UserEvent::ProcessMessages) => {
-                    tracing::debug!("🟢 [poll_events_once] Processing messages");
+                    tracing::debug!("[OK] [poll_events_once] Processing messages");
                     if let Ok(state_guard) = state_clone.lock() {
                         state_guard.message_queue.process_all(|message| {
                             if let Some(webview_arc) = &state_guard.webview {
@@ -382,10 +390,14 @@ impl WebViewEventHandler {
                                             }
                                         }
                                         WebViewMessage::EmitEvent { event_name, data } => {
+                                            // Properly escape JSON data to avoid JavaScript syntax errors
+                                            let json_str = data.to_string();
+                                            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
                                             let script = format!(
-                                                "window.dispatchEvent(new CustomEvent('{}', {{ detail: {} }}));",
-                                                event_name, data
+                                                "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
+                                                event_name, escaped_json
                                             );
+                                            tracing::debug!("[CLOSE] [EmitEvent] Generated script: {}", script);
                                             if let Err(e) = webview.evaluate_script(&script) {
                                                 tracing::error!("Failed to emit event: {}", e);
                                             }
@@ -408,14 +420,14 @@ impl WebViewEventHandler {
                     }
                 }
                 Event::WindowEvent { event, .. } => {
-                    tracing::debug!("🟢 [poll_events_once] Window event: {:?}", event);
+                    tracing::debug!("[OK] [poll_events_once] Window event: {:?}", event);
                     let handler = WebViewEventHandler::new(state_clone.clone());
                     handler.handle_window_event(event);
 
                     // Check if we should exit
                     if let Ok(state_guard) = state_clone.lock() {
                         if state_guard.should_exit() {
-                            tracing::info!("🟢 [poll_events_once] Window close requested");
+                            tracing::info!("[OK] [poll_events_once] Window close requested");
                             *control_flow = ControlFlow::Exit;
                         }
                     }

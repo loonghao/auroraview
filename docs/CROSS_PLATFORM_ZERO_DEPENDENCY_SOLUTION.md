@@ -4,25 +4,25 @@
 
 寻找一个**跨平台** (Windows, macOS, Linux) 的 Rust WebView 解决方案,满足以下严格要求:
 
-1. ✅ **Rust 实现** - 整个解决方案用 Rust 编写
-2. ✅ **零 Python 依赖** - 编译后的 .pyd/.so 不依赖任何第三方 Python 包
-3. ✅ **独立分发** - 用户只需安装我们的 Python 包
-4. ✅ **嵌入模式支持** - 支持嵌入到现有窗口 (DCC 应用如 Maya)
+1. [OK] **Rust 实现** - 整个解决方案用 Rust 编写
+2. [OK] **零 Python 依赖** - 编译后的 .pyd/.so 不依赖任何第三方 Python 包
+3. [OK] **独立分发** - 用户只需安装我们的 Python 包
+4. [OK] **嵌入模式支持** - 支持嵌入到现有窗口 (DCC 应用如 Maya)
 
 ---
 
-## 1. 核心发现 ⚠️
+## 1. 核心发现 [WARNING]
 
 ### 1.1 关键结论
 
-**❌ 不存在完美的跨平台嵌入式窗口解决方案**
+**[ERROR] 不存在完美的跨平台嵌入式窗口解决方案**
 
 经过全面调研,**没有任何 Rust WebView 库提供跨平台的嵌入模式支持**:
 
-- ❌ **wry** - 仅在 Windows/macOS/Linux(X11) 支持子窗口,但**不支持嵌入到外部窗口**
-- ❌ **webview/webview** (C/C++) - 不支持嵌入模式
-- ❌ **Tauri** - 基于 wry,相同限制
-- ❌ **Dioxus** - 基于 wry,相同限制
+- [ERROR] **wry** - 仅在 Windows/macOS/Linux(X11) 支持子窗口,但**不支持嵌入到外部窗口**
+- [ERROR] **webview/webview** (C/C++) - 不支持嵌入模式
+- [ERROR] **Tauri** - 基于 wry,相同限制
+- [ERROR] **Dioxus** - 基于 wry,相同限制
 
 ### 1.2 wry 的 "Child WebView" 功能
 
@@ -32,7 +32,7 @@
 // wry 的 "child webview" - 在自己的窗口内创建子 WebView
 let webview = WebViewBuilder::new()
     .with_bounds(Rect { ... })
-    .build_as_child(&window)  // ❌ 这是在 wry 自己的窗口内
+    .build_as_child(&window)  // [ERROR] 这是在 wry 自己的窗口内
     .unwrap();
 ```
 
@@ -49,7 +49,7 @@ let webview = WebViewBuilder::new()
 
 **项目**: https://github.com/tauri-apps/wry
 
-**跨平台支持**: ✅ Windows, macOS, Linux, iOS, Android
+**跨平台支持**: [OK] Windows, macOS, Linux, iOS, Android
 
 **底层技术**:
 - Windows: WebView2 (Edge Chromium)
@@ -58,7 +58,7 @@ let webview = WebViewBuilder::new()
 - iOS: WebKit
 - Android: Android WebView
 
-**嵌入模式支持**: ❌ **不支持**
+**嵌入模式支持**: [ERROR] **不支持**
 
 **关键 Issues**:
 - [#650 - Construct WebView from raw window handle](https://github.com/tauri-apps/wry/issues/650)
@@ -71,18 +71,18 @@ let webview = WebViewBuilder::new()
 
 **Child WebView 功能**:
 ```rust
-// ⚠️ 这不是嵌入到外部窗口!
+// [WARNING] 这不是嵌入到外部窗口!
 WebViewBuilder::new()
     .with_bounds(Rect { ... })
     .build_as_child(&window)  // window 必须是 wry/tao 创建的
 ```
 
 **限制**:
-- ❌ 无法从外部 HWND/NSView/GtkWidget 创建 WebView
-- ❌ 必须使用 tao/winit 创建的窗口
-- ❌ 不支持嵌入到 DCC 应用
+- [ERROR] 无法从外部 HWND/NSView/GtkWidget 创建 WebView
+- [ERROR] 必须使用 tao/winit 创建的窗口
+- [ERROR] 不支持嵌入到 DCC 应用
 
-**结论**: ❌ **不适用于我们的场景**
+**结论**: [ERROR] **不适用于我们的场景**
 
 ---
 
@@ -92,14 +92,14 @@ WebViewBuilder::new()
 
 **语言**: C/C++ (有 Rust 绑定)
 
-**跨平台支持**: ✅ Windows, macOS, Linux
+**跨平台支持**: [OK] Windows, macOS, Linux
 
 **底层技术**:
 - Windows: WebView2
 - macOS: WebKit (Cocoa)
 - Linux: WebKitGTK
 
-**嵌入模式支持**: ❌ **不支持**
+**嵌入模式支持**: [ERROR] **不支持**
 
 **API 设计**:
 ```c
@@ -110,15 +110,15 @@ webview_run(w);
 ```
 
 **限制**:
-- ❌ 没有 API 接受外部窗口句柄
-- ❌ 必须创建独立窗口
-- ❌ 不支持嵌入模式
+- [ERROR] 没有 API 接受外部窗口句柄
+- [ERROR] 必须创建独立窗口
+- [ERROR] 不支持嵌入模式
 
 **Rust 绑定**:
 - [Boscop/web-view](https://github.com/Boscop/web-view) - 已过时
 - 没有活跃维护的 Rust 绑定
 
-**结论**: ❌ **不适用**
+**结论**: [ERROR] **不适用**
 
 ---
 
@@ -127,12 +127,12 @@ webview_run(w);
 #### Tauri
 - **基于**: wry + tao
 - **限制**: 与 wry 相同,不支持嵌入模式
-- **结论**: ❌ 不适用
+- **结论**: [ERROR] 不适用
 
 #### Dioxus
 - **基于**: wry (desktop 模式)
 - **限制**: 与 wry 相同
-- **结论**: ❌ 不适用
+- **结论**: [ERROR] 不适用
 
 ---
 
@@ -184,7 +184,7 @@ gtk_container_add(GTK_CONTAINER(parent), child);
 
 ## 4. 可行的替代方案
 
-### 方案 A: 平台特定实现 (推荐) ⭐⭐⭐⭐⭐
+### 方案 A: 平台特定实现 (推荐) [STAR][STAR][STAR][STAR][STAR]
 
 **策略**: 为每个平台编写特定的嵌入代码
 
@@ -220,13 +220,13 @@ parent_container.add(&webview);
 ```
 
 **优势**:
-- ✅ **完全控制** - 精确控制每个平台的行为
-- ✅ **零依赖** - 只依赖系统原生 WebView
-- ✅ **最佳性能** - 直接调用平台 API
+- [OK] **完全控制** - 精确控制每个平台的行为
+- [OK] **零依赖** - 只依赖系统原生 WebView
+- [OK] **最佳性能** - 直接调用平台 API
 
 **劣势**:
-- ❌ **维护成本高** - 需要维护三套代码
-- ❌ **平台专家知识** - 需要深入了解每个平台
+- [ERROR] **维护成本高** - 需要维护三套代码
+- [ERROR] **平台专家知识** - 需要深入了解每个平台
 
 **实现示例**:
 ```rust
@@ -253,23 +253,23 @@ pub struct WebView {
 }
 ```
 
-**结论**: ✅ **这是唯一可行的跨平台零依赖方案**
+**结论**: [OK] **这是唯一可行的跨平台零依赖方案**
 
 ---
 
-### 方案 B: 使用 Qt WebEngine (备选) ⭐⭐⭐⭐
+### 方案 B: 使用 Qt WebEngine (备选) [STAR][STAR][STAR][STAR]
 
-**问题**: ❌ **违反"零 Python 依赖"要求**
+**问题**: [ERROR] **违反"零 Python 依赖"要求**
 
 即使用 Rust 实现,Qt WebEngine 仍然需要:
 - Qt 运行时库 (QtCore, QtGui, QtWebEngine)
 - 用户必须安装 Qt
 
-**结论**: ❌ 不符合要求
+**结论**: [ERROR] 不符合要求
 
 ---
 
-### 方案 C: 创建独立窗口 (妥协方案) ⭐⭐
+### 方案 C: 创建独立窗口 (妥协方案) [STAR][STAR]
 
 **策略**: 不嵌入,而是创建独立的浮动窗口
 
@@ -281,15 +281,15 @@ let webview = WebViewBuilder::new()
 ```
 
 **优势**:
-- ✅ 跨平台支持
-- ✅ 使用现有的 wry
+- [OK] 跨平台支持
+- [OK] 使用现有的 wry
 
 **劣势**:
-- ❌ 不是嵌入式窗口
-- ❌ 用户体验差 (独立窗口)
-- ❌ 不符合 DCC 应用的集成需求
+- [ERROR] 不是嵌入式窗口
+- [ERROR] 用户体验差 (独立窗口)
+- [ERROR] 不符合 DCC 应用的集成需求
 
-**结论**: ⚠️ 仅作为最后的备选方案
+**结论**: [WARNING] 仅作为最后的备选方案
 
 ---
 
@@ -370,10 +370,10 @@ pip install auroraview  # 无需其他依赖!
 
 ### 阶段 1: Windows 实现 (优先)
 
-1. ✅ 使用 `windows-rs` + `webview2-com`
-2. ✅ 实现嵌入模式 (SetParent)
-3. ✅ 解决窗口关闭问题 (已完成)
-4. ✅ 通过 PyO3 暴露 API
+1. [OK] 使用 `windows-rs` + `webview2-com`
+2. [OK] 实现嵌入模式 (SetParent)
+3. [OK] 解决窗口关闭问题 (已完成)
+4. [OK] 通过 PyO3 暴露 API
 
 ### 阶段 2: macOS 实现
 
@@ -457,20 +457,20 @@ impl WebView {
 
 ### 8.1 推荐方案
 
-**✅ 采用平台特定实现**
+**[OK] 采用平台特定实现**
 
 **理由**:
-1. ✅ **唯一可行的跨平台零依赖方案**
-2. ✅ **完全控制** - 可以精确解决每个平台的问题
-3. ✅ **最佳性能** - 直接使用系统原生 WebView
-4. ✅ **零 Python 依赖** - 所有代码编译成二进制
+1. [OK] **唯一可行的跨平台零依赖方案**
+2. [OK] **完全控制** - 可以精确解决每个平台的问题
+3. [OK] **最佳性能** - 直接使用系统原生 WebView
+4. [OK] **零 Python 依赖** - 所有代码编译成二进制
 
 ### 8.2 实施建议
 
 **短期 (1-2 个月)**:
-1. ✅ 完善 Windows 实现 (已基本完成)
-2. 🔄 开始 macOS 实现
-3. 📋 规划 Linux 实现
+1. [OK] 完善 Windows 实现 (已基本完成)
+2. [REFRESH] 开始 macOS 实现
+3.  规划 Linux 实现
 
 **中期 (3-6 个月)**:
 1. 完成所有平台实现
@@ -484,7 +484,7 @@ impl WebView {
 
 ### 8.3 不推荐的方案
 
-❌ **不要尝试**:
+[ERROR] **不要尝试**:
 1. 等待 wry 添加嵌入模式支持 (不会发生)
 2. 使用 Qt WebEngine (违反零依赖要求)
 3. 创建独立窗口 (不符合需求)
@@ -515,26 +515,26 @@ impl WebView {
 
 ### 核心结论
 
-1. ❌ **不存在现成的跨平台嵌入式 WebView Rust 库**
-2. ✅ **平台特定实现是唯一可行方案**
-3. ✅ **可以实现零 Python 依赖**
-4. ✅ **我们当前的 Windows 实现方向正确**
+1. [ERROR] **不存在现成的跨平台嵌入式 WebView Rust 库**
+2. [OK] **平台特定实现是唯一可行方案**
+3. [OK] **可以实现零 Python 依赖**
+4. [OK] **我们当前的 Windows 实现方向正确**
 
 ### 行动建议
 
 **立即行动**:
-- ✅ 继续完善 Windows 实现
-- 🔄 开始 macOS 原型开发
-- 📋 研究 Linux/GTK 集成
+- [OK] 继续完善 Windows 实现
+- [REFRESH] 开始 macOS 原型开发
+-  研究 Linux/GTK 集成
 
 **未来规划**:
-- 📋 创建统一的跨平台 API
-- 📋 编写平台特定的测试
-- 📋 优化构建和分发流程
+-  创建统一的跨平台 API
+-  编写平台特定的测试
+-  优化构建和分发流程
 
 **成功指标**:
-- ✅ 用户只需 `pip install auroraview`
-- ✅ 无需安装 Qt 或其他依赖
-- ✅ 支持 Windows, macOS, Linux
-- ✅ 可以嵌入到 DCC 应用 (Maya, Houdini 等)
+- [OK] 用户只需 `pip install auroraview`
+- [OK] 无需安装 Qt 或其他依赖
+- [OK] 支持 Windows, macOS, Linux
+- [OK] 可以嵌入到 DCC 应用 (Maya, Houdini 等)
 

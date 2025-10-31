@@ -123,7 +123,7 @@ HEAVY_HTML = """
 </head>
 <body>
     <div class="container">
-        <h1>⚡ Performance Test <span class="status">Ready</span></h1>
+        <h1>[LIGHTNING] Performance Test <span class="status">Ready</span></h1>
         
         <div class="metrics">
             <h2 style="margin-bottom: 15px; color: #2d3748;">Performance Metrics</h2>
@@ -152,7 +152,7 @@ HEAVY_HTML = """
     </div>
     
     <script>
-        console.log('🚀 Performance test starting...');
+        console.log(' Performance test starting...');
         
         // Generate test cards
         const grid = document.getElementById('cardGrid');
@@ -190,7 +190,7 @@ HEAVY_HTML = """
         
         // Listen for first paint event
         window.addEventListener('first_paint', (e) => {
-            console.log('✅ First paint event received:', e.detail);
+            console.log('[OK] First paint event received:', e.detail);
             document.getElementById('firstPaint').textContent = 
                 e.detail.time.toFixed(2) + ' ms';
         });
@@ -201,7 +201,7 @@ HEAVY_HTML = """
         // Initial update
         updateMetrics();
         
-        console.log('✅ Performance test initialized');
+        console.log('[OK] Performance test initialized');
     </script>
 </body>
 </html>
@@ -212,9 +212,9 @@ print("Performance Test - AuroraView")
 print("=" * 70)
 print("")
 print("This example demonstrates:")
-print("• Performance monitoring")
-print("• Loading time metrics")
-print("• Heavy content rendering")
+print(" Performance monitoring")
+print(" Loading time metrics")
+print(" Heavy content rendering")
 print("")
 
 # Create WebView with performance monitoring
@@ -230,7 +230,7 @@ webview = NativeWebView.standalone(
 # Register performance event handler
 @webview.on("first_paint")
 def handle_first_paint(data):
-    print(f"✅ First paint: {data.get('time', 0):.2f} ms")
+    print(f"[OK] First paint: {data.get('time', 0):.2f} ms")
 
 # Load HTML
 print("Loading HTML...")
@@ -246,5 +246,5 @@ print("")
 try:
     webview.show()
 except KeyboardInterrupt:
-    print("\n\n✅ Test completed")
+    print("\n\n[OK] Test completed")
 

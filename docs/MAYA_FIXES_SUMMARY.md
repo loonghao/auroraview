@@ -1,8 +1,8 @@
 # Maya Outliner WebView - 三个问题修复总结
 
-## 📋 问题诊断与修复
+##  问题诊断与修复
 
-### ✅ 问题1：WebView 无法关闭
+### [OK] 问题1：WebView 无法关闭
 
 **诊断**：
 - 事件处理器监听了不存在的事件 `av.close`
@@ -11,7 +11,7 @@
 
 **修复**：
 1. 将事件处理器改为 `@webview.on("close_window")`
-2. 在 HTML 中添加红色关闭按钮（✕ Close）
+2. 在 HTML 中添加红色关闭按钮（[CLOSE] Close）
 3. 添加 `closeWindow()` JavaScript 函数
 4. 通过 IPC 发送 `close_window` 事件到 Python
 
@@ -22,7 +22,7 @@
 
 ---
 
-### ✅ 问题2：场景物体未显示
+### [OK] 问题2：场景物体未显示
 
 **诊断**：
 - 初始刷新时序问题
@@ -49,7 +49,7 @@ for _ in range(3):
 
 ---
 
-### ✅ 问题3：手动刷新功能失效
+### [OK] 问题3：手动刷新功能失效
 
 **诊断**：
 - JavaScript 使用 `window.dispatchEvent()` 发送事件
@@ -90,7 +90,7 @@ window.ipc.postMessage(JSON.stringify({
 
 ---
 
-## 🧪 测试方法
+## [TEST] 测试方法
 
 ### 在 Maya 中运行
 
@@ -102,9 +102,9 @@ exec(open(r'C:\path\to\outliner_view.py').read())
 ### 验证清单
 
 - [ ] **问题1 - 关闭功能**
-  - 点击 "✕ Close" 按钮
+  - 点击 "[CLOSE] Close" 按钮
   - WebView 窗口应该正常关闭
-  - 控制台应该显示 "✅ WebView closed successfully"
+  - 控制台应该显示 "[OK] WebView closed successfully"
 
 - [ ] **问题2 - 物体显示**
   - WebView 启动后
@@ -112,7 +112,7 @@ exec(open(r'C:\path\to\outliner_view.py').read())
   - 物体应该有正确的层级结构
 
 - [ ] **问题3 - 刷新功能**
-  - 点击 "🔄 Refresh" 按钮
+  - 点击 "[REFRESH] Refresh" 按钮
   - 物体列表应该更新
   - 控制台应该显示刷新日志
 
@@ -124,7 +124,7 @@ exec(open(r'C:\path\to\outliner_view.py').read())
 
 ---
 
-## 📊 修改统计
+## [STATS] 修改统计
 
 | 类别 | 数量 |
 |------|------|
@@ -137,25 +137,25 @@ exec(open(r'C:\path\to\outliner_view.py').read())
 
 ---
 
-## 🔑 关键改进
+##  关键改进
 
 ### 1. 事件通信机制
-- ✅ 使用正确的 IPC 通信方式
-- ✅ 所有 JavaScript 事件都通过 `window.ipc.postMessage()` 发送
-- ✅ Python 端通过 `@webview.on()` 装饰器接收
+- [OK] 使用正确的 IPC 通信方式
+- [OK] 所有 JavaScript 事件都通过 `window.ipc.postMessage()` 发送
+- [OK] Python 端通过 `@webview.on()` 装饰器接收
 
 ### 2. 初始化时序
-- ✅ 增加初始刷新延迟确保 WebView 完全初始化
-- ✅ 多次调用 `executeDeferred()` 确保消息处理
+- [OK] 增加初始刷新延迟确保 WebView 完全初始化
+- [OK] 多次调用 `executeDeferred()` 确保消息处理
 
 ### 3. UI 改进
-- ✅ 添加关闭按钮提供明确的关闭方式
-- ✅ 改进按钮布局和样式
-- ✅ 添加错误处理和日志
+- [OK] 添加关闭按钮提供明确的关闭方式
+- [OK] 改进按钮布局和样式
+- [OK] 添加错误处理和日志
 
 ---
 
-## 📚 相关文件
+## [DOCS] 相关文件
 
 - `examples/maya/outliner_view.py` - 修复后的主文件
 - `examples/maya/OUTLINER_FIXES.md` - 详细修复说明
@@ -164,7 +164,7 @@ exec(open(r'C:\path\to\outliner_view.py').read())
 
 ---
 
-## ✨ 下一步建议
+## [FEATURE] 下一步建议
 
 1. **测试**：在 Maya 中运行修复后的脚本进行完整测试
 2. **文档**：更新 README 和集成指南
@@ -174,5 +174,5 @@ exec(open(r'C:\path\to\outliner_view.py').read())
 ---
 
 **修复完成时间**：2025-10-29
-**修复状态**：✅ 完成
+**修复状态**：[OK] 完成
 

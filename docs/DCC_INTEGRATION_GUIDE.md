@@ -252,22 +252,22 @@ tool.show()
 
 ### 1. 线程安全
 ```python
-# ✅ 正确: 在主线程中调用
+# [OK] 正确: 在主线程中调用
 webview.emit("update", data)
 
-# ❌ 错误: 在后台线程中调用
+# [ERROR] 错误: 在后台线程中调用
 import threading
 threading.Thread(target=lambda: webview.emit("update", data)).start()
 ```
 
 ### 2. 事件处理
 ```python
-# ✅ 正确: 使用装饰器
+# [OK] 正确: 使用装饰器
 @webview.on("my_event")
 def handle_event(data):
     print(data)
 
-# ✅ 也可以: 使用register_callback
+# [OK] 也可以: 使用register_callback
 def handle_event(data):
     print(data)
 webview.register_callback("my_event", handle_event)

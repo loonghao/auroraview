@@ -45,7 +45,7 @@ def main():
         width=800,
         height=600
     )
-    logger.info(f"✓ Created: {webview}")
+    logger.info(f"[OK] Created: {webview}")
     logger.info("")
     
     # Create HTML content
@@ -162,24 +162,24 @@ def main():
     </head>
     <body>
         <div class="container">
-            <h1>🚀 AuroraView</h1>
+            <h1>AuroraView</h1>
             <p class="subtitle">High-Performance WebView for DCC Software</p>
-            
+
             <div class="features">
                 <div class="feature">
-                    <div class="feature-icon">⚡</div>
+                    <div class="feature-icon">[LIGHTNING]</div>
                     <div>2.5x faster than PyWebView</div>
                 </div>
                 <div class="feature">
-                    <div class="feature-icon">💾</div>
+                    <div class="feature-icon">[DISK]</div>
                     <div>2x less memory usage</div>
                 </div>
                 <div class="feature">
-                    <div class="feature-icon">🎯</div>
+                    <div class="feature-icon">[TARGET]</div>
                     <div>Native DCC integration</div>
                 </div>
                 <div class="feature">
-                    <div class="feature-icon">🔒</div>
+                    <div class="feature-icon">[LOCK]</div>
                     <div>Type-safe with Rust</div>
                 </div>
             </div>
@@ -197,22 +197,22 @@ def main():
         <script>
             function handleClick() {
                 const status = document.getElementById('status');
-                status.textContent = '✓ Button clicked! This is running in WebView.';
+                status.textContent = '[OK] Button clicked! This is running in WebView.';
                 status.style.background = '#e8f5e9';
                 status.style.color = '#2e7d32';
             }
-            
+
             function handleInfo() {
                 const status = document.getElementById('status');
                 status.textContent = 'AuroraView combines Rust performance with Python ease of use.';
                 status.style.background = '#e3f2fd';
                 status.style.color = '#1565c0';
             }
-            
+
             // Listen for events from Python
             window.addEventListener('python_event', (event) => {
                 const status = document.getElementById('status');
-                status.textContent = '📨 Event from Python: ' + JSON.stringify(event.detail);
+                status.textContent = '[EVENT] Event from Python: ' + JSON.stringify(event.detail);
                 status.style.background = '#fff3e0';
                 status.style.color = '#e65100';
             });
@@ -224,16 +224,16 @@ def main():
     # Load HTML content
     logger.info("Loading HTML content...")
     webview.load_html(html_content)
-    logger.info("✓ HTML content loaded")
+    logger.info("[OK] HTML content loaded")
     logger.info("")
-    
+
     # Register event handler
     logger.info("Registering event handler...")
     @webview.on("test_event")
     def handle_test_event(data):
-        logger.info(f"✓ Received event from JavaScript: {data}")
-    
-    logger.info("✓ Event handler registered")
+        logger.info(f"[OK] Received event from JavaScript: {data}")
+
+    logger.info("[OK] Event handler registered")
     logger.info("")
     
     # Show the window

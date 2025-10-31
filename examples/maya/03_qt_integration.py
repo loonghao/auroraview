@@ -24,7 +24,7 @@ Usage:
 try:
     from auroraview import QtWebView
 except ImportError:
-    print("❌ Qt backend not available!")
+    print("[ERROR] Qt backend not available!")
     print("Install with: pip install auroraview[qt]")
     raise
 

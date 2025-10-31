@@ -1,27 +1,27 @@
 # Project Status
 
-## ✅ Completed Features
+## [OK] Completed Features
 
 ### Core Features
-- ✅ **Rust WebView Core** - High-performance WebView using Wry 0.47
-- ✅ **Python Bindings** - PyO3 with abi3 support (Python 3.7+)
-- ✅ **Bidirectional IPC** - JavaScript ↔ Python communication
-- ✅ **Event System** - `@webview.on()` and `webview.emit()`
-- ✅ **Developer Tools** - F12 to open DevTools in embedded mode
-- ✅ **Resource Cleanup** - Automatic cleanup on Maya exit (no process leaks)
+- [OK] **Rust WebView Core** - High-performance WebView using Wry 0.47
+- [OK] **Python Bindings** - PyO3 with abi3 support (Python 3.7+)
+- [OK] **Bidirectional IPC** - JavaScript ↔ Python communication
+- [OK] **Event System** - `@webview.on()` and `webview.emit()`
+- [OK] **Developer Tools** - F12 to open DevTools in embedded mode
+- [OK] **Resource Cleanup** - Automatic cleanup on Maya exit (no process leaks)
 
 ### DCC Integration
-- ✅ **Maya Embedded Mode** - Child/Owner window modes
-- ✅ **Thread-Safe Event Handling** - `executeDeferred` pattern
-- ✅ **Event Processing Loop** - `scriptJob` integration
-- ✅ **Window Lifecycle Management** - Proper show/hide/close
+- [OK] **Maya Embedded Mode** - Child/Owner window modes
+- [OK] **Thread-Safe Event Handling** - `executeDeferred` pattern
+- [OK] **Event Processing Loop** - `scriptJob` integration
+- [OK] **Window Lifecycle Management** - Proper show/hide/close
 
 ### Examples
-- ✅ **Maya Outliner** - Scene hierarchy viewer with selection sync
-- ✅ **AI Chat Integration** - Code execution from AI chat
-- ✅ **Simple Panel** - Basic WebView panel template
+- [OK] **Maya Outliner** - Scene hierarchy viewer with selection sync
+- [OK] **AI Chat Integration** - Code execution from AI chat
+- [OK] **Simple Panel** - Basic WebView panel template
 
-## 🔧 Recent Fixes
+## [CONFIG] Recent Fixes
 
 ### Developer Tools Support (2025-01-29)
 **Problem**: DevTools couldn't be opened with F12 or right-click menu
@@ -35,7 +35,7 @@
 2. Modified `src/webview/aurora_view.rs` to accept and use the parameter
 3. Modified `src/webview/embedded.rs` to enable devtools in WebView builder
 
-**Result**: ✅ DevTools now accessible via F12 or right-click → Inspect
+**Result**: [OK] DevTools now accessible via F12 or right-click → Inspect
 
 ### Process Leak Fix (2025-01-29)
 **Problem**: Maya exit left WebView processes running
@@ -50,9 +50,9 @@ Added `Drop` implementation to `WebViewInner` in `src/webview/webview_inner.rs`:
 - Calls `DestroyWindow()` on Windows
 - Drops event loop to release resources
 
-**Result**: ✅ Clean exit, no process leaks
+**Result**: [OK] Clean exit, no process leaks
 
-## ⏳ Known Issues
+##  Known Issues
 
 ### Window Close Button (In Progress)
 **Status**: Under investigation
@@ -62,9 +62,9 @@ Added `Drop` implementation to `WebViewInner` in `src/webview/webview_inner.rs`:
 - Clicking custom "Close" button doesn't work
 
 **Investigation**:
-- ✅ DevTools enabled for debugging
-- ✅ Debug scripts created
-- ⏳ Waiting for JavaScript console logs to diagnose event flow
+- [OK] DevTools enabled for debugging
+- [OK] Debug scripts created
+-  Waiting for JavaScript console logs to diagnose event flow
 
 **Next Steps**:
 1. Run debug script in Maya
@@ -72,7 +72,7 @@ Added `Drop` implementation to `WebViewInner` in `src/webview/webview_inner.rs`:
 3. Click close button
 4. Analyze event flow: JavaScript → Python → Rust
 
-## 🎯 Architecture
+## [GOAL] Architecture
 
 ### IPC Architecture
 ```
@@ -113,20 +113,20 @@ src/
 └── lib.rs            # PyO3 module
 ```
 
-## 📊 Code Quality
+## [STATS] Code Quality
 
 ### Metrics
-- ✅ **Clippy Warnings**: 0
-- ✅ **Compilation**: Success
-- ✅ **Build Time**: ~20-30s (release)
-- ✅ **Python Compatibility**: 3.7+
+- [OK] **Clippy Warnings**: 0
+- [OK] **Compilation**: Success
+- [OK] **Build Time**: ~20-30s (release)
+- [OK] **Python Compatibility**: 3.7+
 
 ### Testing
-- ✅ Manual testing in Maya 2024
-- ⏳ Automated tests (planned)
-- ⏳ CI/CD pipeline (planned)
+- [OK] Manual testing in Maya 2024
+-  Automated tests (planned)
+-  CI/CD pipeline (planned)
 
-## 🚀 Roadmap
+## [LAUNCH] Roadmap
 
 ### Short Term (Next 2 Weeks)
 - [ ] Fix window close button issue
@@ -146,22 +146,22 @@ src/
 - [ ] Advanced UI components library
 - [ ] Video tutorials
 
-## 📚 Documentation
+## [DOCS] Documentation
 
 ### Available Docs
-- ✅ `README.md` - Project overview
-- ✅ `DCC_INTEGRATION_GUIDE.md` - Integration guide
-- ✅ `IPC_ARCHITECTURE.md` - IPC system design
-- ✅ `TECHNICAL_DESIGN.md` - Technical details
-- ✅ `examples/maya/README.md` - Maya examples guide
-- ✅ `ROADMAP.md` - Future plans
+- [OK] `README.md` - Project overview
+- [OK] `DCC_INTEGRATION_GUIDE.md` - Integration guide
+- [OK] `IPC_ARCHITECTURE.md` - IPC system design
+- [OK] `TECHNICAL_DESIGN.md` - Technical details
+- [OK] `examples/maya/README.md` - Maya examples guide
+- [OK] `ROADMAP.md` - Future plans
 
 ### Removed Docs (Consolidated)
-- ❌ Debug guides (issues fixed)
-- ❌ IPC refactoring docs (consolidated into IPC_ARCHITECTURE.md)
-- ❌ Temporary fix summaries (integrated into PROJECT_STATUS.md)
+- [ERROR] Debug guides (issues fixed)
+- [ERROR] IPC refactoring docs (consolidated into IPC_ARCHITECTURE.md)
+- [ERROR] Temporary fix summaries (integrated into PROJECT_STATUS.md)
 
-## 🧹 Code Cleanup
+##  Code Cleanup
 
 ### Recent Cleanup (2025-01-29)
 **Removed Test Files**:
@@ -200,7 +200,7 @@ src/
 - No debug/temporary files
 - Clear organization
 
-## 🔍 Quick Start
+## [SEARCH] Quick Start
 
 ### Installation
 ```bash
@@ -272,7 +272,7 @@ import __main__
 __main__.my_webview = webview
 ```
 
-## 📞 Support
+##  Support
 
 - **Issues**: [GitHub Issues](https://github.com/loonghao/auroraview/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/loonghao/auroraview/discussions)

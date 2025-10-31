@@ -232,7 +232,7 @@ class MayaWebViewPanel:
         # Now show the window (non-blocking in embedded mode)
         self.webview.show()
 
-        print(f"✅ WebView panel shown (timer ID: {timer_id})")
+        print(f"[OK] WebView panel shown (timer ID: {timer_id})")
 
 
 # Global instance

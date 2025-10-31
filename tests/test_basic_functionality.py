@@ -67,20 +67,21 @@ def test_assertions(webview, webview_bot, test_html):
     webview.load_html(test_html)
     webview_bot.inject_monitoring_script()
     webview_bot.wait_for_event('webview_ready', timeout=5)
-    
+
     # Test element exists assertion
     assert_element_exists(webview_bot, '#testBtn')
-    
+
     # Test element text assertion
     assert_element_text(webview_bot, 'h1', 'Test Page')
-    
+
     # Test window title assertion
     assert_window_title(webview_bot, 'Test Page')
-    
+
     # Click button and test event assertion
     webview_bot.click('#testBtn')
     time.sleep(0.5)
     assert_event_emitted(webview_bot, 'button_clicked')
+    print("[OK] All assertions passed")
 
 
 if __name__ == '__main__':

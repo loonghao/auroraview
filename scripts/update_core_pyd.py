@@ -29,7 +29,7 @@ def update_core_pyd():
     print(f"  New: {new_pyd}")
     
     if not os.path.exists(new_pyd):
-        print(f"❌ Error: {new_pyd} not found")
+        print(f"[ERROR] Error: {new_pyd} not found")
         print("Please run 'just rebuild-core' first")
         return False
     
@@ -39,14 +39,14 @@ def update_core_pyd():
         try:
             if os.path.exists(old_pyd):
                 os.remove(old_pyd)
-                print(f"✅ Removed old _core.pyd")
+                print(f"[OK] Removed old _core.pyd")
             break
         except PermissionError as e:
             if attempt < max_retries - 1:
-                print(f"⚠️  File locked, retrying in 1 second... (attempt {attempt + 1}/{max_retries})")
+                print(f"[WARNING]  File locked, retrying in 1 second... (attempt {attempt + 1}/{max_retries})")
                 time.sleep(1)
             else:
-                print(f"❌ Error: Could not remove old _core.pyd after {max_retries} attempts")
+                print(f"[ERROR] Error: Could not remove old _core.pyd after {max_retries} attempts")
                 print(f"   {e}")
                 print("   Please close any applications using this file (IDE, Python, etc.)")
                 return False
@@ -54,10 +54,10 @@ def update_core_pyd():
     # Rename new file
     try:
         shutil.move(new_pyd, old_pyd)
-        print(f"✅ Successfully updated _core.pyd")
+        print(f"[OK] Successfully updated _core.pyd")
         return True
     except Exception as e:
-        print(f"❌ Error: Failed to rename _core_new.pyd to _core.pyd")
+        print(f"[ERROR] Error: Failed to rename _core_new.pyd to _core.pyd")
         print(f"   {e}")
         return False
 

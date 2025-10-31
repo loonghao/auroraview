@@ -114,7 +114,7 @@ impl MessageQueue {
     /// - If `block_on_full` is false, this will drop the message and log an error
     pub fn push(&self, message: WebViewMessage) {
         tracing::debug!(
-            "🔵 [MessageQueue::push] Pushing message: {:?}",
+            "[PUSH] [MessageQueue::push] Pushing message: {:?}",
             match &message {
                 WebViewMessage::EvalJs(_) => "EvalJs",
                 WebViewMessage::EmitEvent { event_name, .. } => event_name,
@@ -127,7 +127,7 @@ impl MessageQueue {
         match self.tx.try_send(message.clone()) {
             Ok(_) => {
                 tracing::debug!(
-                    "🔵 [MessageQueue::push] Message sent successfully (queue length: {})",
+                    "[PUSH] [MessageQueue::push] Message sent successfully (queue length: {})",
                     self.len()
                 );
 
@@ -137,19 +137,19 @@ impl MessageQueue {
             Err(TrySendError::Full(_)) => {
                 if self.config.block_on_full {
                     // Block until space is available
-                    tracing::warn!("⚠️ [MessageQueue::push] Queue full, blocking...");
+                    tracing::warn!("[WARNING] [MessageQueue::push] Queue full, blocking...");
                     if let Err(e) = self.tx.send(message) {
-                        tracing::error!("❌ [MessageQueue::push] Failed to send message: {:?}", e);
+                        tracing::error!("[ERROR] [MessageQueue::push] Failed to send message: {:?}", e);
                     } else {
                         self.wake_event_loop();
                     }
                 } else {
                     // Drop the message
-                    tracing::error!("❌ [MessageQueue::push] Queue full, dropping message!");
+                    tracing::error!("[ERROR] [MessageQueue::push] Queue full, dropping message!");
                 }
             }
             Err(TrySendError::Disconnected(_)) => {
-                tracing::error!("❌ [MessageQueue::push] Channel disconnected!");
+                tracing::error!("[ERROR] [MessageQueue::push] Channel disconnected!");
             }
         }
     }
@@ -158,18 +158,18 @@ impl MessageQueue {
     fn wake_event_loop(&self) {
         if let Ok(proxy_guard) = self.event_loop_proxy.lock() {
             if let Some(proxy) = proxy_guard.as_ref() {
-                tracing::debug!("🔵 [MessageQueue] Sending wake-up event...");
+                tracing::debug!("[WAKE] [MessageQueue] Sending wake-up event...");
                 match proxy.send_event(UserEvent::ProcessMessages) {
                     Ok(_) => {
-                        tracing::debug!("✅ [MessageQueue] Event loop woken up successfully!");
+                        tracing::debug!("[OK] [MessageQueue] Event loop woken up successfully!");
                     }
                     Err(e) => {
-                        tracing::error!("❌ [MessageQueue] Failed to wake up event loop: {:?}", e);
+                        tracing::error!("[ERROR] [MessageQueue] Failed to wake up event loop: {:?}", e);
                     }
                 }
             } else {
                 tracing::debug!(
-                    "⚠️ [MessageQueue] Event loop proxy is None - cannot wake up event loop!"
+                    "[WARNING] [MessageQueue] Event loop proxy is None - cannot wake up event loop!"
                 );
             }
         }

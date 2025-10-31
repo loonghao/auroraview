@@ -294,17 +294,29 @@ class WebView:
         if data is None:
             data = {}
 
-        logger.debug(f"Emitting event: {event_name}")
+        logger.debug(f"[SEND] [WebView.emit] START - Event: {event_name}")
+        logger.debug(f"[SEND] [WebView.emit] Data type: {type(data)}")
+        logger.debug(f"[SEND] [WebView.emit] Data: {data}")
 
         # Convert data to dict if needed
         if not isinstance(data, dict):
+            logger.debug(f"[SEND] [WebView.emit] Converting non-dict data to dict")
             data = {"value": data}
 
         # Use the async core if available (when running in background thread)
         with self._async_core_lock:
             core = self._async_core if self._async_core is not None else self._core
 
-        core.emit(event_name, data)
+        try:
+            logger.debug(f"[SEND] [WebView.emit] Calling core.emit()...")
+            core.emit(event_name, data)
+            logger.debug(f"[OK] [WebView.emit] Event emitted successfully: {event_name}")
+        except Exception as e:
+            logger.error(f"[ERROR] [WebView.emit] Failed to emit event {event_name}: {e}")
+            logger.error(f"[ERROR] [WebView.emit] Data was: {data}")
+            import traceback
+            logger.error(f"[ERROR] [WebView.emit] Traceback: {traceback.format_exc()}")
+            raise
 
     def on(self, event_name: str) -> Callable:
         """Decorator to register a Python callback for JavaScript events.

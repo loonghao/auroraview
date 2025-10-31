@@ -106,32 +106,32 @@ impl PerformanceMetrics {
     /// Print performance report
     pub fn print_report(&self) {
         tracing::info!("=== Performance Report ===");
-        
+
         if let Some(d) = self.time_to_window() {
-            tracing::info!("⏱️  Window created: {:?}", d);
+            tracing::info!("[TIMER] Window created: {:?}", d);
         }
-        
+
         if let Some(d) = self.time_to_webview() {
-            tracing::info!("⏱️  WebView created: {:?}", d);
+            tracing::info!("[TIMER] WebView created: {:?}", d);
         }
-        
+
         if let Some(d) = self.time_to_html() {
-            tracing::info!("⏱️  HTML loaded: {:?}", d);
+            tracing::info!("[TIMER] HTML loaded: {:?}", d);
         }
-        
+
         if let Some(d) = self.time_to_js() {
-            tracing::info!("⏱️  JavaScript initialized: {:?}", d);
+            tracing::info!("[TIMER] JavaScript initialized: {:?}", d);
         }
-        
+
         if let Some(d) = self.time_to_first_paint() {
-            tracing::info!("⏱️  First paint: {:?}", d);
+            tracing::info!("[TIMER] First paint: {:?}", d);
         }
-        
+
         if let Some(d) = self.time_to_shown() {
-            tracing::info!("⏱️  Window shown: {:?}", d);
-            tracing::info!("✅ Total time to interactive: {:?}", d);
+            tracing::info!("[TIMER] Window shown: {:?}", d);
+            tracing::info!("[OK] Total time to interactive: {:?}", d);
         }
-        
+
         tracing::info!("========================");
     }
 }
