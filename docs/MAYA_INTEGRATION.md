@@ -1,5 +1,53 @@
 # Maya Integration Guide
 
+## 常见错误诊断
+
+### 错误：`ImportError: cannot import name 'QtWebView' from 'auroraview'`
+
+**症状**：
+```python
+from auroraview import QtWebView
+# ImportError: cannot import name 'QtWebView' from 'auroraview'
+```
+
+**原因**：Qt 后端依赖未安装（需要 `qtpy` 和 Qt 绑定）
+
+**诊断**：
+```python
+import auroraview
+print(f"Qt backend available: {auroraview._HAS_QT}")
+if not auroraview._HAS_QT:
+    print(f"Qt import error: {auroraview._QT_IMPORT_ERROR}")
+```
+
+**解决方案 1**：安装 Qt 依赖（如果你想使用 Qt 后端）
+```bash
+# Windows
+"C:\Program Files\Autodesk\Maya2022\bin\mayapy.exe" -m pip install auroraview[qt]
+
+# macOS
+/Applications/Autodesk/maya2022/Maya.app/Contents/bin/mayapy -m pip install auroraview[qt]
+
+# Linux
+/usr/autodesk/maya2022/bin/mayapy -m pip install auroraview[qt]
+```
+
+**解决方案 2**：使用 Native 后端（推荐，无需额外依赖）
+```python
+from auroraview import NativeWebView  # 而不是 QtWebView
+import maya.OpenMayaUI as omui
+
+maya_hwnd = int(omui.MQtUtil.mainWindow())
+webview = NativeWebView.embedded(
+    parent_hwnd=maya_hwnd,
+    title="My Tool",
+    mode="owner"
+)
+webview.show()
+```
+
+---
+
 ## Threading Model
 
 ### [ERROR] WRONG: Using `show_async()`

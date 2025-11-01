@@ -86,35 +86,50 @@ from .native import AuroraView, NativeWebView
 from .webview import WebView
 
 # Qt backend is optional
+_QT_IMPORT_ERROR = None
 try:
     from .qt_integration import AuroraViewQt, QtWebView
 
-    __all__ = [
-        # Base class
-        "WebView",
-        # Native backend
-        "NativeWebView",
-        "AuroraView",  # Backward compatibility
-        # Qt backend
-        "QtWebView",
-        "AuroraViewQt",  # Backward compatibility
-        # Utilities
-        "on_event",
-        # Metadata
-        "__version__",
-        "__author__",
-    ]
-except ImportError:
-    # Qt backend not available
-    __all__ = [
-        # Base class
-        "WebView",
-        # Native backend
-        "NativeWebView",
-        "AuroraView",  # Backward compatibility
-        # Utilities
-        "on_event",
-        # Metadata
-        "__version__",
-        "__author__",
-    ]
+    _HAS_QT = True
+except ImportError as e:
+    _HAS_QT = False
+    _QT_IMPORT_ERROR = str(e)
+
+    # Create placeholder classes that raise helpful errors
+    class QtWebView:  # type: ignore
+        """Qt backend placeholder - not available."""
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Qt backend is not available. "
+                "Install with: pip install auroraview[qt]\n"
+                f"Original error: {_QT_IMPORT_ERROR}"
+            )
+
+    class AuroraViewQt:  # type: ignore
+        """Qt backend placeholder - not available."""
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Qt backend is not available. "
+                "Install with: pip install auroraview[qt]\n"
+                f"Original error: {_QT_IMPORT_ERROR}"
+            )
+
+
+# Always export all symbols, but Qt classes will raise errors if not available
+__all__ = [
+    # Base class
+    "WebView",
+    # Native backend
+    "NativeWebView",
+    "AuroraView",  # Backward compatibility
+    # Qt backend (may raise ImportError if not installed)
+    "QtWebView",
+    "AuroraViewQt",  # Backward compatibility
+    # Utilities
+    "on_event",
+    # Metadata
+    "__version__",
+    "__author__",
+]
