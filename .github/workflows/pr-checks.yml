@@ -44,7 +44,7 @@ jobs:
   quality-checks:
     name: Code Quality
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v5
 
@@ -58,11 +58,27 @@ jobs:
       - name: Run linting and formatting checks
         run: just ci-lint
 
+  # Wheel build test - ensures release builds will succeed
+  wheel-build-test:
+    name: Wheel Build Test (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build wheel with manylinux
+        uses: ./.github/actions/build-wheel
+        with:
+          target: 'x86_64'
+          python-version: '3.10'
+          test-wheel: 'true'
+          upload-wheel: 'false'  # Don't upload in PR checks
+
   # PR approval gate - all essential checks must pass
   pr-ready:
     name: PR Ready for Merge
     runs-on: ubuntu-latest
-    needs: [essential-tests, quality-checks]
+    needs: [essential-tests, quality-checks, wheel-build-test]
     if: always()
 
     steps:
@@ -72,22 +88,29 @@ jobs:
 
           # Check essential tests
           if [[ "${{ needs.essential-tests.result }}" != "success" ]]; then
-            echo "Essential tests failed"
+            echo "❌ Essential tests failed"
             exit 1
           fi
 
           # Check quality
           if [[ "${{ needs.quality-checks.result }}" != "success" ]]; then
-            echo "Code quality checks failed"
+            echo "❌ Code quality checks failed"
             exit 1
           fi
 
-          echo "[OK] PR is ready for merge!"
-          echo "## [OK] PR Ready for Merge" >> $GITHUB_STEP_SUMMARY
+          # Check wheel build
+          if [[ "${{ needs.wheel-build-test.result }}" != "success" ]]; then
+            echo "❌ Wheel build test failed"
+            exit 1
+          fi
+
+          echo "✅ PR is ready for merge!"
+          echo "## ✅ PR Ready for Merge" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "All essential checks have passed:" >> $GITHUB_STEP_SUMMARY
-          echo "- [OK] Essential tests (Python 3.8, 3.10, 3.12)" >> $GITHUB_STEP_SUMMARY
-          echo "- [OK] Code quality and linting (Rust + Python)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Essential tests (Python 3.8, 3.10, 3.12)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Code quality and linting (Rust + Python)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Wheel build test (manylinux)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This PR can be safely merged." >> $GITHUB_STEP_SUMMARY
+          echo "This PR can be safely merged and released." >> $GITHUB_STEP_SUMMARY
 
