@@ -50,6 +50,7 @@ else:
         class Literal(metaclass=_LiteralMeta):
             pass
 
+
 from .webview import WebView
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ class NativeWebView(WebView):
         ... )
         >>> webview.show()
     """
-    
+
     def __init__(
         self,
         title: str = "AuroraView",
@@ -121,7 +122,9 @@ class NativeWebView(WebView):
             parent_hwnd=parent_hwnd,
             parent_mode=parent_mode,
         )
-        logger.debug(f"NativeWebView initialized (decorations={decorations}, parent_hwnd={parent_hwnd}, mode={parent_mode})")
+        logger.debug(
+            f"NativeWebView initialized (decorations={decorations}, parent_hwnd={parent_hwnd}, mode={parent_mode})"
+        )
 
     @classmethod
     def standalone(
@@ -188,7 +191,7 @@ class NativeWebView(WebView):
         dev_tools: bool = True,
         resizable: bool = True,
         decorations: bool = True,
-        mode: Literal["owner", "child"] = "owner",
+        mode: Literal["owner", "child"] = "owner",  # noqa: F821
     ) -> "NativeWebView":
         """Create a WebView embedded in a parent window (DCC integration).
 
@@ -269,4 +272,3 @@ class NativeWebView(WebView):
 AuroraView = NativeWebView
 
 __all__ = ["NativeWebView", "AuroraView"]
-

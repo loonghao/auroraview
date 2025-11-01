@@ -200,7 +200,9 @@ class WebView:
                     self._async_core = core
 
                 # Re-register all event handlers in the background thread
-                logger.info(f"Background thread: Re-registering {len(self._event_handlers)} event handlers")
+                logger.info(
+                    f"Background thread: Re-registering {len(self._event_handlers)} event handlers"
+                )
                 for event_name, handlers in self._event_handlers.items():
                     for handler in handlers:
                         logger.debug(f"Background thread: Registering handler for '{event_name}'")
@@ -300,7 +302,7 @@ class WebView:
 
         # Convert data to dict if needed
         if not isinstance(data, dict):
-            logger.debug(f"[SEND] [WebView.emit] Converting non-dict data to dict")
+            logger.debug("[SEND] [WebView.emit] Converting non-dict data to dict")
             data = {"value": data}
 
         # Use the async core if available (when running in background thread)
@@ -308,13 +310,14 @@ class WebView:
             core = self._async_core if self._async_core is not None else self._core
 
         try:
-            logger.debug(f"[SEND] [WebView.emit] Calling core.emit()...")
+            logger.debug("[SEND] [WebView.emit] Calling core.emit()...")
             core.emit(event_name, data)
             logger.debug(f"[OK] [WebView.emit] Event emitted successfully: {event_name}")
         except Exception as e:
             logger.error(f"[ERROR] [WebView.emit] Failed to emit event {event_name}: {e}")
             logger.error(f"[ERROR] [WebView.emit] Data was: {data}")
             import traceback
+
             logger.error(f"[ERROR] [WebView.emit] Traceback: {traceback.format_exc()}")
             raise
 
@@ -453,4 +456,3 @@ class WebView:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit."""
         self.close()
-

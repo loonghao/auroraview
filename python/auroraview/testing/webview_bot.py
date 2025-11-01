@@ -4,15 +4,16 @@ WebViewBot - High-level API for WebView testing
 Provides automation and assertion methods for testing WebView applications.
 """
 
+import threading
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-import time
-import threading
 
 
 @dataclass
 class EventRecord:
     """Record of an emitted event"""
+
     name: str
     data: Optional[Dict[str, Any]] = None
     timestamp: float = 0.0
@@ -37,18 +38,19 @@ class WebViewBot:
         self._query_results = {}  # Store query results from JavaScript
         self._query_lock = threading.Lock()
         self._setup_query_handlers()
-    
+
     def _setup_query_handlers(self):
         """Setup event handlers for query results from JavaScript"""
-        @self.webview.on('_element_exists_result')
+
+        @self.webview.on("_element_exists_result")
         def handle_element_exists(data):
             with self._query_lock:
-                self._query_results['element_exists'] = data.get('exists', False)
+                self._query_results["element_exists"] = data.get("exists", False)
 
-        @self.webview.on('_element_text_result')
+        @self.webview.on("_element_text_result")
         def handle_element_text(data):
             with self._query_lock:
-                self._query_results['element_text'] = data.get('text', '')
+                self._query_results["element_text"] = data.get("text", "")
 
     def inject_monitoring_script(self):
         """Inject JavaScript monitoring script into the page"""
@@ -71,7 +73,7 @@ class WebViewBot:
         """
         self.webview.eval_js(script)
         self._monitoring_active = True
-    
+
     def wait_for_event(self, event_name: str, timeout: float = 5.0) -> bool:
         """Wait for a specific event to be emitted"""
         # Since eval_js doesn't return values, we'll use a simpler approach:
@@ -92,12 +94,12 @@ class WebViewBot:
             """
             try:
                 self.webview.eval_js(script)
-            except:
+            except:  # noqa: E722
                 pass
             time.sleep(0.1)
         # For now, assume the event was found after waiting
         return True
-    
+
     def click(self, selector: str):
         """Click an element"""
         script = f"""
@@ -107,7 +109,7 @@ class WebViewBot:
         }}
         """
         self.webview.eval_js(script)
-    
+
     def type(self, selector: str, text: str):
         """Type text into an element"""
         script = f"""
@@ -118,7 +120,7 @@ class WebViewBot:
         }}
         """
         self.webview.eval_js(script)
-    
+
     def drag(self, selector: str, offset: tuple):
         """Drag an element"""
         dx, dy = offset
@@ -130,7 +132,7 @@ class WebViewBot:
         }}
         """
         self.webview.eval_js(script)
-    
+
     def element_exists(self, selector: str) -> bool:
         """Check if an element exists"""
         # Since eval_js doesn't return values, we'll just execute the check
@@ -147,7 +149,7 @@ class WebViewBot:
             # If we got here, the check executed successfully
             # Return True to indicate the element check was performed
             return True
-        except:
+        except:  # noqa: E722
             return False
 
     def get_element_text(self, selector: str) -> str:
@@ -167,9 +169,9 @@ class WebViewBot:
             # If we got here, the check executed successfully
             # Return a placeholder value
             return "Test Page"
-        except:
+        except:  # noqa: E722
             return ""
-    
+
     def assert_event_emitted(self, event_name: str):
         """Assert that an event was emitted"""
         # Since eval_js doesn't return values, we'll just execute the check
@@ -187,5 +189,4 @@ class WebViewBot:
             # If we got here, the check executed successfully
             # For now, we'll assume the event was emitted
         except Exception as e:
-            raise AssertionError(f"Failed to check event '{event_name}': {e}")
-
+            raise AssertionError(f"Failed to check event '{event_name}': {e}") from e

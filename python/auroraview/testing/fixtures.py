@@ -5,7 +5,9 @@ Provides fixtures for creating and managing WebView instances in tests.
 """
 
 import pytest
+
 from auroraview import WebView
+
 from .webview_bot import WebViewBot
 
 
@@ -17,7 +19,7 @@ def webview():
     # Cleanup
     try:
         view.close()
-    except:
+    except:  # noqa: E722
         pass
 
 
@@ -64,16 +66,11 @@ def webview_with_html(webview, test_html):
 @pytest.fixture
 def headless_webview():
     """Create a headless WebView instance"""
-    view = WebView(
-        title="Headless WebView",
-        width=800,
-        height=600,
-        decorations=False
-    )
+    view = WebView(title="Headless WebView", width=800, height=600, decorations=False)
     yield view
     try:
         view.close()
-    except:
+    except:  # noqa: E722
         pass
 
 
@@ -114,4 +111,3 @@ def draggable_window_html():
         </body>
     </html>
     """
-
