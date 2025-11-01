@@ -83,8 +83,29 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 
 ### 安装
 
+#### Windows 和 macOS
+
 ```bash
 pip install auroraview
+```
+
+#### Linux
+
+由于 webkit2gtk 系统依赖，Linux wheels 不在 PyPI 上提供。请从 GitHub Releases 安装：
+
+```bash
+# 首先安装系统依赖
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev  # Debian/Ubuntu
+# sudo dnf install gtk3-devel webkit2gtk3-devel      # Fedora/CentOS
+# sudo pacman -S webkit2gtk                          # Arch Linux
+
+# 从 GitHub Releases 下载并安装 wheel
+pip install https://github.com/loonghao/auroraview/releases/latest/download/auroraview-{version}-cp37-abi3-linux_x86_64.whl
+```
+
+或从源码构建：
+```bash
+pip install auroraview --no-binary :all:
 ```
 
 ### 基础用法

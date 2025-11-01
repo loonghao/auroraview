@@ -73,6 +73,15 @@ jobs:
           ls -la dist/
           echo "Total files: $(ls -1 dist/ | wc -l)"
 
+      - name: Remove Linux wheels (not accepted by PyPI)
+        run: |
+          # Remove linux_x86_64 wheels as PyPI doesn't accept them
+          # These wheels require webkit2gtk at runtime and use non-standard platform tags
+          # Linux users should install from GitHub Releases or build from source
+          rm -f dist/*-linux_x86_64.whl || true
+          echo "Remaining files for PyPI:"
+          ls -la dist/
+
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         with:
