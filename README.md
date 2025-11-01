@@ -307,6 +307,64 @@ auroraview/
 └── benches/                # Performance benchmarks
 ```
 
+## [TEST_TUBE] Testing
+
+AuroraView has comprehensive test coverage for both Qt and non-Qt environments.
+
+### Running Tests
+
+**Test without Qt dependencies** (tests error handling):
+```bash
+# Using nox (recommended)
+uvx nox -s pytest
+
+# Or using pytest directly
+uv run pytest tests/test_qt_import_error.py -v
+```
+
+**Test with Qt dependencies** (tests actual Qt functionality):
+```bash
+# Using nox (recommended)
+uvx nox -s pytest-qt
+
+# Or using pytest directly
+pip install auroraview[qt] pytest pytest-qt
+pytest tests/test_qt_backend.py -v
+```
+
+**Run all tests**:
+```bash
+uvx nox -s pytest-all
+```
+
+### Test Structure
+
+- `tests/test_qt_import_error.py` - Tests error handling when Qt is not installed
+  - Verifies placeholder classes work correctly
+  - Tests diagnostic variables (`_HAS_QT`, `_QT_IMPORT_ERROR`)
+  - Ensures helpful error messages are shown
+
+- `tests/test_qt_backend.py` - Tests actual Qt backend functionality
+  - Requires Qt dependencies to be installed
+  - Tests QtWebView instantiation and methods
+  - Tests event handling and JavaScript integration
+  - Verifies backward compatibility with AuroraViewQt alias
+
+### Available Nox Sessions
+
+```bash
+# List all available test sessions
+uvx nox -l
+
+# Common sessions:
+uvx nox -s pytest          # Test without Qt
+uvx nox -s pytest-qt       # Test with Qt
+uvx nox -s pytest-all      # Run all tests
+uvx nox -s lint            # Run linting
+uvx nox -s format          # Format code
+uvx nox -s coverage        # Generate coverage report
+```
+
 ## [HANDSHAKE] Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](./CONTRIBUTING.md) for details.

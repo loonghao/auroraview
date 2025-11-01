@@ -258,12 +258,58 @@ pip install -e .
 
 ### 运行测试
 
-```bash
-# Rust测试
-cargo test
+AuroraView 为 Qt 和非 Qt 环境提供了全面的测试覆盖。
 
-# Python测试
-pytest tests/
+**不带 Qt 依赖的测试**（测试错误处理）：
+```bash
+# 使用 nox（推荐）
+uvx nox -s pytest
+
+# 或直接使用 pytest
+uv run pytest tests/test_qt_import_error.py -v
+```
+
+**带 Qt 依赖的测试**（测试实际 Qt 功能）：
+```bash
+# 使用 nox（推荐）
+uvx nox -s pytest-qt
+
+# 或直接使用 pytest
+pip install auroraview[qt] pytest pytest-qt
+pytest tests/test_qt_backend.py -v
+```
+
+**运行所有测试**：
+```bash
+uvx nox -s pytest-all
+```
+
+**测试结构**：
+
+- `tests/test_qt_import_error.py` - 测试未安装 Qt 时的错误处理
+  - 验证占位符类正常工作
+  - 测试诊断变量（`_HAS_QT`、`_QT_IMPORT_ERROR`）
+  - 确保显示有用的错误消息
+
+- `tests/test_qt_backend.py` - 测试实际的 Qt 后端功能
+  - 需要安装 Qt 依赖
+  - 测试 QtWebView 实例化和方法
+  - 测试事件处理和 JavaScript 集成
+  - 验证与 AuroraViewQt 别名的向后兼容性
+
+**可用的 Nox 会话**：
+
+```bash
+# 列出所有可用的测试会话
+uvx nox -l
+
+# 常用会话：
+uvx nox -s pytest          # 不带 Qt 的测试
+uvx nox -s pytest-qt       # 带 Qt 的测试
+uvx nox -s pytest-all      # 运行所有测试
+uvx nox -s lint            # 运行代码检查
+uvx nox -s format          # 格式化代码
+uvx nox -s coverage        # 生成覆盖率报告
 ```
 
 ## [PACKAGE] 项目结构
