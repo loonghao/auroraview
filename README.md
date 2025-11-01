@@ -102,6 +102,8 @@ AuroraView is **not** a fork of PyWebView. It's a completely new project designe
 
 ### Installation
 
+#### Windows and macOS
+
 **Basic installation** (Native backend only):
 ```bash
 pip install auroraview
@@ -110,6 +112,25 @@ pip install auroraview
 **With Qt support** (for Qt-based DCCs like Maya, Houdini, Nuke):
 ```bash
 pip install auroraview[qt]
+```
+
+#### Linux
+
+Linux wheels are not available on PyPI due to webkit2gtk system dependencies. Install from GitHub Releases:
+
+```bash
+# Install system dependencies first
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev  # Debian/Ubuntu
+# sudo dnf install gtk3-devel webkit2gtk3-devel      # Fedora/CentOS
+# sudo pacman -S webkit2gtk                          # Arch Linux
+
+# Download and install wheel from GitHub Releases
+pip install https://github.com/loonghao/auroraview/releases/latest/download/auroraview-{version}-cp37-abi3-linux_x86_64.whl
+```
+
+Or build from source:
+```bash
+pip install auroraview --no-binary :all:
 ```
 
 ### Integration Modes
