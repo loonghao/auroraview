@@ -60,7 +60,9 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        target: [x86_64, universal2-apple-darwin]
+        # Only build universal2 on macos-latest (ARM64 runner)
+        # universal2 includes both x86_64 and arm64 architectures
+        target: [universal2-apple-darwin]
 
     steps:
       - uses: actions/checkout@v5
@@ -70,7 +72,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           python-version: '3.11'
-          maturin-args: ${{ matrix.target == 'x86_64' && '--release --out dist --sdist --find-interpreter' || '--release --out dist --find-interpreter' }}
+          maturin-args: '--release --out dist --sdist --find-interpreter'
           test-wheel: 'true'
           artifact-name: 'wheels-macos-${{ matrix.target }}'
 
