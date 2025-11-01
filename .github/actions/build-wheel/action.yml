@@ -90,7 +90,7 @@ runs:
         target: ${{ inputs.target }}
         args: ${{ inputs.maturin-args }}
         sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        manylinux: off
+        manylinux: auto
 
     - name: Set wheel path output
       shell: bash
