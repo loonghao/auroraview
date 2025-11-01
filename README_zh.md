@@ -120,12 +120,30 @@ AuroraView 支持两种集成模式以适应不同的使用场景:
 ```python
 from auroraview import WebView
 
+# 方法 1: 直接加载 HTML 内容（推荐入门使用）
 webview = WebView(
     title="我的应用",
     width=800,
-    height=600,
-    url="http://localhost:3000"
+    height=600
 )
+webview.load_html("""
+    <!DOCTYPE html>
+    <html>
+    <body>
+        <h1>你好，AuroraView！</h1>
+        <p>这是一个简单的示例。</p>
+    </body>
+    </html>
+""")
+webview.show()  # 阻塞调用
+
+# 方法 2: 从 URL 加载（确保服务器已启动！）
+webview = WebView(
+    title="我的应用",
+    width=800,
+    height=600
+)
+webview.load_url("http://localhost:3000")
 webview.show()  # 阻塞调用
 ```
 
