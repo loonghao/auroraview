@@ -17,6 +17,7 @@ use super::config::WebViewConfig;
 #[allow(unused_imports)]
 use super::event_loop::UserEvent;
 use super::webview_inner::WebViewInner;
+#[allow(unused_imports)]
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 
 /// Set parent window using Windows API
