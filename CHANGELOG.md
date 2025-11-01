@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.1...auroraview-v0.2.2) (2025-11-01)
+
+
+### Bug Fixes
+
+* build Linux wheels on host instead of manylinux container ([a42a2ea](https://github.com/loonghao/auroraview/commit/a42a2ea554cb178e5d34ebba6bb82ac9ff10355e))
+* install system dependencies in manylinux container and add wheel build test to PR checks ([583bc1a](https://github.com/loonghao/auroraview/commit/583bc1a11ac0d651e7c92ba8a905e0f66a8fb988))
+* remove --compatibility flag when manylinux is off ([32706ec](https://github.com/loonghao/auroraview/commit/32706ecc4ea46b60cc69038ff19b56eba55604a6))
+
 ## [0.2.1](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.0...auroraview-v0.2.1) (2025-11-01)
 
 
