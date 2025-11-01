@@ -3,8 +3,11 @@
 //! This backend uses native window parenting (HWND on Windows) to embed
 //! the WebView into existing DCC application windows.
 
+#[allow(unused_imports)]
 use std::sync::{Arc, Mutex};
+#[allow(unused_imports)]
 use tao::event_loop::EventLoopBuilder;
+#[allow(unused_imports)]
 use tao::window::WindowBuilder;
 use wry::WebView as WryWebView;
 use wry::WebViewBuilder as WryWebViewBuilder;

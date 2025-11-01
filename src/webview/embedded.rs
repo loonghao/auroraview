@@ -3,13 +3,18 @@
 //! This module handles creating WebView instances in embedded mode,
 //! where the WebView is embedded as a child of an existing window (for DCC integration).
 
+#[allow(unused_imports)]
 use std::sync::{Arc, Mutex};
 
+#[allow(unused_imports)]
 use tao::event_loop::EventLoopBuilder;
+#[allow(unused_imports)]
 use tao::window::WindowBuilder;
+#[allow(unused_imports)]
 use wry::WebViewBuilder as WryWebViewBuilder;
 
 use super::config::WebViewConfig;
+#[allow(unused_imports)]
 use super::event_loop::UserEvent;
 use super::webview_inner::WebViewInner;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
