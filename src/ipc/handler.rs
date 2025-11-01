@@ -54,22 +54,23 @@ impl PythonCallback {
 }
 
 /// Convert JSON value to Python object
+#[allow(deprecated)]
 fn json_to_python(py: Python, value: &serde_json::Value) -> PyResult<PyObject> {
     match value {
         serde_json::Value::Null => Ok(py.None()),
-        serde_json::Value::Bool(b) => Ok(b.to_object(py)),
+        serde_json::Value::Bool(b) => Ok(b.into_py(py)),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Ok(i.to_object(py))
+                Ok(i.into_py(py))
             } else if let Some(f) = n.as_f64() {
-                Ok(f.to_object(py))
+                Ok(f.into_py(py))
             } else {
-                Ok(n.to_string().to_object(py))
+                Ok(n.to_string().into_py(py))
             }
         }
-        serde_json::Value::String(s) => Ok(s.to_object(py)),
+        serde_json::Value::String(s) => Ok(s.into_py(py)),
         serde_json::Value::Array(arr) => {
-            let py_list = PyList::empty_bound(py);
+            let py_list = PyList::empty(py);
             for item in arr {
                 let py_item = json_to_python(py, item)?;
                 py_list.append(py_item.bind(py))?;
@@ -77,7 +78,7 @@ fn json_to_python(py: Python, value: &serde_json::Value) -> PyResult<PyObject> {
             Ok(py_list.into_py(py))
         }
         serde_json::Value::Object(obj) => {
-            let py_dict = PyDict::new_bound(py);
+            let py_dict = PyDict::new(py);
             for (key, val) in obj {
                 let py_val = json_to_python(py, val)?;
                 py_dict.set_item(key, py_val)?;

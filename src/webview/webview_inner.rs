@@ -513,7 +513,10 @@ impl WebViewInner {
             });
 
             if count > 0 {
-                println!("[OK] [process_events] Processed {} messages from queue", count);
+                println!(
+                    "[OK] [process_events] Processed {} messages from queue",
+                    count
+                );
                 tracing::debug!(
                     "[OK] [process_events] Processed {} messages from queue",
                     count

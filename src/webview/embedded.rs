@@ -75,7 +75,10 @@ fn set_parent_window(
             }
 
             if !parent_valid {
-                tracing::error!("[ERROR] Parent window handle is invalid: 0x{:x}", parent_hwnd);
+                tracing::error!(
+                    "[ERROR] Parent window handle is invalid: 0x{:x}",
+                    parent_hwnd
+                );
                 tracing::warn!("Parent HWND may be from a different process, not yet created, or already destroyed");
                 tracing::warn!(
                     "Attempting SetParent anyway - it may still work if the handle is valid"
@@ -122,7 +125,9 @@ fn set_parent_window(
                 if result != 0 {
                     tracing::info!("[OK] Window style modified successfully");
                 } else {
-                    tracing::warn!("[WARNING] Failed to modify window style, but SetParent succeeded");
+                    tracing::warn!(
+                        "[WARNING] Failed to modify window style, but SetParent succeeded"
+                    );
                 }
             } else {
                 tracing::warn!("[WARNING] Failed to get current window style");
@@ -188,7 +193,9 @@ pub fn create_embedded(
             window_builder = window_builder.with_owner_window(parent_hwnd as isize);
         }
         EmbedMode::None => {
-            tracing::warn!("[WARNING] [create_embedded] EmbedMode::None - creating standalone window");
+            tracing::warn!(
+                "[WARNING] [create_embedded] EmbedMode::None - creating standalone window"
+            );
         }
     }
 
@@ -305,7 +312,10 @@ pub fn create_embedded(
                                     tracing::info!("[OK] [embedded] Event handled successfully");
                                 }
                                 Err(e) => {
-                                    tracing::error!("[ERROR] [embedded] Error handling event: {}", e);
+                                    tracing::error!(
+                                        "[ERROR] [embedded] Error handling event: {}",
+                                        e
+                                    );
                                 }
                             }
                         }
@@ -347,7 +357,7 @@ pub fn create_embedded(
         window: Some(window),
         event_loop: Some(event_loop),
         message_queue,
-        event_loop_proxy: None,  // Embedded mode doesn't use event loop proxy
+        event_loop_proxy: None, // Embedded mode doesn't use event loop proxy
     })
 }
 

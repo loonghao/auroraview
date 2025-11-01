@@ -55,10 +55,10 @@
 use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
 
-use crate::ipc::{IpcHandler, MessageQueue};
 use super::super::config::WebViewConfig;
 use super::super::event_loop::UserEvent;
 use super::WebViewBackend;
+use crate::ipc::{IpcHandler, MessageQueue};
 
 /// Servo rendering engine backend
 ///
@@ -79,26 +79,26 @@ use super::WebViewBackend;
 /// - Higher memory usage
 pub struct ServoBackend {
     /// Servo instance (placeholder)
-    /// 
+    ///
     /// TODO: Replace with actual Servo types when implementing
     _servo: (),
-    
+
     /// Window handle (placeholder)
-    /// 
+    ///
     /// TODO: Use winit::window::Window
     _window: (),
-    
+
     /// Event loop (placeholder)
-    /// 
+    ///
     /// TODO: Use winit::event_loop::EventLoop
     _event_loop: (),
-    
+
     /// IPC handler
     ipc_handler: Arc<IpcHandler>,
-    
+
     /// Message queue
     message_queue: Arc<MessageQueue>,
-    
+
     /// Configuration
     config: WebViewConfig,
 }
@@ -141,7 +141,7 @@ impl ServoBackend {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         tracing::warn!("[WARNING] Servo backend is experimental and not yet implemented");
         tracing::info!(" Configuration: {:?}", config);
-        
+
         // TODO: Implement Servo initialization
         // For now, return an error
         Err("Servo backend is not yet implemented. Please use the native backend.".into())
@@ -226,16 +226,16 @@ impl WebViewBackend for ServoBackend {
 pub struct ServoConfig {
     /// Enable WebRender debug overlay
     pub debug_overlay: bool,
-    
+
     /// Enable Stylo parallel CSS processing
     pub parallel_css: bool,
-    
+
     /// Maximum number of parallel layout threads
     pub layout_threads: usize,
-    
+
     /// Enable WebGL support
     pub webgl: bool,
-    
+
     /// Enable WebGPU support (experimental)
     pub webgpu: bool,
 }
@@ -264,4 +264,3 @@ mod tests {
         assert!(!config.webgpu);
     }
 }
-

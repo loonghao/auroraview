@@ -139,7 +139,10 @@ impl MessageQueue {
                     // Block until space is available
                     tracing::warn!("[WARNING] [MessageQueue::push] Queue full, blocking...");
                     if let Err(e) = self.tx.send(message) {
-                        tracing::error!("[ERROR] [MessageQueue::push] Failed to send message: {:?}", e);
+                        tracing::error!(
+                            "[ERROR] [MessageQueue::push] Failed to send message: {:?}",
+                            e
+                        );
                     } else {
                         self.wake_event_loop();
                     }
@@ -164,7 +167,10 @@ impl MessageQueue {
                         tracing::debug!("[OK] [MessageQueue] Event loop woken up successfully!");
                     }
                     Err(e) => {
-                        tracing::error!("[ERROR] [MessageQueue] Failed to wake up event loop: {:?}", e);
+                        tracing::error!(
+                            "[ERROR] [MessageQueue] Failed to wake up event loop: {:?}",
+                            e
+                        );
                     }
                 }
             } else {

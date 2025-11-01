@@ -17,5 +17,6 @@ mod webview_inner;
 
 // Public exports
 pub use aurora_view::AuroraView;
+#[allow(unused_imports)]
 pub use backend::{BackendType, WebViewBackend};
 pub use config::{WebViewBuilder, WebViewConfig};

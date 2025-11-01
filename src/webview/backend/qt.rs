@@ -41,12 +41,22 @@ use crate::webview::event_loop::UserEvent;
 ///
 /// **Note**: This is a placeholder implementation. The actual Qt integration
 /// requires additional dependencies and platform-specific code.
+#[allow(dead_code)]
 pub struct QtBackend {
     webview: Arc<Mutex<WryWebView>>,
     message_queue: Arc<MessageQueue>,
     // TODO: Add Qt-specific fields
     // qt_widget: Option<QWidget>,
     // qt_webview: Option<QWebEngineView>,
+}
+
+impl std::fmt::Debug for QtBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("QtBackend")
+            .field("webview", &"<WryWebView>")
+            .field("message_queue", &"<MessageQueue>")
+            .finish()
+    }
 }
 
 impl WebViewBackend for QtBackend {
@@ -124,7 +134,9 @@ mod tests {
 
         let result = QtBackend::create(config, ipc_handler, message_queue);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not yet implemented"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not yet implemented"));
     }
 }
-

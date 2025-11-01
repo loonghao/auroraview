@@ -99,7 +99,9 @@ impl IpcBackend for ThreadedBackend {
             Err(TrySendError::Full(_)) => {
                 if self.config.block_on_full {
                     // Block until space is available
-                    tracing::warn!("[WARNING] [ThreadedBackend::send_message] Queue full, blocking...");
+                    tracing::warn!(
+                        "[WARNING] [ThreadedBackend::send_message] Queue full, blocking..."
+                    );
                     self.tx
                         .send(message)
                         .map_err(|e| format!("Failed to send message: {}", e))

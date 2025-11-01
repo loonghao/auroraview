@@ -42,19 +42,19 @@
 use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
 
-use crate::ipc::{IpcHandler, MessageQueue};
 use super::config::WebViewConfig;
 use super::event_loop::UserEvent;
+use crate::ipc::{IpcHandler, MessageQueue};
 
 pub mod native;
 pub mod qt;
 
-// Future backends (feature-gated)
-#[cfg(feature = "servo-backend")]
-pub mod servo;
+// Future backends (currently disabled)
+// #[cfg(feature = "servo-backend")]
+// pub mod servo;
 
-#[cfg(feature = "custom-backend")]
-pub mod custom;
+// #[cfg(feature = "custom-backend")]
+// pub mod custom;
 
 /// Backend trait that all WebView implementations must implement
 ///
@@ -63,6 +63,7 @@ pub mod custom;
 ///
 /// Note: We don't require `Send` because WebView and EventLoop are not Send on Windows.
 /// The backend is designed to be used from a single thread (the UI thread).
+#[allow(dead_code)]
 pub trait WebViewBackend {
     /// Create a new backend instance
     ///
@@ -150,6 +151,7 @@ pub trait WebViewBackend {
 ///
 /// This enum allows runtime selection of different rendering engines.
 /// New engines can be added without breaking existing code.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderingEngine {
     /// System WebView (WebView2/WebKit/WebKitGTK)
@@ -157,24 +159,24 @@ pub enum RenderingEngine {
     /// **Pros**: Small binary, system integration, mature
     /// **Cons**: Version inconsistency, limited control
     SystemWebView,
+    // Servo rendering engine (future - currently disabled)
+    //
+    // **Pros**: Full control, high performance, pure Rust
+    // **Cons**: Large binary, experimental, limited compatibility
+    // #[cfg(feature = "servo-backend")]
+    // Servo,
 
-    /// Servo rendering engine (future)
-    ///
-    /// **Pros**: Full control, high performance, pure Rust
-    /// **Cons**: Large binary, experimental, limited compatibility
-    #[cfg(feature = "servo-backend")]
-    Servo,
-
-    /// Custom rendering engine (future)
-    ///
-    /// Allows users to provide their own rendering implementation
-    #[cfg(feature = "custom-backend")]
-    Custom,
+    // Custom rendering engine (future - currently disabled)
+    //
+    // Allows users to provide their own rendering implementation
+    // #[cfg(feature = "custom-backend")]
+    // Custom,
 }
 
 /// Backend type enum for runtime selection
 ///
 /// Combines rendering engine with integration mode.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackendType {
     /// Native embedding mode (using platform-specific APIs)
@@ -193,6 +195,7 @@ pub enum BackendType {
     },
 }
 
+#[allow(dead_code)]
 impl BackendType {
     /// Create a native backend with system WebView
     pub fn native() -> Self {
@@ -201,13 +204,13 @@ impl BackendType {
         }
     }
 
-    /// Create a native backend with Servo (if available)
-    #[cfg(feature = "servo-backend")]
-    pub fn native_servo() -> Self {
-        BackendType::Native {
-            engine: RenderingEngine::Servo,
-        }
-    }
+    // Create a native backend with Servo (currently disabled)
+    // #[cfg(feature = "servo-backend")]
+    // pub fn native_servo() -> Self {
+    //     BackendType::Native {
+    //         engine: RenderingEngine::Servo,
+    //     }
+    // }
 
     /// Create a Qt backend with system WebView
     pub fn qt() -> Self {
@@ -221,8 +224,8 @@ impl BackendType {
         match s.to_lowercase().as_str() {
             "native" => Some(Self::native()),
             "qt" => Some(Self::qt()),
-            #[cfg(feature = "servo-backend")]
-            "native-servo" | "servo" => Some(Self::native_servo()),
+            // #[cfg(feature = "servo-backend")]
+            // "native-servo" | "servo" => Some(Self::native_servo()),
             _ => None,
         }
     }
@@ -242,4 +245,3 @@ impl BackendType {
         }
     }
 }
-
