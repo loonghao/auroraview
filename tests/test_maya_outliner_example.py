@@ -12,6 +12,7 @@ def test_maya_outliner_import():
     """Test that Maya outliner example can be imported"""
     try:
         from examples.maya import outliner_example
+
         assert outliner_example is not None
     except ImportError:
         pytest.skip("Maya not available")
@@ -22,13 +23,8 @@ def test_maya_outliner_webview_creation():
     """Test creating WebView for Maya outliner"""
     try:
         from auroraview import WebView
-        
-        webview = WebView(
-            title="Maya Outliner",
-            width=400,
-            height=600,
-            decorations=False
-        )
+
+        webview = WebView(title="Maya Outliner", width=400, height=600, decorations=False)
         assert webview is not None
         assert webview.title == "Maya Outliner"
     except ImportError:
@@ -40,9 +36,9 @@ def test_maya_outliner_html_loading():
     """Test loading HTML for Maya outliner"""
     try:
         from auroraview import WebView
-        
+
         webview = WebView(title="Maya Outliner")
-        
+
         html = """
         <html>
             <body>
@@ -55,9 +51,8 @@ def test_maya_outliner_html_loading():
             </body>
         </html>
         """
-        
+
         webview.load_html(html)
         assert True
     except ImportError:
         pytest.skip("Package not built yet")
-

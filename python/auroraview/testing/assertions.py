@@ -4,17 +4,15 @@ Custom assertions for AuroraView testing
 Provides specialized assertion functions for WebView testing.
 """
 
-from typing import Optional
-
 
 def assert_event_emitted(webview_bot, event_name: str):
     """
     Assert that a specific event was emitted.
-    
+
     Args:
         webview_bot: WebViewBot instance
         event_name: Name of the event to check
-        
+
     Raises:
         AssertionError: If event was not emitted
     """
@@ -37,8 +35,7 @@ def assert_element_exists(webview_bot, selector: str):
         AssertionError: If JavaScript execution fails
     """
     result = webview_bot.element_exists(selector)
-    assert result is not None, \
-        f"Failed to check element existence for selector '{selector}'"
+    assert result is not None, f"Failed to check element existence for selector '{selector}'"
 
 
 def assert_element_text(webview_bot, selector: str, expected_text: str):
@@ -59,8 +56,7 @@ def assert_element_text(webview_bot, selector: str, expected_text: str):
     """
     actual_text = webview_bot.get_element_text(selector)
     # Just verify that we got a string back (JavaScript executed)
-    assert isinstance(actual_text, str), \
-        f"Failed to get element text for selector '{selector}'"
+    assert isinstance(actual_text, str), f"Failed to get element text for selector '{selector}'"
 
 
 def assert_window_title(webview_bot, expected_title: str):
@@ -84,7 +80,7 @@ def assert_window_title(webview_bot, expected_title: str):
         # If no exception, JavaScript executed successfully
         assert True
     except Exception as e:
-        raise AssertionError(f"Failed to execute title check: {e}")
+        raise AssertionError(f"Failed to execute title check: {e}") from e
 
 
 def assert_element_visible(webview_bot, selector: str):
@@ -115,7 +111,7 @@ def assert_element_visible(webview_bot, selector: str):
         # If no exception, JavaScript executed successfully
         assert True
     except Exception as e:
-        raise AssertionError(f"Failed to check visibility: {e}")
+        raise AssertionError(f"Failed to check visibility: {e}") from e
 
 
 def assert_element_hidden(webview_bot, selector: str):
@@ -146,5 +142,4 @@ def assert_element_hidden(webview_bot, selector: str):
         # If no exception, JavaScript executed successfully
         assert True
     except Exception as e:
-        raise AssertionError(f"Failed to check visibility: {e}")
-
+        raise AssertionError(f"Failed to check visibility: {e}") from e
