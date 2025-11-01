@@ -19,6 +19,7 @@ use crate::webview::message_pump;
 ///
 /// This backend creates a WebView that can be embedded into existing windows
 /// using platform-specific APIs (e.g., Windows HWND parenting).
+#[allow(dead_code)]
 pub struct NativeBackend {
     webview: Arc<Mutex<WryWebView>>,
     window: Option<tao::window::Window>,
@@ -210,6 +211,7 @@ impl WebViewBackend for NativeBackend {
 
 impl NativeBackend {
     /// Create standalone WebView with its own window
+    #[allow(dead_code)]
     fn create_standalone(
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
@@ -327,6 +329,7 @@ impl NativeBackend {
 
     /// Create embedded WebView for non-Windows platforms
     #[cfg(not(target_os = "windows"))]
+    #[allow(dead_code)]
     fn create_embedded(
         _parent_hwnd: u64,
         _config: WebViewConfig,
@@ -337,6 +340,7 @@ impl NativeBackend {
     }
 
     /// Create WebView instance with IPC handler
+    #[allow(dead_code)]
     fn create_webview(
         window: &tao::window::Window,
         config: &WebViewConfig,

@@ -71,6 +71,7 @@ pub trait IpcBackend: Send + Sync {
 
 /// IPC mode configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[allow(dead_code)]
 pub enum IpcMode {
     /// Thread-based communication (default for embedded mode)
     #[default]

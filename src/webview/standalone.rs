@@ -32,6 +32,7 @@ pub fn create_standalone(
     #[cfg(not(target_os = "windows"))]
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
 
+    #[allow(unused_mut)]
     let mut window_builder = WindowBuilder::new()
         .with_title(&config.title)
         .with_inner_size(tao::dpi::LogicalSize::new(config.width, config.height))
