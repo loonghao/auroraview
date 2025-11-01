@@ -23,7 +23,8 @@ pub struct AuroraView {
     /// Thread-safe message queue for cross-thread communication
     pub(crate) message_queue: Arc<MessageQueue>,
     /// Event loop proxy for sending close events (standalone mode only)
-    pub(crate) event_loop_proxy: Rc<RefCell<Option<tao::event_loop::EventLoopProxy<super::event_loop::UserEvent>>>>,
+    pub(crate) event_loop_proxy:
+        Rc<RefCell<Option<tao::event_loop::EventLoopProxy<super::event_loop::UserEvent>>>>,
 }
 
 #[pymethods]
@@ -97,7 +98,7 @@ impl AuroraView {
             config: Rc::new(RefCell::new(config)),
             ipc_handler: Arc::new(IpcHandler::new()),
             message_queue: Arc::new(MessageQueue::new()),
-            event_loop_proxy: Rc::new(RefCell::new(None)),  // Will be set when creating standalone WebView
+            event_loop_proxy: Rc::new(RefCell::new(None)), // Will be set when creating standalone WebView
         })
     }
 
@@ -240,9 +241,7 @@ impl AuroraView {
         // The parent window's event loop will handle our window's events
         tracing::info!("[OK] [show_embedded] Embedded WebView created successfully (non-blocking)");
         tracing::info!(" [show_embedded] IMPORTANT: Keep the Python WebView object alive!");
-        tracing::info!(
-            " [show_embedded] If the Python object is destroyed, the window will close"
-        );
+        tracing::info!(" [show_embedded] If the Python object is destroyed, the window will close");
         tracing::info!(
             " [show_embedded] Store it in a global variable: __main__.webview = webview"
         );
@@ -405,7 +404,9 @@ impl AuroraView {
         // Try to use event loop proxy first (standalone mode)
         if let Ok(proxy_opt) = self.event_loop_proxy.try_borrow() {
             if let Some(proxy) = proxy_opt.as_ref() {
-                tracing::info!("[CLOSE] [AuroraView::close] Using event loop proxy to send close event");
+                tracing::info!(
+                    "[CLOSE] [AuroraView::close] Using event loop proxy to send close event"
+                );
                 match proxy.send_event(crate::webview::event_loop::UserEvent::CloseWindow) {
                     Ok(_) => {
                         tracing::info!("[OK] [AuroraView::close] Close event sent successfully");
@@ -413,7 +414,10 @@ impl AuroraView {
                         return Ok(());
                     }
                     Err(e) => {
-                        tracing::error!("[ERROR] [AuroraView::close] Failed to send close event: {:?}", e);
+                        tracing::error!(
+                            "[ERROR] [AuroraView::close] Failed to send close event: {:?}",
+                            e
+                        );
                         // Fall through to direct close method
                     }
                 }
@@ -426,13 +430,17 @@ impl AuroraView {
 
         // Fallback: Direct close (for embedded mode or if proxy fails)
         if let Ok(mut inner_opt) = self.inner.try_borrow_mut() {
-            tracing::info!("[CLOSE] [AuroraView::close] Successfully borrowed inner for direct close");
+            tracing::info!(
+                "[CLOSE] [AuroraView::close] Successfully borrowed inner for direct close"
+            );
 
             if let Some(inner) = inner_opt.as_mut() {
                 tracing::info!("[CLOSE] [AuroraView::close] Inner exists");
 
                 if let Some(window) = &inner.window {
-                    tracing::info!("[CLOSE] [AuroraView::close] Window exists, attempting to close...");
+                    tracing::info!(
+                        "[CLOSE] [AuroraView::close] Window exists, attempting to close..."
+                    );
 
                     // Set window invisible first
                     window.set_visible(false);
@@ -445,8 +453,8 @@ impl AuroraView {
                         use std::ffi::c_void;
                         use windows::Win32::Foundation::HWND;
                         use windows::Win32::UI::WindowsAndMessaging::{
-                            DestroyWindow, DispatchMessageW, PeekMessageW, TranslateMessage,
-                            MSG, PM_REMOVE, WM_DESTROY, WM_NCDESTROY,
+                            DestroyWindow, DispatchMessageW, PeekMessageW, TranslateMessage, MSG,
+                            PM_REMOVE, WM_DESTROY, WM_NCDESTROY,
                         };
 
                         if let Ok(window_handle) = window.window_handle() {
@@ -458,7 +466,9 @@ impl AuroraView {
                                 tracing::info!("[CLOSE] [AuroraView::close] HWND: {:?}", hwnd);
 
                                 // Step 1: Destroy the window
-                                tracing::info!("[CLOSE] [AuroraView::close] Calling DestroyWindow...");
+                                tracing::info!(
+                                    "[CLOSE] [AuroraView::close] Calling DestroyWindow..."
+                                );
                                 unsafe {
                                     let result = DestroyWindow(hwnd);
                                     if result.is_ok() {
@@ -475,7 +485,8 @@ impl AuroraView {
 
                                         // Process all pending messages for this specific window
                                         while processed_count < max_iterations
-                                            && PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool()
+                                            && PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE)
+                                                .as_bool()
                                         {
                                             processed_count += 1;
 
@@ -501,7 +512,9 @@ impl AuroraView {
 
                                         // Step 3: Small delay to allow window to fully disappear
                                         std::thread::sleep(std::time::Duration::from_millis(50));
-                                        tracing::info!("[OK] [AuroraView::close] Window cleanup completed");
+                                        tracing::info!(
+                                            "[OK] [AuroraView::close] Window cleanup completed"
+                                        );
                                     } else {
                                         tracing::error!(
                                             "[ERROR] [AuroraView::close] DestroyWindow failed: {:?}",
@@ -519,7 +532,9 @@ impl AuroraView {
                 tracing::warn!("[WARNING] [AuroraView::close] Inner is None");
             }
         } else {
-            tracing::error!("[ERROR] [AuroraView::close] Failed to borrow inner (already borrowed?)");
+            tracing::error!(
+                "[ERROR] [AuroraView::close] Failed to borrow inner (already borrowed?)"
+            );
         }
 
         tracing::info!("{}", "=".repeat(80));
@@ -549,18 +564,8 @@ impl AuroraView {
     /// Returns:
     ///     bool: True if the window should be closed, False otherwise
     ///
-    /// Example:
-    ///     ```python
-    ///     # In Maya, create a timer to process events
-    ///     import maya.cmds as cmds
-    ///
-    ///     def process_webview_events():
-    ///         if webview._core.process_events():
-    ///             # Window should close
-    ///             cmds.scriptJob(kill=job_id)
-    ///
-    ///     job_id = cmds.scriptJob(event=["idle", process_webview_events])
-    ///     ```
+    /// Note: In Maya, create a timer to process events using scriptJob with the idle event.
+    /// Call this method periodically to handle window close events.
     fn process_events(&self) -> PyResult<bool> {
         let inner_ref = self.inner.borrow();
         if let Some(ref inner) = *inner_ref {
@@ -580,12 +585,6 @@ impl AuroraView {
     /// Args:
     ///     x (int): X coordinate in screen pixels
     ///     y (int): Y coordinate in screen pixels
-    ///
-    /// Example:
-    ///     ```python
-    ///     # Move window to position (100, 100)
-    ///     webview._core.set_window_position(100, 100)
-    ///     ```
     fn set_window_position(&self, x: i32, y: i32) -> PyResult<()> {
         let inner_ref = self.inner.borrow();
         if let Some(ref inner) = *inner_ref {

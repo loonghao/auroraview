@@ -36,10 +36,10 @@
 use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
 
-use crate::ipc::{IpcHandler, MessageQueue};
 use super::super::config::WebViewConfig;
 use super::super::event_loop::UserEvent;
 use super::WebViewBackend;
+use crate::ipc::{IpcHandler, MessageQueue};
 
 /// Custom renderer trait
 ///
@@ -47,22 +47,22 @@ use super::WebViewBackend;
 pub trait CustomRenderer: Send + Sync {
     /// Initialize the renderer
     fn initialize(&mut self, config: &WebViewConfig) -> Result<(), Box<dyn std::error::Error>>;
-    
+
     /// Render HTML content
     fn render_html(&mut self, html: &str) -> Result<(), Box<dyn std::error::Error>>;
-    
+
     /// Load a URL
     fn load_url(&mut self, url: &str) -> Result<(), Box<dyn std::error::Error>>;
-    
+
     /// Execute JavaScript
     fn execute_script(&mut self, script: &str) -> Result<(), Box<dyn std::error::Error>>;
-    
+
     /// Process events (return true if should close)
     fn process_events(&mut self) -> bool;
-    
+
     /// Run event loop (blocking)
     fn run_event_loop(&mut self);
-    
+
     /// Get window handle (if available)
     fn window_handle(&self) -> Option<*mut std::ffi::c_void> {
         None
@@ -75,13 +75,13 @@ pub trait CustomRenderer: Send + Sync {
 pub struct CustomBackend<R: CustomRenderer> {
     /// Custom renderer implementation
     renderer: Arc<Mutex<R>>,
-    
+
     /// IPC handler
     ipc_handler: Arc<IpcHandler>,
-    
+
     /// Message queue
     message_queue: Arc<MessageQueue>,
-    
+
     /// Configuration
     config: WebViewConfig,
 }
@@ -96,7 +96,7 @@ impl<R: CustomRenderer> CustomBackend<R> {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let mut renderer = renderer;
         renderer.initialize(&config)?;
-        
+
         Ok(Self {
             renderer: Arc::new(Mutex::new(renderer)),
             ipc_handler,
@@ -214,25 +214,25 @@ impl CustomRenderer for DummyRenderer {
     fn initialize(&mut self, _config: &WebViewConfig) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
-    
+
     fn render_html(&mut self, html: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.html = html.to_string();
         Ok(())
     }
-    
+
     fn load_url(&mut self, _url: &str) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
-    
+
     fn execute_script(&mut self, script: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.scripts.push(script.to_string());
         Ok(())
     }
-    
+
     fn process_events(&mut self) -> bool {
         false
     }
-    
+
     fn run_event_loop(&mut self) {
         // No-op for dummy renderer
     }
@@ -245,12 +245,11 @@ mod tests {
     #[test]
     fn test_dummy_renderer() {
         let mut renderer = DummyRenderer::new();
-        
+
         renderer.render_html("<h1>Test</h1>").unwrap();
         assert_eq!(renderer.html, "<h1>Test</h1>");
-        
+
         renderer.execute_script("console.log('test')").unwrap();
         assert_eq!(renderer.scripts.len(), 1);
     }
 }
-

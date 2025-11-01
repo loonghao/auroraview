@@ -31,9 +31,9 @@
 //! - `process`: ProcessBackend implementation using ipc-channel (optional)
 
 pub mod backend;
+pub mod batch;
 pub mod handler;
 pub mod message_queue;
-pub mod optimized;
 pub mod threaded;
 
 // Optional process-based backend

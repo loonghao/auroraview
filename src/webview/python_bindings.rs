@@ -52,7 +52,10 @@ fn py_to_json_recursive(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value>
     }
 
     // Unsupported type - convert to string representation
-    tracing::warn!("[WARNING] [py_to_json_recursive] Unsupported Python type: {}, converting to string", value.get_type().name()?);
+    tracing::warn!(
+        "[WARNING] [py_to_json_recursive] Unsupported Python type: {}, converting to string",
+        value.get_type().name()?
+    );
     Ok(serde_json::Value::String(value.to_string()))
 }
 
@@ -79,7 +82,7 @@ mod tests {
     #[test]
     fn test_py_dict_to_json() {
         Python::with_gil(|py| {
-            let dict = PyDict::new_bound(py);
+            let dict = PyDict::new(py);
             dict.set_item("string", "value").unwrap();
             dict.set_item("number", 42).unwrap();
             dict.set_item("float", std::f64::consts::PI).unwrap();

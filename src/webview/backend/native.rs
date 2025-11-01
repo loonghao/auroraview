@@ -157,7 +157,10 @@ impl WebViewBackend for NativeBackend {
             });
 
             if count > 0 {
-                tracing::debug!("[OK] [NativeBackend::process_events] Processed {} messages", count);
+                tracing::debug!(
+                    "[OK] [NativeBackend::process_events] Processed {} messages",
+                    count
+                );
             }
         }
 
@@ -280,7 +283,9 @@ impl NativeBackend {
                 window_builder = window_builder.with_owner_window(parent_hwnd as isize);
             }
             EmbedMode::None => {
-                tracing::warn!("[WARNING] [NativeBackend] EmbedMode::None - creating standalone window");
+                tracing::warn!(
+                    "[WARNING] [NativeBackend] EmbedMode::None - creating standalone window"
+                );
             }
         }
 
@@ -297,7 +302,10 @@ impl NativeBackend {
                 let raw_handle = window_handle.as_raw();
                 if let RawWindowHandle::Win32(handle) = raw_handle {
                     let hwnd_value = handle.hwnd.get();
-                    tracing::info!("[OK] [NativeBackend] Window created: HWND 0x{:X}", hwnd_value);
+                    tracing::info!(
+                        "[OK] [NativeBackend] Window created: HWND 0x{:X}",
+                        hwnd_value
+                    );
                 }
             }
         }
@@ -404,10 +412,15 @@ impl NativeBackend {
 
                             match ipc_handler_clone.handle_message(ipc_message) {
                                 Ok(_) => {
-                                    tracing::info!("[OK] [NativeBackend] Event handled successfully");
+                                    tracing::info!(
+                                        "[OK] [NativeBackend] Event handled successfully"
+                                    );
                                 }
                                 Err(e) => {
-                                    tracing::error!("[ERROR] [NativeBackend] Error handling event: {}", e);
+                                    tracing::error!(
+                                        "[ERROR] [NativeBackend] Error handling event: {}",
+                                        e
+                                    );
                                 }
                             }
                         }
@@ -440,4 +453,3 @@ impl NativeBackend {
         Ok(webview)
     }
 }
-

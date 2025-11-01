@@ -124,7 +124,9 @@ impl WebViewEventHandler {
     /// which would terminate the entire DCC application (Maya, Houdini, etc.).
     /// The run_return() method returns normally, allowing the DCC to continue running.
     pub fn run_blocking(mut event_loop: EventLoop<UserEvent>, state: Arc<Mutex<EventLoopState>>) {
-        tracing::info!("[WARNING] [run_blocking] Starting event loop (blocking mode with run_return)");
+        tracing::info!(
+            "[WARNING] [run_blocking] Starting event loop (blocking mode with run_return)"
+        );
 
         // Create event loop proxy and store it in state
         tracing::info!("[WARNING] [run_blocking] Creating event loop proxy...");

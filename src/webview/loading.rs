@@ -1,9 +1,10 @@
 //! Loading screen and progressive enhancement utilities
 
 /// Minimal loading screen HTML
-/// 
+///
 /// This is shown immediately while the main content loads.
 /// Uses inline CSS to avoid external resource loading.
+#[allow(dead_code)]
 pub const LOADING_HTML: &str = r#"<!DOCTYPE html>
 <html>
 <head>
@@ -88,16 +89,20 @@ pub const LOADING_HTML: &str = r#"<!DOCTYPE html>
 </html>"#;
 
 /// Wrap user HTML with performance optimizations
-/// 
+///
 /// This function:
 /// 1. Adds performance monitoring
 /// 2. Defers non-critical scripts
 /// 3. Preloads critical resources
 /// 4. Adds loading state management
+#[allow(dead_code)]
 pub fn wrap_html_with_optimizations(user_html: &str) -> String {
     // Check if HTML already has <!DOCTYPE html>
-    let has_doctype = user_html.trim_start().to_lowercase().starts_with("<!doctype");
-    
+    let has_doctype = user_html
+        .trim_start()
+        .to_lowercase()
+        .starts_with("<!doctype");
+
     if has_doctype {
         // HTML is complete, just add performance monitoring
         add_performance_monitoring(user_html)
@@ -170,6 +175,7 @@ pub fn wrap_html_with_optimizations(user_html: &str) -> String {
 }
 
 /// Add performance monitoring to existing HTML
+#[allow(dead_code)]
 fn add_performance_monitoring(html: &str) -> String {
     // Find </body> tag and insert monitoring script before it
     if let Some(body_end) = html.rfind("</body>") {
@@ -234,7 +240,7 @@ console.log('[TIMER] Performance monitoring initialized');
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_wrap_partial_html() {
         let html = "<h1>Hello</h1>";
@@ -243,7 +249,7 @@ mod tests {
         assert!(wrapped.contains("<h1>Hello</h1>"));
         assert!(wrapped.contains("auroraViewPerf"));
     }
-    
+
     #[test]
     fn test_wrap_complete_html() {
         let html = "<!DOCTYPE html><html><body><h1>Hello</h1></body></html>";
@@ -252,4 +258,3 @@ mod tests {
         assert!(wrapped.contains("<h1>Hello</h1>"));
     }
 }
-

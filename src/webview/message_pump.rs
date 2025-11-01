@@ -68,7 +68,9 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
                 // Set the close flag to notify Python
                 should_close = true;
                 tracing::info!("[OK] [process_messages_for_hwnd] should_close set to true");
-                tracing::info!("[OK] [process_messages_for_hwnd] Will return to Python for cleanup");
+                tracing::info!(
+                    "[OK] [process_messages_for_hwnd] Will return to Python for cleanup"
+                );
                 tracing::info!("{}", "=".repeat(80));
 
                 // IMPORTANT: Still dispatch WM_CLOSE to allow default window processing
