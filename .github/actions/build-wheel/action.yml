@@ -88,14 +88,17 @@ runs:
       uses: PyO3/maturin-action@v1
       with:
         target: ${{ inputs.target }}
-        args: ${{ inputs.maturin-args }} --compatibility manylinux_2_28
+        args: ${{ inputs.maturin-args }}
         sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
         # IMPORTANT: wry requires webkit2gtk system libraries at build time
         # We build on the host (not in manylinux container) because:
         # 1. manylinux containers don't have webkit2gtk-devel packages
         # 2. System dependencies are already installed on GitHub runners
-        # 3. We use --compatibility flag to tag wheels as manylinux_2_28
-        # This means users need webkit2gtk installed at runtime
+        # 3. Wheels will have linux_x86_64 tag (not manylinux)
+        # This means:
+        #   - Users need webkit2gtk installed at runtime
+        #   - Wheels are platform-specific (not portable across Linux distros)
+        #   - PyPI may not accept these wheels (use GitHub Releases instead)
         manylinux: off
 
     - name: Set wheel path output
