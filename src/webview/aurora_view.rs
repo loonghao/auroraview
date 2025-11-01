@@ -63,6 +63,7 @@ impl AuroraView {
         tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}",
             title, dev_tools, resizable, decorations, parent_hwnd, parent_mode);
 
+        #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
         let mut config = WebViewConfig {
             title: title.to_string(),
             width,
