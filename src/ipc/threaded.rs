@@ -20,6 +20,7 @@ pub struct ThreadedConfig {
     pub capacity: usize,
 
     /// Whether to block when queue is full (true) or drop messages (false)
+    #[allow(dead_code)]
     pub block_on_full: bool,
 }
 
@@ -39,15 +40,18 @@ impl Default for ThreadedConfig {
 /// embedded mode where the WebView runs in the same process.
 pub struct ThreadedBackend {
     /// Sender for outgoing messages (Python -> JavaScript)
+    #[allow(dead_code)]
     tx: Sender<IpcMessage>,
 
     /// Receiver for incoming messages (JavaScript -> Python)
     rx: Receiver<IpcMessage>,
 
     /// Registered Python callbacks (lock-free concurrent map)
+    #[allow(dead_code)]
     callbacks: Arc<DashMap<String, Vec<PythonCallback>>>,
 
     /// Configuration
+    #[allow(dead_code)]
     config: ThreadedConfig,
 }
 
