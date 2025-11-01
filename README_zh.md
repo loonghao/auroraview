@@ -108,24 +108,82 @@ pip install https://github.com/loonghao/auroraview/releases/latest/download/auro
 pip install auroraview --no-binary :all:
 ```
 
-### 基础用法
+### 集成模式
 
+AuroraView 支持两种集成模式以适应不同的使用场景:
+
+#### 1. 原生后端 (默认)
+
+使用平台特定的 API (Windows 上的 HWND) 进行窗口嵌入。最适合独立应用程序和最大兼容性。
+
+**独立窗口:**
 ```python
 from auroraview import WebView
 
-# 创建WebView实例
 webview = WebView(
     title="我的应用",
     width=800,
     height=600,
     url="http://localhost:3000"
 )
+webview.show()  # 阻塞调用
+```
 
-# 显示窗口
+**嵌入到 DCC (例如 Maya):**
+```python
+from auroraview import NativeWebView
+import maya.OpenMayaUI as omui
+
+# 获取 Maya 主窗口句柄
+maya_hwnd = int(omui.MQtUtil.mainWindow())
+
+# 创建嵌入式 WebView
+webview = NativeWebView(
+    title="Maya 工具",
+    parent_hwnd=maya_hwnd,
+    parent_mode="owner"  # 推荐用于跨线程安全
+)
+webview.show_async()  # 非阻塞
+```
+
+#### 2. Qt 后端
+
+作为 Qt widget 集成,与基于 Qt 的 DCC 无缝集成。需要 `pip install auroraview[qt]`。
+
+```python
+from auroraview import QtWebView
+
+# 创建 WebView 作为 Qt widget
+webview = QtWebView(
+    parent=maya_main_window(),  # 任何 QWidget (可选)
+    title="我的工具",
+    width=800,
+    height=600
+)
+
+# 加载内容
+webview.load_url("http://localhost:3000")
+# 或加载 HTML
+webview.load_html("<html><body><h1>你好,来自 Qt!</h1></body></html>")
+
+# 显示 widget
 webview.show()
 ```
 
+**何时使用 Qt 后端:**
+- [OK] 你的 DCC 已经加载了 Qt (Maya, Houdini, Nuke)
+- [OK] 你想要无缝的 Qt widget 集成
+- [OK] 你需要使用 Qt 布局和信号/槽
+
+**何时使用原生后端:**
+- [OK] 所有平台的最大兼容性
+- [OK] 独立应用程序
+- [OK] 没有 Qt 的 DCC (Blender, 3ds Max)
+- [OK] 最小依赖
+
 ### 双向通信
+
+两种后端都支持相同的事件 API:
 
 ```python
 # Python → JavaScript
@@ -135,7 +193,24 @@ webview.emit("update_data", {"frame": 120, "objects": ["cube", "sphere"]})
 @webview.on("export_scene")
 def handle_export(data):
     print(f"导出到: {data['path']}")
-    # 你的DCC导出逻辑
+    # 你的 DCC 导出逻辑
+
+# 或直接注册回调
+webview.register_callback("export_scene", handle_export)
+```
+
+**JavaScript 端:**
+```javascript
+// 监听来自 Python 的事件
+window.auroraview.on('update_data', (data) => {
+    console.log('帧:', data.frame);
+    console.log('对象:', data.objects);
+});
+
+// 发送事件到 Python
+window.auroraview.send_event('export_scene', {
+    path: '/path/to/export.fbx'
+});
 ```
 
 ## [DOCS] 文档

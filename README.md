@@ -180,11 +180,18 @@ from auroraview import QtWebView
 
 # Create WebView as Qt widget
 webview = QtWebView(
-    parent=maya_main_window(),  # Any QWidget
+    parent=maya_main_window(),  # Any QWidget (optional)
     title="My Tool",
     width=800,
     height=600
 )
+
+# Load content
+webview.load_url("http://localhost:3000")
+# Or load HTML
+webview.load_html("<html><body><h1>Hello from Qt!</h1></body></html>")
+
+# Show the widget
 webview.show()
 ```
 
@@ -212,6 +219,23 @@ webview.emit("update_data", {"frame": 120, "objects": ["cube", "sphere"]})
 def handle_export(data):
     print(f"Exporting to: {data['path']}")
     # Your DCC export logic here
+
+# Or register callback directly
+webview.register_callback("export_scene", handle_export)
+```
+
+**JavaScript side:**
+```javascript
+// Listen for events from Python
+window.auroraview.on('update_data', (data) => {
+    console.log('Frame:', data.frame);
+    console.log('Objects:', data.objects);
+});
+
+// Send events to Python
+window.auroraview.send_event('export_scene', {
+    path: '/path/to/export.fbx'
+});
 ```
 
 ## [DOCS] Documentation

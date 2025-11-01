@@ -153,4 +153,7 @@ jobs:
             ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: false
+          allowUpdates: true
+          skipIfReleaseExists: false
+          updateOnlyUnreleased: false
 
