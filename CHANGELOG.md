@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.2...auroraview-v0.2.3) (2025-11-01)
+
+
+### Bug Fixes
+
+* build only universal2 wheels on macOS ARM64 runners ([f4f26d3](https://github.com/loonghao/auroraview/commit/f4f26d3c386fac9d4098f5ca4e02d6a038626cdf))
+* exclude Linux wheels from PyPI and update installation docs ([222f69b](https://github.com/loonghao/auroraview/commit/222f69be41704b5cb71de33b60b7a78345d10633))
+
 ## [0.2.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.1...auroraview-v0.2.2) (2025-11-01)
 
 
