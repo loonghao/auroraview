@@ -145,12 +145,30 @@ Uses platform-specific APIs (HWND on Windows) for window embedding. Best for sta
 ```python
 from auroraview import WebView
 
+# Method 1: Load HTML content directly (recommended for getting started)
 webview = WebView(
     title="My App",
     width=800,
-    height=600,
-    url="http://localhost:3000"
+    height=600
 )
+webview.load_html("""
+    <!DOCTYPE html>
+    <html>
+    <body>
+        <h1>Hello from AuroraView!</h1>
+        <p>This is a simple example.</p>
+    </body>
+    </html>
+""")
+webview.show()  # Blocking call
+
+# Method 2: Load from URL (make sure the server is running first!)
+webview = WebView(
+    title="My App",
+    width=800,
+    height=600
+)
+webview.load_url("http://localhost:3000")
 webview.show()  # Blocking call
 ```
 
