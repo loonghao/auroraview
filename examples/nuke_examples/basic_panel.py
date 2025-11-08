@@ -219,13 +219,22 @@ HTML_CONTENT = """
 """
 
 
+# Global reference to keep webview alive
+_active_webview = None
+
+
 def show():
     """Show the Nuke panel.
 
     Note: When closing the window, you may see Qt-related warnings from Nuke/Hiero's
     status bar. These are harmless and can be safely ignored. They occur because
     Nuke's UI tries to update after the WebView window is closed.
+
+    Returns:
+        WebView instance or None if failed
     """
+    global _active_webview
+
     if not AURORAVIEW_AVAILABLE:
         print("\n" + "="*60)
         print("ERROR: AuroraView is not installed!")
@@ -240,15 +249,30 @@ def show():
     if not NUKE_AVAILABLE:
         print("Warning: Nuke module not available. Some features may not work.")
 
+    # Close existing webview if any
+    if _active_webview is not None:
+        try:
+            print("Closing existing WebView...")
+            _active_webview.close()
+        except Exception as e:
+            print(f"Error closing existing WebView: {e}")
+        _active_webview = None
+
     # Suppress Qt warnings during window close
     # These warnings come from Nuke/Hiero's status bar trying to update
     # after the window is closed, and are harmless
     import warnings
     warnings.filterwarnings('ignore', category=RuntimeWarning, message='.*Internal C\\+\\+ object.*already deleted.*')
 
-    # Create WebView
+    # Create WebView with singleton mode to prevent multiple instances
     webview = WebView.create(
-        title="Nuke Panel", html=HTML_CONTENT, width=650, height=500, debug=True
+        title="Nuke Panel",
+        html=HTML_CONTENT,
+        width=650,
+        height=500,
+        debug=True,
+        singleton="nuke_panel",  # Use singleton to prevent multiple instances
+        auto_timer=True  # Auto-start event timer
     )
 
     # Register event handlers
@@ -270,14 +294,33 @@ def show():
             print(f"Error getting graph info: {e}")
             webview.emit("graph_info", {"error": str(e)})
 
-    # Show the window
+    # Show the window (non-blocking in Nuke)
     try:
         webview.show()
+        _active_webview = webview
+        print("WebView shown successfully. Close the window when done.")
     except Exception as e:
         print(f"Error showing WebView: {e}")
         return None
 
     return webview
+
+
+def close():
+    """Close the active WebView panel."""
+    global _active_webview
+
+    if _active_webview is not None:
+        try:
+            print("Closing WebView...")
+            _active_webview.close()
+            print("WebView closed successfully")
+        except Exception as e:
+            print(f"Error closing WebView: {e}")
+        finally:
+            _active_webview = None
+    else:
+        print("No active WebView to close")
 
 
 if __name__ == "__main__":
