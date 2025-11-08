@@ -259,34 +259,68 @@ pub fn create_embedded(
             builder = builder.with_devtools(true);
         }
 
-        // Add event bridge script (same as standalone mode)
+        // Add event bridge script with full window.auroraview API
         let event_bridge_script = r#"
     (function() {
         console.log('Initializing AuroraView event bridge...');
 
-        // Store original dispatchEvent
-        const originalDispatchEvent = EventTarget.prototype.dispatchEvent;
+        // Event handlers registry for Python -> JS communication
+        const eventHandlers = new Map();
 
-        // Override dispatchEvent to intercept custom events
-        EventTarget.prototype.dispatchEvent = function(event) {
-            // Only intercept CustomEvent
-            if (event instanceof CustomEvent) {
-                console.log('CustomEvent dispatched:', event.type, event.detail);
-
-                // Send to Rust via IPC
+        // Create window.auroraview API
+        window.auroraview = {
+            // Send event to Python (JS -> Python)
+            send_event: function(eventName, data) {
+                console.log('[AuroraView] Sending event to Python:', eventName, data);
                 try {
                     window.ipc.postMessage(JSON.stringify({
                         type: 'event',
-                        event: event.type,
-                        detail: event.detail || {}
+                        event: eventName,
+                        detail: data || {}
                     }));
                 } catch (e) {
-                    console.error('Failed to send event via IPC:', e);
+                    console.error('[AuroraView] Failed to send event via IPC:', e);
                 }
+            },
+
+            // Register event handler for Python -> JS communication
+            on: function(eventName, callback) {
+                console.log('[AuroraView] Registering handler for event:', eventName);
+                if (!eventHandlers.has(eventName)) {
+                    eventHandlers.set(eventName, []);
+                }
+                eventHandlers.get(eventName).push(callback);
             }
-            return originalDispatchEvent.call(this, event);
         };
-        console.log('AuroraView event bridge initialized');
+
+        // Listen for events from Python
+        window.addEventListener('message', function(event) {
+            try {
+                const message = JSON.parse(event.data);
+                if (message.type === 'python_event') {
+                    const eventName = message.event;
+                    const data = message.detail || {};
+                    console.log('[AuroraView] Received event from Python:', eventName, data);
+
+                    const handlers = eventHandlers.get(eventName);
+                    if (handlers) {
+                        handlers.forEach(handler => {
+                            try {
+                                handler(data);
+                            } catch (e) {
+                                console.error('[AuroraView] Error in event handler:', e);
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('[AuroraView] Error processing message from Python:', e);
+            }
+        });
+
+        console.log('[AuroraView] Bridge initialized');
+        console.log('[AuroraView] Use window.auroraview.send_event(name, data) to send events to Python');
+        console.log('[AuroraView] Use window.auroraview.on(name, callback) to receive events from Python');
     })();
     "#;
         builder = builder.with_initialization_script(event_bridge_script);
