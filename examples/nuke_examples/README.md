@@ -69,11 +69,16 @@ sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
 
 # Method 1: Import module directly
 import nuke_examples.basic_panel as example
-example.show()
+webview = example.show()
 
 # Method 2: Import from package
 from nuke_examples import basic_panel
-basic_panel.show()
+webview = basic_panel.show()
+
+# To close programmatically:
+# basic_panel.close()
+# or
+# webview.close()
 ```
 
 ### Method 2: Add to Menu
@@ -144,6 +149,30 @@ webview.show()
 
 ## 🐛 Troubleshooting
 
+### Properly Closing the WebView
+
+**Important**: Always close the WebView properly to prevent Nuke from hanging on exit.
+
+**Method 1: Click the X button** (Recommended)
+- Simply click the close button on the WebView window
+- The window will close and clean up automatically
+
+**Method 2: Programmatic close**
+```python
+# If you saved the webview reference
+webview = basic_panel.show()
+webview.close()
+
+# Or use the module-level close function
+import nuke_examples.basic_panel as example
+example.close()
+```
+
+**Method 3: Singleton mode** (Automatic)
+- The example uses singleton mode (`singleton="nuke_panel"`)
+- Opening a new panel automatically closes the old one
+- Only one instance can exist at a time
+
 ### Qt Warnings on Window Close
 
 When closing the WebView window, you may see warnings like:
@@ -160,6 +189,18 @@ RuntimeError: Internal C++ object (PySide2.QtWidgets.QLabel) already deleted.
 These warnings come from Nuke/Hiero's status bar trying to update after the WebView window is closed. The warnings don't affect functionality and are a known Qt lifecycle issue in Nuke's UI framework.
 
 The example code already includes warning suppression to minimize console noise.
+
+### Nuke Won't Exit After Closing WebView
+
+If Nuke doesn't exit properly after closing the WebView:
+
+1. **Make sure you closed the WebView window** - Click the X button or call `close()`
+2. **Check for multiple instances** - The singleton mode prevents this, but if you disabled it, close all instances
+3. **Force close if needed**:
+   ```python
+   import nuke_examples.basic_panel as example
+   example.close()  # Force close the active webview
+   ```
 
 ### Import Errors
 
