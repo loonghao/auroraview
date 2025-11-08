@@ -1,0 +1,161 @@
+//! Cross-platform window lifecycle management
+//!
+//! This module provides a unified interface for managing window lifecycle
+//! across different platforms (Windows, macOS, Linux) and modes (standalone, embedded).
+
+use flume::{Receiver, Sender};
+use parking_lot::Mutex;
+use std::sync::Arc;
+use tracing::{debug, info, trace, warn};
+
+/// Window lifecycle state
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LifecycleState {
+    /// Window is being created
+    Creating,
+    /// Window is active and running
+    Active,
+    /// Close has been requested but not yet processed
+    CloseRequested,
+    /// Window is being destroyed
+    Destroying,
+    /// Window has been destroyed
+    Destroyed,
+}
+
+/// Cross-platform window lifecycle manager
+pub struct LifecycleManager {
+    /// Current lifecycle state
+    state: Arc<Mutex<LifecycleState>>,
+    /// Close signal channel (sender)
+    close_tx: Sender<CloseReason>,
+    /// Close signal channel (receiver)
+    close_rx: Receiver<CloseReason>,
+    /// Platform-specific cleanup handlers
+    cleanup_handlers: Arc<Mutex<Vec<Box<dyn FnOnce() + Send + 'static>>>>,
+}
+
+/// Reason for window closure
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloseReason {
+    /// User clicked the close button
+    UserRequest,
+    /// Application requested close
+    AppRequest,
+    /// Parent window closed (embedded mode)
+    ParentClosed,
+    /// System shutdown
+    SystemShutdown,
+    /// Error occurred
+    Error,
+}
+
+impl LifecycleManager {
+    /// Create a new lifecycle manager
+    pub fn new() -> Self {
+        let (close_tx, close_rx) = flume::bounded(1);
+
+        Self {
+            state: Arc::new(Mutex::new(LifecycleState::Creating)),
+            close_tx,
+            close_rx,
+            cleanup_handlers: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    /// Get the current lifecycle state
+    pub fn state(&self) -> LifecycleState {
+        *self.state.lock()
+    }
+
+    /// Set the lifecycle state
+    pub fn set_state(&self, new_state: LifecycleState) {
+        let mut state = self.state.lock();
+        let old_state = *state;
+        *state = new_state;
+
+        info!(
+            "[LifecycleManager] State transition: {:?} -> {:?}",
+            old_state, new_state
+        );
+    }
+
+    /// Request window close
+    pub fn request_close(&self, reason: CloseReason) -> Result<(), String> {
+        let current_state = self.state();
+
+        match current_state {
+            LifecycleState::Destroyed => {
+                warn!("[LifecycleManager] Close requested on already destroyed window");
+                return Err("Window already destroyed".to_string());
+            }
+            LifecycleState::Destroying => {
+                debug!("[LifecycleManager] Close already in progress");
+                return Ok(());
+            }
+            _ => {}
+        }
+
+        self.set_state(LifecycleState::CloseRequested);
+
+        self.close_tx
+            .send(reason)
+            .map_err(|e| format!("Failed to send close signal: {}", e))?;
+
+        info!("[LifecycleManager] Close requested: {:?}", reason);
+        Ok(())
+    }
+
+    /// Check if close has been requested (non-blocking)
+    pub fn check_close_requested(&self) -> Option<CloseReason> {
+        self.close_rx.try_recv().ok()
+    }
+
+    /// Wait for close request (blocking with timeout)
+    pub fn wait_for_close(&self, timeout: std::time::Duration) -> Option<CloseReason> {
+        self.close_rx.recv_timeout(timeout).ok()
+    }
+
+    /// Register a cleanup handler
+    pub fn register_cleanup<F>(&self, handler: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        self.cleanup_handlers.lock().push(Box::new(handler));
+        trace!("[LifecycleManager] Cleanup handler registered");
+    }
+
+    /// Execute all cleanup handlers
+    pub fn execute_cleanup(&self) {
+        self.set_state(LifecycleState::Destroying);
+
+        let handlers = {
+            let mut handlers_lock = self.cleanup_handlers.lock();
+            std::mem::take(&mut *handlers_lock)
+        };
+
+        info!(
+            "[LifecycleManager] Executing {} cleanup handlers",
+            handlers.len()
+        );
+
+        for (idx, handler) in handlers.into_iter().enumerate() {
+            trace!("[LifecycleManager] Executing cleanup handler {}", idx);
+            handler();
+        }
+
+        self.set_state(LifecycleState::Destroyed);
+        info!("[LifecycleManager] All cleanup handlers executed");
+    }
+
+    /// Clone the close sender for sharing across threads
+    pub fn close_sender(&self) -> Sender<CloseReason> {
+        self.close_tx.clone()
+    }
+}
+
+impl Default for LifecycleManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}

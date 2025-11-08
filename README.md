@@ -97,6 +97,9 @@ AuroraView is **not** a fork of PyWebView. It's a completely new project designe
 - [OK] **Multi-Window Support**: Create multiple WebView instances
 - [OK] **Thread-Safe**: Safe concurrent operations
 - [OK] **Hot Reload**: Development mode with live reload
+- [OK] **Lifecycle Management**: Automatic cleanup when parent DCC application closes
+- [OK] **Third-Party Integration**: JavaScript injection for external websites
+- [OK] **AI Chat Integration**: Built-in support for AI assistant integration
 
 ##  Quick Start
 
@@ -133,60 +136,78 @@ Or build from source:
 pip install auroraview --no-binary :all:
 ```
 
-### Integration Modes
+### Quick Start (v0.2.0 New API)
 
-AuroraView supports two integration modes to fit different use cases:
-
-#### 1. Native Backend (Default)
-
-Uses platform-specific APIs (HWND on Windows) for window embedding. Best for standalone applications and maximum compatibility.
-
-**Standalone window:**
+**Standalone window (2 lines!):**
 ```python
 from auroraview import WebView
 
-# Method 1: Load HTML content directly (recommended for getting started)
-webview = WebView(
-    title="My App",
-    width=800,
-    height=600
-)
-webview.load_html("""
-    <!DOCTYPE html>
-    <html>
-    <body>
-        <h1>Hello from AuroraView!</h1>
-        <p>This is a simple example.</p>
-    </body>
-    </html>
-""")
-webview.show()  # Blocking call
-
-# Method 2: Load from URL (make sure the server is running first!)
-webview = WebView(
-    title="My App",
-    width=800,
-    height=600
-)
-webview.load_url("http://localhost:3000")
-webview.show()  # Blocking call
+# Create and show - that's it!
+webview = WebView.create("My App", url="http://localhost:3000")
+webview.show()  # Auto-blocks until closed
 ```
 
-**Embedded in DCC (e.g., Maya):**
+**Maya integration (1 line!):**
 ```python
-from auroraview import NativeWebView
-import maya.OpenMayaUI as omui
+from auroraview import WebView
 
-# Get Maya main window handle
-maya_hwnd = int(omui.MQtUtil.mainWindow())
+# Maya shortcut - auto-detects Maya window
+webview = WebView.maya("Maya Tool", url="http://localhost:3000")
+webview.show()  # Auto non-blocking with timer
+```
 
-# Create embedded WebView
-webview = NativeWebView(
-    title="Maya Tool",
-    parent_hwnd=maya_hwnd,
-    parent_mode="owner"  # Recommended for cross-thread safety
+**Houdini integration (1 line!):**
+```python
+from auroraview import WebView
+
+# Houdini shortcut - auto-detects Houdini window
+webview = WebView.houdini("Houdini Tool", url="http://localhost:3000")
+webview.show()  # Auto non-blocking with timer
+```
+
+**Blender integration (1 line!):**
+```python
+from auroraview import WebView
+
+# Blender shortcut - creates standalone window
+webview = WebView.blender("Blender Tool", url="http://localhost:3000")
+webview.show()  # Auto-blocks until closed
+```
+
+### Advanced Usage
+
+**Load HTML content:**
+```python
+from auroraview import WebView
+
+html = """
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Hello from AuroraView!</h1>
+    <button onclick="alert('Hello!')">Click Me</button>
+</body>
+</html>
+"""
+
+webview = WebView.create("My App", html=html)
+webview.show()
+```
+
+**Custom configuration:**
+```python
+from auroraview import WebView
+
+webview = WebView.create(
+    title="My App",
+    url="http://localhost:3000",
+    width=1024,
+    height=768,
+    resizable=True,
+    frame=True,  # Show window frame
+    debug=True,  # Enable dev tools
 )
-webview.show_async()  # Non-blocking
+webview.show()
 ```
 
 #### 2. Qt Backend
@@ -256,6 +277,89 @@ window.auroraview.send_event('export_scene', {
 });
 ```
 
+### Advanced Features
+
+#### Lifecycle Management
+
+Automatically close WebView when parent DCC application closes:
+
+```python
+from auroraview import WebView
+
+# Get parent window handle (HWND on Windows)
+parent_hwnd = get_maya_main_window_hwnd()  # Your DCC-specific function
+
+webview = WebView(
+    title="My Tool",
+    width=800,
+    height=600,
+    parent_hwnd=parent_hwnd,  # Monitor this parent window
+    parent_mode="owner"  # Use owner mode for cross-thread safety
+)
+
+webview.show()
+# WebView will automatically close when parent window is destroyed
+```
+
+See [examples/04_parent_lifecycle_demo.py](./examples/04_parent_lifecycle_demo.py) for a complete example.
+
+#### Third-Party Website Integration
+
+Inject JavaScript into third-party websites and establish bidirectional communication:
+
+```python
+from auroraview import WebView
+
+webview = WebView(title="AI Chat", width=1200, height=800, dev_tools=True)
+
+# Register event handlers
+@webview.on("get_scene_info")
+def handle_get_scene_info(data):
+    # Get DCC scene data
+    selection = maya.cmds.ls(selection=True)
+    webview.emit("scene_info_response", {"selection": selection})
+
+@webview.on("execute_code")
+def handle_execute_code(data):
+    # Execute AI-generated code in DCC
+    code = data.get("code", "")
+    exec(code)
+    webview.emit("execution_result", {"status": "success"})
+
+# Load third-party website
+webview.load_url("https://ai-chat-website.com")
+
+# Inject custom JavaScript
+injection_script = """
+(function() {
+    // Add custom button to the page
+    const btn = document.createElement('button');
+    btn.textContent = 'Get DCC Selection';
+    btn.onclick = () => {
+        window.dispatchEvent(new CustomEvent('get_scene_info', {
+            detail: { timestamp: Date.now() }
+        }));
+    };
+    document.body.appendChild(btn);
+
+    // Listen for responses
+    window.addEventListener('scene_info_response', (e) => {
+        console.log('DCC Selection:', e.detail);
+    });
+})();
+"""
+
+import time
+time.sleep(1)  # Wait for page to load
+webview.eval_js(injection_script)
+
+webview.show()
+```
+
+See [examples/05_third_party_site_injection.py](./examples/05_third_party_site_injection.py) and [examples/06_ai_chat_integration.py](./examples/06_ai_chat_integration.py) for complete examples.
+
+For detailed guide, see [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEGRATION.md).
+
 ## [DOCS] Documentation
 
 **Start here:**
@@ -266,6 +370,7 @@ window.auroraview.send_event('export_scene', {
 **Detailed Guides:**
 -  [Technical Design](./docs/TECHNICAL_DESIGN.md)
 -  [DCC Integration Guide](./docs/DCC_INTEGRATION_GUIDE.md)
+-  [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEGRATION.md) - **NEW!** JavaScript injection and AI chat integration
 -  [Project Advantages](./docs/PROJECT_ADVANTAGES.md) - Why AuroraView is better than PyWebView
 -  [Comparison with PyWebView](./docs/COMPARISON_WITH_PYWEBVIEW.md)
 -  [Project Roadmap](./docs/ROADMAP.md)

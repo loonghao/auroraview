@@ -62,6 +62,15 @@ pub struct WebViewConfig {
 
     /// Embedding mode (Windows): Child vs Owner vs None
     pub embed_mode: EmbedMode,
+
+    /// Enable IPC message batching for better performance
+    pub ipc_batching: bool,
+
+    /// Maximum number of messages per batch
+    pub ipc_batch_size: usize,
+
+    /// Maximum batch age in milliseconds (flush interval)
+    pub ipc_batch_interval_ms: u64,
 }
 
 impl Default for WebViewConfig {
@@ -78,6 +87,9 @@ impl Default for WebViewConfig {
             decorations: true,
             always_on_top: false,
             transparent: false,
+            ipc_batching: true,        // Enable by default
+            ipc_batch_size: 10,        // 10 messages per batch
+            ipc_batch_interval_ms: 16, // ~60 FPS (16.67ms)
             parent_hwnd: None,
             #[cfg(target_os = "windows")]
             embed_mode: EmbedMode::None,

@@ -5,7 +5,6 @@
 
 use dashmap::DashMap;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
 use std::sync::Arc;
 
 // Re-export IpcMessage from backend module
@@ -27,10 +26,10 @@ impl PythonCallback {
     }
 
     /// Call the Python callback with the given data
-    pub fn call(&self, data: serde_json::Value) -> Result<(), String> {
+    pub fn call(&self, data: super::json::Value) -> Result<(), String> {
         Python::with_gil(|py| {
-            // Convert JSON value to Python object
-            let py_data = match json_to_python(py, &data) {
+            // Convert JSON value to Python object using the optimized json module
+            let py_data = match super::json::json_to_python(py, &data) {
                 Ok(obj) => obj,
                 Err(e) => {
                     tracing::error!("Failed to convert JSON to Python: {}", e);
@@ -50,41 +49,6 @@ impl PythonCallback {
                 }
             }
         })
-    }
-}
-
-/// Convert JSON value to Python object
-#[allow(deprecated)]
-fn json_to_python(py: Python, value: &serde_json::Value) -> PyResult<PyObject> {
-    match value {
-        serde_json::Value::Null => Ok(py.None()),
-        serde_json::Value::Bool(b) => Ok(b.into_py(py)),
-        serde_json::Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                Ok(i.into_py(py))
-            } else if let Some(f) = n.as_f64() {
-                Ok(f.into_py(py))
-            } else {
-                Ok(n.to_string().into_py(py))
-            }
-        }
-        serde_json::Value::String(s) => Ok(s.into_py(py)),
-        serde_json::Value::Array(arr) => {
-            let py_list = PyList::empty(py);
-            for item in arr {
-                let py_item = json_to_python(py, item)?;
-                py_list.append(py_item.bind(py))?;
-            }
-            Ok(py_list.into_py(py))
-        }
-        serde_json::Value::Object(obj) => {
-            let py_dict = PyDict::new(py);
-            for (key, val) in obj {
-                let py_val = json_to_python(py, val)?;
-                py_dict.set_item(key, py_val)?;
-            }
-            Ok(py_dict.into_py(py))
-        }
     }
 }
 

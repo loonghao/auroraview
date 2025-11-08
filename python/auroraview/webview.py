@@ -2,7 +2,7 @@
 
 import logging
 import threading
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Literal, Optional, Union
 
 try:
     from ._core import WebView as _CoreWebView
@@ -24,23 +24,29 @@ class WebView:
         height: Window height in pixels (default: 600)
         url: URL to load (optional)
         html: HTML content to load (optional)
-        dev_tools: Enable developer tools (default: True)
+        debug: Enable developer tools (default: True)
         resizable: Make window resizable (default: True)
-        parent_hwnd: Parent window handle (HWND on Windows) for embedding/ownership (optional)
-        parent_mode: "child" | "owner" (Windows only). "owner" is safer for cross-thread usage; "child" requires same-thread parenting with the host window.
+        frame: Show window frame (title bar, borders) (default: True)
+        parent: Parent window handle for embedding (optional)
+        mode: Embedding mode - "child" or "owner" (optional, Windows only)
+              "owner" is safer for cross-thread usage
+              "child" requires same-thread parenting
 
     Example:
+        >>> # Standalone window
         >>> webview = WebView(title="My Tool", width=1024, height=768)
         >>> webview.load_url("http://localhost:3000")
         >>> webview.show()
 
-        >>> # For DCC integration (e.g., Maya)
+        >>> # DCC integration (e.g., Maya)
         >>> import maya.OpenMayaUI as omui
         >>> maya_hwnd = int(omui.MQtUtil.mainWindow())
-        >>> # Prefer owner mode to avoid cross-thread freezes
-        >>> webview = WebView(title="My Tool", parent_hwnd=maya_hwnd, parent_mode="owner")
-        >>> webview.show_async()
+        >>> webview = WebView(title="My Tool", parent=maya_hwnd, mode="owner")
+        >>> webview.show()
     """
+
+    # Class-level singleton registry using weak references
+    _singleton_registry: Dict[str, "WebView"] = {}
 
     def __init__(
         self,
@@ -49,11 +55,11 @@ class WebView:
         height: int = 600,
         url: Optional[str] = None,
         html: Optional[str] = None,
-        dev_tools: bool = True,
+        debug: bool = True,
         resizable: bool = True,
-        decorations: bool = True,
-        parent_hwnd: Optional[int] = None,
-        parent_mode: Optional[str] = None,
+        frame: bool = True,
+        parent: Optional[int] = None,
+        mode: Optional[str] = None,
     ) -> None:
         """Initialize the WebView.
 
@@ -63,11 +69,11 @@ class WebView:
             height: Window height in pixels
             url: URL to load (optional)
             html: HTML content to load (optional)
-            dev_tools: Enable developer tools (default: True)
+            debug: Enable developer tools (default: True)
             resizable: Make window resizable (default: True)
-            decorations: Show window decorations (title bar, borders) (default: True)
-            parent_hwnd: Parent window handle for embedding (optional)
-            parent_mode: Embedding mode - "child" or "owner" (optional)
+            frame: Show window frame (title bar, borders) (default: True)
+            parent: Parent window handle for embedding (optional)
+            mode: Embedding mode - "child" or "owner" (optional)
         """
         if _CoreWebView is None:
             raise RuntimeError(
@@ -75,29 +81,31 @@ class WebView:
                 "Please ensure the package is properly installed."
             )
 
+        # Map new parameter names to Rust core (which still uses old names)
         self._core = _CoreWebView(
             title=title,
             width=width,
             height=height,
             url=url,
             html=html,
-            dev_tools=dev_tools,
+            dev_tools=debug,  # debug -> dev_tools
             resizable=resizable,
-            decorations=decorations,
-            parent_hwnd=parent_hwnd,
-            parent_mode=parent_mode,
+            decorations=frame,  # frame -> decorations
+            parent_hwnd=parent,  # parent -> parent_hwnd
+            parent_mode=mode,  # mode -> parent_mode
         )
         self._event_handlers: Dict[str, list[Callable]] = {}
         self._title = title
         self._width = width
         self._height = height
-        self._dev_tools = dev_tools
+        self._debug = debug
         self._resizable = resizable
-        self._decorations = decorations
-        self._parent_hwnd = parent_hwnd
-        self._parent_mode = parent_mode
+        self._frame = frame
+        self._parent = parent
+        self._mode = mode
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
+        self._auto_timer = None  # Will be set by create() factory method
         # Store content for async mode
         self._stored_url: Optional[str] = None
         self._stored_html: Optional[str] = None
@@ -105,65 +113,272 @@ class WebView:
         self._async_core: Optional[Any] = None
         self._async_core_lock = threading.Lock()
 
-    def show(self) -> None:
-        """Show the WebView window.
+    @classmethod
+    def create(
+        cls,
+        title: str = "AuroraView",
+        *,
+        # Content
+        url: Optional[str] = None,
+        html: Optional[str] = None,
+        # Window properties
+        width: int = 800,
+        height: int = 600,
+        resizable: bool = True,
+        frame: bool = True,
+        # DCC integration
+        parent: Optional[int] = None,
+        mode: Literal["auto", "owner", "child"] = "auto",
+        # Development options
+        debug: bool = True,
+        # Automation
+        auto_show: bool = False,
+        auto_timer: bool = True,
+        # Singleton control
+        singleton: Optional[str] = None,
+    ) -> "WebView":
+        """Create WebView instance (recommended way).
 
-        Behavior depends on the mode:
-        - Standalone mode (no parent_hwnd): Blocking call, runs event loop until window closes
-        - Embedded mode (with parent_hwnd): Non-blocking call, returns immediately
+        Args:
+            title: Window title
+            url: URL to load
+            html: HTML content to load
+            width: Window width in pixels
+            height: Window height in pixels
+            resizable: Make window resizable
+            frame: Show window frame (title bar, borders)
+            parent: Parent window handle for DCC embedding
+            mode: Embedding mode
+                - "auto": Auto-select (recommended)
+                - "owner": Owner mode (cross-thread safe)
+                - "child": Child window mode (same-thread)
+            debug: Enable developer tools
+            auto_show: Automatically show after creation
+            auto_timer: Auto-start event timer for embedded mode (recommended)
+            singleton: Singleton key. If provided, only one instance with this key
+                      can exist at a time. Calling create() again with the same key
+                      returns the existing instance.
 
-        In embedded mode, the window remains open until explicitly closed or the Python object is destroyed.
-        To keep the window open, store the WebView object in a persistent variable (e.g., global).
+        Returns:
+            WebView instance
 
-        For background thread usage, use show_async() instead.
+        Examples:
+            >>> # Standalone window
+            >>> webview = WebView.create("My App", url="http://localhost:3000")
+            >>> webview.show()
+
+            >>> # DCC embedding (Maya)
+            >>> webview = WebView.create("Maya Tool", parent=maya_hwnd)
+            >>> webview.show()
+
+            >>> # Auto-show
+            >>> webview = WebView.create("App", auto_show=True)
+
+            >>> # Singleton mode - only one instance allowed
+            >>> webview1 = WebView.create("Tool", singleton="my_tool")
+            >>> webview2 = WebView.create("Tool", singleton="my_tool")  # Returns webview1
+            >>> assert webview1 is webview2
         """
-        logger.info(f"Showing WebView: {self._title}")
-        logger.info("Calling _core.show()...")
+        # Check singleton registry
+        if singleton is not None:
+            if singleton in cls._singleton_registry:
+                existing = cls._singleton_registry[singleton]
+                logger.info(f"Returning existing singleton instance: '{singleton}'")
+                return existing
+            logger.info(f"Creating new singleton instance: '{singleton}'")
+        # Detect mode
+        is_embedded = parent is not None
 
-        # Check if we're in embedded mode
-        is_embedded = self._parent_hwnd is not None
-
-        try:
-            self._core.show()
-            logger.info("_core.show() returned successfully")
-        except Exception as e:
-            logger.error(f"Error in _core.show(): {e}", exc_info=True)
-            raise
-
-        # IMPORTANT: Only cleanup in standalone mode
-        # In embedded mode, the window should stay open until explicitly closed
-        if not is_embedded:
-            logger.info("Standalone mode: WebView show() completed, cleaning up...")
-            try:
-                self.close()
-            except Exception as cleanup_error:
-                logger.warning(f"Error during cleanup: {cleanup_error}")
+        # Auto-select mode
+        if mode == "auto":
+            actual_mode = "owner" if is_embedded else None
+            if is_embedded:
+                logger.info(f"[AUTO-DETECT] parent={parent} detected, auto-selecting mode='owner'")
         else:
-            logger.info("Embedded mode: WebView window is now open (non-blocking)")
-            logger.info("IMPORTANT: Keep this Python object alive to prevent window from closing")
-            logger.info("Example: __main__.webview = webview")
+            actual_mode = mode if is_embedded else None
+            if is_embedded:
+                logger.info(f"[MANUAL] Using user-specified mode='{mode}'")
 
-    def show_async(self) -> None:
-        """Show the WebView window in a background thread (non-blocking).
+        logger.info(f"[MODE] Final mode: {actual_mode} (embedded={is_embedded})")
 
-        This method is designed for DCC integration (e.g., Maya, Houdini, Blender).
-        It starts the WebView in a separate thread, allowing the main thread to continue.
+        # Create instance
+        instance = cls(
+            title=title,
+            width=width,
+            height=height,
+            url=url,
+            html=html,
+            resizable=resizable,
+            frame=frame,
+            parent=parent,
+            mode=actual_mode,
+            debug=debug,
+        )
 
-        This prevents blocking the DCC application's main thread while the WebView is running.
+        # Auto timer (embedded mode)
+        if is_embedded and auto_timer:
+            try:
+                from .event_timer import EventTimer
 
-        IMPORTANT: Due to GUI thread requirements, this method uses a workaround:
-        - The WebView is created and shown in a separate thread
-        - The thread is a daemon thread so it won't prevent the application from exiting
-        - Event handlers are re-registered in the background thread
-        - The WebView will run until the user closes the window
+                instance._auto_timer = EventTimer(instance, interval_ms=16)
+                instance._auto_timer.on_close(lambda: instance._auto_timer.stop())
+                logger.info("Auto timer created for embedded mode")
+            except ImportError:
+                logger.warning("EventTimer not available, auto_timer disabled")
+                instance._auto_timer = None
+        else:
+            instance._auto_timer = None
+
+        # Register singleton
+        if singleton is not None:
+            cls._singleton_registry[singleton] = instance
+            logger.info(f"Registered singleton instance: '{singleton}'")
+
+        # Auto show
+        if auto_show:
+            instance.show()
+
+        return instance
+
+    @classmethod
+    def maya(cls, title: str, **kwargs) -> "WebView":
+        """Maya shortcut - auto-detects Maya main window.
+
+        Automatically gets Maya main window handle and creates embedded WebView.
+
+        Args:
+            title: Window title
+            **kwargs: Other arguments passed to create()
+
+        Returns:
+            WebView instance
 
         Example:
-            >>> webview = WebView(title="Maya Tool", width=600, height=500)
-            >>> webview.load_html("<h1>Hello Maya</h1>")
-            >>> webview.show_async()  # Returns immediately
-            >>> # Main thread continues here
-            >>> print("WebView is running in background")
+            >>> webview = WebView.maya("Maya Tool", url="http://localhost:3000")
+            >>> webview.show()
         """
+        try:
+            import maya.OpenMayaUI as omui
+
+            parent = int(omui.MQtUtil.mainWindow())
+            logger.info(f"Maya main window handle: {parent}")
+        except Exception as e:
+            logger.error(f"Failed to get Maya window handle: {e}")
+            raise RuntimeError(
+                "Failed to get Maya main window. Make sure this is running inside Maya."
+            ) from e
+
+        return cls.create(title, parent=parent, **kwargs)
+
+    @classmethod
+    def houdini(cls, title: str, **kwargs) -> "WebView":
+        """Houdini shortcut - auto-detects Houdini main window.
+
+        Automatically gets Houdini main window handle and creates embedded WebView.
+
+        Args:
+            title: Window title
+            **kwargs: Other arguments passed to create()
+
+        Returns:
+            WebView instance
+
+        Example:
+            >>> webview = WebView.houdini("Houdini Tool", url="http://localhost:3000")
+            >>> webview.show()
+        """
+        try:
+            import hou
+
+            parent = int(hou.qt.mainWindow().winId())
+            logger.info(f"Houdini main window handle: {parent}")
+        except Exception as e:
+            logger.error(f"Failed to get Houdini window handle: {e}")
+            raise RuntimeError(
+                "Failed to get Houdini main window. Make sure this is running inside Houdini."
+            ) from e
+
+        return cls.create(title, parent=parent, **kwargs)
+
+    @classmethod
+    def blender(cls, title: str, **kwargs) -> "WebView":
+        """Blender shortcut - creates standalone window.
+
+        Creates standalone window (Blender doesn't have parent window concept).
+
+        Args:
+            title: Window title
+            **kwargs: Other arguments passed to create()
+
+        Returns:
+            WebView instance
+
+        Example:
+            >>> webview = WebView.blender("Blender Tool", url="http://localhost:3000")
+            >>> webview.show()  # Auto-blocks until closed
+        """
+        logger.info("Creating standalone WebView for Blender")
+        return cls.create(title, **kwargs)
+
+    def show(self, *, wait: Optional[bool] = None) -> None:
+        """Show the WebView window (smart mode).
+
+        Automatically detects standalone/embedded mode and chooses the best behavior:
+        - Standalone window: Blocks until closed (unless wait=False)
+        - Embedded window: Non-blocking, auto-starts timer if available
+
+        Args:
+            wait: Whether to wait for window to close
+                - None: Auto-detect (standalone=True, embedded=False)
+                - True: Block until window closes
+                - False: Return immediately (background thread)
+
+        Examples:
+            >>> # Standalone window - auto-blocking
+            >>> webview = WebView(title="My App")
+            >>> webview.show()  # Blocks until closed
+
+            >>> # Standalone window - force non-blocking
+            >>> webview = WebView(title="My App")
+            >>> webview.show(wait=False)  # Returns immediately
+            >>> input("Press Enter to exit...")
+
+            >>> # Embedded window - auto non-blocking
+            >>> webview = WebView(title="Tool", parent=maya_hwnd)
+            >>> webview.show()  # Returns immediately, timer auto-runs
+        """
+        # Detect mode
+        is_embedded = self._parent is not None
+
+        # Auto-detect wait behavior
+        if wait is None:
+            wait = not is_embedded  # Standalone defaults to blocking
+
+        logger.info(f"Showing WebView: embedded={is_embedded}, wait={wait}")
+
+        if is_embedded:
+            # Embedded mode: non-blocking + auto timer
+            logger.info("Embedded mode: non-blocking with auto timer")
+            self._show_non_blocking()
+            # Start timer immediately - it will wait for WebView to be ready
+            if self._auto_timer is not None:
+                self._auto_timer.start()
+                logger.info("Auto timer started (will wait for WebView initialization)")
+        else:
+            # Standalone mode
+            if wait:
+                # Blocking
+                logger.info("Standalone mode: blocking until window closes")
+                self.show_blocking()
+            else:
+                # Non-blocking (background thread)
+                logger.info("Standalone mode: non-blocking (background thread)")
+                logger.warning("⚠️  Window will close when script exits!")
+                logger.warning("⚠️  Use wait=True or keep script running with input()")
+                self._show_non_blocking()
+
+    def _show_non_blocking(self) -> None:
+        """Internal method: non-blocking show (background thread)."""
         if self._is_running:
             logger.warning("WebView is already running")
             return
@@ -188,11 +403,11 @@ class WebView:
                     title=self._title,
                     width=self._width,
                     height=self._height,
-                    dev_tools=self._dev_tools,
+                    dev_tools=self._debug,  # Use new parameter name
                     resizable=self._resizable,
-                    decorations=self._decorations,
-                    parent_hwnd=self._parent_hwnd,
-                    parent_mode=self._parent_mode,
+                    decorations=self._frame,  # Use new parameter name
+                    parent_hwnd=self._parent,  # Use new parameter name
+                    parent_mode=self._mode,  # Use new parameter name
                 )
 
                 # Store the core instance for use by emit() and other methods
@@ -237,6 +452,47 @@ class WebView:
         self._show_thread = threading.Thread(target=_run_webview, daemon=True)
         self._show_thread.start()
         logger.info("WebView background thread started (daemon=True)")
+
+    def show_blocking(self) -> None:
+        """Show the WebView window (blocking - for standalone scripts).
+
+        This method blocks until the window is closed. Use this in standalone scripts
+        where you want the script to wait for the user to close the window.
+
+        NOT recommended for DCC integration (Maya, Houdini, etc.) as it will freeze
+        the main application.
+
+        Example:
+            >>> webview = WebView(title="My App", width=800, height=600)
+            >>> webview.load_html("<h1>Hello</h1>")
+            >>> webview.show_blocking()  # Blocks until window closes
+            >>> print("Window was closed")
+        """
+        logger.info(f"Showing WebView (blocking): {self._title}")
+        logger.info("Calling _core.show()...")
+
+        # Check if we're in embedded mode
+        is_embedded = self._parent is not None  # Use new parameter name
+
+        try:
+            self._core.show()
+            logger.info("_core.show() returned successfully")
+        except Exception as e:
+            logger.error(f"Error in _core.show(): {e}", exc_info=True)
+            raise
+
+        # IMPORTANT: Only cleanup in standalone mode
+        # In embedded mode, the window should stay open until explicitly closed
+        if not is_embedded:
+            logger.info("Standalone mode: WebView show_blocking() completed, cleaning up...")
+            try:
+                self.close()
+            except Exception as cleanup_error:
+                logger.warning(f"Error during cleanup: {cleanup_error}")
+        else:
+            logger.info("Embedded mode: WebView window is now open (non-blocking)")
+            logger.info("IMPORTANT: Keep this Python object alive to prevent window from closing")
+            logger.info("Example: __main__.webview = webview")
 
     def load_url(self, url: str) -> None:
         """Load a URL in the WebView.
@@ -412,8 +668,23 @@ class WebView:
         """
         return self._core.process_events()
 
+    def is_alive(self) -> bool:
+        """Check if WebView is still running.
+
+        Returns:
+            True if WebView is running, False otherwise
+
+        Example:
+            >>> webview.show(wait=False)
+            >>> while webview.is_alive():
+            ...     time.sleep(0.1)
+        """
+        if self._show_thread is None:
+            return False
+        return self._show_thread.is_alive()
+
     def close(self) -> None:
-        """Close the WebView window."""
+        """Close the WebView window and remove from singleton registry."""
         logger.info("Closing WebView")
 
         try:
@@ -431,6 +702,13 @@ class WebView:
                 logger.warning("Background thread did not finish within timeout")
             else:
                 logger.info("Background thread finished successfully")
+
+        # Remove from singleton registry
+        for key, instance in list(self._singleton_registry.items()):
+            if instance is self:
+                del self._singleton_registry[key]
+                logger.info(f"Removed from singleton registry: '{key}'")
+                break
 
         logger.info("WebView closed successfully")
 
@@ -453,6 +731,6 @@ class WebView:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # noqa: ARG002
         """Context manager exit."""
         self.close()

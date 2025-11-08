@@ -78,6 +78,9 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 - [OK] **多窗口支持**: 创建多个WebView实例
 - [OK] **线程安全**: 安全的并发操作
 - [OK] **热重载**: 开发模式支持实时重载
+- [OK] **生命周期管理**: 父DCC应用关闭时自动清理
+- [OK] **第三方网站集成**: JavaScript注入支持外部网站
+- [OK] **AI聊天集成**: 内置AI助手集成支持
 
 ## 快速开始
 
@@ -231,12 +234,120 @@ window.auroraview.send_event('export_scene', {
 });
 ```
 
+### 高级功能
+
+#### 生命周期管理
+
+当父DCC应用关闭时自动关闭WebView:
+
+```python
+from auroraview import WebView
+
+# 获取父窗口句柄 (Windows上的HWND)
+parent_hwnd = get_maya_main_window_hwnd()  # 你的DCC特定函数
+
+webview = WebView(
+    title="我的工具",
+    width=800,
+    height=600,
+    parent_hwnd=parent_hwnd,  # 监控这个父窗口
+    parent_mode="owner"  # 使用owner模式以保证跨线程安全
+)
+
+webview.show()
+# 当父窗口被销毁时，WebView会自动关闭
+```
+
+查看 [examples/04_parent_lifecycle_demo.py](./examples/04_parent_lifecycle_demo.py) 获取完整示例。
+
+#### 第三方网站集成
+
+向第三方网站注入JavaScript并建立双向通信:
+
+```python
+from auroraview import WebView
+
+webview = WebView(title="AI聊天", width=1200, height=800, dev_tools=True)
+
+# 注册事件处理器
+@webview.on("get_scene_info")
+def handle_get_scene_info(data):
+    # 获取DCC场景数据
+    selection = maya.cmds.ls(selection=True)
+    webview.emit("scene_info_response", {"selection": selection})
+
+@webview.on("execute_code")
+def handle_execute_code(data):
+    # 在DCC中执行AI生成的代码
+    code = data.get("code", "")
+    exec(code)
+    webview.emit("execution_result", {"status": "success"})
+
+# 加载第三方网站
+webview.load_url("https://ai-chat-website.com")
+
+# 注入自定义JavaScript
+injection_script = """
+(function() {
+    // 向页面添加自定义按钮
+    const btn = document.createElement('button');
+    btn.textContent = '获取DCC选择';
+    btn.onclick = () => {
+        window.dispatchEvent(new CustomEvent('get_scene_info', {
+            detail: { timestamp: Date.now() }
+        }));
+    };
+    document.body.appendChild(btn);
+
+    // 监听响应
+    window.addEventListener('scene_info_response', (e) => {
+        console.log('DCC选择:', e.detail);
+    });
+})();
+"""
+
+import time
+time.sleep(1)  # 等待页面加载
+webview.eval_js(injection_script)
+
+webview.show()
+```
+
+查看 [examples/05_third_party_site_injection.py](./examples/05_third_party_site_injection.py) 和 [examples/06_ai_chat_integration.py](./examples/06_ai_chat_integration.py) 获取完整示例。
+
+详细指南请参阅 [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md)。
+
 ## [DOCS] 文档
 
+### 核心文档
 -  [项目综述](./docs/SUMMARY.md)
--  [当前进展](./docs/CURRENT_STATUS.md)
 -  [技术设计](./docs/TECHNICAL_DESIGN.md)
 -  [DCC 集成指南](./docs/DCC_INTEGRATION_GUIDE.md)
+-  [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md)
+
+### Maya 集成专题 ⭐
+- **[Maya 集成解决方案](./docs/MAYA_SOLUTION.md)** - 推荐阅读！完整的 Maya 集成指南
+- [Maya 集成问题分析](./docs/MAYA_INTEGRATION_ISSUES.md) - 技术细节和问题根源
+- [当前状态说明](./docs/CURRENT_STATUS.md) - 已知限制和可用方案
+
+### 重要提示：Maya 用户必读 🎯
+
+如果你在 Maya 中使用 AuroraView，请根据你的需求选择合适的模式：
+
+**场景 1: 只需要显示网页（推荐）**
+- 使用 **Embedded 模式**
+- 参考: `examples/08_maya_integration_fixed.py`
+- 特点: 完全非阻塞，Maya 保持响应，自动生命周期管理
+- 限制: JavaScript 注入暂不可用
+
+**场景 2: 需要 JavaScript 注入和双向通信**
+- 使用 **Standalone 模式**
+- 参考: `examples/07_ai_chat_non_blocking.py`
+- 特点: 所有功能可用，包括 `eval_js()` 和 `emit()`
+- 限制: 可能有轻微阻塞，需要手动管理生命周期
+
+详细说明请查看 [Maya 集成解决方案](./docs/MAYA_SOLUTION.md)。
+-  [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md) - **新!** JavaScript注入和AI聊天集成
 -  [项目优势](./docs/PROJECT_ADVANTAGES.md)
 -  [与 PyWebView 的对比](./docs/COMPARISON_WITH_PYWEBVIEW.md)
 -  [路线图](./docs/ROADMAP.md)

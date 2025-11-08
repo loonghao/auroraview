@@ -15,20 +15,18 @@ Usage:
     python examples/02_event_communication.py
 """
 
-import sys
 import logging
-from pathlib import Path
+import sys
 from datetime import datetime
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Setup path to import auroraview
+import _setup_path  # noqa: F401
 
-from auroraview import NativeWebView
+from auroraview import WebView
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -39,14 +37,10 @@ def main():
     logger.info("AuroraView - Example 02: Event Communication")
     logger.info("=" * 60)
     logger.info("")
-    
-    # Create WebView instance
+
+    # Create WebView instance using new API
     logger.info("Creating WebView instance...")
-    webview = NativeWebView(
-        title="AuroraView - Event Communication",
-        width=900,
-        height=700
-    )
+    webview = WebView.create(title="AuroraView - Event Communication", width=900, height=700)
     logger.info("[OK] WebView created")
     logger.info("")
 
@@ -59,10 +53,13 @@ def main():
         logger.info(f"[RECV] Button clicked: {data}")
 
         # Send response back to JavaScript
-        webview.emit("python_response", {
-            "message": f"Received your click on '{data.get('button')}'!",
-            "timestamp": datetime.now().isoformat()
-        })
+        webview.emit(
+            "python_response",
+            {
+                "message": f"Received your click on '{data.get('button')}'!",
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
 
     @webview.on("get_data")
     def handle_get_data(data):
@@ -70,11 +67,14 @@ def main():
         logger.info(f"[RECV] Data requested: {data}")
 
         # Send data to JavaScript
-        webview.emit("data_response", {
-            "items": ["Item 1", "Item 2", "Item 3"],
-            "count": 3,
-            "timestamp": datetime.now().isoformat()
-        })
+        webview.emit(
+            "data_response",
+            {
+                "items": ["Item 1", "Item 2", "Item 3"],
+                "count": 3,
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
 
     @webview.on("log_message")
     def handle_log(data):
@@ -83,7 +83,7 @@ def main():
 
     logger.info("[OK] Event handlers registered")
     logger.info("")
-    
+
     # HTML content with event communication
     html_content = """
     <!DOCTYPE html>
@@ -225,30 +225,31 @@ def main():
     </body>
     </html>
     """
-    
+
     # Load HTML
     logger.info("Loading HTML content...")
     webview.load_html(html_content)
     logger.info("[OK] HTML loaded")
     logger.info("")
-    
+
     # Show window
     logger.info("Showing WebView window...")
     logger.info("Try clicking the buttons to see event communication!")
     logger.info("Close the window to exit.")
     logger.info("")
-    
+
     try:
-        webview.show()
+        # Use show_blocking() for standalone scripts
+        webview.show_blocking()
     except Exception as e:
         logger.error(f"Error showing WebView: {e}")
         return 1
-    
+
     logger.info("")
     logger.info("=" * 60)
     logger.info("Window closed. Exiting.")
     logger.info("=" * 60)
-    
+
     return 0
 
 

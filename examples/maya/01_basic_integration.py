@@ -13,20 +13,37 @@ Features:
 Usage:
     Run in Maya's Script Editor:
         import sys
-        sys.path.insert(0, r'C:\Users\hallo\Documents\augment-projects\dcc_webview\examples')
+        from pathlib import Path
+
+        # Add examples directory to path
+        examples_dir = Path(r'C:\Users\hallo\Documents\augment-projects\dcc_webview\examples')
+        sys.path.insert(0, str(examples_dir))
+
+        # Import and run
         import maya.01_basic_integration as example
         example.show()
 """
 
-from auroraview import NativeWebView
+import sys
+from pathlib import Path
+
+# Setup path to import auroraview (go up to examples/ then import _setup_path)
+_examples_dir = Path(__file__).parent.parent
+if str(_examples_dir) not in sys.path:
+    sys.path.insert(0, str(_examples_dir))
+
+try:
+    import _setup_path  # noqa: F401
+except ImportError:
+    # If running in Maya, user needs to manually add path
+    pass
+
+from auroraview import WebView
 import maya.cmds as cmds
-import maya.OpenMayaUI as omui
-from shiboken2 import wrapInstance
-from PySide2.QtWidgets import QWidget
 
 
 class MayaWebViewPanel:
-    """A simple WebView panel for Maya using Native backend."""
+    """A simple WebView panel for Maya using new API."""
 
     def __init__(self):
         """Initialize the panel."""
@@ -34,18 +51,11 @@ class MayaWebViewPanel:
 
     def create_panel(self):
         """Create and configure the WebView panel."""
-        # Get Maya main window handle
-        main_window_ptr = omui.MQtUtil.mainWindow()
-        maya_window = wrapInstance(int(main_window_ptr), QWidget)
-        hwnd = maya_window.winId()
-
-        # Create WebView instance using factory method (cleaner API)
-        self.webview = NativeWebView.embedded(
-            parent_hwnd=hwnd,
+        # Create WebView using Maya shortcut (new API!)
+        self.webview = WebView.maya(
             title="Maya WebView Panel",
             width=800,
             height=600,
-            mode="owner"  # Recommended for cross-thread safety
         )
 
         # Load HTML content

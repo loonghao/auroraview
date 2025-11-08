@@ -309,7 +309,4 @@ class QtWebView(QWebEngineView):
         return f"QtWebView(title='{self.windowTitle()}', size={self.width()}x{self.height()})"
 
 
-# Backward compatibility: AuroraViewQt is an alias for QtWebView
-AuroraViewQt = QtWebView
-
-__all__ = ["QtWebView", "AuroraViewQt", "EventBridge"]
+__all__ = ["QtWebView", "EventBridge"]

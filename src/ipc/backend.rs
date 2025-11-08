@@ -4,8 +4,8 @@
 //! thread-based communication (for embedded mode) and process-based
 //! communication (for standalone mode).
 
+use super::json::Value;
 use pyo3::prelude::*;
-use serde_json::Value;
 
 /// IPC message structure
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

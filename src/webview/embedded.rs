@@ -155,6 +155,7 @@ pub fn create_embedded(
     height: u32,
     config: WebViewConfig,
     ipc_handler: Arc<IpcHandler>,
+    message_queue: Arc<MessageQueue>,
 ) -> Result<WebViewInner, Box<dyn std::error::Error>> {
     use crate::webview::config::EmbedMode;
     use tao::platform::windows::WindowBuilderExtWindows;
@@ -165,9 +166,16 @@ pub fn create_embedded(
         config.embed_mode
     );
 
-    // Create event loop (same as standalone mode)
+    // CRITICAL: Embedded mode must NOT create an event loop!
+    // The parent window (DCC app) will handle all events.
+    // Creating an event loop here causes the main thread to block.
+    tracing::info!(
+        "[OK] [create_embedded] Skipping event loop creation (parent will handle events)"
+    );
+
+    // Create a temporary event loop ONLY for window creation
     #[cfg(target_os = "windows")]
-    let event_loop = {
+    let temp_event_loop = {
         use tao::platform::windows::EventLoopBuilderExtWindows;
         EventLoopBuilder::<UserEvent>::with_user_event()
             .with_any_thread(true)
@@ -175,7 +183,7 @@ pub fn create_embedded(
     };
 
     #[cfg(not(target_os = "windows"))]
-    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    let temp_event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
 
     // Create window builder
     let mut window_builder = WindowBuilder::new()
@@ -205,9 +213,9 @@ pub fn create_embedded(
         }
     }
 
-    // Build window
+    // Build window using temporary event loop
     let window = window_builder
-        .build(&event_loop)
+        .build(&temp_event_loop)
         .map_err(|e| format!("Failed to create window: {}", e))?;
 
     // Log window HWND for debugging
@@ -354,16 +362,39 @@ pub fn create_embedded(
         tracing::warn!("[WARNING] [create_embedded] No initial content specified");
     }
 
-    // Create message queue
-    let message_queue = Arc::new(MessageQueue::new());
+    // Drop the temporary event loop - we don't need it anymore
+    // The window is already created and will be handled by the parent's event loop
+    drop(temp_event_loop);
+    tracing::info!("[OK] [create_embedded] Temporary event loop dropped");
+
+    // Create lifecycle manager
+    use crate::webview::lifecycle::LifecycleManager;
+    let lifecycle = Arc::new(LifecycleManager::new());
+    lifecycle.set_state(crate::webview::lifecycle::LifecycleState::Active);
+
+    // Create platform-specific window manager
+    #[cfg(target_os = "windows")]
+    let platform_manager = {
+        use crate::webview::platform;
+        let manager = platform::create_platform_manager(parent_hwnd);
+        manager.setup_close_handlers(lifecycle.clone());
+        Some(manager)
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let platform_manager = None;
+
+    tracing::info!("[OK] [create_embedded] Lifecycle manager and platform manager created");
 
     #[allow(clippy::arc_with_non_send_sync)]
     Ok(WebViewInner {
         webview: Arc::new(Mutex::new(webview)),
         window: Some(window),
-        event_loop: Some(event_loop),
+        event_loop: None, // CRITICAL: No event loop in embedded mode!
         message_queue,
         event_loop_proxy: None, // Embedded mode doesn't use event loop proxy
+        lifecycle,
+        platform_manager,
     })
 }
 
@@ -375,6 +406,7 @@ pub fn create_embedded(
     _height: u32,
     _config: WebViewConfig,
     _ipc_handler: Arc<IpcHandler>,
+    _message_queue: Arc<MessageQueue>,
 ) -> Result<WebViewInner, Box<dyn std::error::Error>> {
     Err("Embedded mode is only supported on Windows".into())
 }

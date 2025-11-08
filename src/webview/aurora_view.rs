@@ -81,17 +81,35 @@ impl AuroraView {
         #[cfg(target_os = "windows")]
         {
             use crate::webview::config::EmbedMode;
+
+            // Log the parent_mode for debugging
+            if let Some(ref mode_str) = parent_mode {
+                tracing::info!("[DEBUG] parent_mode received: '{}'", mode_str);
+            } else {
+                tracing::info!("[DEBUG] parent_mode is None");
+            }
+
             config.embed_mode = match parent_mode.map(|s| s.to_ascii_lowercase()) {
-                Some(ref m) if m == "child" => EmbedMode::Child,
-                Some(ref m) if m == "owner" => EmbedMode::Owner,
+                Some(ref m) if m == "child" => {
+                    tracing::info!("[OK] Using EmbedMode::Child");
+                    EmbedMode::Child
+                }
+                Some(ref m) if m == "owner" => {
+                    tracing::info!("[OK] Using EmbedMode::Owner (cross-thread safe)");
+                    EmbedMode::Owner
+                }
                 _ => {
                     if parent_hwnd.is_some() {
+                        tracing::warn!("[WARNING] parent_hwnd provided but parent_mode not recognized, defaulting to Child (may cause issues!)");
                         EmbedMode::Child
                     } else {
+                        tracing::info!("[OK] No parent, using EmbedMode::None");
                         EmbedMode::None
                     }
                 }
             };
+
+            tracing::info!("[OK] Final embed_mode: {:?}", config.embed_mode);
         }
 
         Ok(AuroraView {
@@ -226,6 +244,7 @@ impl AuroraView {
                 height,
                 config,
                 self.ipc_handler.clone(),
+                self.message_queue.clone(),
             )
             .map_err(|e| {
                 tracing::error!(
@@ -268,6 +287,7 @@ impl AuroraView {
                 height,
                 self.config.borrow().clone(),
                 self.ipc_handler.clone(),
+                self.message_queue.clone(),
             )
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
             *inner = Some(webview);
@@ -578,6 +598,31 @@ impl AuroraView {
         }
     }
 
+    /// Check if the window is still valid (Windows only)
+    ///
+    /// This method checks if the window handle is still valid.
+    /// Useful for detecting when a window has been closed externally.
+    ///
+    /// Returns:
+    ///     bool: True if the window is valid, False otherwise
+    ///
+    /// Example:
+    ///     >>> webview = WebView(parent_hwnd=maya_hwnd, embedded=True)
+    ///     >>> webview.show()
+    ///     >>> # Check if window is still valid
+    ///     >>> if not webview.is_window_valid():
+    ///     ...     print("Window was closed")
+    fn is_window_valid(&self) -> PyResult<bool> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.is_window_valid())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
     /// Set window position
     ///
     /// Moves the window to the specified screen coordinates.
@@ -591,6 +636,30 @@ impl AuroraView {
         if let Some(ref inner) = *inner_ref {
             inner.set_window_position(x, y);
             Ok(())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Get window handle (HWND on Windows)
+    ///
+    /// Returns the native window handle for the WebView window.
+    /// On Windows, this is the HWND value as an integer.
+    ///
+    /// Returns:
+    ///     int: Window handle (HWND on Windows), or None if not available
+    ///
+    /// Example:
+    ///     >>> webview = WebView(title="My Window")
+    ///     >>> webview.show()
+    ///     >>> hwnd = webview.get_hwnd()
+    ///     >>> print(f"Window HWND: 0x{hwnd:x}")
+    fn get_hwnd(&self) -> PyResult<Option<u64>> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.get_hwnd())
         } else {
             Err(pyo3::exceptions::PyRuntimeError::new_err(
                 "WebView not initialized. Call show() first.",

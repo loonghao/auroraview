@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Maya Scene Outliner - Real-time Scene Hierarchy Viewer
 
@@ -23,15 +22,18 @@ CORRECT PATTERN:
 """
 
 import sys
-sys.path.insert(0, r'C:\Users\hallo\Documents\augment-projects\dcc_webview\python')
+
+sys.path.insert(0, r"C:\Users\hallo\Documents\augment-projects\dcc_webview\python")
 
 import json
 import traceback
+
 import maya.cmds as cmds
 import maya.OpenMayaUI as omui
-from auroraview import NativeWebView
-from shiboken2 import wrapInstance
 from PySide2.QtWidgets import QWidget
+from shiboken2 import wrapInstance
+
+from auroraview import NativeWebView
 
 print("=" * 70)
 print("Maya Scene Outliner - FIXED VERSION")
@@ -59,7 +61,7 @@ print("   - Mode: Owner (cross-thread safe)")
 print("   - Parent HWND:", hwnd)
 print("   - Decorations: False (no title bar)")
 webview = NativeWebView.embedded(
-    parent_hwnd=hwnd,
+    parent=hwnd,
     title="Maya Outliner",
     width=400,
     height=600,
@@ -68,6 +70,7 @@ webview = NativeWebView.embedded(
 )
 print("[OK] WebView created successfully")
 print("")
+
 
 def get_scene_hierarchy():
     """Get Maya scene hierarchy as a tree structure"""
@@ -78,13 +81,15 @@ def get_scene_hierarchy():
         try:
             children = cmds.listRelatives(node, children=True, fullPath=True) or []
             node_type = cmds.nodeType(node)
-            short_name = node.split('|')[-1]
+            short_name = node.split("|")[-1]
 
             # Filter children to only include transforms and shapes
             valid_children = []
             for child in children:
                 try:
-                    if cmds.objectType(child, isAType='transform') or cmds.objectType(child, isAType='shape'):
+                    if cmds.objectType(child, isAType="transform") or cmds.objectType(
+                        child, isAType="shape"
+                    ):
                         child_tree = build_tree(child)
                         # Only add non-None children to avoid rendering issues
                         if child_tree is not None:
@@ -93,10 +98,10 @@ def get_scene_hierarchy():
                     print(f"[WARNING] [build_tree] Error processing child {child}: {e}")
 
             return {
-                'name': short_name,
-                'fullPath': node,
-                'type': node_type,
-                'children': valid_children
+                "name": short_name,
+                "fullPath": node,
+                "type": node_type,
+                "children": valid_children,
             }
         except Exception as e:
             print(f"[ERROR] [build_tree] Error building tree for {node}: {e}")
@@ -116,12 +121,15 @@ def get_scene_hierarchy():
                 hierarchy.append(tree)
 
         print(f"[OK] [get_scene_hierarchy] Built hierarchy with {len(hierarchy)} root nodes")
-        print(f"[SEARCH] [get_scene_hierarchy] Sample data: {json.dumps(hierarchy[:1], indent=2) if hierarchy else 'No data'}")
+        print(
+            f"[SEARCH] [get_scene_hierarchy] Sample data: {json.dumps(hierarchy[:1], indent=2) if hierarchy else 'No data'}"
+        )
         return hierarchy
     except Exception as e:
         print(f"[ERROR] [get_scene_hierarchy] Error: {e}")
         traceback.print_exc()
         return []
+
 
 def refresh_outliner():
     """Refresh the outliner view"""
@@ -133,15 +141,20 @@ def refresh_outliner():
 
             # Get webview from __main__
             import __main__
-            if not hasattr(__main__, 'maya_outliner'):
-                print("[ERROR] [refresh_outliner._do_refresh] WebView not found in __main__.maya_outliner")
+
+            if not hasattr(__main__, "maya_outliner"):
+                print(
+                    "[ERROR] [refresh_outliner._do_refresh] WebView not found in __main__.maya_outliner"
+                )
                 return
 
             wv = __main__.maya_outliner
             print(f"[OK] [refresh_outliner._do_refresh] Got WebView: {wv}")
 
             hierarchy = get_scene_hierarchy()
-            print(f"[REFRESH] [refresh_outliner._do_refresh] Got hierarchy: {len(hierarchy)} root nodes")
+            print(
+                f"[REFRESH] [refresh_outliner._do_refresh] Got hierarchy: {len(hierarchy)} root nodes"
+            )
 
             # Validate hierarchy data before serialization
             if not hierarchy:
@@ -150,8 +163,10 @@ def refresh_outliner():
 
             # Serialize with error handling
             try:
-                data_json = json.dumps({'hierarchy': hierarchy})
-                print(f"[OK] [refresh_outliner._do_refresh] Hierarchy serialized successfully ({len(data_json)} bytes)")
+                data_json = json.dumps({"hierarchy": hierarchy})
+                print(
+                    f"[OK] [refresh_outliner._do_refresh] Hierarchy serialized successfully ({len(data_json)} bytes)"
+                )
             except (TypeError, ValueError) as e:
                 print(f"[ERROR] [refresh_outliner._do_refresh] JSON serialization failed: {e}")
                 print(f"[ERROR] [refresh_outliner._do_refresh] Hierarchy data: {hierarchy}")
@@ -159,10 +174,14 @@ def refresh_outliner():
                 return
 
             # Use emit() instead of eval_js() to avoid JSON injection and event loop issues
-            print(f"[SEND] [refresh_outliner._do_refresh] Emitting scene_updated event via webview.emit()...")
+            print(
+                "[SEND] [refresh_outliner._do_refresh] Emitting scene_updated event via webview.emit()..."
+            )
             try:
-                wv.emit('scene_updated', {'hierarchy': hierarchy})
-                print(f"[OK] [refresh_outliner._do_refresh] Outliner refreshed ({len(hierarchy)} root nodes)")
+                wv.emit("scene_updated", {"hierarchy": hierarchy})
+                print(
+                    f"[OK] [refresh_outliner._do_refresh] Outliner refreshed ({len(hierarchy)} root nodes)"
+                )
             except Exception as e:
                 print(f"[ERROR] [refresh_outliner._do_refresh] emit() failed: {e}")
                 traceback.print_exc()
@@ -172,8 +191,10 @@ def refresh_outliner():
             traceback.print_exc()
 
     import maya.utils as mutils
+
     print("[REFRESH] [refresh_outliner] Queueing to Maya main thread...")
     mutils.executeDeferred(_do_refresh)
+
 
 # Event handlers
 @webview.on("webview_ready")
@@ -183,11 +204,13 @@ def handle_webview_ready(data):
     print("[REFRESH] [handle_webview_ready] Triggering initial refresh...")
     refresh_outliner()
 
+
 @webview.on("refresh_scene")
 def handle_refresh(data):
     """Handle refresh request from UI"""
     print(f"[RECV] [handle_refresh] Event received: {data}")
     refresh_outliner()
+
 
 @webview.on("rename_object")
 def handle_rename(data):
@@ -197,31 +220,29 @@ def handle_rename(data):
     def _do_rename():
         try:
             import __main__
-            if not hasattr(__main__, 'maya_outliner'):
+
+            if not hasattr(__main__, "maya_outliner"):
                 print("[ERROR] [handle_rename] WebView not found")
                 return
             wv = __main__.maya_outliner
 
-            full_path = data.get('fullPath')
-            new_name = data.get('newName', '').strip()
+            full_path = data.get("fullPath")
+            new_name = data.get("newName", "").strip()
 
             if not full_path or not new_name:
-                data_json = json.dumps({'ok': False, 'error': 'Invalid parameters'})
-                wv._core.eval_js(f"if (window.__handlePythonEvent) {{ window.__handlePythonEvent('rename_result', {data_json}); }}")
+                wv.emit("rename_result", {"ok": False, "error": "Invalid parameters"})
                 return
 
             # Check if object exists
             if not cmds.objExists(full_path):
-                data_json = json.dumps({'ok': False, 'error': 'Object not found'})
-                wv._core.eval_js(f"if (window.__handlePythonEvent) {{ window.__handlePythonEvent('rename_result', {data_json}); }}")
+                wv.emit("rename_result", {"ok": False, "error": "Object not found"})
                 return
 
             # Rename
             new_full_path = cmds.rename(full_path, new_name)
             print(f"[OK] Renamed: {full_path} → {new_full_path}")
 
-            data_json = json.dumps({'ok': True, 'oldPath': full_path, 'newPath': new_full_path})
-            wv._core.eval_js(f"if (window.__handlePythonEvent) {{ window.__handlePythonEvent('rename_result', {data_json}); }}")
+            wv.emit("rename_result", {"ok": True, "oldPath": full_path, "newPath": new_full_path})
 
             # Refresh outliner
             refresh_outliner()
@@ -229,12 +250,14 @@ def handle_rename(data):
         except Exception as e:
             print(f"[ERROR] Rename error: {e}")
             import __main__
-            if hasattr(__main__, 'maya_outliner'):
-                data_json = json.dumps({'ok': False, 'error': str(e)})
-                __main__.maya_outliner._core.eval_js(f"if (window.__handlePythonEvent) {{ window.__handlePythonEvent('rename_result', {data_json}); }}")
+
+            if hasattr(__main__, "maya_outliner"):
+                __main__.maya_outliner.emit("rename_result", {"ok": False, "error": str(e)})
 
     import maya.utils as mutils
+
     mutils.executeDeferred(_do_rename)
+
 
 @webview.on("delete_object")
 def handle_delete(data):
@@ -244,30 +267,28 @@ def handle_delete(data):
     def _do_delete():
         try:
             import __main__
-            if not hasattr(__main__, 'maya_outliner'):
+
+            if not hasattr(__main__, "maya_outliner"):
                 print("[ERROR] [handle_delete] WebView not found")
                 return
             wv = __main__.maya_outliner
 
-            full_path = data.get('fullPath')
+            full_path = data.get("fullPath")
 
             if not full_path:
-                data_json = json.dumps({'ok': False, 'error': 'Invalid parameters'})
-                wv._core.eval_js(f"if (window.__handlePythonEvent) {{ window.__handlePythonEvent('delete_result', {data_json}); }}")
+                wv.emit("delete_result", {"ok": False, "error": "Invalid parameters"})
                 return
 
             # Check if object exists
             if not cmds.objExists(full_path):
-                data_json = json.dumps({'ok': False, 'error': 'Object not found'})
-                wv._core.eval_js(f"if (window.__handlePythonEvent) {{ window.__handlePythonEvent('delete_result', {data_json}); }}")
+                wv.emit("delete_result", {"ok": False, "error": "Object not found"})
                 return
 
             # Delete
             cmds.delete(full_path)
             print(f"[OK] Deleted: {full_path}")
 
-            data_json = json.dumps({'ok': True, 'path': full_path})
-            wv._core.eval_js(f"if (window.__handlePythonEvent) {{ window.__handlePythonEvent('delete_result', {data_json}); }}")
+            wv.emit("delete_result", {"ok": True, "path": full_path})
 
             # Refresh outliner
             refresh_outliner()
@@ -275,12 +296,14 @@ def handle_delete(data):
         except Exception as e:
             print(f"[ERROR] Delete error: {e}")
             import __main__
-            if hasattr(__main__, 'maya_outliner'):
-                data_json = json.dumps({'ok': False, 'error': str(e)})
-                __main__.maya_outliner._core.eval_js(f"if (window.__handlePythonEvent) {{ window.__handlePythonEvent('delete_result', {data_json}); }}")
+
+            if hasattr(__main__, "maya_outliner"):
+                __main__.maya_outliner.emit("delete_result", {"ok": False, "error": str(e)})
 
     import maya.utils as mutils
+
     mutils.executeDeferred(_do_delete)
+
 
 @webview.on("select_object")
 def handle_select(data):
@@ -289,7 +312,7 @@ def handle_select(data):
 
     def _do_select():
         try:
-            full_path = data.get('fullPath')
+            full_path = data.get("fullPath")
 
             if not full_path:
                 return
@@ -306,14 +329,18 @@ def handle_select(data):
             print(f"[ERROR] Select error: {e}")
 
     import maya.utils as mutils
+
     mutils.executeDeferred(_do_select)
+
 
 # Window dragging handler
 @webview.on("move_window")
 def handle_move_window(data):
     """Handle window move request from JavaScript (for custom title bar dragging)"""
     print(f"[RECV] [handle_move_window] Event received: {data}")
-    print(f"[RECV] [handle_move_window] Data type: {type(data)}, Keys: {data.keys() if isinstance(data, dict) else 'N/A'}")
+    print(
+        f"[RECV] [handle_move_window] Data type: {type(data)}, Keys: {data.keys() if isinstance(data, dict) else 'N/A'}"
+    )
 
     # Validate data structure
     if not isinstance(data, dict):
@@ -321,8 +348,8 @@ def handle_move_window(data):
         return
 
     # Extract coordinates with validation
-    x = data.get('x')
-    y = data.get('y')
+    x = data.get("x")
+    y = data.get("y")
 
     print(f"[RECV] [handle_move_window] Extracted coordinates: x={x}, y={y}")
 
@@ -336,17 +363,20 @@ def handle_move_window(data):
         x = int(x)
         y = int(y)
     except (ValueError, TypeError) as e:
-        print(f"[ERROR] [handle_move_window] Invalid coordinate types: x={x} ({type(x)}), y={y} ({type(y)}), error: {e}")
+        print(
+            f"[ERROR] [handle_move_window] Invalid coordinate types: x={x} ({type(x)}), y={y} ({type(y)}), error: {e}"
+        )
         return
 
     # Call the Rust backend to move the window
     try:
         print(f"[WINDOW] [handle_move_window] Moving window to ({x}, {y})")
         webview._core.set_window_position(x, y)
-        print(f"[OK] [handle_move_window] Window moved successfully")
+        print("[OK] [handle_move_window] Window moved successfully")
     except Exception as e:
         print(f"[ERROR] [handle_move_window] Failed to move window: {e}")
         traceback.print_exc()
+
 
 # System control handlers
 @webview.on("close_window")
@@ -369,7 +399,8 @@ def _handle_close(data):
 
             # Also try to kill the scriptJob
             import __main__
-            if hasattr(__main__, 'maya_outliner_timer'):
+
+            if hasattr(__main__, "maya_outliner_timer"):
                 print(f"[LOCK] [_do_close] Killing scriptJob: {__main__.maya_outliner_timer}")
                 cmds.scriptJob(kill=__main__.maya_outliner_timer)
                 del __main__.maya_outliner_timer
@@ -380,8 +411,10 @@ def _handle_close(data):
             traceback.print_exc()
 
     import maya.utils as mutils
+
     print("[LOCK] [_handle_close] Queueing close operation to Maya main thread...")
     mutils.executeDeferred(_do_close)
+
 
 # HTML UI
 html = """
@@ -390,9 +423,9 @@ html = """
 <head>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
+        body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #2b2b2b; 
+            background: #2b2b2b;
             color: #e0e0e0;
             height: 100vh;
             display: flex;
@@ -532,7 +565,7 @@ html = """
         </div>
     </div>
     <div class="content" id="content"></div>
-    
+
     <div class="context-menu" id="contextMenu">
         <div class="context-menu-item" onclick="renameSelected()">[EDIT] Rename</div>
         <div class="context-menu-separator"></div>
@@ -962,9 +995,8 @@ html = """
                 }));
                 console.log('[OK] [init] webview_ready event dispatched');
 
-                // Also trigger an immediate refresh in case the event doesn't reach Python
-                console.log('[SEND] [init] Triggering immediate refresh as fallback...');
-                refreshScene();
+                // Initial refresh will be triggered by Python on 'webview_ready'.
+                // Removed immediate fallback to avoid double heavy refresh on large scenes.
             } catch (e) {
                 console.error('[ERROR] [init] Failed to dispatch webview_ready event:', e);
             }
@@ -981,6 +1013,7 @@ print("[OK] [main] HTML loaded")
 
 # Store in global variable BEFORE showing
 import __main__
+
 __main__.maya_outliner = webview
 print("[OK] [main] WebView stored in __main__.maya_outliner")
 
@@ -988,17 +1021,29 @@ print("[OK] [main] WebView stored in __main__.maya_outliner")
 # This ensures process_events() is called immediately after window creation
 print("[TIMER] [main] Creating event processing timer...")
 
+
 def process_webview_events():
     """Process WebView events and check if window should close.
 
     This function is called by Maya's scriptJob on every idle event.
     It processes Windows messages for the WebView window without blocking.
     """
+    # Throttle processing to ~20 FPS to reduce load in heavy scenes
+    import time
+
+    import __main__
+
+    now = time.perf_counter()
+    last = getattr(__main__, "_maya_outliner_last_tick", 0.0)
+    if now - last < 0.05:
+        return
+    __main__._maya_outliner_last_tick = now
+
     try:
-        if hasattr(__main__, 'maya_outliner'):
+        if hasattr(__main__, "maya_outliner"):
             # Process events and check if window should close
             # This is NON-BLOCKING - it only processes pending messages
-            should_close = __main__.maya_outliner._core.process_events()
+            should_close = __main__.maya_outliner.process_events()
 
             if should_close:
                 print("=" * 80)
@@ -1007,13 +1052,13 @@ def process_webview_events():
                 print("=" * 80)
 
                 # Kill all related scriptJobs
-                if hasattr(__main__, 'maya_outliner_timer'):
+                if hasattr(__main__, "maya_outliner_timer"):
                     print(f"[CLOSE] Killing timer job: {__main__.maya_outliner_timer}")
                     cmds.scriptJob(kill=__main__.maya_outliner_timer)
                     del __main__.maya_outliner_timer
                     print("[OK] Timer job killed")
 
-                if hasattr(__main__, 'maya_outliner_scene_jobs'):
+                if hasattr(__main__, "maya_outliner_scene_jobs"):
                     print(f"[CLOSE] Killing {len(__main__.maya_outliner_scene_jobs)} scene jobs")
                     for job_id in __main__.maya_outliner_scene_jobs:
                         cmds.scriptJob(kill=job_id)
@@ -1029,6 +1074,7 @@ def process_webview_events():
     except Exception as e:
         print(f"[WARNING] [process_webview_events] Error: {e}")
         traceback.print_exc()
+
 
 # Create the timer BEFORE showing the window
 timer_id = cmds.scriptJob(event=["idle", process_webview_events])
@@ -1094,15 +1140,17 @@ print("=" * 70)
 __main__.maya_outliner_refresh_outliner = refresh_outliner
 print("[OK] [main] Refresh function stored in __main__.maya_outliner_refresh_outliner")
 
+
 # Debug helper function
 def debug_webview_state():
     """Debug helper to check WebView state and event handlers"""
     import __main__
+
     print("\n" + "=" * 80)
     print("[SEARCH] [DEBUG] WebView State Check")
     print("=" * 80)
 
-    if not hasattr(__main__, 'maya_outliner'):
+    if not hasattr(__main__, "maya_outliner"):
         print("[ERROR] WebView not found in __main__.maya_outliner")
         return
 
@@ -1123,13 +1171,13 @@ def debug_webview_state():
     # Test event emission
     print("\n[SEND] Testing event emission...")
     try:
-        wv.emit('test_event', {'message': 'Debug test'})
+        wv.emit("test_event", {"message": "Debug test"})
         print("[OK] Event emission successful")
     except Exception as e:
         print(f"[ERROR] Event emission failed: {e}")
 
     print("=" * 80 + "\n")
 
+
 __main__.debug_webview_state = debug_webview_state
 print("[OK] [main] Debug function stored in __main__.debug_webview_state")
-

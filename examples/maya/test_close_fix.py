@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Test for window close fix with proper message processing.
 
@@ -7,13 +6,15 @@ by processing pending Windows messages after DestroyWindow().
 """
 
 import sys
-sys.path.insert(0, r'C:\Users\hallo\Documents\augment-projects\dcc_webview\python')
+
+sys.path.insert(0, r"C:\Users\hallo\Documents\augment-projects\dcc_webview\python")
 
 import maya.cmds as cmds
 import maya.OpenMayaUI as omui
-from auroraview import WebView
-from shiboken2 import wrapInstance
 from PySide2.QtWidgets import QWidget
+from shiboken2 import wrapInstance
+
+from auroraview import WebView
 
 print("=" * 80)
 print("[CONFIG] WINDOW CLOSE FIX TEST")
@@ -22,6 +23,7 @@ print("This test verifies the fix for embedded window close issue.")
 print("The fix adds proper Windows message processing after DestroyWindow().")
 print("=" * 80)
 
+
 # Get Maya main window
 def get_maya_main_window():
     """Get Maya main window as QWidget"""
@@ -29,6 +31,7 @@ def get_maya_main_window():
     if main_window_ptr is not None:
         return wrapInstance(int(main_window_ptr), QWidget)
     return None
+
 
 # Get Maya main window HWND
 maya_window = get_maya_main_window()
@@ -185,18 +188,15 @@ html_content = """
 """
 
 print("[DOCUMENT] Loading HTML...")
-webview = WebView(
-    title="Close Fix Test",
-    width=500,
-    height=600,
-    parent_hwnd=hwnd
-)
+webview = WebView(title="Close Fix Test", width=500, height=600, parent=hwnd)
+
 
 # Event handlers
 def handle_test(data):
     print("=" * 80)
     print(f"[RECV] [handle_test] Test event received: {data}")
     print("=" * 80)
+
 
 def handle_close(data):
     print("=" * 80)
@@ -207,6 +207,7 @@ def handle_close(data):
     # Queue close operation to Maya main thread
     print("[LOCK] [handle_close] Queueing close operation to Maya main thread...")
     cmds.evalDeferred(_do_close)
+
 
 def _do_close():
     """Execute close operation on Maya main thread"""
@@ -231,9 +232,10 @@ def _do_close():
     print("[OK] [_do_close] Close operation completed successfully")
     print("=" * 80)
 
+
 # Register event handlers using register_callback
-webview.register_callback('test', handle_test)
-webview.register_callback('close', handle_close)
+webview.register_callback("test", handle_test)
+webview.register_callback("close", handle_close)
 
 # Load HTML
 webview.load_html(html_content)
@@ -246,16 +248,18 @@ print("[OK] Window shown")
 
 # Store in __main__ to prevent garbage collection
 import __main__
+
 __main__.test_close_webview = webview
 print("[OK] WebView stored in __main__.test_close_webview")
 
 # Create timer for event processing
 print("[TIMER] Creating event processing timer...")
 
+
 def process_webview_events():
     """Process WebView events and check for close signal"""
     try:
-        if hasattr(__main__, 'test_close_webview'):
+        if hasattr(__main__, "test_close_webview"):
             should_close = __main__.test_close_webview.process_events()
 
             if should_close:
@@ -266,7 +270,7 @@ def process_webview_events():
                 print("=" * 80)
 
                 # Stop timer
-                if hasattr(__main__, 'test_close_timer'):
+                if hasattr(__main__, "test_close_timer"):
                     print(f"[process_webview_events] Stopping timer: {__main__.test_close_timer}")
                     cmds.scriptJob(kill=__main__.test_close_timer)
                     del __main__.test_close_timer
@@ -281,12 +285,11 @@ def process_webview_events():
     except Exception as e:
         print(f"[process_webview_events] Error: {e}")
         import traceback
+
         traceback.print_exc()
 
-__main__.test_close_timer = cmds.scriptJob(
-    event=["idle", process_webview_events],
-    protected=True
-)
+
+__main__.test_close_timer = cmds.scriptJob(event=["idle", process_webview_events], protected=True)
 print(f"[OK] Event processing timer created (ID: {__main__.test_close_timer})")
 
 print("=" * 80)
@@ -306,4 +309,3 @@ print("[CONFIG] Manual cleanup (if needed):")
 print("  del __main__.test_close_webview")
 print("  cmds.scriptJob(kill=__main__.test_close_timer)")
 print("=" * 80)
-
