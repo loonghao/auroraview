@@ -6,7 +6,38 @@ This directory contains examples for integrating AuroraView with SideFX Houdini.
 
 ### Prerequisites
 - Houdini 18.5+ (Python 3.7+)
-- AuroraView installed: `pip install auroraview`
+- AuroraView installed in Houdini's Python environment
+
+### Installing AuroraView in Houdini
+
+**Method 1: Install to Houdini's Python (Recommended)**
+```bash
+# Find Houdini's Python executable
+# In Houdini Python Shell, run:
+import sys
+print(sys.executable)
+# Example: C:/Program Files/Side Effects Software/Houdini 19.5.640/python39/python3.9.exe
+
+# Install AuroraView
+"C:/Program Files/Side Effects Software/Houdini 19.5.640/python39/python3.9.exe" -m pip install auroraview
+```
+
+**Method 2: Use hython**
+```bash
+# Use Houdini's Python wrapper
+hython -m pip install auroraview
+```
+
+**Method 3: Virtual Environment**
+```bash
+# Create venv and install
+python -m venv venv
+venv\Scripts\activate
+pip install auroraview
+
+# Launch Houdini from this environment
+houdini
+```
 
 ### Example 01: Basic Shelf Tool
 

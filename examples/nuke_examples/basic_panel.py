@@ -1,5 +1,5 @@
 """
-Example 01: Basic Nuke Panel
+Example: Basic Nuke Panel
 
 This example demonstrates how to create a basic panel in Nuke
 using AuroraView with a modern web-based UI.
@@ -11,6 +11,13 @@ Features:
 - Bidirectional Python ↔ JavaScript communication
 - Uses shadcn/ui components via CDN
 
+Prerequisites:
+    1. Install AuroraView in Nuke's Python environment:
+       - Find Nuke's Python: nuke.EXE_PATH (e.g., C:/Program Files/Nuke15.2v1/python.exe)
+       - Install: "C:/Program Files/Nuke15.2v1/python.exe" -m pip install auroraview
+
+    2. Or use a virtual environment and launch Nuke from it
+
 Usage:
     In Nuke Script Editor:
         import sys
@@ -19,22 +26,40 @@ Usage:
         examples_dir = Path(r'C:\\path\to\\dcc_webview\\examples')
         sys.path.insert(0, str(examples_dir))
 
-        import nuke.01_basic_panel as example
+        import nuke_examples.basic_panel as example
         example.show()
 """
 
+import sys
+
 try:
     import nuke
+    NUKE_AVAILABLE = True
 except ImportError:
     print("Warning: nuke module not available. This example requires Nuke.")
+    NUKE_AVAILABLE = False
     nuke = None
 
-from auroraview import WebView
+try:
+    from auroraview import WebView
+    AURORAVIEW_AVAILABLE = True
+except ImportError as e:
+    AURORAVIEW_AVAILABLE = False
+    print(f"Error: AuroraView not installed in Nuke's Python environment.")
+    print(f"Import error: {e}")
+    print(f"\nTo fix this:")
+    print(f"1. Find Nuke's Python executable:")
+    if NUKE_AVAILABLE:
+        print(f"   Nuke Python: {sys.executable}")
+    print(f"2. Install AuroraView:")
+    print(f'   "{sys.executable}" -m pip install auroraview')
+    print(f"\nOr use a virtual environment with AuroraView installed and launch Nuke from it.")
+    WebView = None
 
 
 def create_node(node_type):
     """Create a node in Nuke."""
-    if not nuke:
+    if not NUKE_AVAILABLE or not nuke:
         return {"error": "Nuke not available"}
 
     try:
@@ -48,7 +73,7 @@ def create_node(node_type):
 
 def get_graph_info():
     """Get current node graph information."""
-    if not nuke:
+    if not NUKE_AVAILABLE or not nuke:
         return {"error": "Nuke not available"}
 
     try:
@@ -196,6 +221,20 @@ HTML_CONTENT = """
 
 def show():
     """Show the Nuke panel."""
+    if not AURORAVIEW_AVAILABLE:
+        print("\n" + "="*60)
+        print("ERROR: AuroraView is not installed!")
+        print("="*60)
+        print(f"\nCurrent Python: {sys.executable}")
+        print(f"\nTo install AuroraView, run:")
+        print(f'  "{sys.executable}" -m pip install auroraview')
+        print("\nOr install in Nuke's Python environment.")
+        print("="*60 + "\n")
+        return None
+
+    if not NUKE_AVAILABLE:
+        print("Warning: Nuke module not available. Some features may not work.")
+
     # Create WebView
     webview = WebView.create(
         title="Nuke Panel", html=HTML_CONTENT, width=650, height=500, debug=True
