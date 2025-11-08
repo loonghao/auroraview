@@ -1,14 +1,4 @@
-"""
-Simple IPC test - minimal example for debugging.
 
-This is the simplest possible test to verify window.auroraview API works.
-
-Usage in Nuke:
-    >>> import sys
-    >>> sys.path.insert(0, r'C:\Users\hallo\Documents\augment-projects\dcc_webview\examples')
-    >>> from nuke_examples import test_simple
-    >>> test_simple.run()
-"""
 
 import sys
 from pathlib import Path
@@ -109,12 +99,17 @@ def run():
 
         <script>
             const log = document.getElementById('log');
-            
+
             function addLog(msg) {
                 log.textContent += msg + '\\n';
                 console.log(msg);
             }
-            
+
+            // Debug: Check what's available immediately
+            console.log('[DEBUG] window.auroraview:', window.auroraview);
+            console.log('[DEBUG] window.ipc:', window.ipc);
+            console.log('[DEBUG] All window properties:', Object.keys(window));
+
             // Wait for bridge
             let retryCount = 0;
             const maxRetries = 100; // 10 seconds max

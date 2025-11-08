@@ -365,7 +365,7 @@ impl NativeBackend {
         // Event handlers registry for Python -> JS communication
         const eventHandlers = new Map();
 
-        // Create window.auroraview API
+        // Create low-level window.auroraview API
         window.auroraview = {
             // Send event to Python (JS -> Python)
             send_event: function(eventName, data) {
@@ -390,6 +390,43 @@ impl NativeBackend {
                 eventHandlers.get(eventName).push(callback);
             }
         };
+
+        // Create high-level AuroraView helper class (Qt-style API)
+        window.AuroraView = class {
+            constructor() {
+                this.ready = true; // Always ready since we're in init script
+                console.log('[AuroraView] Helper class initialized');
+            }
+
+            // Qt-style emit (JavaScript -> Python)
+            emit(signal, data = {}) {
+                window.auroraview.send_event(signal, data);
+                return this;
+            }
+
+            // Qt-style connect (Python -> JavaScript)
+            on(signal, slot) {
+                if (typeof slot !== 'function') {
+                    console.error('[AuroraView] Slot must be a function');
+                    return this;
+                }
+                window.auroraview.on(signal, slot);
+                return this;
+            }
+
+            // Alias for consistency
+            connect(signal, slot) {
+                return this.on(signal, slot);
+            }
+
+            // Check if ready (always true in init script)
+            isReady() {
+                return this.ready;
+            }
+        };
+
+        // Create default instance for convenience
+        window.aurora = new window.AuroraView();
 
         // Listen for events from Python
         window.addEventListener('message', function(event) {
@@ -416,9 +453,10 @@ impl NativeBackend {
             }
         });
 
-        console.log('[AuroraView] Bridge initialized');
-        console.log('[AuroraView] Use window.auroraview.send_event(name, data) to send events to Python');
-        console.log('[AuroraView] Use window.auroraview.on(name, callback) to receive events from Python');
+        console.log('[AuroraView] ✓ Bridge initialized');
+        console.log('[AuroraView] ✓ Low-level API: window.auroraview.send_event() / .on()');
+        console.log('[AuroraView] ✓ High-level API: window.aurora.emit() / .on()');
+        console.log('[AuroraView] ✓ Qt-style class: new AuroraView()');
     })();
     "#;
         builder = builder.with_initialization_script(event_bridge_script);

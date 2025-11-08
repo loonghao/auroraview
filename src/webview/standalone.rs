@@ -77,6 +77,102 @@ pub fn create_standalone(
     // Inject event bridge as initialization script so it persists across navigations
     let event_bridge_script: &str = r#"
     (function() {
+        console.log('[AuroraView] Initializing event bridge...');
+
+        // Event handlers registry
+        const eventHandlers = new Map();
+
+        // Listen for events from Python (Python -> JS)
+        window.addEventListener('message', function(event) {
+            console.log('[AuroraView] Received message event:', event);
+            try {
+                const data = JSON.parse(event.data);
+                console.log('[AuroraView] Parsed message data:', data);
+
+                if (data.type === 'event' && data.event) {
+                    const handlers = eventHandlers.get(data.event);
+                    if (handlers && handlers.length > 0) {
+                        console.log('[AuroraView] Dispatching to', handlers.length, 'handler(s) for event:', data.event);
+                        handlers.forEach(handler => {
+                            try {
+                                handler(data.detail || {});
+                            } catch (e) {
+                                console.error('[AuroraView] Error in event handler:', e);
+                            }
+                        });
+                    } else {
+                        console.warn('[AuroraView] No handlers registered for event:', data.event);
+                    }
+                }
+            } catch (e) {
+                console.error('[AuroraView] Failed to parse message:', e);
+            }
+        });
+
+        // Create low-level window.auroraview API
+        window.auroraview = {
+            // Send event to Python (JS -> Python)
+            send_event: function(eventName, data) {
+                console.log('[AuroraView] Sending event to Python:', eventName, data);
+                try {
+                    window.ipc.postMessage(JSON.stringify({
+                        type: 'event',
+                        event: eventName,
+                        detail: data || {}
+                    }));
+                } catch (e) {
+                    console.error('[AuroraView] Failed to send event via IPC:', e);
+                }
+            },
+
+            // Register event handler for Python -> JS communication
+            on: function(eventName, callback) {
+                console.log('[AuroraView] Registering handler for event:', eventName);
+                if (!eventHandlers.has(eventName)) {
+                    eventHandlers.set(eventName, []);
+                }
+                eventHandlers.get(eventName).push(callback);
+            }
+        };
+
+        // Create high-level AuroraView helper class (Qt-style API)
+        window.AuroraView = class {
+            constructor() {
+                this.ready = true; // Always ready since we're in init script
+                console.log('[AuroraView] Helper class initialized');
+            }
+
+            // Qt-style emit (JavaScript -> Python)
+            emit(signal, data = {}) {
+                window.auroraview.send_event(signal, data);
+                return this;
+            }
+
+            // Qt-style connect (Python -> JavaScript)
+            on(signal, slot) {
+                if (typeof slot !== 'function') {
+                    console.error('[AuroraView] Slot must be a function');
+                    return this;
+                }
+                window.auroraview.on(signal, slot);
+                return this;
+            }
+
+            // Alias for consistency
+            connect(signal, slot) {
+                return this.on(signal, slot);
+            }
+
+            // Check if ready (always true in init script)
+            isReady() {
+                return this.ready;
+            }
+        };
+
+        // Create default instance for convenience
+        window.aurora = new window.AuroraView();
+
+        // Intercept CustomEvent dispatch for backward compatibility
         const originalDispatchEvent = window.dispatchEvent;
         window.dispatchEvent = function(event) {
             if (event instanceof CustomEvent) {
@@ -92,12 +188,16 @@ pub fn create_standalone(
                     };
                     window.ipc.postMessage(JSON.stringify(message));
                 } catch (e) {
-                    console.error('Failed to send event via IPC:', e);
+                    console.error('[AuroraView] Failed to send event via IPC:', e);
                 }
             }
             return originalDispatchEvent.call(this, event);
         };
-        console.log('AuroraView event bridge initialized');
+
+        console.log('[AuroraView] ✓ Bridge initialized');
+        console.log('[AuroraView] ✓ Low-level API: window.auroraview.send_event() / .on()');
+        console.log('[AuroraView] ✓ High-level API: window.aurora.emit() / .on()');
+        console.log('[AuroraView] ✓ Qt-style class: new AuroraView()');
     })();
     "#;
 
