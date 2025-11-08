@@ -116,22 +116,44 @@ def run():
             }
             
             // Wait for bridge
+            let retryCount = 0;
+            const maxRetries = 100; // 10 seconds max
+
             function waitForBridge() {
+                retryCount++;
+
                 if (window.auroraview && window.auroraview.send_event) {
                     addLog('✓ Bridge ready!');
-                    addLog('✓ window.auroraview.send_event exists');
-                    addLog('✓ window.auroraview.on exists');
-                    
+                    addLog('✓ window.auroraview.send_event: ' + typeof window.auroraview.send_event);
+                    addLog('✓ window.auroraview.on: ' + typeof window.auroraview.on);
+                    addLog('');
+                    addLog('Ready to test! Click buttons above.');
+
                     // Register listeners
                     window.auroraview.on('test_response', function(data) {
-                        addLog('✓ Received: ' + JSON.stringify(data));
+                        addLog('✓ Received: ' + JSON.stringify(data, null, 2));
                     });
-                    
+
                     window.auroraview.on('node_created', function(data) {
-                        addLog('✓ Node created: ' + data.name);
+                        addLog('✓ Node created: ' + data.name + ' (' + data.class + ')');
                     });
                 } else {
-                    addLog('Waiting for bridge...');
+                    if (retryCount >= maxRetries) {
+                        addLog('✗ Bridge initialization timeout!');
+                        addLog('✗ window.auroraview not available after ' + (retryCount * 100) + 'ms');
+                        addLog('');
+                        addLog('Debug info:');
+                        addLog('  window.auroraview: ' + typeof window.auroraview);
+                        if (window.auroraview) {
+                            addLog('  window.auroraview.send_event: ' + typeof window.auroraview.send_event);
+                            addLog('  window.auroraview.on: ' + typeof window.auroraview.on);
+                        }
+                        return;
+                    }
+
+                    if (retryCount % 10 === 0) {
+                        addLog('Waiting for bridge... (' + retryCount + '/' + maxRetries + ')');
+                    }
                     setTimeout(waitForBridge, 100);
                 }
             }
