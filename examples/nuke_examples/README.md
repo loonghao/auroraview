@@ -142,6 +142,37 @@ webview = WebView.create("My Panel", html=html)
 webview.show()
 ```
 
+## 🐛 Troubleshooting
+
+### Qt Warnings on Window Close
+
+When closing the WebView window, you may see warnings like:
+```
+RuntimeError: Internal C++ object (PySide2.QtWidgets.QLabel) already deleted.
+Traceback (most recent call last):
+  File ".../hiero/ui/FnStatusBar.py", line 296, in updateChannelCountLabel
+    self.channelCountLabel.setText("")
+RuntimeError: Internal C++ object (PySide2.QtWidgets.QLabel) already deleted.
+```
+
+**This is harmless and can be safely ignored.**
+
+These warnings come from Nuke/Hiero's status bar trying to update after the WebView window is closed. The warnings don't affect functionality and are a known Qt lifecycle issue in Nuke's UI framework.
+
+The example code already includes warning suppression to minimize console noise.
+
+### Import Errors
+
+If you see `ModuleNotFoundError: No module named 'auroraview'`:
+- Make sure AuroraView is installed in Nuke's Python environment
+- See the [Installation](#installing-auroraview-in-nuke) section above
+
+### WebView Doesn't Appear
+
+- Check that you're running in Nuke (not standalone Python)
+- Verify the HTML content is valid
+- Enable debug mode: `WebView.create(..., debug=True)`
+
 ## 📚 API Reference
 
 ### WebView.create()
