@@ -19,6 +19,11 @@ from pathlib import Path
 examples_dir = Path(r'C:\path\to\dcc_webview\examples')
 sys.path.insert(0, str(examples_dir))
 
+# Method 1: Import module directly
+import blender_examples.basic_window as example
+example.show()
+
+# Method 2: Import from package
 from blender_examples import basic_window
 basic_window.show()
 ```
@@ -44,6 +49,11 @@ from pathlib import Path
 examples_dir = Path(r'C:\path\to\dcc_webview\examples')
 sys.path.insert(0, str(examples_dir))
 
+# Method 1: Import module directly (recommended)
+import blender_examples.modal_operator as example
+example.show()
+
+# Method 2: Import from package
 from blender_examples import modal_operator
 modal_operator.show()
 ```

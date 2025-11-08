@@ -32,7 +32,11 @@ Creates a basic panel that integrates with Nuke's node graph.
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
 
-# Import and run
+# Method 1: Import module directly
+import nuke_examples.basic_panel as example
+example.show()
+
+# Method 2: Import from package
 from nuke_examples import basic_panel
 basic_panel.show()
 ```

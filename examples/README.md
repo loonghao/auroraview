@@ -46,6 +46,12 @@ examples/
 # In Blender Script Editor
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
+
+# Method 1: Import module directly
+import blender_examples.modal_operator as example
+example.show()
+
+# Method 2: Import from package
 from blender_examples import modal_operator
 modal_operator.show()
 ```
@@ -55,6 +61,12 @@ modal_operator.show()
 # In Maya Script Editor
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
+
+# Method 1: Import module directly
+import maya_examples.basic_integration as example
+example.show()
+
+# Method 2: Import from package
 from maya_examples import basic_integration
 basic_integration.show()
 ```
@@ -64,6 +76,12 @@ basic_integration.show()
 # In Houdini Python Shell
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
+
+# Method 1: Import module directly
+import houdini_examples.basic_shelf as example
+example.show()
+
+# Method 2: Import from package
 from houdini_examples import basic_shelf
 basic_shelf.show()
 ```
@@ -73,6 +91,12 @@ basic_shelf.show()
 # In Nuke Script Editor
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
+
+# Method 1: Import module directly
+import nuke_examples.basic_panel as example
+example.show()
+
+# Method 2: Import from package
 from nuke_examples import basic_panel
 basic_panel.show()
 ```

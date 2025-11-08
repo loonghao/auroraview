@@ -31,7 +31,11 @@ Creates a basic shelf tool that opens a WebView panel in Houdini.
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
 
-# Import and run
+# Method 1: Import module directly
+import houdini_examples.basic_shelf as example
+example.show()
+
+# Method 2: Import from package
 from houdini_examples import basic_shelf
 basic_shelf.show()
 ```
