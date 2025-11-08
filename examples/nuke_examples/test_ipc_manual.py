@@ -192,121 +192,23 @@ def run_test():
         </div>
 
         <script>
-            // Inline AuroraViewBridge for standalone usage
-            class AuroraViewBridge {
-                constructor() {
-                    this.ready = false;
-                    this.pendingCalls = [];
-                    this.eventHandlers = new Map();
-                    this.initTimeout = 10000;
-                    this.initStartTime = Date.now();
-                    this.init();
-                }
+            // ✨ Simplified API - No bridge waiting needed!
+            // window.aurora is immediately available
 
-                init() {
-                    if (Date.now() - this.initStartTime > this.initTimeout) {
-                        console.error('[AuroraView] Bridge initialization timeout');
-                        return;
-                    }
-
-                    if (window.auroraview && window.auroraview.send_event) {
-                        this.ready = true;
-                        console.log('[AuroraView] Bridge ready');
-                        this.registerEventHandlers();
-                        this.processPendingCalls();
-                        // Emit bridge_ready event
-                        this.eventHandlers.get('bridge_ready')?.forEach(h => h());
-                    } else {
-                        console.log('[AuroraView] Waiting for bridge...');
-                        setTimeout(() => this.init(), 50);
-                    }
-                }
-
-                registerEventHandlers() {
-                    this.eventHandlers.forEach((handlers, signal) => {
-                        if (signal === 'bridge_ready') return; // Skip internal event
-                        window.auroraview.on(signal, (data) => {
-                            handlers.forEach(handler => {
-                                try {
-                                    handler(data);
-                                } catch (e) {
-                                    console.error(`[AuroraView] Error in slot '${signal}':`, e);
-                                }
-                            });
-                        });
-                    });
-                }
-
-                connect(signal, slot) {
-                    if (typeof slot !== 'function') {
-                        console.error('[AuroraView] Slot must be a function');
-                        return;
-                    }
-
-                    if (!this.eventHandlers.has(signal)) {
-                        this.eventHandlers.set(signal, []);
-
-                        if (this.ready && signal !== 'bridge_ready') {
-                            window.auroraview.on(signal, (data) => {
-                                this.eventHandlers.get(signal).forEach(handler => {
-                                    try {
-                                        handler(data);
-                                    } catch (e) {
-                                        console.error(`[AuroraView] Error in slot '${signal}':`, e);
-                                    }
-                                });
-                            });
-                        }
-                    }
-
-                    this.eventHandlers.get(signal).push(slot);
-                    console.log(`[AuroraView] Connected slot to signal: ${signal}`);
-                }
-
-                emit(signal, data = {}) {
-                    if (this.ready) {
-                        try {
-                            window.auroraview.send_event(signal, data);
-                            console.log(`[AuroraView] Emitted signal: ${signal}`, data);
-                        } catch (e) {
-                            console.error(`[AuroraView] Error emitting signal '${signal}':`, e);
-                        }
-                    } else {
-                        console.log(`[AuroraView] Queuing signal: ${signal}`);
-                        this.pendingCalls.push({ signal, data });
-                    }
-                }
-
-                processPendingCalls() {
-                    console.log(`[AuroraView] Processing ${this.pendingCalls.length} pending calls`);
-                    this.pendingCalls.forEach(({ signal, data }) => {
-                        this.emit(signal, data);
-                    });
-                    this.pendingCalls = [];
-                }
-
-                isReady() {
-                    return this.ready;
-                }
-            }
-
-            const bridge = new AuroraViewBridge();
             const status = document.getElementById('status');
-            
+
             // Update status
             function updateStatus(message, type = 'info') {
                 status.textContent = message;
                 status.className = type;
                 console.log(`[UI] ${message}`);
             }
-            
-            // Wait for bridge ready
-            bridge.connect('bridge_ready', () => {
-                updateStatus('✓ Bridge connected - Ready to test', 'success');
-            });
-            
+
+            // Bridge is ready immediately!
+            updateStatus('✓ Bridge ready - No waiting needed!', 'success');
+
             // Listen for node creation response
-            bridge.connect('node_created', (data) => {
+            window.aurora.on('node_created', (data) => {
                 console.log('[UI] Node created response:', data);
                 if (data.success) {
                     updateStatus(`✓ Node created: ${data.name} (${data.class})`, 'success');
@@ -314,18 +216,20 @@ def run_test():
                     updateStatus(`✗ Error: ${data.error}`, 'error');
                 }
             });
-            
+
             // Create node button
             document.getElementById('createBtn').onclick = () => {
                 updateStatus('Creating Grade node...', 'info');
-                bridge.emit('create_node', { type: 'Grade' });
+                window.aurora.emit('create_node', { type: 'Grade' });
             };
-            
+
             // Complete test button
             document.getElementById('completeBtn').onclick = () => {
                 updateStatus('Test completed!', 'success');
-                bridge.emit('test_complete', { status: 'passed' });
+                window.aurora.emit('test_complete', { status: 'passed' });
             };
+
+            console.log('[AuroraView] ✓ UI initialized - using simplified API');
         </script>
     </body>
     </html>
