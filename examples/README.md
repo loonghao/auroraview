@@ -39,6 +39,46 @@ examples/
     └── ...
 ```
 
+## 📦 Installation
+
+### Installing AuroraView in DCC Applications
+
+AuroraView must be installed in each DCC application's Python environment. Choose the method that works best for you:
+
+**Option 1: Install to DCC's Python (Recommended)**
+```bash
+# Find the DCC's Python executable
+# In the DCC's Python console/editor, run:
+import sys
+print(sys.executable)
+
+# Then install AuroraView using that Python
+"<path-to-dcc-python>" -m pip install auroraview
+```
+
+**Option 2: Use Virtual Environment**
+```bash
+# Create and activate venv
+python -m venv venv
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
+
+# Install AuroraView
+pip install auroraview
+
+# Launch DCC from this environment
+blender  # or maya, houdini, nuke
+```
+
+**Option 3: Add to PYTHONPATH**
+```bash
+# If AuroraView is installed elsewhere
+set PYTHONPATH=C:\path\to\auroraview;%PYTHONPATH%  # Windows
+export PYTHONPATH=/path/to/auroraview:$PYTHONPATH  # Linux/Mac
+```
+
+See individual DCC README files for detailed installation instructions.
+
 ## 🚀 Quick Start by DCC
 
 ### Blender

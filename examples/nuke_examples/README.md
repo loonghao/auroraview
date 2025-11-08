@@ -6,7 +6,42 @@ This directory contains examples for integrating AuroraView with Foundry Nuke.
 
 ### Prerequisites
 - Nuke 12.0+ (Python 3.7+)
-- AuroraView installed: `pip install auroraview`
+- AuroraView installed in Nuke's Python environment
+
+### Installing AuroraView in Nuke
+
+**Method 1: Install to Nuke's Python (Recommended)**
+```bash
+# Find Nuke's Python executable path
+# In Nuke Script Editor, run:
+import sys
+print(sys.executable)
+# Example output: C:/Program Files/Nuke15.2v1/python.exe
+
+# Install AuroraView using Nuke's Python
+"C:/Program Files/Nuke15.2v1/python.exe" -m pip install auroraview
+```
+
+**Method 2: Use Virtual Environment**
+```bash
+# Create and activate virtual environment
+python -m venv venv
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
+
+# Install AuroraView
+pip install auroraview
+
+# Launch Nuke from this environment
+nuke
+```
+
+**Method 3: Add to PYTHONPATH**
+```bash
+# If you have AuroraView installed elsewhere
+set PYTHONPATH=C:\path\to\auroraview\installation;%PYTHONPATH%
+nuke
+```
 
 ### Example 01: Basic Panel
 

@@ -2,6 +2,43 @@
 
 This directory contains examples demonstrating how to use AuroraView in Blender.
 
+## 📦 Prerequisites
+
+### Installing AuroraView in Blender
+
+**Method 1: Install to Blender's Python (Recommended)**
+```bash
+# Find Blender's Python executable
+# In Blender Python Console, run:
+import sys
+print(sys.executable)
+# Example: C:/Program Files/Blender Foundation/Blender 4.0/4.0/python/bin/python.exe
+
+# Install AuroraView
+"C:/Program Files/Blender Foundation/Blender 4.0/4.0/python/bin/python.exe" -m pip install auroraview
+```
+
+**Method 2: Install via Blender's pip**
+```python
+# In Blender Script Editor
+import subprocess
+import sys
+
+# Install AuroraView
+subprocess.check_call([sys.executable, "-m", "pip", "install", "auroraview"])
+```
+
+**Method 3: Virtual Environment**
+```bash
+# Create venv and install
+python -m venv venv
+venv\Scripts\activate
+pip install auroraview
+
+# Launch Blender from this environment
+blender
+```
+
 ## 🚀 Quick Start
 
 ### Example 01: Basic Window
