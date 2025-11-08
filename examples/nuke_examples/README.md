@@ -56,6 +56,27 @@ Creates a basic panel that integrates with Nuke's node graph.
 - Bidirectional Python ↔ JavaScript communication
 - Non-blocking UI (Nuke remains responsive)
 
+### Example 02: IPC Communication Test
+
+**File**: `test_ipc_manual.py`
+
+Manual test for verifying IPC communication between JavaScript and Python.
+
+**Features**:
+- Native WebView backend (no Qt dependency)
+- window.auroraview API testing
+- Create nodes via IPC signals
+- Bidirectional event communication
+- Visual feedback and status updates
+
+**Usage**:
+```python
+import sys
+sys.path.insert(0, r'C:\Users\hallo\Documents\augment-projects\dcc_webview\examples')
+from nuke_examples import test_ipc_manual
+test_ipc_manual.run_test()
+```
+
 ## 📖 Usage
 
 ### Method 1: Run in Nuke Script Editor
