@@ -24,23 +24,23 @@ install:
 # Build the extension module
 build:
     @echo "Building extension module..."
-    uv run maturin develop
+    uv run maturin develop --features win-webview2
 
 # Build with release optimizations
 build-release:
     @echo "Building release version..."
-    uv run maturin develop --release
+    uv run maturin develop --release --features win-webview2
 
 # Rebuild and install in development mode (recommended)
 rebuild-core:
     @echo "Rebuilding Rust core with maturin..."
-    uv run maturin develop --release
+    uv run maturin develop --release --features win-webview2
     @echo "[OK] Core module rebuilt and installed successfully!"
 
 # Rebuild with verbose output
 rebuild-core-verbose:
     @echo "Rebuilding Rust core with maturin (verbose)..."
-    uv run maturin develop --release --verbose
+    uv run maturin develop --release --features win-webview2 --verbose
     @echo "[OK] Core module rebuilt and installed successfully!"
 
 # Run all tests
@@ -178,7 +178,7 @@ ci-install:
 ci-build:
     @echo "Building extension for CI..."
     uv pip install maturin
-    uv run maturin develop
+    uv run maturin develop --features win-webview2
 
 ci-test-rust:
     @echo "Running Rust doc tests..."
@@ -238,7 +238,7 @@ dev: install build
 # Build release wheels
 release:
     @echo "Building release wheels..."
-    uv run maturin build --release
+    uv run maturin build --release --features win-webview2
     @echo "Wheels built in target/wheels/"
 
 # Run examples
@@ -266,4 +266,100 @@ docs:
 # Comprehensive checks
 check-all: format lint test coverage-all
     @echo "All checks completed!"
+
+# Setup development module for Maya
+maya-setup-dev:
+    @echo "=========================================="
+    @echo "Setting up Maya Development Environment"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/3] Creating symlink to project root..."
+    @powershell -Command "New-Item -ItemType Directory -Force -Path '$env:USERPROFILE\Documents\maya\modules' | Out-Null; if (Test-Path '$env:USERPROFILE\Documents\maya\modules\auroraview') { Remove-Item -Recurse -Force '$env:USERPROFILE\Documents\maya\modules\auroraview' }; New-Item -ItemType SymbolicLink -Path '$env:USERPROFILE\Documents\maya\modules\auroraview' -Target '{{justfile_directory()}}' -Force | Out-Null"
+    @echo "[OK] Symlink created: ~/Documents/maya/modules/auroraview -> {{justfile_directory()}}"
+    @echo ""
+    @echo "[2/3] Installing Maya module file..."
+    @powershell -Command "Copy-Item -Path '{{justfile_directory()}}\examples\maya-outliner\auroraview.mod' -Destination '$env:USERPROFILE\Documents\maya\modules\auroraview.mod' -Force"
+    @echo "[OK] Module file installed: ~/Documents/maya/modules/auroraview.mod"
+    @echo ""
+    @echo "[3/3] Installing userSetup.py..."
+    @powershell -Command "New-Item -ItemType Directory -Force -Path '$env:USERPROFILE\Documents\maya\2024\scripts' | Out-Null; Copy-Item -Path '{{justfile_directory()}}\examples\maya-outliner\userSetup_dev.py' -Destination '$env:USERPROFILE\Documents\maya\2024\scripts\userSetup.py' -Force"
+    @echo "[OK] userSetup.py installed for Maya 2024"
+    @echo ""
+    @echo "=========================================="
+    @echo "Development environment ready!"
+    @echo "=========================================="
+    @echo ""
+    @echo "Module configuration:"
+    @echo "  Symlink: ~/Documents/maya/modules/auroraview -> {{justfile_directory()}}"
+    @echo "  Module file: ~/Documents/maya/modules/auroraview.mod"
+    @echo "  PYTHONPATH: {{justfile_directory()}}/python"
+    @echo "  PYTHONPATH: {{justfile_directory()}}/examples/maya-outliner"
+    @echo ""
+    @echo "Next steps:"
+    @echo "  1. Run: just maya-dev (rebuild + launch Maya)"
+    @echo "  2. Click 'Outliner' button on AuroraView shelf"
+    @echo ""
+
+# Complete Maya development workflow (setup + rebuild + launch)
+maya-dev:
+    @echo "=========================================="
+    @echo "Maya Development Workflow"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/3] Killing all Maya processes..."
+    -@powershell -Command "try { Get-Process maya -ErrorAction Stop | Stop-Process -Force; Write-Host '[OK] Maya processes terminated' } catch { Write-Host '[OK] No Maya processes running' }"
+    @echo ""
+    @echo "[2/3] Rebuilding Rust core..."
+    @just rebuild-core
+    @echo ""
+    @echo "[3/3] Launching Maya 2024..."
+    @powershell -Command "Start-Process -FilePath 'C:\Program Files\Autodesk\Maya2024\bin\maya.exe'"
+    @echo "[OK] Maya launched"
+    @echo ""
+    @echo "=========================================="
+    @echo "Maya Development Mode Active"
+    @echo "=========================================="
+    @echo ""
+    @echo "✓ Symlinks are active (changes reflect immediately)"
+    @echo "✓ Click 'Outliner' button on AuroraView shelf"
+    @echo "✓ Or run in Script Editor:"
+    @echo "    from maya_integration import maya_outliner"
+    @echo "    maya_outliner.main()"
+    @echo ""
+    @echo "To rebuild after code changes:"
+    @echo "  just maya-dev"
+    @echo ""
+
+# Maya debugging workflow (legacy - use maya-dev instead)
+maya-debug:
+    @echo "=========================================="
+    @echo "Maya Debug Workflow"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/4] Killing all Maya processes..."
+    -@powershell -Command "try { Get-Process maya -ErrorAction Stop | Stop-Process -Force; Write-Host '[OK] Maya processes terminated' } catch { Write-Host '[OK] No Maya processes running' }"
+    @echo ""
+    @echo "[2/4] Rebuilding Rust core..."
+    @just rebuild-core
+    @echo ""
+    @echo "[3/4] Creating launch script..."
+    @echo @echo off > launch_maya_temp.bat
+    @echo set PYTHONPATH={{justfile_directory()}}\python >> launch_maya_temp.bat
+    @echo "C:\Program Files\Autodesk\Maya2024\bin\maya.exe" >> launch_maya_temp.bat
+    @echo "[OK] Launch script created"
+    @echo ""
+    @echo "[4/4] Launching Maya 2024..."
+    @start launch_maya_temp.bat
+    @echo "[OK] Maya launched"
+    @echo ""
+    @echo "=========================================="
+    @echo "Maya launched with AuroraView in PYTHONPATH"
+    @echo "=========================================="
+    @echo ""
+    @echo "In Maya Script Editor, run:"
+    @echo "  import sys"
+    @echo "  sys.path.append(r'{{justfile_directory()}}\examples\maya-outliner')"
+    @echo "  from maya_integration import maya_outliner"
+    @echo "  maya_outliner.main()"
+    @echo ""
 

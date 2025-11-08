@@ -162,6 +162,14 @@ pub fn create_standalone(
     // Create event loop proxy for sending close events
     let event_loop_proxy = event_loop.create_proxy();
 
+    // Create lifecycle manager
+    use crate::webview::lifecycle::LifecycleManager;
+    let lifecycle = Arc::new(LifecycleManager::new());
+    lifecycle.set_state(crate::webview::lifecycle::LifecycleState::Active);
+
+    // Standalone mode doesn't need platform manager (uses event loop instead)
+    let platform_manager = None;
+
     #[allow(clippy::arc_with_non_send_sync)]
     Ok(WebViewInner {
         webview: Arc::new(Mutex::new(webview)),
@@ -169,5 +177,7 @@ pub fn create_standalone(
         event_loop: Some(event_loop),
         message_queue,
         event_loop_proxy: Some(event_loop_proxy),
+        lifecycle,
+        platform_manager,
     })
 }

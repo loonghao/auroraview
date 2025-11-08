@@ -14,19 +14,17 @@ Usage:
     python examples/01_basic_window.py
 """
 
-import sys
 import logging
-from pathlib import Path
+import sys
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Setup path to import auroraview
+import _setup_path  # noqa: F401
 
-from auroraview import NativeWebView
+from auroraview import WebView
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -38,16 +36,12 @@ def main():
     logger.info("=" * 60)
     logger.info("")
 
-    # Create a WebView instance using Native backend
-    logger.info("Creating WebView instance (Native backend)...")
-    webview = NativeWebView(
-        title="AuroraView - Basic Window",
-        width=800,
-        height=600
-    )
+    # Create a WebView instance using new API
+    logger.info("Creating WebView instance...")
+    webview = WebView.create(title="AuroraView - Basic Window", width=800, height=600)
     logger.info(f"[OK] Created: {webview}")
     logger.info("")
-    
+
     # Create HTML content
     html_content = """
     <!DOCTYPE html>
@@ -220,7 +214,7 @@ def main():
     </body>
     </html>
     """
-    
+
     # Load HTML content
     logger.info("Loading HTML content...")
     webview.load_html(html_content)
@@ -229,32 +223,34 @@ def main():
 
     # Register event handler
     logger.info("Registering event handler...")
+
     @webview.on("test_event")
     def handle_test_event(data):
         logger.info(f"[OK] Received event from JavaScript: {data}")
 
     logger.info("[OK] Event handler registered")
     logger.info("")
-    
+
     # Show the window
     logger.info("Showing WebView window...")
     logger.info("Close the window to exit.")
     logger.info("")
-    
+
     try:
-        webview.show()
+        # Use show_blocking() to ensure the window stays open
+        # This prevents the script from exiting immediately (important for Blender)
+        webview.show_blocking()
     except Exception as e:
         logger.error(f"Error showing WebView: {e}")
         return 1
-    
+
     logger.info("")
     logger.info("=" * 60)
     logger.info("Window closed. Exiting.")
     logger.info("=" * 60)
-    
+
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

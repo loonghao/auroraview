@@ -19,36 +19,37 @@ AuroraView supports two integration modes:
 
 ## Examples
 
-Basic usage (Native backend)::
+Basic usage (recommended)::
 
     from auroraview import WebView
 
-    # Create a WebView instance
-    webview = WebView(
-        title="My App",
-        width=800,
-        height=600,
-        url="http://localhost:3000"
-    )
+    # Create and show a WebView (2 lines!)
+    webview = WebView.create("My App", url="http://localhost:3000")
+    webview.show()  # Auto-blocks until closed
 
-    # Show the window
-    webview.show()
+DCC integration - Maya::
 
-DCC integration (Native backend)::
+    from auroraview import WebView
 
-    from auroraview import NativeWebView
-    import maya.OpenMayaUI as omui
+    # Maya shortcut (1 line!)
+    webview = WebView.maya("Maya Tool", url="http://localhost:3000")
+    webview.show()  # Auto non-blocking with timer
 
-    # Get Maya main window handle
-    maya_hwnd = int(omui.MQtUtil.mainWindow())
+DCC integration - Houdini::
 
-    # Create embedded WebView
-    webview = NativeWebView(
-        title="Maya Tool",
-        parent_hwnd=maya_hwnd,
-        parent_mode="owner"  # Safer for cross-thread usage
-    )
-    webview.show_async()
+    from auroraview import WebView
+
+    # Houdini shortcut (1 line!)
+    webview = WebView.houdini("Houdini Tool", url="http://localhost:3000")
+    webview.show()  # Auto non-blocking with timer
+
+DCC integration - Blender::
+
+    from auroraview import WebView
+
+    # Blender shortcut (1 line!)
+    webview = WebView.blender("Blender Tool", url="http://localhost:3000")
+    webview.show()  # Auto-blocks until closed
 
 Qt integration::
 
@@ -75,41 +76,48 @@ Bidirectional communication::
 """
 
 try:
-    from ._core import __author__, __version__
+    from ._core import (
+        # Window utilities
+        WindowInfo,
+        __author__,
+        __version__,
+        close_window_by_hwnd,
+        destroy_window_by_hwnd,
+        find_window_by_exact_title,
+        find_windows_by_title,
+        get_all_windows,
+        get_foreground_window,
+    )
 except ImportError:
     # Fallback for development without compiled extension
     __version__ = "0.1.0"
     __author__ = "Hal Long <hal.long@outlook.com>"
 
+    # Placeholder for window utilities
+    WindowInfo = None  # type: ignore
+    get_foreground_window = None  # type: ignore
+    find_windows_by_title = None  # type: ignore
+    find_window_by_exact_title = None  # type: ignore
+    get_all_windows = None  # type: ignore
+    close_window_by_hwnd = None  # type: ignore
+    destroy_window_by_hwnd = None  # type: ignore
+
 from .decorators import on_event
-from .native import AuroraView, NativeWebView
+from .event_timer import EventTimer
 from .webview import WebView
 
 # Qt backend is optional
 _QT_IMPORT_ERROR = None
 try:
-    from .qt_integration import AuroraViewQt, QtWebView
-
-    _HAS_QT = True
+    from .qt_integration import QtWebView
 except ImportError as e:
-    _HAS_QT = False
     _QT_IMPORT_ERROR = str(e)
 
-    # Create placeholder classes that raise helpful errors
+    # Create placeholder class that raises helpful error
     class QtWebView:  # type: ignore
         """Qt backend placeholder - not available."""
 
-        def __init__(self, *args, **kwargs):
-            raise ImportError(
-                "Qt backend is not available. "
-                "Install with: pip install auroraview[qt]\n"
-                f"Original error: {_QT_IMPORT_ERROR}"
-            )
-
-    class AuroraViewQt:  # type: ignore
-        """Qt backend placeholder - not available."""
-
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *_args, **_kwargs):
             raise ImportError(
                 "Qt backend is not available. "
                 "Install with: pip install auroraview[qt]\n"
@@ -117,18 +125,22 @@ except ImportError as e:
             )
 
 
-# Always export all symbols, but Qt classes will raise errors if not available
 __all__ = [
     # Base class
     "WebView",
-    # Native backend
-    "NativeWebView",
-    "AuroraView",  # Backward compatibility
     # Qt backend (may raise ImportError if not installed)
     "QtWebView",
-    "AuroraViewQt",  # Backward compatibility
     # Utilities
     "on_event",
+    "EventTimer",
+    # Window utilities
+    "WindowInfo",
+    "get_foreground_window",
+    "find_windows_by_title",
+    "find_window_by_exact_title",
+    "get_all_windows",
+    "close_window_by_hwnd",
+    "destroy_window_by_hwnd",
     # Metadata
     "__version__",
     "__author__",

@@ -9,7 +9,9 @@ use wry::WebView as WryWebView;
 use super::config::WebViewConfig;
 use super::embedded;
 use super::event_loop::{EventLoopState, UserEvent, WebViewEventHandler};
+use super::lifecycle::LifecycleManager;
 use super::message_pump;
+use super::platform::PlatformWindowManager;
 use super::standalone;
 use crate::ipc::{IpcHandler, MessageQueue};
 
@@ -25,11 +27,29 @@ pub struct WebViewInner {
     pub(crate) message_queue: Arc<MessageQueue>,
     /// Event loop proxy for sending close events (standalone mode only)
     pub(crate) event_loop_proxy: Option<tao::event_loop::EventLoopProxy<UserEvent>>,
+    /// Cross-platform lifecycle manager
+    pub(crate) lifecycle: Arc<LifecycleManager>,
+    /// Platform-specific window manager
+    pub(crate) platform_manager: Option<Box<dyn PlatformWindowManager>>,
 }
 
 impl Drop for WebViewInner {
     fn drop(&mut self) {
+        use scopeguard::defer;
+
+        defer! {
+            tracing::info!("[OK] [WebViewInner::drop] Cleanup completed");
+        }
+
         tracing::info!("[CLOSE] [WebViewInner::drop] Cleaning up WebView resources");
+
+        // Execute lifecycle cleanup handlers
+        self.lifecycle.execute_cleanup();
+
+        // Cleanup platform-specific resources
+        if let Some(platform_manager) = &self.platform_manager {
+            platform_manager.cleanup();
+        }
 
         // Close the window if it exists
         if let Some(window) = self.window.take() {
@@ -112,8 +132,6 @@ impl Drop for WebViewInner {
         if let Some(_event_loop) = self.event_loop.take() {
             tracing::info!("[CLOSE] [WebViewInner::drop] Event loop dropped");
         }
-
-        tracing::info!("[OK] [WebViewInner::drop] Cleanup completed");
     }
 }
 
@@ -134,8 +152,16 @@ impl WebViewInner {
         height: u32,
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
+        message_queue: Arc<MessageQueue>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        embedded::create_embedded(parent_hwnd, width, height, config, ipc_handler)
+        embedded::create_embedded(
+            parent_hwnd,
+            width,
+            height,
+            config,
+            ipc_handler,
+            message_queue,
+        )
     }
 
     /// Load a URL
@@ -369,6 +395,76 @@ impl WebViewInner {
         }
     }
 
+    /// Get window handle (HWND on Windows)
+    ///
+    /// Returns the native window handle for the WebView window.
+    /// On Windows, this is the HWND value as a u64.
+    ///
+    /// # Returns
+    /// - `Some(hwnd)` - Window handle on Windows
+    /// - `None` - No window available or not on Windows
+    ///
+    /// # Example
+    /// ```ignore
+    /// let hwnd = webview_inner.get_hwnd();
+    /// if let Some(hwnd) = hwnd {
+    ///     println!("Window HWND: 0x{:x}", hwnd);
+    /// }
+    /// ```
+    pub fn get_hwnd(&self) -> Option<u64> {
+        #[cfg(target_os = "windows")]
+        {
+            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+            if let Some(window) = &self.window {
+                if let Ok(window_handle) = window.window_handle() {
+                    let raw_handle = window_handle.as_raw();
+                    if let RawWindowHandle::Win32(handle) = raw_handle {
+                        let hwnd_value = handle.hwnd.get() as u64;
+                        return Some(hwnd_value);
+                    }
+                }
+            }
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            // Not supported on non-Windows platforms
+        }
+
+        None
+    }
+
+    /// Check if the window is still valid (Windows only)
+    ///
+    /// This method checks if the window handle is still valid.
+    /// Useful for detecting when a window has been closed externally.
+    ///
+    /// Returns true if the window is valid, false otherwise.
+    pub fn is_window_valid(&self) -> bool {
+        #[cfg(target_os = "windows")]
+        {
+            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+            if let Some(window) = &self.window {
+                if let Ok(window_handle) = window.window_handle() {
+                    let raw_handle = window_handle.as_raw();
+                    if let RawWindowHandle::Win32(handle) = raw_handle {
+                        let hwnd_value = handle.hwnd.get() as u64;
+                        return message_pump::is_window_valid(hwnd_value);
+                    }
+                }
+            }
+            false
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            // On non-Windows platforms, assume window is valid if it exists
+            self.window.is_some()
+        }
+    }
+
     /// Process pending window messages (for embedded mode)
     ///
     /// This method processes all pending Windows messages without blocking.
@@ -377,46 +473,46 @@ impl WebViewInner {
     ///
     /// Returns true if the window should be closed, false otherwise.
     pub fn process_events(&self) -> bool {
-        println!("[CLOSE] [process_events] START - Processing events...");
-        tracing::info!("[CLOSE] [process_events] START - Processing events...");
+        use crate::webview::lifecycle::LifecycleState;
+        use scopeguard::defer;
 
-        // CRITICAL: For embedded windows, check if window handle is still valid
-        // This is the ONLY reliable way to detect when user clicks the X button
-        #[cfg(target_os = "windows")]
-        {
-            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-            use std::ffi::c_void;
-            use windows::Win32::Foundation::HWND;
-            use windows::Win32::UI::WindowsAndMessaging::IsWindow;
+        defer! {
+            tracing::trace!("[process_events] tick completed");
+        }
 
-            if let Some(window) = &self.window {
-                if let Ok(window_handle) = window.window_handle() {
-                    let raw_handle = window_handle.as_raw();
-                    if let RawWindowHandle::Win32(handle) = raw_handle {
-                        let hwnd_value = handle.hwnd.get();
-                        let hwnd = HWND(hwnd_value as *mut c_void);
+        // Check lifecycle state first
+        match self.lifecycle.state() {
+            LifecycleState::Destroyed => {
+                tracing::warn!("[process_events] Window already destroyed");
+                return true;
+            }
+            LifecycleState::CloseRequested | LifecycleState::Destroying => {
+                tracing::info!("[process_events] Close already in progress");
+                return true;
+            }
+            _ => {}
+        }
 
-                        // Check if window handle is still valid
-                        // When user clicks X button on embedded window, the handle becomes invalid
-                        let is_valid = unsafe { IsWindow(hwnd).as_bool() };
+        // Check for close signal from lifecycle manager
+        if let Some(reason) = self.lifecycle.check_close_requested() {
+            tracing::info!(
+                "[process_events] Close requested via lifecycle: {:?}",
+                reason
+            );
+            return true;
+        }
 
-                        // Use println! for direct output to Maya Script Editor
-                        println!("[SEARCH] [process_events] Checking window validity...");
-                        println!("[SEARCH] [process_events] HWND: {:?}", hwnd);
-                        println!("[SEARCH] [process_events] is_valid: {}", is_valid);
+        // Use platform-specific manager if available
+        if let Some(platform_manager) = &self.platform_manager {
+            if platform_manager.process_events() {
+                tracing::info!("[process_events] Platform manager detected close");
+                return true;
+            }
 
-                        if !is_valid {
-                            println!("{}", "=".repeat(80));
-                            println!(
-                                "[CLOSE] [process_events] [WARNING] Window handle is INVALID - user closed window!"
-                            );
-                            println!("[CLOSE] [process_events] HWND: {:?}", hwnd);
-                            println!("[CLOSE] [process_events] Returning true to Python...");
-                            println!("{}", "=".repeat(80));
-                            return true;
-                        }
-                    }
-                }
+            // Also check window validity
+            if !platform_manager.is_window_valid() {
+                tracing::info!("[process_events] Platform manager reports invalid window");
+                return true;
             }
         }
 
@@ -447,28 +543,32 @@ impl WebViewInner {
 
         // Process Windows messages with specific HWND if available
         let should_quit = if let Some(hwnd_value) = hwnd {
-            message_pump::process_messages_for_hwnd(hwnd_value)
+            let b1 = message_pump::process_messages_for_hwnd(hwnd_value);
+            // Also service child/IPC windows (e.g., WebView2) in the same thread.
+            // Use full-thread scan on Windows to ensure we don't miss SC_CLOSE/WM_CLOSE.
+            #[cfg(target_os = "windows")]
+            let b2 = message_pump::process_all_messages();
+            #[cfg(not(target_os = "windows"))]
+            let b2 = message_pump::process_all_messages_limited(1024);
+            b1 || b2
         } else {
-            message_pump::process_all_messages()
+            // If we don't yet have a window handle, don't pull host messages.
+            false
         };
 
         if should_quit {
-            tracing::info!("{}", "=".repeat(80));
-            tracing::info!("[OK] [process_events] should_quit = true");
-            tracing::info!("[OK] [process_events] Window close signal detected!");
-            tracing::info!("[OK] [process_events] Returning true to Python...");
-            tracing::info!("{}", "=".repeat(80));
+            tracing::debug!(
+                "[process_events] should_quit=true; close signal detected; returning to Python"
+            );
             return true;
         }
 
         // Process message queue
-        println!("[CLOSE] [process_events] Processing message queue...");
-        tracing::info!("[CLOSE] [process_events] Processing message queue...");
+        tracing::trace!("[process_events] processing queue");
 
         if let Ok(webview) = self.webview.lock() {
-            println!("[CLOSE] [process_events] WebView lock acquired");
             let count = self.message_queue.process_all(|message| {
-                println!("[CLOSE] [process_events] Processing message: {:?}", message);
+                tracing::trace!("[process_events] processing message: {:?}", message);
                 use crate::ipc::WebViewMessage;
                 match message {
                     WebViewMessage::EvalJs(script) => {
@@ -513,23 +613,15 @@ impl WebViewInner {
             });
 
             if count > 0 {
-                println!(
-                    "[OK] [process_events] Processed {} messages from queue",
-                    count
-                );
-                tracing::debug!(
-                    "[OK] [process_events] Processed {} messages from queue",
-                    count
-                );
+                tracing::debug!("[process_events] processed {} messages from queue", count);
             } else {
-                println!("[OK] [process_events] No messages in queue");
+                tracing::trace!("[process_events] no messages in queue");
             }
         } else {
-            println!("[ERROR] [process_events] Failed to lock WebView");
+            tracing::error!("[process_events] failed to lock WebView");
         }
 
-        println!("[CLOSE] [process_events] END - Returning false");
-        tracing::info!("[CLOSE] [process_events] END - Returning false");
+        tracing::trace!("[process_events] end");
 
         false
     }

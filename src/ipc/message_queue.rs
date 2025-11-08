@@ -21,6 +21,10 @@ use std::sync::{Arc, Mutex};
 use crate::webview::event_loop::UserEvent;
 use tao::event_loop::EventLoopProxy;
 
+// Import DeadLetterQueue and Metrics
+use super::dead_letter_queue::{DeadLetterQueue, FailureReason};
+use super::metrics::IpcMetrics;
+
 /// Message types that can be sent to the WebView
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -43,12 +47,19 @@ pub enum WebViewMessage {
 
 /// Configuration for message queue
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MessageQueueConfig {
     /// Maximum number of messages in the queue (backpressure)
     pub capacity: usize,
 
     /// Whether to block when queue is full (true) or drop messages (false)
     pub block_on_full: bool,
+
+    /// Maximum number of retry attempts for failed sends
+    pub max_retries: u32,
+
+    /// Delay between retry attempts (milliseconds)
+    pub retry_delay_ms: u64,
 }
 
 impl Default for MessageQueueConfig {
@@ -56,6 +67,8 @@ impl Default for MessageQueueConfig {
         Self {
             capacity: 10_000,
             block_on_full: false,
+            max_retries: 3,
+            retry_delay_ms: 10,
         }
     }
 }
@@ -65,6 +78,7 @@ impl Default for MessageQueueConfig {
 /// Uses crossbeam-channel for high-performance lock-free communication.
 /// Provides backpressure control to prevent unbounded memory growth.
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct MessageQueue {
     /// Sender for pushing messages (lock-free)
     tx: Sender<WebViewMessage>,
@@ -74,6 +88,12 @@ pub struct MessageQueue {
 
     /// Event loop proxy for immediate wake-up
     event_loop_proxy: Arc<Mutex<Option<EventLoopProxy<UserEvent>>>>,
+
+    /// Dead letter queue for failed messages
+    dlq: DeadLetterQueue,
+
+    /// Performance metrics
+    metrics: IpcMetrics,
 
     /// Configuration
     config: MessageQueueConfig,
@@ -92,6 +112,8 @@ impl MessageQueue {
             tx,
             rx,
             event_loop_proxy: Arc::new(Mutex::new(None)),
+            dlq: DeadLetterQueue::new(),
+            metrics: IpcMetrics::new(),
             config,
         }
     }
@@ -126,9 +148,13 @@ impl MessageQueue {
         // Try to send the message
         match self.tx.try_send(message.clone()) {
             Ok(_) => {
+                self.metrics.record_send();
+                let queue_len = self.len();
+                self.metrics.update_peak_queue_length(queue_len);
+
                 tracing::debug!(
                     "[PUSH] [MessageQueue::push] Message sent successfully (queue length: {})",
-                    self.len()
+                    queue_len
                 );
 
                 // Wake up the event loop immediately
@@ -139,22 +165,102 @@ impl MessageQueue {
                     // Block until space is available
                     tracing::warn!("[WARNING] [MessageQueue::push] Queue full, blocking...");
                     if let Err(e) = self.tx.send(message) {
+                        self.metrics.record_failure();
                         tracing::error!(
                             "[ERROR] [MessageQueue::push] Failed to send message: {:?}",
                             e
                         );
                     } else {
+                        self.metrics.record_send();
                         self.wake_event_loop();
                     }
                 } else {
                     // Drop the message
+                    self.metrics.record_drop();
                     tracing::error!("[ERROR] [MessageQueue::push] Queue full, dropping message!");
                 }
             }
             Err(TrySendError::Disconnected(_)) => {
+                self.metrics.record_failure();
                 tracing::error!("[ERROR] [MessageQueue::push] Channel disconnected!");
             }
         }
+    }
+
+    /// Push a message with retry logic (thread-safe)
+    ///
+    /// This method will retry sending the message if the queue is full,
+    /// using the configured retry count and delay. Failed messages are
+    /// automatically sent to the dead letter queue.
+    ///
+    /// # Returns
+    /// - `Ok(())` if the message was sent successfully
+    /// - `Err(String)` if all retry attempts failed
+    #[allow(dead_code)]
+    pub fn push_with_retry(&self, message: WebViewMessage) -> Result<(), String> {
+        let max_retries = self.config.max_retries;
+        let retry_delay = std::time::Duration::from_millis(self.config.retry_delay_ms);
+        let start_time = std::time::Instant::now();
+
+        for attempt in 0..=max_retries {
+            match self.tx.try_send(message.clone()) {
+                Ok(_) => {
+                    self.metrics.record_send();
+                    let queue_len = self.len();
+                    self.metrics.update_peak_queue_length(queue_len);
+
+                    // Record latency
+                    let latency_us = start_time.elapsed().as_micros() as u64;
+                    self.metrics.record_latency(latency_us);
+
+                    if attempt > 0 {
+                        tracing::info!(
+                            "[RETRY] Message sent successfully after {} attempts (latency: {}μs)",
+                            attempt,
+                            latency_us
+                        );
+                    }
+                    self.wake_event_loop();
+                    return Ok(());
+                }
+                Err(TrySendError::Full(_)) => {
+                    self.metrics.record_retry();
+
+                    if attempt < max_retries {
+                        tracing::warn!(
+                            "[RETRY] Queue full, attempt {}/{}, retrying in {:?}...",
+                            attempt + 1,
+                            max_retries,
+                            retry_delay
+                        );
+                        std::thread::sleep(retry_delay);
+                    } else {
+                        // Send to DLQ
+                        self.dlq.push(message, FailureReason::QueueFull, attempt);
+                        self.metrics.record_failure();
+
+                        let error_msg = format!(
+                            "Failed to send message after {} attempts: queue full",
+                            max_retries + 1
+                        );
+                        tracing::error!("[ERROR] {}", error_msg);
+                        return Err(error_msg);
+                    }
+                }
+                Err(TrySendError::Disconnected(_)) => {
+                    // Send to DLQ
+                    self.dlq
+                        .push(message, FailureReason::ChannelDisconnected, attempt);
+                    self.metrics.record_failure();
+
+                    let error_msg = "Channel disconnected".to_string();
+                    tracing::error!("[ERROR] {}", error_msg);
+                    return Err(error_msg);
+                }
+            }
+        }
+
+        Err("Unexpected retry loop exit".to_string())
     }
 
     /// Wake up the event loop
@@ -185,7 +291,11 @@ impl MessageQueue {
     ///
     /// This should be called from the WebView thread only.
     pub fn pop(&self) -> Option<WebViewMessage> {
-        self.rx.try_recv().ok()
+        let message = self.rx.try_recv().ok();
+        if message.is_some() {
+            self.metrics.record_receive();
+        }
+        message
     }
 
     /// Check if the queue is empty
@@ -219,6 +329,30 @@ impl MessageQueue {
         }
 
         count
+    }
+
+    /// Get a reference to the dead letter queue
+    #[allow(dead_code)]
+    pub fn dead_letter_queue(&self) -> &DeadLetterQueue {
+        &self.dlq
+    }
+
+    /// Get statistics about failed messages
+    #[allow(dead_code)]
+    pub fn get_dlq_stats(&self) -> super::dead_letter_queue::DeadLetterStats {
+        self.dlq.get_stats()
+    }
+
+    /// Get a reference to the metrics
+    #[allow(dead_code)]
+    pub fn metrics(&self) -> &IpcMetrics {
+        &self.metrics
+    }
+
+    /// Get a snapshot of current metrics
+    #[allow(dead_code)]
+    pub fn get_metrics_snapshot(&self) -> super::metrics::IpcMetricsSnapshot {
+        self.metrics.snapshot()
     }
 }
 

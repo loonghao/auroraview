@@ -54,6 +54,7 @@ site/
 *.tmp
 *.bak
 *.log
+launch_maya_temp.bat
 
 # OS specific
 Thumbs.db

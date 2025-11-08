@@ -20,15 +20,13 @@ class TestQtImportWithoutQt:
         import auroraview
 
         assert "QtWebView" in auroraview.__all__
-        assert "AuroraViewQt" in auroraview.__all__
 
     def test_qt_classes_always_importable(self):
         """Test that Qt classes can always be imported (even if Qt is not installed)."""
         # This should not raise ImportError
-        from auroraview import AuroraViewQt, QtWebView
+        from auroraview import QtWebView
 
         assert QtWebView is not None
-        assert AuroraViewQt is not None
 
     def test_diagnostic_variables_exist(self):
         """Test that diagnostic variables are available."""
@@ -63,24 +61,6 @@ class TestQtPlaceholderBehavior:
             assert "Qt backend is not available" in error_msg
             assert "pip install auroraview[qt]" in error_msg
 
-    def test_qt_backend_placeholder_for_auroraviewqt(self):
-        """Test that AuroraViewQt also raises helpful error when Qt is not installed."""
-        with patch.dict(sys.modules, {"auroraview.qt_integration": None}):
-            import importlib
-
-            import auroraview
-
-            importlib.reload(auroraview)
-
-            from auroraview import AuroraViewQt
-
-            with pytest.raises(ImportError) as exc_info:
-                AuroraViewQt()
-
-            error_msg = str(exc_info.value)
-            assert "Qt backend is not available" in error_msg
-            assert "pip install auroraview[qt]" in error_msg
-
     def test_error_message_includes_original_error(self):
         """Test that error message includes the original import error."""
         with patch.dict(sys.modules, {"auroraview.qt_integration": None}):
@@ -104,18 +84,16 @@ class TestNativeBackendAvailability:
 
     def test_native_backend_always_available(self):
         """Test that native backend is always available."""
-        from auroraview import NativeWebView, WebView
+        from auroraview import WebView
 
-        # These should always be importable
+        # WebView should always be importable
         assert WebView is not None
-        assert NativeWebView is not None
 
     def test_native_backend_in_all(self):
         """Test that native backend classes are in __all__."""
         import auroraview
 
         assert "WebView" in auroraview.__all__
-        assert "NativeWebView" in auroraview.__all__
 
     def test_native_backend_has_factory_methods(self):
         """Test that NativeWebView has factory methods."""
@@ -156,4 +134,3 @@ class TestQtBackendDiagnostics:
         assert isinstance(has_qt, bool)
         if not has_qt:
             assert qt_error is not None
-
