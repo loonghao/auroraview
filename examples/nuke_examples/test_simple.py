@@ -105,70 +105,38 @@ def run():
                 console.log(msg);
             }
 
-            // Debug: Check what's available immediately
-            console.log('[DEBUG] window.auroraview:', window.auroraview);
-            console.log('[DEBUG] window.ipc:', window.ipc);
-            console.log('[DEBUG] All window properties:', Object.keys(window));
+            // ✨ Simplified API - window.aurora is immediately available!
+            console.log('[AuroraView] Using simplified API');
+            console.log('[AuroraView] window.aurora:', window.aurora);
 
-            // Wait for bridge
-            let retryCount = 0;
-            const maxRetries = 100; // 10 seconds max
+            addLog('✓ Bridge ready - No waiting needed!');
+            addLog('✓ Using window.aurora API');
+            addLog('');
+            addLog('Ready to test! Click buttons above.');
 
-            function waitForBridge() {
-                retryCount++;
+            // Register listeners - no waiting needed!
+            window.aurora.on('test_response', function(data) {
+                addLog('✓ Received: ' + JSON.stringify(data, null, 2));
+            });
 
-                if (window.auroraview && window.auroraview.send_event) {
-                    addLog('✓ Bridge ready!');
-                    addLog('✓ window.auroraview.send_event: ' + typeof window.auroraview.send_event);
-                    addLog('✓ window.auroraview.on: ' + typeof window.auroraview.on);
-                    addLog('');
-                    addLog('Ready to test! Click buttons above.');
+            window.aurora.on('node_created', function(data) {
+                addLog('✓ Node created: ' + data.name + ' (' + data.class + ')');
+            });
 
-                    // Register listeners
-                    window.auroraview.on('test_response', function(data) {
-                        addLog('✓ Received: ' + JSON.stringify(data, null, 2));
-                    });
-
-                    window.auroraview.on('node_created', function(data) {
-                        addLog('✓ Node created: ' + data.name + ' (' + data.class + ')');
-                    });
-                } else {
-                    if (retryCount >= maxRetries) {
-                        addLog('✗ Bridge initialization timeout!');
-                        addLog('✗ window.auroraview not available after ' + (retryCount * 100) + 'ms');
-                        addLog('');
-                        addLog('Debug info:');
-                        addLog('  window.auroraview: ' + typeof window.auroraview);
-                        if (window.auroraview) {
-                            addLog('  window.auroraview.send_event: ' + typeof window.auroraview.send_event);
-                            addLog('  window.auroraview.on: ' + typeof window.auroraview.on);
-                        }
-                        return;
-                    }
-
-                    if (retryCount % 10 === 0) {
-                        addLog('Waiting for bridge... (' + retryCount + '/' + maxRetries + ')');
-                    }
-                    setTimeout(waitForBridge, 100);
-                }
-            }
-            
             function testIPC() {
                 addLog('→ Sending test_signal...');
-                window.auroraview.send_event('test_signal', {
+                window.aurora.emit('test_signal', {
                     message: 'Hello from JavaScript!',
                     timestamp: Date.now()
                 });
             }
-            
+
             function createNode() {
                 addLog('→ Requesting node creation...');
-                window.auroraview.send_event('test_signal', {
+                window.aurora.emit('test_signal', {
                     action: 'create_node'
                 });
             }
-            
-            waitForBridge();
         </script>
     </body>
     </html>

@@ -181,85 +181,16 @@ HTML_CONTENT = """
     </div>
     
     <script>
-        // AuroraView Signal/Slot System (Qt-style)
-        // Ensures safe event binding even if bridge isn't ready yet
-        class AuroraViewBridge {
-            constructor() {
-                this.ready = false;
-                this.pendingCalls = [];
-                this.eventHandlers = new Map();
-                this.init();
-            }
-
-            init() {
-                // Wait for AuroraView bridge to be ready
-                if (window.auroraview && window.auroraview.send_event) {
-                    this.ready = true;
-                    console.log('[AuroraView] Bridge ready');
-                    this.processPendingCalls();
-                } else {
-                    console.log('[AuroraView] Waiting for bridge...');
-                    setTimeout(() => this.init(), 50);
-                }
-            }
-
-            // Qt-style signal emission (Python → JavaScript)
-            connect(signal, slot) {
-                if (!this.eventHandlers.has(signal)) {
-                    this.eventHandlers.set(signal, []);
-                }
-                this.eventHandlers.get(signal).push(slot);
-
-                // Register with native bridge when ready
-                if (this.ready) {
-                    window.auroraview.on(signal, (data) => {
-                        this.eventHandlers.get(signal).forEach(handler => {
-                            try {
-                                handler(data);
-                            } catch (e) {
-                                console.error(`[AuroraView] Error in slot for signal '${signal}':`, e);
-                            }
-                        });
-                    });
-                }
-
-                console.log(`[AuroraView] Connected slot to signal: ${signal}`);
-            }
-
-            // Qt-style slot invocation (JavaScript → Python)
-            emit(signal, data = {}) {
-                if (this.ready) {
-                    try {
-                        window.auroraview.send_event(signal, data);
-                        console.log(`[AuroraView] Emitted signal: ${signal}`, data);
-                    } catch (e) {
-                        console.error(`[AuroraView] Error emitting signal '${signal}':`, e);
-                    }
-                } else {
-                    console.log(`[AuroraView] Queuing signal: ${signal}`);
-                    this.pendingCalls.push({ signal, data });
-                }
-            }
-
-            processPendingCalls() {
-                console.log(`[AuroraView] Processing ${this.pendingCalls.length} pending calls`);
-                this.pendingCalls.forEach(({ signal, data }) => {
-                    this.emit(signal, data);
-                });
-                this.pendingCalls = [];
-            }
-        }
-
-        // Global bridge instance
-        const bridge = new AuroraViewBridge();
+        // ✨ Simplified API - No bridge waiting needed!
+        // window.aurora is immediately available
 
         // User-friendly API
         function createNode(type) {
-            bridge.emit('create_node', { type: type });
+            window.aurora.emit('create_node', { type: type });
         }
 
         function getGraphInfo() {
-            bridge.emit('get_graph_info', {});
+            window.aurora.emit('get_graph_info', {});
         }
 
         function showStatus(message, isError = false) {
@@ -270,8 +201,8 @@ HTML_CONTENT = """
             setTimeout(() => status.style.display = 'none', 3000);
         }
 
-        // Connect signals to slots (Qt-style)
-        bridge.connect('node_created', (data) => {
+        // Register event listeners (Qt-style)
+        window.aurora.on('node_created', (data) => {
             if (data.error) {
                 showStatus('Error: ' + data.error, true);
             } else {
@@ -279,7 +210,7 @@ HTML_CONTENT = """
             }
         });
 
-        bridge.connect('graph_info', (data) => {
+        window.aurora.on('graph_info', (data) => {
             if (data.error) {
                 showStatus('Error: ' + data.error, true);
             } else {
@@ -287,7 +218,7 @@ HTML_CONTENT = """
             }
         });
 
-        console.log('[AuroraView] UI initialized');
+        console.log('[AuroraView] ✓ UI initialized - using simplified API');
     </script>
 </body>
 </html>

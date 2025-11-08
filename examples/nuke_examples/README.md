@@ -2,6 +2,36 @@
 
 This directory contains examples for integrating AuroraView with Foundry Nuke.
 
+## ✨ New Simplified API
+
+All examples now use the **simplified API** with **zero delay**!
+
+- ✅ **No bridge waiting** - `window.aurora` is immediately available
+- ✅ **No external files** - Everything built-in
+- ✅ **Qt-style API** - Familiar `emit()` / `on()` syntax
+- ✅ **Zero learning curve** - Just use `window.aurora.emit()` and `window.aurora.on()`
+
+**Old way (deprecated)**:
+```javascript
+// ❌ Complex - needed waiting logic
+function waitForBridge() {
+    if (window.auroraview) {
+        window.auroraview.send_event('test', {});
+    } else {
+        setTimeout(waitForBridge, 100);
+    }
+}
+```
+
+**New way (recommended)**:
+```javascript
+// ✅ Simple - works immediately!
+window.aurora.emit('test', {});
+window.aurora.on('response', (data) => { ... });
+```
+
+See [SIMPLIFIED_API.md](SIMPLIFIED_API.md) for complete documentation.
+
 ## 🚀 Quick Start
 
 ### Prerequisites
