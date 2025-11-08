@@ -232,22 +232,122 @@ webview = WebView.create(
 webview.show()
 ```
 
-### Event Communication
+### Signal/Slot System (Qt-Style)
 
-**Python → JavaScript:**
+AuroraView uses a **Qt-inspired signal/slot mechanism** for bidirectional communication between Python and JavaScript. This provides:
+
+- ✅ **Type-safe** event binding
+- ✅ **Automatic queueing** if bridge isn't ready
+- ✅ **Error handling** for each slot
+- ✅ **Familiar API** for Qt developers
+
+#### Python Side (Slots)
+
+**Register event handlers (slots):**
 ```python
-@webview.on("create_node")
-def handle_create_node(data):
+@webview.on("create_node")  # Signal name
+def handle_create_node(data):  # Slot function
+    """Handle create_node signal from JavaScript."""
     node_type = data.get("type", "Grade")
+
     # Create node in Nuke
     import nuke
     node = nuke.createNode(node_type)
-    
-    # Send response back
+
+    # Emit response signal
     webview.emit("node_created", {
         "name": node.name(),
         "class": node.Class()
     })
+```
+
+**Emit signals to JavaScript:**
+```python
+# Send data to JavaScript
+webview.emit("signal_name", {"key": "value"})
+```
+
+#### JavaScript Side (Signals & Slots)
+
+**AuroraViewBridge Class:**
+
+The example includes a robust `AuroraViewBridge` class that handles:
+- Automatic initialization waiting
+- Pending call queueing
+- Error handling
+- Qt-style API
+
+**Emit signals to Python:**
+```javascript
+// Create global bridge instance
+const bridge = new AuroraViewBridge();
+
+// Emit signal (JavaScript → Python)
+bridge.emit('create_node', { type: 'Grade' });
+```
+
+**Connect slots to signals:**
+```javascript
+// Connect slot to signal (Python → JavaScript)
+bridge.connect('node_created', (data) => {
+    if (data.error) {
+        console.error('Error:', data.error);
+    } else {
+        console.log(`Created ${data.class} node: ${data.name}`);
+    }
+});
+```
+
+**Complete Example:**
+```javascript
+// Initialize bridge
+const bridge = new AuroraViewBridge();
+
+// Connect response handlers (slots)
+bridge.connect('node_created', (data) => {
+    showStatus(`✅ Created ${data.class} node: ${data.name}`);
+});
+
+bridge.connect('graph_info', (data) => {
+    showStatus(`Graph: ${data.total_nodes} nodes`);
+});
+
+// Emit signals to Python
+function createNode(type) {
+    bridge.emit('create_node', { type: type });
+}
+
+function getGraphInfo() {
+    bridge.emit('get_graph_info', {});
+}
+```
+
+#### Benefits Over Direct API
+
+**❌ Old way (error-prone):**
+```javascript
+// May fail if bridge not ready
+window.auroraview.send_event('create_node', { type: 'Grade' });
+
+// No error handling
+window.auroraview.on('node_created', (data) => {
+    console.log(data.name);  // May throw if data is undefined
+});
+```
+
+**✅ New way (robust):**
+```javascript
+// Automatically queues if not ready
+bridge.emit('create_node', { type: 'Grade' });
+
+// Built-in error handling
+bridge.connect('node_created', (data) => {
+    if (data.error) {
+        console.error(data.error);
+    } else {
+        console.log(data.name);
+    }
+});
 ```
 
 **JavaScript → Python:**
