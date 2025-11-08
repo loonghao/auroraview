@@ -220,7 +220,12 @@ HTML_CONTENT = """
 
 
 def show():
-    """Show the Nuke panel."""
+    """Show the Nuke panel.
+
+    Note: When closing the window, you may see Qt-related warnings from Nuke/Hiero's
+    status bar. These are harmless and can be safely ignored. They occur because
+    Nuke's UI tries to update after the WebView window is closed.
+    """
     if not AURORAVIEW_AVAILABLE:
         print("\n" + "="*60)
         print("ERROR: AuroraView is not installed!")
@@ -235,6 +240,12 @@ def show():
     if not NUKE_AVAILABLE:
         print("Warning: Nuke module not available. Some features may not work.")
 
+    # Suppress Qt warnings during window close
+    # These warnings come from Nuke/Hiero's status bar trying to update
+    # after the window is closed, and are harmless
+    import warnings
+    warnings.filterwarnings('ignore', category=RuntimeWarning, message='.*Internal C\\+\\+ object.*already deleted.*')
+
     # Create WebView
     webview = WebView.create(
         title="Nuke Panel", html=HTML_CONTENT, width=650, height=500, debug=True
@@ -243,16 +254,28 @@ def show():
     # Register event handlers
     @webview.on("create_node")
     def handle_create_node(data):
-        result = create_node(data.get("type", "Grade"))
-        webview.emit("node_created", result)
+        try:
+            result = create_node(data.get("type", "Grade"))
+            webview.emit("node_created", result)
+        except Exception as e:
+            print(f"Error creating node: {e}")
+            webview.emit("node_created", {"error": str(e)})
 
     @webview.on("get_graph_info")
     def handle_graph_info(data):
-        result = get_graph_info()
-        webview.emit("graph_info", result)
+        try:
+            result = get_graph_info()
+            webview.emit("graph_info", result)
+        except Exception as e:
+            print(f"Error getting graph info: {e}")
+            webview.emit("graph_info", {"error": str(e)})
 
     # Show the window
-    webview.show()
+    try:
+        webview.show()
+    except Exception as e:
+        print(f"Error showing WebView: {e}")
+        return None
 
     return webview
 
