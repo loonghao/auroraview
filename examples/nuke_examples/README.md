@@ -10,7 +10,7 @@ This directory contains examples for integrating AuroraView with Foundry Nuke.
 
 ### Example 01: Basic Panel
 
-**File**: `01_basic_panel.py`
+**File**: `basic_panel.py`
 
 Creates a basic panel that integrates with Nuke's node graph.
 
@@ -33,8 +33,8 @@ import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
 
 # Import and run
-import nuke.01_basic_panel as example
-example.show()
+from nuke_examples import basic_panel
+basic_panel.show()
 ```
 
 ### Method 2: Add to Menu
@@ -49,8 +49,8 @@ examples_dir = Path(r'C:\path\to\dcc_webview\examples')
 sys.path.insert(0, str(examples_dir))
 
 # Add menu item
-import nuke.01_basic_panel as example
-nuke.menu('Nuke').addCommand('AuroraView/Basic Panel', example.show)
+from nuke_examples import basic_panel
+nuke.menu('Nuke').addCommand('AuroraView/Basic Panel', basic_panel.show)
 ```
 
 ## 🎨 Features Demonstrated

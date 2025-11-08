@@ -6,7 +6,7 @@ This directory contains examples demonstrating how to use AuroraView in Blender.
 
 ### Example 01: Basic Window
 
-**File**: `01_basic_window.py`
+**File**: `basic_window.py`
 
 Basic standalone window example with HTML content.
 
@@ -19,13 +19,13 @@ from pathlib import Path
 examples_dir = Path(r'C:\path\to\dcc_webview\examples')
 sys.path.insert(0, str(examples_dir))
 
-import blender.01_basic_window as example
-example.show()
+from blender_examples import basic_window
+basic_window.show()
 ```
 
 ### Example 02: Modal Operator ⭐ **RECOMMENDED**
 
-**File**: `02_modal_operator.py`
+**File**: `modal_operator.py`
 
 Production-ready solution using Blender's modal operator pattern for non-blocking UI.
 
@@ -44,8 +44,8 @@ from pathlib import Path
 examples_dir = Path(r'C:\path\to\dcc_webview\examples')
 sys.path.insert(0, str(examples_dir))
 
-import blender.02_modal_operator as example
-example.show()
+from blender_examples import modal_operator
+modal_operator.show()
 ```
 
 ## 📖 How It Works

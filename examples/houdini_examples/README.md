@@ -10,7 +10,7 @@ This directory contains examples for integrating AuroraView with SideFX Houdini.
 
 ### Example 01: Basic Shelf Tool
 
-**File**: `01_basic_shelf.py`
+**File**: `basic_shelf.py`
 
 Creates a basic shelf tool that opens a WebView panel in Houdini.
 
@@ -32,8 +32,8 @@ import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
 
 # Import and run
-import houdini.01_basic_shelf as example
-example.show()
+from houdini_examples import basic_shelf
+basic_shelf.show()
 ```
 
 ### Method 2: Add to Shelf
@@ -49,8 +49,8 @@ examples_dir = Path(r'C:\path\to\dcc_webview\examples')
 sys.path.insert(0, str(examples_dir))
 
 # Import and run
-import houdini.01_basic_shelf as example
-example.show()
+from houdini_examples import basic_shelf
+basic_shelf.show()
 ```
 
 ## 🎨 Features Demonstrated

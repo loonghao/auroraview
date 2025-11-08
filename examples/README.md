@@ -19,22 +19,22 @@ examples/
 ├── test_baidu_maya.py            # Maya: Baidu test
 ├── test_maya_remote_url.py       # Maya: Remote URL testing
 ├── test_public_urls.py           # Public URL testing
-├── blender/                       # Blender examples
+├── blender_examples/              # Blender examples
 │   ├── README.md
-│   ├── 01_basic_window.py
-│   └── 02_modal_operator.py      # ⭐ Recommended
-├── maya/                          # Maya examples
+│   ├── basic_window.py
+│   └── modal_operator.py         # ⭐ Recommended
+├── maya_examples/                 # Maya examples
 │   ├── README.md
-│   ├── 01_basic_integration.py
-│   ├── 02_outliner_native.py
-│   ├── 03_qt_integration.py
+│   ├── basic_integration.py
+│   ├── outliner_native.py
+│   ├── qt_integration.py
 │   └── test_close_fix.py
-├── houdini/                       # Houdini examples
+├── houdini_examples/              # Houdini examples
 │   ├── README.md
-│   └── 01_basic_shelf.py         # ⭐ New!
-├── nuke/                          # Nuke examples
+│   └── basic_shelf.py            # ⭐ New!
+├── nuke_examples/                 # Nuke examples
 │   ├── README.md
-│   └── 01_basic_panel.py         # ⭐ New!
+│   └── basic_panel.py            # ⭐ New!
 └── maya-outliner/                 # Advanced Maya project
     └── ...
 ```
@@ -46,8 +46,8 @@ examples/
 # In Blender Script Editor
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
-import blender.02_modal_operator as example
-example.show()
+from blender_examples import modal_operator
+modal_operator.show()
 ```
 
 ### Maya
@@ -55,8 +55,8 @@ example.show()
 # In Maya Script Editor
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
-import maya.01_basic_integration as example
-example.show()
+from maya_examples import basic_integration
+basic_integration.show()
 ```
 
 ### Houdini
@@ -64,8 +64,8 @@ example.show()
 # In Houdini Python Shell
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
-import houdini.01_basic_shelf as example
-example.show()
+from houdini_examples import basic_shelf
+basic_shelf.show()
 ```
 
 ### Nuke
@@ -73,8 +73,8 @@ example.show()
 # In Nuke Script Editor
 import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
-import nuke.01_basic_panel as example
-example.show()
+from nuke_examples import basic_panel
+basic_panel.show()
 ```
 
 ## 📚 Example Categories
@@ -94,19 +94,19 @@ Basic examples that run without DCC software:
 ### 🎨 DCC Integration Examples
 
 #### Blender
-- **01_basic_window.py** - Basic window (blocking mode)
-- **02_modal_operator.py** ⭐ - Modal operator (non-blocking, recommended)
+- **basic_window.py** - Basic window (blocking mode)
+- **modal_operator.py** ⭐ - Modal operator (non-blocking, recommended)
 
 #### Maya
-- **01_basic_integration.py** - Native backend integration
-- **02_outliner_native.py** - Scene outliner with real-time updates
-- **03_qt_integration.py** - Qt backend integration
+- **basic_integration.py** - Native backend integration
+- **outliner_native.py** - Scene outliner with real-time updates
+- **qt_integration.py** - Qt backend integration
 
 #### Houdini ⭐ New!
-- **01_basic_shelf.py** - Basic shelf tool with node creation
+- **basic_shelf.py** - Basic shelf tool with node creation
 
 #### Nuke ⭐ New!
-- **01_basic_panel.py** - Basic panel with node graph integration
+- **basic_panel.py** - Basic panel with node graph integration
 
 ## 🎨 Features Demonstrated
 
@@ -143,10 +143,10 @@ Learn the basics without DCC software:
 
 ### 2. Explore DCC Integration
 Choose your DCC application:
-- **Blender**: Start with `blender/02_modal_operator.py`
-- **Maya**: Start with `maya/01_basic_integration.py`
-- **Houdini**: Start with `houdini/01_basic_shelf.py`
-- **Nuke**: Start with `nuke/01_basic_panel.py`
+- **Blender**: Start with `blender_examples/modal_operator.py`
+- **Maya**: Start with `maya_examples/basic_integration.py`
+- **Houdini**: Start with `houdini_examples/basic_shelf.py`
+- **Nuke**: Start with `nuke_examples/basic_panel.py`
 
 ### 3. Advanced Topics
 - `05_third_party_site_injection.py` - JavaScript injection
@@ -188,13 +188,27 @@ import sys
 sys.path.insert(0, r'C:\path\to\dcc_webview\examples')
 ```
 
+### Module Name Conflicts
+**Problem**: Directory names like `nuke/`, `houdini/`, `maya/` conflict with DCC's own Python APIs.
+
+**Solution**: We use `*_examples` naming to avoid conflicts:
+- ✅ `from nuke_examples import basic_panel`
+- ❌ `import nuke.basic_panel` (conflicts with Nuke's API)
+
+### Invalid Module Names
+**Problem**: Files starting with numbers (e.g., `01_basic.py`) can't be imported directly.
+
+**Solution**: Use descriptive names without number prefixes:
+- ✅ `from nuke_examples import basic_panel`
+- ❌ `import nuke_examples.01_basic_panel` (SyntaxError)
+
 ### WebView Doesn't Appear
 - Check Python version: `import sys; print(sys.version)`
 - Verify AuroraView is installed: `pip list | grep auroraview`
 - Check console for error messages
 
 ### DCC Freezes
-- Use non-blocking examples (e.g., `blender/02_modal_operator.py`)
+- Use non-blocking examples (e.g., `blender_examples/modal_operator.py`)
 - Don't use blocking mode in DCC applications
 
 ## 📖 See Also
