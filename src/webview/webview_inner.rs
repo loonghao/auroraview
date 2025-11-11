@@ -209,7 +209,7 @@ impl WebViewInner {
 
         Ok(Self {
             webview,
-            window: None, // Window is owned by backend
+            window: None,     // Window is owned by backend
             event_loop: None, // Event loop is owned by backend
             message_queue,
             event_loop_proxy: None,

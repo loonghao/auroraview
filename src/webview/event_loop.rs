@@ -490,7 +490,6 @@ mod tests {
     }
 }
 
-
 #[cfg(test)]
 mod poll_tests {
     use super::*;
@@ -505,7 +504,9 @@ mod poll_tests {
         let mut event_loop: EventLoop<UserEvent> = {
             let mut b = EventLoopBuilder::<UserEvent>::with_user_event();
             #[cfg(windows)]
-            { b.with_any_thread(true); }
+            {
+                b.with_any_thread(true);
+            }
             b.build()
         };
         let q = Arc::new(MessageQueue::new());
@@ -534,7 +535,9 @@ mod poll_tests {
         let mut event_loop: EventLoop<UserEvent> = {
             let mut b = EventLoopBuilder::<UserEvent>::with_user_event();
             #[cfg(windows)]
-            { b.with_any_thread(true); }
+            {
+                b.with_any_thread(true);
+            }
             b.build()
         };
         let q = Arc::new(MessageQueue::new());
@@ -555,5 +558,3 @@ mod poll_tests {
         assert!(state.lock().unwrap().should_exit());
     }
 }
-
-

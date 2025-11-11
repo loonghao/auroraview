@@ -2,12 +2,12 @@
 //!
 //! Exposes service discovery functionality to Python via PyO3.
 
-use super::{PortAllocator, MdnsService, HttpDiscovery, ServiceInfo as RustServiceInfo};
+use super::{HttpDiscovery, MdnsService, PortAllocator, ServiceInfo as RustServiceInfo};
+use parking_lot::Mutex;
 use pyo3::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::Mutex;
-use tracing::{info, error};
+use tracing::{error, info};
 
 /// Python-exposed service information
 #[pyclass(name = "ServiceInfo")]
@@ -89,13 +89,16 @@ impl PyServiceDiscovery {
         enable_mdns: bool,
         _service_name: &str,
     ) -> PyResult<Self> {
-        info!("Creating ServiceDiscovery (bridge_port={}, discovery_port={}, mdns={})",
-              bridge_port, discovery_port, enable_mdns);
+        info!(
+            "Creating ServiceDiscovery (bridge_port={}, discovery_port={}, mdns={})",
+            bridge_port, discovery_port, enable_mdns
+        );
 
         // Allocate port if needed
         let port_allocator = PortAllocator::default();
         let actual_bridge_port = if bridge_port == 0 {
-            port_allocator.find_free_port()
+            port_allocator
+                .find_free_port()
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?
         } else {
             bridge_port
@@ -138,7 +141,11 @@ impl PyServiceDiscovery {
     ///
     /// Args:
     ///     metadata: Optional metadata dict for mDNS
-    fn start(&self, py: Python, metadata: Option<&Bound<'_, pyo3::types::PyDict>>) -> PyResult<()> {
+    fn start(
+        &self,
+        _py: Python,
+        metadata: Option<&Bound<'_, pyo3::types::PyDict>>,
+    ) -> PyResult<()> {
         info!("Starting service discovery");
 
         // Start HTTP discovery in background thread
@@ -174,14 +181,15 @@ impl PyServiceDiscovery {
                 for item in meta.items() {
                     if let (Ok(k), Ok(v)) = (
                         item.get_item(0).and_then(|k| k.extract::<String>()),
-                        item.get_item(1).and_then(|v| v.extract::<String>())
+                        item.get_item(1).and_then(|v| v.extract::<String>()),
                     ) {
                         props.insert(k, v);
                     }
                 }
             }
 
-            mdns.lock().register("AuroraView", self.bridge_port, props)
+            mdns.lock()
+                .register("AuroraView", self.bridge_port, props)
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
         }
 
@@ -195,13 +203,15 @@ impl PyServiceDiscovery {
 
         // Stop HTTP discovery
         if let Some(http) = &self.http_discovery {
-            http.lock().stop()
+            http.lock()
+                .stop()
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
         }
 
         // Stop mDNS
         if let Some(mdns) = &self.mdns_service {
-            mdns.lock().unregister()
+            mdns.lock()
+                .unregister()
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
         }
 
@@ -219,13 +229,15 @@ impl PyServiceDiscovery {
     #[pyo3(signature = (timeout_secs=5))]
     fn discover_services(&self, timeout_secs: u64) -> PyResult<Vec<PyServiceInfo>> {
         if let Some(mdns) = &self.mdns_service {
-            let services = mdns.lock().discover(timeout_secs)
+            let services = mdns
+                .lock()
+                .discover(timeout_secs)
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
             Ok(services.into_iter().map(PyServiceInfo::from).collect())
         } else {
             Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                "mDNS is not enabled"
+                "mDNS is not enabled",
             ))
         }
     }
@@ -235,7 +247,8 @@ impl PyServiceDiscovery {
     /// Returns:
     ///     Available port number
     fn find_free_port(&self) -> PyResult<u16> {
-        self.port_allocator.find_free_port()
+        self.port_allocator
+            .find_free_port()
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
@@ -266,8 +279,6 @@ pub fn register_service_discovery(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,9 +289,18 @@ mod tests {
     fn test_new_no_mdns_sets_fields_and_ports() {
         // bridge_port = 0 auto-allocates; discovery_port = 0 (ephemeral when started)
         let sd = PyServiceDiscovery::new(0, 0, false, "AuroraView").expect("new() should succeed");
-        assert!(!sd.mdns_enabled, "mdns should be disabled when enable_mdns=false");
-        assert!(sd.bridge_port > 0 && sd.bridge_port <= 65535, "bridge_port should be a valid port");
-        assert_eq!(sd.discovery_port, 0, "discovery_port should be kept as provided (0)");
+        assert!(
+            !sd.mdns_enabled,
+            "mdns should be disabled when enable_mdns=false"
+        );
+        assert!(
+            sd.bridge_port > 0 && sd.bridge_port <= 65535,
+            "bridge_port should be a valid port"
+        );
+        assert_eq!(
+            sd.discovery_port, 0,
+            "discovery_port should be kept as provided (0)"
+        );
     }
 
     #[test]
@@ -298,8 +318,8 @@ mod tests {
 
     #[test]
     fn test_register_service_discovery_module() {
-        Python::with_gil(|py| {
-            let m = pyo3::types::PyModule::new_bound(py, "svc").unwrap();
+        pyo3::Python::with_gil(|py| {
+            let m = pyo3::types::PyModule::new(py, "svc").unwrap();
             super::register_service_discovery(&m).expect("register should succeed");
             assert!(m.getattr("ServiceDiscovery").is_ok());
             assert!(m.getattr("ServiceInfo").is_ok());
@@ -311,7 +331,8 @@ mod tests {
         // Do not enable mDNS; discovery_port = 0 so OS assigns a free port
         let sd = PyServiceDiscovery::new(0, 0, false, "AuroraView").expect("new() should succeed");
         Python::with_gil(|py| {
-            sd.start(py, None).expect("start should succeed without mDNS");
+            sd.start(py, None)
+                .expect("start should succeed without mDNS");
         });
         // Give the background runtime a brief moment
         std::thread::sleep(Duration::from_millis(50));
@@ -319,23 +340,23 @@ mod tests {
     }
 }
 
-    #[test]
-    fn test_new_with_mdns_enabled_does_not_panic() {
-        // On environments without mDNS backend, this should still succeed and set mdns_enabled accordingly
-        let sd = PyServiceDiscovery::new(0, 0, true, "AuroraView").expect("new() with mdns should not panic");
-        // mdns_enabled may be true or false depending on platform support; just assert fields are sane
-        assert!(sd.bridge_port > 0 && sd.bridge_port <= 65535);
-    }
+#[test]
+fn test_new_with_mdns_enabled_does_not_panic() {
+    // On environments without mDNS backend, this should still succeed and set mdns_enabled accordingly
+    let sd = PyServiceDiscovery::new(0, 0, true, "AuroraView")
+        .expect("new() with mdns should not panic");
+    // mdns_enabled may be true or false depending on platform support; just assert fields are sane
+    assert!(sd.bridge_port > 0 && sd.bridge_port <= 65535);
+}
 
-    #[test]
-    fn test_discover_services_without_mdns_errors() {
-        let sd = PyServiceDiscovery::new(0, 0, false, "AuroraView").expect("new() should succeed");
-        match sd.discover_services(1) {
-            Err(e) => {
-                let msg = e.to_string();
-                assert!(msg.contains("mDNS is not enabled"));
-            }
-            Ok(v) => panic!("expected error, got {} entries", v.len()),
+#[test]
+fn test_discover_services_without_mdns_errors() {
+    let sd = PyServiceDiscovery::new(0, 0, false, "AuroraView").expect("new() should succeed");
+    match sd.discover_services(1) {
+        Err(e) => {
+            let msg = e.to_string();
+            assert!(msg.contains("mDNS is not enabled"));
         }
+        Ok(v) => panic!("expected error, got {} entries", v.len()),
     }
-
+}

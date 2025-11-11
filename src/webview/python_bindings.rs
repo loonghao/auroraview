@@ -98,33 +98,32 @@ mod tests {
     }
 }
 
-    #[test]
-    fn test_py_dict_to_json_nested_and_edge_types() {
-        Python::with_gil(|py| {
-            let dict = PyDict::new(py);
-            let inner = PyDict::new(py);
-            inner.set_item("nested", 3).unwrap();
-            let list = pyo3::types::PyList::empty_bound(py);
-            list.append(1).unwrap();
-            list.append(2).unwrap();
-            list.append("x").unwrap();
-            list.append(true).unwrap();
-            list.append(py.None()).unwrap();
-            list.append(inner.as_any()).unwrap();
-            dict.set_item("list", list).unwrap();
+#[test]
+fn test_py_dict_to_json_nested_and_edge_types() {
+    Python::with_gil(|py| {
+        let dict = PyDict::new(py);
+        let inner = PyDict::new(py);
+        inner.set_item("nested", 3).unwrap();
+        let list = pyo3::types::PyList::empty(py);
+        list.append(1).unwrap();
+        list.append(2).unwrap();
+        list.append("x").unwrap();
+        list.append(true).unwrap();
+        list.append(py.None()).unwrap();
+        list.append(inner.as_any()).unwrap();
+        dict.set_item("list", list).unwrap();
 
-            // Add unsupported type (tuple) → falls back to string
-            let tuple = pyo3::types::PyTuple::new_bound(py, [1, 2, 3]);
-            dict.set_item("tuple", tuple).unwrap();
+        // Add unsupported type (tuple) → falls back to string
+        let tuple = pyo3::types::PyTuple::new(py, [1, 2, 3]).unwrap();
+        dict.set_item("tuple", &tuple).unwrap();
 
-            let json = py_dict_to_json(&dict).unwrap();
-            assert_eq!(json["list"][0], 1);
-            assert_eq!(json["list"][2], "x");
-            assert_eq!(json["list"][3], true);
-            assert!(json["list"][4].is_null());
-            assert_eq!(json["list"][5]["nested"], 3);
-            // Tuple serialized via Display to string like "(1, 2, 3)"
-            assert!(json["tuple"].is_string());
-        });
-    }
-
+        let json = py_dict_to_json(&dict).unwrap();
+        assert_eq!(json["list"][0], 1);
+        assert_eq!(json["list"][2], "x");
+        assert_eq!(json["list"][3], true);
+        assert!(json["list"][4].is_null());
+        assert_eq!(json["list"][5]["nested"], 3);
+        // Tuple serialized via Display to string like "(1, 2, 3)"
+        assert!(json["tuple"].is_string());
+    });
+}

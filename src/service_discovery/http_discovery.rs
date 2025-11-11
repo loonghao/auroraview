@@ -8,8 +8,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
+use tracing::{debug, error, info};
 use warp::Filter;
-use tracing::{debug, info, error};
 
 /// Discovery response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,7 +67,10 @@ impl HttpDiscovery {
             return Ok(());
         }
 
-        info!("Starting HTTP discovery server on port {}", self.discovery_port);
+        info!(
+            "Starting HTTP discovery server on port {}",
+            self.discovery_port
+        );
 
         let bridge_port = self.bridge_port;
         let discovery_port = self.discovery_port;
@@ -90,12 +93,10 @@ impl HttpDiscovery {
 
         // Create routes
         let response_clone = response.clone();
-        let discover = warp::path("discover")
-            .and(warp::get())
-            .map(move || {
-                debug!("Discovery request received");
-                warp::reply::json(&*response_clone)
-            });
+        let discover = warp::path("discover").and(warp::get()).map(move || {
+            debug!("Discovery request received");
+            warp::reply::json(&*response_clone)
+        });
 
         // Add CORS for UXP plugins
         let cors = warp::cors()
@@ -110,10 +111,9 @@ impl HttpDiscovery {
 
         let (addr_tx, addr_rx) = oneshot::channel();
 
-        let server = warp::serve(routes)
-            .bind_with_graceful_shutdown(addr, async {
-                shutdown_rx.await.ok();
-            });
+        let server = warp::serve(routes).bind_with_graceful_shutdown(addr, async {
+            shutdown_rx.await.ok();
+        });
 
         // Spawn server task
         let handle = tokio::spawn(async move {
@@ -126,7 +126,10 @@ impl HttpDiscovery {
 
         // Wait for server to start
         if let Ok(actual_addr) = addr_rx.await {
-            info!("✅ HTTP discovery server started at http://{}/discover", actual_addr);
+            info!(
+                "✅ HTTP discovery server started at http://{}/discover",
+                actual_addr
+            );
         }
 
         Ok(())
@@ -163,13 +166,11 @@ impl Drop for HttpDiscovery {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hyper::{Client, body::to_bytes};
     use hyper::client::HttpConnector;
+    use hyper::{body::to_bytes, Client};
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_http_discovery_start_stop_and_request() {
@@ -197,7 +198,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_http_discovery_double_start_and_double_stop_are_safe() {
         let mut server = HttpDiscovery::new(0, 9102); // 0 → OS-assign port
-        // First start
+                                                      // First start
         server.start().await.expect("first start ok");
         assert!(server.is_running());
         // Second start should be a no-op and Ok
@@ -210,7 +211,6 @@ mod tests {
         server.stop().expect("second stop ok");
         assert!(!server.is_running());
     }
-
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_http_discovery_unknown_path_returns_404() {
@@ -238,10 +238,7 @@ mod tests {
         server.start().await.expect("start ok");
         assert!(server.is_running());
         drop(server); // should invoke Drop::drop -> stop()
-        // Allow a short moment for graceful shutdown
+                      // Allow a short moment for graceful shutdown
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
-
-
-
 }
