@@ -102,9 +102,48 @@ except ImportError:
     close_window_by_hwnd = None  # type: ignore
     destroy_window_by_hwnd = None  # type: ignore
 
-from .decorators import on_event
 from .event_timer import EventTimer
 from .webview import WebView
+
+# Bridge for DCC integration (optional - requires websockets)
+_BRIDGE_IMPORT_ERROR = None
+try:
+    from .bridge import Bridge
+except ImportError as e:
+    _BRIDGE_IMPORT_ERROR = str(e)
+
+    # Create placeholder class that raises helpful error
+    class Bridge:  # type: ignore
+        """Bridge placeholder - websockets not available."""
+
+        def __init__(self, *_args, **_kwargs):
+            raise ImportError(
+                "Bridge requires websockets library. "
+                "Install with: pip install websockets\n"
+                f"Original error: {_BRIDGE_IMPORT_ERROR}"
+            )
+
+# Service Discovery (optional - requires Rust core)
+_SERVICE_DISCOVERY_IMPORT_ERROR = None
+try:
+    from ._core import ServiceDiscovery, ServiceInfo
+except ImportError as e:
+    _SERVICE_DISCOVERY_IMPORT_ERROR = str(e)
+
+    # Create placeholder classes
+    class ServiceDiscovery:  # type: ignore
+        """ServiceDiscovery placeholder - Rust core not available."""
+
+        def __init__(self, *_args, **_kwargs):
+            raise ImportError(
+                "ServiceDiscovery requires Rust core module. "
+                "Rebuild the package with: pip install -e .\n"
+                f"Original error: {_SERVICE_DISCOVERY_IMPORT_ERROR}"
+            )
+
+    class ServiceInfo:  # type: ignore
+        """ServiceInfo placeholder - Rust core not available."""
+        pass
 
 # Qt backend is optional
 _QT_IMPORT_ERROR = None
@@ -124,14 +163,25 @@ except ImportError as e:
                 f"Original error: {_QT_IMPORT_ERROR}"
             )
 
+# Public flags for test/diagnostics
+_HAS_QT = _QT_IMPORT_ERROR is None
+
+# Backward-compatibility alias
+AuroraViewQt = QtWebView
+
 
 __all__ = [
     # Base class
     "WebView",
     # Qt backend (may raise ImportError if not installed)
     "QtWebView",
+    "AuroraViewQt",
+    # Bridge for DCC integration (may raise ImportError if websockets not installed)
+    "Bridge",
+    # Service Discovery (may raise ImportError if Rust core not available)
+    "ServiceDiscovery",
+    "ServiceInfo",
     # Utilities
-    "on_event",
     "EventTimer",
     # Window utilities
     "WindowInfo",
