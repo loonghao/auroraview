@@ -10,6 +10,8 @@
 
 A blazingly fast, lightweight WebView framework for DCC (Digital Content Creation) software, built with Rust and Python bindings. Perfect for Maya, 3ds Max, Houdini, Blender, and more.
 
+> **⚠️ Development Status**: This project is under active development. APIs may change before v1.0.0 release. The project has not been extensively tested on Linux and macOS platforms.
+
 ## [TARGET] Overview
 
 AuroraView provides a modern web-based UI solution for professional DCC applications like Maya, 3ds Max, Houdini, Blender, Photoshop, and Unreal Engine. Built on Rust's Wry library with PyO3 bindings, it offers native performance with minimal overhead.
@@ -317,8 +319,6 @@ webview.show()
 # WebView will automatically close when parent window is destroyed
 ```
 
-See [examples/04_parent_lifecycle_demo.py](./examples/04_parent_lifecycle_demo.py) for a complete example.
-
 #### Third-Party Website Integration
 
 Inject JavaScript into third-party websites and establish bidirectional communication:
@@ -372,8 +372,6 @@ webview.eval_js(injection_script)
 webview.show()
 ```
 
-See [examples/05_third_party_site_injection.py](./examples/05_third_party_site_injection.py) and [examples/06_ai_chat_integration.py](./examples/06_ai_chat_integration.py) for complete examples.
-
 For detailed guide, see [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEGRATION.md).
 
 ## [DOCS] Documentation
@@ -395,12 +393,14 @@ For detailed guide, see [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEG
 
 | DCC Software | Status | Python Version | Example |
 |--------------|--------|----------------|---------|
-| Maya | [OK] Supported | 3.7+ | [example](./examples/maya/) |
+| Maya | [OK] Supported | 3.7+ | [Maya Outliner Example](https://github.com/loonghao/auroraview-maya-outliner) |
 | 3ds Max | [OK] Supported | 3.7+ | - |
-| Houdini | [OK] Supported | 3.7+ | [example](./examples/houdini/) |
-| Blender | [OK] Supported | 3.7+ | [example](./examples/blender/) |
+| Houdini | [OK] Supported | 3.7+ | - |
+| Blender | [OK] Supported | 3.7+ | - |
 | Photoshop | [CONSTRUCTION] Planned | 3.7+ | - |
 | Unreal Engine | [CONSTRUCTION] Planned | 3.7+ | - |
+
+> **📚 Examples**: For a complete working example, check out the [Maya Outliner Example](https://github.com/loonghao/auroraview-maya-outliner) - a modern, web-based Maya Outliner built with AuroraView, Vue 3, and TypeScript.
 
 ## [TOOLS] Development
 
@@ -440,7 +440,6 @@ pytest tests/
 auroraview/
 ├── src/                    # Rust core library
 ├── python/                 # Python bindings
-├── examples/               # DCC integration examples
 ├── tests/                  # Test suites
 ├── docs/                   # Documentation
 └── benches/                # Performance benchmarks
@@ -523,8 +522,4 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 - Author: Hal Long
 - Email: hal.long@outlook.com
 - GitHub: [@loonghao](https://github.com/loonghao)
-
----
-
-**Note**: This project is in active development. APIs may change before v1.0.0 release.
 

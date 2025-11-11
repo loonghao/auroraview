@@ -10,6 +10,8 @@
 
 一个为DCC（数字内容创作）软件设计的超快速、轻量级WebView框架，使用Rust构建并提供Python绑定。完美支持Maya、3ds Max、Houdini、Blender等。
 
+> **⚠️ 开发状态**: 本项目正在积极开发中。API 可能在 v1.0.0 发布前发生变化。项目尚未在 Linux 和 macOS 平台上进行广泛测试。
+
 ## [TARGET] 概述
 
 AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Photoshop和Unreal Engine）提供现代化的Web UI解决方案。基于Rust的Wry库和PyO3绑定构建，提供原生性能和最小开销。
@@ -260,8 +262,6 @@ webview.show()
 # 当父窗口被销毁时，WebView会自动关闭
 ```
 
-查看 [examples/04_parent_lifecycle_demo.py](./examples/04_parent_lifecycle_demo.py) 获取完整示例。
-
 #### 第三方网站集成
 
 向第三方网站注入JavaScript并建立双向通信:
@@ -315,8 +315,6 @@ webview.eval_js(injection_script)
 webview.show()
 ```
 
-查看 [examples/05_third_party_site_injection.py](./examples/05_third_party_site_injection.py) 和 [examples/06_ai_chat_integration.py](./examples/06_ai_chat_integration.py) 获取完整示例。
-
 详细指南请参阅 [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md)。
 
 ## [DOCS] 文档
@@ -338,13 +336,11 @@ webview.show()
 
 **场景 1: 只需要显示网页（推荐）**
 - 使用 **Embedded 模式**
-- 参考: `examples/08_maya_integration_fixed.py`
 - 特点: 完全非阻塞，Maya 保持响应，自动生命周期管理
 - 限制: JavaScript 注入暂不可用
 
 **场景 2: 需要 JavaScript 注入和双向通信**
 - 使用 **Standalone 模式**
-- 参考: `examples/07_ai_chat_non_blocking.py`
 - 特点: 所有功能可用，包括 `eval_js()` 和 `emit()`
 - 限制: 可能有轻微阻塞，需要手动管理生命周期
 
@@ -358,12 +354,14 @@ webview.show()
 
 | DCC软件 | 状态 | Python版本 | 示例 |
 |---------|------|-----------|------|
-| Maya | [OK] 已支持 | 3.7+ | [示例](./examples/maya/) |
+| Maya | [OK] 已支持 | 3.7+ | [Maya Outliner 示例](https://github.com/loonghao/auroraview-maya-outliner) |
 | 3ds Max | [OK] 已支持 | 3.7+ | - |
-| Houdini | [OK] 已支持 | 3.7+ | [示例](./examples/houdini/) |
-| Blender | [OK] 已支持 | 3.7+ | [示例](./examples/blender/) |
+| Houdini | [OK] 已支持 | 3.7+ | - |
+| Blender | [OK] 已支持 | 3.7+ | - |
 | Photoshop | [CONSTRUCTION] 计划中 | 3.7+ | - |
 | Unreal Engine | [CONSTRUCTION] 计划中 | 3.7+ | - |
+
+> **📚 示例**: 查看完整的工作示例，请访问 [Maya Outliner 示例](https://github.com/loonghao/auroraview-maya-outliner) - 使用 AuroraView、Vue 3 和 TypeScript 构建的现代化 Maya Outliner。
 
 ## [TOOLS] 开发
 
@@ -449,7 +447,6 @@ uvx nox -s coverage        # 生成覆盖率报告
 auroraview/
 ├── src/                    # Rust核心库
 ├── python/                 # Python绑定
-├── examples/               # DCC集成示例
 ├── tests/                  # 测试套件
 ├── docs/                   # 文档
 └── benches/                # 性能基准测试
@@ -474,8 +471,4 @@ auroraview/
 - 作者: Hal Long
 - 邮箱: hal.long@outlook.com
 - GitHub: [@loonghao](https://github.com/loonghao)
-
----
-
-**注意**: 本项目正在积极开发中。v1.0.0发布前API可能会有变化。
 
