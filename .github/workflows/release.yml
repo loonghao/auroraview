@@ -40,6 +40,8 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
     uses: ./.github/workflows/build-wheels.yml
+    with:
+      test-wheel: 'false'
     permissions:
       contents: read
       actions: write # Required for uploading artifacts
