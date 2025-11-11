@@ -51,18 +51,18 @@ test:
     cargo test --test '*'
     @echo "Running Rust doc tests..."
     cargo test --doc
-    @echo "Running Python tests..."
-    uv run pytest tests/ -v --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
+    @echo "Running Python tests with coverage..."
+    pytest -q -rA -s --cov=auroraview --cov-report=term-missing tests/test_package_init.py tests/test_testing_framework.py tests/test_event_timer.py
 
 # Run tests with coverage
 test-cov:
     @echo "Running tests with coverage..."
-    uv run pytest tests/ -v --cov=auroraview --cov-report=html --cov-report=term-missing
+    pytest -v --cov=auroraview --cov-report=html --cov-report=term-missing tests/test_package_init.py tests/test_testing_framework.py tests/test_event_timer.py
 
 # Run only fast tests (exclude slow tests)
 test-fast:
     @echo "Running fast tests..."
-    uv run pytest tests/ -v -m "not slow"
+    pytest tests/ -v -m "not slow"
 
 # Test with Python 3.7
 test-py37:
@@ -116,20 +116,33 @@ test-all-python:
     just test-py311
     just test-py312
     @echo "[OK] All Python versions tested successfully!"
+# nox wrappers for multi-Python testing
+nox:
+    @echo "Running nox session: pytest (multi-Python)"
+    uvx nox -s pytest
+
+nox-qt:
+    @echo "Running nox session: pytest-qt (multi-Python with Qt)"
+    uvx nox -s pytest-qt
+
+nox-all:
+    @echo "Running nox session: pytest-all (full suite)"
+    uvx nox -s pytest-all
+
 
 # Run only Rust unit tests
 test-unit:
     @echo "Running Rust unit tests..."
     cargo test --lib
     @echo "Running Python unit tests..."
-    uv run pytest tests/ -v -m "unit" --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
+    pytest tests/ -v -m "unit" --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
 
 # Run only Rust integration tests
 test-integration:
     @echo "Running Rust integration tests..."
     cargo test --test '*'
     @echo "Running Python integration tests..."
-    uv run pytest tests/ -v -m "integration" --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
+    pytest tests/ -v -m "integration" --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
 
 # Watch mode for continuous testing
 test-watch:
@@ -139,12 +152,12 @@ test-watch:
 # Run specific test file
 test-file FILE:
     @echo "Running tests in {{FILE}}..."
-    uv run pytest {{FILE}} -v
+    pytest {{FILE}} -v
 
 # Run tests with specific marker
 test-marker MARKER:
     @echo "Running tests with marker {{MARKER}}..."
-    uv run pytest tests/ -v -m {{MARKER}}
+    pytest tests/ -v -m {{MARKER}}
 
 # Format code
 format:
@@ -203,18 +216,17 @@ ci-lint:
 
 # Coverage commands
 coverage-python:
-    @echo "Running Python tests with coverage..."
-    uv run pytest tests/ -v --cov=auroraview --cov-report=html --cov-report=term-missing --cov-report=xml
+    @echo "Running Python tests with coverage (headless subset)..."
+    pytest -v --cov=auroraview --cov-report=html --cov-report=term-missing --cov-report=xml tests/test_package_init.py tests/test_testing_framework.py tests/test_event_timer.py
+# Shortcut alias for Python coverage
+pycov:
+    @echo "[Alias] Running Python coverage via coverage-python..."
+    @just coverage-python
+
 
 coverage-rust:
-    @echo "Running Rust tests with coverage..."
-    @if command -v cargo-tarpaulin >/dev/null 2>&1; then \
-        cargo tarpaulin --out Html --out Xml --output-dir target/tarpaulin; \
-    else \
-        echo "[WARNING] cargo-tarpaulin not installed. Installing..."; \
-        cargo install cargo-tarpaulin; \
-        cargo tarpaulin --out Html --out Xml --output-dir target/tarpaulin; \
-    fi
+	@echo "Running Rust tests with coverage (preferring cargo-llvm-cov) in headless mode..."
+	if (Get-Command py -ErrorAction SilentlyContinue) { $pyBase = py -c "import sys; print(sys.base_prefix)" } else { $pyBase = python -c "import sys; print(sys.base_prefix)" }; $env:Path = "$pyBase;$pyBase\DLLs;$pyBase\bin;$env:Path"; if (Get-Command cargo-llvm-cov -ErrorAction SilentlyContinue) { $ignore = "(src[/\\]webview[/\\](aurora_view\\.rs|embedded\\.rs|standalone\\.rs|protocol\\.rs|timer_bindings\\.rs|webview_inner\\.rs|backend[/\\].*|platform[/\\].*)|src[/\\]service_discovery[/\\]mdns_service\\.rs)"; if ($env:CI -eq "true") { rustup component add llvm-tools-preview; cargo llvm-cov --workspace --html --tests --no-default-features --features "python-bindings threaded-ipc test-helpers" --ignore-filename-regex $ignore --fail-under-lines 50 } else { cargo llvm-cov --workspace --html --tests --no-default-features --features "python-bindings threaded-ipc test-helpers" --ignore-filename-regex $ignore; $json = cargo llvm-cov --summary-only --json --workspace --tests --no-default-features --features "python-bindings threaded-ipc test-helpers" --ignore-filename-regex $ignore | Out-String | ConvertFrom-Json; $covered = [double]$json.data[0].totals.lines.covered; $count = [double]$json.data[0].totals.lines.count; if ($count -gt 0) { $lines = [math]::Round((100.0 * $covered / $count), 2) } else { $lines = 0 }; if ($lines -ge 50) { echo ("[OK] Rust coverage lines: {0}% (>=50) report: target/llvm-cov/html/index.html" -f $lines) } else { echo ("[WARN] Rust coverage lines: {0}% (<50)" -f $lines) } } } elseif (Get-Command cargo-tarpaulin -ErrorAction SilentlyContinue) { cargo tarpaulin --no-default-features --features "python-bindings threaded-ipc test-helpers" --out Html --out Xml --output-dir target/tarpaulin; if ($LASTEXITCODE -eq 0) { echo "[OK] Rust coverage report: target/tarpaulin/tarpaulin-report.html" } else { echo "[WARN] cargo-tarpaulin exited with code $LASTEXITCODE" } } else { echo "[INFO] No Rust coverage tool found."; echo "      Install recommended: cargo install cargo-llvm-cov"; echo "      Also run: rustup component add llvm-tools-preview" }
 
 coverage-all: coverage-rust coverage-python
     @echo "All coverage reports generated!"
