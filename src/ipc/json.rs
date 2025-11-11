@@ -203,7 +203,7 @@ mod tests {
         let value = serde_json::json!({
             "s": "x",
             "n": 42,
-            "f": 3.14,
+            "f": std::f64::consts::PI,
             "null": null,
             "arr": [1, "y", null],
             "obj": {"k": "v"}

@@ -232,6 +232,7 @@ impl NativeBackend {
     ///
     /// # Returns
     /// `true` if the window should be closed, `false` otherwise
+    #[allow(dead_code)]
     pub fn process_messages(&self) -> bool {
         self.process_events()
     }
