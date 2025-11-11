@@ -232,6 +232,7 @@ pub fn process_all_messages() -> bool {
 /// Useful to ensure child/IPC windows (e.g., WebView2) get serviced without
 /// starving the host application's own loop.
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 pub fn process_all_messages_limited(max_messages: usize) -> bool {
     use windows::Win32::Foundation::{LPARAM, WPARAM};
     use windows::Win32::UI::WindowsAndMessaging::{

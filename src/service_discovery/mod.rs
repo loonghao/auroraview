@@ -20,6 +20,7 @@ use thiserror::Error;
 
 /// Service discovery errors
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum ServiceDiscoveryError {
     #[error("No free port found in range {start}-{end}")]
     NoFreePort { start: u16, end: u16 },

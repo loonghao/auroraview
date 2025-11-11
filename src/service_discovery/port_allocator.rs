@@ -88,6 +88,7 @@ impl PortAllocator {
     /// Find a free port with custom timeout
     ///
     /// This is useful for quick checks without blocking
+    #[allow(dead_code)]
     pub fn find_free_port_with_timeout(&self, _timeout: Duration) -> Result<u16> {
         // For now, just use the standard method
         // In the future, we could implement async port checking with timeout

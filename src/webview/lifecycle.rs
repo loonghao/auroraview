@@ -37,6 +37,7 @@ pub struct LifecycleManager {
 
 /// Reason for window closure
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum CloseReason {
     /// User clicked the close button
     UserRequest,
@@ -112,11 +113,13 @@ impl LifecycleManager {
     }
 
     /// Wait for close request (blocking with timeout)
+    #[allow(dead_code)]
     pub fn wait_for_close(&self, timeout: std::time::Duration) -> Option<CloseReason> {
         self.close_rx.recv_timeout(timeout).ok()
     }
 
     /// Register a cleanup handler
+    #[allow(dead_code)]
     pub fn register_cleanup<F>(&self, handler: F)
     where
         F: FnOnce() + Send + 'static,
@@ -149,6 +152,7 @@ impl LifecycleManager {
     }
 
     /// Clone the close sender for sharing across threads
+    #[allow(dead_code)]
     pub fn close_sender(&self) -> Sender<CloseReason> {
         self.close_tx.clone()
     }
