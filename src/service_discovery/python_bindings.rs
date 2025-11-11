@@ -160,8 +160,10 @@ impl PyServiceDiscovery {
                     }
                 };
 
+                #[allow(clippy::await_holding_lock)]
                 rt.block_on(async {
-                    if let Err(e) = http_clone.lock().start().await {
+                    let result = http_clone.lock().start().await;
+                    if let Err(e) = result {
                         error!("Failed to start HTTP discovery: {}", e);
                     } else {
                         info!("✅ HTTP discovery started on background thread");
@@ -293,10 +295,7 @@ mod tests {
             !sd.mdns_enabled,
             "mdns should be disabled when enable_mdns=false"
         );
-        assert!(
-            sd.bridge_port > 0 && sd.bridge_port <= 65535,
-            "bridge_port should be a valid port"
-        );
+        assert!(sd.bridge_port > 0, "bridge_port should be a valid port");
         assert_eq!(
             sd.discovery_port, 0,
             "discovery_port should be kept as provided (0)"
@@ -307,7 +306,7 @@ mod tests {
     fn test_find_free_port_and_is_port_available() {
         let sd = PyServiceDiscovery::new(0, 0, false, "AuroraView").expect("new() should succeed");
         let port = sd.find_free_port().expect("should find a free port");
-        assert!(port > 0 && port <= 65535);
+        assert!(port > 0);
         assert!(PyServiceDiscovery::is_port_available(port));
 
         // Occupy the port and verify availability toggles
@@ -346,7 +345,7 @@ fn test_new_with_mdns_enabled_does_not_panic() {
     let sd = PyServiceDiscovery::new(0, 0, true, "AuroraView")
         .expect("new() with mdns should not panic");
     // mdns_enabled may be true or false depending on platform support; just assert fields are sane
-    assert!(sd.bridge_port > 0 && sd.bridge_port <= 65535);
+    assert!(sd.bridge_port > 0);
 }
 
 #[test]

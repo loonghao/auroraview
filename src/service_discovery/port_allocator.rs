@@ -43,7 +43,7 @@ impl PortAllocator {
         for offset in 0..self.max_attempts {
             let port = self.start_port.saturating_add(offset);
 
-            if port == 0 || port > 65535 {
+            if port == 0 {
                 warn!("Port {} out of valid range, skipping", port);
                 continue;
             }

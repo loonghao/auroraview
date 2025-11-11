@@ -118,7 +118,7 @@ pub mod win {
         unsafe {
             let mut msg = MSG::default();
             while PeekMessageW(&mut msg, HWND_WIN(std::ptr::null_mut()), 0, 0, PM_REMOVE).into() {
-                TranslateMessage(&msg);
+                let _ = TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             }
         }
@@ -168,7 +168,7 @@ pub mod win {
         parent_hwnd: isize,
     ) -> Result<(Controller, WebView)> {
         let (tx, rx) = mpsc::channel();
-        let hwnd: HWND = parent_hwnd as isize as *mut winapi::shared::windef::HWND__;
+        let hwnd: HWND = parent_hwnd as *mut winapi::shared::windef::HWND__;
         env.create_controller(hwnd, move |res| {
             let res =
                 res.and_then(|controller| controller.get_webview().map(|wv| (controller, wv)));

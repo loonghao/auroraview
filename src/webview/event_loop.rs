@@ -476,6 +476,7 @@ mod tests {
 
     #[test]
     fn test_handler_close_requested_sets_exit() {
+        #[allow(clippy::arc_with_non_send_sync)]
         let state = Arc::new(Mutex::new(EventLoopState {
             should_exit: Arc::new(Mutex::new(false)),
             window: None,
@@ -510,6 +511,7 @@ mod poll_tests {
             b.build()
         };
         let q = Arc::new(MessageQueue::new());
+        #[allow(clippy::arc_with_non_send_sync)]
         let state = Arc::new(Mutex::new(EventLoopState {
             should_exit: Arc::new(Mutex::new(false)),
             window: None,
@@ -541,6 +543,7 @@ mod poll_tests {
             b.build()
         };
         let q = Arc::new(MessageQueue::new());
+        #[allow(clippy::arc_with_non_send_sync)]
         let state = Arc::new(Mutex::new(EventLoopState {
             should_exit: Arc::new(Mutex::new(false)),
             window: None,

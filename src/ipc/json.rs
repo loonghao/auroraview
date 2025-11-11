@@ -210,7 +210,7 @@ mod tests {
         });
         Python::with_gil(|py| {
             let obj = json_to_python(py, &value).expect("to py ok");
-            let back = python_to_json(&obj.bind(py)).expect("roundtrip to json");
+            let back = python_to_json(obj.bind(py)).expect("roundtrip to json");
             assert_eq!(back["s"], "x");
             assert_eq!(back["n"], 42);
             assert!(back["null"].is_null());
@@ -232,7 +232,7 @@ mod tests {
             list.append(py.None()).unwrap();
             dict.set_item("arr", list).unwrap();
 
-            let v = python_to_json(&dict.as_any()).expect("to json ok");
+            let v = python_to_json(dict.as_any()).expect("to json ok");
             assert_eq!(v["s"], "x");
             assert_eq!(v["i"], 7);
             assert!(v["none"].is_null());
