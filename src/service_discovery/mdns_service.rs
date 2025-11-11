@@ -138,32 +138,29 @@ impl MdnsService {
             if let Ok(event) = receiver.recv_timeout(std::time::Duration::from_secs(1)) {
                 use mdns_sd::ServiceEvent;
 
-                match event {
-                    ServiceEvent::ServiceResolved(info) => {
-                        debug!("Discovered service: {}", info.get_fullname());
+                if let ServiceEvent::ServiceResolved(info) = event {
+                    debug!("Discovered service: {}", info.get_fullname());
 
-                        // Extract metadata
-                        // Note: mdns-sd 0.11 doesn't provide easy iteration over properties
-                        // We'll just add basic metadata for now
-                        let metadata = HashMap::new();
-                        // TODO: Extract TXT record properties when mdns-sd provides better API
+                    // Extract metadata
+                    // Note: mdns-sd 0.11 doesn't provide easy iteration over properties
+                    // We'll just add basic metadata for now
+                    let metadata = HashMap::new();
+                    // TODO: Extract TXT record properties when mdns-sd provides better API
 
-                        // Get first address
-                        let host = info
-                            .get_addresses()
-                            .iter()
-                            .next()
-                            .map(|addr| addr.to_string())
-                            .unwrap_or_else(|| "localhost".to_string());
+                    // Get first address
+                    let host = info
+                        .get_addresses()
+                        .iter()
+                        .next()
+                        .map(|addr| addr.to_string())
+                        .unwrap_or_else(|| "localhost".to_string());
 
-                        services.push(ServiceInfo {
-                            name: info.get_fullname().to_string(),
-                            host,
-                            port: info.get_port(),
-                            metadata,
-                        });
-                    }
-                    _ => {}
+                    services.push(ServiceInfo {
+                        name: info.get_fullname().to_string(),
+                        host,
+                        port: info.get_port(),
+                        metadata,
+                    });
                 }
             }
         }

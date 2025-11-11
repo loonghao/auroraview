@@ -110,12 +110,11 @@ pub fn win_webview2_on_message(py: Python<'_>, handle: u64, callback: PyObject) 
     // Retain a reference to the Python callback for use from WebView2 event
     let cb = callback.clone_ref(py);
     with_view(handle, |v| {
-        let res = v.on_message(move |json: String| {
+        v.on_message(move |json: String| {
             // Invoke Python callback on GIL
             Python::with_gil(|py| {
                 let _ = cb.call1(py, (json,));
             });
-        });
-        res
+        })
     })
 }

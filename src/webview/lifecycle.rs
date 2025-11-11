@@ -8,6 +8,9 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use tracing::{debug, info, trace, warn};
 
+/// Type alias for cleanup handlers to reduce complexity
+type CleanupHandlers = Vec<Box<dyn FnOnce() + Send + 'static>>;
+
 /// Window lifecycle state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LifecycleState {
@@ -32,7 +35,7 @@ pub struct LifecycleManager {
     /// Close signal channel (receiver)
     close_rx: Receiver<CloseReason>,
     /// Platform-specific cleanup handlers
-    cleanup_handlers: Arc<Mutex<Vec<Box<dyn FnOnce() + Send + 'static>>>>,
+    cleanup_handlers: Arc<Mutex<CleanupHandlers>>,
 }
 
 /// Reason for window closure

@@ -287,15 +287,15 @@ impl WebViewInner {
                             });
                         }
 
-                        return should_quit;
+                        should_quit
                     } else {
-                        return false;
+                        false
                     }
                 } else {
-                    return false;
+                    false
                 }
             } else {
-                return false;
+                false
             }
         }
 
