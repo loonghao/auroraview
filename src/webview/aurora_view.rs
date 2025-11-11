@@ -315,31 +315,31 @@ impl AuroraView {
     ///     height (int, optional): Height in pixels (default: 600)
     ///
     /// Example:
-    ///     ```python
-    ///     import hou
-    ///     from auroraview import WebView
+    /// ```text
+    /// import hou
+    /// from auroraview import WebView
     ///
-    ///     # Get Houdini main window HWND
-    ///     main_window = hou.qt.mainWindow()
-    ///     hwnd = int(main_window.winId())
+    /// # Get Houdini main window HWND
+    /// main_window = hou.qt.mainWindow()
+    /// hwnd = int(main_window.winId())
     ///
-    ///     # Create WebView for DCC
-    ///     webview = WebView.create_for_dcc(
-    ///         parent_hwnd=hwnd,
-    ///         title="My Tool",
-    ///         width=650,
-    ///         height=500
-    ///     )
+    /// # Create WebView for DCC
+    /// webview = WebView.create_for_dcc(
+    ///     parent_hwnd=hwnd,
+    ///     title="My Tool",
+    ///     width=650,
+    ///     height=500
+    /// )
     ///
-    ///     # Load content
-    ///     webview.load_html("<h1>Hello from Houdini!</h1>")
+    /// # Load content
+    /// webview.load_html("<h1>Hello from Houdini!</h1>")
     ///
-    ///     # Setup Qt timer to process messages
-    ///     from PySide2.QtCore import QTimer
-    ///     timer = QTimer()
-    ///     timer.timeout.connect(webview.process_messages)
-    ///     timer.start(16)  # 60 FPS
-    ///     ```
+    /// # Setup Qt timer to process messages
+    /// from PySide2.QtCore import QTimer
+    /// timer = QTimer()
+    /// timer.timeout.connect(webview.process_messages)
+    /// timer.start(16)  # 60 FPS
+    /// ```
     #[staticmethod]
     #[pyo3(signature = (parent_hwnd, title="DCC WebView", width=800, height=600))]
     fn create_for_dcc(parent_hwnd: u64, title: &str, width: u32, height: u32) -> PyResult<Self> {
@@ -392,13 +392,13 @@ impl AuroraView {
     ///     bool: True if the window should be closed, False otherwise
     ///
     /// Example:
-    ///     ```python
-    ///     from PySide2.QtCore import QTimer
+    /// ```text
+    /// from PySide2.QtCore import QTimer
     ///
-    ///     timer = QTimer()
-    ///     timer.timeout.connect(webview.process_messages)
-    ///     timer.start(16)  # 60 FPS
-    ///     ```
+    /// timer = QTimer()
+    /// timer.timeout.connect(webview.process_messages)
+    /// timer.start(16)  # 60 FPS
+    /// ```
     fn process_messages(&self) -> PyResult<bool> {
         let inner = self.inner.borrow();
         if let Some(webview) = inner.as_ref() {

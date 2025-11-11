@@ -1,14 +1,18 @@
 """High-level Python API for WebView."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
+
 try:
     from typing import Literal  # py38+
 except ImportError:  # pragma: no cover - only for py37
     from typing_extensions import Literal  # type: ignore
+
+if TYPE_CHECKING:
+    from .bridge import Bridge
 
 try:
     from ._core import WebView as _CoreWebView
@@ -130,6 +134,7 @@ class WebView:
             if bridge is True:
                 # Auto-create bridge with default settings
                 from .bridge import Bridge
+
                 self._bridge = Bridge(port=9001)
                 logger.info("Auto-created Bridge on port 9001")
             else:
@@ -444,9 +449,7 @@ class WebView:
                 "Please ensure the package is properly installed."
             )
 
-        logger.info(
-            f"Creating WebView for DCC integration (parent_hwnd: {parent_hwnd})"
-        )
+        logger.info(f"Creating WebView for DCC integration (parent_hwnd: {parent_hwnd})")
 
         # Create WebView using DCC integration mode (Rust implementation)
         core = _CoreWebView.create_for_dcc(
@@ -943,11 +946,7 @@ class WebView:
             """Forward bridge events to WebView UI."""
             logger.debug(f"Bridge event: {action}")
             # Emit event to JavaScript with 'bridge:' prefix
-            self.emit(f"bridge:{action}", {
-                "action": action,
-                "data": data,
-                "result": result
-            })
+            self.emit(f"bridge:{action}", {"action": action, "data": data, "result": result})
 
         self._bridge.set_webview_callback(bridge_callback)
 
@@ -955,8 +954,8 @@ class WebView:
         @self.on("send_to_bridge")
         def handle_send_to_bridge(data):
             """Send command from WebView to Bridge clients."""
-            command = data.get('command')
-            params = data.get('params', {})
+            command = data.get("command")
+            params = data.get("params", {})
             logger.debug(f"WebView → Bridge: {command}")
             if self._bridge:
                 self._bridge.execute_command(command, params)

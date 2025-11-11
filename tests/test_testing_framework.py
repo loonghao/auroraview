@@ -56,8 +56,6 @@ def test_assertions_helpers_do_not_raise(dummy_bot: WebViewBot) -> None:
     assertions.assert_event_emitted(dummy_bot, "webview_ready")
 
 
-
-
 def test_webview_bot_more_apis(dummy_bot: WebViewBot) -> None:
     # Exercise additional helper methods
     dummy_bot.inject_monitoring_script()

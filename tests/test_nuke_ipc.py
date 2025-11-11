@@ -6,11 +6,13 @@ with Nuke through the window.auroraview API.
 """
 
 import time
+
 import pytest
 
 # Check if Nuke is available
 try:
     import nuke
+
     NUKE_AVAILABLE = True
 except ImportError:
     NUKE_AVAILABLE = False
@@ -30,46 +32,41 @@ class TestNukeIPC:
         test_completed = False
 
         # Create WebView with IPC handler
-        webview = WebView.create(
-            title="Nuke IPC Test",
-            width=400,
-            height=300,
-            debug=True
-        )
+        webview = WebView.create(title="Nuke IPC Test", width=400, height=300, debug=True)
 
         # Register handler for node creation
         @webview.on("create_node")
         def handle_create_node(data):
             """Handle node creation request from JavaScript."""
             nonlocal created_nodes, test_completed
-            
+
             node_type = data.get("type", "Grade")
             print(f"[Python] Creating {node_type} node...")
-            
+
             try:
                 # Create node in Nuke
                 node = nuke.createNode(node_type)
                 created_nodes.append(node)
-                
+
                 # Send success response back to JavaScript
-                webview.emit("node_created", {
-                    "success": True,
-                    "name": node.name(),
-                    "class": node.Class(),
-                    "type": node_type
-                })
-                
+                webview.emit(
+                    "node_created",
+                    {
+                        "success": True,
+                        "name": node.name(),
+                        "class": node.Class(),
+                        "type": node_type,
+                    },
+                )
+
                 print(f"[Python] Node created: {node.name()}")
-                
+
                 # Mark test as completed
                 test_completed = True
-                
+
             except Exception as e:
                 print(f"[Python] Error creating node: {e}")
-                webview.emit("node_created", {
-                    "success": False,
-                    "error": str(e)
-                })
+                webview.emit("node_created", {"success": False, "error": str(e)})
 
         # HTML with test UI
         html = """
@@ -175,7 +172,7 @@ class TestNukeIPC:
         # Wait for test to complete (with timeout)
         timeout = 10  # seconds
         start_time = time.time()
-        
+
         while not test_completed and (time.time() - start_time) < timeout:
             # Process events
             webview.process_events()
@@ -192,4 +189,3 @@ class TestNukeIPC:
             nuke.delete(node)
 
         print("[Test] ✓ Nuke IPC test passed!")
-

@@ -58,4 +58,3 @@ def test_metadata_exports_present():
 
     # WebView symbol should be present (class is imported from .webview)
     assert hasattr(mod, "WebView")
-
