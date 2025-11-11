@@ -201,11 +201,11 @@ ci-test-rust:
 
 ci-test-python:
     @echo "Running Python unit tests..."
-    pytest tests/ -v --tb=short -m "not slow"
+    uv run pytest tests/ -v --tb=short -m "not slow"
 
 ci-test-basic:
     @echo "Running basic import tests..."
-    python -c "import auroraview; print('AuroraView imported successfully')"
+    uv run python -c "import auroraview; print('AuroraView imported successfully')"
 
 ci-lint:
     @echo "Running CI linting..."

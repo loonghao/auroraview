@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false  # Don't fail fast - we want to see all Python version results
       matrix:
-        python-version: ["3.8", "3.10", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v5
@@ -121,7 +121,7 @@ jobs:
             echo "Skipping Qt tests on macOS CI (known issue with headless Qt WebEngine)"
             exit 0
           fi
-          pytest -q tests/test_qt_backend.py tests/test_qt_lifecycle.py -o addopts="" -rA
+          uv run pytest -q tests/test_qt_backend.py tests/test_qt_lifecycle.py -o addopts="" -rA
 
   # PR approval gate - all essential checks must pass
   pr-ready:
@@ -157,7 +157,7 @@ jobs:
           echo "## ✅ PR Ready for Merge" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "All essential checks have passed:" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Essential tests (Python 3.8, 3.10, 3.12)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Essential tests (Python 3.8, 3.9, 3.10, 3.11, 3.12)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Code quality and linting (Rust + Python)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Wheel build test (manylinux)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
