@@ -62,8 +62,11 @@ num_cpus = "1.16"
 
 # Window utilities - cross-platform window enumeration
 active-win-pos-rs = "0.9"
-webview2 = "0.1.4"
-winapi = "0.3.9"
+
+# Service discovery
+mdns-sd = "0.11"                    # Pure Rust mDNS implementation
+warp = "0.3"                        # HTTP server for discovery endpoint
+hyper = { version = "0.14", features = ["full"] }  # HTTP client/server
 
 # Future rendering engines (feature-gated)
 # servo = { git = "https://github.com/servo/servo", optional = true }
@@ -92,7 +95,10 @@ serial_test = "3.2"          # Serial test execution
 # Python linking for Windows tests
 # Windows API for parent window support
 windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi"] }
-# WebView2 COM bindings (optional; enabled by feature = "win-webview2")
+winapi = "0.3.9"
+# WebView2 wrapper crate (optional, enabled via feature = "win-webview2")
+webview2 = { version = "0.1.4", optional = true }
+# Low-level WebView2 COM bindings (legacy) - optional and not enabled by default.
 webview2-com = { version = "0.27", optional = true }
 
 [target.x86_64-apple-darwin.dependencies]
@@ -113,12 +119,18 @@ opt-level = 0
 [features]
 # Default keep current behavior (standalone via wry)
 default = ["python-bindings", "threaded-ipc", "wry-backend"]
+
+# Python bindings
 python-bindings = ["pyo3"]
+# Enable PyO3 auto-initialize in test builds to avoid manual interpreter setup
+# Use with: cargo test --features "test-helpers"
+# This does not affect release artifacts.
+test-helpers = ["pyo3/auto-initialize"]
 
 # Rendering backend features
 # Only one backend should be active at a time at runtime; we gate code paths.
 wry-backend = []           # System WebView via wry/tao (standalone)
-win-webview2 = ["dep:webview2-com"]  # Windows-native WebView2 backend (embedded)
+win-webview2 = ["dep:webview2"]  # Windows-native WebView2 backend (embedded)
 win-webview2-impl = []  # legacy gated stub block (no-op, suppress unexpected_cfg warning)
 
 # servo-backend = ["servo", "winit"]  # Servo rendering engine - experimental

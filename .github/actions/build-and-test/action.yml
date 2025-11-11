@@ -45,7 +45,15 @@ runs:
     - name: Build extension
       id: build
       shell: bash
-      run: just ci-build
+      run: |
+        uv pip install maturin
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          echo "Building with Windows feature: win-webview2"
+          uv run maturin develop --features win-webview2
+        else
+          echo "Building without Windows-specific features"
+          uv run maturin develop
+        fi
       env:
         RUST_BACKTRACE: 1
 
