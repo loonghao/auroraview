@@ -315,7 +315,7 @@ impl AuroraView {
     ///     height (int, optional): Height in pixels (default: 600)
     ///
     /// Example:
-    ///     ```text
+    ///     ```python
     ///     import hou
     ///     from auroraview import WebView
     ///
@@ -392,7 +392,7 @@ impl AuroraView {
     ///     bool: True if the window should be closed, False otherwise
     ///
     /// Example:
-    ///     ```text
+    ///     ```python
     ///     from PySide2.QtCore import QTimer
     ///
     ///     timer = QTimer()
