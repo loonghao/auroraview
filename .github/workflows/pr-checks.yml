@@ -86,18 +86,28 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
           python-version: '3.11'
+          cache-key-suffix: 'qt-test'
 
-      - name: Install Qt deps and package
+      - name: Build Rust extension
         shell: bash
         run: |
-          python -m pip install -U pip
-          python -m pip install qtpy PySide6 pytest pytest-cov
-          # Install our package in editable mode to use source tree
-          python -m pip install -e .
+          uv pip install maturin
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "Building with Windows feature: win-webview2"
+            uv run maturin develop --features win-webview2
+          else
+            echo "Building without Windows-specific features"
+            uv run maturin develop
+          fi
+
+      - name: Install Qt dependencies
+        shell: bash
+        run: |
+          uv pip install qtpy PySide6 pytest pytest-cov
 
       - name: Run Qt tests (headless)
         shell: bash
