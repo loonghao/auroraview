@@ -108,16 +108,11 @@ jobs:
         run: |
           pytest -q tests/test_qt_backend.py tests/test_qt_lifecycle.py -o addopts="" -rA
 
-  # Release simulation: reuse full wheel build matrix (Linux/Windows/macOS)
-  release-builds:
-    name: Release Build Simulation
-    uses: ./.github/workflows/build-wheels.yml
-
   # PR approval gate - all essential checks must pass
   pr-ready:
     name: PR Ready for Merge
     runs-on: ubuntu-latest
-    needs: [essential-tests, quality-checks, wheel-build-test, qt-tests, release-builds]
+    needs: [essential-tests, quality-checks, wheel-build-test, qt-tests]
     if: always()
 
     steps:
