@@ -10,6 +10,8 @@
 //! - Provide a small API surface consumed by pyo3 wrappers
 //! - Avoid winit/tao/wry event loops in DCC-hosted scenarios
 
+#![allow(dead_code, unused_variables, unused_imports, unused_parens)]
+
 #[cfg(all(target_os = "windows", feature = "win-webview2-impl"))]
 pub mod win {
     use std::sync::{mpsc, Arc, Mutex};

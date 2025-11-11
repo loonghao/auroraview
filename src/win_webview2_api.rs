@@ -55,7 +55,7 @@ pub fn win_webview2_create_embedded(
 ) -> PyResult<u64> {
     // Safety note: WebView2 requires STA thread with message pump (hosted by Qt).
     // We create controller under the provided parent HWND.
-    let mut view = WinWebView::create_embedded(parent_hwnd as isize, x, y, w, h)
+    let view = WinWebView::create_embedded(parent_hwnd as isize, x, y, w, h)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
     if let Some(u) = url {

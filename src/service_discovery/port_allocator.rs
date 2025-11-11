@@ -3,7 +3,7 @@
 //! Automatically finds available ports to avoid conflicts.
 
 use super::{Result, ServiceDiscoveryError};
-use std::net::{TcpListener, SocketAddr};
+use std::net::{SocketAddr, TcpListener};
 use std::time::Duration;
 use tracing::{debug, info, warn};
 
@@ -162,11 +162,9 @@ mod tests {
     }
 }
 
-    #[test]
-    fn test_find_free_port_with_timeout() {
-        let allocator = PortAllocator::new(50010, 50);
-        let port = allocator.find_free_port_with_timeout(Duration::from_millis(10));
-        assert!(port.is_ok());
-    }
-
-
+#[test]
+fn test_find_free_port_with_timeout() {
+    let allocator = PortAllocator::new(50010, 50);
+    let port = allocator.find_free_port_with_timeout(Duration::from_millis(10));
+    assert!(port.is_ok());
+}

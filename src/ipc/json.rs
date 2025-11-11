@@ -182,7 +182,6 @@ pub fn python_to_json(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     Ok(Value::String(value.to_string()))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,7 +226,7 @@ mod tests {
             dict.set_item("i", 7).unwrap();
             dict.set_item("f", 2.5).unwrap();
             dict.set_item("none", py.None()).unwrap();
-            let list = PyListType::empty_bound(py);
+            let list = PyListType::empty(py);
             list.append(1).unwrap();
             list.append("y").unwrap();
             list.append(py.None()).unwrap();
@@ -243,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_from_slice_and_from_bytes_and_pretty() {
-        let mut buf = br#"{"k":1}"#.to_vec();
+        let buf = br#"{"k":1}"#.to_vec();
         let mut slice = buf.clone();
         let v1 = from_slice(&mut slice).expect("slice ok");
         let v2 = from_bytes(buf).expect("bytes ok");
@@ -255,7 +254,9 @@ mod tests {
     #[test]
     fn test_value_helpers_and_error() {
         #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
-        struct S { a: i32 }
+        struct S {
+            a: i32,
+        }
         let s = S { a: 5 };
         let val = to_value(&s).expect("to_value ok");
         let back: S = from_value(val).expect("from_value ok");
@@ -276,6 +277,4 @@ mod tests {
         let mut bad = b"{".to_vec(); // invalid JSON
         assert!(from_slice(&mut bad).is_err());
     }
-
-
 }

@@ -314,19 +314,18 @@ mod tests {
     }
 }
 
-    #[test]
-    fn test_is_window_valid_zero_hwnd_is_false() {
-        // HWND(0) is invalid
-        assert!(!is_window_valid(0));
-    }
+#[test]
+fn test_is_window_valid_zero_hwnd_is_false() {
+    // HWND(0) is invalid
+    assert!(!is_window_valid(0));
+}
 
-    #[test]
-    fn test_process_all_messages_no_messages_returns_false() {
-        // When no messages are pending, should return false
-        let should_close = process_all_messages();
-        assert!(!should_close);
-    }
-
+#[test]
+fn test_process_all_messages_no_messages_returns_false() {
+    // When no messages are pending, should return false
+    let should_close = process_all_messages();
+    assert!(!should_close);
+}
 
 #[cfg(not(target_os = "windows"))]
 pub fn process_all_messages_limited(_max_messages: usize) -> bool {

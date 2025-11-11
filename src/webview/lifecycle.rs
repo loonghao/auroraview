@@ -160,11 +160,13 @@ impl Default for LifecycleManager {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
     use std::thread;
     use std::time::Duration;
 
@@ -180,8 +182,12 @@ mod tests {
         let c1 = counter.clone();
         let c2 = counter.clone();
 
-        manager.register_cleanup(move || { c1.fetch_add(1, Ordering::SeqCst); });
-        manager.register_cleanup(move || { c2.fetch_add(1, Ordering::SeqCst); });
+        manager.register_cleanup(move || {
+            c1.fetch_add(1, Ordering::SeqCst);
+        });
+        manager.register_cleanup(move || {
+            c2.fetch_add(1, Ordering::SeqCst);
+        });
 
         manager.execute_cleanup();
 
@@ -205,31 +211,33 @@ mod tests {
     }
 }
 
-        #[test]
-        fn test_request_close_sets_state_and_sends_reason() {
-            let manager = LifecycleManager::new();
-            manager.set_state(LifecycleState::Active);
-            assert!(manager.request_close(CloseReason::AppRequest).is_ok());
-            assert_eq!(manager.state(), LifecycleState::CloseRequested);
-            assert_eq!(manager.check_close_requested(), Some(CloseReason::AppRequest));
-        }
+#[test]
+fn test_request_close_sets_state_and_sends_reason() {
+    let manager = LifecycleManager::new();
+    manager.set_state(LifecycleState::Active);
+    assert!(manager.request_close(CloseReason::AppRequest).is_ok());
+    assert_eq!(manager.state(), LifecycleState::CloseRequested);
+    assert_eq!(
+        manager.check_close_requested(),
+        Some(CloseReason::AppRequest)
+    );
+}
 
-        #[test]
-        fn test_request_close_on_destroyed_errors() {
-            let manager = LifecycleManager::new();
-            manager.set_state(LifecycleState::Destroyed);
-            let err = manager.request_close(CloseReason::UserRequest).unwrap_err();
-            assert!(err.contains("already destroyed"));
-        }
+#[test]
+fn test_request_close_on_destroyed_errors() {
+    let manager = LifecycleManager::new();
+    manager.set_state(LifecycleState::Destroyed);
+    let err = manager.request_close(CloseReason::UserRequest).unwrap_err();
+    assert!(err.contains("already destroyed"));
+}
 
-        #[test]
-        fn test_request_close_when_destroying_is_noop_ok() {
-            let manager = LifecycleManager::new();
-            manager.set_state(LifecycleState::Destroying);
-            // Should be Ok and not enqueue a reason
-            assert!(manager.request_close(CloseReason::SystemShutdown).is_ok());
-            assert_eq!(manager.check_close_requested(), None);
-            // state should remain Destroying
-            assert_eq!(manager.state(), LifecycleState::Destroying);
-        }
-
+#[test]
+fn test_request_close_when_destroying_is_noop_ok() {
+    let manager = LifecycleManager::new();
+    manager.set_state(LifecycleState::Destroying);
+    // Should be Ok and not enqueue a reason
+    assert!(manager.request_close(CloseReason::SystemShutdown).is_ok());
+    assert_eq!(manager.check_close_requested(), None);
+    // state should remain Destroying
+    assert_eq!(manager.state(), LifecycleState::Destroying);
+}

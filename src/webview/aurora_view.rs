@@ -342,12 +342,7 @@ impl AuroraView {
     ///     ```
     #[staticmethod]
     #[pyo3(signature = (parent_hwnd, title="DCC WebView", width=800, height=600))]
-    fn create_for_dcc(
-        parent_hwnd: u64,
-        title: &str,
-        width: u32,
-        height: u32,
-    ) -> PyResult<Self> {
+    fn create_for_dcc(parent_hwnd: u64, title: &str, width: u32, height: u32) -> PyResult<Self> {
         tracing::info!(
             "[OK] [create_for_dcc] Creating WebView for DCC integration (parent_hwnd: {})",
             parent_hwnd

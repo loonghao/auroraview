@@ -342,20 +342,24 @@ impl Default for BatchedHandler {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pyo3::prelude::*;
-    use pyo3::types::{PyDict, PyList};
+    use pyo3::types::PyList;
 
     #[test]
     fn test_message_batch_flush_conditions() {
         let mut batch = MessageBatch::new();
         assert!(!batch.should_flush(2, 10_000));
-        batch.add(BatchedMessage::new("e".to_string(), serde_json::json!({"a":1})));
+        batch.add(BatchedMessage::new(
+            "e".to_string(),
+            serde_json::json!({"a":1}),
+        ));
         assert!(!batch.should_flush(2, 10_000));
-        batch.add(BatchedMessage::high_priority("e".to_string(), serde_json::json!({"b":2})));
+        batch.add(BatchedMessage::high_priority(
+            "e".to_string(),
+            serde_json::json!({"b":2}),
+        ));
         assert!(batch.should_flush(2, 10_000));
 
         // Age-based
@@ -370,20 +374,24 @@ mod tests {
         // Prepare a Python callback that collects inputs into `seen` list
         let (make_cb_obj, seen_obj) = Python::with_gil(|py| {
             let seen = PyList::empty(py);
-            let m = pyo3::types::PyModule::from_code_bound(
+            let m = pyo3::types::PyModule::from_code(
                 py,
-                "def make_cb(seen):\n    def cb(x):\n        seen.append(x)\n    return cb\n",
-                "m.py",
-                "m",
-            ).unwrap();
-            (m.getattr("make_cb").unwrap().unbind(), seen.into_py(py))
+                c"def make_cb(seen):\n    def cb(x):\n        seen.append(x)\n    return cb\n",
+                c"m.py",
+                c"m",
+            )
+            .unwrap();
+            (
+                m.getattr("make_cb").unwrap().unbind(),
+                seen.clone().unbind(),
+            )
         });
 
         // 1) call_single
         let cb = Python::with_gil(|py| {
             let f = make_cb_obj.bind(py);
             let seen = seen_obj.bind(py);
-            BatchedCallback::new(f.call1((seen,)).unwrap().into_py(py), true)
+            BatchedCallback::new(f.call1((seen,)).unwrap().clone().unbind(), true)
         });
         let msg = BatchedMessage::new("e".to_string(), serde_json::json!({"k": 1}));
         cb.call_single(&msg).expect("call_single should succeed");
@@ -397,11 +405,17 @@ mod tests {
         let cb2 = Python::with_gil(|py| {
             let f = make_cb_obj.bind(py);
             let seen = seen_obj.bind(py);
-            BatchedCallback::new(f.call1((seen,)).unwrap().into_py(py), true)
+            BatchedCallback::new(f.call1((seen,)).unwrap().clone().unbind(), true)
         });
         let mut batch = MessageBatch::new();
-        batch.add(BatchedMessage::new("e".to_string(), serde_json::json!({"x": 1})));
-        batch.add(BatchedMessage::high_priority("e".to_string(), serde_json::json!({"y": 2})));
+        batch.add(BatchedMessage::new(
+            "e".to_string(),
+            serde_json::json!({"x": 1}),
+        ));
+        batch.add(BatchedMessage::high_priority(
+            "e".to_string(),
+            serde_json::json!({"y": 2}),
+        ));
         cb2.call_batch(&batch).expect("call_batch should succeed");
         Python::with_gil(|py| {
             let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();
@@ -416,11 +430,17 @@ mod tests {
         let cb3 = Python::with_gil(|py| {
             let f = make_cb_obj.bind(py);
             let seen = seen_obj.bind(py);
-            BatchedCallback::new(f.call1((seen,)).unwrap().into_py(py), false)
+            BatchedCallback::new(f.call1((seen,)).unwrap().clone().unbind(), false)
         });
         let mut batch2 = MessageBatch::new();
-        batch2.add(BatchedMessage::new("e".to_string(), serde_json::json!({"m": 1})));
-        batch2.add(BatchedMessage::new("e".to_string(), serde_json::json!({"n": 2})));
+        batch2.add(BatchedMessage::new(
+            "e".to_string(),
+            serde_json::json!({"m": 1}),
+        ));
+        batch2.add(BatchedMessage::new(
+            "e".to_string(),
+            serde_json::json!({"n": 2}),
+        ));
         cb3.call_batch(&batch2).expect("fallback-to-single OK");
         Python::with_gil(|py| {
             let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();

@@ -259,9 +259,8 @@ mod tests {
     }
 }
 
-    #[test]
-    fn test_loading_html_has_spinner_and_text() {
-        assert!(LOADING_HTML.contains("spinner"));
-        assert!(LOADING_HTML.contains("Loading AuroraView"));
-    }
-
+#[test]
+fn test_loading_html_has_spinner_and_text() {
+    assert!(LOADING_HTML.contains("spinner"));
+    assert!(LOADING_HTML.contains("Loading AuroraView"));
+}

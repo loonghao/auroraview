@@ -86,16 +86,14 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 // Note: Even empty test modules require Python DLL to be present
 // Use `cargo build` to verify compilation instead of `cargo test`
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pyo3::prelude::*;
 
     #[test]
     fn test_pymodule_init_registers_symbols() {
-        Python::with_gil(|py| {
-            let m = PyModule::new_bound(py, "auroraview_test").unwrap();
+        pyo3::Python::with_gil(|py| {
+            let m = pyo3::types::PyModule::new(py, "auroraview_test").unwrap();
             _core(&m).expect("module init should succeed");
             assert!(m.getattr("get_all_windows").is_ok());
         });

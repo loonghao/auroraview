@@ -362,13 +362,17 @@ impl Default for MessageQueue {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn small_queue(block_on_full: bool, max_retries: u32) -> MessageQueue {
-        let cfg = MessageQueueConfig { capacity: 1, block_on_full, max_retries, retry_delay_ms: 1 };
+        let cfg = MessageQueueConfig {
+            capacity: 1,
+            block_on_full,
+            max_retries,
+            retry_delay_ms: 1,
+        };
         MessageQueue::with_config(cfg)
     }
 
@@ -377,7 +381,10 @@ mod tests {
         let q = small_queue(false, 0);
         q.push(WebViewMessage::EvalJs("1+1".into()));
         let mut processed = 0;
-        processed += q.process_all(|m| match m { WebViewMessage::EvalJs(s) => assert_eq!(s, "1+1"), _ => unreachable!() });
+        processed += q.process_all(|m| match m {
+            WebViewMessage::EvalJs(s) => assert_eq!(s, "1+1"),
+            _ => unreachable!(),
+        });
         assert_eq!(processed, 1);
         let snap = q.get_metrics_snapshot();
         assert_eq!(snap.messages_sent, 1);
@@ -396,7 +403,9 @@ mod tests {
         assert!(snap.messages_dropped >= 1);
 
         // push_with_retry should attempt and then go to DLQ
-        let err = q.push_with_retry(WebViewMessage::EvalJs("c".into())).unwrap_err();
+        let err = q
+            .push_with_retry(WebViewMessage::EvalJs("c".into()))
+            .unwrap_err();
         assert!(err.contains("queue full") || err.contains("Channel disconnected"));
         let stats = q.get_dlq_stats();
         assert!(stats.total >= 1);

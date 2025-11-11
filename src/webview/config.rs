@@ -185,7 +185,6 @@ impl Default for WebViewBuilder {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

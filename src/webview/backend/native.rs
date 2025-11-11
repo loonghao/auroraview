@@ -300,9 +300,7 @@ impl NativeBackend {
             tracing::info!(
                 "[OK] Creating independent window (no owner relationship) for DCC integration"
             );
-            tracing::info!(
-                "[OK] Window will be independent but user can manage it manually"
-            );
+            tracing::info!("[OK] Window will be independent but user can manage it manually");
         }
 
         // Log window HWND
@@ -333,7 +331,9 @@ impl NativeBackend {
             use raw_window_handle::{HasWindowHandle, RawWindowHandle};
             use std::ffi::c_void;
             use windows::Win32::Foundation::HWND;
-            use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOW, SetForegroundWindow};
+            use windows::Win32::UI::WindowsAndMessaging::{
+                SetForegroundWindow, ShowWindow, SW_SHOW,
+            };
 
             if let Ok(window_handle) = window.window_handle() {
                 let raw_handle = window_handle.as_raw();
