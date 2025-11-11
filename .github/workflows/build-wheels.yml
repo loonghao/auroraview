@@ -13,6 +13,15 @@ on:
       - 'pyproject.toml'
   workflow_dispatch:
   workflow_call:
+    inputs:
+      test-wheel:
+        required: false
+        type: string
+        default: 'true'
+      python-version:
+        required: false
+        type: string
+        default: '3.11'
 
 permissions:
   contents: read
@@ -33,8 +42,8 @@ jobs:
         uses: ./.github/actions/build-wheel
         with:
           target: ${{ matrix.target }}
-          python-version: '3.11'
-          test-wheel: 'true'
+          python-version: ${{ inputs.python-version }}
+          test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-linux-${{ matrix.target }}'
 
   # Windows builds
@@ -51,8 +60,8 @@ jobs:
         uses: ./.github/actions/build-wheel
         with:
           target: ${{ matrix.target }}
-          python-version: '3.11'
-          test-wheel: 'true'
+          python-version: ${{ inputs.python-version }}
+          test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-windows-${{ matrix.target }}'
 
   # macOS builds
@@ -72,8 +81,8 @@ jobs:
         uses: ./.github/actions/build-wheel
         with:
           target: ${{ matrix.target }}
-          python-version: '3.11'
+          python-version: ${{ inputs.python-version }}
           maturin-args: '--release --out dist --sdist --find-interpreter'
-          test-wheel: 'true'
+          test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-macos-${{ matrix.target }}'
 
