@@ -434,6 +434,13 @@ impl WebViewEventHandler {
                         }
                     }
                 }
+                Event::UserEvent(UserEvent::CloseWindow) => {
+                    tracing::info!("[OK] [poll_events_once] CloseWindow user event received");
+                    if let Ok(state_guard) = state_clone.lock() {
+                        state_guard.request_exit();
+                    }
+                    *control_flow = ControlFlow::Exit;
+                }
                 Event::MainEventsCleared => {
                     // Exit immediately after processing all events (non-blocking)
                     *control_flow = ControlFlow::Exit;
@@ -448,9 +455,105 @@ impl WebViewEventHandler {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::ipc::MessageQueue;
+    use std::sync::{Arc, Mutex};
+    use tao::event::WindowEvent;
+
     #[test]
-    fn test_event_loop_state_creation() {
-        // This test would require creating actual window/webview
-        // which is complex in unit tests, so we skip it for now
+    fn test_event_loop_state_flags() {
+        let state = EventLoopState {
+            should_exit: Arc::new(Mutex::new(false)),
+            window: None,
+            webview: None,
+            message_queue: Arc::new(MessageQueue::new()),
+            event_loop_proxy: None,
+        };
+        assert!(!state.should_exit());
+        state.request_exit();
+        assert!(state.should_exit());
+    }
+
+    #[test]
+    fn test_handler_close_requested_sets_exit() {
+        let state = Arc::new(Mutex::new(EventLoopState {
+            should_exit: Arc::new(Mutex::new(false)),
+            window: None,
+            webview: None,
+            message_queue: Arc::new(MessageQueue::new()),
+            event_loop_proxy: None,
+        }));
+        let handler = WebViewEventHandler::new(state.clone());
+        handler.handle_window_event(WindowEvent::CloseRequested);
+        let guard = state.lock().unwrap();
+        assert!(guard.should_exit());
     }
 }
+
+
+#[cfg(test)]
+mod poll_tests {
+    use super::*;
+    use crate::ipc::{MessageQueue, WebViewMessage};
+    use std::sync::{Arc, Mutex};
+    use tao::event_loop::{EventLoop, EventLoopBuilder};
+    #[cfg(windows)]
+    use tao::platform::windows::EventLoopBuilderExtWindows;
+
+    #[test]
+    fn test_poll_events_once_process_messages_user_event() {
+        let mut event_loop: EventLoop<UserEvent> = {
+            let mut b = EventLoopBuilder::<UserEvent>::with_user_event();
+            #[cfg(windows)]
+            { b.with_any_thread(true); }
+            b.build()
+        };
+        let q = Arc::new(MessageQueue::new());
+        let state = Arc::new(Mutex::new(EventLoopState {
+            should_exit: Arc::new(Mutex::new(false)),
+            window: None,
+            webview: None,
+            message_queue: q.clone(),
+            event_loop_proxy: None,
+        }));
+
+        // Attach proxy and queue a message
+        let proxy = event_loop.create_proxy();
+        state.lock().unwrap().set_event_loop_proxy(proxy.clone());
+        q.push(WebViewMessage::EvalJs("1+1".into()));
+
+        // Trigger processing via user event
+        let _ = proxy.send_event(UserEvent::ProcessMessages);
+        let should_close = WebViewEventHandler::poll_events_once(&mut event_loop, state.clone());
+        assert!(!should_close);
+        assert!(q.is_empty());
+    }
+
+    #[test]
+    fn test_poll_events_once_close_window_user_event() {
+        let mut event_loop: EventLoop<UserEvent> = {
+            let mut b = EventLoopBuilder::<UserEvent>::with_user_event();
+            #[cfg(windows)]
+            { b.with_any_thread(true); }
+            b.build()
+        };
+        let q = Arc::new(MessageQueue::new());
+        let state = Arc::new(Mutex::new(EventLoopState {
+            should_exit: Arc::new(Mutex::new(false)),
+            window: None,
+            webview: None,
+            message_queue: q.clone(),
+            event_loop_proxy: None,
+        }));
+
+        let proxy = event_loop.create_proxy();
+        state.lock().unwrap().set_event_loop_proxy(proxy.clone());
+
+        // Send close request
+        let _ = proxy.send_event(UserEvent::CloseWindow);
+        let _ = WebViewEventHandler::poll_events_once(&mut event_loop, state.clone());
+        assert!(state.lock().unwrap().should_exit());
+    }
+}
+
+

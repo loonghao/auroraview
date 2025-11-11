@@ -171,6 +171,8 @@ webview.show_async()  # 非阻塞
 
 作为 Qt widget 集成,与基于 Qt 的 DCC 无缝集成。需要 `pip install auroraview[qt]`。
 
+> **DCC 集成说明**: 基于 Qt 的 DCC 应用（Maya、Houdini、Nuke、3ds Max）需要 QtPy 作为中间件层来处理不同 DCC 应用之间的 Qt 版本差异。安装 `[qt]` 扩展会自动安装 QtPy。
+
 ```python
 from auroraview import QtWebView
 

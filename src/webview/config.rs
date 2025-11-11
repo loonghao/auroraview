@@ -184,3 +184,56 @@ impl Default for WebViewBuilder {
         Self::new()
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config_values() {
+        let cfg = WebViewConfig::default();
+        assert_eq!(cfg.title, "AuroraView");
+        assert_eq!(cfg.width, 800);
+        assert_eq!(cfg.height, 600);
+        assert!(cfg.url.is_none());
+        assert!(cfg.html.is_none());
+        assert!(cfg.dev_tools);
+        assert!(cfg.context_menu);
+        assert!(cfg.resizable);
+        assert!(cfg.decorations);
+        assert!(!cfg.always_on_top);
+        assert!(!cfg.transparent);
+        assert!(cfg.ipc_batching);
+        assert_eq!(cfg.ipc_batch_size, 10);
+        assert_eq!(cfg.ipc_batch_interval_ms, 16);
+    }
+
+    #[test]
+    fn test_builder_overrides() {
+        let cfg = WebViewBuilder::new()
+            .title("Hello")
+            .size(1024, 768)
+            .url("https://example.com")
+            .html("<h1>ignored when url set</h1>")
+            .dev_tools(false)
+            .context_menu(false)
+            .resizable(false)
+            .decorations(false)
+            .always_on_top(true)
+            .transparent(true)
+            .build();
+
+        assert_eq!(cfg.title, "Hello");
+        assert_eq!(cfg.width, 1024);
+        assert_eq!(cfg.height, 768);
+        assert_eq!(cfg.url.as_deref(), Some("https://example.com"));
+        assert!(cfg.html.is_some());
+        assert!(!cfg.dev_tools);
+        assert!(!cfg.context_menu);
+        assert!(!cfg.resizable);
+        assert!(!cfg.decorations);
+        assert!(cfg.always_on_top);
+        assert!(cfg.transparent);
+    }
+}

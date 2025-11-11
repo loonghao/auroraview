@@ -11,6 +11,9 @@ resolution-markers = [
 name = "auroraview"
 version = "0.2.3"
 source = { editable = "." }
+dependencies = [
+    { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
+]
 
 [package.optional-dependencies]
 qt = [
@@ -49,7 +52,10 @@ test = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "qtpy", marker = "extra == 'qt'", specifier = ">=2.0.0" }]
+requires-dist = [
+    { name = "qtpy", marker = "extra == 'qt'", specifier = ">=2.0.0" },
+    { name = "typing-extensions", marker = "python_full_version < '3.8'", specifier = ">=4.0.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [

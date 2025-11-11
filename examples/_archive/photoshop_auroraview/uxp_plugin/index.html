@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AuroraView Bridge</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: sans-serif;
+            background: #2d2d2d;
+            color: #e0e0e0;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .connected { background: #4caf50; }
+        .disconnected { background: #f44336; }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: none;
+            border-radius: 4px;
+            background: #2196f3;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #1976d2; }
+        .log {
+            background: #1e1e1e;
+            padding: 12px;
+            border-radius: 4px;
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+            border: 1px solid #444;
+        }
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 4px;
+            border-left: 3px solid #2196f3;
+            padding-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h2>AuroraView Bridge</h2>
+    <div id="status" class="status disconnected">Disconnected</div>
+    <button id="connectBtn">Connect to Python</button>
+    <h3>Activity Log</h3>
+    <div id="log" class="log">
+        <div class="log-entry">Loading...</div>
+    </div>
+    <script src="index.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AuroraView Bridge</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-weight: 500;
+        }
+        
+        .status.connected {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .status.disconnected {
+            background: #f44336;
+            color: white;
+        }
+        
+        .status.connecting {
+            background: #ff9800;
+            color: white;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: none;
+            border-radius: 4px;
+            background: #2196f3;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #1976d2;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .log {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 4px;
+            border-left: 3px solid #2196f3;
+            padding-left: 8px;
+        }
+        
+        .log-entry.error {
+            border-left-color: #f44336;
+            color: #f44336;
+        }
+        
+        .log-entry.success {
+            border-left-color: #4caf50;
+            color: #4caf50;
+        }
+        
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>AuroraView Bridge</h2>
+        
+        <div id="status" class="status disconnected">
+            Disconnected
+        </div>
+        
+        <div>
+            <input type="text" id="serverUrl" value="ws://localhost:9001" placeholder="WebSocket Server URL">
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+        </div>
+        
+        <h3>Actions</h3>
+        <button id="createLayerBtn" disabled>Create New Layer</button>
+        <button id="getSelectionBtn" disabled>Get Selection Info</button>
+        <button id="getDocInfoBtn" disabled>Get Document Info</button>
+        
+        <h3>Activity Log</h3>
+        <div id="log" class="log"></div>
+    </div>
+    
+    <script src="index.js"></script>
+</body>
+</html>
+

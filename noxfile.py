@@ -20,6 +20,7 @@ def pytest(session):
     session.run(
         "pytest",
         "tests/test_qt_import_error.py",
+        "tests/test_testing_framework.py",
         "-v",
         "--cov=auroraview",
         "--cov-report=term-missing",
@@ -127,6 +128,8 @@ def coverage(session):
     session.run(
         "pytest",
         "tests/",
+        "-m",
+        "not ui and not maya",
         "--cov=auroraview",
         "--cov-report=html",
         "--cov-report=term-missing",

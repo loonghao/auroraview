@@ -341,3 +341,91 @@ impl Default for BatchedHandler {
         Self::new()
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::prelude::*;
+    use pyo3::types::{PyDict, PyList};
+
+    #[test]
+    fn test_message_batch_flush_conditions() {
+        let mut batch = MessageBatch::new();
+        assert!(!batch.should_flush(2, 10_000));
+        batch.add(BatchedMessage::new("e".to_string(), serde_json::json!({"a":1})));
+        assert!(!batch.should_flush(2, 10_000));
+        batch.add(BatchedMessage::high_priority("e".to_string(), serde_json::json!({"b":2})));
+        assert!(batch.should_flush(2, 10_000));
+
+        // Age-based
+        let mut batch2 = MessageBatch::new();
+        batch2.add(BatchedMessage::new("e".to_string(), serde_json::json!({})));
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        assert!(batch2.should_flush(10, 1));
+    }
+
+    #[test]
+    fn test_batched_callback_single_and_batch() {
+        // Prepare a Python callback that collects inputs into `seen` list
+        let (make_cb_obj, seen_obj) = Python::with_gil(|py| {
+            let seen = PyList::empty(py);
+            let m = pyo3::types::PyModule::from_code_bound(
+                py,
+                "def make_cb(seen):\n    def cb(x):\n        seen.append(x)\n    return cb\n",
+                "m.py",
+                "m",
+            ).unwrap();
+            (m.getattr("make_cb").unwrap().unbind(), seen.into_py(py))
+        });
+
+        // 1) call_single
+        let cb = Python::with_gil(|py| {
+            let f = make_cb_obj.bind(py);
+            let seen = seen_obj.bind(py);
+            BatchedCallback::new(f.call1((seen,)).unwrap().into_py(py), true)
+        });
+        let msg = BatchedMessage::new("e".to_string(), serde_json::json!({"k": 1}));
+        cb.call_single(&msg).expect("call_single should succeed");
+        let single_len = Python::with_gil(|py| {
+            let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();
+            seen.len()
+        });
+        assert_eq!(single_len, 1);
+
+        // 2) call_batch (batching enabled -> one list element appended)
+        let cb2 = Python::with_gil(|py| {
+            let f = make_cb_obj.bind(py);
+            let seen = seen_obj.bind(py);
+            BatchedCallback::new(f.call1((seen,)).unwrap().into_py(py), true)
+        });
+        let mut batch = MessageBatch::new();
+        batch.add(BatchedMessage::new("e".to_string(), serde_json::json!({"x": 1})));
+        batch.add(BatchedMessage::high_priority("e".to_string(), serde_json::json!({"y": 2})));
+        cb2.call_batch(&batch).expect("call_batch should succeed");
+        Python::with_gil(|py| {
+            let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();
+            // After call_single (1) + call_batch (append one list) => total 2 entries
+            assert_eq!(seen.len(), 2);
+            let list_obj = seen.get_item(1).unwrap();
+            let list_ref = list_obj.downcast::<PyList>().unwrap();
+            assert_eq!(list_ref.len(), 2);
+        });
+
+        // 3) call_batch with batching disabled -> two individual appends
+        let cb3 = Python::with_gil(|py| {
+            let f = make_cb_obj.bind(py);
+            let seen = seen_obj.bind(py);
+            BatchedCallback::new(f.call1((seen,)).unwrap().into_py(py), false)
+        });
+        let mut batch2 = MessageBatch::new();
+        batch2.add(BatchedMessage::new("e".to_string(), serde_json::json!({"m": 1})));
+        batch2.add(BatchedMessage::new("e".to_string(), serde_json::json!({"n": 2})));
+        cb3.call_batch(&batch2).expect("fallback-to-single OK");
+        Python::with_gil(|py| {
+            let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();
+            // Prior 2 entries + 2 more -> 4 entries total
+            assert_eq!(seen.len(), 4);
+        });
+    }
+}

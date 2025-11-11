@@ -54,13 +54,14 @@ def test_webview_class_exists():
 
 
 @pytest.mark.unit
-def test_on_event_decorator_exists():
-    """Test that on_event decorator exists."""
+def test_webview_on_decorator_exists():
+    """Test that @webview.on() decorator exists."""
     try:
-        from auroraview import on_event
+        from auroraview import WebView
 
-        assert on_event is not None
-        assert callable(on_event)
+        webview = WebView()
+        assert hasattr(webview, "on")
+        assert callable(webview.on)
     except ImportError:
         pytest.skip("Package not built yet")
 

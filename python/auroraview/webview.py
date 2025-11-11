@@ -1,8 +1,14 @@
 """High-level Python API for WebView."""
+from __future__ import annotations
+
 
 import logging
 import threading
-from typing import Any, Callable, Dict, Literal, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
+try:
+    from typing import Literal  # py38+
+except ImportError:  # pragma: no cover - only for py37
+    from typing_extensions import Literal  # type: ignore
 
 try:
     from ._core import WebView as _CoreWebView
@@ -60,6 +66,7 @@ class WebView:
         frame: bool = True,
         parent: Optional[int] = None,
         mode: Optional[str] = None,
+        bridge: Union["Bridge", bool, None] = None,  # type: ignore
     ) -> None:
         """Initialize the WebView.
 
@@ -74,6 +81,10 @@ class WebView:
             frame: Show window frame (title bar, borders) (default: True)
             parent: Parent window handle for embedding (optional)
             mode: Embedding mode - "child" or "owner" (optional)
+            bridge: Bridge instance for DCC integration
+                   - Bridge instance: Use provided bridge
+                   - True: Auto-create bridge with default settings
+                   - None: No bridge (default)
         """
         if _CoreWebView is None:
             raise RuntimeError(
@@ -113,6 +124,23 @@ class WebView:
         self._async_core: Optional[Any] = None
         self._async_core_lock = threading.Lock()
 
+        # Bridge integration
+        self._bridge: Optional["Bridge"] = None  # type: ignore
+        if bridge is not None:
+            if bridge is True:
+                # Auto-create bridge with default settings
+                from .bridge import Bridge
+                self._bridge = Bridge(port=9001)
+                logger.info("Auto-created Bridge on port 9001")
+            else:
+                # Use provided bridge instance
+                self._bridge = bridge
+                logger.info(f"Using provided Bridge: {bridge}")
+
+            # Setup bidirectional communication
+            if self._bridge:
+                self._setup_bridge_integration()
+
     @classmethod
     def create(
         cls,
@@ -129,6 +157,8 @@ class WebView:
         # DCC integration
         parent: Optional[int] = None,
         mode: Literal["auto", "owner", "child"] = "auto",
+        # Bridge integration
+        bridge: Union["Bridge", bool, None] = None,  # type: ignore
         # Development options
         debug: bool = True,
         # Automation
@@ -152,6 +182,10 @@ class WebView:
                 - "auto": Auto-select (recommended)
                 - "owner": Owner mode (cross-thread safe)
                 - "child": Child window mode (same-thread)
+            bridge: Bridge for DCC/Web integration
+                - Bridge instance: Use provided bridge
+                - True: Auto-create bridge (port 9001)
+                - None: No bridge (default)
             debug: Enable developer tools
             auto_show: Automatically show after creation
             auto_timer: Auto-start event timer for embedded mode (recommended)
@@ -169,6 +203,13 @@ class WebView:
 
             >>> # DCC embedding (Maya)
             >>> webview = WebView.create("Maya Tool", parent=maya_hwnd)
+            >>> webview.show()
+
+            >>> # With Bridge integration
+            >>> webview = WebView.create("Photoshop Tool", bridge=True)
+            >>> @webview.bridge.on('layer_created')
+            >>> async def handle_layer(data, client):
+            ...     return {"status": "ok"}
             >>> webview.show()
 
             >>> # Auto-show
@@ -213,6 +254,7 @@ class WebView:
             parent=parent,
             mode=actual_mode,
             debug=debug,
+            bridge=bridge,
         )
 
         # Auto timer (embedded mode)
@@ -320,6 +362,118 @@ class WebView:
         logger.info("Creating standalone WebView for Blender")
         return cls.create(title, **kwargs)
 
+    @classmethod
+    def for_dcc(
+        cls,
+        parent_hwnd: int,
+        title: str = "DCC WebView",
+        width: int = 800,
+        height: int = 600,
+    ) -> "WebView":
+        """Create WebView for DCC integration (no event loop, no PySide dependency).
+
+        This is the recommended method for integrating WebView into DCC applications
+        like Maya, Houdini, Nuke, etc. It creates a WebView that uses the DCC's
+        Qt message pump instead of creating its own event loop.
+
+        Key features:
+        - No event loop conflicts with DCC's Qt event loop
+        - Non-blocking - DCC UI remains responsive
+        - Requires periodic calls to `process_messages()` from Qt timer
+        - No PySide dependency required (pure Rust implementation)
+
+        Args:
+            parent_hwnd: Parent window handle (Windows HWND)
+            title: Window title (default: "DCC WebView")
+            width: Width in pixels (default: 800)
+            height: Height in pixels (default: 600)
+
+        Returns:
+            WebView instance configured for DCC integration
+
+        Example (Houdini):
+            >>> import hou
+            >>> from auroraview import WebView
+            >>>
+            >>> # Get Houdini main window HWND
+            >>> main_window = hou.qt.mainWindow()
+            >>> hwnd = int(main_window.winId())
+            >>>
+            >>> # Create WebView for DCC
+            >>> webview = WebView.for_dcc(
+            ...     parent_hwnd=hwnd,
+            ...     title="My Tool",
+            ...     width=650,
+            ...     height=500
+            ... )
+            >>>
+            >>> # Load content
+            >>> webview.load_html("<h1>Hello from Houdini!</h1>")
+            >>>
+            >>> # Setup Qt timer to process messages (required!)
+            >>> try:
+            ...     from PySide2.QtCore import QTimer
+            ... except ImportError:
+            ...     from PySide6.QtCore import QTimer
+            >>>
+            >>> timer = QTimer()
+            >>> timer.timeout.connect(webview.process_messages)
+            >>> timer.start(16)  # 60 FPS
+            >>>
+            >>> # Keep reference to prevent garbage collection
+            >>> _webview_instance = webview
+
+        Example (Maya):
+            >>> import maya.OpenMayaUI as omui
+            >>> from auroraview import WebView
+            >>>
+            >>> # Get Maya main window HWND
+            >>> maya_hwnd = int(omui.MQtUtil.mainWindow())
+            >>>
+            >>> # Create WebView for DCC
+            >>> webview = WebView.for_dcc(
+            ...     parent_hwnd=maya_hwnd,
+            ...     title="Maya Tool"
+            ... )
+            >>>
+            >>> # Setup timer and load content...
+        """
+        if _CoreWebView is None:
+            raise RuntimeError(
+                "AuroraView core library not found. "
+                "Please ensure the package is properly installed."
+            )
+
+        logger.info(
+            f"Creating WebView for DCC integration (parent_hwnd: {parent_hwnd})"
+        )
+
+        # Create WebView using DCC integration mode (Rust implementation)
+        core = _CoreWebView.create_for_dcc(
+            parent_hwnd=parent_hwnd,
+            title=title,
+            width=width,
+            height=height,
+        )
+
+        # Create wrapper instance
+        instance = object.__new__(cls)
+        instance._core = core
+        instance._event_handlers = {}
+        instance._title = title
+        instance._width = width
+        instance._height = height
+        instance._parent = parent_hwnd
+        instance._mode = "dcc"
+        instance._is_embedded = True
+        instance._async_core = None
+        instance._async_core_lock = threading.Lock()
+
+        logger.info("[OK] WebView created for DCC integration")
+        logger.info("[OK] Remember to call process_messages() periodically from Qt timer!")
+
+        return instance
+
     def show(self, *, wait: Optional[bool] = None) -> None:
         """Show the WebView window (smart mode).
 
@@ -355,6 +509,11 @@ class WebView:
             wait = not is_embedded  # Standalone defaults to blocking
 
         logger.info(f"Showing WebView: embedded={is_embedded}, wait={wait}")
+
+        # Start Bridge if present
+        if self._bridge and not self._bridge.is_running:
+            logger.info("Starting Bridge in background...")
+            self._bridge.start_background()
 
         if is_embedded:
             # Embedded mode: non-blocking + auto timer
@@ -577,6 +736,35 @@ class WebView:
             logger.error(f"[ERROR] [WebView.emit] Traceback: {traceback.format_exc()}")
             raise
 
+    def process_messages(self) -> bool:
+        """Process messages for DCC integration mode.
+
+        This method should be called periodically from a Qt timer to process
+        WebView messages without running a dedicated event loop.
+
+        This is ONLY needed when using `WebView.for_dcc()`. Regular WebView
+        instances (created with `WebView.create()` or shortcuts like `WebView.maya()`)
+        handle message processing automatically.
+
+        Returns:
+            bool: True if the window should be closed, False otherwise
+
+        Example:
+            >>> # Create WebView for DCC
+            >>> webview = WebView.for_dcc(parent_hwnd=hwnd, title="My Tool")
+            >>>
+            >>> # Setup Qt timer to process messages
+            >>> try:
+            ...     from PySide2.QtCore import QTimer
+            ... except ImportError:
+            ...     from PySide6.QtCore import QTimer
+            >>>
+            >>> timer = QTimer()
+            >>> timer.timeout.connect(webview.process_messages)
+            >>> timer.start(16)  # 60 FPS
+        """
+        return self._core.process_messages()
+
     def on(self, event_name: str) -> Callable:
         """Decorator to register a Python callback for JavaScript events.
 
@@ -734,3 +922,78 @@ class WebView:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # noqa: ARG002
         """Context manager exit."""
         self.close()
+
+    # Bridge integration methods
+
+    def _setup_bridge_integration(self):
+        """Setup bidirectional communication between Bridge and WebView.
+
+        This method is called automatically when a Bridge is associated with the WebView.
+        It sets up:
+        1. Bridge → WebView: Forward bridge events to WebView UI
+        2. WebView → Bridge: Register handler to send commands to bridge clients
+        """
+        if not self._bridge:
+            return
+
+        logger.info("Setting up Bridge ↔ WebView integration")
+
+        # Bridge → WebView: Forward events
+        def bridge_callback(action: str, data: Dict, result: Any):
+            """Forward bridge events to WebView UI."""
+            logger.debug(f"Bridge event: {action}")
+            # Emit event to JavaScript with 'bridge:' prefix
+            self.emit(f"bridge:{action}", {
+                "action": action,
+                "data": data,
+                "result": result
+            })
+
+        self._bridge.set_webview_callback(bridge_callback)
+
+        # WebView → Bridge: Register command sender
+        @self.on("send_to_bridge")
+        def handle_send_to_bridge(data):
+            """Send command from WebView to Bridge clients."""
+            command = data.get('command')
+            params = data.get('params', {})
+            logger.debug(f"WebView → Bridge: {command}")
+            if self._bridge:
+                self._bridge.execute_command(command, params)
+            return {"status": "sent"}
+
+        logger.info("✅ Bridge ↔ WebView integration complete")
+
+    @property
+    def bridge(self) -> Optional["Bridge"]:  # type: ignore
+        """Get the associated Bridge instance.
+
+        Returns:
+            Bridge instance or None if no bridge is associated
+
+        Example:
+            >>> webview = WebView.create("Tool", bridge=True)
+            >>> print(webview.bridge)  # Bridge(ws://localhost:9001, ...)
+            >>>
+            >>> # Register handlers on the bridge
+            >>> @webview.bridge.on('custom_event')
+            >>> async def handle_custom(data, client):
+            ...     return {"status": "ok"}
+        """
+        return self._bridge
+
+    def send_to_bridge(self, command: str, params: Dict[str, Any] = None):
+        """Send command to Bridge clients (convenience method).
+
+        Args:
+            command: Command name
+            params: Command parameters
+
+        Example:
+            >>> webview.send_to_bridge('create_layer', {'name': 'New Layer'})
+        """
+        if not self._bridge:
+            logger.warning("No bridge associated with this WebView")
+            return
+
+        self._bridge.execute_command(command, params)

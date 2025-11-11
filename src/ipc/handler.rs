@@ -165,3 +165,69 @@ impl Default for IpcHandler {
         Self::new()
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::prelude::*;
+    use pyo3::types::{PyDict, PyList, PyModule};
+
+    fn py_append_collector() -> (PyObject, PyObject) {
+        Python::with_gil(|py| {
+            let seen = PyList::empty(py);
+            let m = PyModule::from_code_bound(
+                py,
+                "def make_cb(seen):\n    def cb(x):\n        seen.append(x)\n    return cb\n",
+                "m.py",
+                "m",
+            ).unwrap();
+            let make_cb = m.getattr("make_cb").unwrap();
+            // Keep an owned handle to the list so we can inspect it later
+            let seen_obj: PyObject = seen.into_py(py);
+            let seen_bound = seen_obj.bind(py).downcast::<PyList>().unwrap();
+            let cb = make_cb.call1((seen_bound,)).unwrap().into_py(py);
+            (cb, seen_obj)
+        })
+    }
+
+    #[test]
+    fn test_python_callback_flow() {
+        let handler = IpcHandler::new();
+        let (cb, seen_obj) = py_append_collector();
+        handler.register_python_callback("evt", cb);
+
+        let msg = IpcMessage { event: "evt".to_string(), data: serde_json::json!({"a":1}), id: None };
+        let res = handler.handle_message(msg);
+        assert!(res.is_ok());
+
+        Python::with_gil(|py| {
+            let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();
+            assert_eq!(seen.len(), 1);
+            let first = seen.get_item(0).unwrap();
+            // first is a Python object converted from JSON dict
+            let dict = first.downcast::<pyo3::types::PyDict>().unwrap();
+            if let Ok(Some(a_val)) = dict.get_item("a") {
+                let a: i64 = a_val.extract().unwrap();
+                assert_eq!(a, 1);
+            } else {
+                panic!("missing key a");
+            }
+        });
+    }
+
+    #[test]
+    fn test_rust_callback_flow_and_no_handler() {
+        let handler = IpcHandler::new();
+        handler.on("evt2", |m| {
+            assert_eq!(m.event, "evt2");
+            Ok(serde_json::json!({"ok": true}))
+        });
+        let res = handler.handle_message(IpcMessage { event: "evt2".to_string(), data: serde_json::json!({}), id: None });
+        assert_eq!(res.unwrap(), serde_json::json!({"ok": true}));
+
+        // No handler case
+        let err = handler.handle_message(IpcMessage { event: "unknown".to_string(), data: serde_json::json!({}), id: None }).unwrap_err();
+        assert!(err.contains("No handler registered"));
+    }
+}

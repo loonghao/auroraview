@@ -72,3 +72,8 @@ Thumbs.db
 
 htmlcov/
 .augment/
+
+# Additional build artifacts
+python/auroraview/_core.pyd
+target/llvm-cov/
+target/wheels/

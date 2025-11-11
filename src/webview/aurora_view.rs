@@ -296,6 +296,124 @@ impl AuroraView {
         Ok(())
     }
 
+    /// Create WebView for DCC integration (no event loop)
+    ///
+    /// This is the recommended method for integrating WebView into DCC applications
+    /// like Maya, Houdini, Nuke, etc. It creates a WebView that uses the DCC's
+    /// Qt message pump instead of creating its own event loop.
+    ///
+    /// Key features:
+    /// - No event loop conflicts with DCC's Qt event loop
+    /// - Non-blocking - DCC UI remains responsive
+    /// - Requires periodic calls to `process_messages()` from Qt timer
+    /// - No PySide dependency required
+    ///
+    /// Args:
+    ///     parent_hwnd (int): Parent window handle (Windows HWND)
+    ///     title (str, optional): Window title
+    ///     width (int, optional): Width in pixels (default: 800)
+    ///     height (int, optional): Height in pixels (default: 600)
+    ///
+    /// Example:
+    ///     ```text
+    ///     import hou
+    ///     from auroraview import WebView
+    ///
+    ///     # Get Houdini main window HWND
+    ///     main_window = hou.qt.mainWindow()
+    ///     hwnd = int(main_window.winId())
+    ///
+    ///     # Create WebView for DCC
+    ///     webview = WebView.create_for_dcc(
+    ///         parent_hwnd=hwnd,
+    ///         title="My Tool",
+    ///         width=650,
+    ///         height=500
+    ///     )
+    ///
+    ///     # Load content
+    ///     webview.load_html("<h1>Hello from Houdini!</h1>")
+    ///
+    ///     # Setup Qt timer to process messages
+    ///     from PySide2.QtCore import QTimer
+    ///     timer = QTimer()
+    ///     timer.timeout.connect(webview.process_messages)
+    ///     timer.start(16)  # 60 FPS
+    ///     ```
+    #[staticmethod]
+    #[pyo3(signature = (parent_hwnd, title="DCC WebView", width=800, height=600))]
+    fn create_for_dcc(
+        parent_hwnd: u64,
+        title: &str,
+        width: u32,
+        height: u32,
+    ) -> PyResult<Self> {
+        tracing::info!(
+            "[OK] [create_for_dcc] Creating WebView for DCC integration (parent_hwnd: {})",
+            parent_hwnd
+        );
+
+        let config = WebViewConfig {
+            title: title.to_string(),
+            width,
+            height,
+            parent_hwnd: Some(parent_hwnd),
+            ..Default::default()
+        };
+
+        let ipc_handler = Arc::new(IpcHandler::new());
+        let message_queue = Arc::new(MessageQueue::new());
+
+        // Create WebView using DCC integration mode
+        let webview = WebViewInner::create_for_dcc(
+            parent_hwnd,
+            config.clone(),
+            ipc_handler.clone(),
+            message_queue.clone(),
+        )
+        .map_err(|e| {
+            tracing::error!("[ERROR] [create_for_dcc] Failed to create WebView: {}", e);
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+        })?;
+
+        tracing::info!("[OK] [create_for_dcc] WebView created successfully");
+        tracing::info!("[OK] Remember to call process_messages() periodically from Qt timer!");
+
+        Ok(AuroraView {
+            inner: Rc::new(RefCell::new(Some(webview))),
+            config: Rc::new(RefCell::new(config)),
+            ipc_handler,
+            message_queue,
+            event_loop_proxy: Rc::new(RefCell::new(None)),
+        })
+    }
+
+    /// Process messages for DCC integration mode
+    ///
+    /// This method should be called periodically from a Qt timer to process
+    /// WebView messages without running a dedicated event loop.
+    ///
+    /// Returns:
+    ///     bool: True if the window should be closed, False otherwise
+    ///
+    /// Example:
+    ///     ```text
+    ///     from PySide2.QtCore import QTimer
+    ///
+    ///     timer = QTimer()
+    ///     timer.timeout.connect(webview.process_messages)
+    ///     timer.start(16)  # 60 FPS
+    ///     ```
+    fn process_messages(&self) -> PyResult<bool> {
+        let inner = self.inner.borrow();
+        if let Some(webview) = inner.as_ref() {
+            let should_close = webview.process_messages();
+            Ok(should_close)
+        } else {
+            Ok(false)
+        }
+    }
+
     /// Load a URL in the WebView
     ///
     /// Args:

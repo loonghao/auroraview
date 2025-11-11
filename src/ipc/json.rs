@@ -181,3 +181,101 @@ pub fn python_to_json(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     // Unsupported type - convert to string representation
     Ok(Value::String(value.to_string()))
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::types::{PyDict as PyDictType, PyList as PyListType};
+    use pyo3::Python;
+
+    #[test]
+    fn test_from_str_and_to_string_roundtrip() {
+        let s = r#"{"a":1,"b":[1,2,3],"c":null}"#;
+        let v = from_str(s).expect("parse ok");
+        let out = to_string(&v).expect("serialize ok");
+        // serde_json normalizes spacing; reparse and compare
+        let v2: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v, v2);
+    }
+
+    #[test]
+    fn test_json_to_python_nested_objects() {
+        let value = serde_json::json!({
+            "s": "x",
+            "n": 42,
+            "f": 3.14,
+            "null": null,
+            "arr": [1, "y", null],
+            "obj": {"k": "v"}
+        });
+        Python::with_gil(|py| {
+            let obj = json_to_python(py, &value).expect("to py ok");
+            let back = python_to_json(&obj.bind(py)).expect("roundtrip to json");
+            assert_eq!(back["s"], "x");
+            assert_eq!(back["n"], 42);
+            assert!(back["null"].is_null());
+            assert_eq!(back["arr"][1], "y");
+        });
+    }
+
+    #[test]
+    fn test_python_to_json_nested_objects() {
+        Python::with_gil(|py| {
+            let dict = PyDictType::new(py);
+            dict.set_item("s", "x").unwrap();
+            dict.set_item("i", 7).unwrap();
+            dict.set_item("f", 2.5).unwrap();
+            dict.set_item("none", py.None()).unwrap();
+            let list = PyListType::empty_bound(py);
+            list.append(1).unwrap();
+            list.append("y").unwrap();
+            list.append(py.None()).unwrap();
+            dict.set_item("arr", list).unwrap();
+
+            let v = python_to_json(&dict.as_any()).expect("to json ok");
+            assert_eq!(v["s"], "x");
+            assert_eq!(v["i"], 7);
+            assert!(v["none"].is_null());
+            assert_eq!(v["arr"][1], "y");
+        });
+    }
+
+    #[test]
+    fn test_from_slice_and_from_bytes_and_pretty() {
+        let mut buf = br#"{"k":1}"#.to_vec();
+        let mut slice = buf.clone();
+        let v1 = from_slice(&mut slice).expect("slice ok");
+        let v2 = from_bytes(buf).expect("bytes ok");
+        assert_eq!(v1, v2);
+        let pretty = to_string_pretty(&v1).expect("pretty ok");
+        assert!(pretty.contains("\n"));
+    }
+
+    #[test]
+    fn test_value_helpers_and_error() {
+        #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+        struct S { a: i32 }
+        let s = S { a: 5 };
+        let val = to_value(&s).expect("to_value ok");
+        let back: S = from_value(val).expect("from_value ok");
+        assert_eq!(back, s);
+        // invalid JSON error path
+        assert!(from_str("not json").is_err());
+    }
+
+    #[test]
+    fn test_from_value_error_wrong_type() {
+        let val = serde_json::Value::String("x".to_string());
+        let res: Result<i32, _> = from_value(val);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_from_slice_error() {
+        let mut bad = b"{".to_vec(); // invalid JSON
+        assert!(from_slice(&mut bad).is_err());
+    }
+
+
+}

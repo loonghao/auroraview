@@ -279,5 +279,7 @@ pub fn create_standalone(
         event_loop_proxy: Some(event_loop_proxy),
         lifecycle,
         platform_manager,
+        #[cfg(target_os = "windows")]
+        backend: None, // Only used in DCC mode
     })
 }

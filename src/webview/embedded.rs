@@ -467,6 +467,8 @@ pub fn create_embedded(
         event_loop_proxy: None, // Embedded mode doesn't use event loop proxy
         lifecycle,
         platform_manager,
+        #[cfg(target_os = "windows")]
+        backend: None, // Only used in DCC mode
     })
 }
 

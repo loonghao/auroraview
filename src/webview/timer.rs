@@ -320,8 +320,8 @@ mod tests {
     #[test]
     fn test_windows_timer_invalid_hwnd() {
         let mut timer = Timer::new(16);
-        // Invalid HWND should fail
-        let result = timer.start_windows(0);
+        // HWND = 0 is allowed by WinAPI (thread-queue timers). Use -1 to force failure.
+        let result = timer.start_windows(-1);
         assert!(result.is_err());
     }
 
