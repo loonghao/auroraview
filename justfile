@@ -211,8 +211,8 @@ ci-lint:
     @echo "Running CI linting..."
     cargo fmt --all -- --check
     cargo clippy --all-targets --all-features -- -D warnings
-    uv run ruff check python/ tests/
-    uv run ruff format --check python/ tests/
+    uvx ruff check python/ tests/
+    uvx ruff format --check python/ tests/
 
 # Coverage commands
 coverage-python:

@@ -74,6 +74,6 @@ htmlcov/
 .augment/
 
 # Additional build artifacts
-python/auroraview/_core.pyd
+python/auroraview/_core.*
 target/llvm-cov/
 target/wheels/

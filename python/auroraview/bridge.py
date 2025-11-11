@@ -28,6 +28,7 @@ from typing import Any, Callable, Dict, Optional, Set
 try:
     import websockets
     from websockets.server import WebSocketServerProtocol
+
     WEBSOCKETS_AVAILABLE = True
 except ImportError:
     WEBSOCKETS_AVAILABLE = False
@@ -93,8 +94,7 @@ class Bridge:
         """
         if not WEBSOCKETS_AVAILABLE:
             raise ImportError(
-                "websockets library is required for Bridge. "
-                "Install with: pip install websockets"
+                "websockets library is required for Bridge. Install with: pip install websockets"
             )
 
         # Service discovery
@@ -102,6 +102,7 @@ class Bridge:
         if service_discovery:
             try:
                 from ._core import ServiceDiscovery
+
                 self._service_discovery = ServiceDiscovery(
                     bridge_port=port,
                     discovery_port=discovery_port,
@@ -109,7 +110,9 @@ class Bridge:
                 )
                 # Use allocated port
                 port = self._service_discovery.bridge_port
-                logger.info(f"Service discovery enabled: bridge_port={port}, discovery_port={discovery_port}")
+                logger.info(
+                    f"Service discovery enabled: bridge_port={port}, discovery_port={discovery_port}"
+                )
             except ImportError as e:
                 logger.warning(f"Service discovery not available: {e}")
             except Exception as e:
@@ -131,30 +134,32 @@ class Bridge:
 
         if auto_start:
             self.start_background()
-            
+
     def on(self, action: str) -> Callable:
         """Decorator to register a message handler.
-        
+
         Args:
             action: Action name (e.g., 'layer_created', 'handshake')
-            
+
         Returns:
             Decorator function
-            
+
         Example:
             >>> @bridge.on('layer_created')
             >>> async def handle_layer(data, client):
             ...     print(f"Layer: {data}")
             ...     return {"status": "ok"}
         """
+
         def decorator(func: Callable) -> Callable:
             self.register_handler(action, func)
             return func
+
         return decorator
-        
+
     def register_handler(self, action: str, handler: Callable):
         """Register a message handler.
-        
+
         Args:
             action: Action name
             handler: Async function(data, client) -> response
@@ -164,18 +169,18 @@ class Bridge:
         """
         self._handlers[action] = handler
         logger.info(f"Registered handler for action: '{action}'")
-        
+
     def set_webview_callback(self, callback: Callable):
         """Set callback to communicate with WebView UI.
-        
+
         This is called automatically when Bridge is associated with a WebView.
-        
+
         Args:
             callback: Function(action, data, result) to call when UI needs update
         """
         self._webview_callback = callback
         logger.debug("WebView callback registered")
-        
+
     async def start(self):
         """Start the WebSocket server (blocking).
 
@@ -247,6 +252,7 @@ class Bridge:
 
         # Wait a bit for the server to start
         import time
+
         time.sleep(0.5)  # Give the thread time to start
         logger.info(f"Bridge status after start: {self}")
 
@@ -260,8 +266,7 @@ class Bridge:
         # Close all client connections
         if self._clients:
             await asyncio.gather(
-                *[client.close() for client in self._clients],
-                return_exceptions=True
+                *[client.close() for client in self._clients], return_exceptions=True
             )
 
         # Stop service discovery if enabled
@@ -311,7 +316,7 @@ class Bridge:
             else:
                 raise ValueError(f"Unsupported protocol: {self.protocol}")
 
-            action = data.get('action')
+            action = data.get("action")
             logger.info(f"📨 Received: {action}")
             logger.debug(f"Message data: {data}")
 
@@ -370,11 +375,12 @@ class Bridge:
 
         # Send to all clients concurrently
         await asyncio.gather(
-            *[client.send(message) for client in self._clients],
-            return_exceptions=True
+            *[client.send(message) for client in self._clients], return_exceptions=True
         )
 
-        logger.info(f"📡 Broadcast to {len(self._clients)} clients: {data.get('action', 'unknown')}")
+        logger.info(
+            f"📡 Broadcast to {len(self._clients)} clients: {data.get('action', 'unknown')}"
+        )
 
     def execute_command(self, command: str, params: Dict[str, Any] = None):
         """Send command to all clients (non-blocking).
@@ -392,10 +398,7 @@ class Bridge:
         data = {
             "type": "request",
             "action": "execute_command",
-            "data": {
-                "command": command,
-                "params": params or {}
-            }
+            "data": {"command": command, "params": params or {}},
         }
 
         # Schedule broadcast in the event loop
@@ -432,4 +435,3 @@ class Bridge:
         """String representation."""
         status = "running" if self._is_running else "stopped"
         return f"Bridge(ws://{self.host}:{self.port}, {status}, clients={self.client_count})"
-

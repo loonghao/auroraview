@@ -266,4 +266,3 @@ class TestQtWebViewAppQuit:
         # Cleanup
         webview.close()
         # No need for deleteLater() since WA_DeleteOnClose is set
-

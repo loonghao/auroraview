@@ -123,6 +123,7 @@ except ImportError as e:
                 f"Original error: {_BRIDGE_IMPORT_ERROR}"
             )
 
+
 # Service Discovery (optional - requires Rust core)
 _SERVICE_DISCOVERY_IMPORT_ERROR = None
 try:
@@ -143,7 +144,9 @@ except ImportError as e:
 
     class ServiceInfo:  # type: ignore
         """ServiceInfo placeholder - Rust core not available."""
+
         pass
+
 
 # Qt backend is optional
 _QT_IMPORT_ERROR = None
@@ -162,6 +165,7 @@ except ImportError as e:
                 "Install with: pip install auroraview[qt]\n"
                 f"Original error: {_QT_IMPORT_ERROR}"
             )
+
 
 # Public flags for test/diagnostics
 _HAS_QT = _QT_IMPORT_ERROR is None

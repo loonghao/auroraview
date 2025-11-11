@@ -69,6 +69,20 @@ runs:
           libglib2.0-dev \
           libpango1.0-dev \
           libcairo2-dev
+        # X11 and related dev packages needed by active-win-pos-rs and GUI crates on Linux
+        sudo apt-get install -y \
+          libx11-dev \
+          libx11-xcb-dev \
+          libxcb1-dev \
+          libxcb-render0-dev \
+          libxcb-shape0-dev \
+          libxcb-xfixes0-dev \
+          libxrandr-dev \
+          libxi-dev \
+          libxfixes-dev \
+          libxtst-dev \
+          pkg-config
+
 
     - name: Install dependencies
       if: inputs.install-dependencies == 'true'
