@@ -103,7 +103,7 @@ except ImportError:
     destroy_window_by_hwnd = None  # type: ignore
 
 from .event_timer import EventTimer
-from .webview import WebView
+from .webview import WebView, NativeWebView
 
 # Bridge for DCC integration (optional - requires websockets)
 _BRIDGE_IMPORT_ERROR = None
@@ -173,10 +173,27 @@ _HAS_QT = _QT_IMPORT_ERROR is None
 # Backward-compatibility alias
 AuroraViewQt = QtWebView
 
+# Simple top-level event decorator (for tests/backward-compat)
+_EVENT_HANDLERS = {}
+
+def on_event(event_name: str):
+    """Top-level event decorator used in basic examples/tests.
+
+    Note: This is a lightweight registry; core event routing is per-WebView via
+    webview.on(). This helper exists for compatibility with older code/tests.
+    """
+    def decorator(func):
+        _EVENT_HANDLERS.setdefault(event_name, []).append(func)
+        return func
+
+    return decorator
+
+
 
 __all__ = [
-    # Base class
+    # Base classes
     "WebView",
+    "NativeWebView",
     # Qt backend (may raise ImportError if not installed)
     "QtWebView",
     "AuroraViewQt",
@@ -187,6 +204,7 @@ __all__ = [
     "ServiceInfo",
     # Utilities
     "EventTimer",
+    "on_event",
     # Window utilities
     "WindowInfo",
     "get_foreground_window",

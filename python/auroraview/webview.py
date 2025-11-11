@@ -65,12 +65,14 @@ class WebView:
         height: int = 600,
         url: Optional[str] = None,
         html: Optional[str] = None,
-        debug: bool = True,
+        debug: Optional[bool] = None,
         resizable: bool = True,
-        frame: bool = True,
+        frame: Optional[bool] = None,
         parent: Optional[int] = None,
         mode: Optional[str] = None,
         bridge: Union["Bridge", bool, None] = None,  # type: ignore
+        dev_tools: Optional[bool] = None,
+        decorations: Optional[bool] = None,
     ) -> None:
         """Initialize the WebView.
 
@@ -95,6 +97,16 @@ class WebView:
                 "AuroraView core library not found. "
                 "Please ensure the package is properly installed."
             )
+
+        # Backward-compat parameter aliases
+        if dev_tools is not None and debug is None:
+            debug = dev_tools
+        if decorations is not None and frame is None:
+            frame = decorations
+        if debug is None:
+            debug = True
+        if frame is None:
+            frame = True
 
         # Map new parameter names to Rust core (which still uses old names)
         self._core = _CoreWebView(
@@ -538,6 +550,14 @@ class WebView:
                 logger.warning("⚠️  Window will close when script exits!")
                 logger.warning("⚠️  Use wait=True or keep script running with input()")
                 self._show_non_blocking()
+
+        def show_async(self) -> None:
+            """Show the WebView window in non-blocking mode (compatibility helper).
+
+            Equivalent to calling show(wait=False). Safe to call multiple times; if the
+            WebView is already running, the call is ignored.
+            """
+            self._show_non_blocking()
 
     def _show_non_blocking(self) -> None:
         """Internal method: non-blocking show (background thread)."""
@@ -996,3 +1016,21 @@ class WebView:
             return
 
         self._bridge.execute_command(command, params)
+
+
+
+class NativeWebView:
+    """Backward-compatibility factory for native WebView creation.
+
+    Provides simple factory methods expected by older tests/APIs.
+    """
+
+    @classmethod
+    def standalone(cls, **kwargs) -> "WebView":
+        """Create a standalone WebView instance."""
+        return WebView(**kwargs)
+
+    @classmethod
+    def embedded(cls, parent: int, mode: str = "owner", **kwargs) -> "WebView":
+        """Create an embedded WebView instance for a given parent handle."""
+        return WebView(parent=parent, mode=mode, **kwargs)
