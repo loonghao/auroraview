@@ -230,13 +230,12 @@ class TestQtBackendWithEvents:
         view.deleteLater()
 
     def test_event_decorator_available(self, webview):
-        """Test that on_event decorator is available."""
-        from auroraview import on_event
-
-        assert on_event is not None
+        """Test that @webview.on() decorator is available."""
+        assert hasattr(webview, "on")
+        assert callable(webview.on)
 
         # Test that we can use the decorator
-        @on_event("test_event")
+        @webview.on("test_event")
         def test_handler(data):
             return {"received": data}
 

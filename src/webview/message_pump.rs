@@ -43,12 +43,15 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
         while PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool() {
             message_count += 1;
 
-            // Log all messages for debugging
-            if message_count <= 10
-                || msg.message == WM_CLOSE
-                || msg.message == WM_DESTROY
-                || msg.message == WM_QUIT
-            {
+            // Log close/destroy messages as INFO, others as DEBUG
+            if msg.message == WM_CLOSE || msg.message == WM_DESTROY || msg.message == WM_QUIT {
+                tracing::info!(
+                    "[CRITICAL] [process_messages_for_hwnd] Message #{}: 0x{:04X} (HWND: {:?})",
+                    message_count,
+                    msg.message,
+                    msg.hwnd
+                );
+            } else if message_count <= 10 {
                 tracing::debug!(
                     "[OK] [process_messages_for_hwnd] Message #{}: 0x{:04X} (HWND: {:?})",
                     message_count,
@@ -98,13 +101,13 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
                 tracing::info!("{}", "=".repeat(80));
                 continue;
             } else if msg.message == WM_DESTROY {
-                tracing::debug!(
-                    "[process_messages_for_hwnd] WM_DESTROY received, hwnd={:?}",
+                tracing::info!(
+                    "[CRITICAL] [process_messages_for_hwnd] WM_DESTROY received, hwnd={:?}",
                     msg.hwnd
                 );
                 should_close = true;
             } else if msg.message == WM_QUIT {
-                tracing::debug!("[process_messages_for_hwnd] WM_QUIT received");
+                tracing::info!("[CRITICAL] [process_messages_for_hwnd] WM_QUIT received");
                 should_close = true;
             }
 
@@ -298,6 +301,33 @@ pub fn process_all_messages_limited(max_messages: usize) -> bool {
         should_close
     }
 }
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_process_all_messages_limited_zero() {
+        // Should return false and not panic when no messages are processed
+        let should_close = process_all_messages_limited(0);
+        assert!(!should_close);
+    }
+}
+
+    #[test]
+    fn test_is_window_valid_zero_hwnd_is_false() {
+        // HWND(0) is invalid
+        assert!(!is_window_valid(0));
+    }
+
+    #[test]
+    fn test_process_all_messages_no_messages_returns_false() {
+        // When no messages are pending, should return false
+        let should_close = process_all_messages();
+        assert!(!should_close);
+    }
+
+
 #[cfg(not(target_os = "windows"))]
 pub fn process_all_messages_limited(_max_messages: usize) -> bool {
     false

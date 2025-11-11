@@ -17,7 +17,7 @@ pub const LOADING_HTML: &str = r#"<!DOCTYPE html>
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -27,12 +27,12 @@ pub const LOADING_HTML: &str = r#"<!DOCTYPE html>
             height: 100vh;
             overflow: hidden;
         }
-        
+
         .loader-container {
             text-align: center;
             color: white;
         }
-        
+
         .spinner {
             width: 60px;
             height: 60px;
@@ -42,17 +42,17 @@ pub const LOADING_HTML: &str = r#"<!DOCTYPE html>
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        
+
         .loading-text {
             font-size: 18px;
             font-weight: 500;
             opacity: 0.9;
         }
-        
+
         .loading-subtext {
             font-size: 14px;
             opacity: 0.7;
@@ -66,20 +66,20 @@ pub const LOADING_HTML: &str = r#"<!DOCTYPE html>
         <div class="loading-text">Loading AuroraView...</div>
         <div class="loading-subtext">Please wait</div>
     </div>
-    
+
     <script>
         // Notify Rust that loading screen is ready
         console.log('[TIMER] Loading screen rendered');
-        
+
         // Mark performance timing
         window.loadingScreenReady = performance.now();
-        
+
         // Listen for content ready event
         window.addEventListener('content_ready', () => {
             console.log('[OK] Content ready, hiding loading screen');
             document.body.style.opacity = '0';
             document.body.style.transition = 'opacity 0.3s';
-            
+
             setTimeout(() => {
                 // This will be replaced by actual content
             }, 300);
@@ -127,14 +127,14 @@ pub fn wrap_html_with_optimizations(user_html: &str) -> String {
 </head>
 <body>
     {}
-    
+
     <script>
         // Performance monitoring
         window.auroraViewPerf = {{
             start: performance.now(),
             marks: {{}}
         }};
-        
+
         // Mark when DOM is ready
         if (document.readyState === 'loading') {{
             document.addEventListener('DOMContentLoaded', () => {{
@@ -142,27 +142,27 @@ pub fn wrap_html_with_optimizations(user_html: &str) -> String {
                 console.log('[TIMER] DOM ready:', window.auroraViewPerf.marks.domReady - window.auroraViewPerf.start, 'ms');
             }});
         }}
-        
+
         // Mark when fully loaded
         window.addEventListener('load', () => {{
             window.auroraViewPerf.marks.loaded = performance.now();
             console.log('[TIMER] Fully loaded:', window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start, 'ms');
-            
+
             // Show content
             document.body.classList.add('ready');
-            
+
             // Notify Rust
             try {{
                 window.dispatchEvent(new CustomEvent('first_paint', {{
-                    detail: {{ 
-                        time: window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start 
+                    detail: {{
+                        time: window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start
                     }}
                 }}));
             }} catch (e) {{
                 console.error('Failed to dispatch first_paint event:', e);
             }}
         }});
-        
+
         // Mark when JavaScript is initialized
         window.auroraViewPerf.marks.jsInit = performance.now();
         console.log('[TIMER] JavaScript initialized:', window.auroraViewPerf.marks.jsInit - window.auroraViewPerf.start, 'ms');
@@ -188,7 +188,7 @@ fn add_performance_monitoring(html: &str) -> String {
         start: performance.now(),
         marks: {{}}
     }};
-    
+
     // Mark when DOM is ready
     if (document.readyState === 'loading') {{
         document.addEventListener('DOMContentLoaded', () => {{
@@ -198,24 +198,24 @@ fn add_performance_monitoring(html: &str) -> String {
     }} else {{
         window.auroraViewPerf.marks.domReady = performance.now();
     }}
-    
+
     // Mark when fully loaded
     window.addEventListener('load', () => {{
         window.auroraViewPerf.marks.loaded = performance.now();
         console.log('[TIMER] Fully loaded:', window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start, 'ms');
-        
+
         // Notify Rust
         try {{
             window.dispatchEvent(new CustomEvent('first_paint', {{
-                detail: {{ 
-                    time: window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start 
+                detail: {{
+                    time: window.auroraViewPerf.marks.loaded - window.auroraViewPerf.start
                 }}
             }}));
         }} catch (e) {{
             console.error('Failed to dispatch first_paint event:', e);
         }}
     }});
-    
+
     // Mark when JavaScript is initialized
     window.auroraViewPerf.marks.jsInit = performance.now();
     console.log('[TIMER] JavaScript initialized:', window.auroraViewPerf.marks.jsInit - window.auroraViewPerf.start, 'ms');
@@ -258,3 +258,10 @@ mod tests {
         assert!(wrapped.contains("<h1>Hello</h1>"));
     }
 }
+
+    #[test]
+    fn test_loading_html_has_spinner_and_text() {
+        assert!(LOADING_HTML.contains("spinner"));
+        assert!(LOADING_HTML.contains("Loading AuroraView"));
+    }
+

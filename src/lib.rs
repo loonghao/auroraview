@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 mod ipc;
 mod metrics;
 mod platform;
+mod service_discovery;
 mod utils;
 mod webview;
 mod window_utils;
@@ -40,6 +41,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Register high-performance JSON functions (orjson-equivalent, no Python deps)
     ipc::json_bindings::register_json_functions(m)?;
+
+    // Register service discovery module
+    service_discovery::python_bindings::register_service_discovery(m)?;
 
     // Windows-only: register minimal WebView2 embedded API (feature-gated)
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]
@@ -81,3 +85,19 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 //
 // Note: Even empty test modules require Python DLL to be present
 // Use `cargo build` to verify compilation instead of `cargo test`
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::prelude::*;
+
+    #[test]
+    fn test_pymodule_init_registers_symbols() {
+        Python::with_gil(|py| {
+            let m = PyModule::new_bound(py, "auroraview_test").unwrap();
+            _core(&m).expect("module init should succeed");
+            assert!(m.getattr("get_all_windows").is_ok());
+        });
+    }
+}

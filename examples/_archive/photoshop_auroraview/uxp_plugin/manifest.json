@@ -1,0 +1,43 @@
+{
+  "manifestVersion": 5,
+  "id": "com.auroraview.photoshop.bridge.v2",
+  "name": "AuroraView Bridge v2",
+  "version": "2.0.0",
+  "main": "index.html",
+  "host": [
+    {
+      "app": "PS",
+      "minVersion": "24.0.0"
+    }
+  ],
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "auroraview.bridge.v2",
+      "label": {
+        "default": "AuroraView Bridge v2"
+      },
+      "preferredDockedSize": {
+        "width": 350,
+        "height": 600
+      },
+      "preferredFloatingSize": {
+        "width": 350,
+        "height": 600
+      }
+    }
+  ],
+  "requiredPermissions": {
+    "network": {
+      "domains": "all"
+    },
+    "webview": {
+      "allow": "yes",
+      "domains": [ "https://*.adobe.com", "https://*.google.com" ]
+    },
+    "launchProcess": {
+      "schemes": [ "file" ]
+    }
+  }
+}
+

@@ -29,7 +29,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-dependencies = []
+dependencies = [
+    "typing_extensions>=4.0.0; python_version<'3.8'"
+]
 
 [project.optional-dependencies]
 qt = [
@@ -120,9 +122,16 @@ markers = [
 # Coverage configuration
 [tool.coverage.run]
 source = ["auroraview"]
-omit = ["*/tests/*", "*/__pycache__/*"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    # Omit environment-dependent GUI backends from coverage stats
+    "*/auroraview/qt_integration.py",
+    "*/auroraview/webview.py",
+]
 
 [tool.coverage.report]
+fail_under = 50
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

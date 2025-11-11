@@ -42,6 +42,8 @@ AuroraView is **not** a fork of PyWebView. It's a completely new project designe
 
 [POINTER] **[Read the full comparison](./docs/COMPARISON_WITH_PYWEBVIEW.md)** to understand why AuroraView is better for DCC development.
 
+[POINTER] **[DCC Integration Guide](./docs/DCC_INTEGRATION.md)** - Learn how to integrate AuroraView into Maya, Houdini, Nuke, and other DCC applications.
+
 ## [ARCHITECTURE] Architecture
 
 ```
@@ -117,6 +119,8 @@ pip install auroraview
 pip install auroraview[qt]
 ```
 
+> **Note for DCC Integration**: Qt-based DCC applications (Maya, Houdini, Nuke, 3ds Max) require QtPy as a middleware layer to handle different Qt versions across DCC applications. The `[qt]` extra installs QtPy automatically.
+
 #### Linux
 
 Linux wheels are not available on PyPI due to webkit2gtk system dependencies. Install from GitHub Releases:
@@ -147,21 +151,33 @@ webview = WebView.create("My App", url="http://localhost:3000")
 webview.show()  # Auto-blocks until closed
 ```
 
-**Maya integration (1 line!):**
+**Maya integration:**
 ```python
 from auroraview import WebView
 
-# Maya shortcut - auto-detects Maya window
+# Requires: pip install auroraview[qt]
+# Maya shortcut - auto-detects Maya window and uses QtPy for compatibility
 webview = WebView.maya("Maya Tool", url="http://localhost:3000")
 webview.show()  # Auto non-blocking with timer
 ```
 
-**Houdini integration (1 line!):**
+**Houdini integration:**
 ```python
 from auroraview import WebView
 
-# Houdini shortcut - auto-detects Houdini window
+# Requires: pip install auroraview[qt]
+# Houdini shortcut - auto-detects Houdini window and uses QtPy for compatibility
 webview = WebView.houdini("Houdini Tool", url="http://localhost:3000")
+webview.show()  # Auto non-blocking with timer
+```
+
+**Nuke integration:**
+```python
+from auroraview import WebView
+
+# Requires: pip install auroraview[qt]
+# Nuke shortcut - auto-detects Nuke window and uses QtPy for compatibility
+webview = WebView.nuke("Nuke Tool", url="http://localhost:3000")
 webview.show()  # Auto non-blocking with timer
 ```
 

@@ -31,6 +31,10 @@ pub struct WebViewInner {
     pub(crate) lifecycle: Arc<LifecycleManager>,
     /// Platform-specific window manager
     pub(crate) platform_manager: Option<Box<dyn PlatformWindowManager>>,
+    /// Backend instance for DCC mode - MUST be kept alive to prevent window destruction
+    #[allow(dead_code)]
+    #[cfg(target_os = "windows")]
+    pub(crate) backend: Option<Box<super::backend::native::NativeBackend>>,
 }
 
 impl Drop for WebViewInner {
@@ -38,9 +42,12 @@ impl Drop for WebViewInner {
         use scopeguard::defer;
 
         defer! {
-            tracing::info!("[OK] [WebViewInner::drop] Cleanup completed");
+            tracing::warn!("[DROP] [WebViewInner::drop] Cleanup completed");
         }
 
+        tracing::warn!("========================================");
+        tracing::warn!("[DROP] WebViewInner is being dropped!");
+        tracing::warn!("========================================");
         tracing::info!("[CLOSE] [WebViewInner::drop] Cleaning up WebView resources");
 
         // Execute lifecycle cleanup handlers
@@ -162,6 +169,140 @@ impl WebViewInner {
             ipc_handler,
             message_queue,
         )
+    }
+
+    /// Create WebView for DCC integration (no event loop)
+    ///
+    /// This method creates a WebView that integrates with DCC applications by
+    /// reusing the DCC's Qt message pump instead of creating its own event loop.
+    ///
+    /// # Arguments
+    /// * `parent_hwnd` - HWND of the DCC main window
+    /// * `config` - WebView configuration
+    /// * `ipc_handler` - IPC message handler
+    /// * `message_queue` - Message queue for cross-thread communication
+    ///
+    /// # Returns
+    /// A WebViewInner instance without an event loop
+    #[cfg(target_os = "windows")]
+    pub fn create_for_dcc(
+        parent_hwnd: u64,
+        config: WebViewConfig,
+        ipc_handler: Arc<IpcHandler>,
+        message_queue: Arc<MessageQueue>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        use super::backend::native::NativeBackend;
+        use super::backend::WebViewBackend;
+
+        // Create backend using DCC integration mode
+        let backend = NativeBackend::create_for_dcc(
+            parent_hwnd,
+            config.clone(),
+            ipc_handler,
+            message_queue.clone(),
+        )?;
+
+        // Extract webview reference (but keep backend alive!)
+        let webview = backend.webview();
+
+        tracing::info!("[OK] [create_for_dcc] Keeping backend alive to prevent window destruction");
+
+        Ok(Self {
+            webview,
+            window: None, // Window is owned by backend
+            event_loop: None, // Event loop is owned by backend
+            message_queue,
+            event_loop_proxy: None,
+            lifecycle: Arc::new(LifecycleManager::new()),
+            platform_manager: None,
+            backend: Some(Box::new(backend)), // CRITICAL: Keep backend alive!
+        })
+    }
+
+    /// Create WebView for DCC integration (non-Windows platforms)
+    #[cfg(not(target_os = "windows"))]
+    pub fn create_for_dcc(
+        _parent_hwnd: u64,
+        _config: WebViewConfig,
+        _ipc_handler: Arc<IpcHandler>,
+        _message_queue: Arc<MessageQueue>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        Err("DCC integration mode is only supported on Windows".into())
+    }
+
+    /// Process messages for DCC integration mode
+    ///
+    /// This method should be called periodically from a Qt timer to process
+    /// WebView messages without running a dedicated event loop.
+    ///
+    /// # Returns
+    /// `true` if the window should be closed, `false` otherwise
+    pub fn process_messages(&self) -> bool {
+        // Process Windows messages for this window
+        #[cfg(target_os = "windows")]
+        {
+            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+            if let Some(window) = &self.window {
+                if let Ok(window_handle) = window.window_handle() {
+                    let raw_handle = window_handle.as_raw();
+                    if let RawWindowHandle::Win32(handle) = raw_handle {
+                        let hwnd = handle.hwnd.get() as u64;
+                        let should_quit = message_pump::process_messages_for_hwnd(hwnd);
+
+                        // Process message queue
+                        if let Ok(webview) = self.webview.lock() {
+                            self.message_queue.process_all(|message| {
+                                use crate::ipc::WebViewMessage;
+                                match message {
+                                    WebViewMessage::EvalJs(script) => {
+                                        if let Err(e) = webview.evaluate_script(&script) {
+                                            tracing::error!("Failed to execute JavaScript: {}", e);
+                                        }
+                                    }
+                                    WebViewMessage::EmitEvent { event_name, data } => {
+                                        let json_str = data.to_string();
+                                        let escaped_json =
+                                            json_str.replace('\\', "\\\\").replace('\'', "\\'");
+                                        let script = format!(
+                                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
+                                            event_name, escaped_json
+                                        );
+                                        if let Err(e) = webview.evaluate_script(&script) {
+                                            tracing::error!("Failed to emit event: {}", e);
+                                        }
+                                    }
+                                    WebViewMessage::LoadUrl(url) => {
+                                        let script = format!("window.location.href = '{}';", url);
+                                        if let Err(e) = webview.evaluate_script(&script) {
+                                            tracing::error!("Failed to load URL: {}", e);
+                                        }
+                                    }
+                                    WebViewMessage::LoadHtml(html) => {
+                                        if let Err(e) = webview.load_html(&html) {
+                                            tracing::error!("Failed to load HTML: {}", e);
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        return should_quit;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            false
+        }
     }
 
     /// Load a URL

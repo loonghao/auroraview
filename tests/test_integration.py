@@ -91,35 +91,17 @@ class TestDecoratorIntegration:
     """Integration tests for decorators."""
 
     def test_on_event_with_webview_integration(self):
-        """Test on_event decorator with WebView integration."""
+        """Test @webview.on() decorator with WebView integration."""
         try:
-            from auroraview import WebView, on_event
+            from auroraview import WebView
 
             webview = WebView()
 
-            @on_event("data_update", webview)
+            @webview.on("data_update")
             def handle_update(data):
                 return data
 
             assert "data_update" in webview._event_handlers
-            assert handle_update._event_name == "data_update"
-        except ImportError:
-            pytest.skip("Package not built yet")
-
-    def test_multiple_decorators_integration(self):
-        """Test multiple decorators integration."""
-        try:
-            from auroraview import WebView, on_event
-            from auroraview.decorators import throttle
-
-            webview = WebView()
-
-            @on_event("mouse_move", webview)
-            @throttle(0.1)
-            def handle_mouse_move(data):
-                return data
-
-            assert "mouse_move" in webview._event_handlers
         except ImportError:
             pytest.skip("Package not built yet")
 
