@@ -1,14 +1,36 @@
 #!/usr/bin/env bash
 # AuroraView pre-commit hook
-# Ensures Python lint passes before committing.
-# Requires: ruff available on PATH.
+# Ensures Python & Rust lint pass before committing.
+# Requires: ruff and cargo available on PATH for their respective checks.
 
 set -euo pipefail
 
-echo "[pre-commit] Running ruff check --fix (python/, tests/)"
-ruff check --fix python/ tests/
+# Detect changed files in index (staged)
+changed_files=$(git diff --cached --name-only --diff-filter=ACM || true)
 
-echo "[pre-commit] Running ruff check (python/, tests/)"
-ruff check python/ tests/
+# ---------- Python (ruff) ----------
+if echo "$changed_files" | grep -E '^(python/|tests/).*\.py$' >/dev/null 2>&1; then
+  echo "[pre-commit] Running ruff check --fix (python/, tests/)"
+  ruff check --fix python/ tests/
+  echo "[pre-commit] Running ruff check (python/, tests/)"
+  ruff check python/ tests/
+else
+  echo "[pre-commit] Skipping ruff (no Python changes staged)"
+fi
+
+# ---------- Rust (fmt + clippy) ----------
+if echo "$changed_files" | grep -E '(^src/.*\.rs$|^Cargo\.toml$|^build\.rs$)' >/dev/null 2>&1; then
+  if command -v cargo >/dev/null 2>&1; then
+    echo "[pre-commit] Running cargo fmt --all -- --check"
+    cargo fmt --all -- --check
+
+    echo "[pre-commit] Running cargo clippy --all-targets --all-features -D warnings"
+    cargo clippy --all-targets --all-features -D warnings --no-deps
+  else
+    echo "[pre-commit] cargo not found; skipping Rust checks"
+  fi
+else
+  echo "[pre-commit] Skipping cargo (no Rust changes staged)"
+fi
 
 echo "[pre-commit] OK"
