@@ -156,7 +156,7 @@ jobs:
       - name: Install Qt dependencies
         shell: bash
         run: |
-          uv pip install qtpy PySide6 pytest pytest-cov
+          uv pip install qtpy "PySide6<6.7" pytest pytest-qt pytest-cov
 
 
 
@@ -168,6 +168,7 @@ jobs:
           CI: 'true'
           QT_QPA_PLATFORM: offscreen
           QT_OPENGL: software
+          QT_DEBUG_PLUGINS: '1'
           QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu --disable-gpu-compositing --in-process-gpu --use-gl=swiftshader --single-process --no-sandbox --disable-features=Accelerated2dCanvas,CanvasOopRasterization,UseSkiaRenderer,CalculateNativeWinOcclusion
           QTWEBENGINE_DISABLE_SANDBOX: '1'
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu --disable-gpu-compositing --in-process-gpu --use-gl=swiftshader --single-process --no-sandbox --disable-features=Accelerated2dCanvas,CanvasOopRasterization,UseSkiaRenderer,CalculateNativeWinOcclusion
