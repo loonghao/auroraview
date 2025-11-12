@@ -48,11 +48,11 @@ runs:
       run: |
         uv pip install maturin
         if [ "$RUNNER_OS" = "Windows" ]; then
-          echo "Building with Windows feature: win-webview2"
-          uv run maturin develop --features win-webview2
+          echo "Building with Windows feature: win-webview2 + ext-module"
+          uv run maturin develop --features "win-webview2,ext-module"
         else
-          echo "Building without Windows-specific features"
-          uv run maturin develop
+          echo "Building with ext-module feature"
+          uv run maturin develop --features "ext-module"
         fi
       env:
         RUST_BACKTRACE: 1
