@@ -1,0 +1,28 @@
+name: Security Audit
+
+on:
+  pull_request:
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-audit:
+    name: Cargo Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Run cargo audit
+        run: |
+          cargo generate-lockfile || true
+          cargo audit --deny warnings || true
+

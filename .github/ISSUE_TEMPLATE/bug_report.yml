@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a reproducible problem
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below.
+  - type: input
+    id: version
+    attributes:
+      label: AuroraView version
+      placeholder: e.g. 0.2.4
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: e.g. 3.11.9
+  - type: textarea
+    id: dcc
+    attributes:
+      label: DCC host and version (if applicable)
+      placeholder: e.g. Maya 2023 / Houdini 20 / Nuke 15 / Blender 4.x ...
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal, complete, and reproducible example
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and logs/traceback
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues
+          required: true
+        - label: I tested on the latest main build (if possible)
+          required: false
+        - label: I can provide a minimal repro script or project
+          required: false
+
