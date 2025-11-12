@@ -19,7 +19,7 @@ crate-type = ["cdylib", "rlib"]
 pyo3 = { version = "0.24.1", features = ["abi3-py37"], optional = true }
 
 # Wry for WebView
-wry = "0.47"
+wry = "0.53"
 tao = "0.30"
 
 # Window handle for DCC integration
