@@ -115,6 +115,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu --disable-software-rasterizer --single-process --no-sandbox
           QTWEBENGINE_DISABLE_SANDBOX: '1'
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu --disable-software-rasterizer --single-process --no-sandbox
         run: |
           # macOS Qt tests are flaky in CI headless mode - skip for now
           if [[ "$RUNNER_OS" == "macOS" ]]; then

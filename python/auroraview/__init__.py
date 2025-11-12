@@ -180,18 +180,19 @@ AuroraViewQt = QtWebView
 # Simple top-level event decorator (for tests/backward-compat)
 _EVENT_HANDLERS = {}
 
+
 def on_event(event_name: str):
     """Top-level event decorator used in basic examples/tests.
 
     Note: This is a lightweight registry; core event routing is per-WebView via
     webview.on(). This helper exists for compatibility with older code/tests.
     """
+
     def decorator(func):
         _EVENT_HANDLERS.setdefault(event_name, []).append(func)
         return func
 
     return decorator
-
 
 
 __all__ = [
