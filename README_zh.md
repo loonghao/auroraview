@@ -170,7 +170,30 @@ webview = WebView.create(
 
 )
 webview.show()  # 嵌入模式：非阻塞
+
+**嵌入模式便捷方法（2025）**：
+```python
+from auroraview import WebView
+
+# 便捷方法 = create(..., auto_show=True, auto_timer=True)
+webview = WebView.run_embedded(
+    "我的工具", url="http://localhost:3000", parent=maya_hwnd, mode="owner"
+)
 ```
+
+**回调反注册（EventTimer）**：
+```python
+from auroraview import EventTimer
+
+timer = EventTimer(webview, interval_ms=16)
+
+def _on_close(): ...
+
+timer.on_close(_on_close)
+# 之后如需移除：
+timer.off_close(_on_close)  # 也支持：off_tick(handler)
+```
+
 
 #### 2. Qt 后端
 
