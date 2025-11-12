@@ -18,6 +18,19 @@
 [![Latest Release](https://img.shields.io/github/v/release/loonghao/auroraview?display_name=tag)](https://github.com/loonghao/auroraview/releases)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen.svg)](https://pre-commit.com/)
 
+[![GitHub Stars](https://img.shields.io/github/stars/loonghao/auroraview?style=social)](https://github.com/loonghao/auroraview/stargazers)
+[![GitHub Downloads](https://img.shields.io/github/downloads/loonghao/auroraview/total)](https://github.com/loonghao/auroraview/releases)
+[![Last Commit](https://img.shields.io/github/last-commit/loonghao/auroraview)](https://github.com/loonghao/auroraview/commits/main)
+[![Commit Activity](https://img.shields.io/github/commit-activity/m/loonghao/auroraview)](https://github.com/loonghao/auroraview/graphs/commit-activity)
+[![Open Issues](https://img.shields.io/github/issues/loonghao/auroraview)](https://github.com/loonghao/auroraview/issues)
+[![Open PRs](https://img.shields.io/github/issues-pr/loonghao/auroraview)](https://github.com/loonghao/auroraview/pulls)
+[![Contributors](https://img.shields.io/github/contributors/loonghao/auroraview)](https://github.com/loonghao/auroraview/graphs/contributors)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
+[![release-please](https://img.shields.io/badge/release--please-enabled-blue)](https://github.com/googleapis/release-please)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](./.github/dependabot.yml)
+[![Code Style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://docs.astral.sh/ruff/)
+[![Type Checked: mypy](https://img.shields.io/badge/type%20checked-mypy-2A6DB0.svg)](http://mypy-lang.org/)
+
 [Code of Conduct](./CODE_OF_CONDUCT.md) • [Security Policy](./SECURITY.md) • [Issue Tracker](https://github.com/loonghao/auroraview/issues)
 
 
