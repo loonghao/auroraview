@@ -10,9 +10,15 @@ changed_files=$(git diff --cached --name-only --diff-filter=ACM || true)
 
 # ---------- Python (ruff) ----------
 if echo "$changed_files" | grep -E '^(python/|tests/).*\.py$' >/dev/null 2>&1; then
-  echo "[pre-commit] Running ruff check --fix (python/, tests/)"
-  ruff check --fix python/ tests/
-  echo "[pre-commit] Running ruff check (python/, tests/)"
+  py_changed=$(echo "$changed_files" | grep -E '^(python/|tests/).*\.py$' || true)
+
+  echo "[pre-commit] Running ruff format on staged Python files"
+  ruff format $py_changed
+
+  echo "[pre-commit] Running ruff check --fix on staged Python files"
+  ruff check --fix $py_changed
+
+  echo "[pre-commit] Running ruff check (repo-level)"
   ruff check python/ tests/
 else
   echo "[pre-commit] Skipping ruff (no Python changes staged)"
