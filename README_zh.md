@@ -10,6 +10,16 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 [![平台](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/loonghao/auroraview)
+[![CI](https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/ci.yml)
+[![Build Wheels](https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml)
+[![Release](https://github.com/loonghao/auroraview/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/release.yml)
+[![CodeQL](https://github.com/loonghao/auroraview/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/codeql.yml)
+[![Security Audit](https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml)
+[![Latest Release](https://img.shields.io/github/v/release/loonghao/auroraview?display_name=tag)](https://github.com/loonghao/auroraview/releases)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen.svg)](https://pre-commit.com/)
+
+[行为准则](./CODE_OF_CONDUCT.md) • [安全策略](./SECURITY.md) • [问题追踪](https://github.com/loonghao/auroraview/issues)
+
 
 一个为DCC（数字内容创作）软件设计的超快速、轻量级WebView框架，使用Rust构建并提供Python绑定。完美支持Maya、3ds Max、Houdini、Blender等。
 
