@@ -363,6 +363,7 @@ pub fn is_window_valid(hwnd_value: u64) -> bool {
 }
 
 #[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
 pub fn is_window_valid(_hwnd: u64) -> bool {
     // Always return true on non-Windows platforms
     true

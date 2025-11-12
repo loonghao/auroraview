@@ -16,6 +16,7 @@ use crate::webview::lifecycle::LifecycleManager;
 use std::sync::Arc;
 
 /// Platform-specific window manager trait
+#[allow(dead_code)]
 pub trait PlatformWindowManager: Send + Sync {
     /// Process platform-specific events (non-blocking)
     /// Returns true if window should close
@@ -33,16 +34,19 @@ pub trait PlatformWindowManager: Send + Sync {
 
 /// Create platform-specific window manager
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 pub fn create_platform_manager(hwnd: u64) -> Box<dyn PlatformWindowManager> {
     Box::new(windows::WindowsWindowManager::new(hwnd))
 }
 
 #[cfg(target_os = "macos")]
+#[allow(dead_code)]
 pub fn create_platform_manager(ns_window: *mut std::ffi::c_void) -> Box<dyn PlatformWindowManager> {
     Box::new(macos::MacOSWindowManager::new(ns_window))
 }
 
 #[cfg(target_os = "linux")]
+#[allow(dead_code)]
 pub fn create_platform_manager(x11_window: u64) -> Box<dyn PlatformWindowManager> {
     Box::new(linux::LinuxWindowManager::new(x11_window))
 }

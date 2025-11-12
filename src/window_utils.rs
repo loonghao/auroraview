@@ -185,27 +185,27 @@ pub fn get_all_windows() -> PyResult<Vec<WindowInfo>> {
 ///     >>> if close_window_by_hwnd(hwnd):
 ///     ...     print("Close message sent")
 #[pyfunction]
-pub fn close_window_by_hwnd(hwnd: u64) -> PyResult<bool> {
+pub fn close_window_by_hwnd(_hwnd: u64) -> PyResult<bool> {
     #[cfg(target_os = "windows")]
     {
         use std::ffi::c_void;
         use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE};
 
-        let hwnd_ptr = HWND(hwnd as *mut c_void);
+        let hwnd_ptr = HWND(_hwnd as *mut c_void);
 
         unsafe {
             let result = PostMessageW(hwnd_ptr, WM_CLOSE, None, None);
             if result.is_ok() {
                 tracing::info!(
                     "[OK] [close_window_by_hwnd] Sent WM_CLOSE to HWND: 0x{:x}",
-                    hwnd
+                    _hwnd
                 );
                 Ok(true)
             } else {
                 tracing::error!(
                     "[ERROR] [close_window_by_hwnd] Failed to send WM_CLOSE to HWND: 0x{:x}",
-                    hwnd
+                    _hwnd
                 );
                 Ok(false)
             }
@@ -239,27 +239,27 @@ pub fn close_window_by_hwnd(hwnd: u64) -> PyResult<bool> {
 ///     >>> if destroy_window_by_hwnd(hwnd):
 ///     ...     print("Window destroyed")
 #[pyfunction]
-pub fn destroy_window_by_hwnd(hwnd: u64) -> PyResult<bool> {
+pub fn destroy_window_by_hwnd(_hwnd: u64) -> PyResult<bool> {
     #[cfg(target_os = "windows")]
     {
         use std::ffi::c_void;
         use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::DestroyWindow;
 
-        let hwnd_ptr = HWND(hwnd as *mut c_void);
+        let hwnd_ptr = HWND(_hwnd as *mut c_void);
 
         unsafe {
             let result = DestroyWindow(hwnd_ptr);
             if result.is_ok() {
                 tracing::info!(
                     "[OK] [destroy_window_by_hwnd] Destroyed window HWND: 0x{:x}",
-                    hwnd
+                    _hwnd
                 );
                 Ok(true)
             } else {
                 tracing::error!(
                     "[ERROR] [destroy_window_by_hwnd] Failed to destroy window HWND: 0x{:x}",
-                    hwnd
+                    _hwnd
                 );
                 Ok(false)
             }

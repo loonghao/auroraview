@@ -19,6 +19,7 @@ pub enum LifecycleState {
     /// Window is active and running
     Active,
     /// Close has been requested but not yet processed
+    #[allow(dead_code)]
     CloseRequested,
     /// Window is being destroyed
     Destroying,
@@ -85,6 +86,7 @@ impl LifecycleManager {
     }
 
     /// Request window close
+    #[allow(dead_code)]
     pub fn request_close(&self, reason: CloseReason) -> Result<(), String> {
         let current_state = self.state();
 
