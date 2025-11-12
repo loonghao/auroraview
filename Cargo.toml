@@ -65,7 +65,7 @@ active-win-pos-rs = "0.9"
 
 # Service discovery
 mdns-sd = "0.11"                    # Pure Rust mDNS implementation
-warp = "0.3"                        # HTTP server for discovery endpoint
+warp = "0.4"                        # HTTP server for discovery endpoint
 hyper = { version = "0.14", features = ["full"] }  # HTTP client/server
 
 # Future rendering engines (feature-gated)
