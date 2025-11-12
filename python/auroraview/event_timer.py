@@ -43,9 +43,13 @@ Example:
 
 import logging
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Literal
 
 logger = logging.getLogger(__name__)
+
+
+# Type alias for timer backend kinds (for type hints and IDE support)
+TimerType = Literal["maya", "qt", "blender", "houdini", "thread"]
 
 
 class EventTimer:
@@ -89,8 +93,8 @@ class EventTimer:
         self._interval_ms = interval_ms
         self._check_validity = check_window_validity
         self._running = False
-        self._timer_impl: Optional[Any] = None  # Maya scriptJob, Qt QTimer, or Windows timer ID
-        self._timer_type: Optional[str] = None  # "maya", "qt", or "windows"
+        self._timer_impl: Optional[Any] = None  # Maya scriptJob, Qt QTimer, Blender/Houdini callbacks, or thread
+        self._timer_type: Optional["TimerType"] = None  # "maya", "qt", "blender", "houdini", "thread"
         self._close_callbacks: list[Callable[[], None]] = []
         self._tick_callbacks: list[Callable[[], None]] = []
         self._last_valid = True
@@ -270,6 +274,34 @@ class EventTimer:
         self._tick_callbacks.append(callback)
         logger.debug(f"Tick callback registered: {callback.__name__}")
         return callback
+
+    def off_close(self, callback: Callable[[], None]) -> bool:
+        """Unregister a previously registered close callback.
+
+        Returns:
+            True if the callback was removed, False if it was not found.
+        """
+        try:
+            self._close_callbacks.remove(callback)
+            logger.debug(f"Close callback unregistered: {getattr(callback, '__name__', repr(callback))}")
+            return True
+        except ValueError:
+            logger.debug("Close callback not found during unregistration")
+            return False
+
+    def off_tick(self, callback: Callable[[], None]) -> bool:
+        """Unregister a previously registered tick callback.
+
+        Returns:
+            True if the callback was removed, False if it was not found.
+        """
+        try:
+            self._tick_callbacks.remove(callback)
+            logger.debug(f"Tick callback unregistered: {getattr(callback, '__name__', repr(callback))}")
+            return True
+        except ValueError:
+            logger.debug("Tick callback not found during unregistration")
+            return False
 
     def _try_start_maya_timer(self) -> bool:
         """Try to start Maya scriptJob timer.

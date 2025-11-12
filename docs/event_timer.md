@@ -6,6 +6,13 @@
 
 **重要说明**：EventTimer 不使用后台线程，而是利用宿主应用的事件循环来避免 Rust PyO3 绑定的线程安全问题。所有事件处理都在主线程中进行，确保线程安全。
 
+> 更新（2025-11）
+> - Qt 后端通过 qtpy 统一导入（支持 PySide6/PyQt 系列）
+> - 新增回调反注册：`off_close()` / `off_tick()`
+> - 新增类型提示：`TimerType = Literal["qt","maya","blender","houdini","thread"]`
+> - 语义说明：`stop()` 可重启，`cleanup()` 为最终清理
+
+
 ## 支持的定时器后端
 
 EventTimer 支持三种定时器后端，按优先级自动选择：
@@ -179,6 +186,8 @@ class EventTimer:
         """检查定时器是否运行中"""
 
     @property
+
+
     def interval_ms(self) -> int:
         """获取定时器间隔"""
 
@@ -195,6 +204,7 @@ class EventTimer:
 from auroraview import WebView, EventTimer
 
 # 创建 WebView
+
 webview = WebView(title="My App", width=800, height=600)
 webview.show()
 
@@ -319,8 +329,9 @@ def handle_tick():
 def handle_close():
     timer.stop()
 
+
 timer.start()
-```
+
 
 ## 性能考虑
 
@@ -343,11 +354,11 @@ timer = EventTimer(webview, interval_ms=8)
 
 ### CPU 使用
 
-EventTimer 在后台线程中运行，不会阻塞主线程。每个 tick 的 CPU 使用取决于：
+EventTimer 默认不创建后台线程，而是挂靠宿主事件循环（如 Qt/Maya/Houdini/Blender）。仅在无法获取宿主事件循环时，才会退化到线程后端（"thread"）。CPU 使用主要取决于：
 
-1. 消息队列中的消息数量
-2. 窗口有效性检查（Windows API 调用）
-3. 用户定义的 tick 回调
+1. 宿主事件循环的调度频率（如 QTimer 间隔）
+2. 窗口有效性检查与消息分发成本
+3. 用户定义的 tick 回调中执行的工作量
 
 ## 最佳实践
 

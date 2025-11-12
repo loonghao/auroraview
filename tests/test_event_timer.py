@@ -430,3 +430,55 @@ class TestEventTimer:
         # With validity check disabled
         timer2 = EventTimer(webview, interval_ms=10, check_window_validity=False)
         assert timer2._check_validity is False
+
+
+    def test_off_close_unregisters(self):
+        """off_close should remove a previously registered close callback."""
+        webview = MockWebView()
+        timer = EventTimer(webview, interval_ms=10)
+
+        called = {"a": False, "b": False}
+
+        @timer.on_close
+        def a():
+            called["a"] = True
+
+        @timer.on_close
+        def b():
+            called["b"] = True
+
+        # Unregister 'a'
+        assert timer.off_close(a) is True
+
+        timer.start()
+        webview.trigger_close()
+        time.sleep(0.05)
+
+        # Only 'b' should be called
+        assert called["a"] is False
+        assert called["b"] is True
+
+    def test_off_tick_unregisters(self):
+        """off_tick should remove a previously registered tick callback."""
+        webview = MockWebView()
+        timer = EventTimer(webview, interval_ms=10)
+
+        count = {"a": 0, "b": 0}
+
+        @timer.on_tick
+        def a():
+            count["a"] += 1
+
+        @timer.on_tick
+        def b():
+            count["b"] += 1
+
+        # Unregister 'a'
+        assert timer.off_tick(a) is True
+
+        timer.start()
+        time.sleep(0.05)
+        timer.stop()
+
+        assert count["a"] == 0
+        assert count["b"] > 0
