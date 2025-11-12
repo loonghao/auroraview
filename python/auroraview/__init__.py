@@ -30,26 +30,30 @@ Basic usage (recommended)::
 DCC integration - Maya::
 
     from auroraview import WebView
+    import maya.OpenMayaUI as omui
 
-    # Maya shortcut (1 line!)
-    webview = WebView.maya("Maya Tool", url="http://localhost:3000")
-    webview.show()  # Auto non-blocking with timer
+    # Create embedded WebView under Maya main window
+    maya_hwnd = int(omui.MQtUtil.mainWindow())
+    webview = WebView.create("Maya Tool", url="http://localhost:3000", parent=maya_hwnd, mode="owner")
+    webview.show()  # Embedded mode: non-blocking
 
 DCC integration - Houdini::
 
     from auroraview import WebView
+    import hou
 
-    # Houdini shortcut (1 line!)
-    webview = WebView.houdini("Houdini Tool", url="http://localhost:3000")
-    webview.show()  # Auto non-blocking with timer
+    # Create embedded WebView under Houdini main window
+    hwnd = int(hou.qt.mainWindow().winId())
+    webview = WebView.create("Houdini Tool", url="http://localhost:3000", parent=hwnd, mode="owner")
+    webview.show()  # Embedded mode: non-blocking
 
 DCC integration - Blender::
 
     from auroraview import WebView
 
-    # Blender shortcut (1 line!)
-    webview = WebView.blender("Blender Tool", url="http://localhost:3000")
-    webview.show()  # Auto-blocks until closed
+    # Standalone window (no parent window in Blender)
+    webview = WebView.create("Blender Tool", url="http://localhost:3000")
+    webview.show()  # Blocks until closed (use show(wait=False) for async)
 
 Qt integration::
 
@@ -103,7 +107,7 @@ except ImportError:
     destroy_window_by_hwnd = None  # type: ignore
 
 from .event_timer import EventTimer
-from .webview import WebView, NativeWebView
+from .webview import WebView
 
 # Bridge for DCC integration (optional - requires websockets)
 _BRIDGE_IMPORT_ERROR = None
@@ -193,7 +197,6 @@ def on_event(event_name: str):
 __all__ = [
     # Base classes
     "WebView",
-    "NativeWebView",
     # Qt backend (may raise ImportError if not installed)
     "QtWebView",
     "AuroraViewQt",

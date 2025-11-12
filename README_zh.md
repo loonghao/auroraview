@@ -154,19 +154,19 @@ webview.show()  # 阻塞调用
 
 **嵌入到 DCC (例如 Maya):**
 ```python
-from auroraview import NativeWebView
+from auroraview import WebView
 import maya.OpenMayaUI as omui
 
 # 获取 Maya 主窗口句柄
 maya_hwnd = int(omui.MQtUtil.mainWindow())
 
-# 创建嵌入式 WebView
-webview = NativeWebView(
-    title="Maya 工具",
-    parent_hwnd=maya_hwnd,
-    parent_mode="owner"  # 推荐用于跨线程安全
+# 创建嵌入式 WebView（自动定时器，无需手动 Qt 定时器）
+webview = WebView.create(
+    "Maya 工具",
+    parent=maya_hwnd,
+
 )
-webview.show_async()  # 非阻塞
+webview.show()  # 嵌入模式：非阻塞
 ```
 
 #### 2. Qt 后端

@@ -60,20 +60,28 @@ webview = WebView.create(
     debug=True
 )
 
-# Maya集成 (自动检测Maya窗口)
-webview = WebView.maya(
+# Maya集成（嵌入到主窗口）
+import maya.OpenMayaUI as omui
+maya_hwnd = int(omui.MQtUtil.mainWindow())
+webview = WebView.create(
     "Maya Tool",
-    url="http://localhost:3000"
+    url="http://localhost:3000",
+    parent=maya_hwnd,
+    mode="owner",
 )
 
-# Houdini集成
-webview = WebView.houdini(
+# Houdini集成（嵌入到主窗口）
+import hou
+hou_hwnd = int(hou.qt.mainWindow().winId())
+webview = WebView.create(
     "Houdini Tool",
-    url="http://localhost:3000"
+    url="http://localhost:3000",
+    parent=hou_hwnd,
+    mode="owner",
 )
 
-# Blender集成
-webview = WebView.blender(
+# Blender（独立窗口）
+webview = WebView.create(
     "Blender Tool",
     url="http://localhost:3000"
 )
@@ -176,8 +184,5 @@ A:
   - `parent_hwnd` → `parent`
   - `parent_mode` → `mode`
 - **2025-01-04**: 添加工厂方法API
-  - `WebView.create()`
-  - `WebView.maya()`
-  - `WebView.houdini()`
-  - `WebView.blender()`
+  - `WebView.create()`（统一入口，取代 `maya()/houdini()/blender()/for_dcc()`）
 

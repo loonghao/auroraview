@@ -299,195 +299,9 @@ class WebView:
 
         return instance
 
-    @classmethod
-    def maya(cls, title: str, **kwargs) -> "WebView":
-        """Maya shortcut - auto-detects Maya main window.
 
-        Automatically gets Maya main window handle and creates embedded WebView.
 
-        Args:
-            title: Window title
-            **kwargs: Other arguments passed to create()
 
-        Returns:
-            WebView instance
-
-        Example:
-            >>> webview = WebView.maya("Maya Tool", url="http://localhost:3000")
-            >>> webview.show()
-        """
-        try:
-            import maya.OpenMayaUI as omui
-
-            parent = int(omui.MQtUtil.mainWindow())
-            logger.info(f"Maya main window handle: {parent}")
-        except Exception as e:
-            logger.error(f"Failed to get Maya window handle: {e}")
-            raise RuntimeError(
-                "Failed to get Maya main window. Make sure this is running inside Maya."
-            ) from e
-
-        return cls.create(title, parent=parent, **kwargs)
-
-    @classmethod
-    def houdini(cls, title: str, **kwargs) -> "WebView":
-        """Houdini shortcut - auto-detects Houdini main window.
-
-        Automatically gets Houdini main window handle and creates embedded WebView.
-
-        Args:
-            title: Window title
-            **kwargs: Other arguments passed to create()
-
-        Returns:
-            WebView instance
-
-        Example:
-            >>> webview = WebView.houdini("Houdini Tool", url="http://localhost:3000")
-            >>> webview.show()
-        """
-        try:
-            import hou
-
-            parent = int(hou.qt.mainWindow().winId())
-            logger.info(f"Houdini main window handle: {parent}")
-        except Exception as e:
-            logger.error(f"Failed to get Houdini window handle: {e}")
-            raise RuntimeError(
-                "Failed to get Houdini main window. Make sure this is running inside Houdini."
-            ) from e
-
-        return cls.create(title, parent=parent, **kwargs)
-
-    @classmethod
-    def blender(cls, title: str, **kwargs) -> "WebView":
-        """Blender shortcut - creates standalone window.
-
-        Creates standalone window (Blender doesn't have parent window concept).
-
-        Args:
-            title: Window title
-            **kwargs: Other arguments passed to create()
-
-        Returns:
-            WebView instance
-
-        Example:
-            >>> webview = WebView.blender("Blender Tool", url="http://localhost:3000")
-            >>> webview.show()  # Auto-blocks until closed
-        """
-        logger.info("Creating standalone WebView for Blender")
-        return cls.create(title, **kwargs)
-
-    @classmethod
-    def for_dcc(
-        cls,
-        parent_hwnd: int,
-        title: str = "DCC WebView",
-        width: int = 800,
-        height: int = 600,
-    ) -> "WebView":
-        """Create WebView for DCC integration (no event loop, no PySide dependency).
-
-        This is the recommended method for integrating WebView into DCC applications
-        like Maya, Houdini, Nuke, etc. It creates a WebView that uses the DCC's
-        Qt message pump instead of creating its own event loop.
-
-        Key features:
-        - No event loop conflicts with DCC's Qt event loop
-        - Non-blocking - DCC UI remains responsive
-        - Requires periodic calls to `process_messages()` from Qt timer
-        - No PySide dependency required (pure Rust implementation)
-
-        Args:
-            parent_hwnd: Parent window handle (Windows HWND)
-            title: Window title (default: "DCC WebView")
-            width: Width in pixels (default: 800)
-            height: Height in pixels (default: 600)
-
-        Returns:
-            WebView instance configured for DCC integration
-
-        Example (Houdini):
-            >>> import hou
-            >>> from auroraview import WebView
-            >>>
-            >>> # Get Houdini main window HWND
-            >>> main_window = hou.qt.mainWindow()
-            >>> hwnd = int(main_window.winId())
-            >>>
-            >>> # Create WebView for DCC
-            >>> webview = WebView.for_dcc(
-            ...     parent_hwnd=hwnd,
-            ...     title="My Tool",
-            ...     width=650,
-            ...     height=500
-            ... )
-            >>>
-            >>> # Load content
-            >>> webview.load_html("<h1>Hello from Houdini!</h1>")
-            >>>
-            >>> # Setup Qt timer to process messages (required!)
-            >>> try:
-            ...     from PySide2.QtCore import QTimer
-            ... except ImportError:
-            ...     from PySide6.QtCore import QTimer
-            >>>
-            >>> timer = QTimer()
-            >>> timer.timeout.connect(webview.process_messages)
-            >>> timer.start(16)  # 60 FPS
-            >>>
-            >>> # Keep reference to prevent garbage collection
-            >>> _webview_instance = webview
-
-        Example (Maya):
-            >>> import maya.OpenMayaUI as omui
-            >>> from auroraview import WebView
-            >>>
-            >>> # Get Maya main window HWND
-            >>> maya_hwnd = int(omui.MQtUtil.mainWindow())
-            >>>
-            >>> # Create WebView for DCC
-            >>> webview = WebView.for_dcc(
-            ...     parent_hwnd=maya_hwnd,
-            ...     title="Maya Tool"
-            ... )
-            >>>
-            >>> # Setup timer and load content...
-        """
-        if _CoreWebView is None:
-            raise RuntimeError(
-                "AuroraView core library not found. "
-                "Please ensure the package is properly installed."
-            )
-
-        logger.info(f"Creating WebView for DCC integration (parent_hwnd: {parent_hwnd})")
-
-        # Create WebView using DCC integration mode (Rust implementation)
-        core = _CoreWebView.create_for_dcc(
-            parent_hwnd=parent_hwnd,
-            title=title,
-            width=width,
-            height=height,
-        )
-
-        # Create wrapper instance
-        instance = object.__new__(cls)
-        instance._core = core
-        instance._event_handlers = {}
-        instance._title = title
-        instance._width = width
-        instance._height = height
-        instance._parent = parent_hwnd
-        instance._mode = "dcc"
-        instance._is_embedded = True
-        instance._async_core = None
-        instance._async_core_lock = threading.Lock()
-
-        logger.info("[OK] WebView created for DCC integration")
-        logger.info("[OK] Remember to call process_messages() periodically from Qt timer!")
-
-        return instance
 
     def show(self, *, wait: Optional[bool] = None) -> None:
         """Show the WebView window (smart mode).
@@ -551,13 +365,13 @@ class WebView:
                 logger.warning("⚠️  Use wait=True or keep script running with input()")
                 self._show_non_blocking()
 
-        def show_async(self) -> None:
-            """Show the WebView window in non-blocking mode (compatibility helper).
+    def show_async(self) -> None:
+        """Show the WebView window in non-blocking mode (compatibility helper).
 
-            Equivalent to calling show(wait=False). Safe to call multiple times; if the
-            WebView is already running, the call is ignored.
-            """
-            self._show_non_blocking()
+        Equivalent to calling show(wait=False). Safe to call multiple times; if the
+        WebView is already running, the call is ignored.
+        """
+        self._show_non_blocking()
 
     def _show_non_blocking(self) -> None:
         """Internal method: non-blocking show (background thread)."""
@@ -759,34 +573,6 @@ class WebView:
             logger.error(f"[ERROR] [WebView.emit] Traceback: {traceback.format_exc()}")
             raise
 
-    def process_messages(self) -> bool:
-        """Process messages for DCC integration mode.
-
-        This method should be called periodically from a Qt timer to process
-        WebView messages without running a dedicated event loop.
-
-        This is ONLY needed when using `WebView.for_dcc()`. Regular WebView
-        instances (created with `WebView.create()` or shortcuts like `WebView.maya()`)
-        handle message processing automatically.
-
-        Returns:
-            bool: True if the window should be closed, False otherwise
-
-        Example:
-            >>> # Create WebView for DCC
-            >>> webview = WebView.for_dcc(parent_hwnd=hwnd, title="My Tool")
-            >>>
-            >>> # Setup Qt timer to process messages
-            >>> try:
-            ...     from PySide2.QtCore import QTimer
-            ... except ImportError:
-            ...     from PySide6.QtCore import QTimer
-            >>>
-            >>> timer = QTimer()
-            >>> timer.timeout.connect(webview.process_messages)
-            >>> timer.start(16)  # 60 FPS
-        """
-        return self._core.process_messages()
 
     def on(self, event_name: str) -> Callable:
         """Decorator to register a Python callback for JavaScript events.
@@ -1018,19 +804,3 @@ class WebView:
         self._bridge.execute_command(command, params)
 
 
-
-class NativeWebView:
-    """Backward-compatibility factory for native WebView creation.
-
-    Provides simple factory methods expected by older tests/APIs.
-    """
-
-    @classmethod
-    def standalone(cls, **kwargs) -> "WebView":
-        """Create a standalone WebView instance."""
-        return WebView(**kwargs)
-
-    @classmethod
-    def embedded(cls, parent: int, mode: str = "owner", **kwargs) -> "WebView":
-        """Create an embedded WebView instance for a given parent handle."""
-        return WebView(parent=parent, mode=mode, **kwargs)
