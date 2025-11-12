@@ -296,7 +296,7 @@ class EventTimer:
             True if Qt timer started successfully, False otherwise
         """
         try:
-            from PySide2.QtCore import QTimer
+            from qtpy.QtCore import QTimer
 
             timer = QTimer()
             timer.setInterval(self._interval_ms)
