@@ -42,6 +42,18 @@ runs:
           ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-
           ${{ runner.os }}-build-
 
+    - name: Prefetch Cargo crates (retry)
+      shell: bash
+      run: |
+        set -e
+        n=0
+        until [ "$n" -ge 3 ]; do
+          echo "[TRY $((n+1))/3] cargo fetch...";
+          CARGO_HTTP_TIMEOUT=600 CARGO_NET_RETRY=10 cargo fetch --locked --verbose && break;
+          n=$((n+1));
+          echo "[WARN] cargo fetch failed, retrying in 5s..."; sleep 5;
+        done
+
     - name: Build extension
       id: build
       shell: bash
@@ -56,6 +68,9 @@ runs:
         fi
       env:
         RUST_BACKTRACE: 1
+        CARGO_HTTP_TIMEOUT: '600'
+        CARGO_NET_RETRY: '10'
+        CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
     - name: Run tests
       id: test
