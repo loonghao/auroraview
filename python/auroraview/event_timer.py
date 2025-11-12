@@ -43,7 +43,7 @@ Example:
 
 import logging
 import time
-from typing import Any, Callable, Optional, Literal
+from typing import Any, Callable, Literal, Optional
 
 logger = logging.getLogger(__name__)
 
