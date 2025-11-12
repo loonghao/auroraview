@@ -10,6 +10,16 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/loonghao/auroraview)
+[![CI](https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/ci.yml)
+[![Build Wheels](https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml)
+[![Release](https://github.com/loonghao/auroraview/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/release.yml)
+[![CodeQL](https://github.com/loonghao/auroraview/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/codeql.yml)
+[![Security Audit](https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml)
+[![Latest Release](https://img.shields.io/github/v/release/loonghao/auroraview?display_name=tag)](https://github.com/loonghao/auroraview/releases)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen.svg)](https://pre-commit.com/)
+
+[Code of Conduct](./CODE_OF_CONDUCT.md) • [Security Policy](./SECURITY.md) • [Issue Tracker](https://github.com/loonghao/auroraview/issues)
+
 
 A blazingly fast, lightweight WebView framework for DCC (Digital Content Creation) software, built with Rust and Python bindings. Perfect for Maya, 3ds Max, Houdini, Blender, and more.
 
