@@ -106,7 +106,7 @@ except ImportError:
     close_window_by_hwnd = None  # type: ignore
     destroy_window_by_hwnd = None  # type: ignore
 
-from .event_timer import EventTimer
+from .event_timer import EventTimer, TimerType
 from .webview import WebView
 
 # Bridge for DCC integration (optional - requires websockets)
@@ -208,6 +208,7 @@ __all__ = [
     "ServiceInfo",
     # Utilities
     "EventTimer",
+    "TimerType",
     "on_event",
     # Window utilities
     "WindowInfo",

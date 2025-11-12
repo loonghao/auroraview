@@ -131,7 +131,7 @@ fn my_function() {
     defer! {
         println!("This always runs, even on panic!");
     }
-    
+
     // Your code here
 }
 ```
@@ -243,3 +243,32 @@ unsafe impl Sync for WindowsWindowManager {}
 4. **Enable logging** for debugging
 5. **Test on all platforms** before release
 
+
+
+## 🐍 Python Embedded Mode Best Practices (2025)
+
+```python
+from auroraview import WebView, EventTimer
+
+# Create embedded WebView under parent window (e.g., Maya/Houdini main window)
+webview = WebView.create(
+    "My Tool",
+    url="http://localhost:3000",
+    parent=parent_hwnd,
+    mode="owner",
+    auto_show=True,
+    auto_timer=True,  # Auto start EventTimer at ~60 FPS when embedded
+)
+
+# Manual control example
+# timer = EventTimer(webview, interval_ms=33)
+# @timer.on_close
+# def on_close():
+#     timer.cleanup()
+# @timer.on_tick
+# def on_tick():
+#     pass
+# timer.start()
+# ... later
+# timer.off_tick(on_tick)
+```

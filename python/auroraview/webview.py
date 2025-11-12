@@ -299,6 +299,49 @@ class WebView:
 
         return instance
 
+    @classmethod
+    def run_embedded(
+        cls,
+        title: str = "AuroraView",
+        *,
+        url: Optional[str] = None,
+        html: Optional[str] = None,
+        width: int = 800,
+        height: int = 600,
+        resizable: bool = True,
+        frame: bool = True,
+        parent: Optional[int] = None,
+        mode: Literal["auto", "owner", "child"] = "owner",
+        bridge: Union["Bridge", bool, None] = None,  # type: ignore
+        debug: bool = True,
+        auto_timer: bool = True,
+    ) -> "WebView":
+        """Create and show an embedded WebView with auto timer (non-blocking).
+
+        This is a convenience helper equivalent to:
+            WebView.create(..., parent=..., mode=..., auto_timer=True, auto_show=True)
+
+        Returns:
+            WebView: The created instance (kept alive by your reference)
+        """
+        instance = cls.create(
+            title=title,
+            url=url,
+            html=html,
+            width=width,
+            height=height,
+            resizable=resizable,
+            frame=frame,
+            parent=parent,
+            mode=mode,
+            bridge=bridge,
+            debug=debug,
+            auto_show=True,
+            auto_timer=auto_timer,
+        )
+        return instance
+
+
     def show(self, *, wait: Optional[bool] = None) -> None:
         """Show the WebView window (smart mode).
 
