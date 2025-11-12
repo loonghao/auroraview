@@ -216,7 +216,7 @@ while PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool() {
 
 **实现:**
 ```python
-from PySide2.QtWebEngineWidgets import QWebEngineView
+from qtpy.QtWebEngineWidgets import QWebEngineView
 
 class AuroraViewQt(QWebEngineView):
     def __init__(self, parent=None):

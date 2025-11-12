@@ -25,8 +25,8 @@
 创建一个 Qt Widget 来包装 WebView:
 
 ```python
-from PySide2.QtWidgets import QWidget, QVBoxLayout
-from PySide2.QtCore import Qt
+from qtpy.QtWidgets import QWidget, QVBoxLayout
+from qtpy.QtCore import Qt
 from auroraview import WebView
 
 class AuroraViewWidget(QWidget):
@@ -59,7 +59,7 @@ class AuroraViewWidget(QWidget):
         super().closeEvent(event)
 
 # Usage in Maya
-from PySide2.QtWidgets import QDialog
+from qtpy.QtWidgets import QDialog
 
 class MyToolDialog(QDialog):
     def __init__(self, parent=None):
@@ -137,9 +137,9 @@ class QtIntegratedWebView(QWidget):
 完全使用 Qt 的 WebEngine:
 
 ```python
-from PySide2.QtWebEngineWidgets import QWebEngineView
-from PySide2.QtWebChannel import QWebChannel
-from PySide2.QtCore import QObject, Slot, Signal
+from qtpy.QtWebEngineWidgets import QWebEngineView
+from qtpy.QtWebChannel import QWebChannel
+from qtpy.QtCore import QObject, Slot, Signal
 
 class WebViewBridge(QObject):
     """Bridge between JavaScript and Python"""
@@ -229,9 +229,9 @@ webview.show()
 ```python
 # python/auroraview/qt_webview.py
 
-from PySide2.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
-from PySide2.QtWebChannel import QWebChannel
-from PySide2.QtCore import QObject, Slot, Signal, QUrl
+from qtpy.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
+from qtpy.QtWebChannel import QWebChannel
+from qtpy.QtCore import QObject, Slot, Signal, QUrl
 from typing import Callable, Dict, Any
 import json
 
