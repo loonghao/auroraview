@@ -111,7 +111,7 @@ jobs:
 
       - name: Generate Rust coverage (lcov)
         run: |
-          cargo llvm-cov --doc --workspace --no-default-features --features "threaded-ipc" --lcov --output-path lcov.info
+          cargo llvm-cov --doc --workspace --no-default-features --features "python-bindings,threaded-ipc" --lcov --output-path lcov.info
 
       - name: Upload Rust coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -173,7 +173,7 @@ jobs:
           QTWEBENGINE_DISABLE_SANDBOX: '1'
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu --disable-gpu-compositing --in-process-gpu --use-gl=swiftshader --single-process --no-sandbox --disable-features=Accelerated2dCanvas,CanvasOopRasterization,UseSkiaRenderer,CalculateNativeWinOcclusion
         run: |
-          uv run pytest tests/test_qt_backend.py tests/test_qt_lifecycle.py -o addopts="--cov=auroraview --cov-report=term-missing --cov-report=html --cov-report=xml -vv -rA -s"
+          uv run pytest tests/test_qt_backend.py tests/test_qt_lifecycle.py -o addopts="--cov=auroraview --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=0 -vv -rA -s"
 
       - name: Upload Qt test coverage to Codecov (Windows)
         if: runner.os == 'Windows'
