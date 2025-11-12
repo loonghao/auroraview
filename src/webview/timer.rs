@@ -11,7 +11,9 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+#[cfg(any(test, target_os = "windows"))]
+use std::time::Duration;
 
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::HWND;
@@ -47,6 +49,7 @@ pub struct Timer {
     /// Tick count
     tick_count: Arc<AtomicU64>,
     /// Last tick time (for throttling)
+    #[cfg(any(test, target_os = "windows"))]
     last_tick: Arc<std::sync::Mutex<Option<Instant>>>,
 }
 
@@ -70,6 +73,7 @@ impl Timer {
             #[cfg(target_os = "windows")]
             hwnd: None,
             tick_count: Arc::new(AtomicU64::new(0)),
+            #[cfg(any(test, target_os = "windows"))]
             last_tick: Arc::new(std::sync::Mutex::new(None)),
         }
     }

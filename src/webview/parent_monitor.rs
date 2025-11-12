@@ -8,6 +8,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
+#[cfg(any(test, target_os = "windows"))]
 use std::time::Duration;
 
 #[cfg(target_os = "windows")]
@@ -92,6 +93,7 @@ impl ParentWindowMonitor {
 
     /// Create a new parent window monitor (non-Windows platforms)
     #[cfg(not(target_os = "windows"))]
+    #[allow(dead_code)]
     pub fn new<F>(_parent_hwnd: u64, _on_parent_destroyed: F, _check_interval_ms: u64) -> Self
     where
         F: Fn() + Send + 'static,
@@ -135,6 +137,7 @@ impl Drop for ParentWindowMonitor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "windows")]
     use std::sync::atomic::AtomicUsize;
 
     #[test]
