@@ -28,7 +28,7 @@ raw-window-handle = "0.6"
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"  # Fallback for compatibility
-simd-json = "0.13"  # SIMD-accelerated JSON for Rust-side operations
+simd-json = "0.17"  # SIMD-accelerated JSON for Rust-side operations
 
 # Async runtime
 tokio = { version = "1.42", features = ["full"] }
