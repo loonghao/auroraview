@@ -29,140 +29,95 @@ QtPy automatically detects and uses the correct Qt binding available in your DCC
 
 ```python
 from auroraview import WebView
-from qtpy.QtCore import QTimer  # QtPy handles version compatibility
+import hou  # or maya.OpenMayaUI, nuke, etc.
 
 # Get DCC main window HWND
-import hou  # or maya.OpenMayaUI, nuke, etc.
 main_window = hou.qt.mainWindow()
 hwnd = int(main_window.winId())
 
-# Create WebView for DCC integration
-webview = WebView.for_dcc(
-    parent_hwnd=hwnd,
+# Create embedded WebView (auto-timer; no manual Qt timer needed)
+webview = WebView.create(
     title="My Tool",
     width=650,
-    height=500
+    height=500,
+    parent=hwnd,
+    mode="owner",
 )
-
-# Load content
 webview.load_html("<h1>Hello from DCC!</h1>")
-
-# Setup Qt timer to process messages (REQUIRED!)
-timer = QTimer()
-timer.timeout.connect(webview.process_messages)
-timer.start(16)  # 60 FPS
-
-# Keep references to prevent garbage collection
-_webview = webview
-_timer = timer
+webview.show()
 ```
 
 ### 2. Maya Example
 
 ```python
 from auroraview import WebView
-from qtpy.QtCore import QTimer
 import maya.OpenMayaUI as omui
 
-# Get Maya main window
-try:
-    from shiboken2 import wrapInstance
-except ImportError:
-    from shiboken6 import wrapInstance
+# Get Maya main window HWND
+hwnd = int(omui.MQtUtil.mainWindow())
 
-maya_main_window_ptr = omui.MQtUtil.mainWindow()
-maya_main_window = wrapInstance(int(maya_main_window_ptr), QtWidgets.QWidget)
-hwnd = int(maya_main_window.winId())
-
-# Create WebView
-webview = WebView.for_dcc(
-    parent_hwnd=hwnd,
+# Create embedded WebView (auto-timer)
+webview = WebView.create(
     title="Maya Tool",
     width=800,
-    height=600
+    height=600,
+    parent=hwnd,
+    mode="owner",
 )
-
 webview.load_url("http://localhost:3000")
-
-# Setup timer
-timer = QTimer()
-timer.timeout.connect(webview.process_messages)
-timer.start(16)
-
-# Store references
-_maya_webview = webview
-_maya_timer = timer
+webview.show()
 ```
 
 ### 3. Houdini Example
 
 ```python
 from auroraview import WebView
-from qtpy.QtCore import QTimer
 import hou
 
 # Get Houdini main window
 main_window = hou.qt.mainWindow()
 hwnd = int(main_window.winId())
 
-# Create WebView
-webview = WebView.for_dcc(
-    parent_hwnd=hwnd,
+# Create embedded WebView (auto-timer)
+webview = WebView.create(
     title="Houdini Tool",
     width=650,
-    height=500
+    height=500,
+    parent=hwnd,
+    mode="owner",
 )
-
 webview.load_html("<h1>Hello from Houdini!</h1>")
-
-# Setup timer
-timer = QTimer()
-timer.timeout.connect(webview.process_messages)
-timer.start(16)
-
-# Store references
-_houdini_webview = webview
-_houdini_timer = timer
+webview.show()
 ```
 
 ### 4. Nuke Example
 
 ```python
 from auroraview import WebView
-from qtpy.QtCore import QTimer
-import nuke
+from qtpy import QtWidgets
 
 # Get Nuke main window
-nuke_main_window = nuke.activeViewer().node()
-hwnd = int(nuke_main_window.winId())
+main = QtWidgets.QApplication.activeWindow()
+hwnd = int(main.winId())
 
-# Create WebView
-webview = WebView.for_dcc(
-    parent_hwnd=hwnd,
+# Create embedded WebView (auto-timer)
+webview = WebView.create(
     title="Nuke Tool",
     width=800,
-    height=600
+    height=600,
+    parent=hwnd,
+    mode="owner",
 )
-
 webview.load_url("http://localhost:3000")
-
-# Setup timer
-timer = QTimer()
-timer.timeout.connect(webview.process_messages)
-timer.start(16)
-
-# Store references
-_nuke_webview = webview
-_nuke_timer = timer
+webview.show()
 ```
 
 ## Important Notes
 
-1. **QtPy Installation**: Always install `auroraview[qt]` to get QtPy
-2. **Timer Required**: The Qt timer is REQUIRED to process WebView messages
-3. **Keep References**: Store webview and timer in module-level variables to prevent garbage collection
-4. **Non-Blocking**: DCC UI remains fully responsive while WebView is open
-5. **Independent Window**: WebView creates an independent window (not embedded)
+1. **QtPy**: Recommended for a unified Qt API in DCCs, but not strictly required
+2. **Auto Timer**: Embedded mode auto-starts an event timer; no manual `process_messages` is needed
+3. **Keep References**: Keep `webview` alive if your script ends immediately to avoid GC
+4. **Responsive UI**: DCC UI remains responsive; the window is embedded under the DCC main window
 
 ## Troubleshooting
 

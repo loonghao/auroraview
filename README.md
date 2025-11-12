@@ -156,40 +156,41 @@ webview.show()  # Auto-blocks until closed
 **Maya integration:**
 ```python
 from auroraview import WebView
+import maya.OpenMayaUI as omui
 
-# Requires: pip install auroraview[qt]
-# Maya shortcut - auto-detects Maya window and uses QtPy for compatibility
-webview = WebView.maya("Maya Tool", url="http://localhost:3000")
-webview.show()  # Auto non-blocking with timer
+maya_hwnd = int(omui.MQtUtil.mainWindow())
+webview = WebView.create("Maya Tool", url="http://localhost:3000", parent=maya_hwnd)
+webview.show()  # Embedded mode: non-blocking, auto timer
 ```
 
 **Houdini integration:**
 ```python
 from auroraview import WebView
+import hou
 
-# Requires: pip install auroraview[qt]
-# Houdini shortcut - auto-detects Houdini window and uses QtPy for compatibility
-webview = WebView.houdini("Houdini Tool", url="http://localhost:3000")
-webview.show()  # Auto non-blocking with timer
+hwnd = int(hou.qt.mainWindow().winId())
+webview = WebView.create("Houdini Tool", url="http://localhost:3000", parent=hwnd)
+webview.show()  # Embedded mode: non-blocking, auto timer
 ```
 
 **Nuke integration:**
 ```python
 from auroraview import WebView
+from qtpy import QtWidgets
 
-# Requires: pip install auroraview[qt]
-# Nuke shortcut - auto-detects Nuke window and uses QtPy for compatibility
-webview = WebView.nuke("Nuke Tool", url="http://localhost:3000")
-webview.show()  # Auto non-blocking with timer
+main = QtWidgets.QApplication.activeWindow()
+hwnd = int(main.winId())
+webview = WebView.create("Nuke Tool", url="http://localhost:3000", parent=hwnd)
+webview.show()  # Embedded mode: non-blocking, auto timer
 ```
 
-**Blender integration (1 line!):**
+**Blender integration:**
 ```python
 from auroraview import WebView
 
-# Blender shortcut - creates standalone window
-webview = WebView.blender("Blender Tool", url="http://localhost:3000")
-webview.show()  # Auto-blocks until closed
+# Blender runs standalone (no parent window)
+webview = WebView.create("Blender Tool", url="http://localhost:3000")
+webview.show()  # Standalone: blocks until closed (use show(wait=False) for async)
 ```
 
 ### Advanced Usage

@@ -96,11 +96,10 @@ class TestNativeBackendAvailability:
         assert "WebView" in auroraview.__all__
 
     def test_native_backend_has_factory_methods(self):
-        """Test that NativeWebView has factory methods."""
-        from auroraview import NativeWebView
+        """Test that unified WebView factory exists."""
+        from auroraview import WebView
 
-        assert hasattr(NativeWebView, "standalone")
-        assert hasattr(NativeWebView, "embedded")
+        assert hasattr(WebView, "create")
 
 
 class TestQtBackendDiagnostics:

@@ -13,7 +13,7 @@ class TestWebViewIntegration:
             from auroraview import WebView
 
             webview = WebView(
-                title="Integration Test", width=1024, height=768, dev_tools=True, resizable=True
+                title="Integration Test", width=1024, height=768, debug=True, resizable=True
             )
 
             assert webview.title == "Integration Test"

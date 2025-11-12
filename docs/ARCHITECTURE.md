@@ -17,7 +17,7 @@ AuroraView is designed with a modular, backend-agnostic architecture that suppor
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Python API Layer                        │
-│  (WebView, NativeWebView, QtWebView)                       │
+│  (WebView, QtWebView)                                      │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -179,46 +179,39 @@ pip install auroraview[qt]  # Installs QtPy automatically
 **Example**:
 ```python
 from auroraview import WebView
-from qtpy.QtCore import QTimer  # QtPy handles PySide2/PySide6/PyQt5/PyQt6
+import hou  # or maya.OpenMayaUI, etc.
 
 # Get DCC main window HWND
-import hou  # or maya.OpenMayaUI, etc.
 main_window = hou.qt.mainWindow()
 hwnd = int(main_window.winId())
 
-# Create WebView for DCC integration
-webview = WebView.for_dcc(
-    parent_hwnd=hwnd,
+# Create embedded WebView (auto timer; no manual Qt timer wiring)
+webview = WebView.create(
     title="My Tool",
     width=650,
-    height=500
+    height=500,
+    parent=hwnd,
+    mode="owner",
 )
 
 # Load content
 webview.load_html("<h1>Hello from Houdini!</h1>")
 
-# Setup Qt timer to process messages (REQUIRED!)
-timer = QTimer()
-timer.timeout.connect(webview.process_messages)
-timer.start(16)  # 60 FPS
-
-# Keep reference to prevent garbage collection
-_webview_instance = webview
-_timer_instance = timer
+# Show the window (non-blocking, integrated with DCC)
+webview.show()
 ```
 
 **Key Features**:
 - ✅ Non-blocking - DCC UI remains fully responsive
 - ✅ Uses DCC's Qt message pump for event processing
-- ⚠️ Requires QtPy for Qt version compatibility
-- ⚠️ Depends on DCC's Qt bindings (PySide2/PySide6)
+- 🔸 QtPy recommended for Qt version compatibility (optional)
+- 🔸 Depends on DCC's Qt bindings availability (PySide2/PySide6)
 
 **Technical Details**:
 - Creates WebView on DCC's main UI thread
 - Does NOT create a separate event loop
-- Relies on periodic `process_messages()` calls from Qt timer
-- Messages are processed through DCC's existing message pump
-- **Requires QtPy** to abstract Qt version differences
+- Uses an internal event timer in embedded mode (no manual `process_messages` wiring)
+- Messages are processed through the DCC's existing message pump
 
 **Limitations**:
 - Requires QtPy middleware installation
@@ -236,14 +229,14 @@ Embeds WebView into existing window using platform APIs.
 **Note**: This mode creates its own event loop and may cause conflicts with Qt-based DCCs. Use DCC Integration Mode instead for Qt-based applications.
 
 ```python
-from auroraview import NativeWebView
+from auroraview import WebView
 
-webview = NativeWebView(
+webview = WebView.create(
     title="DCC Tool",
-    parent_hwnd=parent_window_handle,
-    parent_mode="owner"  # Recommended for DCC integration
+    parent=parent_window_handle,
+    mode="owner",  # Recommended for DCC integration
 )
-webview.show_async()  # Non-blocking
+webview.show()  # Embedded mode: non-blocking
 ```
 
 **Use Cases**:
@@ -325,52 +318,28 @@ DCC Integration Mode uses a hybrid approach:
 1. Creates WebView on DCC's main UI thread (satisfies WebView2 threading requirements)
 2. Does NOT create a separate event loop (avoids conflicts)
 3. Relies on DCC's existing Qt message pump (reuses infrastructure)
-4. Periodic `process_messages()` calls from Qt timer (integrates with Qt event loop)
+4. Uses an internal event timer in embedded mode (no manual `process_messages` wiring)
 
 ### Implementation Details
 
-#### Rust Layer (`src/webview/backend/native.rs`)
+#### Rust Layer (conceptual)
 
 ```rust
 impl NativeBackend {
-    /// Create WebView for DCC integration (no event loop)
-    pub fn create_for_dcc(
+    /// Create WebView embedded under a parent HWND (no dedicated event loop)
+    pub fn create_with_parent(
         parent_hwnd: u64,
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
-        message_queue: Arc<MessageQueue>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        // 1. Create temporary event loop (only for window creation)
-        let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
-            .with_any_thread(true)
-            .build();
-
-        // 2. Create window as child of DCC window
-        let window = WindowBuilder::new()
-            .with_parent_window(parent_hwnd as isize)
-            .build(&event_loop)?;
-
-        // 3. Create WebView
-        let webview = WryWebViewBuilder::new()
-            .with_url(&config.url)
-            .build(&window)?;
-
-        // 4. CRITICAL: Drop event loop (don't run it!)
-        drop(event_loop);
-
-        Ok(Self {
-            webview: Arc::new(Mutex::new(webview)),
-            window: Some(window),
-            event_loop: None,  // No event loop stored
-            message_queue,
-        })
+        /* ... implementation details elided ... */
+        Ok(Self { /* ... */ })
     }
 
-    /// Process messages (called from Qt timer)
-    pub fn process_messages(&self) -> bool {
-        // Process Windows messages for this window
-        let hwnd = get_window_hwnd(&self.window);
-        message_pump::process_messages_for_hwnd(hwnd)
+    /// Drive message processing (internally called by timer when embedded)
+    pub fn tick(&self) -> bool {
+        /* ... */
+        false
     }
 }
 ```
@@ -380,42 +349,27 @@ impl NativeBackend {
 ```python
 class WebView:
     @classmethod
-    def for_dcc(cls, parent_hwnd: int, title: str, width: int, height: int):
-        """Create WebView for DCC integration."""
-        # Create WebView using Rust implementation
-        core = _CoreWebView.create_for_dcc(
-            parent_hwnd=parent_hwnd,
-            title=title,
-            width=width,
-            height=height,
-        )
-
-        # Wrap in Python class
+    def create(cls, title: str, *, parent: int | None = None, mode: str = "auto", **kwargs):
+        """Unified factory - supports embedded (owner) and standalone modes."""
         instance = cls.__new__(cls)
-        instance._core = core
-        # ... initialize other fields
-
+        # initialize core with config and optional parent handle
+        # instance._core = _CoreWebView.create(...)
+        # instance._is_embedded = parent is not None
         return instance
-
-    def process_messages(self) -> bool:
-        """Process messages (called from Qt timer)."""
-        return self._core.process_messages()
 ```
 
 #### Usage Pattern
 
 ```python
-# 1. Create WebView
-webview = WebView.for_dcc(parent_hwnd=hwnd, title="Tool")
+# 1. Create embedded WebView
+webview = WebView.create(title="Tool", parent=hwnd, mode="owner")
 
-# 2. Setup Qt timer (integrates with DCC's event loop)
-timer = QTimer()
-timer.timeout.connect(webview.process_messages)
-timer.start(16)  # 60 FPS
+# 2. Load content and show (internal timer handles message processing)
+webview.load_url("http://localhost:3000")
+webview.show()
 
-# 3. Keep references alive
+# 3. Keep reference alive if script exits immediately
 _webview = webview
-_timer = timer
 ```
 
 ### Message Flow
@@ -423,11 +377,11 @@ _timer = timer
 ```
 DCC Qt Event Loop
     │
-    ├─> Qt Timer (16ms interval)
+    ├─> EventTimer (16ms interval)
     │       │
-    │       └─> webview.process_messages()
+    │       └─> WebView.tick()  (internal)
     │               │
-    │               └─> Rust: process_messages_for_hwnd()
+    │               └─> Rust: process_windows_messages_for_hwnd()
     │                       │
     │                       ├─> Process Windows messages
     │                       ├─> Process WebView events
@@ -446,9 +400,8 @@ DCC Qt Event Loop
 
 ### Limitations
 
-1. Requires periodic `process_messages()` calls (Qt timer needed)
-2. Windows-only (currently)
-3. Slightly more setup code than other modes
+1. Windows-only (currently)
+2. Slightly more setup code than other modes
 
 ## Thread Safety
 
@@ -457,13 +410,13 @@ DCC Qt Event Loop
 - WebView and EventLoop are **not** `Send` on Windows
 - Designed for single-thread usage (UI thread)
 - Message queue provides thread-safe communication
-- `show_async()` runs event loop in background thread
+
 
 ### DCC Integration Mode
 
 - WebView created on DCC's main UI thread
 - No separate event loop (no threading issues)
-- Message processing happens on UI thread via Qt timer
+- Message processing handled by internal EventTimer in embedded mode (no manual Qt timer)
 - Thread-safe message queue for cross-thread communication
 
 ### Qt Backend
@@ -502,20 +455,16 @@ webview = WebView(parent_hwnd=hwnd)
 
 **After** (v0.1.x):
 ```python
-# Option 1: Use base class (auto-detects backend)
+# New unified API
 from auroraview import WebView
-webview = WebView(parent_hwnd=hwnd)
 
-# Option 2: Explicitly use Native backend
-from auroraview import NativeWebView
-webview = NativeWebView(parent_hwnd=hwnd, parent_mode="owner")
+# Embedded under a DCC main window (recommended)
+webview = WebView.create(title="Tool", parent=hwnd, mode="owner")
 
-# Option 3: Use Qt backend (requires qtpy)
+# Qt backend (widget-based; requires qtpy)
 from auroraview import QtWebView
-webview = QtWebView(parent=qt_widget)
+webview_qt = QtWebView(parent=qt_widget)
 ```
-
-The old API remains compatible through aliases (`AuroraView` → `NativeWebView`).
 
 ## Contributing
 
