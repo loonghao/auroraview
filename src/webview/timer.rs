@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 #[cfg(any(test, target_os = "windows"))]
 use std::time::Duration;
+#[cfg(any(test, target_os = "windows"))]
 use std::time::Instant;
 
 #[cfg(target_os = "windows")]

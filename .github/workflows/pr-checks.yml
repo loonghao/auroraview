@@ -76,6 +76,7 @@ jobs:
 
   # Qt compatibility tests on Windows and macOS (headless)
   qt-tests:
+    if: ${{ false }} # Temporarily skipped per user request
     name: Qt Combo Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
