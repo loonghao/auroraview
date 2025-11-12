@@ -431,7 +431,6 @@ class TestEventTimer:
         timer2 = EventTimer(webview, interval_ms=10, check_window_validity=False)
         assert timer2._check_validity is False
 
-
     def test_off_close_unregisters(self):
         """off_close should remove a previously registered close callback."""
         webview = MockWebView()
