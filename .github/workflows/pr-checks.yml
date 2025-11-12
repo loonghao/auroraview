@@ -42,7 +42,7 @@ jobs:
 
       - name: Upload Python coverage to Codecov (py${{ matrix.python-version }})
         if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
           flags: python,unit,py${{ matrix.python-version }},${{ runner.os }}
@@ -140,7 +140,7 @@ jobs:
             --skip tests::test_pymodule_init_registers_symbols
 
       - name: Upload Rust coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: lcov.info
           flags: rust
@@ -203,7 +203,7 @@ jobs:
 
       - name: Upload Qt test coverage to Codecov (Windows)
         if: runner.os == 'Windows'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
           flags: python,qt,windows
