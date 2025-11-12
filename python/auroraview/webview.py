@@ -341,7 +341,6 @@ class WebView:
         )
         return instance
 
-
     def show(self, *, wait: Optional[bool] = None) -> None:
         """Show the WebView window (smart mode).
 

@@ -93,8 +93,12 @@ class EventTimer:
         self._interval_ms = interval_ms
         self._check_validity = check_window_validity
         self._running = False
-        self._timer_impl: Optional[Any] = None  # Maya scriptJob, Qt QTimer, Blender/Houdini callbacks, or thread
-        self._timer_type: Optional["TimerType"] = None  # "maya", "qt", "blender", "houdini", "thread"
+        self._timer_impl: Optional[Any] = (
+            None  # Maya scriptJob, Qt QTimer, Blender/Houdini callbacks, or thread
+        )
+        self._timer_type: Optional["TimerType"] = (
+            None  # "maya", "qt", "blender", "houdini", "thread"
+        )
         self._close_callbacks: list[Callable[[], None]] = []
         self._tick_callbacks: list[Callable[[], None]] = []
         self._last_valid = True
@@ -283,7 +287,9 @@ class EventTimer:
         """
         try:
             self._close_callbacks.remove(callback)
-            logger.debug(f"Close callback unregistered: {getattr(callback, '__name__', repr(callback))}")
+            logger.debug(
+                f"Close callback unregistered: {getattr(callback, '__name__', repr(callback))}"
+            )
             return True
         except ValueError:
             logger.debug("Close callback not found during unregistration")
@@ -297,7 +303,9 @@ class EventTimer:
         """
         try:
             self._tick_callbacks.remove(callback)
-            logger.debug(f"Tick callback unregistered: {getattr(callback, '__name__', repr(callback))}")
+            logger.debug(
+                f"Tick callback unregistered: {getattr(callback, '__name__', repr(callback))}"
+            )
             return True
         except ValueError:
             logger.debug("Tick callback not found during unregistration")
