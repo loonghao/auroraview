@@ -245,7 +245,7 @@ import maya.cmds as cmds
 from auroraview import WebView
 
 # Get Maya main window
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 maya_window = None
 for widget in QtWidgets.QApplication.topLevelWidgets():
     if widget.objectName() == 'MayaWindow':
@@ -253,16 +253,17 @@ for widget in QtWidgets.QApplication.topLevelWidgets():
         break
 
 # Create embedded WebView
-webview = WebView(
-    title="Maya Tool",
+webview = WebView.create(
+    "Maya Tool",
     width=600,
     height=400,
-    parent_hwnd=int(maya_window.winId())
+    parent=int(maya_window.winId()),
+    mode="owner",
 )
 
 # Event processing loop
 def process_events():
-    if webview._core.process_events():
+    if webview.process_events():
         cmds.scriptJob(kill=timer_id)
 
 timer_id = cmds.scriptJob(event=["idle", process_events])

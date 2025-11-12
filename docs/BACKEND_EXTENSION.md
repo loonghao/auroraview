@@ -102,9 +102,9 @@ pub enum RenderingEngine {
 允许用户选择后端：
 
 ```python
-from auroraview import NativeWebView
+from auroraview import WebView
 
-webview = NativeWebView.standalone(
+webview = WebView(
     title="My App",
     backend="my-engine",  # 指定后端
 )
@@ -324,7 +324,7 @@ mod tests {
 # tests/test_backends.py
 
 def test_servo_backend():
-    webview = NativeWebView.standalone(
+    webview = WebView(
         title="Servo Test",
         backend="servo",
     )

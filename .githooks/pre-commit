@@ -24,8 +24,8 @@ if echo "$changed_files" | grep -E '(^src/.*\.rs$|^Cargo\.toml$|^build\.rs$)' >/
     echo "[pre-commit] Running cargo fmt --all -- --check"
     cargo fmt --all -- --check
 
-    echo "[pre-commit] Running cargo clippy --all-targets --all-features -D warnings"
-    cargo clippy --all-targets --all-features -D warnings --no-deps
+    echo "[pre-commit] Running cargo clippy --all-targets --all-features -- -D warnings"
+    cargo clippy --all-targets --all-features -- -D warnings
   else
     echo "[pre-commit] cargo not found; skipping Rust checks"
   fi

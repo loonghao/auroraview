@@ -43,10 +43,10 @@
 //! ```
 //!
 //! ```python
-//! from auroraview import NativeWebView
+//! from auroraview import WebView
 //!
 //! # Use Servo backend (if available)
-//! webview = NativeWebView.standalone(
+//! webview = WebView(
 //!     title="Servo Test",
 //!     backend="servo",  # Specify Servo backend
 //! )
