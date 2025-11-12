@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # PyO3 for Python bindings
-pyo3 = { version = "0.24.1", features = ["extension-module", "abi3-py37"], optional = true }
+pyo3 = { version = "0.24.1", features = ["abi3-py37"], optional = true }
 
 # Wry for WebView
 wry = "0.47"
@@ -120,12 +120,14 @@ opt-level = 0
 # Default keep current behavior (standalone via wry)
 default = ["python-bindings", "threaded-ipc", "wry-backend"]
 
-# Python bindings
+# Python bindings (without extension-module by default, to allow cargo test/linking)
 python-bindings = ["pyo3"]
 # Enable PyO3 auto-initialize in test builds to avoid manual interpreter setup
 # Use with: cargo test --features "test-helpers"
 # This does not affect release artifacts.
 test-helpers = ["pyo3/auto-initialize"]
+# Build as a true Python extension module (enable when building wheels or develop install)
+ext-module = ["pyo3/extension-module"]
 
 # Rendering backend features
 # Only one backend should be active at a time at runtime; we gate code paths.

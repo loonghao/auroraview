@@ -13,7 +13,7 @@ inputs:
   maturin-args:
     description: 'Additional arguments for maturin'
     required: false
-    default: '--release --out dist --find-interpreter'
+    default: '--release --out dist --find-interpreter --features ext-module'
   test-wheel:
     description: 'Whether to test the built wheel'
     required: false
