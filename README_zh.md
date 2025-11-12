@@ -2,11 +2,14 @@
 
 中文文档 | [English](./README.md)
 
+[![PyPI 版本](https://img.shields.io/pypi/v/auroraview.svg)](https://pypi.org/project/auroraview/)
+[![Python 版本](https://img.shields.io/pypi/pyversions/auroraview.svg)](https://pypi.org/project/auroraview/)
+[![下载量](https://static.pepy.tech/badge/auroraview)](https://pepy.tech/project/auroraview)
+[![Codecov](https://codecov.io/gh/loonghao/auroraview/branch/main/graph/badge.svg)](https://codecov.io/gh/loonghao/auroraview)
+[![PR Checks](https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
-[![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)](https://www.python.org/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/loonghao/auroraview)
-[![CI](https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg)](https://github.com/loonghao/auroraview/actions)
+[![平台](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/loonghao/auroraview)
 
 一个为DCC（数字内容创作）软件设计的超快速、轻量级WebView框架，使用Rust构建并提供Python绑定。完美支持Maya、3ds Max、Houdini、Blender等。
 

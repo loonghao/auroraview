@@ -2,11 +2,14 @@
 
 [中文文档](./README_zh.md) | English
 
+[![PyPI Version](https://img.shields.io/pypi/v/auroraview.svg)](https://pypi.org/project/auroraview/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/auroraview.svg)](https://pypi.org/project/auroraview/)
+[![Downloads](https://static.pepy.tech/badge/auroraview)](https://pepy.tech/project/auroraview)
+[![Codecov](https://codecov.io/gh/loonghao/auroraview/branch/main/graph/badge.svg)](https://codecov.io/gh/loonghao/auroraview)
+[![PR Checks](https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
-[![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/loonghao/auroraview)
-[![CI](https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg)](https://github.com/loonghao/auroraview/actions)
 
 A blazingly fast, lightweight WebView framework for DCC (Digital Content Creation) software, built with Rust and Python bindings. Perfect for Maya, 3ds Max, Houdini, Blender, and more.
 
