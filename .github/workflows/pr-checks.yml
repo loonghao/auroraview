@@ -114,16 +114,16 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           QT_OPENGL: software
-          QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu --use-gl=swiftshader --single-process --no-sandbox
+          QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu --disable-gpu-compositing --in-process-gpu --use-gl=swiftshader --single-process --no-sandbox
           QTWEBENGINE_DISABLE_SANDBOX: '1'
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu --use-gl=swiftshader --single-process --no-sandbox
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu --disable-gpu-compositing --in-process-gpu --use-gl=swiftshader --single-process --no-sandbox
         run: |
           # macOS Qt tests are flaky in CI headless mode - skip for now
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             echo "Skipping Qt tests on macOS CI (known issue with headless Qt WebEngine)"
             exit 0
           fi
-          uv run pytest -q tests/test_qt_backend.py tests/test_qt_lifecycle.py -o addopts="" -rA
+          python -m pytest -q tests/test_qt_backend.py tests/test_qt_lifecycle.py -o addopts="" -rA
 
   # PR approval gate - all essential checks must pass
   pr-ready:
