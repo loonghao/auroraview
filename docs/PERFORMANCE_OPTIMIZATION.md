@@ -51,10 +51,10 @@
 **实现**:
 
 ```python
-from auroraview import NativeWebView
+from auroraview import WebView
 
 # 创建 WebView
-webview = NativeWebView.standalone(
+webview = WebView(
     title="My App",
     width=800,
     height=600,
@@ -328,7 +328,7 @@ function throttle(func, limit) {
 
 ```python
 # 启用性能监控
-webview = NativeWebView.standalone(
+webview = WebView(
     title="My App",
     dev_tools=True,  # 启用开发者工具
 )
@@ -343,7 +343,7 @@ def handle_first_paint(data):
 
 ```python
 # 禁用开发者工具
-webview = NativeWebView.standalone(
+webview = WebView(
     title="My App",
     dev_tools=False,
 )
@@ -356,15 +356,15 @@ webview.enable_batching(max_size=10, max_age_ms=16)
 
 ```python
 # 使用 embedded 模式
-webview = NativeWebView.embedded(
-    parent_hwnd=maya_hwnd,
-    title="Maya Tool",
+webview = WebView.create(
+    "Maya Tool",
+    parent=maya_hwnd,
     mode="owner",
 )
 
 # 使用 scriptJob 处理事件
 def process_events():
-    webview._core.process_events()
+    webview.process_events()
 
 cmds.scriptJob(event=["idle", process_events])
 ```

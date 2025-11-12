@@ -84,7 +84,7 @@ class EventTimer:
     def _try_start_qt_timer(self) -> bool:
         """使用 Qt QTimer（主线程）"""
         try:
-            from PySide2.QtCore import QTimer
+            from qtpy.QtCore import QTimer
             timer = QTimer()
             timer.setInterval(self._interval_ms)
             # ✅ Qt 会在主线程中触发 timeout 信号
@@ -130,7 +130,7 @@ job_id = cmds.scriptJob(event=["idle", my_callback])
 ### Qt QTimer 的工作原理
 
 ```python
-from PySide2.QtCore import QTimer
+from qtpy.QtCore import QTimer
 
 def my_callback():
     print("Called in main thread")
@@ -190,8 +190,8 @@ timer.start()
 2. **Qt 环境**（无 Maya）：
    ```python
    from auroraview import WebView, EventTimer
-   from PySide2.QtWidgets import QApplication
-   
+   from qtpy.QtWidgets import QApplication
+
    app = QApplication([])
    webview = WebView(title="Test", width=800, height=600)
    webview.show()
