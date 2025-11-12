@@ -11,9 +11,9 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
 #[cfg(any(test, target_os = "windows"))]
 use std::time::Duration;
+use std::time::Instant;
 
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::HWND;

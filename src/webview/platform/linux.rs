@@ -1,7 +1,6 @@
 //! Linux-specific window management
 #![allow(dead_code)]
 
-
 use super::PlatformWindowManager;
 use crate::webview::lifecycle::LifecycleManager;
 use parking_lot::Mutex;
