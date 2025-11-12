@@ -448,6 +448,7 @@ pub fn process_messages_enhanced(hwnd_value: u64) -> bool {
 }
 
 #[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
 pub fn process_messages_enhanced(_hwnd: u64) -> bool {
     false
 }

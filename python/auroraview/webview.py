@@ -299,10 +299,6 @@ class WebView:
 
         return instance
 
-
-
-
-
     def show(self, *, wait: Optional[bool] = None) -> None:
         """Show the WebView window (smart mode).
 
@@ -573,7 +569,6 @@ class WebView:
             logger.error(f"[ERROR] [WebView.emit] Traceback: {traceback.format_exc()}")
             raise
 
-
     def on(self, event_name: str) -> Callable:
         """Decorator to register a Python callback for JavaScript events.
 
@@ -802,5 +797,3 @@ class WebView:
             return
 
         self._bridge.execute_command(command, params)
-
-
