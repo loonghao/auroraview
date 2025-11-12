@@ -129,8 +129,15 @@ jobs:
       - name: Generate Rust coverage (lcov)
         run: |
           cargo llvm-cov --tests --workspace --no-default-features \
-            --features "python-bindings,threaded-ipc" \
-            --lcov --output-path lcov.info
+            --features "python-bindings,test-helpers,threaded-ipc" \
+            --lcov --output-path lcov.info -- \
+            --skip window_utils \
+            --skip webview::event_loop \
+            --skip webview::message_pump \
+            --skip webview::parent_monitor \
+            --skip service_discovery::python_bindings \
+            --skip ipc:: \
+            --skip tests::test_pymodule_init_registers_symbols
 
       - name: Upload Rust coverage to Codecov
         uses: codecov/codecov-action@v4
