@@ -34,15 +34,11 @@ if not auroraview._HAS_QT:
 
 **解决方案 2**：使用 Native 后端（推荐，无需额外依赖）
 ```python
-from auroraview import NativeWebView  # 而不是 QtWebView
+from auroraview import WebView  # 推荐统一入口
 import maya.OpenMayaUI as omui
 
 maya_hwnd = int(omui.MQtUtil.mainWindow())
-webview = NativeWebView.embedded(
-    parent_hwnd=maya_hwnd,
-    title="My Tool",
-    mode="owner"
-)
+webview = WebView.create("My Tool", parent=maya_hwnd, mode="owner")
 webview.show()
 ```
 
@@ -54,7 +50,7 @@ webview.show()
 
 ```python
 # DON'T DO THIS - Will cause Maya to freeze!
-webview = NativeWebView(parent_hwnd=hwnd, parent_mode="owner")
+webview = WebView.create("My Tool", parent=hwnd, mode="owner")
 webview.load_html(html)
 webview.show_async()  # [ERROR] Creates window in background thread
 ```
@@ -70,7 +66,7 @@ webview.show_async()  # [ERROR] Creates window in background thread
 
 ```python
 # CORRECT PATTERN
-webview = NativeWebView(parent_hwnd=hwnd, parent_mode="owner")
+webview = WebView.create("My Tool", parent=hwnd, mode="owner")
 webview.load_html(html)
 
 # Store in __main__ for scriptJob access
@@ -80,7 +76,7 @@ __main__.my_webview = webview
 # Create scriptJob to process events
 def process_events():
     if hasattr(__main__, 'my_webview'):
-        should_close = __main__.my_webview._core.process_events()
+        should_close = __main__.my_webview.process_events()
         if should_close:
             # Cleanup
             if hasattr(__main__, 'my_webview_timer'):
@@ -111,11 +107,11 @@ When `parent_hwnd` is set, `show()` behaves differently:
 
 ```python
 # Standalone mode (no parent_hwnd)
-webview = NativeWebView(title="Standalone")
+webview = WebView.create("Standalone")
 webview.show()  # [ERROR] BLOCKING - runs event loop until window closes
 
 # Embedded mode (with parent_hwnd)
-webview = NativeWebView(parent_hwnd=hwnd, parent_mode="owner")
+webview = WebView.create("Embedded", parent=hwnd, mode="owner")
 webview.show()  # [OK] NON-BLOCKING - creates window and returns immediately
 ```
 
@@ -123,14 +119,14 @@ webview.show()  # [OK] NON-BLOCKING - creates window and returns immediately
 
 ```python
 # Owner mode (recommended)
-webview = NativeWebView(parent_hwnd=hwnd, parent_mode="owner")
+webview = WebView.create("My Tool", parent=hwnd, mode="owner")
 # - Uses GWLP_HWNDPARENT (owned window)
 # - Safer for cross-thread scenarios
 # - Window can be moved independently
 # - Recommended for Maya integration
 
 # Child mode (advanced)
-webview = NativeWebView(parent_hwnd=hwnd, parent_mode="child")
+webview = WebView.create("My Tool", parent=hwnd, mode="child")
 # - Uses WS_CHILD style
 # - Requires same-thread creation
 # - Window is clipped to parent bounds
@@ -142,7 +138,7 @@ webview = NativeWebView(parent_hwnd=hwnd, parent_mode="child")
 The `process_events()` method:
 
 ```python
-should_close = webview._core.process_events()
+should_close = webview.process_events()
 ```
 
 - **Non-blocking**: Uses `PeekMessageW` to process pending messages only
@@ -155,22 +151,22 @@ should_close = webview._core.process_events()
 ```python
 import maya.cmds as cmds
 import maya.OpenMayaUI as omui
-from auroraview import NativeWebView
+from auroraview import WebView
 from shiboken2 import wrapInstance
 from PySide2.QtWidgets import QWidget
 
 # Get Maya main window
 main_window_ptr = omui.MQtUtil.mainWindow()
 maya_window = wrapInstance(int(main_window_ptr), QWidget)
-hwnd = maya_window.winId()
+hwnd = int(maya_window.winId())
 
 # Create WebView
-webview = NativeWebView(
-    title="My Tool",
+webview = WebView.create(
+    "My Tool",
     width=800,
     height=600,
-    parent_hwnd=hwnd,
-    parent_mode="owner"
+    parent=hwnd,
+    mode="owner"
 )
 
 # Load content
@@ -188,7 +184,7 @@ __main__.my_webview = webview
 # Create event processor
 def process_events():
     if hasattr(__main__, 'my_webview'):
-        should_close = __main__.my_webview._core.process_events()
+        should_close = __main__.my_webview.process_events()
         if should_close:
             # Cleanup
             if hasattr(__main__, 'my_webview_timer'):
@@ -228,7 +224,7 @@ The `process_events()` function automatically cleans up when the user closes the
 ```python
 def process_events():
     if hasattr(__main__, 'my_webview'):
-        should_close = __main__.my_webview._core.process_events()
+        should_close = __main__.my_webview.process_events()
         if should_close:
             # Window was closed by user - cleanup automatically
             if hasattr(__main__, 'my_webview_timer'):

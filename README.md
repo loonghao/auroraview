@@ -232,6 +232,30 @@ webview = WebView.create(
 webview.show()
 ```
 
+**Embedded mode helper (2025):**
+```python
+from auroraview import WebView
+
+# Convenience helper = create(..., auto_show=True, auto_timer=True)
+webview = WebView.run_embedded(
+    "My Tool", url="http://localhost:3000", parent=parent_hwnd, mode="owner"
+)
+```
+
+**Callback deregistration (EventTimer):**
+```python
+from auroraview import EventTimer
+
+timer = EventTimer(webview, interval_ms=16)
+
+def _on_close(): ...
+
+timer.on_close(_on_close)
+# Later, to remove the handler:
+timer.off_close(_on_close)  # also available: off_tick(handler)
+```
+
+
 #### 2. Qt Backend
 
 Integrates as a Qt widget for seamless integration with Qt-based DCCs. Requires `pip install auroraview[qt]`.
