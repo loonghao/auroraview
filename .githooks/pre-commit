@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# AuroraView pre-commit hook
+# Ensures Python lint passes before committing.
+# Requires: ruff available on PATH.
+
+set -euo pipefail
+
+echo "[pre-commit] Running ruff check --fix (python/, tests/)"
+ruff check --fix python/ tests/
+
+echo "[pre-commit] Running ruff check (python/, tests/)"
+ruff check python/ tests/
+
+echo "[pre-commit] OK"
