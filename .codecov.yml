@@ -1,0 +1,28 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 50%
+        threshold: 2%
+    patch:
+      default:
+        target: 60%
+
+flags:
+  python:
+    paths:
+      - python/
+      - tests/
+  rust:
+    paths:
+      - src/
+
+ignore:
+  - "**/__pycache__/"
+  - "tests/"
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+
