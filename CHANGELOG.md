@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.3...auroraview-v0.2.4) (2025-11-12)
+
+
+### Features
+
+* add __init__.py to example packages and update import docs ([b9acd72](https://github.com/loonghao/auroraview/commit/b9acd7256e29fb61897110cb0d8cf9cd7aef33b8))
+* add auto-ready bridge with Qt-style API ([556e84e](https://github.com/loonghao/auroraview/commit/556e84ec6b9e7f46d994c7234c4e1009170f4441))
+* add Qt-style signal/slot system for robust event binding ([8f8908b](https://github.com/loonghao/auroraview/commit/8f8908b7de3fc90cb8c4e9090bce3644d2a15a7c))
+* **service-discovery:** add module sources (mod, port allocator, python bindings) for CI build\n\n- Add missing service_discovery sources required by new http_discovery tests\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([bc07782](https://github.com/loonghao/auroraview/commit/bc0778256dd4be3ebd3a0f9ccd3a4bb331da70fe))
+
+
+### Bug Fixes
+
+* change doctest code blocks from text to python to prevent compilation ([cbb0c6b](https://github.com/loonghao/auroraview/commit/cbb0c6b2e400613f0ce53460741c3171107b1c9e))
+* **ci, rust:** resolve pytest import error on Windows CI and silence clippy dead_code/unused warnings\n\n- Revert Qt test invocation to 'uv run python -m pytest' (fix No module named pytest)\n- Force software rendering already applied in previous commits\n- Silence Rust warnings to pass -D warnings in CI:\n  * Gate Duration imports with cfg and remove unused imports\n  * Prefix unused function params with underscore on non-Windows\n  * Add #[allow(dead_code)] for public API and platform stubs\n  * Linux platform module: #![allow(dead_code)] and import cleanup\n- Non-Windows message_pump is_window_valid marked #[allow(dead_code)]\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([24e3b7f](https://github.com/loonghao/auroraview/commit/24e3b7f76edbcc776361fbf9de89e850859c91b8))
+* **ci:** silence Rust dead_code warnings and harden Qt Windows tests\n\n- timer.rs: cfg-gate should_tick to windows|test to avoid dead_code under clippy all-targets\n- message_pump.rs: add #[allow(dead_code)] to non-windows stub\n- pr-checks.yml: add WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS to disable GPU in headless CI\n- python: format with ruff to satisfy --check\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([737edae](https://github.com/loonghao/auroraview/commit/737edae4cc9d1f66d1358258edd0ea154e3bb1cc))
+* handle Qt warnings on Nuke window close gracefully ([957d893](https://github.com/loonghao/auroraview/commit/957d893ef3a94b9d796d7c047a3f090f295ef061))
+* implement complete window.auroraview API in initialization scripts ([293dd5c](https://github.com/loonghao/auroraview/commit/293dd5cb73764c9f49d7f59ffd14579672fe6ba8))
+* improve Qt backend import error handling for Maya users ([aaf601d](https://github.com/loonghao/auroraview/commit/aaf601dc17ce9aedab08bfcba8b7567690cbf71c))
+* inline AuroraViewBridge in test scripts to avoid file loading issues ([6a4ddd7](https://github.com/loonghao/auroraview/commit/6a4ddd70d79a021467c1e83b68769bd79b8eaeb1))
+* prevent Nuke from hanging on exit after WebView close ([c84d0f3](https://github.com/loonghao/auroraview/commit/c84d0f3dbd315aae7250c07ecf26a556abf26d69))
+* **py:** restore backwards-compat API for tests (on_event, NativeWebView, show_async) ([67bda7c](https://github.com/loonghao/auroraview/commit/67bda7c332beaf3925885abbb2a5a9d4827b0fab))
+* **qt:** export _HAS_QT and AuroraViewQt; use qtpy QWebEngineSettings for backend-agnostic devtools; expose alias in qt_integration\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([ed09760](https://github.com/loonghao/auroraview/commit/ed097600b80331a030d2f311e226c76d4ea68a49))
+* remove duplicate win module and add dead_code allows ([45c5c9f](https://github.com/loonghao/auroraview/commit/45c5c9fa26b770eafb7512a42f779eaf14d2d153))
+* resolve all clippy warnings ([337f9c5](https://github.com/loonghao/auroraview/commit/337f9c5caabd0291b60e6f5544dc1af553eba51f))
+* resolve CI lint failures and update deprecated PyO3 APIs ([eb123f8](https://github.com/loonghao/auroraview/commit/eb123f807b6f8710eb9731383e7c49ab4ac5f46b))
+* resolve release workflow error and update documentation ([d061a54](https://github.com/loonghao/auroraview/commit/d061a547ce910417108bbf9887c6adbe69db5e81))
+* use pytest directly instead of uv run to access built extension ([b05550e](https://github.com/loonghao/auroraview/commit/b05550eb02581e175c1222bf8d8a3df139762bfc))
+
+
+### Code Refactoring
+
+* cleanup codebase and enhance examples ([0657b3e](https://github.com/loonghao/auroraview/commit/0657b3e2084b322b8ed77b772b3364225a4fc352))
+* migrate all Nuke examples to simplified API ([fcebb21](https://github.com/loonghao/auroraview/commit/fcebb21a0dcb285861e427e96cd6d5e5d8765e9a))
+* rename example directories to avoid DCC namespace conflicts ([3db8d30](https://github.com/loonghao/auroraview/commit/3db8d30a33aa5dced5dccc63f2abb29bbc0eefdb))
+* unify WebView API and remove compatibility layers\n\n- Remove DCC-specific factories (maya/houdini/blender), for_dcc(), process_messages(), and NativeWebView\n- Keep a single entry point: WebView.create(...) with mode=auto (parent -&gt; owner automatically)\n- Fix: expose show_async() as non-blocking helper (equiv. to show(wait=False))\n- Tests: align with unified API; ensure multiple show_async calls are idempotent\n- Docs: simplify DCC examples to rely on parent only (mode implicit)\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([120e7b6](https://github.com/loonghao/auroraview/commit/120e7b6191026a33d9828c337f1a8d636c21cb0a))
+
+
+### Documentation
+
+* add comprehensive installation guides for DCC environments ([f75f225](https://github.com/loonghao/auroraview/commit/f75f225378e4e54ef96297ab6a22e8cc8d7c5a09))
+* add comprehensive Nuke IPC testing guide ([a2a311c](https://github.com/loonghao/auroraview/commit/a2a311c4c95c26a6eb298fef86155e44360b84f0))
+* add simplified API guide ([743be1f](https://github.com/loonghao/auroraview/commit/743be1f532b69e447869e210f81907bc806555e4))
+* add white screen troubleshooting guide and diagnostic tools ([5b55752](https://github.com/loonghao/auroraview/commit/5b55752ff8bbce02b6e21be3d240d7a188ff45a4))
+* move examples to separate repository and update README ([1dfd755](https://github.com/loonghao/auroraview/commit/1dfd75546e4cc30df615a6317d96a23957999cd5))
+
 ## [0.2.3](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.2...auroraview-v0.2.3) (2025-11-01)
 
 
