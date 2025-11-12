@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose an idea to improve AuroraView
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Tell us what problem this would solve and why it matters.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the solution you'd like
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope & impact
+      options:
+        - label: Backward compatible
+        - label: Requires docs update
+        - label: Requires API change
+
