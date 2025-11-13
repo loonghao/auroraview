@@ -113,17 +113,16 @@ impl HttpDiscovery {
         // Start server
         let addr: SocketAddr = ([127, 0, 0, 1], discovery_port).into();
 
-        // Use Arc<Mutex<>> to share the actual bound address
-        let actual_addr = Arc::new(tokio::sync::Mutex::new(None));
-        let actual_addr_clone = actual_addr.clone();
+        // Use a channel to communicate the bound address
+        let (addr_tx, mut addr_rx) = tokio::sync::mpsc::channel(1);
 
         // Spawn server task
         let handle = tokio::spawn(async move {
             // Bind to the address - bind() returns a future that resolves to a Server
             let server = warp::serve(routes).bind(addr).await;
 
-            // Store the actual bound address
-            *actual_addr_clone.lock().await = Some(addr);
+            // Send the address immediately after binding
+            let _ = addr_tx.send(addr).await;
 
             // Run the server with graceful shutdown
             server
@@ -136,25 +135,25 @@ impl HttpDiscovery {
 
         self.server_handle = Some(handle);
 
-        // Wait for the address to be set (with timeout)
-        let start_time = std::time::Instant::now();
-        while start_time.elapsed() < std::time::Duration::from_secs(5) {
-            if let Some(bound_addr) = *actual_addr.lock().await {
+        // Wait for the address to be received (with timeout)
+        match tokio::time::timeout(std::time::Duration::from_secs(5), addr_rx.recv()).await {
+            Ok(Some(bound_addr)) => {
                 self.port = bound_addr.port();
                 info!(
                     "✅ HTTP discovery server started at http://{}/discover",
                     bound_addr
                 );
-                return Ok(());
+                Ok(())
             }
-            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+            Ok(None) => {
+                Err(std::io::Error::other("Server channel closed before sending address").into())
+            }
+            Err(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Failed to start HTTP discovery server: timeout waiting for bind",
+            )
+            .into()),
         }
-
-        Err(std::io::Error::new(
-            std::io::ErrorKind::TimedOut,
-            "Failed to start HTTP discovery server: timeout waiting for bind",
-        )
-        .into())
     }
 
     /// Stop the HTTP discovery server
