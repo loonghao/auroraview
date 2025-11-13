@@ -106,6 +106,8 @@ fn test_py_dict_to_json_nested_and_edge_types() {
         let dict = PyDict::new(py);
         let inner = PyDict::new(py);
         inner.set_item("nested", 3).unwrap();
+
+        // Create list with mixed types by appending
         let list = pyo3::types::PyList::new(py, vec![py.None()])?;
         list.append(1).unwrap();
         list.append(2).unwrap();
@@ -120,11 +122,13 @@ fn test_py_dict_to_json_nested_and_edge_types() {
         dict.set_item("tuple", &tuple).unwrap();
 
         let json = py_dict_to_json(&dict).unwrap();
-        assert_eq!(json["list"][0], 1);
-        assert_eq!(json["list"][2], "x");
-        assert_eq!(json["list"][3], true);
-        assert!(json["list"][4].is_null());
-        assert_eq!(json["list"][5]["nested"], 3);
+        assert!(json["list"][0].is_null()); // First element is None
+        assert_eq!(json["list"][1], 1);
+        assert_eq!(json["list"][2], 2);
+        assert_eq!(json["list"][3], "x");
+        assert_eq!(json["list"][4], true);
+        assert!(json["list"][5].is_null());
+        assert_eq!(json["list"][6]["nested"], 3);
         // Tuple serialized via Display to string like "(1, 2, 3)"
         assert!(json["tuple"].is_string());
         Ok::<(), pyo3::PyErr>(())
