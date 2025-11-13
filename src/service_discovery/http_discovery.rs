@@ -38,6 +38,9 @@ pub struct HttpDiscovery {
     /// Bridge port to advertise
     bridge_port: u16,
 
+    /// Actual bound port (may differ from discovery_port if 0 was used)
+    pub port: u16,
+
     /// Server shutdown sender
     shutdown_tx: Option<oneshot::Sender<()>>,
 
@@ -55,6 +58,7 @@ impl HttpDiscovery {
         Self {
             discovery_port,
             bridge_port,
+            port: discovery_port,
             shutdown_tx: None,
             server_handle: None,
         }
@@ -134,6 +138,7 @@ impl HttpDiscovery {
 
         // Wait for server to start
         if let Ok(actual_addr) = addr_rx.await {
+            self.port = actual_addr.port();
             info!(
                 "✅ HTTP discovery server started at http://{}/discover",
                 actual_addr
@@ -181,15 +186,18 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_http_discovery_start_stop_and_request() {
-        let mut server = HttpDiscovery::new(9002, 9101);
+        let mut server = HttpDiscovery::new(0, 9101); // Use port 0 for OS-assigned port
         assert!(!server.is_running());
         server.start().await.expect("server should start");
         assert!(server.is_running());
 
+        // Get the actual bound port from the server
+        let bound_port = server.port;
+
         // Query the discovery endpoint using reqwest
         let client = reqwest::Client::new();
         let resp = client
-            .get("http://127.0.0.1:9002/discover")
+            .get(format!("http://127.0.0.1:{}/discover", bound_port))
             .send()
             .await
             .expect("GET /discover should succeed");
@@ -223,12 +231,13 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_http_discovery_unknown_path_returns_404() {
-        // Use a port outside the default allocator scan (9001..=9100) to avoid flakiness
-        let mut server = HttpDiscovery::new(9301, 9101);
+        // Use port 0 for OS-assigned port to avoid flakiness
+        let mut server = HttpDiscovery::new(0, 9101);
         server.start().await.expect("server start");
+        let bound_port = server.port;
         let client = reqwest::Client::new();
         let resp = client
-            .get("http://127.0.0.1:9301/unknown")
+            .get(format!("http://127.0.0.1:{}/unknown", bound_port))
             .send()
             .await
             .expect("GET should succeed");
