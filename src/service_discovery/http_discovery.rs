@@ -113,17 +113,17 @@ impl HttpDiscovery {
         // Start server
         let addr: SocketAddr = ([127, 0, 0, 1], discovery_port).into();
 
-        let (addr_tx, addr_rx) = oneshot::channel();
+        // Use Arc<Mutex<>> to share the actual bound address
+        let actual_addr = Arc::new(tokio::sync::Mutex::new(None));
+        let actual_addr_clone = actual_addr.clone();
 
         // Spawn server task
         let handle = tokio::spawn(async move {
             // Bind to the address - bind() returns a future that resolves to a Server
             let server = warp::serve(routes).bind(addr).await;
 
-            // Get the actual bound address from the server
-            // Note: We need to extract the address before running the server
-            // For now, we'll use the address we requested since bind() should bind to it
-            addr_tx.send(addr).ok();
+            // Store the actual bound address
+            *actual_addr_clone.lock().await = Some(addr);
 
             // Run the server with graceful shutdown
             server
@@ -136,16 +136,25 @@ impl HttpDiscovery {
 
         self.server_handle = Some(handle);
 
-        // Wait for server to start
-        if let Ok(actual_addr) = addr_rx.await {
-            self.port = actual_addr.port();
-            info!(
-                "✅ HTTP discovery server started at http://{}/discover",
-                actual_addr
-            );
+        // Wait for the address to be set (with timeout)
+        let start_time = std::time::Instant::now();
+        while start_time.elapsed() < std::time::Duration::from_secs(5) {
+            if let Some(bound_addr) = *actual_addr.lock().await {
+                self.port = bound_addr.port();
+                info!(
+                    "✅ HTTP discovery server started at http://{}/discover",
+                    bound_addr
+                );
+                return Ok(());
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
         }
 
-        Ok(())
+        Err(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "Failed to start HTTP discovery server: timeout waiting for bind",
+        )
+        .into())
     }
 
     /// Stop the HTTP discovery server
@@ -191,9 +200,6 @@ mod tests {
         server.start().await.expect("server should start");
         assert!(server.is_running());
 
-        // Wait a bit for the port to be set
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
         // Get the actual bound port from the server
         let bound_port = server.port;
         assert!(bound_port > 0, "Port should be set after start");
@@ -238,9 +244,6 @@ mod tests {
         // Use port 0 for OS-assigned port to avoid flakiness
         let mut server = HttpDiscovery::new(0, 9101);
         server.start().await.expect("server start");
-
-        // Wait a bit for the port to be set
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         let bound_port = server.port;
         assert!(bound_port > 0, "Port should be set after start");
