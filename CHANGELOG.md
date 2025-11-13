@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.5](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.4...auroraview-v0.2.5) (2025-11-13)
+
+
+### Features
+
+* **timer,docs,webview:** add callback deregistration and type hints; embedded helper\n\n- EventTimer: add off_close() and off_tick() for deregistration\n- EventTimer: introduce TimerType Literal for timer backend types\n- WebView: add run_embedded() convenience helper (auto_show + auto_timer)\n- Docs: update EventTimer guide (qtpy note, semantics), add Python embedded best practices\n- Tests: add unit tests for off_close/off_tick\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([61a7e70](https://github.com/loonghao/auroraview/commit/61a7e70a65772a1d53e8324bd9d1fee1d9fddccc))
+* **timer:** use qtpy for Qt QTimer backend to support PySide6/PyQt via unified API\n\n- Replace PySide2 direct import with qtpy.QtCore.QTimer\n- Keeps graceful fallback if qtpy not installed (auroraview[qt] installs it)\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([2f4c4dd](https://github.com/loonghao/auroraview/commit/2f4c4dd913bdd97bf0b269fd02c17637ece44ec2))
+
+
+### Bug Fixes
+
+* **rust,features:** gate PyO3 imports and #[pymodule] behind feature python-bindings so rust-coverage can build with --no-default-features; test gating under cfg(all(test, feature))\nci(qt): install pytest-qt, pin PySide6&lt;6.7 and enable QT_DEBUG_PLUGINS for verbose plugin diagnostics\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([81b233f](https://github.com/loonghao/auroraview/commit/81b233f576a32077898785e1e6e17fd74ab5456d))
+
+
+### Documentation
+
+* **badges:** add PyPI, Python versions, downloads(pepy), Codecov and PR Checks badges to README/README_zh; fix CI badge to pr-checks.yml\n\nci(coverage): ensure pytest XML coverage uploaded (essentials+qt) and rust doc-test coverage via llvm-cov\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([a1bf2e6](https://github.com/loonghao/auroraview/commit/a1bf2e6f04b034d43a9d718eb903b97eb394c59c))
+* **maya:** qt import via qtpy; finalize NativeWebView -&gt; WebView.create migration\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([b860f83](https://github.com/loonghao/auroraview/commit/b860f835a2fd185cbb6c729d52d7f55b6c8c70f7))
+* **qt:** replace PySide2 imports with qtpy across proposal/research docs for consistency\n\n- QT_INTEGRATION_PROPOSAL.md: QWidget/QDialog/QWebEngine* and QtCore -&gt; qtpy\n- RESEARCH_FLET_PYWEBVIEW.md: QWebEngineView -&gt; qtpy import\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([0099469](https://github.com/loonghao/auroraview/commit/0099469f93f9c7f317679c99c229c369ebac134c))
+* **readme,maya:** update API references for qtpy + WebView.create; add run_embedded + EventTimer off_* examples\n\n- README/README_zh: add Embedded helper and deregistration samples\n- MAYA_INTEGRATION: migrate NativeWebView -&gt; WebView.create; process_events public API; fix QWidget import and HWND cast\n\nSigned-off-by: longhao &lt;hal.long@outlook.com&gt; ([07f0736](https://github.com/loonghao/auroraview/commit/07f073666d25af425093436691fd7a2789ae41b0))
+* **readme:** add CI/CodeQL/release badges and quick links to CoC/Security ([f9b0c79](https://github.com/loonghao/auroraview/commit/f9b0c791d2c9f61e4f0e830a300499ff91e95aa0))
+* **readme:** enrich badges (stars/downloads/activity/issues/cc/mypy/ruff/dependabot/release-please) ([803d1e6](https://github.com/loonghao/auroraview/commit/803d1e6a8ef01715b4f0947542e198f0c93cae41))
+* unify API examples to WebView.create and qtpy; fix event processing references; fix pre-commit clippy flag ([44a0a51](https://github.com/loonghao/auroraview/commit/44a0a516fa604447970d141be83d5b3718790691))
+
 ## [0.2.4](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.3...auroraview-v0.2.4) (2025-11-12)
 
 
