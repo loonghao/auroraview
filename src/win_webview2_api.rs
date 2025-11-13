@@ -7,6 +7,7 @@
 #![cfg(all(target_os = "windows", feature = "win-webview2"))]
 
 use pyo3::prelude::*;
+use pyo3::{Py, PyAny};
 use std::cell::RefCell;
 
 use crate::platform::windows::webview2::win::WinWebView;
@@ -106,13 +107,13 @@ pub fn win_webview2_dispose(handle: u64) -> PyResult<()> {
 }
 
 #[pyfunction]
-pub fn win_webview2_on_message(py: Python<'_>, handle: u64, callback: PyObject) -> PyResult<()> {
+pub fn win_webview2_on_message(py: Python<'_>, handle: u64, callback: Py<PyAny>) -> PyResult<()> {
     // Retain a reference to the Python callback for use from WebView2 event
     let cb = callback.clone_ref(py);
     with_view(handle, |v| {
         v.on_message(move |json: String| {
             // Invoke Python callback on GIL
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let _ = cb.call1(py, (json,));
             });
         })

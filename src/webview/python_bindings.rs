@@ -33,7 +33,7 @@ fn py_to_json_recursive(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value>
     }
 
     // Check for list
-    if let Ok(list) = value.downcast::<PyList>() {
+    if let Ok(list) = value.cast::<PyList>() {
         let mut json_array = Vec::new();
         for item in list.iter() {
             json_array.push(py_to_json_recursive(&item)?);
@@ -42,7 +42,7 @@ fn py_to_json_recursive(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value>
     }
 
     // Check for dict
-    if let Ok(dict) = value.downcast::<PyDict>() {
+    if let Ok(dict) = value.cast::<PyDict>() {
         let mut json_obj = serde_json::Map::new();
         for (key, val) in dict.iter() {
             let key_str = key.extract::<String>()?;
@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_py_dict_to_json() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("string", "value").unwrap();
             dict.set_item("number", 42).unwrap();
@@ -94,17 +94,19 @@ mod tests {
             assert_eq!(json["string"], "value");
             assert_eq!(json["number"], 42);
             assert_eq!(json["bool"], true);
-        });
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
     }
 }
 
 #[test]
 fn test_py_dict_to_json_nested_and_edge_types() {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let dict = PyDict::new(py);
         let inner = PyDict::new(py);
         inner.set_item("nested", 3).unwrap();
-        let list = pyo3::types::PyList::empty(py);
+        let list = pyo3::types::PyList::new(py, vec![py.None()])?;
         list.append(1).unwrap();
         list.append(2).unwrap();
         list.append("x").unwrap();
@@ -125,5 +127,7 @@ fn test_py_dict_to_json_nested_and_edge_types() {
         assert_eq!(json["list"][5]["nested"], 3);
         // Tuple serialized via Display to string like "(1, 2, 3)"
         assert!(json["tuple"].is_string());
-    });
+        Ok::<(), pyo3::PyErr>(())
+    })
+    .unwrap();
 }

@@ -10,6 +10,7 @@ use dashmap::DashMap;
 use parking_lot::RwLock;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
+use pyo3::{Py, PyAny};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -115,7 +116,7 @@ impl Default for MessageBatch {
 #[allow(dead_code)]
 pub struct BatchedCallback {
     /// Python callable object
-    callback: PyObject,
+    callback: Py<PyAny>,
 
     /// Whether to batch messages
     batching_enabled: bool,
@@ -124,7 +125,7 @@ pub struct BatchedCallback {
 #[allow(dead_code)]
 impl BatchedCallback {
     /// Create a new batched callback
-    pub fn new(callback: PyObject, batching_enabled: bool) -> Self {
+    pub fn new(callback: Py<PyAny>, batching_enabled: bool) -> Self {
         Self {
             callback,
             batching_enabled,
@@ -133,7 +134,7 @@ impl BatchedCallback {
 
     /// Call the callback with a single message
     pub fn call_single(&self, message: &BatchedMessage) -> Result<(), String> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // Convert message to Python dict
             let py_dict = PyDict::new(py);
             py_dict
@@ -173,9 +174,10 @@ impl BatchedCallback {
             return Ok(());
         }
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // Convert batch to Python list
-            let py_list = PyList::empty(py);
+            let py_list = PyList::new(py, batch.messages.iter().map(|_| py.None()))
+                .map_err(|e| format!("Failed to create list: {}", e))?;
 
             for message in &batch.messages {
                 let py_dict = PyDict::new(py);
@@ -213,28 +215,36 @@ impl BatchedCallback {
 
 /// Convert JSON value to Python object
 #[allow(dead_code)]
-#[allow(deprecated)]
-fn json_to_python(py: Python, value: &serde_json::Value) -> PyResult<PyObject> {
+fn json_to_python(py: Python, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
     match value {
         serde_json::Value::Null => Ok(py.None()),
-        serde_json::Value::Bool(b) => Ok(b.into_py(py)),
+        serde_json::Value::Bool(b) => {
+            let obj = b.into_pyobject(py)?;
+            Ok(obj.as_any().clone().unbind())
+        }
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Ok(i.into_py(py))
+                let obj = i.into_pyobject(py)?;
+                Ok(obj.as_any().clone().unbind())
             } else if let Some(f) = n.as_f64() {
-                Ok(f.into_py(py))
+                let obj = f.into_pyobject(py)?;
+                Ok(obj.as_any().clone().unbind())
             } else {
-                Ok(n.to_string().into_py(py))
+                let obj = n.to_string().into_pyobject(py)?;
+                Ok(obj.as_any().clone().unbind())
             }
         }
-        serde_json::Value::String(s) => Ok(s.into_py(py)),
+        serde_json::Value::String(s) => {
+            let obj = s.into_pyobject(py)?;
+            Ok(obj.as_any().clone().unbind())
+        }
         serde_json::Value::Array(arr) => {
-            let py_list = PyList::empty(py);
-            for item in arr {
+            let py_list = PyList::new(py, arr.iter().map(|_| py.None()))?;
+            for (idx, item) in arr.iter().enumerate() {
                 let py_item = json_to_python(py, item)?;
-                py_list.append(py_item.bind(py))?;
+                py_list.set_item(idx, py_item)?;
             }
-            Ok(py_list.into_py(py))
+            Ok(py_list.into_any().unbind())
         }
         serde_json::Value::Object(obj) => {
             let py_dict = PyDict::new(py);
@@ -242,7 +252,7 @@ fn json_to_python(py: Python, value: &serde_json::Value) -> PyResult<PyObject> {
                 let py_val = json_to_python(py, val)?;
                 py_dict.set_item(key, py_val)?;
             }
-            Ok(py_dict.into_py(py))
+            Ok(py_dict.into_any().unbind())
         }
     }
 }
@@ -274,7 +284,7 @@ impl BatchedHandler {
     }
 
     /// Register a callback for an event
-    pub fn on(&self, event: String, callback: PyObject, batching: bool) {
+    pub fn on(&self, event: String, callback: Py<PyAny>, batching: bool) {
         let cb = BatchedCallback::new(callback, batching);
         self.callbacks.entry(event).or_default().push(cb);
     }
@@ -372,8 +382,8 @@ mod tests {
     #[test]
     fn test_batched_callback_single_and_batch() {
         // Prepare a Python callback that collects inputs into `seen` list
-        let (make_cb_obj, seen_obj) = Python::with_gil(|py| {
-            let seen = PyList::empty(py);
+        let (make_cb_obj, seen_obj) = Python::attach(|py| {
+            let seen = PyList::new(py, vec![py.None()]).unwrap();
             let m = pyo3::types::PyModule::from_code(
                 py,
                 c"def make_cb(seen):\n    def cb(x):\n        seen.append(x)\n    return cb\n",
@@ -388,21 +398,21 @@ mod tests {
         });
 
         // 1) call_single
-        let cb = Python::with_gil(|py| {
+        let cb = Python::attach(|py| {
             let f = make_cb_obj.bind(py);
             let seen = seen_obj.bind(py);
             BatchedCallback::new(f.call1((seen,)).unwrap().clone().unbind(), true)
         });
         let msg = BatchedMessage::new("e".to_string(), serde_json::json!({"k": 1}));
         cb.call_single(&msg).expect("call_single should succeed");
-        let single_len = Python::with_gil(|py| {
-            let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();
+        let single_len = Python::attach(|py| {
+            let seen = seen_obj.bind(py).cast::<PyList>().unwrap();
             seen.len()
         });
         assert_eq!(single_len, 1);
 
         // 2) call_batch (batching enabled -> one list element appended)
-        let cb2 = Python::with_gil(|py| {
+        let cb2 = Python::attach(|py| {
             let f = make_cb_obj.bind(py);
             let seen = seen_obj.bind(py);
             BatchedCallback::new(f.call1((seen,)).unwrap().clone().unbind(), true)
@@ -417,17 +427,17 @@ mod tests {
             serde_json::json!({"y": 2}),
         ));
         cb2.call_batch(&batch).expect("call_batch should succeed");
-        Python::with_gil(|py| {
-            let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();
+        Python::attach(|py| {
+            let seen = seen_obj.bind(py).cast::<PyList>().unwrap();
             // After call_single (1) + call_batch (append one list) => total 2 entries
             assert_eq!(seen.len(), 2);
             let list_obj = seen.get_item(1).unwrap();
-            let list_ref = list_obj.downcast::<PyList>().unwrap();
+            let list_ref = list_obj.cast::<PyList>().unwrap();
             assert_eq!(list_ref.len(), 2);
         });
 
         // 3) call_batch with batching disabled -> two individual appends
-        let cb3 = Python::with_gil(|py| {
+        let cb3 = Python::attach(|py| {
             let f = make_cb_obj.bind(py);
             let seen = seen_obj.bind(py);
             BatchedCallback::new(f.call1((seen,)).unwrap().clone().unbind(), false)
@@ -442,8 +452,8 @@ mod tests {
             serde_json::json!({"n": 2}),
         ));
         cb3.call_batch(&batch2).expect("fallback-to-single OK");
-        Python::with_gil(|py| {
-            let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();
+        Python::attach(|py| {
+            let seen = seen_obj.bind(py).cast::<PyList>().unwrap();
             // Prior 2 entries + 2 more -> 4 entries total
             assert_eq!(seen.len(), 4);
         });

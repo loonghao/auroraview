@@ -104,22 +104,30 @@ impl HttpDiscovery {
             .allow_methods(vec!["GET", "OPTIONS"])
             .allow_headers(vec!["Content-Type"]);
 
-        let routes = discover.with(cors);
+        let routes = discover.with(cors).boxed();
 
         // Start server
         let addr: SocketAddr = ([127, 0, 0, 1], discovery_port).into();
 
         let (addr_tx, addr_rx) = oneshot::channel();
 
-        let server = warp::serve(routes).bind_with_graceful_shutdown(addr, async {
-            shutdown_rx.await.ok();
-        });
-
         // Spawn server task
         let handle = tokio::spawn(async move {
-            let (actual_addr, server_fut) = server;
+            // Bind to the address
+            let listener = tokio::net::TcpListener::bind(addr)
+                .await
+                .expect("Failed to bind to address");
+            let actual_addr = listener.local_addr().expect("Failed to get local address");
+
+            // Send the actual address
             addr_tx.send(actual_addr).ok();
-            server_fut.await;
+
+            // Create and run the server with graceful shutdown
+            let server = warp::serve(routes).bind(actual_addr).await.graceful(async {
+                shutdown_rx.await.ok();
+            });
+
+            server.run().await;
         });
 
         self.server_handle = Some(handle);
@@ -170,8 +178,6 @@ impl Drop for HttpDiscovery {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hyper::client::HttpConnector;
-    use hyper::{body::to_bytes, Client};
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_http_discovery_start_stop_and_request() {
@@ -180,13 +186,15 @@ mod tests {
         server.start().await.expect("server should start");
         assert!(server.is_running());
 
-        // Query the discovery endpoint
-        let client: Client<HttpConnector, hyper::Body> = Client::new();
-        let uri: hyper::Uri = "http://127.0.0.1:9002/discover".parse().unwrap();
-        let resp = client.get(uri).await.expect("GET /discover should succeed");
+        // Query the discovery endpoint using reqwest
+        let client = reqwest::Client::new();
+        let resp = client
+            .get("http://127.0.0.1:9002/discover")
+            .send()
+            .await
+            .expect("GET /discover should succeed");
         assert!(resp.status().is_success());
-        let body = to_bytes(resp.into_body()).await.unwrap();
-        let json: DiscoveryResponse = serde_json::from_slice(&body).unwrap();
+        let json: DiscoveryResponse = resp.json().await.unwrap();
         assert_eq!(json.service, "AuroraView Bridge");
         assert_eq!(json.port, 9101);
         assert_eq!(json.protocol, "websocket");
@@ -218,10 +226,13 @@ mod tests {
         // Use a port outside the default allocator scan (9001..=9100) to avoid flakiness
         let mut server = HttpDiscovery::new(9301, 9101);
         server.start().await.expect("server start");
-        let client: Client<HttpConnector, hyper::Body> = Client::new();
-        let uri: hyper::Uri = "http://127.0.0.1:9301/unknown".parse().unwrap();
-        let resp = client.get(uri).await.expect("GET should succeed");
-        assert_eq!(resp.status(), hyper::StatusCode::NOT_FOUND);
+        let client = reqwest::Client::new();
+        let resp = client
+            .get("http://127.0.0.1:9301/unknown")
+            .send()
+            .await
+            .expect("GET should succeed");
+        assert_eq!(resp.status(), reqwest::StatusCode::NOT_FOUND);
         server.stop().expect("server stop");
     }
 
