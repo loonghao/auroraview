@@ -117,21 +117,35 @@ impl HttpDiscovery {
 
         // Spawn server task
         let handle = tokio::spawn(async move {
-            // Bind to the address
-            let listener = tokio::net::TcpListener::bind(addr)
-                .await
-                .expect("Failed to bind to address");
-            let actual_addr = listener.local_addr().expect("Failed to get local address");
+            // Create a TcpListener to get the actual bound address
+            let listener = match tokio::net::TcpListener::bind(addr).await {
+                Ok(l) => l,
+                Err(e) => {
+                    error!("Failed to bind to address: {}", e);
+                    return;
+                }
+            };
+
+            let actual_addr = match listener.local_addr() {
+                Ok(a) => a,
+                Err(e) => {
+                    error!("Failed to get local address: {}", e);
+                    return;
+                }
+            };
 
             // Send the actual address
             addr_tx.send(actual_addr).ok();
 
-            // Create and run the server with graceful shutdown
-            let server = warp::serve(routes).bind(actual_addr).await.graceful(async {
-                shutdown_rx.await.ok();
-            });
-
-            server.run().await;
+            // Run the server with graceful shutdown
+            warp::serve(routes)
+                .bind(actual_addr)
+                .await
+                .graceful(async {
+                    shutdown_rx.await.ok();
+                })
+                .run()
+                .await;
         });
 
         self.server_handle = Some(handle);
