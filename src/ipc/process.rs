@@ -9,7 +9,7 @@
 
 #![allow(dead_code)]
 
-use pyo3::prelude::*;
+use pyo3::{Py, PyAny};
 use serde_json::Value;
 
 use super::backend::IpcBackend;
@@ -33,7 +33,7 @@ impl IpcBackend for ProcessBackend {
         unimplemented!("ProcessBackend is not yet implemented")
     }
 
-    fn register_callback(&self, _event: &str, _callback: PyObject) -> Result<(), String> {
+    fn register_callback(&self, _event: &str, _callback: Py<PyAny>) -> Result<(), String> {
         unimplemented!("ProcessBackend is not yet implemented")
     }
 

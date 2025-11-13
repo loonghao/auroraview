@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # PyO3 for Python bindings
-pyo3 = { version = "0.24.1", features = ["abi3-py37"], optional = true }
+pyo3 = { version = "0.27.1", features = ["abi3-py37"], optional = true }
 
 # Wry for WebView
 wry = "0.53"
@@ -65,8 +65,9 @@ active-win-pos-rs = "0.9"
 
 # Service discovery
 mdns-sd = "0.11"                    # Pure Rust mDNS implementation
-warp = "0.3"                        # HTTP server for discovery endpoint
-hyper = { version = "0.14", features = ["full"] }  # HTTP client/server
+warp = { version = "0.4", features = ["server"] }  # HTTP server for discovery endpoint
+hyper = { version = "1.0", features = ["full"] }  # HTTP client/server
+hyper-util = { version = "0.1", features = ["full"] }  # HTTP utilities for hyper v1
 
 # Future rendering engines (feature-gated)
 # servo = { git = "https://github.com/servo/servo", optional = true }
@@ -83,6 +84,9 @@ test-case = "3.3"            # Table-driven tests
 proptest = "1.5"             # Property-based testing
 mockall = "0.13"             # Mocking framework
 serial_test = "3.2"          # Serial test execution
+
+# HTTP client for testing (hyper v1 compatible)
+reqwest = { version = "0.12", features = ["json"] }  # Modern HTTP client
 
 [build-dependencies]
 # Build script dependencies if needed

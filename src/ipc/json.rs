@@ -16,6 +16,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
+use pyo3::{Py, PyAny};
 use serde::{Deserialize, Serialize};
 
 // Re-export Value type
@@ -98,28 +99,36 @@ pub fn to_value<T: Serialize>(value: &T) -> Result<Value, String> {
 ///
 /// This is a critical path for IPC performance, converting Rust JSON
 /// to Python objects that can be passed to callbacks.
-#[allow(deprecated)]
-pub fn json_to_python(py: Python, value: &Value) -> PyResult<PyObject> {
+pub fn json_to_python(py: Python, value: &Value) -> PyResult<Py<PyAny>> {
     match value {
         Value::Null => Ok(py.None()),
-        Value::Bool(b) => Ok(b.into_py(py)),
+        Value::Bool(b) => {
+            let obj = b.into_pyobject(py)?;
+            Ok(obj.as_any().clone().unbind())
+        }
         Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Ok(i.into_py(py))
+                let obj = i.into_pyobject(py)?;
+                Ok(obj.as_any().clone().unbind())
             } else if let Some(f) = n.as_f64() {
-                Ok(f.into_py(py))
+                let obj = f.into_pyobject(py)?;
+                Ok(obj.as_any().clone().unbind())
             } else {
-                Ok(n.to_string().into_py(py))
+                let obj = n.to_string().into_pyobject(py)?;
+                Ok(obj.as_any().clone().unbind())
             }
         }
-        Value::String(s) => Ok(s.into_py(py)),
+        Value::String(s) => {
+            let obj = s.into_pyobject(py)?;
+            Ok(obj.as_any().clone().unbind())
+        }
         Value::Array(arr) => {
-            let py_list = PyList::empty(py);
-            for item in arr {
+            let py_list = PyList::new(py, arr.iter().map(|_| py.None()))?;
+            for (idx, item) in arr.iter().enumerate() {
                 let py_item = json_to_python(py, item)?;
-                py_list.append(py_item.bind(py))?;
+                py_list.set_item(idx, py_item)?;
             }
-            Ok(py_list.into_py(py))
+            Ok(py_list.into_any().unbind())
         }
         Value::Object(obj) => {
             let py_dict = PyDict::new(py);
@@ -127,7 +136,7 @@ pub fn json_to_python(py: Python, value: &Value) -> PyResult<PyObject> {
                 let py_val = json_to_python(py, val)?;
                 py_dict.set_item(key, py_val)?;
             }
-            Ok(py_dict.into_py(py))
+            Ok(py_dict.into_any().unbind())
         }
     }
 }
@@ -159,7 +168,7 @@ pub fn python_to_json(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     }
 
     // Check for list
-    if let Ok(list) = value.downcast::<PyList>() {
+    if let Ok(list) = value.cast::<PyList>() {
         let mut json_array = Vec::new();
         for item in list.iter() {
             json_array.push(python_to_json(&item)?);
@@ -168,7 +177,7 @@ pub fn python_to_json(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     }
 
     // Check for dict
-    if let Ok(dict) = value.downcast::<PyDict>() {
+    if let Ok(dict) = value.cast::<PyDict>() {
         let mut json_obj = serde_json::Map::new();
         for (key, val) in dict.iter() {
             let key_str = key.extract::<String>()?;
@@ -208,25 +217,27 @@ mod tests {
             "arr": [1, "y", null],
             "obj": {"k": "v"}
         });
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let obj = json_to_python(py, &value).expect("to py ok");
             let back = python_to_json(obj.bind(py)).expect("roundtrip to json");
             assert_eq!(back["s"], "x");
             assert_eq!(back["n"], 42);
             assert!(back["null"].is_null());
             assert_eq!(back["arr"][1], "y");
-        });
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
     }
 
     #[test]
     fn test_python_to_json_nested_objects() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let dict = PyDictType::new(py);
             dict.set_item("s", "x").unwrap();
             dict.set_item("i", 7).unwrap();
             dict.set_item("f", 2.5).unwrap();
             dict.set_item("none", py.None()).unwrap();
-            let list = PyListType::empty(py);
+            let list = PyListType::new(py, vec![py.None()])?;
             list.append(1).unwrap();
             list.append("y").unwrap();
             list.append(py.None()).unwrap();
@@ -237,7 +248,9 @@ mod tests {
             assert_eq!(v["i"], 7);
             assert!(v["none"].is_null());
             assert_eq!(v["arr"][1], "y");
-        });
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
     }
 
     #[test]

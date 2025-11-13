@@ -4,6 +4,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use pyo3::{Py, PyAny};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -517,7 +518,7 @@ impl AuroraView {
     ///     event_name (str): Name of the event to listen for
     ///     callback (callable): Python function to call when event occurs
     #[allow(clippy::useless_conversion)]
-    fn on(&self, event_name: &str, callback: PyObject) -> PyResult<()> {
+    fn on(&self, event_name: &str, callback: Py<PyAny>) -> PyResult<()> {
         tracing::info!("Registering callback for event: {}", event_name);
 
         // Store the callback in the IPC handler
