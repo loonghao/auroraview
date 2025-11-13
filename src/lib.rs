@@ -31,9 +31,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // IMPORTANT: Allow calling Python from non-Python threads (e.g., Wry IPC thread)
     // This is required so Python callbacks can be invoked safely from Rust-created threads.
-    // See PyO3 docs: prepare_freethreaded_python must be called in extension modules
+    // See PyO3 docs: Python::initialize must be called in extension modules
     // when you'll use Python from threads not created by Python.
-    pyo3::prepare_freethreaded_python();
+    pyo3::Python::initialize();
 
     // Register WebView class
     m.add_class::<webview::AuroraView>()?;
@@ -94,10 +94,12 @@ mod tests {
 
     #[test]
     fn test_pymodule_init_registers_symbols() {
-        pyo3::Python::with_gil(|py| {
+        pyo3::Python::attach(|py| {
             let m = pyo3::types::PyModule::new(py, "auroraview_test").unwrap();
             _core(&m).expect("module init should succeed");
             assert!(m.getattr("get_all_windows").is_ok());
-        });
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
     }
 }

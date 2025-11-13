@@ -5,7 +5,7 @@
 //! communication (for standalone mode).
 
 use super::json::Value;
-use pyo3::prelude::*;
+use pyo3::{Py, PyAny};
 
 /// IPC message structure
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -47,7 +47,7 @@ pub trait IpcBackend: Send + Sync {
     /// # Returns
     /// * `Ok(())` if the callback was registered successfully
     /// * `Err(String)` if registration failed
-    fn register_callback(&self, event: &str, callback: PyObject) -> Result<(), String>;
+    fn register_callback(&self, event: &str, callback: Py<PyAny>) -> Result<(), String>;
 
     /// Process pending messages
     ///

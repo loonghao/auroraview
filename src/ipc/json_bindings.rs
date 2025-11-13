@@ -17,6 +17,7 @@
 use super::json;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
+use pyo3::Py;
 
 /// Parse JSON string to Python object (SIMD-accelerated)
 ///
@@ -35,7 +36,7 @@ use pyo3::types::PyBytes;
 /// print(data)  # {'name': 'test', 'value': 123}
 /// ```
 #[pyfunction]
-pub fn json_loads(py: Python, data: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+pub fn json_loads(py: Python, data: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     // Accept both str and bytes
     let json_str = if let Ok(s) = data.extract::<String>() {
         s
@@ -127,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_json_roundtrip() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // Create a Python dict
             let dict = PyDict::new(py);
             dict.set_item("name", "test").unwrap();
@@ -141,7 +142,7 @@ mod tests {
             // Parse back
             let json_str_bound = PyString::new(py, &json_str);
             let parsed = json_loads(py, json_str_bound.as_any()).unwrap();
-            let parsed_dict = parsed.downcast_bound::<PyDict>(py).unwrap();
+            let parsed_dict = parsed.bind(py).cast::<PyDict>().unwrap();
 
             assert_eq!(
                 parsed_dict
@@ -161,6 +162,8 @@ mod tests {
                     .unwrap(),
                 123
             );
-        });
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
     }
 }

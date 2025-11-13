@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_register_service_discovery_module() {
-        pyo3::Python::with_gil(|py| {
+        pyo3::Python::attach(|py| {
             let m = pyo3::types::PyModule::new(py, "svc").unwrap();
             super::register_service_discovery(&m).expect("register should succeed");
             assert!(m.getattr("ServiceDiscovery").is_ok());
@@ -329,7 +329,7 @@ mod tests {
     fn test_start_and_stop_http_only() {
         // Do not enable mDNS; discovery_port = 0 so OS assigns a free port
         let sd = PyServiceDiscovery::new(0, 0, false, "AuroraView").expect("new() should succeed");
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             sd.start(py, None)
                 .expect("start should succeed without mDNS");
         });

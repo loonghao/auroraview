@@ -6,7 +6,7 @@
 
 use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use dashmap::DashMap;
-use pyo3::prelude::*;
+use pyo3::{Py, PyAny};
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -124,7 +124,7 @@ impl IpcBackend for ThreadedBackend {
         }
     }
 
-    fn register_callback(&self, event: &str, callback: PyObject) -> Result<(), String> {
+    fn register_callback(&self, event: &str, callback: Py<PyAny>) -> Result<(), String> {
         self.callbacks
             .entry(event.to_string())
             .or_default()

@@ -2,6 +2,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict};
+use pyo3::Py;
 use std::sync::{Arc, Mutex};
 
 use super::timer::{Timer as RustTimer, TimerBackend as RustTimerBackend};
@@ -32,7 +33,7 @@ impl PyTimerBackend {
 #[pyclass(name = "NativeTimer", unsendable)]
 pub struct PyTimer {
     timer: Arc<Mutex<RustTimer>>,
-    callback: Arc<Mutex<Option<PyObject>>>,
+    callback: Arc<Mutex<Option<Py<PyAny>>>>,
 }
 
 #[pymethods]
@@ -81,7 +82,7 @@ impl PyTimer {
     ///
     /// Args:
     ///     callback: Python callable to invoke on each tick
-    fn set_callback(&mut self, callback: PyObject) {
+    fn set_callback(&mut self, callback: Py<PyAny>) {
         let mut cb = self.callback.lock().unwrap();
         *cb = Some(callback);
     }
@@ -101,7 +102,7 @@ impl PyTimer {
             let cb = callback.lock().unwrap();
             if let Some(ref callback) = *cb {
                 // Call the Python callback
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     if let Err(e) = callback.call0(py) {
                         eprintln!("Error calling timer callback: {:?}", e);
                     }
@@ -178,7 +179,7 @@ impl PyTimer {
     }
 
     /// Get timer properties as a dictionary
-    fn to_dict(&self, py: Python) -> PyResult<PyObject> {
+    fn to_dict(&self, py: Python) -> PyResult<Py<PyAny>> {
         let timer = self.timer.lock().unwrap();
         let dict = PyDict::new(py);
         dict.set_item("interval_ms", timer.interval_ms())?;

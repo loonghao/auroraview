@@ -5,6 +5,7 @@
 
 use dashmap::DashMap;
 use pyo3::prelude::*;
+use pyo3::{Py, PyAny};
 use std::sync::Arc;
 
 // Re-export IpcMessage from backend module
@@ -16,18 +17,18 @@ pub type IpcCallback = Arc<dyn Fn(IpcMessage) -> Result<serde_json::Value, Strin
 /// Python callback wrapper - stores Python callable objects
 pub struct PythonCallback {
     /// Python callable object
-    pub callback: PyObject,
+    pub callback: Py<PyAny>,
 }
 
 impl PythonCallback {
     /// Create a new Python callback wrapper
-    pub fn new(callback: PyObject) -> Self {
+    pub fn new(callback: Py<PyAny>) -> Self {
         Self { callback }
     }
 
     /// Call the Python callback with the given data
     pub fn call(&self, data: super::json::Value) -> Result<(), String> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // Convert JSON value to Python object using the optimized json module
             let py_data = match super::json::json_to_python(py, &data) {
                 Ok(obj) => obj,
@@ -86,7 +87,7 @@ impl IpcHandler {
     }
 
     /// Register a Python callback for an event
-    pub fn register_python_callback(&self, event: &str, callback: PyObject) {
+    pub fn register_python_callback(&self, event: &str, callback: Py<PyAny>) {
         self.python_callbacks
             .entry(event.to_string())
             .or_default()
@@ -171,9 +172,9 @@ mod tests {
     use super::*;
     use pyo3::types::{PyList, PyModule};
 
-    fn py_append_collector() -> (PyObject, PyObject) {
-        Python::with_gil(|py| {
-            let seen = PyList::empty(py);
+    fn py_append_collector() -> (Py<PyAny>, Py<PyAny>) {
+        Python::attach(|py| {
+            let seen = PyList::new(py, [py.None()])?;
             let m = PyModule::from_code(
                 py,
                 c"def make_cb(seen):\n    def cb(x):\n        seen.append(x)\n    return cb\n",
@@ -183,11 +184,12 @@ mod tests {
             .unwrap();
             let make_cb = m.getattr("make_cb").unwrap();
             // Keep an owned handle to the list so we can inspect it later
-            let seen_obj: PyObject = seen.clone().unbind().into();
-            let seen_bound = seen_obj.bind(py).downcast::<PyList>().unwrap();
+            let seen_obj: Py<PyAny> = seen.clone().unbind().into();
+            let seen_bound = seen_obj.bind(py).cast::<PyList>().unwrap();
             let cb = make_cb.call1((seen_bound,)).unwrap().clone().unbind();
-            (cb, seen_obj)
+            Ok::<(Py<PyAny>, Py<PyAny>), pyo3::PyErr>((cb, seen_obj))
         })
+        .unwrap()
     }
 
     #[test]
@@ -204,12 +206,12 @@ mod tests {
         let res = handler.handle_message(msg);
         assert!(res.is_ok());
 
-        Python::with_gil(|py| {
-            let seen = seen_obj.bind(py).downcast::<PyList>().unwrap();
+        Python::attach(|py| {
+            let seen = seen_obj.bind(py).cast::<PyList>().unwrap();
             assert_eq!(seen.len(), 1);
             let first = seen.get_item(0).unwrap();
             // first is a Python object converted from JSON dict
-            let dict = first.downcast::<pyo3::types::PyDict>().unwrap();
+            let dict = first.cast::<pyo3::types::PyDict>().unwrap();
             if let Ok(Some(a_val)) = dict.get_item("a") {
                 let a: i64 = a_val.extract().unwrap();
                 assert_eq!(a, 1);
