@@ -133,6 +133,14 @@ class TestQtWebViewFunctionality:
         webview.load_html(html)
         # Verify no exception was raised
 
+    def test_load_file_helper(self, webview, tmp_path):
+        """Test QtWebView.load_file helper for local HTML files."""
+        html_path = tmp_path / "index.html"
+        html_path.write_text("<html><body><h1>Qt File Test</h1></body></html>", encoding="utf-8")
+
+        # Should not raise when loading a local HTML file via file:// URL
+        webview.load_file(str(html_path))
+
     def test_show_hide(self, webview):
         """Test show/hide functionality."""
         webview.show()

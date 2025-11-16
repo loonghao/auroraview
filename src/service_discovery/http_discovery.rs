@@ -2,7 +2,7 @@
 //!
 //! Provides HTTP REST API for service discovery (for UXP plugins).
 
-use super::Result;
+use super::{Result, ServiceDiscoveryError};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -110,50 +110,43 @@ impl HttpDiscovery {
 
         let routes = discover.with(cors).boxed();
 
-        // Start server
+        // Start server by binding TcpListener manually so we can capture the actual port
         let addr: SocketAddr = ([127, 0, 0, 1], discovery_port).into();
 
-        // Use a channel to communicate the bound address
-        let (addr_tx, mut addr_rx) = tokio::sync::mpsc::channel(1);
+        let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
+            ServiceDiscoveryError::HttpError(format!(
+                "Failed to bind HTTP discovery server on {}: {}",
+                addr, e
+            ))
+        })?;
 
-        // Spawn server task
-        let handle = tokio::spawn(async move {
-            // Bind to the address - bind() returns a future that resolves to a Server
-            let server = warp::serve(routes).bind(addr).await;
+        let bound_addr = listener.local_addr().map_err(|e| {
+            ServiceDiscoveryError::HttpError(format!(
+                "Failed to get local address for HTTP discovery server on {}: {}",
+                addr, e
+            ))
+        })?;
 
-            // Send the address immediately after binding
-            let _ = addr_tx.send(addr).await;
+        // Store the actual bound port (handles discovery_port == 0)
+        self.port = bound_addr.port();
 
-            // Run the server with graceful shutdown
-            server
-                .graceful(async {
-                    shutdown_rx.await.ok();
-                })
-                .run()
-                .await;
+        // Build warp server with graceful shutdown using the bound listener
+        let server = warp::serve(routes).incoming(listener).graceful(async move {
+            shutdown_rx.await.ok();
         });
 
+        info!(
+            "✅ HTTP discovery server started at http://{}/discover",
+            bound_addr
+        );
+
+        // Spawn the server task
+        let handle = tokio::spawn(async move {
+            server.run().await;
+        });
         self.server_handle = Some(handle);
 
-        // Wait for the address to be received (with timeout)
-        match tokio::time::timeout(std::time::Duration::from_secs(5), addr_rx.recv()).await {
-            Ok(Some(bound_addr)) => {
-                self.port = bound_addr.port();
-                info!(
-                    "✅ HTTP discovery server started at http://{}/discover",
-                    bound_addr
-                );
-                Ok(())
-            }
-            Ok(None) => {
-                Err(std::io::Error::other("Server channel closed before sending address").into())
-            }
-            Err(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "Failed to start HTTP discovery server: timeout waiting for bind",
-            )
-            .into()),
-        }
+        Ok(())
     }
 
     /// Stop the HTTP discovery server

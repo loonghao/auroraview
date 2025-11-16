@@ -107,6 +107,7 @@ except ImportError:
     destroy_window_by_hwnd = None  # type: ignore
 
 from .event_timer import EventTimer, TimerType
+from .framework import AuroraView
 from .webview import WebView
 
 # Bridge for DCC integration (optional - requires websockets)
@@ -197,6 +198,7 @@ def on_event(event_name: str):
 
 __all__ = [
     # Base classes
+    "AuroraView",
     "WebView",
     # Qt backend (may raise ImportError if not installed)
     "QtWebView",

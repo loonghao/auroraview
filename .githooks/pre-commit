@@ -5,6 +5,17 @@
 
 set -euo pipefail
 
+# Resolve ruff command (prefer direct, fallback to uvx)
+if command -v ruff >/dev/null 2>&1; then
+  RUFF_CMD="ruff"
+elif command -v uvx >/dev/null 2>&1; then
+  RUFF_CMD="uvx ruff"
+elif command -v uv >/dev/null 2>&1; then
+  RUFF_CMD="uvx ruff"
+else
+  RUFF_CMD=""
+fi
+
 # Detect changed files in index (staged)
 changed_files=$(git diff --cached --name-only --diff-filter=ACM || true)
 
@@ -12,14 +23,18 @@ changed_files=$(git diff --cached --name-only --diff-filter=ACM || true)
 if echo "$changed_files" | grep -E '^(python/|tests/).*\.py$' >/dev/null 2>&1; then
   py_changed=$(echo "$changed_files" | grep -E '^(python/|tests/).*\.py$' || true)
 
-  echo "[pre-commit] Running ruff format on staged Python files"
-  ruff format $py_changed
+  if [ -z "$RUFF_CMD" ]; then
+    echo "[pre-commit] ruff not found (and uv/uvx not available); skipping Python checks"
+  else
+    echo "[pre-commit] Running ruff format on staged Python files"
+    $RUFF_CMD format $py_changed
 
-  echo "[pre-commit] Running ruff check --fix on staged Python files"
-  ruff check --fix $py_changed
+    echo "[pre-commit] Running ruff check --fix on staged Python files"
+    $RUFF_CMD check --fix $py_changed
 
-  echo "[pre-commit] Running ruff check (repo-level)"
-  ruff check python/ tests/
+    echo "[pre-commit] Running ruff check (repo-level)"
+    $RUFF_CMD check python/ tests/
+  fi
 else
   echo "[pre-commit] Skipping ruff (no Python changes staged)"
 fi

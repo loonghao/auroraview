@@ -26,8 +26,13 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not HAS_QT, reason=f"Qt backend not available: {QT_IMPORT_ERROR}")
 
 
-class TestEventBridgeLifecycle:
-    """Test EventBridge lifecycle management."""
+class TestEventBridgeStub:
+    """Basic smoke tests for the deprecated EventBridge stub.
+
+    The original Qt WebChannel-based implementation has been removed.
+    We only verify that the stub is importable and instantiable so that
+    existing imports keep working.
+    """
 
     @pytest.fixture
     def qapp(self):
@@ -39,50 +44,16 @@ class TestEventBridgeLifecycle:
             app = QApplication(sys.argv)
         yield app
 
-    def test_event_bridge_cleanup(self, qapp):
-        """Test that EventBridge cleanup prevents further event processing."""
+    def test_event_bridge_instantiable(self, qapp):
+        """EventBridge can still be imported and constructed."""
         from auroraview.qt_integration import EventBridge
 
         bridge = EventBridge()
-
-        # Register a handler
-        called = []
-
-        def handler(data):
-            called.append(data)
-
-        bridge.register_handler("test_event", handler)
-
-        # Send event before cleanup - should work
-        bridge.js_to_python("test_event", '{"value": 1}')
-        assert len(called) == 1
-        assert called[0]["value"] == 1
-
-        # Cleanup bridge
-        bridge.cleanup()
-
-        # Send event after cleanup - should be ignored
-        bridge.js_to_python("test_event", '{"value": 2}')
-        assert len(called) == 1  # Should not have increased
-
-    def test_event_bridge_emit_after_cleanup(self, qapp):
-        """Test that emit_to_js after cleanup doesn't crash."""
-        from auroraview.qt_integration import EventBridge
-
-        bridge = EventBridge()
-
-        # Emit before cleanup - should work
-        bridge.emit_to_js("test", {"value": 1})
-
-        # Cleanup
-        bridge.cleanup()
-
-        # Emit after cleanup - should not crash
-        bridge.emit_to_js("test", {"value": 2})  # Should be silently ignored
+        assert bridge is not None
 
 
 class TestQtWebViewLifecycle:
-    """Test QtWebView lifecycle management."""
+    """Test QtWebView lifecycle management for the new WebView2-based backend."""
 
     @pytest.fixture
     def qapp(self):
@@ -94,79 +65,65 @@ class TestQtWebViewLifecycle:
             app = QApplication(sys.argv)
         yield app
 
-    def test_qtwebview_close_event(self, qapp):
-        """Test that closeEvent properly cleans up resources."""
+    def test_qtwebview_close_event_sets_flag(self, qapp):
+        """closeEvent should mark the widget as closing."""
         from qtpy.QtGui import QCloseEvent
 
         from auroraview import QtWebView
 
         webview = QtWebView()
+        assert webview._is_closing is False
 
-        # Verify bridge is created
-        assert hasattr(webview, "_bridge")
-        assert webview._bridge is not None
-
-        # Simulate close event
         event = QCloseEvent()
         webview.closeEvent(event)
 
-        # Verify cleanup was called
         assert webview._is_closing is True
-        assert webview._bridge._is_destroyed is True
 
-        # Cleanup
         webview.deleteLater()
 
-    def test_qtwebview_multiple_close_events(self, qapp):
-        """Test that multiple closeEvent calls don't cause errors."""
+    def test_qtwebview_multiple_close_events_safe(self, qapp):
+        """Multiple closeEvent calls should not crash."""
         from qtpy.QtGui import QCloseEvent
 
         from auroraview import QtWebView
 
         webview = QtWebView()
 
-        # First close
         event1 = QCloseEvent()
         webview.closeEvent(event1)
         assert webview._is_closing is True
 
-        # Second close - should be handled gracefully
         event2 = QCloseEvent()
         webview.closeEvent(event2)  # Should not crash
 
-        # Cleanup
         webview.deleteLater()
 
-    def test_qtwebview_parent_child_cleanup(self, qapp):
-        """Test that Qt parent-child relationship ensures proper cleanup."""
+    def test_qtwebview_embeds_webview_core(self, qapp):
+        """QtWebView should create an internal WebView backend instance."""
         from auroraview import QtWebView
+        from auroraview.webview import WebView
 
         webview = QtWebView()
+        assert hasattr(webview, "_webview")
+        assert isinstance(webview._webview, WebView)
 
-        # Verify parent-child relationship
-        assert webview._bridge.parent() == webview
-        assert webview._channel.parent() == webview
-
-        # Close and cleanup
         webview.close()
         webview.deleteLater()
 
-    def test_qtwebview_emit_after_close(self, qapp):
-        """Test that emit after close doesn't crash."""
+    def test_qtwebview_emit_after_close_does_not_crash(self, qapp):
+        """Calling emit after closeEvent should be a no-op and not crash."""
         from qtpy.QtGui import QCloseEvent
 
         from auroraview import QtWebView
 
         webview = QtWebView()
 
-        # Close the webview
         event = QCloseEvent()
         webview.closeEvent(event)
 
-        # Try to emit - should not crash
+        # Should not raise even though the underlying WebView has been closed
         webview.emit("test_event", {"value": 1})
 
-        # Cleanup
         webview.deleteLater()
 
 
@@ -197,8 +154,8 @@ class TestQtWebViewEventProcessing:
         webview.deleteLater()
 
 
-class TestQtWebViewAppQuit:
-    """Test application quit handling."""
+class TestQtWebViewAppIntegration:
+    """Lightweight tests around Qt-specific integration flags."""
 
     @pytest.fixture
     def qapp(self):
@@ -210,50 +167,8 @@ class TestQtWebViewAppQuit:
             app = QApplication(sys.argv)
         yield app
 
-    def test_app_quit_handler_registered(self, qapp):
-        """Test that app quit handler is registered."""
-        from auroraview import QtWebView
-
-        webview = QtWebView()
-
-        # Verify handler is registered by checking if it can be disconnected
-        try:
-            from qtpy.QtCore import QCoreApplication
-
-            app = QCoreApplication.instance()
-            if app:
-                # Try to disconnect - if it was connected, this should work
-                app.aboutToQuit.disconnect(webview._on_app_quit)
-                # Reconnect for cleanup
-                app.aboutToQuit.connect(webview._on_app_quit)
-        except (RuntimeError, TypeError):
-            # If disconnect fails, handler wasn't registered
-            pytest.fail("App quit handler was not registered")
-
-        # Cleanup
-        webview.close()
-        webview.deleteLater()
-
-    def test_on_app_quit_closes_window(self, qapp):
-        """Test that _on_app_quit closes the window."""
-        from auroraview import QtWebView
-
-        webview = QtWebView()
-
-        # Verify window is not closing
-        assert webview._is_closing is False
-
-        # Call _on_app_quit
-        webview._on_app_quit()
-
-        # Verify window is now closing
-        assert webview._is_closing is True
-
-        # Cleanup
-        webview.deleteLater()
-
     def test_wa_delete_on_close_set(self, qapp):
-        """Test that WA_DeleteOnClose attribute is set."""
+        """QtWebView should delete itself when closed."""
         from qtpy.QtCore import Qt
 
         from auroraview import QtWebView
@@ -265,4 +180,3 @@ class TestQtWebViewAppQuit:
 
         # Cleanup
         webview.close()
-        # No need for deleteLater() since WA_DeleteOnClose is set

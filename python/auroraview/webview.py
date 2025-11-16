@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
 try:
@@ -556,6 +557,26 @@ class WebView:
         self._stored_url = None
         self._core.load_html(html)
 
+    def load_file(self, path: Union[str, Path]) -> None:
+        """Load a local HTML file via a ``file://`` URL.
+
+        This helper is intended for "static site" style frontends where
+        an ``index.html`` and its assets (images/CSS/JS) live on disk.
+        It resolves the given path and forwards to :meth:`load_url` with
+        a ``file:///`` URL so that all relative asset paths are handled
+        by the browser as usual.
+
+        Args:
+            path: Filesystem path to an HTML file.
+
+        Example:
+            >>> from pathlib import Path
+            >>> html_path = Path("dist/index.html")
+            >>> webview.load_file(html_path)
+        """
+        html_path = Path(path).expanduser().resolve()
+        self.load_url(html_path.as_uri())
+
     def eval_js(self, script: str) -> None:
         """Execute JavaScript code in the WebView.
 
@@ -648,6 +669,115 @@ class WebView:
         # Register with core
         self._core.on(event_name, callback)
 
+    def bind_call(self, method: str, func: Optional[Callable[..., Any]] = None):
+        """Bind a Python callable as an ``auroraview.call`` target.
+
+        The JavaScript side sends messages of the form::
+
+            {"id": "<request-id>", "params": ...}
+
+        This helper unwraps the ``params`` payload, calls ``func`` and then
+        emits a ``__auroraview_call_result`` event back to JavaScript so that
+        the Promise returned by ``auroraview.call`` can resolve or reject.
+
+        Usage::
+
+            def echo(params):
+                return params
+
+            webview.bind_call("api.echo", echo)
+
+        Or as a decorator::
+
+            @webview.bind_call("api.echo")
+            def echo(params):
+                return params
+
+        NOTE: Currently only synchronous callables are supported.
+        """
+
+        # Decorator usage: @webview.bind_call("api.echo")
+        if func is None:
+
+            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+                self.bind_call(method, fn)
+                return fn
+
+            return decorator
+
+        def _handler(raw: Dict[str, Any]) -> None:
+            call_id = raw.get("id") or raw.get("__auroraview_call_id")
+            params = raw.get("params")
+
+            try:
+                if isinstance(params, dict):
+                    result = func(**params)
+                elif isinstance(params, list):
+                    result = func(*params)
+                else:
+                    result = func(params)
+                ok = True
+                error_info: Optional[Dict[str, Any]] = None
+            except Exception as exc:  # pragma: no cover - error path
+                ok = False
+                result = None
+                error_info = {
+                    "name": exc.__class__.__name__,
+                    "message": str(exc),
+                }
+                logger.exception("Error in bound call '%s'", method)
+
+            if not call_id:
+                # Fire-and-forget usage: nothing to send back
+                return
+
+            payload: Dict[str, Any] = {"id": call_id, "ok": ok}
+            if ok:
+                payload["result"] = result
+            else:
+                payload["error"] = error_info
+
+            self.emit("__auroraview_call_result", payload)
+
+        # Register wrapper with core IPC handler
+        self._core.on(method, _handler)
+        logger.info("Bound auroraview.call handler: %s", method)
+
+        # For decorator-style usage, return the original function
+        return func
+
+    def bind_api(self, api: Any, namespace: str = "api") -> None:
+        """Bind all public methods of an object under a namespace.
+
+        This is a convenience helper so that you can expose a Python "API" object
+        to JavaScript without writing many ``bind_call`` lines by hand.
+
+        Example::
+
+            class API:
+                def echo(self, message: str) -> str:
+                    return message
+
+            api = API()
+            webview.bind_api(api)  # JS: await auroraview.api.echo({"message": "hi"})
+
+        Args:
+            api: Object whose public callables should be exposed.
+            namespace: Logical namespace prefix used on the JS side (default: "api").
+        """
+
+        for name in dir(api):
+            if name.startswith("_"):
+                continue
+
+            attr = getattr(api, name)
+            if not callable(attr):
+                continue
+
+            method_name = f"{namespace}.{name}"
+            self.bind_call(method_name, attr)
+            logger.info("Bound auroraview.call handler via bind_api: %s", method_name)
+
     def wait(self, timeout: Optional[float] = None) -> bool:
         """Wait for the WebView to close.
 
@@ -701,6 +831,16 @@ class WebView:
             >>> job_id = cmds.scriptJob(event=["idle", process_webview_events])
         """
         return self._core.process_events()
+
+    def process_events_ipc_only(self) -> bool:
+        """Process only internal AuroraView IPC without touching host event loop.
+
+        This variant is intended for host-driven embedding scenarios (Qt/DCC)
+        where the native window message pump is owned by the host application.
+        It only drains the internal WebView message queue and respects
+        lifecycle close requests.
+        """
+        return self._core.process_ipc_only()
 
     def is_alive(self) -> bool:
         """Check if WebView is still running.

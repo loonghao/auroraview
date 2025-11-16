@@ -457,7 +457,16 @@ class EventTimer:
                             # WebView not yet initialized, skip this tick
                             return
 
-                should_close = self._webview.process_events()
+                # Choose event-processing strategy based on timer backend.
+                if self._timer_type == "qt" and hasattr(self._webview, "process_events_ipc_only"):
+                    # Qt hosts (Maya, Houdini Qt, etc.) own the native event loop.
+                    # In this mode we only drain AuroraView's internal IPC queue
+                    # and rely on Qt to drive the Win32/WebView2 message pump.
+                    should_close = self._webview.process_events_ipc_only()
+                else:
+                    # Legacy/other hosts still use the full process_events() path,
+                    # which may drive the native message pump directly.
+                    should_close = self._webview.process_events()
             except RuntimeError as e:
                 if "not initialized" in str(e):
                     # WebView not yet initialized, skip this tick silently

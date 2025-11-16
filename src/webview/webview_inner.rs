@@ -655,53 +655,61 @@ impl WebViewInner {
                 tracing::info!("[process_events] Platform manager reports invalid window");
                 return true;
             }
-        }
 
-        // Get the window HWND for targeted message processing
-        #[cfg(target_os = "windows")]
-        let hwnd = {
-            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+            // IMPORTANT: When a platform-specific manager exists (e.g. Qt/DCC integration),
+            // it is responsible for driving the native message pump in a scoped way.
+            // To avoid stealing messages from the host application's own event loop
+            // (Qt/Maya), we deliberately skip the generic message_pump below and only
+            // process the WebView message queue.
+        } else {
+            // Legacy path: no platform manager, fall back to generic message pump.
 
-            if let Some(window) = &self.window {
-                if let Ok(window_handle) = window.window_handle() {
-                    let raw_handle = window_handle.as_raw();
-                    if let RawWindowHandle::Win32(handle) = raw_handle {
-                        let hwnd_value = handle.hwnd.get() as u64;
-                        Some(hwnd_value)
+            // Get the window HWND for targeted message processing
+            #[cfg(target_os = "windows")]
+            let hwnd = {
+                use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+                if let Some(window) = &self.window {
+                    if let Ok(window_handle) = window.window_handle() {
+                        let raw_handle = window_handle.as_raw();
+                        if let RawWindowHandle::Win32(handle) = raw_handle {
+                            let hwnd_value = handle.hwnd.get() as u64;
+                            Some(hwnd_value)
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
                 } else {
                     None
                 }
-            } else {
-                None
-            }
-        };
+            };
 
-        #[cfg(not(target_os = "windows"))]
-        let hwnd: Option<u64> = None;
-
-        // Process Windows messages with specific HWND if available
-        let should_quit = if let Some(hwnd_value) = hwnd {
-            let b1 = message_pump::process_messages_for_hwnd(hwnd_value);
-            // Also service child/IPC windows (e.g., WebView2) in the same thread.
-            // Use full-thread scan on Windows to ensure we don't miss SC_CLOSE/WM_CLOSE.
-            #[cfg(target_os = "windows")]
-            let b2 = message_pump::process_all_messages();
             #[cfg(not(target_os = "windows"))]
-            let b2 = message_pump::process_all_messages_limited(1024);
-            b1 || b2
-        } else {
-            // If we don't yet have a window handle, don't pull host messages.
-            false
-        };
+            let hwnd: Option<u64> = None;
 
-        if should_quit {
-            tracing::debug!(
-                "[process_events] should_quit=true; close signal detected; returning to Python"
-            );
-            return true;
+            // Process Windows messages with specific HWND if available
+            let should_quit = if let Some(hwnd_value) = hwnd {
+                let b1 = message_pump::process_messages_for_hwnd(hwnd_value);
+                // Also service child/IPC windows (e.g., WebView2) in the same thread.
+                // Use full-thread scan on Windows to ensure we don't miss SC_CLOSE/WM_CLOSE.
+                #[cfg(target_os = "windows")]
+                let b2 = message_pump::process_all_messages();
+                #[cfg(not(target_os = "windows"))]
+                let b2 = message_pump::process_all_messages_limited(1024);
+                b1 || b2
+            } else {
+                // If we don't yet have a window handle, don't pull host messages.
+                false
+            };
+
+            if should_quit {
+                tracing::debug!(
+                    "[process_events] should_quit=true; close signal detected; returning to Python"
+                );
+                return true;
+            }
         }
 
         // Process message queue
@@ -763,6 +771,110 @@ impl WebViewInner {
         }
 
         tracing::trace!("[process_events] end");
+
+        false
+    }
+
+    /// Process only internal IPC/messages without touching the host's
+    /// native message loop.
+    ///
+    /// This is intended for host-driven embedding scenarios (Qt, DCC, etc.)
+    /// where the parent application owns the Win32/OS event loop and is
+    /// responsible for pumping window messages. We only:
+    ///   * honor lifecycle close requests, and
+    ///   * drain the WebView message queue (JS   Python IPC).
+    ///
+    /// Returns true if the window should be closed, false otherwise.
+    pub fn process_ipc_only(&self) -> bool {
+        use crate::webview::lifecycle::LifecycleState;
+        use scopeguard::defer;
+
+        defer! {
+            tracing::trace!("[process_ipc_only] tick completed");
+        }
+
+        // Check lifecycle state first
+        match self.lifecycle.state() {
+            LifecycleState::Destroyed => {
+                tracing::warn!("[process_ipc_only] Window already destroyed");
+                return true;
+            }
+            LifecycleState::CloseRequested | LifecycleState::Destroying => {
+                tracing::info!("[process_ipc_only] Close already in progress");
+                return true;
+            }
+            _ => {}
+        }
+
+        // Check for close signal from lifecycle manager
+        if let Some(reason) = self.lifecycle.check_close_requested() {
+            tracing::info!(
+                "[process_ipc_only] Close requested via lifecycle: {:?}",
+                reason
+            );
+            return true;
+        }
+
+        // Process message queue (same semantics as process_events but without
+        // driving any native message pump).
+        tracing::trace!("[process_ipc_only] processing queue");
+
+        if let Ok(webview) = self.webview.lock() {
+            let count = self.message_queue.process_all(|message| {
+                tracing::trace!("[process_ipc_only] processing message: {:?}", message);
+                use crate::ipc::WebViewMessage;
+                match message {
+                    WebViewMessage::EvalJs(script) => {
+                        tracing::debug!("Processing EvalJs: {}", script);
+                        if let Err(e) = webview.evaluate_script(&script) {
+                            tracing::error!("Failed to execute JavaScript: {}", e);
+                        }
+                    }
+                    WebViewMessage::EmitEvent { event_name, data } => {
+                        tracing::debug!(
+                            "[OK] [process_ipc_only] Emitting event: {} with data: {}",
+                            event_name,
+                            data
+                        );
+                        let json_str = data.to_string();
+                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
+                        let script = format!(
+                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
+                            event_name, escaped_json
+                        );
+                        if let Err(e) = webview.evaluate_script(&script) {
+                            tracing::error!("Failed to emit event: {}", e);
+                        } else {
+                            tracing::debug!(
+                                "[OK] [process_ipc_only] Event emitted successfully"
+                            );
+                        }
+                    }
+                    WebViewMessage::LoadUrl(url) => {
+                        let script = format!("window.location.href = '{}';", url);
+                        if let Err(e) = webview.evaluate_script(&script) {
+                            tracing::error!("Failed to load URL: {}", e);
+                        }
+                    }
+                    WebViewMessage::LoadHtml(html) => {
+                        tracing::debug!("Processing LoadHtml ({} bytes)", html.len());
+                        if let Err(e) = webview.load_html(&html) {
+                            tracing::error!("Failed to load HTML: {}", e);
+                        }
+                    }
+                }
+            });
+
+            if count > 0 {
+                tracing::debug!("[process_ipc_only] processed {} messages from queue", count);
+            } else {
+                tracing::trace!("[process_ipc_only] no messages in queue");
+            }
+        } else {
+            tracing::error!("[process_ipc_only] failed to lock WebView");
+        }
+
+        tracing::trace!("[process_ipc_only] end");
 
         false
     }

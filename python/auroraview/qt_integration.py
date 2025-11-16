@@ -1,11 +1,16 @@
-"""Qt backend - WebView integrated with Qt framework.
+"""Qt backend - Qt host widget embedding the core AuroraView WebView.
 
-This module provides a Qt WebEngine-based WebView implementation that
-integrates seamlessly with DCC applications that already have Qt loaded
-(e.g., Maya, Houdini, Nuke).
+This module provides a Qt ``QWidget`` subclass (:class:`QtWebView`) that
+embeds the core AuroraView :class:`auroraview.webview.WebView` using the
+native parent window handle (HWND on Windows). It is designed for DCC
+applications that already have Qt loaded (e.g., Maya, Houdini, Nuke),
+where Qt continues to own the main event loop and window hierarchy.
 
-This backend avoids Windows HWND-related issues and provides better
-integration with Qt-based DCC applications.
+Compared to the old QWebEngine/QWebChannel-based backend, this design:
+
+- Uses the same Rust/WebView2 core as the standalone backend
+- Removes the duplicated JavaScript bridge and WebChannel wiring
+- Keeps a single, unified JS API (``window.auroraview``) across all modes
 
 **Requirements**:
     Install with Qt support: `pip install auroraview[qt]`
@@ -35,140 +40,37 @@ Example:
     >>> webview.show()
 """
 
-import json
 import logging
-from typing import Any, Callable, Dict, Optional
+from pathlib import Path
+from typing import Any, Callable, Optional
 
 try:
-    from qtpy.QtCore import QObject, QUrl, Signal, Slot
-    from qtpy.QtWebChannel import QWebChannel
-    from qtpy.QtWebEngineWidgets import QWebEngineView
+    from qtpy.QtCore import Qt
+    from qtpy.QtWidgets import QWidget
 except ImportError as e:
     raise ImportError(
         "Qt backend requires qtpy and Qt bindings. Install with: pip install auroraview[qt]"
     ) from e
 
+from .webview import WebView
+
 logger = logging.getLogger(__name__)
 
 
-class EventBridge(QObject):
-    """JavaScript ↔ Python event bridge using Qt WebChannel."""
+class QtWebView(QWidget):
+    """Qt host widget that embeds the core AuroraView :class:`WebView`.
 
-    # Signal to send events to JavaScript
-    python_to_js = Signal(str, str)  # (event_name, json_data)
+    This replaces the previous QWebEngine-based implementation. From the
+    outside it still behaves like a regular ``QWidget`` with a compatible
+    high-level API (``load_url``, ``load_html``, ``eval_js``, ``emit``,
+    ``on``, ``bind_call``, ``bind_api``, ``title``), but all real browser
+    work is handled by the Rust/WebView2 backend.
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._handlers: Dict[str, list[Callable]] = {}
-        self._is_destroyed = False
-        logger.debug("EventBridge initialized")
+    The goal of this design is:
 
-    @Slot(str, str)
-    def js_to_python(self, event_name: str, json_data: str):
-        """Receive events from JavaScript.
-
-        Args:
-            event_name: Name of the event
-            json_data: JSON-serialized event data
-        """
-        # Check if bridge is destroyed
-        if self._is_destroyed:
-            logger.debug(f"Ignoring event '{event_name}' - bridge is destroyed")
-            return
-
-        try:
-            data = json.loads(json_data) if json_data else {}
-            logger.debug(f"Event received from JS: {event_name}, data: {data}")
-
-            # Call registered handlers
-            if event_name in self._handlers:
-                for handler in self._handlers[event_name]:
-                    try:
-                        handler(data)
-                    except Exception as e:
-                        logger.error(f"Error in event handler for {event_name}: {e}")
-            else:
-                logger.warning(f"No handler registered for event: {event_name}")
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to decode JSON data for event {event_name}: {e}")
-        except Exception as e:
-            logger.error(f"Error handling event {event_name}: {e}")
-
-    def register_handler(self, event_name: str, handler: Callable):
-        """Register Python event handler.
-
-        Args:
-            event_name: Name of the event to listen for
-            handler: Callback function to call when event occurs
-        """
-        if event_name not in self._handlers:
-            self._handlers[event_name] = []
-        self._handlers[event_name].append(handler)
-        logger.debug(f"Handler registered for event: {event_name}")
-
-    def emit_to_js(self, event_name: str, data: Any):
-        """Send event to JavaScript.
-
-        Args:
-            event_name: Name of the event
-            data: Event data (will be JSON-serialized)
-        """
-        # Check if bridge is destroyed
-        if self._is_destroyed:
-            logger.debug(f"Ignoring emit '{event_name}' - bridge is destroyed")
-            return
-
-        try:
-            json_data = json.dumps(data) if data else "{}"
-            self.python_to_js.emit(event_name, json_data)
-            logger.debug(f"Event sent to JS: {event_name}, data: {data}")
-        except Exception as e:
-            logger.error(f"Failed to send event {event_name} to JS: {e}")
-
-    def cleanup(self):
-        """Cleanup bridge resources and mark as destroyed."""
-        logger.debug("EventBridge cleanup started")
-        self._is_destroyed = True
-        self._handlers.clear()
-        logger.debug("EventBridge cleanup completed")
-
-
-class QtWebView(QWebEngineView):
-    """Qt backend WebView implementation.
-
-    This class provides a Qt WebEngine-based WebView that can be used as
-    a Qt widget in DCC applications. It's ideal for applications that
-    already have Qt loaded (Maya, Houdini, Nuke, etc.).
-
-    Args:
-        parent: Parent Qt widget (optional)
-        title: Window title (default: "AuroraView")
-        width: Window width in pixels (default: 800)
-        height: Window height in pixels (default: 600)
-        dev_tools: Enable developer tools (default: True)
-
-    Example:
-        >>> from auroraview import QtWebView
-        >>>
-        >>> # Create WebView as Qt widget
-        >>> webview = QtWebView(
-        ...     parent=maya_main_window(),
-        ...     title="My Tool",
-        ...     width=800,
-        ...     height=600
-        ... )
-        >>>
-        >>> # Register event handler
-        >>> @webview.on('export_scene')
-        >>> def handle_export(data):
-        ...     print(f"Exporting to: {data['path']}")
-        >>>
-        >>> # Load HTML content
-        >>> webview.load_html("<html><body>Hello!</body></html>")
-        >>>
-        >>> # Show window
-        >>> webview.show()
+    * Keep the public Python API stable for existing tools
+    * Remove the duplicated JavaScript bridge and QWebChannel wiring
+    * Let the core :class:`WebView` own the window and IPC lifecycle
     """
 
     def __init__(
@@ -178,328 +80,127 @@ class QtWebView(QWebEngineView):
         width: int = 800,
         height: int = 600,
         dev_tools: bool = True,
-    ):
+    ) -> None:
         super().__init__(parent)
+
+        self._title = title
+        self._width = width
+        self._height = height
+        self._dev_tools = dev_tools
 
         self.setWindowTitle(title)
         self.resize(width, height)
 
-        # Set window to delete on close to prevent orphaned windows
-        from qtpy.QtCore import Qt
-
+        # We host a native child window (HWND on Windows) inside this QWidget.
+        # This lets the Rust/WebView2 backend render directly into the Qt
+        # widget without relying on QWebEngine.
+        self.setAttribute(Qt.WA_NativeWindow, True)
         self.setAttribute(Qt.WA_DeleteOnClose, True)
 
-        # Enable developer tools
-        if dev_tools:
-            from qtpy.QtWebEngineWidgets import QWebEngineSettings
+        # Native handle used by the WebView backend for embedding.
+        hwnd = int(self.winId())
+        logger.debug("QtWebView host widget created, hwnd=%s", hwnd)
 
-            settings = self.settings()
-            settings.setAttribute(QWebEngineSettings.JavascriptEnabled, True)
-            settings.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
+        # Create the core WebView in embedded/child mode.
+        # In Qt/DCC environments (e.g., Maya) we run everything on the Qt
+        # main thread and let the DCC's own event loop drive painting/input.
+        # We therefore:
+        #   * use EmbedMode::Child (real WS_CHILD window inside this QWidget)
+        #   * disable native window decorations (frame=False) so that the Qt
+        #     dialog controls the outer chrome/title bar
+        #   * enable auto_timer so EventTimer (Qt QTimer backend) can pump
+        #     Win32/WebView events without spawning extra threads.
+        self._webview = WebView.create(
+            title=title,
+            width=width,
+            height=height,
+            parent=hwnd,
+            mode="child",  # Real child window, lives inside this QWidget
+            frame=False,
+            debug=dev_tools,
+            auto_show=False,
+            auto_timer=True,
+        )
 
-        # Create event bridge with this widget as parent for proper cleanup
-        self._bridge = EventBridge(parent=self)
-        self._channel = QWebChannel(self)
-        self._channel.registerObject("auroraview_bridge", self._bridge)
-        self.page().setWebChannel(self._channel)
-
-        # Inject bridge script after page load
-        self.loadFinished.connect(self._inject_bridge)
-
-        # Track cleanup state
+        # Track cleanup state so we can make close idempotent.
         self._is_closing = False
 
-        # Register application quit handler to ensure cleanup
-        self._register_app_quit_handler()
+        logger.info("AuroraViewQt (Qt host widget) created: %s (%sx%s)", title, width, height)
 
-        logger.info(f"AuroraViewQt created: {title} ({width}x{height})")
+    # ------------------------------------------------------------------
+    # High-level AuroraView-compatible API (delegated to WebView)
+    # ------------------------------------------------------------------
 
-    def _register_app_quit_handler(self):
-        """Register handler to close window when application quits.
+    def load_url(self, url: str) -> None:
+        """Load a URL into the embedded WebView."""
+        self._webview.load_url(url)
+        logger.info("QtWebView loading URL: %s", url)
 
-        This ensures the WebView is properly closed when the DCC application
-        (like Nuke, Maya, Houdini) exits, preventing orphaned windows.
+    def load_html(self, html: str) -> None:
+        """Load HTML content into the embedded WebView.
+
+        This is a thin pass-through to :meth:`WebView.load_html`, which
+        accepts only the HTML string. If you need to load a static HTML
+        file together with its local assets (images/CSS/JS), prefer
+        :meth:`load_url` with a ``file:///`` URL instead of relying on a
+        ``base_url`` argument.
+        """
+        self._webview.load_html(html)
+        logger.info("QtWebView loading HTML (%s bytes)", len(html))
+
+    def load_file(self, path: Any) -> None:
+        """Load a local HTML file in embedded Qt/DCC mode.
+
+        In embedded WebView2 inside DCC hosts (Maya, Houdini, etc.) direct
+        ``file://`` navigation is often restricted. To keep
+        ``QtWebView.load_file(...)`` convenient for simple demos and tools,
+        we first try to read the file contents and feed it through
+        :meth:`load_html`. This works well for single-file HTML frontends.
+
+        If reading the file fails for any reason, we fall back to the
+        original behavior and delegate to the core :class:`WebView.load_file`
+        helper, which uses a ``file:///`` URL.
         """
         try:
-            from qtpy.QtCore import QCoreApplication
+            html_path = Path(path).expanduser().resolve()
+            html = html_path.read_text(encoding="utf-8")
+        except Exception:
+            # Fallback: use the underlying WebView.load_file implementation,
+            # which resolves the path and dispatches to load_url.
+            load_file = getattr(self._webview, "load_file", None)
+            if callable(load_file):
+                load_file(path)
+            else:  # pragma: no cover - defensive, for older backends
+                self.load_url(Path(path).expanduser().resolve().as_uri())
+        else:
+            self.load_html(html)
+            logger.info("QtWebView loaded HTML from file via load_html(): %s", html_path)
 
-            app = QCoreApplication.instance()
-            if app:
-                # Connect to aboutToQuit signal
-                app.aboutToQuit.connect(self._on_app_quit)
-                logger.debug("Registered application quit handler")
-        except Exception as e:
-            logger.warning(f"Could not register app quit handler: {e}")
+    def eval_js(self, script: str) -> None:
+        """Execute JavaScript in the embedded WebView."""
+        self._webview.eval_js(script)
 
-    def _on_app_quit(self):
-        """Handle application quit event.
-
-        This is called when the DCC application is about to quit.
-        We need to cleanup immediately to prevent errors during shutdown.
-        """
-        logger.info("Application quitting - cleaning up QtWebView")
-
-        if self._is_closing:
-            return
-
-        self._is_closing = True
-
-        try:
-            # Immediate cleanup without waiting for closeEvent
-            # This prevents errors during application shutdown
-
-            # 1. Destroy JavaScript bridge first
-            try:
-                cleanup_js = """
-                (function() {
-                    if (window.auroraview && window.auroraview._destroy) {
-                        window.auroraview._destroy();
-                    }
-                    window.auroraview = null;
-                })();
-                """
-                self.page().runJavaScript(cleanup_js)
-            except Exception:
-                pass
-
-            # 2. Cleanup Python bridge
-            if hasattr(self, "_bridge") and self._bridge:
-                self._bridge.cleanup()
-
-            # 3. Stop page immediately
-            try:
-                self.stop()
-                self.setHtml("")
-            except Exception:
-                pass
-
-            # 4. Unregister web channel
-            if hasattr(self, "_channel") and self._channel:
-                try:
-                    self._channel.deregisterObject(self._bridge)
-                except (RuntimeError, AttributeError):
-                    pass
-
-            # 5. Hide window (don't call close() to avoid triggering closeEvent again)
-            try:
-                self.hide()
-            except Exception:
-                pass
-
-            logger.info("QtWebView cleanup on app quit completed")
-        except Exception as e:
-            logger.error(f"Error during app quit cleanup: {e}")
-
-    def _inject_bridge(self, ok: bool):
-        """Inject JavaScript bridge after page load.
-
-        Args:
-            ok: Whether the page loaded successfully
-        """
-        # Check if we're closing - don't inject if so
-        if self._is_closing:
-            logger.debug("Skipping bridge injection - window is closing")
-            return
-
-        if not ok:
-            logger.error("Page failed to load")
-            return
-
-        script = """
-        (function() {
-            // Prevent multiple initializations
-            if (window.auroraview) {
-                console.log('[AuroraView] Bridge already initialized');
-                return;
-            }
-
-            // Check if QWebChannel is available
-            if (typeof QWebChannel === 'undefined') {
-                console.error('[AuroraView] QWebChannel not available');
-                return;
-            }
-
-            // Check if qt.webChannelTransport is available
-            if (typeof qt === 'undefined' || !qt.webChannelTransport) {
-                console.error('[AuroraView] qt.webChannelTransport not available');
-                return;
-            }
-
-            try {
-                new QWebChannel(qt.webChannelTransport, function(channel) {
-                    // Check if bridge object exists
-                    if (!channel.objects || !channel.objects.auroraview_bridge) {
-                        console.error('[AuroraView] Bridge object not found');
-                        return;
-                    }
-
-                    // Create safe wrapper functions
-                    var bridge = channel.objects.auroraview_bridge;
-                    var isDestroyed = false;
-
-                    // Listen for window unload to mark as destroyed
-                    window.addEventListener('beforeunload', function() {
-                        isDestroyed = true;
-                        console.log('[AuroraView] Window unloading - marking bridge as destroyed');
-                    });
-
-                    window.auroraview = {
-                        // Send event to Python
-                        send_event: function(eventName, data) {
-                            if (isDestroyed) {
-                                console.warn('[AuroraView] Bridge destroyed - ignoring send_event');
-                                return;
-                            }
-                            try {
-                                if (!bridge || !bridge.js_to_python) {
-                                    console.error('[AuroraView] Bridge not available');
-                                    return;
-                                }
-                                var jsonData = JSON.stringify(data || {});
-                                bridge.js_to_python(eventName, jsonData);
-                                console.log('[AuroraView] Event sent to Python:', eventName, data);
-                            } catch (e) {
-                                console.error('[AuroraView] Error sending event:', e);
-                            }
-                        },
-
-                        // Receive events from Python
-                        on: function(eventName, callback) {
-                            if (isDestroyed) {
-                                console.warn('[AuroraView] Bridge destroyed - ignoring on');
-                                return;
-                            }
-                            try {
-                                if (!bridge || !bridge.python_to_js) {
-                                    console.error('[AuroraView] Bridge not available');
-                                    return;
-                                }
-                                bridge.python_to_js.connect(function(name, jsonData) {
-                                    if (isDestroyed) {
-                                        return;
-                                    }
-                                    if (name === eventName) {
-                                        try {
-                                            var data = JSON.parse(jsonData);
-                                            console.log('[AuroraView] Event received from Python:', name, data);
-                                            callback(data);
-                                        } catch (e) {
-                                            console.error('[AuroraView] Error parsing event data:', e);
-                                        }
-                                    }
-                                });
-                            } catch (e) {
-                                console.error('[AuroraView] Error registering event handler:', e);
-                            }
-                        },
-
-                        // Cleanup method
-                        _destroy: function() {
-                            isDestroyed = true;
-                            console.log('[AuroraView] Bridge destroyed');
-                        }
-                    };
-
-                    console.log('[AuroraView] Bridge initialized');
-                    console.log('[AuroraView] Use window.auroraview.send_event(name, data) to send events to Python');
-                });
-            } catch (e) {
-                console.error('[AuroraView] Error initializing QWebChannel:', e);
-            }
-        })();
-        """
-
-        try:
-            self.page().runJavaScript(script)
-            logger.debug("JavaScript bridge injected")
-        except Exception as e:
-            logger.error(f"Failed to inject JavaScript bridge: {e}")
-
-    def on(self, event_name: str) -> Callable:
-        """Decorator to register event handler (AuroraView API compatibility).
-
-        Args:
-            event_name: Name of the event to listen for
-
-        Returns:
-            Decorator function
-
-        Example:
-            >>> @webview.on('my_event')
-            >>> def handle_event(data):
-            ...     print(f"Event data: {data}")
-        """
-
-        def decorator(func: Callable) -> Callable:
-            self._bridge.register_handler(event_name, func)
-            return func
-
-        return decorator
-
-    def register_callback(self, event_name: str, callback: Callable):
-        """Register event handler (AuroraView API compatibility).
-
-        Args:
-            event_name: Name of the event
-            callback: Function to call when event occurs
-        """
-        self._bridge.register_handler(event_name, callback)
-
-    def emit(self, event_name: str, data: Any = None):
-        """Send event to JavaScript (AuroraView API compatibility).
-
-        Args:
-            event_name: Name of the event
-            data: Event data (will be JSON-serialized)
-        """
-        self._bridge.emit_to_js(event_name, data)
-        # Force process events to ensure immediate delivery
+    def emit(self, event_name: str, data: Any = None) -> None:
+        """Emit an AuroraView event to the embedded WebView."""
+        self._webview.emit(event_name, data)
+        # Give Qt a chance to process work triggered by the event.
         self._process_pending_events()
 
-    def _process_pending_events(self):
-        """Process pending Qt events to ensure immediate UI updates.
+    def on(self, event_name: str) -> Callable:
+        """Decorator to register event handler (AuroraView API compatibility)."""
+        return self._webview.on(event_name)
 
-        This is particularly important in DCC applications where the event
-        loop might be busy with other tasks.
-        """
-        try:
-            from qtpy.QtCore import QCoreApplication
+    def register_callback(self, event_name: str, callback: Callable) -> None:
+        """Register a callback for an event (compatibility helper)."""
+        self._webview.register_callback(event_name, callback)
 
-            # Process all pending events
-            QCoreApplication.processEvents()
-        except Exception as e:
-            logger.debug(f"Could not process pending events: {e}")
+    def bind_call(self, method: str, func: Optional[Callable[..., Any]] = None):
+        """Bind a Python callable for ``auroraview.call`` (delegates to WebView)."""
+        return self._webview.bind_call(method, func)
 
-    def load_url(self, url: str):
-        """Load URL.
-
-        Args:
-            url: URL to load
-        """
-        self.setUrl(QUrl(url))
-        logger.info(f"Loading URL: {url}")
-
-    def load_html(self, html: str, base_url: Optional[str] = None):
-        """Load HTML content.
-
-        Args:
-            html: HTML content to load
-            base_url: Base URL for resolving relative URLs (optional)
-        """
-        if base_url:
-            self.setHtml(html, QUrl(base_url))
-        else:
-            self.setHtml(html)
-        logger.info(f"Loading HTML ({len(html)} bytes)")
-
-    def eval_js(self, script: str):
-        """Execute JavaScript code.
-
-        Args:
-            script: JavaScript code to execute
-        """
-        self.page().runJavaScript(script)
-        logger.debug(f"Executing JavaScript: {script[:100]}...")
+    def bind_api(self, api: Any, namespace: str = "api") -> None:
+        """Bind an object's public methods as ``auroraview.api.*`` (delegates)."""
+        self._webview.bind_api(api, namespace)
 
     @property
     def title(self) -> str:
@@ -507,19 +208,132 @@ class QtWebView(QWebEngineView):
         return self.windowTitle()
 
     @title.setter
-    def title(self, value: str):
-        """Set window title."""
+    def title(self, value: str) -> None:
+        """Set window title (and keep underlying WebView title in sync)."""
+        self._title = value
         self.setWindowTitle(value)
+        try:
+            # Best-effort sync; the WebView exposes title via logs/diagnostics.
+            self._webview._title = value  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
-    def closeEvent(self, event):
-        """Handle Qt close event.
+    # ------------------------------------------------------------------
+    # Qt integration helpers
+    # ------------------------------------------------------------------
 
-        This ensures proper cleanup of the event bridge and web channel
-        before the widget is destroyed.
+    def _process_pending_events(self) -> None:
+        """Process pending Qt events to keep the host DCC responsive."""
+        try:
+            from qtpy.QtCore import QCoreApplication
 
-        Args:
-            event: QCloseEvent
+            QCoreApplication.processEvents()
+        except Exception as e:  # pragma: no cover - best-effort only
+            logger.debug("QtWebView: could not process pending events: %s", e)
+
+    def _sync_embedded_geometry(self) -> None:
+        """Resize the embedded native WebView window to match this QWidget.
+
+        This is currently implemented for Win32 child windows only; on other
+        platforms the helper is a no-op.
         """
+        try:
+            import sys
+
+            if sys.platform != "win32":
+                return
+
+            import ctypes
+            from ctypes import wintypes
+
+            core = getattr(self._webview, "_core", None)
+            get_hwnd = getattr(core, "get_hwnd", None) if core is not None else None
+            hwnd = get_hwnd() if callable(get_hwnd) else None
+            if not hwnd:
+                return
+
+            rect = self.rect()
+            width = rect.width()
+            height = rect.height()
+
+            user32 = ctypes.windll.user32
+            SWP_NOMOVE = 0x0002
+            SWP_NOZORDER = 0x0004
+            SWP_NOACTIVATE = 0x0010
+
+            user32.SetWindowPos(
+                wintypes.HWND(int(hwnd)),
+                0,
+                0,
+                0,
+                width,
+                height,
+                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE,
+            )
+        except Exception as e:  # pragma: no cover - best-effort only
+            logger.debug("QtWebView: failed to sync embedded geometry: %s", e)
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        """Resize the embedded WebView when the Qt widget is resized."""
+        super().resizeEvent(event)
+        try:
+            self._sync_embedded_geometry()
+        except Exception as e:  # pragma: no cover - best-effort only
+            logger.debug("QtWebView: resizeEvent sync failed: %s", e)
+
+    def show(self) -> None:  # type: ignore[override]
+        """Show the Qt host widget and start the embedded WebView.
+
+        For Qt/DCC hosts (Maya, Houdini, etc.) we prefer to drive the
+        embedded WebView via the main-thread :class:`EventTimer` (Qt
+        ``QTimer`` backend) instead of spawning an additional background
+        thread. This keeps all GUI work on the host's main thread and
+        avoids subtle deadlocks.
+        """
+        super().show()
+
+        # First, ensure the underlying core WebView is created in embedded mode.
+        core = getattr(self._webview, "_core", None)
+        if core is not None:
+            try:
+                # In embedded (owner/child) mode, _core.show() is non-blocking and
+                # just creates the embedded window without its own event loop.
+                core.show()
+                logger.info("QtWebView: core.show() succeeded for embedded WebView")
+            except Exception as exc:  # pragma: no cover - best-effort fallback
+                logger.warning(
+                    "QtWebView: core.show() failed (%s), falling back to WebView.show()",
+                    exc,
+                )
+                # Fall back to the generic WebView.show() behavior and let it
+                # manage threading/timers on its own.
+                self._webview.show()
+                return
+
+        # Sync geometry once after the embedded window has been created.
+        try:
+            self._sync_embedded_geometry()
+        except Exception as e:  # pragma: no cover - best-effort only
+            logger.debug("QtWebView: initial geometry sync failed: %s", e)
+
+        # Prefer using the auto-created EventTimer if available.
+        timer = getattr(self._webview, "_auto_timer", None)
+        if timer is not None:
+            try:
+                timer.start()
+                logger.info("QtWebView: started embedded WebView via EventTimer (Qt QTimer)")
+                return
+            except Exception as exc:  # pragma: no cover - best-effort fallback
+                logger.warning(
+                    "QtWebView: failed to start EventTimer (%s), falling back to WebView.show()",
+                    exc,
+                )
+
+        # Fallback: use the generic WebView.show() behavior.
+        self._webview.show()
+
+    def closeEvent(self, event) -> None:  # type: ignore[override]
+        """Handle Qt close event and cleanup embedded WebView."""
         if self._is_closing:
             event.accept()
             return
@@ -528,103 +342,31 @@ class QtWebView(QWebEngineView):
         self._is_closing = True
 
         try:
-            # Step 1: Destroy JavaScript bridge FIRST
             try:
-                # Call JavaScript cleanup to mark bridge as destroyed
-                cleanup_js = """
-                (function() {
-                    if (window.auroraview && window.auroraview._destroy) {
-                        window.auroraview._destroy();
-                    }
-                    window.auroraview = null;
-                })();
-                """
-                self.page().runJavaScript(cleanup_js)
-                logger.debug("JavaScript bridge destroyed")
-            except Exception as e:
-                logger.debug(f"Could not destroy JavaScript bridge: {e}")
-
-            # Step 2: Cleanup Python bridge to stop all event processing
-            if hasattr(self, "_bridge") and self._bridge:
-                self._bridge.cleanup()
-                logger.debug("Python bridge cleanup completed")
-
-            # Step 3: Disconnect app quit handler to prevent double cleanup
-            try:
-                from qtpy.QtCore import QCoreApplication
-
-                app = QCoreApplication.instance()
-                if app:
-                    try:
-                        app.aboutToQuit.disconnect(self._on_app_quit)
-                        logger.debug("Disconnected app quit handler")
-                    except (RuntimeError, TypeError):
-                        pass
-            except (AttributeError, ImportError):
-                pass
-
-            # Step 4: Unregister web channel
-            if hasattr(self, "_channel") and self._channel:
-                try:
-                    self._channel.deregisterObject(self._bridge)
-                    logger.debug("Deregistered web channel object")
-                except (RuntimeError, AttributeError):
-                    pass
-
-            # Step 5: Stop page loading and clear content
-            try:
-                # Stop any ongoing page loads
-                self.stop()
-
-                # Load blank page to stop all JavaScript execution
-                self.setHtml("")
-                logger.debug("Stopped page and cleared content")
-            except Exception as e:
-                logger.debug(f"Could not stop page: {e}")
-
-            # Step 5: Disconnect all signals
-            try:
-                self.loadFinished.disconnect(self._inject_bridge)
-                logger.debug("Disconnected loadFinished signal")
-            except (RuntimeError, TypeError):
-                pass
-
-            # Step 6: Delete web channel to release resources
-            if hasattr(self, "_channel") and self._channel:
-                try:
-                    self._channel.deleteLater()
-                    self._channel = None
-                    logger.debug("Scheduled channel deletion")
-                except Exception as e:
-                    logger.debug(f"Could not delete channel: {e}")
-
-            logger.info("QtWebView cleanup completed")
-        except Exception as e:
-            logger.error(f"Error during QtWebView cleanup: {e}", exc_info=True)
+                self._webview.close()
+            except Exception as e:  # pragma: no cover - best-effort cleanup
+                logger.debug("QtWebView: error closing embedded WebView: %s", e)
         finally:
-            # Always accept the close event
             event.accept()
             super().closeEvent(event)
 
-    def __del__(self):
-        """Destructor - ensure cleanup on deletion."""
+    def __del__(self) -> None:
+        """Destructor – ensure cleanup if the widget is GC'ed unexpectedly."""
         try:
-            if hasattr(self, "_bridge") and self._bridge and not self._is_closing:
-                logger.debug("QtWebView __del__ triggered - cleaning up")
-                self._bridge.cleanup()
-        except Exception as e:
-            logger.error(f"Error in QtWebView __del__: {e}")
+            if not getattr(self, "_is_closing", False) and hasattr(self, "_webview"):
+                self._webview.close()
+        except Exception as e:  # pragma: no cover - best-effort cleanup
+            logger.debug("QtWebView __del__ error: %s", e)
 
     def __repr__(self) -> str:
         """String representation."""
         try:
             return f"QtWebView(title='{self.windowTitle()}', size={self.width()}x{self.height()})"
-        except RuntimeError:
-            # Widget already deleted
+        except RuntimeError:  # pragma: no cover - widget already deleted
             return "QtWebView(<deleted>)"
 
 
 # Backward-compatibility alias
 AuroraViewQt = QtWebView
 
-__all__ = ["QtWebView", "AuroraViewQt", "EventBridge"]
+__all__ = ["QtWebView", "AuroraViewQt"]
