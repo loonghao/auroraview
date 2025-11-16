@@ -707,10 +707,16 @@ class WebView:
 
         def _handler(raw: Dict[str, Any]) -> None:
             call_id = raw.get("id") or raw.get("__auroraview_call_id")
+
+            # Distinguish between "no params key" and an explicit null/None payload.
+            has_params_key = "params" in raw
             params = raw.get("params")
 
             try:
-                if isinstance(params, dict):
+                if not has_params_key:
+                    # No params at all (auroraview.call("method")) -> call without args.
+                    result = func()
+                elif isinstance(params, dict):
                     result = func(**params)
                 elif isinstance(params, list):
                     result = func(*params)
