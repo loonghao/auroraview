@@ -712,6 +712,26 @@ impl AuroraView {
         }
     }
 
+    /// Process only internal IPC/messages without touching the host's native event loop.
+    ///
+    /// This is intended for host-driven embedding scenarios (Qt, DCC, etc.)
+    /// where the parent application owns the Win32/OS event loop and is
+    /// responsible for pumping window messages. It ONLY drains the internal
+    /// WebView message queue and respects lifecycle close requests.
+    ///
+    /// Returns:
+    ///     bool: True if the window should close, False otherwise
+    fn process_ipc_only(&self) -> PyResult<bool> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.process_ipc_only())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
     /// Check if the window is still valid (Windows only)
     ///
     /// This method checks if the window handle is still valid.

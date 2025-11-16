@@ -182,7 +182,7 @@ webview.show()  # Auto-blocks until closed
 **Maya integration:**
 ```python
 from auroraview import WebView
-import maya.OpenMayaUI as omui
+
 
 maya_hwnd = int(omui.MQtUtil.mainWindow())
 webview = WebView.create("Maya Tool", url="http://localhost:3000", parent=maya_hwnd)

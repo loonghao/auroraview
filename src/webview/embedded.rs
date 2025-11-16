@@ -267,31 +267,147 @@ pub fn create_embedded(
         // Event handlers registry for Python -> JS communication
         const eventHandlers = new Map();
 
-        // Create low-level window.auroraview API
+        // Pending call registry for auroraview.call Promise resolution
+        let auroraviewCallIdCounter = 0;
+        const auroraviewPendingCalls = new Map();
+
+        function auroraviewGenerateCallId() {
+            auroraviewCallIdCounter += 1;
+            return 'av_call_' + Date.now() + '_' + auroraviewCallIdCounter;
+        }
+
+        // Handle call_result events coming back from Python (Python -> JS)
+        window.addEventListener('__auroraview_call_result', function(event) {
+            try {
+                const detail = event && event.detail ? event.detail : {};
+                const id = detail.id;
+                if (!id) {
+                    console.warn('[AuroraView] call_result without id:', detail);
+                    return;
+                }
+                const pending = auroraviewPendingCalls.get(id);
+                if (!pending) {
+                    console.warn('[AuroraView] No pending call for id:', id);
+                    return;
+                }
+                auroraviewPendingCalls.delete(id);
+                if (detail.ok) {
+                    pending.resolve(detail.result);
+                } else {
+                    const errInfo = detail.error || {};
+                    const error = new Error(errInfo.message || 'AuroraView call failed');
+                    if (errInfo.name) {
+                        error.name = errInfo.name;
+                    }
+                    if (Object.prototype.hasOwnProperty.call(errInfo, 'code')) {
+                        error.code = errInfo.code;
+                    }
+                    if (Object.prototype.hasOwnProperty.call(errInfo, 'data')) {
+                        error.data = errInfo.data;
+                    }
+                    pending.reject(error);
+                }
+            } catch (e) {
+                console.error('[AuroraView] Failed to handle __auroraview_call_result:', e);
+            }
+        });
+
+
+        // Primary AuroraView bridge API
+        // Primary name: window.auroraview
         window.auroraview = {
-            // Send event to Python (JS -> Python)
+            // High-level call API (JS -> Python, Promise-based)
+            call: function(method, params) {
+                console.log('[AuroraView] Calling Python method via auroraview.call:', method, params);
+                return new Promise(function(resolve, reject) {
+                    const id = auroraviewGenerateCallId();
+                    auroraviewPendingCalls.set(id, { resolve: resolve, reject: reject });
+
+                    try {
+                        const payload = {
+                            type: 'call',
+                            id: id,
+                            method: method,
+                        };
+                        if (typeof params !== 'undefined') {
+                            payload.params = params;
+                        }
+                        window.ipc.postMessage(JSON.stringify(payload));
+                    } catch (e) {
+                        console.error('[AuroraView] Failed to send call via IPC:', e);
+                        auroraviewPendingCalls.delete(id);
+                        reject(e);
+                    }
+                });
+            },
+
+            // Low-level event API (JS -> Python)
             send_event: function(eventName, data) {
                 console.log('[AuroraView] Sending event to Python:', eventName, data);
                 try {
                     window.ipc.postMessage(JSON.stringify({
                         type: 'event',
                         event: eventName,
-                        detail: data || {}
+                        detail: data || {},
                     }));
                 } catch (e) {
                     console.error('[AuroraView] Failed to send event via IPC:', e);
                 }
             },
 
-            // Register event handler for Python -> JS communication
+            // Register event handler for Python -> JS communication (CustomEvent-based)
             on: function(eventName, callback) {
                 console.log('[AuroraView] Registering handler for event:', eventName);
                 if (!eventHandlers.has(eventName)) {
                     eventHandlers.set(eventName, []);
+                    var name = eventName;
+                    window.addEventListener(name, function(event) {
+                        try {
+                            var detail = event && event.detail ? event.detail : {};
+                            // Strip internal marker used by the backend to avoid leaking implementation details
+                            if (detail && Object.prototype.hasOwnProperty.call(detail, '__aurora_from_python')) {
+                                detail = Object.assign({}, detail);
+                                delete detail.__aurora_from_python;
+                            }
+                            var handlers = eventHandlers.get(name);
+                            if (handlers && handlers.length > 0) {
+                                handlers.forEach(function(handler) {
+                                    try {
+                                        handler(detail);
+                                    } catch (e) {
+                                        console.error('[AuroraView] Error in event handler for', name, e);
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            console.error('[AuroraView] Failed to handle event from Python:', e);
+                        }
+                    });
                 }
                 eventHandlers.get(eventName).push(callback);
-            }
+            },
         };
+
+        // High-level auroraview.api.* sugar over call()
+        window.auroraview.api = new Proxy({}, {
+            get: function(_target, prop) {
+                if (typeof prop !== 'string') {
+                    return undefined;
+                }
+                return function(...args) {
+                    var method = 'api.' + prop;
+                    var params;
+                    if (args.length === 0) {
+                        params = undefined;
+                    } else if (args.length === 1) {
+                        params = args[0];
+                    } else {
+                        params = args;
+                    }
+                    return window.auroraview.call(method, params);
+                };
+            },
+        });
 
         // Create high-level AuroraView helper class (Qt-style API)
         window.AuroraView = class {
@@ -327,37 +443,26 @@ pub fn create_embedded(
             }
         };
 
-        // Create default instance for convenience
+        // Convenience instance
         window.aurora = new window.AuroraView();
 
-        // Listen for events from Python
-        window.addEventListener('message', function(event) {
-            try {
-                const message = JSON.parse(event.data);
-                if (message.type === 'python_event') {
-                    const eventName = message.event;
-                    const data = message.detail || {};
-                    console.log('[AuroraView] Received event from Python:', eventName, data);
-
-                    const handlers = eventHandlers.get(eventName);
-                    if (handlers) {
-                        handlers.forEach(handler => {
-                            try {
-                                handler(data);
-                            } catch (e) {
-                                console.error('[AuroraView] Error in event handler:', e);
-                            }
-                        });
-                    }
-                }
-            } catch (e) {
-                console.error('[AuroraView] Error processing message from Python:', e);
+        // Notify page scripts that the AuroraView bridge is ready.
+        try {
+            var readyEvent;
+            if (typeof Event === 'function') {
+                readyEvent = new Event('auroraviewready');
+            } else {
+                readyEvent = document.createEvent('Event');
+                readyEvent.initEvent('auroraviewready', true, true);
             }
-        });
+            window.dispatchEvent(readyEvent);
+            console.log('[AuroraView]  Dispatched auroraviewready event');
+        } catch (e) {
+            console.error('[AuroraView] Failed to dispatch auroraviewready event:', e);
+        }
 
         console.log('[AuroraView] ✓ Bridge initialized');
-        console.log('[AuroraView] ✓ Low-level API: window.auroraview.send_event() / .on()');
-        console.log('[AuroraView] ✓ High-level API: window.aurora.emit() / .on()');
+        console.log('[AuroraView] ✓ Primary API: window.auroraview.call()/send_event()/on()/api.*');
         console.log('[AuroraView] ✓ Qt-style class: new AuroraView()');
     })();
     "#;
@@ -378,31 +483,62 @@ pub fn create_embedded(
                             let detail = message
                                 .get("detail")
                                 .cloned()
-                                .unwrap_or(serde_json::json!({}));
+                                .unwrap_or(serde_json::Value::Null);
                             tracing::info!(
                                 "[OK] [embedded] Event received: {} with detail: {}",
                                 event_name,
                                 detail
                             );
 
-                            // Create IPC message and handle it
                             let ipc_message = IpcMessage {
                                 event: event_name.to_string(),
                                 data: detail,
                                 id: None,
                             };
 
-                            // Call the IPC handler to invoke Python callbacks
-                            match ipc_handler_clone.handle_message(ipc_message) {
-                                Ok(_) => {
-                                    tracing::info!("[OK] [embedded] Event handled successfully");
-                                }
-                                Err(e) => {
-                                    tracing::error!(
-                                        "[ERROR] [embedded] Error handling event: {}",
-                                        e
-                                    );
-                                }
+                            if let Err(e) = ipc_handler_clone.handle_message(ipc_message) {
+                                tracing::error!("[ERROR] [embedded] Error handling event: {}", e);
+                            } else {
+                                tracing::info!("[OK] [embedded] Event handled successfully");
+                            }
+                        }
+                    } else if msg_type == "call" {
+                        if let Some(method) = message.get("method").and_then(|v| v.as_str()) {
+                            let params = message
+                                .get("params")
+                                .cloned()
+                                .unwrap_or(serde_json::Value::Null);
+                            let id = message
+                                .get("id")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string());
+
+                            tracing::info!(
+                                "[OK] [embedded] Call received: {} with params: {} id: {:?}",
+                                method,
+                                params,
+                                id
+                            );
+
+                            let mut payload = serde_json::Map::new();
+                            payload.insert("params".to_string(), params);
+                            if let Some(ref call_id) = id {
+                                payload.insert(
+                                    "id".to_string(),
+                                    serde_json::Value::String(call_id.clone()),
+                                );
+                            }
+
+                            let ipc_message = IpcMessage {
+                                event: method.to_string(),
+                                data: serde_json::Value::Object(payload),
+                                id,
+                            };
+
+                            if let Err(e) = ipc_handler_clone.handle_message(ipc_message) {
+                                tracing::error!("[ERROR] [embedded] Error handling call: {}", e);
+                            } else {
+                                tracing::info!("[OK] [embedded] Call handled successfully");
                             }
                         }
                     }

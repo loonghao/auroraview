@@ -57,6 +57,20 @@ class TestWebViewCreation:
         except ImportError:
             pytest.skip("Package not built yet")
 
+    def test_webview_load_file_helper(self, tmp_path):
+        """Test WebView.load_file helper for local HTML files."""
+        try:
+            from auroraview import WebView
+
+            html_path = tmp_path / "index.html"
+            html_path.write_text("<html><body><h1>File Test</h1></body></html>", encoding="utf-8")
+
+            webview = WebView(title="File Test")
+            # Should not raise when loading a local HTML file via file:// URL
+            webview.load_file(str(html_path))
+        except ImportError:
+            pytest.skip("Package not built yet")
+
     def test_webview_creation_with_html(self):
         """Test WebView creation with HTML."""
         try:
