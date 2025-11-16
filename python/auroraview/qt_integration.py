@@ -366,6 +366,7 @@ class QtWebView(QWidget):
             return "QtWebView(<deleted>)"
 
 
+
 # Backward-compatibility alias
 AuroraViewQt = QtWebView
 

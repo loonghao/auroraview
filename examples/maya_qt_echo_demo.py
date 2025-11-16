@@ -144,7 +144,6 @@ class AuroraViewMayaDialog(QDialog):
         # via load_html() so we avoid `file://` restrictions in embedded
         # WebView2 inside DCC hosts like Maya.
         html_path = Path(__file__).with_suffix(".html")
-        html = html_path.read_text(encoding="utf-8")
         self.webview.load_file(html_path)
         self.webview.show()
 
