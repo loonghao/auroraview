@@ -9,6 +9,7 @@ from auroraview.webview import WebView
 # These tests exercise the pure-Python wrapper logic without requiring the
 # compiled AuroraView core by injecting a dummy core into a WebView instance.
 
+
 class DummyCore:
     """Minimal stub for the Rust core used by WebView in tests.
 
