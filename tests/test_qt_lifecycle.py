@@ -26,32 +26,6 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not HAS_QT, reason=f"Qt backend not available: {QT_IMPORT_ERROR}")
 
 
-class TestEventBridgeStub:
-    """Basic smoke tests for the deprecated EventBridge stub.
-
-    The original Qt WebChannel-based implementation has been removed.
-    We only verify that the stub is importable and instantiable so that
-    existing imports keep working.
-    """
-
-    @pytest.fixture
-    def qapp(self):
-        """Provide a QApplication instance for tests."""
-        from qtpy.QtWidgets import QApplication
-
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        yield app
-
-    def test_event_bridge_instantiable(self, qapp):
-        """EventBridge can still be imported and constructed."""
-        from auroraview.qt_integration import EventBridge
-
-        bridge = EventBridge()
-        assert bridge is not None
-
-
 class TestQtWebViewLifecycle:
     """Test QtWebView lifecycle management for the new WebView2-based backend."""
 
