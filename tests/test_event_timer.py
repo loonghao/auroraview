@@ -99,8 +99,8 @@ class TestEventTimer:
         # Trigger close
         webview.trigger_close()
 
-        # Wait for callback
-        time.sleep(0.05)
+        # Wait for callback (increased timeout for macOS thread scheduling)
+        time.sleep(0.1)
 
         assert close_called[0] is True
         assert timer.is_running is False
@@ -414,7 +414,8 @@ class TestEventTimer:
 
         # Should work fine without callbacks
         timer.start()
-        time.sleep(0.03)
+        # Increased timeout for macOS thread scheduling
+        time.sleep(0.1)
         timer.stop()
 
         assert webview._process_events_called > 0
