@@ -1,14 +1,23 @@
 # JavaScript 资源重构进度
 
-## ✅ Phase 1: 完成 embedded.rs 重构
+## ✅ 完成所有重构！
 
-### 📊 统计数据
+### 📊 总体统计
 
-| 指标 | 重构前 | 重构后 | 改进 |
-|------|--------|--------|------|
-| **文件行数** | 656 行 | 432 行 | **-224 行 (-34%)** |
-| **JavaScript 代码** | ~210 行内联 | 0 行 | **-210 行** |
-| **代码重复** | 1 份 | 0 份 | **消除** |
+| 文件 | 重构前 | 重构后 | 减少 | 比例 |
+|------|--------|--------|------|------|
+| **embedded.rs** | 656 行 | 432 行 | **-224 行** | -34% |
+| **backend/native.rs** | 866 行 | 655 行 | **-211 行** | -24% |
+| **standalone.rs** | 422 行 | 194 行 | **-228 行** | -54% |
+| **总计** | **1944 行** | **1281 行** | **-663 行** | **-34%** |
+
+### 🎯 JavaScript 代码消除
+
+| 指标 | 数值 |
+|------|------|
+| **删除的内联 JS** | ~650 行 |
+| **新增独立 JS 文件** | 245 行 (3 个文件) |
+| **代码重复** | 从 3 份 → 1 份 |
 
 ### 🔧 修改内容
 
@@ -46,36 +55,49 @@ builder = builder.with_initialization_script(event_bridge_script);
 
 ---
 
-## 📋 下一步：Phase 2 & 3
+## ✅ Phase 2: 完成 backend/native.rs 重构
 
-### Phase 2: 重构 backend/native.rs
-
-**目标**: 同样的重构，预计减少 ~200 行
+### 修改内容
 
 **文件**: `src/webview/backend/native.rs`
 
-**当前状态**: 待处理
+**修改前**（546-760 行）：
+- ~215 行内联 JavaScript 代码
+- 包含完整的 event bridge 和 context menu 逻辑
+
+**修改后**（546-549 行）：
+```rust
+// Build initialization script using js_assets module
+tracing::info!("[NativeBackend] Building initialization script with js_assets");
+let event_bridge_script = js_assets::build_init_script(config);
+builder = builder.with_initialization_script(&event_bridge_script);
+```
+
+**结果**: 从 866 行减少到 655 行（**-211 行，-24%**）
 
 ---
 
-### Phase 3: 重构 standalone.rs
+## ✅ Phase 3: 完成 standalone.rs 重构
 
-**目标**: 同样的重构，预计减少 ~200 行
+### 修改内容
 
 **文件**: `src/webview/standalone.rs`
 
-**当前状态**: 待处理
+**修改前**（78-311 行）：
+- ~234 行内联 JavaScript 代码
+- 包含完整的 event bridge 逻辑
 
----
+**修改后**（78-83 行）：
+```rust
+// Build initialization script using js_assets module
+tracing::info!("[standalone] Building initialization script with js_assets");
+let event_bridge_script = js_assets::build_init_script(&config);
 
-## 📊 预期总收益
+// IMPORTANT: use initialization script so it reloads with every page load
+webview_builder = webview_builder.with_initialization_script(&event_bridge_script);
+```
 
-| 文件 | 当前行数 | 预计重构后 | 减少 |
-|------|----------|------------|------|
-| `embedded.rs` | ~~656~~ → **432** | 432 | **-224 ✅** |
-| `backend/native.rs` | ~757 | ~557 | **-200** |
-| `standalone.rs` | ~421 | ~221 | **-200** |
-| **总计** | **~1834** | **~1210** | **-624 行** |
+**结果**: 从 422 行减少到 194 行（**-228 行，-54%**）
 
 ---
 
@@ -96,21 +118,34 @@ builder = builder.with_initialization_script(event_bridge_script);
 
 4. ✅ 重构 `src/webview/embedded.rs`
    - 删除 ~210 行内联 JavaScript
-   - 使用 `js_assets::build_init_script()`
-   - 减少 224 行代码
+   - 从 656 行减少到 432 行（-224 行）
+
+5. ✅ 重构 `src/webview/backend/native.rs`
+   - 删除 ~215 行内联 JavaScript
+   - 从 866 行减少到 655 行（-211 行）
+
+6. ✅ 重构 `src/webview/standalone.rs`
+   - 删除 ~234 行内联 JavaScript
+   - 从 422 行减少到 194 行（-228 行）
+
+7. ✅ 编译验证
+   - `cargo build --features ext-module,win-webview2` ✅
+   - `cargo clippy --all-targets --all-features -- -D warnings` ✅
 
 ---
 
-## 🚀 继续执行
+## 🎉 重构完成！
 
-准备好继续 Phase 2 和 Phase 3 了吗？
+### 总收益
 
-**下一步命令**：
-```bash
-# Phase 2: 重构 backend/native.rs
-# Phase 3: 重构 standalone.rs
-# 然后运行测试并提交
-```
+- **减少代码行数**: 663 行（-34%）
+- **消除代码重复**: 从 3 份相同的 JavaScript 代码 → 1 份独立文件
+- **提升可维护性**: JavaScript 代码现在有完整的 IDE 支持
+- **更清晰的架构**: Rust 代码更简洁，JavaScript 逻辑独立管理
+
+### 下一步
+
+准备提交这些更改！
 
 ---
 
