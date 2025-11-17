@@ -58,7 +58,7 @@ scopeguard = "1.2"
 crossbeam-channel = "0.5"
 flume = "0.11"  # High-performance async/sync channel
 dashmap = "5.5"
-ipc-channel = { version = "0.18", optional = true }
+ipc-channel = { version = "0.20", optional = true }
 
 # CPU detection for Servo config
 num_cpus = "1.16"
