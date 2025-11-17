@@ -44,12 +44,13 @@ impl AuroraView {
     ///     resizable (bool, optional): Make window resizable (default: True)
     ///     parent_hwnd (int, optional): Parent window handle (HWND on Windows)
     ///     parent_mode (str, optional): "child" or "owner" (Windows only)
+    ///     asset_root (str, optional): Root directory for auroraview:// protocol
     ///
     /// Returns:
     ///     WebView: A new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None))]
     fn new(
         title: &str,
         width: u32,
@@ -62,9 +63,10 @@ impl AuroraView {
         decorations: bool,
         parent_hwnd: Option<u64>,
         parent_mode: Option<&str>,
+        asset_root: Option<&str>,
     ) -> PyResult<Self> {
-        tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, context_menu: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}",
-            title, dev_tools, context_menu, resizable, decorations, parent_hwnd, parent_mode);
+        tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, context_menu: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}, asset_root: {:?}",
+            title, dev_tools, context_menu, resizable, decorations, parent_hwnd, parent_mode, asset_root);
 
         #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
         let mut config = WebViewConfig {
@@ -78,6 +80,7 @@ impl AuroraView {
             resizable,
             decorations,
             parent_hwnd,
+            asset_root: asset_root.map(std::path::PathBuf::from),
             ..Default::default()
         };
 
@@ -843,6 +846,83 @@ impl AuroraView {
         // Note: MessageQueue doesn't expose reset() yet
         // This is a placeholder for future implementation
         tracing::warn!("[IPC] reset_ipc_metrics() not yet implemented");
+    }
+
+    /// Register a custom protocol handler
+    ///
+    /// Args:
+    ///     scheme (str): Protocol scheme (e.g., "maya", "fbx")
+    ///     handler (callable): Python function that takes URI string and returns dict with:
+    ///         - data (bytes): Response data
+    ///         - mime_type (str): MIME type (e.g., "image/png")
+    ///         - status (int): HTTP status code (e.g., 200, 404)
+    ///
+    /// Example:
+    ///     ```python
+    ///     def handle_fbx(uri: str) -> dict:
+    ///         path = uri.replace("fbx://", "")
+    ///         try:
+    ///             with open(f"C:/models/{path}", "rb") as f:
+    ///                 return {
+    ///                     "data": f.read(),
+    ///                     "mime_type": "application/octet-stream",
+    ///                     "status": 200
+    ///                 }
+    ///         except FileNotFoundError:
+    ///             return {
+    ///                 "data": b"Not Found",
+    ///                 "mime_type": "text/plain",
+    ///                 "status": 404
+    ///             }
+    ///
+    ///     webview.register_protocol("fbx", handle_fbx)
+    ///     ```
+    fn register_protocol(&self, scheme: &str, handler: Py<PyAny>) -> PyResult<()> {
+        tracing::info!("[Protocol] Registering custom protocol: {}", scheme);
+
+        // Wrap Python callback in Rust closure
+        let callback = Arc::new(move |uri: &str| -> Option<(Vec<u8>, String, u16)> {
+            Python::attach(|py| {
+                // Call Python handler
+                match handler.call1(py, (uri,)) {
+                    Ok(result) => {
+                        // Extract dict fields
+                        #[allow(deprecated)]
+                        let dict = result.downcast_bound::<pyo3::types::PyDict>(py).ok()?;
+
+                        let data = dict
+                            .get_item("data")
+                            .ok()
+                            .flatten()
+                            .and_then(|v| v.extract::<Vec<u8>>().ok())?;
+                        let mime_type = dict
+                            .get_item("mime_type")
+                            .ok()
+                            .flatten()
+                            .and_then(|v| v.extract::<String>().ok())?;
+                        let status = dict
+                            .get_item("status")
+                            .ok()
+                            .flatten()
+                            .and_then(|v| v.extract::<u16>().ok())?;
+
+                        Some((data, mime_type, status))
+                    }
+                    Err(e) => {
+                        tracing::error!("[Protocol] Python handler error: {}", e);
+                        None
+                    }
+                }
+            })
+        });
+
+        // Add to config
+        self.config
+            .borrow_mut()
+            .custom_protocols
+            .insert(scheme.to_string(), callback);
+
+        Ok(())
     }
 
     /// Python representation

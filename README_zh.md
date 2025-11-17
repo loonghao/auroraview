@@ -289,6 +289,131 @@ window.auroraview.send_event('export_scene', {
 
 ### 高级功能
 
+#### 自定义协议处理器
+
+AuroraView 提供强大的自定义协议系统，解决本地资源加载的 CORS 限制问题。
+
+**内置 `auroraview://` 协议**
+
+用于加载本地资源（CSS、JS、图片等），无 CORS 限制：
+
+```python
+from auroraview import WebView
+
+webview = WebView(
+    title="我的应用",
+    asset_root="C:/projects/my_app/assets"  # 配置资源根目录
+)
+
+# HTML 中使用 auroraview:// 协议
+webview.load_html("""
+<html>
+    <head>
+        <link rel="stylesheet" href="auroraview://css/style.css">
+    </head>
+    <body>
+        <img src="auroraview://images/logo.png">
+        <script src="auroraview://js/app.js"></script>
+    </body>
+</html>
+""")
+```
+
+**路径映射**:
+- `auroraview://css/style.css` → `{asset_root}/css/style.css`
+- `auroraview://images/logo.png` → `{asset_root}/images/logo.png`
+
+**自定义协议注册**
+
+为 DCC 特定资源创建自定义协议：
+
+```python
+from auroraview import WebView
+
+webview = WebView(title="Maya 工具")
+
+# 注册自定义协议处理器
+def handle_maya_protocol(uri: str) -> dict:
+    """处理 maya:// 协议请求"""
+    # 从 URI 提取路径: maya://thumbnails/character.jpg
+    path = uri.replace("maya://", "")
+
+    # 加载 Maya 项目资源
+    full_path = f"C:/maya_projects/current/{path}"
+
+    try:
+        with open(full_path, "rb") as f:
+            return {
+                "data": f.read(),
+                "mime_type": "image/jpeg",
+                "status": 200
+            }
+    except FileNotFoundError:
+        return {
+            "data": b"Not Found",
+            "mime_type": "text/plain",
+            "status": 404
+        }
+
+# 注册协议
+webview.register_protocol("maya", handle_maya_protocol)
+
+# HTML 中使用
+webview.load_html("""
+<html>
+    <body>
+        <h1>Maya 资源浏览器</h1>
+        <img src="maya://thumbnails/character.jpg">
+        <video src="maya://previews/animation.mp4"></video>
+    </body>
+</html>
+""")
+```
+
+**高级示例：FBX 文件加载**
+
+```python
+def handle_fbx_protocol(uri: str) -> dict:
+    """加载 FBX 模型文件"""
+    path = uri.replace("fbx://", "")
+    full_path = f"C:/models/{path}"
+
+    try:
+        with open(full_path, "rb") as f:
+            return {
+                "data": f.read(),
+                "mime_type": "application/octet-stream",
+                "status": 200
+            }
+    except Exception as e:
+        return {
+            "data": str(e).encode(),
+            "mime_type": "text/plain",
+            "status": 500
+        }
+
+webview.register_protocol("fbx", handle_fbx_protocol)
+
+# JavaScript 中使用
+webview.load_html("""
+<script>
+    fetch('fbx://characters/hero.fbx')
+        .then(r => r.arrayBuffer())
+        .then(data => {
+            // 处理 FBX 数据
+            console.log('FBX 文件大小:', data.byteLength);
+        });
+</script>
+""")
+```
+
+**优势**:
+- ✅ **无 CORS 限制** - 解决 `file://` 协议的跨域问题
+- ✅ **简洁 URL** - `maya://logo.png` vs `file:///C:/long/path/logo.png`
+- ✅ **安全控制** - 限制访问范围，防止目录遍历攻击
+- ✅ **灵活扩展** - 支持从内存、数据库、网络加载资源
+- ✅ **跨平台** - 路径处理统一，Windows/macOS/Linux 一致
+
 #### 生命周期管理
 
 当父DCC应用关闭时自动关闭WebView:
