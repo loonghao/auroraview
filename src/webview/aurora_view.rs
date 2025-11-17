@@ -40,6 +40,7 @@ impl AuroraView {
     ///     url (str, optional): URL to load
     ///     html (str, optional): HTML content to load
     ///     dev_tools (bool, optional): Enable developer tools (default: True)
+    ///     context_menu (bool, optional): Enable native context menu (default: True)
     ///     resizable (bool, optional): Make window resizable (default: True)
     ///     parent_hwnd (int, optional): Parent window handle (HWND on Windows)
     ///     parent_mode (str, optional): "child" or "owner" (Windows only)
@@ -48,7 +49,7 @@ impl AuroraView {
     ///     WebView: A new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None))]
     fn new(
         title: &str,
         width: u32,
@@ -56,13 +57,14 @@ impl AuroraView {
         url: Option<&str>,
         html: Option<&str>,
         dev_tools: bool,
+        context_menu: bool,
         resizable: bool,
         decorations: bool,
         parent_hwnd: Option<u64>,
         parent_mode: Option<&str>,
     ) -> PyResult<Self> {
-        tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}",
-            title, dev_tools, resizable, decorations, parent_hwnd, parent_mode);
+        tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, context_menu: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}",
+            title, dev_tools, context_menu, resizable, decorations, parent_hwnd, parent_mode);
 
         #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
         let mut config = WebViewConfig {
@@ -72,6 +74,7 @@ impl AuroraView {
             url: url.map(|s| s.to_string()),
             html: html.map(|s| s.to_string()),
             dev_tools,
+            context_menu,
             resizable,
             decorations,
             parent_hwnd,

@@ -49,6 +49,7 @@ class WebView:
         url: URL to load (optional)
         html: HTML content to load (optional)
         debug: Enable developer tools (default: True)
+        context_menu: Enable native context menu (default: True)
         resizable: Make window resizable (default: True)
         frame: Show window frame (title bar, borders) (default: True)
         parent: Parent window handle for embedding (optional)
@@ -67,6 +68,10 @@ class WebView:
         >>> maya_hwnd = int(omui.MQtUtil.mainWindow())
         >>> webview = WebView(title="My Tool", parent=maya_hwnd, mode="owner")
         >>> webview.show()
+
+        >>> # Disable native context menu for custom menu
+        >>> webview = WebView(title="My Tool", context_menu=False)
+        >>> webview.show()
     """
 
     # Class-level singleton registry using weak references
@@ -80,6 +85,7 @@ class WebView:
         url: Optional[str] = None,
         html: Optional[str] = None,
         debug: Optional[bool] = None,
+        context_menu: bool = True,
         resizable: bool = True,
         frame: Optional[bool] = None,
         parent: Optional[int] = None,
@@ -97,6 +103,7 @@ class WebView:
             url: URL to load (optional)
             html: HTML content to load (optional)
             debug: Enable developer tools (default: True)
+            context_menu: Enable native context menu (default: True)
             resizable: Make window resizable (default: True)
             frame: Show window frame (title bar, borders) (default: True)
             parent: Parent window handle for embedding (optional)
@@ -130,6 +137,7 @@ class WebView:
             url=url,
             html=html,
             dev_tools=debug,  # debug -> dev_tools
+            context_menu=context_menu,
             resizable=resizable,
             decorations=frame,  # frame -> decorations
             parent_hwnd=parent,  # parent -> parent_hwnd
@@ -192,6 +200,7 @@ class WebView:
         bridge: Union["Bridge", bool, None] = None,  # type: ignore
         # Development options
         debug: bool = True,
+        context_menu: bool = True,
         # Automation
         auto_show: bool = False,
         auto_timer: bool = True,
@@ -218,6 +227,7 @@ class WebView:
                 - True: Auto-create bridge (port 9001)
                 - None: No bridge (default)
             debug: Enable developer tools
+            context_menu: Enable native context menu (default: True)
             auto_show: Automatically show after creation
             auto_timer: Auto-start event timer for embedded mode (recommended)
             singleton: Singleton key. If provided, only one instance with this key
@@ -294,6 +304,7 @@ class WebView:
             parent=parent,
             mode=actual_mode,
             debug=debug,
+            context_menu=context_menu,
             bridge=bridge,
         )
 
@@ -337,6 +348,7 @@ class WebView:
         mode: Literal["auto", "owner", "child"] = "owner",
         bridge: Union["Bridge", bool, None] = None,  # type: ignore
         debug: bool = True,
+        context_menu: bool = True,
         auto_timer: bool = True,
     ) -> "WebView":
         """Create and show an embedded WebView with auto timer (non-blocking).
@@ -359,6 +371,7 @@ class WebView:
             mode=mode,
             bridge=bridge,
             debug=debug,
+            context_menu=context_menu,
             auto_show=True,
             auto_timer=auto_timer,
         )
