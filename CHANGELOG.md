@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.6](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.5...auroraview-v0.2.6) (2025-11-17)
+
+
+### Features
+
+* add automatic event processing for Qt integration ([ac8a689](https://github.com/loonghao/auroraview/commit/ac8a68969275f6723e3ce3ff3e7b92936b94d593))
+
 ## [0.2.5](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.4...auroraview-v0.2.5) (2025-11-16)
 
 
