@@ -11,6 +11,7 @@ Signed-off-by: Hal Long <hal.long@outlook.com>
 
 import sys
 
+
 def test_core_webview_context_menu():
     """Test that _core.WebView accepts context_menu parameter."""
     from auroraview._core import WebView as _CoreWebView

@@ -8,6 +8,7 @@ pub mod backend;
 mod config;
 pub(crate) mod embedded; // TODO: Remove after migration to backend::native
 pub(crate) mod event_loop;
+pub mod js_assets; // JavaScript assets management
 mod lifecycle;
 pub(crate) mod loading;
 mod message_pump;
