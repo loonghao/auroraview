@@ -35,7 +35,6 @@ pub mod batch;
 pub mod dead_letter_queue;
 pub mod handler;
 pub mod json; // High-performance JSON with simd-json (orjson-equivalent)
-pub mod json_bindings; // Python bindings for JSON functions
 pub mod message_queue;
 pub mod metrics;
 pub mod threaded;

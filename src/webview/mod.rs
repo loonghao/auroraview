@@ -6,7 +6,6 @@
 mod aurora_view;
 pub mod backend;
 mod config;
-pub(crate) mod embedded; // TODO: Remove after migration to backend::native
 pub(crate) mod event_loop;
 pub mod js_assets; // JavaScript assets management
 mod lifecycle;
@@ -15,10 +14,8 @@ mod message_pump;
 mod parent_monitor;
 mod platform;
 mod protocol;
-mod python_bindings;
 pub(crate) mod standalone;
-mod timer;
-mod timer_bindings;
+pub(crate) mod timer;
 mod webview_inner;
 
 // Public exports
