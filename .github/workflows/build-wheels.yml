@@ -61,6 +61,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           python-version: ${{ inputs.python-version }}
+          maturin-args: '--release --out dist --find-interpreter --features ext-module,win-webview2'
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-windows-${{ matrix.target }}'
 
