@@ -21,19 +21,6 @@ except ImportError:
     _CoreWebView = None
 
 logger = logging.getLogger(__name__)
-# Debug marker to verify we are running the patched auroraview.webview from this repo.
-# If you see this in Maya's Script Editor, it means the local API (with eval_js call_result
-# fallback) is active rather than an older installed version.
-AURORAVIEW_WEBVIEW_DEBUG_MARK = "dcc_webview-bridge-fix-v1"
-
-logger.info(
-    "[AuroraView DEBUG] webview.py loaded from %s (debug mark=%s)",
-    Path(__file__).resolve(),
-    AURORAVIEW_WEBVIEW_DEBUG_MARK,
-)
-print(
-    f"[AuroraView DEBUG] webview.py loaded from: {Path(__file__).resolve()} (debug mark={AURORAVIEW_WEBVIEW_DEBUG_MARK})"
-)
 
 
 class WebView:
