@@ -36,7 +36,6 @@ print(
 )
 
 
-
 class WebView:
     """High-level WebView class with enhanced Python API.
 
@@ -619,7 +618,7 @@ class WebView:
 
         # Call the post-eval hook if it exists (used by Qt integration)
         # This allows Qt to process the JavaScript execution immediately
-        if hasattr(self, '_post_eval_js_hook') and callable(self._post_eval_js_hook):
+        if hasattr(self, "_post_eval_js_hook") and callable(self._post_eval_js_hook):
             self._post_eval_js_hook()
 
     def emit(self, event_name: str, data: Union[Dict[str, Any], Any] = None) -> None:
@@ -711,9 +710,7 @@ class WebView:
 
             json_str = json.dumps(payload)
         except Exception as exc:  # pragma: no cover - defensive logging
-            logger.error(
-                "Failed to JSON-encode __auroraview_call_result payload: %s", exc
-            )
+            logger.error("Failed to JSON-encode __auroraview_call_result payload: %s", exc)
             print(
                 f"[AuroraView DEBUG] Failed to JSON-encode __auroraview_call_result payload: {exc}"
             )
@@ -723,15 +720,11 @@ class WebView:
             "window.dispatchEvent(new CustomEvent('__auroraview_call_result', "
             f"{{ detail: JSON.parse({json_str!r}) }}));"
         )
-        print(
-            f"[AuroraView DEBUG] _emit_call_result_js dispatching payload to JS: {payload}"
-        )
+        print(f"[AuroraView DEBUG] _emit_call_result_js dispatching payload to JS: {payload}")
         try:
             self.eval_js(script)
         except Exception as exc:  # pragma: no cover - defensive logging
-            logger.error(
-                "Failed to dispatch __auroraview_call_result via eval_js: %s", exc
-            )
+            logger.error("Failed to dispatch __auroraview_call_result via eval_js: %s", exc)
             print(
                 f"[AuroraView DEBUG] Failed to dispatch __auroraview_call_result via eval_js: {exc}"
             )
@@ -774,9 +767,7 @@ class WebView:
 
         def _handler(raw: Dict[str, Any]) -> None:
             # Top-level debug so we can see when the core invokes this handler.
-            print(
-                f"[AuroraView DEBUG] _handler invoked for method={method} with raw={raw}"
-            )
+            print(f"[AuroraView DEBUG] _handler invoked for method={method} with raw={raw}")
 
             call_id = raw.get("id") or raw.get("__auroraview_call_id")
 
