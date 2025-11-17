@@ -857,26 +857,28 @@ impl AuroraView {
     ///         - mime_type (str): MIME type (e.g., "image/png")
     ///         - status (int): HTTP status code (e.g., 200, 404)
     ///
-    /// Example:
-    ///     ```python
-    ///     def handle_fbx(uri: str) -> dict:
-    ///         path = uri.replace("fbx://", "")
-    ///         try:
-    ///             with open(f"C:/models/{path}", "rb") as f:
-    ///                 return {
-    ///                     "data": f.read(),
-    ///                     "mime_type": "application/octet-stream",
-    ///                     "status": 200
-    ///                 }
-    ///         except FileNotFoundError:
-    ///             return {
-    ///                 "data": b"Not Found",
-    ///                 "mime_type": "text/plain",
-    ///                 "status": 404
-    ///             }
+    /// # Example
     ///
-    ///     webview.register_protocol("fbx", handle_fbx)
-    ///     ```
+    /// ```text
+    /// # Python example
+    /// def handle_fbx(uri: str) -> dict:
+    ///     path = uri.replace("fbx://", "")
+    ///     try:
+    ///         with open(f"C:/models/{path}", "rb") as f:
+    ///             return {
+    ///                 "data": f.read(),
+    ///                 "mime_type": "application/octet-stream",
+    ///                 "status": 200
+    ///             }
+    ///     except FileNotFoundError:
+    ///         return {
+    ///             "data": b"Not Found",
+    ///             "mime_type": "text/plain",
+    ///             "status": 404
+    ///         }
+    ///
+    /// webview.register_protocol("fbx", handle_fbx)
+    /// ```
     fn register_protocol(&self, scheme: &str, handler: Py<PyAny>) -> PyResult<()> {
         tracing::info!("[Protocol] Registering custom protocol: {}", scheme);
 

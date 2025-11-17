@@ -11,7 +11,7 @@
 //!
 //! ## Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::webview::js_assets;
 //! use crate::webview::WebViewConfig;
 //!
@@ -52,7 +52,7 @@ pub const CONTEXT_MENU_DISABLE: &str = include_str!("../assets/js/features/conte
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use crate::webview::{WebViewConfig, js_assets};
 ///
 /// let mut config = WebViewConfig::default();
@@ -129,7 +129,7 @@ pub enum JsAsset {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use crate::webview::js_assets::{get_asset, JsAsset};
 ///
 /// let event_bridge = get_asset(JsAsset::EventBridge);
@@ -158,7 +158,7 @@ pub fn get_asset(asset: JsAsset) -> &'static str {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use crate::webview::js_assets::{get_assets, JsAsset};
 ///
 /// let script = get_assets(&[
