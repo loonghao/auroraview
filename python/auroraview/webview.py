@@ -93,6 +93,7 @@ class WebView:
         bridge: Union["Bridge", bool, None] = None,  # type: ignore
         dev_tools: Optional[bool] = None,
         decorations: Optional[bool] = None,
+        asset_root: Optional[str] = None,
     ) -> None:
         """Initialize the WebView.
 
@@ -142,6 +143,7 @@ class WebView:
             decorations=frame,  # frame -> decorations
             parent_hwnd=parent,  # parent -> parent_hwnd
             parent_mode=mode,  # mode -> parent_mode
+            asset_root=asset_root,  # Custom protocol asset root
         )
         self._event_handlers: Dict[str, list[Callable]] = {}
         self._title = title
@@ -201,6 +203,8 @@ class WebView:
         # Development options
         debug: bool = True,
         context_menu: bool = True,
+        # Custom protocol
+        asset_root: Optional[str] = None,
         # Automation
         auto_show: bool = False,
         auto_timer: bool = True,
@@ -306,6 +310,7 @@ class WebView:
             debug=debug,
             context_menu=context_menu,
             bridge=bridge,
+            asset_root=asset_root,
         )
 
         # Auto timer (embedded mode)
@@ -708,6 +713,38 @@ class WebView:
 
         # Register with core
         self._core.on(event_name, callback)
+
+    def register_protocol(self, scheme: str, handler: Callable[[str], Dict[str, Any]]) -> None:
+        """Register a custom protocol handler.
+
+        Args:
+            scheme: Protocol scheme (e.g., "maya", "fbx")
+            handler: Python function that takes URI string and returns dict with:
+                - data (bytes): Response data
+                - mime_type (str): MIME type (e.g., "image/png")
+                - status (int): HTTP status code (e.g., 200, 404)
+
+        Example:
+            >>> def handle_fbx(uri: str) -> dict:
+            ...     path = uri.replace("fbx://", "")
+            ...     try:
+            ...         with open(f"C:/models/{path}", "rb") as f:
+            ...             return {
+            ...                 "data": f.read(),
+            ...                 "mime_type": "application/octet-stream",
+            ...                 "status": 200
+            ...             }
+            ...     except FileNotFoundError:
+            ...         return {
+            ...             "data": b"Not Found",
+            ...             "mime_type": "text/plain",
+            ...             "status": 404
+            ...         }
+            ...
+            >>> webview.register_protocol("fbx", handle_fbx)
+        """
+        self._core.register_protocol(scheme, handler)
+        logger.debug(f"Registered custom protocol: {scheme}")
 
     def _emit_call_result_js(self, payload: Dict[str, Any]) -> None:
         """Internal helper to emit __auroraview_call_result via eval_js.
