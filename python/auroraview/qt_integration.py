@@ -256,7 +256,8 @@ class QtWebView(QWidget):
             "last_event_process_time": self._last_event_process_time,
             "time_since_last_process": (
                 time.time() - self._last_event_process_time
-                if self._last_event_process_time else None
+                if self._last_event_process_time
+                else None
             ),
             "has_post_eval_hook": hasattr(self._webview, "_post_eval_js_hook"),
             "hook_is_correct": (
