@@ -55,6 +55,8 @@ pub fn handle_auroraview_protocol(
         Ok(p) => p,
         Err(e) => {
             tracing::error!("[Protocol] Failed to canonicalize asset_root: {}", e);
+            #[cfg(test)]
+            eprintln!("[Protocol] ERROR: asset_root.canonicalize() failed: {}", e);
             return Response::builder()
                 .status(500)
                 .body(Cow::Borrowed(b"Internal Server Error" as &[u8]))
@@ -64,9 +66,14 @@ pub fn handle_auroraview_protocol(
 
     let canonical_full_path = match full_path.canonicalize() {
         Ok(p) => p,
-        Err(_) => {
+        Err(_e) => {
             // File doesn't exist or can't be accessed
             tracing::warn!("[Protocol] File not found or inaccessible: {:?}", full_path);
+            #[cfg(test)]
+            eprintln!(
+                "[Protocol] full_path.canonicalize() failed: {} (path: {:?})",
+                _e, full_path
+            );
             return Response::builder()
                 .status(404)
                 .body(Cow::Borrowed(b"Not Found" as &[u8]))
@@ -74,12 +81,27 @@ pub fn handle_auroraview_protocol(
         }
     };
 
+    #[cfg(test)]
+    {
+        eprintln!(
+            "[Protocol] canonical_asset_root = {:?}",
+            canonical_asset_root
+        );
+        eprintln!("[Protocol] canonical_full_path = {:?}", canonical_full_path);
+        eprintln!(
+            "[Protocol] starts_with check = {}",
+            canonical_full_path.starts_with(&canonical_asset_root)
+        );
+    }
+
     if !canonical_full_path.starts_with(&canonical_asset_root) {
         tracing::warn!(
             "[Protocol] Directory traversal attempt: {:?} not in {:?}",
             canonical_full_path,
             canonical_asset_root
         );
+        #[cfg(test)]
+        eprintln!("[Protocol] Returning 403 Forbidden");
         return Response::builder()
             .status(403)
             .body(Cow::Borrowed(b"Forbidden" as &[u8]))
@@ -259,7 +281,15 @@ mod tests {
 
         let response = handle_auroraview_protocol(asset_root, request);
         // Should return 403 Forbidden or 404 Not Found
-        assert!(response.status() == 403 || response.status() == 404);
+        eprintln!(
+            "DEBUG: Directory traversal response status = {}",
+            response.status()
+        );
+        assert!(
+            response.status() == 403 || response.status() == 404,
+            "Expected 403 or 404, got {}",
+            response.status()
+        );
 
         // Test 3: Non-GET request
         let request = Request::builder()
