@@ -154,4 +154,3 @@ def test_maya(session):
         "native",
         *session.posargs,
     )
-
