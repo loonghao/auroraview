@@ -23,9 +23,22 @@ pub fn handle_auroraview_protocol(
 
     // Extract path from URI
     let uri = request.uri();
-    // For custom protocols like "auroraview://file.txt", uri.path() returns "//file.txt"
-    // We need to trim all leading slashes
-    let path = uri.path().trim_start_matches('/');
+
+    // For custom protocols, we need to extract the path from the full URI
+    // Examples:
+    // - "auroraview://file.txt" -> uri.to_string() = "auroraview://file.txt/"
+    // - uri.path() may return "/" instead of the actual path
+    // So we parse the URI string directly
+    let uri_str = uri.to_string();
+    let path = if let Some(idx) = uri_str.find("://") {
+        // Extract everything after "://"
+        let after_scheme = &uri_str[idx + 3..];
+        // Remove trailing slash if present
+        after_scheme.trim_end_matches('/')
+    } else {
+        // Fallback to path() method
+        uri.path().trim_start_matches('/')
+    };
 
     // Build full path
     let full_path = asset_root.join(path);
@@ -35,16 +48,6 @@ pub fn handle_auroraview_protocol(
         uri,
         full_path
     );
-
-    #[cfg(test)]
-    {
-        eprintln!("[Protocol] uri = {}", uri);
-        eprintln!("[Protocol] uri.path() = {}", uri.path());
-        eprintln!("[Protocol] path (trimmed) = {}", path);
-        eprintln!("[Protocol] asset_root = {:?}", asset_root);
-        eprintln!("[Protocol] full_path = {:?}", full_path);
-        eprintln!("[Protocol] full_path.exists() = {}", full_path.exists());
-    }
 
     // Security check: prevent directory traversal
     if !full_path.starts_with(asset_root) {
@@ -216,22 +219,8 @@ mod tests {
             .body(vec![])
             .unwrap();
 
-        eprintln!("DEBUG: asset_root = {:?}", asset_root);
-        eprintln!("DEBUG: safe_file = {:?}", safe_file);
-        eprintln!("DEBUG: safe_file.exists() = {}", safe_file.exists());
-        eprintln!("DEBUG: request.uri() = {}", request.uri());
-        eprintln!("DEBUG: request.uri().path() = {}", request.uri().path());
-
         let response = handle_auroraview_protocol(asset_root, request);
-        // File should exist and be readable
-        assert!(
-            response.status() == 200,
-            "Expected 200, got {}. File exists: {}, asset_root: {:?}, safe_file: {:?}",
-            response.status(),
-            safe_file.exists(),
-            asset_root,
-            safe_file
-        );
+        assert_eq!(response.status(), 200);
 
         // Test 2: Directory traversal attempt (should be blocked)
         let request = Request::builder()
@@ -261,15 +250,8 @@ mod tests {
 
         // Create a simple callback
         // Note: The URI passed to callback is the full URI string from request.uri().to_string()
-        // For custom protocols, this is typically "scheme://path" format
         let callback = Arc::new(|uri: &str| -> Option<(Vec<u8>, String, u16)> {
-            eprintln!("DEBUG: Callback received URI: '{}'", uri);
-            // Match various possible URI formats
-            if uri == "test://hello.txt"
-                || uri == "test://hello.txt/"
-                || uri == "//hello.txt"
-                || uri == "/hello.txt"
-            {
+            if uri == "test://hello.txt" || uri == "test://hello.txt/" {
                 Some((b"Hello, World!".to_vec(), "text/plain".to_string(), 200))
             } else {
                 None
@@ -282,14 +264,8 @@ mod tests {
             .body(vec![])
             .unwrap();
 
-        let uri_str = request.uri().to_string();
         let response = handle_custom_protocol(&*callback, request);
-        assert!(
-            response.status() == 200,
-            "Expected 200, got {}. URI: {}",
-            response.status(),
-            uri_str
-        );
+        assert_eq!(response.status(), 200);
         assert_eq!(
             response.headers().get("Content-Type").unwrap(),
             "text/plain"
