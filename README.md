@@ -301,12 +301,16 @@ webview.load_html("<html><body><h1>Hello from Qt!</h1></body></html>")
 
 # Show the widget
 webview.show()
+
+# ✨ Event processing is automatic - no need to call process_events()!
+# The Qt backend automatically handles all JavaScript execution and events
 ```
 
 **When to use Qt backend:**
 - [OK] Your DCC already has Qt loaded (Maya, Houdini, Nuke)
 - [OK] You want seamless Qt widget integration
 - [OK] You need to use Qt layouts and signals/slots
+- [OK] You want automatic event processing (no manual `process_events()` calls)
 
 **When to use Native backend:**
 - [OK] Maximum compatibility across all platforms

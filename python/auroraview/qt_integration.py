@@ -125,6 +125,14 @@ class QtWebView(QWidget):
         # Track cleanup state so we can make close idempotent.
         self._is_closing = False
 
+        # Install post-eval hook so that WebView.eval_js automatically processes events
+        # This is critical for Qt integration where there is no automatic event loop
+        self._webview._post_eval_js_hook = self._process_pending_events
+
+        # Track event processing statistics for diagnostics
+        self._event_process_count = 0
+        self._last_event_process_time = None
+
         logger.info("AuroraViewQt (Qt host widget) created: %s (%sx%s)", title, width, height)
 
     # ------------------------------------------------------------------
@@ -177,7 +185,11 @@ class QtWebView(QWidget):
             logger.info("QtWebView loaded HTML from file via load_html(): %s", html_path)
 
     def eval_js(self, script: str) -> None:
-        """Execute JavaScript in the embedded WebView."""
+        """Execute JavaScript in the embedded WebView.
+
+        Note: Event processing is automatic via _post_eval_js_hook.
+        You don't need to manually call process_events().
+        """
         self._webview.eval_js(script)
 
     def emit(self, event_name: str, data: Any = None) -> None:
@@ -222,12 +234,61 @@ class QtWebView(QWidget):
     # Qt integration helpers
     # ------------------------------------------------------------------
 
+    def get_diagnostics(self) -> dict:
+        """Get diagnostic information about event processing.
+
+        Returns:
+            Dictionary containing:
+            - event_process_count: Number of times events have been processed
+            - last_event_process_time: Timestamp of last event processing
+            - has_post_eval_hook: Whether the automatic event processing hook is installed
+
+        Example:
+            >>> webview = QtWebView(title="My Tool")
+            >>> # ... use the webview ...
+            >>> diag = webview.get_diagnostics()
+            >>> print(f"Events processed: {diag['event_process_count']}")
+        """
+        import time
+
+        return {
+            "event_process_count": self._event_process_count,
+            "last_event_process_time": self._last_event_process_time,
+            "time_since_last_process": (
+                time.time() - self._last_event_process_time
+                if self._last_event_process_time else None
+            ),
+            "has_post_eval_hook": hasattr(self._webview, "_post_eval_js_hook"),
+            "hook_is_correct": (
+                getattr(self._webview, "_post_eval_js_hook", None) == self._process_pending_events
+            ),
+        }
+
     def _process_pending_events(self) -> None:
-        """Process pending Qt events to keep the host DCC responsive."""
+        """Process pending Qt events and AuroraView message queue.
+
+        This is critical for Qt integration to work correctly:
+        1. Process Qt events (QCoreApplication.processEvents())
+        2. Process AuroraView message queue (WebView.process_events())
+
+        Without step 2, JavaScript code sent via eval_js() or emit() will
+        remain in the message queue and never execute, causing Promises to hang.
+        """
+        import time
+
+        # Update diagnostics
+        self._event_process_count += 1
+        self._last_event_process_time = time.time()
+
         try:
             from qtpy.QtCore import QCoreApplication
 
+            # Step 1: Process Qt events
             QCoreApplication.processEvents()
+
+            # Step 2: Process AuroraView message queue
+            # This is CRITICAL - without this, eval_js/emit messages stay in queue
+            self._webview.process_events()
         except Exception as e:  # pragma: no cover - best-effort only
             logger.debug("QtWebView: could not process pending events: %s", e)
 
