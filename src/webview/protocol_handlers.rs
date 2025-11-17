@@ -36,6 +36,16 @@ pub fn handle_auroraview_protocol(
         full_path
     );
 
+    #[cfg(test)]
+    {
+        eprintln!("[Protocol] uri = {}", uri);
+        eprintln!("[Protocol] uri.path() = {}", uri.path());
+        eprintln!("[Protocol] path (trimmed) = {}", path);
+        eprintln!("[Protocol] asset_root = {:?}", asset_root);
+        eprintln!("[Protocol] full_path = {:?}", full_path);
+        eprintln!("[Protocol] full_path.exists() = {}", full_path.exists());
+    }
+
     // Security check: prevent directory traversal
     if !full_path.starts_with(asset_root) {
         tracing::warn!("[Protocol] Directory traversal attempt: {:?}", full_path);
@@ -206,13 +216,21 @@ mod tests {
             .body(vec![])
             .unwrap();
 
+        eprintln!("DEBUG: asset_root = {:?}", asset_root);
+        eprintln!("DEBUG: safe_file = {:?}", safe_file);
+        eprintln!("DEBUG: safe_file.exists() = {}", safe_file.exists());
+        eprintln!("DEBUG: request.uri() = {}", request.uri());
+        eprintln!("DEBUG: request.uri().path() = {}", request.uri().path());
+
         let response = handle_auroraview_protocol(asset_root, request);
         // File should exist and be readable
         assert!(
             response.status() == 200,
-            "Expected 200, got {}. File exists: {}",
+            "Expected 200, got {}. File exists: {}, asset_root: {:?}, safe_file: {:?}",
             response.status(),
-            safe_file.exists()
+            safe_file.exists(),
+            asset_root,
+            safe_file
         );
 
         // Test 2: Directory traversal attempt (should be blocked)
