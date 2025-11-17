@@ -50,8 +50,36 @@ pub fn handle_auroraview_protocol(
     );
 
     // Security check: prevent directory traversal
-    if !full_path.starts_with(asset_root) {
-        tracing::warn!("[Protocol] Directory traversal attempt: {:?}", full_path);
+    // Canonicalize both paths to resolve .. and symlinks
+    let canonical_asset_root = match asset_root.canonicalize() {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!("[Protocol] Failed to canonicalize asset_root: {}", e);
+            return Response::builder()
+                .status(500)
+                .body(Cow::Borrowed(b"Internal Server Error" as &[u8]))
+                .unwrap();
+        }
+    };
+
+    let canonical_full_path = match full_path.canonicalize() {
+        Ok(p) => p,
+        Err(_) => {
+            // File doesn't exist or can't be accessed
+            tracing::warn!("[Protocol] File not found or inaccessible: {:?}", full_path);
+            return Response::builder()
+                .status(404)
+                .body(Cow::Borrowed(b"Not Found" as &[u8]))
+                .unwrap();
+        }
+    };
+
+    if !canonical_full_path.starts_with(&canonical_asset_root) {
+        tracing::warn!(
+            "[Protocol] Directory traversal attempt: {:?} not in {:?}",
+            canonical_full_path,
+            canonical_asset_root
+        );
         return Response::builder()
             .status(403)
             .body(Cow::Borrowed(b"Forbidden" as &[u8]))
