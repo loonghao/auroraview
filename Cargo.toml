@@ -78,7 +78,7 @@ hyper-util = { version = "0.1", features = ["full"] }  # HTTP utilities for hype
 
 [dev-dependencies]
 # Testing frameworks
-criterion = "0.5"
+criterion = "0.7"
 tempfile = "3.14"
 
 # Enhanced testing
