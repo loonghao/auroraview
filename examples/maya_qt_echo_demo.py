@@ -9,9 +9,16 @@ This requires:
     - auroraview installed with Qt extras: `mayapy -m pip install auroraview[qt]`
     - qtpy + a supported Qt binding (PySide2 / PySide6 / PyQt5 / PyQt6)
 
-The example also demonstrates high-level interaction events
-(`viewport.*` / `ui.view.*`) and the QtWebView.load_file() helper that
-loads an external HTML file next to this module.
+The example demonstrates:
+    - QtWebView automatic event processing (no manual process_events() needed)
+    - High-level interaction events (`viewport.*` / `ui.view.*`)
+    - QtWebView.load_file() helper for loading external HTML files
+    - Best practices for Qt-based DCC integration
+
+Note:
+    This example uses QtWebView which automatically handles event processing.
+    You don't need to manually call process_events() or create scriptJobs.
+    See docs/QT_BEST_PRACTICES.md for more information.
 """
 
 from __future__ import annotations
@@ -80,8 +87,18 @@ class _ShelfAPI:
 class AuroraViewMayaDialog(QDialog):
     """Qt dialog embedding a QtWebView inside Maya.
 
-    The dialog hosts a QtWebView and exposes an echo API so that the
-    front-end can call `auroraview.api.echo({...})` and receive a result.
+    The dialog hosts a QtWebView and exposes a rename API so that the
+    front-end can call `auroraview.api.rename_selected({...})` and receive a result.
+
+    Best Practices Demonstrated:
+        - Uses QtWebView for automatic event processing
+        - No manual process_events() calls needed
+        - No scriptJob required for event handling
+        - Clean integration with Maya's Qt event loop
+
+    See Also:
+        - docs/QT_BEST_PRACTICES.md for detailed guide
+        - docs/CHANGELOG_QT_IMPROVEMENTS.md for technical details
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -104,6 +121,9 @@ class AuroraViewMayaDialog(QDialog):
 
         # Create QtWebView as child widget. Disable dev tools here to reduce
         # startup overhead in production/demo scenarios.
+        #
+        # ✨ Event processing is automatic with QtWebView!
+        # No need to call process_events() or create scriptJobs.
         self.webview = QtWebView(self, dev_tools=False)
         layout.addWidget(self.webview)
 

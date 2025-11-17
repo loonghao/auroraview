@@ -21,6 +21,20 @@ except ImportError:
     _CoreWebView = None
 
 logger = logging.getLogger(__name__)
+# Debug marker to verify we are running the patched auroraview.webview from this repo.
+# If you see this in Maya's Script Editor, it means the local API (with eval_js call_result
+# fallback) is active rather than an older installed version.
+AURORAVIEW_WEBVIEW_DEBUG_MARK = "dcc_webview-bridge-fix-v1"
+
+logger.info(
+    "[AuroraView DEBUG] webview.py loaded from %s (debug mark=%s)",
+    Path(__file__).resolve(),
+    AURORAVIEW_WEBVIEW_DEBUG_MARK,
+)
+print(
+    f"[AuroraView DEBUG] webview.py loaded from: {Path(__file__).resolve()} (debug mark={AURORAVIEW_WEBVIEW_DEBUG_MARK})"
+)
+
 
 
 class WebView:
@@ -234,6 +248,15 @@ class WebView:
             >>> webview = WebView.create("App", auto_show=True)
 
             >>> # Singleton mode - only one instance allowed
+
+        Note:
+            For Qt-based DCC applications (Maya, Houdini, Nuke), consider using
+            QtWebView instead for automatic event processing and better integration:
+
+            >>> from auroraview import QtWebView
+            >>> webview = QtWebView(parent=maya_main_window(), title="My Tool")
+            >>> webview.load_url("http://localhost:3000")
+            >>> webview.show()  # Automatic event processing!
             >>> webview1 = WebView.create("Tool", singleton="my_tool")
             >>> webview2 = WebView.create("Tool", singleton="my_tool")  # Returns webview1
             >>> assert webview1 is webview2
@@ -594,6 +617,11 @@ class WebView:
 
         core.eval_js(script)
 
+        # Call the post-eval hook if it exists (used by Qt integration)
+        # This allows Qt to process the JavaScript execution immediately
+        if hasattr(self, '_post_eval_js_hook') and callable(self._post_eval_js_hook):
+            self._post_eval_js_hook()
+
     def emit(self, event_name: str, data: Union[Dict[str, Any], Any] = None) -> None:
         """Emit an event to JavaScript.
 
@@ -669,6 +697,45 @@ class WebView:
         # Register with core
         self._core.on(event_name, callback)
 
+    def _emit_call_result_js(self, payload: Dict[str, Any]) -> None:
+        """Internal helper to emit __auroraview_call_result via eval_js.
+
+        This is a compatibility path for environments where the core
+        event bridge does not reliably dispatch DOM CustomEvents. It
+        mirrors the behavior of WebView.emit, but uses window.dispatchEvent
+        directly from JavaScript.
+        """
+        # Extra debug so we can see exactly what is being sent back to JS.
+        try:
+            import json  # Local import to avoid hard dependency at module import time
+
+            json_str = json.dumps(payload)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error(
+                "Failed to JSON-encode __auroraview_call_result payload: %s", exc
+            )
+            print(
+                f"[AuroraView DEBUG] Failed to JSON-encode __auroraview_call_result payload: {exc}"
+            )
+            return
+
+        script = (
+            "window.dispatchEvent(new CustomEvent('__auroraview_call_result', "
+            f"{{ detail: JSON.parse({json_str!r}) }}));"
+        )
+        print(
+            f"[AuroraView DEBUG] _emit_call_result_js dispatching payload to JS: {payload}"
+        )
+        try:
+            self.eval_js(script)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error(
+                "Failed to dispatch __auroraview_call_result via eval_js: %s", exc
+            )
+            print(
+                f"[AuroraView DEBUG] Failed to dispatch __auroraview_call_result via eval_js: {exc}"
+            )
+
     def bind_call(self, method: str, func: Optional[Callable[..., Any]] = None):
         """Bind a Python callable as an ``auroraview.call`` target.
 
@@ -706,6 +773,11 @@ class WebView:
             return decorator
 
         def _handler(raw: Dict[str, Any]) -> None:
+            # Top-level debug so we can see when the core invokes this handler.
+            print(
+                f"[AuroraView DEBUG] _handler invoked for method={method} with raw={raw}"
+            )
+
             call_id = raw.get("id") or raw.get("__auroraview_call_id")
 
             # Distinguish between "no params key" and an explicit null/None payload.
@@ -743,7 +815,26 @@ class WebView:
             else:
                 payload["error"] = error_info
 
-            self.emit("__auroraview_call_result", payload)
+            print(
+                f"[AuroraView DEBUG] bind_call sending result: method={method}, id={call_id}, ok={ok}"
+            )
+
+            # Use both the core emit path and a direct JS dispatch helper.
+            # In some embedded environments (e.g. Qt/DCC hosts) the
+            # underlying core.emit may not deliver DOM events reliably,
+            # but eval_js is available. Emitting via both keeps native
+            # backends working while providing a robust fallback.
+            try:
+                self.emit("__auroraview_call_result", payload)
+            except Exception:
+                logger.debug(
+                    "WebView.emit for __auroraview_call_result raised; falling back to eval_js"
+                )
+                print(
+                    "[AuroraView DEBUG] WebView.emit for __auroraview_call_result raised; "
+                    "falling back to eval_js"
+                )
+            self._emit_call_result_js(payload)
 
         # Register wrapper with core IPC handler
         self._core.on(method, _handler)
