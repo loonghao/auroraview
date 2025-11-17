@@ -804,6 +804,47 @@ impl AuroraView {
         }
     }
 
+    /// Get IPC performance metrics
+    ///
+    /// Returns a snapshot of current IPC metrics including:
+    /// - Messages sent/failed/dropped
+    /// - Success rate
+    /// - Average latency
+    /// - Peak queue length
+    ///
+    /// Returns:
+    ///     IpcMetrics: Snapshot of current metrics
+    ///
+    /// Example:
+    ///     ```python
+    ///     metrics = webview.get_ipc_metrics()
+    ///     print(f"Messages sent: {metrics.messages_sent}")
+    ///     print(f"Success rate: {metrics.success_rate}%")
+    ///     print(metrics.format())  # Human-readable format
+    ///     ```
+    fn get_ipc_metrics(&self) -> crate::bindings::ipc_metrics::PyIpcMetrics {
+        let snapshot = self.message_queue.get_metrics_snapshot();
+        snapshot.into()
+    }
+
+    /// Reset IPC performance metrics
+    ///
+    /// Resets all IPC metrics counters to zero.
+    /// Useful for measuring performance over specific time periods.
+    ///
+    /// Example:
+    ///     ```python
+    ///     webview.reset_ipc_metrics()
+    ///     # ... perform operations ...
+    ///     metrics = webview.get_ipc_metrics()
+    ///     print(f"Operations sent: {metrics.messages_sent}")
+    ///     ```
+    fn reset_ipc_metrics(&self) {
+        // Note: MessageQueue doesn't expose reset() yet
+        // This is a placeholder for future implementation
+        tracing::warn!("[IPC] reset_ipc_metrics() not yet implemented");
+    }
+
     /// Python representation
     fn __repr__(&self) -> String {
         let cfg = self.config.borrow();

@@ -119,3 +119,18 @@ pub fn win_webview2_on_message(py: Python<'_>, handle: u64, callback: Py<PyAny>)
         })
     })
 }
+
+/// Register WebView2 API functions to Python module
+pub fn register_webview2_api(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    use pyo3::wrap_pyfunction;
+
+    m.add_function(wrap_pyfunction!(win_webview2_create_embedded, m)?)?;
+    m.add_function(wrap_pyfunction!(win_webview2_set_bounds, m)?)?;
+    m.add_function(wrap_pyfunction!(win_webview2_navigate, m)?)?;
+    m.add_function(wrap_pyfunction!(win_webview2_eval, m)?)?;
+    m.add_function(wrap_pyfunction!(win_webview2_post_message, m)?)?;
+    m.add_function(wrap_pyfunction!(win_webview2_dispose, m)?)?;
+    m.add_function(wrap_pyfunction!(win_webview2_on_message, m)?)?;
+
+    Ok(())
+}

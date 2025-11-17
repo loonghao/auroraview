@@ -6,9 +6,15 @@
 //! - `webview` - Main WebView class and related functionality
 //! - `timer` - Timer utilities for event loop integration
 //! - `ipc` - IPC message handling and JSON serialization
+//! - `ipc_metrics` - IPC performance metrics
 //! - `service_discovery` - Service discovery and port allocation
+//! - `webview2` - Windows WebView2 embedded API (feature-gated)
 
 pub mod ipc;
+pub mod ipc_metrics;
 pub mod service_discovery;
 pub mod timer;
 pub mod webview;
+
+#[cfg(all(target_os = "windows", feature = "win-webview2"))]
+pub mod webview2;

@@ -9,15 +9,11 @@ use pyo3::prelude::*;
 #[cfg(feature = "python-bindings")]
 mod bindings;
 mod ipc;
-mod metrics;
 mod platform;
 mod service_discovery;
 mod utils;
 mod webview;
 mod window_utils;
-
-#[cfg(all(target_os = "windows", feature = "win-webview2"))]
-mod win_webview2_api;
 
 #[allow(unused_imports)]
 use webview::AuroraView;
@@ -49,33 +45,12 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register service discovery module
     bindings::service_discovery::register_service_discovery(m)?;
 
+    // Register IPC metrics class
+    bindings::ipc_metrics::register_ipc_metrics(m)?;
+
     // Windows-only: register minimal WebView2 embedded API (feature-gated)
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]
-    {
-        use pyo3::wrap_pyfunction;
-        m.add_function(wrap_pyfunction!(
-            win_webview2_api::win_webview2_create_embedded,
-            m
-        )?)?;
-        m.add_function(wrap_pyfunction!(
-            win_webview2_api::win_webview2_set_bounds,
-            m
-        )?)?;
-        m.add_function(wrap_pyfunction!(
-            win_webview2_api::win_webview2_navigate,
-            m
-        )?)?;
-        m.add_function(wrap_pyfunction!(win_webview2_api::win_webview2_eval, m)?)?;
-        m.add_function(wrap_pyfunction!(
-            win_webview2_api::win_webview2_post_message,
-            m
-        )?)?;
-        m.add_function(wrap_pyfunction!(win_webview2_api::win_webview2_dispose, m)?)?;
-        m.add_function(wrap_pyfunction!(
-            win_webview2_api::win_webview2_on_message,
-            m
-        )?)?;
-    }
+    bindings::webview2::register_webview2_api(m)?;
 
     // Add module metadata
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
