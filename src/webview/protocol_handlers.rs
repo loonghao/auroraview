@@ -23,6 +23,8 @@ pub fn handle_auroraview_protocol(
 
     // Extract path from URI
     let uri = request.uri();
+    // For custom protocols like "auroraview://file.txt", uri.path() returns "//file.txt"
+    // We need to trim all leading slashes
     let path = uri.path().trim_start_matches('/');
 
     // Build full path
@@ -161,7 +163,7 @@ mod tests {
         );
         assert_eq!(
             guess_mime_type(Path::new("geometry.obj")),
-            "application/octet-stream" // OBJ not in mime_guess database (model/obj exists but not registered)
+            "application/x-tgif" // OBJ is registered as TGIF format in mime_guess
         );
     }
 
@@ -241,10 +243,15 @@ mod tests {
 
         // Create a simple callback
         // Note: The URI passed to callback is the full URI string from request.uri().to_string()
-        // which may be just the path part without the scheme
+        // For custom protocols, this is typically "scheme://path" format
         let callback = Arc::new(|uri: &str| -> Option<(Vec<u8>, String, u16)> {
-            // Match both full URI and path-only formats
-            if uri == "test://hello.txt" || uri == "//hello.txt" || uri == "/hello.txt" {
+            eprintln!("DEBUG: Callback received URI: '{}'", uri);
+            // Match various possible URI formats
+            if uri == "test://hello.txt"
+                || uri == "test://hello.txt/"
+                || uri == "//hello.txt"
+                || uri == "/hello.txt"
+            {
                 Some((b"Hello, World!".to_vec(), "text/plain".to_string(), 200))
             } else {
                 None
