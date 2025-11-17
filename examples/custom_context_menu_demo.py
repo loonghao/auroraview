@@ -25,7 +25,7 @@ HTML_CONTENT = """
             color: white;
             min-height: 100vh;
         }
-        
+
         .container {
             max-width: 800px;
             margin: 0 auto;
@@ -34,18 +34,18 @@ HTML_CONTENT = """
             border-radius: 10px;
             backdrop-filter: blur(10px);
         }
-        
+
         h1 {
             margin-top: 0;
         }
-        
+
         .info {
             background: rgba(255, 255, 255, 0.2);
             padding: 15px;
             border-radius: 5px;
             margin: 20px 0;
         }
-        
+
         /* Custom context menu styles */
         .custom-menu {
             display: none;
@@ -57,13 +57,13 @@ HTML_CONTENT = """
             z-index: 1000;
             min-width: 180px;
         }
-        
+
         .custom-menu ul {
             list-style: none;
             margin: 0;
             padding: 5px 0;
         }
-        
+
         .custom-menu li {
             padding: 10px 20px;
             cursor: pointer;
@@ -72,16 +72,16 @@ HTML_CONTENT = """
             align-items: center;
             gap: 10px;
         }
-        
+
         .custom-menu li:hover {
             background: #f0f0f0;
         }
-        
+
         .custom-menu li::before {
             content: '▸';
             color: #667eea;
         }
-        
+
         .menu-separator {
             height: 1px;
             background: #e0e0e0;
@@ -92,12 +92,12 @@ HTML_CONTENT = """
 <body>
     <div class="container">
         <h1>🎨 Custom Context Menu Demo</h1>
-        
+
         <div class="info">
             <p><strong>Try this:</strong> Right-click anywhere on this page to see the custom context menu!</p>
             <p>The native browser context menu has been disabled and replaced with a custom implementation.</p>
         </div>
-        
+
         <div class="info">
             <h3>Features:</h3>
             <ul>
@@ -122,16 +122,16 @@ HTML_CONTENT = """
 
     <script>
         const menu = document.getElementById('customMenu');
-        
+
         // Show custom menu on right-click
         document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            
+
             // Position menu at cursor
             menu.style.display = 'block';
             menu.style.left = e.pageX + 'px';
             menu.style.top = e.pageY + 'px';
-            
+
             // Adjust if menu goes off-screen
             const menuRect = menu.getBoundingClientRect();
             if (menuRect.right > window.innerWidth) {
@@ -141,21 +141,21 @@ HTML_CONTENT = """
                 menu.style.top = (e.pageY - menuRect.height) + 'px';
             }
         });
-        
+
         // Hide menu on click elsewhere
         document.addEventListener('click', () => {
             menu.style.display = 'none';
         });
-        
+
         // Handle menu actions
         function handleMenuAction(action) {
             console.log('Menu action:', action);
-            
+
             // Send action to Python via AuroraView event system
             if (window.auroraview) {
                 window.auroraview.send_event('menu_action', { action: action });
             }
-            
+
             menu.style.display = 'none';
         }
     </script>
@@ -202,4 +202,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

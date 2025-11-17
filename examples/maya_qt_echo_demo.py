@@ -23,12 +23,12 @@ Note:
 
 from __future__ import annotations
 
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 import maya.OpenMayaUI as omui
-from shiboken2 import wrapInstance
 from qtpy.QtWidgets import QDialog, QVBoxLayout, QWidget
+from shiboken2 import wrapInstance
 
 from auroraview import AuroraView, QtWebView
 
@@ -181,5 +181,6 @@ def show_auroraview_maya_dialog() -> None:
     dlg = AuroraViewMayaDialog(parent)
     dlg.setObjectName("AuroraViewMayaEchoDialog")
     dlg.show()
+
 
 show_auroraview_maya_dialog()

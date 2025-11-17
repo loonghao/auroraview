@@ -10,6 +10,7 @@ import sys
 
 try:
     from qtpy.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+
     from auroraview import QtWebView
 except ImportError as e:
     print(f"Error: {e}")
@@ -117,18 +118,18 @@ class CustomMenuWindow(QMainWindow):
 
             <script>
                 const menu = document.getElementById('customMenu');
-                
+
                 document.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     menu.style.display = 'block';
                     menu.style.left = e.pageX + 'px';
                     menu.style.top = e.pageY + 'px';
                 });
-                
+
                 document.addEventListener('click', () => {
                     menu.style.display = 'none';
                 });
-                
+
                 function handleMenuAction(action) {
                     if (window.auroraview) {
                         window.auroraview.send_event('menu_action', { action: action });
@@ -157,4 +158,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
