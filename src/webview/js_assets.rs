@@ -36,12 +36,6 @@ pub const EVENT_BRIDGE: &str = include_str!("../assets/js/core/event_bridge.js")
 /// This allows applications to implement custom context menus.
 pub const CONTEXT_MENU_DISABLE: &str = include_str!("../assets/js/features/context_menu.js");
 
-/// Legacy compatibility script
-///
-/// Provides backward compatibility with older AuroraView API.
-/// Creates the `window.aurora` alias for `window.auroraview`.
-pub const LEGACY_COMPAT: &str = include_str!("../assets/js/features/legacy_compat.js");
-
 /// Build complete initialization script based on configuration
 ///
 /// This function assembles the final JavaScript initialization script
@@ -81,11 +75,6 @@ pub fn build_init_script(config: &WebViewConfig) -> String {
         script.push('\n');
     }
 
-    // Legacy compatibility (always included for now)
-    // TODO: Make this configurable via WebViewConfig.legacy_compat flag
-    script.push_str(LEGACY_COMPAT);
-    script.push('\n');
-
     tracing::debug!(
         "[js_assets] Built initialization script: {} bytes",
         script.len()
@@ -112,12 +101,81 @@ pub fn get_context_menu_disable() -> &'static str {
     CONTEXT_MENU_DISABLE
 }
 
-/// Get legacy compatibility script only
+/// JavaScript asset types
 ///
-/// Returns just the legacy compatibility layer.
+/// Enum representing all available JavaScript assets.
+/// Used with `get_asset()` for dynamic loading.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
-pub fn get_legacy_compat() -> &'static str {
-    LEGACY_COMPAT
+pub enum JsAsset {
+    /// Core event bridge (window.auroraview API)
+    EventBridge,
+    /// Context menu disable script
+    ContextMenuDisable,
+}
+
+/// Get a JavaScript asset by type
+///
+/// This function provides a dynamic way to load JavaScript assets at runtime.
+/// All assets are still embedded at compile time using `include_str!`.
+///
+/// # Arguments
+///
+/// * `asset` - The type of asset to retrieve
+///
+/// # Returns
+///
+/// The JavaScript code as a static string slice
+///
+/// # Example
+///
+/// ```rust
+/// use crate::webview::js_assets::{get_asset, JsAsset};
+///
+/// let event_bridge = get_asset(JsAsset::EventBridge);
+/// let context_menu = get_asset(JsAsset::ContextMenuDisable);
+/// ```
+#[allow(dead_code)]
+pub fn get_asset(asset: JsAsset) -> &'static str {
+    match asset {
+        JsAsset::EventBridge => EVENT_BRIDGE,
+        JsAsset::ContextMenuDisable => CONTEXT_MENU_DISABLE,
+    }
+}
+
+/// Get multiple JavaScript assets and combine them
+///
+/// This function allows you to dynamically select and combine multiple
+/// JavaScript assets into a single script.
+///
+/// # Arguments
+///
+/// * `assets` - Slice of asset types to include
+///
+/// # Returns
+///
+/// Combined JavaScript code as a String
+///
+/// # Example
+///
+/// ```rust
+/// use crate::webview::js_assets::{get_assets, JsAsset};
+///
+/// let script = get_assets(&[
+///     JsAsset::EventBridge,
+///     JsAsset::ContextMenuDisable,
+/// ]);
+/// ```
+#[allow(dead_code)]
+pub fn get_assets(assets: &[JsAsset]) -> String {
+    let mut script = String::with_capacity(8192);
+
+    for asset in assets {
+        script.push_str(get_asset(*asset));
+        script.push('\n');
+    }
+
+    script
 }
 
 #[cfg(test)]
@@ -131,8 +189,6 @@ mod tests {
 
         // Should include event bridge
         assert!(script.contains("window.auroraview"));
-        // Should include legacy compat
-        assert!(script.contains("window.aurora"));
         // Should NOT include context menu disable (default is true)
         assert!(!script.contains("contextmenu"));
     }
@@ -155,6 +211,39 @@ mod tests {
         // Test that individual getters work
         assert!(get_event_bridge().contains("window.auroraview"));
         assert!(get_context_menu_disable().contains("contextmenu"));
-        assert!(get_legacy_compat().contains("window.aurora"));
+    }
+
+    #[test]
+    fn test_get_asset() {
+        // Test dynamic asset loading
+        let event_bridge = get_asset(JsAsset::EventBridge);
+        assert!(event_bridge.contains("window.auroraview"));
+
+        let context_menu = get_asset(JsAsset::ContextMenuDisable);
+        assert!(context_menu.contains("contextmenu"));
+    }
+
+    #[test]
+    fn test_get_assets() {
+        // Test combining multiple assets
+        let script = get_assets(&[JsAsset::EventBridge, JsAsset::ContextMenuDisable]);
+
+        assert!(script.contains("window.auroraview"));
+        assert!(script.contains("contextmenu"));
+    }
+
+    #[test]
+    fn test_get_assets_empty() {
+        // Test empty asset list
+        let script = get_assets(&[]);
+        assert_eq!(script, "");
+    }
+
+    #[test]
+    fn test_get_assets_single() {
+        // Test single asset
+        let script = get_assets(&[JsAsset::EventBridge]);
+        assert!(script.contains("window.auroraview"));
+        assert!(!script.contains("contextmenu"));
     }
 }
