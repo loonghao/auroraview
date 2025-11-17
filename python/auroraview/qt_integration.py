@@ -80,6 +80,7 @@ class QtWebView(QWidget):
         width: int = 800,
         height: int = 600,
         dev_tools: bool = True,
+        context_menu: bool = True,
     ) -> None:
         super().__init__(parent)
 
@@ -87,6 +88,7 @@ class QtWebView(QWidget):
         self._width = width
         self._height = height
         self._dev_tools = dev_tools
+        self._context_menu = context_menu
 
         self.setWindowTitle(title)
         self.resize(width, height)
@@ -118,6 +120,7 @@ class QtWebView(QWidget):
             mode="child",  # Real child window, lives inside this QWidget
             frame=False,
             debug=dev_tools,
+            context_menu=context_menu,
             auto_show=False,
             auto_timer=True,
         )

@@ -13,6 +13,9 @@ use tao::window::WindowBuilder;
 #[allow(unused_imports)]
 use wry::WebViewBuilder as WryWebViewBuilder;
 
+#[cfg(target_os = "windows")]
+use wry::WebViewBuilderExtWindows;
+
 use super::config::WebViewConfig;
 #[allow(unused_imports)]
 use super::event_loop::UserEvent;
@@ -257,6 +260,15 @@ pub fn create_embedded(
         if config.dev_tools {
             tracing::info!("[OK] [create_embedded] Enabling developer tools");
             builder = builder.with_devtools(true);
+        }
+
+        // Disable context menu if configured
+        if !config.context_menu {
+            tracing::info!("[OK] [create_embedded] Disabling native context menu");
+            #[cfg(target_os = "windows")]
+            {
+                builder = builder.with_browser_extensions_enabled(false);
+            }
         }
 
         // Add event bridge script with full window.auroraview API

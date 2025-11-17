@@ -251,6 +251,7 @@ webview = WebView.create(
     resizable=True,
     frame=True,  # Show window frame
     debug=True,  # Enable dev tools
+    context_menu=False,  # Disable native context menu for custom menus
 )
 webview.show()
 ```

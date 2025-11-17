@@ -12,6 +12,9 @@ use tao::window::WindowBuilder;
 use wry::WebView as WryWebView;
 use wry::WebViewBuilder as WryWebViewBuilder;
 
+#[cfg(target_os = "windows")]
+use wry::WebViewBuilderExtWindows;
+
 use super::WebViewBackend;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 use crate::webview::config::WebViewConfig;
@@ -528,6 +531,15 @@ impl NativeBackend {
         if config.dev_tools {
             tracing::info!("[OK] [NativeBackend] Enabling developer tools");
             builder = builder.with_devtools(true);
+        }
+
+        // Disable context menu if configured
+        if !config.context_menu {
+            tracing::info!("[OK] [NativeBackend] Disabling native context menu");
+            #[cfg(target_os = "windows")]
+            {
+                builder = builder.with_browser_extensions_enabled(false);
+            }
         }
 
         // Add event bridge script with full window.auroraview API
