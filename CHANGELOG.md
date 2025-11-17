@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.7](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.6...auroraview-v0.2.7) (2025-11-17)
+
+
+### Features
+
+* add configurable context menu support ([e2551ec](https://github.com/loonghao/auroraview/commit/e2551ecf6cf19dcb628c1533ddad91d5a38c7df3))
+* add custom protocol handlers with mime_guess integration ([9862870](https://github.com/loonghao/auroraview/commit/986287044948c4ff3b1f8f11ce829026bc4688be))
+
+
+### Bug Fixes
+
+* add custom protocol support to Python WebView API ([5d3322e](https://github.com/loonghao/auroraview/commit/5d3322e1724cee458d5e41a41d6c154d4f07c301))
+* correct MIME types and URI handling in protocol tests ([992ecbe](https://github.com/loonghao/auroraview/commit/992ecbe51f7d614b277654aca707d4de4668dc27))
+* correct URI path extraction for custom protocols ([ecaf64b](https://github.com/loonghao/auroraview/commit/ecaf64bcc43d1a96298784ad5b265e56e033b2d3))
+* disable context menu using JavaScript event prevention ([4382be7](https://github.com/loonghao/auroraview/commit/4382be7b242496a52a9101af9ba963b4219fd37c))
+* remove debug markers and fix failing unit tests ([f06b056](https://github.com/loonghao/auroraview/commit/f06b056be5419b4cd6fd66883515fce42abb5896))
+* resolve doctest compilation errors ([efbae30](https://github.com/loonghao/auroraview/commit/efbae30b0bd1eaba7b94df30d6ce13ab561879c2))
+* strengthen directory traversal protection with path canonicalization ([e17dc35](https://github.com/loonghao/auroraview/commit/e17dc3507be62535f3ccec146cbc4d6fd136896b))
+
+
+### Code Refactoring
+
+* apply js_assets to backend/native.rs and standalone.rs ([8dd3cc9](https://github.com/loonghao/auroraview/commit/8dd3cc9bd37ca521c8958a81e68b93348edc1c0d))
+* complete code cleanup and add IPC metrics API ([03a7244](https://github.com/loonghao/auroraview/commit/03a7244918ac9cc86e995270e2d1769adb48e92c))
+* consolidate bindings and remove legacy embedded.rs ([3875d40](https://github.com/loonghao/auroraview/commit/3875d40cf91dab699c468edf0f6df29e8f58a84f))
+* extract JavaScript to separate files and apply to embedded.rs ([ebd069e](https://github.com/loonghao/auroraview/commit/ebd069ee5a9a56c6545fadb0b029a2976e77f06a))
+
 ## [0.2.6](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.5...auroraview-v0.2.6) (2025-11-17)
 
 
