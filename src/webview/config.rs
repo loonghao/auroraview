@@ -1,6 +1,13 @@
 //! WebView configuration structures
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+/// Protocol handler callback type
+/// Takes a URI string and returns optional response (data, mime_type, status)
+pub type ProtocolCallback = Arc<dyn Fn(&str) -> Option<(Vec<u8>, String, u16)> + Send + Sync>;
 
 /// Embedding mode on Windows.
 #[cfg(target_os = "windows")]
@@ -22,7 +29,7 @@ pub enum EmbedMode {
 }
 
 /// WebView configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct WebViewConfig {
     /// Window title
     pub title: String,
@@ -71,6 +78,48 @@ pub struct WebViewConfig {
 
     /// Maximum batch age in milliseconds (flush interval)
     pub ipc_batch_interval_ms: u64,
+
+    /// Asset root directory for auroraview:// protocol
+    pub asset_root: Option<PathBuf>,
+
+    /// Custom protocol handlers (scheme -> callback)
+    #[allow(clippy::type_complexity)]
+    pub custom_protocols: HashMap<String, ProtocolCallback>,
+}
+
+// Manual Debug implementation (ProtocolCallback doesn't implement Debug)
+impl std::fmt::Debug for WebViewConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WebViewConfig")
+            .field("title", &self.title)
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("url", &self.url)
+            .field(
+                "html",
+                &self
+                    .html
+                    .as_ref()
+                    .map(|h| format!("{}...", &h.chars().take(50).collect::<String>())),
+            )
+            .field("dev_tools", &self.dev_tools)
+            .field("context_menu", &self.context_menu)
+            .field("resizable", &self.resizable)
+            .field("decorations", &self.decorations)
+            .field("always_on_top", &self.always_on_top)
+            .field("transparent", &self.transparent)
+            .field("parent_hwnd", &self.parent_hwnd)
+            .field("embed_mode", &self.embed_mode)
+            .field("ipc_batching", &self.ipc_batching)
+            .field("ipc_batch_size", &self.ipc_batch_size)
+            .field("ipc_batch_interval_ms", &self.ipc_batch_interval_ms)
+            .field("asset_root", &self.asset_root)
+            .field(
+                "custom_protocols",
+                &format!("{} protocols", self.custom_protocols.len()),
+            )
+            .finish()
+    }
 }
 
 impl Default for WebViewConfig {
@@ -95,6 +144,8 @@ impl Default for WebViewConfig {
             embed_mode: EmbedMode::None,
             #[cfg(not(target_os = "windows"))]
             embed_mode: EmbedMode::None,
+            asset_root: None,
+            custom_protocols: HashMap::new(),
         }
     }
 }
@@ -173,6 +224,38 @@ impl WebViewBuilder {
         self
     }
 
+    /// Set asset root directory for auroraview:// protocol
+    pub fn asset_root(mut self, path: impl Into<PathBuf>) -> Self {
+        self.config.asset_root = Some(path.into());
+        self
+    }
+
+    /// Register a custom protocol handler
+    ///
+    /// # Arguments
+    /// * `scheme` - Protocol scheme (e.g., "maya", "fbx")
+    /// * `handler` - Callback function that takes URI and returns (data, mime_type, status)
+    ///
+    /// # Example
+    /// ```ignore
+    /// use std::sync::Arc;
+    ///
+    /// let config = WebViewBuilder::new()
+    ///     .register_protocol("maya", Arc::new(|uri: &str| {
+    ///         // Handle maya:// protocol
+    ///         Some((b"data".to_vec(), "text/plain".to_string(), 200))
+    ///     }))
+    ///     .build();
+    /// ```
+    pub fn register_protocol(
+        mut self,
+        scheme: impl Into<String>,
+        handler: ProtocolCallback,
+    ) -> Self {
+        self.config.custom_protocols.insert(scheme.into(), handler);
+        self
+    }
+
     /// Build the configuration
     pub fn build(self) -> WebViewConfig {
         self.config
@@ -206,6 +289,8 @@ mod tests {
         assert!(cfg.ipc_batching);
         assert_eq!(cfg.ipc_batch_size, 10);
         assert_eq!(cfg.ipc_batch_interval_ms, 16);
+        assert!(cfg.asset_root.is_none());
+        assert_eq!(cfg.custom_protocols.len(), 0);
     }
 
     #[test]

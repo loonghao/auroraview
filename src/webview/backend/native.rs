@@ -528,6 +528,34 @@ impl NativeBackend {
     ) -> Result<WryWebView, Box<dyn std::error::Error>> {
         let mut builder = WryWebViewBuilder::new();
 
+        // Register auroraview:// protocol if asset_root is configured
+        if let Some(asset_root) = &config.asset_root {
+            let asset_root = asset_root.clone();
+            tracing::info!(
+                "[OK] [NativeBackend] Registering auroraview:// protocol (asset_root: {:?})",
+                asset_root
+            );
+            builder =
+                builder.with_custom_protocol("auroraview".into(), move |_webview_id, request| {
+                    crate::webview::protocol_handlers::handle_auroraview_protocol(
+                        &asset_root,
+                        request,
+                    )
+                });
+        }
+
+        // Register custom protocols
+        for (scheme, callback) in &config.custom_protocols {
+            let callback_clone = callback.clone();
+            tracing::info!(
+                "[OK] [NativeBackend] Registering custom protocol: {}",
+                scheme
+            );
+            builder = builder.with_custom_protocol(scheme.clone(), move |_webview_id, request| {
+                crate::webview::protocol_handlers::handle_custom_protocol(&*callback_clone, request)
+            });
+        }
+
         // Enable developer tools if configured
         if config.dev_tools {
             tracing::info!("[OK] [NativeBackend] Enabling developer tools");

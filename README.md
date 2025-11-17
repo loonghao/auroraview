@@ -279,6 +279,67 @@ timer.on_close(_on_close)
 timer.off_close(_on_close)  # also available: off_tick(handler)
 ```
 
+**Custom Protocol Handlers (Solve CORS Issues):**
+
+AuroraView provides custom protocol handlers to load local resources without CORS restrictions:
+
+```python
+from auroraview import WebView
+
+# 1. Built-in auroraview:// protocol for static assets
+webview = WebView.create(
+    title="My App",
+    asset_root="C:/projects/my_app/assets"  # Enable auroraview:// protocol
+)
+
+# Now you can use auroraview:// in HTML
+html = """
+<html>
+    <head>
+        <link rel="stylesheet" href="auroraview://css/style.css">
+    </head>
+    <body>
+        <img src="auroraview://icons/logo.png">
+        <script src="auroraview://js/app.js"></script>
+    </body>
+</html>
+"""
+webview.load_html(html)
+
+# 2. Register custom protocols for DCC-specific resources
+def handle_fbx_protocol(uri: str) -> dict:
+    """Load FBX files from Maya project"""
+    path = uri.replace("fbx://", "")
+    full_path = f"C:/maya_projects/current/{path}"
+
+    try:
+        with open(full_path, "rb") as f:
+            return {
+                "data": f.read(),
+                "mime_type": "application/octet-stream",
+                "status": 200
+            }
+    except FileNotFoundError:
+        return {
+            "data": b"Not Found",
+            "mime_type": "text/plain",
+            "status": 404
+        }
+
+webview.register_protocol("fbx", handle_fbx_protocol)
+
+# Now you can use fbx:// in JavaScript
+# fetch('fbx://models/character.fbx').then(r => r.arrayBuffer())
+```
+
+**Benefits:**
+- ✅ No CORS restrictions (unlike `file://` URLs)
+- ✅ Clean URLs (`auroraview://logo.png` vs `file:///C:/long/path/logo.png`)
+- ✅ Security (limited to configured directories)
+- ✅ Cross-platform path handling
+
+See [examples/custom_protocol_example.py](./examples/custom_protocol_example.py) for a complete example.
+
 
 #### 2. Qt Backend
 

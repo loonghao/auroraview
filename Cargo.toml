@@ -44,6 +44,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # URL handling
 url = "2.5"
 
+# MIME type detection
+mime_guess = "2.0"
+
 # Thread safety
 parking_lot = "0.12"
 once_cell = "1.20"

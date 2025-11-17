@@ -14,6 +14,7 @@ mod message_pump;
 mod parent_monitor;
 mod platform;
 mod protocol;
+pub(crate) mod protocol_handlers; // Custom protocol handlers
 pub(crate) mod standalone;
 pub(crate) mod timer;
 mod webview_inner;
