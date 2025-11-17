@@ -272,7 +272,7 @@ pub fn create_embedded(
         }
 
         // Add event bridge script with full window.auroraview API
-        let event_bridge_script = r#"
+        let mut event_bridge_script = r#"
     (function() {
         console.log('[AuroraView] Initializing event bridge...');
 
@@ -477,7 +477,27 @@ pub fn create_embedded(
         console.log('[AuroraView] ✓ Primary API: window.auroraview.call()/send_event()/on()/api.*');
         console.log('[AuroraView] ✓ Qt-style class: new AuroraView()');
     })();
-    "#;
+    "#.to_string();
+
+        // Add context menu disabling script if configured
+        if !config.context_menu {
+            tracing::info!("[OK] [create_embedded] Adding JavaScript to disable context menu");
+            event_bridge_script.push_str(
+                r#"
+    // Disable native context menu
+    (function() {
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            console.log('[AuroraView] Native context menu disabled');
+            return false;
+        }, false);
+        console.log('[AuroraView] ✓ Context menu disabled');
+    })();
+    "#,
+            );
+        }
+
+        let event_bridge_script = event_bridge_script;
         builder = builder.with_initialization_script(event_bridge_script);
 
         // Set IPC handler (same as standalone mode)

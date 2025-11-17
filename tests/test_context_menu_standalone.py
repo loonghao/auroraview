@@ -10,11 +10,6 @@ Signed-off-by: Hal Long <hal.long@outlook.com>
 """
 
 import sys
-from pathlib import Path
-
-# Add python directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "python"))
-
 
 def test_core_webview_context_menu():
     """Test that _core.WebView accepts context_menu parameter."""
