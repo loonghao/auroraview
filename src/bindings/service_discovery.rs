@@ -307,13 +307,32 @@ mod tests {
     #[test]
     fn test_find_free_port_and_is_port_available() {
         let sd = PyServiceDiscovery::new(0, 0, false, "AuroraView").expect("new() should succeed");
-        let port = sd.find_free_port().expect("should find a free port");
-        assert!(port > 0);
-        assert!(PyServiceDiscovery::is_port_available(port));
 
-        // Occupy the port and verify availability toggles
-        let listener = TcpListener::bind(("127.0.0.1", port)).expect("should bind to free port");
-        assert!(!PyServiceDiscovery::is_port_available(port));
+        // Try multiple times to handle race conditions in CI environments
+        let mut listener = None;
+        for _ in 0..5 {
+            let port = sd.find_free_port().expect("should find a free port");
+            assert!(port > 0);
+            assert!(PyServiceDiscovery::is_port_available(port));
+
+            // Try to occupy the port
+            match TcpListener::bind(("127.0.0.1", port)) {
+                Ok(l) => {
+                    listener = Some(l);
+                    assert!(!PyServiceDiscovery::is_port_available(port));
+                    break;
+                }
+                Err(_) => {
+                    // Port was taken between find_free_port() and bind(), retry
+                    continue;
+                }
+            }
+        }
+
+        assert!(
+            listener.is_some(),
+            "Failed to bind to a free port after 5 attempts"
+        );
         drop(listener);
     }
 
