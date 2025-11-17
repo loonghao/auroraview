@@ -7,7 +7,6 @@ use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
 
 use super::config::WebViewConfig;
-use super::embedded;
 use super::event_loop::{EventLoopState, UserEvent, WebViewEventHandler};
 use super::lifecycle::LifecycleManager;
 use super::message_pump;
@@ -153,22 +152,18 @@ impl WebViewInner {
     }
 
     /// Create embedded WebView for DCC integration
+    ///
+    /// This is a legacy wrapper that calls create_for_dcc.
+    /// The width and height parameters are ignored as they're handled by the parent window.
     pub fn create_embedded(
         parent_hwnd: u64,
-        width: u32,
-        height: u32,
+        _width: u32,
+        _height: u32,
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        embedded::create_embedded(
-            parent_hwnd,
-            width,
-            height,
-            config,
-            ipc_handler,
-            message_queue,
-        )
+        Self::create_for_dcc(parent_hwnd, config, ipc_handler, message_queue)
     }
 
     /// Create WebView for DCC integration (no event loop)

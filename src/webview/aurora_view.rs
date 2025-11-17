@@ -10,8 +10,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use super::config::WebViewConfig;
-use super::python_bindings::py_dict_to_json;
 use super::webview_inner::WebViewInner;
+use crate::bindings::webview::py_dict_to_json;
 use crate::ipc::{IpcHandler, MessageQueue, WebViewMessage};
 
 /// Python-facing WebView class

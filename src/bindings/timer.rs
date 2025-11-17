@@ -5,7 +5,7 @@ use pyo3::types::{PyAny, PyDict};
 use pyo3::Py;
 use std::sync::{Arc, Mutex};
 
-use super::timer::{Timer as RustTimer, TimerBackend as RustTimerBackend};
+use crate::webview::timer::{Timer as RustTimer, TimerBackend as RustTimerBackend};
 
 /// Python-exposed timer backend type
 #[pyclass(name = "TimerBackend")]

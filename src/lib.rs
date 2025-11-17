@@ -6,6 +6,8 @@
 #[cfg(feature = "python-bindings")]
 use pyo3::prelude::*;
 
+#[cfg(feature = "python-bindings")]
+mod bindings;
 mod ipc;
 mod metrics;
 mod platform;
@@ -42,10 +44,10 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     window_utils::register_window_utils(m)?;
 
     // Register high-performance JSON functions (orjson-equivalent, no Python deps)
-    ipc::json_bindings::register_json_functions(m)?;
+    bindings::ipc::register_json_functions(m)?;
 
     // Register service discovery module
-    service_discovery::python_bindings::register_service_discovery(m)?;
+    bindings::service_discovery::register_service_discovery(m)?;
 
     // Windows-only: register minimal WebView2 embedded API (feature-gated)
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]

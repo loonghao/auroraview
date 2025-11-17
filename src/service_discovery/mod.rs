@@ -9,9 +9,6 @@ pub mod http_discovery;
 pub mod mdns_service;
 pub mod port_allocator;
 
-#[cfg(feature = "python-bindings")]
-pub mod python_bindings;
-
 pub use http_discovery::HttpDiscovery;
 pub use mdns_service::MdnsService;
 pub use port_allocator::PortAllocator;

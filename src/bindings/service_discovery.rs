@@ -2,7 +2,9 @@
 //!
 //! Exposes service discovery functionality to Python via PyO3.
 
-use super::{HttpDiscovery, MdnsService, PortAllocator, ServiceInfo as RustServiceInfo};
+use crate::service_discovery::{
+    HttpDiscovery, MdnsService, PortAllocator, ServiceInfo as RustServiceInfo,
+};
 use parking_lot::Mutex;
 use pyo3::prelude::*;
 use std::collections::HashMap;

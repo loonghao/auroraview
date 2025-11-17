@@ -14,7 +14,7 @@
 //! json_str = json_dumps({"key": "value"})
 //! ```
 
-use super::json;
+use crate::ipc::json;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::Py;
