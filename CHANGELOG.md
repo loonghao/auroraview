@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.7...auroraview-v0.2.8) (2025-11-18)
+
+
+### Features
+
+* improve codecov integration with comprehensive configuration ([d3594e2](https://github.com/loonghao/auroraview/commit/d3594e247eb4e69881d31a23ffa12999641ac658))
+
 ## [0.2.7](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.6...auroraview-v0.2.7) (2025-11-17)
 
 
