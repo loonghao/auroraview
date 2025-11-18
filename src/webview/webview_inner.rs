@@ -644,6 +644,7 @@ impl WebViewInner {
 
         // CRITICAL: If backend exists (DCC mode), delegate to backend.process_events()
         // This ensures Windows messages are processed even when self.window is None
+        #[cfg(target_os = "windows")]
         if let Some(backend) = &self.backend {
             tracing::trace!("[process_events] Delegating to backend.process_events()");
             return backend.process_events();
