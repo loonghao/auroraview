@@ -536,6 +536,75 @@ impl AuroraView {
         Ok(())
     }
 
+    /// Register API methods for JavaScript access
+    ///
+    /// This method updates the WebView configuration to include API methods
+    /// that will be automatically injected into JavaScript as wrapper functions.
+    ///
+    /// Args:
+    ///     namespace (str): API namespace (e.g., "api")
+    ///     methods (list[str]): List of method names to register
+    ///
+    /// Example:
+    ///     >>> webview.register_api_methods("api", ["get_data", "set_data"])
+    ///     >>> # JavaScript can now call: window.auroraview.api.get_data()
+    #[allow(clippy::useless_conversion)]
+    fn register_api_methods(&self, namespace: &str, methods: Vec<String>) -> PyResult<()> {
+        tracing::info!(
+            "Registering {} API methods in namespace '{}'",
+            methods.len(),
+            namespace
+        );
+
+        // Update config with API methods
+        if let Ok(mut config) = self.config.try_borrow_mut() {
+            config
+                .api_methods
+                .insert(namespace.to_string(), methods.clone());
+            tracing::debug!("Updated config with API methods: {:?}", config.api_methods);
+        } else {
+            return Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "Failed to borrow config",
+            ));
+        }
+
+        // Generate and execute JavaScript to register methods
+        let methods_json: Vec<String> = methods
+            .iter()
+            .map(|m| format!("'{}'", m.replace('\'', "\\'")))
+            .collect();
+
+        let js_code = format!(
+            r#"
+            (function() {{
+                if (window.auroraview && window.auroraview._registerApiMethods) {{
+                    window.auroraview._registerApiMethods('{}', [{}]);
+                }} else {{
+                    console.warn('[AuroraView] Event bridge not ready, API methods will be registered on page load');
+                }}
+            }})();
+            "#,
+            namespace.replace('\'', "\\'"),
+            methods_json.join(", ")
+        );
+
+        // Try to execute immediately (may fail if page not loaded)
+        match self.eval_js(&js_code) {
+            Ok(_) => {
+                tracing::info!("Successfully registered API methods in JavaScript");
+            }
+            Err(e) => {
+                tracing::debug!(
+                    "Could not register API methods immediately (page may not be loaded): {}",
+                    e
+                );
+                // This is OK - methods will be registered when page loads via init script
+            }
+        }
+
+        Ok(())
+    }
+
     /// Close the WebView window
     #[allow(clippy::useless_conversion)]
     fn close(&self) -> PyResult<()> {

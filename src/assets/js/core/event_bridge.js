@@ -158,7 +158,44 @@
         /**
          * Namespace for API methods (populated by Python)
          */
-        api: {}
+        api: {},
+
+        /**
+         * Register API methods dynamically
+         * This is called by Rust/Python to populate window.auroraview.api
+         * @param {string} namespace - Namespace (e.g., "api")
+         * @param {Array<string>} methods - Array of method names
+         */
+        _registerApiMethods: function(namespace, methods) {
+            if (!namespace || !methods || !Array.isArray(methods)) {
+                console.error('[AuroraView] Invalid arguments for _registerApiMethods');
+                return;
+            }
+
+            // Create namespace if it doesn't exist
+            if (!window.auroraview[namespace]) {
+                window.auroraview[namespace] = {};
+            }
+
+            // Create wrapper methods
+            var wrappers = {};
+            for (var i = 0; i < methods.length; i++) {
+                var methodName = methods[i];
+                var fullMethodName = namespace + '.' + methodName;
+
+                // Create closure to capture method name
+                wrappers[methodName] = (function(fullName) {
+                    return function(params) {
+                        return window.auroraview.call(fullName, params);
+                    };
+                })(fullMethodName);
+            }
+
+            // Assign all methods at once
+            Object.assign(window.auroraview[namespace], wrappers);
+
+            console.log('[AuroraView] Registered ' + methods.length + ' methods in window.auroraview.' + namespace);
+        }
     };
 
     console.log('[AuroraView] ✓ Event bridge initialized');

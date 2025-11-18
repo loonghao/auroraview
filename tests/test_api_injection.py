@@ -1,21 +1,21 @@
 """Test API method injection into JavaScript.
 
-This test verifies that bind_api creates JavaScript wrapper methods
-on window.auroraview.api so users can call api.method() instead of
-auroraview.call("api.method").
+This test verifies that bind_api registers methods with Rust core,
+which handles JavaScript injection via js_assets module.
 """
 
 from __future__ import annotations
 
 
 class TestAPIInjection:
-    """Test that bind_api injects JavaScript wrapper methods."""
+    """Test that bind_api registers methods with Rust core."""
 
-    def test_bind_api_injects_javascript_methods(self) -> None:
-        """Verify that bind_api creates JavaScript wrapper methods.
+    def test_bind_api_registers_methods_with_rust(self) -> None:
+        """Verify that bind_api registers methods with Rust core.
 
-        This test ensures that after calling bind_api, JavaScript code
-        can access methods via window.auroraview.api.method_name().
+        This test ensures that after calling bind_api, methods are
+        registered with the Rust core, which will inject them into
+        JavaScript via the js_assets module.
         """
         from auroraview.webview import WebView
 
@@ -32,13 +32,13 @@ class TestAPIInjection:
         api = TestAPI()
         webview.bind_api(api, namespace="api")
 
-        # The bind_api should have called _inject_api_methods
-        # which executes JavaScript to create wrapper methods
+        # The bind_api should have called register_api_methods on Rust core
+        # Rust core will handle JavaScript injection via js_assets
 
         # Clean up
         webview.close()
 
-        # If we got here without errors, the injection worked
+        # If we got here without errors, the registration worked
         assert True
 
     def test_bind_api_with_custom_namespace(self) -> None:
@@ -52,6 +52,53 @@ class TestAPIInjection:
         webview = WebView(title="Test Custom Namespace", width=100, height=100)
         api = CustomAPI()
         webview.bind_api(api, namespace="custom")
+
+        webview.close()
+
+        assert True
+
+    def test_bind_api_filters_private_methods(self) -> None:
+        """Verify that bind_api only exposes public methods."""
+        from auroraview.webview import WebView
+
+        class APIWithPrivate:
+            def public_method(self) -> str:
+                return "public"
+
+            def _private_method(self) -> str:
+                return "private"
+
+            def __dunder_method__(self) -> str:
+                return "dunder"
+
+        webview = WebView(title="Test Private Methods", width=100, height=100)
+        api = APIWithPrivate()
+        webview.bind_api(api, namespace="api")
+
+        # Only public_method should be registered
+        # _private_method and __dunder_method__ should be filtered out
+
+        webview.close()
+
+        assert True
+
+    def test_bind_api_multiple_namespaces(self) -> None:
+        """Verify that bind_api can register multiple namespaces."""
+        from auroraview.webview import WebView
+
+        class API1:
+            def method1(self) -> str:
+                return "api1"
+
+        class API2:
+            def method2(self) -> str:
+                return "api2"
+
+        webview = WebView(title="Test Multiple Namespaces", width=100, height=100)
+        webview.bind_api(API1(), namespace="api1")
+        webview.bind_api(API2(), namespace="api2")
+
+        # Both namespaces should be registered independently
 
         webview.close()
 

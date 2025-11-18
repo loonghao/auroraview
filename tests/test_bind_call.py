@@ -19,12 +19,17 @@ class DummyCore:
     def __init__(self) -> None:
         self.handlers: Dict[str, Callable[[Dict[str, Any]], None]] = {}
         self.emitted: List[Tuple[str, Dict[str, Any]]] = []
+        self.registered_api_methods: Dict[str, List[str]] = {}
 
     def on(self, name: str, callback: Callable[[Dict[str, Any]], None]) -> None:
         self.handlers[name] = callback
 
     def emit(self, name: str, payload: Dict[str, Any]) -> None:
         self.emitted.append((name, payload))
+
+    def register_api_methods(self, namespace: str, methods: List[str]) -> None:
+        """Register API methods (stub for Rust core method)."""
+        self.registered_api_methods[namespace] = methods
 
 
 def make_dummy_webview() -> WebView:
