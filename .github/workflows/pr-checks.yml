@@ -48,6 +48,7 @@ jobs:
           flags: python,unit,py${{ matrix.python-version }},${{ runner.os }}
           fail_ci_if_error: false
           verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
 
   # Code quality checks
@@ -146,6 +147,7 @@ jobs:
           flags: rust
           fail_ci_if_error: false
           verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
 
   # Qt compatibility tests on Windows and macOS (headless)
@@ -209,6 +211,7 @@ jobs:
           flags: python,qt,windows
           fail_ci_if_error: false
           verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   # PR approval gate - all essential checks must pass
   pr-ready:

@@ -200,8 +200,13 @@ ci-test-rust:
     cargo test --doc
 
 ci-test-python:
-    @echo "Running Python unit tests..."
-    uv run pytest tests/ -v --tb=short -m "not slow"
+    @echo "Running Python unit tests with coverage..."
+    uv run pytest tests/ -v --tb=short -m "not slow" \
+        --cov=auroraview \
+        --cov-report=term-missing \
+        --cov-report=html \
+        --cov-report=xml \
+        --cov-fail-under=0
 
 ci-test-basic:
     @echo "Running basic import tests..."

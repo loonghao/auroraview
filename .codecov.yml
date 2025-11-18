@@ -1,28 +1,116 @@
+# Codecov Configuration for AuroraView
+# https://docs.codecov.com/docs/codecov-yaml
+
+# Coverage targets and thresholds
 coverage:
+  precision: 2  # 2 decimal places
+  round: down
+  range: 70..100  # Green at 70%+, red below
+
   status:
+    # Overall project coverage
     project:
       default:
-        target: 50%
-        threshold: 2%
+        target: 70%  # Target coverage for the entire project
+        threshold: 2%  # Allow 2% drop before failing
+        if_ci_failed: error  # Fail if CI failed
+        informational: false  # Block PR if coverage drops
+
+    # Patch coverage (new code in PR)
     patch:
       default:
-        target: 60%
+        target: 80%  # New code should have higher coverage
+        threshold: 5%  # More lenient for patches
+        if_ci_failed: error
+        informational: false
 
+    # Changes coverage (lines changed in PR)
+    changes:
+      default:
+        target: 80%
+        threshold: 5%
+        if_ci_failed: error
+        informational: true  # Don't block PR, just inform
+
+# Comment configuration
+comment:
+  layout: "header, diff, flags, components, footer"
+  behavior: default  # Update existing comment
+  require_changes: false  # Always comment
+  require_base: false  # Comment even without base
+  require_head: true  # Require head commit
+
+# Flag configuration for different test types
 flags:
+  # Python coverage
   python:
     paths:
       - python/
-      - tests/
+    carryforward: true  # Carry forward if missing
+
+  # Rust coverage
   rust:
     paths:
       - src/
+    carryforward: true
 
+  # Unit tests
+  unit:
+    carryforward: true
+
+  # Qt tests
+  qt:
+    carryforward: true
+
+  # Windows-specific
+  windows:
+    carryforward: true
+
+# Component configuration
+component_management:
+  individual_components:
+    # Python components
+    - component_id: python_core
+      name: Python Core
+      paths:
+        - python/auroraview/*.py
+      flag_regexes:
+        - python
+
+    # Rust components
+    - component_id: rust_core
+      name: Rust Core
+      paths:
+        - src/**/*.rs
+      flag_regexes:
+        - rust
+
+    # Qt integration
+    - component_id: qt_integration
+      name: Qt Integration
+      paths:
+        - python/auroraview/qt_integration.py
+      flag_regexes:
+        - qt
+
+# Ignore paths
 ignore:
-  - "**/__pycache__/"
   - "tests/"
+  - "examples/"
+  - "docs/"
+  - "*.md"
+  - "*.toml"
+  - "*.yml"
+  - "*.yaml"
+  - ".github/"
+  - "scripts/"
+  - "python/auroraview/_version.py"  # Auto-generated
 
-comment:
-  layout: "reach,diff,flags,tree"
-  behavior: default
-  require_changes: false
+# GitHub checks
+github_checks:
+  annotations: true  # Add annotations to PR
+
+# Codecov AI (if enabled)
+codecov_ai:
+  enabled: true
 

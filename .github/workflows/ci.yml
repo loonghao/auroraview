@@ -40,6 +40,16 @@ jobs:
           test-type: 'basic'
           generate-stubs: 'true'
 
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.10'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          flags: python,unit,py${{ matrix.python-version }},${{ runner.os }}
+          fail_ci_if_error: false
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   # Code quality and linting - runs on every PR
   lint:
     name: Code Quality
@@ -90,6 +100,16 @@ jobs:
           test-type: 'full'
           upload-artifacts: 'true'
           artifact-name: 'full-test-results-${{ matrix.os }}-py${{ matrix.python-version }}'
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.10'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          flags: python,unit,py${{ matrix.python-version }},${{ runner.os }}
+          fail_ci_if_error: false
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   # Wheel testing - only for critical combinations
   wheel-test:
