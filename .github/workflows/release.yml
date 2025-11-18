@@ -118,7 +118,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           filter-author: (loonghao|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
-          filter: '[R|r]elease[d]\\s+[v|V]\\d(\\.\\d+){0,2}'
+          filter: ''
           template: |
             ## Bugs
             {{fix}}
@@ -130,8 +130,7 @@ jobs:
             {{refactor,perf,clean}}
 
             ## Misc
-            {{chore,style,ci}}
-            🔧 Nothing change}}
+            {{chore,style,ci,build||🔧 Nothing changed}}
 
             ## Unknown
             {{__unknown__}}
