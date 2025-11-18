@@ -623,8 +623,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "linux"))]
     fn test_native_backend_create_delegates_to_standalone_when_no_parent() {
         // This test verifies that create() delegates to create_standalone when no parent_hwnd
+        // Note: Skipped on Linux because EventLoop must be created on main thread
         let config = WebViewConfig {
             parent_hwnd: None,
             ..Default::default()
