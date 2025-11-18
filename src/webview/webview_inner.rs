@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
 
+use super::backend::WebViewBackend;
 use super::config::WebViewConfig;
 use super::event_loop::{EventLoopState, UserEvent, WebViewEventHandler};
 use super::lifecycle::LifecycleManager;
@@ -201,6 +202,9 @@ impl WebViewInner {
         let webview = backend.webview();
 
         tracing::info!("[OK] [create_for_dcc] Keeping backend alive to prevent window destruction");
+        tracing::info!(
+            "[OK] [create_for_dcc] process_events() will delegate to backend.process_events()"
+        );
 
         Ok(Self {
             webview,
@@ -636,6 +640,13 @@ impl WebViewInner {
                 reason
             );
             return true;
+        }
+
+        // CRITICAL: If backend exists (DCC mode), delegate to backend.process_events()
+        // This ensures Windows messages are processed even when self.window is None
+        if let Some(backend) = &self.backend {
+            tracing::trace!("[process_events] Delegating to backend.process_events()");
+            return backend.process_events();
         }
 
         // Use platform-specific manager if available
