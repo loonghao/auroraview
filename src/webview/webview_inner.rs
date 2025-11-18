@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
 
+#[cfg(target_os = "windows")]
 use super::backend::WebViewBackend;
 use super::config::WebViewConfig;
 use super::event_loop::{EventLoopState, UserEvent, WebViewEventHandler};

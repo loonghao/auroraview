@@ -34,6 +34,17 @@ pub struct NativeBackend {
     message_queue: Arc<MessageQueue>,
 }
 
+impl std::fmt::Debug for NativeBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NativeBackend")
+            .field("webview", &"Arc<Mutex<WryWebView>>")
+            .field("window", &self.window.is_some())
+            .field("event_loop", &self.event_loop.is_some())
+            .field("message_queue", &"Arc<MessageQueue>")
+            .finish()
+    }
+}
+
 impl Drop for NativeBackend {
     fn drop(&mut self) {
         tracing::warn!("[DROP] NativeBackend is being dropped!");
