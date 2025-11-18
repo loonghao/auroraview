@@ -570,6 +570,9 @@ class WebView:
         self._stored_html = None
         self._core.load_url(url)
 
+        # Schedule API injection after page load
+        self._schedule_api_injection()
+
     def load_html(self, html: str) -> None:
         """Load HTML content in the WebView.
 
@@ -583,6 +586,9 @@ class WebView:
         self._stored_html = html
         self._stored_url = None
         self._core.load_html(html)
+
+        # Schedule API injection after page load
+        self._schedule_api_injection()
 
     def load_file(self, path: Union[str, Path]) -> None:
         """Load a local HTML file via a ``file://`` URL.
@@ -915,6 +921,9 @@ class WebView:
         This creates convenience methods on window.auroraview.api so that
         users can call api.method() instead of auroraview.call("api.method").
 
+        The injection is deferred until the page is loaded to ensure
+        window.auroraview is available.
+
         Args:
             namespace: API namespace (e.g., "api")
             method_names: List of method names to create
@@ -942,20 +951,54 @@ class WebView:
                 window.auroraview.{namespace} = {{}};
             }}
             Object.assign(window.auroraview.{namespace}, {{
-                {','.join(js_methods)}
+                {",".join(js_methods)}
             }});
             console.log('[AuroraView] Injected {len(method_names)} methods into window.auroraview.{namespace}');
         }})();
         """
 
-        # Execute the JavaScript
+        # Store the injection code to be executed after page load
+        if not hasattr(self, "_pending_api_injections"):
+            self._pending_api_injections = []
+        self._pending_api_injections.append(js_code)
+
+        # Try to inject immediately if page is already loaded
         try:
             self.eval_js(js_code)
             logger.info(
                 "Injected %d API methods into window.auroraview.%s", len(method_names), namespace
             )
         except Exception as e:
-            logger.warning("Failed to inject API methods: %s", e)
+            logger.debug("Deferred API injection (page not ready): %s", e)
+
+    def _schedule_api_injection(self) -> None:
+        """Schedule pending API injections to run after page load.
+
+        This registers a one-time handler for the 'first_paint' event
+        which is triggered when the page finishes loading.
+        """
+        if not hasattr(self, "_pending_api_injections") or not self._pending_api_injections:
+            return
+
+        # Create a one-time handler for page load
+        def inject_pending_apis(data: Any) -> None:  # noqa: ARG001
+            """Execute all pending API injections."""
+            if not hasattr(self, "_pending_api_injections"):
+                return
+
+            for js_code in self._pending_api_injections:
+                try:
+                    self.eval_js(js_code)
+                    logger.info("Executed deferred API injection")
+                except Exception as e:
+                    logger.warning("Failed to execute deferred API injection: %s", e)
+
+            # Clear pending injections
+            self._pending_api_injections = []
+
+        # Register handler for first_paint event (triggered after page load)
+        self.register_callback("first_paint", inject_pending_apis)
+        logger.debug("Scheduled API injection for page load")
 
     def wait(self, timeout: Optional[float] = None) -> bool:
         """Wait for the WebView to close.
