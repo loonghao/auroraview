@@ -183,4 +183,13 @@ def show_auroraview_maya_dialog() -> None:
     dlg.show()
 
 
-show_auroraview_maya_dialog()
+# Convenience function for direct execution
+def maya_qt_echo_demo() -> None:
+    """Convenience function to show the Maya Qt echo demo.
+
+    This can be called as::
+
+        from examples import maya_qt_echo_demo
+        maya_qt_echo_demo()
+    """
+    show_auroraview_maya_dialog()
