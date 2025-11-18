@@ -10,7 +10,6 @@ These tests require Qt dependencies to be installed:
     pip install auroraview[qt]
 """
 
-
 import pytest
 
 # Check if Qt is available
@@ -148,4 +147,3 @@ class TestMayaQtEchoDemoClasses:
             assert AuroraViewMayaDialog is not None
         except ImportError as e:
             pytest.skip(f"Maya dependencies not available: {e}")
-
