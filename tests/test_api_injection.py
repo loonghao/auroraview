@@ -56,4 +56,3 @@ class TestAPIInjection:
         webview.close()
 
         assert True
-
