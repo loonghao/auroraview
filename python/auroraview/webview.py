@@ -891,6 +891,7 @@ class WebView:
             namespace: Logical namespace prefix used on the JS side (default: "api").
         """
 
+        method_names = []
         for name in dir(api):
             if name.startswith("_"):
                 continue
@@ -901,7 +902,60 @@ class WebView:
 
             method_name = f"{namespace}.{name}"
             self.bind_call(method_name, attr)
+            method_names.append(name)
             logger.info("Bound auroraview.call handler via bind_api: %s", method_name)
+
+        # Inject JavaScript to create wrapper methods on window.auroraview.api
+        if method_names:
+            self._inject_api_methods(namespace, method_names)
+
+    def _inject_api_methods(self, namespace: str, method_names: list[str]) -> None:
+        """Inject JavaScript wrapper methods for API methods.
+
+        This creates convenience methods on window.auroraview.api so that
+        users can call api.method() instead of auroraview.call("api.method").
+
+        Args:
+            namespace: API namespace (e.g., "api")
+            method_names: List of method names to create
+        """
+        # Build JavaScript to create wrapper methods
+        js_methods = []
+        for name in method_names:
+            # Create a wrapper function that calls auroraview.call
+            js_methods.append(
+                f"""
+                {name}: function(params) {{
+                    return window.auroraview.call('{namespace}.{name}', params);
+                }}
+                """
+            )
+
+        # Inject the methods into window.auroraview.api
+        js_code = f"""
+        (function() {{
+            if (!window.auroraview) {{
+                console.error('[AuroraView] window.auroraview not found! Event bridge may not be initialized.');
+                return;
+            }}
+            if (!window.auroraview.{namespace}) {{
+                window.auroraview.{namespace} = {{}};
+            }}
+            Object.assign(window.auroraview.{namespace}, {{
+                {','.join(js_methods)}
+            }});
+            console.log('[AuroraView] Injected {len(method_names)} methods into window.auroraview.{namespace}');
+        }})();
+        """
+
+        # Execute the JavaScript
+        try:
+            self.eval_js(js_code)
+            logger.info(
+                "Injected %d API methods into window.auroraview.%s", len(method_names), namespace
+            )
+        except Exception as e:
+            logger.warning("Failed to inject API methods: %s", e)
 
     def wait(self, timeout: Optional[float] = None) -> bool:
         """Wait for the WebView to close.
