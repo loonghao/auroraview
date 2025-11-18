@@ -10,7 +10,6 @@ These tests require Qt dependencies to be installed:
     pip install auroraview[qt]
 """
 
-import sys
 
 import pytest
 
@@ -35,7 +34,7 @@ class TestMayaQtEchoDemoModule:
         """Test that maya_qt_echo_demo can be imported from examples package."""
         try:
             from examples import maya_qt_echo_demo
-            
+
             assert maya_qt_echo_demo is not None
             assert callable(maya_qt_echo_demo)
         except ImportError as e:
@@ -46,7 +45,7 @@ class TestMayaQtEchoDemoModule:
         """Test that maya_qt_echo_demo function is exported in examples.__init__."""
         try:
             import examples
-            
+
             assert hasattr(examples, "maya_qt_echo_demo")
             assert callable(examples.maya_qt_echo_demo)
         except ImportError as e:
@@ -56,7 +55,7 @@ class TestMayaQtEchoDemoModule:
         """Test that show_auroraview_maya_dialog function is exported."""
         try:
             import examples
-            
+
             assert hasattr(examples, "show_auroraview_maya_dialog")
             assert callable(examples.show_auroraview_maya_dialog)
         except ImportError as e:
@@ -64,18 +63,18 @@ class TestMayaQtEchoDemoModule:
 
     def test_module_does_not_auto_execute(self):
         """Test that importing the module does not auto-execute the dialog.
-        
+
         This is a regression test for the issue where the module would
         immediately call show_auroraview_maya_dialog() on import.
         """
         try:
             # Import the module - this should NOT create any dialogs
             from examples import maya_qt_echo_demo
-            
+
             # If we get here without errors, the module imported successfully
             # without auto-executing
             assert callable(maya_qt_echo_demo)
-            
+
         except ImportError as e:
             pytest.skip(f"Maya dependencies not available: {e}")
         except Exception as e:
@@ -94,7 +93,7 @@ class TestMayaQtEchoDemoFunctionSignature:
         """Test that maya_qt_echo_demo is a callable function."""
         try:
             from examples.maya_qt_echo_demo import maya_qt_echo_demo
-            
+
             assert callable(maya_qt_echo_demo)
         except ImportError as e:
             pytest.skip(f"Maya dependencies not available: {e}")
@@ -103,7 +102,7 @@ class TestMayaQtEchoDemoFunctionSignature:
         """Test that show_auroraview_maya_dialog is a callable function."""
         try:
             from examples.maya_qt_echo_demo import show_auroraview_maya_dialog
-            
+
             assert callable(show_auroraview_maya_dialog)
         except ImportError as e:
             pytest.skip(f"Maya dependencies not available: {e}")
@@ -112,7 +111,7 @@ class TestMayaQtEchoDemoFunctionSignature:
         """Test that maya_qt_echo_demo has proper documentation."""
         try:
             from examples.maya_qt_echo_demo import maya_qt_echo_demo
-            
+
             assert maya_qt_echo_demo.__doc__ is not None
             assert len(maya_qt_echo_demo.__doc__.strip()) > 0
         except ImportError as e:
@@ -122,7 +121,7 @@ class TestMayaQtEchoDemoFunctionSignature:
         """Test that show_auroraview_maya_dialog has proper documentation."""
         try:
             from examples.maya_qt_echo_demo import show_auroraview_maya_dialog
-            
+
             assert show_auroraview_maya_dialog.__doc__ is not None
             assert len(show_auroraview_maya_dialog.__doc__.strip()) > 0
         except ImportError as e:
@@ -136,7 +135,7 @@ class TestMayaQtEchoDemoClasses:
         """Test that _ShelfAPI class exists."""
         try:
             from examples.maya_qt_echo_demo import _ShelfAPI
-            
+
             assert _ShelfAPI is not None
         except ImportError as e:
             pytest.skip(f"Maya dependencies not available: {e}")
@@ -145,7 +144,7 @@ class TestMayaQtEchoDemoClasses:
         """Test that AuroraViewMayaDialog class exists."""
         try:
             from examples.maya_qt_echo_demo import AuroraViewMayaDialog
-            
+
             assert AuroraViewMayaDialog is not None
         except ImportError as e:
             pytest.skip(f"Maya dependencies not available: {e}")
