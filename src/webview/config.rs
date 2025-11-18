@@ -85,6 +85,10 @@ pub struct WebViewConfig {
     /// Custom protocol handlers (scheme -> callback)
     #[allow(clippy::type_complexity)]
     pub custom_protocols: HashMap<String, ProtocolCallback>,
+
+    /// API methods to register (namespace -> method names)
+    /// Used to dynamically inject JavaScript wrapper methods
+    pub api_methods: HashMap<String, Vec<String>>,
 }
 
 // Manual Debug implementation (ProtocolCallback doesn't implement Debug)
@@ -118,6 +122,7 @@ impl std::fmt::Debug for WebViewConfig {
                 "custom_protocols",
                 &format!("{} protocols", self.custom_protocols.len()),
             )
+            .field("api_methods", &self.api_methods)
             .finish()
     }
 }
@@ -146,6 +151,7 @@ impl Default for WebViewConfig {
             embed_mode: EmbedMode::None,
             asset_root: None,
             custom_protocols: HashMap::new(),
+            api_methods: HashMap::new(),
         }
     }
 }

@@ -75,10 +75,67 @@ pub fn build_init_script(config: &WebViewConfig) -> String {
         script.push('\n');
     }
 
+    // API method registration
+    if !config.api_methods.is_empty() {
+        tracing::info!(
+            "[js_assets] Registering API methods: {:?}",
+            config.api_methods
+        );
+        script.push_str(&build_api_registration_script(&config.api_methods));
+        script.push('\n');
+    }
+
     tracing::debug!(
         "[js_assets] Built initialization script: {} bytes",
         script.len()
     );
+
+    script
+}
+
+/// Build API registration script
+///
+/// Generates JavaScript code to register API methods using the
+/// window.auroraview._registerApiMethods helper function.
+///
+/// # Arguments
+///
+/// * `api_methods` - Map of namespace to method names
+///
+/// # Returns
+///
+/// JavaScript code that registers all API methods
+fn build_api_registration_script(
+    api_methods: &std::collections::HashMap<String, Vec<String>>,
+) -> String {
+    let mut script = String::new();
+
+    script.push_str("// Auto-generated API method registration\n");
+    script.push_str("(function() {\n");
+    script.push_str("    if (!window.auroraview || !window.auroraview._registerApiMethods) {\n");
+    script.push_str("        console.error('[AuroraView] Event bridge not initialized!');\n");
+    script.push_str("        return;\n");
+    script.push_str("    }\n\n");
+
+    for (namespace, methods) in api_methods {
+        if methods.is_empty() {
+            continue;
+        }
+
+        // Build JSON array of method names
+        let methods_json: Vec<String> = methods
+            .iter()
+            .map(|m| format!("'{}'", m.replace('\'', "\\'")))
+            .collect();
+
+        script.push_str(&format!(
+            "    window.auroraview._registerApiMethods('{}', [{}]);\n",
+            namespace.replace('\'', "\\'"),
+            methods_json.join(", ")
+        ));
+    }
+
+    script.push_str("})();\n");
 
     script
 }
