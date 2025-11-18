@@ -246,19 +246,16 @@ impl NativeBackend {
     /// This method creates a WebView that integrates with DCC applications (Maya, Houdini, etc.)
     /// by reusing the DCC's Qt message pump instead of creating its own event loop.
     ///
-    /// Key differences from embedded mode:
-    /// - Does NOT run an event loop (avoids conflicts with DCC's Qt event loop)
-    /// - Relies on DCC's message pump to process WebView messages
-    /// - Requires periodic calls to `process_messages()` from Qt timer
+    /// The method now properly supports embedding into Qt widgets using EmbedMode::Child.
     ///
     /// # Arguments
-    /// * `parent_hwnd` - HWND of the DCC main window
-    /// * `config` - WebView configuration
+    /// * `parent_hwnd` - HWND of the DCC main window or Qt widget
+    /// * `config` - WebView configuration (use embed_mode to control embedding behavior)
     /// * `ipc_handler` - IPC message handler
     /// * `message_queue` - Message queue for cross-thread communication
     ///
     /// # Returns
-    /// A NativeBackend instance without an event loop
+    /// A NativeBackend instance without running event loop
     #[cfg(target_os = "windows")]
     pub fn create_for_dcc(
         parent_hwnd: u64,
@@ -267,115 +264,15 @@ impl NativeBackend {
         message_queue: Arc<MessageQueue>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         tracing::info!(
-            "[OK] [NativeBackend::create_for_dcc] Creating WebView for DCC integration (parent_hwnd: {})",
-            parent_hwnd
+            "[OK] [NativeBackend::create_for_dcc] Creating WebView for DCC integration (parent_hwnd: {}, mode: {:?})",
+            parent_hwnd,
+            config.embed_mode
         );
         tracing::info!("[OK] This WebView will NOT run its own event loop");
         tracing::info!("[OK] DCC's Qt message pump will handle all messages");
 
-        // Create a temporary event loop ONLY for window creation
-        // This event loop will NOT be run - it's just needed for window creation
-        let event_loop = {
-            use tao::platform::windows::EventLoopBuilderExtWindows;
-            EventLoopBuilder::<UserEvent>::with_user_event()
-                .with_any_thread(true)
-                .build()
-        };
-
-        // Create window builder - create as a normal window, not a child
-        let window_builder = WindowBuilder::new()
-            .with_title(&config.title)
-            .with_inner_size(tao::dpi::LogicalSize::new(config.width, config.height))
-            .with_resizable(config.resizable)
-            .with_decorations(config.decorations)
-            .with_always_on_top(config.always_on_top)
-            .with_transparent(config.transparent);
-
-        tracing::info!("[OK] Creating independent window for DCC integration");
-
-        // Build window
-        let window = window_builder
-            .build(&event_loop)
-            .map_err(|e| format!("Failed to create window: {}", e))?;
-
-        // DON'T set owner relationship - keep window completely independent
-        // Setting owner causes the window to be destroyed when owner is minimized/closed
-        #[cfg(target_os = "windows")]
-        {
-            tracing::info!(
-                "[OK] Creating independent window (no owner relationship) for DCC integration"
-            );
-            tracing::info!("[OK] Window will be independent but user can manage it manually");
-        }
-
-        // Log window HWND
-        #[cfg(target_os = "windows")]
-        {
-            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-            if let Ok(window_handle) = window.window_handle() {
-                let raw_handle = window_handle.as_raw();
-                if let RawWindowHandle::Win32(handle) = raw_handle {
-                    let hwnd_value = handle.hwnd.get();
-                    tracing::info!(
-                        "[OK] [NativeBackend::create_for_dcc] Window created: HWND 0x{:X}",
-                        hwnd_value
-                    );
-                }
-            }
-        }
-
-        // Create WebView with IPC handler FIRST (before showing window)
-        let webview = Self::create_webview(&window, &config, ipc_handler)?;
-
-        // NOW make window visible (after WebView is created)
-        window.set_visible(true);
-
-        // Additional Windows API calls to ensure window is shown
-        #[cfg(target_os = "windows")]
-        {
-            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-            use std::ffi::c_void;
-            use windows::Win32::Foundation::HWND;
-            use windows::Win32::UI::WindowsAndMessaging::{
-                SetForegroundWindow, ShowWindow, SW_SHOW,
-            };
-
-            if let Ok(window_handle) = window.window_handle() {
-                let raw_handle = window_handle.as_raw();
-                if let RawWindowHandle::Win32(handle) = raw_handle {
-                    let hwnd_value = handle.hwnd.get();
-                    let hwnd = HWND(hwnd_value as *mut c_void);
-
-                    unsafe {
-                        // Show the window
-                        let _ = ShowWindow(hwnd, SW_SHOW);
-                        // Bring to foreground
-                        let _ = SetForegroundWindow(hwnd);
-                    }
-
-                    tracing::info!(
-                        "[OK] [NativeBackend::create_for_dcc] Window shown: HWND 0x{:X}",
-                        hwnd_value
-                    );
-                }
-            }
-        }
-
-        tracing::info!("[OK] [NativeBackend::create_for_dcc] WebView created successfully");
-        tracing::info!("[OK] Remember to call process_messages() periodically from Qt timer!");
-
-        // CRITICAL: We MUST keep the event_loop alive!
-        // If we drop it, tao will destroy the window.
-        // We store it but never run it - DCC's Qt message pump will handle messages.
-        tracing::info!("[OK] Storing event_loop (will NOT run it, DCC handles messages)");
-
-        #[allow(clippy::arc_with_non_send_sync)]
-        Ok(Self {
-            webview: Arc::new(Mutex::new(webview)),
-            window: Some(window),
-            event_loop: Some(event_loop), // KEEP event_loop alive!
-            message_queue,
-        })
+        // Delegate to create_embedded which now handles all embedding modes
+        Self::create_embedded(parent_hwnd, config, ipc_handler, message_queue)
     }
 
     /// Create WebView for DCC integration (non-Windows platforms)
