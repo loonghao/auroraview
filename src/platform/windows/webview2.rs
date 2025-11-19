@@ -117,7 +117,7 @@ pub mod win {
     fn pump_windows_messages() {
         unsafe {
             let mut msg = MSG::default();
-            while PeekMessageW(&mut msg, HWND_WIN(std::ptr::null_mut()), 0, 0, PM_REMOVE).into() {
+            while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
                 let _ = TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             }

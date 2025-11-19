@@ -62,7 +62,7 @@ impl ParentWindowMonitor {
 
             while running_clone.load(Ordering::Relaxed) {
                 // Check if parent window is still valid
-                let is_valid = unsafe { IsWindow(hwnd).as_bool() };
+                let is_valid = unsafe { IsWindow(Some(hwnd)).as_bool() };
 
                 if !is_valid {
                     tracing::warn!(

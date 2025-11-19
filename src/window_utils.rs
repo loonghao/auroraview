@@ -189,13 +189,13 @@ pub fn close_window_by_hwnd(_hwnd: u64) -> PyResult<bool> {
     #[cfg(target_os = "windows")]
     {
         use std::ffi::c_void;
-        use windows::Win32::Foundation::HWND;
+        use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
         use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE};
 
         let hwnd_ptr = HWND(_hwnd as *mut c_void);
 
         unsafe {
-            let result = PostMessageW(hwnd_ptr, WM_CLOSE, None, None);
+            let result = PostMessageW(Some(hwnd_ptr), WM_CLOSE, WPARAM(0), LPARAM(0));
             if result.is_ok() {
                 tracing::info!(
                     "[OK] [close_window_by_hwnd] Sent WM_CLOSE to HWND: 0x{:x}",

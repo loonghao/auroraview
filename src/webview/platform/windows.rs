@@ -54,7 +54,7 @@ impl WindowsWindowManager {
             let mut message_count = 0;
 
             // Process all pending messages (non-blocking)
-            while PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool() {
+            while PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_REMOVE).as_bool() {
                 message_count += 1;
 
                 // Log important messages
@@ -200,7 +200,7 @@ impl PlatformWindowManager for WindowsWindowManager {
 
     fn is_window_valid(&self) -> bool {
         let hwnd = self.hwnd();
-        let is_valid = unsafe { IsWindow(hwnd).as_bool() };
+        let is_valid = unsafe { IsWindow(Some(hwnd)).as_bool() };
 
         if !is_valid {
             warn!(
