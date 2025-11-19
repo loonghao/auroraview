@@ -1,11 +1,13 @@
 """Tests for QtEventProcessor strategy pattern."""
 
+import pytest
 import unittest
 from unittest.mock import MagicMock, patch
 
 from auroraview.webview import WebView
 
 
+@pytest.mark.qt
 class TestQtEventProcessor(unittest.TestCase):
     """Test QtEventProcessor strategy pattern."""
 
