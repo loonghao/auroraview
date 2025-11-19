@@ -3,20 +3,26 @@
 ## Problem Summary
 
 ### Issue
-When using `auroraview.call()` in Qt-based DCC applications (Maya, Houdini, Nuke), Promises would hang indefinitely in pending state.
+When using `auroraview.call()` and `webview.emit()` in Qt-based DCC applications (Maya, Houdini, Nuke), Promises would hang indefinitely and events would not be delivered to JavaScript.
 
 ### Root Cause
-1. AuroraView uses a message queue for JavaScript execution
-2. `WebView.eval_js()` pushes scripts to the queue but doesn't process them
-3. In Qt environments without automatic event loops, queued scripts never execute
+1. AuroraView uses a message queue for JavaScript execution and event emission
+2. `WebView.eval_js()` and `WebView.emit()` push messages to the queue but don't process them
+3. In Qt environments without automatic event loops, queued messages never execute
 4. This caused `_emit_call_result_js()` results to never reach JavaScript
 5. Promises waiting for results would hang forever
+6. Events emitted via `emit()` would never reach the frontend
 
 ### Example of the Problem
 ```javascript
-// JavaScript side
+// JavaScript side - auroraview.call()
 const result = await window.auroraview.call("get_scene_hierarchy");
 console.log(result);  // ❌ Never executes - Promise hangs
+
+// JavaScript side - event listener
+window.addEventListener('scene_updated', (e) => {
+    console.log(e.detail);  // ❌ Never executes - event not delivered
+});
 ```
 
 ```python
@@ -25,20 +31,30 @@ console.log(result);  // ❌ Never executes - Promise hangs
 def get_scene_hierarchy(params):
     return {"nodes": [...]}  # ✅ Executes fine
     # ❌ But result never reaches JavaScript!
+
+# Python side - emit event
+webview.emit("scene_updated", {"nodes": [...]})  # ❌ Event queued but never delivered
 ```
 
 ## Solution
 
 ### 1. Automatic Event Processing Hook
 
-Added `_post_eval_js_hook` mechanism to `WebView.eval_js()`:
+Added `_post_eval_js_hook` mechanism to both `WebView.eval_js()` and `WebView.emit()`:
 
 ```python
 # webview.py
 def eval_js(self, script: str) -> None:
     core.eval_js(script)
-    
+
     # NEW: Call hook if it exists
+    if hasattr(self, '_post_eval_js_hook') and callable(self._post_eval_js_hook):
+        self._post_eval_js_hook()
+
+def emit(self, event_name: str, data: Any = None) -> None:
+    core.emit(event_name, data)
+
+    # NEW: Call hook if it exists (ensures emit() behaves consistently with eval_js())
     if hasattr(self, '_post_eval_js_hook') and callable(self._post_eval_js_hook):
         self._post_eval_js_hook()
 ```
@@ -51,7 +67,7 @@ def eval_js(self, script: str) -> None:
 # qt_integration.py
 def __init__(self, ...):
     # ... setup code ...
-    
+
     # NEW: Install automatic event processing
     self._webview._post_eval_js_hook = self._process_pending_events
 ```

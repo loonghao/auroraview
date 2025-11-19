@@ -151,6 +151,9 @@ class WebView:
         self._async_core: Optional[Any] = None
         self._async_core_lock = threading.Lock()
 
+        # Event processor (strategy pattern for UI framework integration)
+        self._event_processor: Optional[Any] = None
+
         # Bridge integration
         self._bridge: Optional["Bridge"] = None  # type: ignore
         if bridge is not None:
@@ -604,14 +607,21 @@ class WebView:
         html_path = Path(path).expanduser().resolve()
         self.load_url(html_path.as_uri())
 
-    def eval_js(self, script: str) -> None:
+    def eval_js(self, script: str, auto_process: bool = True) -> None:
         """Execute JavaScript code in the WebView.
 
         Args:
             script: JavaScript code to execute
+            auto_process: Automatically process message queue after execution (default: True).
+                         Set to False if you want to batch multiple operations.
 
         Example:
             >>> webview.eval_js("console.log('Hello from Python')")
+
+            >>> # Batch multiple operations
+            >>> webview.eval_js("console.log('1')", auto_process=False)
+            >>> webview.eval_js("console.log('2')", auto_process=False)
+            >>> webview.process_events()  # Process all at once
         """
         logger.debug(f"Executing JavaScript: {script[:100]}...")
 
@@ -621,20 +631,26 @@ class WebView:
 
         core.eval_js(script)
 
-        # Call the post-eval hook if it exists (used by Qt integration)
-        # This allows Qt to process the JavaScript execution immediately
-        if hasattr(self, "_post_eval_js_hook") and callable(self._post_eval_js_hook):
-            self._post_eval_js_hook()
+        # Automatically process events to ensure immediate execution
+        if auto_process:
+            self._auto_process_events()
 
-    def emit(self, event_name: str, data: Union[Dict[str, Any], Any] = None) -> None:
+    def emit(self, event_name: str, data: Union[Dict[str, Any], Any] = None, auto_process: bool = True) -> None:
         """Emit an event to JavaScript.
 
         Args:
             event_name: Name of the event
             data: Data to send with the event (will be JSON serialized)
+            auto_process: Automatically process message queue after emission (default: True).
+                         Set to False if you want to batch multiple operations.
 
         Example:
             >>> webview.emit("update_scene", {"objects": ["cube", "sphere"]})
+
+            >>> # Batch multiple events
+            >>> webview.emit("event1", {"data": 1}, auto_process=False)
+            >>> webview.emit("event2", {"data": 2}, auto_process=False)
+            >>> webview.process_events()  # Process all at once
         """
         if data is None:
             data = {}
@@ -663,6 +679,10 @@ class WebView:
 
             logger.error(f"[ERROR] [WebView.emit] Traceback: {traceback.format_exc()}")
             raise
+
+        # Automatically process events to ensure immediate delivery
+        if auto_process:
+            self._auto_process_events()
 
     def on(self, event_name: str) -> Callable:
         """Decorator to register a Python callback for JavaScript events.
@@ -946,6 +966,45 @@ class WebView:
 
         logger.info("WebView closed")
         return True
+
+    def set_event_processor(self, processor: Any) -> None:
+        """Set event processor (strategy pattern for UI framework integration).
+
+        Args:
+            processor: Event processor object with a `process()` method.
+                      This allows UI frameworks (Qt, Tk, etc.) to inject their
+                      event processing logic.
+
+        Example:
+            >>> class QtEventProcessor:
+            ...     def process(self):
+            ...         QCoreApplication.processEvents()
+            ...         webview._core.process_events()
+            >>>
+            >>> processor = QtEventProcessor()
+            >>> webview.set_event_processor(processor)
+        """
+        self._event_processor = processor
+        logger.debug(f"Event processor set: {type(processor).__name__}")
+
+    def _auto_process_events(self) -> None:
+        """Automatically process events after emit() or eval_js().
+
+        This method uses the strategy pattern:
+        1. If an event processor is set, use it (UI framework integration)
+        2. Otherwise, use default implementation (direct Rust call)
+
+        Subclasses can still override this method for custom behavior.
+        """
+        try:
+            if self._event_processor is not None:
+                # Use strategy pattern: delegate to event processor
+                self._event_processor.process()
+            else:
+                # Default implementation: direct Rust call
+                self._core.process_events()
+        except Exception as e:
+            logger.debug(f"Auto process events failed (non-critical): {e}")
 
     def process_events(self) -> bool:
         """Process pending window events.

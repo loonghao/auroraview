@@ -161,7 +161,7 @@ pub fn create_standalone(
 
     // Apply initial content from config if provided
     if let Some(ref url) = config.url {
-        let script = format!("window.location.href = '{}';", url);
+        let script = js_assets::build_load_url_script(url);
         webview.evaluate_script(&script)?;
     } else if let Some(ref html) = config.html {
         webview.load_html(html)?;

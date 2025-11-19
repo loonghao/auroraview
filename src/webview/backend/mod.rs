@@ -44,6 +44,7 @@ use wry::WebView as WryWebView;
 
 use super::config::WebViewConfig;
 use super::event_loop::UserEvent;
+use super::js_assets;
 use crate::ipc::{IpcHandler, MessageQueue};
 
 pub mod native;
@@ -104,7 +105,7 @@ pub trait WebViewBackend {
 
     /// Load a URL
     fn load_url(&mut self, url: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let script = format!("window.location.href = '{}';", url);
+        let script = js_assets::build_load_url_script(url);
         if let Ok(webview) = self.webview().lock() {
             webview.evaluate_script(&script)?;
         }
@@ -133,13 +134,9 @@ pub trait WebViewBackend {
         event_name: &str,
         data: serde_json::Value,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Properly escape JSON data to avoid JavaScript syntax errors
         let json_str = data.to_string();
         let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-        let script = format!(
-            "window.dispatchEvent(new CustomEvent('{}', {{ detail: Object.assign({{}}, {{__aurora_from_python: true}}, JSON.parse('{}')) }}))",
-            event_name, escaped_json
-        );
+        let script = js_assets::build_emit_event_script(event_name, &escaped_json);
         if let Ok(webview) = self.webview().lock() {
             webview.evaluate_script(&script)?;
         }

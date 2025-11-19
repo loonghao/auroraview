@@ -127,6 +127,71 @@ class TestQtWebViewEventProcessing:
         webview.close()
         webview.deleteLater()
 
+    def test_emit_calls_post_eval_hook(self, qapp):
+        """Test that WebView.emit() calls _post_eval_js_hook."""
+        from auroraview import QtWebView
+
+        webview = QtWebView()
+
+        # Track hook calls
+        hook_called = []
+
+        def mock_hook():
+            hook_called.append(True)
+
+        # Install mock hook
+        webview._webview._post_eval_js_hook = mock_hook
+
+        # Emit event
+        webview._webview.emit("test_event", {"data": "test"})
+
+        # Verify hook was called
+        assert len(hook_called) == 1, "emit() should call _post_eval_js_hook"
+
+        # Cleanup
+        webview.close()
+        webview.deleteLater()
+
+    def test_eval_js_calls_post_eval_hook(self, qapp):
+        """Test that WebView.eval_js() calls _post_eval_js_hook."""
+        from auroraview import QtWebView
+
+        webview = QtWebView()
+
+        # Track hook calls
+        hook_called = []
+
+        def mock_hook():
+            hook_called.append(True)
+
+        # Install mock hook
+        webview._webview._post_eval_js_hook = mock_hook
+
+        # Execute JavaScript
+        webview._webview.eval_js("console.log('test')")
+
+        # Verify hook was called
+        assert len(hook_called) == 1, "eval_js() should call _post_eval_js_hook"
+
+        # Cleanup
+        webview.close()
+        webview.deleteLater()
+
+    def test_qtwebview_auto_installs_hook(self, qapp):
+        """Test that QtWebView automatically installs _post_eval_js_hook."""
+        from auroraview import QtWebView
+
+        webview = QtWebView()
+
+        # Verify hook is installed
+        assert hasattr(webview._webview, "_post_eval_js_hook")
+        assert callable(webview._webview._post_eval_js_hook)
+        assert webview._webview._post_eval_js_hook == webview._process_pending_events
+
+        # Cleanup
+        webview.close()
+        webview.deleteLater()
+
 
 class TestQtWebViewAppIntegration:
     """Lightweight tests around Qt-specific integration flags."""

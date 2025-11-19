@@ -161,20 +161,16 @@ impl WebViewBackend for NativeBackend {
                         }
                     }
                     WebViewMessage::EmitEvent { event_name, data } => {
-                        // Properly escape JSON data to avoid JavaScript syntax errors
                         let json_str = data.to_string();
                         let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                        let script = format!(
-                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
-                            event_name, escaped_json
-                        );
+                        let script = js_assets::build_emit_event_script(&event_name, &escaped_json);
                         tracing::debug!("[CLOSE] [NativeBackend] Generated script: {}", script);
                         if let Err(e) = webview.evaluate_script(&script) {
                             tracing::error!("Failed to emit event: {}", e);
                         }
                     }
                     WebViewMessage::LoadUrl(url) => {
-                        let script = format!("window.location.href = '{}';", url);
+                        let script = js_assets::build_load_url_script(&url);
                         if let Err(e) = webview.evaluate_script(&script) {
                             tracing::error!("Failed to load URL: {}", e);
                         }
@@ -574,7 +570,7 @@ impl NativeBackend {
         // Load initial content
         if let Some(ref url) = config.url {
             tracing::info!("[OK] [NativeBackend] Loading URL: {}", url);
-            let script = format!("window.location.href = '{}';", url);
+            let script = js_assets::build_load_url_script(url);
             webview
                 .evaluate_script(&script)
                 .map_err(|e| format!("Failed to load URL: {}", e))?;

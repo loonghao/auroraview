@@ -180,13 +180,21 @@ impl<R: CustomRenderer + 'static> WebViewBackend for CustomBackend<R> {
         event_name: &str,
         data: serde_json::Value,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Emit event by executing JavaScript
-        // Properly escape JSON data to avoid JavaScript syntax errors
+        // Use window.auroraview.trigger() to dispatch events
+        // This ensures compatibility with window.auroraview.on() listeners
         let json_str = data.to_string();
         let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
         let script = format!(
-            "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}))",
-            event_name, escaped_json
+            r#"
+            (function() {{
+                if (window.auroraview && window.auroraview.trigger) {{
+                    window.auroraview.trigger('{}', JSON.parse('{}'));
+                }} else {{
+                    console.error('[AuroraView] Event bridge not ready, cannot emit event: {}');
+                }}
+            }})();
+            "#,
+            event_name, escaped_json, event_name
         );
         self.eval_js(&script)
     }
