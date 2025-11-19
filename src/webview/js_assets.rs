@@ -436,4 +436,92 @@ mod tests {
         let load_script = build_load_url_script("https://example.com");
         assert!(load_script.contains("https://example.com"));
     }
+
+    #[test]
+    fn test_build_api_registration_script() {
+        // Test API registration script generation
+        let mut api_methods = std::collections::HashMap::new();
+        api_methods.insert(
+            "test".to_string(),
+            vec!["method1".to_string(), "method2".to_string()],
+        );
+
+        let script = build_api_registration_script(&api_methods);
+
+        assert!(script.contains("window.auroraview._registerApiMethods"));
+        assert!(script.contains("'test'"));
+        assert!(script.contains("'method1'"));
+        assert!(script.contains("'method2'"));
+    }
+
+    #[test]
+    fn test_build_api_registration_script_empty_methods() {
+        // Test with empty methods list
+        let mut api_methods = std::collections::HashMap::new();
+        api_methods.insert("test".to_string(), vec![]);
+
+        let script = build_api_registration_script(&api_methods);
+
+        // Should not include the namespace with empty methods
+        assert!(!script.contains("'test'"));
+    }
+
+    #[test]
+    fn test_build_api_registration_script_special_chars() {
+        // Test escaping of special characters
+        let mut api_methods = std::collections::HashMap::new();
+        api_methods.insert("test'namespace".to_string(), vec!["method'1".to_string()]);
+
+        let script = build_api_registration_script(&api_methods);
+
+        // Should escape single quotes
+        assert!(script.contains("\\'"));
+    }
+
+    #[test]
+    fn test_build_init_script_with_api_methods() {
+        // Test init script with API methods
+        let mut config = WebViewConfig::default();
+        let mut api_methods = std::collections::HashMap::new();
+        api_methods.insert("test".to_string(), vec!["method1".to_string()]);
+        config.api_methods = api_methods;
+
+        let script = build_init_script(&config);
+
+        assert!(script.contains("window.auroraview._registerApiMethods"));
+        assert!(script.contains("'test'"));
+        assert!(script.contains("'method1'"));
+    }
+
+    #[test]
+    fn test_get_js_registry_contains_all_assets() {
+        // Test that registry contains all expected assets
+        let registry = get_js_registry();
+
+        assert!(registry.contains_key("core/event_bridge.js"));
+        assert!(registry.contains_key("features/context_menu.js"));
+        assert!(registry.contains_key("runtime/emit_event.js"));
+        assert!(registry.contains_key("runtime/load_url.js"));
+        assert_eq!(registry.len(), 4);
+    }
+
+    #[test]
+    fn test_emit_event_script_template_replacement() {
+        // Test that template placeholders are replaced correctly
+        let script = build_emit_event_script("my_event", r#"{"key": "value"}"#);
+
+        assert!(!script.contains("{EVENT_NAME}"));
+        assert!(!script.contains("{EVENT_DATA}"));
+        assert!(script.contains("my_event"));
+        assert!(script.contains(r#"{"key": "value"}"#));
+    }
+
+    #[test]
+    fn test_load_url_script_template_replacement() {
+        // Test that URL template is replaced correctly
+        let script = build_load_url_script("https://example.com/path");
+
+        assert!(!script.contains("{URL}"));
+        assert!(script.contains("https://example.com/path"));
+    }
 }
