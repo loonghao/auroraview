@@ -695,7 +695,7 @@ impl AuroraView {
 
                                         // Process all pending messages for this specific window
                                         while processed_count < max_iterations
-                                            && PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE)
+                                            && PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_REMOVE)
                                                 .as_bool()
                                         {
                                             processed_count += 1;

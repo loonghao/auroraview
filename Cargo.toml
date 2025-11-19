@@ -101,7 +101,7 @@ reqwest = { version = "0.12", features = ["json"] }  # Modern HTTP client
 [target.x86_64-pc-windows-msvc.dependencies]
 # Python linking for Windows tests
 # Windows API for parent window support
-windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi"] }
 winapi = "0.3.9"
 # WebView2 wrapper crate (optional, enabled via feature = "win-webview2")
 webview2 = { version = "0.1.4", optional = true }

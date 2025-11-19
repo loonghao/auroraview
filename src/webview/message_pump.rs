@@ -40,7 +40,7 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
         tracing::trace!("[process_messages_for_hwnd] HWND pointer: {:?}", hwnd);
 
         // Process all pending messages for this specific window (non-blocking)
-        while PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool() {
+        while PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_REMOVE).as_bool() {
             message_count += 1;
 
             // Log close/destroy messages as INFO, others as DEBUG
@@ -69,7 +69,7 @@ pub fn process_messages_for_hwnd(hwnd_value: u64) -> bool {
                 // Aggressive path: destroy window immediately to avoid framework swallowing close
                 let _ = DestroyWindow(hwnd);
                 // Also post WM_CLOSE as a signal for any listeners
-                let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+                let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
                 should_close = true;
                 continue;
             } else if msg.message == WM_CLOSE {
@@ -146,7 +146,7 @@ pub fn process_all_messages() -> bool {
 
         // Process all pending messages for all windows (non-blocking)
         // Pass HWND(null) to process messages for all windows in the current thread
-        while PeekMessageW(&mut msg, HWND(std::ptr::null_mut()), 0, 0, PM_REMOVE).as_bool() {
+        while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
             message_count += 1;
 
             // Log all messages for debugging
@@ -170,7 +170,7 @@ pub fn process_all_messages() -> bool {
             {
                 tracing::info!("[message_pump] Close intent detected (SC_CLOSE/HTCLOSE) -> DestroyWindow + post WM_CLOSE");
                 let _ = DestroyWindow(msg.hwnd);
-                let _ = PostMessageW(msg.hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+                let _ = PostMessageW(Some(msg.hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
                 should_close = true;
                 continue;
             } else if msg.message == WM_CLOSE {
@@ -246,7 +246,7 @@ pub fn process_all_messages_limited(max_messages: usize) -> bool {
         let mut message_count = 0usize;
 
         while message_count < max_messages
-            && PeekMessageW(&mut msg, HWND(std::ptr::null_mut()), 0, 0, PM_REMOVE).as_bool()
+            && PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool()
         {
             message_count += 1;
 
@@ -259,7 +259,7 @@ pub fn process_all_messages_limited(max_messages: usize) -> bool {
                     msg.hwnd
                 );
                 let _ = DestroyWindow(msg.hwnd);
-                let _ = PostMessageW(msg.hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+                let _ = PostMessageW(Some(msg.hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
                 should_close = true;
                 continue;
             } else if msg.message == WM_CLOSE {
@@ -358,7 +358,7 @@ pub fn is_window_valid(hwnd_value: u64) -> bool {
 
     unsafe {
         let hwnd = HWND(hwnd_value as *mut c_void);
-        IsWindow(hwnd).as_bool()
+        IsWindow(Some(hwnd)).as_bool()
     }
 }
 
@@ -393,7 +393,7 @@ pub fn process_messages_enhanced(hwnd_value: u64) -> bool {
         let mut should_close = false;
 
         // Strategy 1: Check window validity first
-        if !IsWindow(hwnd).as_bool() {
+        if !IsWindow(Some(hwnd)).as_bool() {
             tracing::info!("[process_messages_enhanced] Window is no longer valid");
             return true;
         }
@@ -402,7 +402,7 @@ pub fn process_messages_enhanced(hwnd_value: u64) -> bool {
         let mut msg = MSG::default();
         let mut message_count = 0;
 
-        while PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool() {
+        while PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_REMOVE).as_bool() {
             message_count += 1;
 
             if msg.message == WM_CLOSE || msg.message == WM_DESTROY || msg.message == WM_QUIT {
@@ -425,7 +425,7 @@ pub fn process_messages_enhanced(hwnd_value: u64) -> bool {
 
         // Strategy 3: Process thread messages (messages not tied to a specific window)
         // This catches WM_QUIT and other thread-level messages
-        while PeekMessageW(&mut msg, HWND(std::ptr::null_mut()), 0, 0, PM_REMOVE).as_bool() {
+        while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
             message_count += 1;
 
             if msg.message == WM_QUIT {

@@ -100,7 +100,7 @@ impl Drop for WebViewInner {
                                 let max_iterations = 100;
 
                                 while processed_count < max_iterations
-                                    && PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool()
+                                    && PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_REMOVE).as_bool()
                                 {
                                     processed_count += 1;
 

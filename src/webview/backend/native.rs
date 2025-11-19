@@ -103,7 +103,7 @@ impl WebViewBackend for NativeBackend {
                         let hwnd_value = handle.hwnd.get();
                         let hwnd = HWND(hwnd_value as *mut c_void);
 
-                        let is_valid = unsafe { IsWindow(hwnd).as_bool() };
+                        let is_valid = unsafe { IsWindow(Some(hwnd)).as_bool() };
 
                         if !is_valid {
                             tracing::info!("[CLOSE] [NativeBackend::process_events] Window handle invalid - user closed window");

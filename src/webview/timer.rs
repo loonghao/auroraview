@@ -101,7 +101,7 @@ impl Timer {
 
         // Create the timer
         unsafe {
-            let result = SetTimer(hwnd, timer_id, self.interval_ms, None);
+            let result = SetTimer(Some(hwnd), timer_id, self.interval_ms, None);
             if result == 0 {
                 return Err("SetTimer failed".to_string());
             }
@@ -127,7 +127,7 @@ impl Timer {
         if self.backend == TimerBackend::WindowsSetTimer {
             if let (Some(hwnd), Some(timer_id)) = (self.hwnd, self.timer_id) {
                 unsafe {
-                    let _ = KillTimer(hwnd, timer_id);
+                    let _ = KillTimer(Some(hwnd), timer_id);
                 }
             }
             self.hwnd = None;
@@ -173,7 +173,7 @@ impl Timer {
 
         // Process all pending WM_TIMER messages
         unsafe {
-            while PeekMessageW(&mut msg, hwnd, WM_TIMER, WM_TIMER, PM_REMOVE).as_bool() {
+            while PeekMessageW(&mut msg, Some(hwnd), WM_TIMER, WM_TIMER, PM_REMOVE).as_bool() {
                 if msg.wParam.0 == timer_id {
                     // This is our timer message
                     if self.should_tick() {
