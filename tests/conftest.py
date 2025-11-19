@@ -43,6 +43,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "ui: mark test as UI test (requires display)")
     config.addinivalue_line("markers", "slow: mark test as slow running")
     config.addinivalue_line("markers", "maya: mark test as requiring Maya")
+    config.addinivalue_line("markers", "qt: mark test as requiring Qt dependencies")
     config.addinivalue_line("markers", "headless: mark test as headless (no display required)")
 
 
@@ -60,6 +61,10 @@ def pytest_collection_modifyitems(config, items):
         # Auto-mark Maya tests
         if "maya" in item.nodeid.lower():
             item.add_marker(pytest.mark.maya)
+
+        # Auto-mark Qt tests
+        if "test_qt" in item.nodeid.lower() or "qt_" in item.nodeid.lower():
+            item.add_marker(pytest.mark.qt)
 
 
 @pytest.fixture(scope="session", autouse=True)
