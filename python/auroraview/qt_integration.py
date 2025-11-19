@@ -317,8 +317,6 @@ class QtWebView(QWidget):
             "processor_is_correct": isinstance(self._event_processor, QtEventProcessor),
         }
 
-
-
     def _sync_embedded_geometry(self) -> None:
         """Resize the embedded native WebView window to match this QWidget.
 

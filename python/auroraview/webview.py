@@ -635,7 +635,9 @@ class WebView:
         if auto_process:
             self._auto_process_events()
 
-    def emit(self, event_name: str, data: Union[Dict[str, Any], Any] = None, auto_process: bool = True) -> None:
+    def emit(
+        self, event_name: str, data: Union[Dict[str, Any], Any] = None, auto_process: bool = True
+    ) -> None:
         """Emit an event to JavaScript.
 
         Args:
