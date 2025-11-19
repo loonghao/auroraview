@@ -152,41 +152,43 @@ class TestQtWebViewEventProcessing:
         webview.close()
         webview.deleteLater()
 
-    def test_eval_js_calls_post_eval_hook(self, qapp):
-        """Test that WebView.eval_js() calls _post_eval_js_hook."""
+    def test_eval_js_uses_event_processor(self, qapp):
+        """Test that WebView.eval_js() uses event processor strategy."""
         from auroraview import QtWebView
 
         webview = QtWebView()
 
-        # Track hook calls
-        hook_called = []
+        # Track event processor calls
+        process_called = []
+        original_process = webview._event_processor.process
 
-        def mock_hook():
-            hook_called.append(True)
+        def mock_process():
+            process_called.append(True)
+            original_process()
 
-        # Install mock hook
-        webview._webview._post_eval_js_hook = mock_hook
+        webview._event_processor.process = mock_process
 
         # Execute JavaScript
         webview._webview.eval_js("console.log('test')")
 
-        # Verify hook was called
-        assert len(hook_called) == 1, "eval_js() should call _post_eval_js_hook"
+        # Verify event processor was called
+        assert len(process_called) == 1, "eval_js() should trigger event processor"
 
         # Cleanup
         webview.close()
         webview.deleteLater()
 
-    def test_qtwebview_auto_installs_hook(self, qapp):
-        """Test that QtWebView automatically installs _post_eval_js_hook."""
+    def test_qtwebview_auto_installs_event_processor(self, qapp):
+        """Test that QtWebView automatically installs QtEventProcessor."""
         from auroraview import QtWebView
+        from auroraview.qt_integration import QtEventProcessor
 
         webview = QtWebView()
 
-        # Verify hook is installed
-        assert hasattr(webview._webview, "_post_eval_js_hook")
-        assert callable(webview._webview._post_eval_js_hook)
-        assert webview._webview._post_eval_js_hook == webview._process_pending_events
+        # Verify event processor is installed
+        assert hasattr(webview, "_event_processor")
+        assert isinstance(webview._event_processor, QtEventProcessor)
+        assert webview._webview._event_processor is webview._event_processor
 
         # Cleanup
         webview.close()

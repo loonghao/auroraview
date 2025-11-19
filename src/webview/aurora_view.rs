@@ -1020,3 +1020,195 @@ impl Drop for AuroraView {
         // which will close the window
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_aurora_view_config_creation() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let result = AuroraView::new(
+                "Test WebView",
+                800,
+                600,
+                None,
+                None,
+                true,
+                true,
+                true,
+                true,
+                None,
+                None,
+                None,
+            );
+            assert!(result.is_ok());
+            let webview = result.unwrap();
+            let config = webview.config.borrow();
+            assert_eq!(config.title, "Test WebView");
+            assert_eq!(config.width, 800);
+            assert_eq!(config.height, 600);
+        });
+    }
+
+    #[test]
+    fn test_aurora_view_with_url() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let result = AuroraView::new(
+                "URL Test",
+                1024,
+                768,
+                Some("https://example.com"),
+                None,
+                false,
+                false,
+                false,
+                false,
+                None,
+                None,
+                None,
+            );
+            assert!(result.is_ok());
+            let config = result.unwrap().config.borrow().clone();
+            assert_eq!(config.url, Some("https://example.com".to_string()));
+        });
+    }
+
+    #[test]
+    fn test_load_url_stores_in_config() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let webview = AuroraView::new(
+                "Test", 800, 600, None, None, true, true, true, true, None, None, None,
+            )
+            .unwrap();
+            let result = webview.load_url("https://test.com");
+            assert!(result.is_ok());
+            let config = webview.config.borrow();
+            assert_eq!(config.url, Some("https://test.com".to_string()));
+        });
+    }
+
+    #[test]
+    fn test_eval_js_queues_message() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let webview = AuroraView::new(
+                "Test", 800, 600, None, None, true, true, true, true, None, None, None,
+            )
+            .unwrap();
+            let result = webview.eval_js("console.log('test')");
+            assert!(result.is_ok());
+            assert!(!webview.message_queue.is_empty());
+        });
+    }
+
+    #[test]
+    fn test_emit_queues_event_message() {
+        Python::initialize();
+        Python::attach(|py| {
+            let webview = AuroraView::new(
+                "Test", 800, 600, None, None, true, true, true, true, None, None, None,
+            )
+            .unwrap();
+            let dict = PyDict::new(py);
+            dict.set_item("key", "value").unwrap();
+            let result = webview.emit("test_event", &dict);
+            assert!(result.is_ok());
+            assert!(!webview.message_queue.is_empty());
+        });
+    }
+
+    #[test]
+    fn test_repr() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let webview = AuroraView::new(
+                "My WebView",
+                1024,
+                768,
+                None,
+                None,
+                true,
+                true,
+                true,
+                true,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            let repr = webview.__repr__();
+            assert!(repr.contains("My WebView"));
+            assert!(repr.contains("1024"));
+            assert!(repr.contains("768"));
+        });
+    }
+
+    #[test]
+    fn test_message_queue_initialization() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let webview = AuroraView::new(
+                "Test", 800, 600, None, None, true, true, true, true, None, None, None,
+            )
+            .unwrap();
+            assert!(webview.message_queue.is_empty());
+            assert_eq!(webview.message_queue.len(), 0);
+        });
+    }
+
+    #[test]
+    fn test_load_html_clears_url() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let webview = AuroraView::new(
+                "Test",
+                800,
+                600,
+                Some("https://example.com"),
+                None,
+                true,
+                true,
+                true,
+                true,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            webview.load_html("<h1>HTML</h1>").unwrap();
+            let config = webview.config.borrow();
+            assert_eq!(config.html, Some("<h1>HTML</h1>".to_string()));
+            assert_eq!(config.url, None);
+        });
+    }
+
+    #[test]
+    fn test_load_url_clears_html() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let webview = AuroraView::new(
+                "Test",
+                800,
+                600,
+                None,
+                Some("<h1>HTML</h1>"),
+                true,
+                true,
+                true,
+                true,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            webview.load_url("https://example.com").unwrap();
+            let config = webview.config.borrow();
+            assert_eq!(config.url, Some("https://example.com".to_string()));
+            assert_eq!(config.html, None);
+        });
+    }
+}
