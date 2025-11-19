@@ -69,7 +69,7 @@ impl MdnsService {
         let service_info = MdnsServiceInfo::new(
             SERVICE_TYPE,
             instance_name,
-            "localhost.",
+            "localhost.local.",
             "", // No specific host
             port,
             &properties[..],
