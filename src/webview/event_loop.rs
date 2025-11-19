@@ -14,6 +14,7 @@ use tao::window::Window;
 use wry::WebView as WryWebView;
 
 use crate::ipc::{MessageQueue, WebViewMessage};
+use crate::webview::js_assets;
 
 /// Custom user event for waking up the event loop
 #[derive(Debug, Clone)]
@@ -201,36 +202,22 @@ impl WebViewEventHandler {
                                             }
                                         }
                                         WebViewMessage::EmitEvent { event_name, data } => {
-                                            tracing::info!("[OK] [EventLoop] Emitting event: {}", event_name);
-                                            // Properly escape JSON data to avoid JavaScript syntax errors
                                             let json_str = data.to_string();
                                             let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                            let script = format!(
-                                                "window.dispatchEvent(new CustomEvent('{}', {{ detail: Object.assign({{}}, {{__aurora_from_python: true}}, JSON.parse('{}')) }}))",
-                                                event_name, escaped_json
-                                            );
-                                            tracing::debug!("[CLOSE] [EventLoop] Generated script: {}", script);
+                                            let script = js_assets::build_emit_event_script(&event_name, &escaped_json);
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("[ERROR] [EventLoop] Failed to emit event: {}", e);
-                                            } else {
-                                                tracing::info!("[OK] [EventLoop] Event emitted successfully");
+                                                tracing::error!("Failed to emit event '{}': {}", event_name, e);
                                             }
                                         }
                                         WebViewMessage::LoadUrl(url) => {
-                                            tracing::info!("[OK] [EventLoop] Loading URL: {}", url);
-                                            let script = format!("window.location.href = '{}';", url);
+                                            let script = js_assets::build_load_url_script(&url);
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("[ERROR] [EventLoop] Failed to load URL: {}", e);
-                                            } else {
-                                                tracing::info!("[OK] [EventLoop] URL loaded successfully");
+                                                tracing::error!("Failed to load URL '{}': {}", url, e);
                                             }
                                         }
                                         WebViewMessage::LoadHtml(html) => {
-                                            tracing::info!("[OK] [EventLoop] Loading HTML ({} bytes)", html.len());
                                             if let Err(e) = webview.load_html(&html) {
-                                                tracing::error!("[ERROR] [EventLoop] Failed to load HTML: {}", e);
-                                            } else {
-                                                tracing::info!("[OK] [EventLoop] HTML loaded successfully");
+                                                tracing::error!("Failed to load HTML: {}", e);
                                             }
                                         }
                                     }
@@ -306,24 +293,17 @@ impl WebViewEventHandler {
                                             }
                                         }
                                         WebViewMessage::EmitEvent { event_name, data } => {
-                                            tracing::debug!("Processing EmitEvent: {}", event_name);
-                                            // Properly escape JSON data to avoid JavaScript syntax errors
                                             let json_str = data.to_string();
                                             let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                            let script = format!(
-                                                "window.dispatchEvent(new CustomEvent('{}', {{ detail: Object.assign({{}}, {{__aurora_from_python: true}}, JSON.parse('{}')) }}))",
-                                                event_name, escaped_json
-                                            );
-                                            tracing::debug!("[CLOSE] [EmitEvent] Generated script: {}", script);
+                                            let script = js_assets::build_emit_event_script(&event_name, &escaped_json);
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("Failed to emit event: {}", e);
+                                                tracing::error!("Failed to emit event '{}': {}", event_name, e);
                                             }
                                         }
                                         WebViewMessage::LoadUrl(url) => {
-                                            tracing::debug!("Processing LoadUrl: {}", url);
-                                            let script = format!("window.location.href = '{}';", url);
+                                            let script = js_assets::build_load_url_script(&url);
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("Failed to load URL: {}", e);
+                                                tracing::error!("Failed to load URL '{}': {}", url, e);
                                             }
                                         }
                                         WebViewMessage::LoadHtml(html) => {
@@ -376,7 +356,7 @@ impl WebViewEventHandler {
 
         // Process events with ControlFlow::Poll (non-blocking)
         event_loop.run_return(move |event, _, control_flow| {
-            *control_flow = ControlFlow::Poll;  // Non-blocking mode
+            *control_flow = ControlFlow::Poll; // Non-blocking mode
 
             match event {
                 Event::UserEvent(UserEvent::ProcessMessages) => {
@@ -388,26 +368,36 @@ impl WebViewEventHandler {
                                     match message {
                                         WebViewMessage::EvalJs(script) => {
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("Failed to execute JavaScript: {}", e);
+                                                tracing::error!(
+                                                    "Failed to execute JavaScript: {}",
+                                                    e
+                                                );
                                             }
                                         }
                                         WebViewMessage::EmitEvent { event_name, data } => {
-                                            // Properly escape JSON data to avoid JavaScript syntax errors
                                             let json_str = data.to_string();
-                                            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                            let script = format!(
-                                                "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
-                                                event_name, escaped_json
+                                            let escaped_json =
+                                                json_str.replace('\\', "\\\\").replace('\'', "\\'");
+                                            let script = js_assets::build_emit_event_script(
+                                                &event_name,
+                                                &escaped_json,
                                             );
-                                            tracing::debug!("[CLOSE] [EmitEvent] Generated script: {}", script);
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("Failed to emit event: {}", e);
+                                                tracing::error!(
+                                                    "Failed to emit event '{}': {}",
+                                                    event_name,
+                                                    e
+                                                );
                                             }
                                         }
                                         WebViewMessage::LoadUrl(url) => {
-                                            let script = format!("window.location.href = '{}';", url);
+                                            let script = js_assets::build_load_url_script(&url);
                                             if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("Failed to load URL: {}", e);
+                                                tracing::error!(
+                                                    "Failed to load URL '{}': {}",
+                                                    url,
+                                                    e
+                                                );
                                             }
                                         }
                                         WebViewMessage::LoadHtml(html) => {

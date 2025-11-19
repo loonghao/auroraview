@@ -10,6 +10,7 @@ use wry::WebView as WryWebView;
 use super::backend::WebViewBackend;
 use super::config::WebViewConfig;
 use super::event_loop::{EventLoopState, UserEvent, WebViewEventHandler};
+use super::js_assets;
 use super::lifecycle::LifecycleManager;
 use super::message_pump;
 use super::platform::PlatformWindowManager;
@@ -261,19 +262,29 @@ impl WebViewInner {
                                         }
                                     }
                                     WebViewMessage::EmitEvent { event_name, data } => {
+                                        // Use window.auroraview.trigger() to dispatch events
+                                        // This ensures compatibility with window.auroraview.on() listeners
                                         let json_str = data.to_string();
                                         let escaped_json =
                                             json_str.replace('\\', "\\\\").replace('\'', "\\'");
                                         let script = format!(
-                                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
-                                            event_name, escaped_json
+                                            r#"
+                                            (function() {{
+                                                if (window.auroraview && window.auroraview.trigger) {{
+                                                    window.auroraview.trigger('{}', JSON.parse('{}'));
+                                                }} else {{
+                                                    console.error('[AuroraView] Event bridge not ready, cannot emit event: {}');
+                                                }}
+                                            }})();
+                                            "#,
+                                            event_name, escaped_json, event_name
                                         );
                                         if let Err(e) = webview.evaluate_script(&script) {
                                             tracing::error!("Failed to emit event: {}", e);
                                         }
                                     }
                                     WebViewMessage::LoadUrl(url) => {
-                                        let script = format!("window.location.href = '{}';", url);
+                                        let script = js_assets::build_load_url_script(&url);
                                         if let Err(e) = webview.evaluate_script(&script) {
                                             tracing::error!("Failed to load URL: {}", e);
                                         }
@@ -307,8 +318,7 @@ impl WebViewInner {
 
     /// Load a URL
     pub fn load_url(&mut self, url: &str) -> Result<(), Box<dyn std::error::Error>> {
-        // Use JavaScript to navigate
-        let script = format!("window.location.href = '{}';", url);
+        let script = js_assets::build_load_url_script(url);
         if let Ok(webview) = self.webview.lock() {
             webview.evaluate_script(&script)?;
         }
@@ -755,7 +765,7 @@ impl WebViewInner {
                         }
                     }
                     WebViewMessage::LoadUrl(url) => {
-                        let script = format!("window.location.href = '{}';", url);
+                        let script = js_assets::build_load_url_script(&url);
                         if let Err(e) = webview.evaluate_script(&script) {
                             tracing::error!("Failed to load URL: {}", e);
                         }
@@ -859,7 +869,7 @@ impl WebViewInner {
                         }
                     }
                     WebViewMessage::LoadUrl(url) => {
-                        let script = format!("window.location.href = '{}';", url);
+                        let script = js_assets::build_load_url_script(&url);
                         if let Err(e) = webview.evaluate_script(&script) {
                             tracing::error!("Failed to load URL: {}", e);
                         }

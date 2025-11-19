@@ -20,20 +20,73 @@
 //! ```
 
 use crate::webview::WebViewConfig;
+use std::collections::HashMap;
 
-/// Core event bridge script
+/// JavaScript asset registry
 ///
-/// Provides the primary `window.auroraview` API for JavaScript <-> Python communication.
-/// This includes:
-/// - `auroraview.call(method, params)` - Promise-based RPC
-/// - `auroraview.send_event(event, detail)` - Fire-and-forget events
-/// - `auroraview.on(event, handler)` - Event listeners
+/// All JavaScript files are embedded at compile time and registered in a HashMap
+/// for dynamic access by path.
+fn get_js_registry() -> HashMap<&'static str, &'static str> {
+    let mut registry = HashMap::new();
+
+    // Core scripts
+    registry.insert(
+        "core/event_bridge.js",
+        include_str!("../assets/js/core/event_bridge.js"),
+    );
+
+    // Feature scripts
+    registry.insert(
+        "features/context_menu.js",
+        include_str!("../assets/js/features/context_menu.js"),
+    );
+
+    // Runtime templates
+    registry.insert(
+        "runtime/emit_event.js",
+        include_str!("../assets/js/runtime/emit_event.js"),
+    );
+    registry.insert(
+        "runtime/load_url.js",
+        include_str!("../assets/js/runtime/load_url.js"),
+    );
+
+    registry
+}
+
+/// Get JavaScript code by path
+///
+/// Dynamically loads JavaScript assets by their relative path from `assets/js/`.
+/// All assets are still embedded at compile time using `include_str!`.
+///
+/// # Arguments
+///
+/// * `path` - Relative path from `assets/js/`, e.g., "core/event_bridge.js"
+///
+/// # Returns
+///
+/// The JavaScript code as a static string slice, or None if path not found
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use crate::webview::js_assets;
+///
+/// let event_bridge = js_assets::get_js_code("core/event_bridge.js").unwrap();
+/// let context_menu = js_assets::get_js_code("features/context_menu.js").unwrap();
+/// ```
+pub fn get_js_code(path: &str) -> Option<&'static str> {
+    static REGISTRY: std::sync::OnceLock<HashMap<&'static str, &'static str>> =
+        std::sync::OnceLock::new();
+    let registry = REGISTRY.get_or_init(get_js_registry);
+    registry.get(path).copied()
+}
+
+/// Legacy constants for backward compatibility
+///
+/// These are kept for existing code that uses them directly.
+/// New code should use `get_js_code()` instead.
 pub const EVENT_BRIDGE: &str = include_str!("../assets/js/core/event_bridge.js");
-
-/// Context menu disable script
-///
-/// Prevents the native browser context menu from appearing on right-click.
-/// This allows applications to implement custom context menus.
 pub const CONTEXT_MENU_DISABLE: &str = include_str!("../assets/js/features/context_menu.js");
 
 /// Build complete initialization script based on configuration
@@ -70,25 +123,15 @@ pub fn build_init_script(config: &WebViewConfig) -> String {
 
     // Optional features based on configuration
     if !config.context_menu {
-        tracing::info!("[js_assets] Including context menu disable script");
         script.push_str(CONTEXT_MENU_DISABLE);
         script.push('\n');
     }
 
     // API method registration
     if !config.api_methods.is_empty() {
-        tracing::info!(
-            "[js_assets] Registering API methods: {:?}",
-            config.api_methods
-        );
         script.push_str(&build_api_registration_script(&config.api_methods));
         script.push('\n');
     }
-
-    tracing::debug!(
-        "[js_assets] Built initialization script: {} bytes",
-        script.len()
-    );
 
     script
 }
@@ -235,6 +278,62 @@ pub fn get_assets(assets: &[JsAsset]) -> String {
     script
 }
 
+/// Generate script to emit an event to JavaScript
+///
+/// Creates JavaScript code that uses window.auroraview.trigger() to dispatch
+/// an event from Rust/Python to JavaScript listeners.
+///
+/// # Arguments
+///
+/// * `event_name` - Name of the event to trigger
+/// * `event_data` - JSON string of event data (must be properly escaped)
+///
+/// # Returns
+///
+/// JavaScript code as a String
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use crate::webview::js_assets;
+///
+/// let json_data = r#"{"message": "hello"}"#;
+/// let escaped = json_data.replace('\\', "\\\\").replace('\'', "\\'");
+/// let script = js_assets::build_emit_event_script("my_event", &escaped);
+/// ```
+pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {
+    get_js_code("runtime/emit_event.js")
+        .expect("emit_event.js template not found")
+        .replace("{EVENT_NAME}", event_name)
+        .replace("{EVENT_DATA}", event_data)
+}
+
+/// Generate script to load a URL
+///
+/// Creates JavaScript code that navigates the WebView to a new URL
+/// by setting window.location.href.
+///
+/// # Arguments
+///
+/// * `url` - Target URL to navigate to
+///
+/// # Returns
+///
+/// JavaScript code as a String
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use crate::webview::js_assets;
+///
+/// let script = js_assets::build_load_url_script("https://example.com");
+/// ```
+pub fn build_load_url_script(url: &str) -> String {
+    get_js_code("runtime/load_url.js")
+        .expect("load_url.js template not found")
+        .replace("{URL}", url)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,5 +401,39 @@ mod tests {
         let script = get_assets(&[JsAsset::EventBridge]);
         assert!(script.contains("window.auroraview"));
         assert!(!script.contains("contextmenu"));
+    }
+
+    #[test]
+    fn test_get_js_code() {
+        // Test dynamic path-based loading
+        let event_bridge = get_js_code("core/event_bridge.js").unwrap();
+        assert!(event_bridge.contains("window.auroraview"));
+
+        let context_menu = get_js_code("features/context_menu.js").unwrap();
+        assert!(context_menu.contains("contextmenu"));
+
+        let emit_event = get_js_code("runtime/emit_event.js").unwrap();
+        assert!(emit_event.contains("{EVENT_NAME}"));
+
+        let load_url = get_js_code("runtime/load_url.js").unwrap();
+        assert!(load_url.contains("{URL}"));
+    }
+
+    #[test]
+    fn test_get_js_code_not_found() {
+        // Test non-existent path
+        let result = get_js_code("nonexistent/file.js");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_build_scripts_use_registry() {
+        // Test that build functions use the registry
+        let emit_script = build_emit_event_script("test_event", r#"{"data": "test"}"#);
+        assert!(emit_script.contains("test_event"));
+        assert!(emit_script.contains(r#"{"data": "test"}"#));
+
+        let load_script = build_load_url_script("https://example.com");
+        assert!(load_script.contains("https://example.com"));
     }
 }
