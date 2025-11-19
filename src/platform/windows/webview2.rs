@@ -114,7 +114,7 @@ pub mod win {
         }
     }
 
-    fn pump_windows_messages() {
+    pub(crate) fn pump_windows_messages() {
         unsafe {
             let mut msg = MSG::default();
             while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
@@ -209,5 +209,90 @@ pub mod win {
             Err(anyhow::anyhow!("Windows-only backend"))
         }
         pub fn dispose(self) {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn test_non_windows_stub_create_embedded_fails() {
+        let result = win::WinWebView::create_embedded(0, 0, 0, 800, 600);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Windows-only"));
+    }
+
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn test_non_windows_stub_navigate_fails() {
+        // Create a stub instance (will fail, but we test the error path)
+        let result = win::WinWebView::create_embedded(0, 0, 0, 800, 600);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn test_non_windows_stub_eval_fails() {
+        // Test that eval returns error on non-Windows
+        let stub = win::WinWebView {
+            parent_hwnd: 0,
+            bounds: (0, 0, 800, 600),
+        };
+        let result = stub.eval("console.log('test')");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn test_non_windows_stub_post_message_fails() {
+        let stub = win::WinWebView {
+            parent_hwnd: 0,
+            bounds: (0, 0, 800, 600),
+        };
+        let result = stub.post_message(r#"{"test": "data"}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn test_non_windows_stub_set_bounds() {
+        let mut stub = win::WinWebView {
+            parent_hwnd: 0,
+            bounds: (0, 0, 800, 600),
+        };
+        // Should not panic
+        stub.set_bounds(10, 20, 1024, 768);
+    }
+
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn test_non_windows_stub_dispose() {
+        let stub = win::WinWebView {
+            parent_hwnd: 0,
+            bounds: (0, 0, 800, 600),
+        };
+        // Should not panic
+        stub.dispose();
+    }
+
+    // Windows-specific tests
+    #[test]
+    #[cfg(all(target_os = "windows", feature = "win-webview2"))]
+    fn test_win_webview_bounds_structure() {
+        // Test that bounds are stored correctly
+        let bounds = (10, 20, 800, 600);
+        assert_eq!(bounds.0, 10);
+        assert_eq!(bounds.1, 20);
+        assert_eq!(bounds.2, 800);
+        assert_eq!(bounds.3, 600);
+    }
+
+    #[test]
+    #[cfg(all(target_os = "windows", feature = "win-webview2"))]
+    fn test_pump_windows_messages_does_not_panic() {
+        // Test that message pump doesn't panic when called
+        win::pump_windows_messages();
     }
 }

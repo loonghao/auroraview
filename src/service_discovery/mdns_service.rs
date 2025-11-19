@@ -177,3 +177,186 @@ impl Drop for MdnsService {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mdns_service_creation() {
+        let result = MdnsService::new();
+        assert!(result.is_ok());
+
+        let service = result.unwrap();
+        assert!(service.service_name.lock().is_none());
+    }
+
+    #[test]
+    fn test_service_type_constant() {
+        assert_eq!(SERVICE_TYPE, "_auroraview._tcp.local.");
+    }
+
+    #[test]
+    fn test_register_service() {
+        let service = MdnsService::new().unwrap();
+        let mut metadata = HashMap::new();
+        metadata.insert("version".to_string(), "1.0.0".to_string());
+        metadata.insert("app".to_string(), "test".to_string());
+
+        let result = service.register("TestInstance", 9001, metadata);
+        assert!(result.is_ok());
+
+        // Verify service name was stored
+        let stored_name = service.service_name.lock().clone();
+        assert!(stored_name.is_some());
+        assert_eq!(stored_name.unwrap(), "TestInstance._auroraview._tcp.local.");
+    }
+
+    #[test]
+    fn test_register_with_empty_metadata() {
+        let service = MdnsService::new().unwrap();
+        let metadata = HashMap::new();
+
+        let result = service.register("EmptyMetadata", 9002, metadata);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_unregister_without_registration() {
+        let service = MdnsService::new().unwrap();
+
+        // Should succeed even if nothing was registered
+        let result = service.unregister();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_unregister_after_registration() {
+        let service = MdnsService::new().unwrap();
+        let metadata = HashMap::new();
+
+        service.register("TestUnregister", 9003, metadata).unwrap();
+
+        // Verify registered
+        assert!(service.service_name.lock().is_some());
+
+        // Unregister
+        let result = service.unregister();
+        assert!(result.is_ok());
+
+        // Verify unregistered
+        assert!(service.service_name.lock().is_none());
+    }
+
+    #[test]
+    fn test_multiple_registrations() {
+        let service = MdnsService::new().unwrap();
+        let metadata = HashMap::new();
+
+        // First registration
+        service.register("First", 9004, metadata.clone()).unwrap();
+        assert_eq!(
+            service.service_name.lock().clone().unwrap(),
+            "First._auroraview._tcp.local."
+        );
+
+        // Second registration (should replace)
+        service.register("Second", 9005, metadata).unwrap();
+        assert_eq!(
+            service.service_name.lock().clone().unwrap(),
+            "Second._auroraview._tcp.local."
+        );
+    }
+
+    #[test]
+    fn test_discover_with_short_timeout() {
+        let service = MdnsService::new().unwrap();
+
+        // Discover with 1 second timeout
+        let result = service.discover(1);
+        assert!(result.is_ok());
+
+        // May or may not find services, but should not error
+        let _services = result.unwrap();
+        // Services list is valid (no assertion needed on length)
+    }
+
+    #[test]
+    fn test_discover_returns_service_info() {
+        let service = MdnsService::new().unwrap();
+
+        // Register a service first
+        let mut metadata = HashMap::new();
+        metadata.insert("test".to_string(), "value".to_string());
+        service.register("DiscoverTest", 9006, metadata).unwrap();
+
+        // Try to discover (may or may not find our own service)
+        let result = service.discover(2);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_service_drop_unregisters() {
+        let service = MdnsService::new().unwrap();
+        let metadata = HashMap::new();
+
+        service.register("DropTest", 9007, metadata).unwrap();
+        assert!(service.service_name.lock().is_some());
+
+        // Drop should call unregister
+        drop(service);
+        // Can't verify after drop, but ensures no panic
+    }
+
+    #[test]
+    fn test_register_with_special_characters_in_metadata() {
+        let service = MdnsService::new().unwrap();
+        let mut metadata = HashMap::new();
+        metadata.insert(
+            "key=with=equals".to_string(),
+            "value with spaces".to_string(),
+        );
+        metadata.insert("unicode".to_string(), "测试🚀".to_string());
+
+        let result = service.register("SpecialChars", 9008, metadata);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_register_with_high_port() {
+        let service = MdnsService::new().unwrap();
+        let metadata = HashMap::new();
+
+        // Test with high port number
+        let result = service.register("HighPort", 65535, metadata);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_register_with_low_port() {
+        let service = MdnsService::new().unwrap();
+        let metadata = HashMap::new();
+
+        // Test with low port number (may require privileges)
+        let result = service.register("LowPort", 1024, metadata);
+        // Should succeed in creating the registration
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_concurrent_operations() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let service = Arc::new(MdnsService::new().unwrap());
+        let service_clone = Arc::clone(&service);
+
+        let handle = thread::spawn(move || {
+            let metadata = HashMap::new();
+            service_clone.register("Concurrent", 9009, metadata)
+        });
+
+        let result = handle.join().unwrap();
+        assert!(result.is_ok());
+    }
+}
