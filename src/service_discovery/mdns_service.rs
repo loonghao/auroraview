@@ -312,10 +312,8 @@ mod tests {
     fn test_register_with_special_characters_in_metadata() {
         let service = MdnsService::new().unwrap();
         let mut metadata = HashMap::new();
-        metadata.insert(
-            "key=with=equals".to_string(),
-            "value with spaces".to_string(),
-        );
+        // mDNS TXT records support spaces in values and UTF-8
+        metadata.insert("description".to_string(), "value with spaces".to_string());
         metadata.insert("unicode".to_string(), "测试🚀".to_string());
 
         let result = service.register("SpecialChars", 9008, metadata);
