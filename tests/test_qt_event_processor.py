@@ -1,13 +1,29 @@
 """Tests for QtEventProcessor strategy pattern."""
 
-import pytest
 import unittest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from auroraview.webview import WebView
 
+# Check if Qt is available
+try:
+    import auroraview
 
-@pytest.mark.qt
+    HAS_QT = auroraview._HAS_QT
+    QT_IMPORT_ERROR = auroraview._QT_IMPORT_ERROR
+except ImportError:
+    HAS_QT = False
+    QT_IMPORT_ERROR = "auroraview not installed"
+
+# Skip all tests in this module if Qt is not available
+pytestmark = [
+    pytest.mark.qt,
+    pytest.mark.skipif(not HAS_QT, reason=f"Qt backend not available: {QT_IMPORT_ERROR}"),
+]
+
+
 class TestQtEventProcessor(unittest.TestCase):
     """Test QtEventProcessor strategy pattern."""
 
