@@ -897,3 +897,133 @@ impl WebViewInner {
         false
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ipc::WebViewMessage;
+
+    #[test]
+    fn test_webview_inner_has_message_queue() {
+        // Test that message queue is accessible
+        let queue = Arc::new(MessageQueue::new());
+        assert!(queue.is_empty());
+    }
+
+    #[test]
+    fn test_webview_inner_lifecycle_manager() {
+        // Test lifecycle manager creation
+        let lifecycle = Arc::new(LifecycleManager::new());
+        assert_eq!(
+            lifecycle.state(),
+            crate::webview::lifecycle::LifecycleState::Creating
+        );
+    }
+
+    #[test]
+    fn test_webview_message_eval_js() {
+        // Test that EvalJs message can be created
+        let msg = WebViewMessage::EvalJs("console.log('test')".to_string());
+        match msg {
+            WebViewMessage::EvalJs(script) => {
+                assert_eq!(script, "console.log('test')");
+            }
+            _ => panic!("Wrong message type"),
+        }
+    }
+
+    #[test]
+    fn test_webview_message_emit_event() {
+        // Test that EmitEvent message can be created
+        let data = serde_json::json!({"key": "value"});
+        let msg = WebViewMessage::EmitEvent {
+            event_name: "test_event".to_string(),
+            data: data.clone(),
+        };
+
+        match msg {
+            WebViewMessage::EmitEvent {
+                event_name,
+                data: event_data,
+            } => {
+                assert_eq!(event_name, "test_event");
+                assert_eq!(event_data, data);
+            }
+            _ => panic!("Wrong message type"),
+        }
+    }
+
+    #[test]
+    fn test_webview_message_load_url() {
+        // Test that LoadUrl message can be created
+        let msg = WebViewMessage::LoadUrl("https://example.com".to_string());
+        match msg {
+            WebViewMessage::LoadUrl(url) => {
+                assert_eq!(url, "https://example.com");
+            }
+            _ => panic!("Wrong message type"),
+        }
+    }
+
+    #[test]
+    fn test_webview_message_load_html() {
+        // Test that LoadHtml message can be created
+        let html = "<h1>Test</h1>".to_string();
+        let msg = WebViewMessage::LoadHtml(html.clone());
+        match msg {
+            WebViewMessage::LoadHtml(content) => {
+                assert_eq!(content, html);
+            }
+            _ => panic!("Wrong message type"),
+        }
+    }
+
+    #[test]
+    fn test_message_queue_operations() {
+        // Test message queue push and pop
+        let queue = MessageQueue::new();
+        let msg = WebViewMessage::EvalJs("test".to_string());
+
+        assert!(queue.is_empty());
+        queue.push(msg);
+        assert!(!queue.is_empty());
+
+        let popped = queue.pop();
+        assert!(popped.is_some());
+        assert!(queue.is_empty());
+    }
+
+    #[test]
+    fn test_lifecycle_state_transitions() {
+        // Test lifecycle state management
+        let lifecycle = LifecycleManager::new();
+
+        assert_eq!(
+            lifecycle.state(),
+            crate::webview::lifecycle::LifecycleState::Creating
+        );
+
+        lifecycle.set_state(crate::webview::lifecycle::LifecycleState::Active);
+        assert_eq!(
+            lifecycle.state(),
+            crate::webview::lifecycle::LifecycleState::Active
+        );
+    }
+
+    #[test]
+    fn test_event_json_escaping() {
+        // Test JSON escaping for event emission
+        let json_str = r#"{"key": "value with 'quotes'"}"#;
+        let escaped = json_str.replace('\\', "\\\\").replace('\'', "\\'");
+        assert!(escaped.contains("\\'"));
+    }
+
+    #[test]
+    fn test_load_url_script_generation() {
+        // Test that load URL script can be generated
+        let url = "https://example.com";
+        let script = js_assets::build_load_url_script(url);
+        assert!(script.contains(url));
+        assert!(script.contains("window.location.href"));
+    }
+}
