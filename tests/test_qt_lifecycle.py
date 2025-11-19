@@ -114,39 +114,46 @@ class TestQtWebViewEventProcessing:
             app = QApplication(sys.argv)
         yield app
 
-    def test_process_pending_events(self, qapp):
-        """Test that _process_pending_events doesn't crash."""
+    def test_event_processor_processes_events(self, qapp):
+        """Test that event processor processes events correctly."""
         from auroraview import QtWebView
 
         webview = QtWebView()
 
-        # Should not crash
-        webview._process_pending_events()
+        # Track event processor calls
+        original_count = webview._event_processor._process_count
+
+        # Trigger event processing via eval_js
+        webview._webview.eval_js("console.log('test')")
+
+        # Verify event processor was called
+        assert webview._event_processor._process_count > original_count
 
         # Cleanup
         webview.close()
         webview.deleteLater()
 
-    def test_emit_calls_post_eval_hook(self, qapp):
-        """Test that WebView.emit() calls _post_eval_js_hook."""
+    def test_emit_uses_event_processor(self, qapp):
+        """Test that WebView.emit() uses event processor strategy."""
         from auroraview import QtWebView
 
         webview = QtWebView()
 
-        # Track hook calls
-        hook_called = []
+        # Track event processor calls
+        process_called = []
+        original_process = webview._event_processor.process
 
-        def mock_hook():
-            hook_called.append(True)
+        def mock_process():
+            process_called.append(True)
+            original_process()
 
-        # Install mock hook
-        webview._webview._post_eval_js_hook = mock_hook
+        webview._event_processor.process = mock_process
 
         # Emit event
         webview._webview.emit("test_event", {"data": "test"})
 
-        # Verify hook was called
-        assert len(hook_called) == 1, "emit() should call _post_eval_js_hook"
+        # Verify event processor was called
+        assert len(process_called) == 1, "emit() should trigger event processor"
 
         # Cleanup
         webview.close()
