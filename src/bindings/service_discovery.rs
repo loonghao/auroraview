@@ -313,12 +313,14 @@ mod tests {
         for _ in 0..5 {
             let port = sd.find_free_port().expect("should find a free port");
             assert!(port > 0);
-            assert!(PyServiceDiscovery::is_port_available(port));
 
-            // Try to occupy the port
+            // Try to occupy the port immediately to avoid race conditions
+            // Don't assert is_port_available() before bind() as another process
+            // might grab the port in between (race condition in CI)
             match TcpListener::bind(("127.0.0.1", port)) {
                 Ok(l) => {
                     listener = Some(l);
+                    // Now verify the port is correctly detected as unavailable
                     assert!(!PyServiceDiscovery::is_port_available(port));
                     break;
                 }
