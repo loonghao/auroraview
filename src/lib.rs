@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 
 #[cfg(feature = "python-bindings")]
 mod bindings;
-mod ipc;
+pub mod ipc;
 mod platform;
 pub mod service_discovery;
 mod utils;

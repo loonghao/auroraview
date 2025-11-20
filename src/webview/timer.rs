@@ -195,7 +195,7 @@ impl Timer {
     ///
     /// This is used for throttling to ensure we don't process ticks
     /// faster than the configured interval.
-    #[cfg(any(test, target_os = "windows"))]
+    #[cfg(any(test, target_os = "windows", feature = "test-helpers"))]
     pub fn should_tick(&self) -> bool {
         let mut last_tick = self.last_tick.lock().unwrap();
 
