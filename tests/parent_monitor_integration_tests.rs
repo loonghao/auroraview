@@ -4,6 +4,7 @@
 
 #[cfg(target_os = "windows")]
 use auroraview_core::webview::parent_monitor::ParentWindowMonitor;
+#[cfg(target_os = "windows")]
 use rstest::rstest;
 #[cfg(target_os = "windows")]
 use std::sync::atomic::{AtomicUsize, Ordering};
