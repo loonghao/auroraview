@@ -196,7 +196,7 @@ impl Timer {
     /// This is used for throttling to ensure we don't process ticks
     /// faster than the configured interval.
     #[cfg(any(test, target_os = "windows"))]
-    fn should_tick(&self) -> bool {
+    pub fn should_tick(&self) -> bool {
         let mut last_tick = self.last_tick.lock().unwrap();
 
         let now = Instant::now();
@@ -243,6 +243,7 @@ impl Drop for Timer {
 mod tests {
     use super::*;
 
+    /// Unit test: Verify timer creation with correct initial state
     #[test]
     fn test_timer_creation() {
         let timer = Timer::new(16);
@@ -252,6 +253,7 @@ mod tests {
         assert_eq!(timer.backend(), TimerBackend::ThreadBased);
     }
 
+    /// Unit test: Verify timer creation with different intervals
     #[test]
     fn test_timer_creation_with_different_intervals() {
         let intervals = [1, 16, 33, 100, 1000];
@@ -262,39 +264,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_timer_throttling() {
-        let timer = Timer::new(100);
-
-        // First tick should succeed
-        assert!(timer.should_tick());
-
-        // Immediate second tick should fail (throttled)
-        assert!(!timer.should_tick());
-
-        // Wait for interval
-        std::thread::sleep(Duration::from_millis(110));
-
-        // Now it should succeed
-        assert!(timer.should_tick());
-    }
-
-    #[test]
-    fn test_timer_throttling_precise() {
-        let timer = Timer::new(50);
-
-        // First tick
-        assert!(timer.should_tick());
-
-        // Wait less than interval
-        std::thread::sleep(Duration::from_millis(30));
-        assert!(!timer.should_tick());
-
-        // Wait for remaining time
-        std::thread::sleep(Duration::from_millis(25));
-        assert!(timer.should_tick());
-    }
-
+    /// Unit test: Verify timer initial state
     #[test]
     fn test_timer_initial_state() {
         let timer = Timer::new(16);
@@ -308,6 +278,7 @@ mod tests {
         }
     }
 
+    /// Unit test: Verify stop when not running doesn't panic
     #[test]
     fn test_timer_stop_when_not_running() {
         let mut timer = Timer::new(16);
@@ -316,12 +287,14 @@ mod tests {
         assert!(!timer.is_running());
     }
 
+    /// Unit test: Verify default backend
     #[test]
     fn test_timer_backend_default() {
         let timer = Timer::new(16);
         assert_eq!(timer.backend(), TimerBackend::ThreadBased);
     }
 
+    /// Unit test: Verify Windows timer with invalid HWND
     #[cfg(target_os = "windows")]
     #[test]
     fn test_windows_timer_invalid_hwnd() {
@@ -331,13 +304,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn test_windows_timer_double_start() {
-        // This test requires a valid HWND, which is hard to get in a unit test
-        // In practice, this would be tested with integration tests
-    }
-
+    /// Unit test: Verify drop doesn't panic
     #[test]
     fn test_timer_drop() {
         let timer = Timer::new(16);
@@ -345,3 +312,9 @@ mod tests {
         drop(timer);
     }
 }
+
+// Note: Integration tests have been moved to tests/timer_integration_tests.rs
+// This includes tests for:
+// - Timer throttling with actual time delays
+// - Precise timer throttling
+// - Multiple ticks over time

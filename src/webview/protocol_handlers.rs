@@ -184,6 +184,7 @@ fn guess_mime_type(path: &Path) -> String {
 mod tests {
     use super::*;
 
+    /// Unit test: Verify MIME type detection for common web file types
     #[test]
     fn test_guess_mime_type() {
         // Test common web file types
@@ -208,6 +209,7 @@ mod tests {
         assert_eq!(guess_mime_type(Path::new("test.mp4")), "video/mp4");
     }
 
+    /// Unit test: Verify MIME type detection for DCC-specific file formats
     #[test]
     fn test_guess_mime_type_dcc_formats() {
         // Test DCC-specific file formats
@@ -230,6 +232,7 @@ mod tests {
         );
     }
 
+    /// Unit test: Verify MIME type detection for modern web formats
     #[test]
     fn test_guess_mime_type_modern_formats() {
         // Test modern web formats
@@ -243,99 +246,11 @@ mod tests {
             "video/vnd.dlna.mpeg-tts" // MPEG transport stream (not TypeScript)
         );
     }
-
-    #[test]
-    fn test_handle_auroraview_protocol_security() {
-        use std::fs;
-        use tempfile::TempDir;
-
-        // Create temporary directory structure
-        let temp_dir = TempDir::new().unwrap();
-        let asset_root = temp_dir.path();
-
-        // Create a file inside asset_root
-        let safe_file = asset_root.join("safe.txt");
-        fs::write(&safe_file, b"Safe content").unwrap();
-
-        // Create a file outside asset_root
-        let outside_dir = TempDir::new().unwrap();
-        let unsafe_file = outside_dir.path().join("unsafe.txt");
-        fs::write(&unsafe_file, b"Unsafe content").unwrap();
-
-        // Test 1: Valid request within asset_root
-        let request = Request::builder()
-            .method("GET")
-            .uri("auroraview://safe.txt")
-            .body(vec![])
-            .unwrap();
-
-        let response = handle_auroraview_protocol(asset_root, request);
-        assert_eq!(response.status(), 200);
-
-        // Test 2: Directory traversal attempt (should be blocked)
-        let request = Request::builder()
-            .method("GET")
-            .uri("auroraview://../../../etc/passwd")
-            .body(vec![])
-            .unwrap();
-
-        let response = handle_auroraview_protocol(asset_root, request);
-        // Should return 403 Forbidden or 404 Not Found
-        eprintln!(
-            "DEBUG: Directory traversal response status = {}",
-            response.status()
-        );
-        assert!(
-            response.status() == 403 || response.status() == 404,
-            "Expected 403 or 404, got {}",
-            response.status()
-        );
-
-        // Test 3: Non-GET request
-        let request = Request::builder()
-            .method("POST")
-            .uri("auroraview://safe.txt")
-            .body(vec![])
-            .unwrap();
-
-        let response = handle_auroraview_protocol(asset_root, request);
-        assert_eq!(response.status(), 405); // Method Not Allowed
-    }
-
-    #[test]
-    fn test_handle_custom_protocol() {
-        use std::sync::Arc;
-
-        // Create a simple callback
-        // Note: The URI passed to callback is the full URI string from request.uri().to_string()
-        let callback = Arc::new(|uri: &str| -> Option<(Vec<u8>, String, u16)> {
-            if uri == "test://hello.txt" || uri == "test://hello.txt/" {
-                Some((b"Hello, World!".to_vec(), "text/plain".to_string(), 200))
-            } else {
-                None
-            }
-        });
-
-        // Test 1: Successful request
-        let request = Request::builder()
-            .uri("test://hello.txt")
-            .body(vec![])
-            .unwrap();
-
-        let response = handle_custom_protocol(&*callback, request);
-        assert_eq!(response.status(), 200);
-        assert_eq!(
-            response.headers().get("Content-Type").unwrap(),
-            "text/plain"
-        );
-
-        // Test 2: Not found
-        let request = Request::builder()
-            .uri("test://notfound.txt")
-            .body(vec![])
-            .unwrap();
-
-        let response = handle_custom_protocol(&*callback, request);
-        assert_eq!(response.status(), 404);
-    }
 }
+
+// Note: Integration tests have been moved to tests/protocol_handlers_integration_tests.rs
+// This includes tests for:
+// - handle_auroraview_protocol security (directory traversal, file access)
+// - handle_custom_protocol with various callbacks
+// - Protocol handling with subdirectories
+// - Custom protocol with various response codes
