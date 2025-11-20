@@ -50,7 +50,7 @@ fn test_message_batch_flush_conditions() {
 fn test_batched_callback_single_and_batch() {
     // Prepare a Python callback that collects inputs into `seen` list
     let (make_cb_obj, seen_obj) = Python::attach(|py| {
-        let seen = PyList::empty_bound(py);
+        let seen = PyList::new(py, Vec::<i32>::new()).unwrap();
         let m = pyo3::types::PyModule::from_code(
             py,
             c"def make_cb(seen):\n    def cb(x):\n        seen.append(x)\n    return cb\n",
