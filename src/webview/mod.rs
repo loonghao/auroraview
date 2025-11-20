@@ -11,12 +11,12 @@ pub mod js_assets; // JavaScript assets management
 mod lifecycle;
 pub(crate) mod loading;
 mod message_pump;
-mod parent_monitor;
+pub mod parent_monitor;
 mod platform;
-mod protocol;
-pub(crate) mod protocol_handlers; // Custom protocol handlers
+pub mod protocol;
+pub mod protocol_handlers; // Custom protocol handlers
 pub(crate) mod standalone;
-pub(crate) mod timer;
+pub mod timer;
 mod webview_inner;
 
 // Public exports

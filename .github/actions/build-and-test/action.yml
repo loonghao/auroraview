@@ -82,8 +82,11 @@ runs:
             just ci-test-basic
             ;;
           "rust")
-            echo "Running Rust doc tests (lib tests skipped due to abi3 linking issues)..."
+            echo "Running Rust tests (lib tests skipped due to abi3 linking issues)..."
+            echo "  -> Rust doc tests..."
             cargo test --doc
+            echo "  -> Rust integration tests (with rstest)..."
+            cargo test --test '*' --features "test-helpers"
             ;;
           "python")
             echo "Running Python unit tests..."
@@ -93,6 +96,8 @@ runs:
             echo "Running comprehensive test suite..."
             echo "  -> Rust doc tests..."
             cargo test --doc
+            echo "  -> Rust integration tests (with rstest)..."
+            cargo test --test '*' --features "test-helpers"
             echo "  -> Python unit tests..."
             just ci-test-python
             echo "  -> Basic functionality tests..."

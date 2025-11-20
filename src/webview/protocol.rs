@@ -137,38 +137,21 @@ impl ProtocolResponse {
 mod tests {
     use super::*;
 
+    /// Unit test: Verify ProtocolHandler creation
     #[test]
     fn test_protocol_handler_creation() {
         let handler = ProtocolHandler::new();
         assert!(handler.handle("unknown://test").is_none());
     }
 
+    /// Unit test: Verify ProtocolHandler default implementation
     #[test]
     fn test_protocol_handler_default() {
         let handler = ProtocolHandler::default();
         assert!(handler.handle("test://resource").is_none());
     }
 
-    #[test]
-    fn test_register_and_handle_protocol() {
-        let handler = ProtocolHandler::new();
-
-        handler.register("dcc", |uri| {
-            if uri.contains("test") {
-                Some(ProtocolResponse::text("Test response"))
-            } else {
-                None
-            }
-        });
-
-        let response = handler.handle("dcc://test/resource");
-        assert!(response.is_some());
-        let resp = response.unwrap();
-        assert_eq!(resp.status, 200);
-        assert_eq!(resp.mime_type, "text/plain");
-        assert_eq!(String::from_utf8(resp.data).unwrap(), "Test response");
-    }
-
+    /// Unit test: Verify handling unregistered protocol
     #[test]
     fn test_handle_unregistered_protocol() {
         let handler = ProtocolHandler::new();
@@ -176,6 +159,7 @@ mod tests {
         assert!(response.is_none());
     }
 
+    /// Unit test: Verify handling invalid URI
     #[test]
     fn test_handle_invalid_uri() {
         let handler = ProtocolHandler::new();
@@ -183,30 +167,7 @@ mod tests {
         assert!(response.is_none());
     }
 
-    #[test]
-    fn test_unregister_protocol() {
-        let handler = ProtocolHandler::new();
-
-        handler.register("test", |_| Some(ProtocolResponse::text("data")));
-        assert!(handler.handle("test://resource").is_some());
-
-        handler.unregister("test");
-        assert!(handler.handle("test://resource").is_none());
-    }
-
-    #[test]
-    fn test_clear_all_protocols() {
-        let handler = ProtocolHandler::new();
-
-        handler.register("proto1", |_| Some(ProtocolResponse::text("1")));
-        handler.register("proto2", |_| Some(ProtocolResponse::text("2")));
-
-        handler.clear();
-
-        assert!(handler.handle("proto1://test").is_none());
-        assert!(handler.handle("proto2://test").is_none());
-    }
-
+    /// Unit test: Verify ProtocolResponse creation
     #[test]
     fn test_protocol_response_new() {
         let data = b"test data".to_vec();
@@ -217,12 +178,14 @@ mod tests {
         assert_eq!(response.status, 200);
     }
 
+    /// Unit test: Verify ProtocolResponse with custom status
     #[test]
     fn test_protocol_response_with_status() {
         let response = ProtocolResponse::text("error").with_status(500);
         assert_eq!(response.status, 500);
     }
 
+    /// Unit test: Verify ProtocolResponse::text()
     #[test]
     fn test_protocol_response_text() {
         let response = ProtocolResponse::text("Hello, World!");
@@ -231,6 +194,7 @@ mod tests {
         assert_eq!(response.status, 200);
     }
 
+    /// Unit test: Verify ProtocolResponse::html()
     #[test]
     fn test_protocol_response_html() {
         let response = ProtocolResponse::html("<h1>Title</h1>");
@@ -239,6 +203,7 @@ mod tests {
         assert_eq!(response.status, 200);
     }
 
+    /// Unit test: Verify ProtocolResponse::json()
     #[test]
     fn test_protocol_response_json() {
         let value = serde_json::json!({"key": "value", "number": 42});
@@ -251,6 +216,7 @@ mod tests {
         assert_eq!(parsed, value);
     }
 
+    /// Unit test: Verify ProtocolResponse::not_found()
     #[test]
     fn test_protocol_response_not_found() {
         let response = ProtocolResponse::not_found();
@@ -258,38 +224,12 @@ mod tests {
         assert_eq!(response.mime_type, "text/plain");
         assert_eq!(String::from_utf8(response.data).unwrap(), "Not Found");
     }
-
-    #[test]
-    fn test_multiple_protocols() {
-        let handler = ProtocolHandler::new();
-
-        handler.register("asset", |uri| {
-            Some(ProtocolResponse::text(format!("Asset: {}", uri)))
-        });
-
-        handler.register("dcc", |uri| {
-            Some(ProtocolResponse::json(&serde_json::json!({"uri": uri})))
-        });
-
-        let asset_resp = handler.handle("asset://texture.png").unwrap();
-        assert_eq!(asset_resp.mime_type, "text/plain");
-
-        let dcc_resp = handler.handle("dcc://command").unwrap();
-        assert_eq!(dcc_resp.mime_type, "application/json");
-    }
-
-    #[test]
-    fn test_protocol_handler_thread_safety() {
-        use std::sync::Arc;
-        use std::thread;
-
-        let handler = Arc::new(ProtocolHandler::new());
-        handler.register("test", |_| Some(ProtocolResponse::text("data")));
-
-        let handler_clone = Arc::clone(&handler);
-        let handle = thread::spawn(move || handler_clone.handle("test://resource"));
-
-        let result = handle.join().unwrap();
-        assert!(result.is_some());
-    }
 }
+
+// Note: Integration tests have been moved to tests/protocol_integration_tests.rs
+// This includes tests for:
+// - Protocol registration and handling workflow
+// - Unregistering protocols
+// - Clearing all protocols
+// - Multiple protocol registrations
+// - Concurrent access to protocol handler

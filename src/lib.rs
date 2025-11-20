@@ -10,10 +10,10 @@ use pyo3::prelude::*;
 mod bindings;
 mod ipc;
 mod platform;
-mod service_discovery;
+pub mod service_discovery;
 mod utils;
-mod webview;
-mod window_utils;
+pub mod webview;
+pub mod window_utils;
 
 #[allow(unused_imports)]
 use webview::AuroraView;

@@ -134,47 +134,9 @@ impl Drop for ParentWindowMonitor {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[cfg(target_os = "windows")]
-    use std::sync::atomic::AtomicUsize;
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn test_parent_monitor_invalid_hwnd() {
-        // Use an invalid HWND (0)
-        let callback_count = Arc::new(AtomicUsize::new(0));
-        let callback_count_clone = callback_count.clone();
-
-        let mut monitor = ParentWindowMonitor::new(
-            0, // Invalid HWND
-            move || {
-                callback_count_clone.fetch_add(1, Ordering::Relaxed);
-            },
-            100, // Check every 100ms
-        );
-
-        // Wait for callback to be invoked
-        thread::sleep(Duration::from_millis(500));
-
-        // Callback should have been invoked
-        assert!(callback_count.load(Ordering::Relaxed) > 0);
-
-        monitor.stop();
-    }
-
-    #[test]
-    fn test_parent_monitor_stop() {
-        let mut monitor = ParentWindowMonitor::new(0, || {}, 100);
-
-        assert!(monitor.is_running());
-
-        monitor.stop();
-
-        // Give it a moment to stop
-        thread::sleep(Duration::from_millis(200));
-
-        assert!(!monitor.is_running());
-    }
-}
+// Note: Integration tests have been moved to tests/parent_monitor_integration_tests.rs
+// This includes tests for:
+// - Parent monitor with invalid HWND
+// - Stopping the monitor
+// - Multiple callbacks over time
+// - Drop behavior
