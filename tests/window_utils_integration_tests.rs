@@ -5,7 +5,7 @@
 use auroraview_core::window_utils::{
     find_windows_by_title, get_all_windows, get_foreground_window,
 };
-use rstest::*;
+use rstest::rstest;
 
 #[rstest]
 #[cfg(target_os = "windows")]

@@ -175,8 +175,8 @@ impl BatchedCallback {
         }
 
         Python::attach(|py| {
-            // Convert batch to Python list
-            let py_list = PyList::new(py, batch.messages.iter().map(|_| py.None()))
+            // Convert batch to Python list (create empty list)
+            let py_list = PyList::new(py, Vec::<i32>::new())
                 .map_err(|e| format!("Failed to create list: {}", e))?;
 
             for message in &batch.messages {
