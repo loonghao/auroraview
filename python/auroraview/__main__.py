@@ -1,42 +1,119 @@
 """AuroraView CLI entry point.
 
-This module provides a Python entry point that delegates to the Rust CLI binary.
-When installed via pip/uv, the binary is automatically available in PATH.
+This module provides a pure Python CLI implementation using argparse.
+It creates a WebView window using the auroraview Python bindings.
 """
 
-import subprocess
+import argparse
 import sys
+from pathlib import Path
 
 
 def main():
     """Main entry point for the CLI.
 
-    This function simply delegates to the auroraview binary that is installed
-    alongside the Python package by maturin.
+    This function provides a pure Python implementation of the CLI
+    that works with uvx and other Python package managers.
     """
+    parser = argparse.ArgumentParser(
+        prog="auroraview",
+        description="Launch a WebView window with a URL or local HTML file",
+    )
+
+    # URL or HTML file (mutually exclusive)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "-u", "--url",
+        type=str,
+        help="URL to load in the WebView"
+    )
+    group.add_argument(
+        "-f", "--html",
+        type=Path,
+        help="Local HTML file to load in the WebView"
+    )
+
+    # Optional arguments
+    parser.add_argument(
+        "--assets-root",
+        type=Path,
+        help="Assets root directory for local HTML files (defaults to HTML file's directory)"
+    )
+    parser.add_argument(
+        "-t", "--title",
+        type=str,
+        default="AuroraView",
+        help="Window title (default: AuroraView)"
+    )
+    parser.add_argument(
+        "-w", "--width",
+        type=int,
+        default=1024,
+        help="Window width in pixels (default: 1024)"
+    )
+    parser.add_argument(
+        "-H", "--height",
+        type=int,
+        default=768,
+        help="Window height in pixels (default: 768)"
+    )
+    parser.add_argument(
+        "-d", "--debug",
+        action="store_true",
+        help="Enable debug logging"
+    )
+
+    args = parser.parse_args()
+
     try:
-        # When installed via maturin, the binary is in PATH
-        result = subprocess.run(
-            ["auroraview"] + sys.argv[1:],
-            check=False,
+        from auroraview import WebView
+
+        # Prepare the URL or HTML content
+        if args.url:
+            url = args.url
+            html_content = None
+        else:
+            # Read HTML file
+            html_file = args.html
+            if not html_file.exists():
+                print(f"Error: HTML file not found: {html_file}", file=sys.stderr)
+                sys.exit(1)
+
+            html_content = html_file.read_text(encoding="utf-8")
+            url = None
+
+        # Create WebView with content
+        webview = WebView(
+            title=args.title,
+            width=args.width,
+            height=args.height,
+            url=url,
+            html=html_content,
+            debug=args.debug,
         )
-        sys.exit(result.returncode)
-    except FileNotFoundError:
+
+        # Show the WebView (blocking mode for CLI)
+        webview.show_blocking()
+
+    except ImportError as e:
         print(
-            "Error: auroraview CLI binary not found.",
+            "Error: Failed to import auroraview module.",
+            file=sys.stderr,
+        )
+        print(
+            f"Details: {e}",
             file=sys.stderr,
         )
         print(
             "Please ensure the package is properly installed with: pip install auroraview",
             file=sys.stderr,
         )
-        print(
-            "For development: cargo build --release --features cli --bin auroraview",
-            file=sys.stderr,
-        )
         sys.exit(1)
     except Exception as e:
-        print(f"Error executing CLI: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 
