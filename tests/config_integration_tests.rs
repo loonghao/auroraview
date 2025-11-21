@@ -2,7 +2,9 @@
 //!
 //! These tests verify the WebViewConfig and WebViewBuilder functionality.
 
-use auroraview_core::webview::config::{EmbedMode, WebViewBuilder, WebViewConfig};
+#[cfg(target_os = "windows")]
+use auroraview_core::webview::config::EmbedMode;
+use auroraview_core::webview::config::{WebViewBuilder, WebViewConfig};
 use rstest::*;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -161,4 +163,52 @@ fn test_builder_chain_multiple_settings(builder: WebViewBuilder) {
 fn test_embed_mode_windows() {
     let config = WebViewConfig::default();
     assert_eq!(config.embed_mode, EmbedMode::None);
+}
+
+#[rstest]
+fn test_builder_ipc_batching(builder: WebViewBuilder) {
+    let config = builder.build();
+    assert!(config.ipc_batching);
+    assert_eq!(config.ipc_batch_size, 10);
+    assert_eq!(config.ipc_batch_interval_ms, 16);
+}
+
+#[rstest]
+fn test_builder_default_values(builder: WebViewBuilder) {
+    let config = builder.build();
+    assert_eq!(config.title, "AuroraView");
+    assert_eq!(config.width, 800);
+    assert_eq!(config.height, 600);
+    assert!(config.dev_tools);
+    assert!(config.context_menu);
+    assert!(config.resizable);
+    assert!(config.decorations);
+}
+
+#[rstest]
+fn test_builder_multiple_protocols(builder: WebViewBuilder) {
+    let handler1 = Arc::new(|uri: &str| {
+        if uri.starts_with("custom1://") {
+            Some((b"data1".to_vec(), "text/plain".to_string(), 200))
+        } else {
+            None
+        }
+    });
+
+    let handler2 = Arc::new(|uri: &str| {
+        if uri.starts_with("custom2://") {
+            Some((b"data2".to_vec(), "text/html".to_string(), 200))
+        } else {
+            None
+        }
+    });
+
+    let config = builder
+        .register_protocol("custom1", handler1)
+        .register_protocol("custom2", handler2)
+        .build();
+
+    assert_eq!(config.custom_protocols.len(), 2);
+    assert!(config.custom_protocols.contains_key("custom1"));
+    assert!(config.custom_protocols.contains_key("custom2"));
 }
