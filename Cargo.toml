@@ -79,6 +79,8 @@ hyper-util = { version = "0.1", features = ["full"] }  # HTTP utilities for hype
 
 # CLI dependencies
 clap = { version = "4.5", features = ["derive"], optional = true }
+urlencoding = { version = "2.1", optional = true }
+regex = { version = "1.11", optional = true }
 
 # Future rendering engines (feature-gated)
 # servo = { git = "https://github.com/servo/servo", optional = true }
@@ -167,7 +169,7 @@ dev-tools = []
 hot-reload = []
 
 # CLI feature
-cli = ["clap"]
+cli = ["clap", "urlencoding", "regex"]
 
 # Performance features
 performance-monitoring = []  # Enable detailed performance tracking
