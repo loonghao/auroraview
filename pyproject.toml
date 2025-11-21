@@ -57,10 +57,19 @@ Documentation = "https://github.com/loonghao/auroraview#readme"
 Repository = "https://github.com/loonghao/auroraview"
 Issues = "https://github.com/loonghao/auroraview/issues"
 
+[project.scripts]
+auroraview = "auroraview.__main__:main"
+
 [tool.maturin]
 python-source = "python"
 module-name = "auroraview._core"
-features = ["pyo3/extension-module", "pyo3/abi3-py37"]
+features = ["pyo3/extension-module", "pyo3/abi3-py37", "cli"]
+bindings = "pyo3"
+
+# Include CLI binary in the distribution
+[[tool.maturin.bin]]
+name = "auroraview"
+path = "src/bin/cli.rs"
 
 # Ruff configuration
 [tool.ruff]

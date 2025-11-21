@@ -199,6 +199,26 @@ webview = WebView.create("Houdini Tool", url="http://localhost:3000", parent=hwn
 webview.show()  # Embedded mode: non-blocking, auto timer
 ```
 
+### Command-Line Interface
+
+AuroraView includes a CLI for quickly launching WebView windows:
+
+```bash
+# Load a URL
+auroraview --url https://example.com
+
+# Load a local HTML file
+auroraview --html /path/to/file.html
+
+# Custom window configuration
+auroraview --url https://example.com --title "My App" --width 1024 --height 768
+
+# Using with uvx (no installation required)
+uvx auroraview --url https://example.com
+```
+
+**[See CLI Documentation](./docs/CLI.md)** for more details.
+
 **Nuke integration:**
 ```python
 from auroraview import WebView
