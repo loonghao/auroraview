@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.9](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.8...auroraview-v0.2.9) (2025-11-21)
+
+
+### Features
+
+* migrate all Rust tests to rstest integration tests ([085e524](https://github.com/loonghao/auroraview/commit/085e52480132f773c3ebdb1e142eb3de4b397c7e))
+* migrate all unit tests to rstest framework ([5d0ec35](https://github.com/loonghao/auroraview/commit/5d0ec35a8985d0d872ab5235de931ce0b72fd11d))
+* migrate IPC and HTTP discovery tests to rstest integration tests ([20a6c61](https://github.com/loonghao/auroraview/commit/20a6c61a69b435b8db922338bb3b148437c4e60a))
+* upgrade windows crate to 0.62 ([4667a8f](https://github.com/loonghao/auroraview/commit/4667a8f163e18e0272e0d13fabe254872d401653))
+
+
+### Bug Fixes
+
+* add conditional compilation for test imports on Windows-only tests ([7f8b6ad](https://github.com/loonghao/auroraview/commit/7f8b6adf3c36391e03518daa878021622b02712d))
+* add test-helpers feature to Timer conditional compilation ([2f0d2cc](https://github.com/loonghao/auroraview/commit/2f0d2ccdc9bd7389854fa4804329694374df4861))
+* correct PyList creation in batch processing ([38c2304](https://github.com/loonghao/auroraview/commit/38c23046fed50ae5e1daa96782e540081fd72436))
+* remove equals sign from mDNS metadata key in test ([4a95aee](https://github.com/loonghao/auroraview/commit/4a95aee53d59617dc117f990f1b5654f9594a6e9))
+* remove race condition in port availability test ([ca091f3](https://github.com/loonghao/auroraview/commit/ca091f3c9df7a121404d931c2af21388b1b84edc))
+* remove unused Duration import on non-Windows platforms ([541d9b7](https://github.com/loonghao/auroraview/commit/541d9b7ab41f4872bf4be6bbffe7244cc76789f2))
+* resolve unused import and add more config tests ([4a25926](https://github.com/loonghao/auroraview/commit/4a2592601c484e4d9495e68f3952e7fb7ae58319))
+* update PyList API for PyO3 0.27.1 compatibility ([06afb93](https://github.com/loonghao/auroraview/commit/06afb93c6c36263c269d534bcc909436e81630c5))
+* use empty PyList in ipc_batch integration test ([ff9d989](https://github.com/loonghao/auroraview/commit/ff9d989bcf31d478aec5d5abdeb304da6c7dea8d))
+* use localhost.local. for mDNS hostname to comply with spec ([def1d93](https://github.com/loonghao/auroraview/commit/def1d93545fe42e01095ceb4e88b2929cd2644e4))
+
 ## [0.2.8](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.7...auroraview-v0.2.8) (2025-11-18)
 
 
