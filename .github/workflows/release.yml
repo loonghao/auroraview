@@ -95,6 +95,7 @@ jobs:
           packages-dir: dist
           verbose: true
           print-hash: true
+          skip-existing: true  # Skip files that already exist on PyPI
 
   # Create GitHub Release
   github-release:

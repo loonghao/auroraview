@@ -67,8 +67,10 @@ mod tests {
     //! These tests ensure all modules can be compiled and their public APIs are accessible.
     //! This provides broad coverage of the codebase without requiring runtime dependencies.
 
+    use rstest::*;
+
     /// Test that core webview modules compile and export expected symbols
-    #[test]
+    #[rstest]
     fn test_webview_module_imports() {
         // Test webview module structure
         use crate::webview;
@@ -80,7 +82,7 @@ mod tests {
     }
 
     /// Test IPC module imports
-    #[test]
+    #[rstest]
     fn test_ipc_module_imports() {
         use crate::ipc;
 
@@ -91,7 +93,7 @@ mod tests {
     }
 
     /// Test service discovery module imports
-    #[test]
+    #[rstest]
     fn test_service_discovery_imports() {
         use crate::service_discovery;
 
@@ -100,7 +102,7 @@ mod tests {
     }
 
     /// Test window utilities module imports
-    #[test]
+    #[rstest]
     fn test_window_utils_imports() {
         use crate::window_utils;
 
@@ -109,7 +111,7 @@ mod tests {
     }
 
     /// Test platform-specific modules compile
-    #[test]
+    #[rstest]
     fn test_platform_module_imports() {
         #[cfg(target_os = "windows")]
         {
@@ -122,7 +124,7 @@ mod tests {
     }
 
     /// Test utils module imports
-    #[test]
+    #[rstest]
     fn test_utils_module_imports() {
         use crate::utils;
 
@@ -131,7 +133,7 @@ mod tests {
     }
 
     /// Test webview submodules
-    #[test]
+    #[rstest]
     fn test_webview_submodules() {
         // Test backend module (public)
         use crate::webview::backend;
@@ -144,7 +146,7 @@ mod tests {
     }
 
     /// Test IPC submodules
-    #[test]
+    #[rstest]
     fn test_ipc_submodules() {
         // Test handler module
         use crate::ipc::handler;
@@ -173,7 +175,7 @@ mod tests {
 
     /// Test that Python bindings module compiles (when feature is enabled)
     #[cfg(feature = "python-bindings")]
-    #[test]
+    #[rstest]
     fn test_python_bindings_imports() {
         use crate::bindings;
 
@@ -189,7 +191,7 @@ mod tests {
         feature = "win-webview2",
         feature = "python-bindings"
     ))]
-    #[test]
+    #[rstest]
     fn test_webview2_bindings_imports() {
         use crate::bindings::webview2;
 
@@ -198,7 +200,7 @@ mod tests {
     }
 
     /// Test that all public re-exports are accessible
-    #[test]
+    #[rstest]
     fn test_public_api_exports() {
         // Test top-level exports from lib.rs
         let _: Option<crate::WebViewConfig> = None;
@@ -208,7 +210,7 @@ mod tests {
 
     /// Python module initialization test
     #[cfg(feature = "python-bindings")]
-    #[test]
+    #[rstest]
     fn test_pymodule_init_registers_symbols() {
         use super::*;
 

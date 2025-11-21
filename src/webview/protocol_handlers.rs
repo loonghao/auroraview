@@ -183,68 +183,41 @@ fn guess_mime_type(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::*;
 
     /// Unit test: Verify MIME type detection for common web file types
-    #[test]
-    fn test_guess_mime_type() {
-        // Test common web file types
-        assert_eq!(guess_mime_type(Path::new("test.html")), "text/html");
-        assert_eq!(guess_mime_type(Path::new("test.css")), "text/css");
-        assert_eq!(
-            guess_mime_type(Path::new("test.js")),
-            "text/javascript" // mime_guess uses text/javascript (RFC 9239)
-        );
-        assert_eq!(guess_mime_type(Path::new("test.png")), "image/png");
-
-        // Test unknown extension defaults to octet-stream
-        assert_eq!(
-            guess_mime_type(Path::new("test.unknown")),
-            "application/octet-stream"
-        );
-
-        // Test additional file types supported by mime_guess
-        assert_eq!(guess_mime_type(Path::new("test.json")), "application/json");
-        assert_eq!(guess_mime_type(Path::new("test.svg")), "image/svg+xml");
-        assert_eq!(guess_mime_type(Path::new("test.woff2")), "font/woff2");
-        assert_eq!(guess_mime_type(Path::new("test.mp4")), "video/mp4");
+    #[rstest]
+    #[case("test.html", "text/html")]
+    #[case("test.css", "text/css")]
+    #[case("test.js", "text/javascript")] // mime_guess uses text/javascript (RFC 9239)
+    #[case("test.png", "image/png")]
+    #[case("test.unknown", "application/octet-stream")] // Unknown extension defaults to octet-stream
+    #[case("test.json", "application/json")]
+    #[case("test.svg", "image/svg+xml")]
+    #[case("test.woff2", "font/woff2")]
+    #[case("test.mp4", "video/mp4")]
+    fn test_guess_mime_type(#[case] filename: &str, #[case] expected_mime: &str) {
+        assert_eq!(guess_mime_type(Path::new(filename)), expected_mime);
     }
 
     /// Unit test: Verify MIME type detection for DCC-specific file formats
-    #[test]
-    fn test_guess_mime_type_dcc_formats() {
-        // Test DCC-specific file formats
-        // Note: mime_guess returns actual MIME types from its database
-        assert_eq!(
-            guess_mime_type(Path::new("model.fbx")),
-            "application/octet-stream" // FBX not in mime_guess database
-        );
-        assert_eq!(
-            guess_mime_type(Path::new("scene.usd")),
-            "application/octet-stream" // USD not in mime_guess database
-        );
-        assert_eq!(
-            guess_mime_type(Path::new("texture.exr")),
-            "application/octet-stream" // EXR not in mime_guess database
-        );
-        assert_eq!(
-            guess_mime_type(Path::new("geometry.obj")),
-            "application/x-tgif" // OBJ is registered as TGIF format in mime_guess
-        );
+    #[rstest]
+    #[case("model.fbx", "application/octet-stream")] // FBX not in mime_guess database
+    #[case("scene.usd", "application/octet-stream")] // USD not in mime_guess database
+    #[case("texture.exr", "application/octet-stream")] // EXR not in mime_guess database
+    #[case("geometry.obj", "application/x-tgif")] // OBJ is registered as TGIF format in mime_guess
+    fn test_guess_mime_type_dcc_formats(#[case] filename: &str, #[case] expected_mime: &str) {
+        assert_eq!(guess_mime_type(Path::new(filename)), expected_mime);
     }
 
     /// Unit test: Verify MIME type detection for modern web formats
-    #[test]
-    fn test_guess_mime_type_modern_formats() {
-        // Test modern web formats
-        assert_eq!(guess_mime_type(Path::new("image.avif")), "image/avif");
-        assert_eq!(guess_mime_type(Path::new("image.webp")), "image/webp");
-        assert_eq!(guess_mime_type(Path::new("app.wasm")), "application/wasm");
-        // TypeScript (.ts) shares extension with MPEG transport stream
-        // mime_guess returns the video MIME type, not TypeScript
-        assert_eq!(
-            guess_mime_type(Path::new("script.ts")),
-            "video/vnd.dlna.mpeg-tts" // MPEG transport stream (not TypeScript)
-        );
+    #[rstest]
+    #[case("image.avif", "image/avif")]
+    #[case("image.webp", "image/webp")]
+    #[case("app.wasm", "application/wasm")]
+    #[case("script.ts", "video/vnd.dlna.mpeg-tts")] // MPEG transport stream (not TypeScript)
+    fn test_guess_mime_type_modern_formats(#[case] filename: &str, #[case] expected_mime: &str) {
+        assert_eq!(guess_mime_type(Path::new(filename)), expected_mime);
     }
 }
 

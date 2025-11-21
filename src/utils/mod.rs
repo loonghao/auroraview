@@ -56,33 +56,37 @@ impl Default for IdGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::*;
 
-    #[test]
-    fn test_id_generator() {
-        let gen = IdGenerator::new();
-        let id1 = gen.next();
-        let id2 = gen.next();
+    /// Fixture: Create a new IdGenerator
+    #[fixture]
+    fn id_generator() -> IdGenerator {
+        IdGenerator::new()
+    }
+
+    #[rstest]
+    fn test_id_generator(id_generator: IdGenerator) {
+        let id1 = id_generator.next();
+        let id2 = id_generator.next();
         assert_eq!(id2, id1 + 1);
     }
 
-    #[test]
-    fn test_id_generator_string() {
-        let gen = IdGenerator::new();
-        let id = gen.next_string();
+    #[rstest]
+    fn test_id_generator_string(id_generator: IdGenerator) {
+        let id = id_generator.next_string();
         assert!(id.starts_with("id_"));
     }
 
-    #[test]
+    #[rstest]
     fn test_id_generator_default() {
         let gen = IdGenerator::default();
         let id = gen.next();
         assert_eq!(id, 0);
     }
 
-    #[test]
-    fn test_id_generator_sequential() {
-        let gen = IdGenerator::new();
-        let ids: Vec<u64> = (0..10).map(|_| gen.next()).collect();
+    #[rstest]
+    fn test_id_generator_sequential(id_generator: IdGenerator) {
+        let ids: Vec<u64> = (0..10).map(|_| id_generator.next()).collect();
 
         // Verify sequential IDs
         for (i, &id) in ids.iter().enumerate() {
@@ -90,7 +94,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[rstest]
     fn test_id_generator_thread_safe() {
         use std::sync::Arc;
         use std::thread;
@@ -123,7 +127,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[rstest]
     fn test_logging_init() {
         // Test that logging can be initialized
         init_logging();
