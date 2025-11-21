@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.10](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.9...auroraview-v0.2.10) (2025-11-21)
+
+
+### Features
+
+* expose Rust CLI utilities to Python for enhanced functionality ([bc96ed5](https://github.com/loonghao/auroraview/commit/bc96ed55cb5d1b13b0f7c6e223179f2e025be2ea))
+
+
+### Bug Fixes
+
+* implement pure Python CLI for uvx compatibility ([96f7c94](https://github.com/loonghao/auroraview/commit/96f7c9434ae51f52bc6cc50edccc4fa00727a450))
+
 ## [0.2.9](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.8...auroraview-v0.2.9) (2025-11-21)
 
 
