@@ -48,6 +48,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register IPC metrics class
     bindings::ipc_metrics::register_ipc_metrics(m)?;
 
+    // Register CLI utilities (HTML rewriting, URL normalization, etc.)
+    bindings::cli_utils::register_cli_utils(m)?;
+
     // Windows-only: register minimal WebView2 embedded API (feature-gated)
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]
     bindings::webview2::register_webview2_api(m)?;

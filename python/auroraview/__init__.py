@@ -91,6 +91,9 @@ try:
         find_windows_by_title,
         get_all_windows,
         get_foreground_window,
+        # CLI utilities
+        normalize_url,
+        rewrite_html_for_custom_protocol,
     )
 except ImportError:
     # Fallback for development without compiled extension
@@ -105,6 +108,10 @@ except ImportError:
     get_all_windows = None  # type: ignore
     close_window_by_hwnd = None  # type: ignore
     destroy_window_by_hwnd = None  # type: ignore
+
+    # Placeholder for CLI utilities
+    normalize_url = None  # type: ignore
+    rewrite_html_for_custom_protocol = None  # type: ignore
 
 from .event_timer import EventTimer, TimerType
 from .framework import AuroraView
@@ -220,6 +227,9 @@ __all__ = [
     "get_all_windows",
     "close_window_by_hwnd",
     "destroy_window_by_hwnd",
+    # CLI utilities
+    "normalize_url",
+    "rewrite_html_for_custom_protocol",
     # Metadata
     "__version__",
     "__author__",

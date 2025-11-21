@@ -138,7 +138,7 @@ opt-level = 0
 default = ["python-bindings", "threaded-ipc", "wry-backend"]
 
 # Python bindings (without extension-module by default, to allow cargo test/linking)
-python-bindings = ["pyo3"]
+python-bindings = ["pyo3", "regex", "urlencoding"]
 # Enable PyO3 auto-initialize in test builds to avoid manual interpreter setup
 # Use with: cargo test --features "test-helpers"
 # This does not affect release artifacts.
