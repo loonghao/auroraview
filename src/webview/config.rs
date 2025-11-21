@@ -277,31 +277,41 @@ impl Default for WebViewBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::*;
 
-    #[test]
-    fn test_default_config_values() {
-        let cfg = WebViewConfig::default();
-        assert_eq!(cfg.title, "AuroraView");
-        assert_eq!(cfg.width, 800);
-        assert_eq!(cfg.height, 600);
-        assert!(cfg.url.is_none());
-        assert!(cfg.html.is_none());
-        assert!(cfg.dev_tools);
-        assert!(cfg.context_menu);
-        assert!(cfg.resizable);
-        assert!(cfg.decorations);
-        assert!(!cfg.always_on_top);
-        assert!(!cfg.transparent);
-        assert!(cfg.ipc_batching);
-        assert_eq!(cfg.ipc_batch_size, 10);
-        assert_eq!(cfg.ipc_batch_interval_ms, 16);
-        assert!(cfg.asset_root.is_none());
-        assert_eq!(cfg.custom_protocols.len(), 0);
+    #[fixture]
+    fn default_config() -> WebViewConfig {
+        WebViewConfig::default()
     }
 
-    #[test]
-    fn test_builder_overrides() {
-        let cfg = WebViewBuilder::new()
+    #[fixture]
+    fn builder() -> WebViewBuilder {
+        WebViewBuilder::new()
+    }
+
+    #[rstest]
+    fn test_default_config_values(default_config: WebViewConfig) {
+        assert_eq!(default_config.title, "AuroraView");
+        assert_eq!(default_config.width, 800);
+        assert_eq!(default_config.height, 600);
+        assert!(default_config.url.is_none());
+        assert!(default_config.html.is_none());
+        assert!(default_config.dev_tools);
+        assert!(default_config.context_menu);
+        assert!(default_config.resizable);
+        assert!(default_config.decorations);
+        assert!(!default_config.always_on_top);
+        assert!(!default_config.transparent);
+        assert!(default_config.ipc_batching);
+        assert_eq!(default_config.ipc_batch_size, 10);
+        assert_eq!(default_config.ipc_batch_interval_ms, 16);
+        assert!(default_config.asset_root.is_none());
+        assert_eq!(default_config.custom_protocols.len(), 0);
+    }
+
+    #[rstest]
+    fn test_builder_overrides(builder: WebViewBuilder) {
+        let cfg = builder
             .title("Hello")
             .size(1024, 768)
             .url("https://example.com")
@@ -325,5 +335,57 @@ mod tests {
         assert!(!cfg.decorations);
         assert!(cfg.always_on_top);
         assert!(cfg.transparent);
+    }
+
+    #[rstest]
+    #[case("Test Title")]
+    #[case("Another Window")]
+    #[case("")]
+    fn test_builder_title_variations(builder: WebViewBuilder, #[case] title: &str) {
+        let cfg = builder.title(title).build();
+        assert_eq!(cfg.title, title);
+    }
+
+    #[rstest]
+    #[case(1920, 1080)]
+    #[case(1280, 720)]
+    #[case(640, 480)]
+    fn test_builder_size_variations(
+        builder: WebViewBuilder,
+        #[case] width: u32,
+        #[case] height: u32,
+    ) {
+        let cfg = builder.size(width, height).build();
+        assert_eq!(cfg.width, width);
+        assert_eq!(cfg.height, height);
+    }
+
+    #[rstest]
+    fn test_builder_asset_root(builder: WebViewBuilder) {
+        let path = PathBuf::from("/tmp/assets");
+        let cfg = builder.asset_root(path.clone()).build();
+        assert_eq!(cfg.asset_root, Some(path));
+    }
+
+    #[rstest]
+    fn test_builder_register_protocol(builder: WebViewBuilder) {
+        let handler = Arc::new(|uri: &str| {
+            if uri.starts_with("custom://") {
+                Some((b"data".to_vec(), "text/plain".to_string(), 200))
+            } else {
+                None
+            }
+        });
+
+        let cfg = builder.register_protocol("custom", handler).build();
+        assert_eq!(cfg.custom_protocols.len(), 1);
+        assert!(cfg.custom_protocols.contains_key("custom"));
+    }
+
+    #[rstest]
+    #[cfg(target_os = "windows")]
+    fn test_embed_mode_default() {
+        let cfg = WebViewConfig::default();
+        assert_eq!(cfg.embed_mode, EmbedMode::None);
     }
 }
