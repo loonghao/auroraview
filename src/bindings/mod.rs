@@ -8,8 +8,10 @@
 //! - `ipc` - IPC message handling and JSON serialization
 //! - `ipc_metrics` - IPC performance metrics
 //! - `service_discovery` - Service discovery and port allocation
+//! - `cli_utils` - CLI utility functions (URL normalization, HTML rewriting)
 //! - `webview2` - Windows WebView2 embedded API (feature-gated)
 
+pub mod cli_utils;
 pub mod ipc;
 pub mod ipc_metrics;
 pub mod service_discovery;
