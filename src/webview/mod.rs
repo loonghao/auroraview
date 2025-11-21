@@ -5,10 +5,10 @@
 // Module declarations
 mod aurora_view;
 pub mod backend;
-mod config;
+pub mod config; // Public for testing
 pub(crate) mod event_loop;
 pub mod js_assets; // JavaScript assets management
-mod lifecycle;
+pub mod lifecycle; // Public for testing
 pub(crate) mod loading;
 mod message_pump;
 pub mod parent_monitor;
