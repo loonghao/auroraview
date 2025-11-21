@@ -242,11 +242,17 @@ impl Drop for Timer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::*;
+
+    /// Fixture: Create a timer with default interval (16ms)
+    #[fixture]
+    fn timer() -> Timer {
+        Timer::new(16)
+    }
 
     /// Unit test: Verify timer creation with correct initial state
-    #[test]
-    fn test_timer_creation() {
-        let timer = Timer::new(16);
+    #[rstest]
+    fn test_timer_creation(timer: Timer) {
         assert_eq!(timer.interval_ms(), 16);
         assert!(!timer.is_running());
         assert_eq!(timer.tick_count(), 0);
@@ -254,20 +260,21 @@ mod tests {
     }
 
     /// Unit test: Verify timer creation with different intervals
-    #[test]
-    fn test_timer_creation_with_different_intervals() {
-        let intervals = [1, 16, 33, 100, 1000];
-        for interval in intervals {
-            let timer = Timer::new(interval);
-            assert_eq!(timer.interval_ms(), interval);
-            assert!(!timer.is_running());
-        }
+    #[rstest]
+    #[case(1)]
+    #[case(16)]
+    #[case(33)]
+    #[case(100)]
+    #[case(1000)]
+    fn test_timer_creation_with_different_intervals(#[case] interval: u32) {
+        let timer = Timer::new(interval);
+        assert_eq!(timer.interval_ms(), interval);
+        assert!(!timer.is_running());
     }
 
     /// Unit test: Verify timer initial state
-    #[test]
-    fn test_timer_initial_state() {
-        let timer = Timer::new(16);
+    #[rstest]
+    fn test_timer_initial_state(timer: Timer) {
         assert!(!timer.is_running());
         assert_eq!(timer.tick_count(), 0);
 
@@ -279,7 +286,7 @@ mod tests {
     }
 
     /// Unit test: Verify stop when not running doesn't panic
-    #[test]
+    #[rstest]
     fn test_timer_stop_when_not_running() {
         let mut timer = Timer::new(16);
         // Should not panic
@@ -288,15 +295,14 @@ mod tests {
     }
 
     /// Unit test: Verify default backend
-    #[test]
-    fn test_timer_backend_default() {
-        let timer = Timer::new(16);
+    #[rstest]
+    fn test_timer_backend_default(timer: Timer) {
         assert_eq!(timer.backend(), TimerBackend::ThreadBased);
     }
 
     /// Unit test: Verify Windows timer with invalid HWND
     #[cfg(target_os = "windows")]
-    #[test]
+    #[rstest]
     fn test_windows_timer_invalid_hwnd() {
         let mut timer = Timer::new(16);
         // HWND = 0 is allowed by WinAPI (thread-queue timers). Use -1 to force failure.
@@ -305,7 +311,7 @@ mod tests {
     }
 
     /// Unit test: Verify drop doesn't panic
-    #[test]
+    #[rstest]
     fn test_timer_drop() {
         let timer = Timer::new(16);
         // Ensure drop doesn't panic

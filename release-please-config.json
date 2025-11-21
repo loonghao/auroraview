@@ -21,17 +21,6 @@
           "type": "toml",
           "path": "pyproject.toml",
           "jsonpath": "$.project.version"
-        },
-        {
-          "type": "generic",
-          "path": "python/auroraview/__init__.py",
-          "replacements": [
-            {
-              "type": "regex",
-              "search": "__version__ = \"[^\"]*\"",
-              "replace": "__version__ = \"{{version}}\""
-            }
-          ]
         }
       ]
     }

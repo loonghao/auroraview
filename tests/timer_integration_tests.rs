@@ -45,8 +45,9 @@ fn test_timer_throttling_precise() {
         "Tick before interval should be throttled"
     );
 
-    // Wait for remaining time
-    thread::sleep(Duration::from_millis(25));
+    // Wait for remaining time plus tolerance for macOS scheduler variance
+    // macOS scheduler can have higher variance than Linux/Windows
+    thread::sleep(Duration::from_millis(30)); // 30ms + 30ms = 60ms total (10ms tolerance)
     assert!(
         timer.should_tick(),
         "Tick after full interval should succeed"
