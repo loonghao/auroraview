@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.11](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.10...auroraview-v0.2.11) (2025-11-22)
+
+
+### Features
+
+* optimize standalone mode with loading screen and unified event loop ([5975b79](https://github.com/loonghao/auroraview/commit/5975b790a0eb2bfc4e88dca5dc6ebedec08845c0))
+
+
+### Bug Fixes
+
+* add Cargo.lock to ensure reproducible builds ([63b2420](https://github.com/loonghao/auroraview/commit/63b2420256eb9b39b90154831f1c1ad37b479e5e))
+* mock run_standalone instead of WebView in CLI tests ([584ec21](https://github.com/loonghao/auroraview/commit/584ec2196292b5e184de07a08178bbfcfdcd6343))
+* update documentation examples to use ignore instead of no_run ([c3842ea](https://github.com/loonghao/auroraview/commit/c3842ea76b13e71e7b2fb8a70561fc72db0a70ce))
+
 ## [0.2.10](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.9...auroraview-v0.2.10) (2025-11-21)
 
 
