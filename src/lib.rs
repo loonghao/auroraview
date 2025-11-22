@@ -149,6 +149,27 @@ mod tests {
         use crate::webview::js_assets;
         // Verify constants are accessible
         let _: &str = js_assets::EVENT_BRIDGE;
+
+        // Test loading HTML is accessible
+        let loading_html = js_assets::get_loading_html();
+        assert!(!loading_html.is_empty());
+        assert!(loading_html.contains("<!DOCTYPE html>") || loading_html.contains("<html"));
+    }
+
+    /// Test standalone module functions
+    #[rstest]
+    fn test_standalone_module() {
+        use crate::webview::js_assets;
+
+        // Test loading HTML generation
+        let html = js_assets::get_loading_html();
+        assert!(!html.is_empty());
+        assert!(html.contains("Loading") || html.contains("loading"));
+
+        // Test URL loading script generation
+        let script = js_assets::build_load_url_script("https://example.com");
+        assert!(script.contains("https://example.com"));
+        assert!(script.contains("window.location.href"));
     }
 
     /// Test IPC submodules
