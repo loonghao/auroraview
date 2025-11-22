@@ -53,10 +53,11 @@ test:
     cargo test --test timer_integration_tests --features "test-helpers"
     cargo test --test ipc_message_queue_integration_tests --features "test-helpers"
     cargo test --test http_discovery_integration_tests --features "test-helpers"
+    cargo test --test standalone_integration_tests --features "test-helpers"
     @echo "Running Rust doc tests..."
     cargo test --doc
     @echo "Running Python tests with coverage..."
-    pytest -q -rA -s --cov=auroraview --cov-report=term-missing tests/test_package_init.py tests/test_testing_framework.py tests/test_event_timer.py
+    pytest -q -rA -s --cov=auroraview --cov-report=term-missing tests/test_package_init.py tests/test_testing_framework.py tests/test_event_timer.py tests/test_standalone_runner.py
     @echo ""
     @echo "Note: Rust unit tests (cargo test --lib), window_utils_integration_tests, and ipc_batch_integration_tests are skipped on Windows due to PyO3 abi3 DLL linking issues."
     @echo "These tests run successfully in CI on Linux."
