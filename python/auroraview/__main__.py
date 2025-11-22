@@ -45,7 +45,8 @@ def main():
     args = parser.parse_args()
 
     try:
-        from auroraview import WebView, normalize_url, rewrite_html_for_custom_protocol
+        from auroraview import normalize_url, rewrite_html_for_custom_protocol
+        from auroraview._core import run_standalone
 
         # Prepare the URL or HTML content
         if args.url:
@@ -64,18 +65,19 @@ def main():
             html_content = rewrite_html_for_custom_protocol(raw_html)
             url = None
 
-        # Create WebView with content
-        webview = WebView(
+        # Run standalone WebView (blocking until window closes, then exits process)
+        # This uses the same event_loop.run() approach as the Rust CLI
+        run_standalone(
             title=args.title,
             width=args.width,
             height=args.height,
             url=url,
             html=html_content,
-            debug=args.debug,
+            dev_tools=args.debug,
         )
 
-        # Show the WebView (blocking mode for CLI)
-        webview.show_blocking()
+        # This line will never be reached because run_standalone() exits the process
+        # when the window closes
 
     except ImportError as e:
         print(

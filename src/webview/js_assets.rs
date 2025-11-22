@@ -22,6 +22,25 @@
 use crate::webview::WebViewConfig;
 use std::collections::HashMap;
 
+/// HTML asset registry
+///
+/// All HTML files are embedded at compile time for use in WebView
+fn get_html_registry() -> HashMap<&'static str, &'static str> {
+    let mut registry = HashMap::new();
+
+    // Loading screen
+    registry.insert("loading.html", include_str!("../assets/html/loading.html"));
+
+    registry
+}
+
+/// Get loading screen HTML
+pub fn get_loading_html() -> &'static str {
+    get_html_registry()
+        .get("loading.html")
+        .expect("loading.html should be in registry")
+}
+
 /// JavaScript asset registry
 ///
 /// All JavaScript files are embedded at compile time and registered in a HashMap
