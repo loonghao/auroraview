@@ -2,7 +2,7 @@
 /target/
 **/*.rs.bk
 *.pdb
-Cargo.lock
+# Cargo.lock is committed for binary/application projects to ensure reproducible builds
 
 # Python
 __pycache__/
