@@ -14,24 +14,22 @@ def test_main_success():
     """Test successful CLI execution with URL."""
     from auroraview.__main__ import main
 
-    # Mock WebView to avoid actual window creation
-    mock_webview = MagicMock()
-
-    # Mock sys.argv with URL argument
-    with patch("auroraview.WebView", return_value=mock_webview):
+    # Mock run_standalone to avoid actual window creation
+    with patch("auroraview._core.run_standalone") as mock_run_standalone:
         with patch.object(sys, "argv", ["auroraview", "--url", "https://example.com"]):
             main()
 
-            # Verify WebView was created with correct parameters
-            mock_webview.show_blocking.assert_called_once()
+            # Verify run_standalone was called with correct parameters
+            mock_run_standalone.assert_called_once()
+            call_kwargs = mock_run_standalone.call_args.kwargs
+            assert call_kwargs["title"] == "AuroraView"
+            # URL is normalized (trailing slash added)
+            assert call_kwargs["url"].startswith("https://example.com")
 
 
 def test_main_with_arguments():
     """Test CLI execution with HTML file and debug flag."""
     from auroraview.__main__ import main
-
-    # Mock WebView to avoid actual window creation
-    mock_webview = MagicMock()
 
     # Create a temporary HTML file
     import tempfile
@@ -44,12 +42,15 @@ def test_main_with_arguments():
         # Mock sys.argv to include arguments
         test_args = ["auroraview", "--html", html_path, "--debug"]
 
-        with patch("auroraview.WebView", return_value=mock_webview):
+        # Mock run_standalone to avoid actual window creation
+        with patch("auroraview._core.run_standalone") as mock_run_standalone:
             with patch.object(sys, "argv", test_args):
                 main()
 
-                # Verify WebView was created with debug flag
-                mock_webview.show_blocking.assert_called_once()
+                # Verify run_standalone was called with debug flag
+                mock_run_standalone.assert_called_once()
+                call_kwargs = mock_run_standalone.call_args.kwargs
+                assert call_kwargs["dev_tools"] is True
     finally:
         # Clean up temp file
         Path(html_path).unlink(missing_ok=True)
@@ -59,8 +60,8 @@ def test_main_non_zero_exit_code():
     """Test CLI execution with WebView exception."""
     from auroraview.__main__ import main
 
-    # Mock WebView to raise an exception
-    with patch("auroraview.WebView", side_effect=RuntimeError("WebView error")):
+    # Mock run_standalone to raise an exception
+    with patch("auroraview._core.run_standalone", side_effect=RuntimeError("WebView error")):
         with patch.object(sys, "argv", ["auroraview", "--url", "https://example.com"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
@@ -88,8 +89,8 @@ def test_main_generic_exception():
     """Test CLI execution with generic exception."""
     from auroraview.__main__ import main
 
-    # Mock WebView to raise a generic exception
-    with patch("auroraview.WebView", side_effect=RuntimeError("Unexpected error")):
+    # Mock run_standalone to raise a generic exception
+    with patch("auroraview._core.run_standalone", side_effect=RuntimeError("Unexpected error")):
         with patch.object(sys, "argv", ["auroraview", "--url", "https://example.com"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
@@ -113,23 +114,22 @@ def test_main_module_execution():
     if spec and spec.loader:
         module = importlib.util.module_from_spec(spec)
 
-        # Mock WebView to avoid actual window creation
-        mock_webview = MagicMock()
-
-        with patch("auroraview.WebView", return_value=mock_webview):
+        # Mock run_standalone to avoid actual window creation
+        with patch("auroraview._core.run_standalone") as mock_run_standalone:
             with patch.object(sys, "argv", ["auroraview", "--url", "https://example.com"]):
                 # Execute the module
                 spec.loader.exec_module(module)
+
+                # Verify run_standalone was called
+                mock_run_standalone.assert_called_once()
 
 
 def test_main_url_normalization():
     """Test that URLs are normalized correctly."""
     from auroraview.__main__ import main
 
-    # Mock WebView and normalize_url
-    mock_webview = MagicMock()
-
-    with patch("auroraview.WebView", return_value=mock_webview):
+    # Mock run_standalone and normalize_url
+    with patch("auroraview._core.run_standalone") as mock_run_standalone:
         with patch(
             "auroraview.normalize_url", return_value="https://example.com/"
         ) as mock_normalize:
@@ -138,8 +138,10 @@ def test_main_url_normalization():
 
                 # Verify normalize_url was called
                 mock_normalize.assert_called_once_with("example.com")
-                # Verify WebView was created with normalized URL
-                mock_webview.show_blocking.assert_called_once()
+                # Verify run_standalone was called with normalized URL
+                mock_run_standalone.assert_called_once()
+                call_kwargs = mock_run_standalone.call_args.kwargs
+                assert call_kwargs["url"] == "https://example.com/"
 
 
 def test_main_html_rewriting():
@@ -154,10 +156,8 @@ def test_main_html_rewriting():
         html_path = f.name
 
     try:
-        # Mock WebView and rewrite function
-        mock_webview = MagicMock()
-
-        with patch("auroraview.WebView", return_value=mock_webview):
+        # Mock run_standalone and rewrite function
+        with patch("auroraview._core.run_standalone") as mock_run_standalone:
             with patch(
                 "auroraview.rewrite_html_for_custom_protocol",
                 return_value='<link href="auroraview://style.css">',
@@ -167,8 +167,10 @@ def test_main_html_rewriting():
 
                     # Verify rewrite function was called
                     mock_rewrite.assert_called_once()
-                    # Verify WebView was created
-                    mock_webview.show_blocking.assert_called_once()
+                    # Verify run_standalone was called
+                    mock_run_standalone.assert_called_once()
+                    call_kwargs = mock_run_standalone.call_args.kwargs
+                    assert call_kwargs["html"] == '<link href="auroraview://style.css">'
     finally:
         # Clean up temp file
         Path(html_path).unlink(missing_ok=True)
