@@ -158,6 +158,11 @@ impl WebViewEventHandler {
             if let Some(window) = &state_guard.window {
                 window.set_visible(true);
                 tracing::info!("[OK] [run_blocking] Window is now visible");
+
+                // CRITICAL FIX: Request a redraw to wake up the event loop
+                // Without this, run_return() may hang on Windows waiting for the first event
+                window.request_redraw();
+                tracing::info!("[OK] [run_blocking] Requested window redraw to wake event loop");
             } else {
                 tracing::warn!("[WARNING] [run_blocking] Window is None");
             }

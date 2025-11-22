@@ -64,6 +64,11 @@ pub struct WebViewConfig {
     /// Transparent window
     pub transparent: bool,
 
+    /// Background color in hex format (e.g., "#1e1e1e", "#ffffff")
+    /// Used as window background while WebView is loading
+    /// Default: None (system default, usually white)
+    pub background_color: Option<String>,
+
     /// Parent window handle (HWND on Windows) for embedding/ownership
     pub parent_hwnd: Option<u64>,
 
@@ -141,6 +146,7 @@ impl Default for WebViewConfig {
             decorations: true,
             always_on_top: false,
             transparent: false,
+            background_color: None,    // System default (usually white)
             ipc_batching: true,        // Enable by default
             ipc_batch_size: 10,        // 10 messages per batch
             ipc_batch_interval_ms: 16, // ~60 FPS (16.67ms)

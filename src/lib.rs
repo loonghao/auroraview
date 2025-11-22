@@ -51,6 +51,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register CLI utilities (HTML rewriting, URL normalization, etc.)
     bindings::cli_utils::register_cli_utils(m)?;
 
+    // Register standalone runner (uses event_loop.run() for standalone apps)
+    bindings::standalone_runner::register_standalone_runner(m)?;
+
     // Windows-only: register minimal WebView2 embedded API (feature-gated)
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]
     bindings::webview2::register_webview2_api(m)?;
