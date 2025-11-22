@@ -5,7 +5,21 @@
 //!
 //! # Examples
 //!
-//! ```no_run
+//! From Python (recommended):
+//! ```python
+//! from auroraview._core import run_standalone
+//!
+//! run_standalone(
+//!     title="My App",
+//!     width=800,
+//!     height=600,
+//!     url="https://example.com"
+//! )
+//! ```
+//!
+//! From Rust (internal use):
+//! ```ignore
+//! // This module is internal, use Python bindings instead
 //! use auroraview_core::webview::config::WebViewConfig;
 //! use auroraview_core::ipc::{IpcHandler, MessageQueue};
 //! use std::sync::Arc;
@@ -23,7 +37,6 @@
 //!
 //! // This will create a standalone window and run the event loop
 //! // Note: This is a blocking call that will run until the window is closed
-//! # // auroraview_core::webview::standalone::run_standalone(config, ipc_handler, message_queue);
 //! ```
 
 use std::sync::{Arc, Mutex};
@@ -44,9 +57,9 @@ use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```ignore
+/// // This is an internal function, use run_standalone from Python bindings instead
 /// use auroraview_core::webview::config::WebViewConfig;
-/// use auroraview_core::webview::standalone;
 /// use auroraview_core::ipc::{IpcHandler, MessageQueue};
 /// use std::sync::Arc;
 ///
@@ -61,7 +74,8 @@ use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 /// let ipc_handler = Arc::new(IpcHandler::new());
 /// let message_queue = Arc::new(MessageQueue::new());
 ///
-/// let webview = standalone::create_standalone(config, ipc_handler, message_queue).unwrap();
+/// // Internal use only - called by run_standalone
+/// // let webview = create_standalone(config, ipc_handler, message_queue).unwrap();
 /// ```
 pub fn create_standalone(
     config: WebViewConfig,
@@ -271,9 +285,22 @@ pub fn create_standalone(
 ///
 /// # Examples
 ///
-/// ```no_run
+/// From Python:
+/// ```python
+/// from auroraview._core import run_standalone
+///
+/// run_standalone(
+///     title="My App",
+///     width=1024,
+///     height=768,
+///     url="https://example.com"
+/// )
+/// ```
+///
+/// From Rust (internal use):
+/// ```ignore
+/// // This is an internal function, use Python bindings instead
 /// use auroraview_core::webview::config::WebViewConfig;
-/// use auroraview_core::webview::standalone;
 /// use auroraview_core::ipc::{IpcHandler, MessageQueue};
 /// use std::sync::Arc;
 ///
@@ -289,7 +316,7 @@ pub fn create_standalone(
 /// let message_queue = Arc::new(MessageQueue::new());
 ///
 /// // This will block until the window is closed and then exit the process
-/// standalone::run_standalone(config, ipc_handler, message_queue).unwrap();
+/// // run_standalone(config, ipc_handler, message_queue).unwrap();
 /// ```
 pub fn run_standalone(
     config: WebViewConfig,
