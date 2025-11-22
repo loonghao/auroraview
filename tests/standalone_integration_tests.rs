@@ -152,3 +152,103 @@ fn test_standalone_dev_tools(#[case] dev_tools: bool) {
 
     assert_eq!(config.dev_tools, dev_tools);
 }
+
+/// Test standalone config with all options
+#[rstest]
+fn test_standalone_config_complete() {
+    let config = WebViewConfig {
+        title: "Test App".to_string(),
+        width: 1024,
+        height: 768,
+        url: Some("https://example.com".to_string()),
+        html: None,
+        dev_tools: true,
+        resizable: true,
+        decorations: true,
+        transparent: false,
+        always_on_top: false,
+        background_color: None,
+        context_menu: true,
+        parent_hwnd: None,
+        embed_mode: auroraview_core::webview::config::EmbedMode::None,
+        ipc_batching: false,
+        ipc_batch_size: 100,
+        ipc_batch_interval_ms: 16,
+        asset_root: None,
+        custom_protocols: std::collections::HashMap::new(),
+        api_methods: std::collections::HashMap::new(),
+    };
+
+    assert_eq!(config.title, "Test App");
+    assert_eq!(config.width, 1024);
+    assert_eq!(config.height, 768);
+    assert_eq!(config.url, Some("https://example.com".to_string()));
+    assert!(config.dev_tools);
+    assert!(config.resizable);
+    assert!(config.decorations);
+    assert!(!config.transparent);
+}
+
+/// Test embed mode configuration
+#[rstest]
+fn test_standalone_embed_mode() {
+    use auroraview_core::webview::config::EmbedMode;
+
+    let config = WebViewConfig {
+        embed_mode: EmbedMode::None,
+        ..Default::default()
+    };
+
+    // Verify embed mode is set correctly
+    assert!(matches!(config.embed_mode, EmbedMode::None));
+}
+
+/// Test IPC configuration
+#[rstest]
+fn test_standalone_ipc_config() {
+    let config = WebViewConfig {
+        ipc_batching: true,
+        ipc_batch_size: 200,
+        ipc_batch_interval_ms: 32,
+        ..Default::default()
+    };
+
+    assert!(config.ipc_batching);
+    assert_eq!(config.ipc_batch_size, 200);
+    assert_eq!(config.ipc_batch_interval_ms, 32);
+}
+
+/// Test context menu configuration
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn test_standalone_context_menu(#[case] context_menu: bool) {
+    let config = WebViewConfig {
+        context_menu,
+        ..Default::default()
+    };
+
+    assert_eq!(config.context_menu, context_menu);
+}
+
+/// Test always on top configuration
+#[rstest]
+fn test_standalone_always_on_top() {
+    let config = WebViewConfig {
+        always_on_top: true,
+        ..Default::default()
+    };
+
+    assert!(config.always_on_top);
+}
+
+/// Test background color configuration
+#[rstest]
+fn test_standalone_background_color() {
+    let config = WebViewConfig {
+        background_color: Some("#ffffff".to_string()),
+        ..Default::default()
+    };
+
+    assert_eq!(config.background_color, Some("#ffffff".to_string()));
+}

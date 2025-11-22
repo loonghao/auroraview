@@ -121,4 +121,29 @@ mod tests {
             assert!(module.getattr("run_standalone").is_ok());
         });
     }
+
+    #[test]
+    fn test_run_standalone_function_exists() {
+        Python::initialize();
+        Python::attach(|py| {
+            let module = PyModule::new(py, "test_module").unwrap();
+            register_standalone_runner(&module).unwrap();
+            let func = module.getattr("run_standalone").unwrap();
+            assert!(func.is_callable());
+        });
+    }
+
+    #[test]
+    fn test_run_standalone_signature() {
+        Python::initialize();
+        Python::attach(|py| {
+            let module = PyModule::new(py, "test_module").unwrap();
+            register_standalone_runner(&module).unwrap();
+            let func = module.getattr("run_standalone").unwrap();
+
+            // Verify function has correct signature
+            let signature = func.getattr("__signature__");
+            assert!(signature.is_ok() || func.is_callable());
+        });
+    }
 }

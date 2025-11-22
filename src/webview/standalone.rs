@@ -2,6 +2,29 @@
 //!
 //! This module handles creating WebView instances in standalone mode,
 //! where the WebView creates and manages its own window.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use auroraview_core::webview::config::WebViewConfig;
+//! use auroraview_core::ipc::{IpcHandler, MessageQueue};
+//! use std::sync::Arc;
+//!
+//! let config = WebViewConfig {
+//!     title: "My App".to_string(),
+//!     width: 800,
+//!     height: 600,
+//!     url: Some("https://example.com".to_string()),
+//!     ..Default::default()
+//! };
+//!
+//! let ipc_handler = Arc::new(IpcHandler::new());
+//! let message_queue = Arc::new(MessageQueue::new());
+//!
+//! // This will create a standalone window and run the event loop
+//! // Note: This is a blocking call that will run until the window is closed
+//! # // auroraview_core::webview::standalone::run_standalone(config, ipc_handler, message_queue);
+//! ```
 
 use std::sync::{Arc, Mutex};
 use tao::event_loop::EventLoopBuilder;
@@ -15,6 +38,31 @@ use super::webview_inner::WebViewInner;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 
 /// Create standalone WebView with its own window
+///
+/// This function creates a WebView instance with its own window and event loop.
+/// The window starts hidden to avoid white flash and shows a loading screen.
+///
+/// # Examples
+///
+/// ```no_run
+/// use auroraview_core::webview::config::WebViewConfig;
+/// use auroraview_core::webview::standalone;
+/// use auroraview_core::ipc::{IpcHandler, MessageQueue};
+/// use std::sync::Arc;
+///
+/// let config = WebViewConfig {
+///     title: "My App".to_string(),
+///     width: 800,
+///     height: 600,
+///     url: Some("https://example.com".to_string()),
+///     ..Default::default()
+/// };
+///
+/// let ipc_handler = Arc::new(IpcHandler::new());
+/// let message_queue = Arc::new(MessageQueue::new());
+///
+/// let webview = standalone::create_standalone(config, ipc_handler, message_queue).unwrap();
+/// ```
 pub fn create_standalone(
     config: WebViewConfig,
     ipc_handler: Arc<IpcHandler>,
@@ -220,6 +268,29 @@ pub fn create_standalone(
 /// - Standalone Python scripts
 /// - CLI applications
 /// - Desktop applications
+///
+/// # Examples
+///
+/// ```no_run
+/// use auroraview_core::webview::config::WebViewConfig;
+/// use auroraview_core::webview::standalone;
+/// use auroraview_core::ipc::{IpcHandler, MessageQueue};
+/// use std::sync::Arc;
+///
+/// let config = WebViewConfig {
+///     title: "My Standalone App".to_string(),
+///     width: 1024,
+///     height: 768,
+///     url: Some("https://example.com".to_string()),
+///     ..Default::default()
+/// };
+///
+/// let ipc_handler = Arc::new(IpcHandler::new());
+/// let message_queue = Arc::new(MessageQueue::new());
+///
+/// // This will block until the window is closed and then exit the process
+/// standalone::run_standalone(config, ipc_handler, message_queue).unwrap();
+/// ```
 pub fn run_standalone(
     config: WebViewConfig,
     ipc_handler: Arc<IpcHandler>,
