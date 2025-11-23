@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.12](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.11...auroraview-v0.2.12) (2025-11-23)
+
+
+### Bug Fixes
+
+* resolve macOS CI cache setup hashFiles errors ([5fc5968](https://github.com/loonghao/auroraview/commit/5fc59686275a6595a946342e784e4c7b5ee7c329))
+
+
+### Code Refactoring
+
+* implement dependency injection for EventTimer backends ([9b942a3](https://github.com/loonghao/auroraview/commit/9b942a367d58f2c712787bce96b9e1485a883de8))
+* simplify EventTimer by removing DCC-specific implementations ([32fa559](https://github.com/loonghao/auroraview/commit/32fa559be544fbd771d3bac99c2f89346cad5cb5))
+
 ## [0.2.11](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.10...auroraview-v0.2.11) (2025-11-22)
 
 
