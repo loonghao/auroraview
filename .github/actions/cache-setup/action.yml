@@ -33,9 +33,9 @@ runs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}-${{ inputs.cache-key-suffix }}
+        key: ${{ runner.os }}-rust-${{ hashFiles('Cargo.lock') }}-${{ inputs.cache-key-suffix }}
         restore-keys: |
-          ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}-
+          ${{ runner.os }}-rust-${{ hashFiles('Cargo.lock') }}-
           ${{ runner.os }}-rust-
 
     - name: Setup Python cache
@@ -46,9 +46,9 @@ runs:
         path: |
           ~/.cache/uv
           .venv
-        key: ${{ runner.os }}-python-${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}-${{ inputs.cache-key-suffix }}
+        key: ${{ runner.os }}-python-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ inputs.cache-key-suffix }}
         restore-keys: |
-          ${{ runner.os }}-python-${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}-
+          ${{ runner.os }}-python-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml') }}-
           ${{ runner.os }}-python-${{ inputs.python-version }}-
 
     - name: Setup build cache
@@ -61,10 +61,10 @@ runs:
           target/debug/
           build/
           dist/
-        key: ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-${{ github.sha }}-${{ inputs.cache-key-suffix }}
+        key: ${{ runner.os }}-build-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}-${{ inputs.cache-key-suffix }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-${{ github.sha }}-
-          ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-
+          ${{ runner.os }}-build-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}-
+          ${{ runner.os }}-build-${{ hashFiles('Cargo.lock') }}-
           ${{ runner.os }}-build-
 
     - name: Setup test cache
@@ -77,9 +77,9 @@ runs:
           .coverage
           htmlcov/
           target/tarpaulin/
-        key: ${{ runner.os }}-test-${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', 'tests/**/*.py') }}-${{ inputs.cache-key-suffix }}
+        key: ${{ runner.os }}-test-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ inputs.cache-key-suffix }}
         restore-keys: |
-          ${{ runner.os }}-test-${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', 'tests/**/*.py') }}-
+          ${{ runner.os }}-test-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml') }}-
           ${{ runner.os }}-test-${{ inputs.python-version }}-
 
     - name: Set cache hit output
