@@ -316,8 +316,8 @@ class TestEventTimer:
 
         timer.start()
 
-        # Should have selected a backend
-        assert timer._timer_type in ["qt", "maya", "blender", "houdini", "thread"]
+        # Should have selected a backend (Qt or thread)
+        assert timer._timer_type in ["qt", "thread"]
         assert timer._timer_impl is not None
 
         timer.stop()
@@ -474,73 +474,6 @@ class TestEventTimer:
 
         # Qt timer stop should have been called
         mock_qt_timer.stop.assert_called_once()
-
-    def test_stop_timer_impl_maya_backend_mock(self):
-        """Test _stop_timer_impl with mocked Maya backend."""
-        import sys
-        from unittest.mock import MagicMock, patch
-
-        webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
-
-        # Mock Maya scriptJob
-        timer._timer_type = "maya"
-        timer._timer_impl = 12345  # Mock job ID
-
-        # Mock maya.cmds module
-        mock_cmds = MagicMock()
-        mock_maya = MagicMock()
-        mock_maya.cmds = mock_cmds
-
-        with patch.dict(sys.modules, {"maya": mock_maya, "maya.cmds": mock_cmds}):
-            timer._stop_timer_impl()
-
-            # scriptJob kill should have been called
-            mock_cmds.scriptJob.assert_called_once_with(kill=12345, force=True)
-
-    def test_stop_timer_impl_blender_backend_mock(self):
-        """Test _stop_timer_impl with mocked Blender backend."""
-        from unittest.mock import MagicMock, patch
-
-        webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
-
-        # Mock Blender timer
-        mock_timer_func = MagicMock()
-        timer._timer_type = "blender"
-        timer._timer_impl = mock_timer_func
-
-        # Mock bpy module
-        mock_bpy = MagicMock()
-        mock_bpy.app.timers.is_registered.return_value = True
-
-        with patch.dict("sys.modules", {"bpy": mock_bpy}):
-            timer._stop_timer_impl()
-
-            # Blender timer unregister should have been called
-            mock_bpy.app.timers.is_registered.assert_called_once_with(mock_timer_func)
-            mock_bpy.app.timers.unregister.assert_called_once_with(mock_timer_func)
-
-    def test_stop_timer_impl_houdini_backend_mock(self):
-        """Test _stop_timer_impl with mocked Houdini backend."""
-        from unittest.mock import MagicMock, patch
-
-        webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
-
-        # Mock Houdini timer
-        mock_timer_func = MagicMock()
-        timer._timer_type = "houdini"
-        timer._timer_impl = mock_timer_func
-
-        # Mock hou module
-        mock_hou = MagicMock()
-
-        with patch.dict("sys.modules", {"hou": mock_hou}):
-            timer._stop_timer_impl()
-
-            # Houdini removeEventLoopCallback should have been called
-            mock_hou.ui.removeEventLoopCallback.assert_called_once_with(mock_timer_func)
 
     def test_stop_timer_impl_error_handling(self):
         """Test _stop_timer_impl error handling."""

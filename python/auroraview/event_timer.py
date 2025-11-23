@@ -1,8 +1,8 @@
 """Event timer for WebView event processing.
 
 This module provides a timer-based event loop for processing WebView events
-in embedded mode. It's designed to work with DCC applications that have their
-own event loops (Maya, Houdini, Blender, etc.).
+in embedded mode. It's designed to work with applications that have their
+own event loops.
 
 The timer periodically checks for:
 - Window messages (WM_CLOSE, WM_DESTROY, etc.)
@@ -10,23 +10,20 @@ The timer periodically checks for:
 - User-defined callbacks
 
 Supported Timer Backends (in priority order):
-1. Qt QTimer - Most precise, works in Maya/Houdini/Nuke/3ds Max/Unreal
-2. Maya scriptJob - Maya-specific, runs on idle events
-3. Blender bpy.app.timers - Blender-specific, precise timing
-4. Houdini event loop callbacks - Houdini-specific
-5. Thread-based timer - Fallback for all platforms
+1. Qt QTimer - Most precise, works in Qt-based applications
+2. Thread-based timer - Fallback for all platforms
 
-Note: Windows SetTimer support has been moved to Rust implementation (NativeTimer).
-For Windows-specific timer needs, use the NativeTimer class directly.
+Note: For DCC-specific timer implementations (Maya, Blender, Houdini, etc.),
+use the integration modules in the `integrations/` package.
 
-IMPORTANT: Most backends run in the main thread to avoid thread-safety issues.
-Only the fallback thread-based timer uses a background thread.
+IMPORTANT: Qt backend runs in the main thread to avoid thread-safety issues.
+The thread-based fallback uses a background daemon thread.
 
 Example:
     >>> from auroraview import WebView
     >>> from auroraview.event_timer import EventTimer
     >>>
-    >>> webview = WebView(parent=maya_hwnd, mode="owner")
+    >>> webview = WebView(parent=parent_hwnd, mode="owner")
     >>>
     >>> # Create timer with 16ms interval (60 FPS)
     >>> timer = EventTimer(webview, interval_ms=16)
@@ -49,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 
 # Type alias for timer backend kinds (for type hints and IDE support)
-TimerType = Literal["maya", "qt", "blender", "houdini", "thread"]
+TimerType = Literal["qt", "thread"]
 
 
 class EventTimer:
@@ -93,17 +90,12 @@ class EventTimer:
         self._interval_ms = interval_ms
         self._check_validity = check_window_validity
         self._running = False
-        self._timer_impl: Optional[Any] = (
-            None  # Maya scriptJob, Qt QTimer, Blender/Houdini callbacks, or thread
-        )
-        self._timer_type: Optional["TimerType"] = (
-            None  # "maya", "qt", "blender", "houdini", "thread"
-        )
+        self._timer_impl: Optional[Any] = None  # Qt QTimer or thread
+        self._timer_type: Optional["TimerType"] = None  # "qt" or "thread"
         self._close_callbacks: list[Callable[[], None]] = []
         self._tick_callbacks: list[Callable[[], None]] = []
         self._last_valid = True
         self._tick_count = 0
-        self._last_tick_time = 0.0  # For throttling Maya scriptJob
 
         logger.debug(
             f"EventTimer created: interval={interval_ms}ms, check_validity={check_window_validity}"
@@ -113,11 +105,11 @@ class EventTimer:
         """Start the timer.
 
         This attempts to use the best available timer backend in priority order:
-        1. Qt QTimer (most precise, works in Maya/Houdini/Nuke/Max/Unreal)
-        2. DCC-specific timers (Maya scriptJob, Blender timers, Houdini callbacks)
-        3. Thread-based timer (fallback)
+        1. Qt QTimer (most precise, works in Qt-based applications)
+        2. Thread-based timer (fallback)
 
-        All backends run in the main thread to avoid thread-safety issues.
+        Qt backend runs in the main thread to avoid thread-safety issues.
+        Thread backend uses a daemon thread.
 
         Raises:
             RuntimeError: If timer is already running or no timer backend available
@@ -127,22 +119,9 @@ class EventTimer:
 
         self._running = True
 
-        # Try Qt QTimer first (most precise, works in most DCCs)
+        # Try Qt QTimer first (most precise)
         if self._try_start_qt_timer():
             logger.info(f"EventTimer started with Qt QTimer (interval={self._interval_ms}ms)")
-            return
-
-        # Try DCC-specific timers
-        if self._try_start_maya_timer():
-            logger.info("EventTimer started with Maya scriptJob (idle event)")
-            return
-
-        if self._try_start_blender_timer():
-            logger.info(f"EventTimer started with Blender timer (interval={self._interval_ms}ms)")
-            return
-
-        if self._try_start_houdini_timer():
-            logger.info("EventTimer started with Houdini event loop callback")
             return
 
         # Fallback to thread-based timer
@@ -155,8 +134,7 @@ class EventTimer:
         # No timer backend available
         self._running = False
         raise RuntimeError(
-            "No timer backend available. "
-            "EventTimer requires Qt, DCC-specific timer, or threading support."
+            "No timer backend available. EventTimer requires Qt or threading support."
         )
 
     def stop(self) -> None:
@@ -197,40 +175,12 @@ class EventTimer:
             return
 
         # Stop based on timer type
-        if self._timer_type == "maya":
-            try:
-                import maya.cmds as cmds
-
-                cmds.scriptJob(kill=self._timer_impl, force=True)
-                logger.info(f"Maya scriptJob stopped (id={self._timer_impl})")
-            except Exception as e:
-                logger.error(f"Failed to stop Maya scriptJob: {e}")
-
-        elif self._timer_type == "qt":
+        if self._timer_type == "qt":
             try:
                 self._timer_impl.stop()
                 logger.info("Qt QTimer stopped")
             except Exception as e:
                 logger.error(f"Failed to stop Qt QTimer: {e}")
-
-        elif self._timer_type == "blender":
-            try:
-                import bpy
-
-                if bpy.app.timers.is_registered(self._timer_impl):
-                    bpy.app.timers.unregister(self._timer_impl)
-                logger.info("Blender timer stopped")
-            except Exception as e:
-                logger.error(f"Failed to stop Blender timer: {e}")
-
-        elif self._timer_type == "houdini":
-            try:
-                import hou
-
-                hou.ui.removeEventLoopCallback(self._timer_impl)
-                logger.info("Houdini event loop callback stopped")
-            except Exception as e:
-                logger.error(f"Failed to stop Houdini callback: {e}")
 
         elif self._timer_type == "thread":
             # Thread will stop automatically when self._running becomes False
@@ -311,24 +261,6 @@ class EventTimer:
             logger.debug("Tick callback not found during unregistration")
             return False
 
-    def _try_start_maya_timer(self) -> bool:
-        """Try to start Maya scriptJob timer.
-
-        Returns:
-            True if Maya timer started successfully, False otherwise
-        """
-        try:
-            import maya.cmds as cmds
-
-            # Create scriptJob with idle event
-            job_id = cmds.scriptJob(event=["idle", self._tick], protected=True)
-            self._timer_impl = job_id
-            self._timer_type = "maya"
-            return True
-        except Exception as e:
-            logger.debug(f"Maya scriptJob not available: {e}")
-            return False
-
     def _try_start_qt_timer(self) -> bool:
         """Try to start Qt QTimer.
 
@@ -347,55 +279,6 @@ class EventTimer:
             return True
         except Exception as e:
             logger.debug(f"Qt QTimer not available: {e}")
-            return False
-
-    def _try_start_blender_timer(self) -> bool:
-        """Try to start Blender timer.
-
-        Returns:
-            True if Blender timer started successfully, False otherwise
-        """
-        try:
-            import bpy
-
-            # Register timer function
-            def timer_func():
-                if self._running:
-                    self._tick()
-                    return self._interval_ms / 1000.0  # Return interval in seconds
-                return None  # Stop timer
-
-            # Register persistent timer
-            bpy.app.timers.register(
-                timer_func, first_interval=self._interval_ms / 1000.0, persistent=True
-            )
-            self._timer_impl = timer_func
-            self._timer_type = "blender"
-            return True
-        except Exception as e:
-            logger.debug(f"Blender timer not available: {e}")
-            return False
-
-    def _try_start_houdini_timer(self) -> bool:
-        """Try to start Houdini event loop callback.
-
-        Returns:
-            True if Houdini timer started successfully, False otherwise
-        """
-        try:
-            import hou
-
-            # Use event loop callback for precise timing
-            def callback():
-                if self._running:
-                    self._tick()
-
-            hou.ui.addEventLoopCallback(callback)
-            self._timer_impl = callback
-            self._timer_type = "houdini"
-            return True
-        except Exception as e:
-            logger.debug(f"Houdini event loop callback not available: {e}")
             return False
 
     def _try_start_thread_timer(self) -> bool:
@@ -423,18 +306,9 @@ class EventTimer:
             return False
 
     def _tick(self) -> None:
-        """Timer tick callback (runs in main thread)."""
+        """Timer tick callback (runs in main thread for Qt, background thread for thread backend)."""
         if not self._running:
             return
-
-        # Throttle Maya scriptJob (idle event fires too frequently)
-        # Only process if enough time has passed since last tick
-        if self._timer_type == "maya":
-            current_time = time.time()
-            elapsed_ms = (current_time - self._last_tick_time) * 1000
-            if elapsed_ms < self._interval_ms:
-                return  # Skip this tick, not enough time has passed
-            self._last_tick_time = current_time
 
         self._tick_count += 1
 
@@ -459,13 +333,13 @@ class EventTimer:
 
                 # Choose event-processing strategy based on timer backend.
                 if self._timer_type == "qt" and hasattr(self._webview, "process_events_ipc_only"):
-                    # Qt hosts (Maya, Houdini Qt, etc.) own the native event loop.
+                    # Qt hosts own the native event loop.
                     # In this mode we only drain AuroraView's internal IPC queue
                     # and rely on Qt to drive the Win32/WebView2 message pump.
                     should_close = self._webview.process_events_ipc_only()
                 else:
-                    # Legacy/other hosts still use the full process_events() path,
-                    # which may drive the native message pump directly.
+                    # Thread backend uses the full process_events() path,
+                    # which drives the native message pump directly.
                     should_close = self._webview.process_events()
             except RuntimeError as e:
                 if "not initialized" in str(e):

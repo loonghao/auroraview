@@ -5,7 +5,7 @@ This module tests the Python CLI entry point that uses WebView directly.
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -29,10 +29,11 @@ def test_main_success():
 
 def test_main_with_arguments():
     """Test CLI execution with HTML file and debug flag."""
+    import tempfile
+
     from auroraview.__main__ import main
 
     # Create a temporary HTML file
-    import tempfile
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
         f.write("<html><body>Test</body></html>")
