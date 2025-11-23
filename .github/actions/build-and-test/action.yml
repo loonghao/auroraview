@@ -37,9 +37,9 @@ runs:
           target/release/
           target/debug/
           build/
-        key: ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-${{ github.sha }}
+        key: ${{ runner.os }}-build-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock', '**/pyproject.toml') }}-
+          ${{ runner.os }}-build-${{ hashFiles('Cargo.lock') }}-
           ${{ runner.os }}-build-
 
     - name: Prefetch Cargo crates (retry)

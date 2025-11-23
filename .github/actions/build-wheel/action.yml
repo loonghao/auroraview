@@ -78,7 +78,7 @@ runs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-${{ inputs.target || 'default' }}-cargo-wheel-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-${{ inputs.target || 'default' }}-cargo-wheel-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
           ${{ runner.os }}-${{ inputs.target || 'default' }}-cargo-wheel-
           ${{ runner.os }}-cargo-
