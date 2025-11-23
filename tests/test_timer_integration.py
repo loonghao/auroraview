@@ -47,7 +47,9 @@ class TestTimerIntegration:
 
         # Verify timer is using thread backend (fallback)
         # In test environment, Qt/Maya/etc are not available
-        assert timer._timer_type == "thread"
+        from auroraview.timer_backends import ThreadTimerBackend
+
+        assert isinstance(timer._backend, ThreadTimerBackend)
 
         time.sleep(0.05)
         timer.stop()
@@ -153,6 +155,7 @@ class TestTimerIntegration:
     def test_timer_backend_fallback_chain(self):
         """Test that EventTimer tries backends in correct order."""
         from auroraview.event_timer import EventTimer
+        from auroraview.timer_backends import ThreadTimerBackend
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -161,8 +164,8 @@ class TestTimerIntegration:
         timer.start()
 
         # Should have selected thread backend
-        assert timer._timer_type == "thread"
-        assert timer._timer_impl is not None
+        assert isinstance(timer._backend, ThreadTimerBackend)
+        assert timer._timer_handle is not None
 
         timer.stop()
 

@@ -113,8 +113,16 @@ except ImportError:
     normalize_url = None  # type: ignore
     rewrite_html_for_custom_protocol = None  # type: ignore
 
-from .event_timer import EventTimer, TimerType
+from .event_timer import EventTimer
 from .framework import AuroraView
+from .timer_backends import (
+    QtTimerBackend,
+    ThreadTimerBackend,
+    TimerBackend,
+    get_available_backend,
+    list_registered_backends,
+    register_timer_backend,
+)
 from .webview import WebView
 
 # Bridge for DCC integration (optional - requires websockets)
@@ -215,9 +223,16 @@ __all__ = [
     # Service Discovery (may raise ImportError if Rust core not available)
     "ServiceDiscovery",
     "ServiceInfo",
-    # Utilities
+    # Event Timer
     "EventTimer",
-    "TimerType",
+    # Timer Backends
+    "TimerBackend",
+    "QtTimerBackend",
+    "ThreadTimerBackend",
+    "register_timer_backend",
+    "get_available_backend",
+    "list_registered_backends",
+    # Utilities
     "on_event",
     # Window utilities
     "WindowInfo",

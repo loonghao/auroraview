@@ -45,7 +45,8 @@ class TestEventTimer:
         assert timer._interval_ms == 16
         assert timer._check_validity is True
         assert timer._running is False
-        assert timer._timer_impl is None
+        assert timer._timer_handle is None
+        assert timer._backend is None  # Backend is auto-selected on start(), not __init__()
 
     def test_start_stop(self):
         """Test starting and stopping timer."""
@@ -55,7 +56,7 @@ class TestEventTimer:
         # Start timer
         timer.start()
         assert timer.is_running is True
-        assert timer._timer_impl is not None
+        assert timer._timer_handle is not None
 
         # Wait a bit
         time.sleep(0.05)
@@ -317,8 +318,10 @@ class TestEventTimer:
         timer.start()
 
         # Should have selected a backend (Qt or thread)
-        assert timer._timer_type in ["qt", "thread"]
-        assert timer._timer_impl is not None
+        from auroraview.timer_backends import QtTimerBackend, ThreadTimerBackend
+
+        assert isinstance(timer._backend, (QtTimerBackend, ThreadTimerBackend))
+        assert timer._timer_handle is not None
 
         timer.stop()
 
@@ -432,67 +435,66 @@ class TestEventTimer:
         timer2 = EventTimer(webview, interval_ms=10, check_window_validity=False)
         assert timer2._check_validity is False
 
-    def test_stop_timer_impl_with_no_timer(self):
-        """Test _stop_timer_impl when no timer is running."""
+    def test_stop_with_no_timer(self):
+        """Test stop() when no timer is running."""
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
 
-        # Should not raise error when stopping non-existent timer
-        timer._stop_timer_impl()
-        assert timer._timer_impl is None
+        # Should not raise error when stopping non-running timer
+        timer.stop()
+        assert timer._timer_handle is None
+        assert timer.is_running is False
 
-    def test_stop_timer_impl_thread_backend(self):
-        """Test _stop_timer_impl with thread backend."""
+    def test_backend_stop_called(self):
+        """Test that backend.stop() is called when timer stops."""
+        from unittest.mock import MagicMock
+
+        from auroraview.timer_backends import ThreadTimerBackend
+
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
 
-        # Start timer (will use thread backend in test environment)
+        # Create a mock backend
+        mock_backend = MagicMock(spec=ThreadTimerBackend)
+        mock_backend.is_available.return_value = True
+        mock_backend.start.return_value = "mock_handle"
+
+        timer = EventTimer(webview, interval_ms=10, backend=mock_backend)
+
+        # Start timer
         timer.start()
-        assert timer._timer_type == "thread"
-        assert timer._timer_impl is not None
+        assert mock_backend.start.called
 
         # Stop timer
-        timer._stop_timer_impl()
+        timer.stop()
 
-        # Timer should be stopped
-        time.sleep(0.02)  # Give thread time to stop
+        # Backend stop should have been called with the handle
+        mock_backend.stop.assert_called_once_with("mock_handle")
 
-    def test_stop_timer_impl_qt_backend_mock(self):
-        """Test _stop_timer_impl with mocked Qt backend."""
+    def test_backend_stop_error_handling(self):
+        """Test error handling when backend.stop() raises exception."""
         from unittest.mock import MagicMock
 
-        webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
-
-        # Mock Qt timer
-        mock_qt_timer = MagicMock()
-        timer._timer_type = "qt"
-        timer._timer_impl = mock_qt_timer
-
-        # Stop timer
-        timer._stop_timer_impl()
-
-        # Qt timer stop should have been called
-        mock_qt_timer.stop.assert_called_once()
-
-    def test_stop_timer_impl_error_handling(self):
-        """Test _stop_timer_impl error handling."""
-        from unittest.mock import MagicMock
+        from auroraview.timer_backends import ThreadTimerBackend
 
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
 
-        # Mock Qt timer that raises exception
-        mock_qt_timer = MagicMock()
-        mock_qt_timer.stop.side_effect = RuntimeError("Mock error")
-        timer._timer_type = "qt"
-        timer._timer_impl = mock_qt_timer
+        # Create a mock backend that raises error on stop
+        mock_backend = MagicMock(spec=ThreadTimerBackend)
+        mock_backend.is_available.return_value = True
+        mock_backend.start.return_value = "mock_handle"
+        mock_backend.stop.side_effect = RuntimeError("Mock error")
 
-        # Should not raise error, just log it
-        timer._stop_timer_impl()
+        timer = EventTimer(webview, interval_ms=10, backend=mock_backend)
 
-        # Timer stop was attempted
-        mock_qt_timer.stop.assert_called_once()
+        # Start timer
+        timer.start()
+
+        # Stop should not raise error, just log it
+        timer.stop()  # Should not raise
+        assert timer.is_running is False
+
+        # Backend stop was attempted
+        mock_backend.stop.assert_called_once_with("mock_handle")
 
     def test_off_close_unregisters(self):
         """off_close should remove a previously registered close callback."""
