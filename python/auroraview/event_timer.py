@@ -39,14 +39,11 @@ Example:
 """
 
 import logging
-import time
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Optional
+
+from auroraview.timer_backends import QtTimerBackend, TimerBackend, get_available_backend
 
 logger = logging.getLogger(__name__)
-
-
-# Type alias for timer backend kinds (for type hints and IDE support)
-TimerType = Literal["qt", "thread"]
 
 
 class EventTimer:
@@ -56,21 +53,32 @@ class EventTimer:
     and checks window validity. It's designed for embedded mode where the
     WebView is integrated into a DCC application's event loop.
 
-    IMPORTANT: This timer uses the host application's event loop (Maya scriptJob,
-    Qt QTimer, etc.) instead of background threads to avoid thread-safety issues
-    with Rust's PyO3 bindings.
+    The timer uses a pluggable backend system. You can either:
+    1. Let it auto-select the best available backend (default)
+    2. Provide a specific backend instance
+    3. Register custom backends globally using register_timer_backend()
 
     Args:
         webview: WebView instance to monitor
         interval_ms: Timer interval in milliseconds (default: 16ms = ~60 FPS)
         check_window_validity: Whether to check if window is still valid (default: True)
+        backend: Optional TimerBackend instance. If None, auto-selects best available.
 
-    Example:
+    Example - Auto-select backend:
         >>> timer = EventTimer(webview, interval_ms=16)
-        >>> timer.on_close(lambda: print("Closed"))
         >>> timer.start()
-        >>> # ... later ...
-        >>> timer.stop()
+
+    Example - Use specific backend:
+        >>> from auroraview.timer_backends import QtTimerBackend
+        >>> backend = QtTimerBackend()
+        >>> timer = EventTimer(webview, backend=backend)
+        >>> timer.start()
+
+    Example - Register custom backend globally:
+        >>> from auroraview.timer_backends import register_timer_backend
+        >>> register_timer_backend(MayaTimerBackend, priority=200)
+        >>> timer = EventTimer(webview)  # Will use Maya backend if available
+        >>> timer.start()
     """
 
     def __init__(
@@ -78,6 +86,7 @@ class EventTimer:
         webview,
         interval_ms: int = 16,
         check_window_validity: bool = True,
+        backend: Optional[TimerBackend] = None,
     ):
         """Initialize event timer.
 
@@ -85,31 +94,29 @@ class EventTimer:
             webview: WebView instance to monitor
             interval_ms: Timer interval in milliseconds (default: 16ms = ~60 FPS)
             check_window_validity: Whether to check if window is still valid
+            backend: Optional TimerBackend instance. If None, auto-selects best available.
         """
         self._webview = webview
         self._interval_ms = interval_ms
         self._check_validity = check_window_validity
+        self._backend = backend  # Can be None, will be set in start()
         self._running = False
-        self._timer_impl: Optional[Any] = None  # Qt QTimer or thread
-        self._timer_type: Optional["TimerType"] = None  # "qt" or "thread"
+        self._timer_handle: Optional[Any] = None  # Handle returned by backend.start()
         self._close_callbacks: list[Callable[[], None]] = []
         self._tick_callbacks: list[Callable[[], None]] = []
         self._last_valid = True
         self._tick_count = 0
 
         logger.debug(
-            f"EventTimer created: interval={interval_ms}ms, check_validity={check_window_validity}"
+            f"EventTimer created: interval={interval_ms}ms, check_validity={check_window_validity}, "
+            f"backend={backend.get_name() if backend else 'auto'}"
         )
 
     def start(self) -> None:
         """Start the timer.
 
-        This attempts to use the best available timer backend in priority order:
-        1. Qt QTimer (most precise, works in Qt-based applications)
-        2. Thread-based timer (fallback)
-
-        Qt backend runs in the main thread to avoid thread-safety issues.
-        Thread backend uses a daemon thread.
+        If no backend was provided in __init__, this will auto-select the best
+        available backend based on registered backends and their priorities.
 
         Raises:
             RuntimeError: If timer is already running or no timer backend available
@@ -117,37 +124,45 @@ class EventTimer:
         if self._running:
             raise RuntimeError("Timer is already running")
 
-        self._running = True
+        # Auto-select backend if not provided
+        if self._backend is None:
+            self._backend = get_available_backend()
+            if self._backend is None:
+                raise RuntimeError(
+                    "No timer backend available. Please register a timer backend or provide one explicitly."
+                )
 
-        # Try Qt QTimer first (most precise)
-        if self._try_start_qt_timer():
-            logger.info(f"EventTimer started with Qt QTimer (interval={self._interval_ms}ms)")
-            return
-
-        # Fallback to thread-based timer
-        if self._try_start_thread_timer():
+        # Start the timer using the backend
+        try:
+            self._timer_handle = self._backend.start(self._interval_ms, self._tick)
+            self._running = True
             logger.info(
-                f"EventTimer started with thread-based timer (interval={self._interval_ms}ms)"
+                f"EventTimer started with {self._backend.get_name()} backend (interval={self._interval_ms}ms)"
             )
-            return
-
-        # No timer backend available
-        self._running = False
-        raise RuntimeError(
-            "No timer backend available. EventTimer requires Qt or threading support."
-        )
+        except Exception as e:
+            logger.error(f"Failed to start timer with {self._backend.get_name()} backend: {e}")
+            raise RuntimeError(f"Failed to start timer: {e}") from e
 
     def stop(self) -> None:
         """Stop the timer and cleanup resources.
 
-        This stops the Maya scriptJob or Qt QTimer and clears the webview reference
+        This stops the timer backend and clears the webview reference
         to prevent circular references.
         """
         if not self._running:
             return
 
         self._running = False
-        self._stop_timer_impl()
+
+        # Stop the timer using the backend
+        if self._backend and self._timer_handle is not None:
+            try:
+                self._backend.stop(self._timer_handle)
+                logger.info(f"{self._backend.get_name()} timer stopped")
+            except Exception as e:
+                logger.error(f"Failed to stop {self._backend.get_name()} timer: {e}")
+
+        self._timer_handle = None
 
         # Clear webview reference to prevent circular references
         # This is important for proper cleanup in DCC environments
@@ -168,26 +183,6 @@ class EventTimer:
         self._tick_callbacks.clear()
 
         logger.info("EventTimer cleanup complete")
-
-    def _stop_timer_impl(self) -> None:
-        """Internal method to stop the timer implementation."""
-        if not self._timer_impl:
-            return
-
-        # Stop based on timer type
-        if self._timer_type == "qt":
-            try:
-                self._timer_impl.stop()
-                logger.info("Qt QTimer stopped")
-            except Exception as e:
-                logger.error(f"Failed to stop Qt QTimer: {e}")
-
-        elif self._timer_type == "thread":
-            # Thread will stop automatically when self._running becomes False
-            logger.info("Thread-based timer stopped")
-
-        self._timer_impl = None
-        self._timer_type = None
 
     def on_close(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Register callback for window close event.
@@ -261,50 +256,6 @@ class EventTimer:
             logger.debug("Tick callback not found during unregistration")
             return False
 
-    def _try_start_qt_timer(self) -> bool:
-        """Try to start Qt QTimer.
-
-        Returns:
-            True if Qt timer started successfully, False otherwise
-        """
-        try:
-            from qtpy.QtCore import QTimer
-
-            timer = QTimer()
-            timer.setInterval(self._interval_ms)
-            timer.timeout.connect(self._tick)
-            timer.start()
-            self._timer_impl = timer
-            self._timer_type = "qt"
-            return True
-        except Exception as e:
-            logger.debug(f"Qt QTimer not available: {e}")
-            return False
-
-    def _try_start_thread_timer(self) -> bool:
-        """Try to start thread-based timer (fallback).
-
-        Returns:
-            True if thread timer started successfully, False otherwise
-        """
-        try:
-            import threading
-
-            def timer_thread():
-                while self._running:
-                    time.sleep(self._interval_ms / 1000.0)
-                    if self._running:
-                        self._tick()
-
-            thread = threading.Thread(target=timer_thread, daemon=True)
-            thread.start()
-            self._timer_impl = thread
-            self._timer_type = "thread"
-            return True
-        except Exception as e:
-            logger.debug(f"Thread-based timer not available: {e}")
-            return False
-
     def _tick(self) -> None:
         """Timer tick callback (runs in main thread for Qt, background thread for thread backend)."""
         if not self._running:
@@ -332,7 +283,9 @@ class EventTimer:
                             return
 
                 # Choose event-processing strategy based on timer backend.
-                if self._timer_type == "qt" and hasattr(self._webview, "process_events_ipc_only"):
+                # Qt backend uses IPC-only mode if available, others use full process_events
+                is_qt_backend = isinstance(self._backend, QtTimerBackend)
+                if is_qt_backend and hasattr(self._webview, "process_events_ipc_only"):
                     # Qt hosts own the native event loop.
                     # In this mode we only drain AuroraView's internal IPC queue
                     # and rely on Qt to drive the Win32/WebView2 message pump.
@@ -377,7 +330,12 @@ class EventTimer:
                 logger.info("Close event detected")
                 # Stop timer FIRST to prevent further ticks
                 self._running = False
-                self._stop_timer_impl()
+                if self._timer_handle is not None and self._backend is not None:
+                    try:
+                        self._backend.stop(self._timer_handle)
+                        self._timer_handle = None
+                    except Exception as e:
+                        logger.error(f"Error stopping timer: {e}", exc_info=True)
 
                 # Then call close callbacks
                 for callback in self._close_callbacks:
@@ -438,7 +396,10 @@ class EventTimer:
     def __repr__(self) -> str:
         """String representation."""
         status = "running" if self._running else "stopped"
-        return f"EventTimer(interval={self._interval_ms}ms, status={status})"
+        backend_name = self._backend.get_name() if self._backend else "none"
+        return (
+            f"EventTimer(interval={self._interval_ms}ms, backend={backend_name}, status={status})"
+        )
 
 
 __all__ = ["EventTimer"]
