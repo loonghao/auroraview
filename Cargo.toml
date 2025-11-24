@@ -92,7 +92,7 @@ criterion = "0.7"
 tempfile = "3.14"
 
 # Enhanced testing
-rstest = "0.23"              # Parameterized testing
+rstest = "0.26"              # Parameterized testing
 test-case = "3.3"            # Table-driven tests
 proptest = "1.5"             # Property-based testing
 mockall = "0.13"             # Mocking framework
