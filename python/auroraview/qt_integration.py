@@ -366,9 +366,10 @@ class QtWebView(QWidget):
             self._sync_embedded_geometry()
 
             # Emit window_resized event to frontend
-            size = event.size()
-            width = size.width()
-            height = size.height()
+            # Use widget's actual size (same as _sync_embedded_geometry)
+            rect = self.rect()
+            width = rect.width()
+            height = rect.height()
             logger.info(f"[QtWebView] resizeEvent: {width}x{height}")
             self._webview.emit("window_resized", {"width": width, "height": height})
         except Exception as e:  # pragma: no cover - best-effort only
