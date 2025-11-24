@@ -71,6 +71,7 @@ runs:
           pkg-config
 
     - name: Cache Rust build
+      if: runner.os != 'macOS' # Work around actions/runner hashFiles bug on macOS
       uses: actions/cache@v4
       with:
         path: |
