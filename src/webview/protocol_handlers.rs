@@ -304,6 +304,45 @@ mod tests {
     fn test_guess_mime_type_modern_formats(#[case] filename: &str, #[case] expected_mime: &str) {
         assert_eq!(guess_mime_type(Path::new(filename)), expected_mime);
     }
+
+    /// Unit test: Verify file protocol handler rejects non-GET requests
+    #[test]
+    fn test_file_protocol_rejects_post() {
+        let request = Request::builder()
+            .method("POST")
+            .uri("file:///test.txt")
+            .body(vec![])
+            .unwrap();
+
+        let response = handle_file_protocol(request);
+        assert_eq!(response.status(), 405); // Method Not Allowed
+    }
+
+    /// Unit test: Verify file protocol handler rejects invalid URIs
+    #[test]
+    fn test_file_protocol_invalid_uri() {
+        let request = Request::builder()
+            .method("GET")
+            .uri("invalid://test.txt")
+            .body(vec![])
+            .unwrap();
+
+        let response = handle_file_protocol(request);
+        assert_eq!(response.status(), 400); // Bad Request
+    }
+
+    /// Unit test: Verify file protocol handler returns 404 for non-existent files
+    #[test]
+    fn test_file_protocol_file_not_found() {
+        let request = Request::builder()
+            .method("GET")
+            .uri("file:///nonexistent_file_12345.txt")
+            .body(vec![])
+            .unwrap();
+
+        let response = handle_file_protocol(request);
+        assert_eq!(response.status(), 404); // Not Found
+    }
 }
 
 // Note: Integration tests have been moved to tests/protocol_handlers_integration_tests.rs

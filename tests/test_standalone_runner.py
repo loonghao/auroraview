@@ -39,6 +39,11 @@ class TestStandaloneRunner:
             assert "decorations" in params
             assert "transparent" in params
 
+            # Verify new window control parameters
+            assert "allow_new_window" in params
+            assert "allow_file_protocol" in params
+            assert "always_on_top" in params
+
         except ImportError:
             pytest.skip("run_standalone not available")
 
@@ -84,6 +89,33 @@ class TestStandaloneRunner:
             # This test just verifies the function exists and has proper signature
             # We can't actually run it without a display
             assert callable(run_standalone)
+
+        except ImportError:
+            pytest.skip("run_standalone not available")
+
+    def test_run_standalone_exported_from_package(self):
+        """Test that run_standalone is exported from main package."""
+        try:
+            from auroraview import run_standalone
+
+            assert run_standalone is not None
+            assert callable(run_standalone)
+        except ImportError as e:
+            pytest.skip(f"run_standalone not exported from package: {e}")
+
+    def test_new_window_control_parameter_defaults(self):
+        """Test that new window control parameters have correct defaults."""
+        try:
+            import inspect
+
+            from auroraview._core import run_standalone
+
+            sig = inspect.signature(run_standalone)
+
+            # Check default values for new parameters
+            assert sig.parameters["allow_new_window"].default is False
+            assert sig.parameters["allow_file_protocol"].default is False
+            assert sig.parameters["always_on_top"].default is False
 
         except ImportError:
             pytest.skip("run_standalone not available")
