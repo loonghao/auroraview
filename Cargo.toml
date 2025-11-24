@@ -95,7 +95,7 @@ tempfile = "3.14"
 rstest = "0.23"              # Parameterized testing
 test-case = "3.3"            # Table-driven tests
 proptest = "1.5"             # Property-based testing
-mockall = "0.13"             # Mocking framework
+mockall = "0.14"             # Mocking framework
 serial_test = "3.2"          # Serial test execution
 
 # HTTP client for testing (hyper v1 compatible)
