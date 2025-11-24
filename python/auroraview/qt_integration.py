@@ -364,6 +364,13 @@ class QtWebView(QWidget):
         super().resizeEvent(event)
         try:
             self._sync_embedded_geometry()
+
+            # Emit window_resized event to frontend
+            size = event.size()
+            width = size.width()
+            height = size.height()
+            logger.info(f"[QtWebView] resizeEvent: {width}x{height}")
+            self._webview.emit("window_resized", {"width": width, "height": height})
         except Exception as e:  # pragma: no cover - best-effort only
             logger.debug("QtWebView: resizeEvent sync failed: %s", e)
 

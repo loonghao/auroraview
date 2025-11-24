@@ -337,6 +337,9 @@ mod tests {
         assert_eq!(default_config.ipc_batch_interval_ms, 16);
         assert!(default_config.asset_root.is_none());
         assert_eq!(default_config.custom_protocols.len(), 0);
+        // Test new fields default values
+        assert!(!default_config.allow_new_window);
+        assert!(!default_config.allow_file_protocol);
     }
 
     #[rstest]
@@ -417,5 +420,60 @@ mod tests {
     fn test_embed_mode_default() {
         let cfg = WebViewConfig::default();
         assert_eq!(cfg.embed_mode, EmbedMode::None);
+    }
+
+    #[rstest]
+    fn test_allow_new_window_builder(builder: WebViewBuilder) {
+        // Test enabling new window
+        let cfg = builder.allow_new_window(true).build();
+        assert!(cfg.allow_new_window);
+
+        // Test disabling new window (default)
+        let cfg2 = WebViewBuilder::new().build();
+        assert!(!cfg2.allow_new_window);
+    }
+
+    #[rstest]
+    fn test_allow_file_protocol_builder(builder: WebViewBuilder) {
+        // Test enabling file protocol
+        let cfg = builder.allow_file_protocol(true).build();
+        assert!(cfg.allow_file_protocol);
+
+        // Test disabling file protocol (default)
+        let cfg2 = WebViewBuilder::new().build();
+        assert!(!cfg2.allow_file_protocol);
+    }
+
+    #[rstest]
+    fn test_new_features_combined(builder: WebViewBuilder) {
+        // Test all new features together
+        let cfg = builder
+            .allow_new_window(true)
+            .allow_file_protocol(true)
+            .always_on_top(true)
+            .build();
+
+        assert!(cfg.allow_new_window);
+        assert!(cfg.allow_file_protocol);
+        assert!(cfg.always_on_top);
+    }
+
+    #[rstest]
+    #[case(true, true)]
+    #[case(true, false)]
+    #[case(false, true)]
+    #[case(false, false)]
+    fn test_window_control_combinations(
+        builder: WebViewBuilder,
+        #[case] allow_new_window: bool,
+        #[case] allow_file_protocol: bool,
+    ) {
+        let cfg = builder
+            .allow_new_window(allow_new_window)
+            .allow_file_protocol(allow_file_protocol)
+            .build();
+
+        assert_eq!(cfg.allow_new_window, allow_new_window);
+        assert_eq!(cfg.allow_file_protocol, allow_file_protocol);
     }
 }
