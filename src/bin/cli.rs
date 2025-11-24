@@ -68,6 +68,10 @@ struct Args {
     /// Enable file:// protocol support (allows loading local files from HTML)
     #[arg(long)]
     allow_file_protocol: bool,
+
+    /// Keep window always on top
+    #[arg(long)]
+    always_on_top: bool,
 }
 
 /// Normalize URL by adding https:// prefix if missing
@@ -276,6 +280,12 @@ fn main() -> Result<()> {
     } else {
         window_builder =
             window_builder.with_inner_size(tao::dpi::LogicalSize::new(args.width, args.height));
+    }
+
+    // Set always on top if requested
+    if args.always_on_top {
+        tracing::info!("[CLI] Setting window to always on top");
+        window_builder = window_builder.with_always_on_top(true);
     }
 
     let window = window_builder

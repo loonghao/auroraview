@@ -31,6 +31,7 @@ use crate::webview::standalone;
 ///     transparent (bool, optional): Make window transparent (default: False)
 ///     allow_new_window (bool, optional): Allow opening new windows (default: False)
 ///     allow_file_protocol (bool, optional): Enable file:// protocol support (default: False)
+///     always_on_top (bool, optional): Keep window always on top (default: False)
 ///
 /// Example:
 ///     >>> from auroraview._core import run_standalone
@@ -53,7 +54,8 @@ use crate::webview::standalone;
     decorations=true,
     transparent=false,
     allow_new_window=false,
-    allow_file_protocol=false
+    allow_file_protocol=false,
+    always_on_top=false
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_standalone(
@@ -68,6 +70,7 @@ fn run_standalone(
     transparent: bool,
     allow_new_window: bool,
     allow_file_protocol: bool,
+    always_on_top: bool,
 ) -> PyResult<()> {
     tracing::info!("[run_standalone] Creating standalone WebView: {}", title);
 
@@ -82,7 +85,7 @@ fn run_standalone(
         resizable,
         decorations,
         transparent,
-        always_on_top: false,
+        always_on_top,
         background_color: None, // Will use loading screen instead
         context_menu: true,
         parent_hwnd: None,
