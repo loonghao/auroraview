@@ -23,7 +23,7 @@ jobs:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Build wheel with manylinux
         uses: ./.github/actions/build-wheel
@@ -96,7 +96,7 @@ jobs:
       CARGO_NET_RETRY: '10'
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install system dependencies (Ubuntu)
         if: runner.os == 'Linux'
@@ -161,7 +161,7 @@ jobs:
         os: [windows-latest]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
