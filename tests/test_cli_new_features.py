@@ -72,7 +72,7 @@ class TestCLINewFeatures:
             pytest.skip("CLI module not found")
 
         content = cli_module_path.read_text(encoding="utf-8")
-        
+
         # Check that help text mentions setting to 0 for maximize
         assert "set to 0 to maximize" in content.lower()
 
@@ -116,10 +116,13 @@ class TestRustCLINewFeatures:
             pytest.skip("Rust CLI source not found")
 
         content = rust_cli_path.read_text(encoding="utf-8")
-        
+
         # Check for maximization logic
         assert "with_maximized" in content
-        assert "width == 0 || height == 0" in content or "args.width == 0 || args.height == 0" in content
+        assert (
+            "width == 0 || height == 0" in content
+            or "args.width == 0 || args.height == 0" in content
+        )
 
 
 class TestConfigNewFields:
@@ -146,4 +149,3 @@ class TestConfigNewFields:
 
         content = config_rs_path.read_text(encoding="utf-8")
         assert "pub allow_file_protocol: bool" in content
-
