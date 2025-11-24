@@ -432,6 +432,18 @@ impl NativeBackend {
     ) -> Result<WryWebView, Box<dyn std::error::Error>> {
         let mut builder = WryWebViewBuilder::new();
 
+        // Set background color to match app background (dark theme)
+        // This prevents white flash and removes white border
+        // RGBA is a tuple type (u8, u8, u8, u8) in wry
+        let background_color = (2u8, 6u8, 23u8, 255u8); // #020617 from Tailwind slate-950
+        builder = builder.with_background_color(background_color);
+        tracing::info!(
+            "[OK] [NativeBackend] Set WebView background color to #{:02x}{:02x}{:02x}",
+            background_color.0,
+            background_color.1,
+            background_color.2
+        );
+
         // Register auroraview:// protocol if asset_root is configured
         if let Some(asset_root) = &config.asset_root {
             let asset_root = asset_root.clone();
