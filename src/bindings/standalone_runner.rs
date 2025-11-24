@@ -29,6 +29,8 @@ use crate::webview::standalone;
 ///     resizable (bool, optional): Make window resizable (default: True)
 ///     decorations (bool, optional): Show window decorations (default: True)
 ///     transparent (bool, optional): Make window transparent (default: False)
+///     allow_new_window (bool, optional): Allow opening new windows (default: False)
+///     allow_file_protocol (bool, optional): Enable file:// protocol support (default: False)
 ///
 /// Example:
 ///     >>> from auroraview._core import run_standalone
@@ -49,7 +51,9 @@ use crate::webview::standalone;
     dev_tools=true,
     resizable=true,
     decorations=true,
-    transparent=false
+    transparent=false,
+    allow_new_window=false,
+    allow_file_protocol=false
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_standalone(
@@ -62,6 +66,8 @@ fn run_standalone(
     resizable: bool,
     decorations: bool,
     transparent: bool,
+    allow_new_window: bool,
+    allow_file_protocol: bool,
 ) -> PyResult<()> {
     tracing::info!("[run_standalone] Creating standalone WebView: {}", title);
 
@@ -87,6 +93,8 @@ fn run_standalone(
         asset_root: None,
         custom_protocols: std::collections::HashMap::new(),
         api_methods: std::collections::HashMap::new(),
+        allow_new_window,
+        allow_file_protocol,
     };
 
     // Create IPC handler and message queue

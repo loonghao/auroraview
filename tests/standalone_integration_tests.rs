@@ -177,6 +177,8 @@ fn test_standalone_config_complete() {
         asset_root: None,
         custom_protocols: std::collections::HashMap::new(),
         api_methods: std::collections::HashMap::new(),
+        allow_new_window: false,
+        allow_file_protocol: false,
     };
 
     assert_eq!(config.title, "Test App");
