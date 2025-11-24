@@ -35,10 +35,18 @@ def main():
         "-t", "--title", type=str, default="AuroraView", help="Window title (default: AuroraView)"
     )
     parser.add_argument(
-        "-w", "--width", type=int, default=1024, help="Window width in pixels (default: 1024, set to 0 to maximize)"
+        "-w",
+        "--width",
+        type=int,
+        default=1024,
+        help="Window width in pixels (default: 1024, set to 0 to maximize)",
     )
     parser.add_argument(
-        "-H", "--height", type=int, default=768, help="Window height in pixels (default: 768, set to 0 to maximize)"
+        "-H",
+        "--height",
+        type=int,
+        default=768,
+        help="Window height in pixels (default: 768, set to 0 to maximize)",
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     parser.add_argument(
@@ -50,6 +58,11 @@ def main():
         "--allow-file-protocol",
         action="store_true",
         help="Enable file:// protocol support (allows loading local files from HTML)",
+    )
+    parser.add_argument(
+        "--always-on-top",
+        action="store_true",
+        help="Keep window always on top",
     )
 
     args = parser.parse_args()
@@ -86,6 +99,7 @@ def main():
             dev_tools=args.debug,
             allow_new_window=args.allow_new_window,
             allow_file_protocol=args.allow_file_protocol,
+            always_on_top=args.always_on_top,
         )
 
         # This line will never be reached because run_standalone() exits the process
