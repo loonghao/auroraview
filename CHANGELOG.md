@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.14](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.13...auroraview-v0.2.14) (2025-11-24)
+
+
+### Features
+
+* add always-on-top window option ([0e7de4c](https://github.com/loonghao/auroraview/commit/0e7de4cbece4cec5043eb0f69fa53dd0e7ba8069))
+* add window maximization and file protocol support ([9c09855](https://github.com/loonghao/auroraview/commit/9c0985597fad4cd537c6cb6cad363c9a42a8dd74))
+
+
+### Bug Fixes
+
+* update file protocol tests to use valid HTTP URIs ([12ba42c](https://github.com/loonghao/auroraview/commit/12ba42ce80f30b8342036b67a00cf3b35f63426f))
+
 ## [0.2.13](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.12...auroraview-v0.2.13) (2025-11-24)
 
 
