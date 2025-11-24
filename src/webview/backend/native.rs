@@ -460,6 +460,14 @@ impl NativeBackend {
             });
         }
 
+        // Register file:// protocol if enabled
+        if config.allow_file_protocol {
+            tracing::info!("[OK] [NativeBackend] Enabling file:// protocol support");
+            builder = builder.with_custom_protocol("file".into(), |_webview_id, request| {
+                crate::webview::protocol_handlers::handle_file_protocol(request)
+            });
+        }
+
         // Enable developer tools if configured
         if config.dev_tools {
             tracing::info!("[OK] [NativeBackend] Enabling developer tools");
@@ -473,6 +481,23 @@ impl NativeBackend {
             {
                 builder = builder.with_browser_extensions_enabled(false);
             }
+        }
+
+        // Configure new window handler
+        if config.allow_new_window {
+            tracing::info!("[OK] [NativeBackend] Allowing new windows");
+            builder = builder.with_new_window_req_handler(|url, _features| {
+                tracing::info!("[OK] [NativeBackend] New window requested: {}", url);
+                // Allow the new window to open
+                wry::NewWindowResponse::Allow
+            });
+        } else {
+            tracing::info!("[OK] [NativeBackend] Blocking new windows");
+            builder = builder.with_new_window_req_handler(|url, _features| {
+                tracing::info!("[OK] [NativeBackend] Blocked new window request: {}", url);
+                // Block the new window
+                wry::NewWindowResponse::Deny
+            });
         }
 
         // Build initialization script using js_assets module

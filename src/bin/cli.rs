@@ -49,17 +49,25 @@ struct Args {
     #[arg(short, long, default_value = "AuroraView")]
     title: String,
 
-    /// Window width
+    /// Window width (set to 0 to maximize)
     #[arg(long, default_value = "800")]
     width: u32,
 
-    /// Window height
+    /// Window height (set to 0 to maximize)
     #[arg(long, default_value = "600")]
     height: u32,
 
     /// Enable debug logging
     #[arg(short, long)]
     debug: bool,
+
+    /// Allow opening new windows (e.g., via window.open)
+    #[arg(long)]
+    allow_new_window: bool,
+
+    /// Enable file:// protocol support (allows loading local files from HTML)
+    #[arg(long)]
+    allow_file_protocol: bool,
 }
 
 /// Normalize URL by adding https:// prefix if missing
@@ -257,10 +265,20 @@ fn main() -> Result<()> {
 
     // Create event loop and window
     let event_loop = EventLoop::new();
-    let window = tao::window::WindowBuilder::new()
+    let mut window_builder = tao::window::WindowBuilder::new()
         .with_title(&args.title)
-        .with_inner_size(tao::dpi::LogicalSize::new(args.width, args.height))
-        .with_visible(false) // Start hidden to avoid white flash
+        .with_visible(false); // Start hidden to avoid white flash
+
+    // If width or height is 0, maximize the window; otherwise set the size
+    if args.width == 0 || args.height == 0 {
+        tracing::info!("[CLI] Maximizing window (width or height is 0)");
+        window_builder = window_builder.with_maximized(true);
+    } else {
+        window_builder =
+            window_builder.with_inner_size(tao::dpi::LogicalSize::new(args.width, args.height));
+    }
+
+    let window = window_builder
         .build(&event_loop)
         .context("Failed to create window")?;
 
@@ -282,10 +300,34 @@ fn main() -> Result<()> {
         );
     }
 
+    // Register file:// protocol if enabled
+    if args.allow_file_protocol {
+        tracing::info!("[CLI] Enabling file:// protocol support");
+        webview_builder = webview_builder
+            .with_custom_protocol("file".into(), |_webview_id, request| {
+                protocol_handlers::handle_file_protocol(request)
+            });
+    }
+
     // Enable DevTools in debug mode
     if args.debug {
         tracing::info!("[CLI] Enabling DevTools (debug mode)");
         webview_builder = webview_builder.with_devtools(true);
+    }
+
+    // Configure new window handler
+    if args.allow_new_window {
+        tracing::info!("[CLI] Allowing new windows");
+        webview_builder = webview_builder.with_new_window_req_handler(|url, _features| {
+            tracing::info!("[CLI] New window requested: {}", url);
+            wry::NewWindowResponse::Allow
+        });
+    } else {
+        tracing::info!("[CLI] Blocking new windows");
+        webview_builder = webview_builder.with_new_window_req_handler(|url, _features| {
+            tracing::info!("[CLI] Blocked new window request: {}", url);
+            wry::NewWindowResponse::Deny
+        });
     }
 
     // Load HTML content or URL

@@ -35,12 +35,22 @@ def main():
         "-t", "--title", type=str, default="AuroraView", help="Window title (default: AuroraView)"
     )
     parser.add_argument(
-        "-w", "--width", type=int, default=1024, help="Window width in pixels (default: 1024)"
+        "-w", "--width", type=int, default=1024, help="Window width in pixels (default: 1024, set to 0 to maximize)"
     )
     parser.add_argument(
-        "-H", "--height", type=int, default=768, help="Window height in pixels (default: 768)"
+        "-H", "--height", type=int, default=768, help="Window height in pixels (default: 768, set to 0 to maximize)"
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument(
+        "--allow-new-window",
+        action="store_true",
+        help="Allow opening new windows (e.g., via window.open)",
+    )
+    parser.add_argument(
+        "--allow-file-protocol",
+        action="store_true",
+        help="Enable file:// protocol support (allows loading local files from HTML)",
+    )
 
     args = parser.parse_args()
 
@@ -74,6 +84,8 @@ def main():
             url=url,
             html=html_content,
             dev_tools=args.debug,
+            allow_new_window=args.allow_new_window,
+            allow_file_protocol=args.allow_file_protocol,
         )
 
         # This line will never be reached because run_standalone() exits the process

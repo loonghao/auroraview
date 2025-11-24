@@ -94,6 +94,15 @@ pub struct WebViewConfig {
     /// API methods to register (namespace -> method names)
     /// Used to dynamically inject JavaScript wrapper methods
     pub api_methods: HashMap<String, Vec<String>>,
+
+    /// Allow opening new windows (e.g., via window.open)
+    /// Default: false (blocks new windows)
+    pub allow_new_window: bool,
+
+    /// Enable file:// protocol support
+    /// Default: false (blocks file:// for security)
+    /// WARNING: Enabling this bypasses WebView's default security restrictions
+    pub allow_file_protocol: bool,
 }
 
 // Manual Debug implementation (ProtocolCallback doesn't implement Debug)
@@ -158,6 +167,8 @@ impl Default for WebViewConfig {
             asset_root: None,
             custom_protocols: HashMap::new(),
             api_methods: HashMap::new(),
+            allow_new_window: false,    // Block new windows by default
+            allow_file_protocol: false, // Block file:// protocol by default for security
         }
     }
 }
@@ -265,6 +276,19 @@ impl WebViewBuilder {
         handler: ProtocolCallback,
     ) -> Self {
         self.config.custom_protocols.insert(scheme.into(), handler);
+        self
+    }
+
+    /// Allow or block new windows (e.g., window.open)
+    pub fn allow_new_window(mut self, allow: bool) -> Self {
+        self.config.allow_new_window = allow;
+        self
+    }
+
+    /// Enable or disable file:// protocol support
+    /// WARNING: Enabling this bypasses WebView's default security restrictions
+    pub fn allow_file_protocol(mut self, allow: bool) -> Self {
+        self.config.allow_file_protocol = allow;
         self
     }
 

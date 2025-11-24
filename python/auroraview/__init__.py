@@ -94,6 +94,8 @@ try:
         # CLI utilities
         normalize_url,
         rewrite_html_for_custom_protocol,
+        # Standalone runner
+        run_standalone,
     )
 except ImportError:
     # Fallback for development without compiled extension
@@ -112,6 +114,7 @@ except ImportError:
     # Placeholder for CLI utilities
     normalize_url = None  # type: ignore
     rewrite_html_for_custom_protocol = None  # type: ignore
+    run_standalone = None  # type: ignore
 
 from .event_timer import EventTimer
 from .framework import AuroraView
@@ -245,6 +248,8 @@ __all__ = [
     # CLI utilities
     "normalize_url",
     "rewrite_html_for_custom_protocol",
+    # Standalone runner
+    "run_standalone",
     # Metadata
     "__version__",
     "__author__",

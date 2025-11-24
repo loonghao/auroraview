@@ -135,6 +135,91 @@ pub fn handle_auroraview_protocol(
     }
 }
 
+/// Handle file:// protocol requests
+///
+/// Maps URLs like `file:///C:/path/to/file.txt` to local file system
+/// WARNING: This bypasses WebView's default security restrictions
+pub fn handle_file_protocol(request: Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> {
+    // Only handle GET requests
+    if request.method() != "GET" {
+        return Response::builder()
+            .status(405)
+            .body(Cow::Borrowed(b"Method Not Allowed" as &[u8]))
+            .unwrap();
+    }
+
+    let uri = request.uri().to_string();
+    tracing::debug!("[Protocol] file:// request: {}", uri);
+
+    // Extract path from file:// URI
+    // Examples:
+    // - "file:///C:/path/file.txt" -> "C:/path/file.txt"
+    // - "file:///path/to/file.txt" -> "/path/to/file.txt" (Unix)
+    let path_str = if let Some(idx) = uri.find("file://") {
+        let after_scheme = &uri[idx + 7..]; // Skip "file://"
+
+        // On Windows, file:///C:/... has three slashes
+        // On Unix, file:///path/... also has three slashes
+        #[cfg(target_os = "windows")]
+        {
+            // Remove leading slash for Windows paths: /C:/... -> C:/...
+            after_scheme.trim_start_matches('/')
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            // Keep leading slash for Unix paths
+            after_scheme
+        }
+    } else {
+        tracing::warn!("[Protocol] Invalid file:// URI: {}", uri);
+        return Response::builder()
+            .status(400)
+            .body(Cow::Borrowed(b"Bad Request" as &[u8]))
+            .unwrap();
+    };
+
+    // URL decode the path (handle %20 etc.)
+    let decoded_path = match urlencoding::decode(path_str) {
+        Ok(p) => p.to_string(),
+        Err(e) => {
+            tracing::warn!("[Protocol] Failed to decode path: {} ({})", path_str, e);
+            return Response::builder()
+                .status(400)
+                .body(Cow::Borrowed(b"Bad Request" as &[u8]))
+                .unwrap();
+        }
+    };
+
+    let file_path = Path::new(&decoded_path);
+    tracing::debug!("[Protocol] Resolved file path: {:?}", file_path);
+
+    // Read file
+    match fs::read(file_path) {
+        Ok(data) => {
+            let mime_type = guess_mime_type(file_path);
+            tracing::debug!(
+                "[Protocol] Loaded file:// {} ({} bytes, {})",
+                decoded_path,
+                data.len(),
+                mime_type
+            );
+
+            Response::builder()
+                .status(200)
+                .header("Content-Type", mime_type.as_str())
+                .body(Cow::Owned(data))
+                .unwrap()
+        }
+        Err(e) => {
+            tracing::warn!("[Protocol] File not found: {:?} ({})", file_path, e);
+            Response::builder()
+                .status(404)
+                .body(Cow::Borrowed(b"Not Found" as &[u8]))
+                .unwrap()
+        }
+    }
+}
+
 /// Handle custom protocol requests using user-provided callback
 ///
 /// Calls the Python callback and converts the result to HTTP response
