@@ -322,6 +322,13 @@ class QtWebView(QWidget):
 
         This is currently implemented for Win32 child windows only; on other
         platforms the helper is a no-op.
+
+        IMPORTANT: We add a small buffer zone (EDGE_BUFFER pixels) around the edges
+        to allow Qt to handle window resize operations. This prevents the WebView
+        from capturing mouse events at the window edges, making it easier to resize
+        the Qt window.
+
+        We also remove the WebView window border by modifying its window style.
         """
         try:
             import sys
@@ -336,25 +343,68 @@ class QtWebView(QWidget):
             get_hwnd = getattr(core, "get_hwnd", None) if core is not None else None
             hwnd = get_hwnd() if callable(get_hwnd) else None
             if not hwnd:
+                logger.warning("[QtWebView] _sync_embedded_geometry: No HWND available")
                 return
 
-            rect = self.rect()
-            width = rect.width()
-            height = rect.height()
+            logger.debug(f"[QtWebView] _sync_embedded_geometry: HWND={hwnd}")
 
             user32 = ctypes.windll.user32
-            SWP_NOMOVE = 0x0002
+
+            # Remove window border by modifying window style
+            GWL_STYLE = -16
+            GWL_EXSTYLE = -20
+            WS_BORDER = 0x00800000
+            WS_THICKFRAME = 0x00040000
+            WS_DLGFRAME = 0x00400000
+            WS_EX_CLIENTEDGE = 0x00000200
+            WS_EX_WINDOWEDGE = 0x00000100
+            WS_EX_STATICEDGE = 0x00020000
+
+            # Get current styles
+            style = user32.GetWindowLongW(wintypes.HWND(int(hwnd)), GWL_STYLE)
+            ex_style = user32.GetWindowLongW(wintypes.HWND(int(hwnd)), GWL_EXSTYLE)
+
+            # Remove all border-related styles
+            style &= ~(WS_BORDER | WS_THICKFRAME | WS_DLGFRAME)
+            ex_style &= ~(WS_EX_CLIENTEDGE | WS_EX_WINDOWEDGE | WS_EX_STATICEDGE)
+
+            # Apply new styles
+            user32.SetWindowLongW(wintypes.HWND(int(hwnd)), GWL_STYLE, style)
+            user32.SetWindowLongW(wintypes.HWND(int(hwnd)), GWL_EXSTYLE, ex_style)
+
+            logger.info(
+                f"[QtWebView] Removed WebView window border (style={hex(style)}, ex_style={hex(ex_style)})"
+            )
+
+            # Use contentsRect() to get the actual content area excluding margins
+            rect = self.contentsRect()
+
+            # Small buffer to ensure WebView doesn't overlap Qt window frame
+            # The main edge buffer is handled by frontend CSS overlays
+            EDGE_BUFFER = 2  # pixels - minimal buffer, frontend handles the rest
+
+            x = rect.x() + EDGE_BUFFER
+            y = rect.y() + EDGE_BUFFER
+            width = max(0, rect.width() - 2 * EDGE_BUFFER)
+            height = max(0, rect.height() - 2 * EDGE_BUFFER)
+
+            logger.info(
+                f"[QtWebView] _sync_embedded_geometry: pos=({x},{y}) size={width}x{height} (buffer={EDGE_BUFFER}px)"
+            )
+
             SWP_NOZORDER = 0x0004
             SWP_NOACTIVATE = 0x0010
+            SWP_FRAMECHANGED = 0x0020  # Force frame to be redrawn after style change
 
+            # Set both position and size to ensure webview stays aligned with Qt widget
             user32.SetWindowPos(
                 wintypes.HWND(int(hwnd)),
                 0,
-                0,
-                0,
+                x,
+                y,
                 width,
                 height,
-                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE,
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             )
         except Exception as e:  # pragma: no cover - best-effort only
             logger.debug("QtWebView: failed to sync embedded geometry: %s", e)
@@ -366,8 +416,8 @@ class QtWebView(QWidget):
             self._sync_embedded_geometry()
 
             # Emit window_resized event to frontend
-            # Use widget's actual size (same as _sync_embedded_geometry)
-            rect = self.rect()
+            # Use contentsRect() to match _sync_embedded_geometry
+            rect = self.contentsRect()
             width = rect.width()
             height = rect.height()
             logger.info(f"[QtWebView] resizeEvent: {width}x{height}")
