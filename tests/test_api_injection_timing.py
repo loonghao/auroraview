@@ -24,7 +24,7 @@ def test_api_injection_timing():
 
     # Create API and bind it BEFORE loading URL
     api = TestAPI()
-    auroraview = AuroraView(parent=webview, api=api, _view=webview, _keep_alive_root=webview)
+    AuroraView(parent=webview, api=api, _view=webview, _keep_alive_root=webview)
 
     print("[Test] API bound before loading URL")
 
@@ -59,26 +59,26 @@ def test_api_injection_timing():
         <h1>API Injection Timing Test</h1>
         <div id="status"></div>
         <button onclick="testAPI()">Test API</button>
-        
+
         <script>
             console.log('[Test] Page loaded');
-            
+
             // Wait for page to fully load
             window.addEventListener('load', function() {
                 console.log('[Test] Window load event fired');
-                
+
                 // Check if API is available
                 setTimeout(function() {
                     const status = document.getElementById('status');
-                    
+
                     console.log('[Test] Checking API availability...');
                     console.log('[Test] window.auroraview:', window.auroraview);
                     console.log('[Test] window.auroraview.api:', window.auroraview.api);
-                    
+
                     if (window.auroraview && window.auroraview.api) {
                         console.log('[Test] API object found');
                         console.log('[Test] API methods:', Object.keys(window.auroraview.api));
-                        
+
                         if (typeof window.auroraview.api.get_data === 'function') {
                             status.innerHTML = '<div class="status success">✓ API methods are available!</div>';
                             console.log('[Test] ✓ get_data is a function');
@@ -92,18 +92,18 @@ def test_api_injection_timing():
                     }
                 }, 1000);
             });
-            
+
             async function testAPI() {
                 const status = document.getElementById('status');
                 try {
                     console.log('[Test] Calling API...');
                     const result = await window.auroraview.api.get_data();
                     console.log('[Test] API result:', result);
-                    status.innerHTML = '<div class="status success">✓ API call successful: ' + 
+                    status.innerHTML = '<div class="status success">✓ API call successful: ' +
                                       JSON.stringify(result) + '</div>';
                 } catch (error) {
                     console.error('[Test] API call failed:', error);
-                    status.innerHTML = '<div class="status error">✗ API call failed: ' + 
+                    status.innerHTML = '<div class="status error">✗ API call failed: ' +
                                       error.message + '</div>';
                 }
             }
@@ -121,4 +121,3 @@ def test_api_injection_timing():
 
 if __name__ == "__main__":
     test_api_injection_timing()
-
