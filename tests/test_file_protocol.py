@@ -4,6 +4,8 @@ This module tests the file:// protocol handling functionality,
 including path conversion, URL encoding, and integration with run_standalone.
 """
 
+from __future__ import annotations
+
 import os
 import tempfile
 from pathlib import Path
@@ -90,13 +92,10 @@ class TestPrepareHtmlWithLocalAssets:
     def test_prepare_html_basic(self):
         """Test basic HTML preparation with local assets."""
         from auroraview import prepare_html_with_local_assets
-        
+
         html = '<img src="{{IMAGE_PATH}}">'
-        result = prepare_html_with_local_assets(
-            html,
-            asset_paths={"IMAGE_PATH": "test.png"}
-        )
-        
+        result = prepare_html_with_local_assets(html, asset_paths={"IMAGE_PATH": "test.png"})
+
         assert "file://" in result
         assert "test.png" in result
         assert "{{IMAGE_PATH}}" not in result
@@ -104,13 +103,10 @@ class TestPrepareHtmlWithLocalAssets:
     def test_prepare_html_manifest_path(self):
         """Test HTML preparation with manifest path."""
         from auroraview import prepare_html_with_local_assets
-        
+
         html = '<iframe src="{{MANIFEST_PATH}}"></iframe>'
-        result = prepare_html_with_local_assets(
-            html,
-            manifest_path="manifest.html"
-        )
-        
+        result = prepare_html_with_local_assets(html, manifest_path="manifest.html")
+
         assert "file://" in result
         assert "manifest.html" in result
         assert "{{MANIFEST_PATH}}" not in result
@@ -118,22 +114,22 @@ class TestPrepareHtmlWithLocalAssets:
     def test_prepare_html_multiple_assets(self):
         """Test HTML preparation with multiple assets."""
         from auroraview import prepare_html_with_local_assets
-        
-        html = '''
+
+        html = """
         <img src="{{GIF_PATH}}">
         <img src="{{IMAGE_PATH}}">
         <video src="{{VIDEO_PATH}}"></video>
-        '''
-        
+        """
+
         result = prepare_html_with_local_assets(
             html,
             asset_paths={
                 "GIF_PATH": "animation.gif",
                 "IMAGE_PATH": "logo.png",
                 "VIDEO_PATH": "demo.mp4",
-            }
+            },
         )
-        
+
         assert result.count("file://") >= 3
         assert "animation.gif" in result
         assert "logo.png" in result
@@ -161,16 +157,13 @@ class TestFileProtocolIntegration:
         from auroraview import prepare_html_with_local_assets
 
         # Create temporary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Test content")
             temp_path = f.name
 
         try:
-            html = '<div>{{FILE_PATH}}</div>'
-            result = prepare_html_with_local_assets(
-                html,
-                asset_paths={"FILE_PATH": temp_path}
-            )
+            html = "<div>{{FILE_PATH}}</div>"
+            result = prepare_html_with_local_assets(html, asset_paths={"FILE_PATH": temp_path})
 
             assert "file://" in result
             assert temp_path.replace(os.sep, "/") in result or Path(temp_path).name in result
@@ -183,16 +176,15 @@ class TestFileProtocolIntegration:
         from auroraview import prepare_html_with_local_assets
 
         # Create temporary HTML file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-            f.write('<!DOCTYPE html><html><body>Test</body></html>')
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".html", delete=False, encoding="utf-8"
+        ) as f:
+            f.write("<!DOCTYPE html><html><body>Test</body></html>")
             temp_path = f.name
 
         try:
             html = '<iframe src="{{HTML_PATH}}"></iframe>'
-            result = prepare_html_with_local_assets(
-                html,
-                asset_paths={"HTML_PATH": temp_path}
-            )
+            result = prepare_html_with_local_assets(html, asset_paths={"HTML_PATH": temp_path})
 
             assert "file://" in result
             assert ".html" in result
@@ -205,16 +197,15 @@ class TestFileProtocolIntegration:
         from auroraview import prepare_html_with_local_assets
 
         # Create temporary image file (simple SVG)
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.svg', delete=False, encoding='utf-8') as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".svg", delete=False, encoding="utf-8"
+        ) as f:
             f.write('<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>')
             temp_path = f.name
 
         try:
             html = '<img src="{{SVG_PATH}}">'
-            result = prepare_html_with_local_assets(
-                html,
-                asset_paths={"SVG_PATH": temp_path}
-            )
+            result = prepare_html_with_local_assets(html, asset_paths={"SVG_PATH": temp_path})
 
             assert "file://" in result
             assert ".svg" in result
@@ -230,16 +221,13 @@ class TestFileProtocolIntegration:
             pytest.skip("Windows-specific test")
 
         # Create temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("test")
             temp_path = f.name
 
         try:
             html = '<a href="{{FILE_PATH}}">Link</a>'
-            result = prepare_html_with_local_assets(
-                html,
-                asset_paths={"FILE_PATH": temp_path}
-            )
+            result = prepare_html_with_local_assets(html, asset_paths={"FILE_PATH": temp_path})
 
             # Windows file:// URLs should have format: file:///C:/path/to/file
             assert "file:///" in result
@@ -257,20 +245,16 @@ class TestFileProtocolIntegration:
             pytest.skip("Unix-specific test")
 
         # Create temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("test")
             temp_path = f.name
 
         try:
             html = '<a href="{{FILE_PATH}}">Link</a>'
-            result = prepare_html_with_local_assets(
-                html,
-                asset_paths={"FILE_PATH": temp_path}
-            )
+            result = prepare_html_with_local_assets(html, asset_paths={"FILE_PATH": temp_path})
 
             # Unix file:// URLs should have format: file:///path/to/file
             assert "file:///" in result
 
         finally:
             os.unlink(temp_path)
-
