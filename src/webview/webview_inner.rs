@@ -567,12 +567,26 @@ impl WebViewInner {
         {
             use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
+            // First try to get HWND from self.window (standalone mode)
             if let Some(window) = &self.window {
                 if let Ok(window_handle) = window.window_handle() {
                     let raw_handle = window_handle.as_raw();
                     if let RawWindowHandle::Win32(handle) = raw_handle {
                         let hwnd_value = handle.hwnd.get() as u64;
                         return Some(hwnd_value);
+                    }
+                }
+            }
+
+            // If self.window is None, try to get HWND from backend (DCC mode)
+            if let Some(backend) = &self.backend {
+                if let Some(window) = backend.window() {
+                    if let Ok(window_handle) = window.window_handle() {
+                        let raw_handle = window_handle.as_raw();
+                        if let RawWindowHandle::Win32(handle) = raw_handle {
+                            let hwnd_value = handle.hwnd.get() as u64;
+                            return Some(hwnd_value);
+                        }
                     }
                 }
             }

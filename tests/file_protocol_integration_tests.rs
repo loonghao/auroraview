@@ -75,7 +75,10 @@ fn test_file_protocol_creates_temp_files() {
 
     // Verify content
     assert_eq!(fs::read(&txt_file).unwrap(), b"Text content");
-    assert_eq!(fs::read(&html_file).unwrap(), b"<!DOCTYPE html><html></html>");
+    assert_eq!(
+        fs::read(&html_file).unwrap(),
+        b"<!DOCTYPE html><html></html>"
+    );
 }
 
 #[rstest]
@@ -96,5 +99,3 @@ fn test_file_protocol_handles_special_characters() {
 
 // Note: MIME type detection is tested in the unit tests in protocol_handlers.rs
 // The guess_mime_type function is private and already has comprehensive test coverage
-
-
