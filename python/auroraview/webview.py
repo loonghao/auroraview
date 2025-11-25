@@ -156,6 +156,9 @@ class WebView:
         # Event processor (strategy pattern for UI framework integration)
         self._event_processor: Optional[Any] = None
 
+        # Post eval_js hook (for Qt integration and testing)
+        self._post_eval_js_hook: Optional[Callable[[], None]] = None
+
         # Bridge integration
         self._bridge: Optional["Bridge"] = None  # type: ignore
         if bridge is not None:
@@ -633,6 +636,10 @@ class WebView:
 
         core.eval_js(script)
 
+        # Call post eval_js hook if set (for Qt integration and testing)
+        if self._post_eval_js_hook is not None:
+            self._post_eval_js_hook()
+
         # Automatically process events to ensure immediate execution
         if auto_process:
             self._auto_process_events()
@@ -681,6 +688,10 @@ class WebView:
             logger.error(f"[ERROR] [WebView.emit] Data was: {data}")
             logger.error(f"[ERROR] [WebView.emit] Traceback: {traceback.format_exc()}")
             raise
+
+        # Call post eval_js hook if set (for Qt integration and testing)
+        if self._post_eval_js_hook is not None:
+            self._post_eval_js_hook()
 
         # Automatically process events to ensure immediate delivery
         if auto_process:
