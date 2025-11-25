@@ -343,7 +343,9 @@ class QtWebView(QWidget):
             get_hwnd = getattr(core, "get_hwnd", None) if core is not None else None
             hwnd = get_hwnd() if callable(get_hwnd) else None
             if not hwnd:
-                logger.warning("[QtWebView] _sync_embedded_geometry: No HWND available")
+                # HWND not ready yet - this is normal during initialization or window creation
+                # Use debug level to avoid spamming logs during resize operations
+                logger.debug("[QtWebView] _sync_embedded_geometry: No HWND available yet")
                 return
 
             logger.debug(f"[QtWebView] _sync_embedded_geometry: HWND={hwnd}")
@@ -372,7 +374,7 @@ class QtWebView(QWidget):
             user32.SetWindowLongW(wintypes.HWND(int(hwnd)), GWL_STYLE, style)
             user32.SetWindowLongW(wintypes.HWND(int(hwnd)), GWL_EXSTYLE, ex_style)
 
-            logger.info(
+            logger.debug(
                 f"[QtWebView] Removed WebView window border (style={hex(style)}, ex_style={hex(ex_style)})"
             )
 
@@ -388,7 +390,7 @@ class QtWebView(QWidget):
             width = max(0, rect.width() - 2 * EDGE_BUFFER)
             height = max(0, rect.height() - 2 * EDGE_BUFFER)
 
-            logger.info(
+            logger.debug(
                 f"[QtWebView] _sync_embedded_geometry: pos=({x},{y}) size={width}x{height} (buffer={EDGE_BUFFER}px)"
             )
 
