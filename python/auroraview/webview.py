@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
+import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
@@ -677,8 +679,6 @@ class WebView:
         except Exception as e:
             logger.error(f"[ERROR] [WebView.emit] Failed to emit event {event_name}: {e}")
             logger.error(f"[ERROR] [WebView.emit] Data was: {data}")
-            import traceback
-
             logger.error(f"[ERROR] [WebView.emit] Traceback: {traceback.format_exc()}")
             raise
 
@@ -765,8 +765,6 @@ class WebView:
         """
         # Extra debug so we can see exactly what is being sent back to JS.
         try:
-            import json  # Local import to avoid hard dependency at module import time
-
             json_str = json.dumps(payload)
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.error("Failed to JSON-encode __auroraview_call_result payload: %s", exc)

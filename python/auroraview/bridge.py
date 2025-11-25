@@ -23,6 +23,7 @@ import asyncio
 import json
 import logging
 import threading
+import time
 from typing import Any, Callable, Dict, Optional, Set
 
 try:
@@ -251,8 +252,6 @@ class Bridge:
         logger.info("✅ Bridge background thread started")
 
         # Wait a bit for the server to start
-        import time
-
         time.sleep(0.5)  # Give the thread time to start
         logger.info(f"Bridge status after start: {self}")
 
