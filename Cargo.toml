@@ -49,6 +49,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # URL handling
 url = "2.5"
 
+# Path normalization (cross-platform)
+path-clean = "1.0"
+
 # MIME type detection
 mime_guess = "2.0"
 

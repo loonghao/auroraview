@@ -11,7 +11,8 @@ use wry::http::Request;
 // Import the protocol handler functions
 // Note: These need to be public in the source file
 use auroraview_core::webview::protocol_handlers::{
-    handle_auroraview_protocol, handle_custom_protocol,
+    handle_auroraview_protocol, handle_custom_protocol, is_windows_absolute_path_without_colon,
+    normalize_windows_path_without_colon, parse_protocol_path,
 };
 
 #[rstest]
@@ -173,4 +174,174 @@ fn test_custom_protocol_with_various_responses() {
             expected_status
         );
     }
+}
+
+// ============================================================================
+// Path Parsing Tests
+// ============================================================================
+
+#[rstest]
+fn test_is_windows_absolute_path_without_colon() {
+    // Should detect Windows paths without colon
+    assert!(is_windows_absolute_path_without_colon("c/users/test"));
+    assert!(is_windows_absolute_path_without_colon("C/Users/test"));
+    assert!(is_windows_absolute_path_without_colon(
+        "d/projects/file.txt"
+    ));
+
+    // Should not detect these as Windows paths without colon
+    assert!(!is_windows_absolute_path_without_colon("C:/users/test"));
+    assert!(!is_windows_absolute_path_without_colon("/path/to/file"));
+    assert!(!is_windows_absolute_path_without_colon("relative/path"));
+    assert!(!is_windows_absolute_path_without_colon("file.txt"));
+
+    // Edge cases: short paths
+    assert!(!is_windows_absolute_path_without_colon(""));
+    assert!(!is_windows_absolute_path_without_colon("c"));
+    assert!(!is_windows_absolute_path_without_colon("/"));
+}
+
+#[rstest]
+fn test_normalize_windows_path_without_colon() {
+    assert_eq!(
+        normalize_windows_path_without_colon("c/users/test"),
+        "C:/users/test"
+    );
+    assert_eq!(
+        normalize_windows_path_without_colon("d/projects/file.txt"),
+        "D:/projects/file.txt"
+    );
+
+    // Edge cases: short paths should return as-is
+    assert_eq!(normalize_windows_path_without_colon(""), "");
+    assert_eq!(normalize_windows_path_without_colon("c"), "c");
+}
+
+#[rstest]
+fn test_parse_protocol_path_relative() {
+    use std::path::PathBuf;
+
+    let asset_root = PathBuf::from("/tmp/assets");
+
+    // Relative paths should be joined with asset_root
+    let result = parse_protocol_path("css/style.css", &asset_root);
+    assert_eq!(result, PathBuf::from("/tmp/assets/css/style.css"));
+
+    let result = parse_protocol_path("images/logo.png", &asset_root);
+    assert_eq!(result, PathBuf::from("/tmp/assets/images/logo.png"));
+}
+
+#[rstest]
+fn test_parse_protocol_path_windows_without_colon() {
+    use std::path::PathBuf;
+
+    let asset_root = PathBuf::from("/tmp/assets");
+
+    // Test that Windows paths without colon are detected and normalized
+    // This specifically tests the branch at lines 290-292
+    let result = parse_protocol_path("c/users/test/file.txt", &asset_root);
+    // On Windows, this should be normalized to C:/users/test/file.txt
+    // On Unix, this should still work as the function handles it
+    #[cfg(windows)]
+    assert_eq!(result, PathBuf::from("C:/users/test/file.txt"));
+    #[cfg(unix)]
+    assert_eq!(result, PathBuf::from("C:/users/test/file.txt"));
+
+    // Test with uppercase drive letter
+    let result = parse_protocol_path("D/Projects/app.exe", &asset_root);
+    #[cfg(windows)]
+    assert_eq!(result, PathBuf::from("D:/Projects/app.exe"));
+    #[cfg(unix)]
+    assert_eq!(result, PathBuf::from("D:/Projects/app.exe"));
+}
+
+#[rstest]
+#[cfg(unix)]
+fn test_parse_protocol_path_absolute_unix() {
+    use std::path::PathBuf;
+
+    let asset_root = PathBuf::from("/tmp/assets");
+
+    // Absolute Unix paths should be used directly
+    let result = parse_protocol_path("/usr/share/file.txt", &asset_root);
+    assert_eq!(result, PathBuf::from("/usr/share/file.txt"));
+}
+
+#[rstest]
+#[cfg(windows)]
+fn test_parse_protocol_path_absolute_windows() {
+    use std::path::PathBuf;
+
+    let asset_root = PathBuf::from("C:\\temp\\assets");
+
+    // Standard Windows absolute path
+    let result = parse_protocol_path("C:/Users/test/file.txt", &asset_root);
+    assert_eq!(result, PathBuf::from("C:/Users/test/file.txt"));
+
+    // Windows path without colon (from URL) - lowercase drive letter
+    let result = parse_protocol_path("c/users/test/file.txt", &asset_root);
+    assert_eq!(result, PathBuf::from("C:/users/test/file.txt"));
+
+    // Windows path without colon (from URL) - uppercase drive letter
+    let result = parse_protocol_path("D/Projects/app/data.json", &asset_root);
+    assert_eq!(result, PathBuf::from("D:/Projects/app/data.json"));
+
+    // Windows path without colon - different drives
+    let result = parse_protocol_path("e/temp/file.txt", &asset_root);
+    assert_eq!(result, PathBuf::from("E:/temp/file.txt"));
+}
+
+#[rstest]
+fn test_parse_protocol_path_with_dots() {
+    use std::path::PathBuf;
+
+    let asset_root = PathBuf::from("/tmp/assets");
+
+    // Paths with .. should be cleaned
+    let result = parse_protocol_path("css/../images/logo.png", &asset_root);
+    assert_eq!(result, PathBuf::from("/tmp/assets/images/logo.png"));
+}
+
+#[rstest]
+fn test_auroraview_protocol_with_windows_absolute_path() {
+    // This test simulates the real-world scenario from the bug report
+    // URL: auroraview://c/users/username/projects/myapp/0.1.0/assets/images/logo.gif
+
+    let temp_dir = TempDir::new().unwrap();
+    let asset_root = temp_dir.path();
+
+    // Create a test file at an absolute Windows-style path
+    // Note: In real scenario, this would be on C: drive, but for testing we use temp dir
+    let test_file = temp_dir.path().join("test.gif");
+    fs::write(&test_file, b"GIF89a").unwrap();
+
+    // Simulate the URL path format (without drive colon)
+    let path_str = test_file.to_str().unwrap();
+
+    // On Windows, convert C:\path\to\file to c/path/to/file format
+    #[cfg(windows)]
+    let url_path = {
+        let normalized = path_str.replace('\\', "/");
+        // Remove the colon after drive letter to simulate URL format
+        if normalized.len() > 2 && normalized.chars().nth(1) == Some(':') {
+            let drive = normalized.chars().next().unwrap().to_ascii_lowercase();
+            format!("{}{}", drive, &normalized[2..])
+        } else {
+            normalized
+        }
+    };
+
+    #[cfg(unix)]
+    let url_path = path_str.to_string();
+
+    // Test that parse_protocol_path correctly handles this
+    let parsed = parse_protocol_path(&url_path, asset_root);
+
+    // The parsed path should be able to read the file
+    assert!(
+        parsed.exists(),
+        "Parsed path {:?} should exist (from URL path: {})",
+        parsed,
+        url_path
+    );
 }
