@@ -53,27 +53,12 @@ if sys.platform == "win32":
     from ctypes import wintypes
 
 try:
-    from qtpy.QtCore import QCoreApplication, Qt
+    from qtpy.QtCore import QCoreApplication, Qt, QTimer
     from qtpy.QtWidgets import QWidget
 except ImportError as e:
     raise ImportError(
         "Qt backend requires qtpy and Qt bindings. Install with: pip install auroraview[qt]"
     ) from e
-
-# Import QTimer conditionally for resize throttling
-try:
-    from PySide2.QtCore import QTimer
-except ImportError:
-    try:
-        from PySide6.QtCore import QTimer
-    except ImportError:
-        try:
-            from PyQt5.QtCore import QTimer
-        except ImportError:
-            try:
-                from PyQt6.QtCore import QTimer
-            except ImportError:
-                QTimer = None  # Fallback if no Qt binding available
 
 from .webview import WebView
 
@@ -468,7 +453,7 @@ class QtWebView(QWidget):
             else:
                 # For rapid events, only schedule if not already scheduled
                 # This ensures we capture the final size without flooding
-                if self._pending_resize is None and QTimer is not None:
+                if self._pending_resize is None:
 
                     def delayed_resize():
                         self._pending_resize = None
