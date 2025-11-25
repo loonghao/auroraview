@@ -40,13 +40,17 @@ Example:
     >>> webview.show()
 """
 
-import ctypes
 import logging
 import sys
 import time
-from ctypes import wintypes
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+# Windows-specific imports for HWND manipulation
+# Only used in _sync_embedded_geometry() which has platform check
+if sys.platform == "win32":
+    import ctypes
+    from ctypes import wintypes
 
 try:
     from qtpy.QtCore import QCoreApplication, Qt
