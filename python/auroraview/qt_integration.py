@@ -467,8 +467,10 @@ class QtWebView(QWidget):
                             logger.debug(f"[QtWebView] resizeEvent: {width}x{height} (delayed)")
 
                     # Schedule for next frame (~16ms)
-                    self._pending_resize = QTimer.singleShot(self._resize_throttle_ms, delayed_resize)
-                    logger.debug(f"[QtWebView] resizeEvent: scheduled (throttled)")
+                    self._pending_resize = QTimer.singleShot(
+                        self._resize_throttle_ms, delayed_resize
+                    )
+                    logger.debug("[QtWebView] resizeEvent: scheduled (throttled)")
 
         except Exception as e:  # pragma: no cover - best-effort only
             logger.debug("QtWebView: resizeEvent sync failed: %s", e)
@@ -483,6 +485,7 @@ class QtWebView(QWidget):
         avoids subtle deadlocks.
         """
         import time
+
         start_time = time.time()
         logger.info("[QtWebView] show() started")
 
@@ -523,7 +526,9 @@ class QtWebView(QWidget):
             try:
                 timer.start()
                 total_time = (time.time() - start_time) * 1000
-                logger.info(f"QtWebView: started embedded WebView via EventTimer in {total_time:.1f}ms total")
+                logger.info(
+                    f"QtWebView: started embedded WebView via EventTimer in {total_time:.1f}ms total"
+                )
                 return
             except Exception as exc:  # pragma: no cover - best-effort fallback
                 logger.warning(
