@@ -117,6 +117,7 @@ except ImportError:
     run_standalone = None  # type: ignore
 
 from .event_timer import EventTimer
+from .file_protocol import path_to_file_url, prepare_html_with_local_assets
 from .framework import AuroraView
 from .timer_backends import (
     QtTimerBackend,
@@ -248,6 +249,9 @@ __all__ = [
     # CLI utilities
     "normalize_url",
     "rewrite_html_for_custom_protocol",
+    # File protocol utilities
+    "path_to_file_url",
+    "prepare_html_with_local_assets",
     # Standalone runner
     "run_standalone",
     # Metadata
