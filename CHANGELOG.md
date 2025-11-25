@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.15](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.14...auroraview-v0.2.15) (2025-11-25)
+
+
+### Features
+
+* add _post_eval_js_hook support for Qt integration and testing ([233332f](https://github.com/loonghao/auroraview/commit/233332f29922584eb7540b2ce04b326a8b4e800e))
+* add file:// protocol support and reorganize test files ([226ce71](https://github.com/loonghao/auroraview/commit/226ce714490a8cdf28a8c02b50d4a954a384d1d2))
+* add prepare_html_with_local_assets utility function ([5952ca3](https://github.com/loonghao/auroraview/commit/5952ca3a2195b735b49eb435bb6396c0f4d2eaa0))
+* improve DCC mode HWND handling and reduce log noise ([ef43cfd](https://github.com/loonghao/auroraview/commit/ef43cfd49674dec0d9e4591152de7b6231741cce))
+* **qt:** improve embedded WebView geometry sync and window styling ([ae091e9](https://github.com/loonghao/auroraview/commit/ae091e9dc6a01f7c6e989e8fcb83c8dcd6a004d0))
+
+
+### Bug Fixes
+
+* add __future__ annotations for Python 3.9 compatibility ([cb04732](https://github.com/loonghao/auroraview/commit/cb04732181ff902d2af927b0bdf237af189f35aa))
+* add skipif decorator to test_api_injection_timing for Qt dependency ([e0c4181](https://github.com/loonghao/auroraview/commit/e0c4181c28df15c58398ad0da6e234a2822ae965))
+* make ctypes and wintypes imports platform-specific ([d76f452](https://github.com/loonghao/auroraview/commit/d76f4523994fad40a19be2d641d1436bd9704392))
+* use Union syntax for Python 3.7-3.9 compatibility ([4d46cb2](https://github.com/loonghao/auroraview/commit/4d46cb2e78231f025ea5e6338430cc8043b0e484))
+
+
+### Performance Improvements
+
+* add resize event throttling to maintain 60 FPS ([0b1f12d](https://github.com/loonghao/auroraview/commit/0b1f12d1a24cd9bbc382d3cc1f76c448dae0c4b1))
+
+
+### Code Refactoring
+
+* move in-block imports to module top level ([cb6cc3b](https://github.com/loonghao/auroraview/commit/cb6cc3b12fc82ebcbc5a7bea810bafd44bac27cc))
+* use qtpy for QTimer import instead of direct Qt binding imports ([b2651f7](https://github.com/loonghao/auroraview/commit/b2651f7f621d18d2b7349d8a1b50f07d1944c477))
+
 ## [0.2.14](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.13...auroraview-v0.2.14) (2025-11-24)
 
 
