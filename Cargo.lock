@@ -146,7 +146,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.2.14"
+version = "0.2.15"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -164,6 +164,7 @@ dependencies = [
  "num_cpus",
  "once_cell",
  "parking_lot",
+ "path-clean",
  "proptest",
  "pyo3",
  "raw-window-handle",
@@ -2519,6 +2520,12 @@ dependencies = [
  "smallvec",
  "windows-link 0.2.1",
 ]
+
+[[package]]
+name = "path-clean"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17359afc20d7ab31fdb42bb844c8b3bb1dabd7dcf7e68428492da7f16966fcef"
 
 [[package]]
 name = "peeking_take_while"

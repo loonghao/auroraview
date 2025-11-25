@@ -1,9 +1,10 @@
 //! Protocol handlers for custom URI schemes
 
 use mime_guess::from_path;
+use path_clean::PathClean;
 use std::borrow::Cow;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use wry::http::{Request, Response};
 
 /// Handle auroraview:// protocol requests
@@ -41,7 +42,8 @@ pub fn handle_auroraview_protocol(
     };
 
     // Build full path
-    let full_path = asset_root.join(path);
+    // Parse the path and determine if it's absolute
+    let full_path = parse_protocol_path(path, asset_root);
 
     tracing::debug!(
         "[Protocol] auroraview:// request: {} -> {:?}",
@@ -265,6 +267,65 @@ fn guess_mime_type(path: &Path) -> String {
     from_path(path).first_or_octet_stream().to_string()
 }
 
+/// Parse a protocol path and resolve it to a full file system path
+///
+/// This function handles both relative and absolute paths in the protocol URL:
+/// - Relative paths (e.g., "css/style.css") are joined with asset_root
+/// - Absolute paths (e.g., "c/users/..." or "/path/...") are used directly
+///
+/// For Windows paths in the format "c/users/..." (lowercase drive, no colon),
+/// this function normalizes them to "C:/users/..." format.
+pub fn parse_protocol_path(path_str: &str, asset_root: &Path) -> PathBuf {
+    // Try to parse as a path
+    let path = PathBuf::from(path_str);
+
+    // Check if it's an absolute path using standard library
+    if path.is_absolute() {
+        // Already absolute (e.g., "/path/..." on Unix or "C:\path\..." on Windows)
+        return path.clean();
+    }
+
+    // Check for Windows-style absolute path without colon (e.g., "c/users/...")
+    // This is a special case where the URL protocol strips the colon
+    if is_windows_absolute_path_without_colon(path_str) {
+        let normalized = normalize_windows_path_without_colon(path_str);
+        return PathBuf::from(normalized).clean();
+    }
+
+    // Relative path - join with asset_root and clean
+    asset_root.join(path).clean()
+}
+
+/// Check if a path string is a Windows absolute path without colon
+///
+/// Detects patterns like "c/users/..." where the drive letter is followed
+/// directly by a forward slash instead of a colon.
+pub fn is_windows_absolute_path_without_colon(path: &str) -> bool {
+    if path.len() < 2 {
+        return false;
+    }
+
+    let chars: Vec<char> = path.chars().collect();
+
+    // Check for pattern: [a-zA-Z]/...
+    chars[0].is_ascii_alphabetic() && chars[1] == '/'
+}
+
+/// Normalize a Windows path without colon to standard format
+///
+/// Converts "c/users/..." to "C:/users/..."
+pub fn normalize_windows_path_without_colon(path: &str) -> String {
+    if path.len() < 2 {
+        return path.to_string();
+    }
+
+    let drive_letter = path.chars().next().unwrap().to_ascii_uppercase();
+    let rest = &path[1..]; // This includes the leading "/"
+
+    // Convert to standard Windows path format: C:/users/...
+    format!("{}:{}", drive_letter, rest)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -356,7 +417,7 @@ mod tests {
     }
 }
 
-// Note: Integration tests have been moved to tests/protocol_handlers_integration_tests.rs
+// Note: All tests have been moved to tests/protocol_handlers_integration_tests.rs
 // This includes tests for:
 // - handle_auroraview_protocol security (directory traversal, file access)
 // - handle_custom_protocol with various callbacks
