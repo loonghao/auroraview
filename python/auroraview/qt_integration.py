@@ -157,6 +157,12 @@ class QtWebView(QWidget):
         hwnd = int(self.winId())
         logger.debug("QtWebView host widget created, hwnd=%s", hwnd)
 
+        # Resize throttling state
+        self._last_resize_time = 0
+        self._resize_throttle_ms = 16  # ~60fps (16.67ms per frame)
+        self._pending_resize = None
+        self._last_emitted_size = (0, 0)  # Track last emitted size to avoid duplicates
+
         # Create the core WebView in embedded/child mode.
         # In Qt/DCC environments (e.g., Maya) we run everything on the Qt
         # main thread and let the DCC's own event loop drive painting/input.
@@ -412,18 +418,58 @@ class QtWebView(QWidget):
             logger.debug("QtWebView: failed to sync embedded geometry: %s", e)
 
     def resizeEvent(self, event) -> None:  # type: ignore[override]
-        """Resize the embedded WebView when the Qt widget is resized."""
+        """Resize the embedded WebView when the Qt widget is resized.
+
+        Uses throttling to maintain 60 FPS during rapid resize operations.
+        """
         super().resizeEvent(event)
         try:
-            self._sync_embedded_geometry()
+            import time
 
-            # Emit window_resized event to frontend
-            # Use contentsRect() to match _sync_embedded_geometry
+            current_time = time.time() * 1000  # Convert to milliseconds
+            time_since_last = current_time - self._last_resize_time
+
+            # Get new size
             rect = self.contentsRect()
-            width = rect.width()
-            height = rect.height()
-            logger.info(f"[QtWebView] resizeEvent: {width}x{height}")
-            self._webview.emit("window_resized", {"width": width, "height": height})
+            new_width = rect.width()
+            new_height = rect.height()
+            new_size = (new_width, new_height)
+
+            # Skip if size hasn't changed (avoid duplicate events)
+            if new_size == self._last_emitted_size:
+                return
+
+            # Throttle: only process if enough time has passed
+            if time_since_last >= self._resize_throttle_ms:
+                # Update immediately
+                self._sync_embedded_geometry()
+                self._webview.emit("window_resized", {"width": new_width, "height": new_height})
+                self._last_resize_time = current_time
+                self._last_emitted_size = new_size
+                logger.debug(f"[QtWebView] resizeEvent: {new_width}x{new_height} (immediate)")
+            else:
+                # Schedule delayed update if not already scheduled
+                if self._pending_resize is None:
+                    from PySide2.QtCore import QTimer
+
+                    def delayed_resize():
+                        self._pending_resize = None
+                        # Re-check size in case it changed again
+                        rect = self.contentsRect()
+                        width = rect.width()
+                        height = rect.height()
+                        size = (width, height)
+
+                        if size != self._last_emitted_size:
+                            self._sync_embedded_geometry()
+                            self._webview.emit("window_resized", {"width": width, "height": height})
+                            self._last_emitted_size = size
+                            logger.debug(f"[QtWebView] resizeEvent: {width}x{height} (delayed)")
+
+                    # Schedule for next frame (~16ms)
+                    self._pending_resize = QTimer.singleShot(self._resize_throttle_ms, delayed_resize)
+                    logger.debug(f"[QtWebView] resizeEvent: scheduled (throttled)")
+
         except Exception as e:  # pragma: no cover - best-effort only
             logger.debug("QtWebView: resizeEvent sync failed: %s", e)
 
@@ -436,6 +482,10 @@ class QtWebView(QWidget):
         thread. This keeps all GUI work on the host's main thread and
         avoids subtle deadlocks.
         """
+        import time
+        start_time = time.time()
+        logger.info("[QtWebView] show() started")
+
         super().show()
 
         # First, ensure the underlying core WebView is created in embedded mode.
@@ -444,8 +494,10 @@ class QtWebView(QWidget):
             try:
                 # In embedded (owner/child) mode, _core.show() is non-blocking and
                 # just creates the embedded window without its own event loop.
+                core_show_start = time.time()
                 core.show()
-                logger.info("QtWebView: core.show() succeeded for embedded WebView")
+                core_show_time = (time.time() - core_show_start) * 1000
+                logger.info(f"QtWebView: core.show() succeeded in {core_show_time:.1f}ms")
             except Exception as exc:  # pragma: no cover - best-effort fallback
                 logger.warning(
                     "QtWebView: core.show() failed (%s), falling back to WebView.show()",
@@ -458,7 +510,10 @@ class QtWebView(QWidget):
 
         # Sync geometry once after the embedded window has been created.
         try:
+            sync_start = time.time()
             self._sync_embedded_geometry()
+            sync_time = (time.time() - sync_start) * 1000
+            logger.info(f"QtWebView: initial geometry sync completed in {sync_time:.1f}ms")
         except Exception as e:  # pragma: no cover - best-effort only
             logger.debug("QtWebView: initial geometry sync failed: %s", e)
 
@@ -467,7 +522,8 @@ class QtWebView(QWidget):
         if timer is not None:
             try:
                 timer.start()
-                logger.info("QtWebView: started embedded WebView via EventTimer (Qt QTimer)")
+                total_time = (time.time() - start_time) * 1000
+                logger.info(f"QtWebView: started embedded WebView via EventTimer in {total_time:.1f}ms total")
                 return
             except Exception as exc:  # pragma: no cover - best-effort fallback
                 logger.warning(
