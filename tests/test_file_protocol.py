@@ -9,11 +9,12 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from typing import Union
 
 import pytest
 
 
-def path_to_file_url(path: str | Path) -> str:
+def path_to_file_url(path: Union[str, Path]) -> str:
     """Convert local file path to file:/// URL.
 
     Helper function for testing file:// protocol support.
