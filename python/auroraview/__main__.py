@@ -6,6 +6,7 @@ It creates a WebView window using the auroraview Python bindings.
 
 import argparse
 import sys
+import traceback
 from pathlib import Path
 
 
@@ -122,8 +123,6 @@ def main():
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         if args.debug:
-            import traceback
-
             traceback.print_exc()
         sys.exit(1)
 

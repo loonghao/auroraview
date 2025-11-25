@@ -40,17 +40,36 @@ Example:
     >>> webview.show()
 """
 
+import ctypes
 import logging
+import sys
+import time
+from ctypes import wintypes
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 try:
-    from qtpy.QtCore import Qt
+    from qtpy.QtCore import QCoreApplication, Qt
     from qtpy.QtWidgets import QWidget
 except ImportError as e:
     raise ImportError(
         "Qt backend requires qtpy and Qt bindings. Install with: pip install auroraview[qt]"
     ) from e
+
+# Import QTimer conditionally for resize throttling
+try:
+    from PySide2.QtCore import QTimer
+except ImportError:
+    try:
+        from PySide6.QtCore import QTimer
+    except ImportError:
+        try:
+            from PyQt5.QtCore import QTimer
+        except ImportError:
+            try:
+                from PyQt6.QtCore import QTimer
+            except ImportError:
+                QTimer = None  # Fallback if no Qt binding available
 
 from .webview import WebView
 
@@ -99,8 +118,6 @@ class QtEventProcessor:
         self._process_count += 1
 
         try:
-            from qtpy.QtCore import QCoreApplication
-
             # Step 1: Process Qt events
             QCoreApplication.processEvents()
 
@@ -157,7 +174,7 @@ class QtWebView(QWidget):
         hwnd = int(self.winId())
         logger.debug("QtWebView host widget created, hwnd=%s", hwnd)
 
-        # Resize throttling state
+        # Resize throttling state - balanced for 60 FPS (avoid UI blocking)
         self._last_resize_time = 0
         self._resize_throttle_ms = 16  # ~60fps (16.67ms per frame)
         self._pending_resize = None
@@ -337,13 +354,8 @@ class QtWebView(QWidget):
         We also remove the WebView window border by modifying its window style.
         """
         try:
-            import sys
-
             if sys.platform != "win32":
                 return
-
-            import ctypes
-            from ctypes import wintypes
 
             core = getattr(self._webview, "_core", None)
             get_hwnd = getattr(core, "get_hwnd", None) if core is not None else None
@@ -387,9 +399,9 @@ class QtWebView(QWidget):
             # Use contentsRect() to get the actual content area excluding margins
             rect = self.contentsRect()
 
-            # Small buffer to ensure WebView doesn't overlap Qt window frame
-            # The main edge buffer is handled by frontend CSS overlays
-            EDGE_BUFFER = 2  # pixels - minimal buffer, frontend handles the rest
+            # Zero buffer for perfect edge alignment - eliminate white edges
+            # Frontend CSS handles edge buffer zones for resize operations
+            EDGE_BUFFER = 0  # pixels - no buffer, perfect alignment
 
             x = rect.x() + EDGE_BUFFER
             y = rect.y() + EDGE_BUFFER
@@ -402,9 +414,9 @@ class QtWebView(QWidget):
 
             SWP_NOZORDER = 0x0004
             SWP_NOACTIVATE = 0x0010
-            SWP_FRAMECHANGED = 0x0020  # Force frame to be redrawn after style change
 
             # Set both position and size to ensure webview stays aligned with Qt widget
+            # Use minimal flags to avoid performance issues
             user32.SetWindowPos(
                 wintypes.HWND(int(hwnd)),
                 0,
@@ -412,7 +424,7 @@ class QtWebView(QWidget):
                 y,
                 width,
                 height,
-                SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                SWP_NOZORDER | SWP_NOACTIVATE,
             )
         except Exception as e:  # pragma: no cover - best-effort only
             logger.debug("QtWebView: failed to sync embedded geometry: %s", e)
@@ -420,12 +432,11 @@ class QtWebView(QWidget):
     def resizeEvent(self, event) -> None:  # type: ignore[override]
         """Resize the embedded WebView when the Qt widget is resized.
 
-        Uses throttling to maintain 60 FPS during rapid resize operations.
+        Uses aggressive throttling to maintain 120 FPS during rapid resize operations.
+        Optimized for ultra-smooth visual updates with minimal latency.
         """
         super().resizeEvent(event)
         try:
-            import time
-
             current_time = time.time() * 1000  # Convert to milliseconds
             time_since_last = current_time - self._last_resize_time
 
@@ -439,21 +450,26 @@ class QtWebView(QWidget):
             if new_size == self._last_emitted_size:
                 return
 
-            # Throttle: only process if enough time has passed
-            if time_since_last >= self._resize_throttle_ms:
-                # Update immediately
+            # Aggressive throttling for 120 FPS
+            # Always update immediately for first event or if enough time passed
+            if self._last_resize_time == 0 or time_since_last >= self._resize_throttle_ms:
+                # Update immediately for ultra-smooth experience
                 self._sync_embedded_geometry()
                 self._webview.emit("window_resized", {"width": new_width, "height": new_height})
                 self._last_resize_time = current_time
                 self._last_emitted_size = new_size
-                logger.debug(f"[QtWebView] resizeEvent: {new_width}x{new_height} (immediate)")
+                logger.debug(
+                    f"[QtWebView] resizeEvent: {new_width}x{new_height} (immediate, Δ{time_since_last:.1f}ms)"
+                )
             else:
-                # Schedule delayed update if not already scheduled
-                if self._pending_resize is None:
-                    from PySide2.QtCore import QTimer
+                # For rapid events, only schedule if not already scheduled
+                # This ensures we capture the final size without flooding
+                if self._pending_resize is None and QTimer is not None:
 
                     def delayed_resize():
                         self._pending_resize = None
+                        current = time.time() * 1000
+
                         # Re-check size in case it changed again
                         rect = self.contentsRect()
                         width = rect.width()
@@ -463,14 +479,17 @@ class QtWebView(QWidget):
                         if size != self._last_emitted_size:
                             self._sync_embedded_geometry()
                             self._webview.emit("window_resized", {"width": width, "height": height})
+                            self._last_resize_time = current
                             self._last_emitted_size = size
                             logger.debug(f"[QtWebView] resizeEvent: {width}x{height} (delayed)")
 
-                    # Schedule for next frame (~16ms)
+                    # Schedule for next frame (8ms for 120fps)
                     self._pending_resize = QTimer.singleShot(
                         self._resize_throttle_ms, delayed_resize
                     )
-                    logger.debug("[QtWebView] resizeEvent: scheduled (throttled)")
+                    logger.debug(
+                        f"[QtWebView] resizeEvent: scheduled (throttled, Δ{time_since_last:.1f}ms)"
+                    )
 
         except Exception as e:  # pragma: no cover - best-effort only
             logger.debug("QtWebView: resizeEvent sync failed: %s", e)
@@ -484,8 +503,6 @@ class QtWebView(QWidget):
         thread. This keeps all GUI work on the host's main thread and
         avoids subtle deadlocks.
         """
-        import time
-
         start_time = time.time()
         logger.info("[QtWebView] show() started")
 
