@@ -311,6 +311,7 @@ class TestTimerIntegration:
         tick_count = [0]
 
         with EventTimer(webview, interval_ms=10) as timer:
+
             @timer.on_tick
             def handle_tick():
                 tick_count[0] += 1
@@ -400,8 +401,8 @@ class TestTimerBackends:
     def test_register_timer_backend_update_priority(self):
         """Test that re-registering a backend updates its priority."""
         from auroraview.timer_backends import (
-            ThreadTimerBackend,
             _TIMER_BACKENDS,
+            ThreadTimerBackend,
             register_timer_backend,
         )
 

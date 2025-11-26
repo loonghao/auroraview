@@ -342,9 +342,7 @@ class TestFileProtocolEdgeCases:
         from auroraview import prepare_html_with_local_assets
 
         html = '<img src="{{IMAGE_PATH}}">'
-        result = prepare_html_with_local_assets(
-            html, asset_paths={"IMAGE_PATH": Path("test.png")}
-        )
+        result = prepare_html_with_local_assets(html, asset_paths={"IMAGE_PATH": Path("test.png")})
 
         assert "file://" in result
         assert "test.png" in result
