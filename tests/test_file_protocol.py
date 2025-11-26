@@ -263,3 +263,143 @@ class TestFileProtocolIntegration:
 
         finally:
             os.unlink(temp_path)
+
+
+class TestFileProtocolEdgeCases:
+    """Edge case tests for file:// protocol handling."""
+
+    def test_path_to_file_url_with_path_object(self):
+        """Test path_to_file_url accepts Path objects."""
+        from auroraview.file_protocol import path_to_file_url
+
+        path = Path("test.txt")
+        result = path_to_file_url(path)
+
+        assert result.startswith("file://")
+        assert "test.txt" in result
+
+    def test_path_to_file_url_with_string(self):
+        """Test path_to_file_url accepts strings."""
+        from auroraview.file_protocol import path_to_file_url
+
+        result = path_to_file_url("test.txt")
+
+        assert result.startswith("file://")
+        assert "test.txt" in result
+
+    def test_path_to_file_url_unicode_path(self):
+        """Test path_to_file_url handles unicode characters."""
+        from auroraview.file_protocol import path_to_file_url
+
+        # Test with unicode filename
+        result = path_to_file_url("测试文件.txt")
+
+        assert result.startswith("file://")
+        assert "测试文件.txt" in result
+
+    def test_path_to_file_url_special_characters(self):
+        """Test path_to_file_url handles special characters."""
+        from auroraview.file_protocol import path_to_file_url
+
+        # Test with special characters (parentheses, brackets)
+        result = path_to_file_url("file (1) [copy].txt")
+
+        assert result.startswith("file://")
+        assert "file (1) [copy].txt" in result
+
+    def test_prepare_html_empty_asset_paths(self):
+        """Test prepare_html_with_local_assets with empty dict."""
+        from auroraview import prepare_html_with_local_assets
+
+        html = '<img src="{{IMAGE_PATH}}">'
+        result = prepare_html_with_local_assets(html, asset_paths={})
+
+        # Placeholder should remain unchanged
+        assert "{{IMAGE_PATH}}" in result
+
+    def test_prepare_html_none_asset_paths(self):
+        """Test prepare_html_with_local_assets with None asset_paths."""
+        from auroraview import prepare_html_with_local_assets
+
+        html = '<img src="{{IMAGE_PATH}}">'
+        result = prepare_html_with_local_assets(html, asset_paths=None)
+
+        # Placeholder should remain unchanged
+        assert "{{IMAGE_PATH}}" in result
+
+    def test_prepare_html_no_placeholders(self):
+        """Test prepare_html_with_local_assets with HTML without placeholders."""
+        from auroraview import prepare_html_with_local_assets
+
+        html = '<img src="static.png">'
+        result = prepare_html_with_local_assets(html, asset_paths={"IMAGE_PATH": "test.png"})
+
+        # HTML should remain unchanged
+        assert result == '<img src="static.png">'
+
+    def test_prepare_html_path_object_values(self):
+        """Test prepare_html_with_local_assets accepts Path objects as values."""
+        from auroraview import prepare_html_with_local_assets
+
+        html = '<img src="{{IMAGE_PATH}}">'
+        result = prepare_html_with_local_assets(
+            html, asset_paths={"IMAGE_PATH": Path("test.png")}
+        )
+
+        assert "file://" in result
+        assert "test.png" in result
+
+    def test_prepare_html_both_assets_and_manifest(self):
+        """Test prepare_html_with_local_assets with both assets and manifest."""
+        from auroraview import prepare_html_with_local_assets
+
+        html = """
+        <img src="{{IMAGE_PATH}}">
+        <iframe src="{{MANIFEST_PATH}}"></iframe>
+        """
+        result = prepare_html_with_local_assets(
+            html,
+            asset_paths={"IMAGE_PATH": "test.png"},
+            manifest_path="manifest.html",
+        )
+
+        # Both should be replaced
+        assert result.count("file://") >= 2
+        assert "test.png" in result
+        assert "manifest.html" in result
+        assert "{{IMAGE_PATH}}" not in result
+        assert "{{MANIFEST_PATH}}" not in result
+
+    def test_prepare_html_preserves_other_content(self):
+        """Test that prepare_html_with_local_assets preserves non-placeholder content."""
+        from auroraview import prepare_html_with_local_assets
+
+        html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Test Page</title>
+            <style>
+                body { margin: 0; }
+            </style>
+        </head>
+        <body>
+            <h1>Hello World</h1>
+            <img src="{{IMAGE_PATH}}">
+            <script>
+                console.log("test");
+            </script>
+        </body>
+        </html>
+        """
+        result = prepare_html_with_local_assets(html, asset_paths={"IMAGE_PATH": "test.png"})
+
+        # All original content should be preserved
+        assert "<!DOCTYPE html>" in result
+        assert "<title>Test Page</title>" in result
+        assert "body { margin: 0; }" in result
+        assert "<h1>Hello World</h1>" in result
+        assert 'console.log("test");' in result
+        # Placeholder should be replaced
+        assert "{{IMAGE_PATH}}" not in result
+        assert "test.png" in result

@@ -212,3 +212,263 @@ class TestTimerIntegration:
 
         # Timer1 has a shorter interval so should tick at least as many times
         # Note: Due to thread scheduling variability, we don't strictly enforce this
+
+    def test_event_timer_off_tick_callback(self):
+        """Test unregistering a tick callback."""
+        from auroraview.event_timer import EventTimer
+
+        webview = MockWebView()
+        timer = EventTimer(webview, interval_ms=10)
+
+        tick_count = [0]
+
+        @timer.on_tick
+        def handle_tick():
+            tick_count[0] += 1
+
+        timer.start()
+        time.sleep(0.03)
+
+        # Unregister the callback
+        result = timer.off_tick(handle_tick)
+        assert result is True
+
+        # Try to unregister again - should return False
+        result = timer.off_tick(handle_tick)
+        assert result is False
+
+        # Record tick count after unregistering
+        count_after_unregister = tick_count[0]
+        time.sleep(0.03)
+
+        timer.stop()
+
+        # Tick count should not have increased after unregistering
+        assert tick_count[0] == count_after_unregister
+
+    def test_event_timer_off_close_callback(self):
+        """Test unregistering a close callback."""
+        from auroraview.event_timer import EventTimer
+
+        webview = MockWebView()
+        timer = EventTimer(webview, interval_ms=10)
+
+        close_called = [False]
+
+        @timer.on_close
+        def handle_close():
+            close_called[0] = True
+
+        # Unregister the callback before triggering close
+        result = timer.off_close(handle_close)
+        assert result is True
+
+        # Try to unregister again - should return False
+        result = timer.off_close(handle_close)
+        assert result is False
+
+        timer.start()
+        webview.trigger_close()
+        time.sleep(0.05)
+
+        # Close callback should NOT have been called (it was unregistered)
+        assert close_called[0] is False
+
+    def test_event_timer_cleanup_method(self):
+        """Test the cleanup method clears all callbacks."""
+        from auroraview.event_timer import EventTimer
+
+        webview = MockWebView()
+        timer = EventTimer(webview, interval_ms=10)
+
+        @timer.on_tick
+        def handle_tick():
+            pass
+
+        @timer.on_close
+        def handle_close():
+            pass
+
+        assert len(timer._tick_callbacks) == 1
+        assert len(timer._close_callbacks) == 1
+
+        timer.start()
+        time.sleep(0.02)
+
+        # Call cleanup
+        timer.cleanup()
+
+        # All callbacks should be cleared
+        assert len(timer._tick_callbacks) == 0
+        assert len(timer._close_callbacks) == 0
+        assert timer.is_running is False
+
+    def test_event_timer_context_manager(self):
+        """Test EventTimer as context manager."""
+        from auroraview.event_timer import EventTimer
+
+        webview = MockWebView()
+        tick_count = [0]
+
+        with EventTimer(webview, interval_ms=10) as timer:
+            @timer.on_tick
+            def handle_tick():
+                tick_count[0] += 1
+
+            assert timer.is_running
+            time.sleep(0.03)
+
+        # Timer should be stopped after exiting context
+        assert not timer.is_running
+        assert tick_count[0] > 0
+
+    def test_event_timer_repr(self):
+        """Test EventTimer string representation."""
+        from auroraview.event_timer import EventTimer
+
+        webview = MockWebView()
+        timer = EventTimer(webview, interval_ms=16)
+
+        repr_str = repr(timer)
+        assert "interval=16ms" in repr_str
+        assert "status=stopped" in repr_str
+
+        timer.start()
+        repr_str = repr(timer)
+        assert "status=running" in repr_str
+        timer.stop()
+
+    def test_event_timer_interval_property(self):
+        """Test interval_ms property getter and setter."""
+        from auroraview.event_timer import EventTimer
+
+        webview = MockWebView()
+        timer = EventTimer(webview, interval_ms=16)
+
+        assert timer.interval_ms == 16
+
+        # Set new interval
+        timer.interval_ms = 32
+        assert timer.interval_ms == 32
+
+        # Invalid interval should raise
+        with pytest.raises(ValueError):
+            timer.interval_ms = 0
+
+        with pytest.raises(ValueError):
+            timer.interval_ms = -10
+
+    def test_event_timer_start_twice_raises(self):
+        """Test that starting a running timer raises an error."""
+        from auroraview.event_timer import EventTimer
+
+        webview = MockWebView()
+        timer = EventTimer(webview, interval_ms=10)
+
+        timer.start()
+        try:
+            with pytest.raises(RuntimeError):
+                timer.start()
+        finally:
+            timer.stop()
+
+
+class TestTimerBackends:
+    """Tests for timer backend functionality."""
+
+    def test_thread_backend_is_available(self):
+        """Test ThreadTimerBackend is always available."""
+        from auroraview.timer_backends import ThreadTimerBackend
+
+        backend = ThreadTimerBackend()
+        assert backend.is_available() is True
+
+    def test_thread_backend_get_name(self):
+        """Test ThreadTimerBackend name."""
+        from auroraview.timer_backends import ThreadTimerBackend
+
+        backend = ThreadTimerBackend()
+        assert backend.get_name() == "ThreadTimer"
+
+    def test_qt_backend_get_name(self):
+        """Test QtTimerBackend name."""
+        from auroraview.timer_backends import QtTimerBackend
+
+        backend = QtTimerBackend()
+        assert backend.get_name() == "QtTimer"
+
+    def test_register_timer_backend_update_priority(self):
+        """Test that re-registering a backend updates its priority."""
+        from auroraview.timer_backends import (
+            ThreadTimerBackend,
+            _TIMER_BACKENDS,
+            register_timer_backend,
+        )
+
+        # Get original priority
+        original_priority = None
+        for priority, cls in _TIMER_BACKENDS:
+            if cls is ThreadTimerBackend:
+                original_priority = priority
+                break
+
+        try:
+            # Re-register with different priority
+            register_timer_backend(ThreadTimerBackend, priority=50)
+
+            # Find new priority
+            new_priority = None
+            for priority, cls in _TIMER_BACKENDS:
+                if cls is ThreadTimerBackend:
+                    new_priority = priority
+                    break
+
+            assert new_priority == 50
+        finally:
+            # Restore original priority
+            if original_priority is not None:
+                register_timer_backend(ThreadTimerBackend, priority=original_priority)
+
+    def test_list_registered_backends(self):
+        """Test listing registered backends."""
+        from auroraview.timer_backends import list_registered_backends
+
+        backends = list_registered_backends()
+
+        # Should have at least Qt and Thread backends
+        assert len(backends) >= 2
+
+        # Each entry should be a tuple of (priority, name, available)
+        for priority, name, available in backends:
+            assert isinstance(priority, int)
+            assert isinstance(name, str)
+            assert isinstance(available, bool)
+
+        # Thread backend should be available
+        thread_backends = [b for b in backends if "Thread" in b[1]]
+        assert len(thread_backends) > 0
+        assert thread_backends[0][2] is True  # is_available
+
+    def test_get_available_backend(self):
+        """Test getting an available backend."""
+        from auroraview.timer_backends import get_available_backend
+
+        backend = get_available_backend()
+        assert backend is not None
+        assert backend.is_available() is True
+
+    def test_thread_backend_stop_with_none(self):
+        """Test stopping thread backend with None handle."""
+        from auroraview.timer_backends import ThreadTimerBackend
+
+        backend = ThreadTimerBackend()
+        # Should not raise
+        backend.stop(None)
+
+    def test_qt_backend_stop_with_none(self):
+        """Test stopping Qt backend with None handle."""
+        from auroraview.timer_backends import QtTimerBackend
+
+        backend = QtTimerBackend()
+        # Should not raise
+        backend.stop(None)
