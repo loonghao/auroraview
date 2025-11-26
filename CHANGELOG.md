@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.16](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.15...auroraview-v0.2.16) (2025-11-26)
+
+
+### Features
+
+* support Windows absolute paths in auroraview:// protocol ([1fd4431](https://github.com/loonghao/auroraview/commit/1fd4431776f5c0a487474130cdfa96365abe22a4))
+
 ## [0.2.15](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.14...auroraview-v0.2.15) (2025-11-25)
 
 
