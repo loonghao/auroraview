@@ -59,8 +59,12 @@ class TestFileProtocolHelpers:
 
         assert result.startswith("file://")
         assert "test.txt" in result
-        # Should be absolute path
-        assert len(result) > len("file:///test.txt")
+        # Verify the result is an absolute path by checking it matches
+        # what Path.resolve() produces for the current working directory
+        expected_abs_path = Path("test.txt").resolve()
+        # The URL should contain the resolved absolute path (with forward slashes)
+        expected_path_in_url = str(expected_abs_path).replace(os.sep, "/")
+        assert expected_path_in_url in result
 
     def test_path_to_file_url_with_spaces(self):
         """Test converting path with spaces to file:/// URL."""
