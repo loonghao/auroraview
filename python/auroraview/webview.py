@@ -83,6 +83,7 @@ class WebView:
         dev_tools: Optional[bool] = None,
         decorations: Optional[bool] = None,
         asset_root: Optional[str] = None,
+        allow_file_protocol: bool = False,
     ) -> None:
         """Initialize the WebView.
 
@@ -102,6 +103,9 @@ class WebView:
                    - Bridge instance: Use provided bridge
                    - True: Auto-create bridge with default settings
                    - None: No bridge (default)
+            asset_root: Root directory for auroraview:// protocol (optional)
+            allow_file_protocol: Enable file:// protocol support (default: False)
+                WARNING: Enabling this bypasses WebView's default security restrictions
         """
         if _CoreWebView is None:
             raise RuntimeError(
@@ -133,6 +137,7 @@ class WebView:
             parent_hwnd=parent,  # parent -> parent_hwnd
             parent_mode=mode,  # mode -> parent_mode
             asset_root=asset_root,  # Custom protocol asset root
+            allow_file_protocol=allow_file_protocol,  # Enable file:// protocol
         )
         self._event_handlers: Dict[str, list[Callable]] = {}
         self._title = title
@@ -200,6 +205,7 @@ class WebView:
         context_menu: bool = True,
         # Custom protocol
         asset_root: Optional[str] = None,
+        allow_file_protocol: bool = False,
         # Automation
         auto_show: bool = False,
         auto_timer: bool = True,
@@ -227,6 +233,9 @@ class WebView:
                 - None: No bridge (default)
             debug: Enable developer tools
             context_menu: Enable native context menu (default: True)
+            asset_root: Root directory for auroraview:// protocol
+            allow_file_protocol: Enable file:// protocol support (default: False)
+                WARNING: Enabling this bypasses WebView's default security restrictions
             auto_show: Automatically show after creation
             auto_timer: Auto-start event timer for embedded mode (recommended)
             singleton: Singleton key. If provided, only one instance with this key
@@ -306,6 +315,7 @@ class WebView:
             context_menu=context_menu,
             bridge=bridge,
             asset_root=asset_root,
+            allow_file_protocol=allow_file_protocol,
         )
 
         # Auto timer (embedded mode)
@@ -601,13 +611,25 @@ class WebView:
         a ``file:///`` URL so that all relative asset paths are handled
         by the browser as usual.
 
+        **IMPORTANT**: To load local files with their assets (CSS, JS, images),
+        you must enable file protocol support when creating the WebView:
+
+        - ``allow_file_protocol=True``: Allow loading via file:// protocol
+        - ``asset_root``: Set to the directory containing your assets to use
+          the more secure ``auroraview://`` protocol
+
         Args:
             path: Filesystem path to an HTML file.
 
         Example:
-            >>> from pathlib import Path
-            >>> html_path = Path("dist/index.html")
-            >>> webview.load_file(html_path)
+            >>> # Method 1: Using file:// protocol (simpler but less secure)
+            >>> webview = WebView.create(title="My App", allow_file_protocol=True)
+            >>> webview.load_file("dist/index.html")
+
+            >>> # Method 2: Using auroraview:// protocol (recommended)
+            >>> # In your HTML, use: <script src="auroraview://js/app.js"></script>
+            >>> webview = WebView.create(title="My App", asset_root="dist")
+            >>> webview.load_html(open("dist/index.html").read())
         """
         html_path = Path(path).expanduser().resolve()
         self.load_url(html_path.as_uri())
