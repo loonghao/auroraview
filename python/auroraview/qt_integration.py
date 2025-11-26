@@ -141,7 +141,22 @@ class QtWebView(QWidget):
         height: int = 600,
         dev_tools: bool = True,
         context_menu: bool = True,
+        asset_root: str | None = None,
+        allow_file_protocol: bool = False,
     ) -> None:
+        """Initialize QtWebView.
+
+        Args:
+            parent: Parent Qt widget
+            title: Window title
+            width: Window width in pixels
+            height: Window height in pixels
+            dev_tools: Enable developer tools
+            context_menu: Enable native context menu
+            asset_root: Root directory for auroraview:// protocol
+            allow_file_protocol: Enable file:// protocol support (default: False)
+                WARNING: Enabling this bypasses WebView's default security restrictions
+        """
         super().__init__(parent)
 
         self._title = title
@@ -187,6 +202,8 @@ class QtWebView(QWidget):
             frame=False,
             debug=dev_tools,
             context_menu=context_menu,
+            asset_root=asset_root,
+            allow_file_protocol=allow_file_protocol,
             auto_show=False,
             auto_timer=True,
         )
@@ -234,6 +251,13 @@ class QtWebView(QWidget):
         If reading the file fails for any reason, we fall back to the
         original behavior and delegate to the core :class:`WebView.load_file`
         helper, which uses a ``file:///`` URL.
+
+        **NOTE**: For frontends with external assets (CSS, JS, images), consider:
+
+        1. Using ``allow_file_protocol=True`` when creating QtWebView to enable
+           file:// protocol access
+        2. Using ``asset_root`` with ``auroraview://`` protocol for better security
+        3. Using a bundled single-file HTML (e.g., via Vite/Webpack with inlined assets)
         """
         try:
             html_path = Path(path).expanduser().resolve()

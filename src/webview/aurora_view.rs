@@ -45,12 +45,13 @@ impl AuroraView {
     ///     parent_hwnd (int, optional): Parent window handle (HWND on Windows)
     ///     parent_mode (str, optional): "child" or "owner" (Windows only)
     ///     asset_root (str, optional): Root directory for auroraview:// protocol
+    ///     allow_file_protocol (bool, optional): Enable file:// protocol support (default: False)
     ///
     /// Returns:
     ///     WebView: A new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, allow_file_protocol=false))]
     fn new(
         title: &str,
         width: u32,
@@ -64,9 +65,10 @@ impl AuroraView {
         parent_hwnd: Option<u64>,
         parent_mode: Option<&str>,
         asset_root: Option<&str>,
+        allow_file_protocol: bool,
     ) -> PyResult<Self> {
-        tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, context_menu: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}, asset_root: {:?}",
-            title, dev_tools, context_menu, resizable, decorations, parent_hwnd, parent_mode, asset_root);
+        tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, context_menu: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}, asset_root: {:?}, allow_file_protocol: {}",
+            title, dev_tools, context_menu, resizable, decorations, parent_hwnd, parent_mode, asset_root, allow_file_protocol);
 
         #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
         let mut config = WebViewConfig {
@@ -81,6 +83,7 @@ impl AuroraView {
             decorations,
             parent_hwnd,
             asset_root: asset_root.map(std::path::PathBuf::from),
+            allow_file_protocol,
             ..Default::default()
         };
 
@@ -1042,6 +1045,7 @@ mod tests {
                 None,
                 None,
                 None,
+                false,
             );
             assert!(result.is_ok());
             let webview = result.unwrap();
@@ -1069,6 +1073,7 @@ mod tests {
                 None,
                 None,
                 None,
+                false,
             );
             assert!(result.is_ok());
             let config = result.unwrap().config.borrow().clone();
@@ -1081,7 +1086,7 @@ mod tests {
         Python::initialize();
         Python::attach(|_py| {
             let webview = AuroraView::new(
-                "Test", 800, 600, None, None, true, true, true, true, None, None, None,
+                "Test", 800, 600, None, None, true, true, true, true, None, None, None, false,
             )
             .unwrap();
             let result = webview.load_url("https://test.com");
@@ -1096,7 +1101,7 @@ mod tests {
         Python::initialize();
         Python::attach(|_py| {
             let webview = AuroraView::new(
-                "Test", 800, 600, None, None, true, true, true, true, None, None, None,
+                "Test", 800, 600, None, None, true, true, true, true, None, None, None, false,
             )
             .unwrap();
             let result = webview.eval_js("console.log('test')");
@@ -1110,7 +1115,7 @@ mod tests {
         Python::initialize();
         Python::attach(|py| {
             let webview = AuroraView::new(
-                "Test", 800, 600, None, None, true, true, true, true, None, None, None,
+                "Test", 800, 600, None, None, true, true, true, true, None, None, None, false,
             )
             .unwrap();
             let dict = PyDict::new(py);
@@ -1138,6 +1143,7 @@ mod tests {
                 None,
                 None,
                 None,
+                false,
             )
             .unwrap();
             let repr = webview.__repr__();
@@ -1152,7 +1158,7 @@ mod tests {
         Python::initialize();
         Python::attach(|_py| {
             let webview = AuroraView::new(
-                "Test", 800, 600, None, None, true, true, true, true, None, None, None,
+                "Test", 800, 600, None, None, true, true, true, true, None, None, None, false,
             )
             .unwrap();
             assert!(webview.message_queue.is_empty());
@@ -1177,6 +1183,7 @@ mod tests {
                 None,
                 None,
                 None,
+                false,
             )
             .unwrap();
             webview.load_html("<h1>HTML</h1>").unwrap();
@@ -1203,12 +1210,26 @@ mod tests {
                 None,
                 None,
                 None,
+                false,
             )
             .unwrap();
             webview.load_url("https://example.com").unwrap();
             let config = webview.config.borrow();
             assert_eq!(config.url, Some("https://example.com".to_string()));
             assert_eq!(config.html, None);
+        });
+    }
+
+    #[test]
+    fn test_allow_file_protocol() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let webview = AuroraView::new(
+                "Test", 800, 600, None, None, true, true, true, true, None, None, None, true,
+            )
+            .unwrap();
+            let config = webview.config.borrow();
+            assert!(config.allow_file_protocol);
         });
     }
 }
