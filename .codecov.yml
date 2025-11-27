@@ -94,7 +94,7 @@ component_management:
       flag_regexes:
         - qt
 
-# Ignore paths
+# Ignore paths (for project coverage calculation only, not patch coverage)
 ignore:
   - "tests/"
   - "examples/"
@@ -106,7 +106,6 @@ ignore:
   - ".github/"
   - "scripts/"
   - "python/auroraview/_version.py"  # Auto-generated
-  - "src/webview/backend/native.rs"  # Requires GUI environment, untestable in CI
 
 # GitHub checks
 github_checks:

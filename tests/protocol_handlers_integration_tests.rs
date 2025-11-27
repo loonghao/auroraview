@@ -553,3 +553,29 @@ fn test_auroraview_protocol_uri_edge_cases() {
         "auroraview://test.html/ with trailing slash should work"
     );
 }
+
+/// Test auroraview protocol with URI that has no :// (fallback path)
+#[rstest]
+fn test_auroraview_protocol_fallback_path() {
+    let temp_dir = TempDir::new().unwrap();
+    let asset_root = temp_dir.path();
+
+    // Create test file
+    let test_file = asset_root.join("fallback.html");
+    fs::write(&test_file, b"Fallback content").unwrap();
+
+    // Test URI without :// scheme separator - this triggers the fallback branch
+    // The URI builder may add a scheme, but we test the path() fallback
+    let request = Request::builder()
+        .method("GET")
+        .uri("/fallback.html")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert_eq!(
+        response.status(),
+        200,
+        "URI with just path should work via fallback"
+    );
+}
