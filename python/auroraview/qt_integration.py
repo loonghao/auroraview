@@ -141,7 +141,7 @@ class QtWebView(QWidget):
         height: int = 600,
         dev_tools: bool = True,
         context_menu: bool = True,
-        asset_root: str | None = None,
+        asset_root: Optional[str] = None,
         allow_file_protocol: bool = False,
     ) -> None:
         """Initialize QtWebView.
