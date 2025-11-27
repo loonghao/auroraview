@@ -446,31 +446,112 @@ webview.load_html("""
 | `allow_file_protocol=True` | ⚠️ 低 - 可访问系统任意文件 | 谨慎使用 |
 | HTTP 服务器 | ✅ 高 - 可控访问 | 适合开发环境 |
 
-**推荐方式：**
+**推荐方式（使用 `asset_root` 配合相对路径）：**
+
+<table>
+<tr><th>WebView.create()</th><th>run_standalone()</th></tr>
+<tr>
+<td>
+
 ```python
 from auroraview import WebView
 
-# 安全：只能访问 dist/ 目录下的文件
+# 安全：只能访问 assets/ 目录下的文件
 webview = WebView.create(
     title="我的应用",
-    asset_root="./dist",  # 限制访问范围
+    asset_root="./assets",
 )
-webview.load_file("dist/index.html")
 
-# HTML 中使用 auroraview:// 协议引用资源
-# <script src="auroraview://js/app.js"></script>
-# <link href="auroraview://css/style.css" rel="stylesheet">
+# 使用相对路径 - 会解析到 asset_root 目录
+html = """
+<html>
+<body>
+    <img src="./images/logo.png">
+    <img src="./images/animation.gif">
+</body>
+</html>
+"""
+webview.load_html(html)
 ```
 
-**不推荐方式（仅在必要时使用）：**
+</td>
+<td>
+
 ```python
-# ⚠️ 警告：允许访问系统上的任意文件
+from auroraview import run_standalone
+
+# 安全：只能访问 assets/ 目录下的文件
+# 使用相对路径 - 会解析到 asset_root 目录
+html = """
+<html>
+<body>
+    <img src="./images/logo.png">
+    <img src="./images/animation.gif">
+</body>
+</html>
+"""
+
+run_standalone(
+    title="我的应用",
+    html=html,
+    asset_root="./assets",
+)
+```
+
+</td>
+</tr>
+</table>
+
+**不推荐方式（使用 `file://` 协议）：**
+
+<table>
+<tr><th>WebView.create()</th><th>run_standalone()</th></tr>
+<tr>
+<td>
+
+```python
+from auroraview import WebView
+from auroraview import path_to_file_url
+
+# ⚠️ 警告：允许访问任意文件
+gif_url = path_to_file_url("C:/path/to/animation.gif")
+
 webview = WebView.create(
     title="我的应用",
-    allow_file_protocol=True,  # 安全风险！
+    allow_file_protocol=True,
 )
-webview.load_file("dist/index.html")
+
+html = f'<img src="{gif_url}">'
+webview.load_html(html)
 ```
+
+</td>
+<td>
+
+```python
+from auroraview import run_standalone
+from auroraview import path_to_file_url
+
+# ⚠️ 警告：允许访问任意文件
+gif_url = path_to_file_url("C:/path/to/animation.gif")
+
+html = f'<img src="{gif_url}">'
+
+run_standalone(
+    title="我的应用",
+    html=html,
+    allow_file_protocol=True,
+)
+```
+
+</td>
+</tr>
+</table>
+
+> **注意**：`path_to_file_url()` 辅助函数将本地路径转换为正确的 `file:///` URL。
+> 例如：`C:\images\logo.gif` → `file:///C:/images/logo.gif`
+
+完整示例请参考 [examples/custom_protocol_example.py](./examples/custom_protocol_example.py) 和 [examples/local_assets_example.py](./examples/local_assets_example.py)。
 
 #### 生命周期管理
 
