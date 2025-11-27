@@ -390,33 +390,112 @@ The `.localhost` TLD provides strong security guarantees:
 | `allow_file_protocol=True` | ⚠️ Low - Access to ANY file on system | Use with caution |
 | HTTP server | ✅ High - Controlled access | Good for development |
 
-**Recommended approach:**
+**Recommended approach (using `asset_root` with relative paths):**
+
+<table>
+<tr><th>WebView.create()</th><th>run_standalone()</th></tr>
+<tr>
+<td>
+
 ```python
 from auroraview import WebView
 
-# Secure: Only files under dist/ are accessible
+# Secure: Only files under assets/ are accessible
 webview = WebView.create(
     title="My App",
-    asset_root="./dist",  # Restricts access to this directory only
+    asset_root="./assets",
 )
-webview.load_file("dist/index.html")
 
-# HTML can reference assets using auroraview:// protocol
-# <script src="auroraview://js/app.js"></script>
-# <link href="auroraview://css/style.css" rel="stylesheet">
+# Use relative paths in HTML - they resolve to asset_root
+html = """
+<html>
+<body>
+    <img src="./images/logo.png">
+    <img src="./images/animation.gif">
+</body>
+</html>
+"""
+webview.load_html(html)
 ```
 
-**Less secure (use only when necessary):**
+</td>
+<td>
+
 ```python
-# ⚠️ Warning: Allows access to ANY file on the system
-webview = WebView.create(
+from auroraview import run_standalone
+
+# Secure: Only files under assets/ are accessible
+# Use relative paths - they resolve to asset_root
+html = """
+<html>
+<body>
+    <img src="./images/logo.png">
+    <img src="./images/animation.gif">
+</body>
+</html>
+"""
+
+run_standalone(
     title="My App",
-    allow_file_protocol=True,  # Security risk!
+    html=html,
+    asset_root="./assets",
 )
-webview.load_file("dist/index.html")
 ```
 
-See [examples/custom_protocol_example.py](./examples/custom_protocol_example.py) for a complete example.
+</td>
+</tr>
+</table>
+
+**Less secure approach (using `file://` protocol):**
+
+<table>
+<tr><th>WebView.create()</th><th>run_standalone()</th></tr>
+<tr>
+<td>
+
+```python
+from auroraview import WebView
+from auroraview import path_to_file_url
+
+# ⚠️ Warning: Allows access to ANY file
+gif_url = path_to_file_url("C:/path/to/animation.gif")
+
+webview = WebView.create(
+    title="My App",
+    allow_file_protocol=True,
+)
+
+html = f'<img src="{gif_url}">'
+webview.load_html(html)
+```
+
+</td>
+<td>
+
+```python
+from auroraview import run_standalone
+from auroraview import path_to_file_url
+
+# ⚠️ Warning: Allows access to ANY file
+gif_url = path_to_file_url("C:/path/to/animation.gif")
+
+html = f'<img src="{gif_url}">'
+
+run_standalone(
+    title="My App",
+    html=html,
+    allow_file_protocol=True,
+)
+```
+
+</td>
+</tr>
+</table>
+
+> **Note**: The `path_to_file_url()` helper converts local paths to proper `file:///` URLs.
+> Example: `C:\images\logo.gif` → `file:///C:/images/logo.gif`
+
+See [examples/custom_protocol_example.py](./examples/custom_protocol_example.py) and [examples/local_assets_example.py](./examples/local_assets_example.py) for complete examples.
 
 
 #### 2. Qt Backend
