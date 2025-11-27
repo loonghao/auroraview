@@ -2,6 +2,7 @@
 /target/
 **/*.rs.bk
 *.pdb
+rust-coverage.lcov
 # Cargo.lock is committed for binary/application projects to ensure reproducible builds
 
 # Python

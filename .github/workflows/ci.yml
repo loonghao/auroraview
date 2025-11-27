@@ -40,12 +40,84 @@ jobs:
           test-type: 'basic'
           generate-stubs: 'true'
 
-      - name: Upload coverage to Codecov
+      - name: Upload Python coverage to Codecov
         if: matrix.python-version == '3.10'
         uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
           flags: python,unit,py${{ matrix.python-version }},${{ runner.os }}
+          fail_ci_if_error: false
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Rust coverage - runs on ubuntu for speed
+  rust-coverage:
+    name: Rust Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust with llvm-tools
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libglib2.0-dev \
+            libpango1.0-dev \
+            libcairo2-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            pkg-config
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-coverage-
+            ${{ runner.os }}-cargo-
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+
+      - name: Run Rust tests with coverage
+        run: |
+          # Exclude tests that require Python bindings (pyo3)
+          # ipc_batch_integration_tests requires Python DLL which is not available in pure Rust coverage
+          cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
+            --test config_integration_tests \
+            --test file_protocol_integration_tests \
+            --test http_discovery_integration_tests \
+            --test ipc_json_integration_tests \
+            --test ipc_message_queue_integration_tests \
+            --test lifecycle_integration_tests \
+            --test mdns_integration_tests \
+            --test parent_monitor_integration_tests \
+            --test port_allocator_integration_tests \
+            --test protocol_handlers_integration_tests \
+            --test protocol_integration_tests \
+            --test standalone_integration_tests \
+            --test timer_integration_tests \
+            --test window_utils_integration_tests
+
+      - name: Upload Rust coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: rust-coverage.lcov
+          flags: rust,unit,${{ runner.os }}
           fail_ci_if_error: false
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -181,7 +253,7 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [quick-test, lint]
+    needs: [quick-test, lint, rust-coverage]
     if: always()
 
     steps:
@@ -194,6 +266,10 @@ jobs:
           fi
           if [[ "${{ needs.lint.result }}" != "success" ]]; then
             echo "[ERROR] Linting failed"
+            exit 1
+          fi
+          if [[ "${{ needs.rust-coverage.result }}" != "success" ]]; then
+            echo "[ERROR] Rust coverage failed"
             exit 1
           fi
           echo "[OK] All required CI checks passed"
