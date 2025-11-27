@@ -414,6 +414,64 @@ webview.load_html("""
 - ✅ **灵活扩展** - 支持从内存、数据库、网络加载资源
 - ✅ **跨平台** - 路径处理统一，Windows/macOS/Linux 一致
 
+#### 自定义协议最佳实践
+
+##### 平台特定 URL 格式
+
+`auroraview://` 协议在不同平台使用不同的 URL 格式：
+
+| 平台 | URL 格式 | 示例 |
+|------|----------|------|
+| **Windows** | `https://auroraview.localhost/path` | `https://auroraview.localhost/index.html` |
+| **macOS** | `auroraview://path` | `auroraview://index.html` |
+| **Linux** | `auroraview://path` | `auroraview://index.html` |
+
+> **注意**: 在 Windows 上，wry（底层 WebView 库）会将自定义协议映射为 HTTP/HTTPS 格式。
+> 我们使用 `.localhost` 作为主机名以确保安全性。
+
+##### 为什么 `.localhost` 是安全的
+
+`.localhost` 顶级域名提供了强大的安全保障：
+
+1. **IANA 保留域名** - `.localhost` 是保留顶级域（RFC 6761），任何人都无法注册
+2. **仅限本地** - 浏览器将 `.localhost` 视为本地地址 (127.0.0.1)
+3. **DNS 前拦截** - 我们的协议处理器在 DNS 解析之前拦截请求
+4. **无网络流量** - 请求永远不会离开本地机器
+
+##### 本地资源加载方式对比
+
+| 方式 | 安全性 | 推荐程度 |
+|------|--------|----------|
+| `auroraview://` + `asset_root` | ✅ **高** - 访问限制在指定目录 | **推荐** |
+| `allow_file_protocol=True` | ⚠️ 低 - 可访问系统任意文件 | 谨慎使用 |
+| HTTP 服务器 | ✅ 高 - 可控访问 | 适合开发环境 |
+
+**推荐方式：**
+```python
+from auroraview import WebView
+
+# 安全：只能访问 dist/ 目录下的文件
+webview = WebView.create(
+    title="我的应用",
+    asset_root="./dist",  # 限制访问范围
+)
+webview.load_file("dist/index.html")
+
+# HTML 中使用 auroraview:// 协议引用资源
+# <script src="auroraview://js/app.js"></script>
+# <link href="auroraview://css/style.css" rel="stylesheet">
+```
+
+**不推荐方式（仅在必要时使用）：**
+```python
+# ⚠️ 警告：允许访问系统上的任意文件
+webview = WebView.create(
+    title="我的应用",
+    allow_file_protocol=True,  # 安全风险！
+)
+webview.load_file("dist/index.html")
+```
+
 #### 生命周期管理
 
 当父DCC应用关闭时自动关闭WebView:
