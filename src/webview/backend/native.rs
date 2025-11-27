@@ -458,35 +458,9 @@ impl NativeBackend {
         //   2. The origin is "https://auroraview.<path>", not a real HTTPS site
         //   3. wry's https scheme provides secure context (needed for some Web APIs)
         //
-        // Write to debug file since Maya redirects stderr
-        let debug_path = std::env::temp_dir().join("auroraview_debug.log");
-        let _ = std::fs::write(
-            &debug_path,
-            format!(
-                "[DEBUG] create_webview called at {}\n[DEBUG] config.asset_root = {:?}\n",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
-                config.asset_root
-            ),
-        );
-
+        // Register auroraview:// custom protocol for local asset loading
         if let Some(asset_root) = &config.asset_root {
             let asset_root = asset_root.clone();
-            let _ = std::fs::OpenOptions::new()
-                .append(true)
-                .open(&debug_path)
-                .and_then(|mut f| {
-                    std::io::Write::write_all(
-                        &mut f,
-                        format!(
-                            "[DEBUG] Registering auroraview:// protocol with asset_root: {:?}\n",
-                            asset_root
-                        )
-                        .as_bytes(),
-                    )
-                });
             tracing::info!(
                 "[OK] [NativeBackend] Registering auroraview:// protocol (asset_root: {:?})",
                 asset_root
@@ -500,35 +474,15 @@ impl NativeBackend {
 
             builder =
                 builder.with_custom_protocol("auroraview".into(), move |_webview_id, request| {
-                    let _ = std::fs::OpenOptions::new()
-                        .append(true)
-                        .create(true)
-                        .open(std::env::temp_dir().join("auroraview_debug.log"))
-                        .and_then(|mut f| {
-                            std::io::Write::write_all(
-                                &mut f,
-                                format!(
-                                    "[DEBUG] auroraview:// handler called: {:?}\n",
-                                    request.uri()
-                                )
-                                .as_bytes(),
-                            )
-                        });
                     crate::webview::protocol_handlers::handle_auroraview_protocol(
                         &asset_root,
                         request,
                     )
                 });
         } else {
-            let _ = std::fs::OpenOptions::new()
-                .append(true)
-                .open(&debug_path)
-                .and_then(|mut f| {
-                    std::io::Write::write_all(
-                        &mut f,
-                        b"[WARNING] asset_root is None, auroraview:// protocol NOT registered!\n",
-                    )
-                });
+            tracing::debug!(
+                "[NativeBackend] asset_root is None, auroraview:// protocol not registered"
+            );
         }
 
         // Register custom protocols
