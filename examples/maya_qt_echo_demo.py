@@ -24,7 +24,7 @@ Note:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import maya.OpenMayaUI as omui
 from qtpy.QtWidgets import QDialog, QVBoxLayout, QWidget
@@ -101,7 +101,7 @@ class AuroraViewMayaDialog(QDialog):
         - docs/CHANGELOG_QT_IMPROVEMENTS.md for technical details
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("AuroraView Maya Shelf (Rename Selection)")
         self.resize(800, 600)
