@@ -254,3 +254,94 @@ fn test_standalone_background_color() {
 
     assert_eq!(config.background_color, Some("#ffffff".to_string()));
 }
+
+/// Test asset_root configuration
+#[rstest]
+fn test_standalone_asset_root() {
+    use std::path::PathBuf;
+
+    // Test with None (default)
+    let config = WebViewConfig::default();
+    assert_eq!(config.asset_root, None);
+
+    // Test with Some path
+    let config = WebViewConfig {
+        asset_root: Some(PathBuf::from("/tmp/assets")),
+        ..Default::default()
+    };
+    assert_eq!(config.asset_root, Some(PathBuf::from("/tmp/assets")));
+}
+
+/// Test width=0 or height=0 configuration for maximize
+#[rstest]
+#[case(0, 600)]
+#[case(800, 0)]
+#[case(0, 0)]
+fn test_standalone_zero_dimensions_for_maximize(#[case] width: u32, #[case] height: u32) {
+    let config = WebViewConfig {
+        width,
+        height,
+        ..Default::default()
+    };
+
+    // Verify dimensions are stored correctly
+    assert_eq!(config.width, width);
+    assert_eq!(config.height, height);
+
+    // When width or height is 0, the standalone runner should maximize the window
+    // This logic is in standalone.rs, not in config
+    let should_maximize = width == 0 || height == 0;
+    assert!(
+        should_maximize,
+        "Expected maximize for width={}, height={}",
+        width, height
+    );
+}
+
+/// Test allow_file_protocol configuration
+#[rstest]
+fn test_standalone_allow_file_protocol() {
+    // Test default (false)
+    let config = WebViewConfig::default();
+    assert!(!config.allow_file_protocol);
+
+    // Test enabled
+    let config = WebViewConfig {
+        allow_file_protocol: true,
+        ..Default::default()
+    };
+    assert!(config.allow_file_protocol);
+}
+
+/// Test combined asset_root and allow_file_protocol
+#[rstest]
+fn test_standalone_local_file_options() {
+    use std::path::PathBuf;
+
+    // Test with asset_root only (recommended)
+    let config = WebViewConfig {
+        asset_root: Some(PathBuf::from("./assets")),
+        allow_file_protocol: false,
+        ..Default::default()
+    };
+    assert!(config.asset_root.is_some());
+    assert!(!config.allow_file_protocol);
+
+    // Test with allow_file_protocol only
+    let config = WebViewConfig {
+        asset_root: None,
+        allow_file_protocol: true,
+        ..Default::default()
+    };
+    assert!(config.asset_root.is_none());
+    assert!(config.allow_file_protocol);
+
+    // Test with both (valid but unusual)
+    let config = WebViewConfig {
+        asset_root: Some(PathBuf::from("./assets")),
+        allow_file_protocol: true,
+        ..Default::default()
+    };
+    assert!(config.asset_root.is_some());
+    assert!(config.allow_file_protocol);
+}

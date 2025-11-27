@@ -32,6 +32,11 @@ use crate::webview::standalone;
 ///     allow_new_window (bool, optional): Allow opening new windows (default: False)
 ///     allow_file_protocol (bool, optional): Enable file:// protocol support (default: False)
 ///     always_on_top (bool, optional): Keep window always on top (default: False)
+///     asset_root (str, optional): Root directory for auroraview:// protocol.
+///         When set, enables the auroraview:// custom protocol for secure local
+///         resource loading. Files under this directory can be accessed using URLs
+///         like ``auroraview://path/to/file`` (or ``https://auroraview.localhost/path``
+///         on Windows).
 ///
 /// Example:
 ///     >>> from auroraview._core import run_standalone
@@ -55,7 +60,8 @@ use crate::webview::standalone;
     transparent=false,
     allow_new_window=false,
     allow_file_protocol=false,
-    always_on_top=false
+    always_on_top=false,
+    asset_root=None
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_standalone(
@@ -71,6 +77,7 @@ fn run_standalone(
     allow_new_window: bool,
     allow_file_protocol: bool,
     always_on_top: bool,
+    asset_root: Option<String>,
 ) -> PyResult<()> {
     tracing::info!("[run_standalone] Creating standalone WebView: {}", title);
 
@@ -93,7 +100,7 @@ fn run_standalone(
         ipc_batching: false,
         ipc_batch_size: 100,
         ipc_batch_interval_ms: 16,
-        asset_root: None,
+        asset_root: asset_root.map(std::path::PathBuf::from),
         custom_protocols: std::collections::HashMap::new(),
         api_methods: std::collections::HashMap::new(),
         allow_new_window,

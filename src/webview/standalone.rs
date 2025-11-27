@@ -43,6 +43,8 @@ use std::sync::{Arc, Mutex};
 use tao::event_loop::EventLoopBuilder;
 use tao::window::WindowBuilder;
 use wry::WebViewBuilder as WryWebViewBuilder;
+#[cfg(target_os = "windows")]
+use wry::WebViewBuilderExtWindows;
 
 use super::config::WebViewConfig;
 use super::event_loop::UserEvent;
@@ -98,11 +100,23 @@ pub fn create_standalone(
     #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
     let mut window_builder = WindowBuilder::new()
         .with_title(&config.title)
-        .with_inner_size(tao::dpi::LogicalSize::new(config.width, config.height))
         .with_resizable(config.resizable)
         .with_decorations(config.decorations)
         .with_transparent(config.transparent)
         .with_visible(false); // Start hidden to avoid white flash
+
+    // If width or height is 0, maximize the window; otherwise set the size
+    if config.width == 0 || config.height == 0 {
+        tracing::info!(
+            "[standalone] Maximizing window (width={}, height={})",
+            config.width,
+            config.height
+        );
+        window_builder = window_builder.with_maximized(true);
+    } else {
+        window_builder =
+            window_builder.with_inner_size(tao::dpi::LogicalSize::new(config.width, config.height));
+    }
 
     // Parent/owner on Windows
     #[cfg(target_os = "windows")]
@@ -136,6 +150,39 @@ pub fn create_standalone(
     let mut webview_builder = WryWebViewBuilder::new();
     if config.dev_tools {
         webview_builder = webview_builder.with_devtools(true);
+    }
+
+    // Register auroraview:// custom protocol for local asset loading
+    if let Some(ref asset_root) = config.asset_root {
+        let asset_root = asset_root.clone();
+        tracing::info!(
+            "[standalone] Registering auroraview:// protocol (asset_root: {:?})",
+            asset_root
+        );
+
+        // On Windows, use HTTPS scheme for secure context support
+        #[cfg(target_os = "windows")]
+        {
+            webview_builder = webview_builder.with_https_scheme(true);
+        }
+
+        webview_builder = webview_builder.with_custom_protocol(
+            "auroraview".into(),
+            move |_webview_id, request| {
+                crate::webview::protocol_handlers::handle_auroraview_protocol(&asset_root, request)
+            },
+        );
+    } else {
+        tracing::debug!("[standalone] asset_root is None, auroraview:// protocol not registered");
+    }
+
+    // Register file:// protocol if enabled
+    if config.allow_file_protocol {
+        tracing::info!("[standalone] Enabling file:// protocol support");
+        webview_builder = webview_builder
+            .with_custom_protocol("file".into(), |_webview_id, request| {
+                crate::webview::protocol_handlers::handle_file_protocol(request)
+            });
     }
 
     // Build initialization script using js_assets module
