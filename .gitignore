@@ -77,3 +77,4 @@ htmlcov/
 python/auroraview/_core.*
 target/llvm-cov/
 target/wheels/
+coverage.lcov

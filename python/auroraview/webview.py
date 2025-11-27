@@ -93,7 +93,8 @@ class WebView:
             height: Window height in pixels
             url: URL to load (optional)
             html: HTML content to load (optional)
-            debug: Enable developer tools (default: True)
+            debug: Enable developer tools (default: True). Press F12 or right-click
+                > Inspect to open DevTools.
             context_menu: Enable native context menu (default: True)
             resizable: Make window resizable (default: True)
             frame: Show window frame (title bar, borders) (default: True)
@@ -103,9 +104,27 @@ class WebView:
                    - Bridge instance: Use provided bridge
                    - True: Auto-create bridge with default settings
                    - None: No bridge (default)
-            asset_root: Root directory for auroraview:// protocol (optional)
-            allow_file_protocol: Enable file:// protocol support (default: False)
-                WARNING: Enabling this bypasses WebView's default security restrictions
+            asset_root: Root directory for auroraview:// protocol.
+                When set, enables the auroraview:// custom protocol for secure
+                local resource loading. Files under this directory can be accessed
+                using URLs like ``auroraview://path/to/file``.
+
+                **Platform-specific URL format**:
+
+                - Windows: ``https://auroraview.localhost/path``
+                - macOS/Linux: ``auroraview://path``
+
+                **Security**: Uses ``.localhost`` TLD (IANA reserved, RFC 6761)
+                which cannot be registered and is treated as a local address.
+                Requests are intercepted before DNS resolution.
+
+                **Recommended** over ``allow_file_protocol=True`` because access
+                is restricted to the specified directory only.
+
+            allow_file_protocol: Enable file:// protocol support (default: False).
+                **WARNING**: Enabling this allows access to ANY file on the system
+                that the process can read. Only use with trusted content.
+                Prefer using ``asset_root`` for secure local resource loading.
         """
         if _CoreWebView is None:
             raise RuntimeError(

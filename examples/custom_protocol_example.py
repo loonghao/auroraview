@@ -8,6 +8,23 @@ Features:
 1. Built-in auroraview:// protocol for static assets
 2. Custom fbx:// protocol for loading FBX files
 3. Custom maya:// protocol for Maya scene thumbnails
+
+SECURITY NOTE:
+=============
+The auroraview:// protocol uses `.localhost` TLD for security:
+- Windows: URLs become `https://auroraview.localhost/path`
+- macOS/Linux: URLs remain `auroraview://path`
+
+Why `.localhost` is secure:
+1. `.localhost` is an IANA reserved TLD (RFC 6761) - cannot be registered
+2. Browsers treat it as a local address (127.0.0.1)
+3. Protocol handler intercepts requests BEFORE DNS resolution
+4. No network traffic - requests never leave the local machine
+
+This is more secure than `allow_file_protocol=True` because:
+- Access is restricted to the `asset_root` directory only
+- Path traversal attacks are prevented (canonicalize check)
+- No access to arbitrary files on the system
 """
 
 import os
@@ -92,9 +109,19 @@ def handle_maya_protocol(uri: str) -> dict:
 
 
 def main():
-    """Main example"""
+    """Main example demonstrating custom protocol usage.
+
+    The auroraview:// protocol provides secure local asset loading:
+    - On Windows: Uses https://auroraview.localhost/path format
+    - On macOS/Linux: Uses auroraview://path format
+
+    This is the RECOMMENDED approach for loading local assets.
+    It's more secure than allow_file_protocol=True because access
+    is restricted to the asset_root directory only.
+    """
 
     # Create asset directory for auroraview:// protocol
+    # All files under this directory will be accessible via auroraview://
     asset_root = os.path.join(os.path.dirname(__file__), "assets")
     os.makedirs(asset_root, exist_ok=True)
     os.makedirs(os.path.join(asset_root, "css"), exist_ok=True)
@@ -138,11 +165,16 @@ testProtocols();
         """)
 
     # Create WebView with asset_root
+    # This enables the auroraview:// protocol for secure local asset loading
+    # URL format varies by platform:
+    #   - Windows: https://auroraview.localhost/path (uses .localhost TLD)
+    #   - macOS/Linux: auroraview://path
     webview = AuroraView(
         title="Custom Protocol Demo",
         width=1024,
         height=768,
         asset_root=asset_root,  # Enable auroraview:// protocol
+        dev_tools=True,  # Enable DevTools for debugging (F12 or right-click > Inspect)
     )
 
     # Register custom protocols

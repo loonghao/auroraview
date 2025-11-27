@@ -358,6 +358,64 @@ webview.register_protocol("fbx", handle_fbx_protocol)
 - ✅ Security (limited to configured directories)
 - ✅ Cross-platform path handling
 
+### Custom Protocol Best Practices
+
+#### Platform-Specific URL Format
+
+The `auroraview://` protocol uses different URL formats on each platform:
+
+| Platform | URL Format | Example |
+|----------|------------|---------|
+| **Windows** | `https://auroraview.localhost/path` | `https://auroraview.localhost/index.html` |
+| **macOS** | `auroraview://path` | `auroraview://index.html` |
+| **Linux** | `auroraview://path` | `auroraview://index.html` |
+
+> **Note**: On Windows, wry (the underlying WebView library) maps custom protocols to HTTP/HTTPS format.
+> We use `.localhost` as the host for security reasons.
+
+#### Why `.localhost` is Secure
+
+The `.localhost` TLD provides strong security guarantees:
+
+1. **IANA Reserved** - `.localhost` is a reserved TLD (RFC 6761) that cannot be registered by anyone
+2. **Local Only** - Browsers treat `.localhost` as a local address (127.0.0.1)
+3. **Pre-DNS Interception** - Our protocol handler intercepts requests BEFORE DNS resolution
+4. **No Network Traffic** - Requests never leave the local machine
+
+#### Comparing Local Resource Loading Methods
+
+| Method | Security | Recommendation |
+|--------|----------|----------------|
+| `auroraview://` with `asset_root` | ✅ **High** - Access restricted to specified directory | **Recommended** |
+| `allow_file_protocol=True` | ⚠️ Low - Access to ANY file on system | Use with caution |
+| HTTP server | ✅ High - Controlled access | Good for development |
+
+**Recommended approach:**
+```python
+from auroraview import WebView
+
+# Secure: Only files under dist/ are accessible
+webview = WebView.create(
+    title="My App",
+    asset_root="./dist",  # Restricts access to this directory only
+)
+webview.load_file("dist/index.html")
+
+# HTML can reference assets using auroraview:// protocol
+# <script src="auroraview://js/app.js"></script>
+# <link href="auroraview://css/style.css" rel="stylesheet">
+```
+
+**Less secure (use only when necessary):**
+```python
+# ⚠️ Warning: Allows access to ANY file on the system
+webview = WebView.create(
+    title="My App",
+    allow_file_protocol=True,  # Security risk!
+)
+webview.load_file("dist/index.html")
+```
+
 See [examples/custom_protocol_example.py](./examples/custom_protocol_example.py) for a complete example.
 
 

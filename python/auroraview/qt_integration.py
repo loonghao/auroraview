@@ -151,11 +151,29 @@ class QtWebView(QWidget):
             title: Window title
             width: Window width in pixels
             height: Window height in pixels
-            dev_tools: Enable developer tools
+            dev_tools: Enable developer tools (F12 or right-click > Inspect)
             context_menu: Enable native context menu
-            asset_root: Root directory for auroraview:// protocol
-            allow_file_protocol: Enable file:// protocol support (default: False)
-                WARNING: Enabling this bypasses WebView's default security restrictions
+            asset_root: Root directory for auroraview:// protocol.
+                When set, enables the auroraview:// custom protocol for secure
+                local resource loading. Files under this directory can be accessed
+                using URLs like ``auroraview://path/to/file``.
+
+                **Platform-specific URL format**:
+
+                - Windows: ``https://auroraview.localhost/path``
+                - macOS/Linux: ``auroraview://path``
+
+                **Security**: Uses ``.localhost`` TLD (IANA reserved, RFC 6761)
+                which cannot be registered and is treated as a local address.
+                Requests are intercepted before DNS resolution.
+
+                **Recommended** over ``allow_file_protocol=True`` because access
+                is restricted to the specified directory only.
+
+            allow_file_protocol: Enable file:// protocol support (default: False).
+                **WARNING**: Enabling this allows access to ANY file on the system
+                that the process can read. Only use with trusted content.
+                Prefer using ``asset_root`` for secure local resource loading.
         """
         super().__init__(parent)
 
@@ -164,6 +182,7 @@ class QtWebView(QWidget):
         self._height = height
         self._dev_tools = dev_tools
         self._context_menu = context_menu
+        self._asset_root = asset_root  # Store for load_file to use auroraview:// protocol
 
         self.setWindowTitle(title)
         self.resize(width, height)
@@ -242,37 +261,79 @@ class QtWebView(QWidget):
     def load_file(self, path: Any) -> None:
         """Load a local HTML file in embedded Qt/DCC mode.
 
-        In embedded WebView2 inside DCC hosts (Maya, Houdini, etc.) direct
-        ``file://`` navigation is often restricted. To keep
-        ``QtWebView.load_file(...)`` convenient for simple demos and tools,
-        we first try to read the file contents and feed it through
-        :meth:`load_html`. This works well for single-file HTML frontends.
+        When ``asset_root`` is set during construction, this method uses the
+        ``auroraview://`` custom protocol to load the HTML file. This allows
+        relative asset paths (CSS, JS, images) to work correctly because
+        the page origin is ``auroraview://`` rather than ``null``.
 
-        If reading the file fails for any reason, we fall back to the
-        original behavior and delegate to the core :class:`WebView.load_file`
-        helper, which uses a ``file:///`` URL.
+        When ``asset_root`` is NOT set, the method falls back to reading the
+        file content and loading via :meth:`load_html`, which works for
+        single-file HTML (no external assets).
 
-        **NOTE**: For frontends with external assets (CSS, JS, images), consider:
+        Args:
+            path: Path to the HTML file to load.
 
-        1. Using ``allow_file_protocol=True`` when creating QtWebView to enable
-           file:// protocol access
-        2. Using ``asset_root`` with ``auroraview://`` protocol for better security
-        3. Using a bundled single-file HTML (e.g., via Vite/Webpack with inlined assets)
+        Example::
+
+            # Best practice: use asset_root for multi-file frontends
+            webview = QtWebView(parent, asset_root="/path/to/dist")
+            webview.load_file("/path/to/dist/index.html")
+            # Loads via auroraview://index.html, assets resolve correctly
+
+            # Alternative: single-file HTML (all assets inlined)
+            webview = QtWebView(parent)
+            webview.load_file("/path/to/bundled.html")
+            # Loads via load_html(), works for self-contained HTML
         """
+        html_path = Path(path).expanduser().resolve()
+
+        # If asset_root is configured, use auroraview:// protocol for proper origin
+        if self._asset_root:
+            asset_root_path = Path(self._asset_root).expanduser().resolve()
+            try:
+                # Get relative path from asset_root to the HTML file
+                relative_path = html_path.relative_to(asset_root_path)
+                # Use forward slashes for URL
+                url_path = str(relative_path).replace("\\", "/")
+                # Windows: wry maps custom protocols to https://<scheme>.<host>/<path>
+                #          We use "localhost" as host to keep path structure correct
+                #          So https://auroraview.localhost/index.html -> relative ./assets/x
+                #          resolves to https://auroraview.localhost/assets/x
+                # macOS/Linux: wry uses <scheme>://<path>
+                if sys.platform == "win32":
+                    # On Windows, custom protocol "auroraview" becomes https://auroraview.xxx
+                    # We use "localhost" as host, then path follows
+                    # This ensures relative paths resolve correctly
+                    auroraview_url = f"https://auroraview.localhost/{url_path}"
+                else:
+                    auroraview_url = f"auroraview://{url_path}"
+                logger.info(
+                    "QtWebView loading via auroraview protocol: %s (asset_root: %s)",
+                    auroraview_url,
+                    asset_root_path,
+                )
+                self.load_url(auroraview_url)
+                return
+            except ValueError:
+                # HTML file is not under asset_root, log warning and continue
+                logger.warning(
+                    "HTML file %s is not under asset_root %s, falling back to load_html",
+                    html_path,
+                    asset_root_path,
+                )
+
+        # Fallback: read file and load via load_html (for single-file HTML)
         try:
-            html_path = Path(path).expanduser().resolve()
             html = html_path.read_text(encoding="utf-8")
+            self.load_html(html)
+            logger.info("QtWebView loaded HTML from file via load_html(): %s", html_path)
         except Exception:
-            # Fallback: use the underlying WebView.load_file implementation,
-            # which resolves the path and dispatches to load_url.
+            # Last resort: use the underlying WebView.load_file implementation
             load_file = getattr(self._webview, "load_file", None)
             if callable(load_file):
                 load_file(path)
             else:  # pragma: no cover - defensive, for older backends
-                self.load_url(Path(path).expanduser().resolve().as_uri())
-        else:
-            self.load_html(html)
-            logger.info("QtWebView loaded HTML from file via load_html(): %s", html_path)
+                self.load_url(html_path.as_uri())
 
     def eval_js(self, script: str) -> None:
         """Execute JavaScript in the embedded WebView.

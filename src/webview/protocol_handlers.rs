@@ -26,20 +26,63 @@ pub fn handle_auroraview_protocol(
     let uri = request.uri();
 
     // For custom protocols, we need to extract the path from the full URI
-    // Examples:
-    // - "auroraview://file.txt" -> uri.to_string() = "auroraview://file.txt/"
-    // - uri.path() may return "/" instead of the actual path
-    // So we parse the URI string directly
+    // Platform differences:
+    // - macOS/Linux: "auroraview://file.txt" -> uri.path() returns the file path
+    // - Windows: wry maps "auroraview" to "http://auroraview.xxx" format
+    //   e.g., "http://auroraview.index.html" for "auroraview://index.html"
+    //
+    // We need to handle both cases
     let uri_str = uri.to_string();
-    let path = if let Some(idx) = uri_str.find("://") {
-        // Extract everything after "://"
+
+    // Write debug info to log file
+    let _ = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(std::env::temp_dir().join("auroraview_debug.log"))
+        .and_then(|mut f| {
+            use std::io::Write;
+            writeln!(f, "[DEBUG] Protocol handler called:")
+                .and_then(|_| writeln!(f, "  uri_str = {}", uri_str))
+                .and_then(|_| writeln!(f, "  uri.path() = {}", uri.path()))
+                .and_then(|_| writeln!(f, "  uri.host() = {:?}", uri.host()))
+        });
+
+    // On Windows with wry, the URL format goes through these transformations:
+    // 1. Python sends: https://auroraview.localhost/index.html
+    // 2. wry converts to: auroraview://localhost/index.html (for the protocol handler)
+    // 3. We need to extract: /index.html (the path after the host)
+    //
+    // For relative paths like ./assets/xxx, the browser resolves them as:
+    // - Base: https://auroraview.localhost/index.html
+    // - Relative: ./assets/xxx
+    // - Result: https://auroraview.localhost/assets/xxx
+    // - wry converts to: auroraview://localhost/assets/xxx
+    //
+    // So we need to extract the path component, which is everything after the host.
+    let path = if let Some(stripped) = uri_str.strip_prefix("auroraview://localhost/") {
+        // Windows format (converted by wry): auroraview://localhost/path
+        stripped
+    } else if uri_str.starts_with("auroraview://localhost") {
+        // Windows format without trailing path (root)
+        "index.html"
+    } else if let Some(stripped) = uri_str.strip_prefix("https://auroraview.localhost/") {
+        // Windows format with HTTPS (before wry conversion)
+        stripped
+    } else if let Some(stripped) = uri_str.strip_prefix("http://auroraview.localhost/") {
+        // Windows format with HTTP (before wry conversion)
+        stripped
+    } else if let Some(idx) = uri_str.find("://") {
+        // macOS/Linux format: auroraview://path/to/file
+        // Or Windows fallback: auroraview://xxx
         let after_scheme = &uri_str[idx + 3..];
-        // Remove trailing slash if present
         after_scheme.trim_end_matches('/')
     } else {
         // Fallback to path() method
         uri.path().trim_start_matches('/')
     };
+
+    // Trim trailing slashes from path
+    let path = path.trim_end_matches('/');
 
     // Build full path
     // Parse the path and determine if it's absolute
