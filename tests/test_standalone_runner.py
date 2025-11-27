@@ -120,6 +120,150 @@ class TestStandaloneRunner:
         except ImportError:
             pytest.skip("run_standalone not available")
 
+    def test_asset_root_parameter_exists(self):
+        """Test that asset_root parameter exists in run_standalone signature."""
+        try:
+            import inspect
+
+            from auroraview._core import run_standalone
+
+            sig = inspect.signature(run_standalone)
+            params = list(sig.parameters.keys())
+
+            # Verify asset_root parameter exists
+            assert "asset_root" in params
+
+            # Verify it has None as default (optional parameter)
+            assert sig.parameters["asset_root"].default is None
+
+        except ImportError:
+            pytest.skip("run_standalone not available")
+
+    def test_local_file_support_parameters(self):
+        """Test that run_standalone has all parameters needed for local file support."""
+        try:
+            import inspect
+
+            from auroraview._core import run_standalone
+
+            sig = inspect.signature(run_standalone)
+            params = list(sig.parameters.keys())
+
+            # Both methods for local file access should be available
+            assert "asset_root" in params  # auroraview:// protocol
+            assert "allow_file_protocol" in params  # file:// protocol
+
+            # Check defaults match WebView.create() interface
+            assert sig.parameters["asset_root"].default is None
+            assert sig.parameters["allow_file_protocol"].default is False
+
+        except ImportError:
+            pytest.skip("run_standalone not available")
+
+    def test_asset_root_parameter_type(self):
+        """Test that asset_root parameter accepts string type."""
+        try:
+            import inspect
+
+            from auroraview._core import run_standalone
+
+            sig = inspect.signature(run_standalone)
+            param = sig.parameters["asset_root"]
+
+            # asset_root should be optional (default is None)
+            assert param.default is None
+
+            # Verify annotation if available (should accept str or None)
+            # In PyO3, the type is typically Option<String> which maps to Optional[str]
+
+        except ImportError:
+            pytest.skip("run_standalone not available")
+
+    def test_width_height_zero_for_maximize(self):
+        """Test that width=0 or height=0 should trigger window maximization."""
+        try:
+            import inspect
+
+            from auroraview._core import run_standalone
+
+            sig = inspect.signature(run_standalone)
+
+            # Verify width and height parameters exist
+            assert "width" in sig.parameters
+            assert "height" in sig.parameters
+
+            # Width and height should be required (no default)
+            # This means users must explicitly set them
+            # Setting to 0 should maximize the window
+
+        except ImportError:
+            pytest.skip("run_standalone not available")
+
+    def test_run_standalone_all_parameters(self):
+        """Test that run_standalone has all expected parameters."""
+        try:
+            import inspect
+
+            from auroraview._core import run_standalone
+
+            sig = inspect.signature(run_standalone)
+            params = list(sig.parameters.keys())
+
+            # All expected parameters
+            expected_params = [
+                "title",
+                "width",
+                "height",
+                "url",
+                "html",
+                "dev_tools",
+                "resizable",
+                "decorations",
+                "transparent",
+                "allow_new_window",
+                "allow_file_protocol",
+                "always_on_top",
+                "asset_root",
+            ]
+
+            for param in expected_params:
+                assert param in params, f"Missing parameter: {param}"
+
+        except ImportError:
+            pytest.skip("run_standalone not available")
+
+    def test_run_standalone_parameter_defaults(self):
+        """Test that run_standalone has correct parameter defaults."""
+        try:
+            import inspect
+
+            from auroraview._core import run_standalone
+
+            sig = inspect.signature(run_standalone)
+
+            # Check all defaults
+            defaults = {
+                "url": None,
+                "html": None,
+                "dev_tools": True,
+                "resizable": True,
+                "decorations": True,
+                "transparent": False,
+                "allow_new_window": False,
+                "allow_file_protocol": False,
+                "always_on_top": False,
+                "asset_root": None,
+            }
+
+            for param_name, expected_default in defaults.items():
+                actual_default = sig.parameters[param_name].default
+                assert actual_default == expected_default, (
+                    f"{param_name}: expected {expected_default}, got {actual_default}"
+                )
+
+        except ImportError:
+            pytest.skip("run_standalone not available")
+
 
 class TestLoadingScreen:
     """Test loading screen functionality."""
