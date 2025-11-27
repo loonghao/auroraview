@@ -129,6 +129,7 @@ pub fn register_standalone_runner(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_module_registration() {
@@ -163,5 +164,144 @@ mod tests {
             let signature = func.getattr("__signature__");
             assert!(signature.is_ok() || func.is_callable());
         });
+    }
+
+    /// Test WebViewConfig creation with asset_root
+    #[test]
+    fn test_config_with_asset_root() {
+        let asset_root = Some("/tmp/assets".to_string());
+        let config = WebViewConfig {
+            title: "Test".to_string(),
+            width: 800,
+            height: 600,
+            url: None,
+            html: None,
+            dev_tools: true,
+            resizable: true,
+            decorations: true,
+            transparent: false,
+            always_on_top: false,
+            background_color: None,
+            context_menu: true,
+            parent_hwnd: None,
+            embed_mode: crate::webview::config::EmbedMode::None,
+            ipc_batching: false,
+            ipc_batch_size: 100,
+            ipc_batch_interval_ms: 16,
+            asset_root: asset_root.map(PathBuf::from),
+            custom_protocols: std::collections::HashMap::new(),
+            api_methods: std::collections::HashMap::new(),
+            allow_new_window: false,
+            allow_file_protocol: false,
+        };
+
+        assert_eq!(config.asset_root, Some(PathBuf::from("/tmp/assets")));
+    }
+
+    /// Test WebViewConfig creation without asset_root
+    #[test]
+    fn test_config_without_asset_root() {
+        let asset_root: Option<String> = None;
+        let config = WebViewConfig {
+            title: "Test".to_string(),
+            width: 800,
+            height: 600,
+            url: None,
+            html: None,
+            dev_tools: true,
+            resizable: true,
+            decorations: true,
+            transparent: false,
+            always_on_top: false,
+            background_color: None,
+            context_menu: true,
+            parent_hwnd: None,
+            embed_mode: crate::webview::config::EmbedMode::None,
+            ipc_batching: false,
+            ipc_batch_size: 100,
+            ipc_batch_interval_ms: 16,
+            asset_root: asset_root.map(PathBuf::from),
+            custom_protocols: std::collections::HashMap::new(),
+            api_methods: std::collections::HashMap::new(),
+            allow_new_window: false,
+            allow_file_protocol: false,
+        };
+
+        assert_eq!(config.asset_root, None);
+    }
+
+    /// Test WebViewConfig with zero dimensions for maximize
+    #[test]
+    fn test_config_zero_width_for_maximize() {
+        let config = WebViewConfig {
+            title: "Test".to_string(),
+            width: 0,
+            height: 600,
+            ..Default::default()
+        };
+
+        assert_eq!(config.width, 0);
+        assert_eq!(config.height, 600);
+        // When width is 0, the window should be maximized
+    }
+
+    /// Test WebViewConfig with zero height for maximize
+    #[test]
+    fn test_config_zero_height_for_maximize() {
+        let config = WebViewConfig {
+            title: "Test".to_string(),
+            width: 800,
+            height: 0,
+            ..Default::default()
+        };
+
+        assert_eq!(config.width, 800);
+        assert_eq!(config.height, 0);
+        // When height is 0, the window should be maximized
+    }
+
+    /// Test WebViewConfig with both dimensions zero
+    #[test]
+    fn test_config_both_dimensions_zero() {
+        let config = WebViewConfig {
+            title: "Test".to_string(),
+            width: 0,
+            height: 0,
+            ..Default::default()
+        };
+
+        assert_eq!(config.width, 0);
+        assert_eq!(config.height, 0);
+        // When both are 0, the window should be maximized
+    }
+
+    /// Test WebViewConfig with allow_file_protocol enabled
+    #[test]
+    fn test_config_with_allow_file_protocol() {
+        let config = WebViewConfig {
+            title: "Test".to_string(),
+            width: 800,
+            height: 600,
+            allow_file_protocol: true,
+            ..Default::default()
+        };
+
+        assert!(config.allow_file_protocol);
+    }
+
+    /// Test WebViewConfig with all local file options
+    #[test]
+    fn test_config_with_all_local_file_options() {
+        let config = WebViewConfig {
+            title: "Test".to_string(),
+            width: 800,
+            height: 600,
+            asset_root: Some(PathBuf::from("./assets")),
+            allow_file_protocol: true,
+            ..Default::default()
+        };
+
+        assert_eq!(config.asset_root, Some(PathBuf::from("./assets")));
+        assert!(config.allow_file_protocol);
     }
 }

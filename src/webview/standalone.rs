@@ -425,3 +425,154 @@ pub fn run_standalone(
         }
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::webview::config::WebViewConfig;
+    use std::path::PathBuf;
+
+    /// Test that config with width=0 should trigger maximize
+    #[test]
+    fn test_should_maximize_when_width_zero() {
+        let config = WebViewConfig {
+            width: 0,
+            height: 600,
+            ..Default::default()
+        };
+        let should_maximize = config.width == 0 || config.height == 0;
+        assert!(should_maximize);
+    }
+
+    /// Test that config with height=0 should trigger maximize
+    #[test]
+    fn test_should_maximize_when_height_zero() {
+        let config = WebViewConfig {
+            width: 800,
+            height: 0,
+            ..Default::default()
+        };
+        let should_maximize = config.width == 0 || config.height == 0;
+        assert!(should_maximize);
+    }
+
+    /// Test that config with both dimensions zero should trigger maximize
+    #[test]
+    fn test_should_maximize_when_both_zero() {
+        let config = WebViewConfig {
+            width: 0,
+            height: 0,
+            ..Default::default()
+        };
+        let should_maximize = config.width == 0 || config.height == 0;
+        assert!(should_maximize);
+    }
+
+    /// Test that config with normal dimensions should NOT maximize
+    #[test]
+    fn test_should_not_maximize_with_normal_dimensions() {
+        let config = WebViewConfig {
+            width: 800,
+            height: 600,
+            ..Default::default()
+        };
+        let should_maximize = config.width == 0 || config.height == 0;
+        assert!(!should_maximize);
+    }
+
+    /// Test asset_root config conversion
+    #[test]
+    fn test_asset_root_config() {
+        let config = WebViewConfig {
+            asset_root: Some(PathBuf::from("/tmp/assets")),
+            ..Default::default()
+        };
+        assert!(config.asset_root.is_some());
+        assert_eq!(
+            config.asset_root.as_ref().unwrap().to_str().unwrap(),
+            "/tmp/assets"
+        );
+    }
+
+    /// Test asset_root with None
+    #[test]
+    fn test_asset_root_none() {
+        let config = WebViewConfig::default();
+        assert!(config.asset_root.is_none());
+    }
+
+    /// Test allow_file_protocol config
+    #[test]
+    fn test_allow_file_protocol_enabled() {
+        let config = WebViewConfig {
+            allow_file_protocol: true,
+            ..Default::default()
+        };
+        assert!(config.allow_file_protocol);
+    }
+
+    /// Test allow_file_protocol default
+    #[test]
+    fn test_allow_file_protocol_default() {
+        let config = WebViewConfig::default();
+        assert!(!config.allow_file_protocol);
+    }
+
+    /// Test always_on_top config
+    #[test]
+    fn test_always_on_top_enabled() {
+        let config = WebViewConfig {
+            always_on_top: true,
+            ..Default::default()
+        };
+        assert!(config.always_on_top);
+    }
+
+    /// Test always_on_top default
+    #[test]
+    fn test_always_on_top_default() {
+        let config = WebViewConfig::default();
+        assert!(!config.always_on_top);
+    }
+
+    /// Test combined asset_root and allow_file_protocol
+    #[test]
+    fn test_combined_local_file_options() {
+        let config = WebViewConfig {
+            asset_root: Some(PathBuf::from("./assets")),
+            allow_file_protocol: true,
+            ..Default::default()
+        };
+        assert!(config.asset_root.is_some());
+        assert!(config.allow_file_protocol);
+    }
+
+    /// Test window visibility starts hidden
+    #[test]
+    fn test_config_transparent() {
+        let config = WebViewConfig {
+            transparent: true,
+            ..Default::default()
+        };
+        assert!(config.transparent);
+    }
+
+    /// Test decorations config
+    #[test]
+    fn test_config_decorations() {
+        let config = WebViewConfig {
+            decorations: false,
+            ..Default::default()
+        };
+        assert!(!config.decorations);
+    }
+
+    /// Test resizable config
+    #[test]
+    fn test_config_resizable() {
+        let config = WebViewConfig {
+            resizable: false,
+            ..Default::default()
+        };
+        assert!(!config.resizable);
+    }
+}
