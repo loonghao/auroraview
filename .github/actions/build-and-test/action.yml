@@ -72,6 +72,15 @@ runs:
         CARGO_NET_RETRY: '10'
         CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
+    - name: Install cargo-llvm-cov
+      if: inputs.test-type == 'rust' || inputs.test-type == 'full'
+      shell: bash
+      run: |
+        if ! command -v cargo-llvm-cov &> /dev/null; then
+          echo "Installing cargo-llvm-cov..."
+          cargo install cargo-llvm-cov --locked
+        fi
+
     - name: Run tests
       id: test
       shell: bash
@@ -82,11 +91,26 @@ runs:
             just ci-test-basic
             ;;
           "rust")
-            echo "Running Rust tests (lib tests skipped due to abi3 linking issues)..."
+            echo "Running Rust tests with coverage..."
+            echo "  -> Rust integration tests with coverage..."
+            # Exclude ipc_batch_integration_tests which requires Python bindings
+            cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
+              --test config_integration_tests \
+              --test file_protocol_integration_tests \
+              --test http_discovery_integration_tests \
+              --test ipc_json_integration_tests \
+              --test ipc_message_queue_integration_tests \
+              --test lifecycle_integration_tests \
+              --test mdns_integration_tests \
+              --test parent_monitor_integration_tests \
+              --test port_allocator_integration_tests \
+              --test protocol_handlers_integration_tests \
+              --test protocol_integration_tests \
+              --test standalone_integration_tests \
+              --test timer_integration_tests \
+              --test window_utils_integration_tests
             echo "  -> Rust doc tests..."
             cargo test --doc
-            echo "  -> Rust integration tests (with rstest)..."
-            cargo test --test '*' --features "test-helpers"
             ;;
           "python")
             echo "Running Python unit tests..."
@@ -94,10 +118,25 @@ runs:
             ;;
           "full")
             echo "Running comprehensive test suite..."
+            echo "  -> Rust integration tests with coverage..."
+            # Exclude ipc_batch_integration_tests which requires Python bindings
+            cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
+              --test config_integration_tests \
+              --test file_protocol_integration_tests \
+              --test http_discovery_integration_tests \
+              --test ipc_json_integration_tests \
+              --test ipc_message_queue_integration_tests \
+              --test lifecycle_integration_tests \
+              --test mdns_integration_tests \
+              --test parent_monitor_integration_tests \
+              --test port_allocator_integration_tests \
+              --test protocol_handlers_integration_tests \
+              --test protocol_integration_tests \
+              --test standalone_integration_tests \
+              --test timer_integration_tests \
+              --test window_utils_integration_tests
             echo "  -> Rust doc tests..."
             cargo test --doc
-            echo "  -> Rust integration tests (with rstest)..."
-            cargo test --test '*' --features "test-helpers"
             echo "  -> Python unit tests..."
             just ci-test-python
             echo "  -> Basic functionality tests..."
@@ -122,5 +161,6 @@ runs:
           .pytest_cache/
           htmlcov/
           coverage.xml
+          rust-coverage.lcov
         retention-days: 7
 
