@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.18](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.17...auroraview-v0.2.18) (2025-11-27)
+
+
+### Features
+
+* add allow_file_protocol parameter for local resource loading ([37f2bea](https://github.com/loonghao/auroraview/commit/37f2bea513e6442a91629768f2c548a77836ebf6))
+
+
+### Code Refactoring
+
+* remove debug file logging, use tracing instead ([497b6c4](https://github.com/loonghao/auroraview/commit/497b6c48394f695b2471e40290f745413b5fee1a))
+
+
+### Documentation
+
+* add custom protocol best practices and security documentation ([e520924](https://github.com/loonghao/auroraview/commit/e5209246cb57c6806248eb7f1acc776b04e85ccc))
+
 ## [0.2.17](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.16...auroraview-v0.2.17) (2025-11-26)
 
 
