@@ -345,3 +345,170 @@ fn test_auroraview_protocol_with_windows_absolute_path() {
         url_path
     );
 }
+
+// ============================================================================
+// Windows localhost URL Format Tests
+// ============================================================================
+
+/// Test auroraview://localhost/ format (Windows wry converted format)
+#[rstest]
+fn test_auroraview_protocol_windows_localhost_format() {
+    let temp_dir = TempDir::new().unwrap();
+    let asset_root = temp_dir.path();
+
+    // Create test files
+    let index_file = asset_root.join("index.html");
+    fs::write(&index_file, b"<html>Index</html>").unwrap();
+
+    let css_dir = asset_root.join("css");
+    fs::create_dir_all(&css_dir).unwrap();
+    let css_file = css_dir.join("style.css");
+    fs::write(&css_file, b"body { color: red; }").unwrap();
+
+    // Test 1: auroraview://localhost/index.html format
+    let request = Request::builder()
+        .method("GET")
+        .uri("auroraview://localhost/index.html")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert_eq!(
+        response.status(),
+        200,
+        "auroraview://localhost/index.html should return 200"
+    );
+
+    // Test 2: auroraview://localhost/css/style.css format (subdirectory)
+    let request = Request::builder()
+        .method("GET")
+        .uri("auroraview://localhost/css/style.css")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert_eq!(
+        response.status(),
+        200,
+        "auroraview://localhost/css/style.css should return 200"
+    );
+}
+
+/// Test auroraview://localhost (root without trailing slash) format
+#[rstest]
+fn test_auroraview_protocol_windows_localhost_root() {
+    let temp_dir = TempDir::new().unwrap();
+    let asset_root = temp_dir.path();
+
+    // Create index.html for root access
+    let index_file = asset_root.join("index.html");
+    fs::write(&index_file, b"<html>Index</html>").unwrap();
+
+    // Test: auroraview://localhost/ (with trailing slash, defaults to index.html)
+    // Note: In actual browser usage, navigating to root typically includes trailing slash
+    let request = Request::builder()
+        .method("GET")
+        .uri("auroraview://localhost/")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert_eq!(
+        response.status(),
+        200,
+        "auroraview://localhost/ should default to index.html and return 200"
+    );
+}
+
+/// Test https://auroraview.localhost/ format (before wry conversion)
+#[rstest]
+fn test_auroraview_protocol_https_localhost_format() {
+    let temp_dir = TempDir::new().unwrap();
+    let asset_root = temp_dir.path();
+
+    // Create test file
+    let js_dir = asset_root.join("js");
+    fs::create_dir_all(&js_dir).unwrap();
+    let js_file = js_dir.join("app.js");
+    fs::write(&js_file, b"console.log('hello');").unwrap();
+
+    // Test: https://auroraview.localhost/js/app.js format
+    let request = Request::builder()
+        .method("GET")
+        .uri("https://auroraview.localhost/js/app.js")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert_eq!(
+        response.status(),
+        200,
+        "https://auroraview.localhost/js/app.js should return 200"
+    );
+}
+
+/// Test http://auroraview.localhost/ format (HTTP variant)
+#[rstest]
+fn test_auroraview_protocol_http_localhost_format() {
+    let temp_dir = TempDir::new().unwrap();
+    let asset_root = temp_dir.path();
+
+    // Create test file
+    let img_dir = asset_root.join("images");
+    fs::create_dir_all(&img_dir).unwrap();
+    let img_file = img_dir.join("logo.png");
+    fs::write(&img_file, b"PNG data").unwrap();
+
+    // Test: http://auroraview.localhost/images/logo.png format
+    let request = Request::builder()
+        .method("GET")
+        .uri("http://auroraview.localhost/images/logo.png")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert_eq!(
+        response.status(),
+        200,
+        "http://auroraview.localhost/images/logo.png should return 200"
+    );
+}
+
+/// Test directory traversal prevention with localhost format
+#[rstest]
+fn test_auroraview_protocol_localhost_security() {
+    let temp_dir = TempDir::new().unwrap();
+    let asset_root = temp_dir.path();
+
+    // Create a file inside asset_root
+    let safe_file = asset_root.join("safe.txt");
+    fs::write(&safe_file, b"Safe content").unwrap();
+
+    // Test: Directory traversal attempt with localhost format
+    let request = Request::builder()
+        .method("GET")
+        .uri("auroraview://localhost/../../../etc/passwd")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert!(
+        response.status() == 403 || response.status() == 404,
+        "Directory traversal with localhost format should be blocked, got {}",
+        response.status()
+    );
+
+    // Test: Directory traversal with https format
+    let request = Request::builder()
+        .method("GET")
+        .uri("https://auroraview.localhost/../../../etc/passwd")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert!(
+        response.status() == 403 || response.status() == 404,
+        "Directory traversal with https localhost format should be blocked, got {}",
+        response.status()
+    );
+}
