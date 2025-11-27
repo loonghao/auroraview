@@ -84,6 +84,9 @@ pub fn handle_auroraview_protocol(
     // Trim trailing slashes from path
     let path = path.trim_end_matches('/');
 
+    // Default to index.html if path is empty (root access)
+    let path = if path.is_empty() { "index.html" } else { path };
+
     // Build full path
     // Parse the path and determine if it's absolute
     let full_path = parse_protocol_path(path, asset_root);
