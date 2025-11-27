@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.19](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.18...auroraview-v0.2.19) (2025-11-27)
+
+
+### Bug Fixes
+
+* use Optional[] instead of | union syntax for Python 3.7 compatibility ([330759e](https://github.com/loonghao/auroraview/commit/330759e8c8955cb385802ace2d81f0fc07cd606e))
+
 ## [0.2.18](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.17...auroraview-v0.2.18) (2025-11-27)
 
 
