@@ -34,18 +34,22 @@ pub fn handle_auroraview_protocol(
     // We need to handle both cases
     let uri_str = uri.to_string();
 
-    // Write debug info to log file
-    let _ = std::fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(std::env::temp_dir().join("auroraview_debug.log"))
-        .and_then(|mut f| {
-            use std::io::Write;
-            writeln!(f, "[DEBUG] Protocol handler called:")
-                .and_then(|_| writeln!(f, "  uri_str = {}", uri_str))
-                .and_then(|_| writeln!(f, "  uri.path() = {}", uri.path()))
-                .and_then(|_| writeln!(f, "  uri.host() = {:?}", uri.host()))
-        });
+    // Write debug info to log file (only in non-test builds)
+    // This is used for debugging in DCC applications like Maya where stderr is redirected
+    #[cfg(not(test))]
+    {
+        let _ = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(std::env::temp_dir().join("auroraview_debug.log"))
+            .and_then(|mut f| {
+                use std::io::Write;
+                writeln!(f, "[DEBUG] Protocol handler called:")
+                    .and_then(|_| writeln!(f, "  uri_str = {}", uri_str))
+                    .and_then(|_| writeln!(f, "  uri.path() = {}", uri.path()))
+                    .and_then(|_| writeln!(f, "  uri.host() = {:?}", uri.host()))
+            });
+    }
 
     // On Windows with wry, the URL format goes through these transformations:
     // 1. Python sends: https://auroraview.localhost/index.html
