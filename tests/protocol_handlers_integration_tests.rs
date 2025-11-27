@@ -512,3 +512,44 @@ fn test_auroraview_protocol_localhost_security() {
         response.status()
     );
 }
+
+/// Test auroraview protocol with unusual URI formats for full branch coverage
+#[rstest]
+fn test_auroraview_protocol_uri_edge_cases() {
+    let temp_dir = TempDir::new().unwrap();
+    let asset_root = temp_dir.path();
+
+    // Create test file
+    let test_file = asset_root.join("test.html");
+    fs::write(&test_file, b"Test content").unwrap();
+
+    // Test 1: URI that goes through the macOS/Linux format branch
+    // Format: auroraview://path/to/file (not localhost)
+    let request = Request::builder()
+        .method("GET")
+        .uri("auroraview://test.html")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert_eq!(
+        response.status(),
+        200,
+        "auroraview://test.html should work, got {}",
+        response.status()
+    );
+
+    // Test 2: URI with trailing slash
+    let request = Request::builder()
+        .method("GET")
+        .uri("auroraview://test.html/")
+        .body(vec![])
+        .unwrap();
+
+    let response = handle_auroraview_protocol(asset_root, request);
+    assert_eq!(
+        response.status(),
+        200,
+        "auroraview://test.html/ with trailing slash should work"
+    );
+}
