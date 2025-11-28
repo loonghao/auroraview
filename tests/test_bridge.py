@@ -1,10 +1,6 @@
 """Tests for auroraview.bridge module."""
 
-import asyncio
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 
 class TestBridgeCreation:

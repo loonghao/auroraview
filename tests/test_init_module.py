@@ -1,7 +1,5 @@
 """Tests for auroraview.__init__ module exports and utilities."""
 
-import pytest
-
 
 class TestModuleExports:
     """Tests for module exports."""
