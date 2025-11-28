@@ -1,6 +1,6 @@
 """Tests for auroraview.testing module."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -850,6 +850,19 @@ class TestInitModuleMoreCoverage:
         assert ServiceInfo is not None
 
 
+# Check if websockets is available for Bridge tests
+try:
+    import websockets  # noqa: F401
+
+    HAS_WEBSOCKETS = True
+except ImportError:
+    HAS_WEBSOCKETS = False
+
+
+@pytest.mark.skipif(
+    not HAS_WEBSOCKETS,
+    reason="websockets library is required for Bridge tests",
+)
 class TestBridgeMoreCoverage:
     """Additional tests for bridge.py coverage."""
 
