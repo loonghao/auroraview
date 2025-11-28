@@ -200,7 +200,12 @@ def test_main_url_normalization():
 
 
 def test_main_html_rewriting():
-    """Test that HTML is rewritten for custom protocol."""
+    """Test that HTML rewriting parameters are passed to run_standalone.
+
+    Note: The actual HTML rewriting is done in Rust (run_standalone handles
+    html_path and rewrite_relative_paths). This test verifies that the CLI
+    correctly passes these parameters.
+    """
     # Create a temporary HTML file
     import tempfile
 
@@ -211,21 +216,26 @@ def test_main_html_rewriting():
         html_path = f.name
 
     try:
-        # Mock run_standalone and rewrite function
+        # Mock run_standalone to verify parameters
         with patch("auroraview._core.run_standalone") as mock_run_standalone:
-            with patch(
-                "auroraview.rewrite_html_for_custom_protocol",
-                return_value='<link href="auroraview://style.css">',
-            ) as mock_rewrite:
-                with patch.object(sys, "argv", ["auroraview", "--html", html_path]):
-                    main()
+            with patch.object(sys, "argv", ["auroraview", "--html", html_path]):
+                main()
 
-                    # Verify rewrite function was called
-                    mock_rewrite.assert_called_once()
-                    # Verify run_standalone was called
-                    mock_run_standalone.assert_called_once()
-                    call_kwargs = mock_run_standalone.call_args.kwargs
-                    assert call_kwargs["html"] == '<link href="auroraview://style.css">'
+                # Verify run_standalone was called with correct parameters
+                mock_run_standalone.assert_called_once()
+                call_kwargs = mock_run_standalone.call_args.kwargs
+
+                # Verify html content was read
+                assert call_kwargs["html"] == '<link href="style.css">'
+
+                # Verify html_path is passed (for Rust-side rewriting)
+                assert call_kwargs["html_path"] == str(Path(html_path).resolve())
+
+                # Verify rewrite_relative_paths is enabled
+                assert call_kwargs["rewrite_relative_paths"] is True
+
+                # Verify asset_root is auto-derived from html file location
+                assert call_kwargs["asset_root"] == str(Path(html_path).resolve().parent)
     finally:
         # Clean up temp file
         Path(html_path).unlink(missing_ok=True)
