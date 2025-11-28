@@ -52,9 +52,63 @@ def test_main_with_arguments():
                 mock_run_standalone.assert_called_once()
                 call_kwargs = mock_run_standalone.call_args.kwargs
                 assert call_kwargs["dev_tools"] is True
+                # Verify new parameters are passed
+                assert call_kwargs["rewrite_relative_paths"] is True
+                assert call_kwargs["html_path"] is not None
+                # asset_root should be auto-derived from HTML file location
+                assert call_kwargs["asset_root"] is not None
     finally:
         # Clean up temp file
         Path(html_path).unlink(missing_ok=True)
+
+
+def test_main_with_html_auto_asset_root():
+    """Test that asset_root is auto-derived from HTML file location."""
+    import tempfile
+
+    from auroraview.__main__ import main
+
+    # Create a temporary directory with HTML file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_file = Path(tmpdir) / "index.html"
+        html_file.write_text('<html><link href="./style.css"></html>')
+
+        test_args = ["auroraview", "--html", str(html_file)]
+
+        with patch("auroraview._core.run_standalone") as mock_run_standalone:
+            with patch.object(sys, "argv", test_args):
+                main()
+
+                call_kwargs = mock_run_standalone.call_args.kwargs
+                # asset_root should be the directory containing the HTML file
+                assert call_kwargs["asset_root"] == tmpdir
+                # html_path should be the absolute path to the HTML file
+                assert call_kwargs["html_path"] == str(html_file)
+
+
+def test_main_with_explicit_assets_root():
+    """Test that explicit --assets-root overrides auto-detection."""
+    import tempfile
+
+    from auroraview.__main__ import main
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_file = Path(tmpdir) / "index.html"
+        html_file.write_text("<html><body>Test</body></html>")
+
+        # Create a separate assets directory
+        assets_dir = Path(tmpdir) / "assets"
+        assets_dir.mkdir()
+
+        test_args = ["auroraview", "--html", str(html_file), "--assets-root", str(assets_dir)]
+
+        with patch("auroraview._core.run_standalone") as mock_run_standalone:
+            with patch.object(sys, "argv", test_args):
+                main()
+
+                call_kwargs = mock_run_standalone.call_args.kwargs
+                # asset_root should be the explicitly provided directory
+                assert call_kwargs["asset_root"] == str(assets_dir)
 
 
 def test_main_non_zero_exit_code():

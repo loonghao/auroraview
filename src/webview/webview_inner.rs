@@ -546,6 +546,87 @@ impl WebViewInner {
         }
     }
 
+    /// Set whether the window should always be on top of other windows.
+    ///
+    /// # Arguments
+    /// * `always_on_top` - If true, the window will stay on top of other windows
+    ///
+    /// # Platform-specific behavior
+    /// - Windows: Uses SetWindowPos with HWND_TOPMOST/HWND_NOTOPMOST
+    /// - macOS/Linux: Uses tao's set_always_on_top method
+    pub fn set_always_on_top(&self, always_on_top: bool) {
+        if let Some(window) = &self.window {
+            #[cfg(target_os = "windows")]
+            {
+                use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+                use std::ffi::c_void;
+
+                if let Ok(window_handle) = window.window_handle() {
+                    let raw_handle = window_handle.as_raw();
+                    if let RawWindowHandle::Win32(handle) = raw_handle {
+                        let hwnd = handle.hwnd.get() as *mut c_void;
+                        let insert_after = if always_on_top {
+                            -1isize as *mut c_void // HWND_TOPMOST
+                        } else {
+                            -2isize as *mut c_void // HWND_NOTOPMOST
+                        };
+                        const SWP_NOMOVE: u32 = 0x0002;
+                        const SWP_NOSIZE: u32 = 0x0001;
+                        const SWP_NOACTIVATE: u32 = 0x0010;
+
+                        #[link(name = "user32")]
+                        extern "system" {
+                            fn SetWindowPos(
+                                hwnd: *mut c_void,
+                                insert_after: *mut c_void,
+                                x: i32,
+                                y: i32,
+                                cx: i32,
+                                cy: i32,
+                                flags: u32,
+                            ) -> i32;
+                        }
+
+                        unsafe {
+                            let result = SetWindowPos(
+                                hwnd,
+                                insert_after,
+                                0,
+                                0,
+                                0,
+                                0,
+                                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                            );
+
+                            if result != 0 {
+                                tracing::debug!(
+                                    "[OK] [set_always_on_top] Window always_on_top set to {}",
+                                    always_on_top
+                                );
+                            } else {
+                                tracing::error!(
+                                    "[ERROR] [set_always_on_top] Failed to set always_on_top to {}",
+                                    always_on_top
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                window.set_always_on_top(always_on_top);
+                tracing::debug!(
+                    "[OK] [set_always_on_top] Window always_on_top set to {}",
+                    always_on_top
+                );
+            }
+        } else {
+            tracing::warn!("[WARNING] [set_always_on_top] No window available");
+        }
+    }
+
     /// Get window handle (HWND on Windows)
     ///
     /// Returns the native window handle for the WebView window.
