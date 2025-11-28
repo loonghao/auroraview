@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.21](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.20...auroraview-v0.2.21) (2025-11-28)
+
+
+### Features
+
+* auto-convert relative paths to auroraview:// protocol and add always_on_top ([66fc2a1](https://github.com/loonghao/auroraview/commit/66fc2a1a4a20c50cea53168a1c1e68f639e0eeaf))
+
 ## [0.2.20](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.19...auroraview-v0.2.20) (2025-11-27)
 
 
