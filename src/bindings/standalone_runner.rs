@@ -5,6 +5,7 @@
 //! standalone applications where the process should exit when the window closes.
 
 use pyo3::prelude::*;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::ipc::{IpcHandler, MessageQueue};
@@ -37,6 +38,12 @@ use crate::webview::standalone;
 ///         resource loading. Files under this directory can be accessed using URLs
 ///         like ``auroraview://path/to/file`` (or ``https://auroraview.localhost/path``
 ///         on Windows).
+///     html_path (str, optional): Path to HTML file. When provided with `html` content,
+///         the `asset_root` will automatically be set to the directory containing
+///         the HTML file (if `asset_root` is not explicitly set). This allows relative
+///         resource paths in HTML to be resolved correctly relative to the HTML file.
+///     rewrite_relative_paths (bool, optional): Automatically rewrite relative paths
+///         (like ./script.js, ../style.css) to use auroraview:// protocol. Default: True.
 ///
 /// Example:
 ///     >>> from auroraview._core import run_standalone
@@ -61,7 +68,9 @@ use crate::webview::standalone;
     allow_new_window=false,
     allow_file_protocol=false,
     always_on_top=false,
-    asset_root=None
+    asset_root=None,
+    html_path=None,
+    rewrite_relative_paths=true
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_standalone(
@@ -78,8 +87,35 @@ fn run_standalone(
     allow_file_protocol: bool,
     always_on_top: bool,
     asset_root: Option<String>,
+    html_path: Option<String>,
+    rewrite_relative_paths: bool,
 ) -> PyResult<()> {
     tracing::info!("[run_standalone] Creating standalone WebView: {}", title);
+
+    // Determine asset_root: explicit setting takes priority, otherwise derive from html_path
+    let effective_asset_root = if let Some(root) = asset_root {
+        Some(PathBuf::from(root))
+    } else if let Some(ref path) = html_path {
+        // Auto-detect asset_root from HTML file location
+        let html_file_path = PathBuf::from(path);
+        let parent_dir = html_file_path.parent().map(|p| p.to_path_buf());
+        if let Some(ref dir) = parent_dir {
+            tracing::info!(
+                "[run_standalone] Auto-detected asset_root from HTML path: {:?}",
+                dir
+            );
+        }
+        parent_dir
+    } else {
+        None
+    };
+
+    // Rewrite HTML to use auroraview:// protocol for relative paths if enabled
+    let processed_html = if rewrite_relative_paths {
+        html.map(|h| crate::bindings::cli_utils::rewrite_html_for_custom_protocol(&h))
+    } else {
+        html
+    };
 
     // Create config
     let config = WebViewConfig {
@@ -87,7 +123,7 @@ fn run_standalone(
         width,
         height,
         url,
-        html,
+        html: processed_html,
         dev_tools,
         resizable,
         decorations,
@@ -100,7 +136,7 @@ fn run_standalone(
         ipc_batching: false,
         ipc_batch_size: 100,
         ipc_batch_interval_ms: 16,
-        asset_root: asset_root.map(std::path::PathBuf::from),
+        asset_root: effective_asset_root,
         custom_protocols: std::collections::HashMap::new(),
         api_methods: std::collections::HashMap::new(),
         allow_new_window,

@@ -167,5 +167,224 @@ def test_asset_root_with_subdirectories():
         assert webview is not None
 
 
+class TestRewriteHtmlForCustomProtocol:
+    """Tests for the rewrite_html_for_custom_protocol function."""
+
+    def test_rewrite_relative_paths(self):
+        """Test that relative paths are rewritten to auroraview:// protocol."""
+        from auroraview import rewrite_html_for_custom_protocol
+
+        html = """
+        <html>
+            <head>
+                <link rel="stylesheet" href="./style.css">
+                <link rel="stylesheet" href="styles/main.css">
+            </head>
+            <body>
+                <script src="./script.js"></script>
+                <script src="js/app.js"></script>
+                <img src="./logo.png">
+                <img src="images/icon.png">
+            </body>
+        </html>
+        """
+
+        result = rewrite_html_for_custom_protocol(html)
+
+        # Check that relative paths are rewritten
+        assert 'href="auroraview://style.css"' in result  # ./style.css -> style.css
+        assert 'href="auroraview://styles/main.css"' in result
+        assert 'src="auroraview://script.js"' in result  # ./script.js -> script.js
+        assert 'src="auroraview://js/app.js"' in result
+        assert 'src="auroraview://logo.png"' in result  # ./logo.png -> logo.png
+        assert 'src="auroraview://images/icon.png"' in result
+
+    def test_preserve_absolute_urls(self):
+        """Test that absolute URLs are not rewritten."""
+        from auroraview import rewrite_html_for_custom_protocol
+
+        html = """
+        <html>
+            <head>
+                <link rel="stylesheet" href="https://cdn.example.com/style.css">
+                <link rel="stylesheet" href="http://example.com/style.css">
+            </head>
+            <body>
+                <script src="https://cdn.example.com/script.js"></script>
+                <img src="data:image/png;base64,ABC123">
+                <img src="//cdn.example.com/image.png">
+            </body>
+        </html>
+        """
+
+        result = rewrite_html_for_custom_protocol(html)
+
+        # Check that absolute URLs are preserved
+        assert 'href="https://cdn.example.com/style.css"' in result
+        assert 'href="http://example.com/style.css"' in result
+        assert 'src="https://cdn.example.com/script.js"' in result
+        assert 'src="data:image/png;base64,ABC123"' in result
+        assert 'src="//cdn.example.com/image.png"' in result
+
+    def test_preserve_existing_auroraview_protocol(self):
+        """Test that existing auroraview:// URLs are not double-rewritten."""
+        from auroraview import rewrite_html_for_custom_protocol
+
+        html = """
+        <html>
+            <head>
+                <link rel="stylesheet" href="auroraview://style.css">
+            </head>
+            <body>
+                <script src="auroraview://script.js"></script>
+            </body>
+        </html>
+        """
+
+        result = rewrite_html_for_custom_protocol(html)
+
+        # Check that auroraview:// URLs are preserved (not double-rewritten)
+        assert 'href="auroraview://style.css"' in result
+        assert 'src="auroraview://script.js"' in result
+        # Make sure there's no double protocol
+        assert "auroraview://auroraview://" not in result
+
+    def test_rewrite_parent_directory_paths(self):
+        """Test that parent directory paths (../) are rewritten."""
+        from auroraview import rewrite_html_for_custom_protocol
+
+        html = """
+        <html>
+            <head>
+                <link rel="stylesheet" href="../assets/style.css">
+            </head>
+            <body>
+                <script src="../js/app.js"></script>
+                <img src="../../images/logo.png">
+            </body>
+        </html>
+        """
+
+        result = rewrite_html_for_custom_protocol(html)
+
+        # Check that parent directory paths are rewritten
+        assert 'href="auroraview://../assets/style.css"' in result
+        assert 'src="auroraview://../js/app.js"' in result
+        assert 'src="auroraview://../../images/logo.png"' in result
+
+    def test_rewrite_css_url(self):
+        """Test that CSS url() references are rewritten."""
+        from auroraview import rewrite_html_for_custom_protocol
+
+        html = """
+        <style>
+            body {
+                background: url('./images/bg.png');
+            }
+            .icon {
+                background-image: url(icons/icon.svg);
+            }
+        </style>
+        """
+
+        result = rewrite_html_for_custom_protocol(html)
+
+        # Check that CSS url() references are rewritten
+        assert 'url("auroraview://images/bg.png")' in result
+        assert 'url("auroraview://icons/icon.svg")' in result
+
+    def test_preserve_anchor_links(self):
+        """Test that anchor links (#) are not rewritten."""
+        from auroraview import rewrite_html_for_custom_protocol
+
+        html = """
+        <html>
+            <body>
+                <a href="#section1">Go to section 1</a>
+                <a href="#top">Back to top</a>
+            </body>
+        </html>
+        """
+
+        result = rewrite_html_for_custom_protocol(html)
+
+        # Check that anchor links are preserved
+        assert 'href="#section1"' in result
+        assert 'href="#top"' in result
+
+
+class TestLoadLocalHtml:
+    """Tests for the load_local_html method."""
+
+    def test_load_local_html_with_rewriting(self):
+        """Test loading local HTML file with path rewriting."""
+        from auroraview import WebView
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create HTML file with relative paths
+            html_file = Path(tmpdir) / "index.html"
+            html_file.write_text("""
+            <html>
+                <head>
+                    <link rel="stylesheet" href="./style.css">
+                </head>
+                <body>
+                    <script src="./script.js"></script>
+                </body>
+            </html>
+            """)
+
+            # Create asset files
+            (Path(tmpdir) / "style.css").write_text("body { color: red; }")
+            (Path(tmpdir) / "script.js").write_text("console.log('test');")
+
+            # Create WebView with asset_root
+            webview = WebView(
+                title="Local HTML Test",
+                asset_root=str(tmpdir),
+            )
+
+            # Load local HTML with rewriting
+            webview.load_local_html(html_file)
+
+            # Verify the HTML was loaded with rewritten paths
+            assert webview._stored_html is not None
+            assert 'href="auroraview://style.css"' in webview._stored_html
+            assert 'src="auroraview://script.js"' in webview._stored_html
+
+    def test_load_local_html_without_rewriting(self):
+        """Test loading local HTML file without path rewriting."""
+        from auroraview import WebView
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create HTML file with relative paths
+            html_file = Path(tmpdir) / "index.html"
+            html_file.write_text("""
+            <html>
+                <head>
+                    <link rel="stylesheet" href="./style.css">
+                </head>
+            </html>
+            """)
+
+            webview = WebView(title="No Rewrite Test")
+
+            # Load local HTML without rewriting
+            webview.load_local_html(html_file, rewrite_paths=False)
+
+            # Verify the HTML was loaded without rewriting
+            assert webview._stored_html is not None
+            assert 'href="./style.css"' in webview._stored_html
+
+    def test_load_local_html_file_not_found(self):
+        """Test that FileNotFoundError is raised for missing files."""
+        from auroraview import WebView
+
+        webview = WebView(title="Error Test")
+
+        with pytest.raises(FileNotFoundError):
+            webview.load_local_html("/nonexistent/path/index.html")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

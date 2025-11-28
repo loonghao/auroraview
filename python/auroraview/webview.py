@@ -84,6 +84,7 @@ class WebView:
         decorations: Optional[bool] = None,
         asset_root: Optional[str] = None,
         allow_file_protocol: bool = False,
+        always_on_top: bool = False,
     ) -> None:
         """Initialize the WebView.
 
@@ -125,6 +126,9 @@ class WebView:
                 **WARNING**: Enabling this allows access to ANY file on the system
                 that the process can read. Only use with trusted content.
                 Prefer using ``asset_root`` for secure local resource loading.
+
+            always_on_top: Keep window always on top of other windows (default: False).
+                Useful for floating tool panels or overlay windows.
         """
         if _CoreWebView is None:
             raise RuntimeError(
@@ -157,6 +161,7 @@ class WebView:
             parent_mode=mode,  # mode -> parent_mode
             asset_root=asset_root,  # Custom protocol asset root
             allow_file_protocol=allow_file_protocol,  # Enable file:// protocol
+            always_on_top=always_on_top,  # Keep window always on top
         )
         self._event_handlers: Dict[str, list[Callable]] = {}
         self._title = title
@@ -167,6 +172,7 @@ class WebView:
         self._frame = frame
         self._parent = parent
         self._mode = mode
+        self._always_on_top = always_on_top
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
         self._auto_timer = None  # Will be set by create() factory method
@@ -214,6 +220,7 @@ class WebView:
         height: int = 600,
         resizable: bool = True,
         frame: bool = True,
+        always_on_top: bool = False,
         # DCC integration
         parent: Optional[int] = None,
         mode: Literal["auto", "owner", "child"] = "auto",
@@ -241,6 +248,7 @@ class WebView:
             height: Window height in pixels
             resizable: Make window resizable
             frame: Show window frame (title bar, borders)
+            always_on_top: Keep window always on top of other windows (default: False)
             parent: Parent window handle for DCC embedding
             mode: Embedding mode
                 - "auto": Auto-select (recommended)
@@ -328,6 +336,7 @@ class WebView:
             html=html,
             resizable=resizable,
             frame=frame,
+            always_on_top=always_on_top,
             parent=parent,
             mode=actual_mode,
             debug=debug,
@@ -507,6 +516,7 @@ class WebView:
                     decorations=self._frame,  # Use new parameter name
                     parent_hwnd=self._parent,  # Use new parameter name
                     parent_mode=self._mode,  # Use new parameter name
+                    always_on_top=self._always_on_top,  # Keep window always on top
                 )
 
                 # Store the core instance for use by emit() and other methods
@@ -652,6 +662,60 @@ class WebView:
         """
         html_path = Path(path).expanduser().resolve()
         self.load_url(html_path.as_uri())
+
+    def load_local_html(self, path: Union[str, Path], rewrite_paths: bool = True) -> None:
+        """Load a local HTML file with automatic relative path resolution.
+
+        This method reads an HTML file and automatically rewrites relative
+        resource paths (CSS, JS, images) to use the ``auroraview://`` protocol.
+        The ``asset_root`` is automatically set to the directory containing
+        the HTML file, allowing relative paths like ``./script.js`` or
+        ``../assets/style.css`` to work correctly.
+
+        **Note**: This method requires the WebView to be created with ``asset_root``
+        set to the HTML file's directory. For best results, use this pattern::
+
+            html_path = Path("dist/index.html")
+            webview = WebView.create(
+                title="My App",
+                asset_root=str(html_path.parent),
+            )
+            webview.load_local_html(html_path)
+
+        Args:
+            path: Filesystem path to an HTML file.
+            rewrite_paths: Whether to automatically rewrite relative paths to
+                          use ``auroraview://`` protocol. Default: True.
+
+        Example:
+            >>> from pathlib import Path
+            >>> html_path = Path("dist/index.html")
+            >>> webview = WebView.create(
+            ...     title="My App",
+            ...     asset_root=str(html_path.parent),
+            ... )
+            >>> webview.load_local_html(html_path)
+            >>> webview.show()
+        """
+        from auroraview import rewrite_html_for_custom_protocol
+
+        html_path = Path(path).expanduser().resolve()
+        if not html_path.exists():
+            raise FileNotFoundError(f"HTML file not found: {html_path}")
+
+        # Read HTML content
+        html_content = html_path.read_text(encoding="utf-8")
+
+        # Rewrite relative paths to use auroraview:// protocol
+        if rewrite_paths:
+            html_content = rewrite_html_for_custom_protocol(html_content)
+            logger.info(
+                f"Loaded local HTML file with path rewriting: {html_path} ({len(html_content)} bytes)"
+            )
+        else:
+            logger.info(f"Loaded local HTML file: {html_path} ({len(html_content)} bytes)")
+
+        self.load_html(html_content)
 
     def eval_js(self, script: str, auto_process: bool = True) -> None:
         """Execute JavaScript code in the WebView.
@@ -1103,6 +1167,29 @@ class WebView:
         if self._show_thread is None:
             return False
         return self._show_thread.is_alive()
+
+    def set_always_on_top(self, always_on_top: bool) -> None:
+        """Set whether the window should always be on top of other windows.
+
+        This method allows dynamic toggling of the always-on-top state after
+        the window has been created and shown.
+
+        Args:
+            always_on_top: If True, the window will stay on top of other windows.
+                          If False, the window will behave normally.
+
+        Raises:
+            RuntimeError: If the WebView is not initialized (call show() first)
+
+        Example:
+            >>> webview = WebView(title="My Tool")
+            >>> webview.show()
+            >>> webview.set_always_on_top(True)  # Pin to top
+            >>> webview.set_always_on_top(False)  # Unpin
+        """
+        logger.info(f"Setting always_on_top to {always_on_top}")
+        self._always_on_top = always_on_top
+        self._core.set_always_on_top(always_on_top)
 
     def close(self) -> None:
         """Close the WebView window and remove from singleton registry."""

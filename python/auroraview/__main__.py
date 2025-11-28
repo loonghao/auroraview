@@ -69,7 +69,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        from auroraview import normalize_url, rewrite_html_for_custom_protocol
+        from auroraview import normalize_url
         from auroraview._core import run_standalone
 
         # Prepare the URL or HTML content
@@ -77,17 +77,26 @@ def main():
             # Normalize URL (add https:// if missing)
             url = normalize_url(args.url)
             html_content = None
+            html_path = None
+            asset_root = None
         else:
             # Read HTML file
-            html_file = args.html
+            html_file = args.html.resolve()  # Get absolute path
             if not html_file.exists():
                 print(f"Error: HTML file not found: {html_file}", file=sys.stderr)
                 sys.exit(1)
 
-            # Read and rewrite HTML for custom protocol support
-            raw_html = html_file.read_text(encoding="utf-8")
-            html_content = rewrite_html_for_custom_protocol(raw_html)
+            # Read HTML content (rewriting is now handled in Rust)
+            html_content = html_file.read_text(encoding="utf-8")
+            html_path = str(html_file)
             url = None
+
+            # Determine asset_root: explicit or derive from HTML file location
+            if args.assets_root:
+                asset_root = str(args.assets_root.resolve())
+            else:
+                # Auto-derive from HTML file location
+                asset_root = str(html_file.parent)
 
         # Run standalone WebView (blocking until window closes, then exits process)
         # This uses the same event_loop.run() approach as the Rust CLI
@@ -101,6 +110,9 @@ def main():
             allow_new_window=args.allow_new_window,
             allow_file_protocol=args.allow_file_protocol,
             always_on_top=args.always_on_top,
+            asset_root=asset_root,
+            html_path=html_path,
+            rewrite_relative_paths=True,  # Automatically rewrite relative paths
         )
 
         # This line will never be reached because run_standalone() exits the process

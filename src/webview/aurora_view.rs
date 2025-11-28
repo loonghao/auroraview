@@ -46,12 +46,13 @@ impl AuroraView {
     ///     parent_mode (str, optional): "child" or "owner" (Windows only)
     ///     asset_root (str, optional): Root directory for auroraview:// protocol
     ///     allow_file_protocol (bool, optional): Enable file:// protocol support (default: False)
+    ///     always_on_top (bool, optional): Keep window always on top (default: False)
     ///
     /// Returns:
     ///     WebView: A new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, allow_file_protocol=false))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, allow_file_protocol=false, always_on_top=false))]
     fn new(
         title: &str,
         width: u32,
@@ -66,9 +67,10 @@ impl AuroraView {
         parent_mode: Option<&str>,
         asset_root: Option<&str>,
         allow_file_protocol: bool,
+        always_on_top: bool,
     ) -> PyResult<Self> {
-        tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, context_menu: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}, asset_root: {:?}, allow_file_protocol: {}",
-            title, dev_tools, context_menu, resizable, decorations, parent_hwnd, parent_mode, asset_root, allow_file_protocol);
+        tracing::info!("AuroraView::new() called with title: {}, dev_tools: {}, context_menu: {}, resizable: {}, decorations: {}, parent_hwnd: {:?}, parent_mode: {:?}, asset_root: {:?}, allow_file_protocol: {}, always_on_top: {}",
+            title, dev_tools, context_menu, resizable, decorations, parent_hwnd, parent_mode, asset_root, allow_file_protocol, always_on_top);
 
         #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
         let mut config = WebViewConfig {
@@ -84,6 +86,7 @@ impl AuroraView {
             parent_hwnd,
             asset_root: asset_root.map(std::path::PathBuf::from),
             allow_file_protocol,
+            always_on_top,
             ..Default::default()
         };
 
@@ -855,6 +858,35 @@ impl AuroraView {
         }
     }
 
+    /// Set whether the window should always be on top of other windows.
+    ///
+    /// This method allows dynamic toggling of the always-on-top state after
+    /// the window has been created and shown.
+    ///
+    /// Args:
+    ///     always_on_top (bool): If True, the window will stay on top of other windows.
+    ///                          If False, the window will behave normally.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the WebView is not initialized (call show() first)
+    ///
+    /// Example:
+    ///     >>> webview = WebView(title="My Tool")
+    ///     >>> webview.show()
+    ///     >>> webview.set_always_on_top(True)  # Pin to top
+    ///     >>> webview.set_always_on_top(False)  # Unpin
+    fn set_always_on_top(&self, always_on_top: bool) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_always_on_top(always_on_top);
+            Ok(())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
     /// Get window handle (HWND on Windows)
     ///
     /// Returns the native window handle for the WebView window.
@@ -1046,6 +1078,7 @@ mod tests {
                 None,
                 None,
                 false,
+                false, // always_on_top
             );
             assert!(result.is_ok());
             let webview = result.unwrap();
@@ -1074,6 +1107,7 @@ mod tests {
                 None,
                 None,
                 false,
+                false, // always_on_top
             );
             assert!(result.is_ok());
             let config = result.unwrap().config.borrow().clone();
@@ -1087,6 +1121,7 @@ mod tests {
         Python::attach(|_py| {
             let webview = AuroraView::new(
                 "Test", 800, 600, None, None, true, true, true, true, None, None, None, false,
+                false, // always_on_top
             )
             .unwrap();
             let result = webview.load_url("https://test.com");
@@ -1102,6 +1137,7 @@ mod tests {
         Python::attach(|_py| {
             let webview = AuroraView::new(
                 "Test", 800, 600, None, None, true, true, true, true, None, None, None, false,
+                false, // always_on_top
             )
             .unwrap();
             let result = webview.eval_js("console.log('test')");
@@ -1116,6 +1152,7 @@ mod tests {
         Python::attach(|py| {
             let webview = AuroraView::new(
                 "Test", 800, 600, None, None, true, true, true, true, None, None, None, false,
+                false, // always_on_top
             )
             .unwrap();
             let dict = PyDict::new(py);
@@ -1144,6 +1181,7 @@ mod tests {
                 None,
                 None,
                 false,
+                false, // always_on_top
             )
             .unwrap();
             let repr = webview.__repr__();
@@ -1159,6 +1197,7 @@ mod tests {
         Python::attach(|_py| {
             let webview = AuroraView::new(
                 "Test", 800, 600, None, None, true, true, true, true, None, None, None, false,
+                false, // always_on_top
             )
             .unwrap();
             assert!(webview.message_queue.is_empty());
@@ -1184,6 +1223,7 @@ mod tests {
                 None,
                 None,
                 false,
+                false, // always_on_top
             )
             .unwrap();
             webview.load_html("<h1>HTML</h1>").unwrap();
@@ -1211,6 +1251,7 @@ mod tests {
                 None,
                 None,
                 false,
+                false, // always_on_top
             )
             .unwrap();
             webview.load_url("https://example.com").unwrap();
@@ -1226,6 +1267,7 @@ mod tests {
         Python::attach(|_py| {
             let webview = AuroraView::new(
                 "Test", 800, 600, None, None, true, true, true, true, None, None, None, true,
+                false, // always_on_top
             )
             .unwrap();
             let config = webview.config.borrow();
