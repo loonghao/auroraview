@@ -156,6 +156,7 @@ pub fn register_cli_utils(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pyo3::Python;
 
     #[test]
     fn test_rewrite_relative_paths() {
@@ -273,5 +274,81 @@ mod tests {
         // Check that CSS url() references are rewritten
         assert!(result.contains(r#"url("auroraview://images/bg.png")"#));
         assert!(result.contains(r#"url("auroraview://icons/icon.svg")"#));
+    }
+
+    #[test]
+    fn test_normalize_url_without_scheme() {
+        Python::attach(|_py| {
+            let result = normalize_url("example.com").unwrap();
+            assert_eq!(result, "https://example.com/");
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_normalize_url_with_http() {
+        Python::attach(|_py| {
+            let result = normalize_url("http://example.com").unwrap();
+            assert_eq!(result, "http://example.com/");
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_normalize_url_with_https() {
+        Python::attach(|_py| {
+            let result = normalize_url("https://example.com/path").unwrap();
+            assert_eq!(result, "https://example.com/path");
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_normalize_url_with_port() {
+        Python::attach(|_py| {
+            let result = normalize_url("localhost:8080").unwrap();
+            assert_eq!(result, "https://localhost:8080/");
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_normalize_url_invalid() {
+        Python::attach(|_py| {
+            // Invalid URL should return error
+            let result = normalize_url("://invalid");
+            assert!(result.is_err());
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_rewrite_html_preserves_anchor_links() {
+        let html = "<a href=\"#section\">Link</a>";
+        let result = rewrite_html_for_custom_protocol(html);
+        // Anchor links should be preserved (not rewritten)
+        assert!(result.contains("href=\"#section\""));
+    }
+
+    #[test]
+    fn test_rewrite_html_empty_input() {
+        let html = "";
+        let result = rewrite_html_for_custom_protocol(html);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_register_cli_utils_module() {
+        Python::attach(|py| {
+            let m = pyo3::types::PyModule::new(py, "cli_test").unwrap();
+            register_cli_utils(&m).expect("register should succeed");
+            assert!(m.getattr("normalize_url").is_ok());
+            assert!(m.getattr("rewrite_html_for_custom_protocol").is_ok());
+        });
     }
 }

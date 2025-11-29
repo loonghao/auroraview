@@ -294,3 +294,142 @@ pub fn register_window_utils(m: &Bound<'_, PyModule>) -> PyResult<()> {
 // - get_foreground_window()
 // - get_all_windows()
 // - find_windows_by_title()
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use active_win_pos_rs::ActiveWindow;
+    use rstest::*;
+    use std::path::PathBuf;
+
+    #[fixture]
+    fn sample_active_window() -> ActiveWindow {
+        ActiveWindow {
+            title: "Test Window".to_string(),
+            window_id: "HWND(12345)".to_string(),
+            process_id: 1234,
+            process_path: PathBuf::from("C:/test/app.exe"),
+            app_name: "app".to_string(),
+            position: active_win_pos_rs::WindowPosition {
+                x: 100.0,
+                y: 200.0,
+                width: 800.0,
+                height: 600.0,
+            },
+        }
+    }
+
+    #[rstest]
+    fn test_window_info_from_active_window(sample_active_window: ActiveWindow) {
+        let window_info: WindowInfo = sample_active_window.into();
+
+        assert_eq!(window_info.title, "Test Window");
+        assert_eq!(window_info.hwnd, 12345);
+        assert_eq!(window_info.pid, 1234);
+        assert_eq!(window_info.process_name, "app");
+        assert_eq!(window_info.process_path, "C:/test/app.exe");
+    }
+
+    #[rstest]
+    fn test_window_info_repr(sample_active_window: ActiveWindow) {
+        let window_info: WindowInfo = sample_active_window.into();
+        let repr = window_info.__repr__();
+
+        assert!(repr.contains("WindowInfo"));
+        assert!(repr.contains("hwnd=12345"));
+        assert!(repr.contains("Test Window"));
+        assert!(repr.contains("pid=1234"));
+        assert!(repr.contains("app"));
+    }
+
+    #[test]
+    fn test_window_info_from_invalid_hwnd() {
+        let window = ActiveWindow {
+            title: "Test".to_string(),
+            window_id: "InvalidHWND".to_string(),
+            process_id: 1234,
+            process_path: PathBuf::from("/test/app"),
+            app_name: "app".to_string(),
+            position: active_win_pos_rs::WindowPosition {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 100.0,
+            },
+        };
+
+        let window_info: WindowInfo = window.into();
+        // Invalid HWND should parse to 0
+        assert_eq!(window_info.hwnd, 0);
+    }
+
+    #[test]
+    fn test_window_info_from_empty_hwnd() {
+        let window = ActiveWindow {
+            title: "Test".to_string(),
+            window_id: "HWND()".to_string(),
+            process_id: 1234,
+            process_path: PathBuf::from("/test/app"),
+            app_name: "app".to_string(),
+            position: active_win_pos_rs::WindowPosition {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 100.0,
+            },
+        };
+
+        let window_info: WindowInfo = window.into();
+        // Empty HWND should parse to 0
+        assert_eq!(window_info.hwnd, 0);
+    }
+
+    #[test]
+    fn test_register_window_utils() {
+        pyo3::Python::attach(|py| {
+            let m = pyo3::types::PyModule::new(py, "window_test").unwrap();
+            register_window_utils(&m).expect("register should succeed");
+            assert!(m.getattr("get_foreground_window").is_ok());
+            assert!(m.getattr("find_windows_by_title").is_ok());
+            assert!(m.getattr("find_window_by_exact_title").is_ok());
+            assert!(m.getattr("get_all_windows").is_ok());
+            assert!(m.getattr("close_window_by_hwnd").is_ok());
+            assert!(m.getattr("destroy_window_by_hwnd").is_ok());
+            assert!(m.getattr("WindowInfo").is_ok());
+        });
+    }
+
+    #[test]
+    fn test_window_info_clone() {
+        let window = WindowInfo {
+            hwnd: 12345,
+            title: "Test Window".to_string(),
+            pid: 1234,
+            process_name: "app".to_string(),
+            process_path: "C:/test/app.exe".to_string(),
+        };
+
+        let cloned = window.clone();
+        assert_eq!(window.hwnd, cloned.hwnd);
+        assert_eq!(window.title, cloned.title);
+        assert_eq!(window.pid, cloned.pid);
+        assert_eq!(window.process_name, cloned.process_name);
+        assert_eq!(window.process_path, cloned.process_path);
+    }
+
+    #[test]
+    fn test_window_info_debug() {
+        let window = WindowInfo {
+            hwnd: 12345,
+            title: "Test Window".to_string(),
+            pid: 1234,
+            process_name: "app".to_string(),
+            process_path: "C:/test/app.exe".to_string(),
+        };
+
+        let debug_str = format!("{:?}", window);
+        assert!(debug_str.contains("WindowInfo"));
+        assert!(debug_str.contains("12345"));
+        assert!(debug_str.contains("Test Window"));
+    }
+}

@@ -81,3 +81,108 @@ pub enum IpcMode {
     #[allow(dead_code)]
     Process,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::*;
+
+    #[test]
+    fn test_ipc_message_new() {
+        let msg = IpcMessage {
+            event: "test_event".to_string(),
+            data: Value::String("test_data".to_string()),
+            id: Some("msg_123".to_string()),
+        };
+
+        assert_eq!(msg.event, "test_event");
+        assert_eq!(msg.id, Some("msg_123".to_string()));
+    }
+
+    #[test]
+    fn test_ipc_message_without_id() {
+        let msg = IpcMessage {
+            event: "event".to_string(),
+            data: Value::Null,
+            id: None,
+        };
+
+        assert_eq!(msg.event, "event");
+        assert!(msg.id.is_none());
+    }
+
+    #[test]
+    fn test_ipc_message_clone() {
+        let msg = IpcMessage {
+            event: "test".to_string(),
+            data: Value::Bool(true),
+            id: Some("id".to_string()),
+        };
+
+        let cloned = msg.clone();
+        assert_eq!(msg.event, cloned.event);
+        assert_eq!(msg.id, cloned.id);
+    }
+
+    #[test]
+    fn test_ipc_message_debug() {
+        let msg = IpcMessage {
+            event: "debug_test".to_string(),
+            data: Value::Number(serde_json::Number::from(42)),
+            id: None,
+        };
+
+        let debug_str = format!("{:?}", msg);
+        assert!(debug_str.contains("IpcMessage"));
+        assert!(debug_str.contains("debug_test"));
+    }
+
+    #[test]
+    fn test_ipc_message_serialize() {
+        let msg = IpcMessage {
+            event: "serialize_test".to_string(),
+            data: Value::Object(serde_json::Map::new()),
+            id: Some("ser_id".to_string()),
+        };
+
+        let json = serde_json::to_string(&msg).unwrap();
+        assert!(json.contains("serialize_test"));
+        assert!(json.contains("ser_id"));
+    }
+
+    #[test]
+    fn test_ipc_message_deserialize() {
+        let json = r#"{"event":"deser_test","data":{"key":"value"},"id":"deser_id"}"#;
+        let msg: IpcMessage = serde_json::from_str(json).unwrap();
+
+        assert_eq!(msg.event, "deser_test");
+        assert_eq!(msg.id, Some("deser_id".to_string()));
+    }
+
+    #[rstest]
+    fn test_ipc_mode_default() {
+        let mode = IpcMode::default();
+        assert_eq!(mode, IpcMode::Threaded);
+    }
+
+    #[rstest]
+    fn test_ipc_mode_clone() {
+        let mode = IpcMode::Process;
+        let cloned = mode;
+        assert_eq!(mode, cloned);
+    }
+
+    #[rstest]
+    fn test_ipc_mode_debug() {
+        let mode = IpcMode::Threaded;
+        let debug_str = format!("{:?}", mode);
+        assert!(debug_str.contains("Threaded"));
+    }
+
+    #[rstest]
+    fn test_ipc_mode_equality() {
+        assert_eq!(IpcMode::Threaded, IpcMode::Threaded);
+        assert_eq!(IpcMode::Process, IpcMode::Process);
+        assert_ne!(IpcMode::Threaded, IpcMode::Process);
+    }
+}
