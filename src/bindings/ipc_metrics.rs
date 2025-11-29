@@ -114,3 +114,107 @@ pub fn register_ipc_metrics(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyIpcMetrics>()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ipc::metrics::IpcMetricsSnapshot;
+
+    #[test]
+    fn test_py_ipc_metrics_from_snapshot() {
+        let snapshot = IpcMetricsSnapshot {
+            messages_sent: 100,
+            messages_failed: 5,
+            messages_dropped: 2,
+            retry_attempts: 10,
+            avg_latency_us: 150,
+            peak_queue_length: 50,
+            messages_received: 95,
+            success_rate: 95.24,
+        };
+
+        let py_metrics: PyIpcMetrics = snapshot.into();
+
+        assert_eq!(py_metrics.messages_sent, 100);
+        assert_eq!(py_metrics.messages_failed, 5);
+        assert_eq!(py_metrics.messages_dropped, 2);
+        assert_eq!(py_metrics.retry_attempts, 10);
+        assert_eq!(py_metrics.avg_latency_us, 150);
+        assert_eq!(py_metrics.peak_queue_length, 50);
+        assert_eq!(py_metrics.messages_received, 95);
+        assert!((py_metrics.success_rate - 95.24).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_py_ipc_metrics_repr() {
+        let metrics = PyIpcMetrics {
+            messages_sent: 100,
+            messages_failed: 5,
+            messages_dropped: 2,
+            retry_attempts: 10,
+            avg_latency_us: 150,
+            peak_queue_length: 50,
+            messages_received: 95,
+            success_rate: 95.24,
+        };
+
+        let repr = metrics.__repr__();
+        assert!(repr.contains("sent=100"));
+        assert!(repr.contains("failed=5"));
+        assert!(repr.contains("dropped=2"));
+        assert!(repr.contains("95.24%"));
+        assert!(repr.contains("150μs"));
+    }
+
+    #[test]
+    fn test_py_ipc_metrics_format() {
+        let metrics = PyIpcMetrics {
+            messages_sent: 100,
+            messages_failed: 5,
+            messages_dropped: 2,
+            retry_attempts: 10,
+            avg_latency_us: 150,
+            peak_queue_length: 50,
+            messages_received: 95,
+            success_rate: 95.24,
+        };
+
+        let format = metrics.format();
+        assert!(format.contains("IPC Metrics:"));
+        assert!(format.contains("Messages Sent: 100"));
+        assert!(format.contains("Messages Failed: 5"));
+        assert!(format.contains("Messages Dropped: 2"));
+        assert!(format.contains("Retry Attempts: 10"));
+        assert!(format.contains("Success Rate: 95.24%"));
+        assert!(format.contains("Avg Latency: 150μs"));
+        assert!(format.contains("Peak Queue Length: 50"));
+        assert!(format.contains("Messages Received: 95"));
+    }
+
+    #[test]
+    fn test_register_ipc_metrics_module() {
+        pyo3::Python::attach(|py| {
+            let m = pyo3::types::PyModule::new(py, "ipc_test").unwrap();
+            register_ipc_metrics(&m).expect("register should succeed");
+            assert!(m.getattr("IpcMetrics").is_ok());
+        });
+    }
+
+    #[test]
+    fn test_py_ipc_metrics_zero_values() {
+        let metrics = PyIpcMetrics {
+            messages_sent: 0,
+            messages_failed: 0,
+            messages_dropped: 0,
+            retry_attempts: 0,
+            avg_latency_us: 0,
+            peak_queue_length: 0,
+            messages_received: 0,
+            success_rate: 100.0,
+        };
+
+        let repr = metrics.__repr__();
+        assert!(repr.contains("sent=0"));
+        assert!(repr.contains("100.00%"));
+    }
+}

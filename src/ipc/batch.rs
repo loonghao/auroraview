@@ -357,3 +357,259 @@ impl Default for BatchedHandler {
 // - Message batch flush conditions (size and age-based)
 // - BatchedCallback with Python integration
 // - Single and batch message processing
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::*;
+    use std::thread;
+    use std::time::Duration;
+
+    #[fixture]
+    fn sample_message() -> BatchedMessage {
+        BatchedMessage::new(
+            "test_event".to_string(),
+            serde_json::json!({"key": "value"}),
+        )
+    }
+
+    #[rstest]
+    fn test_batched_message_new(sample_message: BatchedMessage) {
+        assert_eq!(sample_message.event, "test_event");
+        assert_eq!(sample_message.data, serde_json::json!({"key": "value"}));
+        assert_eq!(sample_message.priority, 0);
+        assert!(sample_message.timestamp > 0);
+        assert!(sample_message.id.is_none());
+    }
+
+    #[test]
+    fn test_batched_message_high_priority() {
+        let msg = BatchedMessage::high_priority(
+            "urgent_event".to_string(),
+            serde_json::json!({"urgent": true}),
+        );
+
+        assert_eq!(msg.event, "urgent_event");
+        assert_eq!(msg.priority, 10);
+        assert!(msg.timestamp > 0);
+    }
+
+    #[test]
+    fn test_message_batch_new() {
+        let batch = MessageBatch::new();
+        assert!(batch.messages.is_empty());
+    }
+
+    #[test]
+    fn test_message_batch_add() {
+        let mut batch = MessageBatch::new();
+        let message = BatchedMessage::new(
+            "test_event".to_string(),
+            serde_json::json!({"key": "value"}),
+        );
+        batch.add(message);
+
+        assert_eq!(batch.messages.len(), 1);
+        assert_eq!(batch.messages[0].event, "test_event");
+    }
+
+    #[test]
+    fn test_message_batch_should_flush_by_size() {
+        let mut batch = MessageBatch::new();
+
+        for i in 0..5 {
+            batch.add(BatchedMessage::new(
+                format!("event_{}", i),
+                serde_json::json!({}),
+            ));
+        }
+
+        assert!(!batch.should_flush(10, 1000)); // Not at max size yet
+        assert!(batch.should_flush(5, 1000)); // At max size
+        assert!(batch.should_flush(3, 1000)); // Over max size
+    }
+
+    #[test]
+    fn test_message_batch_should_flush_by_age() {
+        let batch = MessageBatch::new();
+
+        // Fresh batch should not flush by age
+        assert!(!batch.should_flush(100, 100));
+
+        // Sleep and check again
+        thread::sleep(Duration::from_millis(50));
+        assert!(batch.should_flush(100, 10)); // 10ms age, but we slept 50ms
+    }
+
+    #[test]
+    fn test_message_batch_sort_by_priority() {
+        let mut batch = MessageBatch::new();
+
+        batch.add(BatchedMessage {
+            event: "low".to_string(),
+            data: serde_json::json!({}),
+            priority: 1,
+            timestamp: 0,
+            id: None,
+        });
+
+        batch.add(BatchedMessage {
+            event: "high".to_string(),
+            data: serde_json::json!({}),
+            priority: 10,
+            timestamp: 0,
+            id: None,
+        });
+
+        batch.add(BatchedMessage {
+            event: "medium".to_string(),
+            data: serde_json::json!({}),
+            priority: 5,
+            timestamp: 0,
+            id: None,
+        });
+
+        batch.sort_by_priority();
+
+        assert_eq!(batch.messages[0].event, "high");
+        assert_eq!(batch.messages[0].priority, 10);
+        assert_eq!(batch.messages[1].event, "medium");
+        assert_eq!(batch.messages[1].priority, 5);
+        assert_eq!(batch.messages[2].event, "low");
+        assert_eq!(batch.messages[2].priority, 1);
+    }
+
+    #[test]
+    fn test_message_batch_default() {
+        let batch = MessageBatch::default();
+        assert!(batch.messages.is_empty());
+    }
+
+    #[test]
+    fn test_batched_handler_new() {
+        let handler = BatchedHandler::new();
+        assert_eq!(handler.max_batch_size, 10);
+        assert_eq!(handler.max_batch_age_ms, 16);
+    }
+
+    #[test]
+    fn test_batched_handler_default() {
+        let handler = BatchedHandler::default();
+        assert_eq!(handler.max_batch_size, 10);
+        assert_eq!(handler.max_batch_age_ms, 16);
+    }
+
+    #[test]
+    fn test_batched_handler_flush_empty_batch() {
+        let handler = BatchedHandler::new();
+        // Flushing an empty batch should succeed
+        let result = handler.flush_batch();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_json_to_python_basic_types() {
+        Python::attach(|py| {
+            // Null
+            let null_val = json_to_python(py, &serde_json::Value::Null).unwrap();
+            assert!(null_val.is_none(py));
+
+            // Bool
+            let bool_val = json_to_python(py, &serde_json::Value::Bool(true)).unwrap();
+            let extracted: bool = bool_val.bind(py).extract().unwrap();
+            assert!(extracted);
+
+            // Integer
+            let int_val = json_to_python(py, &serde_json::json!(42)).unwrap();
+            let extracted: i64 = int_val.bind(py).extract().unwrap();
+            assert_eq!(extracted, 42);
+
+            // Float
+            let float_val = json_to_python(py, &serde_json::json!(1.234)).unwrap();
+            let extracted: f64 = float_val.bind(py).extract().unwrap();
+            assert!((extracted - 1.234).abs() < 0.001);
+
+            // String
+            let str_val = json_to_python(py, &serde_json::json!("hello")).unwrap();
+            let extracted: String = str_val.bind(py).extract().unwrap();
+            assert_eq!(extracted, "hello");
+
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_json_to_python_array() {
+        Python::attach(|py| {
+            let arr = serde_json::json!([1, 2, 3]);
+            let py_val = json_to_python(py, &arr).unwrap();
+            let py_list = py_val.bind(py).cast::<PyList>().unwrap();
+
+            assert_eq!(py_list.len(), 3);
+
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_json_to_python_object() {
+        Python::attach(|py| {
+            let obj = serde_json::json!({"name": "test", "value": 123});
+            let py_val = json_to_python(py, &obj).unwrap();
+            let py_dict = py_val.bind(py).cast::<PyDict>().unwrap();
+
+            let name = py_dict
+                .get_item("name")
+                .unwrap()
+                .unwrap()
+                .extract::<String>()
+                .unwrap();
+            assert_eq!(name, "test");
+
+            let value = py_dict
+                .get_item("value")
+                .unwrap()
+                .unwrap()
+                .extract::<i64>()
+                .unwrap();
+            assert_eq!(value, 123);
+
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_batched_message_clone() {
+        let msg = BatchedMessage::new("test".to_string(), serde_json::json!({"key": "value"}));
+        let cloned = msg.clone();
+
+        assert_eq!(msg.event, cloned.event);
+        assert_eq!(msg.data, cloned.data);
+        assert_eq!(msg.priority, cloned.priority);
+        assert_eq!(msg.timestamp, cloned.timestamp);
+    }
+
+    #[test]
+    fn test_batched_message_debug() {
+        let msg = BatchedMessage::new("test".to_string(), serde_json::json!({}));
+        let debug_str = format!("{:?}", msg);
+
+        assert!(debug_str.contains("BatchedMessage"));
+        assert!(debug_str.contains("test"));
+    }
+
+    #[test]
+    fn test_message_batch_clone() {
+        let mut batch = MessageBatch::new();
+        batch.add(BatchedMessage::new(
+            "event".to_string(),
+            serde_json::json!({}),
+        ));
+
+        let cloned = batch.clone();
+        assert_eq!(batch.messages.len(), cloned.messages.len());
+    }
+}

@@ -189,3 +189,141 @@ impl PyTimer {
         Ok(dict.into())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_py_timer_new() {
+        Python::attach(|_py| {
+            let timer = PyTimer::new(100);
+            assert_eq!(timer.interval_ms(), 100);
+            assert!(!timer.is_running());
+            assert_eq!(timer.tick_count(), 0);
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_py_timer_repr() {
+        Python::attach(|_py| {
+            let timer = PyTimer::new(50);
+            let repr = timer.__repr__();
+
+            assert!(repr.contains("NativeTimer"));
+            assert!(repr.contains("interval_ms=50"));
+            assert!(repr.contains("running=false"));
+            assert!(repr.contains("ticks=0"));
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_py_timer_backend() {
+        Python::attach(|_py| {
+            let timer = PyTimer::new(100);
+            let backend = timer.backend();
+
+            // Backend should be ThreadBased by default (not started)
+            let backend_str = backend.__str__();
+            assert!(backend_str == "ThreadBased" || backend_str == "WindowsSetTimer");
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_py_timer_backend_repr() {
+        Python::attach(|_py| {
+            let timer = PyTimer::new(100);
+            let backend = timer.backend();
+            let repr = backend.__repr__();
+
+            assert!(repr.contains("ThreadBased") || repr.contains("WindowsSetTimer"));
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_py_timer_to_dict() {
+        Python::attach(|py| {
+            let timer = PyTimer::new(200);
+            let dict_obj = timer.to_dict(py).unwrap();
+            let dict = dict_obj.bind(py).cast::<PyDict>().unwrap();
+
+            let interval: u32 = dict
+                .get_item("interval_ms")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(interval, 200);
+
+            let running: bool = dict
+                .get_item("running")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert!(!running);
+
+            let tick_count: u64 = dict
+                .get_item("tick_count")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(tick_count, 0);
+
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_py_timer_stop() {
+        Python::attach(|_py| {
+            let mut timer = PyTimer::new(100);
+            // Stop should work even if timer is not running
+            timer.stop();
+            assert!(!timer.is_running());
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_py_timer_set_callback() {
+        Python::attach(|py| {
+            let mut timer = PyTimer::new(100);
+
+            // Create a simple Python lambda
+            let callback = py.eval(c"lambda: None", None, None).unwrap();
+            timer.set_callback(callback.unbind());
+
+            // Verify callback was set
+            let cb = timer.callback.lock().unwrap();
+            assert!(cb.is_some());
+
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_py_timer_backend_clone() {
+        Python::attach(|_py| {
+            let timer = PyTimer::new(100);
+            let backend = timer.backend();
+            let cloned = backend.clone();
+
+            assert_eq!(backend.__str__(), cloned.__str__());
+            Ok::<(), pyo3::PyErr>(())
+        })
+        .unwrap();
+    }
+}

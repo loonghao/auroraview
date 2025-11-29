@@ -240,6 +240,7 @@ console.log('[TIMER] Performance monitoring initialized');
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::*;
 
     #[test]
     fn test_wrap_partial_html() {
@@ -257,10 +258,97 @@ mod tests {
         assert!(wrapped.contains("auroraViewPerf"));
         assert!(wrapped.contains("<h1>Hello</h1>"));
     }
-}
 
-#[test]
-fn test_loading_html_has_spinner_and_text() {
-    assert!(LOADING_HTML.contains("spinner"));
-    assert!(LOADING_HTML.contains("Loading AuroraView"));
+    #[test]
+    fn test_loading_html_has_spinner_and_text() {
+        assert!(LOADING_HTML.contains("spinner"));
+        assert!(LOADING_HTML.contains("Loading AuroraView"));
+    }
+
+    #[test]
+    fn test_loading_html_has_doctype() {
+        assert!(LOADING_HTML.contains("<!DOCTYPE html>"));
+    }
+
+    #[test]
+    fn test_loading_html_has_meta_charset() {
+        assert!(LOADING_HTML.contains("charset=\"UTF-8\""));
+    }
+
+    #[test]
+    fn test_loading_html_has_viewport() {
+        assert!(LOADING_HTML.contains("viewport"));
+    }
+
+    #[test]
+    fn test_loading_html_has_animation() {
+        assert!(LOADING_HTML.contains("@keyframes spin"));
+    }
+
+    #[rstest]
+    #[case("<!DOCTYPE html><html><body></body></html>")]
+    #[case("<!doctype html><html><body></body></html>")]
+    #[case("<!DOCTYPE HTML><html><body></body></html>")]
+    fn test_wrap_html_detects_doctype(#[case] html: &str) {
+        let wrapped = wrap_html_with_optimizations(html);
+        // Should add performance monitoring but not wrap with new doctype
+        assert!(wrapped.contains("auroraViewPerf"));
+        // Should not have duplicate doctype
+        let doctype_count =
+            wrapped.matches("<!DOCTYPE").count() + wrapped.matches("<!doctype").count();
+        assert_eq!(doctype_count, 1);
+    }
+
+    #[test]
+    fn test_wrap_html_empty_input() {
+        let html = "";
+        let wrapped = wrap_html_with_optimizations(html);
+        assert!(wrapped.contains("<!DOCTYPE html>"));
+        assert!(wrapped.contains("auroraViewPerf"));
+    }
+
+    #[test]
+    fn test_add_performance_monitoring_with_body() {
+        let html = "<html><body><p>Test</p></body></html>";
+        let result = add_performance_monitoring(html);
+        assert!(result.contains("auroraViewPerf"));
+        assert!(result.contains("<p>Test</p>"));
+        assert!(result.contains("</body>"));
+    }
+
+    #[test]
+    fn test_add_performance_monitoring_without_body() {
+        let html = "<html><p>Test</p></html>";
+        let result = add_performance_monitoring(html);
+        assert!(result.contains("auroraViewPerf"));
+        assert!(result.contains("<p>Test</p>"));
+    }
+
+    #[test]
+    fn test_loading_html_has_console_log() {
+        assert!(LOADING_HTML.contains("console.log"));
+        assert!(LOADING_HTML.contains("[TIMER]"));
+    }
+
+    #[test]
+    fn test_loading_html_has_performance_timing() {
+        assert!(LOADING_HTML.contains("performance.now()"));
+        assert!(LOADING_HTML.contains("loadingScreenReady"));
+    }
+
+    #[test]
+    fn test_wrap_html_adds_ready_class() {
+        let html = "<h1>Test</h1>";
+        let wrapped = wrap_html_with_optimizations(html);
+        assert!(wrapped.contains("body.ready"));
+        assert!(wrapped.contains("classList.add('ready')"));
+    }
+
+    #[test]
+    fn test_wrap_html_adds_first_paint_event() {
+        let html = "<h1>Test</h1>";
+        let wrapped = wrap_html_with_optimizations(html);
+        assert!(wrapped.contains("first_paint"));
+        assert!(wrapped.contains("CustomEvent"));
+    }
 }

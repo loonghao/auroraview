@@ -303,31 +303,6 @@ pub fn process_all_messages_limited(max_messages: usize) -> bool {
     }
 }
 
-#[cfg(all(test, target_os = "windows"))]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_process_all_messages_limited_zero() {
-        // Should return false and not panic when no messages are processed
-        let should_close = process_all_messages_limited(0);
-        assert!(!should_close);
-    }
-}
-
-#[test]
-fn test_is_window_valid_zero_hwnd_is_false() {
-    // HWND(0) is invalid
-    assert!(!is_window_valid(0));
-}
-
-#[test]
-fn test_process_all_messages_no_messages_returns_false() {
-    // When no messages are pending, should return false
-    let should_close = process_all_messages();
-    assert!(!should_close);
-}
-
 #[cfg(not(target_os = "windows"))]
 pub fn process_all_messages_limited(_max_messages: usize) -> bool {
     false
@@ -452,4 +427,75 @@ pub fn process_messages_enhanced(hwnd_value: u64) -> bool {
 #[allow(dead_code)]
 pub fn process_messages_enhanced(_hwnd: u64) -> bool {
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_process_all_messages_limited_zero() {
+        // Should return false and not panic when no messages are processed
+        let should_close = process_all_messages_limited(0);
+        assert!(!should_close);
+    }
+
+    #[test]
+    fn test_is_window_valid_zero_hwnd_is_false() {
+        // HWND(0) is invalid on Windows, always true on other platforms
+        #[cfg(target_os = "windows")]
+        assert!(!is_window_valid(0));
+
+        #[cfg(not(target_os = "windows"))]
+        assert!(is_window_valid(0));
+    }
+
+    #[test]
+    fn test_process_all_messages_no_messages_returns_false() {
+        // When no messages are pending, should return false
+        let should_close = process_all_messages();
+        assert!(!should_close);
+    }
+
+    #[test]
+    fn test_process_messages_for_hwnd_invalid() {
+        // Invalid HWND should return false
+        let should_close = process_messages_for_hwnd(0);
+        assert!(!should_close);
+    }
+
+    #[test]
+    fn test_process_messages_enhanced_invalid_hwnd() {
+        // Invalid HWND should return true (window not valid)
+        #[cfg(target_os = "windows")]
+        {
+            let should_close = process_messages_enhanced(0);
+            // HWND(0) is invalid, so should return true
+            assert!(should_close);
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            let should_close = process_messages_enhanced(0);
+            assert!(!should_close);
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_process_all_messages_limited_with_limit() {
+        // Should process up to the limit
+        let should_close = process_all_messages_limited(10);
+        assert!(!should_close);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn test_non_windows_functions_return_false() {
+        assert!(!process_all_messages_limited(10));
+        assert!(!process_messages_for_hwnd(12345));
+        assert!(!process_all_messages());
+        assert!(!process_messages_enhanced(12345));
+    }
 }
