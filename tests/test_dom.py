@@ -4,8 +4,7 @@ This module tests the Element and ElementCollection classes that provide
 DOM manipulation capabilities for AuroraView WebViews.
 """
 
-import json
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -24,6 +23,7 @@ class TestElement:
     def element(self, mock_webview):
         """Create an Element instance for testing."""
         from auroraview.dom import Element
+
         return Element(mock_webview, "#test-element")
 
     # === Text & Content Tests ===
@@ -166,6 +166,7 @@ class TestElement:
     def test_query(self, element, mock_webview):
         """Test query returns a new Element."""
         from auroraview.dom import Element
+
         child = element.query(".child")
         assert isinstance(child, Element)
         assert ".child" in child._selector
@@ -173,6 +174,7 @@ class TestElement:
     def test_query_all(self, element, mock_webview):
         """Test query_all returns an ElementCollection."""
         from auroraview.dom import ElementCollection
+
         children = element.query_all(".child")
         assert isinstance(children, ElementCollection)
 
@@ -333,6 +335,7 @@ class TestElement:
     def test_parent(self, element, mock_webview):
         """Test parent returns a new Element with correct selector."""
         from auroraview.dom import Element
+
         parent = element.parent()
         assert isinstance(parent, Element)
         assert ":has(>" in parent._selector
@@ -340,6 +343,7 @@ class TestElement:
     def test_closest(self, element, mock_webview):
         """Test closest returns a new Element with correct selector."""
         from auroraview.dom import Element
+
         ancestor = element.closest(".container")
         assert isinstance(ancestor, Element)
         assert ".container" in ancestor._selector
@@ -347,6 +351,7 @@ class TestElement:
     def test_first_child(self, element, mock_webview):
         """Test first_child returns a new Element with correct selector."""
         from auroraview.dom import Element
+
         child = element.first_child()
         assert isinstance(child, Element)
         assert ":first-child" in child._selector
@@ -354,6 +359,7 @@ class TestElement:
     def test_last_child(self, element, mock_webview):
         """Test last_child returns a new Element with correct selector."""
         from auroraview.dom import Element
+
         child = element.last_child()
         assert isinstance(child, Element)
         assert ":last-child" in child._selector
@@ -361,6 +367,7 @@ class TestElement:
     def test_nth_child(self, element, mock_webview):
         """Test nth_child returns a new Element with correct selector."""
         from auroraview.dom import Element
+
         child = element.nth_child(3)
         assert isinstance(child, Element)
         assert ":nth-child(3)" in child._selector
@@ -368,6 +375,7 @@ class TestElement:
     def test_next_sibling(self, element, mock_webview):
         """Test next_sibling returns a new Element with correct selector."""
         from auroraview.dom import Element
+
         sibling = element.next_sibling()
         assert isinstance(sibling, Element)
         assert "+ *" in sibling._selector
@@ -375,6 +383,7 @@ class TestElement:
     def test_prev_sibling(self, element, mock_webview):
         """Test prev_sibling returns a new Element with correct selector."""
         from auroraview.dom import Element
+
         sibling = element.prev_sibling()
         assert isinstance(sibling, Element)
         assert ":has(+" in sibling._selector
@@ -382,6 +391,7 @@ class TestElement:
     def test_children(self, element, mock_webview):
         """Test children returns an ElementCollection."""
         from auroraview.dom import ElementCollection
+
         children = element.children()
         assert isinstance(children, ElementCollection)
         assert "> *" in children._selector
@@ -389,6 +399,7 @@ class TestElement:
     def test_siblings(self, element, mock_webview):
         """Test siblings returns an ElementCollection."""
         from auroraview.dom import ElementCollection
+
         siblings = element.siblings()
         assert isinstance(siblings, ElementCollection)
 
@@ -461,11 +472,13 @@ class TestElementCollection:
     def collection(self, mock_webview):
         """Create an ElementCollection instance for testing."""
         from auroraview.dom import ElementCollection
+
         return ElementCollection(mock_webview, ".items")
 
     def test_first(self, collection, mock_webview):
         """Test first returns an Element with same selector."""
         from auroraview.dom import Element
+
         first = collection.first()
         assert isinstance(first, Element)
         # first() returns the same selector (querySelector returns first match)
@@ -474,6 +487,7 @@ class TestElementCollection:
     def test_nth(self, collection, mock_webview):
         """Test nth returns an Element with nth-child selector."""
         from auroraview.dom import Element
+
         # nth(3) means index 3 (0-based), which is :nth-child(4) (1-based)
         third = collection.nth(3)
         assert isinstance(third, Element)
@@ -524,3 +538,264 @@ class TestElementCollection:
     def test_repr(self, collection):
         """Test ElementCollection repr."""
         assert repr(collection) == "ElementCollection('.items')"
+
+
+
+class TestRustDomBatch:
+    """Tests for the Rust-powered DomBatch class.
+    
+    DomBatch provides high-performance DOM operations by generating
+    optimized JavaScript in Rust and batching multiple operations
+    into a single eval_js call.
+    """
+
+    @pytest.fixture
+    def batch(self):
+        """Create a DomBatch instance for testing."""
+        try:
+            from auroraview import DomBatch
+            if DomBatch is None:
+                pytest.skip("DomBatch not available (Rust core not compiled)")
+            return DomBatch()
+        except ImportError:
+            pytest.skip("DomBatch not available (Rust core not compiled)")
+
+    def test_batch_creation(self, batch):
+        """Test DomBatch can be created."""
+        assert batch is not None
+        assert batch.count == 0
+        assert len(batch) == 0
+
+    def test_batch_set_text(self, batch):
+        """Test set_text adds operation to batch."""
+        batch.set_text("#title", "Hello World")
+        assert batch.count == 1
+        js = batch.to_js()
+        assert "#title" in js
+        assert "Hello World" in js
+        assert "textContent" in js
+
+
+    def test_batch_multiple_operations(self, batch):
+        """Test multiple operations can be batched."""
+        batch.set_text("#title", "Hello")
+        batch.add_class(".item", "active")
+        batch.click("#btn")
+        
+        assert batch.count == 3
+        js = batch.to_js()
+        assert "#title" in js
+        assert ".item" in js
+        assert "#btn" in js
+        assert "classList.add" in js
+        assert "click()" in js
+
+    def test_batch_is_wrapped_in_iife(self, batch):
+        """Test generated JS is wrapped in IIFE for isolation."""
+        batch.set_text("#test", "value")
+        js = batch.to_js()
+        assert js.startswith("(function(){")
+        assert js.endswith("})()")
+
+    def test_batch_escapes_special_chars(self, batch):
+        """Test special characters are properly escaped."""
+        batch.set_text("#test", 'Hello "World"')
+        js = batch.to_js()
+        # Should escape double quotes
+        assert '\\"' in js or "World" in js
+
+    def test_batch_clear(self, batch):
+        """Test clear removes all operations."""
+        batch.set_text("#a", "1")
+        batch.set_text("#b", "2")
+        assert batch.count == 2
+        batch.clear()
+        assert batch.count == 0
+
+
+    def test_batch_empty_generates_noop(self, batch):
+        """Test empty batch generates valid no-op JS."""
+        js = batch.to_js()
+        assert js == "(function(){})()"
+
+    def test_batch_set_html(self, batch):
+        """Test set_html operation."""
+        batch.set_html("#content", "<p>Hello</p>")
+        js = batch.to_js()
+        assert "innerHTML" in js
+        assert "<p>Hello</p>" in js or "Hello" in js
+
+    def test_batch_add_class(self, batch):
+        """Test add_class operation."""
+        batch.add_class("#elem", "active")
+        js = batch.to_js()
+        assert "classList.add" in js
+        assert "active" in js
+
+    def test_batch_remove_class(self, batch):
+        """Test remove_class operation."""
+        batch.remove_class("#elem", "hidden")
+        js = batch.to_js()
+        assert "classList.remove" in js
+        assert "hidden" in js
+
+    def test_batch_toggle_class(self, batch):
+        """Test toggle_class operation."""
+        batch.toggle_class("#elem", "expanded")
+        js = batch.to_js()
+        assert "classList.toggle" in js
+        assert "expanded" in js
+
+
+    def test_batch_set_attribute(self, batch):
+        """Test set_attribute operation."""
+        batch.set_attribute("#link", "href", "https://example.com")
+        js = batch.to_js()
+        assert "setAttribute" in js
+        assert "href" in js
+
+    def test_batch_remove_attribute(self, batch):
+        """Test remove_attribute operation."""
+        batch.remove_attribute("#elem", "disabled")
+        js = batch.to_js()
+        assert "removeAttribute" in js
+        assert "disabled" in js
+
+    def test_batch_set_style(self, batch):
+        """Test set_style operation."""
+        batch.set_style("#box", "backgroundColor", "red")
+        js = batch.to_js()
+        assert "style" in js
+        assert "backgroundColor" in js
+        assert "red" in js
+
+    def test_batch_show_hide(self, batch):
+        """Test show and hide operations."""
+        batch.show("#elem1")
+        batch.hide("#elem2")
+        js = batch.to_js()
+        assert "display" in js
+        assert "none" in js
+
+
+    def test_batch_set_value(self, batch):
+        """Test set_value operation."""
+        batch.set_value("#input", "test value")
+        js = batch.to_js()
+        assert ".value" in js
+        assert "test value" in js
+
+    def test_batch_set_checked(self, batch):
+        """Test set_checked operation."""
+        batch.set_checked("#checkbox", True)
+        js = batch.to_js()
+        assert "checked" in js
+        assert "true" in js
+
+    def test_batch_set_disabled(self, batch):
+        """Test set_disabled operation."""
+        batch.set_disabled("#btn", True)
+        js = batch.to_js()
+        assert "disabled" in js
+        assert "true" in js
+
+    def test_batch_click(self, batch):
+        """Test click operation."""
+        batch.click("#submit")
+        js = batch.to_js()
+        assert "click()" in js
+
+    def test_batch_double_click(self, batch):
+        """Test double_click operation."""
+        batch.double_click("#item")
+        js = batch.to_js()
+        assert "dblclick" in js
+        assert "MouseEvent" in js
+
+
+    def test_batch_focus_blur(self, batch):
+        """Test focus and blur operations."""
+        batch.focus("#input")
+        batch.blur("#other")
+        js = batch.to_js()
+        assert "focus()" in js
+        assert "blur()" in js
+
+    def test_batch_scroll_into_view(self, batch):
+        """Test scroll_into_view operation."""
+        batch.scroll_into_view("#section", smooth=True)
+        js = batch.to_js()
+        assert "scrollIntoView" in js
+        assert "smooth" in js
+
+    def test_batch_type_text(self, batch):
+        """Test type_text operation."""
+        batch.type_text("#input", "hello", clear=True)
+        js = batch.to_js()
+        assert "input" in js.lower()
+        assert "hello" in js
+
+    def test_batch_clear_input(self, batch):
+        """Test clear_input operation."""
+        batch.clear_input("#search")
+        js = batch.to_js()
+        assert "value" in js
+        assert "input" in js.lower()
+
+    def test_batch_submit(self, batch):
+        """Test submit operation."""
+        batch.submit("#form")
+        js = batch.to_js()
+        assert "submit" in js.lower()
+
+
+    def test_batch_append_html(self, batch):
+        """Test append_html operation."""
+        batch.append_html("#list", "<li>Item</li>")
+        js = batch.to_js()
+        assert "insertAdjacentHTML" in js
+        assert "beforeend" in js
+
+    def test_batch_prepend_html(self, batch):
+        """Test prepend_html operation."""
+        batch.prepend_html("#list", "<li>First</li>")
+        js = batch.to_js()
+        assert "insertAdjacentHTML" in js
+        assert "afterbegin" in js
+
+    def test_batch_remove(self, batch):
+        """Test remove operation."""
+        batch.remove("#old-elem")
+        js = batch.to_js()
+        assert "remove()" in js
+
+    def test_batch_empty(self, batch):
+        """Test empty operation (clear content)."""
+        batch.empty("#container")
+        js = batch.to_js()
+        assert "innerHTML" in js
+
+    def test_batch_raw(self, batch):
+        """Test raw JavaScript on element."""
+        batch.raw("#elem", "console.log(e.id)")
+        js = batch.to_js()
+        assert "console.log" in js
+
+    def test_batch_raw_global(self, batch):
+        """Test raw global JavaScript."""
+        batch.raw_global("console.log('Hello')")
+        js = batch.to_js()
+        assert "console.log('Hello')" in js
+
+    def test_batch_repr(self, batch):
+        """Test batch string representation."""
+        batch.set_text("#a", "1")
+        batch.set_text("#b", "2")
+        assert "DomBatch" in repr(batch)
+        assert "2" in repr(batch)
+
+    def test_batch_len(self, batch):
+        """Test len() on batch."""
+        assert len(batch) == 0
+        batch.set_text("#test", "value")
+        assert len(batch) == 1

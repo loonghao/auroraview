@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 
 #[cfg(feature = "python-bindings")]
 mod bindings;
+pub mod dom;
 pub mod ipc;
 mod platform;
 pub mod service_discovery;
@@ -54,6 +55,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register standalone runner (uses event_loop.run() for standalone apps)
     bindings::standalone_runner::register_standalone_runner(m)?;
 
+    // Register high-performance DOM batch operations
+    dom::register_dom_module(m)?;
+
     // Windows-only: register minimal WebView2 embedded API (feature-gated)
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]
     bindings::webview2::register_webview2_api(m)?;
@@ -96,6 +100,16 @@ mod tests {
         let _: Option<ipc::IpcHandler> = None;
         let _: Option<ipc::MessageQueue> = None;
         let _: Option<ipc::IpcMetrics> = None;
+    }
+
+    /// Test DOM module imports
+    #[rstest]
+    fn test_dom_module_imports() {
+        use crate::dom;
+
+        // Verify DOM types are accessible
+        let _: Option<dom::DomBatch> = None;
+        let _: Option<dom::DomOp> = None;
     }
 
     /// Test service discovery module imports
