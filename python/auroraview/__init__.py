@@ -96,6 +96,8 @@ try:
         rewrite_html_for_custom_protocol,
         # Standalone runner
         run_standalone,
+        # High-performance DOM batch operations (Rust-powered)
+        DomBatch,
     )
 except ImportError:
     # Fallback for development without compiled extension
@@ -115,6 +117,9 @@ except ImportError:
     normalize_url = None  # type: ignore
     rewrite_html_for_custom_protocol = None  # type: ignore
     run_standalone = None  # type: ignore
+
+    # Placeholder for DOM batch
+    DomBatch = None  # type: ignore
 
 from .automation import Automation, BrowserBackend, LocalWebViewBackend, SteelBrowserBackend
 from .dom import Element, ElementCollection
@@ -224,6 +229,8 @@ __all__ = [
     # DOM manipulation
     "Element",
     "ElementCollection",
+    # High-performance DOM batch (Rust-powered)
+    "DomBatch",
     # Automation (Steel Browser compatible)
     "Automation",
     "BrowserBackend",
