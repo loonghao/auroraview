@@ -103,13 +103,9 @@ def test_main_with_html_auto_asset_root():
                 call_kwargs = mock_run_standalone.call_args.kwargs
                 # asset_root should be the directory containing the HTML file
                 # Use path normalization to handle Windows 8.3 short names
-                assert _normalize_path(call_kwargs["asset_root"]) == _normalize_path(
-                    tmpdir
-                )
+                assert _normalize_path(call_kwargs["asset_root"]) == _normalize_path(tmpdir)
                 # html_path should be the absolute path to the HTML file
-                assert _normalize_path(call_kwargs["html_path"]) == _normalize_path(
-                    str(html_file)
-                )
+                assert _normalize_path(call_kwargs["html_path"]) == _normalize_path(str(html_file))
 
 
 def test_main_with_explicit_assets_root():

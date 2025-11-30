@@ -28,7 +28,14 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, runtime_checkable
+import sys
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+# Protocol and runtime_checkable are available in typing from Python 3.8+
+if sys.version_info >= (3, 8):
+    from typing import Protocol, runtime_checkable
+else:
+    from typing_extensions import Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from .dom import Element, ElementCollection
