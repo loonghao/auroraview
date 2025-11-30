@@ -2,12 +2,21 @@
 WebViewBot - High-level API for WebView testing
 
 Provides automation and assertion methods for testing WebView applications.
+
+This module now integrates with the DOM API for better element interaction
+while maintaining backward compatibility with the event-based approach.
 """
+
+from __future__ import annotations
 
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from ..dom import Element, ElementCollection
+    from ..webview import WebView
 
 
 @dataclass
@@ -24,18 +33,21 @@ class WebViewBot:
     High-level API for WebView testing and automation.
 
     Provides methods for:
-    - Element interaction (click, type, drag)
+    - Element interaction via DOM API (click, type, drag)
     - Event monitoring and assertion
     - JavaScript execution
     - Element state checking
+
+    The bot now uses the DOM API for element interactions when available,
+    falling back to JavaScript injection for legacy compatibility.
     """
 
-    def __init__(self, webview):
+    def __init__(self, webview: WebView):
         """Initialize WebViewBot with a WebView instance"""
         self.webview = webview
         self.events: List[EventRecord] = []
         self._monitoring_active = False
-        self._query_results = {}  # Store query results from JavaScript
+        self._query_results: Dict[str, Any] = {}  # Store query results from JavaScript
         self._query_lock = threading.Lock()
         self._setup_query_handlers()
 
@@ -101,37 +113,61 @@ class WebViewBot:
         return True
 
     def click(self, selector: str):
-        """Click an element"""
-        script = f"""
-        const element = document.querySelector('{selector}');
-        if (element) {{
-            element.click();
-        }}
-        """
-        self.webview.eval_js(script)
+        """Click an element using DOM API."""
+        self.webview.dom(selector).click()
 
     def type(self, selector: str, text: str):
-        """Type text into an element"""
+        """Type text into an element using DOM API."""
+        self.webview.dom(selector).type_text(text)
+
+    def set_value(self, selector: str, value: str):
+        """Set the value of an input element using DOM API."""
+        self.webview.dom(selector).set_value(value)
+
+    def get_text(self, selector: str) -> str:
+        """Get the text content of an element using DOM API."""
+        return self.webview.dom(selector).get_text()
+
+    def get_value(self, selector: str) -> str:
+        """Get the value of an input element using DOM API."""
+        return self.webview.dom(selector).get_value()
+
+    def drag(self, selector: str, offset: tuple):
+        """Drag an element (legacy JS-based implementation)."""
+        dx, dy = offset
         script = f"""
-        const element = document.querySelector('{selector}');
-        if (element) {{
-            element.value = '{text}';
-            element.dispatchEvent(new Event('input', {{ bubbles: true }}));
-        }}
+        (function() {{
+            const element = document.querySelector('{selector}');
+            if (element) {{
+                const rect = element.getBoundingClientRect();
+                const startX = rect.left + rect.width / 2;
+                const startY = rect.top + rect.height / 2;
+                const endX = startX + {dx};
+                const endY = startY + {dy};
+
+                element.dispatchEvent(new MouseEvent('mousedown', {{
+                    bubbles: true, clientX: startX, clientY: startY
+                }}));
+                document.dispatchEvent(new MouseEvent('mousemove', {{
+                    bubbles: true, clientX: endX, clientY: endY
+                }}));
+                document.dispatchEvent(new MouseEvent('mouseup', {{
+                    bubbles: true, clientX: endX, clientY: endY
+                }}));
+            }}
+        }})()
         """
         self.webview.eval_js(script)
 
-    def drag(self, selector: str, offset: tuple):
-        """Drag an element"""
-        dx, dy = offset
-        script = f"""
-        const element = document.querySelector('{selector}');
-        if (element) {{
-            const event = new MouseEvent('mousedown', {{ bubbles: true }});
-            element.dispatchEvent(event);
-        }}
-        """
-        self.webview.eval_js(script)
+    # ========== DOM API Access ==========
+
+    def dom(self, selector: str) -> "Element":
+        """Get a DOM element by selector."""
+        return self.webview.dom(selector)
+
+    def dom_all(self, selector: str) -> "ElementCollection":
+        """Get all DOM elements matching a selector."""
+        return self.webview.dom_all(selector)
 
     def element_exists(self, selector: str) -> bool:
         """Check if an element exists"""
