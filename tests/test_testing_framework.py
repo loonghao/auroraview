@@ -11,6 +11,28 @@ from auroraview.testing import assertions
 from auroraview.testing.webview_bot import WebViewBot
 
 
+class DummyElement:
+    """Minimal Element stub for DOM API testing."""
+
+    def __init__(self, selector: str) -> None:
+        self.selector = selector
+
+    def click(self) -> None:
+        pass
+
+    def type_text(self, text: str, clear: bool = True) -> None:
+        pass
+
+    def set_value(self, value: str) -> None:
+        pass
+
+    def get_text(self) -> str:
+        return ""
+
+    def exists(self) -> bool:
+        return True
+
+
 class DummyWebView:
     """Minimal WebView stub to satisfy WebViewBot without opening a real window."""
 
@@ -28,6 +50,10 @@ class DummyWebView:
     def eval_js(self, script: str) -> None:
         # Record script to simulate successful execution
         self._scripts.append(script)
+
+    def dom(self, selector: str) -> DummyElement:
+        """Return a dummy DOM element for testing."""
+        return DummyElement(selector)
 
 
 @pytest.fixture

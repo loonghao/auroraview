@@ -27,38 +27,34 @@ class TestWebViewBot:
         assert bot._monitoring_active is False
 
     def test_webview_bot_click(self):
-        """Test click method calls eval_js."""
+        """Test click method uses DOM API."""
         from auroraview.testing import WebViewBot
 
+        mock_element = MagicMock()
         mock_webview = MagicMock()
         mock_webview.on = MagicMock(return_value=lambda f: f)
-        mock_webview.eval_js = MagicMock()
+        mock_webview.dom = MagicMock(return_value=mock_element)
         bot = WebViewBot(mock_webview)
 
         bot.click("#testBtn")
 
-        mock_webview.eval_js.assert_called_once()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "querySelector" in call_args
-        assert "#testBtn" in call_args
-        assert "click()" in call_args
+        mock_webview.dom.assert_called_once_with("#testBtn")
+        mock_element.click.assert_called_once()
 
     def test_webview_bot_type(self):
-        """Test type method calls eval_js."""
+        """Test type method uses DOM API."""
         from auroraview.testing import WebViewBot
 
+        mock_element = MagicMock()
         mock_webview = MagicMock()
         mock_webview.on = MagicMock(return_value=lambda f: f)
-        mock_webview.eval_js = MagicMock()
+        mock_webview.dom = MagicMock(return_value=mock_element)
         bot = WebViewBot(mock_webview)
 
         bot.type("#inputField", "Hello World")
 
-        mock_webview.eval_js.assert_called_once()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "querySelector" in call_args
-        assert "#inputField" in call_args
-        assert "Hello World" in call_args
+        mock_webview.dom.assert_called_once_with("#inputField")
+        mock_element.type_text.assert_called_once_with("Hello World")
 
     def test_webview_bot_drag(self):
         """Test drag method calls eval_js."""

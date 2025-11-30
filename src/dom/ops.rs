@@ -1213,7 +1213,8 @@ mod tests {
         let mut batch = DomBatch::new();
         batch.click("[data-testid=\"submit-btn\"]");
         let js = batch.to_js();
-        assert!(js.contains("[data-testid=\\\"submit-btn\\\"]"));
+        // Double quotes are preserved in selectors (only single quotes are escaped)
+        assert!(js.contains("[data-testid=\"submit-btn\"]"));
     }
 
     // ============ Default Trait ============
