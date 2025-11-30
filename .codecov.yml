@@ -106,6 +106,7 @@ ignore:
   - ".github/"
   - "scripts/"
   - "python/auroraview/_version.py"  # Auto-generated
+  - "**/mod.rs"  # Rust module definition files (no logic to test)
 
 # GitHub checks
 github_checks:
