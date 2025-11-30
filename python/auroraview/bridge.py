@@ -24,16 +24,29 @@ import json
 import logging
 import threading
 import time
-from typing import Any, Callable, Dict, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set
 
 try:
     import websockets
-    from websockets.server import WebSocketServerProtocol
 
+    # websockets 14.0+ deprecates the legacy server API
+    # Use the new asyncio API which doesn't require WebSocketServerProtocol
     WEBSOCKETS_AVAILABLE = True
+
+    # For type hints, use a Protocol-compatible type
+    if TYPE_CHECKING:
+        # Import for type checking only to avoid deprecation warnings at runtime
+        try:
+            from websockets.asyncio.server import ServerConnection
+
+            WebSocketConnection = ServerConnection
+        except ImportError:
+            # Fallback for older websockets versions
+            from websockets.server import WebSocketServerProtocol
+
+            WebSocketConnection = WebSocketServerProtocol
 except ImportError:
     WEBSOCKETS_AVAILABLE = False
-    WebSocketServerProtocol = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +135,7 @@ class Bridge:
         self.host = host
         self.port = port
         self.protocol = protocol
-        self._clients: Set[WebSocketServerProtocol] = set()
+        self._clients: Set[Any] = set()  # WebSocket connections (ServerConnection in 14.0+)
         self._handlers: Dict[str, Callable] = {}
         self._webview_callback: Optional[Callable] = None
         self._server = None
@@ -279,11 +292,11 @@ class Bridge:
         self._is_running = False
         logger.info("✅ Bridge stopped")
 
-    async def _handle_client(self, websocket: WebSocketServerProtocol):
+    async def _handle_client(self, websocket: Any):
         """Handle a new client connection.
 
         Args:
-            websocket: WebSocket connection
+            websocket: WebSocket connection (ServerConnection in websockets 14.0+)
         """
         client_addr = websocket.remote_address
         logger.info(f"✅ New client connected: {client_addr}")
@@ -301,12 +314,12 @@ class Bridge:
             self._clients.remove(websocket)
             logger.info(f"Client removed: {client_addr} (total: {len(self._clients)})")
 
-    async def _process_message(self, message: str, websocket: WebSocketServerProtocol):
+    async def _process_message(self, message: str, websocket: Any):
         """Process incoming message from client.
 
         Args:
             message: JSON message string
-            websocket: WebSocket connection
+            websocket: WebSocket connection (ServerConnection in websockets 14.0+)
         """
         try:
             # Decode message
@@ -339,11 +352,11 @@ class Bridge:
         except Exception as e:
             logger.error(f"❌ Error processing message: {e}", exc_info=True)
 
-    async def send(self, websocket: WebSocketServerProtocol, data: Dict[str, Any]):
+    async def send(self, websocket: Any, data: Dict[str, Any]):
         """Send message to a specific client.
 
         Args:
-            websocket: Target WebSocket connection
+            websocket: Target WebSocket connection (ServerConnection in websockets 14.0+)
             data: Data to send (will be JSON serialized)
         """
         try:
@@ -407,8 +420,8 @@ class Bridge:
             logger.warning("Bridge event loop not running, cannot execute command")
 
     @property
-    def clients(self) -> Set[WebSocketServerProtocol]:
-        """Get set of connected clients."""
+    def clients(self) -> Set[Any]:
+        """Get set of connected clients (ServerConnection in websockets 14.0+)."""
         return self._clients
 
     @property
