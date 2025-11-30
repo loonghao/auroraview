@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.22](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.21...auroraview-v0.2.22) (2025-11-30)
+
+
+### Features
+
+* **dom:** add comprehensive DOM manipulation module ([20cb0fb](https://github.com/loonghao/auroraview/commit/20cb0fb2f89467e8d98cb87cb9fed750b4caead5))
+* **dom:** add Rust-native DOM batch operations for high performance ([64ccb50](https://github.com/loonghao/auroraview/commit/64ccb5036bfa76581e88d0af0c5a3138d01a9df2))
+* **testing:** add DOM-based testing framework ([d7e8227](https://github.com/loonghao/auroraview/commit/d7e8227a1af601d2e0a6e7b173fe6b37757cf28f))
+
+
+### Bug Fixes
+
+* improve CI test stability ([b9f7ca3](https://github.com/loonghao/auroraview/commit/b9f7ca3300d14bee9d8a0035687e132b9143a54d))
+* Python 3.7 compatibility and format test file ([9295609](https://github.com/loonghao/auroraview/commit/92956097dde2d5b8499edb431fc67d6dca419fa3))
+* **tests:** update tests for DOM API migration ([d55968e](https://github.com/loonghao/auroraview/commit/d55968e5c02aa82d2f9ef6270e05e7beae56ed11))
+
+
+### Documentation
+
+* deep comparison between AuroraView and PyWebView ([a958523](https://github.com/loonghao/auroraview/commit/a958523105fa16a98c0c7a597a04340a87164315))
+* update comparison with comprehensive DOM API section ([ce5c878](https://github.com/loonghao/auroraview/commit/ce5c878a275bf8eceaa3a3b1c34847f7cf35e86c))
+
 ## [0.2.21](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.20...auroraview-v0.2.21) (2025-11-28)
 
 
