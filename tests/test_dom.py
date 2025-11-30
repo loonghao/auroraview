@@ -540,7 +540,6 @@ class TestElementCollection:
         assert repr(collection) == "ElementCollection('.items')"
 
 
-
 class TestRustDomBatch:
     """Tests for the Rust-powered DomBatch class.
 
@@ -554,6 +553,7 @@ class TestRustDomBatch:
         """Create a DomBatch instance for testing."""
         try:
             from auroraview import DomBatch
+
             if DomBatch is None:
                 pytest.skip("DomBatch not available (Rust core not compiled)")
             return DomBatch()
@@ -574,7 +574,6 @@ class TestRustDomBatch:
         assert "#title" in js
         assert "Hello World" in js
         assert "textContent" in js
-
 
     def test_batch_multiple_operations(self, batch):
         """Test multiple operations can be batched."""
@@ -612,7 +611,6 @@ class TestRustDomBatch:
         batch.clear()
         assert batch.count == 0
 
-
     def test_batch_empty_generates_noop(self, batch):
         """Test empty batch generates valid no-op JS."""
         js = batch.to_js()
@@ -646,7 +644,6 @@ class TestRustDomBatch:
         assert "classList.toggle" in js
         assert "expanded" in js
 
-
     def test_batch_set_attribute(self, batch):
         """Test set_attribute operation."""
         batch.set_attribute("#link", "href", "https://example.com")
@@ -676,7 +673,6 @@ class TestRustDomBatch:
         js = batch.to_js()
         assert "display" in js
         assert "none" in js
-
 
     def test_batch_set_value(self, batch):
         """Test set_value operation."""
@@ -712,7 +708,6 @@ class TestRustDomBatch:
         assert "dblclick" in js
         assert "MouseEvent" in js
 
-
     def test_batch_focus_blur(self, batch):
         """Test focus and blur operations."""
         batch.focus("#input")
@@ -747,7 +742,6 @@ class TestRustDomBatch:
         batch.submit("#form")
         js = batch.to_js()
         assert "submit" in js.lower()
-
 
     def test_batch_append_html(self, batch):
         """Test append_html operation."""
