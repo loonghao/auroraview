@@ -16,6 +16,7 @@ except ImportError:  # pragma: no cover - only for py37
 
 if TYPE_CHECKING:
     from .bridge import Bridge
+    from .dom import Element, ElementCollection
 
 try:
     from ._core import WebView as _CoreWebView
@@ -748,6 +749,96 @@ class WebView:
         # Automatically process events to ensure immediate execution
         if auto_process:
             self._auto_process_events()
+
+    # === DOM Manipulation Methods ===
+
+    def dom(self, selector: str) -> "Element":
+        """Get a DOM Element by CSS selector.
+
+        This provides a high-level interface for DOM manipulation,
+        inspired by PyWebView's Element API and compatible with
+        Steel Browser patterns.
+
+        Args:
+            selector: CSS selector for the element.
+
+        Returns:
+            Element wrapper for DOM manipulation.
+
+        Example:
+            >>> # Basic element access
+            >>> button = webview.dom("#submit-btn")
+            >>> button.set_text("Submit")
+            >>> button.add_class("active")
+
+            >>> # Chained operations
+            >>> webview.dom("#title").set_html("<b>Hello</b>")
+
+            >>> # Nested queries
+            >>> form = webview.dom("#login-form")
+            >>> form.query("#username").set_value("admin")
+        """
+        from .dom import Element
+
+        return Element(self, selector)
+
+    def dom_all(self, selector: str) -> "ElementCollection":
+        """Get all DOM Elements matching a CSS selector.
+
+        Args:
+            selector: CSS selector for elements.
+
+        Returns:
+            ElementCollection for batch operations.
+
+        Example:
+            >>> # Batch class operations
+            >>> webview.dom_all(".item").add_class("processed")
+
+            >>> # Access specific elements
+            >>> items = webview.dom_all(".list-item")
+            >>> items.first().set_text("First item")
+            >>> items.nth(2).add_class("selected")
+        """
+        from .dom import ElementCollection
+
+        return ElementCollection(self, selector)
+
+    def dom_by_id(self, element_id: str) -> "Element":
+        """Get a DOM Element by ID.
+
+        Shortcut for dom("#id").
+
+        Args:
+            element_id: Element ID (without # prefix).
+
+        Returns:
+            Element wrapper for DOM manipulation.
+
+        Example:
+            >>> webview.dom_by_id("title").set_text("Hello")
+        """
+        from .dom import Element
+
+        return Element(self, f"#{element_id}")
+
+    def dom_by_class(self, class_name: str) -> "ElementCollection":
+        """Get all DOM Elements by class name.
+
+        Shortcut for dom_all(".class").
+
+        Args:
+            class_name: Class name (without . prefix).
+
+        Returns:
+            ElementCollection for batch operations.
+
+        Example:
+            >>> webview.dom_by_class("button").add_class("styled")
+        """
+        from .dom import ElementCollection
+
+        return ElementCollection(self, f".{class_name}")
 
     def emit(
         self, event_name: str, data: Union[Dict[str, Any], Any] = None, auto_process: bool = True
