@@ -81,6 +81,8 @@ Bidirectional communication::
 
 try:
     from ._core import (
+        # High-performance DOM batch operations (Rust-powered)
+        DomBatch,
         # Window utilities
         WindowInfo,
         __author__,
@@ -96,8 +98,6 @@ try:
         rewrite_html_for_custom_protocol,
         # Standalone runner
         run_standalone,
-        # High-performance DOM batch operations (Rust-powered)
-        DomBatch,
     )
 except ImportError:
     # Fallback for development without compiled extension
