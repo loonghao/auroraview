@@ -749,43 +749,28 @@ impl DomBatch {
 mod tests {
     use super::*;
 
+    // ============ Basic Batch Tests ============
+
     #[test]
-    fn test_dom_batch_set_text() {
-        let mut batch = DomBatch::new();
-        batch.set_text("#title", "Hello World");
-        let js = batch.to_js();
-        assert!(js.contains("querySelector"));
-        assert!(js.contains("#title"));
-        assert!(js.contains("Hello World"));
+    fn test_dom_batch_new() {
+        let batch = DomBatch::new();
+        assert!(batch.is_empty());
+        assert_eq!(batch.len(), 0);
     }
 
     #[test]
-    fn test_dom_batch_multiple_ops() {
-        let mut batch = DomBatch::new();
-        batch.set_text("#title", "Hello");
-        batch.add_class(".item", "active");
-        batch.click("#btn");
-        let js = batch.to_js();
-        assert!(js.contains("#title"));
-        assert!(js.contains(".item"));
-        assert!(js.contains("#btn"));
+    fn test_dom_batch_with_capacity() {
+        let batch = DomBatch::with_capacity(10);
+        assert!(batch.is_empty());
     }
 
     #[test]
-    fn test_dom_batch_escapes_special_chars() {
+    fn test_dom_batch_push() {
         let mut batch = DomBatch::new();
-        batch.set_text("#test", "Hello \"World\"");
-        let js = batch.to_js();
-        assert!(js.contains("\\\""));
-    }
-
-    #[test]
-    fn test_dom_batch_is_wrapped_in_iife() {
-        let mut batch = DomBatch::new();
-        batch.set_text("#test", "value");
-        let js = batch.to_js();
-        assert!(js.starts_with("(function(){"));
-        assert!(js.ends_with("})()"));
+        batch.push(DomOp::Click {
+            selector: "#btn".to_string(),
+        });
+        assert_eq!(batch.len(), 1);
     }
 
     #[test]
@@ -804,5 +789,490 @@ mod tests {
         let batch = DomBatch::new();
         let js = batch.to_js();
         assert_eq!(js, "(function(){})()");
+    }
+
+    #[test]
+    fn test_dom_batch_is_wrapped_in_iife() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#test", "value");
+        let js = batch.to_js();
+        assert!(js.starts_with("(function(){"));
+        assert!(js.ends_with("})()"));
+    }
+
+    // ============ Text Operations ============
+
+    #[test]
+    fn test_set_text() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#title", "Hello World");
+        let js = batch.to_js();
+        assert!(js.contains("querySelector('#title')"));
+        assert!(js.contains("textContent"));
+        assert!(js.contains("Hello World"));
+    }
+
+    #[test]
+    fn test_set_html() {
+        let mut batch = DomBatch::new();
+        batch.set_html("#container", "<div>Content</div>");
+        let js = batch.to_js();
+        assert!(js.contains("innerHTML"));
+        assert!(js.contains("<div>Content</div>"));
+    }
+
+    // ============ Attribute Operations ============
+
+    #[test]
+    fn test_set_attribute() {
+        let mut batch = DomBatch::new();
+        batch.set_attribute("#link", "href", "https://example.com");
+        let js = batch.to_js();
+        assert!(js.contains("setAttribute"));
+        assert!(js.contains("href"));
+        assert!(js.contains("https://example.com"));
+    }
+
+    #[test]
+    fn test_remove_attribute() {
+        let mut batch = DomBatch::new();
+        batch.remove_attribute("#input", "disabled");
+        let js = batch.to_js();
+        assert!(js.contains("removeAttribute"));
+        assert!(js.contains("disabled"));
+    }
+
+    // ============ Class Operations ============
+
+    #[test]
+    fn test_add_class() {
+        let mut batch = DomBatch::new();
+        batch.add_class(".item", "active");
+        let js = batch.to_js();
+        assert!(js.contains("classList.add"));
+        assert!(js.contains("active"));
+    }
+
+    #[test]
+    fn test_remove_class() {
+        let mut batch = DomBatch::new();
+        batch.remove_class(".item", "hidden");
+        let js = batch.to_js();
+        assert!(js.contains("classList.remove"));
+        assert!(js.contains("hidden"));
+    }
+
+    #[test]
+    fn test_toggle_class() {
+        let mut batch = DomBatch::new();
+        batch.toggle_class(".item", "expanded");
+        let js = batch.to_js();
+        assert!(js.contains("classList.toggle"));
+        assert!(js.contains("expanded"));
+    }
+
+    // ============ Style Operations ============
+
+    #[test]
+    fn test_set_style() {
+        let mut batch = DomBatch::new();
+        batch.set_style("#box", "background-color", "red");
+        let js = batch.to_js();
+        assert!(js.contains("style['background-color']"));
+        assert!(js.contains("red"));
+    }
+
+    #[test]
+    fn test_show() {
+        let mut batch = DomBatch::new();
+        batch.show("#modal");
+        let js = batch.to_js();
+        assert!(js.contains("style.display=''"));
+    }
+
+    #[test]
+    fn test_hide() {
+        let mut batch = DomBatch::new();
+        batch.hide("#modal");
+        let js = batch.to_js();
+        assert!(js.contains("style.display='none'"));
+    }
+
+    // ============ Form Operations ============
+
+    #[test]
+    fn test_set_value() {
+        let mut batch = DomBatch::new();
+        batch.set_value("#email", "test@example.com");
+        let js = batch.to_js();
+        assert!(js.contains(".value="));
+        assert!(js.contains("test@example.com"));
+    }
+
+    #[test]
+    fn test_set_checked_true() {
+        let mut batch = DomBatch::new();
+        batch.set_checked("#checkbox", true);
+        let js = batch.to_js();
+        assert!(js.contains(".checked=true"));
+    }
+
+    #[test]
+    fn test_set_checked_false() {
+        let mut batch = DomBatch::new();
+        batch.set_checked("#checkbox", false);
+        let js = batch.to_js();
+        assert!(js.contains(".checked=false"));
+    }
+
+    #[test]
+    fn test_set_disabled_true() {
+        let mut batch = DomBatch::new();
+        batch.set_disabled("#button", true);
+        let js = batch.to_js();
+        assert!(js.contains(".disabled=true"));
+    }
+
+    #[test]
+    fn test_set_disabled_false() {
+        let mut batch = DomBatch::new();
+        batch.set_disabled("#button", false);
+        let js = batch.to_js();
+        assert!(js.contains(".disabled=false"));
+    }
+
+    #[test]
+    fn test_clear_input() {
+        let mut batch = DomBatch::new();
+        batch.clear_input("#search");
+        let js = batch.to_js();
+        assert!(js.contains("value=''"));
+        assert!(js.contains("dispatchEvent"));
+    }
+
+    #[test]
+    fn test_submit() {
+        let mut batch = DomBatch::new();
+        batch.submit("#form");
+        let js = batch.to_js();
+        assert!(js.contains("submit()"));
+        assert!(js.contains("closest('form')"));
+    }
+
+    // ============ Event Operations ============
+
+    #[test]
+    fn test_click() {
+        let mut batch = DomBatch::new();
+        batch.click("#button");
+        let js = batch.to_js();
+        assert!(js.contains(".click()"));
+    }
+
+    #[test]
+    fn test_double_click() {
+        let mut batch = DomBatch::new();
+        batch.double_click("#item");
+        let js = batch.to_js();
+        assert!(js.contains("dblclick"));
+        assert!(js.contains("dispatchEvent"));
+    }
+
+    #[test]
+    fn test_focus() {
+        let mut batch = DomBatch::new();
+        batch.focus("#input");
+        let js = batch.to_js();
+        assert!(js.contains(".focus()"));
+    }
+
+    #[test]
+    fn test_blur() {
+        let mut batch = DomBatch::new();
+        batch.blur("#input");
+        let js = batch.to_js();
+        assert!(js.contains(".blur()"));
+    }
+
+    // ============ Scroll Operations ============
+
+    #[test]
+    fn test_scroll_into_view_smooth() {
+        let mut batch = DomBatch::new();
+        batch.scroll_into_view("#section", true);
+        let js = batch.to_js();
+        assert!(js.contains("scrollIntoView"));
+        assert!(js.contains("behavior:'smooth'"));
+    }
+
+    #[test]
+    fn test_scroll_into_view_auto() {
+        let mut batch = DomBatch::new();
+        batch.scroll_into_view("#section", false);
+        let js = batch.to_js();
+        assert!(js.contains("behavior:'auto'"));
+    }
+
+    // ============ Type Text Operations ============
+
+    #[test]
+    fn test_type_text_without_clear() {
+        let mut batch = DomBatch::new();
+        batch.type_text("#input", "hello", false);
+        let js = batch.to_js();
+        assert!(js.contains("split('')"));
+        assert!(js.contains("hello"));
+        // Should NOT clear first
+        assert!(!js.contains("e.value='';\""));
+    }
+
+    #[test]
+    fn test_type_text_with_clear() {
+        let mut batch = DomBatch::new();
+        batch.type_text("#input", "world", true);
+        let js = batch.to_js();
+        // Should clear first
+        assert!(js.contains("e.value='';"));
+    }
+
+    // ============ HTML Manipulation ============
+
+    #[test]
+    fn test_append_html() {
+        let mut batch = DomBatch::new();
+        batch.append_html("#list", "<li>New item</li>");
+        let js = batch.to_js();
+        assert!(js.contains("insertAdjacentHTML"));
+        assert!(js.contains("beforeend"));
+        assert!(js.contains("<li>New item</li>"));
+    }
+
+    #[test]
+    fn test_prepend_html() {
+        let mut batch = DomBatch::new();
+        batch.prepend_html("#list", "<li>First item</li>");
+        let js = batch.to_js();
+        assert!(js.contains("insertAdjacentHTML"));
+        assert!(js.contains("afterbegin"));
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut batch = DomBatch::new();
+        batch.remove("#old-element");
+        let js = batch.to_js();
+        assert!(js.contains(".remove()"));
+    }
+
+    #[test]
+    fn test_empty() {
+        let mut batch = DomBatch::new();
+        batch.empty("#container");
+        let js = batch.to_js();
+        assert!(js.contains("innerHTML=''"));
+    }
+
+    // ============ Raw JS Operations ============
+
+    #[test]
+    fn test_raw() {
+        let mut batch = DomBatch::new();
+        batch.raw("#element", "e.dataset.custom = 'value'");
+        let js = batch.to_js();
+        assert!(js.contains("querySelector('#element')"));
+        assert!(js.contains("e.dataset.custom = 'value'"));
+    }
+
+    #[test]
+    fn test_raw_global() {
+        let mut batch = DomBatch::new();
+        batch.raw_global("console.log('Hello')");
+        let js = batch.to_js();
+        assert!(js.contains("console.log('Hello')"));
+    }
+
+    // ============ Multiple Operations ============
+
+    #[test]
+    fn test_multiple_ops() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#title", "Hello");
+        batch.add_class(".item", "active");
+        batch.click("#btn");
+        let js = batch.to_js();
+        assert!(js.contains("#title"));
+        assert!(js.contains(".item"));
+        assert!(js.contains("#btn"));
+        assert_eq!(batch.len(), 3);
+    }
+
+    #[test]
+    fn test_chaining() {
+        let mut batch = DomBatch::new();
+        batch
+            .set_text("#a", "1")
+            .set_text("#b", "2")
+            .set_text("#c", "3");
+        assert_eq!(batch.len(), 3);
+    }
+
+    // ============ Escaping Tests ============
+
+    #[test]
+    fn test_escapes_double_quotes() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#test", "Hello \"World\"");
+        let js = batch.to_js();
+        assert!(js.contains("\\\""));
+    }
+
+    #[test]
+    fn test_escapes_backslashes() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#test", "C:\\path\\to\\file");
+        let js = batch.to_js();
+        assert!(js.contains("\\\\"));
+    }
+
+    #[test]
+    fn test_escapes_newlines() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#test", "Line1\nLine2");
+        let js = batch.to_js();
+        assert!(js.contains("\\n"));
+    }
+
+    #[test]
+    fn test_escapes_carriage_returns() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#test", "Line1\rLine2");
+        let js = batch.to_js();
+        assert!(js.contains("\\r"));
+    }
+
+    #[test]
+    fn test_escapes_tabs() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#test", "Col1\tCol2");
+        let js = batch.to_js();
+        assert!(js.contains("\\t"));
+    }
+
+    #[test]
+    fn test_escapes_single_quotes_in_selector() {
+        let mut batch = DomBatch::new();
+        batch.click("[data-name='test']");
+        let js = batch.to_js();
+        assert!(js.contains("[data-name=\\'test\\']"));
+    }
+
+    // ============ Edge Cases ============
+
+    #[test]
+    fn test_empty_text() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#test", "");
+        let js = batch.to_js();
+        assert!(js.contains("textContent=\"\""));
+    }
+
+    #[test]
+    fn test_empty_value() {
+        let mut batch = DomBatch::new();
+        batch.set_value("#input", "");
+        let js = batch.to_js();
+        assert!(js.contains(".value=\"\""));
+    }
+
+    #[test]
+    fn test_unicode_content() {
+        let mut batch = DomBatch::new();
+        batch.set_text("#test", "你好世界 🚀");
+        let js = batch.to_js();
+        assert!(js.contains("你好世界 🚀"));
+    }
+
+    #[test]
+    fn test_html_entities_in_content() {
+        let mut batch = DomBatch::new();
+        batch.set_html("#test", "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>");
+        let js = batch.to_js();
+        assert!(js.contains("&lt;script&gt;"));
+    }
+
+    #[test]
+    fn test_complex_selector() {
+        let mut batch = DomBatch::new();
+        batch.click("div.container > ul.list li:nth-child(2)");
+        let js = batch.to_js();
+        assert!(js.contains("div.container > ul.list li:nth-child(2)"));
+    }
+
+    #[test]
+    fn test_attribute_selector() {
+        let mut batch = DomBatch::new();
+        batch.click("[data-testid=\"submit-btn\"]");
+        let js = batch.to_js();
+        assert!(js.contains("[data-testid=\\\"submit-btn\\\"]"));
+    }
+
+    // ============ Default Trait ============
+
+    #[test]
+    fn test_default_trait() {
+        let batch: DomBatch = Default::default();
+        assert!(batch.is_empty());
+    }
+
+    // ============ DomOp Enum Tests ============
+
+    #[test]
+    fn test_dom_op_set_styles() {
+        let mut batch = DomBatch::new();
+        batch.push(DomOp::SetStyles {
+            selector: "#box".to_string(),
+            styles: vec![
+                ("color".to_string(), "red".to_string()),
+                ("font-size".to_string(), "16px".to_string()),
+            ],
+        });
+        let js = batch.to_js();
+        assert!(js.contains("style['color']=\"red\""));
+        assert!(js.contains("style['font-size']=\"16px\""));
+    }
+
+    #[test]
+    fn test_dom_op_select_option() {
+        let mut batch = DomBatch::new();
+        batch.push(DomOp::SelectOption {
+            selector: "#dropdown".to_string(),
+            value: "option2".to_string(),
+        });
+        let js = batch.to_js();
+        assert!(js.contains(".value="));
+        assert!(js.contains("option2"));
+    }
+
+    // ============ Performance/Stress Tests ============
+
+    #[test]
+    fn test_large_batch() {
+        let mut batch = DomBatch::new();
+        for i in 0..100 {
+            batch.set_text(&format!("#item-{}", i), &format!("Value {}", i));
+        }
+        assert_eq!(batch.len(), 100);
+        let js = batch.to_js();
+        assert!(js.contains("#item-0"));
+        assert!(js.contains("#item-99"));
+    }
+
+    #[test]
+    fn test_very_long_content() {
+        let mut batch = DomBatch::new();
+        let long_text = "x".repeat(10000);
+        batch.set_text("#test", &long_text);
+        let js = batch.to_js();
+        assert!(js.len() > 10000);
     }
 }
