@@ -309,7 +309,7 @@ webview.register_protocol("dcc", handle_dcc_protocol)
 | HTTP Server | ✅ Built-in | ⚠️ Via Bridge | Different approaches |
 | Custom Protocols | ❌ | ✅ | `auroraview://`, `dcc://` |
 | File Protocol | ✅ | ✅ (opt-in) | Security consideration |
-| DOM Access | ✅ | ⚠️ Partial | PyWebView has DOM class |
+| DOM Access | ✅ | ✅ Full | Both have comprehensive DOM APIs |
 | **DCC Integration** |
 | Parent Window Embed | ❌ | ✅ | Native embedding |
 | Parent Monitoring | ❌ | ✅ | Close when parent closes |
@@ -328,6 +328,125 @@ webview.register_protocol("dcc", handle_dcc_protocol)
 | macOS | ✅ | ⚠️ Planned | WKWebView |
 | Linux | ✅ | ⚠️ Planned | WebKitGTK |
 | Android | ✅ | ❌ | Mobile support |
+
+### 4.2 DOM API Comparison
+
+Both libraries now provide comprehensive DOM manipulation APIs. Here's a detailed comparison:
+
+| Category | PyWebView | AuroraView | Notes |
+|----------|-----------|------------|-------|
+| **Text & Content** |
+| get_text | ✅ `element.text` | ✅ `element.get_text()` | Get text content |
+| set_text | ✅ `element.text = x` | ✅ `element.set_text(x)` | Set text content |
+| get_html | ✅ `element.html` | ✅ `element.get_html()` | Get innerHTML |
+| set_html | ✅ `element.html = x` | ✅ `element.set_html(x)` | Set innerHTML |
+| **Attributes** |
+| get_attribute | ✅ | ✅ | Get attribute value |
+| set_attribute | ✅ | ✅ | Set attribute value |
+| remove_attribute | ✅ | ✅ | Remove attribute |
+| has_attribute | ❌ | ✅ | Check attribute exists |
+| **Classes** |
+| add_class | ✅ | ✅ | Add CSS class |
+| remove_class | ✅ | ✅ | Remove CSS class |
+| toggle_class | ✅ | ✅ | Toggle CSS class |
+| has_class | ❌ | ✅ | Check class exists |
+| **Styles** |
+| get_style | ✅ | ✅ | Get computed style |
+| set_style | ✅ | ✅ | Set inline style |
+| set_styles | ❌ | ✅ | Set multiple styles |
+| **Visibility** |
+| show | ✅ | ✅ | Show element |
+| hide | ✅ | ✅ | Hide element |
+| is_visible | ❌ | ✅ | Check visibility |
+| **Forms** |
+| get_value | ✅ `element.value` | ✅ `element.get_value()` | Get input value |
+| set_value | ✅ `element.value = x` | ✅ `element.set_value(x)` | Set input value |
+| get_checked | ❌ | ✅ | Get checkbox state |
+| set_checked | ❌ | ✅ | Set checkbox state |
+| is_disabled | ❌ | ✅ | Check disabled state |
+| set_disabled | ❌ | ✅ | Set disabled state |
+| **Select/Dropdown** |
+| get_selected_options | ❌ | ✅ | Get selected options |
+| select_option | ❌ | ✅ | Select by value |
+| select_option_by_text | ❌ | ✅ | Select by text |
+| select_option_by_index | ❌ | ✅ | Select by index |
+| **Interactions** |
+| click | ✅ | ✅ | Click element |
+| double_click | ❌ | ✅ | Double-click element |
+| focus | ✅ | ✅ | Focus element |
+| blur | ✅ | ✅ | Blur element |
+| scroll_into_view | ❌ | ✅ | Scroll to element |
+| hover | ❌ | ✅ | Hover over element |
+| **Type & Submit** |
+| type_text | ❌ | ✅ | Type text with events |
+| clear | ❌ | ✅ | Clear input |
+| submit | ❌ | ✅ | Submit form |
+| **Traversal** |
+| parent | ✅ | ✅ | Get parent element |
+| children | ✅ | ✅ | Get child elements |
+| siblings | ❌ | ✅ | Get sibling elements |
+| first_child | ❌ | ✅ | Get first child |
+| last_child | ❌ | ✅ | Get last child |
+| next_sibling | ✅ | ✅ | Get next sibling |
+| prev_sibling | ✅ | ✅ | Get previous sibling |
+| closest | ❌ | ✅ | Find closest ancestor |
+| **DOM Manipulation** |
+| append_html | ✅ `append()` | ✅ | Append HTML content |
+| prepend_html | ❌ | ✅ | Prepend HTML content |
+| insert_before | ❌ | ✅ | Insert before element |
+| insert_after | ❌ | ✅ | Insert after element |
+| remove | ✅ | ✅ | Remove element |
+| replace_with | ❌ | ✅ | Replace element |
+| empty | ✅ | ✅ | Clear children |
+| **Query** |
+| query | ✅ | ✅ | Find child element |
+| query_all | ✅ | ✅ | Find all children |
+| exists | ❌ | ✅ | Check element exists |
+| count | ❌ | ✅ | Count matching elements |
+| **Batch Operations** |
+| ElementCollection | ❌ | ✅ | Batch operations on multiple elements |
+
+**AuroraView DOM API Example**:
+```python
+from auroraview import WebView
+
+webview = WebView.create("My App", url="http://localhost:3000")
+
+# Get element by selector
+title = webview.dom("#title")
+title.set_text("Hello AuroraView!")
+
+# Form handling
+username = webview.dom("#username")
+username.type_text("admin")
+username.submit()
+
+# Batch operations
+items = webview.dom_all(".list-item")
+items.add_class("highlight")
+items.set_style("color", "blue")
+
+# Traversal
+parent = title.parent()
+children = parent.children()
+first = children.first()
+```
+
+**Steel Browser Compatibility**:
+
+AuroraView's DOM API is designed with future [Steel Browser](https://github.com/steel-dev/steel-browser) integration in mind:
+
+```python
+from auroraview import Automation
+
+# Local WebView
+auto = Automation.local(webview)
+auto.dom("#title").get_text()
+
+# Future: Remote Steel Browser (same API)
+# steel = Automation.steel("http://steel.mycompany.com:3000")
+# steel.dom("#title").get_text()
+```
 
 ---
 
