@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, Optional
 
 if TYPE_CHECKING:
     from .webview import WebView

@@ -543,7 +543,7 @@ class TestElementCollection:
 
 class TestRustDomBatch:
     """Tests for the Rust-powered DomBatch class.
-    
+
     DomBatch provides high-performance DOM operations by generating
     optimized JavaScript in Rust and batching multiple operations
     into a single eval_js call.
@@ -581,7 +581,7 @@ class TestRustDomBatch:
         batch.set_text("#title", "Hello")
         batch.add_class(".item", "active")
         batch.click("#btn")
-        
+
         assert batch.count == 3
         js = batch.to_js()
         assert "#title" in js
