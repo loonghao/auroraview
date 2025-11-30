@@ -62,6 +62,27 @@ def test_main_with_arguments():
         Path(html_path).unlink(missing_ok=True)
 
 
+def _normalize_path(path_str: str) -> str:
+    """Normalize path for comparison across different Windows path formats.
+
+    On Windows, paths can be returned in 8.3 format (e.g., RUNNER~1) or full format
+    (e.g., runneradmin). This function normalizes both to a consistent format.
+    """
+    import os
+
+    if not path_str:
+        return path_str
+
+    # Use os.path.normpath and resolve to get canonical path
+    # On Windows, this handles both short and long path names
+    try:
+        # Path.resolve() converts 8.3 short names to long names
+        return str(Path(path_str).resolve())
+    except (OSError, ValueError):
+        # Fallback to normpath if resolve fails
+        return os.path.normpath(path_str)
+
+
 def test_main_with_html_auto_asset_root():
     """Test that asset_root is auto-derived from HTML file location."""
     import tempfile
@@ -81,9 +102,14 @@ def test_main_with_html_auto_asset_root():
 
                 call_kwargs = mock_run_standalone.call_args.kwargs
                 # asset_root should be the directory containing the HTML file
-                assert call_kwargs["asset_root"] == tmpdir
+                # Use path normalization to handle Windows 8.3 short names
+                assert _normalize_path(call_kwargs["asset_root"]) == _normalize_path(
+                    tmpdir
+                )
                 # html_path should be the absolute path to the HTML file
-                assert call_kwargs["html_path"] == str(html_file)
+                assert _normalize_path(call_kwargs["html_path"]) == _normalize_path(
+                    str(html_file)
+                )
 
 
 def test_main_with_explicit_assets_root():
@@ -108,7 +134,10 @@ def test_main_with_explicit_assets_root():
 
                 call_kwargs = mock_run_standalone.call_args.kwargs
                 # asset_root should be the explicitly provided directory
-                assert call_kwargs["asset_root"] == str(assets_dir)
+                # Use path normalization to handle Windows 8.3 short names
+                assert _normalize_path(call_kwargs["asset_root"]) == _normalize_path(
+                    str(assets_dir)
+                )
 
 
 def test_main_non_zero_exit_code():
