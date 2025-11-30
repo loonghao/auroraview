@@ -207,8 +207,7 @@ class SteelBrowserBackend:
         Note: Requires httpx or requests library.
         """
         raise NotImplementedError(
-            "Steel Browser backend requires httpx library. "
-            "Install with: pip install httpx"
+            "Steel Browser backend requires httpx library. Install with: pip install httpx"
         )
 
     def dom(self, selector: str) -> "Element":
@@ -246,6 +245,7 @@ class SteelBrowserBackend:
         result = self._request("POST", "/v1/screenshot", {"url": url, **options})
         # Return base64 decoded data
         import base64
+
         return base64.b64decode(result.get("data", ""))
 
     def pdf(self, url: Optional[str] = None, **options: Any) -> bytes:
@@ -258,6 +258,7 @@ class SteelBrowserBackend:
         # POST /v1/pdf
         result = self._request("POST", "/v1/pdf", {"url": url, **options})
         import base64
+
         return base64.b64decode(result.get("data", ""))
 
 
@@ -370,4 +371,3 @@ class Automation:
             PDF data.
         """
         return self._backend.pdf(**options)
-

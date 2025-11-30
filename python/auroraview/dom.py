@@ -323,7 +323,9 @@ class Element:
             value: New value to set.
         """
         escaped = json.dumps(value)
-        self._eval(f"el.value = {escaped}; el.dispatchEvent(new Event('input', {{bubbles: true}}));")
+        self._eval(
+            f"el.value = {escaped}; el.dispatchEvent(new Event('input', {{bubbles: true}}));"
+        )
 
     def get_checked(self) -> None:
         """Get checkbox/radio checked state (async via bridge)."""
@@ -335,7 +337,9 @@ class Element:
         Args:
             checked: Whether to check the element.
         """
-        self._eval(f"el.checked = {str(checked).lower()}; el.dispatchEvent(new Event('change', {{bubbles: true}}));")
+        self._eval(
+            f"el.checked = {str(checked).lower()}; el.dispatchEvent(new Event('change', {{bubbles: true}}));"
+        )
 
     def is_disabled(self) -> None:
         """Check if form element is disabled (async via bridge)."""
@@ -365,7 +369,9 @@ class Element:
             value: Option value to select.
         """
         escaped = json.dumps(value)
-        self._eval(f"el.value = {escaped}; el.dispatchEvent(new Event('change', {{bubbles: true}}));")
+        self._eval(
+            f"el.value = {escaped}; el.dispatchEvent(new Event('change', {{bubbles: true}}));"
+        )
 
     def select_option_by_text(self, text: str) -> None:
         """Select option by visible text.
@@ -385,7 +391,9 @@ class Element:
         Args:
             index: Zero-based option index.
         """
-        self._eval(f"el.selectedIndex = {index}; el.dispatchEvent(new Event('change', {{bubbles: true}}));")
+        self._eval(
+            f"el.selectedIndex = {index}; el.dispatchEvent(new Event('change', {{bubbles: true}}));"
+        )
 
     # === User Interactions ===
 
@@ -395,7 +403,9 @@ class Element:
 
     def double_click(self) -> None:
         """Simulate double-click event."""
-        self._eval("el.dispatchEvent(new MouseEvent('dblclick', {bubbles: true, cancelable: true}));")
+        self._eval(
+            "el.dispatchEvent(new MouseEvent('dblclick', {bubbles: true, cancelable: true}));"
+        )
 
     def focus(self) -> None:
         """Focus the element."""
@@ -437,8 +447,7 @@ class Element:
             )
         else:
             self._eval(
-                f"el.value += {escaped}; "
-                f"el.dispatchEvent(new Event('input', {{bubbles: true}}));"
+                f"el.value += {escaped}; el.dispatchEvent(new Event('input', {{bubbles: true}}));"
             )
 
     def clear(self) -> None:
