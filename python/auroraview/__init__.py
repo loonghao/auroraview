@@ -116,6 +116,8 @@ except ImportError:
     rewrite_html_for_custom_protocol = None  # type: ignore
     run_standalone = None  # type: ignore
 
+from .automation import Automation, BrowserBackend, LocalWebViewBackend, SteelBrowserBackend
+from .dom import Element, ElementCollection
 from .event_timer import EventTimer
 from .file_protocol import path_to_file_url, prepare_html_with_local_assets
 from .framework import AuroraView
@@ -219,6 +221,14 @@ __all__ = [
     # Base classes
     "AuroraView",
     "WebView",
+    # DOM manipulation
+    "Element",
+    "ElementCollection",
+    # Automation (Steel Browser compatible)
+    "Automation",
+    "BrowserBackend",
+    "LocalWebViewBackend",
+    "SteelBrowserBackend",
     # Qt backend (may raise ImportError if not installed)
     "QtWebView",
     "AuroraViewQt",
