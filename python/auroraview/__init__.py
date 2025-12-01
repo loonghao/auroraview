@@ -101,7 +101,7 @@ try:
     )
 except ImportError:
     # Fallback for development without compiled extension
-    __version__ = "0.1.0"
+    __version__ = "0.1.0.dev"
     __author__ = "Hal Long <hal.long@outlook.com>"
 
     # Placeholder for window utilities

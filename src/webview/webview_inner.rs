@@ -991,6 +991,322 @@ impl WebViewInner {
 
         false
     }
+
+    // ========================================
+    // BOM Navigation APIs
+    // ========================================
+
+    /// Navigate back in history (like browser back button)
+    pub fn go_back(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.evaluate_script(auroraview_core::bom::js::GO_BACK)?;
+            tracing::debug!("[BOM] go_back() executed");
+        }
+        Ok(())
+    }
+
+    /// Navigate forward in history (like browser forward button)
+    pub fn go_forward(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.evaluate_script(auroraview_core::bom::js::GO_FORWARD)?;
+            tracing::debug!("[BOM] go_forward() executed");
+        }
+        Ok(())
+    }
+
+    /// Reload current page
+    pub fn reload(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.evaluate_script(auroraview_core::bom::js::RELOAD)?;
+            tracing::debug!("[BOM] reload() executed");
+        }
+        Ok(())
+    }
+
+    // ========================================
+    // BOM Zoom APIs
+    // ========================================
+
+    /// Set zoom level (1.0 = 100%, 1.5 = 150%, etc.)
+    pub fn set_zoom(&self, scale_factor: f64) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.zoom(scale_factor)?;
+            tracing::debug!("[BOM] set_zoom({}) executed", scale_factor);
+        }
+        Ok(())
+    }
+
+    // ========================================
+    // BOM Window Control APIs
+    // ========================================
+
+    /// Minimize window
+    pub fn minimize(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_minimized(true);
+            tracing::debug!("[BOM] minimize() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Maximize window
+    pub fn maximize(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_maximized(true);
+            tracing::debug!("[BOM] maximize() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Unmaximize (restore) window
+    pub fn unmaximize(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_maximized(false);
+            tracing::debug!("[BOM] unmaximize() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Toggle maximize state
+    pub fn toggle_maximize(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            let is_maximized = window.is_maximized();
+            window.set_maximized(!is_maximized);
+            tracing::debug!(
+                "[BOM] toggle_maximize() executed, now maximized={}",
+                !is_maximized
+            );
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Check if window is maximized
+    pub fn is_maximized(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.is_maximized())
+            .unwrap_or(false)
+    }
+
+    /// Check if window is minimized
+    pub fn is_minimized(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.is_minimized())
+            .unwrap_or(false)
+    }
+
+    /// Set fullscreen mode
+    pub fn set_fullscreen(&self, fullscreen: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            if fullscreen {
+                window.set_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+            } else {
+                window.set_fullscreen(None);
+            }
+            tracing::debug!("[BOM] set_fullscreen({}) executed", fullscreen);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Check if window is in fullscreen mode
+    pub fn is_fullscreen(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.fullscreen().is_some())
+            .unwrap_or(false)
+    }
+
+    /// Set window visibility
+    pub fn set_visible(&self, visible: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_visible(visible);
+            tracing::debug!("[BOM] set_visible({}) executed", visible);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Check if window is visible
+    pub fn is_visible(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.is_visible())
+            .unwrap_or(false)
+    }
+
+    /// Check if window has focus
+    pub fn is_focused(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.is_focused())
+            .unwrap_or(false)
+    }
+
+    /// Request focus for the window
+    pub fn set_focus(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_focus();
+            tracing::debug!("[BOM] set_focus() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set window title
+    pub fn set_window_title(&self, title: &str) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_title(title);
+            tracing::debug!("[BOM] set_title('{}') executed", title);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Get window title
+    pub fn window_title(&self) -> Option<String> {
+        self.window.as_ref().map(|w| w.title())
+    }
+
+    /// Set window size
+    pub fn set_size(&self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            let size = tao::dpi::PhysicalSize::new(width, height);
+            window.set_inner_size(size);
+            tracing::debug!("[BOM] set_size({}, {}) executed", width, height);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Get window inner size
+    pub fn inner_size(&self) -> auroraview_core::bom::PhysicalSize {
+        self.window
+            .as_ref()
+            .map(|w| {
+                let size = w.inner_size();
+                auroraview_core::bom::PhysicalSize::new(size.width, size.height)
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get window outer size (including decorations)
+    pub fn outer_size(&self) -> auroraview_core::bom::PhysicalSize {
+        self.window
+            .as_ref()
+            .map(|w| {
+                let size = w.outer_size();
+                auroraview_core::bom::PhysicalSize::new(size.width, size.height)
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get window position
+    pub fn position(&self) -> Option<auroraview_core::bom::PhysicalPosition> {
+        self.window.as_ref().and_then(|w| {
+            w.outer_position()
+                .ok()
+                .map(|pos| auroraview_core::bom::PhysicalPosition::new(pos.x, pos.y))
+        })
+    }
+
+    /// Center window on screen
+    pub fn center(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            // Get the primary monitor
+            let monitor = window
+                .primary_monitor()
+                .or_else(|| window.current_monitor())
+                .ok_or("No monitor found")?;
+
+            let monitor_size = monitor.size();
+            let monitor_pos = monitor.position();
+            let window_size = window.outer_size();
+
+            // Calculate center position
+            let x = monitor_pos.x + (monitor_size.width as i32 - window_size.width as i32) / 2;
+            let y = monitor_pos.y + (monitor_size.height as i32 - window_size.height as i32) / 2;
+
+            window.set_outer_position(tao::dpi::PhysicalPosition::new(x, y));
+            tracing::debug!("[BOM] center() executed, position=({}, {})", x, y);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set window decorations (title bar, borders)
+    pub fn set_decorations(&self, decorations: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_decorations(decorations);
+            tracing::debug!("[BOM] set_decorations({}) executed", decorations);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set window resizable
+    pub fn set_resizable(&self, resizable: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_resizable(resizable);
+            tracing::debug!("[BOM] set_resizable({}) executed", resizable);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set minimum window size
+    pub fn set_min_size(&self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            let size = tao::dpi::PhysicalSize::new(width, height);
+            window.set_min_inner_size(Some(size));
+            tracing::debug!("[BOM] set_min_size({}, {}) executed", width, height);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set maximum window size
+    pub fn set_max_size(&self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            let size = tao::dpi::PhysicalSize::new(width, height);
+            window.set_max_inner_size(Some(size));
+            tracing::debug!("[BOM] set_max_size({}, {}) executed", width, height);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    // ========================================
+    // BOM Clear Data APIs
+    // ========================================
+
+    /// Clear all browsing data (localStorage, sessionStorage, IndexedDB, cookies)
+    pub fn clear_all_browsing_data(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.evaluate_script(auroraview_core::bom::js::CLEAR_ALL_BROWSING_DATA)?;
+            tracing::debug!("[BOM] clear_all_browsing_data() executed");
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

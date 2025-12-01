@@ -24,27 +24,46 @@ install:
 # Build the extension module
 build:
     @echo "Building extension module..."
-    uv run maturin develop --features win-webview2
+    uv run maturin develop --features "python-bindings,win-webview2"
 
 # Build with release optimizations
 build-release:
     @echo "Building release version..."
-    uv run maturin develop --release --features win-webview2
+    uv run maturin develop --release --features "python-bindings,win-webview2"
 
-# Rebuild and install in development mode (recommended)
-rebuild-core:
-    @echo "Rebuilding Rust core with maturin..."
-    uv run maturin develop --release --features win-webview2
-    @echo "[OK] Core module rebuilt and installed successfully!"
+# Build Python library (PyO3 bindings)
+rebuild-pylib:
+    @echo "Building Python library with maturin..."
+    uv run maturin develop --release --features "python-bindings,win-webview2"
+    @echo "[OK] Python library rebuilt and installed successfully!"
 
-# Rebuild with verbose output
-rebuild-core-verbose:
-    @echo "Rebuilding Rust core with maturin (verbose)..."
-    uv run maturin develop --release --features win-webview2 --verbose
-    @echo "[OK] Core module rebuilt and installed successfully!"
+# Build Python library with verbose output
+rebuild-pylib-verbose:
+    @echo "Building Python library with maturin (verbose)..."
+    uv run maturin develop --release --features "python-bindings,win-webview2" --verbose
+    @echo "[OK] Python library rebuilt and installed successfully!"
+
+# Build CLI binary
+build-cli:
+    @echo "Building CLI binary..."
+    cargo build -p auroraview-cli --release
+    @echo "[OK] CLI built: target/release/auroraview.exe"
+
+# Build all workspace crates
+build-all:
+    @echo "Building all workspace crates..."
+    cargo build -p auroraview-core
+    cargo build -p auroraview-pack
+    cargo build -p auroraview-cli --release
+    uv run maturin develop --release --features "python-bindings,win-webview2"
+    @echo "[OK] All crates built successfully!"
 
 # Run all tests
 test:
+    @echo "Running workspace crate tests..."
+    cargo test -p auroraview-core
+    cargo test -p auroraview-pack
+    cargo test -p auroraview-cli
     @echo "Running Rust integration tests (with rstest)..."
     cargo test --test mdns_integration_tests --features "test-helpers"
     cargo test --test parent_monitor_integration_tests --features "test-helpers"
@@ -56,8 +75,8 @@ test:
     cargo test --test standalone_integration_tests --features "test-helpers"
     @echo "Running Rust doc tests..."
     cargo test --doc
-    @echo "Running Python tests with coverage..."
-    pytest -q -rA -s --cov=auroraview --cov-report=term-missing tests/test_package_init.py tests/test_testing_framework.py tests/test_event_timer.py tests/test_standalone_runner.py
+    @echo "Running Python tests..."
+    pytest -q -rA tests/python/unit tests/python/integration
     @echo ""
     @echo "Note: Rust unit tests (cargo test --lib), window_utils_integration_tests, and ipc_batch_integration_tests are skipped on Windows due to PyO3 abi3 DLL linking issues."
     @echo "These tests run successfully in CI on Linux."
@@ -65,12 +84,12 @@ test:
 # Run tests with coverage
 test-cov:
     @echo "Running tests with coverage..."
-    pytest -v --cov=auroraview --cov-report=html --cov-report=term-missing tests/test_package_init.py tests/test_testing_framework.py tests/test_event_timer.py
+    pytest -v --cov=auroraview --cov-report=html --cov-report=term-missing tests/python/unit tests/python/integration
 
 # Run only fast tests (exclude slow tests)
 test-fast:
     @echo "Running fast tests..."
-    pytest tests/ -v -m "not slow"
+    pytest tests/python/ -v -m "not slow"
 
 # Test with Python 3.7
 test-py37:
@@ -142,15 +161,18 @@ nox-all:
 test-unit:
     @echo "Running Rust unit tests..."
     cargo test --lib
+    cargo test -p auroraview-core
+    cargo test -p auroraview-pack
+    cargo test -p auroraview-cli
     @echo "Running Python unit tests..."
-    pytest tests/ -v -m "unit" --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
+    pytest tests/python/unit -v
 
 # Run only Rust integration tests
 test-integration:
     @echo "Running Rust integration tests (with rstest)..."
     cargo test --test '*' --features "test-helpers"
     @echo "Running Python integration tests..."
-    pytest tests/ -v -m "integration" --ignore=tests/unit --ignore=tests/integration --ignore=tests/common
+    pytest tests/python/integration -v
 
 # Watch mode for continuous testing
 test-watch:
@@ -199,7 +221,7 @@ ci-install:
 ci-build:
     @echo "Building extension for CI..."
     uv pip install maturin
-    uv run maturin develop --features win-webview2
+    uv run maturin develop --features "python-bindings,win-webview2"
 
 ci-test-rust:
     @echo "Running Rust doc tests..."
@@ -229,8 +251,8 @@ ci-lint:
 
 # Coverage commands
 coverage-python:
-    @echo "Running Python tests with coverage (headless subset)..."
-    pytest -v --cov=auroraview --cov-report=html --cov-report=term-missing --cov-report=xml tests/test_package_init.py tests/test_testing_framework.py tests/test_event_timer.py
+    @echo "Running Python tests with coverage..."
+    pytest -v --cov=auroraview --cov-report=html --cov-report=term-missing --cov-report=xml tests/python/unit tests/python/integration
 # Shortcut alias for Python coverage
 pycov:
     @echo "[Alias] Running Python coverage via coverage-python..."
@@ -263,7 +285,7 @@ dev: install build
 # Build release wheels
 release:
     @echo "Building release wheels..."
-    uv run maturin build --release --features win-webview2
+    uv run maturin build --release --features "python-bindings,win-webview2"
     @echo "Wheels built in target/wheels/"
 
 # Run examples

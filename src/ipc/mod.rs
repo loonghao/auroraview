@@ -53,12 +53,17 @@ pub use message_queue::{MessageQueue, WebViewMessage};
 pub use metrics::{IpcMetrics, IpcMetricsSnapshot};
 
 // Re-export for future use (currently unused but part of public API)
+#[cfg(feature = "python-bindings")]
 #[allow(unused_imports)]
-pub use backend::{IpcBackend, IpcMode};
+pub use backend::IpcBackend;
+#[allow(unused_imports)]
+pub use backend::IpcMode;
+#[cfg(feature = "python-bindings")]
 #[allow(unused_imports)]
 pub use handler::PythonCallback;
 #[allow(unused_imports)]
 pub use message_queue::MessageQueueConfig;
+#[cfg(feature = "python-bindings")]
 #[allow(unused_imports)]
 pub use threaded::{ThreadedBackend, ThreadedConfig};
 

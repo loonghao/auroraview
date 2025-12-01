@@ -67,7 +67,14 @@ impl WebViewBackend for NativeBackend {
         if let Some(parent_hwnd) = config.parent_hwnd {
             Self::create_embedded(parent_hwnd, config, ipc_handler, message_queue)
         } else {
-            Self::create_standalone(config, ipc_handler, message_queue)
+            #[cfg(feature = "python-bindings")]
+            {
+                Self::create_standalone(config, ipc_handler, message_queue)
+            }
+            #[cfg(not(feature = "python-bindings"))]
+            {
+                Err("Standalone mode requires python-bindings feature".into())
+            }
         }
     }
 
@@ -295,6 +302,7 @@ impl NativeBackend {
     }
 
     /// Create standalone WebView with its own window
+    #[cfg(feature = "python-bindings")]
     #[allow(dead_code)]
     fn create_standalone(
         config: WebViewConfig,

@@ -4,7 +4,9 @@
 //! handling event callbacks and message routing.
 
 use dashmap::DashMap;
+#[cfg(feature = "python-bindings")]
 use pyo3::prelude::*;
+#[cfg(feature = "python-bindings")]
 use pyo3::{Py, PyAny};
 use std::sync::Arc;
 
@@ -15,11 +17,13 @@ pub use super::backend::IpcMessage;
 pub type IpcCallback = Arc<dyn Fn(IpcMessage) -> Result<serde_json::Value, String> + Send + Sync>;
 
 /// Python callback wrapper - stores Python callable objects
+#[cfg(feature = "python-bindings")]
 pub struct PythonCallback {
     /// Python callable object
     pub callback: Py<PyAny>,
 }
 
+#[cfg(feature = "python-bindings")]
 impl PythonCallback {
     /// Create a new Python callback wrapper
     pub fn new(callback: Py<PyAny>) -> Self {
@@ -62,6 +66,7 @@ pub struct IpcHandler {
     callbacks: Arc<DashMap<String, Vec<IpcCallback>>>,
 
     /// Registered Python callbacks - lock-free concurrent map
+    #[cfg(feature = "python-bindings")]
     python_callbacks: Arc<DashMap<String, Vec<PythonCallback>>>,
 }
 
@@ -70,6 +75,7 @@ impl IpcHandler {
     pub fn new() -> Self {
         Self {
             callbacks: Arc::new(DashMap::new()),
+            #[cfg(feature = "python-bindings")]
             python_callbacks: Arc::new(DashMap::new()),
         }
     }
@@ -87,6 +93,7 @@ impl IpcHandler {
     }
 
     /// Register a Python callback for an event
+    #[cfg(feature = "python-bindings")]
     pub fn register_python_callback(&self, event: &str, callback: Py<PyAny>) {
         self.python_callbacks
             .entry(event.to_string())
@@ -115,7 +122,8 @@ impl IpcHandler {
     pub fn handle_message(&self, message: IpcMessage) -> Result<serde_json::Value, String> {
         tracing::debug!("Handling IPC message: {}", message.event);
 
-        // First try Python callbacks
+        // First try Python callbacks (only when python-bindings feature is enabled)
+        #[cfg(feature = "python-bindings")]
         if let Some(event_callbacks) = self.python_callbacks.get(&message.event) {
             for callback in event_callbacks.value() {
                 if let Err(e) = callback.call(message.data.clone()) {
@@ -150,6 +158,7 @@ impl IpcHandler {
     #[allow(dead_code)]
     pub fn off(&self, event: &str) {
         self.callbacks.remove(event);
+        #[cfg(feature = "python-bindings")]
         self.python_callbacks.remove(event);
     }
 
@@ -157,6 +166,7 @@ impl IpcHandler {
     #[allow(dead_code)]
     pub fn clear(&self) {
         self.callbacks.clear();
+        #[cfg(feature = "python-bindings")]
         self.python_callbacks.clear();
     }
 }
@@ -170,8 +180,11 @@ impl Default for IpcHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "python-bindings")]
     use pyo3::types::{PyList, PyModule};
 
+    #[cfg(feature = "python-bindings")]
     fn py_append_collector() -> (Py<PyAny>, Py<PyAny>) {
         Python::attach(|py| {
             let seen = PyList::new(py, [py.None()])?;
@@ -192,6 +205,7 @@ mod tests {
         .unwrap()
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_python_callback_flow() {
         let handler = IpcHandler::new();

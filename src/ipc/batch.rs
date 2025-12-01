@@ -6,12 +6,18 @@
 //! 3. Zero-copy serialization where possible
 //! 4. Async message processing
 
+#[cfg(feature = "python-bindings")]
 use dashmap::DashMap;
+#[cfg(feature = "python-bindings")]
 use parking_lot::RwLock;
+#[cfg(feature = "python-bindings")]
 use pyo3::prelude::*;
+#[cfg(feature = "python-bindings")]
 use pyo3::types::{PyDict, PyList};
+#[cfg(feature = "python-bindings")]
 use pyo3::{Py, PyAny};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "python-bindings")]
 use std::sync::Arc;
 
 /// IPC message with metadata for batching
@@ -113,6 +119,7 @@ impl Default for MessageBatch {
 }
 
 /// Python callback with reduced GIL contention
+#[cfg(feature = "python-bindings")]
 #[allow(dead_code)]
 pub struct BatchedCallback {
     /// Python callable object
@@ -122,6 +129,7 @@ pub struct BatchedCallback {
     batching_enabled: bool,
 }
 
+#[cfg(feature = "python-bindings")]
 #[allow(dead_code)]
 impl BatchedCallback {
     /// Create a new batched callback
@@ -214,6 +222,7 @@ impl BatchedCallback {
 }
 
 /// Convert JSON value to Python object
+#[cfg(feature = "python-bindings")]
 #[allow(dead_code)]
 fn json_to_python(py: Python, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
     match value {
@@ -258,6 +267,7 @@ fn json_to_python(py: Python, value: &serde_json::Value) -> PyResult<Py<PyAny>> 
 }
 
 /// IPC handler with message batching support
+#[cfg(feature = "python-bindings")]
 #[allow(dead_code)]
 pub struct BatchedHandler {
     /// Registered callbacks
@@ -271,6 +281,7 @@ pub struct BatchedHandler {
     max_batch_age_ms: u64,
 }
 
+#[cfg(feature = "python-bindings")]
 #[allow(dead_code)]
 impl BatchedHandler {
     /// Create a new batched IPC handler
@@ -346,6 +357,7 @@ impl BatchedHandler {
     }
 }
 
+#[cfg(feature = "python-bindings")]
 impl Default for BatchedHandler {
     fn default() -> Self {
         Self::new()

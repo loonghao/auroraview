@@ -14,8 +14,10 @@ mod platform;
 pub mod service_discovery;
 mod utils;
 pub mod webview;
+#[cfg(feature = "python-bindings")]
 pub mod window_utils;
 
+#[cfg(feature = "python-bindings")]
 #[allow(unused_imports)]
 use webview::AuroraView;
 
@@ -86,6 +88,7 @@ mod tests {
         use crate::webview;
 
         // Verify main types are accessible
+        #[cfg(feature = "python-bindings")]
         let _: Option<webview::AuroraView> = None;
         let _: Option<webview::WebViewConfig> = None;
         let _: Option<webview::WebViewBuilder> = None;
@@ -122,6 +125,7 @@ mod tests {
     }
 
     /// Test window utilities module imports
+    #[cfg(feature = "python-bindings")]
     #[rstest]
     fn test_window_utils_imports() {
         use crate::window_utils;
@@ -246,7 +250,8 @@ mod tests {
         // Test top-level exports from lib.rs
         let _: Option<crate::WebViewConfig> = None;
         let _: Option<crate::WebViewBuilder> = None;
-        let _: Option<crate::AuroraView> = None;
+        #[cfg(feature = "python-bindings")]
+        let _: Option<crate::webview::AuroraView> = None;
     }
 
     /// Python module initialization test

@@ -5,6 +5,7 @@
 //! communication (for standalone mode).
 
 use super::json::Value;
+#[cfg(feature = "python-bindings")]
 use pyo3::{Py, PyAny};
 
 /// IPC message structure
@@ -25,6 +26,7 @@ pub struct IpcMessage {
 /// This trait provides a common interface for different IPC implementations:
 /// - ThreadedBackend: Thread-based communication using crossbeam-channel
 /// - ProcessBackend: Process-based communication using ipc-channel (optional)
+#[cfg(feature = "python-bindings")]
 #[allow(dead_code)]
 pub trait IpcBackend: Send + Sync {
     /// Send a message to the WebView
