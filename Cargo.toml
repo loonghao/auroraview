@@ -1,26 +1,44 @@
-[package]
-name = "auroraview"
+# AuroraView Workspace
+# Rust-powered WebView for Python apps & DCC embedding
+
+[workspace]
+members = [
+    "crates/auroraview-core",
+    "crates/auroraview-pack",
+    "crates/auroraview-cli",
+]
+resolver = "2"
+
+[workspace.package]
 version = "0.2.22"
 edition = "2021"
 rust-version = "1.75"
 authors = ["Hal Long <hal.long@outlook.com>"]
-description = "AuroraView: Rust-powered WebView for Python apps & DCC embedding (PyO3/abi3)"
 license = "MIT"
 repository = "https://github.com/loonghao/auroraview"
+
+# Root package - Core library with optional Python bindings
+[package]
+name = "auroraview"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AuroraView: Rust-powered WebView for Python apps & DCC embedding"
 keywords = ["webview", "rust", "python", "wry", "pyo3", "dcc"]
 categories = ["gui", "multimedia", "graphics"]
 
 [lib]
-name = "auroraview_core"
+name = "auroraview"
 crate-type = ["cdylib", "rlib"]
 
-[[bin]]
-name = "auroraview"
-path = "src/bin/cli.rs"
-required-features = ["cli"]
-
 [dependencies]
-# PyO3 for Python bindings
+# Core library
+auroraview-core = { path = "crates/auroraview-core" }
+
+# PyO3 for Python bindings (optional)
 pyo3 = { version = "0.27.1", features = ["abi3-py37"], optional = true }
 
 # Wry for WebView
@@ -32,8 +50,8 @@ raw-window-handle = "0.6"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"  # Fallback for compatibility
-simd-json = "0.13"  # SIMD-accelerated JSON for Rust-side operations
+serde_json = "1.0"
+simd-json = "0.13"
 
 # Async runtime
 tokio = { version = "1.42", features = ["full"] }
@@ -49,7 +67,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # URL handling
 url = "2.5"
 
-# Path normalization (cross-platform)
+# Path normalization
 path-clean = "1.0"
 
 # MIME type detection
@@ -59,73 +77,52 @@ mime_guess = "2.0"
 parking_lot = "0.12"
 once_cell = "1.20"
 
-# Resource cleanup and lifecycle management
+# Resource cleanup
 scopeguard = "1.2"
 
 # IPC communication
 crossbeam-channel = "0.5"
-flume = "0.11"  # High-performance async/sync channel
+flume = "0.11"
 dashmap = "6.1"
 ipc-channel = { version = "0.20", optional = true }
 
-# CPU detection for Servo config
+# CPU detection
 num_cpus = "1.16"
 
-# Window utilities - cross-platform window enumeration
+# Window utilities
 active-win-pos-rs = "0.9"
 
 # Service discovery
-mdns-sd = "0.17"                    # Pure Rust mDNS implementation
-warp = { version = "0.4", features = ["server"] }  # HTTP server for discovery endpoint
-hyper = { version = "1.8", features = ["full"] }  # HTTP client/server
-hyper-util = { version = "0.1", features = ["full"] }  # HTTP utilities for hyper v1
+mdns-sd = "0.17"
+warp = { version = "0.4", features = ["server"] }
+hyper = { version = "1.8", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
 
-# CLI dependencies
-clap = { version = "4.5", features = ["derive"], optional = true }
-urlencoding = { version = "2.1", optional = true }
+# Template engine for JS code generation
+askama = { version = "0.12", optional = true }
+
+# Regex for URL handling
 regex = { version = "1.11", optional = true }
+urlencoding = { version = "2.1", optional = true }
 
-# Future rendering engines (feature-gated)
-# servo = { git = "https://github.com/servo/servo", optional = true }
-# winit = { version = "0.29", optional = true }
+# Embed static assets
+rust-embed = { version = "8.5", optional = true }
 
-[dev-dependencies]
-# Testing frameworks
-criterion = "0.7"
-tempfile = "3.14"
-
-# Enhanced testing
-rstest = "0.26"              # Parameterized testing
-test-case = "3.3"            # Table-driven tests
-proptest = "1.5"             # Property-based testing
-mockall = "0.14"             # Mocking framework
-serial_test = "3.2"          # Serial test execution
-
-# HTTP client for testing (hyper v1 compatible)
-reqwest = { version = "0.12", features = ["json"] }  # Modern HTTP client
-
-[build-dependencies]
-# Build script dependencies if needed
-
-# Platform-specific linking for Python
-[target.x86_64-unknown-linux-gnu.dependencies]
-# Python linking for Linux tests
-
-[target.x86_64-pc-windows-msvc.dependencies]
-# Python linking for Windows tests
-# Windows API for parent window support
+[target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi"] }
 winapi = "0.3.9"
-# WebView2 wrapper crate (optional, enabled via feature = "win-webview2")
 webview2 = { version = "0.1.4", optional = true }
-# Low-level WebView2 COM bindings (legacy) - optional and not enabled by default.
 webview2-com = { version = "0.38", optional = true }
 
-[target.x86_64-apple-darwin.dependencies]
-# Python linking for macOS tests
-
-[target.aarch64-apple-darwin.dependencies]
-# Python linking for Apple Silicon tests
+[dev-dependencies]
+criterion = "0.7"
+tempfile = "3.14"
+rstest = "0.26"
+test-case = "3.3"
+proptest = "1.5"
+mockall = "0.14"
+serial_test = "3.2"
+reqwest = { version = "0.12", features = ["json"] }
 
 [profile.release]
 opt-level = 3
@@ -137,44 +134,96 @@ strip = true
 opt-level = 0
 
 [features]
-# Default keep current behavior (standalone via wry)
-default = ["python-bindings", "threaded-ipc", "wry-backend"]
+# Default: Core features without Python bindings (for CLI usage)
+default = ["threaded-ipc", "wry-backend", "templates", "url-utils"]
 
-# Python bindings (without extension-module by default, to allow cargo test/linking)
-python-bindings = ["pyo3", "regex", "urlencoding"]
-# Enable PyO3 auto-initialize in test builds to avoid manual interpreter setup
-# Use with: cargo test --features "test-helpers"
-# This does not affect release artifacts.
+# Python bindings (for Python wheel)
+python-bindings = ["pyo3"]
+
+# Enable PyO3 auto-initialize in test builds
 test-helpers = ["pyo3/auto-initialize"]
-# Build as a true Python extension module (enable when building wheels or develop install)
+
+# Build as a true Python extension module (for wheels)
 ext-module = ["pyo3/extension-module"]
 
-# Rendering backend features
-# Only one backend should be active at a time at runtime; we gate code paths.
-wry-backend = []           # System WebView via wry/tao (standalone)
-win-webview2 = ["dep:webview2"]  # Windows-native WebView2 backend (embedded)
-win-webview2-impl = []  # legacy gated stub block (no-op, suppress unexpected_cfg warning)
+# Rendering backend
+wry-backend = []
+win-webview2 = ["dep:webview2"]
 
-# servo-backend = ["servo", "winit"]  # Servo rendering engine - experimental
-# custom-backend = []        # Custom user-provided renderer - advanced
-
-# IPC backend features
+# IPC backend
 threaded-ipc = []
 process-ipc = ["ipc-channel"]
 
-# Platform-specific features (informational)
-windows = []
-macos = []
-linux = []
+# Templates for JS generation
+templates = ["askama"]
 
-# Development features
-dev-tools = []
-hot-reload = []
+# URL handling utilities
+url-utils = ["regex", "urlencoding"]
 
-# CLI feature
-cli = ["clap", "urlencoding", "regex"]
+# Embed static assets
+embed-assets = ["rust-embed"]
 
 # Performance features
-performance-monitoring = []  # Enable detailed performance tracking
-ipc-batching = []           # Enable IPC message batching
+performance-monitoring = []
+ipc-batching = []
 
+# Integration tests (in tests/rust/ directory)
+[[test]]
+name = "protocol_handlers_integration"
+path = "tests/rust/protocol_handlers_integration_tests.rs"
+
+[[test]]
+name = "standalone_integration"
+path = "tests/rust/standalone_integration_tests.rs"
+
+[[test]]
+name = "config_integration"
+path = "tests/rust/config_integration_tests.rs"
+
+[[test]]
+name = "ipc_json_integration"
+path = "tests/rust/ipc_json_integration_tests.rs"
+
+[[test]]
+name = "ipc_batch_integration"
+path = "tests/rust/ipc_batch_integration_tests.rs"
+
+[[test]]
+name = "lifecycle_integration"
+path = "tests/rust/lifecycle_integration_tests.rs"
+
+[[test]]
+name = "timer_integration"
+path = "tests/rust/timer_integration_tests.rs"
+
+[[test]]
+name = "window_utils_integration"
+path = "tests/rust/window_utils_integration_tests.rs"
+
+[[test]]
+name = "protocol_integration"
+path = "tests/rust/protocol_integration_tests.rs"
+
+[[test]]
+name = "file_protocol_integration"
+path = "tests/rust/file_protocol_integration_tests.rs"
+
+[[test]]
+name = "ipc_message_queue_integration"
+path = "tests/rust/ipc_message_queue_integration_tests.rs"
+
+[[test]]
+name = "port_allocator_integration"
+path = "tests/rust/port_allocator_integration_tests.rs"
+
+[[test]]
+name = "mdns_integration"
+path = "tests/rust/mdns_integration_tests.rs"
+
+[[test]]
+name = "http_discovery_integration"
+path = "tests/rust/http_discovery_integration_tests.rs"
+
+[[test]]
+name = "parent_monitor_integration"
+path = "tests/rust/parent_monitor_integration_tests.rs"

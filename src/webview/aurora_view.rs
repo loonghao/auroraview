@@ -4,7 +4,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use pyo3::{Py, PyAny};
+use pyo3::{Py, PyAny, PyErr, Python};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -1038,6 +1038,485 @@ impl AuroraView {
             "WebView(title='{}', width={}, height={})",
             cfg.title, cfg.width, cfg.height
         )
+    }
+
+    // ========================================
+    // BOM Navigation APIs (Tauri-aligned)
+    // ========================================
+
+    /// Navigate back in history (like browser back button)
+    ///
+    /// Example:
+    ///     >>> webview.go_back()
+    fn go_back(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.go_back().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("go_back failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Navigate forward in history (like browser forward button)
+    ///
+    /// Example:
+    ///     >>> webview.go_forward()
+    fn go_forward(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.go_forward().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("go_forward failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Reload current page
+    ///
+    /// Example:
+    ///     >>> webview.reload()
+    fn reload(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.reload().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("reload failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    // ========================================
+    // BOM Zoom APIs (Tauri-aligned)
+    // ========================================
+
+    /// Set zoom level (1.0 = 100%, 1.5 = 150%, etc.)
+    ///
+    /// Args:
+    ///     scale_factor (float): Zoom scale factor
+    ///
+    /// Example:
+    ///     >>> webview.set_zoom(1.5)  # 150% zoom
+    fn set_zoom(&self, scale_factor: f64) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_zoom(scale_factor).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_zoom failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    // ========================================
+    // BOM Window Control APIs (Tauri-aligned)
+    // ========================================
+
+    /// Minimize window
+    ///
+    /// Example:
+    ///     >>> webview.minimize()
+    fn minimize(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.minimize().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("minimize failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Maximize window
+    ///
+    /// Example:
+    ///     >>> webview.maximize()
+    fn maximize(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.maximize().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("maximize failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Unmaximize (restore) window
+    ///
+    /// Example:
+    ///     >>> webview.unmaximize()
+    fn unmaximize(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.unmaximize().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("unmaximize failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Toggle maximize state
+    ///
+    /// Example:
+    ///     >>> webview.toggle_maximize()
+    fn toggle_maximize(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.toggle_maximize().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("toggle_maximize failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Check if window is maximized
+    ///
+    /// Returns:
+    ///     bool: True if maximized
+    fn is_maximized(&self) -> PyResult<bool> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.is_maximized())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Check if window is minimized
+    ///
+    /// Returns:
+    ///     bool: True if minimized
+    fn is_minimized(&self) -> PyResult<bool> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.is_minimized())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Set fullscreen mode
+    ///
+    /// Args:
+    ///     fullscreen (bool): True for fullscreen, False for windowed
+    fn set_fullscreen(&self, fullscreen: bool) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_fullscreen(fullscreen).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_fullscreen failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Check if window is in fullscreen mode
+    ///
+    /// Returns:
+    ///     bool: True if fullscreen
+    fn is_fullscreen(&self) -> PyResult<bool> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.is_fullscreen())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Set window visibility
+    ///
+    /// Args:
+    ///     visible (bool): True to show, False to hide
+    fn set_visible(&self, visible: bool) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_visible(visible).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_visible failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Check if window is visible
+    ///
+    /// Returns:
+    ///     bool: True if visible
+    fn is_visible(&self) -> PyResult<bool> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.is_visible())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Check if window has focus
+    ///
+    /// Returns:
+    ///     bool: True if focused
+    fn is_focused(&self) -> PyResult<bool> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.is_focused())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Request focus for the window
+    fn set_focus(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_focus().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_focus failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Set window title
+    ///
+    /// Args:
+    ///     title (str): New window title
+    fn set_window_title(&self, title: &str) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_window_title(title).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_window_title failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Get window title
+    ///
+    /// Returns:
+    ///     str or None: Current window title
+    fn window_title(&self) -> PyResult<Option<String>> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.window_title())
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Set window size
+    ///
+    /// Args:
+    ///     width (int): Window width in pixels
+    ///     height (int): Window height in pixels
+    fn set_size(&self, width: u32, height: u32) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_size(width, height).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_size failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Get window inner size
+    ///
+    /// Returns:
+    ///     tuple: (width, height) in pixels
+    fn inner_size(&self) -> PyResult<(u32, u32)> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            let size = inner.inner_size();
+            Ok((size.width, size.height))
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Get window outer size (including decorations)
+    ///
+    /// Returns:
+    ///     tuple: (width, height) in pixels
+    fn outer_size(&self) -> PyResult<(u32, u32)> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            let size = inner.outer_size();
+            Ok((size.width, size.height))
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Get window position
+    ///
+    /// Returns:
+    ///     tuple: (x, y) in pixels, or None if unavailable
+    fn position(&self) -> PyResult<Option<(i32, i32)>> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            Ok(inner.position().map(|p| (p.x, p.y)))
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Center window on screen
+    fn center(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.center().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("center failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Set window decorations (title bar, borders)
+    ///
+    /// Args:
+    ///     decorations (bool): True to show decorations
+    fn set_decorations(&self, decorations: bool) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_decorations(decorations).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_decorations failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Set window resizable
+    ///
+    /// Args:
+    ///     resizable (bool): True to allow resizing
+    fn set_resizable(&self, resizable: bool) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_resizable(resizable).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_resizable failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Set minimum window size
+    ///
+    /// Args:
+    ///     width (int): Minimum width in pixels
+    ///     height (int): Minimum height in pixels
+    fn set_min_size(&self, width: u32, height: u32) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_min_size(width, height).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_min_size failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    /// Set maximum window size
+    ///
+    /// Args:
+    ///     width (int): Maximum width in pixels
+    ///     height (int): Maximum height in pixels
+    fn set_max_size(&self, width: u32, height: u32) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.set_max_size(width, height).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!("set_max_size failed: {}", e))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
+    }
+
+    // ========================================
+    // BOM Clear Data APIs (Tauri-aligned)
+    // ========================================
+
+    /// Clear all browsing data (localStorage, sessionStorage, IndexedDB, cookies)
+    ///
+    /// Example:
+    ///     >>> webview.clear_all_browsing_data()
+    fn clear_all_browsing_data(&self) -> PyResult<()> {
+        let inner_ref = self.inner.borrow();
+        if let Some(ref inner) = *inner_ref {
+            inner.clear_all_browsing_data().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "clear_all_browsing_data failed: {}",
+                    e
+                ))
+            })
+        } else {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "WebView not initialized. Call show() first.",
+            ))
+        }
     }
 }
 

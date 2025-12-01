@@ -9,6 +9,12 @@
 //! - **Core scripts**: Always included, provide fundamental functionality
 //! - **Feature scripts**: Conditionally included based on WebViewConfig
 //!
+//! ## Template Support
+//!
+//! When the `templates` feature is enabled, this module uses Askama templates
+//! for type-safe JavaScript code generation. Otherwise, it falls back to
+//! simple string replacement.
+//!
 //! ## Usage
 //!
 //! ```rust,ignore
@@ -21,6 +27,13 @@
 
 use crate::webview::WebViewConfig;
 use std::collections::HashMap;
+
+#[cfg(feature = "templates")]
+use crate::webview::js_templates::{
+    ApiMethodEntry, ApiRegistrationTemplate, EmitEventTemplate, LoadUrlTemplate,
+};
+#[cfg(feature = "templates")]
+use askama::Template;
 
 /// HTML asset registry
 ///
@@ -160,6 +173,9 @@ pub fn build_init_script(config: &WebViewConfig) -> String {
 /// Generates JavaScript code to register API methods using the
 /// window.auroraview._registerApiMethods helper function.
 ///
+/// When the `templates` feature is enabled, uses Askama templates for
+/// type-safe code generation. Otherwise, falls back to manual string building.
+///
 /// # Arguments
 ///
 /// * `api_methods` - Map of namespace to method names
@@ -167,6 +183,31 @@ pub fn build_init_script(config: &WebViewConfig) -> String {
 /// # Returns
 ///
 /// JavaScript code that registers all API methods
+#[cfg(feature = "templates")]
+fn build_api_registration_script(
+    api_methods: &std::collections::HashMap<String, Vec<String>>,
+) -> String {
+    let entries: Vec<ApiMethodEntry> = api_methods
+        .iter()
+        .map(|(namespace, methods)| ApiMethodEntry {
+            namespace: namespace.replace('\'', "\\'"),
+            methods: methods.iter().map(|m| m.replace('\'', "\\'")).collect(),
+        })
+        .collect();
+
+    let template = ApiRegistrationTemplate {
+        api_methods: entries,
+    };
+    template.render().unwrap_or_else(|e| {
+        eprintln!(
+            "[AuroraView] Failed to render API registration template: {}",
+            e
+        );
+        String::new()
+    })
+}
+
+#[cfg(not(feature = "templates"))]
 fn build_api_registration_script(
     api_methods: &std::collections::HashMap<String, Vec<String>>,
 ) -> String {
@@ -302,6 +343,9 @@ pub fn get_assets(assets: &[JsAsset]) -> String {
 /// Creates JavaScript code that uses window.auroraview.trigger() to dispatch
 /// an event from Rust/Python to JavaScript listeners.
 ///
+/// When the `templates` feature is enabled, uses Askama templates for
+/// type-safe code generation.
+///
 /// # Arguments
 ///
 /// * `event_name` - Name of the event to trigger
@@ -320,6 +364,23 @@ pub fn get_assets(assets: &[JsAsset]) -> String {
 /// let escaped = json_data.replace('\\', "\\\\").replace('\'', "\\'");
 /// let script = js_assets::build_emit_event_script("my_event", &escaped);
 /// ```
+#[cfg(feature = "templates")]
+pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {
+    let template = EmitEventTemplate {
+        event_name,
+        event_data,
+    };
+    template.render().unwrap_or_else(|e| {
+        eprintln!("[AuroraView] Failed to render emit event template: {}", e);
+        // Fallback to legacy method
+        get_js_code("runtime/emit_event.js")
+            .expect("emit_event.js template not found")
+            .replace("{EVENT_NAME}", event_name)
+            .replace("{EVENT_DATA}", event_data)
+    })
+}
+
+#[cfg(not(feature = "templates"))]
 pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {
     get_js_code("runtime/emit_event.js")
         .expect("emit_event.js template not found")
@@ -331,6 +392,9 @@ pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {
 ///
 /// Creates JavaScript code that navigates the WebView to a new URL
 /// by setting window.location.href.
+///
+/// When the `templates` feature is enabled, uses Askama templates for
+/// type-safe code generation.
 ///
 /// # Arguments
 ///
@@ -347,6 +411,19 @@ pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {
 ///
 /// let script = js_assets::build_load_url_script("https://example.com");
 /// ```
+#[cfg(feature = "templates")]
+pub fn build_load_url_script(url: &str) -> String {
+    let template = LoadUrlTemplate { url };
+    template.render().unwrap_or_else(|e| {
+        eprintln!("[AuroraView] Failed to render load URL template: {}", e);
+        // Fallback to legacy method
+        get_js_code("runtime/load_url.js")
+            .expect("load_url.js template not found")
+            .replace("{URL}", url)
+    })
+}
+
+#[cfg(not(feature = "templates"))]
 pub fn build_load_url_script(url: &str) -> String {
     get_js_code("runtime/load_url.js")
         .expect("load_url.js template not found")

@@ -64,13 +64,8 @@ auroraview = "auroraview.__main__:main"
 [tool.maturin]
 python-source = "python"
 module-name = "auroraview._core"
-features = ["pyo3/extension-module", "pyo3/abi3-py37", "cli"]
+features = ["python-bindings", "pyo3/extension-module", "pyo3/abi3-py37"]
 bindings = "pyo3"
-
-# Include CLI binary in the distribution
-[[tool.maturin.bin]]
-name = "auroraview"
-path = "src/bin/cli.rs"
 
 # Ruff configuration
 [tool.ruff]
@@ -119,7 +114,7 @@ strict_optional = true
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --strict-markers --cov=auroraview --cov-report=term-missing --cov-report=html --cov-report=xml"
-testpaths = ["tests"]
+testpaths = ["tests/python/unit", "tests/python/integration"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -127,6 +122,10 @@ markers = [
     "unit: Unit tests",
     "integration: Integration tests",
     "slow: Slow running tests (deselect with '-m \"not slow\"')",
+    "ui: UI tests (requires display)",
+    "maya: Maya-specific tests",
+    "qt: Qt-specific tests",
+    "headless: Headless tests (no display required)",
 ]
 
 # Coverage configuration

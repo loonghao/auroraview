@@ -1,0 +1,58 @@
+[package]
+name = "auroraview-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AuroraView CLI: Command-line interface for WebView applications"
+keywords = ["webview", "cli", "rust", "wry"]
+categories = ["command-line-utilities", "gui"]
+
+[[bin]]
+name = "auroraview"
+path = "src/main.rs"
+
+[dependencies]
+# Core utilities and assets
+auroraview-core = { path = "../auroraview-core" }
+
+# Pack functionality
+auroraview-pack = { path = "../auroraview-pack" }
+
+# Wry for WebView (direct dependency for CLI)
+wry = "0.53"
+tao = "0.34"
+
+# CLI framework
+clap = { version = "4.5", features = ["derive"] }
+
+# Error handling
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Serialization for config files
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# URL handling
+url = "2.5"
+urlencoding = "2.1"
+regex = "1.11"
+
+# File path handling
+dunce = "1.0"
+path-clean = "1.0"
+
+# MIME type detection
+mime_guess = "2.0"
+
+# Embed static assets
+rust-embed = "8.5"
+
+[dev-dependencies]
+rstest = "0.24"
