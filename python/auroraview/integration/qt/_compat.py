@@ -337,3 +337,64 @@ def _ensure_native_child_style(hwnd: int, container: Any) -> None:
     except Exception as e:
         logger.debug(f"[Qt Compat] _ensure_native_child_style warning: {e}")
 
+
+def apply_qt6_dialog_optimizations(dialog: Any) -> bool:
+    """Apply Qt6-specific optimizations to a QDialog.
+
+    This function applies performance and compatibility optimizations
+    that are recommended for Qt6 environments. It should be called
+    after dialog creation but before showing the dialog.
+
+    Optimizations applied:
+    - WA_OpaquePaintEvent: Force opaque painting (better performance)
+    - WA_TranslucentBackground: Disable translucency (Qt6 performance issue)
+    - WA_NoSystemBackground: Ensure proper background handling
+    - WA_NativeWindow: Ensure native window creation
+    - WA_InputMethodEnabled: Enable input method for keyboard input
+
+    Args:
+        dialog: The QDialog to optimize.
+
+    Returns:
+        True if optimizations were applied, False if Qt6 not detected or error.
+
+    Example:
+        >>> dialog = QDialog()
+        >>> apply_qt6_dialog_optimizations(dialog)
+        >>> dialog.show()
+    """
+    if not is_qt6():
+        logger.debug("[Qt Compat] Not Qt6, skipping dialog optimizations")
+        return False
+
+    try:
+        from qtpy.QtCore import Qt
+
+        # Performance optimization: Force opaque painting
+        dialog.setAttribute(Qt.WA_OpaquePaintEvent, True)
+        logger.debug("[Qt Compat] Set WA_OpaquePaintEvent=True")
+
+        # Performance optimization: Disable translucent background
+        # (Qt6 has significant performance issues with translucency)
+        dialog.setAttribute(Qt.WA_TranslucentBackground, False)
+        logger.debug("[Qt Compat] Set WA_TranslucentBackground=False")
+
+        # Ensure proper background handling
+        dialog.setAttribute(Qt.WA_NoSystemBackground, False)
+        logger.debug("[Qt Compat] Set WA_NoSystemBackground=False")
+
+        # Qt6 compatibility: Ensure native window
+        dialog.setAttribute(Qt.WA_NativeWindow, True)
+        logger.debug("[Qt Compat] Set WA_NativeWindow=True")
+
+        # Qt6 compatibility: Enable input method for keyboard
+        dialog.setAttribute(Qt.WA_InputMethodEnabled, True)
+        logger.debug("[Qt Compat] Set WA_InputMethodEnabled=True")
+
+        logger.info("[Qt Compat] Applied Qt6 dialog optimizations")
+        return True
+
+    except Exception as e:
+        logger.error(f"[Qt Compat] Failed to apply Qt6 optimizations: {e}")
+        return False
+
