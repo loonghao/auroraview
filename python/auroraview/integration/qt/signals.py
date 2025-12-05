@@ -43,7 +43,17 @@ Example:
 """
 
 import logging
+import os
 from typing import Optional
+
+# Performance optimization: Check verbose logging once at import time
+# In DCC environments, excessive logging causes severe UI performance issues
+_VERBOSE_LOGGING = os.environ.get("AURORAVIEW_LOG_VERBOSE", "").lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
 
 try:
     from qtpy.QtCore import QObject, Signal
@@ -203,7 +213,8 @@ class QtWebViewSignals(QObject):
             line_number: Line number where error occurred
             source_id: Source file/URL where error occurred
         """
-        logger.debug(f"QtWebViewSignals: jsError -> {message} at {source_id}:{line_number}")
+        if _VERBOSE_LOGGING:
+            logger.debug(f"QtWebViewSignals: jsError -> {message} at {source_id}:{line_number}")
         self.jsError.emit(message, line_number, source_id)
 
     def emit_console_message(
@@ -217,7 +228,8 @@ class QtWebViewSignals(QObject):
             line_number: Line number
             source_id: Source file/URL
         """
-        logger.debug(f"QtWebViewSignals: consoleMessage[{level}] -> {message}")
+        if _VERBOSE_LOGGING:
+            logger.debug(f"QtWebViewSignals: consoleMessage[{level}] -> {message}")
         self.consoleMessage.emit(level, message, line_number, source_id)
 
     def emit_render_process_terminated(
@@ -253,14 +265,16 @@ class QtWebViewSignals(QObject):
             event_name: Name of the IPC event
             data: Data payload from JavaScript
         """
-        logger.debug(f"QtWebViewSignals: ipcMessageReceived -> {event_name}")
+        if _VERBOSE_LOGGING:
+            logger.debug(f"QtWebViewSignals: ipcMessageReceived -> {event_name}")
         self.ipcMessageReceived.emit(event_name, data)
 
     # ========== Selection signal emitters ==========
 
     def emit_selection_changed(self) -> None:
         """Emit selectionChanged signal when text selection changes."""
-        logger.debug("QtWebViewSignals: selectionChanged")
+        if _VERBOSE_LOGGING:
+            logger.debug("QtWebViewSignals: selectionChanged")
         self.selectionChanged.emit()
 
     def emit_icon_url_changed(self, url: str) -> None:
