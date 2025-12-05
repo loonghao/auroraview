@@ -109,14 +109,26 @@ impl AuroraView {
     // ========================================
 
     /// Process pending window events (for embedded mode)
+    ///
+    /// Returns `false` if the WebView is not yet initialized (safe to retry).
+    /// Returns `true` if the window should be closed.
     fn process_events(&self) -> PyResult<bool> {
-        let inner_ref = self.inner.borrow();
-        if let Some(ref inner) = *inner_ref {
-            Ok(inner.process_events())
-        } else {
-            Err(pyo3::exceptions::PyRuntimeError::new_err(
-                "WebView not initialized",
-            ))
+        // Use try_borrow to avoid panic during initialization
+        match self.inner.try_borrow() {
+            Ok(inner_ref) => {
+                if let Some(ref inner) = *inner_ref {
+                    Ok(inner.process_events())
+                } else {
+                    // WebView not yet initialized, safe to retry later
+                    tracing::trace!("[process_events] WebView inner not initialized yet");
+                    Ok(false)
+                }
+            }
+            Err(_) => {
+                // RefCell is borrowed (likely during initialization), skip this tick
+                tracing::trace!("[process_events] RefCell already borrowed, skipping tick");
+                Ok(false)
+            }
         }
     }
 
