@@ -119,12 +119,15 @@ def apply_clip_styles_to_parent(parent_hwnd: int) -> bool:
         if new_style != style:
             user32.SetWindowLongW(parent_hwnd, GWL_STYLE, new_style)
             user32.SetWindowPos(
-                parent_hwnd, None, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+                parent_hwnd,
+                None,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             )
-            logger.debug(
-                f"[Qt Compat] Applied clip styles to parent HWND 0x{parent_hwnd:X}"
-            )
+            logger.debug(f"[Qt Compat] Applied clip styles to parent HWND 0x{parent_hwnd:X}")
         return True
 
     except Exception as e:
@@ -135,11 +138,25 @@ def apply_clip_styles_to_parent(parent_hwnd: int) -> bool:
 def prepare_hwnd_for_container(hwnd: int) -> bool:
     """Prepare a native HWND for Qt's createWindowContainer.
 
-    This function applies the necessary Win32 style modifications to make
+    This function applies all necessary Win32 style modifications to make
     a native window work properly with Qt's createWindowContainer.
+    It consolidates all border removal and child window setup into a single
+    SetWindowPos call to minimize flicker and improve performance.
 
-    Qt6 is stricter about window styles, so we need to be more aggressive
+    Qt6 is stricter about window styles, so we need to be aggressive
     about removing styles that can cause issues.
+
+    Styles removed:
+    - WS_POPUP, WS_CAPTION, WS_THICKFRAME (frame styles)
+    - WS_BORDER, WS_DLGFRAME (border styles)
+    - WS_SYSMENU, WS_MINIMIZEBOX, WS_MAXIMIZEBOX (system menu)
+    - WS_OVERLAPPEDWINDOW (overlapped window composite)
+    - WS_EX_WINDOWEDGE, WS_EX_CLIENTEDGE, WS_EX_STATICEDGE (extended border)
+    - WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_EX_DLGMODALFRAME (app styles)
+
+    Styles added:
+    - WS_CHILD (required for container embedding)
+    - WS_CLIPSIBLINGS (reduces flicker)
 
     Args:
         hwnd: The native window handle (HWND) to prepare.
@@ -151,33 +168,67 @@ def prepare_hwnd_for_container(hwnd: int) -> bool:
         return False
 
     try:
+        # Additional window style constants for comprehensive border removal
+        WS_BORDER = 0x00800000
+        WS_DLGFRAME = 0x00400000
+        WS_OVERLAPPEDWINDOW = 0x00CF0000
+        WS_EX_STATICEDGE = 0x00020000
+        WS_EX_DLGMODALFRAME = 0x00000001
+
         # Get current styles
         style = user32.GetWindowLongW(hwnd, GWL_STYLE)
         ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
 
-        # Remove all frame/border styles
-        style &= ~(WS_POPUP | WS_CAPTION | WS_THICKFRAME |
-                   WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)
+        old_style = style
+        old_ex_style = ex_style
+
+        # Remove all frame/border styles (comprehensive)
+        style &= ~(
+            WS_POPUP
+            | WS_CAPTION
+            | WS_THICKFRAME
+            | WS_MINIMIZEBOX
+            | WS_MAXIMIZEBOX
+            | WS_SYSMENU
+            | WS_BORDER
+            | WS_DLGFRAME
+            | WS_OVERLAPPEDWINDOW
+        )
 
         # Add WS_CHILD - critical for proper embedding
         # Also add WS_CLIPSIBLINGS for child window
         style |= WS_CHILD | WS_CLIPSIBLINGS
 
-        # Remove extended styles that can cause issues
-        ex_style &= ~(WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE |
-                      WS_EX_APPWINDOW | WS_EX_TOOLWINDOW)
+        # Remove extended styles that can cause issues (comprehensive)
+        ex_style &= ~(
+            WS_EX_WINDOWEDGE
+            | WS_EX_CLIENTEDGE
+            | WS_EX_APPWINDOW
+            | WS_EX_TOOLWINDOW
+            | WS_EX_STATICEDGE
+            | WS_EX_DLGMODALFRAME
+        )
 
         # Apply new styles
         user32.SetWindowLongW(hwnd, GWL_STYLE, style)
         user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style)
 
-        # Force Windows to apply the style changes
+        # Force Windows to apply the style changes (single call)
         user32.SetWindowPos(
-            hwnd, None, 0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+            hwnd,
+            None,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
         )
 
-        logger.debug(f"[Qt Compat] Prepared HWND 0x{hwnd:X} for container")
+        logger.debug(
+            f"[Qt Compat] Prepared HWND 0x{hwnd:X} for container "
+            f"(style=0x{old_style:08X}->0x{style:08X}, "
+            f"ex_style=0x{old_ex_style:08X}->0x{ex_style:08X})"
+        )
         return True
 
     except Exception as e:
@@ -205,8 +256,8 @@ def create_container_widget(
         The container QWidget, or None if creation failed.
     """
     try:
-        from qtpy.QtWidgets import QWidget, QSizePolicy
         from qtpy.QtCore import Qt as QtCore
+        from qtpy.QtWidgets import QSizePolicy, QWidget
 
         container = QWidget.createWindowContainer(qwindow, parent)
         if container is None:
@@ -239,8 +290,9 @@ def create_container_widget(
             container.setAttribute(QtCore.WA_InputMethodEnabled, True)
             # Ensure no extra margins from container
             container.setContentsMargins(0, 0, 0, 0)
-            # Force opaque paint to avoid transparency issues
-            container.setAttribute(QtCore.WA_OpaquePaintEvent, True)
+            # NOTE: Do NOT set WA_OpaquePaintEvent on container!
+            # This causes black screen in Houdini and other Qt6 DCCs.
+            # The container must remain transparent to show embedded WebView content.
             logger.debug("[Qt Compat] Applied Qt6-specific container settings")
 
         # Qt5/Qt6 common: ensure container accepts focus properly
@@ -270,13 +322,16 @@ def post_container_setup(container: Any, hwnd: int) -> None:
         from qtpy.QtWidgets import QApplication
 
         # Process events to ensure Qt has completed its internal setup
+        # Using processEvents multiple times is more reliable than time.sleep
+        # and avoids blocking the thread unnecessarily.
         QApplication.processEvents()
 
-        # Qt6 sometimes needs a small delay for proper window attachment
         if is_qt6():
-            import time
-            time.sleep(0.01)  # 10ms delay
-            QApplication.processEvents()
+            # Qt6 needs additional event processing for proper window attachment.
+            # Instead of a fixed time.sleep(), we process events in small batches
+            # which allows the event loop to complete native operations.
+            for _ in range(3):
+                QApplication.processEvents()
 
             # Qt6/PySide6 specific: ensure native window is properly reparented
             # This is critical for Houdini where PySide6 behaves differently
@@ -325,8 +380,13 @@ def _ensure_native_child_style(hwnd: int, container: Any) -> None:
 
             # Apply changes
             user32.SetWindowPos(
-                hwnd, None, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+                hwnd,
+                None,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             )
 
             logger.debug(
@@ -370,9 +430,10 @@ def apply_qt6_dialog_optimizations(dialog: Any) -> bool:
     try:
         from qtpy.QtCore import Qt
 
-        # Performance optimization: Force opaque painting
-        dialog.setAttribute(Qt.WA_OpaquePaintEvent, True)
-        logger.debug("[Qt Compat] Set WA_OpaquePaintEvent=True")
+        # NOTE: Do NOT set WA_OpaquePaintEvent on dialogs containing WebView!
+        # This causes black screen in Houdini and other Qt6 DCCs because
+        # Qt assumes the widget will paint its entire background, but
+        # the WebView container needs transparency to show the embedded content.
 
         # Performance optimization: Disable translucent background
         # (Qt6 has significant performance issues with translucency)
@@ -397,4 +458,3 @@ def apply_qt6_dialog_optimizations(dialog: Any) -> bool:
     except Exception as e:
         logger.error(f"[Qt Compat] Failed to apply Qt6 optimizations: {e}")
         return False
-

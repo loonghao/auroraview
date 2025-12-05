@@ -46,12 +46,6 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-# Windows-specific imports for HWND manipulation
-# Only used in _sync_embedded_geometry() which has platform check
-if sys.platform == "win32":
-    import ctypes
-    from ctypes import wintypes
-
 try:
     from qtpy.QtCore import QCoreApplication, QEvent, Qt, QTimer, Signal
     from qtpy.QtGui import QWindow
@@ -62,17 +56,16 @@ except ImportError as e:
     ) from e
 
 from auroraview.core.webview import WebView
-from auroraview.integration.qt.signals import QtWebViewSignals
 
 # Import Qt compatibility layer for version-specific handling
 from auroraview.integration.qt._compat import (
     apply_clip_styles_to_parent,
     create_container_widget,
     get_qt_info,
-    is_qt6,
     post_container_setup,
     prepare_hwnd_for_container,
 )
+from auroraview.integration.qt.dialogs import FileDialogMixin
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +129,7 @@ class QtEventProcessor:
             logger.debug(f"QtEventProcessor: Event processing failed: {e}")
 
 
-class QtWebView(QWidget):
+class QtWebView(FileDialogMixin, QWidget):
     """Qt-native WebView widget for DCC applications.
 
     This is the recommended class for integrating WebView into Qt-based DCC
@@ -357,9 +350,7 @@ class QtWebView(QWidget):
         # Apply frameless window flags if requested
         if frameless:
             # Remove window decorations but keep it as a proper window
-            self.setWindowFlags(
-                Qt.Window | Qt.FramelessWindowHint
-            )
+            self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
             logger.info("QtWebView: Frameless mode enabled")
 
         # Apply transparent background if requested
@@ -405,14 +396,14 @@ class QtWebView(QWidget):
             title=title,
             width=width,
             height=height,
-            parent=qt_hwnd,      # Tell WebView.create() this is embedded mode
-            mode="container",    # Container mode: standalone but non-blocking
+            parent=qt_hwnd,  # Tell WebView.create() this is embedded mode
+            mode="container",  # Container mode: standalone but non-blocking
             frame=use_frame if not frameless else False,
             debug=dev_tools,
             context_menu=context_menu,
             asset_root=asset_root,
             allow_file_protocol=allow_file_protocol,
-            auto_show=False,     # Don't auto-show, we control visibility
+            auto_show=False,  # Don't auto-show, we control visibility
             auto_timer=True,
             transparent=transparent,
             background_color=background_color,
@@ -441,7 +432,7 @@ class QtWebView(QWidget):
         # 1. Window moves (for owner mode positioning)
         # 2. Window close (to close WebView when parent closes)
         if parent is not None:
-            self._parent_window = parent.window() if hasattr(parent, 'window') else parent
+            self._parent_window = parent.window() if hasattr(parent, "window") else parent
             if self._parent_window is not None:
                 self._parent_window.installEventFilter(self)
                 logger.debug("QtWebView: Installed event filter on parent window")
@@ -461,8 +452,13 @@ class QtWebView(QWidget):
 
         logger.info(
             "QtWebView created: %s (%sx%s, mode=%s, frameless=%s, transparent=%s, container=%s)",
-            title, width, height, embed_mode, frameless, transparent,
-            "createWindowContainer" if self._webview_container else "manual"
+            title,
+            width,
+            height,
+            embed_mode,
+            frameless,
+            transparent,
+            "createWindowContainer" if self._webview_container else "manual",
         )
 
     def _setup_signal_bridge(self) -> None:
@@ -471,6 +467,7 @@ class QtWebView(QWidget):
         This connects internal WebView events to Qt signal emissions,
         enabling standard Qt signal/slot connections.
         """
+
         # Navigation started
         @self._webview.on("navigation_started")
         def on_nav_started(data):
@@ -649,14 +646,10 @@ class QtWebView(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         loading_label = QLabel("Loading WebView...")
         loading_label.setAlignment(Qt.AlignCenter)
-        loading_label.setStyleSheet(
-            "QLabel { color: #888; font-size: 14px; background: #1a1a2e; }"
-        )
+        loading_label.setStyleSheet("QLabel { color: #888; font-size: 14px; background: #1a1a2e; }")
         layout.addWidget(loading_label)
 
-        logger.debug(
-            "QtWebView.create_deferred: Created placeholder, scheduling WebView creation"
-        )
+        logger.debug("QtWebView.create_deferred: Created placeholder, scheduling WebView creation")
 
         def do_create():
             """Create WebView on main thread (deferred via QTimer)."""
@@ -685,9 +678,7 @@ class QtWebView(QWidget):
                 )
 
                 elapsed = time.time() - start_time
-                logger.debug(
-                    "QtWebView.create_deferred: WebView created in %.3fs", elapsed
-                )
+                logger.debug("QtWebView.create_deferred: WebView created in %.3fs", elapsed)
 
                 # Hide placeholder
                 placeholder.hide()
@@ -861,6 +852,7 @@ class QtWebView(QWidget):
 
         This wraps the callback to also emit ipcMessageReceived signal.
         """
+
         # Create wrapper that also emits Qt signal
         def wrapper(data):
             # Emit Qt signal first
@@ -1086,140 +1078,13 @@ class QtWebView(QWidget):
             if sys.platform != "win32":
                 return
 
-            # If using createWindowContainer, Qt handles geometry automatically!
-            # We only need to remove window borders once.
-            if self._webview_container is not None:
-                # Only remove borders once (on first call)
-                if not getattr(self, "_borders_removed", False):
-                    self._remove_window_borders()
-                    self._borders_removed = True
-                return
-
-            # Legacy manual geometry sync for fallback mode
-            core = getattr(self._webview, "_core", None)
-            get_hwnd = getattr(core, "get_hwnd", None) if core is not None else None
-            hwnd = get_hwnd() if callable(get_hwnd) else None
-            if not hwnd:
-                logger.debug("[QtWebView] _sync_embedded_geometry: No HWND available yet")
-                return
-
-            logger.debug(f"[QtWebView] _sync_embedded_geometry: HWND={hwnd} (legacy mode)")
-
-            self._remove_window_borders()
-
-            user32 = ctypes.windll.user32
-            rect = self.contentsRect()
-            EDGE_BUFFER = 0
-
-            embed_mode = getattr(self, "_embed_mode", "owner")
-
-            if embed_mode == "owner":
-                top_left = self.mapToGlobal(rect.topLeft())
-                x = top_left.x() + EDGE_BUFFER
-                y = top_left.y() + EDGE_BUFFER
-            else:
-                x = rect.x() + EDGE_BUFFER
-                y = rect.y() + EDGE_BUFFER
-
-            width = max(0, rect.width() - 2 * EDGE_BUFFER)
-            height = max(0, rect.height() - 2 * EDGE_BUFFER)
-
-            SWP_NOZORDER = 0x0004
-            SWP_NOACTIVATE = 0x0010
-
-            user32.SetWindowPos(
-                wintypes.HWND(int(hwnd)),
-                0, x, y, width, height,
-                SWP_NOZORDER | SWP_NOACTIVATE,
-            )
+            # When using createWindowContainer, Qt handles geometry automatically!
+            # Border removal is done by prepare_hwnd_for_container() in
+            # _create_webview_container(), so nothing else to do here.
+            # Note: Legacy manual geometry sync mode is no longer supported.
+            pass
         except Exception as e:
             logger.debug("QtWebView: failed to sync embedded geometry: %s", e)
-
-    def _remove_window_borders(self) -> None:
-        """Remove all window borders and frames from the WebView HWND.
-
-        This is critical for seamless Qt container embedding. We remove:
-        - All border styles (WS_BORDER, WS_THICKFRAME, WS_DLGFRAME)
-        - All extended border styles (WS_EX_CLIENTEDGE, WS_EX_WINDOWEDGE, WS_EX_STATICEDGE)
-        - Caption/title bar (WS_CAPTION)
-        - System menu (WS_SYSMENU)
-        - Add WS_CHILD to make it a proper child window
-
-        After calling this, SetWindowPos with SWP_FRAMECHANGED must be called
-        to apply the style changes.
-        """
-        if sys.platform != "win32":
-            return
-
-        core = getattr(self._webview, "_core", None)
-        get_hwnd = getattr(core, "get_hwnd", None) if core is not None else None
-        hwnd = get_hwnd() if callable(get_hwnd) else None
-        if not hwnd:
-            return
-
-        try:
-            user32 = ctypes.windll.user32
-
-            GWL_STYLE = -16
-            GWL_EXSTYLE = -20
-
-            # Window styles to remove
-            WS_BORDER = 0x00800000
-            WS_THICKFRAME = 0x00040000
-            WS_DLGFRAME = 0x00400000
-            WS_CAPTION = 0x00C00000  # WS_BORDER | WS_DLGFRAME
-            WS_SYSMENU = 0x00080000
-            WS_POPUP = 0x80000000
-            WS_OVERLAPPEDWINDOW = 0x00CF0000
-
-            # Extended styles to remove
-            WS_EX_CLIENTEDGE = 0x00000200
-            WS_EX_WINDOWEDGE = 0x00000100
-            WS_EX_STATICEDGE = 0x00020000
-            WS_EX_DLGMODALFRAME = 0x00000001
-
-            # Style to add for child window
-            WS_CHILD = 0x40000000
-
-            style = user32.GetWindowLongW(wintypes.HWND(int(hwnd)), GWL_STYLE)
-            ex_style = user32.GetWindowLongW(wintypes.HWND(int(hwnd)), GWL_EXSTYLE)
-
-            old_style = style
-            old_ex_style = ex_style
-
-            # Remove all border and frame styles
-            style &= ~(WS_BORDER | WS_THICKFRAME | WS_DLGFRAME | WS_CAPTION |
-                       WS_SYSMENU | WS_POPUP | WS_OVERLAPPEDWINDOW)
-            ex_style &= ~(WS_EX_CLIENTEDGE | WS_EX_WINDOWEDGE |
-                          WS_EX_STATICEDGE | WS_EX_DLGMODALFRAME)
-
-            # Add WS_CHILD style for proper container embedding
-            style |= WS_CHILD
-
-            user32.SetWindowLongW(wintypes.HWND(int(hwnd)), GWL_STYLE, style)
-            user32.SetWindowLongW(wintypes.HWND(int(hwnd)), GWL_EXSTYLE, ex_style)
-
-            # Apply style changes with SetWindowPos + SWP_FRAMECHANGED
-            SWP_FRAMECHANGED = 0x0020
-            SWP_NOMOVE = 0x0002
-            SWP_NOSIZE = 0x0001
-            SWP_NOZORDER = 0x0004
-            SWP_NOACTIVATE = 0x0010
-
-            user32.SetWindowPos(
-                wintypes.HWND(int(hwnd)),
-                None,
-                0, 0, 0, 0,
-                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
-            )
-
-            logger.debug(
-                f"[QtWebView] Removed window borders and made child "
-                f"(HWND={hwnd}, style=0x{old_style:08X}->0x{style:08X}, "
-                f"ex_style=0x{old_ex_style:08X}->0x{ex_style:08X})"
-            )
-        except Exception as e:
-            logger.debug(f"[QtWebView] Failed to remove window borders: {e}")
 
     def _create_webview_container(self, core) -> None:
         """Create Qt container for WebView after WebView is initialized.
@@ -1254,11 +1119,9 @@ class QtWebView(QWidget):
             )
 
             # Step 1: Prepare HWND using compat layer (handles Qt5/Qt6 differences)
-            # This removes borders and sets WS_CHILD style
+            # This removes all window borders, frames, and sets WS_CHILD style
+            # in a single consolidated operation for optimal performance.
             prepare_hwnd_for_container(webview_hwnd)
-
-            # Also call legacy border removal for any additional cleanup
-            self._remove_window_borders()
 
             # Step 2: Wrap the native HWND as a QWindow
             self._webview_qwindow = QWindow.fromWinId(webview_hwnd)
@@ -1278,8 +1141,12 @@ class QtWebView(QWidget):
                 logger.error("[QtWebView] create_container_widget returned None")
                 return
 
-            # Ensure container has no extra styling that could cause borders
-            self._webview_container.setStyleSheet("background: transparent; border: none; margin: 0; padding: 0;")
+            # Ensure container has minimal styling - no borders or margins
+            # NOTE: Do NOT set transparent background on container for Qt6!
+            # Qt6 with PySide6 requires the container to have NO background style
+            # to properly display the embedded WebView content.
+            # Setting "background: transparent" causes black screen in Houdini.
+            self._webview_container.setStyleSheet("border: none; margin: 0; padding: 0;")
 
             # Step 4: Add to layout with stretch to fill all available space
             self._layout.addWidget(self._webview_container, 1)
@@ -1311,10 +1178,7 @@ class QtWebView(QWidget):
             # This is critical for Qt6 where layout updates may be delayed
             self._force_container_geometry()
 
-            logger.debug(
-                "[QtWebView] Container created successfully for HWND=0x%X",
-                webview_hwnd
-            )
+            logger.debug("[QtWebView] Container created successfully for HWND=0x%X", webview_hwnd)
         except Exception as e:
             logger.exception(f"[QtWebView] Failed to create container: {e}")
             self._webview_container = None
@@ -1405,6 +1269,7 @@ class QtWebView(QWidget):
         """
         try:
             from qtpy.QtWidgets import QApplication
+
             from auroraview.integration.qt._compat import is_qt6
 
             container = getattr(self, "_webview_container", None)
@@ -1459,8 +1324,7 @@ class QtWebView(QWidget):
             self._sync_webview2_controller_bounds(width, height)
 
             logger.debug(
-                "[QtWebView] Forced container geometry: %dx%d (Qt6=%s)",
-                width, height, is_qt6()
+                "[QtWebView] Forced container geometry: %dx%d (Qt6=%s)", width, height, is_qt6()
             )
 
         except Exception as e:
@@ -1507,9 +1371,7 @@ class QtWebView(QWidget):
 
         # Create loading overlay
         self._loading_overlay = QWidget(self)
-        self._loading_overlay.setStyleSheet(
-            "background-color: #1a1a2e; border: none;"
-        )
+        self._loading_overlay.setStyleSheet("background-color: #1a1a2e; border: none;")
         loading_layout = QVBoxLayout(self._loading_overlay)
         loading_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -1580,9 +1442,7 @@ class QtWebView(QWidget):
                 )
                 show_embedded()
                 core_show_time = (time.time() - core_show_start) * 1000
-                logger.debug(
-                    f"[QtWebView] core.show_embedded() returned in {core_show_time:.1f}ms"
-                )
+                logger.debug(f"[QtWebView] core.show_embedded() returned in {core_show_time:.1f}ms")
             else:
                 # Extremely unlikely with current Rust core, but keep a guarded
                 # fallback for older versions.
@@ -1593,9 +1453,7 @@ class QtWebView(QWidget):
                 )
                 core.show()
                 core_show_time = (time.time() - core_show_start) * 1000
-                logger.debug(
-                    f"[QtWebView] core.show() fallback returned in {core_show_time:.1f}ms"
-                )
+                logger.debug(f"[QtWebView] core.show() fallback returned in {core_show_time:.1f}ms")
         except Exception as exc:
             # If show_embedded()/show() fails for some reason, fall back to the
             # high-level Python WebView.show() which will use the background
