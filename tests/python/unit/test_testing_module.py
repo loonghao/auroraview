@@ -403,13 +403,13 @@ class TestEventTimerEdgeCases:
 
     def test_event_timer_import(self):
         """Test that EventTimer can be imported."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         assert EventTimer is not None
 
     def test_event_timer_creation(self):
         """Test EventTimer creation with mock webview."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         timer = EventTimer(mock_webview, interval_ms=100)
@@ -420,7 +420,7 @@ class TestEventTimerEdgeCases:
 
     def test_event_timer_on_close_callback(self):
         """Test on_close callback registration."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         timer = EventTimer(mock_webview)
@@ -436,7 +436,7 @@ class TestEventTimerEdgeCases:
 
     def test_event_timer_is_running_property(self):
         """Test is_running property."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         timer = EventTimer(mock_webview)
@@ -445,7 +445,7 @@ class TestEventTimerEdgeCases:
 
     def test_event_timer_stop_when_not_running(self):
         """Test stop when timer is not running."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         timer = EventTimer(mock_webview)
@@ -457,7 +457,7 @@ class TestEventTimerEdgeCases:
 
     def test_event_timer_start_already_running(self):
         """Test start raises when already running."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         timer = EventTimer(mock_webview)
@@ -468,7 +468,7 @@ class TestEventTimerEdgeCases:
 
     def test_event_timer_check_window_valid_no_core(self):
         """Test _check_window_valid when webview has no _core."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock(spec=[])  # No _core attribute
         timer = EventTimer(mock_webview)
@@ -479,7 +479,7 @@ class TestEventTimerEdgeCases:
 
     def test_event_timer_check_window_valid_with_core(self):
         """Test _check_window_valid when webview has _core."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         mock_webview._core = MagicMock()
@@ -493,7 +493,7 @@ class TestEventTimerEdgeCases:
 
     def test_event_timer_check_window_valid_exception(self):
         """Test _check_window_valid handles exceptions."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         mock_webview._core = MagicMock()
@@ -510,19 +510,19 @@ class TestTimerBackendsEdgeCases:
 
     def test_timer_backends_import(self):
         """Test that timer_backends can be imported."""
-        from auroraview import timer_backends
+        from auroraview.utils import timer_backends
 
         assert timer_backends is not None
 
     def test_thread_timer_backend_import(self):
         """Test ThreadTimerBackend import."""
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         assert ThreadTimerBackend is not None
 
     def test_thread_timer_backend_creation(self):
         """Test ThreadTimerBackend creation."""
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         backend = ThreadTimerBackend()
 
@@ -530,7 +530,7 @@ class TestTimerBackendsEdgeCases:
 
     def test_thread_timer_backend_start_stop(self):
         """Test ThreadTimerBackend start and stop."""
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         backend = ThreadTimerBackend()
         callback_count = []
@@ -553,7 +553,7 @@ class TestTimerBackendsEdgeCases:
 
     def test_get_available_backend(self):
         """Test get_available_backend function."""
-        from auroraview.timer_backends import get_available_backend
+        from auroraview.utils.timer_backends import get_available_backend
 
         backend = get_available_backend()
 
@@ -562,7 +562,7 @@ class TestTimerBackendsEdgeCases:
 
     def test_register_timer_backend(self):
         """Test register_timer_backend function."""
-        from auroraview.timer_backends import (
+        from auroraview.utils.timer_backends import (
             ThreadTimerBackend,
             get_available_backend,
             register_timer_backend,
@@ -647,7 +647,7 @@ class TestTimerBackendsMoreCoverage:
 
     def test_timer_backend_abstract_methods(self):
         """Test TimerBackend abstract class."""
-        from auroraview.timer_backends import TimerBackend
+        from auroraview.utils.timer_backends import TimerBackend
 
         # TimerBackend is abstract, cannot be instantiated directly
         with pytest.raises(TypeError):
@@ -655,7 +655,7 @@ class TestTimerBackendsMoreCoverage:
 
     def test_thread_timer_backend_stop_invalid_handle(self):
         """Test ThreadTimerBackend stop with invalid handle."""
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         backend = ThreadTimerBackend()
 
@@ -664,7 +664,7 @@ class TestTimerBackendsMoreCoverage:
 
     def test_thread_timer_backend_is_available(self):
         """Test ThreadTimerBackend is_available."""
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         backend = ThreadTimerBackend()
 
@@ -673,7 +673,7 @@ class TestTimerBackendsMoreCoverage:
 
     def test_qt_timer_backend_not_available(self):
         """Test QtTimerBackend when Qt is not available."""
-        from auroraview.timer_backends import QtTimerBackend
+        from auroraview.utils.timer_backends import QtTimerBackend
 
         backend = QtTimerBackend()
 
@@ -688,8 +688,8 @@ class TestEventTimerMoreCoverage:
 
     def test_event_timer_with_custom_backend(self):
         """Test EventTimer with custom backend."""
-        from auroraview.event_timer import EventTimer
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.event_timer import EventTimer
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         mock_webview = MagicMock()
         backend = ThreadTimerBackend()
@@ -699,7 +699,7 @@ class TestEventTimerMoreCoverage:
 
     def test_event_timer_interval_property(self):
         """Test EventTimer interval_ms property."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         timer = EventTimer(mock_webview, interval_ms=50)
@@ -708,7 +708,7 @@ class TestEventTimerMoreCoverage:
 
     def test_event_timer_webview_attribute(self):
         """Test EventTimer _webview attribute."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         timer = EventTimer(mock_webview)
@@ -717,7 +717,7 @@ class TestEventTimerMoreCoverage:
 
     def test_event_timer_check_window_validity_flag(self):
         """Test EventTimer check_window_validity flag."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         mock_webview = MagicMock()
         timer = EventTimer(mock_webview, check_window_validity=True)
@@ -726,8 +726,8 @@ class TestEventTimerMoreCoverage:
 
     def test_event_timer_backend_attribute(self):
         """Test EventTimer _backend attribute."""
-        from auroraview.event_timer import EventTimer
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.event_timer import EventTimer
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         mock_webview = MagicMock()
         backend = ThreadTimerBackend()
@@ -741,13 +741,13 @@ class TestFileProtocolCoverage:
 
     def test_file_protocol_import(self):
         """Test file_protocol module import."""
-        from auroraview import file_protocol
+        from auroraview.utils import file_protocol
 
         assert file_protocol is not None
 
     def test_path_to_file_url(self):
         """Test path_to_file_url function."""
-        from auroraview.file_protocol import path_to_file_url
+        from auroraview.utils.file_protocol import path_to_file_url
 
         result = path_to_file_url("test.html")
         assert result.startswith("file://")
@@ -755,7 +755,7 @@ class TestFileProtocolCoverage:
 
     def test_prepare_html_with_local_assets(self):
         """Test prepare_html_with_local_assets function."""
-        from auroraview.file_protocol import prepare_html_with_local_assets
+        from auroraview.utils.file_protocol import prepare_html_with_local_assets
 
         html = '<img src="{{IMAGE_PATH}}">'
         result = prepare_html_with_local_assets(html, {"IMAGE_PATH": "test.png"})
@@ -764,7 +764,7 @@ class TestFileProtocolCoverage:
 
     def test_prepare_html_with_manifest_path(self):
         """Test prepare_html_with_local_assets with manifest_path."""
-        from auroraview.file_protocol import prepare_html_with_local_assets
+        from auroraview.utils.file_protocol import prepare_html_with_local_assets
 
         html = '<iframe src="{{MANIFEST_PATH}}"></iframe>'
         result = prepare_html_with_local_assets(html, manifest_path="index.html")
@@ -864,7 +864,7 @@ class TestBridgeMoreCoverage:
 
     def test_bridge_creation_with_defaults(self):
         """Test Bridge creation with default parameters."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge()
         assert bridge is not None
@@ -874,21 +874,21 @@ class TestBridgeMoreCoverage:
 
     def test_bridge_creation_with_custom_port(self):
         """Test Bridge creation with custom port."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge(port=9000)
         assert bridge.port == 9000
 
     def test_bridge_creation_with_custom_host(self):
         """Test Bridge creation with custom host."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge(host="0.0.0.0")
         assert bridge.host == "0.0.0.0"
 
     def test_bridge_on_decorator(self):
         """Test Bridge on decorator."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge()
 
@@ -900,7 +900,7 @@ class TestBridgeMoreCoverage:
 
     def test_bridge_register_handler(self):
         """Test Bridge register_handler method."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge()
 
@@ -912,21 +912,21 @@ class TestBridgeMoreCoverage:
 
     def test_bridge_is_running_property(self):
         """Test Bridge is_running property."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge()
         assert bridge.is_running is False
 
     def test_bridge_client_count_property(self):
         """Test Bridge client_count property."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge()
         assert bridge.client_count == 0
 
     def test_bridge_protocol_property(self):
         """Test Bridge protocol property."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge()
         # Default protocol is 'json'
@@ -934,14 +934,14 @@ class TestBridgeMoreCoverage:
 
     def test_bridge_protocol_custom(self):
         """Test Bridge with custom protocol."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge(protocol="msgpack")
         assert bridge.protocol == "msgpack"
 
     def test_bridge_set_webview_callback(self):
         """Test Bridge set_webview_callback method."""
-        from auroraview.bridge import Bridge
+        from auroraview.integration.bridge import Bridge
 
         bridge = Bridge()
 

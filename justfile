@@ -377,6 +377,10 @@ maya-dev:
     @echo "  just maya-dev"
     @echo ""
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Maya Development Commands
+# ═══════════════════════════════════════════════════════════════════════════════
+
 # Maya debugging workflow (legacy - use maya-dev instead)
 maya-debug:
     @echo "=========================================="
@@ -410,3 +414,14 @@ maya-debug:
     @echo "  maya_outliner.main()"
     @echo ""
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Packaging Commands
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Build wheel
+build-wheel:
+    @echo "Building Python wheel..."
+    uv run maturin build --release --features "python-bindings,win-webview2"
+    @echo "[OK] Wheel built in target/wheels/"

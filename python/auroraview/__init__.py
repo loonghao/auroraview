@@ -1,83 +1,123 @@
 """AuroraView - Rust-powered WebView for Python & DCC embedding.
 
 This package provides a modern web-based UI solution for professional DCC applications
-like Maya, 3ds Max, Houdini, Blender, Photoshop, and Unreal Engine.
+like Maya, 3ds Max, Houdini, Blender, Nuke, and Unreal Engine.
 
-## Backends
+## Integration Modes
 
-AuroraView supports two integration modes:
+AuroraView provides three main integration modes for different use cases:
 
-1. **Native Backend** (default): Uses platform-specific APIs (HWND on Windows)
-   - Best for standalone applications
-   - Works in any Python environment
-   - No additional dependencies
+### 1. Qt Native Mode (QtWebView) - For Qt-based DCC
 
-2. **Qt Backend**: Integrates with Qt framework
-   - Best for Qt-based DCC applications (Maya, Houdini, Nuke)
-   - Requires Qt bindings (install with: `pip install auroraview[qt]`)
-   - Seamless integration with existing Qt widgets
-
-## Examples
-
-Basic usage (recommended)::
-
-    from auroraview import WebView
-
-    # Create and show a WebView (2 lines!)
-    webview = WebView.create("My App", url="http://localhost:3000")
-    webview.show()  # Auto-blocks until closed
-
-DCC integration - Maya::
-
-    from auroraview import WebView
-    import maya.OpenMayaUI as omui
-
-    # Create embedded WebView under Maya main window
-    maya_hwnd = int(omui.MQtUtil.mainWindow())
-    webview = WebView.create("Maya Tool", url="http://localhost:3000", parent=maya_hwnd, mode="owner")
-    webview.show()  # Embedded mode: non-blocking
-
-DCC integration - Houdini::
-
-    from auroraview import WebView
-    import hou
-
-    # Create embedded WebView under Houdini main window
-    hwnd = int(hou.qt.mainWindow().winId())
-    webview = WebView.create("Houdini Tool", url="http://localhost:3000", parent=hwnd, mode="owner")
-    webview.show()  # Embedded mode: non-blocking
-
-DCC integration - Blender::
-
-    from auroraview import WebView
-
-    # Standalone window (no parent window in Blender)
-    webview = WebView.create("Blender Tool", url="http://localhost:3000")
-    webview.show()  # Blocks until closed (use show(wait=False) for async)
-
-Qt integration::
+Best for Maya, Houdini, Nuke, 3ds Max, and other Qt-based applications.
+Supports QDockWidget docking and native Qt widget integration::
 
     from auroraview import QtWebView
 
-    # Create WebView as Qt widget
+    # Create WebView as Qt widget (dockable!)
     webview = QtWebView(
         parent=maya_main_window(),
-        title="My Tool",
+        url="http://localhost:3000",
         width=800,
         height=600
     )
     webview.show()
 
-Bidirectional communication::
+### 2. HWND Mode (AuroraView) - For Unreal Engine & Other Apps
 
-    # Python → JavaScript
+Best for Unreal Engine or any application that needs HWND access::
+
+    from auroraview import AuroraView
+
+    # Create standalone WebView
+    webview = AuroraView(url="http://localhost:3000")
+    webview.show()
+
+    # Get HWND for Unreal Engine embedding
+    hwnd = webview.get_hwnd()
+    if hwnd:
+        import unreal
+        unreal.parent_external_window_to_slate(hwnd)
+
+### 3. Standalone Mode - For Desktop Apps
+
+Best for standalone desktop applications::
+
+    from auroraview import run_standalone
+
+    # Quick one-liner for standalone apps
+    run_standalone(
+        title="My App",
+        url="https://example.com",
+        width=1024,
+        height=768
+    )
+
+### 4. Low-level API (WebView) - For Advanced Users
+
+Direct access to the underlying WebView for maximum flexibility::
+
+    from auroraview import WebView
+
+    webview = WebView.create(
+        title="Advanced Tool",
+        url="http://localhost:3000",
+        embed_mode="child",  # or "owner", "none"
+        parent=parent_hwnd
+    )
+    webview.show()
+
+## Quick Reference
+
+| Use Case | Class | Docking Support |
+|----------|-------|-----------------|
+| Maya/Houdini/Nuke | ``QtWebView`` | ✅ QDockWidget |
+| Unreal Engine | ``AuroraView`` | ✅ via HWND |
+| Standalone App | ``run_standalone`` | N/A |
+| Advanced/Custom | ``WebView`` | Depends on mode |
+
+## Bidirectional Communication
+
+Python → JavaScript::
+
     webview.emit("update_data", {"frame": 120})
 
-    # JavaScript → Python
+JavaScript → Python::
+
     @webview.on("export_scene")
     def handle_export(data):
         print(f"Exporting to: {data['path']}")
 """
+
+_CORE_IMPORT_ERROR = None
+
+# Add DLL search paths for Windows (required for DCC applications like Substance Painter)
+# This must be done BEFORE importing _core to ensure all required DLLs can be found.
+#
+# Background: Windows DLL search behavior changed in Python 3.8+
+# - PATH environment variable is no longer sufficient for DLL discovery
+# - Must explicitly call os.add_dll_directory() for each DLL search path
+#
+# Required DLLs:
+# - python3.dll: Located in sys.prefix (e.g., DCC's pythonsdk directory)
+# - WebView2Loader.dll: Located in auroraview package directory
+import os as _os
+import sys as _sys
+from pathlib import Path as _Path
+
+if _sys.platform == "win32" and hasattr(_os, "add_dll_directory"):
+    # List of directories to add for DLL search
+    _dll_dirs = [
+        _Path(__file__).parent,  # auroraview package dir (for WebView2Loader.dll)
+        _Path(_sys.prefix),  # Python install dir (for python3.dll in DCC apps)
+    ]
+
+    for _dll_dir in _dll_dirs:
+        if _dll_dir.exists():
+            try:
+                _os.add_dll_directory(str(_dll_dir))
+            except OSError:
+                pass  # Directory may already be added or not a valid DLL directory
 
 try:
     from ._core import (
@@ -98,8 +138,18 @@ try:
         rewrite_html_for_custom_protocol,
         # Standalone runner
         run_standalone,
+        # WebView2 warmup (Windows performance optimization)
+        start_warmup,
+        warmup_sync,
+        is_warmup_complete,
+        get_warmup_progress,
+        get_warmup_stage,
+        get_warmup_status,
+        get_shared_user_data_folder,
     )
-except ImportError:
+except ImportError as e:
+    # Capture the import error for diagnostics
+    _CORE_IMPORT_ERROR = str(e)
     # Fallback for development without compiled extension
     __version__ = "0.1.0.dev"
     __author__ = "Hal Long <hal.long@outlook.com>"
@@ -121,39 +171,101 @@ except ImportError:
     # Placeholder for DOM batch
     DomBatch = None  # type: ignore
 
-from .automation import Automation, BrowserBackend, LocalWebViewBackend, SteelBrowserBackend
-from .dom import Element, ElementCollection
-from .event_timer import EventTimer
-from .file_protocol import path_to_file_url, prepare_html_with_local_assets
-from .framework import AuroraView
-from .timer_backends import (
+    # Placeholder for warmup functions
+    start_warmup = None  # type: ignore
+    warmup_sync = None  # type: ignore
+    is_warmup_complete = None  # type: ignore
+    get_warmup_progress = None  # type: ignore
+    get_warmup_stage = None  # type: ignore
+    get_warmup_status = None  # type: ignore
+    get_shared_user_data_folder = None  # type: ignore
+
+
+def diagnose_core_library() -> dict:
+    """Diagnose core library loading issues.
+
+    Returns a dict with diagnostic information useful for troubleshooting
+    when the Rust core library fails to load.
+
+    Returns:
+        dict: Diagnostic information including Python version, platform,
+              import error details, and file locations.
+    """
+    import sys
+    from pathlib import Path
+
+    result = {
+        "python_version": sys.version,
+        "python_executable": sys.executable,
+        "platform": sys.platform,
+        "core_import_error": _CORE_IMPORT_ERROR,
+        "core_loaded": _CORE_IMPORT_ERROR is None,
+    }
+
+    # Check for _core.pyd location
+    try:
+        import auroraview
+
+        pkg_dir = Path(auroraview.__file__).parent
+        pyd_path = pkg_dir / "_core.pyd"
+        so_path = pkg_dir / "_core.so"
+
+        result["package_dir"] = str(pkg_dir)
+        result["pyd_exists"] = pyd_path.exists()
+        result["so_exists"] = so_path.exists()
+
+        if pyd_path.exists():
+            result["pyd_path"] = str(pyd_path)
+            result["pyd_size"] = pyd_path.stat().st_size
+        if so_path.exists():
+            result["so_path"] = str(so_path)
+            result["so_size"] = so_path.stat().st_size
+    except Exception as e:
+        result["path_check_error"] = str(e)
+
+    # Check sys.path
+    result["sys_path"] = sys.path[:10]  # First 10 entries
+
+    return result
+
+
+# Import from submodules
+from .core import (
+    DEFAULT_SETTINGS,
+    BackendType,
+    Cookie,
+    EventEmitter,
+    EventHandler,
+    LoadEvent,
+    NavigationEvent,
+    WebView,
+    WebViewSettings,
+    WindowEvent,
+    WindowEventData,
+    deprecated,
+    get_available_backends,
+    get_backend_type,
+    get_default_backend,
+    is_backend_available,
+    set_backend_type,
+)
+from .integration import AuroraView, Bridge, QtWebView
+from .ui import Element, ElementCollection, Menu, MenuBar, MenuItem, MenuItemType
+from .utils import (
+    Automation,
+    BrowserBackend,
+    EventTimer,
+    LocalWebViewBackend,
     QtTimerBackend,
+    SteelBrowserBackend,
     ThreadTimerBackend,
     TimerBackend,
     get_available_backend,
     list_registered_backends,
+    path_to_file_url,
+    prepare_html_with_local_assets,
     register_timer_backend,
 )
-from .webview import WebView
-
-# Bridge for DCC integration (optional - requires websockets)
-_BRIDGE_IMPORT_ERROR = None
-try:
-    from .bridge import Bridge
-except ImportError as e:
-    _BRIDGE_IMPORT_ERROR = str(e)
-
-    # Create placeholder class that raises helpful error
-    class Bridge:  # type: ignore
-        """Bridge placeholder - websockets not available."""
-
-        def __init__(self, *_args, **_kwargs):
-            raise ImportError(
-                "Bridge requires websockets library. "
-                "Install with: pip install websockets\n"
-                f"Original error: {_BRIDGE_IMPORT_ERROR}"
-            )
-
 
 # Service Discovery (optional - requires Rust core)
 _SERVICE_DISCOVERY_IMPORT_ERROR = None
@@ -162,7 +274,6 @@ try:
 except ImportError as e:
     _SERVICE_DISCOVERY_IMPORT_ERROR = str(e)
 
-    # Create placeholder classes
     class ServiceDiscovery:  # type: ignore
         """ServiceDiscovery placeholder - Rust core not available."""
 
@@ -179,30 +290,31 @@ except ImportError as e:
         pass
 
 
-# Qt backend is optional
-_QT_IMPORT_ERROR = None
-try:
-    from .qt_integration import QtWebView
-except ImportError as e:
-    _QT_IMPORT_ERROR = str(e)
-
-    # Create placeholder class that raises helpful error
-    class QtWebView:  # type: ignore
-        """Qt backend placeholder - not available."""
-
-        def __init__(self, *_args, **_kwargs):
-            raise ImportError(
-                "Qt backend is not available. "
-                "Install with: pip install auroraview[qt]\n"
-                f"Original error: {_QT_IMPORT_ERROR}"
-            )
-
-
-# Public flags for test/diagnostics
-_HAS_QT = _QT_IMPORT_ERROR is None
-
 # Backward-compatibility alias
 AuroraViewQt = QtWebView
+
+# Qt availability flag for tests
+_QT_IMPORT_ERROR = None
+try:
+    from qtpy import QtCore as _QtCore
+
+    _HAS_QT = True
+except ImportError as e:
+    _HAS_QT = False
+    _QT_IMPORT_ERROR = str(e)
+
+# Import submodules for backward-compatibility aliases
+from . import core, integration, ui, utils
+
+# Backward-compatibility aliases for old import paths
+# These allow: from auroraview.webview import WebView
+# and: from auroraview.event_timer import EventTimer
+webview = core.webview  # auroraview.webview -> auroraview.core.webview
+event_timer = utils.event_timer  # auroraview.event_timer -> auroraview.utils.event_timer
+file_protocol = utils.file_protocol  # auroraview.file_protocol -> auroraview.utils.file_protocol
+timer_backends = utils.timer_backends  # auroraview.timer_backends -> auroraview.utils.timer_backends
+dom = ui.dom  # auroraview.dom -> auroraview.ui.dom
+qt_integration = integration.qt  # auroraview.qt_integration -> auroraview.integration.qt
 
 # Simple top-level event decorator (for tests/backward-compat)
 _EVENT_HANDLERS = {}
@@ -222,28 +334,74 @@ def on_event(event_name: str):
     return decorator
 
 
+# Submodule imports for organized access
+from . import core  # auroraview.core - WebView, Backend, Settings, Cookies
+from . import integration  # auroraview.integration - AuroraView, Bridge, Qt
+from . import ui  # auroraview.ui - DOM, Menu
+from . import utils  # auroraview.utils - EventTimer, FileProtocol, Automation
+
 __all__ = [
-    # Base classes
-    "AuroraView",
+    # ============================================================
+    # Submodules (organized access)
+    # ============================================================
+    "core",  # auroraview.core - WebView, Backend, Settings, Cookies
+    "ui",  # auroraview.ui - DOM, Menu
+    "integration",  # auroraview.integration - AuroraView, Bridge, Qt
+    "utils",  # auroraview.utils - EventTimer, FileProtocol, Automation
+    # ============================================================
+    # Core (auroraview.core)
+    # ============================================================
     "WebView",
+    # Backend abstraction
+    "BackendType",
+    "get_backend_type",
+    "set_backend_type",
+    "get_default_backend",
+    "get_available_backends",
+    "is_backend_available",
+    # Settings
+    "WebViewSettings",
+    "DEFAULT_SETTINGS",
+    # Cookie management
+    "Cookie",
+    # Events
+    "WindowEvent",
+    "WindowEventData",
+    "EventHandler",
+    # EventEmitter pattern
+    "EventEmitter",
+    "NavigationEvent",
+    "LoadEvent",
+    "deprecated",
+    # ============================================================
+    # UI (auroraview.ui)
+    # ============================================================
     # DOM manipulation
     "Element",
     "ElementCollection",
     # High-performance DOM batch (Rust-powered)
     "DomBatch",
-    # Automation (Steel Browser compatible)
-    "Automation",
-    "BrowserBackend",
-    "LocalWebViewBackend",
-    "SteelBrowserBackend",
-    # Qt backend (may raise ImportError if not installed)
+    # Menu support
+    "Menu",
+    "MenuBar",
+    "MenuItem",
+    "MenuItemType",
+    # ============================================================
+    # Integration (auroraview.integration)
+    # ============================================================
+    # Framework
+    "AuroraView",
+    # Qt backend
     "QtWebView",
     "AuroraViewQt",
-    # Bridge for DCC integration (may raise ImportError if websockets not installed)
+    # Bridge for DCC integration
     "Bridge",
-    # Service Discovery (may raise ImportError if Rust core not available)
+    # Service Discovery
     "ServiceDiscovery",
     "ServiceInfo",
+    # ============================================================
+    # Utils (auroraview.utils)
+    # ============================================================
     # Event Timer
     "EventTimer",
     # Timer Backends
@@ -253,9 +411,17 @@ __all__ = [
     "register_timer_backend",
     "get_available_backend",
     "list_registered_backends",
-    # Utilities
-    "on_event",
-    # Window utilities
+    # File protocol utilities
+    "path_to_file_url",
+    "prepare_html_with_local_assets",
+    # Automation (Steel Browser compatible)
+    "Automation",
+    "BrowserBackend",
+    "LocalWebViewBackend",
+    "SteelBrowserBackend",
+    # ============================================================
+    # Window utilities (Rust-powered)
+    # ============================================================
     "WindowInfo",
     "get_foreground_window",
     "find_windows_by_title",
@@ -263,15 +429,40 @@ __all__ = [
     "get_all_windows",
     "close_window_by_hwnd",
     "destroy_window_by_hwnd",
-    # CLI utilities
+    # ============================================================
+    # CLI utilities (Rust-powered)
+    # ============================================================
     "normalize_url",
     "rewrite_html_for_custom_protocol",
-    # File protocol utilities
-    "path_to_file_url",
-    "prepare_html_with_local_assets",
-    # Standalone runner
     "run_standalone",
+    # ============================================================
+    # WebView2 warmup (Windows performance optimization)
+    # ============================================================
+    "start_warmup",
+    "warmup_sync",
+    "is_warmup_complete",
+    "get_warmup_progress",
+    "get_warmup_stage",
+    "get_warmup_status",
+    "get_shared_user_data_folder",
+    # ============================================================
+    # Helpers
+    # ============================================================
+    "on_event",
+    # ============================================================
+    # Backward-compatibility aliases
+    # ============================================================
+    "_HAS_QT",  # Qt availability flag
+    "_QT_IMPORT_ERROR",  # Qt import error message (for tests)
+    "webview",  # auroraview.webview -> auroraview.core.webview
+    "event_timer",  # auroraview.event_timer -> auroraview.utils.event_timer
+    "file_protocol",  # auroraview.file_protocol -> auroraview.utils.file_protocol
+    "timer_backends",  # auroraview.timer_backends -> auroraview.utils.timer_backends
+    "dom",  # auroraview.dom -> auroraview.ui.dom
+    "qt_integration",  # auroraview.qt_integration -> auroraview.integration.qt
+    # ============================================================
     # Metadata
+    # ============================================================
     "__version__",
     "__author__",
 ]

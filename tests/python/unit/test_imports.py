@@ -59,28 +59,28 @@ def test_auroraview_all_submodules():
 
 def test_webview_module():
     """Test webview module imports."""
-    from auroraview import webview
+    from auroraview.core import webview
 
     assert hasattr(webview, "WebView")
 
 
 def test_bridge_module():
     """Test bridge module imports."""
-    from auroraview import bridge
+    from auroraview.integration import bridge
 
     assert hasattr(bridge, "Bridge")
 
 
 def test_event_timer_module():
     """Test event_timer module imports."""
-    from auroraview import event_timer
+    from auroraview.utils import event_timer
 
     assert hasattr(event_timer, "EventTimer")
 
 
 def test_framework_module():
     """Test framework module imports."""
-    from auroraview import framework
+    from auroraview.integration import framework
 
     assert hasattr(framework, "AuroraView")
 
@@ -91,9 +91,9 @@ def test_framework_module():
 )
 def test_qt_integration_module():
     """Test Qt integration module imports (if Qt is available)."""
-    from auroraview import qt_integration
+    from auroraview.integration import qt
 
-    assert hasattr(qt_integration, "QtWebView")
+    assert hasattr(qt, "QtWebView")
 
 
 def test_testing_module():

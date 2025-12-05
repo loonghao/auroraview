@@ -137,10 +137,21 @@ fn run_standalone(
         ipc_batch_size: 100,
         ipc_batch_interval_ms: 16,
         asset_root: effective_asset_root,
+        data_directory: None, // Use system default
         custom_protocols: std::collections::HashMap::new(),
         api_methods: std::collections::HashMap::new(),
         allow_new_window,
         allow_file_protocol,
+        auto_show: true, // Standalone mode always auto-shows
+        // Security defaults
+        content_security_policy: None,
+        cors_allowed_origins: Vec::new(),
+        allow_clipboard: false,
+        allow_geolocation: false,
+        allow_notifications: false,
+        allow_media_devices: false,
+        block_external_navigation: false,
+        allowed_navigation_domains: Vec::new(),
     };
 
     // Create IPC handler and message queue

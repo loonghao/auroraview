@@ -18,7 +18,9 @@ pub mod ipc_metrics;
 pub mod service_discovery;
 pub mod standalone_runner;
 pub mod timer;
+pub mod warmup;
 pub mod webview;
+pub mod window_manager;
 
 #[cfg(all(target_os = "windows", feature = "win-webview2"))]
 pub mod webview2;

@@ -1,64 +1,29 @@
-//! IPC Backend Abstraction Layer
+//! IPC Backend Abstraction Layer - Python Bindings
 //!
-//! This module defines the unified IPC backend trait that supports both
-//! thread-based communication (for embedded mode) and process-based
-//! communication (for standalone mode).
+//! This module defines the Python-specific IPC backend trait. Core types
+//! like IpcMessage and IpcMode are re-exported from auroraview-core.
 
 use super::json::Value;
 #[cfg(feature = "python-bindings")]
 use pyo3::{Py, PyAny};
 
-/// IPC message structure
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct IpcMessage {
-    /// Event name
-    pub event: String,
+// Re-export core types for backward compatibility
+pub use auroraview_core::ipc::{IpcMessage, IpcMode};
 
-    /// Message data (JSON)
-    pub data: Value,
-
-    /// Message ID for request-response pattern
-    pub id: Option<String>,
-}
-
-/// Unified IPC backend trait
+/// Python-specific IPC backend trait
 ///
-/// This trait provides a common interface for different IPC implementations:
-/// - ThreadedBackend: Thread-based communication using crossbeam-channel
-/// - ProcessBackend: Process-based communication using ipc-channel (optional)
+/// This trait provides a common interface for IPC implementations
+/// that need to interact with Python callbacks.
 #[cfg(feature = "python-bindings")]
 #[allow(dead_code)]
 pub trait IpcBackend: Send + Sync {
     /// Send a message to the WebView
-    ///
-    /// # Arguments
-    /// * `event` - Event name
-    /// * `data` - Event data as JSON value
-    ///
-    /// # Returns
-    /// * `Ok(())` if the message was sent successfully
-    /// * `Err(String)` if the send failed
     fn send_message(&self, event: &str, data: Value) -> Result<(), String>;
 
     /// Register a Python callback for an event
-    ///
-    /// # Arguments
-    /// * `event` - Event name to listen for
-    /// * `callback` - Python callable object
-    ///
-    /// # Returns
-    /// * `Ok(())` if the callback was registered successfully
-    /// * `Err(String)` if registration failed
     fn register_callback(&self, event: &str, callback: Py<PyAny>) -> Result<(), String>;
 
     /// Process pending messages
-    ///
-    /// This should be called from the WebView thread to process
-    /// all pending messages in the queue.
-    ///
-    /// # Returns
-    /// * `Ok(count)` - Number of messages processed
-    /// * `Err(String)` - Error message if processing failed
     fn process_pending(&self) -> Result<usize, String>;
 
     /// Get the number of pending messages
@@ -69,19 +34,6 @@ pub trait IpcBackend: Send + Sync {
 
     /// Remove callbacks for a specific event
     fn remove_callbacks(&self, event: &str) -> Result<(), String>;
-}
-
-/// IPC mode configuration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[allow(dead_code)]
-pub enum IpcMode {
-    /// Thread-based communication (default for embedded mode)
-    #[default]
-    Threaded,
-
-    /// Process-based communication (for standalone mode)
-    #[allow(dead_code)]
-    Process,
 }
 
 #[cfg(test)]

@@ -99,16 +99,35 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 
 ## 特性
 
-- [OK] **原生WebView集成**: 使用系统WebView，占用空间最小
-- [OK] **双向通信**: Python ↔ JavaScript IPC
-- [OK] **自定义协议处理器**: 从DCC项目加载资源
-- [OK] **事件系统**: 响应式事件驱动架构
-- [OK] **多窗口支持**: 创建多个WebView实例
-- [OK] **线程安全**: 安全的并发操作
-- [OK] **热重载**: 开发模式支持实时重载
-- [OK] **生命周期管理**: 父DCC应用关闭时自动清理
-- [OK] **第三方网站集成**: JavaScript注入支持外部网站
-- [OK] **AI聊天集成**: 内置AI助手集成支持
+### 核心功能
+- [OK] **原生 WebView 集成**: 使用系统 WebView (WebView2/WKWebView/WebKitGTK)，占用空间最小
+- [OK] **双向通信**: Python ↔ JavaScript IPC，支持 async/await
+- [OK] **自定义协议处理器**: 从 DCC 项目加载资源 (`auroraview://`、自定义协议)
+- [OK] **事件系统**: Node.js 风格 EventEmitter，支持 `on()`、`once()`、`off()`、`emit()`
+- [OK] **多窗口支持**: WindowManager 管理多窗口，支持跨窗口事件通信
+- [OK] **线程安全**: Rust 保证的内存安全和并发操作
+
+### 存储与数据
+- [OK] **localStorage/sessionStorage**: 完整的 Web 存储 CRUD 操作
+- [OK] **Cookie 管理**: set/get/delete/clear cookies
+- [OK] **浏览数据清理**: 通过 `clear_browsing_data()` 清理缓存、Cookie、历史
+
+### 窗口与导航
+- [OK] **文件对话框**: open_file、save_file、select_folder、select_folders
+- [OK] **消息对话框**: confirm、alert、error、ok_cancel
+- [OK] **导航控制**: go_back、go_forward、reload、stop、can_go_back/forward
+- [OK] **窗口事件**: on_window_show/hide/focus/blur/resize、on_fullscreen_changed
+
+### DCC 集成
+- [OK] **生命周期管理**: 父 DCC 应用关闭时自动清理
+- [OK] **Qt 后端**: QtWebView 无缝集成基于 Qt 的 DCC
+- [OK] **WebView2 预热**: 预初始化 WebView2 加速 DCC 启动
+- [OK] **性能监控**: get_performance_metrics()、get_ipc_stats()
+
+### 安全
+- [OK] **CSP 配置**: 内容安全策略支持
+- [OK] **CORS 控制**: 跨域资源共享管理
+- [OK] **权限系统**: 细粒度权限控制
 
 ## 快速开始
 
@@ -141,68 +160,95 @@ pip install auroraview --no-binary :all:
 
 ### 集成模式
 
-AuroraView 支持两种集成模式以适应不同的使用场景:
+AuroraView 提供三种主要集成模式以适应不同的使用场景：
 
-#### 1. 原生后端 (默认)
+| 模式 | 类 | 适用场景 | 停靠支持 |
+|------|-----|----------|----------|
+| **Qt 原生** | `QtWebView` | Maya, Houdini, Nuke, 3ds Max | ✅ QDockWidget |
+| **HWND** | `AuroraView` | Unreal Engine, 非 Qt 应用 | ✅ 通过 HWND API |
+| **独立** | `run_standalone` | 桌面应用程序 | N/A |
 
-使用平台特定的 API (Windows 上的 HWND) 进行窗口嵌入。最适合独立应用程序和最大兼容性。
+#### 1. Qt 原生模式 (QtWebView)
 
-**独立窗口:**
+**最适合基于 Qt 的 DCC 应用程序** - Maya, Houdini, Nuke, 3ds Max。
+
+此模式创建真正的 Qt 控件，可以停靠、嵌入布局，并由 Qt 的父子系统管理。
+
 ```python
-from auroraview import WebView
+from auroraview import QtWebView
+from qtpy.QtWidgets import QDialog, QVBoxLayout
 
-# 方法 1: 直接加载 HTML 内容（推荐入门使用）
-webview = WebView(
-    title="我的应用",
+# 创建可停靠对话框
+dialog = QDialog(maya_main_window())
+layout = QVBoxLayout(dialog)
+
+# 创建嵌入式 WebView 作为 Qt 控件
+webview = QtWebView(
+    parent=dialog,
     width=800,
     height=600
 )
-webview.load_html("""
-    <!DOCTYPE html>
-    <html>
-    <body>
-        <h1>你好，AuroraView！</h1>
-        <p>这是一个简单的示例。</p>
-    </body>
-    </html>
-""")
-webview.show()  # 阻塞调用
+layout.addWidget(webview)
 
-# 方法 2: 从 URL 加载（确保服务器已启动！）
-webview = WebView(
-    title="我的应用",
-    width=800,
-    height=600
-)
+# 加载内容
 webview.load_url("http://localhost:3000")
-webview.show()  # 阻塞调用
+
+# 显示对话框 - WebView 会随父窗口自动关闭
+dialog.show()
+webview.show()
 ```
 
-**嵌入到 DCC (例如 Maya):**
+**主要特性：**
+- ✅ 支持 `QDockWidget` 可停靠面板
+- ✅ 自动生命周期管理（随父窗口关闭）
+- ✅ 原生 Qt 事件集成
+- ✅ 支持所有 Qt 布局管理器
+
+#### 2. HWND 模式 (AuroraView)
+
+**最适合 Unreal Engine 和非 Qt 应用程序**，需要直接访问窗口句柄。
+
 ```python
-from auroraview import WebView
-import maya.OpenMayaUI as omui
+from auroraview import AuroraView
 
-# 获取 Maya 主窗口句柄
-maya_hwnd = int(omui.MQtUtil.mainWindow())
+# 创建独立 WebView
+webview = AuroraView(url="http://localhost:3000")
+webview.show()
 
-# 创建嵌入式 WebView（自动定时器，无需手动 Qt 定时器）
-webview = WebView.create(
-    "Maya 工具",
-    parent=maya_hwnd,
+# 获取 HWND 用于外部集成
+hwnd = webview.get_hwnd()
+if hwnd:
+    # Unreal Engine 集成
+    import unreal
+    unreal.parent_external_window_to_slate(hwnd)
+```
 
-)
-webview.show()  # 嵌入模式：非阻塞
+**主要特性：**
+- ✅ 通过 `get_hwnd()` 直接访问 HWND
+- ✅ 适用于任何接受 HWND 的应用程序
+- ✅ 无需 Qt 依赖
+- ✅ 完全控制窗口定位
 
-**嵌入模式便捷方法（2025）**：
+#### 3. 独立模式
+
+**最适合桌面应用程序** - 一行代码启动独立应用。
+
 ```python
-from auroraview import WebView
+from auroraview import run_standalone
 
-# 便捷方法 = create(..., auto_show=True, auto_timer=True)
-webview = WebView.run_embedded(
-    "我的工具", url="http://localhost:3000", parent=maya_hwnd, mode="owner"
+# 启动独立应用（阻塞直到关闭）
+run_standalone(
+    title="我的应用",
+    url="https://example.com",
+    width=1024,
+    height=768
 )
 ```
+
+**主要特性：**
+- ✅ 最简单的 API - 一个函数调用
+- ✅ 自动事件循环管理
+- ✅ 无需父窗口
 
 **回调反注册（EventTimer）**：
 ```python
@@ -217,6 +263,72 @@ timer.on_close(_on_close)
 timer.off_close(_on_close)  # 也支持：off_tick(handler)
 ```
 
+**共享状态（借鉴 PyWebView）**：
+
+AuroraView 提供 Python 和 JavaScript 之间的自动双向状态同步：
+
+```python
+from auroraview import WebView
+
+webview = WebView.create("我的应用", width=800, height=600)
+
+# 访问共享状态（类字典接口）
+webview.state["user"] = "Alice"
+webview.state["theme"] = "dark"
+webview.state["count"] = 0
+
+# 跟踪状态变化
+@webview.state.on_change
+def on_state_change(key: str, value, old_value):
+    print(f"状态变化: {key} = {value} (原值 {old_value})")
+
+# 在 JavaScript 中：
+# window.auroraview.state.user = "Bob";  // 同步到 Python
+# console.log(window.auroraview.state.theme);  // "dark"
+```
+
+**命令系统（借鉴 Tauri）**：
+
+将 Python 函数注册为可从 JavaScript 调用的 RPC 风格命令：
+
+```python
+from auroraview import WebView
+
+webview = WebView.create("我的应用", width=800, height=600)
+
+# 使用装饰器注册命令
+@webview.command
+def greet(name: str) -> str:
+    return f"你好, {name}!"
+
+@webview.command("add_numbers")
+def add(x: int, y: int) -> int:
+    return x + y
+
+# 在 JavaScript 中：
+# const msg = await auroraview.invoke("greet", {name: "World"});
+# const sum = await auroraview.invoke("add_numbers", {x: 1, y: 2});
+```
+
+**Channel 流式传输**：
+
+使用 Channel 从 Python 向 JavaScript 流式传输大数据：
+
+```python
+from auroraview import WebView
+
+webview = WebView.create("我的应用", width=800, height=600)
+
+# 创建用于流式传输的 channel
+with webview.create_channel() as channel:
+    for i in range(100):
+        channel.send({"progress": i, "data": f"chunk_{i}"})
+
+# 在 JavaScript 中：
+# const channel = auroraview.channel("channel_id");
+# channel.onMessage((data) => console.log("收到:", data));
+# channel.onClose(() => console.log("流传输完成"));
+```
 
 #### 2. Qt 后端
 
@@ -285,6 +397,57 @@ window.auroraview.on('update_data', (data) => {
 window.auroraview.send_event('export_scene', {
     path: '/path/to/export.fbx'
 });
+```
+
+### 窗口事件系统
+
+AuroraView 提供完整的窗口事件系统，用于跟踪窗口生命周期：
+
+```python
+from auroraview import WebView
+from auroraview.core.events import WindowEvent, WindowEventData
+
+webview = WebView(title="我的应用", width=800, height=600)
+
+# 使用装饰器注册窗口事件处理器
+@webview.on_shown
+def on_shown(data: WindowEventData):
+    print("窗口已显示")
+
+@webview.on_focused
+def on_focused(data: WindowEventData):
+    print("窗口获得焦点")
+
+@webview.on_blurred
+def on_blurred(data: WindowEventData):
+    print("窗口失去焦点")
+
+@webview.on_resized
+def on_resized(data: WindowEventData):
+    print(f"窗口大小调整为 {data.width}x{data.height}")
+
+@webview.on_moved
+def on_moved(data: WindowEventData):
+    print(f"窗口移动到 ({data.x}, {data.y})")
+
+@webview.on_closing
+def on_closing(data: WindowEventData):
+    print("窗口正在关闭...")
+    return True  # 返回 True 允许关闭，False 取消关闭
+
+# 窗口控制方法
+webview.resize(1024, 768)
+webview.move(100, 100)
+webview.minimize()
+webview.maximize()
+webview.restore()
+webview.toggle_fullscreen()
+webview.focus()
+webview.hide()
+
+# 只读窗口属性
+print(f"大小: {webview.width}x{webview.height}")
+print(f"位置: ({webview.x}, {webview.y})")
 ```
 
 ### 高级功能

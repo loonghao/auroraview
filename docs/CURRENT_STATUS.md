@@ -1,16 +1,65 @@
-# AuroraView - Maya 集成当前状态
+# AuroraView - 当前状态
 
-## 📋 问题分析
+> **更新时间**: 2025-12-03
+> **版本**: v0.2.x
 
-### 你报告的问题
+## ✅ 已实现功能
 
-1. **WebView 阻塞 Maya**: 即使使用 `examples/07_ai_chat_non_blocking.py`，Maya 仍然被卡住
-2. **JavaScript 注入不工作**: `eval_js()` 调用后没有效果
-3. **Maya 无法退出**: 关闭 WebView 后，Maya 界面闪烁，无法正常退出
+### 核心 WebView 能力
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| JavaScript 异步回调 | ✅ | `eval_js_async(script, callback)` |
+| 导航控制 | ✅ | `go_back()`, `go_forward()`, `reload()`, `stop()` |
+| 页面加载状态 | ✅ | `is_loading`, `load_progress` (0-100) |
+| 导航事件 | ✅ | `on_navigation_started/completed/failed` |
 
-### 根本原因
+### Qt 集成
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| Qt 信号/槽 | ✅ | `urlChanged`, `loadFinished`, `titleChanged`, `loadProgress` |
+| QtWebView | ✅ | 原生 Qt Widget 集成 |
 
-经过深入分析，发现了以下技术限制：
+### 对话框
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 文件对话框 | ✅ | `open_file_dialog()`, `save_file_dialog()`, `select_folder_dialog()` |
+| 消息对话框 | ✅ | `confirm_dialog()`, `alert_dialog()`, `error_dialog()` |
+
+### 存储与数据
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| localStorage | ✅ | `set/get/remove/clear_local_storage()` |
+| sessionStorage | ✅ | `set/get/remove/clear_session_storage()` |
+| Cookie | ✅ | `set_cookie()`, `get_cookie()`, `delete_cookie()`, `clear_cookies()` |
+| 浏览数据清理 | ✅ | `clear_browsing_data()` |
+
+### 窗口管理
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 窗口状态 | ✅ | `is_fullscreen()`, `is_visible()`, `is_maximized()`, `is_minimized()` |
+| 窗口事件 | ✅ | `on_window_show/hide/focus/blur/resize` |
+| 多窗口 | ✅ | `WindowManager`, `create_child_window()`, `emit_to()` |
+
+### 性能与安全
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 性能监控 | ✅ | `get_performance_metrics()`, `get_ipc_stats()` |
+| WebView2 预热 | ✅ | `start_warmup()`, `warmup_sync()` |
+| CSP 配置 | ✅ | 内容安全策略 |
+| CORS 控制 | ✅ | 跨域资源共享 |
+
+### API 设计
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| EventEmitter | ✅ | Node.js 风格 `on()`, `once()`, `off()`, `emit()` |
+| async/await | ✅ | 原生 Future 支持 |
+| 统一导航事件 | ✅ | `NavigationEvent` dataclass |
+
+---
+
+## 🔧 Maya 集成说明
+
+### 已解决的问题
 
 #### 1. Tao/Wry 的线程限制
 ```rust

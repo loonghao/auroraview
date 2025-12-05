@@ -67,6 +67,12 @@ AuroraView is **not** a fork of PyWebView. It's a completely new project designe
 | **Maya Support** | [WARNING] Unstable | [OK] Full support |
 | **Houdini Support** | [ERROR] Not recommended | [OK] Full support |
 | **Blender Support** | [WARNING] Unstable | [OK] Full support |
+| **Multi-Window** | Basic | [OK] WindowManager + cross-window events |
+| **Storage API** | Basic | [OK] localStorage/sessionStorage/Cookie |
+| **EventEmitter** | ❌ | [OK] Node.js-style on/once/off |
+| **Async/Await** | Limited | [OK] Native Future support |
+| **File Dialogs** | [OK] | [OK] open/save/folder |
+| **WebView2 Warmup** | ❌ | [OK] Pre-init for DCC |
 
 [POINTER] **[Read the full comparison](./docs/COMPARISON_WITH_PYWEBVIEW.md)** to understand why AuroraView is better for DCC development.
 
@@ -120,16 +126,35 @@ AuroraView is **not** a fork of PyWebView. It's a completely new project designe
 
 ## [FEATURE] Features
 
-- [OK] **Native WebView Integration**: Uses system WebView for minimal footprint
-- [OK] **Bidirectional Communication**: Python ↔ JavaScript IPC
-- [OK] **Custom Protocol Handler**: Load resources from DCC projects
-- [OK] **Event System**: Reactive event-driven architecture
-- [OK] **Multi-Window Support**: Create multiple WebView instances
-- [OK] **Thread-Safe**: Safe concurrent operations
-- [OK] **Hot Reload**: Development mode with live reload
+### Core Features
+- [OK] **Native WebView Integration**: Uses system WebView (WebView2/WKWebView/WebKitGTK) for minimal footprint
+- [OK] **Bidirectional Communication**: Python ↔ JavaScript IPC with async/await support
+- [OK] **Custom Protocol Handler**: Load resources from DCC projects (`auroraview://`, custom protocols)
+- [OK] **Event System**: Node.js-style EventEmitter with `on()`, `once()`, `off()`, `emit()`
+- [OK] **Multi-Window Support**: WindowManager for creating/managing multiple windows with cross-window events
+- [OK] **Thread-Safe**: Rust-guaranteed memory safety and concurrent operations
+
+### Storage & Data
+- [OK] **localStorage/sessionStorage**: Full CRUD operations for web storage
+- [OK] **Cookie Management**: set/get/delete/clear cookies
+- [OK] **Browsing Data**: Clear cache, cookies, history with `clear_browsing_data()`
+
+### Window & Navigation
+- [OK] **File Dialogs**: open_file, save_file, select_folder, select_folders
+- [OK] **Message Dialogs**: confirm, alert, error, ok_cancel dialogs
+- [OK] **Navigation Control**: go_back, go_forward, reload, stop, can_go_back/forward
+- [OK] **Window Events**: on_window_show/hide/focus/blur/resize, on_fullscreen_changed
+
+### DCC Integration
 - [OK] **Lifecycle Management**: Automatic cleanup when parent DCC application closes
-- [OK] **Third-Party Integration**: JavaScript injection for external websites
-- [OK] **AI Chat Integration**: Built-in support for AI assistant integration
+- [OK] **Qt Backend**: QtWebView for seamless Qt-based DCC integration
+- [OK] **WebView2 Warmup**: Pre-initialize WebView2 for faster DCC startup
+- [OK] **Performance Monitoring**: get_performance_metrics(), get_ipc_stats()
+
+### Security
+- [OK] **CSP Configuration**: Content Security Policy support
+- [OK] **CORS Control**: Cross-Origin Resource Sharing management
+- [OK] **Permission System**: Fine-grained permission controls
 
 ##  Quick Start
 
@@ -167,6 +192,98 @@ Or build from source:
 ```bash
 pip install auroraview --no-binary :all:
 ```
+
+### Integration Modes
+
+AuroraView provides three main integration modes for different use cases:
+
+| Mode | Class | Best For | Docking Support |
+|------|-------|----------|-----------------|
+| **Qt Native** | `QtWebView` | Maya, Houdini, Nuke, 3ds Max | ✅ QDockWidget |
+| **HWND** | `AuroraView` | Unreal Engine, non-Qt apps | ✅ via HWND API |
+| **Standalone** | `run_standalone` | Desktop applications | N/A |
+
+#### 1. Qt Native Mode (QtWebView)
+
+**Best for Qt-based DCC applications** - Maya, Houdini, Nuke, 3ds Max.
+
+This mode creates a true Qt widget that can be docked, embedded in layouts, and managed by Qt's parent-child system.
+
+```python
+from auroraview import QtWebView
+from qtpy.QtWidgets import QDialog, QVBoxLayout
+
+# Create a dockable dialog
+dialog = QDialog(maya_main_window())
+layout = QVBoxLayout(dialog)
+
+# Create embedded WebView as Qt widget
+webview = QtWebView(
+    parent=dialog,
+    width=800,
+    height=600
+)
+layout.addWidget(webview)
+
+# Load content
+webview.load_url("http://localhost:3000")
+
+# Show dialog - WebView closes automatically with parent
+dialog.show()
+webview.show()
+```
+
+**Key features:**
+- ✅ Works with `QDockWidget` for dockable panels
+- ✅ Automatic lifecycle management (closes with parent)
+- ✅ Native Qt event integration
+- ✅ Supports all Qt layout managers
+
+#### 2. HWND Mode (AuroraView)
+
+**Best for Unreal Engine and non-Qt applications** that need direct window handle access.
+
+```python
+from auroraview import AuroraView
+
+# Create standalone WebView
+webview = AuroraView(url="http://localhost:3000")
+webview.show()
+
+# Get HWND for external integration
+hwnd = webview.get_hwnd()
+if hwnd:
+    # Unreal Engine integration
+    import unreal
+    unreal.parent_external_window_to_slate(hwnd)
+```
+
+**Key features:**
+- ✅ Direct HWND access via `get_hwnd()`
+- ✅ Works with any application that accepts HWND
+- ✅ No Qt dependency required
+- ✅ Full control over window positioning
+
+#### 3. Standalone Mode
+
+**Best for desktop applications** - quick one-liner for standalone apps.
+
+```python
+from auroraview import run_standalone
+
+# Launch standalone app (blocks until closed)
+run_standalone(
+    title="My App",
+    url="https://example.com",
+    width=1024,
+    height=768
+)
+```
+
+**Key features:**
+- ✅ Simplest API - one function call
+- ✅ Automatic event loop management
+- ✅ No parent window required
 
 ### Quick Start (v0.2.0 New API)
 
@@ -286,6 +403,57 @@ webview = WebView.run_embedded(
 )
 ```
 
+**Window Events System:**
+
+AuroraView provides a comprehensive window event system for tracking window lifecycle:
+
+```python
+from auroraview import WebView
+from auroraview.core.events import WindowEvent, WindowEventData
+
+webview = WebView(title="My App", width=800, height=600)
+
+# Register window event handlers using decorators
+@webview.on_shown
+def on_shown(data: WindowEventData):
+    print("Window is now visible")
+
+@webview.on_focused
+def on_focused(data: WindowEventData):
+    print("Window gained focus")
+
+@webview.on_blurred
+def on_blurred(data: WindowEventData):
+    print("Window lost focus")
+
+@webview.on_resized
+def on_resized(data: WindowEventData):
+    print(f"Window resized to {data.width}x{data.height}")
+
+@webview.on_moved
+def on_moved(data: WindowEventData):
+    print(f"Window moved to ({data.x}, {data.y})")
+
+@webview.on_closing
+def on_closing(data: WindowEventData):
+    print("Window is closing...")
+    return True  # Return True to allow close, False to cancel
+
+# Window control methods
+webview.resize(1024, 768)
+webview.move(100, 100)
+webview.minimize()
+webview.maximize()
+webview.restore()
+webview.toggle_fullscreen()
+webview.focus()
+webview.hide()
+
+# Read-only window properties
+print(f"Size: {webview.width}x{webview.height}")
+print(f"Position: ({webview.x}, {webview.y})")
+```
+
 **Callback deregistration (EventTimer):**
 ```python
 from auroraview import EventTimer
@@ -297,6 +465,73 @@ def _on_close(): ...
 timer.on_close(_on_close)
 # Later, to remove the handler:
 timer.off_close(_on_close)  # also available: off_tick(handler)
+```
+
+**Shared State (PyWebView-inspired):**
+
+AuroraView provides automatic bidirectional state synchronization between Python and JavaScript:
+
+```python
+from auroraview import WebView
+
+webview = WebView.create("My App", width=800, height=600)
+
+# Access shared state (dict-like interface)
+webview.state["user"] = "Alice"
+webview.state["theme"] = "dark"
+webview.state["count"] = 0
+
+# Track state changes
+@webview.state.on_change
+def on_state_change(key: str, value, old_value):
+    print(f"State changed: {key} = {value} (was {old_value})")
+
+# In JavaScript:
+# window.auroraview.state.user = "Bob";  // Syncs to Python
+# console.log(window.auroraview.state.theme);  // "dark"
+```
+
+**Command System (Tauri-inspired):**
+
+Register Python functions as RPC-style commands callable from JavaScript:
+
+```python
+from auroraview import WebView
+
+webview = WebView.create("My App", width=800, height=600)
+
+# Register commands using decorator
+@webview.command
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+@webview.command("add_numbers")
+def add(x: int, y: int) -> int:
+    return x + y
+
+# In JavaScript:
+# const msg = await auroraview.invoke("greet", {name: "World"});
+# const sum = await auroraview.invoke("add_numbers", {x: 1, y: 2});
+```
+
+**Channel Streaming:**
+
+Stream large data from Python to JavaScript using channels:
+
+```python
+from auroraview import WebView
+
+webview = WebView.create("My App", width=800, height=600)
+
+# Create a channel for streaming data
+with webview.create_channel() as channel:
+    for i in range(100):
+        channel.send({"progress": i, "data": f"chunk_{i}"})
+
+# In JavaScript:
+# const channel = auroraview.channel("channel_id");
+# channel.onMessage((data) => console.log("Received:", data));
+# channel.onClose(() => console.log("Stream complete"));
 ```
 
 **Custom Protocol Handlers (Solve CORS Issues):**

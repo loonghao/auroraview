@@ -10,15 +10,15 @@ class TestAuroraViewCreation:
 
     def test_auroraview_import(self):
         """Test that AuroraView can be imported."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         assert AuroraView is not None
 
     def test_auroraview_creation_with_url(self):
         """Test AuroraView creation with URL."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
-        with patch("auroraview.framework.WebView") as mock_webview:
+        with patch("auroraview.integration.framework.WebView") as mock_webview:
             mock_instance = MagicMock()
             mock_webview.return_value = mock_instance
 
@@ -30,9 +30,9 @@ class TestAuroraViewCreation:
 
     def test_auroraview_creation_with_html(self):
         """Test AuroraView creation with HTML content."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
-        with patch("auroraview.framework.WebView") as mock_webview:
+        with patch("auroraview.integration.framework.WebView") as mock_webview:
             mock_instance = MagicMock()
             mock_webview.return_value = mock_instance
 
@@ -43,7 +43,7 @@ class TestAuroraViewCreation:
 
     def test_auroraview_creation_with_custom_view(self):
         """Test AuroraView creation with custom view."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         tool = AuroraView(_view=mock_view)
@@ -52,9 +52,9 @@ class TestAuroraViewCreation:
 
     def test_auroraview_default_dimensions(self):
         """Test AuroraView default dimensions."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
-        with patch("auroraview.framework.WebView"):
+        with patch("auroraview.integration.framework.WebView"):
             tool = AuroraView()
 
             assert tool._width == 800
@@ -62,9 +62,9 @@ class TestAuroraViewCreation:
 
     def test_auroraview_custom_dimensions(self):
         """Test AuroraView with custom dimensions."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
-        with patch("auroraview.framework.WebView"):
+        with patch("auroraview.integration.framework.WebView"):
             tool = AuroraView(width=1024, height=768)
 
             assert tool._width == 1024
@@ -76,9 +76,9 @@ class TestAuroraViewKeepAlive:
 
     def test_instance_registered(self):
         """Test that instance is registered in keep-alive registry."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
-        with patch("auroraview.framework.WebView"):
+        with patch("auroraview.integration.framework.WebView"):
             initial_count = len(AuroraView._instances)
             tool = AuroraView()
 
@@ -90,9 +90,9 @@ class TestAuroraViewKeepAlive:
 
     def test_instance_unregistered_on_close(self):
         """Test that instance is unregistered on close."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
-        with patch("auroraview.framework.WebView"):
+        with patch("auroraview.integration.framework.WebView"):
             tool = AuroraView()
             assert tool in AuroraView._instances
 
@@ -105,7 +105,7 @@ class TestAuroraViewDelegation:
 
     def test_view_property(self):
         """Test view property returns underlying view."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         tool = AuroraView(_view=mock_view)
@@ -115,7 +115,7 @@ class TestAuroraViewDelegation:
 
     def test_emit_delegates_to_view(self):
         """Test emit delegates to underlying view."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         mock_view.emit = MagicMock()
@@ -128,7 +128,7 @@ class TestAuroraViewDelegation:
 
     def test_bind_call_delegates_to_view(self):
         """Test bind_call delegates to underlying view."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         mock_view.bind_call = MagicMock(return_value=None)
@@ -144,7 +144,7 @@ class TestAuroraViewDelegation:
 
     def test_bind_call_raises_without_support(self):
         """Test bind_call raises if view doesn't support it."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock(spec=[])  # No bind_call
         tool = AuroraView(_view=mock_view)
@@ -156,7 +156,7 @@ class TestAuroraViewDelegation:
 
     def test_bind_api_delegates_to_view(self):
         """Test bind_api delegates to underlying view."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         mock_view.bind_api = MagicMock()
@@ -173,7 +173,7 @@ class TestAuroraViewDelegation:
 
     def test_bind_api_raises_without_support(self):
         """Test bind_api raises if view doesn't support it."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock(spec=[])  # No bind_api
         tool = AuroraView(_view=mock_view)
@@ -189,7 +189,7 @@ class TestAuroraViewShow:
 
     def test_show_delegates_to_view(self):
         """Test show delegates to underlying view."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         mock_view.show = MagicMock()
@@ -202,7 +202,7 @@ class TestAuroraViewShow:
 
     def test_show_with_args(self):
         """Test show passes arguments to underlying view."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         mock_view.show = MagicMock()
@@ -219,7 +219,7 @@ class TestAuroraViewClose:
 
     def test_close_with_different_keep_alive_root(self):
         """Test close when keep_alive_root differs from view."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         mock_view.close = MagicMock()
@@ -234,7 +234,7 @@ class TestAuroraViewClose:
 
     def test_close_idempotent(self):
         """Test that close can be called multiple times safely."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         tool = AuroraView(_view=mock_view)
@@ -250,7 +250,7 @@ class TestAuroraViewAutoShow:
 
     def test_auto_show_true(self):
         """Test that _auto_show=True calls show automatically."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
         mock_view = MagicMock()
         mock_view.show = MagicMock()
@@ -266,9 +266,9 @@ class TestAuroraViewFullscreen:
 
     def test_fullscreen_parameter(self):
         """Test fullscreen parameter is stored."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
-        with patch("auroraview.framework.WebView"):
+        with patch("auroraview.integration.framework.WebView"):
             tool = AuroraView(fullscreen=True)
 
             assert tool._fullscreen is True
@@ -280,9 +280,9 @@ class TestAuroraViewDebug:
 
     def test_debug_parameter(self):
         """Test debug parameter is stored."""
-        from auroraview.framework import AuroraView
+        from auroraview.integration.framework import AuroraView
 
-        with patch("auroraview.framework.WebView"):
+        with patch("auroraview.integration.framework.WebView"):
             tool = AuroraView(debug=True)
 
             assert tool._debug is True

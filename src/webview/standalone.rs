@@ -84,6 +84,27 @@ pub fn create_standalone(
     ipc_handler: Arc<IpcHandler>,
     message_queue: Arc<MessageQueue>,
 ) -> Result<WebViewInner, Box<dyn std::error::Error>> {
+    // Initialize COM for WebView2 on Windows
+    // WebView2 requires COM to be initialized in STA (Single-Threaded Apartment) mode
+    // This is critical for background thread creation (HWND mode in DCC apps)
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+        unsafe {
+            // COINIT_APARTMENTTHREADED = STA mode required by WebView2
+            // Ignore errors if already initialized (e.g., by Qt on main thread)
+            let result = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            if result.is_ok() {
+                tracing::info!("[standalone] COM initialized in STA mode for this thread");
+            } else {
+                tracing::debug!(
+                    "[standalone] COM already initialized or failed: {:?}",
+                    result
+                );
+            }
+        }
+    }
+
     // Allow event loop to be created on any thread (required for DCC integration)
     // Use UserEvent for custom events (wake-up for immediate message processing)
     #[cfg(target_os = "windows")]
@@ -137,6 +158,20 @@ pub fn create_standalone(
                     tracing::info!("Creating owned window (cross-thread safe)");
                     window_builder = window_builder.with_owner_window(parent as isize);
                 }
+                EmbedMode::Container => {
+                    // Container mode: standalone popup window for Qt createWindowContainer
+                    // Key requirements for createWindowContainer:
+                    // 1. NO Win32 parent relationship - Qt will reparent it
+                    // 2. Must be a top-level window (not WS_CHILD)
+                    // 3. Should be frameless for seamless embedding
+                    // 4. Start hidden - Qt will show it after reparenting
+                    tracing::info!(
+                        "Creating frameless popup window for Qt container (HWND={} ignored)",
+                        parent
+                    );
+                    window_builder = window_builder.with_decorations(false).with_visible(false);
+                    // Start hidden, Qt will show after reparenting
+                }
                 EmbedMode::None => {}
             }
         }
@@ -146,11 +181,47 @@ pub fn create_standalone(
 
     // No manual SetParent needed when using builder-ext on Windows
 
-    // Create the WebView with IPC handler
-    let mut webview_builder = WryWebViewBuilder::new();
+    // Create WebContext with shared user data folder for better performance
+    // Priority: 1. config.data_directory, 2. shared warmup folder, 3. system default
+    let mut web_context = if let Some(ref data_dir) = config.data_directory {
+        tracing::info!("[standalone] Using custom data directory: {:?}", data_dir);
+        wry::WebContext::new(Some(data_dir.clone()))
+    } else {
+        // Try to use shared user data folder from warmup (Windows only)
+        #[cfg(target_os = "windows")]
+        let shared_folder = crate::platform::windows::warmup::get_shared_user_data_folder();
+        #[cfg(not(target_os = "windows"))]
+        let shared_folder: Option<std::path::PathBuf> = None;
+
+        if let Some(ref shared_dir) = shared_folder {
+            tracing::info!(
+                "[standalone] Using shared warmup data directory: {:?}",
+                shared_dir
+            );
+            wry::WebContext::new(Some(shared_dir.clone()))
+        } else {
+            tracing::debug!("[standalone] Using default data directory");
+            wry::WebContext::default()
+        }
+    };
+
+    // Create the WebView with IPC handler and web context
+    let mut webview_builder = WryWebViewBuilder::new_with_web_context(&mut web_context);
     if config.dev_tools {
         webview_builder = webview_builder.with_devtools(true);
     }
+
+    // Set background color to match app background (dark theme)
+    // This prevents white flash and removes white border
+    // RGBA is a tuple type (u8, u8, u8, u8) in wry
+    let background_color = (2u8, 6u8, 23u8, 255u8); // #020617 from Tailwind slate-950
+    webview_builder = webview_builder.with_background_color(background_color);
+    tracing::info!(
+        "[standalone] Set WebView background color to #{:02x}{:02x}{:02x}",
+        background_color.0,
+        background_color.1,
+        background_color.2
+    );
 
     // Register auroraview:// custom protocol for local asset loading
     if let Some(ref asset_root) = config.asset_root {
@@ -191,6 +262,43 @@ pub fn create_standalone(
 
     // IMPORTANT: use initialization script so it reloads with every page load
     webview_builder = webview_builder.with_initialization_script(&event_bridge_script);
+
+    // Add navigation handler for security filtering
+    if config.block_external_navigation {
+        let allowed_domains = config.allowed_navigation_domains.clone();
+        webview_builder = webview_builder.with_navigation_handler(move |uri| {
+            // Always allow custom protocols
+            if uri.starts_with("auroraview://")
+                || uri.starts_with("data:")
+                || uri.starts_with("about:")
+                || uri.starts_with("blob:")
+            {
+                return true;
+            }
+
+            // Parse the URI to get the domain
+            if let Ok(url) = url::Url::parse(&uri) {
+                if let Some(host) = url.host_str() {
+                    // Check if domain is in allowed list
+                    for allowed in &allowed_domains {
+                        if host == allowed || host.ends_with(&format!(".{}", allowed)) {
+                            tracing::debug!("[standalone] Navigation allowed: {}", uri);
+                            return true;
+                        }
+                    }
+                    tracing::warn!(
+                        "[standalone] Navigation blocked: {} (domain not allowed)",
+                        uri
+                    );
+                    return false;
+                }
+            }
+
+            // Block by default if can't parse
+            tracing::warn!("[standalone] Navigation blocked: {} (invalid URL)", uri);
+            false
+        });
+    }
 
     // Store the target URL/HTML for later loading
     let target_url = config.url.clone();
@@ -294,13 +402,15 @@ pub fn create_standalone(
     // Create event loop proxy for sending close events
     let event_loop_proxy = event_loop.create_proxy();
 
+    // CRITICAL: Set event loop proxy in message queue for immediate wake-up
+    // Without this, messages pushed to queue won't wake the event loop!
+    message_queue.set_event_loop_proxy(event_loop_proxy.clone());
+    tracing::info!("[standalone] Event loop proxy set in message queue for wake-up");
+
     // Create lifecycle manager
     use crate::webview::lifecycle::LifecycleManager;
     let lifecycle = Arc::new(LifecycleManager::new());
     lifecycle.set_state(crate::webview::lifecycle::LifecycleState::Active);
-
-    // Standalone mode doesn't need platform manager (uses event loop instead)
-    let platform_manager = None;
 
     #[allow(clippy::arc_with_non_send_sync)]
     Ok(WebViewInner {
@@ -310,7 +420,6 @@ pub fn create_standalone(
         message_queue,
         event_loop_proxy: Some(event_loop_proxy),
         lifecycle,
-        platform_manager,
         #[cfg(target_os = "windows")]
         backend: None, // Only used in DCC mode
     })
@@ -372,6 +481,9 @@ pub fn run_standalone(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use tao::event_loop::ControlFlow;
 
+    // Save auto_show before config is consumed
+    let auto_show = config.auto_show;
+
     // Create the WebView
     let mut webview_inner = create_standalone(config, ipc_handler, message_queue)?;
 
@@ -384,27 +496,38 @@ pub fn run_standalone(
     let webview = webview_inner.webview.clone();
 
     // Window starts hidden - will be shown after a short delay to let loading screen render
-    tracing::info!(
-        "[Standalone] Window created (hidden), will show after loading screen renders..."
-    );
+    // (only if auto_show is enabled)
+    if auto_show {
+        tracing::info!(
+            "[Standalone] Window created (hidden), will show after loading screen renders..."
+        );
+    } else {
+        tracing::info!(
+            "[Standalone] Window created (hidden), auto_show=false, window will stay hidden"
+        );
+    }
 
     // Use a simple delay to ensure loading screen is rendered before showing window
     // This avoids the white flash that occurs when showing window before WebView is ready
     let show_time = std::time::Instant::now() + std::time::Duration::from_millis(100);
-    let mut window_shown = false;
+    let mut window_shown = !auto_show; // If auto_show is false, pretend window is already shown
 
     tracing::info!("[Standalone] Starting event loop with run()");
 
     // Run the event loop - this will block until window closes and then exit the process
     event_loop.run(move |event, _, control_flow| {
-        // Poll frequently to check if we should show the window
-        *control_flow = ControlFlow::Poll;
+        // Poll frequently to check if we should show the window (only if auto_show)
+        if auto_show && !window_shown {
+            *control_flow = ControlFlow::Poll;
+        } else {
+            *control_flow = ControlFlow::Wait;
+        }
 
         // Keep webview alive
         let _ = &webview;
 
-        // Show window after delay (once)
-        if !window_shown && std::time::Instant::now() >= show_time {
+        // Show window after delay (once) - only if auto_show is enabled
+        if auto_show && !window_shown && std::time::Instant::now() >= show_time {
             tracing::info!("[Standalone] Loading screen should be rendered, showing window now!");
             window.set_visible(true);
             window.request_redraw();
