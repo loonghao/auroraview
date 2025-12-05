@@ -41,6 +41,7 @@ Example:
 """
 
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -68,6 +69,15 @@ from auroraview.integration.qt._compat import (
 from auroraview.integration.qt.dialogs import FileDialogMixin
 
 logger = logging.getLogger(__name__)
+
+# Performance optimization: Check verbose logging once at import time
+# In DCC environments, excessive logging causes severe UI performance issues
+_VERBOSE_LOGGING = os.environ.get("AURORAVIEW_LOG_VERBOSE", "").lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
 
 
 class QtEventProcessor:
@@ -126,7 +136,8 @@ class QtEventProcessor:
             # This is CRITICAL - without this, eval_js/emit messages stay in queue
             self._webview.process_events()
         except Exception as e:  # pragma: no cover - best-effort only
-            logger.debug(f"QtEventProcessor: Event processing failed: {e}")
+            if _VERBOSE_LOGGING:
+                logger.debug(f"QtEventProcessor: Event processing failed: {e}")
 
 
 class QtWebView(FileDialogMixin, QWidget):
@@ -351,14 +362,16 @@ class QtWebView(FileDialogMixin, QWidget):
         if frameless:
             # Remove window decorations but keep it as a proper window
             self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
-            logger.info("QtWebView: Frameless mode enabled")
+            if _VERBOSE_LOGGING:
+                logger.info("QtWebView: Frameless mode enabled")
 
         # Apply transparent background if requested
         if transparent:
             self.setAttribute(Qt.WA_TranslucentBackground, True)
             self.setAttribute(Qt.WA_NoSystemBackground, True)
             self.setStyleSheet("background: transparent;")
-            logger.info("QtWebView: Transparent background enabled")
+            if _VERBOSE_LOGGING:
+                logger.info("QtWebView: Transparent background enabled")
         else:
             # Ensure no borders or margins on the QtWebView widget itself
             self.setStyleSheet("background: #0d0d0d; border: none; margin: 0; padding: 0;")
@@ -435,7 +448,8 @@ class QtWebView(FileDialogMixin, QWidget):
             self._parent_window = parent.window() if hasattr(parent, "window") else parent
             if self._parent_window is not None:
                 self._parent_window.installEventFilter(self)
-                logger.debug("QtWebView: Installed event filter on parent window")
+                if _VERBOSE_LOGGING:
+                    logger.debug("QtWebView: Installed event filter on parent window")
         else:
             self._parent_window = None
 
@@ -450,16 +464,17 @@ class QtWebView(FileDialogMixin, QWidget):
         # Bridge WebView events to Qt signals
         self._setup_signal_bridge()
 
-        logger.info(
-            "QtWebView created: %s (%sx%s, mode=%s, frameless=%s, transparent=%s, container=%s)",
-            title,
-            width,
-            height,
-            embed_mode,
-            frameless,
-            transparent,
-            "createWindowContainer" if self._webview_container else "manual",
-        )
+        if _VERBOSE_LOGGING:
+            logger.info(
+                "QtWebView created: %s (%sx%s, mode=%s, frameless=%s, transparent=%s, container=%s)",
+                title,
+                width,
+                height,
+                embed_mode,
+                frameless,
+                transparent,
+                "createWindowContainer" if self._webview_container else "manual",
+            )
 
     def _setup_signal_bridge(self) -> None:
         """Set up event handlers to bridge WebView events to Qt signals.
@@ -567,7 +582,8 @@ class QtWebView(FileDialogMixin, QWidget):
                 if url:
                     self.iconUrlChanged.emit(url)
 
-        logger.debug("QtWebView: Signal bridge initialized (with extended signals)")
+        if _VERBOSE_LOGGING:
+            logger.debug("QtWebView: Signal bridge initialized (with extended signals)")
 
     @classmethod
     def create_deferred(
@@ -649,7 +665,8 @@ class QtWebView(FileDialogMixin, QWidget):
         loading_label.setStyleSheet("QLabel { color: #888; font-size: 14px; background: #1a1a2e; }")
         layout.addWidget(loading_label)
 
-        logger.debug("QtWebView.create_deferred: Created placeholder, scheduling WebView creation")
+        if _VERBOSE_LOGGING:
+            logger.debug("QtWebView.create_deferred: Created placeholder, scheduling WebView creation")
 
         def do_create():
             """Create WebView on main thread (deferred via QTimer)."""
@@ -657,7 +674,8 @@ class QtWebView(FileDialogMixin, QWidget):
                 # Process any pending Qt events first
                 QCoreApplication.processEvents()
 
-                logger.debug("QtWebView.create_deferred: Creating WebView")
+                if _VERBOSE_LOGGING:
+                    logger.debug("QtWebView.create_deferred: Creating WebView")
                 start_time = time.time()
 
                 # Create the actual QtWebView
@@ -678,7 +696,8 @@ class QtWebView(FileDialogMixin, QWidget):
                 )
 
                 elapsed = time.time() - start_time
-                logger.debug("QtWebView.create_deferred: WebView created in %.3fs", elapsed)
+                if _VERBOSE_LOGGING:
+                    logger.debug("QtWebView.create_deferred: WebView created in %.3fs", elapsed)
 
                 # Hide placeholder
                 placeholder.hide()
@@ -769,11 +788,12 @@ class QtWebView(FileDialogMixin, QWidget):
                     auroraview_url = f"https://auroraview.localhost/{url_path}"
                 else:
                     auroraview_url = f"auroraview://{url_path}"
-                logger.debug(
-                    "QtWebView loading via auroraview protocol: %s (asset_root: %s)",
-                    auroraview_url,
-                    asset_root_path,
-                )
+                if _VERBOSE_LOGGING:
+                    logger.debug(
+                        "QtWebView loading via auroraview protocol: %s (asset_root: %s)",
+                        auroraview_url,
+                        asset_root_path,
+                    )
                 self.load_url(auroraview_url)
                 return
             except ValueError:
@@ -788,7 +808,8 @@ class QtWebView(FileDialogMixin, QWidget):
         try:
             html = html_path.read_text(encoding="utf-8")
             self.load_html(html)
-            logger.debug("QtWebView loaded HTML from file via load_html(): %s", html_path)
+            if _VERBOSE_LOGGING:
+                logger.debug("QtWebView loaded HTML from file via load_html(): %s", html_path)
         except Exception:
             # Last resort: use the underlying WebView.load_file implementation
             load_file = getattr(self._webview, "load_file", None)
@@ -1084,7 +1105,8 @@ class QtWebView(FileDialogMixin, QWidget):
             # Note: Legacy manual geometry sync mode is no longer supported.
             pass
         except Exception as e:
-            logger.debug("QtWebView: failed to sync embedded geometry: %s", e)
+            if _VERBOSE_LOGGING:
+                logger.debug("QtWebView: failed to sync embedded geometry: %s", e)
 
     def _create_webview_container(self, core) -> None:
         """Create Qt container for WebView after WebView is initialized.
@@ -1113,10 +1135,11 @@ class QtWebView(FileDialogMixin, QWidget):
 
             # Log Qt version info for debugging
             qt_binding, qt_version = get_qt_info()
-            logger.debug(
-                f"[QtWebView] Creating container for HWND=0x{webview_hwnd:X} "
-                f"(Qt binding: {qt_binding}, version: {qt_version})"
-            )
+            if _VERBOSE_LOGGING:
+                logger.debug(
+                    f"[QtWebView] Creating container for HWND=0x{webview_hwnd:X} "
+                    f"(Qt binding: {qt_binding}, version: {qt_version})"
+                )
 
             # Step 1: Prepare HWND using compat layer (handles Qt5/Qt6 differences)
             # This removes all window borders, frames, and sets WS_CHILD style
@@ -1129,7 +1152,8 @@ class QtWebView(FileDialogMixin, QWidget):
                 logger.error("[QtWebView] QWindow.fromWinId returned None")
                 return
 
-            logger.debug("[QtWebView] QWindow created from HWND")
+            if _VERBOSE_LOGGING:
+                logger.debug("[QtWebView] QWindow created from HWND")
 
             # Step 3: Create container using compat layer (handles Qt5/Qt6 differences)
             self._webview_container = create_container_widget(
@@ -1167,9 +1191,11 @@ class QtWebView(FileDialogMixin, QWidget):
                 if callable(finalize_fn):
                     try:
                         finalize_fn()
-                        logger.debug("[QtWebView] Anti-flicker optimizations removed")
+                        if _VERBOSE_LOGGING:
+                            logger.debug("[QtWebView] Anti-flicker optimizations removed")
                     except Exception as e:
-                        logger.debug(f"[QtWebView] finalize_container_embedding failed: {e}")
+                        if _VERBOSE_LOGGING:
+                            logger.debug(f"[QtWebView] finalize_container_embedding failed: {e}")
 
             # Step 7: Post-container setup (handles Qt version quirks)
             post_container_setup(self._webview_container, webview_hwnd)
@@ -1178,7 +1204,8 @@ class QtWebView(FileDialogMixin, QWidget):
             # This is critical for Qt6 where layout updates may be delayed
             self._force_container_geometry()
 
-            logger.debug("[QtWebView] Container created successfully for HWND=0x%X", webview_hwnd)
+            if _VERBOSE_LOGGING:
+                logger.debug("[QtWebView] Container created successfully for HWND=0x%X", webview_hwnd)
         except Exception as e:
             logger.exception(f"[QtWebView] Failed to create container: {e}")
             self._webview_container = None
@@ -1252,7 +1279,8 @@ class QtWebView(FileDialogMixin, QWidget):
                 if callable(set_size):
                     try:
                         set_size(width, height)
-                        logger.debug(f"[QtWebView] Synced WebView2 bounds: {width}x{height}")
+                        if _VERBOSE_LOGGING:
+                            logger.debug(f"[QtWebView] Synced WebView2 bounds: {width}x{height}")
                     except Exception:
                         pass  # Silently ignore - not critical
 
@@ -1294,9 +1322,11 @@ class QtWebView(FileDialogMixin, QWidget):
             if qwindow is not None:
                 try:
                     qwindow.resize(width, height)
-                    logger.debug(f"[QtWebView] Resized QWindow to {width}x{height}")
+                    if _VERBOSE_LOGGING:
+                        logger.debug(f"[QtWebView] Resized QWindow to {width}x{height}")
                 except Exception as e:
-                    logger.debug(f"[QtWebView] Failed to resize QWindow: {e}")
+                    if _VERBOSE_LOGGING:
+                        logger.debug(f"[QtWebView] Failed to resize QWindow: {e}")
 
             # Update layouts
             self.updateGeometry()
@@ -1323,12 +1353,14 @@ class QtWebView(FileDialogMixin, QWidget):
             # Sync WebView2 controller bounds with forced size
             self._sync_webview2_controller_bounds(width, height)
 
-            logger.debug(
-                "[QtWebView] Forced container geometry: %dx%d (Qt6=%s)", width, height, is_qt6()
-            )
+            if _VERBOSE_LOGGING:
+                logger.debug(
+                    "[QtWebView] Forced container geometry: %dx%d (Qt6=%s)", width, height, is_qt6()
+                )
 
         except Exception as e:
-            logger.debug(f"[QtWebView] _force_container_geometry failed: {e}")
+            if _VERBOSE_LOGGING:
+                logger.debug(f"[QtWebView] _force_container_geometry failed: {e}")
 
     def eventFilter(self, watched, event) -> bool:
         """Filter events from parent window.
@@ -1341,7 +1373,8 @@ class QtWebView(FileDialogMixin, QWidget):
         if watched == parent_window and parent_window is not None:
             # Close WebView when parent window closes
             if event.type() == QEvent.Close:
-                logger.debug("QtWebView: Parent window closing")
+                if _VERBOSE_LOGGING:
+                    logger.debug("QtWebView: Parent window closing")
                 try:
                     if not getattr(self, "_is_closing", False):
                         self._is_closing = True
@@ -1349,7 +1382,8 @@ class QtWebView(FileDialogMixin, QWidget):
                         if webview is not None:
                             webview.close()
                 except Exception as e:  # pragma: no cover
-                    logger.debug("QtWebView: error closing on parent close: %s", e)
+                    if _VERBOSE_LOGGING:
+                        logger.debug("QtWebView: error closing on parent close: %s", e)
 
         return super().eventFilter(watched, event)
 
@@ -1367,7 +1401,8 @@ class QtWebView(FileDialogMixin, QWidget):
         from qtpy.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
         self._show_start_time = time.time()
-        logger.debug("[QtWebView] show() started")
+        if _VERBOSE_LOGGING:
+            logger.debug("[QtWebView] show() started")
 
         # Create loading overlay
         self._loading_overlay = QWidget(self)
@@ -1437,12 +1472,14 @@ class QtWebView(FileDialogMixin, QWidget):
         try:
             if callable(show_embedded):
                 core_show_start = time.time()
-                logger.debug(
-                    f"[QtWebView] Calling core.show_embedded() for embed_mode={embed_mode!r}"
-                )
+                if _VERBOSE_LOGGING:
+                    logger.debug(
+                        f"[QtWebView] Calling core.show_embedded() for embed_mode={embed_mode!r}"
+                    )
                 show_embedded()
                 core_show_time = (time.time() - core_show_start) * 1000
-                logger.debug(f"[QtWebView] core.show_embedded() returned in {core_show_time:.1f}ms")
+                if _VERBOSE_LOGGING:
+                    logger.debug(f"[QtWebView] core.show_embedded() returned in {core_show_time:.1f}ms")
             else:
                 # Extremely unlikely with current Rust core, but keep a guarded
                 # fallback for older versions.
@@ -1453,7 +1490,8 @@ class QtWebView(FileDialogMixin, QWidget):
                 )
                 core.show()
                 core_show_time = (time.time() - core_show_start) * 1000
-                logger.debug(f"[QtWebView] core.show() fallback returned in {core_show_time:.1f}ms")
+                if _VERBOSE_LOGGING:
+                    logger.debug(f"[QtWebView] core.show() fallback returned in {core_show_time:.1f}ms")
         except Exception as exc:
             # If show_embedded()/show() fails for some reason, fall back to the
             # high-level Python WebView.show() which will use the background
@@ -1480,9 +1518,11 @@ class QtWebView(FileDialogMixin, QWidget):
             core.set_visible(True)
             # Process the visibility message immediately
             core.process_events()
-            logger.debug("[QtWebView] WebView visibility ensured after container creation")
+            if _VERBOSE_LOGGING:
+                logger.debug("[QtWebView] WebView visibility ensured after container creation")
         except Exception as e:
-            logger.debug(f"[QtWebView] Failed to set visibility: {e}")
+            if _VERBOSE_LOGGING:
+                logger.debug(f"[QtWebView] Failed to set visibility: {e}")
 
         QApplication.processEvents()
 
@@ -1499,7 +1539,8 @@ class QtWebView(FileDialogMixin, QWidget):
             try:
                 timer.start()
                 total_time = (time.time() - start_time) * 1000
-                logger.debug(f"[QtWebView] Ready in {total_time:.1f}ms")
+                if _VERBOSE_LOGGING:
+                    logger.debug(f"[QtWebView] Ready in {total_time:.1f}ms")
                 return
             except Exception as exc:
                 logger.warning(f"[QtWebView] EventTimer failed ({exc}), using fallback")
@@ -1513,7 +1554,8 @@ class QtWebView(FileDialogMixin, QWidget):
             event.accept()
             return
 
-        logger.debug("QtWebView closeEvent")
+        if _VERBOSE_LOGGING:
+            logger.debug("QtWebView closeEvent")
         self._is_closing = True
 
         try:
@@ -1521,7 +1563,8 @@ class QtWebView(FileDialogMixin, QWidget):
             try:
                 self._webview.close()
             except Exception as e:  # pragma: no cover - best-effort cleanup
-                logger.debug("QtWebView: error closing embedded WebView: %s", e)
+                if _VERBOSE_LOGGING:
+                    logger.debug("QtWebView: error closing embedded WebView: %s", e)
         finally:
             event.accept()
             super().closeEvent(event)
@@ -1532,7 +1575,8 @@ class QtWebView(FileDialogMixin, QWidget):
             if not getattr(self, "_is_closing", False) and hasattr(self, "_webview"):
                 self._webview.close()
         except Exception as e:  # pragma: no cover - best-effort cleanup
-            logger.debug("QtWebView __del__ error: %s", e)
+            if _VERBOSE_LOGGING:
+                logger.debug("QtWebView __del__ error: %s", e)
 
     def __repr__(self) -> str:
         """String representation."""
@@ -1565,7 +1609,8 @@ class QtWebView(FileDialogMixin, QWidget):
         try:
             return self._webview.get_hwnd()
         except Exception as e:
-            logger.debug("QtWebView.get_hwnd() error: %s", e)
+            if _VERBOSE_LOGGING:
+                logger.debug("QtWebView.get_hwnd() error: %s", e)
             return None
 
 

@@ -10,10 +10,20 @@ across different DCC applications that may use different Qt versions.
 """
 
 import logging
+import os
 import sys
 from typing import Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# Performance optimization: Check verbose logging once at import time
+# In DCC environments, excessive logging causes severe UI performance issues
+_VERBOSE_LOGGING = os.environ.get("AURORAVIEW_LOG_VERBOSE", "").lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
 
 # Detect Qt version and binding
 _QT_VERSION: Optional[int] = None  # 5 or 6
@@ -25,7 +35,8 @@ try:
     _QT_BINDING = API_NAME
     # Parse major version from QT_VERSION (e.g., "5.15.2" -> 5)
     _QT_VERSION = int(QT_VERSION.split(".")[0]) if QT_VERSION else None
-    logger.debug(f"Qt detected: {_QT_BINDING} (Qt {_QT_VERSION})")
+    if _VERBOSE_LOGGING:
+        logger.debug(f"Qt detected: {_QT_BINDING} (Qt {_QT_VERSION})")
 except ImportError:
     logger.warning("qtpy not available, Qt compatibility layer disabled")
 except Exception as e:
@@ -127,11 +138,13 @@ def apply_clip_styles_to_parent(parent_hwnd: int) -> bool:
                 0,
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             )
-            logger.debug(f"[Qt Compat] Applied clip styles to parent HWND 0x{parent_hwnd:X}")
+            if _VERBOSE_LOGGING:
+                logger.debug(f"[Qt Compat] Applied clip styles to parent HWND 0x{parent_hwnd:X}")
         return True
 
     except Exception as e:
-        logger.debug(f"[Qt Compat] Failed to apply clip styles: {e}")
+        if _VERBOSE_LOGGING:
+            logger.debug(f"[Qt Compat] Failed to apply clip styles: {e}")
         return False
 
 
@@ -224,11 +237,12 @@ def prepare_hwnd_for_container(hwnd: int) -> bool:
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
         )
 
-        logger.debug(
-            f"[Qt Compat] Prepared HWND 0x{hwnd:X} for container "
-            f"(style=0x{old_style:08X}->0x{style:08X}, "
-            f"ex_style=0x{old_ex_style:08X}->0x{ex_style:08X})"
-        )
+        if _VERBOSE_LOGGING:
+            logger.debug(
+                f"[Qt Compat] Prepared HWND 0x{hwnd:X} for container "
+                f"(style=0x{old_style:08X}->0x{style:08X}, "
+                f"ex_style=0x{old_ex_style:08X}->0x{ex_style:08X})"
+            )
         return True
 
     except Exception as e:
@@ -293,7 +307,8 @@ def create_container_widget(
             # NOTE: Do NOT set WA_OpaquePaintEvent on container!
             # This causes black screen in Houdini and other Qt6 DCCs.
             # The container must remain transparent to show embedded WebView content.
-            logger.debug("[Qt Compat] Applied Qt6-specific container settings")
+            if _VERBOSE_LOGGING:
+                logger.debug("[Qt Compat] Applied Qt6-specific container settings")
 
         # Qt5/Qt6 common: ensure container accepts focus properly
         container.setAttribute(QtCore.WA_AcceptTouchEvents, True)
@@ -340,10 +355,12 @@ def post_container_setup(container: Any, hwnd: int) -> None:
         # Force a repaint to ensure the content is visible
         container.update()
 
-        logger.debug(f"[Qt Compat] Post-container setup complete for HWND 0x{hwnd:X}")
+        if _VERBOSE_LOGGING:
+            logger.debug(f"[Qt Compat] Post-container setup complete for HWND 0x{hwnd:X}")
 
     except Exception as e:
-        logger.debug(f"[Qt Compat] Post-container setup warning: {e}")
+        if _VERBOSE_LOGGING:
+            logger.debug(f"[Qt Compat] Post-container setup warning: {e}")
 
 
 def _ensure_native_child_style(hwnd: int, container: Any) -> None:
@@ -389,13 +406,15 @@ def _ensure_native_child_style(hwnd: int, container: Any) -> None:
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             )
 
-            logger.debug(
-                f"[Qt Compat] Re-applied WS_CHILD style for Qt6: "
-                f"HWND 0x{hwnd:X} -> parent 0x{container_hwnd:X}"
-            )
+            if _VERBOSE_LOGGING:
+                logger.debug(
+                    f"[Qt Compat] Re-applied WS_CHILD style for Qt6: "
+                    f"HWND 0x{hwnd:X} -> parent 0x{container_hwnd:X}"
+                )
 
     except Exception as e:
-        logger.debug(f"[Qt Compat] _ensure_native_child_style warning: {e}")
+        if _VERBOSE_LOGGING:
+            logger.debug(f"[Qt Compat] _ensure_native_child_style warning: {e}")
 
 
 def apply_qt6_dialog_optimizations(dialog: Any) -> bool:
@@ -424,7 +443,8 @@ def apply_qt6_dialog_optimizations(dialog: Any) -> bool:
         >>> dialog.show()
     """
     if not is_qt6():
-        logger.debug("[Qt Compat] Not Qt6, skipping dialog optimizations")
+        if _VERBOSE_LOGGING:
+            logger.debug("[Qt Compat] Not Qt6, skipping dialog optimizations")
         return False
 
     try:
@@ -438,21 +458,18 @@ def apply_qt6_dialog_optimizations(dialog: Any) -> bool:
         # Performance optimization: Disable translucent background
         # (Qt6 has significant performance issues with translucency)
         dialog.setAttribute(Qt.WA_TranslucentBackground, False)
-        logger.debug("[Qt Compat] Set WA_TranslucentBackground=False")
 
         # Ensure proper background handling
         dialog.setAttribute(Qt.WA_NoSystemBackground, False)
-        logger.debug("[Qt Compat] Set WA_NoSystemBackground=False")
 
         # Qt6 compatibility: Ensure native window
         dialog.setAttribute(Qt.WA_NativeWindow, True)
-        logger.debug("[Qt Compat] Set WA_NativeWindow=True")
 
         # Qt6 compatibility: Enable input method for keyboard
         dialog.setAttribute(Qt.WA_InputMethodEnabled, True)
-        logger.debug("[Qt Compat] Set WA_InputMethodEnabled=True")
 
-        logger.info("[Qt Compat] Applied Qt6 dialog optimizations")
+        if _VERBOSE_LOGGING:
+            logger.debug("[Qt Compat] Applied Qt6 dialog optimizations")
         return True
 
     except Exception as e:
