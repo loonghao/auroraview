@@ -146,6 +146,8 @@ try:
         get_warmup_stage,
         get_warmup_status,
         get_shared_user_data_folder,
+        # Plugin system for native desktop operations
+        PluginManager,
     )
 except ImportError as e:
     # Capture the import error for diagnostics
@@ -179,6 +181,9 @@ except ImportError as e:
     get_warmup_stage = None  # type: ignore
     get_warmup_status = None  # type: ignore
     get_shared_user_data_folder = None  # type: ignore
+
+    # Placeholder for plugin system
+    PluginManager = None  # type: ignore
 
 
 def diagnose_core_library() -> dict:
@@ -466,3 +471,20 @@ __all__ = [
     "__version__",
     "__author__",
 ]
+
+
+# ============================================================
+# Auto-start WebView2 warmup on Windows (performance optimization)
+# ============================================================
+# Multiple WebView instances share a single pre-warmed WebView2 environment.
+# By starting warmup during module import, subsequent WebView creation is fast.
+# This is especially beneficial in DCC applications where startup time matters.
+#
+# Note: The warmup runs in a background thread and does not block imports.
+# Users can still call start_warmup() manually for custom user_data_folder.
+if _sys.platform == "win32" and start_warmup is not None:
+    try:
+        start_warmup()
+    except Exception:
+        # Silently ignore warmup errors - they don't affect core functionality
+        pass
