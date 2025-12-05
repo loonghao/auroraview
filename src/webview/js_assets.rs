@@ -1,8 +1,8 @@
 //! JavaScript assets management
 //!
 //! This module manages all JavaScript code that is injected into the WebView.
-//! JavaScript files are stored in `assets/js/` and embedded at compile time
-//! using the `include_str!` macro.
+//! JavaScript files are stored in `auroraview-core/src/assets/js/` and embedded
+//! at compile time using the `rust_embed` crate in auroraview-core.
 //!
 //! ## Architecture
 //!
@@ -26,7 +26,6 @@
 //! ```
 
 use crate::webview::WebViewConfig;
-use std::collections::HashMap;
 
 #[cfg(feature = "templates")]
 use crate::webview::js_templates::{
@@ -35,61 +34,18 @@ use crate::webview::js_templates::{
 #[cfg(feature = "templates")]
 use askama::Template;
 
-/// HTML asset registry
-///
-/// All HTML files are embedded at compile time for use in WebView
-fn get_html_registry() -> HashMap<&'static str, &'static str> {
-    let mut registry = HashMap::new();
-
-    // Loading screen
-    registry.insert("loading.html", include_str!("../assets/html/loading.html"));
-
-    registry
-}
-
-/// Get loading screen HTML
-pub fn get_loading_html() -> &'static str {
-    get_html_registry()
-        .get("loading.html")
-        .expect("loading.html should be in registry")
-}
-
-/// JavaScript asset registry
-///
-/// All JavaScript files are embedded at compile time and registered in a HashMap
-/// for dynamic access by path.
-fn get_js_registry() -> HashMap<&'static str, &'static str> {
-    let mut registry = HashMap::new();
-
-    // Core scripts
-    registry.insert(
-        "core/event_bridge.js",
-        include_str!("../assets/js/core/event_bridge.js"),
-    );
-
-    // Feature scripts
-    registry.insert(
-        "features/context_menu.js",
-        include_str!("../assets/js/features/context_menu.js"),
-    );
-
-    // Runtime templates
-    registry.insert(
-        "runtime/emit_event.js",
-        include_str!("../assets/js/runtime/emit_event.js"),
-    );
-    registry.insert(
-        "runtime/load_url.js",
-        include_str!("../assets/js/runtime/load_url.js"),
-    );
-
-    registry
-}
+// Re-export from auroraview-core for convenience
+pub use auroraview_core::assets::{
+    get_browsing_data_js, get_channel_bridge_js, get_command_bridge_js, get_context_menu_js,
+    get_dom_events_js, get_emit_event_js, get_event_bridge_js, get_js_asset, get_load_url_js,
+    get_loading_html, get_loading_html as get_loading_html_string, get_navigation_api_js,
+    get_navigation_tracker_js, get_state_bridge_js, get_typescript_definitions, get_zoom_api_js,
+};
 
 /// Get JavaScript code by path
 ///
 /// Dynamically loads JavaScript assets by their relative path from `assets/js/`.
-/// All assets are still embedded at compile time using `include_str!`.
+/// All assets are embedded at compile time in auroraview-core.
 ///
 /// # Arguments
 ///
@@ -97,29 +53,20 @@ fn get_js_registry() -> HashMap<&'static str, &'static str> {
 ///
 /// # Returns
 ///
-/// The JavaScript code as a static string slice, or None if path not found
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use crate::webview::js_assets;
-///
-/// let event_bridge = js_assets::get_js_code("core/event_bridge.js").unwrap();
-/// let context_menu = js_assets::get_js_code("features/context_menu.js").unwrap();
-/// ```
-pub fn get_js_code(path: &str) -> Option<&'static str> {
-    static REGISTRY: std::sync::OnceLock<HashMap<&'static str, &'static str>> =
-        std::sync::OnceLock::new();
-    let registry = REGISTRY.get_or_init(get_js_registry);
-    registry.get(path).copied()
+/// The JavaScript code as a String, or None if path not found
+pub fn get_js_code(path: &str) -> Option<String> {
+    get_js_asset(path)
 }
 
-/// Legacy constants for backward compatibility
-///
-/// These are kept for existing code that uses them directly.
-/// New code should use `get_js_code()` instead.
-pub const EVENT_BRIDGE: &str = include_str!("../assets/js/core/event_bridge.js");
-pub const CONTEXT_MENU_DISABLE: &str = include_str!("../assets/js/features/context_menu.js");
+/// Get event bridge JavaScript (lazy loaded from core)
+pub fn event_bridge() -> String {
+    get_event_bridge_js()
+}
+
+/// Get context menu disable JavaScript (lazy loaded from core)
+pub fn context_menu_disable() -> String {
+    get_context_menu_js()
+}
 
 /// Build complete initialization script based on configuration
 ///
@@ -147,15 +94,50 @@ pub const CONTEXT_MENU_DISABLE: &str = include_str!("../assets/js/features/conte
 /// // script now contains event_bridge.js + context_menu.js
 /// ```
 pub fn build_init_script(config: &WebViewConfig) -> String {
-    let mut script = String::with_capacity(8192); // Pre-allocate reasonable size
+    let mut script = String::with_capacity(32768); // Pre-allocate reasonable size
 
-    // Core scripts (always included)
-    script.push_str(EVENT_BRIDGE);
+    // Core scripts (always included) - loaded from auroraview-core
+    script.push_str(&event_bridge());
+    script.push('\n');
+
+    // BOM (Browser Object Model) scripts - always included
+    // These provide navigation tracking, DOM events, and utility functions
+
+    // Navigation tracker - handles popstate, pushState, loading progress
+    script.push_str(&get_navigation_tracker_js());
+    script.push('\n');
+
+    // DOM events tracker - handles title/URL changes, visibility, focus
+    script.push_str(&get_dom_events_js());
+    script.push('\n');
+
+    // Browsing data utilities - clear localStorage, sessionStorage, cookies
+    script.push_str(&get_browsing_data_js());
+    script.push('\n');
+
+    // Navigation API utilities - canGoBack, canGoForward, isLoading
+    script.push_str(&get_navigation_api_js());
+    script.push('\n');
+
+    // Zoom API utilities - setZoom, getZoom, zoomIn, zoomOut
+    script.push_str(&get_zoom_api_js());
+    script.push('\n');
+
+    // State bridge for Python ↔ JavaScript state sync
+    script.push_str(&get_state_bridge_js());
+    script.push('\n');
+
+    // Command bridge for RPC-style invocation
+    script.push_str(&get_command_bridge_js());
+    script.push('\n');
+
+    // Channel bridge for streaming data
+    script.push_str(&get_channel_bridge_js());
     script.push('\n');
 
     // Optional features based on configuration
     if !config.context_menu {
-        script.push_str(CONTEXT_MENU_DISABLE);
+        script.push_str(&context_menu_disable());
         script.push('\n');
     }
 
@@ -248,8 +230,8 @@ fn build_api_registration_script(
 /// Returns just the core event bridge without any optional features.
 /// Useful for minimal WebView setups.
 #[allow(dead_code)]
-pub fn get_event_bridge() -> &'static str {
-    EVENT_BRIDGE
+pub fn get_event_bridge() -> String {
+    event_bridge()
 }
 
 /// Get context menu disable script only
@@ -257,8 +239,8 @@ pub fn get_event_bridge() -> &'static str {
 /// Returns just the context menu disable script.
 /// Useful for dynamic injection after WebView creation.
 #[allow(dead_code)]
-pub fn get_context_menu_disable() -> &'static str {
-    CONTEXT_MENU_DISABLE
+pub fn get_context_menu_disable() -> String {
+    context_menu_disable()
 }
 
 /// JavaScript asset types
@@ -277,7 +259,7 @@ pub enum JsAsset {
 /// Get a JavaScript asset by type
 ///
 /// This function provides a dynamic way to load JavaScript assets at runtime.
-/// All assets are still embedded at compile time using `include_str!`.
+/// All assets are embedded at compile time in auroraview-core.
 ///
 /// # Arguments
 ///
@@ -285,7 +267,7 @@ pub enum JsAsset {
 ///
 /// # Returns
 ///
-/// The JavaScript code as a static string slice
+/// The JavaScript code as a String
 ///
 /// # Example
 ///
@@ -296,10 +278,10 @@ pub enum JsAsset {
 /// let context_menu = get_asset(JsAsset::ContextMenuDisable);
 /// ```
 #[allow(dead_code)]
-pub fn get_asset(asset: JsAsset) -> &'static str {
+pub fn get_asset(asset: JsAsset) -> String {
     match asset {
-        JsAsset::EventBridge => EVENT_BRIDGE,
-        JsAsset::ContextMenuDisable => CONTEXT_MENU_DISABLE,
+        JsAsset::EventBridge => event_bridge(),
+        JsAsset::ContextMenuDisable => context_menu_disable(),
     }
 }
 
@@ -331,7 +313,7 @@ pub fn get_assets(assets: &[JsAsset]) -> String {
     let mut script = String::with_capacity(8192);
 
     for asset in assets {
-        script.push_str(get_asset(*asset));
+        script.push_str(&get_asset(*asset));
         script.push('\n');
     }
 
@@ -373,8 +355,7 @@ pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {
     template.render().unwrap_or_else(|e| {
         eprintln!("[AuroraView] Failed to render emit event template: {}", e);
         // Fallback to legacy method
-        get_js_code("runtime/emit_event.js")
-            .expect("emit_event.js template not found")
+        get_emit_event_js()
             .replace("{EVENT_NAME}", event_name)
             .replace("{EVENT_DATA}", event_data)
     })
@@ -382,10 +363,69 @@ pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {
 
 #[cfg(not(feature = "templates"))]
 pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {
-    get_js_code("runtime/emit_event.js")
-        .expect("emit_event.js template not found")
+    get_emit_event_js()
         .replace("{EVENT_NAME}", event_name)
         .replace("{EVENT_DATA}", event_data)
+}
+
+/// Generate script for async JavaScript execution with result callback
+///
+/// Creates JavaScript code that:
+/// 1. Executes the user's script
+/// 2. Captures the result (or error)
+/// 3. Sends the result back to Python via IPC
+///
+/// # Arguments
+///
+/// * `script` - JavaScript code to execute
+/// * `callback_id` - Unique ID to correlate request with response
+///
+/// # Returns
+///
+/// JavaScript code as a String that wraps the user script
+pub fn build_eval_js_async_script(script: &str, callback_id: u64) -> String {
+    // Escape the script for embedding in a string literal
+    let escaped_script = script
+        .replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace("${", "\\${");
+
+    format!(
+        r#"(function() {{
+    'use strict';
+    var callbackId = {callback_id};
+    var result = null;
+    var error = null;
+
+    try {{
+        // Execute the user script and capture result
+        result = (function() {{
+            return eval(`{escaped_script}`);
+        }})();
+    }} catch (e) {{
+        error = {{
+            message: e.message || String(e),
+            name: e.name || 'Error',
+            stack: e.stack || null
+        }};
+    }}
+
+    // Send result back to Python via IPC
+    try {{
+        var payload = {{
+            type: 'js_callback_result',
+            callback_id: callbackId,
+            result: result,
+            error: error
+        }};
+        window.ipc.postMessage(JSON.stringify(payload));
+    }} catch (ipcError) {{
+        console.error('[AuroraView] Failed to send eval_js_async result:', ipcError);
+    }}
+}})();"#,
+        callback_id = callback_id,
+        escaped_script = escaped_script
+    )
 }
 
 /// Generate script to load a URL
@@ -417,17 +457,13 @@ pub fn build_load_url_script(url: &str) -> String {
     template.render().unwrap_or_else(|e| {
         eprintln!("[AuroraView] Failed to render load URL template: {}", e);
         // Fallback to legacy method
-        get_js_code("runtime/load_url.js")
-            .expect("load_url.js template not found")
-            .replace("{URL}", url)
+        get_load_url_js().replace("{URL}", url)
     })
 }
 
 #[cfg(not(feature = "templates"))]
 pub fn build_load_url_script(url: &str) -> String {
-    get_js_code("runtime/load_url.js")
-        .expect("load_url.js template not found")
-        .replace("{URL}", url)
+    get_load_url_js().replace("{URL}", url)
 }
 
 #[cfg(test)]
@@ -590,15 +626,15 @@ mod tests {
     }
 
     #[test]
-    fn test_get_js_registry_contains_all_assets() {
-        // Test that registry contains all expected assets
-        let registry = get_js_registry();
-
-        assert!(registry.contains_key("core/event_bridge.js"));
-        assert!(registry.contains_key("features/context_menu.js"));
-        assert!(registry.contains_key("runtime/emit_event.js"));
-        assert!(registry.contains_key("runtime/load_url.js"));
-        assert_eq!(registry.len(), 4);
+    fn test_all_core_assets_available() {
+        // Test that all core assets are available from auroraview-core
+        assert!(!get_event_bridge_js().is_empty());
+        assert!(!get_state_bridge_js().is_empty());
+        assert!(!get_command_bridge_js().is_empty());
+        assert!(!get_channel_bridge_js().is_empty());
+        assert!(!get_context_menu_js().is_empty());
+        assert!(!get_emit_event_js().is_empty());
+        assert!(!get_load_url_js().is_empty());
     }
 
     #[test]

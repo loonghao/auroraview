@@ -315,13 +315,13 @@ class TestElement:
         """Test type_text with clear_first generates correct JavaScript."""
         element.type_text("Hello", clear_first=True)
         call_args = mock_webview.eval_js.call_args[0][0]
-        assert "value = ''" in call_args
+        assert "value=''" in call_args
 
     def test_clear(self, element, mock_webview):
         """Test clear generates correct JavaScript."""
         element.clear()
         call_args = mock_webview.eval_js.call_args[0][0]
-        assert "value = ''" in call_args
+        assert "value=''" in call_args
 
     def test_submit(self, element, mock_webview):
         """Test submit generates correct JavaScript."""
@@ -449,7 +449,7 @@ class TestElement:
         """Test empty generates correct JavaScript."""
         element.empty()
         call_args = mock_webview.eval_js.call_args[0][0]
-        assert "innerHTML = ''" in call_args
+        assert "innerHTML=''" in call_args
 
     # === Repr Test ===
 

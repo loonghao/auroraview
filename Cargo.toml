@@ -12,7 +12,8 @@ resolver = "2"
 [workspace.package]
 version = "0.2.22"
 edition = "2021"
-rust-version = "1.75"
+# CXX-Qt 0.7 requires Rust 1.77+ for cargo:: syntax in build scripts
+rust-version = "1.77"
 authors = ["Hal Long <hal.long@outlook.com>"]
 license = "MIT"
 repository = "https://github.com/loonghao/auroraview"
@@ -31,7 +32,7 @@ keywords = ["webview", "rust", "python", "wry", "pyo3", "dcc"]
 categories = ["gui", "multimedia", "graphics"]
 
 [lib]
-name = "auroraview"
+name = "_core"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
@@ -39,7 +40,8 @@ crate-type = ["cdylib", "rlib"]
 auroraview-core = { path = "crates/auroraview-core" }
 
 # PyO3 for Python bindings (optional)
-pyo3 = { version = "0.27.1", features = ["abi3-py37"], optional = true }
+# multiple-pymethods: Allow splitting #[pymethods] across multiple files
+pyo3 = { version = "0.27.1", features = ["abi3-py37", "multiple-pymethods"], optional = true }
 
 # Wry for WebView
 wry = "0.53"
@@ -91,6 +93,9 @@ num_cpus = "1.16"
 
 # Window utilities
 active-win-pos-rs = "0.9"
+
+# File dialogs
+rfd = "0.15"
 
 # Service discovery
 mdns-sd = "0.17"
@@ -187,6 +192,7 @@ path = "tests/rust/ipc_json_integration_tests.rs"
 [[test]]
 name = "ipc_batch_integration"
 path = "tests/rust/ipc_batch_integration_tests.rs"
+required-features = ["python-bindings"]
 
 [[test]]
 name = "lifecycle_integration"
@@ -199,6 +205,7 @@ path = "tests/rust/timer_integration_tests.rs"
 [[test]]
 name = "window_utils_integration"
 path = "tests/rust/window_utils_integration_tests.rs"
+required-features = ["python-bindings"]
 
 [[test]]
 name = "protocol_integration"
@@ -224,6 +231,4 @@ path = "tests/rust/mdns_integration_tests.rs"
 name = "http_discovery_integration"
 path = "tests/rust/http_discovery_integration_tests.rs"
 
-[[test]]
-name = "parent_monitor_integration"
-path = "tests/rust/parent_monitor_integration_tests.rs"
+

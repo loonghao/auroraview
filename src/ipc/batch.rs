@@ -497,6 +497,7 @@ mod tests {
         assert!(batch.messages.is_empty());
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_batched_handler_new() {
         let handler = BatchedHandler::new();
@@ -504,6 +505,7 @@ mod tests {
         assert_eq!(handler.max_batch_age_ms, 16);
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_batched_handler_default() {
         let handler = BatchedHandler::default();
@@ -511,6 +513,7 @@ mod tests {
         assert_eq!(handler.max_batch_age_ms, 16);
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_batched_handler_flush_empty_batch() {
         let handler = BatchedHandler::new();
@@ -519,6 +522,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_json_to_python_basic_types() {
         Python::attach(|py| {
@@ -551,6 +555,7 @@ mod tests {
         .unwrap();
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_json_to_python_array() {
         Python::attach(|py| {
@@ -565,6 +570,7 @@ mod tests {
         .unwrap();
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_json_to_python_object() {
         Python::attach(|py| {

@@ -294,22 +294,31 @@ webview.register_protocol("dcc", handle_dcc_protocol)
 | Basic WebView | ✅ | ✅ | Both support modern web content |
 | HTML/CSS/JS | ✅ | ✅ | Full web standards |
 | Developer Tools | ✅ | ✅ | F12 / Right-click inspect |
-| Multiple Windows | ✅ | ✅ | Multi-window support |
+| Multiple Windows | ✅ | ✅ | Multi-window support with WindowManager |
 | **Communication** |
 | Python → JS | ✅ | ✅ | Evaluate JavaScript |
 | JS → Python | ✅ | ✅ | Call Python functions |
 | Bidirectional Events | ✅ | ✅ | Event-based communication |
 | Promise Support | ✅ | ✅ | Async call/response |
+| Async/Await | ⚠️ Limited | ✅ | Native async/await + Future support |
+| EventEmitter | ❌ | ✅ | Node.js-style on/once/off/emit |
 | **Window Management** |
 | Frameless Window | ✅ | ✅ | Borderless mode |
 | Always on Top | ✅ | ✅ | Pin window |
 | Window Resize | ✅ | ✅ | Programmatic resize |
 | Fullscreen | ✅ | ✅ | Toggle fullscreen |
+| Window Events | ⚠️ Limited | ✅ | show/hide/focus/blur/resize/move |
+| Multi-Window Manager | ❌ | ✅ | WindowManager + emit_to cross-window |
 | **Protocols & Resources** |
 | HTTP Server | ✅ Built-in | ⚠️ Via Bridge | Different approaches |
 | Custom Protocols | ❌ | ✅ | `auroraview://`, `dcc://` |
 | File Protocol | ✅ | ✅ (opt-in) | Security consideration |
 | DOM Access | ✅ | ✅ Full | Both have comprehensive DOM APIs |
+| **Storage & Data** |
+| localStorage | ✅ | ✅ | Full CRUD support |
+| sessionStorage | ✅ | ✅ | Full CRUD support |
+| Cookies | ✅ | ✅ | set/get/delete/clear |
+| Browsing Data | ❌ | ✅ | clear_browsing_data() |
 | **DCC Integration** |
 | Parent Window Embed | ❌ | ✅ | Native embedding |
 | Parent Monitoring | ❌ | ✅ | Close when parent closes |
@@ -317,12 +326,18 @@ webview.register_protocol("dcc", handle_dcc_protocol)
 | Qt Backend | ✅ Optional | ✅ QtWebView | Both support Qt |
 | Thread Safety | ⚠️ Manual | ✅ Native | Rust guarantees |
 | Singleton Mode | ❌ | ✅ | One instance per key |
-| **Advanced** |
-| SSL Support | ✅ (pip extra) | ⚠️ Planned | PyWebView has SSL option |
-| Menu System | ✅ | ⚠️ Limited | Native menus |
-| File Dialogs | ✅ | ⚠️ Planned | Open/Save dialogs |
-| Context Menu | ✅ | ✅ | Right-click menu |
-| Cookies | ✅ | ⚠️ Limited | Cookie management |
+| WebView2 Warmup | ❌ | ✅ | Pre-init for faster startup |
+| **Dialogs** |
+| File Dialogs | ✅ | ✅ | open/save/select_folder |
+| Alert/Confirm | ✅ | ✅ | confirm/alert/error dialogs |
+| **Security** |
+| CSP | ⚠️ Manual | ✅ | Built-in CSP configuration |
+| CORS | ⚠️ Manual | ✅ | Built-in CORS control |
+| Permission System | ❌ | ✅ | Fine-grained permissions |
+| **Performance** |
+| Performance Metrics | ❌ | ✅ | get_performance_metrics() |
+| IPC Stats | ❌ | ✅ | get_ipc_stats() |
+| Load Progress | ⚠️ Limited | ✅ | 0-100 progress tracking |
 | **Platform** |
 | Windows | ✅ | ✅ | WebView2/Edge |
 | macOS | ✅ | ⚠️ Planned | WKWebView |

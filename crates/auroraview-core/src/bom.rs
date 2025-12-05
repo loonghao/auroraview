@@ -89,51 +89,90 @@ impl PhysicalPosition {
 }
 
 /// JavaScript templates for BOM operations
+///
+/// NOTE: Most JavaScript code has been migrated to individual .js files
+/// in `src/assets/js/bom/` for better maintainability. These constants
+/// are kept for simple one-liners that don't warrant separate files.
+///
+/// Full JavaScript implementations are in:
+/// - `src/assets/js/bom/navigation_tracker.js` - Navigation and loading state tracking
+/// - `src/assets/js/bom/dom_events.js` - DOM and window events
+/// - `src/assets/js/bom/browsing_data.js` - Storage and cookie management
+/// - `src/assets/js/bom/navigation_api.js` - Navigation utility functions
+/// - `src/assets/js/bom/zoom_api.js` - Zoom control functions
 pub mod js {
     /// Navigate back in history
-    pub const GO_BACK: &str = "history.back()";
+    pub const GO_BACK: &str =
+        "window.__auroraview_goBack ? window.__auroraview_goBack() : history.back()";
 
     /// Navigate forward in history
-    pub const GO_FORWARD: &str = "history.forward()";
+    pub const GO_FORWARD: &str =
+        "window.__auroraview_goForward ? window.__auroraview_goForward() : history.forward()";
+
+    /// Stop loading current page
+    pub const STOP: &str = "window.__auroraview_stop ? window.__auroraview_stop() : window.stop()";
+
+    /// Check if can go back in history
+    pub const CAN_GO_BACK: &str =
+        "window.__auroraview_canGoBack ? window.__auroraview_canGoBack() : history.length > 1";
+
+    /// Check if can go forward in history
+    pub const CAN_GO_FORWARD: &str =
+        "window.__auroraview_canGoForward ? window.__auroraview_canGoForward() : false";
+
+    /// Check if page is currently loading
+    pub const IS_LOADING: &str = "window.__auroraview_isLoading ? window.__auroraview_isLoading() : (document.readyState !== 'complete')";
+
+    /// Get current load progress (0-100)
+    pub const GET_LOAD_PROGRESS: &str = "window.__auroraview_getLoadProgress ? window.__auroraview_getLoadProgress() : (document.readyState === 'complete' ? 100 : 0)";
 
     /// Reload current page
-    pub const RELOAD: &str = "location.reload()";
+    pub const RELOAD: &str =
+        "window.__auroraview_reload ? window.__auroraview_reload() : location.reload()";
 
-    /// Get current URL (stores in window variable for IPC retrieval)
+    /// Get current URL
     pub const GET_CURRENT_URL: &str =
-        "window.__auroraview_current_url = location.href; location.href";
+        "window.__auroraview_getCurrentUrl ? window.__auroraview_getCurrentUrl() : location.href";
 
-    /// Clear all browsing data (localStorage, sessionStorage, IndexedDB, cookies)
-    pub const CLEAR_ALL_BROWSING_DATA: &str = r#"
-(function() {
-    // Clear localStorage
-    try { localStorage.clear(); } catch(e) {}
-    // Clear sessionStorage
-    try { sessionStorage.clear(); } catch(e) {}
-    // Clear IndexedDB databases
-    if (indexedDB && indexedDB.databases) {
-        indexedDB.databases().then(dbs => {
-            dbs.forEach(db => {
-                try { indexedDB.deleteDatabase(db.name); } catch(e) {}
-            });
-        }).catch(() => {});
-    }
-    // Clear accessible cookies
-    document.cookie.split(";").forEach(c => {
-        document.cookie = c.replace(/^ +/, "")
-            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
-    console.log('[AuroraView BOM] Browsing data cleared');
-})();
-"#;
+    /// Clear all browsing data
+    pub const CLEAR_ALL_BROWSING_DATA: &str =
+        "window.__auroraview_clearAllBrowsingData && window.__auroraview_clearAllBrowsingData()";
+
+    /// Clear localStorage only
+    pub const CLEAR_LOCAL_STORAGE: &str =
+        "window.__auroraview_clearLocalStorage && window.__auroraview_clearLocalStorage()";
+
+    /// Clear sessionStorage only
+    pub const CLEAR_SESSION_STORAGE: &str =
+        "window.__auroraview_clearSessionStorage && window.__auroraview_clearSessionStorage()";
+
+    /// Clear IndexedDB
+    pub const CLEAR_INDEXED_DB: &str =
+        "window.__auroraview_clearIndexedDB && window.__auroraview_clearIndexedDB()";
+
+    /// Clear cookies
+    pub const CLEAR_COOKIES: &str =
+        "window.__auroraview_clearCookies && window.__auroraview_clearCookies()";
 
     /// Build zoom script
     pub fn set_zoom(scale_factor: f64) -> String {
         format!(
-            "document.body.style.zoom = '{}'; console.log('[AuroraView BOM] Zoom set to {}');",
+            "window.__auroraview_setZoom ? window.__auroraview_setZoom({}) : (document.body.style.zoom = '{}')",
             scale_factor, scale_factor
         )
     }
+
+    /// Get current zoom level
+    pub const GET_ZOOM: &str = "window.__auroraview_getZoom ? window.__auroraview_getZoom() : 1.0";
+
+    /// Zoom in
+    pub const ZOOM_IN: &str = "window.__auroraview_zoomIn && window.__auroraview_zoomIn()";
+
+    /// Zoom out
+    pub const ZOOM_OUT: &str = "window.__auroraview_zoomOut && window.__auroraview_zoomOut()";
+
+    /// Reset zoom
+    pub const RESET_ZOOM: &str = "window.__auroraview_resetZoom && window.__auroraview_resetZoom()";
 }
 
 /// Trait for BOM navigation operations
@@ -146,6 +185,15 @@ pub trait NavigationApi {
 
     /// Navigate forward in history
     fn go_forward(&self) -> BomResult<()>;
+
+    /// Stop loading current page
+    fn stop(&self) -> BomResult<()>;
+
+    /// Check if can navigate back in history
+    fn can_go_back(&self) -> BomResult<bool>;
+
+    /// Check if can navigate forward in history
+    fn can_go_forward(&self) -> BomResult<bool>;
 
     /// Reload current page
     fn reload(&self) -> BomResult<()>;
@@ -289,6 +337,7 @@ mod tests {
     fn test_js_templates() {
         assert_eq!(js::GO_BACK, "history.back()");
         assert_eq!(js::GO_FORWARD, "history.forward()");
+        assert_eq!(js::STOP, "window.stop()");
         assert_eq!(js::RELOAD, "location.reload()");
 
         let zoom_script = js::set_zoom(1.5);

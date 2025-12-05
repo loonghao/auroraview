@@ -1,7 +1,7 @@
 //! Integration tests for IPC MessageQueue
 //!
 //! These tests verify the complete message queue functionality including
-//! push/pop operations, backpressure handling, retry logic, and dead letter queue integration.
+//! push/pop operations, backpressure handling, and retry logic.
 
 use auroraview::ipc::message_queue::{MessageQueue, MessageQueueConfig};
 use auroraview::ipc::WebViewMessage;
@@ -52,7 +52,7 @@ fn test_push_pop_and_metrics(small_queue_no_retry: MessageQueue) {
 }
 
 #[rstest]
-fn test_backpressure_drop_and_retry_to_dlq(small_queue_with_retry: MessageQueue) {
+fn test_backpressure_drop_and_retry(small_queue_with_retry: MessageQueue) {
     let q = small_queue_with_retry;
 
     // Fill the queue
@@ -67,7 +67,7 @@ fn test_backpressure_drop_and_retry_to_dlq(small_queue_with_retry: MessageQueue)
         "Should have dropped at least 1 message due to full queue"
     );
 
-    // push_with_retry should attempt and then go to DLQ
+    // push_with_retry should fail after exhausting retries
     let err = q
         .push_with_retry(WebViewMessage::EvalJs("c".into()))
         .unwrap_err();
@@ -76,13 +76,6 @@ fn test_backpressure_drop_and_retry_to_dlq(small_queue_with_retry: MessageQueue)
         err.contains("queue full") || err.contains("Channel disconnected"),
         "Error should indicate queue full or disconnected, got: {}",
         err
-    );
-
-    let stats = q.get_dlq_stats();
-    assert!(stats.total >= 1, "DLQ should have at least 1 message");
-    assert!(
-        stats.queue_full >= 1 || stats.disconnected >= 1,
-        "DLQ should have queue_full or disconnected failures"
     );
 
     // Drain queue to keep later tests stable

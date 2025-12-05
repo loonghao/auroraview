@@ -94,8 +94,8 @@ impl PyIpcMetrics {
     }
 }
 
-impl From<crate::ipc::metrics::IpcMetricsSnapshot> for PyIpcMetrics {
-    fn from(snapshot: crate::ipc::metrics::IpcMetricsSnapshot) -> Self {
+impl From<crate::ipc::IpcMetricsSnapshot> for PyIpcMetrics {
+    fn from(snapshot: crate::ipc::IpcMetricsSnapshot) -> Self {
         Self {
             messages_sent: snapshot.messages_sent,
             messages_failed: snapshot.messages_failed,

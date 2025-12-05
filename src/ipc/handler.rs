@@ -13,6 +13,9 @@ use std::sync::Arc;
 // Re-export IpcMessage from backend module
 pub use super::backend::IpcMessage;
 
+#[cfg(feature = "python-bindings")]
+use super::js_callback::{JsCallbackManager, JsCallbackResult};
+
 /// IPC callback type (Rust closures)
 pub type IpcCallback = Arc<dyn Fn(IpcMessage) -> Result<serde_json::Value, String> + Send + Sync>;
 
@@ -68,6 +71,10 @@ pub struct IpcHandler {
     /// Registered Python callbacks - lock-free concurrent map
     #[cfg(feature = "python-bindings")]
     python_callbacks: Arc<DashMap<String, Vec<PythonCallback>>>,
+
+    /// JavaScript callback manager for async execution results
+    #[cfg(feature = "python-bindings")]
+    js_callback_manager: Option<Arc<JsCallbackManager>>,
 }
 
 impl IpcHandler {
@@ -77,7 +84,15 @@ impl IpcHandler {
             callbacks: Arc::new(DashMap::new()),
             #[cfg(feature = "python-bindings")]
             python_callbacks: Arc::new(DashMap::new()),
+            #[cfg(feature = "python-bindings")]
+            js_callback_manager: None,
         }
+    }
+
+    /// Set the JavaScript callback manager for handling async execution results
+    #[cfg(feature = "python-bindings")]
+    pub fn set_js_callback_manager(&mut self, manager: Arc<JsCallbackManager>) {
+        self.js_callback_manager = Some(manager);
     }
 
     /// Register a Rust callback for an event
@@ -122,6 +137,12 @@ impl IpcHandler {
     pub fn handle_message(&self, message: IpcMessage) -> Result<serde_json::Value, String> {
         tracing::debug!("Handling IPC message: {}", message.event);
 
+        // Handle internal JS callback result event
+        #[cfg(feature = "python-bindings")]
+        if message.event == "__js_callback_result__" {
+            return self.handle_js_callback_result(&message.data);
+        }
+
         // First try Python callbacks (only when python-bindings feature is enabled)
         #[cfg(feature = "python-bindings")]
         if let Some(event_callbacks) = self.python_callbacks.get(&message.event) {
@@ -152,6 +173,63 @@ impl IpcHandler {
             "No handler registered for event: {}",
             message.event
         ))
+    }
+
+    /// Get the count of registered events (both Rust and Python callbacks)
+    pub fn registered_event_count(&self) -> usize {
+        let rust_count = self.callbacks.len();
+        #[cfg(feature = "python-bindings")]
+        let python_count = self.python_callbacks.len();
+        #[cfg(not(feature = "python-bindings"))]
+        let python_count = 0;
+        rust_count + python_count
+    }
+
+    /// Handle JavaScript callback result from async execution
+    #[cfg(feature = "python-bindings")]
+    fn handle_js_callback_result(
+        &self,
+        data: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let callback_id = data
+            .get("callback_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| "Missing callback_id in JS callback result".to_string())?;
+
+        let result_value = data.get("result").cloned();
+        let error_value = data.get("error").cloned();
+
+        tracing::debug!(
+            "Processing JS callback result: id={}, has_result={}, has_error={}",
+            callback_id,
+            result_value.is_some(),
+            error_value.is_some()
+        );
+
+        // Build the callback result
+        let js_result = JsCallbackResult {
+            value: result_value,
+            error: error_value.and_then(|e| {
+                e.get("message")
+                    .and_then(|m| m.as_str())
+                    .map(|s| s.to_string())
+            }),
+        };
+
+        // Complete the callback if we have a manager
+        if let Some(ref manager) = self.js_callback_manager {
+            if let Err(e) = manager.complete_callback(callback_id, js_result) {
+                tracing::error!("Failed to complete JS callback {}: {}", callback_id, e);
+                return Err(e);
+            }
+        } else {
+            tracing::warn!(
+                "JS callback result received but no callback manager set (id={})",
+                callback_id
+            );
+        }
+
+        Ok(serde_json::json!({"status": "ok"}))
     }
 
     /// Remove all callbacks for an event

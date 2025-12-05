@@ -3,6 +3,7 @@
 //! This module provides embedded static assets including:
 //! - Loading HTML page
 //! - JavaScript utilities (event bridge, context menu, etc.)
+//! - BOM (Browser Object Model) scripts
 
 use rust_embed::RustEmbed;
 
@@ -21,12 +22,12 @@ pub fn get_loading_html() -> String {
 <head>
     <meta charset="UTF-8">
     <style>
-        body { 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            margin: 0; 
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             color: white;
             font-family: system-ui, -apple-system, sans-serif;
@@ -85,6 +86,90 @@ pub fn get_load_url_js() -> String {
         .unwrap_or_default()
 }
 
+// ========================================
+// BOM (Browser Object Model) Scripts
+// ========================================
+
+/// Get the navigation tracker JavaScript code
+pub fn get_navigation_tracker_js() -> String {
+    Assets::get("js/bom/navigation_tracker.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the DOM events JavaScript code
+pub fn get_dom_events_js() -> String {
+    Assets::get("js/bom/dom_events.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the browsing data JavaScript code
+pub fn get_browsing_data_js() -> String {
+    Assets::get("js/bom/browsing_data.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the navigation API JavaScript code
+pub fn get_navigation_api_js() -> String {
+    Assets::get("js/bom/navigation_api.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the zoom API JavaScript code
+pub fn get_zoom_api_js() -> String {
+    Assets::get("js/bom/zoom_api.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+// ========================================
+// Core Bridge Scripts
+// ========================================
+
+/// Get the state bridge JavaScript code
+pub fn get_state_bridge_js() -> String {
+    Assets::get("js/core/state_bridge.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the command bridge JavaScript code
+pub fn get_command_bridge_js() -> String {
+    Assets::get("js/core/command_bridge.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the channel bridge JavaScript code
+pub fn get_channel_bridge_js() -> String {
+    Assets::get("js/core/channel_bridge.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+// ========================================
+// Generic Asset Access
+// ========================================
+
+/// Get any JavaScript asset by path
+///
+/// # Arguments
+/// * `path` - Path relative to js/ directory (e.g., "core/event_bridge.js")
+pub fn get_js_asset(path: &str) -> Option<String> {
+    let full_path = format!("js/{}", path);
+    Assets::get(&full_path).map(|f| String::from_utf8_lossy(&f.data).to_string())
+}
+
+/// Get TypeScript definition file
+pub fn get_typescript_definitions() -> String {
+    Assets::get("types/auroraview.d.ts")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
 /// Build JavaScript to load a URL
 pub fn build_load_url_script(url: &str) -> String {
     format!(
@@ -109,5 +194,15 @@ mod tests {
         let script = build_load_url_script("https://example.com");
         assert!(script.contains("https://example.com"));
         assert!(script.contains("window.location.href"));
+    }
+
+    #[test]
+    fn test_bom_scripts_available() {
+        // These may be empty if assets aren't embedded, but shouldn't panic
+        let _ = get_navigation_tracker_js();
+        let _ = get_dom_events_js();
+        let _ = get_browsing_data_js();
+        let _ = get_navigation_api_js();
+        let _ = get_zoom_api_js();
     }
 }

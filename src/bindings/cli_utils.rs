@@ -56,7 +56,7 @@ fn normalize_url(url_str: &str) -> PyResult<String> {
 /// rewritten = rewrite_html_for_custom_protocol(html)
 /// assert 'href="auroraview://style.css"' in rewritten
 /// ```
-#[pyfunction]
+#[pyfunction(name = "rewrite_html_for_custom_protocol")]
 fn py_rewrite_html_for_custom_protocol(html: &str) -> String {
     rewrite_html_for_custom_protocol(html)
 }

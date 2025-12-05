@@ -1,43 +1,29 @@
-//! WebView backend abstraction layer
+//! WebView backend abstraction layer for Python bindings
 //!
-//! This module defines the trait-based architecture for supporting multiple
-//! rendering engines and window integration modes.
+//! This module provides the Python-bindings-specific backend implementations.
+//! Core backend abstractions are defined in `auroraview-core`.
 //!
 //! ## Architecture
 //!
 //! ```text
 //! ┌─────────────────────────────────────────────────────────┐
-//! │              WebViewBackend Trait                       │
-//! │  (Common interface for all rendering engines)           │
+//! │           auroraview-core::backend::traits              │
+//! │  (Platform-agnostic WebViewBackend trait)               │
+//! └─────────────────────────────────────────────────────────┘
+//!                          ↑
+//!                    implements
+//!                          │
+//! ┌─────────────────────────────────────────────────────────┐
+//! │              NativeBackend (this module)                │
+//! │  (Python bindings WebView with IPC, MessageQueue)       │
 //! └─────────────────────────────────────────────────────────┘
 //!                          ↓
-//!     ┌────────────────────┼────────────────────┐
-//!     ↓                    ↓                    ↓
-//! ┌─────────┐      ┌──────────┐        ┌──────────┐
-//! │  Wry    │      │  Servo   │        │   Qt     │
-//! │ Backend │      │ Backend  │        │ Backend  │
-//! │(Current)│      │ (Future) │        │ (Future) │
-//! └─────────┘      └──────────┘        └──────────┘
-//!     ↓                    ↓                    ↓
-//! WebView2/          WebRender/           Qt WebEngine
-//! WebKit             Stylo
+//!                    uses wry/tao
+//!                          ↓
+//! ┌─────────────────────────────────────────────────────────┐
+//! │     Platform WebView (WebView2/WebKit/WebKitGTK)        │
+//! └─────────────────────────────────────────────────────────┘
 //! ```
-//!
-//! ## Supported Backends
-//!
-//! - **Native (Wry)**: Current implementation using system WebView
-//!   - Windows: WebView2 (Chromium-based)
-//!   - macOS: WebKit
-//!   - Linux: WebKitGTK
-//!
-//! - **Servo**: Future implementation using Servo rendering engine
-//!   - Pure Rust implementation
-//!   - High-performance parallel rendering
-//!   - Full control over rendering pipeline
-//!
-//! - **Qt**: Future implementation for Qt-based DCC applications
-//!   - Qt WebEngine integration
-//!   - Native Qt widget embedding
 
 use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
@@ -48,33 +34,23 @@ use super::js_assets;
 use crate::ipc::{IpcHandler, MessageQueue};
 
 pub mod native;
-pub mod qt;
 
-// Future backends (currently disabled)
-// #[cfg(feature = "servo-backend")]
-// pub mod servo;
+// Re-export core backend types for convenience
+pub use auroraview_core::backend::{
+    BackendFactory, BackendType as CoreBackendType, WebViewBackend as CoreWebViewBackend,
+    WebViewSettings, WryBackend,
+};
 
-// #[cfg(feature = "custom-backend")]
-// pub mod custom;
-
-/// Backend trait that all WebView implementations must implement
+/// Python bindings backend trait
 ///
-/// This trait defines the common interface for different window integration modes.
-/// Each backend is responsible for creating and managing the WebView in its specific context.
+/// This trait extends the core WebViewBackend with Python-bindings-specific
+/// functionality like IPC handling, message queues, and event loops.
 ///
 /// Note: We don't require `Send` because WebView and EventLoop are not Send on Windows.
 /// The backend is designed to be used from a single thread (the UI thread).
 #[allow(dead_code)]
 pub trait WebViewBackend {
     /// Create a new backend instance
-    ///
-    /// # Arguments
-    /// * `config` - WebView configuration
-    /// * `ipc_handler` - IPC message handler
-    /// * `message_queue` - Thread-safe message queue
-    ///
-    /// # Returns
-    /// A new backend instance or an error
     fn create(
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
@@ -96,7 +72,6 @@ pub trait WebViewBackend {
     fn event_loop(&mut self) -> Option<tao::event_loop::EventLoop<UserEvent>>;
 
     /// Process pending events (for embedded mode)
-    ///
     /// Returns true if the window should be closed
     fn process_events(&self) -> bool;
 
@@ -142,78 +117,24 @@ pub trait WebViewBackend {
         }
         Ok(())
     }
-}
 
-/// Rendering engine type for backend selection
-///
-/// This enum allows runtime selection of different rendering engines.
-/// New engines can be added without breaking existing code.
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RenderingEngine {
-    /// System WebView (WebView2/WebKit/WebKitGTK)
-    ///
-    /// **Pros**: Small binary, system integration, mature
-    /// **Cons**: Version inconsistency, limited control
-    SystemWebView,
-    // Servo rendering engine (future - currently disabled)
-    //
-    // **Pros**: Full control, high performance, pure Rust
-    // **Cons**: Large binary, experimental, limited compatibility
-    // #[cfg(feature = "servo-backend")]
-    // Servo,
-
-    // Custom rendering engine (future - currently disabled)
-    //
-    // Allows users to provide their own rendering implementation
-    // #[cfg(feature = "custom-backend")]
-    // Custom,
+    /// Set window visibility
+    fn set_visible(&self, visible: bool) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 /// Backend type enum for runtime selection
-///
-/// Combines rendering engine with integration mode.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackendType {
-    /// Native embedding mode (using platform-specific APIs)
-    ///
-    /// Uses system WebView by default, but can be configured
-    /// to use other rendering engines.
-    Native {
-        /// Rendering engine to use
-        engine: RenderingEngine,
-    },
-
-    /// Qt integration mode (for DCC environments with Qt)
-    Qt {
-        /// Rendering engine to use
-        engine: RenderingEngine,
-    },
+    /// Native embedding mode (using platform-specific wry/tao)
+    Native,
 }
 
 #[allow(dead_code)]
 impl BackendType {
-    /// Create a native backend with system WebView
+    /// Create a native backend
     pub fn native() -> Self {
-        BackendType::Native {
-            engine: RenderingEngine::SystemWebView,
-        }
-    }
-
-    // Create a native backend with Servo (currently disabled)
-    // #[cfg(feature = "servo-backend")]
-    // pub fn native_servo() -> Self {
-    //     BackendType::Native {
-    //         engine: RenderingEngine::Servo,
-    //     }
-    // }
-
-    /// Create a Qt backend with system WebView
-    pub fn qt() -> Self {
-        BackendType::Qt {
-            engine: RenderingEngine::SystemWebView,
-        }
+        BackendType::Native
     }
 
     /// Parse backend type from string
@@ -221,25 +142,12 @@ impl BackendType {
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "native" => Some(Self::native()),
-            "qt" => Some(Self::qt()),
-            // #[cfg(feature = "servo-backend")]
-            // "native-servo" | "servo" => Some(Self::native_servo()),
             _ => None,
         }
     }
 
     /// Auto-detect the best backend for the current environment
     pub fn auto_detect() -> Self {
-        // TODO: Implement Qt detection logic
-        // For now, always use native backend with system WebView
         Self::native()
-    }
-
-    /// Get the rendering engine
-    pub fn engine(&self) -> RenderingEngine {
-        match self {
-            BackendType::Native { engine } => *engine,
-            BackendType::Qt { engine } => *engine,
-        }
     }
 }
