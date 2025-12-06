@@ -101,6 +101,9 @@ enum Commands {
 
     /// Package an application into a standalone executable
     Pack(PackArgs),
+
+    /// Show version and environment information
+    Info,
 }
 
 /// Arguments for the 'run' subcommand
@@ -190,6 +193,22 @@ struct PackArgs {
     /// Build the generated project after generation
     #[arg(long)]
     build: bool,
+
+    /// Make window frameless (no title bar)
+    #[arg(long)]
+    frameless: bool,
+
+    /// Make window always on top
+    #[arg(long)]
+    always_on_top: bool,
+
+    /// Disable window resizing
+    #[arg(long)]
+    no_resize: bool,
+
+    /// Custom user agent string
+    #[arg(long)]
+    user_agent: Option<String>,
 }
 
 /// Normalize URL by adding https:// prefix if missing
@@ -344,6 +363,7 @@ fn main() -> Result<()> {
     match cli.command {
         Some(Commands::Run(args)) => run_webview(args),
         Some(Commands::Pack(args)) => run_pack(args),
+        Some(Commands::Info) => run_info(),
         None => {
             // Legacy mode: use top-level args
             let args = RunArgs {
@@ -525,6 +545,74 @@ fn run_webview(args: RunArgs) -> Result<()> {
     });
 }
 
+/// Display environment and version information
+fn run_info() -> Result<()> {
+    println!("🌟 AuroraView CLI Information\n");
+    println!("Version: {}", env!("CARGO_PKG_VERSION"));
+    println!("Rust Version: {}", rustc_version());
+    println!();
+
+    // Check for required tools
+    println!("📦 Dependencies:");
+
+    // Check cargo
+    let cargo_ok = std::process::Command::new("cargo")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    println!(
+        "  Cargo: {}",
+        if cargo_ok {
+            "✅ Available"
+        } else {
+            "❌ Not found"
+        }
+    );
+
+    // Check PyOxidizer
+    let pyoxidizer_ok = std::process::Command::new("pyoxidizer")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    println!(
+        "  PyOxidizer: {} (required for fullstack mode)",
+        if pyoxidizer_ok {
+            "✅ Available"
+        } else {
+            "⚠️ Not found"
+        }
+    );
+
+    println!();
+    println!("🎯 Available Commands:");
+    println!("  run   - Launch a WebView window");
+    println!("  pack  - Package an application into a standalone executable");
+    println!("  info  - Show this information");
+    println!();
+    println!("📖 Examples:");
+    println!("  auroraview run --url https://example.com");
+    println!("  auroraview run --html ./index.html");
+    println!("  auroraview pack --url www.baidu.com --output my-app --build");
+    println!("  auroraview pack --frontend ./dist --output my-app");
+    println!();
+
+    Ok(())
+}
+
+/// Get rustc version (simplified)
+fn rustc_version() -> String {
+    std::process::Command::new("rustc")
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .unwrap_or_else(|| "unknown".to_string())
+        .trim()
+        .to_string()
+}
+
 /// Run the pack command
 fn run_pack(args: PackArgs) -> Result<()> {
     use auroraview_pack::{PackConfig, PackGenerator};
@@ -553,10 +641,19 @@ fn run_pack(args: PackArgs) -> Result<()> {
     config = config
         .with_output(&args.output)
         .with_title(&args.title)
-        .with_size(args.width, args.height);
+        .with_size(args.width, args.height)
+        .with_debug(args.debug)
+        .with_frameless(args.frameless)
+        .with_always_on_top(args.always_on_top)
+        .with_resizable(!args.no_resize);
+
+    // Apply optional user agent
+    if let Some(user_agent) = args.user_agent {
+        config = config.with_user_agent(user_agent);
+    }
+
     let output_dir = args.output_dir.clone();
     config.output_dir = args.output_dir;
-    config.debug = args.debug;
 
     // Generate the pack project
     let generator = PackGenerator::new(config);
@@ -574,35 +671,33 @@ fn run_pack(args: PackArgs) -> Result<()> {
         } else {
             build_pack_project(&project_dir, &args.output, &output_dir)?;
         }
+    } else if is_fullstack {
+        println!(
+            "\n✨ Pack project generated successfully!\n\n\
+            To build the executable with embedded Python:\n  \
+            cd {}\n  \
+            pyoxidizer build --release\n\n\
+            The executable will be at:\n  \
+            {}/build/*/release/install/\n\n\
+            Or use --build flag to build automatically:\n  \
+            auroraview pack ... --build",
+            project_dir.display(),
+            project_dir.display()
+        );
     } else {
-        if is_fullstack {
-            println!(
-                "\n✨ Pack project generated successfully!\n\n\
-                To build the executable with embedded Python:\n  \
-                cd {}\n  \
-                pyoxidizer build --release\n\n\
-                The executable will be at:\n  \
-                {}/build/*/release/install/\n\n\
-                Or use --build flag to build automatically:\n  \
-                auroraview pack ... --build",
-                project_dir.display(),
-                project_dir.display()
-            );
-        } else {
-            println!(
-                "\n✨ Pack project generated successfully!\n\n\
-                To build the executable:\n  \
-                cd {}\n  \
-                cargo build --release\n\n\
-                The executable will be at:\n  \
-                {}/target/release/{}.exe\n\n\
-                Or use --build flag to build automatically:\n  \
-                auroraview pack ... --build",
-                project_dir.display(),
-                project_dir.display(),
-                args.output
-            );
-        }
+        println!(
+            "\n✨ Pack project generated successfully!\n\n\
+            To build the executable:\n  \
+            cd {}\n  \
+            cargo build --release\n\n\
+            The executable will be at:\n  \
+            {}/target/release/{}.exe\n\n\
+            Or use --build flag to build automatically:\n  \
+            auroraview pack ... --build",
+            project_dir.display(),
+            project_dir.display(),
+            args.output
+        );
     }
 
     Ok(())
@@ -687,7 +782,7 @@ fn build_fullstack_project(
             .filter_map(|e| e.ok())
             .find(|e| {
                 let path = e.path();
-                path.is_file() && path.extension().map_or(false, |ext| ext == "exe")
+                path.is_file() && path.extension().is_some_and(|ext| ext == "exe")
             })
             .map(|e| e.path());
 

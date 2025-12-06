@@ -36,6 +36,10 @@ askama = "0.12"
 # Embed static assets
 rust-embed = "8.5"
 
+[dev-dependencies]
+# Testing utilities
+tempfile = "3.20"
+
 [features]
 default = []
 # Enable PyOxidizer runtime integration (future feature)

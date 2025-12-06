@@ -6,23 +6,51 @@
 //! # Features
 //!
 //! - **URL Mode**: Pack a URL into a standalone desktop app
-//! - **Frontend Mode**: Pack local HTML/CSS/JS into a standalone app  
+//! - **Frontend Mode**: Pack local HTML/CSS/JS into a standalone app
 //! - **Full Stack Mode**: Pack frontend + Python backend (requires PyOxidizer)
 //!
-//! # Example
+//! # Quick Start
+//!
+//! ## URL Mode - Wrap a website
 //!
 //! ```rust,ignore
-//! use auroraview_pack::{PackConfig, PackMode, PackGenerator};
+//! use auroraview_pack::{PackConfig, PackGenerator};
 //!
-//! let config = PackConfig {
-//!     mode: PackMode::Url("https://example.com".to_string()),
-//!     output_name: "my-app".to_string(),
-//!     title: Some("My App".to_string()),
-//!     ..Default::default()
-//! };
+//! let config = PackConfig::url("https://example.com")
+//!     .with_output("my-app")
+//!     .with_title("My App")
+//!     .with_size(1280, 720);
+//!
+//! let generator = PackGenerator::new(config);
+//! let project_dir = generator.generate()?;
+//! println!("Project generated at: {}", project_dir.display());
+//! ```
+//!
+//! ## Frontend Mode - Bundle local assets
+//!
+//! ```rust,ignore
+//! use auroraview_pack::{PackConfig, PackGenerator};
+//!
+//! let config = PackConfig::frontend("./dist")
+//!     .with_output("my-app")
+//!     .with_title("My Frontend App");
 //!
 //! let generator = PackGenerator::new(config);
 //! generator.generate()?;
+//! ```
+//!
+//! ## Full Stack Mode - Frontend + Python backend
+//!
+//! ```rust,ignore
+//! use auroraview_pack::{PackConfig, PackGenerator};
+//!
+//! let config = PackConfig::fullstack("./dist", "myapp.main:run")
+//!     .with_output("my-fullstack-app")
+//!     .with_title("Full Stack App");
+//!
+//! let generator = PackGenerator::new(config);
+//! generator.generate()?;
+//! // Then run: pyoxidizer build --release
 //! ```
 
 mod config;
@@ -31,7 +59,8 @@ mod generator;
 mod pyembed_integration;
 mod templates;
 
-pub use config::{PackConfig, PackMode};
+// Public API exports
+pub use config::{PackConfig, PackMode, TargetPlatform, WindowStartPosition};
 pub use error::PackError;
 pub use generator::PackGenerator;
 pub use pyembed_integration::{
@@ -43,6 +72,32 @@ pub type PackResult<T> = Result<T, PackError>;
 
 /// Crate version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Check if all required dependencies are available for packing
+///
+/// Returns a list of missing dependencies, if any.
+pub fn check_dependencies() -> Vec<&'static str> {
+    let mut missing = Vec::new();
+
+    // Check for cargo
+    if std::process::Command::new("cargo")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
+        missing.push("cargo (Rust toolchain)");
+    }
+
+    missing
+}
+
+/// Check if PyOxidizer is available for fullstack mode
+pub fn is_pyoxidizer_available() -> bool {
+    std::process::Command::new("pyoxidizer")
+        .arg("--version")
+        .output()
+        .is_ok()
+}
 
 #[cfg(test)]
 mod tests {
@@ -57,15 +112,33 @@ mod tests {
     fn test_pack_mode_variants() {
         use std::path::PathBuf;
 
-        let _url = PackMode::Url {
+        let url_mode = PackMode::Url {
             url: "https://example.com".to_string(),
         };
-        let _frontend = PackMode::Frontend {
+        assert_eq!(url_mode.name(), "url");
+        assert!(!url_mode.embeds_assets());
+
+        let frontend_mode = PackMode::Frontend {
             path: PathBuf::from("/path/to/dist"),
         };
-        let _fullstack = PackMode::FullStack {
+        assert_eq!(frontend_mode.name(), "frontend");
+        assert!(frontend_mode.embeds_assets());
+
+        let fullstack_mode = PackMode::FullStack {
             frontend_path: PathBuf::from("/path/to/dist"),
             backend_entry: "myapp:main".to_string(),
         };
+        assert_eq!(fullstack_mode.name(), "fullstack");
+        assert!(fullstack_mode.requires_pyoxidizer());
+    }
+
+    #[test]
+    fn test_check_dependencies() {
+        // cargo should be available in the test environment
+        let missing = check_dependencies();
+        assert!(
+            !missing.contains(&"cargo (Rust toolchain)"),
+            "cargo should be available"
+        );
     }
 }

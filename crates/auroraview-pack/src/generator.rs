@@ -195,7 +195,7 @@ impl PackGenerator {
         fs::create_dir_all(dst)?;
 
         if src.is_dir() {
-            self.copy_dir_recursive(src, dst)?;
+            Self::copy_dir_recursive(src, dst)?;
         } else {
             // Single file, copy it as index.html
             fs::copy(src, dst.join("index.html"))?;
@@ -205,7 +205,7 @@ impl PackGenerator {
     }
 
     /// Recursively copy directory
-    fn copy_dir_recursive(&self, src: &Path, dst: &Path) -> PackResult<()> {
+    fn copy_dir_recursive(src: &Path, dst: &Path) -> PackResult<()> {
         for entry in fs::read_dir(src)? {
             let entry = entry?;
             let src_path = entry.path();
@@ -213,7 +213,7 @@ impl PackGenerator {
 
             if src_path.is_dir() {
                 fs::create_dir_all(&dst_path)?;
-                self.copy_dir_recursive(&src_path, &dst_path)?;
+                Self::copy_dir_recursive(&src_path, &dst_path)?;
             } else {
                 fs::copy(&src_path, &dst_path)?;
             }
