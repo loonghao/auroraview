@@ -4,22 +4,29 @@
 //! handling event callbacks and message routing.
 
 use dashmap::DashMap;
+#[cfg(feature = "python-bindings")]
 use pyo3::prelude::*;
+#[cfg(feature = "python-bindings")]
 use pyo3::{Py, PyAny};
 use std::sync::Arc;
 
 // Re-export IpcMessage from backend module
 pub use super::backend::IpcMessage;
 
+#[cfg(feature = "python-bindings")]
+use super::js_callback::{JsCallbackManager, JsCallbackResult};
+
 /// IPC callback type (Rust closures)
 pub type IpcCallback = Arc<dyn Fn(IpcMessage) -> Result<serde_json::Value, String> + Send + Sync>;
 
 /// Python callback wrapper - stores Python callable objects
+#[cfg(feature = "python-bindings")]
 pub struct PythonCallback {
     /// Python callable object
     pub callback: Py<PyAny>,
 }
 
+#[cfg(feature = "python-bindings")]
 impl PythonCallback {
     /// Create a new Python callback wrapper
     pub fn new(callback: Py<PyAny>) -> Self {
@@ -62,7 +69,12 @@ pub struct IpcHandler {
     callbacks: Arc<DashMap<String, Vec<IpcCallback>>>,
 
     /// Registered Python callbacks - lock-free concurrent map
+    #[cfg(feature = "python-bindings")]
     python_callbacks: Arc<DashMap<String, Vec<PythonCallback>>>,
+
+    /// JavaScript callback manager for async execution results
+    #[cfg(feature = "python-bindings")]
+    js_callback_manager: Option<Arc<JsCallbackManager>>,
 }
 
 impl IpcHandler {
@@ -70,8 +82,17 @@ impl IpcHandler {
     pub fn new() -> Self {
         Self {
             callbacks: Arc::new(DashMap::new()),
+            #[cfg(feature = "python-bindings")]
             python_callbacks: Arc::new(DashMap::new()),
+            #[cfg(feature = "python-bindings")]
+            js_callback_manager: None,
         }
+    }
+
+    /// Set the JavaScript callback manager for handling async execution results
+    #[cfg(feature = "python-bindings")]
+    pub fn set_js_callback_manager(&mut self, manager: Arc<JsCallbackManager>) {
+        self.js_callback_manager = Some(manager);
     }
 
     /// Register a Rust callback for an event
@@ -87,6 +108,7 @@ impl IpcHandler {
     }
 
     /// Register a Python callback for an event
+    #[cfg(feature = "python-bindings")]
     pub fn register_python_callback(&self, event: &str, callback: Py<PyAny>) {
         self.python_callbacks
             .entry(event.to_string())
@@ -115,7 +137,14 @@ impl IpcHandler {
     pub fn handle_message(&self, message: IpcMessage) -> Result<serde_json::Value, String> {
         tracing::debug!("Handling IPC message: {}", message.event);
 
-        // First try Python callbacks
+        // Handle internal JS callback result event
+        #[cfg(feature = "python-bindings")]
+        if message.event == "__js_callback_result__" {
+            return self.handle_js_callback_result(&message.data);
+        }
+
+        // First try Python callbacks (only when python-bindings feature is enabled)
+        #[cfg(feature = "python-bindings")]
         if let Some(event_callbacks) = self.python_callbacks.get(&message.event) {
             for callback in event_callbacks.value() {
                 if let Err(e) = callback.call(message.data.clone()) {
@@ -146,10 +175,68 @@ impl IpcHandler {
         ))
     }
 
+    /// Get the count of registered events (both Rust and Python callbacks)
+    pub fn registered_event_count(&self) -> usize {
+        let rust_count = self.callbacks.len();
+        #[cfg(feature = "python-bindings")]
+        let python_count = self.python_callbacks.len();
+        #[cfg(not(feature = "python-bindings"))]
+        let python_count = 0;
+        rust_count + python_count
+    }
+
+    /// Handle JavaScript callback result from async execution
+    #[cfg(feature = "python-bindings")]
+    fn handle_js_callback_result(
+        &self,
+        data: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let callback_id = data
+            .get("callback_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| "Missing callback_id in JS callback result".to_string())?;
+
+        let result_value = data.get("result").cloned();
+        let error_value = data.get("error").cloned();
+
+        tracing::debug!(
+            "Processing JS callback result: id={}, has_result={}, has_error={}",
+            callback_id,
+            result_value.is_some(),
+            error_value.is_some()
+        );
+
+        // Build the callback result
+        let js_result = JsCallbackResult {
+            value: result_value,
+            error: error_value.and_then(|e| {
+                e.get("message")
+                    .and_then(|m| m.as_str())
+                    .map(|s| s.to_string())
+            }),
+        };
+
+        // Complete the callback if we have a manager
+        if let Some(ref manager) = self.js_callback_manager {
+            if let Err(e) = manager.complete_callback(callback_id, js_result) {
+                tracing::error!("Failed to complete JS callback {}: {}", callback_id, e);
+                return Err(e);
+            }
+        } else {
+            tracing::warn!(
+                "JS callback result received but no callback manager set (id={})",
+                callback_id
+            );
+        }
+
+        Ok(serde_json::json!({"status": "ok"}))
+    }
+
     /// Remove all callbacks for an event
     #[allow(dead_code)]
     pub fn off(&self, event: &str) {
         self.callbacks.remove(event);
+        #[cfg(feature = "python-bindings")]
         self.python_callbacks.remove(event);
     }
 
@@ -157,6 +244,7 @@ impl IpcHandler {
     #[allow(dead_code)]
     pub fn clear(&self) {
         self.callbacks.clear();
+        #[cfg(feature = "python-bindings")]
         self.python_callbacks.clear();
     }
 }
@@ -170,8 +258,11 @@ impl Default for IpcHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "python-bindings")]
     use pyo3::types::{PyList, PyModule};
 
+    #[cfg(feature = "python-bindings")]
     fn py_append_collector() -> (Py<PyAny>, Py<PyAny>) {
         Python::attach(|py| {
             let seen = PyList::new(py, [py.None()])?;
@@ -192,6 +283,7 @@ mod tests {
         .unwrap()
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_python_callback_flow() {
         let handler = IpcHandler::new();

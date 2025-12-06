@@ -11,6 +11,7 @@
 - **[Technical Design](TECHNICAL_DESIGN.md)** - Overall architecture and design decisions
 - **[IPC Architecture](IPC_ARCHITECTURE.md)** - Inter-process communication system
 - **[Testing Frameworks Guide](TESTING_FRAMEWORKS_GUIDE.md)** - Testing strategies
+- **[Web Worker Guide](WEB_WORKER_GUIDE.md)** - Using Web Workers for frontend performance optimization
 
 ### Maya-Specific
 - **[Maya Examples](../examples/maya/README.md)** - Maya integration examples and best practices
@@ -34,6 +35,11 @@
 1. Read [Technical Design](TECHNICAL_DESIGN.md)
 2. Read [IPC Architecture](IPC_ARCHITECTURE.md)
 3. Check [Project Status](PROJECT_STATUS.md)
+
+#### ...optimize frontend performance
+1. Read [Web Worker Guide](WEB_WORKER_GUIDE.md)
+2. Learn about CPU-intensive task offloading
+3. Implement Worker Pool for concurrent processing
 
 #### ...contribute to the project
 1. Read [Roadmap](ROADMAP.md)

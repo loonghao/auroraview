@@ -94,8 +94,8 @@ impl PyIpcMetrics {
     }
 }
 
-impl From<crate::ipc::metrics::IpcMetricsSnapshot> for PyIpcMetrics {
-    fn from(snapshot: crate::ipc::metrics::IpcMetricsSnapshot) -> Self {
+impl From<crate::ipc::IpcMetricsSnapshot> for PyIpcMetrics {
+    fn from(snapshot: crate::ipc::IpcMetricsSnapshot) -> Self {
         Self {
             messages_sent: snapshot.messages_sent,
             messages_failed: snapshot.messages_failed,
@@ -118,7 +118,7 @@ pub fn register_ipc_metrics(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ipc::metrics::IpcMetricsSnapshot;
+    use crate::ipc::IpcMetricsSnapshot;
 
     #[test]
     fn test_py_ipc_metrics_from_snapshot() {

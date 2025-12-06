@@ -4,6 +4,8 @@
 //! for high-performance thread-based communication. This is the default
 //! backend for embedded mode (e.g., Maya, Houdini).
 
+#![cfg(feature = "python-bindings")]
+
 use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use dashmap::DashMap;
 use pyo3::{Py, PyAny};

@@ -1,5 +1,7 @@
 # Rust
 /target/
+/target-qt5/
+/target-qt6/
 **/*.rs.bk
 *.pdb
 rust-coverage.lcov
@@ -56,6 +58,7 @@ site/
 *.bak
 *.log
 launch_maya_temp.bat
+TODO.md
 
 # OS specific
 Thumbs.db
@@ -79,3 +82,5 @@ python/auroraview/_core.*
 target/llvm-cov/
 target/wheels/
 coverage.lcov
+.qt/
+

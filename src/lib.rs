@@ -14,8 +14,10 @@ mod platform;
 pub mod service_discovery;
 mod utils;
 pub mod webview;
+#[cfg(feature = "python-bindings")]
 pub mod window_utils;
 
+#[cfg(feature = "python-bindings")]
 #[allow(unused_imports)]
 use webview::AuroraView;
 
@@ -37,6 +39,12 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register WebView class
     m.add_class::<webview::AuroraView>()?;
 
+    // Register WebViewProxy class (thread-safe proxy for cross-thread operations)
+    m.add_class::<webview::WebViewProxy>()?;
+
+    // Register PluginManager class (for file system and other native operations)
+    m.add_class::<webview::PluginManager>()?;
+
     // Register window utilities
     window_utils::register_window_utils(m)?;
 
@@ -54,6 +62,12 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Register standalone runner (uses event_loop.run() for standalone apps)
     bindings::standalone_runner::register_standalone_runner(m)?;
+
+    // Register WebView2 warmup functions (Windows performance optimization)
+    bindings::warmup::register_warmup_functions(m)?;
+
+    // Register window manager functions (multi-window support)
+    bindings::window_manager::register_window_manager_functions(m)?;
 
     // Register high-performance DOM batch operations
     dom::register_dom_module(m)?;
@@ -86,6 +100,7 @@ mod tests {
         use crate::webview;
 
         // Verify main types are accessible
+        #[cfg(feature = "python-bindings")]
         let _: Option<webview::AuroraView> = None;
         let _: Option<webview::WebViewConfig> = None;
         let _: Option<webview::WebViewBuilder> = None;
@@ -122,6 +137,7 @@ mod tests {
     }
 
     /// Test window utilities module imports
+    #[cfg(feature = "python-bindings")]
     #[rstest]
     fn test_window_utils_imports() {
         use crate::window_utils;
@@ -161,11 +177,12 @@ mod tests {
 
         // Test js_assets module (public)
         use crate::webview::js_assets;
-        // Verify constants are accessible
-        let _: &str = js_assets::EVENT_BRIDGE;
+        // Verify functions are accessible
+        let event_bridge = js_assets::event_bridge();
+        assert!(!event_bridge.is_empty());
 
-        // Test loading HTML is accessible
-        let loading_html = js_assets::get_loading_html();
+        // Test loading HTML is accessible (from auroraview-core)
+        let loading_html = js_assets::get_loading_html_string();
         assert!(!loading_html.is_empty());
         assert!(loading_html.contains("<!DOCTYPE html>") || loading_html.contains("<html"));
     }
@@ -175,8 +192,8 @@ mod tests {
     fn test_standalone_module() {
         use crate::webview::js_assets;
 
-        // Test loading HTML generation
-        let html = js_assets::get_loading_html();
+        // Test loading HTML generation (from auroraview-core)
+        let html = js_assets::get_loading_html_string();
         assert!(!html.is_empty());
         assert!(html.contains("Loading") || html.contains("loading"));
 
@@ -197,19 +214,19 @@ mod tests {
         use crate::ipc::message_queue;
         let _: Option<message_queue::MessageQueue> = None;
 
-        // Test metrics module
-        use crate::ipc::metrics;
-        let _: Option<metrics::IpcMetrics> = None;
-
-        // Test dead letter queue module
-        use crate::ipc::dead_letter_queue;
-        let _: Option<dead_letter_queue::DeadLetterQueue> = None;
+        // Test IPC metrics (from core)
+        use crate::ipc::IpcMetrics;
+        let _: Option<IpcMetrics> = None;
 
         // Test backend module
         use crate::ipc::backend;
         let _: Option<backend::IpcMessage> = None;
+    }
 
-        // Test threaded module
+    /// Test threaded module (requires python-bindings feature)
+    #[cfg(feature = "python-bindings")]
+    #[rstest]
+    fn test_ipc_threaded_module() {
         use crate::ipc::threaded;
         let _: Option<threaded::ThreadedBackend> = None;
     }
@@ -246,7 +263,8 @@ mod tests {
         // Test top-level exports from lib.rs
         let _: Option<crate::WebViewConfig> = None;
         let _: Option<crate::WebViewBuilder> = None;
-        let _: Option<crate::AuroraView> = None;
+        #[cfg(feature = "python-bindings")]
+        let _: Option<crate::webview::AuroraView> = None;
     }
 
     /// Python module initialization test

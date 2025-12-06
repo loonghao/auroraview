@@ -1,5 +1,10 @@
 # Cargo configuration for AuroraView
 
+# sccache disabled due to port conflicts
+# To re-enable, uncomment the following line:
+# rustc-wrapper = "sccache"
+[build]
+
 # Profile configurations
 [profile.test]
 # Use debug symbols for better test output
@@ -16,7 +21,7 @@ codegen-units = 1
 strip = true
 
 # Build settings
-[build]
+# Note: [build] section is above with rustc-wrapper
 # Use default number of jobs (don't set to 0 as it causes errors)
 # jobs = 0  # Disabled: causes "jobs may not be 0" error
 

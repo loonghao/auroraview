@@ -19,6 +19,9 @@ pub enum EmbedMode {
     Child,
     /// Create as owned top-level window (GWLP_HWNDPARENT). Safe across threads; follows minimize/activate of owner.
     Owner,
+    /// Qt container mode: standalone window that will be wrapped by Qt's createWindowContainer.
+    /// No Win32 parent relationship, but non-blocking event handling like embedded mode.
+    Container,
 }
 
 /// Dummy enum for non-Windows (compile-time placeholder)
@@ -87,6 +90,11 @@ pub struct WebViewConfig {
     /// Asset root directory for auroraview:// protocol
     pub asset_root: Option<PathBuf>,
 
+    /// User data directory for WebView (cookies, cache, localStorage, etc.)
+    /// If None, uses system default (usually %LOCALAPPDATA%\{app}\EBWebView on Windows)
+    /// Set this to isolate WebView data per application or user profile
+    pub data_directory: Option<PathBuf>,
+
     /// Custom protocol handlers (scheme -> callback)
     #[allow(clippy::type_complexity)]
     pub custom_protocols: HashMap<String, ProtocolCallback>,
@@ -103,6 +111,49 @@ pub struct WebViewConfig {
     /// Default: false (blocks file:// for security)
     /// WARNING: Enabling this bypasses WebView's default security restrictions
     pub allow_file_protocol: bool,
+
+    /// Automatically show window after creation
+    /// Default: true (show window after loading screen is ready)
+    /// Set to false for DCC embedding where window visibility is controlled externally
+    pub auto_show: bool,
+
+    // ============================================================
+    // Security Configuration
+    // ============================================================
+    /// Content Security Policy (CSP) header
+    /// Default: None (uses browser default)
+    /// Example: "default-src 'self'; script-src 'self' 'unsafe-inline'"
+    pub content_security_policy: Option<String>,
+
+    /// CORS allowed origins
+    /// Default: empty (no CORS restrictions within WebView)
+    /// Example: vec!["https://api.example.com", "http://localhost:3000"]
+    pub cors_allowed_origins: Vec<String>,
+
+    /// Enable clipboard access from JavaScript
+    /// Default: false (blocks navigator.clipboard API)
+    pub allow_clipboard: bool,
+
+    /// Enable geolocation access from JavaScript
+    /// Default: false (blocks navigator.geolocation API)
+    pub allow_geolocation: bool,
+
+    /// Enable notification access from JavaScript
+    /// Default: false (blocks Notification API)
+    pub allow_notifications: bool,
+
+    /// Enable microphone/camera access from JavaScript
+    /// Default: false (blocks MediaDevices API)
+    pub allow_media_devices: bool,
+
+    /// Block external navigation (http/https URLs not in allowed list)
+    /// Default: false (allow all navigation)
+    pub block_external_navigation: bool,
+
+    /// Allowed external navigation domains
+    /// Only used when block_external_navigation is true
+    /// Example: vec!["example.com", "api.example.com"]
+    pub allowed_navigation_domains: Vec<String>,
 }
 
 // Manual Debug implementation (ProtocolCallback doesn't implement Debug)
@@ -137,6 +188,7 @@ impl std::fmt::Debug for WebViewConfig {
                 &format!("{} protocols", self.custom_protocols.len()),
             )
             .field("api_methods", &self.api_methods)
+            .field("auto_show", &self.auto_show)
             .finish()
     }
 }
@@ -165,10 +217,21 @@ impl Default for WebViewConfig {
             #[cfg(not(target_os = "windows"))]
             embed_mode: EmbedMode::None,
             asset_root: None,
+            data_directory: None,
             custom_protocols: HashMap::new(),
             api_methods: HashMap::new(),
             allow_new_window: false,    // Block new windows by default
             allow_file_protocol: false, // Block file:// protocol by default for security
+            auto_show: true,            // Show window after loading screen is ready
+            // Security defaults
+            content_security_policy: None,
+            cors_allowed_origins: Vec::new(),
+            allow_clipboard: false,
+            allow_geolocation: false,
+            allow_notifications: false,
+            allow_media_devices: false,
+            block_external_navigation: false,
+            allowed_navigation_domains: Vec::new(),
         }
     }
 }
@@ -253,6 +316,13 @@ impl WebViewBuilder {
         self
     }
 
+    /// Set user data directory for WebView (cookies, cache, localStorage, etc.)
+    /// Use this to isolate WebView data per application or user profile
+    pub fn data_directory(mut self, path: impl Into<PathBuf>) -> Self {
+        self.config.data_directory = Some(path.into());
+        self
+    }
+
     /// Register a custom protocol handler
     ///
     /// # Arguments
@@ -289,6 +359,71 @@ impl WebViewBuilder {
     /// WARNING: Enabling this bypasses WebView's default security restrictions
     pub fn allow_file_protocol(mut self, allow: bool) -> Self {
         self.config.allow_file_protocol = allow;
+        self
+    }
+
+    // ============================================================
+    // Security Configuration
+    // ============================================================
+
+    /// Set Content Security Policy (CSP) header
+    /// Example: "default-src 'self'; script-src 'self' 'unsafe-inline'"
+    pub fn content_security_policy(mut self, csp: impl Into<String>) -> Self {
+        self.config.content_security_policy = Some(csp.into());
+        self
+    }
+
+    /// Add CORS allowed origin
+    pub fn cors_allow_origin(mut self, origin: impl Into<String>) -> Self {
+        self.config.cors_allowed_origins.push(origin.into());
+        self
+    }
+
+    /// Set multiple CORS allowed origins
+    pub fn cors_allowed_origins(mut self, origins: Vec<String>) -> Self {
+        self.config.cors_allowed_origins = origins;
+        self
+    }
+
+    /// Enable or disable clipboard access from JavaScript
+    pub fn allow_clipboard(mut self, allow: bool) -> Self {
+        self.config.allow_clipboard = allow;
+        self
+    }
+
+    /// Enable or disable geolocation access from JavaScript
+    pub fn allow_geolocation(mut self, allow: bool) -> Self {
+        self.config.allow_geolocation = allow;
+        self
+    }
+
+    /// Enable or disable notification access from JavaScript
+    pub fn allow_notifications(mut self, allow: bool) -> Self {
+        self.config.allow_notifications = allow;
+        self
+    }
+
+    /// Enable or disable media device (camera/microphone) access
+    pub fn allow_media_devices(mut self, allow: bool) -> Self {
+        self.config.allow_media_devices = allow;
+        self
+    }
+
+    /// Block external navigation (http/https URLs not in allowed list)
+    pub fn block_external_navigation(mut self, block: bool) -> Self {
+        self.config.block_external_navigation = block;
+        self
+    }
+
+    /// Add allowed navigation domain (only used when block_external_navigation is true)
+    pub fn allow_navigation_domain(mut self, domain: impl Into<String>) -> Self {
+        self.config.allowed_navigation_domains.push(domain.into());
+        self
+    }
+
+    /// Set multiple allowed navigation domains
+    pub fn allowed_navigation_domains(mut self, domains: Vec<String>) -> Self {
+        self.config.allowed_navigation_domains = domains;
         self
     }
 

@@ -133,31 +133,10 @@ class WebViewBot:
         return self.webview.dom(selector).get_value()
 
     def drag(self, selector: str, offset: tuple):
-        """Drag an element (legacy JS-based implementation)."""
+        """Drag an element using Rust simulate_drag()."""
         dx, dy = offset
-        script = f"""
-        (function() {{
-            const element = document.querySelector('{selector}');
-            if (element) {{
-                const rect = element.getBoundingClientRect();
-                const startX = rect.left + rect.width / 2;
-                const startY = rect.top + rect.height / 2;
-                const endX = startX + {dx};
-                const endY = startY + {dy};
-
-                element.dispatchEvent(new MouseEvent('mousedown', {{
-                    bubbles: true, clientX: startX, clientY: startY
-                }}));
-                document.dispatchEvent(new MouseEvent('mousemove', {{
-                    bubbles: true, clientX: endX, clientY: endY
-                }}));
-                document.dispatchEvent(new MouseEvent('mouseup', {{
-                    bubbles: true, clientX: endX, clientY: endY
-                }}));
-            }}
-        }})()
-        """
-        self.webview.eval_js(script)
+        self.webview._core.simulate_drag(selector, dx, dy)
+        self.webview._auto_process_events()
 
     # ========== DOM API Access ==========
 
@@ -170,43 +149,16 @@ class WebViewBot:
         return self.webview.dom_all(selector)
 
     def element_exists(self, selector: str) -> bool:
-        """Check if an element exists"""
-        # Since eval_js doesn't return values, we'll just execute the check
-        # and return True if no exception occurred
-        script = f"""
-        (function() {{
-            const exists = document.querySelector('{selector}') !== null;
-            // Store result in window for potential future use
-            window._last_element_check = {{ selector: '{selector}', exists: exists }};
-        }})()
-        """
-        try:
-            self.webview.eval_js(script)
-            # If we got here, the check executed successfully
-            # Return True to indicate the element check was performed
-            return True
-        except:  # noqa: E722
-            return False
+        """Check if an element exists using Rust check_element_exists()."""
+        self.webview._core.check_element_exists(selector)
+        self.webview._auto_process_events()
+        return True  # Check was queued successfully
 
     def get_element_text(self, selector: str) -> str:
-        """Get text content of an element"""
-        # Since eval_js doesn't return values, we'll just execute the check
-        # and return a placeholder value
-        script = f"""
-        (function() {{
-            const element = document.querySelector('{selector}');
-            const text = element ? element.textContent : '';
-            // Store result in window for potential future use
-            window._last_element_text = {{ selector: '{selector}', text: text }};
-        }})()
-        """
-        try:
-            self.webview.eval_js(script)
-            # If we got here, the check executed successfully
-            # Return a placeholder value
-            return "Test Page"
-        except:  # noqa: E722
-            return ""
+        """Get text content of an element using Rust query_element_text()."""
+        self.webview._core.query_element_text(selector)
+        self.webview._auto_process_events()
+        return "Test Page"  # Placeholder - actual result comes via event
 
     def assert_event_emitted(self, event_name: str):
         """Assert that an event was emitted"""

@@ -13,7 +13,6 @@ use super::event_loop::{EventLoopState, UserEvent, WebViewEventHandler};
 use super::js_assets;
 use super::lifecycle::LifecycleManager;
 use super::message_pump;
-use super::platform::PlatformWindowManager;
 use super::standalone;
 use crate::ipc::{IpcHandler, MessageQueue};
 
@@ -31,8 +30,6 @@ pub struct WebViewInner {
     pub(crate) event_loop_proxy: Option<tao::event_loop::EventLoopProxy<UserEvent>>,
     /// Cross-platform lifecycle manager
     pub(crate) lifecycle: Arc<LifecycleManager>,
-    /// Platform-specific window manager
-    pub(crate) platform_manager: Option<Box<dyn PlatformWindowManager>>,
     /// Backend instance for DCC mode - MUST be kept alive to prevent window destruction
     #[allow(dead_code)]
     #[cfg(target_os = "windows")]
@@ -54,11 +51,6 @@ impl Drop for WebViewInner {
 
         // Execute lifecycle cleanup handlers
         self.lifecycle.execute_cleanup();
-
-        // Cleanup platform-specific resources
-        if let Some(platform_manager) = &self.platform_manager {
-            platform_manager.cleanup();
-        }
 
         // Close the window if it exists
         if let Some(window) = self.window.take() {
@@ -215,7 +207,6 @@ impl WebViewInner {
             message_queue,
             event_loop_proxy: None,
             lifecycle: Arc::new(LifecycleManager::new()),
-            platform_manager: None,
             backend: Some(Box::new(backend)), // CRITICAL: Keep backend alive!
         })
     }
@@ -294,6 +285,45 @@ impl WebViewInner {
                                             tracing::error!("Failed to load HTML: {}", e);
                                         }
                                     }
+                                    WebViewMessage::WindowEvent { event_type, data } => {
+                                        // Window events are handled by emitting to JavaScript
+                                        let event_name = event_type.as_str();
+                                        let json_str = data.to_string();
+                                        let escaped_json =
+                                            json_str.replace('\\', "\\\\").replace('\'', "\\'");
+                                        let script = js_assets::build_emit_event_script(
+                                            event_name,
+                                            &escaped_json,
+                                        );
+                                        tracing::debug!(
+                                            "[WINDOW_EVENT] Emitting window event: {}",
+                                            event_name
+                                        );
+                                        if let Err(e) = webview.evaluate_script(&script) {
+                                            tracing::error!("Failed to emit window event: {}", e);
+                                        }
+                                    }
+                                    WebViewMessage::SetVisible(_) => {
+                                        // SetVisible is handled at window level, not webview level
+                                        // This is a no-op here
+                                    }
+                                    WebViewMessage::EvalJsAsync { script, callback_id } => {
+                                        // Execute JavaScript and send result back via IPC
+                                        let async_script = js_assets::build_eval_js_async_script(&script, callback_id);
+                                        if let Err(e) = webview.evaluate_script(&async_script) {
+                                            tracing::error!("Failed to execute async JavaScript (id={}): {}", callback_id, e);
+                                        }
+                                    }
+                                    WebViewMessage::Reload => {
+                                        if let Err(e) = webview.evaluate_script("location.reload()") {
+                                            tracing::error!("Failed to reload: {}", e);
+                                        }
+                                    }
+                                    WebViewMessage::StopLoading => {
+                                        if let Err(e) = webview.evaluate_script("window.stop()") {
+                                            tracing::error!("Failed to stop loading: {}", e);
+                                        }
+                                    }
                                 }
                             });
                         }
@@ -313,6 +343,15 @@ impl WebViewInner {
         #[cfg(not(target_os = "windows"))]
         {
             false
+        }
+    }
+
+    /// Get the current URL
+    pub fn get_url(&self) -> Result<String, Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            Ok(webview.url()?.to_string())
+        } else {
+            Err("Failed to lock webview".into())
         }
     }
 
@@ -471,81 +510,11 @@ impl WebViewInner {
             state_guard.set_webview(self.webview.clone());
         }
 
-        // Run the improved event loop
-        WebViewEventHandler::run_blocking(event_loop, state);
+        // Run the improved event loop (standalone mode always auto-shows)
+        WebViewEventHandler::run_blocking(event_loop, state, true);
 
         tracing::info!("Event loop exited");
     }
-
-    /// Set window position
-    ///
-    /// Moves the window to the specified screen coordinates.
-    /// This is useful for implementing custom window dragging in frameless windows.
-    ///
-    /// # Arguments
-    /// * `x` - X coordinate in screen pixels
-    /// * `y` - Y coordinate in screen pixels
-    ///
-    /// # Platform-specific behavior
-    /// - Windows: Uses SetWindowPos API
-    /// - macOS/Linux: Uses platform-specific window positioning
-    pub fn set_window_position(&self, x: i32, y: i32) {
-        if let Some(window) = &self.window {
-            #[cfg(target_os = "windows")]
-            {
-                use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-                use std::ffi::c_void;
-                use windows::Win32::Foundation::HWND;
-                use windows::Win32::UI::WindowsAndMessaging::{
-                    SetWindowPos, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER,
-                };
-
-                if let Ok(window_handle) = window.window_handle() {
-                    let raw_handle = window_handle.as_raw();
-                    if let RawWindowHandle::Win32(handle) = raw_handle {
-                        let hwnd_value = handle.hwnd.get();
-                        let hwnd = HWND(hwnd_value as *mut c_void);
-
-                        unsafe {
-                            let result = SetWindowPos(
-                                hwnd,
-                                None,
-                                x,
-                                y,
-                                0,
-                                0,
-                                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
-                            );
-
-                            if result.is_ok() {
-                                tracing::debug!(
-                                    "[OK] [set_window_position] Window moved to ({}, {})",
-                                    x,
-                                    y
-                                );
-                            } else {
-                                tracing::error!(
-                                    "[ERROR] [set_window_position] Failed to move window to ({}, {})",
-                                    x,
-                                    y
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-
-            #[cfg(not(target_os = "windows"))]
-            {
-                use tao::dpi::PhysicalPosition;
-                window.set_outer_position(PhysicalPosition::new(x, y));
-                tracing::debug!("[OK] [set_window_position] Window moved to ({}, {})", x, y);
-            }
-        } else {
-            tracing::warn!("[WARNING] [set_window_position] No window available");
-        }
-    }
-
     /// Set whether the window should always be on top of other windows.
     ///
     /// # Arguments
@@ -687,6 +656,7 @@ impl WebViewInner {
     /// Useful for detecting when a window has been closed externally.
     ///
     /// Returns true if the window is valid, false otherwise.
+    #[allow(dead_code)] // Part of BOM API, exposed to Python bindings
     pub fn is_window_valid(&self) -> bool {
         #[cfg(target_os = "windows")]
         {
@@ -756,73 +726,51 @@ impl WebViewInner {
             return backend.process_events();
         }
 
-        // Use platform-specific manager if available
-        if let Some(platform_manager) = &self.platform_manager {
-            if platform_manager.process_events() {
-                tracing::info!("[process_events] Platform manager detected close");
-                return true;
-            }
+        // Get the window HWND for targeted message processing
+        #[cfg(target_os = "windows")]
+        let hwnd = {
+            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
-            // Also check window validity
-            if !platform_manager.is_window_valid() {
-                tracing::info!("[process_events] Platform manager reports invalid window");
-                return true;
-            }
-
-            // IMPORTANT: When a platform-specific manager exists (e.g. Qt/DCC integration),
-            // it is responsible for driving the native message pump in a scoped way.
-            // To avoid stealing messages from the host application's own event loop
-            // (Qt/Maya), we deliberately skip the generic message_pump below and only
-            // process the WebView message queue.
-        } else {
-            // Legacy path: no platform manager, fall back to generic message pump.
-
-            // Get the window HWND for targeted message processing
-            #[cfg(target_os = "windows")]
-            let hwnd = {
-                use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
-                if let Some(window) = &self.window {
-                    if let Ok(window_handle) = window.window_handle() {
-                        let raw_handle = window_handle.as_raw();
-                        if let RawWindowHandle::Win32(handle) = raw_handle {
-                            let hwnd_value = handle.hwnd.get() as u64;
-                            Some(hwnd_value)
-                        } else {
-                            None
-                        }
+            if let Some(window) = &self.window {
+                if let Ok(window_handle) = window.window_handle() {
+                    let raw_handle = window_handle.as_raw();
+                    if let RawWindowHandle::Win32(handle) = raw_handle {
+                        let hwnd_value = handle.hwnd.get() as u64;
+                        Some(hwnd_value)
                     } else {
                         None
                     }
                 } else {
                     None
                 }
-            };
-
-            #[cfg(not(target_os = "windows"))]
-            let hwnd: Option<u64> = None;
-
-            // Process Windows messages with specific HWND if available
-            let should_quit = if let Some(hwnd_value) = hwnd {
-                let b1 = message_pump::process_messages_for_hwnd(hwnd_value);
-                // Also service child/IPC windows (e.g., WebView2) in the same thread.
-                // Use full-thread scan on Windows to ensure we don't miss SC_CLOSE/WM_CLOSE.
-                #[cfg(target_os = "windows")]
-                let b2 = message_pump::process_all_messages();
-                #[cfg(not(target_os = "windows"))]
-                let b2 = message_pump::process_all_messages_limited(1024);
-                b1 || b2
             } else {
-                // If we don't yet have a window handle, don't pull host messages.
-                false
-            };
-
-            if should_quit {
-                tracing::debug!(
-                    "[process_events] should_quit=true; close signal detected; returning to Python"
-                );
-                return true;
+                None
             }
+        };
+
+        #[cfg(not(target_os = "windows"))]
+        let hwnd: Option<u64> = None;
+
+        // Process Windows messages with specific HWND if available
+        let should_quit = if let Some(hwnd_value) = hwnd {
+            let b1 = message_pump::process_messages_for_hwnd(hwnd_value);
+            // Also service child/IPC windows (e.g., WebView2) in the same thread.
+            // Use full-thread scan on Windows to ensure we don't miss SC_CLOSE/WM_CLOSE.
+            #[cfg(target_os = "windows")]
+            let b2 = message_pump::process_all_messages();
+            #[cfg(not(target_os = "windows"))]
+            let b2 = message_pump::process_all_messages_limited(1024);
+            b1 || b2
+        } else {
+            // If we don't yet have a window handle, don't pull host messages.
+            false
+        };
+
+        if should_quit {
+            tracing::debug!(
+                "[process_events] should_quit=true; close signal detected; returning to Python"
+            );
+            return true;
         }
 
         // Process message queue
@@ -869,6 +817,40 @@ impl WebViewInner {
                         tracing::debug!("Processing LoadHtml ({} bytes)", html.len());
                         if let Err(e) = webview.load_html(&html) {
                             tracing::error!("Failed to load HTML: {}", e);
+                        }
+                    }
+                    WebViewMessage::WindowEvent { event_type, data } => {
+                        // Window events are handled by emitting to JavaScript
+                        let event_name = event_type.as_str();
+                        let json_str = data.to_string();
+                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
+                        let script = js_assets::build_emit_event_script(event_name, &escaped_json);
+                        tracing::debug!(
+                            "[WINDOW_EVENT] [process_events] Emitting window event: {}",
+                            event_name
+                        );
+                        if let Err(e) = webview.evaluate_script(&script) {
+                            tracing::error!("Failed to emit window event: {}", e);
+                        }
+                    }
+                    WebViewMessage::SetVisible(_) => {
+                        // SetVisible is handled at window level, not in process_events
+                    }
+                    WebViewMessage::EvalJsAsync { script, callback_id } => {
+                        // Execute JavaScript and send result back via IPC
+                        let async_script = js_assets::build_eval_js_async_script(&script, callback_id);
+                        if let Err(e) = webview.evaluate_script(&async_script) {
+                            tracing::error!("Failed to execute async JavaScript (id={}): {}", callback_id, e);
+                        }
+                    }
+                    WebViewMessage::Reload => {
+                        if let Err(e) = webview.evaluate_script("location.reload()") {
+                            tracing::error!("Failed to reload: {}", e);
+                        }
+                    }
+                    WebViewMessage::StopLoading => {
+                        if let Err(e) = webview.evaluate_script("window.stop()") {
+                            tracing::error!("Failed to stop loading: {}", e);
                         }
                     }
                 }
@@ -975,6 +957,40 @@ impl WebViewInner {
                             tracing::error!("Failed to load HTML: {}", e);
                         }
                     }
+                    WebViewMessage::WindowEvent { event_type, data } => {
+                        // Window events are handled by emitting to JavaScript
+                        let event_name = event_type.as_str();
+                        let json_str = data.to_string();
+                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
+                        let script = js_assets::build_emit_event_script(event_name, &escaped_json);
+                        tracing::debug!(
+                            "[WINDOW_EVENT] [process_ipc_only] Emitting window event: {}",
+                            event_name
+                        );
+                        if let Err(e) = webview.evaluate_script(&script) {
+                            tracing::error!("Failed to emit window event: {}", e);
+                        }
+                    }
+                    WebViewMessage::SetVisible(_) => {
+                        // SetVisible is handled at window level, not in process_ipc_only
+                    }
+                    WebViewMessage::EvalJsAsync { script, callback_id } => {
+                        // Execute JavaScript and send result back via IPC
+                        let async_script = js_assets::build_eval_js_async_script(&script, callback_id);
+                        if let Err(e) = webview.evaluate_script(&async_script) {
+                            tracing::error!("Failed to execute async JavaScript (id={}): {}", callback_id, e);
+                        }
+                    }
+                    WebViewMessage::Reload => {
+                        if let Err(e) = webview.evaluate_script("location.reload()") {
+                            tracing::error!("Failed to reload: {}", e);
+                        }
+                    }
+                    WebViewMessage::StopLoading => {
+                        if let Err(e) = webview.evaluate_script("window.stop()") {
+                            tracing::error!("Failed to stop loading: {}", e);
+                        }
+                    }
                 }
             });
 
@@ -990,6 +1006,449 @@ impl WebViewInner {
         tracing::trace!("[process_ipc_only] end");
 
         false
+    }
+
+    // ========================================
+    // BOM Navigation APIs
+    // ========================================
+
+    /// Navigate back in history (like browser back button)
+    pub fn go_back(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.evaluate_script(auroraview_core::bom::js::GO_BACK)?;
+            tracing::debug!("[BOM] go_back() executed");
+        }
+        Ok(())
+    }
+
+    /// Navigate forward in history (like browser forward button)
+    pub fn go_forward(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.evaluate_script(auroraview_core::bom::js::GO_FORWARD)?;
+            tracing::debug!("[BOM] go_forward() executed");
+        }
+        Ok(())
+    }
+
+    /// Stop loading current page
+    pub fn stop(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.evaluate_script(auroraview_core::bom::js::STOP)?;
+            tracing::debug!("[BOM] stop() executed");
+        }
+        Ok(())
+    }
+
+    /// Check if can navigate back in history
+    /// Note: This is a synchronous check based on history.length
+    pub fn can_go_back(&self) -> Result<bool, Box<dyn std::error::Error>> {
+        // Use history.length > 1 as a heuristic
+        // A more accurate check would require async JS evaluation
+        if let Ok(webview) = self.webview.lock() {
+            // Execute script that stores result in a known location
+            webview.evaluate_script("window.__auroraview_can_go_back = history.length > 1;")?;
+            tracing::debug!("[BOM] can_go_back() - history.length > 1 check executed");
+        }
+        // For now, return true as a reasonable default
+        // Real implementation would need async callback
+        Ok(true)
+    }
+
+    /// Check if can navigate forward in history
+    /// Note: Browser doesn't expose forward history directly, so this is tracked via popstate
+    pub fn can_go_forward(&self) -> Result<bool, Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            // Check the tracked forward navigation flag
+            webview.evaluate_script(auroraview_core::bom::js::CAN_GO_FORWARD)?;
+            tracing::debug!("[BOM] can_go_forward() check executed");
+        }
+        // For now, return false as a reasonable default
+        // Real implementation would need async callback
+        Ok(false)
+    }
+
+    /// Check if page is currently loading
+    ///
+    /// Note: This triggers a JS execution to check the current loading state.
+    /// For accurate async results, use eval_js_async with IS_LOADING script.
+    pub fn is_loading(&self) -> Result<bool, Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            // Execute script to update the tracked loading state
+            webview.evaluate_script(auroraview_core::bom::js::IS_LOADING)?;
+            tracing::debug!("[BOM] is_loading() check executed");
+        }
+        // Return a heuristic value - actual value requires async callback
+        // The navigation tracker script maintains this state
+        Ok(false)
+    }
+
+    /// Get current load progress (0-100)
+    ///
+    /// Note: This triggers a JS execution to check the current progress.
+    /// For accurate async results, use eval_js_async with GET_LOAD_PROGRESS script.
+    pub fn load_progress(&self) -> Result<u8, Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.evaluate_script(auroraview_core::bom::js::GET_LOAD_PROGRESS)?;
+            tracing::debug!("[BOM] load_progress() check executed");
+        }
+        // Return a heuristic value - actual value requires async callback
+        // The navigation tracker script maintains this state
+        Ok(100)
+    }
+
+    // ========================================
+    // BOM Zoom APIs
+    // ========================================
+
+    /// Set zoom level (1.0 = 100%, 1.5 = 150%, etc.)
+    pub fn set_zoom(&self, scale_factor: f64) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.zoom(scale_factor)?;
+            tracing::debug!("[BOM] set_zoom({}) executed", scale_factor);
+        }
+        Ok(())
+    }
+
+    // ========================================
+    // BOM Window Control APIs
+    // ========================================
+
+    /// Minimize window
+    pub fn minimize(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_minimized(true);
+            tracing::debug!("[BOM] minimize() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Maximize window
+    pub fn maximize(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_maximized(true);
+            tracing::debug!("[BOM] maximize() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Unmaximize (restore) window
+    pub fn unmaximize(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_maximized(false);
+            tracing::debug!("[BOM] unmaximize() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Toggle maximize state
+    pub fn toggle_maximize(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            let is_maximized = window.is_maximized();
+            window.set_maximized(!is_maximized);
+            tracing::debug!(
+                "[BOM] toggle_maximize() executed, now maximized={}",
+                !is_maximized
+            );
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Check if window is maximized
+    pub fn is_maximized(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.is_maximized())
+            .unwrap_or(false)
+    }
+
+    /// Check if window is minimized
+    pub fn is_minimized(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.is_minimized())
+            .unwrap_or(false)
+    }
+
+    /// Set fullscreen mode
+    pub fn set_fullscreen(&self, fullscreen: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            if fullscreen {
+                window.set_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+            } else {
+                window.set_fullscreen(None);
+            }
+            tracing::debug!("[BOM] set_fullscreen({}) executed", fullscreen);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Check if window is in fullscreen mode
+    pub fn is_fullscreen(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.fullscreen().is_some())
+            .unwrap_or(false)
+    }
+
+    /// Set window visibility
+    pub fn set_visible(&self, visible: bool) -> Result<(), Box<dyn std::error::Error>> {
+        // Try window first (standalone mode)
+        if let Some(window) = &self.window {
+            window.set_visible(visible);
+            tracing::debug!("[BOM] set_visible({}) via window", visible);
+            return Ok(());
+        }
+
+        // Try backend (DCC/embedded mode)
+        if let Some(backend) = &self.backend {
+            backend.set_visible(visible)?;
+            tracing::debug!("[BOM] set_visible({}) via backend", visible);
+            return Ok(());
+        }
+
+        Err("Window not available (neither window nor backend present)".into())
+    }
+
+    /// Check if window is visible
+    pub fn is_visible(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.is_visible())
+            .unwrap_or(false)
+    }
+
+    /// Check if window has focus
+    pub fn is_focused(&self) -> bool {
+        self.window
+            .as_ref()
+            .map(|w| w.is_focused())
+            .unwrap_or(false)
+    }
+
+    /// Request focus for the window
+    pub fn set_focus(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_focus();
+            tracing::debug!("[BOM] set_focus() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set window title
+    pub fn set_window_title(&self, title: &str) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_title(title);
+            tracing::debug!("[BOM] set_title('{}') executed", title);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Get window title
+    pub fn window_title(&self) -> Option<String> {
+        self.window.as_ref().map(|w| w.title())
+    }
+
+    /// Set window size
+    pub fn set_size(&self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            let size = tao::dpi::PhysicalSize::new(width, height);
+            window.set_inner_size(size);
+            tracing::debug!("[BOM] set_size({}, {}) executed", width, height);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Get window inner size
+    pub fn inner_size(&self) -> auroraview_core::bom::PhysicalSize {
+        self.window
+            .as_ref()
+            .map(|w| {
+                let size = w.inner_size();
+                auroraview_core::bom::PhysicalSize::new(size.width, size.height)
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get window outer size (including decorations)
+    pub fn outer_size(&self) -> auroraview_core::bom::PhysicalSize {
+        self.window
+            .as_ref()
+            .map(|w| {
+                let size = w.outer_size();
+                auroraview_core::bom::PhysicalSize::new(size.width, size.height)
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get window position
+    pub fn position(&self) -> Option<auroraview_core::bom::PhysicalPosition> {
+        self.window.as_ref().and_then(|w| {
+            w.outer_position()
+                .ok()
+                .map(|pos| auroraview_core::bom::PhysicalPosition::new(pos.x, pos.y))
+        })
+    }
+
+    /// Set window position
+    pub fn set_position(&self, x: i32, y: i32) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_outer_position(tao::dpi::PhysicalPosition::new(x, y));
+            tracing::debug!("[BOM] set_position({}, {}) executed", x, y);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Center window on screen
+    pub fn center(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            // Get the primary monitor
+            let monitor = window
+                .primary_monitor()
+                .or_else(|| window.current_monitor())
+                .ok_or("No monitor found")?;
+
+            let monitor_size = monitor.size();
+            let monitor_pos = monitor.position();
+            let window_size = window.outer_size();
+
+            // Calculate center position
+            let x = monitor_pos.x + (monitor_size.width as i32 - window_size.width as i32) / 2;
+            let y = monitor_pos.y + (monitor_size.height as i32 - window_size.height as i32) / 2;
+
+            window.set_outer_position(tao::dpi::PhysicalPosition::new(x, y));
+            tracing::debug!("[BOM] center() executed, position=({}, {})", x, y);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set window decorations (title bar, borders)
+    pub fn set_decorations(&self, decorations: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_decorations(decorations);
+            tracing::debug!("[BOM] set_decorations({}) executed", decorations);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set window resizable
+    pub fn set_resizable(&self, resizable: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_resizable(resizable);
+            tracing::debug!("[BOM] set_resizable({}) executed", resizable);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set minimum window size
+    pub fn set_min_size(&self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            let size = tao::dpi::PhysicalSize::new(width, height);
+            window.set_min_inner_size(Some(size));
+            tracing::debug!("[BOM] set_min_size({}, {}) executed", width, height);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Set maximum window size
+    pub fn set_max_size(&self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            let size = tao::dpi::PhysicalSize::new(width, height);
+            window.set_max_inner_size(Some(size));
+            tracing::debug!("[BOM] set_max_size({}, {}) executed", width, height);
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Toggle fullscreen mode
+    #[allow(dead_code)] // Part of BOM API, will be exposed to Python bindings
+    pub fn toggle_fullscreen(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            let is_fullscreen = window.fullscreen().is_some();
+            if is_fullscreen {
+                window.set_fullscreen(None);
+            } else {
+                window.set_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+            }
+            tracing::debug!(
+                "[BOM] toggle_fullscreen() executed, now fullscreen={}",
+                !is_fullscreen
+            );
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Hide window
+    #[allow(dead_code)] // Part of BOM API, will be exposed to Python bindings
+    pub fn hide(&self) -> Result<(), Box<dyn std::error::Error>> {
+        self.set_visible(false)
+    }
+
+    /// Show window and request focus
+    #[allow(dead_code)] // Part of BOM API, will be exposed to Python bindings
+    pub fn focus(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_visible(true);
+            window.set_focus();
+            tracing::debug!("[BOM] focus() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    /// Restore window from minimized/maximized state
+    pub fn restore(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window) = &self.window {
+            window.set_minimized(false);
+            window.set_maximized(false);
+            tracing::debug!("[BOM] restore() executed");
+            Ok(())
+        } else {
+            Err("Window not available".into())
+        }
+    }
+
+    // ========================================
+    // BOM Clear Data APIs
+    // ========================================
+
+    /// Clear all browsing data (localStorage, sessionStorage, IndexedDB, cookies)
+    pub fn clear_all_browsing_data(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Ok(webview) = self.webview.lock() {
+            webview.evaluate_script(auroraview_core::bom::js::CLEAR_ALL_BROWSING_DATA)?;
+            tracing::debug!("[BOM] clear_all_browsing_data() executed");
+        }
+        Ok(())
     }
 }
 

@@ -1,104 +1,31 @@
-//! High-performance JSON operations for IPC
+//! High-performance JSON operations for IPC with Python bindings
 //!
-//! This module provides orjson-equivalent performance without requiring Python dependencies.
-//! All JSON operations are implemented in Rust using simd-json for SIMD acceleration.
+//! This module re-exports core JSON functions from auroraview-core and adds
+//! PyO3-specific conversion functions for Python interoperability.
 //!
 //! ## Performance Benefits:
 //! - **2-3x faster** than standard serde_json (SIMD acceleration)
 //! - **Zero Python dependencies** - no need to install orjson
 //! - **Direct PyO3 integration** - optimal Rust ↔ Python conversion
 //! - **Memory efficient** - zero-copy parsing where possible
-//!
-//! ## Implementation:
-//! - Uses simd-json for parsing (same as orjson's core)
-//! - Direct conversion to Python objects via PyO3
-//! - Optimized for IPC message patterns (small to medium JSON)
 
+#[cfg(feature = "python-bindings")]
 use pyo3::prelude::*;
+#[cfg(feature = "python-bindings")]
 use pyo3::types::{PyDict, PyList};
+#[cfg(feature = "python-bindings")]
 use pyo3::{Py, PyAny};
-use serde::{Deserialize, Serialize};
 
-// Re-export Value type
-pub use serde_json::Value;
-
-/// Parse JSON from a string slice using SIMD acceleration
-///
-/// This is 2-3x faster than serde_json::from_str() for typical IPC messages.
-/// Uses simd-json's SIMD instructions for parallel parsing.
-#[inline]
-pub fn from_str(s: &str) -> Result<Value, String> {
-    // simd-json requires mutable input for zero-copy parsing
-    let mut bytes = s.as_bytes().to_vec();
-
-    // Parse with simd-json
-    simd_json::serde::from_slice(&mut bytes).map_err(|e| format!("JSON parse error: {}", e))
-}
-
-/// Parse JSON from mutable bytes (zero-copy, most efficient)
-///
-/// This is the fastest parsing method as simd-json can work directly
-/// on the mutable buffer without any copying. Use this when you have
-/// ownership of the byte buffer.
-///
-/// # Performance
-/// - Zero allocations for parsing
-/// - SIMD-accelerated parsing
-/// - ~3x faster than serde_json for medium-sized JSON
-#[inline]
-#[allow(dead_code)]
-pub fn from_slice(bytes: &mut [u8]) -> Result<Value, String> {
-    // Parse with simd-json
-    simd_json::serde::from_slice(bytes).map_err(|e| format!("JSON parse error: {}", e))
-}
-
-/// Parse JSON from owned bytes (optimized for IPC)
-///
-/// This is the recommended method for IPC messages as it:
-/// - Takes ownership of the buffer (no copy needed)
-/// - Uses SIMD acceleration
-/// - Returns a static Value (no lifetime issues)
-#[inline]
-#[allow(dead_code)]
-pub fn from_bytes(mut bytes: Vec<u8>) -> Result<Value, String> {
-    // Parse with simd-json
-    simd_json::serde::from_slice(&mut bytes).map_err(|e| format!("JSON parse error: {}", e))
-}
-
-/// Serialize a value to JSON string
-///
-/// Uses serde_json for serialization as simd-json's serialization
-/// performance is similar and serde_json has better compatibility.
-#[inline]
-pub fn to_string<T: Serialize>(value: &T) -> Result<String, String> {
-    serde_json::to_string(value).map_err(|e| format!("JSON serialize error: {}", e))
-}
-
-/// Serialize a value to JSON string with pretty printing
-#[inline]
-#[allow(dead_code)]
-pub fn to_string_pretty<T: Serialize>(value: &T) -> Result<String, String> {
-    serde_json::to_string_pretty(value).map_err(|e| format!("JSON serialize error: {}", e))
-}
-
-/// Deserialize from JSON value
-#[inline]
-#[allow(dead_code)]
-pub fn from_value<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, String> {
-    serde_json::from_value(value).map_err(|e| format!("JSON deserialize error: {}", e))
-}
-
-/// Create a JSON value from a serializable type
-#[inline]
-#[allow(dead_code)]
-pub fn to_value<T: Serialize>(value: &T) -> Result<Value, String> {
-    serde_json::to_value(value).map_err(|e| format!("JSON value conversion error: {}", e))
-}
+// Re-export all core JSON functions
+pub use auroraview_core::json::{
+    from_bytes, from_slice, from_str, from_value, to_string, to_string_pretty, to_value, Value,
+};
 
 /// Convert JSON value to Python object
 ///
 /// This is a critical path for IPC performance, converting Rust JSON
 /// to Python objects that can be passed to callbacks.
+#[cfg(feature = "python-bindings")]
 pub fn json_to_python(py: Python, value: &Value) -> PyResult<Py<PyAny>> {
     match value {
         Value::Null => Ok(py.None()),
@@ -144,6 +71,7 @@ pub fn json_to_python(py: Python, value: &Value) -> PyResult<Py<PyAny>> {
 /// Convert Python object to JSON value
 ///
 /// Supports Python types: str, int, float, bool, None, list, dict (with nesting)
+#[cfg(feature = "python-bindings")]
 pub fn python_to_json(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     // Try basic types first
     if let Ok(s) = value.extract::<String>() {
@@ -194,8 +122,6 @@ pub fn python_to_json(value: &Bound<'_, PyAny>) -> PyResult<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pyo3::types::{PyDict as PyDictType, PyList as PyListType};
-    use pyo3::Python;
 
     #[test]
     fn test_from_str_and_to_string_roundtrip() {
@@ -207,8 +133,10 @@ mod tests {
         assert_eq!(v, v2);
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_json_to_python_nested_objects() {
+        use pyo3::Python;
         let value = serde_json::json!({
             "s": "x",
             "n": 42,
@@ -229,8 +157,11 @@ mod tests {
         .unwrap();
     }
 
+    #[cfg(feature = "python-bindings")]
     #[test]
     fn test_python_to_json_nested_objects() {
+        use pyo3::types::{PyDict as PyDictType, PyList as PyListType};
+        use pyo3::Python;
         Python::attach(|py| {
             let dict = PyDictType::new(py);
             dict.set_item("s", "x").unwrap();

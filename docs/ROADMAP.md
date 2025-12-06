@@ -1,32 +1,50 @@
-# DCC WebView - 项目路线图
+# AuroraView - 项目路线图
 
-## 当前状态 (v0.1.0)
+## 当前状态 (v0.2.x)
 
 ### [OK] 已完成
+
+#### P0 - 核心功能
 - [x] 项目架构设计
-- [x] Rust核心框架
-- [x] Python绑定 (PyO3)
-- [x] 基础WebView类
-- [x] 事件系统框架
-- [x] IPC处理器
-- [x] 协议处理器
-- [x] 配置系统
-- [x] 日志系统
-- [x] 基础测试
+- [x] Rust 核心框架 (Wry + Tao)
+- [x] Python 绑定 (PyO3)
+- [x] WebView 类 (AuroraView, QtWebView)
+- [x] 事件系统 (EventEmitter 模式)
+- [x] IPC 处理器 (双向 Python ↔ JS)
+- [x] 自定义协议处理器 (auroraview://)
+- [x] JavaScript 异步回调 (eval_js_async)
+- [x] 导航控制 (go_back, go_forward, reload, stop)
+- [x] 页面加载状态 (is_loading, load_progress)
+
+#### P1 - 重要功能
+- [x] 文件对话框 (open/save/folder)
+- [x] 消息对话框 (confirm/alert/error)
+- [x] 窗口状态查询 (is_fullscreen, is_visible 等)
+- [x] localStorage/sessionStorage 访问
+- [x] Cookie 管理 (set/get/delete/clear)
+- [x] 页面事件 (on_load_progress, on_title_changed 等)
+- [x] 窗口事件 (on_window_show/hide/focus/blur)
+- [x] 性能监控 (get_performance_metrics, get_ipc_stats)
+
+#### P2 - 高级功能
+- [x] WebView2 预热机制 (DCC 冷启动优化)
+- [x] 共享 User Data Folder
+- [x] 多窗口支持 (WindowManager)
+- [x] 跨窗口通信 (emit_to)
+- [x] CSP/CORS 安全配置
+- [x] Qt 信号/槽机制
+
+#### P3 - API 优化
+- [x] EventEmitter 模式 (on/once/off/emit)
+- [x] 统一导航事件 (NavigationEvent)
+- [x] async/await 支持
+- [x] 属性命名规范化
+- [x] 代码模块化重构 (webview/core/)
 
 ### [CONSTRUCTION] 进行中
-- [ ] Wry集成完成
-- [ ] 窗口显示功能
-- [ ] HTML/URL加载
-- [ ] JavaScript执行
-- [ ] 事件系统实现
-- [ ] 集成测试
-
-###  待做
-- [ ] DCC插件示例
-- [ ] 性能优化
+- [ ] macOS/Linux 平台支持
+- [ ] 更多 DCC 插件示例
 - [ ] 文档完善
-- [ ] 社区反馈
 
 ---
 

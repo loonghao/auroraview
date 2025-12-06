@@ -1,0 +1,7 @@
+# Askama template configuration
+# See: https://djc.github.io/askama/configuration.html
+
+[general]
+# Template directories relative to the crate root
+dirs = ["src/pack/templates", "src/webview/templates"]
+

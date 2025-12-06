@@ -2,25 +2,38 @@
 
 #![allow(clippy::useless_conversion)]
 
-// Module declarations
-mod aurora_view;
+// Module declarations - Python bindings
+#[cfg(feature = "python-bindings")]
+mod core;
+#[cfg(feature = "python-bindings")]
+mod proxy;
+#[cfg(feature = "python-bindings")]
+mod webview_inner;
+
+// Core modules (always available)
 pub mod backend;
 pub mod config; // Public for testing
 pub(crate) mod event_loop;
 pub mod js_assets; // JavaScript assets management
+#[cfg(feature = "templates")]
+pub mod js_templates; // Type-safe JS templates using Askama
 pub mod lifecycle; // Public for testing
-pub(crate) mod loading;
 mod message_pump;
-pub mod parent_monitor;
-mod platform;
 pub mod protocol;
 pub mod protocol_handlers; // Custom protocol handlers
+#[cfg(feature = "python-bindings")]
 pub(crate) mod standalone;
 pub mod timer;
-mod webview_inner;
+pub mod window_manager; // Multi-window support
 
 // Public exports
-pub use aurora_view::AuroraView;
 #[allow(unused_imports)]
 pub use backend::{BackendType, WebViewBackend};
 pub use config::{WebViewBuilder, WebViewConfig};
+#[cfg(feature = "python-bindings")]
+pub use core::AuroraView;
+#[cfg(feature = "python-bindings")]
+pub use core::PluginManager;
+#[cfg(feature = "python-bindings")]
+pub use proxy::WebViewProxy;
+pub use window_manager::{WindowInfo, WindowManager};

@@ -327,6 +327,7 @@ pub fn process_all_messages() -> bool {
 ///
 /// Returns true if the window is valid, false otherwise.
 #[cfg(target_os = "windows")]
+#[allow(dead_code)] // Called by WebViewInner::is_window_valid, which is part of BOM API
 pub fn is_window_valid(hwnd_value: u64) -> bool {
     use std::ffi::c_void;
     use windows::Win32::UI::WindowsAndMessaging::IsWindow;
