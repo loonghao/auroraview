@@ -159,16 +159,6 @@ class TestCliUtilities:
         assert hasattr(auroraview, "run_standalone")
 
 
-class TestBackwardCompatibility:
-    """Tests for backward compatibility aliases."""
-
-    def test_auroraview_qt_alias(self):
-        """Test that AuroraViewQt is an alias for QtWebView."""
-        from auroraview import AuroraViewQt, QtWebView
-
-        assert AuroraViewQt is QtWebView
-
-
 class TestAllExports:
     """Tests for __all__ exports."""
 

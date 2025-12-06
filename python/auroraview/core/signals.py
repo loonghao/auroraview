@@ -32,7 +32,7 @@ import logging
 import threading
 import uuid
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -522,4 +522,3 @@ class WebViewSignals:
             signal = self.custom.get(name)
             if signal:
                 signal.disconnect_all()
-

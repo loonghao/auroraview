@@ -58,7 +58,10 @@ unsafe impl Sync for WebViewProxy {}
 
 impl WebViewProxy {
     /// Create a new WebViewProxy from the given components
-    pub fn new(message_queue: Arc<MessageQueue>, js_callback_manager: Arc<JsCallbackManager>) -> Self {
+    pub fn new(
+        message_queue: Arc<MessageQueue>,
+        js_callback_manager: Arc<JsCallbackManager>,
+    ) -> Self {
         Self {
             message_queue,
             js_callback_manager,
@@ -276,9 +279,7 @@ mod tests {
         for i in 0..10 {
             let proxy_clone = proxy.clone();
             let handle = thread::spawn(move || {
-                proxy_clone
-                    .eval_js(&format!("thread_{}", i))
-                    .unwrap();
+                proxy_clone.eval_js(&format!("thread_{}", i)).unwrap();
             });
             handles.push(handle);
         }
@@ -291,4 +292,3 @@ mod tests {
         assert_eq!(mq.len(), 10);
     }
 }
-

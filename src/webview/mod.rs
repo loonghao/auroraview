@@ -6,9 +6,9 @@
 #[cfg(feature = "python-bindings")]
 mod core;
 #[cfg(feature = "python-bindings")]
-mod webview_inner;
-#[cfg(feature = "python-bindings")]
 mod proxy;
+#[cfg(feature = "python-bindings")]
+mod webview_inner;
 
 // Core modules (always available)
 pub mod backend;
@@ -32,6 +32,8 @@ pub use backend::{BackendType, WebViewBackend};
 pub use config::{WebViewBuilder, WebViewConfig};
 #[cfg(feature = "python-bindings")]
 pub use core::AuroraView;
+#[cfg(feature = "python-bindings")]
+pub use core::PluginManager;
 #[cfg(feature = "python-bindings")]
 pub use proxy::WebViewProxy;
 pub use window_manager::{WindowInfo, WindowManager};

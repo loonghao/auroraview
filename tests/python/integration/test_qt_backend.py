@@ -39,17 +39,15 @@ class TestQtBackendAvailability:
 
     def test_qt_classes_importable(self):
         """Test that Qt classes can be imported."""
-        from auroraview import AuroraViewQt, QtWebView
+        from auroraview import QtWebView
 
         assert QtWebView is not None
-        assert AuroraViewQt is not None
 
     def test_qt_classes_in_all(self):
         """Test that Qt classes are in __all__."""
         import auroraview
 
         assert "QtWebView" in auroraview.__all__
-        assert "AuroraViewQt" in auroraview.__all__
 
 
 class TestQtWebViewInstantiation:
@@ -165,35 +163,6 @@ class TestQtWebViewFunctionality:
         assert size.height() == 600
 
 
-class TestAuroraViewQtAlias:
-    """Test AuroraViewQt backward compatibility alias."""
-
-    @pytest.fixture
-    def qapp(self):
-        """Provide a QApplication instance for tests."""
-        from qtpy.QtWidgets import QApplication
-
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        yield app
-
-    def test_auroraviewqt_is_alias(self):
-        """Test that AuroraViewQt is an alias for QtWebView."""
-        from auroraview import AuroraViewQt, QtWebView
-
-        assert AuroraViewQt is QtWebView
-
-    def test_auroraviewqt_can_instantiate(self, qapp):
-        """Test that AuroraViewQt can be instantiated."""
-        from auroraview import AuroraViewQt
-
-        view = AuroraViewQt()
-        assert view is not None
-        view.close()
-        view.deleteLater()
-
-
 class TestQtIntegrationModule:
     """Test the qt_integration module directly."""
 
@@ -208,11 +177,12 @@ class TestQtIntegrationModule:
         from auroraview import qt_integration
 
         assert hasattr(qt_integration, "QtWebView")
-        assert hasattr(qt_integration, "AuroraViewQt")
+        assert hasattr(qt_integration, "QtEventProcessor")
+        assert hasattr(qt_integration, "WebViewPool")
 
     def test_qtwebview_from_qt_integration(self):
-        """Test importing QtWebView directly from qt_integration."""
-        from auroraview.qt_integration import QtWebView
+        """Test importing QtWebView directly from integration.qt module."""
+        from auroraview.integration.qt import QtWebView
 
         assert QtWebView is not None
 

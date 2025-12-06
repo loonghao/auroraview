@@ -26,9 +26,8 @@ class WebViewDOMMixin:
     def dom(self, selector: str) -> "Element":
         """Get a DOM Element by CSS selector.
 
-        This provides a high-level interface for DOM manipulation,
-        inspired by PyWebView's Element API and compatible with
-        Steel Browser patterns.
+        This provides a high-level interface for DOM manipulation
+        with intuitive Pythonic syntax.
 
         Args:
             selector: CSS selector for the element.
@@ -110,4 +109,3 @@ class WebViewDOMMixin:
         from auroraview.ui.dom import ElementCollection
 
         return ElementCollection(self, f".{class_name}")  # type: ignore[arg-type]
-

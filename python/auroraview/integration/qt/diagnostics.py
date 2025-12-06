@@ -5,7 +5,7 @@ Qt version-specific issues in DCC integrations.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from auroraview.integration.qt._compat import get_qt_info, is_qt6
 
@@ -102,28 +102,16 @@ def diagnose_dialog(dialog: Any) -> dict[str, Any]:
     if is_qt6():
         # Check for performance issues
         if info["attributes"].get("WA_TranslucentBackground"):
-            info["issues"].append(
-                "PERFORMANCE: Translucent background is slow in Qt6"
-            )
-            info["recommendations"].append(
-                "Set WA_TranslucentBackground to False"
-            )
+            info["issues"].append("PERFORMANCE: Translucent background is slow in Qt6")
+            info["recommendations"].append("Set WA_TranslucentBackground to False")
 
         if not info["attributes"].get("WA_OpaquePaintEvent"):
-            info["warnings"].append(
-                "OpaquePaintEvent not set (recommended for Qt6)"
-            )
-            info["recommendations"].append(
-                "Set WA_OpaquePaintEvent to True for better performance"
-            )
+            info["warnings"].append("OpaquePaintEvent not set (recommended for Qt6)")
+            info["recommendations"].append("Set WA_OpaquePaintEvent to True for better performance")
 
         if not info["flags"]["is_tool"]:
-            info["warnings"].append(
-                "Not using Qt.Tool flag (window may not stay on top)"
-            )
-            info["recommendations"].append(
-                "Use Qt.Tool flag for tool windows in Qt6"
-            )
+            info["warnings"].append("Not using Qt.Tool flag (window may not stay on top)")
+            info["recommendations"].append("Use Qt.Tool flag for tool windows in Qt6")
 
     return info
 
@@ -176,12 +164,8 @@ def diagnose_webview_container(container: Any) -> dict[str, Any]:
     # Qt6-specific checks
     if is_qt6():
         if not info["attributes"].get("WA_NativeWindow"):
-            info["warnings"].append(
-                "WA_NativeWindow not set (may cause issues in Qt6)"
-            )
-            info["recommendations"].append(
-                "Set WA_NativeWindow to True for Qt6 containers"
-            )
+            info["warnings"].append("WA_NativeWindow not set (may cause issues in Qt6)")
+            info["recommendations"].append("Set WA_NativeWindow to True for Qt6 containers")
 
     return info
 
@@ -211,4 +195,3 @@ def print_diagnostics(diag: dict[str, Any], title: str = "Diagnostics") -> None:
             print(f"{key}: {value}")
 
     print(f"{'=' * 60}\n")
-

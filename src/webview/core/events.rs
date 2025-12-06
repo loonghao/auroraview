@@ -37,6 +37,42 @@ impl AuroraView {
         Ok(())
     }
 
+    /// Emit multiple events to JavaScript in a single batch.
+    ///
+    /// This is more efficient than calling emit() multiple times because
+    /// all events are queued together and processed in one go.
+    ///
+    /// Args:
+    ///     events: List of tuples (event_name, data_dict)
+    ///
+    /// Example:
+    ///     >>> webview.emit_batch([
+    ///     ...     ("update", {"field": "name", "value": "John"}),
+    ///     ...     ("update", {"field": "email", "value": "john@example.com"}),
+    ///     ...     ("batch_complete", {"count": 2}),
+    ///     ... ])
+    #[pyo3(signature = (events))]
+    fn emit_batch(&self, events: Vec<(String, Bound<'_, PyDict>)>) -> PyResult<usize> {
+        if events.is_empty() {
+            return Ok(0);
+        }
+
+        let count = events.len();
+        tracing::info!("Emitting {} events in batch", count);
+
+        for (event_name, data) in events {
+            let json_data = py_dict_to_json(&data)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+            self.message_queue.push(WebViewMessage::EmitEvent {
+                event_name,
+                data: json_data,
+            });
+        }
+
+        Ok(count)
+    }
+
     /// Register a Python callback for JavaScript events
     ///
     /// Args:

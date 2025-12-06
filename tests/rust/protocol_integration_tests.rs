@@ -2,7 +2,7 @@
 //!
 //! These tests verify the complete protocol registration and handling workflow.
 
-use auroraview::webview::protocol::{ProtocolHandler, ProtocolResponse};
+use _core::webview::protocol::{ProtocolHandler, ProtocolResponse};
 use rstest::*;
 
 /// Fixture: Create a new ProtocolHandler

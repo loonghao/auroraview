@@ -33,12 +33,26 @@ class DummyElement:
         return True
 
 
+class DummyCore:
+    """Minimal Rust core stub for testing."""
+
+    def simulate_drag(self, selector: str, dx: int, dy: int) -> None:
+        pass
+
+    def check_element_exists(self, selector: str) -> None:
+        pass
+
+    def query_element_text(self, selector: str) -> None:
+        pass
+
+
 class DummyWebView:
     """Minimal WebView stub to satisfy WebViewBot without opening a real window."""
 
     def __init__(self) -> None:
         self._handlers: Dict[str, Callable[[Dict[str, Any]], Any]] = {}
         self._scripts = []
+        self._core = DummyCore()
 
     def on(self, event_name: str):  # decorator-style API
         def decorator(func: Callable[[Dict[str, Any]], Any]):
@@ -54,6 +68,10 @@ class DummyWebView:
     def dom(self, selector: str) -> DummyElement:
         """Return a dummy DOM element for testing."""
         return DummyElement(selector)
+
+    def _auto_process_events(self) -> None:
+        """Stub for auto process events."""
+        pass
 
 
 @pytest.fixture

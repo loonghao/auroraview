@@ -8,6 +8,7 @@
 //! - `dialogs.rs`: File and message dialog methods
 //! - `bom.rs`: Browser Object Model APIs
 //! - `multiwindow.rs`: Multi-window management APIs
+//! - `plugins.rs`: Plugin system integration
 
 use pyo3::prelude::*;
 use std::cell::RefCell;
@@ -20,13 +21,19 @@ use super::webview_inner::WebViewInner;
 use crate::ipc::{IpcHandler, JsCallbackManager, MessageQueue};
 
 // Sub-modules containing #[pymethods] implementations
+#[cfg(feature = "templates")]
+mod api; // API registration methods (uses Askama templates)
 mod bom;
 mod dialogs;
+mod dom; // DOM operation methods (high-performance)
 mod events;
 mod js;
 mod main;
 mod multiwindow;
+pub mod plugins;
 mod storage;
+
+pub use plugins::PluginManager;
 
 /// Python-facing WebView class
 /// Supports both standalone and embedded modes (for DCC integration)

@@ -1,7 +1,5 @@
 """Unit tests for the menu module."""
 
-import pytest
-
 from auroraview.ui.menu import Menu, MenuBar, MenuItem, MenuItemType
 
 
@@ -80,10 +78,12 @@ class TestMenu:
     def test_add_items(self):
         """Test adding multiple items."""
         menu = Menu("File")
-        menu.add_items([
-            MenuItem.action("New", "file.new"),
-            MenuItem.action("Open", "file.open"),
-        ])
+        menu.add_items(
+            [
+                MenuItem.action("New", "file.new"),
+                MenuItem.action("Open", "file.open"),
+            ]
+        )
         assert len(menu.items) == 2
 
     def test_add_separator(self):
@@ -140,4 +140,3 @@ class TestMenuBar:
         d = bar.to_dict()
         assert "menus" in d
         assert len(d["menus"]) == 1
-

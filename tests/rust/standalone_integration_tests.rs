@@ -5,8 +5,8 @@
 //! - Loading screen HTML generation
 //! - URL loading script generation
 
-use auroraview::webview::config::WebViewConfig;
-use auroraview::webview::js_assets;
+use _core::webview::config::WebViewConfig;
+use _core::webview::js_assets;
 use rstest::*;
 
 /// Test standalone WebView configuration defaults
@@ -170,7 +170,7 @@ fn test_standalone_config_complete() {
         background_color: None,
         context_menu: true,
         parent_hwnd: None,
-        embed_mode: auroraview::webview::config::EmbedMode::None,
+        embed_mode: _core::webview::config::EmbedMode::None,
         ipc_batching: false,
         ipc_batch_size: 100,
         ipc_batch_interval_ms: 16,
@@ -179,6 +179,7 @@ fn test_standalone_config_complete() {
         api_methods: std::collections::HashMap::new(),
         allow_new_window: false,
         allow_file_protocol: false,
+        ..Default::default()
     };
 
     assert_eq!(config.title, "Test App");
@@ -194,7 +195,7 @@ fn test_standalone_config_complete() {
 /// Test embed mode configuration
 #[rstest]
 fn test_standalone_embed_mode() {
-    use auroraview::webview::config::EmbedMode;
+    use _core::webview::config::EmbedMode;
 
     let config = WebViewConfig {
         embed_mode: EmbedMode::None,

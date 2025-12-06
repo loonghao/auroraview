@@ -50,7 +50,7 @@ from typing import Any, Callable, Optional
 try:
     from qtpy.QtCore import QCoreApplication, QEvent, Qt, QTimer, Signal
     from qtpy.QtGui import QWindow
-    from qtpy.QtWidgets import QLabel, QVBoxLayout, QWidget
+    from qtpy.QtWidgets import QLabel, QStackedWidget, QVBoxLayout, QWidget
 except ImportError as e:
     raise ImportError(
         "Qt backend requires qtpy and Qt bindings. Install with: pip install auroraview[qt]"
@@ -63,8 +63,10 @@ from auroraview.integration.qt._compat import (
     apply_clip_styles_to_parent,
     create_container_widget,
     get_qt_info,
+    hide_window_for_init,
     post_container_setup,
     prepare_hwnd_for_container,
+    show_window_after_init,
 )
 from auroraview.integration.qt.dialogs import FileDialogMixin
 
@@ -245,6 +247,9 @@ class QtWebView(FileDialogMixin, QWidget):
     windowCloseRequested = Signal()
     fullScreenRequested = Signal(bool)
 
+    # Class-level flag to track if auto-prewarm has been triggered
+    _auto_prewarm_triggered: bool = False
+
     def __init__(
         self,
         parent=None,
@@ -260,6 +265,7 @@ class QtWebView(FileDialogMixin, QWidget):
         background_color: Optional[str] = None,
         embed_mode: str = "child",
         ipc_batch_size: int = 0,
+        auto_prewarm: bool = True,
     ) -> None:
         """Initialize QtWebView.
 
@@ -342,7 +348,30 @@ class QtWebView(FileDialogMixin, QWidget):
                 - 0: Unlimited (Maya, Unreal)
                 - 5: Houdini (slow main thread)
                 - 10: Nuke, 3ds Max
+
+            auto_prewarm: Automatically trigger WebView2 pre-warming on first
+                instantiation (default: True). This provides ~50% faster WebView
+                creation by initializing the WebView2 Runtime in advance.
+
+                The pre-warming is:
+                - Idempotent: Safe to call multiple times
+                - Non-blocking: Runs synchronously but fast
+                - One-time: Only triggers on first QtWebView creation
+
+                Set to False if you want explicit control via WebViewPool.prewarm().
         """
+        # Auto-prewarm on first instantiation (if enabled and not already done)
+        if auto_prewarm and not QtWebView._auto_prewarm_triggered:
+            QtWebView._auto_prewarm_triggered = True
+            try:
+                from auroraview.integration.qt.pool import WebViewPool
+
+                if not WebViewPool.has_prewarmed():
+                    logger.debug("[QtWebView] Auto-triggering WebViewPool.prewarm()")
+                    WebViewPool.prewarm()
+            except Exception as e:
+                logger.debug(f"[QtWebView] Auto-prewarm failed (non-critical): {e}")
+
         super().__init__(parent)
 
         self._title = title
@@ -431,11 +460,29 @@ class QtWebView(FileDialogMixin, QWidget):
         self._event_processor = QtEventProcessor(self._webview)
         self._webview.set_event_processor(self._event_processor)
 
-        # Create Qt layout to hold the WebView container
-        # The actual container will be created in show() after WebView is initialized
+        # Create Qt layout with QStackedWidget for page management
+        # Pages: 0=Loading, 1=WebView, 2=Error (future)
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
+
+        # QStackedWidget manages page switching with automatic size sync
+        self._stack = QStackedWidget()
+        self._layout.addWidget(self._stack)
+
+        # Page 0: Loading page (shown during initialization)
+        self._loading_page = self._create_loading_page()
+        self._stack.addWidget(self._loading_page)
+
+        # Page 1: WebView page (will contain the container)
+        self._webview_page = QWidget()
+        self._webview_page_layout = QVBoxLayout(self._webview_page)
+        self._webview_page_layout.setContentsMargins(0, 0, 0, 0)
+        self._webview_page_layout.setSpacing(0)
+        self._stack.addWidget(self._webview_page)
+
+        # Start with loading page visible
+        self._stack.setCurrentIndex(0)
 
         # Container will be created in show() after WebView HWND is available
         self._webview_container = None
@@ -475,6 +522,28 @@ class QtWebView(FileDialogMixin, QWidget):
                 transparent,
                 "createWindowContainer" if self._webview_container else "manual",
             )
+
+    def _create_loading_page(self) -> QWidget:
+        """Create the loading page widget for QStackedWidget.
+
+        This page is shown during WebView initialization and provides
+        a dark background matching the WebView theme with a loading message.
+
+        Returns:
+            QWidget: The loading page widget.
+        """
+        page = QWidget()
+        page.setStyleSheet("background-color: #0d0d0d; border: none;")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        label = QLabel("Loading...")
+        label.setAlignment(Qt.AlignCenter)
+        label.setStyleSheet("QLabel { color: #555; font-size: 12px; background: transparent; }")
+        layout.addWidget(label)
+
+        return page
 
     def _setup_signal_bridge(self) -> None:
         """Set up event handlers to bridge WebView events to Qt signals.
@@ -603,6 +672,7 @@ class QtWebView(FileDialogMixin, QWidget):
         on_ready: Optional[Callable[["QtWebView"], None]] = None,
         on_error: Optional[Callable[[str], None]] = None,
         ipc_batch_size: int = 0,
+        auto_prewarm: bool = True,
     ) -> QWidget:
         """Create QtWebView with deferred initialization for DCC environments.
 
@@ -636,6 +706,7 @@ class QtWebView(FileDialogMixin, QWidget):
             on_ready: Callback invoked with QtWebView instance when ready
             on_error: Callback invoked with error message if creation fails
             ipc_batch_size: Max IPC messages per tick (0=unlimited, 5 for Houdini)
+            auto_prewarm: Automatically trigger WebView2 pre-warming (default: True)
 
         Returns:
             A placeholder QWidget that shows loading indicator initially.
@@ -666,7 +737,9 @@ class QtWebView(FileDialogMixin, QWidget):
         layout.addWidget(loading_label)
 
         if _VERBOSE_LOGGING:
-            logger.debug("QtWebView.create_deferred: Created placeholder, scheduling WebView creation")
+            logger.debug(
+                "QtWebView.create_deferred: Created placeholder, scheduling WebView creation"
+            )
 
         def do_create():
             """Create WebView on main thread (deferred via QTimer)."""
@@ -693,6 +766,7 @@ class QtWebView(FileDialogMixin, QWidget):
                     background_color=background_color,
                     embed_mode=embed_mode,
                     ipc_batch_size=ipc_batch_size,
+                    auto_prewarm=auto_prewarm,
                 )
 
                 elapsed = time.time() - start_time
@@ -1172,8 +1246,9 @@ class QtWebView(FileDialogMixin, QWidget):
             # Setting "background: transparent" causes black screen in Houdini.
             self._webview_container.setStyleSheet("border: none; margin: 0; padding: 0;")
 
-            # Step 4: Add to layout with stretch to fill all available space
-            self._layout.addWidget(self._webview_container, 1)
+            # Step 4: Add container to webview page layout (QStackedWidget page 1)
+            # This keeps it separate from the loading page for clean switching
+            self._webview_page_layout.addWidget(self._webview_container, 1)
 
             # Step 5: Apply clip styles to QtWebView widget to reduce flicker
             # WS_CLIPCHILDREN prevents parent from drawing over child windows
@@ -1205,7 +1280,9 @@ class QtWebView(FileDialogMixin, QWidget):
             self._force_container_geometry()
 
             if _VERBOSE_LOGGING:
-                logger.debug("[QtWebView] Container created successfully for HWND=0x%X", webview_hwnd)
+                logger.debug(
+                    "[QtWebView] Container created successfully for HWND=0x%X", webview_hwnd
+                )
         except Exception as e:
             logger.exception(f"[QtWebView] Failed to create container: {e}")
             self._webview_container = None
@@ -1394,39 +1471,43 @@ class QtWebView(FileDialogMixin, QWidget):
         the WebView on the main thread. We use progressive initialization
         with QApplication.processEvents() to keep the UI responsive.
 
-        The Qt widget is shown first with a loading indicator, then WebView2
-        initialization happens in small steps with event processing between.
+        Anti-flicker strategy:
+        1. Hide the Qt widget using WS_EX_LAYERED with zero alpha
+        2. Show the widget (now invisible)
+        3. Initialize WebView and create container
+        4. Switch QStackedWidget from loading page to webview page
+        5. Restore visibility after everything is ready
+
+        This prevents the white flash and visible embedding process.
         """
-        from qtpy.QtCore import Qt
-        from qtpy.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
+        from qtpy.QtWidgets import QApplication
 
         self._show_start_time = time.time()
         if _VERBOSE_LOGGING:
-            logger.debug("[QtWebView] show() started")
+            logger.debug("[QtWebView] show() started with anti-flicker")
 
-        # Create loading overlay
-        self._loading_overlay = QWidget(self)
-        self._loading_overlay.setStyleSheet("background-color: #1a1a2e; border: none;")
-        loading_layout = QVBoxLayout(self._loading_overlay)
-        loading_layout.setContentsMargins(0, 0, 0, 0)
+        # Step 1: Hide the window before showing (anti-flicker)
+        # This makes the window completely invisible during initialization
+        self._pre_show_hidden = False
+        if sys.platform == "win32":
+            # Ensure native window handle exists
+            self.setAttribute(Qt.WA_NativeWindow, True)
+            qt_hwnd = int(self.winId())
+            if qt_hwnd:
+                self._pre_show_hidden = hide_window_for_init(qt_hwnd)
+                if _VERBOSE_LOGGING:
+                    logger.debug(f"[QtWebView] Pre-show hidden applied: HWND=0x{qt_hwnd:X}")
 
-        loading_label = QLabel("Loading WebView...")
-        loading_label.setAlignment(Qt.AlignCenter)
-        loading_label.setStyleSheet(
-            "QLabel { color: #888; font-size: 14px; background: transparent; }"
-        )
-        loading_layout.addWidget(loading_label)
+        # Ensure QStackedWidget shows loading page
+        self._stack.setCurrentIndex(0)
 
-        self._loading_overlay.resize(self.size())
-        self._loading_overlay.show()
-
-        # Show the Qt widget immediately (non-blocking)
+        # Step 2: Show the Qt widget (invisible due to zero alpha)
         super().show()
 
-        # Process events to ensure the widget and loading indicator are displayed
+        # Process events to ensure the widget geometry is established
         QApplication.processEvents()
 
-        # Initialize WebView with progressive event processing
+        # Step 3: Initialize WebView with progressive event processing
         self._init_webview_progressive()
 
     def _init_webview_progressive(self) -> None:
@@ -1479,7 +1560,9 @@ class QtWebView(FileDialogMixin, QWidget):
                 show_embedded()
                 core_show_time = (time.time() - core_show_start) * 1000
                 if _VERBOSE_LOGGING:
-                    logger.debug(f"[QtWebView] core.show_embedded() returned in {core_show_time:.1f}ms")
+                    logger.debug(
+                        f"[QtWebView] core.show_embedded() returned in {core_show_time:.1f}ms"
+                    )
             else:
                 # Extremely unlikely with current Rust core, but keep a guarded
                 # fallback for older versions.
@@ -1491,7 +1574,9 @@ class QtWebView(FileDialogMixin, QWidget):
                 core.show()
                 core_show_time = (time.time() - core_show_start) * 1000
                 if _VERBOSE_LOGGING:
-                    logger.debug(f"[QtWebView] core.show() fallback returned in {core_show_time:.1f}ms")
+                    logger.debug(
+                        f"[QtWebView] core.show() fallback returned in {core_show_time:.1f}ms"
+                    )
         except Exception as exc:
             # If show_embedded()/show() fails for some reason, fall back to the
             # high-level Python WebView.show() which will use the background
@@ -1526,14 +1611,40 @@ class QtWebView(FileDialogMixin, QWidget):
 
         QApplication.processEvents()
 
-        # Step 5: Hide loading overlay
-        loading_overlay = getattr(self, "_loading_overlay", None)
-        if loading_overlay is not None:
-            loading_overlay.hide()
-            loading_overlay.deleteLater()
-            self._loading_overlay = None
+        # Step 5: Switch from loading page to webview page
+        # QStackedWidget handles the page transition cleanly
+        self._stack.setCurrentIndex(1)
 
-        # Step 7: Start EventTimer for message processing
+        # Step 6: Restore window visibility (anti-flicker completion)
+        # Now that the container is ready and WebView is embedded, show the window
+        if getattr(self, "_pre_show_hidden", False) and sys.platform == "win32":
+            qt_hwnd = int(self.winId())
+            if qt_hwnd:
+                show_window_after_init(qt_hwnd)
+                if _VERBOSE_LOGGING:
+                    logger.debug(f"[QtWebView] Restored visibility: HWND=0x{qt_hwnd:X}")
+            self._pre_show_hidden = False
+
+        QApplication.processEvents()
+
+        # Step 7: Schedule delayed geometry sync for DCC apps
+        # Some DCCs (especially Maya) need additional time for layout to stabilize
+        from qtpy.QtCore import QTimer
+
+        def delayed_geometry_sync() -> None:
+            """Sync geometry after layout has stabilized."""
+            try:
+                self._force_container_geometry()
+                if _VERBOSE_LOGGING:
+                    logger.debug("[QtWebView] Delayed geometry sync completed")
+            except Exception:
+                pass
+
+        # Schedule multiple syncs at different intervals for robustness
+        QTimer.singleShot(100, delayed_geometry_sync)
+        QTimer.singleShot(500, delayed_geometry_sync)
+
+        # Step 8: Start EventTimer for message processing
         timer = getattr(self._webview, "_auto_timer", None)
         if timer is not None:
             try:
@@ -1614,7 +1725,4 @@ class QtWebView(FileDialogMixin, QWidget):
             return None
 
 
-# Backward-compatibility alias
-AuroraViewQt = QtWebView
-
-__all__ = ["QtWebView", "AuroraViewQt"]
+__all__ = ["QtWebView", "QtEventProcessor"]

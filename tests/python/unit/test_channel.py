@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from auroraview.core.channel import Channel, ChannelManager
 
 
@@ -53,11 +51,11 @@ class TestChannelBasic:
         """Test close handler is called."""
         channel = Channel()
         closed = []
-        
+
         @channel.on_close
         def handler():
             closed.append(True)
-        
+
         channel.close()
         assert len(closed) == 1
 
@@ -73,7 +71,7 @@ class TestChannelBasic:
         channel = Channel(channel_id="test_ch")
         assert "test_ch" in repr(channel)
         assert "open" in repr(channel)
-        
+
         channel.close()
         assert "closed" in repr(channel)
 
@@ -91,7 +89,7 @@ class TestChannelManager:
         """Test creating a channel."""
         manager = ChannelManager()
         channel = manager.create()
-        
+
         assert len(manager) == 1
         assert channel.id in manager
 
@@ -99,7 +97,7 @@ class TestChannelManager:
         """Test creating channel with custom ID."""
         manager = ChannelManager()
         channel = manager.create("my_channel")
-        
+
         assert channel.id == "my_channel"
         assert "my_channel" in manager
 
@@ -107,10 +105,10 @@ class TestChannelManager:
         """Test getting a channel by ID."""
         manager = ChannelManager()
         channel = manager.create("test")
-        
+
         retrieved = manager.get("test")
         assert retrieved is channel
-        
+
         assert manager.get("nonexistent") is None
 
     def test_close_all(self):
@@ -118,9 +116,9 @@ class TestChannelManager:
         manager = ChannelManager()
         ch1 = manager.create()
         ch2 = manager.create()
-        
+
         manager.close_all()
-        
+
         assert ch1.is_closed
         assert ch2.is_closed
         assert len(manager) == 0
@@ -129,7 +127,7 @@ class TestChannelManager:
         """Test channel is removed when closed."""
         manager = ChannelManager()
         channel = manager.create("auto_remove")
-        
+
         assert "auto_remove" in manager
         channel.close()
         assert "auto_remove" not in manager
@@ -138,7 +136,7 @@ class TestChannelManager:
         """Test 'in' operator."""
         manager = ChannelManager()
         manager.create("exists")
-        
+
         assert "exists" in manager
         assert "missing" not in manager
 
@@ -147,7 +145,6 @@ class TestChannelManager:
         manager = ChannelManager()
         manager.create()
         manager.create()
-        
+
         assert "ChannelManager" in repr(manager)
         assert "2" in repr(manager)
-

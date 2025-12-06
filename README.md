@@ -356,6 +356,220 @@ webview = WebView.create("Blender Tool", url="http://localhost:3000")
 webview.show()  # Standalone: blocks until closed (use show(wait=False) for async)
 ```
 
+## Usage Patterns
+
+AuroraView supports multiple API styles to fit your development workflow. Choose the pattern that best matches your project's complexity and team's preferences.
+
+### Pattern 1: Decorator Style (Simplest)
+
+Best for: **Quick prototypes, simple tools, one-off scripts**
+
+```python
+from auroraview import WebView
+
+view = WebView(title="My Tool", url="http://localhost:3000")
+
+# Register API methods using decorators
+@view.slot
+def get_data() -> dict:
+    """Called from JS: await auroraview.api.get_data()"""
+    return {"items": [1, 2, 3], "count": 3}
+
+@view.slot
+def save_file(path: str, content: str) -> dict:
+    """Called from JS: await auroraview.api.save_file({path: "/tmp/a.txt", content: "hello"})"""
+    with open(path, "w") as f:
+        f.write(content)
+    return {"ok": True, "path": path}
+
+# Register event handlers (no return value)
+@view.on("button_clicked")
+def handle_click(data: dict):
+    """Called when JS emits: auroraview.emit("button_clicked", {...})"""
+    print(f"Button clicked: {data['id']}")
+
+view.show()
+```
+
+**JavaScript side:**
+```javascript
+// Call API methods (with return value)
+const data = await auroraview.api.get_data();
+console.log(data.items);  // [1, 2, 3]
+
+const result = await auroraview.api.save_file({ path: "/tmp/test.txt", content: "Hello" });
+console.log(result.ok);  // true
+
+// Emit events (fire-and-forget)
+auroraview.emit("button_clicked", { id: "save_btn" });
+
+// Listen for Python events
+auroraview.on("data_updated", (data) => {
+    console.log("Data updated:", data);
+});
+```
+
+### Pattern 2: Class Inheritance (Recommended, Qt-like)
+
+Best for: **Production tools, team collaboration, complex applications**
+
+```python
+from auroraview import WebView, Signal
+
+class OutlinerTool(WebView):
+    """A Maya-style outliner tool demonstrating Qt-like patterns."""
+
+    # ─── Signal Definitions (Python → JS notifications) ───
+    selection_changed = Signal(list)
+    progress_updated = Signal(int, str)
+    scene_loaded = Signal(str)
+
+    def __init__(self):
+        super().__init__(
+            title="Outliner Tool",
+            url="http://localhost:3000",
+            width=400,
+            height=600
+        )
+        self.setup_connections()
+
+    # ─── API Methods (JS → Python, auto-bound) ───
+    def get_hierarchy(self, root: str = None) -> dict:
+        """Get scene hierarchy. JS: await auroraview.api.get_hierarchy()"""
+        # Your DCC-specific logic here
+        return {
+            "children": ["group1", "mesh_cube", "camera1"],
+            "count": 3
+        }
+
+    def rename_object(self, old_name: str, new_name: str) -> dict:
+        """Rename scene object. JS: await auroraview.api.rename_object({old_name: "a", new_name: "b"})"""
+        # Perform rename in DCC
+        return {"ok": True, "old": old_name, "new": new_name}
+
+    def delete_objects(self, names: list) -> dict:
+        """Delete objects. JS: await auroraview.api.delete_objects({names: ["obj1", "obj2"]})"""
+        return {"ok": True, "deleted": len(names)}
+
+    # ─── Event Handlers (on_ prefix, auto-bound) ───
+    def on_item_selected(self, data: dict):
+        """Handle selection from UI. JS: auroraview.emit("item_selected", {...})"""
+        items = data.get("items", [])
+        # Update DCC selection
+        self.selection_changed.emit(items)
+
+    def on_viewport_orbit(self, data: dict):
+        """Handle viewport rotation. JS: auroraview.emit("viewport_orbit", {...})"""
+        dx, dy = data.get("dx", 0), data.get("dy", 0)
+        # Rotate camera in DCC
+        print(f"Orbiting: dx={dx}, dy={dy}")
+
+    # ─── Signal Connections (like Qt) ───
+    def setup_connections(self):
+        """Connect signals to handlers."""
+        self.selection_changed.connect(self._log_selection)
+
+    def _log_selection(self, items: list):
+        """Internal handler for selection changes."""
+        print(f"Selection changed: {items}")
+
+# Usage
+tool = OutlinerTool()
+tool.show()
+```
+
+**JavaScript side:**
+```javascript
+// Call API methods
+const hierarchy = await auroraview.api.get_hierarchy();
+const result = await auroraview.api.rename_object({ old_name: "cube1", new_name: "hero_cube" });
+
+// Emit events to Python
+auroraview.emit("item_selected", { items: ["mesh1", "mesh2"] });
+auroraview.emit("viewport_orbit", { dx: 10, dy: 5 });
+
+// Listen for Python signals
+auroraview.on("selection_changed", (items) => {
+    highlightItems(items);
+});
+
+auroraview.on("progress_updated", (percent, message) => {
+    updateProgressBar(percent, message);
+});
+```
+
+### Pattern 3: Explicit Binding (Advanced)
+
+Best for: **Dynamic configurations, plugin systems, runtime customization**
+
+```python
+from auroraview import WebView
+
+view = WebView(title="Plugin Host", url="http://localhost:3000")
+
+# Define functions separately
+def get_plugins() -> dict:
+    return {"plugins": ["plugin_a", "plugin_b"]}
+
+def load_plugin(name: str) -> dict:
+    print(f"Loading plugin: {name}")
+    return {"ok": True, "plugin": name}
+
+def on_plugin_event(data: dict):
+    print(f"Plugin event: {data}")
+
+# Explicitly bind at runtime
+view.bind_slot("get_plugins", get_plugins)
+view.bind_slot("load_plugin", load_plugin)
+
+# Connect to built-in signals
+view.on_ready.connect(lambda: print("WebView is ready!"))
+view.on_navigate.connect(lambda url: print(f"Navigated to: {url}"))
+
+# Register event handlers
+view.register_callback("plugin_event", on_plugin_event)
+
+# Dynamic binding based on configuration
+config = {"features": ["export", "import"]}
+if "export" in config["features"]:
+    view.bind_slot("export_data", lambda fmt: {"data": "...", "format": fmt})
+if "import" in config["features"]:
+    view.bind_slot("import_data", lambda data: {"ok": True})
+
+view.show()
+```
+
+**JavaScript side:**
+```javascript
+// Call dynamically bound methods
+const plugins = await auroraview.api.get_plugins();
+const result = await auroraview.api.load_plugin({ name: "plugin_a" });
+
+// Call feature-specific methods (if enabled)
+if (await auroraview.api.export_data) {
+    const exported = await auroraview.api.export_data({ fmt: "json" });
+}
+
+// Emit events
+auroraview.emit("plugin_event", { type: "activated", plugin: "plugin_a" });
+```
+
+### Pattern Comparison
+
+| Aspect | Decorator | Class Inheritance | Explicit Binding |
+|--------|-----------|------------------|------------------|
+| **Complexity** | ⭐ Simple | ⭐⭐ Medium | ⭐⭐⭐ Advanced |
+| **Best For** | Prototypes | Production | Plugins |
+| **Signal Support** | ❌ | ✅ Full | ⚠️ Limited |
+| **Auto-binding** | ✅ | ✅ | ❌ Manual |
+| **Type Hints** | ✅ | ✅ | ✅ |
+| **Qt Familiarity** | Low | High | Medium |
+| **Testability** | Good | Excellent | Good |
+
+> **Recommendation**: Start with **Pattern 1** for prototypes, graduate to **Pattern 2** for production tools. Use **Pattern 3** when building extensible systems.
+
+See the [examples/](./examples/) directory for complete, runnable examples of each pattern.
+
 ### Advanced Usage
 
 **Load HTML content:**
@@ -760,6 +974,44 @@ webview.show()
 # The Qt backend automatically handles all JavaScript execution and events
 ```
 
+#### WebView2 Pre-warming (Automatic)
+
+`QtWebView` automatically pre-warms WebView2 on first instantiation, reducing subsequent creation time by ~50%. No manual setup required:
+
+```python
+from auroraview.integration.qt import QtWebView
+
+# First QtWebView automatically triggers pre-warming
+webview = QtWebView(parent=maya_main_window())
+webview.load_url("http://localhost:3000")
+webview.show()
+```
+
+**For advanced users** who want explicit control over pre-warming timing:
+
+```python
+from auroraview.integration.qt import WebViewPool, QtWebView
+
+# Explicit pre-warm at DCC startup (e.g., in userSetup.py)
+WebViewPool.prewarm()
+
+# Check pre-warm status
+if WebViewPool.has_prewarmed():
+    print(f"Pre-warm took {WebViewPool.get_prewarm_time():.2f}s")
+
+# Disable auto-prewarm if using explicit control
+webview = QtWebView(parent=maya_main_window(), auto_prewarm=False)
+
+# Cleanup when done (optional, called automatically on exit)
+WebViewPool.cleanup()
+```
+
+**Benefits:**
+- ✅ Automatic pre-warming on first `QtWebView` creation
+- ✅ Reduces WebView creation time by ~50%
+- ✅ Thread-safe and idempotent (safe to call multiple times)
+- ✅ Automatic cleanup on application exit
+
 **When to use Qt backend:**
 - [OK] Your DCC already has Qt loaded (Maya, Houdini, Nuke)
 - [OK] You want seamless Qt widget integration
@@ -995,7 +1247,6 @@ uvx nox -s pytest-all
   - Requires Qt dependencies to be installed
   - Tests QtWebView instantiation and methods
   - Tests event handling and JavaScript integration
-  - Verifies backward compatibility with AuroraViewQt alias
 
 ### Available Nox Sessions
 

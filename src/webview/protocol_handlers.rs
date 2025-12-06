@@ -91,6 +91,13 @@ pub fn handle_auroraview_protocol(
     // Default to index.html if path is empty (root access)
     let path = if path.is_empty() { "index.html" } else { path };
 
+    // Check for /file/ prefix - allows loading arbitrary local files
+    // Format: https://auroraview.localhost/file/C:/path/to/file.ext
+    // This bypasses the asset_root restriction for local file access
+    if let Some(file_path) = path.strip_prefix("file/") {
+        return handle_file_path_request(file_path);
+    }
+
     // Build full path
     // Parse the path and determine if it's absolute
     let full_path = parse_protocol_path(path, asset_root);
@@ -300,6 +307,72 @@ pub fn handle_custom_protocol(
         }
         None => {
             tracing::warn!("[Protocol] Custom handler returned None for: {}", uri);
+            Response::builder()
+                .status(404)
+                .body(Cow::Borrowed(b"Not Found" as &[u8]))
+                .unwrap()
+        }
+    }
+}
+
+/// Handle file path requests via /file/ prefix in auroraview protocol
+///
+/// This allows loading arbitrary local files through the custom protocol:
+/// - URL: https://auroraview.localhost/file/C:/path/to/file.ext
+/// - Returns the file content with appropriate MIME type
+///
+/// **Security Note**: This bypasses asset_root restrictions. Use with caution.
+fn handle_file_path_request(file_path: &str) -> Response<Cow<'static, [u8]>> {
+    tracing::debug!("[Protocol] /file/ request: {}", file_path);
+
+    // URL decode the path (handle %20 etc.)
+    let decoded_path = match urlencoding::decode(file_path) {
+        Ok(p) => p.to_string(),
+        Err(e) => {
+            tracing::warn!(
+                "[Protocol] Failed to decode file path: {} ({})",
+                file_path,
+                e
+            );
+            return Response::builder()
+                .status(400)
+                .body(Cow::Borrowed(
+                    b"Bad Request: Invalid path encoding" as &[u8],
+                ))
+                .unwrap();
+        }
+    };
+
+    // Normalize Windows path without colon (e.g., "C/path/..." -> "C:/path/...")
+    let normalized_path = if is_windows_absolute_path_without_colon(&decoded_path) {
+        normalize_windows_path_without_colon(&decoded_path)
+    } else {
+        decoded_path
+    };
+
+    let path = Path::new(&normalized_path);
+    tracing::debug!("[Protocol] Resolved /file/ path: {:?}", path);
+
+    // Read file
+    match fs::read(path) {
+        Ok(data) => {
+            let mime_type = guess_mime_type(path);
+            tracing::debug!(
+                "[Protocol] Loaded /file/ {} ({} bytes, {})",
+                normalized_path,
+                data.len(),
+                mime_type
+            );
+
+            Response::builder()
+                .status(200)
+                .header("Content-Type", mime_type.as_str())
+                .header("Access-Control-Allow-Origin", "*")
+                .body(Cow::Owned(data))
+                .unwrap()
+        }
+        Err(e) => {
+            tracing::warn!("[Protocol] /file/ not found: {:?} ({})", path, e);
             Response::builder()
                 .status(404)
                 .body(Cow::Borrowed(b"Not Found" as &[u8]))

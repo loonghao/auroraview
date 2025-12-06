@@ -58,9 +58,7 @@ _VERBOSE_LOGGING = os.environ.get("AURORAVIEW_LOG_VERBOSE", "").lower() in (
 try:
     from qtpy.QtCore import QObject, Signal
 except ImportError as e:
-    raise ImportError(
-        "Qt signals require qtpy. Install with: pip install auroraview[qt]"
-    ) from e
+    raise ImportError("Qt signals require qtpy. Install with: pip install auroraview[qt]") from e
 
 logger = logging.getLogger(__name__)
 
@@ -232,9 +230,7 @@ class QtWebViewSignals(QObject):
             logger.debug(f"QtWebViewSignals: consoleMessage[{level}] -> {message}")
         self.consoleMessage.emit(level, message, line_number, source_id)
 
-    def emit_render_process_terminated(
-        self, termination_status: int, exit_code: int
-    ) -> None:
+    def emit_render_process_terminated(self, termination_status: int, exit_code: int) -> None:
         """Emit renderProcessTerminated signal when render process crashes.
 
         Args:
@@ -307,4 +303,3 @@ class QtWebViewSignals(QObject):
     def load_progress_value(self) -> int:
         """Get current load progress (0-100)."""
         return self._current_progress
-

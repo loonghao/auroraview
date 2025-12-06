@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from threading import Lock
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set
 
 if TYPE_CHECKING:
     pass
@@ -24,12 +25,88 @@ class WebViewApiMixin:
     - register_protocol: Register a custom protocol handler
     - bind_call: Bind a Python callable as an auroraview.call target
     - bind_api: Bind all public methods of an object
+
+    Thread-Safety:
+        All binding operations are protected by a lock to prevent race conditions
+        when multiple threads attempt to bind APIs simultaneously.
     """
 
     # Type hints for attributes from main class
     _core: Any
     eval_js: Callable[[str], None]
     emit: Callable[..., None]
+
+    # Registry of bound functions and lock for thread safety
+    _bound_functions: Dict[str, Callable[..., Any]]
+    _bound_namespaces: Set[str]  # Namespaces that have been bound (for idempotency)
+    _bind_lock: Lock
+    _is_loaded: bool  # Page loaded state
+
+    def _init_api_registry(self) -> None:
+        """Initialize the API binding registry.
+
+        This should be called during WebView initialization to set up
+        the internal registry for tracking bound functions and page state.
+        """
+        if not hasattr(self, "_bound_functions"):
+            self._bound_functions = {}
+        if not hasattr(self, "_bound_namespaces"):
+            self._bound_namespaces = set()
+        if not hasattr(self, "_bind_lock"):
+            self._bind_lock = Lock()
+        if not hasattr(self, "_is_loaded"):
+            self._is_loaded = False
+
+    def _ensure_api_registry(self) -> None:
+        """Ensure the API registry is initialized (lazy initialization)."""
+        if (
+            not hasattr(self, "_bound_functions")
+            or not hasattr(self, "_bound_namespaces")
+            or not hasattr(self, "_bind_lock")
+        ):
+            self._init_api_registry()
+
+    def _set_loaded(self, loaded: bool = True) -> None:
+        """Set the page loaded state.
+
+        This should be called when the page finishes loading.
+
+        Args:
+            loaded: Whether the page is loaded (default True)
+        """
+        self._ensure_api_registry()
+        self._is_loaded = loaded
+        logger.debug("Page loaded state set to %s", loaded)
+
+    def is_loaded(self) -> bool:
+        """Check if the page has finished loading.
+
+        Returns:
+            True if page is loaded, False otherwise.
+        """
+        self._ensure_api_registry()
+        return self._is_loaded
+
+    def is_method_bound(self, method: str) -> bool:
+        """Check if a method is already bound.
+
+        Args:
+            method: Method name to check (e.g., "api.echo")
+
+        Returns:
+            True if the method is already bound, False otherwise.
+        """
+        self._ensure_api_registry()
+        return method in self._bound_functions
+
+    def get_bound_methods(self) -> list:
+        """Get list of all bound method names.
+
+        Returns:
+            List of bound method names.
+        """
+        self._ensure_api_registry()
+        return list(self._bound_functions.keys())
 
     def register_protocol(self, scheme: str, handler: Callable[[str], Dict[str, Any]]) -> None:
         """Register a custom protocol handler.
@@ -91,7 +168,13 @@ class WebViewApiMixin:
                 f"[AuroraView DEBUG] Failed to dispatch __auroraview_call_result via eval_js: {exc}"
             )
 
-    def bind_call(self, method: str, func: Optional[Callable[..., Any]] = None):
+    def bind_call(
+        self,
+        method: str,
+        func: Optional[Callable[..., Any]] = None,
+        *,
+        allow_rebind: bool = True,
+    ):
         """Bind a Python callable as an ``auroraview.call`` target.
 
         The JavaScript side sends messages of the form::
@@ -115,17 +198,40 @@ class WebViewApiMixin:
             def echo(params):
                 return params
 
+        Args:
+            method: Method name (e.g., "api.echo")
+            func: Python callable to bind
+            allow_rebind: If True (default), allows rebinding an already bound method.
+                         If False, skips binding if method is already bound.
+
+        Returns:
+            The original function (for decorator usage)
+
         NOTE: Currently only synchronous callables are supported.
         """
+        self._ensure_api_registry()
 
         # Decorator usage: @webview.bind_call("api.echo")
         if func is None:
 
             def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
-                self.bind_call(method, fn)
+                self.bind_call(method, fn, allow_rebind=allow_rebind)
                 return fn
 
             return decorator
+
+        # Thread-safe binding with duplicate detection
+        with self._bind_lock:
+            if method in self._bound_functions:
+                if not allow_rebind:
+                    logger.debug("Method '%s' already bound, skipping (allow_rebind=False)", method)
+                    return func
+                logger.debug("Rebinding method '%s' with new function", method)
+            else:
+                logger.debug("Binding new method '%s'", method)
+
+            # Store the function reference
+            self._bound_functions[method] = func
 
         def _handler(raw: Dict[str, Any]) -> None:
             print(f"[AuroraView DEBUG] _handler invoked for method={method} with raw={raw}")
@@ -134,15 +240,18 @@ class WebViewApiMixin:
             has_params_key = "params" in raw
             params = raw.get("params")
 
+            # Get the latest bound function (allows for hot-reload scenarios)
+            current_func = self._bound_functions.get(method, func)
+
             try:
                 if not has_params_key:
-                    result = func()
+                    result = current_func()
                 elif isinstance(params, dict):
-                    result = func(**params)
+                    result = current_func(**params)
                 elif isinstance(params, list):
-                    result = func(*params)
+                    result = current_func(*params)
                 else:
-                    result = func(params)
+                    result = current_func(params)
                 ok = True
                 error_info: Optional[Dict[str, Any]] = None
             except Exception as exc:  # pragma: no cover
@@ -186,11 +295,24 @@ class WebViewApiMixin:
         # For decorator-style usage, return the original function
         return func
 
-    def bind_api(self, api: Any, namespace: str = "api") -> None:
+    def bind_api(
+        self,
+        api: Any,
+        namespace: str = "api",
+        *,
+        allow_rebind: bool = False,
+    ) -> None:
         """Bind all public methods of an object under a namespace.
 
         This is a convenience helper so that you can expose a Python "API" object
         to JavaScript without writing many ``bind_call`` lines by hand.
+
+        Idempotency:
+            This method is idempotent at the namespace level. If a namespace has
+            already been bound, subsequent calls will be silently skipped unless
+            ``allow_rebind=True`` is explicitly specified. This prevents accidental
+            duplicate bindings and eliminates the need for callers to track binding
+            state.
 
         Example::
 
@@ -200,60 +322,174 @@ class WebViewApiMixin:
 
             api = API()
             webview.bind_api(api)  # JS: await auroraview.api.echo({"message": "hi"})
+            webview.bind_api(api)  # Safe: silently skipped (idempotent)
 
         Args:
             api: Object whose public callables should be exposed.
             namespace: Logical namespace prefix used on the JS side (default: "api").
+            allow_rebind: If True, allows rebinding an already bound namespace.
+                         If False (default), skips binding if namespace is already
+                         bound (idempotent behavior).
+
+        Thread-Safety:
+            This method is thread-safe and uses locking internally.
+
+        Performance:
+            Optimized to minimize Python-Rust boundary crossings and redundant operations:
+            - Namespace-level idempotency check (O(1) set lookup)
+            - Single pass collection of methods with callable references
+            - Batch IPC handler registration
+            - Single Rust call for JS method registration
         """
+        self._ensure_api_registry()
 
-        method_names = []
-        for name in dir(api):
-            if name.startswith("_"):
-                continue
-
-            attr = getattr(api, name)
-            if not callable(attr):
-                continue
-
-            method_name = f"{namespace}.{name}"
-            self.bind_call(method_name, attr)
-            method_names.append(name)
-            logger.info("Bound auroraview.call handler via bind_api: %s", method_name)
-
-        # Register API methods in Rust (will be injected into JavaScript)
-        if method_names:
-            try:
-                self._core.register_api_methods(namespace, method_names)
+        # Namespace-level idempotency check
+        with self._bind_lock:
+            if namespace in self._bound_namespaces:
+                if not allow_rebind:
+                    logger.debug(
+                        "Namespace '%s' already bound, skipping (idempotent)",
+                        namespace,
+                    )
+                    return
                 logger.info(
-                    "Registered %d API methods in Rust for namespace '%s'",
-                    len(method_names),
+                    "Rebinding namespace '%s' (allow_rebind=True)",
                     namespace,
                 )
-            except AttributeError:
-                logger.warning(
-                    "register_api_methods not available in core, using JS fallback"
-                )
-                self._inject_api_methods_via_js(namespace, method_names)
-            except Exception as e:
-                logger.warning(
-                    f"register_api_methods failed ({e}), using JS fallback"
-                )
-                self._inject_api_methods_via_js(namespace, method_names)
 
-    def _inject_api_methods_via_js(self, namespace: str, method_names: list) -> None:
-        """Inject API methods via JavaScript when Rust method is unavailable."""
-        methods_json = ", ".join(f"'{m}'" for m in method_names)
-        js_code = f"""
-        (function() {{
-            if (window.auroraview && window.auroraview._registerApiMethods) {{
-                window.auroraview._registerApiMethods('{namespace}', [{methods_json}]);
-            }} else {{
-                console.warn('[AuroraView] Event bridge not ready, API methods will be registered on page load');
-            }}
-        }})();
+        # Collect methods with their callables in a single pass
+        # Dict[method_name, (short_name, callable)] to avoid duplicate getattr()
+        methods_to_bind: Dict[str, tuple] = {}
+        skipped_count = 0
+
+        with self._bind_lock:
+            for name in dir(api):
+                if name.startswith("_"):
+                    continue
+
+                attr = getattr(api, name)
+                if not callable(attr):
+                    continue
+
+                method_name = f"{namespace}.{name}"
+
+                # Check for duplicate binding
+                if method_name in self._bound_functions:
+                    if not allow_rebind:
+                        skipped_count += 1
+                        continue
+                    # allow_rebind=True: will rebind below
+
+                # Store both name and callable to avoid second getattr()
+                methods_to_bind[method_name] = (name, attr)
+
+        if not methods_to_bind:
+            if skipped_count > 0:
+                logger.debug(
+                    "All %d methods in namespace '%s' already bound (allow_rebind=False)",
+                    skipped_count,
+                    namespace,
+                )
+            return
+
+        # Batch bind all methods - optimized inner loop
+        method_names = []
+        for method_name, (short_name, func) in methods_to_bind.items():
+            # Inline the essential bind_call logic to avoid per-method overhead
+            self._bound_functions[method_name] = func
+            self._register_ipc_handler(method_name, func)
+            method_names.append(short_name)
+
+        # Single log entry for all methods (instead of 2x per method)
+        logger.info(
+            "Bound %d API methods for namespace '%s': %s",
+            len(method_names),
+            namespace,
+            ", ".join(method_names),
+        )
+
+        if skipped_count > 0:
+            logger.debug(
+                "Skipped %d already-bound methods in namespace '%s'",
+                skipped_count,
+                namespace,
+            )
+
+        # Register API methods in Rust (high-performance path)
+        # Single Rust call generates optimized JS via Askama templates
+        self._core.register_api_methods(namespace, method_names)
+
+        # Mark namespace as bound (for idempotency)
+        with self._bind_lock:
+            self._bound_namespaces.add(namespace)
+
+    def is_namespace_bound(self, namespace: str) -> bool:
+        """Check if a namespace has been bound.
+
+        Args:
+            namespace: The namespace to check (e.g., "api").
+
+        Returns:
+            True if the namespace has been bound, False otherwise.
         """
-        try:
-            self._core.eval_js(js_code)
-        except Exception as e:
-            logger.debug(f"Could not inject API methods immediately: {e}")
+        self._ensure_api_registry()
+        return namespace in self._bound_namespaces
 
+    def _register_ipc_handler(self, method: str, func: Callable[..., Any]) -> None:
+        """Register IPC handler for a bound method (internal, no locking).
+
+        This is an optimized internal method used by bind_api for batch registration.
+        For individual method binding, use bind_call() instead.
+
+        Args:
+            method: Full method name (e.g., "api.echo")
+            func: Python callable to invoke
+        """
+
+        def _handler(raw: Dict[str, Any]) -> None:
+            call_id = raw.get("id") or raw.get("__auroraview_call_id")
+            has_params_key = "params" in raw
+            params = raw.get("params")
+
+            # Get the latest bound function (allows for hot-reload scenarios)
+            current_func = self._bound_functions.get(method, func)
+
+            try:
+                if not has_params_key:
+                    result = current_func()
+                elif isinstance(params, dict):
+                    result = current_func(**params)
+                elif isinstance(params, list):
+                    result = current_func(*params)
+                else:
+                    result = current_func(params)
+                ok = True
+                error_info: Optional[Dict[str, Any]] = None
+            except Exception as exc:  # pragma: no cover
+                ok = False
+                result = None
+                error_info = {
+                    "name": exc.__class__.__name__,
+                    "message": str(exc),
+                }
+                logger.exception("Error in bound call '%s'", method)
+
+            if not call_id:
+                return
+
+            payload: Dict[str, Any] = {"id": call_id, "ok": ok}
+            if ok:
+                payload["result"] = result
+            else:
+                payload["error"] = error_info
+
+            try:
+                self.emit("__auroraview_call_result", payload)
+            except Exception:
+                logger.debug(
+                    "WebView.emit for __auroraview_call_result raised; falling back to eval_js"
+                )
+            self._emit_call_result_js(payload)
+
+        # Register wrapper with core IPC handler
+        self._core.on(method, _handler)

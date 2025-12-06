@@ -620,4 +620,3 @@ mod tests {
         assert!(names.contains(&"event_b".to_string()));
     }
 }
-

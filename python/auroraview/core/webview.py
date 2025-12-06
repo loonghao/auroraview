@@ -14,16 +14,19 @@ except ImportError:  # pragma: no cover - only for py37
 
 # Import Mixin classes
 from auroraview.core.mixins import (
-    WebViewWindowMixin,
-    WebViewContentMixin,
-    WebViewJSMixin,
-    WebViewEventMixin,
     WebViewApiMixin,
+    WebViewContentMixin,
     WebViewDOMMixin,
+    WebViewEventMixin,
+    WebViewJSMixin,
+    WebViewWindowMixin,
 )
 
 if TYPE_CHECKING:
     from .bridge import Bridge
+    from .channel import Channel, ChannelManager
+    from .commands import CommandRegistry
+    from .state import State
 
 _CORE_IMPORT_ERROR = None
 try:
@@ -108,7 +111,7 @@ class WebView(
         auto_show: bool = True,
         ipc_batch_size: int = 0,
     ) -> None:
-        """Initialize the WebView.
+        r"""Initialize the WebView.
 
         Args:
             title: Window title
@@ -158,6 +161,7 @@ class WebView(
         """
         if _CoreWebView is None:
             import sys
+
             error_details = [
                 "AuroraView core library not found.",
                 f"Import error: {_CORE_IMPORT_ERROR}",
@@ -167,6 +171,7 @@ class WebView(
             # Check if _core.pyd exists in expected locations
             try:
                 import auroraview
+
                 pkg_dir = Path(auroraview.__file__).parent
                 pyd_path = pkg_dir / "_core.pyd"
                 so_path = pkg_dir / "_core.so"
@@ -286,6 +291,7 @@ class WebView(
         """
         if self._state is None:
             from .state import State
+
             self._state = State(self)
         return self._state
 
@@ -303,6 +309,7 @@ class WebView(
         """
         if self._commands is None:
             from .commands import CommandRegistry
+
             self._commands = CommandRegistry(self)
         return self._commands
 
@@ -347,6 +354,7 @@ class WebView(
         """
         if self._channels is None:
             from .channel import ChannelManager
+
             self._channels = ChannelManager(self)
         return self._channels
 

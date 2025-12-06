@@ -356,6 +356,44 @@ webview.load_html("<html><body><h1>你好,来自 Qt!</h1></body></html>")
 webview.show()
 ```
 
+#### WebView2 预热（自动）
+
+`QtWebView` 在首次实例化时自动预热 WebView2，将后续创建时间减少约 50%。无需手动设置：
+
+```python
+from auroraview.integration.qt import QtWebView
+
+# 首个 QtWebView 自动触发预热
+webview = QtWebView(parent=maya_main_window())
+webview.load_url("http://localhost:3000")
+webview.show()
+```
+
+**高级用户** 如需显式控制预热时机：
+
+```python
+from auroraview.integration.qt import WebViewPool, QtWebView
+
+# 在 DCC 启动时显式预热（如在 userSetup.py 中）
+WebViewPool.prewarm()
+
+# 检查预热状态
+if WebViewPool.has_prewarmed():
+    print(f"预热耗时 {WebViewPool.get_prewarm_time():.2f}s")
+
+# 使用显式控制时禁用自动预热
+webview = QtWebView(parent=maya_main_window(), auto_prewarm=False)
+
+# 完成后清理（可选，退出时自动调用）
+WebViewPool.cleanup()
+```
+
+**优势：**
+- ✅ 首个 `QtWebView` 创建时自动预热
+- ✅ WebView 创建时间减少约 50%
+- ✅ 线程安全且幂等（可安全多次调用）
+- ✅ 应用退出时自动清理
+
 **何时使用 Qt 后端:**
 - [OK] 你的 DCC 已经加载了 Qt (Maya, Houdini, Nuke)
 - [OK] 你想要无缝的 Qt widget 集成
@@ -900,7 +938,6 @@ uvx nox -s pytest-all
   - 需要安装 Qt 依赖
   - 测试 QtWebView 实例化和方法
   - 测试事件处理和 JavaScript 集成
-  - 验证与 AuroraViewQt 别名的向后兼容性
 
 **可用的 Nox 会话**：
 

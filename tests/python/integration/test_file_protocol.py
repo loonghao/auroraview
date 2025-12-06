@@ -270,7 +270,7 @@ class TestFileProtocolEdgeCases:
 
     def test_path_to_file_url_with_path_object(self):
         """Test path_to_file_url accepts Path objects."""
-        from auroraview.file_protocol import path_to_file_url
+        from auroraview.utils.file_protocol import path_to_file_url
 
         path = Path("test.txt")
         result = path_to_file_url(path)
@@ -280,7 +280,7 @@ class TestFileProtocolEdgeCases:
 
     def test_path_to_file_url_with_string(self):
         """Test path_to_file_url accepts strings."""
-        from auroraview.file_protocol import path_to_file_url
+        from auroraview.utils.file_protocol import path_to_file_url
 
         result = path_to_file_url("test.txt")
 
@@ -289,7 +289,7 @@ class TestFileProtocolEdgeCases:
 
     def test_path_to_file_url_unicode_path(self):
         """Test path_to_file_url handles unicode characters."""
-        from auroraview.file_protocol import path_to_file_url
+        from auroraview.utils.file_protocol import path_to_file_url
 
         # Test with unicode filename
         result = path_to_file_url("测试文件.txt")
@@ -299,7 +299,7 @@ class TestFileProtocolEdgeCases:
 
     def test_path_to_file_url_special_characters(self):
         """Test path_to_file_url handles special characters."""
-        from auroraview.file_protocol import path_to_file_url
+        from auroraview.utils.file_protocol import path_to_file_url
 
         # Test with special characters (parentheses, brackets)
         result = path_to_file_url("file (1) [copy].txt")
@@ -401,3 +401,86 @@ class TestFileProtocolEdgeCases:
         # Placeholder should be replaced
         assert "{{IMAGE_PATH}}" not in result
         assert "test.png" in result
+
+
+class TestAuroraViewUrlConversion:
+    """Test auroraview URL conversion functions."""
+
+    def test_path_to_auroraview_url_windows(self):
+        """Test path_to_auroraview_url with Windows path."""
+        from auroraview.utils.file_protocol import path_to_auroraview_url
+
+        if os.name != "nt":
+            pytest.skip("Windows-specific test")
+
+        result = path_to_auroraview_url("C:/icons/maya.svg")
+        assert result.startswith("https://auroraview.localhost/file/")
+        assert "icons" in result
+        assert "maya.svg" in result
+        # Should not have double slashes
+        assert "///" not in result
+
+    def test_path_to_auroraview_url_relative(self):
+        """Test path_to_auroraview_url with relative path."""
+        from auroraview.utils.file_protocol import path_to_auroraview_url
+
+        result = path_to_auroraview_url("icons/maya.svg")
+        assert result.startswith("https://auroraview.localhost/file/")
+        assert "maya.svg" in result
+
+    def test_file_url_to_auroraview_url_basic(self):
+        """Test file_url_to_auroraview_url with basic file URL."""
+        from auroraview.utils.file_protocol import file_url_to_auroraview_url
+
+        result = file_url_to_auroraview_url("file:///C:/icons/maya.svg")
+        assert result == "https://auroraview.localhost/file/C:/icons/maya.svg"
+
+    def test_file_url_to_auroraview_url_unix(self):
+        """Test file_url_to_auroraview_url with Unix file URL."""
+        from auroraview.utils.file_protocol import file_url_to_auroraview_url
+
+        result = file_url_to_auroraview_url("file:///home/user/icons/maya.svg")
+        assert result == "https://auroraview.localhost/file/home/user/icons/maya.svg"
+
+    def test_file_url_to_auroraview_url_double_slash(self):
+        """Test file_url_to_auroraview_url with file:// (2 slashes)."""
+        from auroraview.utils.file_protocol import file_url_to_auroraview_url
+
+        result = file_url_to_auroraview_url("file://C:/icons/maya.svg")
+        assert result == "https://auroraview.localhost/file/C:/icons/maya.svg"
+
+    def test_file_url_to_auroraview_url_not_file_url(self):
+        """Test file_url_to_auroraview_url with non-file URL."""
+        from auroraview.utils.file_protocol import file_url_to_auroraview_url
+
+        # Should return unchanged
+        result = file_url_to_auroraview_url("https://example.com/test.svg")
+        assert result == "https://example.com/test.svg"
+
+    def test_file_url_to_auroraview_url_http(self):
+        """Test file_url_to_auroraview_url with HTTP URL."""
+        from auroraview.utils.file_protocol import file_url_to_auroraview_url
+
+        result = file_url_to_auroraview_url("http://localhost/test.svg")
+        assert result == "http://localhost/test.svg"
+
+    def test_internal_normalize_path(self):
+        """Test _normalize_path helper function."""
+        from auroraview.utils.file_protocol import _normalize_path
+
+        result = _normalize_path("test.txt")
+        # Should be absolute with forward slashes
+        assert "/" in result
+        assert "\\" not in result
+        assert "test.txt" in result
+
+    def test_internal_extract_path_from_file_url(self):
+        """Test _extract_path_from_file_url helper function."""
+        from auroraview.utils.file_protocol import _extract_path_from_file_url
+
+        # Test with 3 slashes
+        assert _extract_path_from_file_url("file:///C:/test.txt") == "C:/test.txt"
+        # Test with 2 slashes
+        assert _extract_path_from_file_url("file://C:/test.txt") == "C:/test.txt"
+        # Test non-file URL returns None
+        assert _extract_path_from_file_url("https://example.com") is None

@@ -174,4 +174,3 @@ class NullHandler(logging.Handler):
 
 # Add NullHandler to root auroraview logger to prevent "No handler found" warnings
 logging.getLogger("auroraview").addHandler(NullHandler())
-

@@ -2,7 +2,7 @@
 //!
 //! These tests verify the LifecycleManager functionality across different scenarios.
 
-use auroraview::webview::lifecycle::{CloseReason, LifecycleManager, LifecycleState};
+use _core::webview::lifecycle::{CloseReason, LifecycleManager, LifecycleState};
 use rstest::*;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},

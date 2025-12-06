@@ -3,8 +3,8 @@
 //! These tests verify the WebViewConfig and WebViewBuilder functionality.
 
 #[cfg(target_os = "windows")]
-use auroraview::webview::config::EmbedMode;
-use auroraview::webview::config::{WebViewBuilder, WebViewConfig};
+use _core::webview::config::EmbedMode;
+use _core::webview::config::{WebViewBuilder, WebViewConfig};
 use rstest::*;
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -129,6 +129,31 @@ pub fn get_zoom_api_js() -> String {
 // Core Bridge Scripts
 // ========================================
 
+/// Get the bridge stub JavaScript code
+///
+/// This stub creates a minimal window.auroraview namespace before the full
+/// event bridge is loaded. Use this in DCC environments where timing may vary.
+///
+/// The stub:
+/// - Creates a placeholder `window.auroraview` with queuing support
+/// - Queues any `call()`, `send_event()`, `on()` calls made before bridge init
+/// - Provides `whenReady()` Promise API for safe async initialization
+/// - Automatically replays queued calls when real bridge initializes
+///
+/// # Example
+///
+/// ```javascript
+/// // In DCC frontend code (before bridge is ready)
+/// window.auroraview.whenReady().then(function(av) {
+///     av.call('api.myMethod', { param: 'value' });
+/// });
+/// ```
+pub fn get_bridge_stub_js() -> String {
+    Assets::get("js/core/bridge_stub.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
 /// Get the state bridge JavaScript code
 pub fn get_state_bridge_js() -> String {
     Assets::get("js/core/state_bridge.js")
@@ -148,6 +173,32 @@ pub fn get_channel_bridge_js() -> String {
     Assets::get("js/core/channel_bridge.js")
         .map(|f| String::from_utf8_lossy(&f.data).to_string())
         .unwrap_or_default()
+}
+
+// ========================================
+// Plugin Scripts
+// ========================================
+
+/// Get the file system plugin JavaScript code
+pub fn get_fs_plugin_js() -> String {
+    Assets::get("js/plugins/fs.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get all plugin JavaScript code concatenated
+pub fn get_all_plugins_js() -> String {
+    let mut scripts = Vec::new();
+
+    // Add file system plugin
+    let fs_js = get_fs_plugin_js();
+    if !fs_js.is_empty() {
+        scripts.push(fs_js);
+    }
+
+    // Future plugins will be added here
+
+    scripts.join("\n\n")
 }
 
 // ========================================

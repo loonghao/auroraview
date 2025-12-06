@@ -1,7 +1,5 @@
 """Tests for the WebViewSettings module."""
 
-import pytest
-
 from auroraview.core.settings import DEFAULT_SETTINGS, WebViewSettings
 
 
@@ -131,4 +129,3 @@ class TestSettingsImport:
 
         assert WebViewSettings is not None
         assert DEFAULT_SETTINGS is not None
-
