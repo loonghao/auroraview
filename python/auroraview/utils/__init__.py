@@ -24,7 +24,13 @@ from .automation import (
     SteelBrowserBackend,
 )
 from .event_timer import EventTimer
-from .file_protocol import path_to_file_url, prepare_html_with_local_assets
+from .file_protocol import (
+    file_url_to_auroraview_url,
+    get_auroraview_entry_url,
+    path_to_auroraview_url,
+    path_to_file_url,
+    prepare_html_with_local_assets,
+)
 from .logging import configure_logging, get_logger, is_verbose_enabled
 from .timer_backends import (
     QtTimerBackend,
@@ -54,6 +60,9 @@ __all__ = [
     "list_registered_backends",
     # File Protocol
     "path_to_file_url",
+    "path_to_auroraview_url",
+    "file_url_to_auroraview_url",
+    "get_auroraview_entry_url",
     "prepare_html_with_local_assets",
     # Automation
     "Automation",
@@ -71,4 +80,3 @@ __all__ = [
     "logging",
     "timer_backends",
 ]
-

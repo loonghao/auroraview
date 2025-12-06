@@ -1,7 +1,6 @@
 """Tests for window events module."""
 
 import pytest
-from unittest.mock import MagicMock
 
 
 class TestWindowEvent:
@@ -86,14 +85,16 @@ class TestWindowEventData:
         """Test WindowEventData with values."""
         from auroraview.core.events import WindowEventData
 
-        data = WindowEventData({
-            "url": "https://example.com",
-            "width": 800,
-            "height": 600,
-            "x": 100,
-            "y": 50,
-            "focused": True,
-        })
+        data = WindowEventData(
+            {
+                "url": "https://example.com",
+                "width": 800,
+                "height": 600,
+                "x": 100,
+                "y": 50,
+                "focused": True,
+            }
+        )
 
         assert data.url == "https://example.com"
         assert data.width == 800
@@ -321,4 +322,3 @@ class TestWebViewProperties:
         from auroraview.core.webview import WebView
 
         assert hasattr(WebView, "y")
-

@@ -2,7 +2,7 @@
 //!
 //! These tests verify timer behavior with actual time delays and threading.
 
-use auroraview::webview::timer::Timer;
+use _core::webview::timer::Timer;
 use rstest::*;
 use std::thread;
 use std::time::Duration;

@@ -23,8 +23,8 @@ from __future__ import annotations
 import logging
 import threading
 import warnings
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +81,16 @@ class WindowEvent:
     """
 
     event_type: Literal[
-        "show", "hide", "focus", "blur", "resize", "move",
-        "minimize", "maximize", "restore", "fullscreen"
+        "show",
+        "hide",
+        "focus",
+        "blur",
+        "resize",
+        "move",
+        "minimize",
+        "maximize",
+        "restore",
+        "fullscreen",
     ]
     width: Optional[int] = None
     height: Optional[int] = None
@@ -220,9 +228,7 @@ class EventEmitter:
             else:
                 # Remove specific handler
                 self._listeners[event] = [
-                    listener
-                    for listener in self._listeners[event]
-                    if listener.handler != handler
+                    listener for listener in self._listeners[event] if listener.handler != handler
                 ]
                 if not self._listeners[event]:
                     del self._listeners[event]
@@ -300,9 +306,7 @@ class EventEmitter:
         with self._lock:
             return list(self._listeners.keys())
 
-    def _add_listener(
-        self, event: str, handler: EventHandler, once: bool
-    ) -> UnsubscribeFunc:
+    def _add_listener(self, event: str, handler: EventHandler, once: bool) -> UnsubscribeFunc:
         """Internal method to add a listener.
 
         Args:
@@ -347,4 +351,3 @@ def deprecated(message: str) -> Callable:
         return wrapper
 
     return decorator
-

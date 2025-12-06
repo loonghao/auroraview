@@ -118,7 +118,7 @@ pub fn register_ipc_metrics(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ipc::metrics::IpcMetricsSnapshot;
+    use crate::ipc::IpcMetricsSnapshot;
 
     #[test]
     fn test_py_ipc_metrics_from_snapshot() {

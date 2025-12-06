@@ -515,76 +515,6 @@ impl WebViewInner {
 
         tracing::info!("Event loop exited");
     }
-
-    /// Set window position
-    ///
-    /// Moves the window to the specified screen coordinates.
-    /// This is useful for implementing custom window dragging in frameless windows.
-    ///
-    /// # Arguments
-    /// * `x` - X coordinate in screen pixels
-    /// * `y` - Y coordinate in screen pixels
-    ///
-    /// # Platform-specific behavior
-    /// - Windows: Uses SetWindowPos API
-    /// - macOS/Linux: Uses platform-specific window positioning
-    pub fn set_window_position(&self, x: i32, y: i32) {
-        if let Some(window) = &self.window {
-            #[cfg(target_os = "windows")]
-            {
-                use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-                use std::ffi::c_void;
-                use windows::Win32::Foundation::HWND;
-                use windows::Win32::UI::WindowsAndMessaging::{
-                    SetWindowPos, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER,
-                };
-
-                if let Ok(window_handle) = window.window_handle() {
-                    let raw_handle = window_handle.as_raw();
-                    if let RawWindowHandle::Win32(handle) = raw_handle {
-                        let hwnd_value = handle.hwnd.get();
-                        let hwnd = HWND(hwnd_value as *mut c_void);
-
-                        unsafe {
-                            let result = SetWindowPos(
-                                hwnd,
-                                None,
-                                x,
-                                y,
-                                0,
-                                0,
-                                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
-                            );
-
-                            if result.is_ok() {
-                                tracing::debug!(
-                                    "[OK] [set_window_position] Window moved to ({}, {})",
-                                    x,
-                                    y
-                                );
-                            } else {
-                                tracing::error!(
-                                    "[ERROR] [set_window_position] Failed to move window to ({}, {})",
-                                    x,
-                                    y
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-
-            #[cfg(not(target_os = "windows"))]
-            {
-                use tao::dpi::PhysicalPosition;
-                window.set_outer_position(PhysicalPosition::new(x, y));
-                tracing::debug!("[OK] [set_window_position] Window moved to ({}, {})", x, y);
-            }
-        } else {
-            tracing::warn!("[WARNING] [set_window_position] No window available");
-        }
-    }
-
     /// Set whether the window should always be on top of other windows.
     ///
     /// # Arguments
@@ -726,6 +656,7 @@ impl WebViewInner {
     /// Useful for detecting when a window has been closed externally.
     ///
     /// Returns true if the window is valid, false otherwise.
+    #[allow(dead_code)] // Part of BOM API, exposed to Python bindings
     pub fn is_window_valid(&self) -> bool {
         #[cfg(target_os = "windows")]
         {
@@ -1136,15 +1067,6 @@ impl WebViewInner {
         Ok(false)
     }
 
-    /// Reload current page
-    pub fn reload(&self) -> Result<(), Box<dyn std::error::Error>> {
-        if let Ok(webview) = self.webview.lock() {
-            webview.evaluate_script(auroraview_core::bom::js::RELOAD)?;
-            tracing::debug!("[BOM] reload() executed");
-        }
-        Ok(())
-    }
-
     /// Check if page is currently loading
     ///
     /// Note: This triggers a JS execution to check the current loading state.
@@ -1465,23 +1387,8 @@ impl WebViewInner {
         }
     }
 
-    /// Resize window
-    pub fn resize(&self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
-        self.set_size(width, height)
-    }
-
-    /// Move window to specified position
-    pub fn move_to(&self, x: i32, y: i32) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(window) = &self.window {
-            window.set_outer_position(tao::dpi::PhysicalPosition::new(x, y));
-            tracing::debug!("[BOM] move_to({}, {}) executed", x, y);
-            Ok(())
-        } else {
-            Err("Window not available".into())
-        }
-    }
-
     /// Toggle fullscreen mode
+    #[allow(dead_code)] // Part of BOM API, will be exposed to Python bindings
     pub fn toggle_fullscreen(&self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(window) = &self.window {
             let is_fullscreen = window.fullscreen().is_some();
@@ -1501,11 +1408,13 @@ impl WebViewInner {
     }
 
     /// Hide window
+    #[allow(dead_code)] // Part of BOM API, will be exposed to Python bindings
     pub fn hide(&self) -> Result<(), Box<dyn std::error::Error>> {
         self.set_visible(false)
     }
 
     /// Show window and request focus
+    #[allow(dead_code)] // Part of BOM API, will be exposed to Python bindings
     pub fn focus(&self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(window) = &self.window {
             window.set_visible(true);

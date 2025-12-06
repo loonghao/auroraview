@@ -236,10 +236,20 @@ mod tests {
             ipc_batch_size: 100,
             ipc_batch_interval_ms: 16,
             asset_root: asset_root.map(PathBuf::from),
+            data_directory: None,
             custom_protocols: std::collections::HashMap::new(),
             api_methods: std::collections::HashMap::new(),
             allow_new_window: false,
             allow_file_protocol: false,
+            auto_show: true,
+            content_security_policy: None,
+            cors_allowed_origins: Vec::new(),
+            allow_clipboard: false,
+            allow_geolocation: false,
+            allow_notifications: false,
+            allow_media_devices: false,
+            block_external_navigation: false,
+            allowed_navigation_domains: Vec::new(),
         };
 
         assert_eq!(config.asset_root, Some(PathBuf::from("/tmp/assets")));
@@ -268,10 +278,20 @@ mod tests {
             ipc_batch_size: 100,
             ipc_batch_interval_ms: 16,
             asset_root: asset_root.map(PathBuf::from),
+            data_directory: None,
             custom_protocols: std::collections::HashMap::new(),
             api_methods: std::collections::HashMap::new(),
             allow_new_window: false,
             allow_file_protocol: false,
+            auto_show: true,
+            content_security_policy: None,
+            cors_allowed_origins: Vec::new(),
+            allow_clipboard: false,
+            allow_geolocation: false,
+            allow_notifications: false,
+            allow_media_devices: false,
+            block_external_navigation: false,
+            allowed_navigation_domains: Vec::new(),
         };
 
         assert_eq!(config.asset_root, None);

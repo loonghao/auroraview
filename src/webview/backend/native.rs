@@ -643,7 +643,7 @@ impl NativeBackend {
                     // For Container mode (Qt integration), apply anti-flicker optimizations
                     // This prevents the window from being visible before Qt's createWindowContainer
                     if matches!(config.embed_mode, EmbedMode::Container) {
-                        Self::apply_anti_flicker_optimizations(hwnd_value as isize);
+                        Self::apply_anti_flicker_optimizations(hwnd_value);
                     }
                 }
             }

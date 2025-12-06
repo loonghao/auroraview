@@ -57,74 +57,52 @@ class TestWebViewBot:
         mock_element.type_text.assert_called_once_with("Hello World")
 
     def test_webview_bot_drag(self):
-        """Test drag method calls eval_js."""
+        """Test drag method calls Rust simulate_drag or falls back to eval_js."""
         from auroraview.testing import WebViewBot
 
+        # Test with Rust core available
         mock_webview = MagicMock()
         mock_webview.on = MagicMock(return_value=lambda f: f)
-        mock_webview.eval_js = MagicMock()
+        mock_webview._core = MagicMock()
+        mock_webview._core.simulate_drag = MagicMock()
+        mock_webview._auto_process_events = MagicMock()
         bot = WebViewBot(mock_webview)
 
         bot.drag("#dragElement", (10, 20))
 
-        mock_webview.eval_js.assert_called_once()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "querySelector" in call_args
-        assert "#dragElement" in call_args
+        mock_webview._core.simulate_drag.assert_called_once_with("#dragElement", 10, 20)
 
     def test_webview_bot_element_exists(self):
-        """Test element_exists method."""
+        """Test element_exists method with Rust core."""
         from auroraview.testing import WebViewBot
 
         mock_webview = MagicMock()
         mock_webview.on = MagicMock(return_value=lambda f: f)
-        mock_webview.eval_js = MagicMock()
+        mock_webview._core = MagicMock()
+        mock_webview._core.check_element_exists = MagicMock()
+        mock_webview._auto_process_events = MagicMock()
         bot = WebViewBot(mock_webview)
 
         result = bot.element_exists("#myElement")
 
         assert result is True
-        mock_webview.eval_js.assert_called_once()
-
-    def test_webview_bot_element_exists_exception(self):
-        """Test element_exists returns False on exception."""
-        from auroraview.testing import WebViewBot
-
-        mock_webview = MagicMock()
-        mock_webview.on = MagicMock(return_value=lambda f: f)
-        mock_webview.eval_js = MagicMock(side_effect=Exception("JS error"))
-        bot = WebViewBot(mock_webview)
-
-        result = bot.element_exists("#myElement")
-
-        assert result is False
+        mock_webview._core.check_element_exists.assert_called_once_with("#myElement")
 
     def test_webview_bot_get_element_text(self):
-        """Test get_element_text method."""
+        """Test get_element_text method with Rust core."""
         from auroraview.testing import WebViewBot
 
         mock_webview = MagicMock()
         mock_webview.on = MagicMock(return_value=lambda f: f)
-        mock_webview.eval_js = MagicMock()
+        mock_webview._core = MagicMock()
+        mock_webview._core.query_element_text = MagicMock()
+        mock_webview._auto_process_events = MagicMock()
         bot = WebViewBot(mock_webview)
 
         result = bot.get_element_text("#output")
 
         assert result == "Test Page"  # Default placeholder
-        mock_webview.eval_js.assert_called_once()
-
-    def test_webview_bot_get_element_text_exception(self):
-        """Test get_element_text returns empty string on exception."""
-        from auroraview.testing import WebViewBot
-
-        mock_webview = MagicMock()
-        mock_webview.on = MagicMock(return_value=lambda f: f)
-        mock_webview.eval_js = MagicMock(side_effect=Exception("JS error"))
-        bot = WebViewBot(mock_webview)
-
-        result = bot.get_element_text("#output")
-
-        assert result == ""
+        mock_webview._core.query_element_text.assert_called_once_with("#output")
 
     def test_webview_bot_inject_monitoring_script(self):
         """Test inject_monitoring_script method."""

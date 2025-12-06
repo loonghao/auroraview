@@ -26,6 +26,41 @@ declare global {
  */
 export interface AuroraViewAPI {
   // ============================================
+  // Ready State (for DCC environments)
+  // ============================================
+
+  /**
+   * Internal ready state flag
+   * True when bridge is fully initialized
+   */
+  readonly _ready: boolean;
+
+  /**
+   * Internal stub marker
+   * True if this is a stub placeholder (bridge not yet loaded)
+   */
+  readonly _isStub?: boolean;
+
+  /**
+   * Check if bridge is ready (synchronous)
+   * @returns True if bridge is fully initialized
+   */
+  isReady(): boolean;
+
+  /**
+   * Wait for event bridge to be ready
+   * Use this in DCC environments where initialization timing may vary.
+   *
+   * @example
+   * window.auroraview.whenReady().then(function(av) {
+   *     av.call('api.myMethod', { param: 'value' });
+   * });
+   *
+   * @returns Promise that resolves with window.auroraview when ready
+   */
+  whenReady(): Promise<AuroraViewAPI>;
+
+  // ============================================
   // Event System
   // ============================================
 

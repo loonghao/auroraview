@@ -2,7 +2,7 @@
 //!
 //! These tests verify the high-performance JSON functionality.
 
-use auroraview::ipc::json;
+use _core::ipc::json;
 use rstest::*;
 use serde_json::json;
 

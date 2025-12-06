@@ -62,6 +62,8 @@ pub use json::{json_to_python, python_to_json};
 
 /// Helper function to convert Python dict to JSON value
 #[cfg(feature = "python-bindings")]
-pub fn dict_to_json(dict: &pyo3::Bound<'_, pyo3::types::PyDict>) -> pyo3::PyResult<serde_json::Value> {
+pub fn dict_to_json(
+    dict: &pyo3::Bound<'_, pyo3::types::PyDict>,
+) -> pyo3::PyResult<serde_json::Value> {
     python_to_json(dict.as_any())
 }

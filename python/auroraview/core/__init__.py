@@ -36,6 +36,7 @@ from .event_emitter import (
 )
 from .events import EventHandler, WindowEvent, WindowEventData
 from .settings import DEFAULT_SETTINGS, WebViewSettings
+from .signals import ConnectionGuard, ConnectionId, Signal, SignalRegistry, WebViewSignals
 from .state import State
 from .webview import WebView
 
@@ -76,6 +77,12 @@ __all__ = [
     "deprecated",
     # State
     "State",
+    # Signals (Qt-inspired)
+    "Signal",
+    "SignalRegistry",
+    "ConnectionId",
+    "ConnectionGuard",
+    "WebViewSignals",
     # Commands
     "CommandRegistry",
     "CommandError",
@@ -94,4 +101,3 @@ __all__ = [
     "state",
     "webview",
 ]
-

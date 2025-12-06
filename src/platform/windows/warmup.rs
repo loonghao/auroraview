@@ -379,7 +379,8 @@ mod tests {
     #[test]
     fn test_get_warmup_status() {
         let status = get_warmup_status();
-        // Initial state should be not complete
-        assert!(!status.initiated || status.complete || !status.complete);
+        // Initial state: either not initiated, or if initiated, may or may not be complete
+        // The assertion just checks that the status struct is valid
+        assert!(!status.initiated || status.complete);
     }
 }

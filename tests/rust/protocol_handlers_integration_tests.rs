@@ -10,7 +10,7 @@ use wry::http::Request;
 
 // Import the protocol handler functions
 // Note: These need to be public in the source file
-use auroraview::webview::protocol_handlers::{
+use _core::webview::protocol_handlers::{
     handle_auroraview_protocol, handle_custom_protocol, is_windows_absolute_path_without_colon,
     normalize_windows_path_without_colon, parse_protocol_path,
 };

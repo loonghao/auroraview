@@ -3,7 +3,7 @@
 //! These tests verify the complete batch processing functionality including
 //! message batching, flush conditions, and Python callback integration.
 
-use auroraview::ipc::batch::{BatchedCallback, BatchedMessage, MessageBatch};
+use _core::ipc::batch::{BatchedCallback, BatchedMessage, MessageBatch};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use rstest::*;

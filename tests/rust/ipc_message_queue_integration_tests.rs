@@ -3,8 +3,8 @@
 //! These tests verify the complete message queue functionality including
 //! push/pop operations, backpressure handling, and retry logic.
 
-use auroraview::ipc::message_queue::{MessageQueue, MessageQueueConfig};
-use auroraview::ipc::WebViewMessage;
+use _core::ipc::message_queue::{MessageQueue, MessageQueueConfig};
+use _core::ipc::WebViewMessage;
 use rstest::*;
 
 #[fixture]
@@ -14,6 +14,7 @@ fn small_queue_no_retry() -> MessageQueue {
         block_on_full: false,
         max_retries: 0,
         retry_delay_ms: 1,
+        batch_interval_ms: 0,
     };
     MessageQueue::with_config(cfg)
 }
@@ -25,6 +26,7 @@ fn small_queue_with_retry() -> MessageQueue {
         block_on_full: false,
         max_retries: 1,
         retry_delay_ms: 1,
+        batch_interval_ms: 0,
     };
     MessageQueue::with_config(cfg)
 }
@@ -89,6 +91,7 @@ fn test_message_queue_creation() {
         block_on_full: false,
         max_retries: 3,
         retry_delay_ms: 10,
+        batch_interval_ms: 16,
     };
     let q = MessageQueue::with_config(cfg);
 

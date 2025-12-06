@@ -95,6 +95,7 @@ impl EventLoopState {
 
     /// Set the IPC handler for Python callbacks
     #[cfg(feature = "python-bindings")]
+    #[allow(dead_code)]
     pub fn set_ipc_handler(&mut self, handler: Arc<IpcHandler>) {
         self.ipc_handler = Some(handler);
     }

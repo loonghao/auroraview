@@ -140,7 +140,7 @@ pub fn get_warmup_stage() -> String {
 ///         - user_data_folder: Optional[str] - Path to shared user data folder
 #[pyfunction]
 pub fn get_warmup_status() -> pyo3::Py<pyo3::types::PyDict> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let dict = pyo3::types::PyDict::new(py);
 
         #[cfg(target_os = "windows")]

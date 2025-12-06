@@ -7,12 +7,18 @@ This module provides a unified API for handling differences between:
 
 The main purpose is to ensure consistent WebView embedding behavior
 across different DCC applications that may use different Qt versions.
+
+Platform-specific implementations are in the `platforms/` subdirectory:
+- platforms/base.py: Abstract interface definitions
+- platforms/win.py: Windows implementation (Win32 API)
+- platforms/__init__.py: Platform detection and backend selection
 """
 
 import logging
 import os
-import sys
 from typing import Any, Optional, Tuple
+
+from auroraview.integration.qt.platforms import get_backend
 
 logger = logging.getLogger(__name__)
 
@@ -73,39 +79,9 @@ def is_pyqt() -> bool:
     return _QT_BINDING in ("PyQt5", "PyQt6")
 
 
-if sys.platform == "win32":
-    import ctypes
-    from ctypes import wintypes
-
-    user32 = ctypes.windll.user32
-
-    # Configure SetParent function signature
-    user32.SetParent.argtypes = [wintypes.HWND, wintypes.HWND]
-    user32.SetParent.restype = wintypes.HWND
-
-    # Window style constants
-    GWL_STYLE = -16
-    GWL_EXSTYLE = -20
-    WS_CHILD = 0x40000000
-    WS_POPUP = 0x80000000
-    WS_CAPTION = 0x00C00000
-    WS_THICKFRAME = 0x00040000
-    WS_MINIMIZEBOX = 0x00020000
-    WS_MAXIMIZEBOX = 0x00010000
-    WS_SYSMENU = 0x00080000
-    WS_EX_WINDOWEDGE = 0x00000100
-    WS_EX_CLIENTEDGE = 0x00000200
-    WS_EX_APPWINDOW = 0x00040000
-    WS_EX_TOOLWINDOW = 0x00000080
-    SWP_FRAMECHANGED = 0x0020
-    SWP_NOMOVE = 0x0002
-    SWP_NOSIZE = 0x0001
-    SWP_NOZORDER = 0x0004
-    SWP_NOACTIVATE = 0x0010
-
-    # Clipping styles for reducing flicker
-    WS_CLIPCHILDREN = 0x02000000
-    WS_CLIPSIBLINGS = 0x04000000
+# =============================================================================
+# Platform-specific window operations (delegated to platform backend)
+# =============================================================================
 
 
 def apply_clip_styles_to_parent(parent_hwnd: int) -> bool:
@@ -120,56 +96,20 @@ def apply_clip_styles_to_parent(parent_hwnd: int) -> bool:
     Returns:
         True if successful, False otherwise.
     """
-    if sys.platform != "win32":
-        return False
-
-    try:
-        style = user32.GetWindowLongW(parent_hwnd, GWL_STYLE)
-        new_style = style | WS_CLIPCHILDREN | WS_CLIPSIBLINGS
-
-        if new_style != style:
-            user32.SetWindowLongW(parent_hwnd, GWL_STYLE, new_style)
-            user32.SetWindowPos(
-                parent_hwnd,
-                None,
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
-            )
-            if _VERBOSE_LOGGING:
-                logger.debug(f"[Qt Compat] Applied clip styles to parent HWND 0x{parent_hwnd:X}")
-        return True
-
-    except Exception as e:
-        if _VERBOSE_LOGGING:
-            logger.debug(f"[Qt Compat] Failed to apply clip styles: {e}")
-        return False
+    return get_backend().apply_clip_styles_to_parent(parent_hwnd)
 
 
 def prepare_hwnd_for_container(hwnd: int) -> bool:
     """Prepare a native HWND for Qt's createWindowContainer.
 
-    This function applies all necessary Win32 style modifications to make
-    a native window work properly with Qt's createWindowContainer.
-    It consolidates all border removal and child window setup into a single
-    SetWindowPos call to minimize flicker and improve performance.
+    This function applies all necessary platform-specific style modifications
+    to make a native window work properly with Qt's createWindowContainer.
 
-    Qt6 is stricter about window styles, so we need to be aggressive
-    about removing styles that can cause issues.
-
-    Styles removed:
-    - WS_POPUP, WS_CAPTION, WS_THICKFRAME (frame styles)
-    - WS_BORDER, WS_DLGFRAME (border styles)
-    - WS_SYSMENU, WS_MINIMIZEBOX, WS_MAXIMIZEBOX (system menu)
-    - WS_OVERLAPPEDWINDOW (overlapped window composite)
-    - WS_EX_WINDOWEDGE, WS_EX_CLIENTEDGE, WS_EX_STATICEDGE (extended border)
-    - WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_EX_DLGMODALFRAME (app styles)
-
-    Styles added:
-    - WS_CHILD (required for container embedding)
-    - WS_CLIPSIBLINGS (reduces flicker)
+    On Windows:
+    - Removes all frame/border styles (WS_POPUP, WS_CAPTION, WS_THICKFRAME, etc.)
+    - Adds WS_CHILD style (required for container embedding)
+    - Adds WS_CLIPSIBLINGS (reduces flicker)
+    - Removes extended styles that can cause issues
 
     Args:
         hwnd: The native window handle (HWND) to prepare.
@@ -177,77 +117,7 @@ def prepare_hwnd_for_container(hwnd: int) -> bool:
     Returns:
         True if successful, False otherwise.
     """
-    if sys.platform != "win32":
-        return False
-
-    try:
-        # Additional window style constants for comprehensive border removal
-        WS_BORDER = 0x00800000
-        WS_DLGFRAME = 0x00400000
-        WS_OVERLAPPEDWINDOW = 0x00CF0000
-        WS_EX_STATICEDGE = 0x00020000
-        WS_EX_DLGMODALFRAME = 0x00000001
-
-        # Get current styles
-        style = user32.GetWindowLongW(hwnd, GWL_STYLE)
-        ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-
-        old_style = style
-        old_ex_style = ex_style
-
-        # Remove all frame/border styles (comprehensive)
-        style &= ~(
-            WS_POPUP
-            | WS_CAPTION
-            | WS_THICKFRAME
-            | WS_MINIMIZEBOX
-            | WS_MAXIMIZEBOX
-            | WS_SYSMENU
-            | WS_BORDER
-            | WS_DLGFRAME
-            | WS_OVERLAPPEDWINDOW
-        )
-
-        # Add WS_CHILD - critical for proper embedding
-        # Also add WS_CLIPSIBLINGS for child window
-        style |= WS_CHILD | WS_CLIPSIBLINGS
-
-        # Remove extended styles that can cause issues (comprehensive)
-        ex_style &= ~(
-            WS_EX_WINDOWEDGE
-            | WS_EX_CLIENTEDGE
-            | WS_EX_APPWINDOW
-            | WS_EX_TOOLWINDOW
-            | WS_EX_STATICEDGE
-            | WS_EX_DLGMODALFRAME
-        )
-
-        # Apply new styles
-        user32.SetWindowLongW(hwnd, GWL_STYLE, style)
-        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style)
-
-        # Force Windows to apply the style changes (single call)
-        user32.SetWindowPos(
-            hwnd,
-            None,
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
-        )
-
-        if _VERBOSE_LOGGING:
-            logger.debug(
-                f"[Qt Compat] Prepared HWND 0x{hwnd:X} for container "
-                f"(style=0x{old_style:08X}->0x{style:08X}, "
-                f"ex_style=0x{old_ex_style:08X}->0x{ex_style:08X})"
-            )
-        return True
-
-    except Exception as e:
-        logger.error(f"[Qt Compat] Failed to prepare HWND: {e}")
-        return False
+    return get_backend().prepare_hwnd_for_container(hwnd)
 
 
 def create_container_widget(
@@ -330,9 +200,6 @@ def post_container_setup(container: Any, hwnd: int) -> None:
         container: The container QWidget from createWindowContainer.
         hwnd: The original native HWND.
     """
-    if sys.platform != "win32":
-        return
-
     try:
         from qtpy.QtWidgets import QApplication
 
@@ -350,7 +217,7 @@ def post_container_setup(container: Any, hwnd: int) -> None:
 
             # Qt6/PySide6 specific: ensure native window is properly reparented
             # This is critical for Houdini where PySide6 behaves differently
-            _ensure_native_child_style(hwnd, container)
+            get_backend().ensure_native_child_style(hwnd, container)
 
         # Force a repaint to ensure the content is visible
         container.update()
@@ -363,58 +230,35 @@ def post_container_setup(container: Any, hwnd: int) -> None:
             logger.debug(f"[Qt Compat] Post-container setup warning: {e}")
 
 
-def _ensure_native_child_style(hwnd: int, container: Any) -> None:
-    """Ensure native window has proper child style after Qt takes over.
+def hide_window_for_init(hwnd: int) -> bool:
+    """Hide a window during initialization to prevent flicker.
 
-    In Qt6/PySide6, the window reparenting process may not fully complete
-    the WS_CHILD style application. This function ensures the native window
-    is properly configured as a child window.
+    This applies platform-specific techniques to make the window
+    completely invisible during WebView initialization.
+
+    On Windows, this uses WS_EX_LAYERED with zero alpha.
 
     Args:
-        hwnd: The native HWND.
-        container: The Qt container widget.
+        hwnd: The window handle to hide.
+
+    Returns:
+        True if successful, False otherwise.
     """
-    if sys.platform != "win32":
-        return
+    return get_backend().hide_window_for_init(hwnd)
 
-    try:
-        # Get the container's HWND
-        container_hwnd = int(container.winId())
-        if not container_hwnd:
-            return
 
-        # Re-apply WS_CHILD and set proper parent
-        style = user32.GetWindowLongW(hwnd, GWL_STYLE)
+def show_window_after_init(hwnd: int) -> bool:
+    """Restore window visibility after initialization.
 
-        # Check if WS_CHILD is already set
-        if not (style & WS_CHILD):
-            style |= WS_CHILD
-            style &= ~WS_POPUP
-            user32.SetWindowLongW(hwnd, GWL_STYLE, style)
+    On Windows, this removes the WS_EX_LAYERED style and restores full alpha.
 
-            # Set the container as parent
-            user32.SetParent(hwnd, container_hwnd)
+    Args:
+        hwnd: The window handle to show.
 
-            # Apply changes
-            user32.SetWindowPos(
-                hwnd,
-                None,
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
-            )
-
-            if _VERBOSE_LOGGING:
-                logger.debug(
-                    f"[Qt Compat] Re-applied WS_CHILD style for Qt6: "
-                    f"HWND 0x{hwnd:X} -> parent 0x{container_hwnd:X}"
-                )
-
-    except Exception as e:
-        if _VERBOSE_LOGGING:
-            logger.debug(f"[Qt Compat] _ensure_native_child_style warning: {e}")
+    Returns:
+        True if successful, False otherwise.
+    """
+    return get_backend().show_window_after_init(hwnd)
 
 
 def apply_qt6_dialog_optimizations(dialog: Any) -> bool:

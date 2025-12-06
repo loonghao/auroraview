@@ -11,7 +11,7 @@ use std::fs;
 use tempfile::TempDir;
 use wry::http::Request;
 
-use auroraview::webview::protocol_handlers::handle_file_protocol;
+use _core::webview::protocol_handlers::handle_file_protocol;
 
 #[rstest]
 fn test_file_protocol_rejects_non_file_uris() {

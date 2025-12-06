@@ -25,7 +25,7 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from .webview import WebView
@@ -38,21 +38,21 @@ StateChangeHandler = Callable[[str, Any, str], None]
 
 class State:
     """Reactive shared state container for Python ↔ JavaScript sync.
-    
+
     This class provides a dict-like interface for managing shared state between
-    Python and JavaScript. Changes made on either side are automatically 
+    Python and JavaScript. Changes made on either side are automatically
     synchronized to the other.
-    
+
     Attributes:
         _data: Internal state storage
         _webview: Associated WebView instance
         _handlers: List of change handlers
         _sync_enabled: Whether sync is enabled
     """
-    
+
     def __init__(self, webview: Optional[WebView] = None):
         """Initialize the State container.
-        
+
         Args:
             webview: Associated WebView instance for synchronization
         """
@@ -60,10 +60,10 @@ class State:
         self._webview: Optional[WebView] = webview
         self._handlers: List[StateChangeHandler] = []
         self._sync_enabled: bool = True
-        
+
     def _attach_webview(self, webview: WebView) -> None:
         """Attach a WebView instance for synchronization.
-        
+
         Args:
             webview: WebView instance to attach
         """
@@ -72,22 +72,22 @@ class State:
         webview.register_callback("__state_update__", self._handle_js_update)
         # Sync initial state to JS
         self._sync_to_js()
-        
+
     def _handle_js_update(self, data: Dict[str, Any]) -> None:
         """Handle state update from JavaScript.
-        
+
         Args:
             data: Update data with 'key' and 'value' fields
         """
         if not isinstance(data, dict):
             return
-            
+
         key = data.get("key")
         value = data.get("value")
-        
+
         if key is None:
             return
-            
+
         # Update internal state without triggering JS sync
         self._sync_enabled = False
         try:
@@ -95,33 +95,28 @@ class State:
             self._notify_handlers(key, value, "javascript")
         finally:
             self._sync_enabled = True
-            
+
     def _sync_to_js(self, key: Optional[str] = None) -> None:
         """Synchronize state to JavaScript.
-        
+
         Args:
             key: Specific key to sync, or None for full sync
         """
         if not self._webview or not self._sync_enabled:
             return
-            
+
         if key is not None:
             # Sync single key
-            self._webview.emit("__state_sync__", {
-                "type": "set",
-                "key": key,
-                "value": self._data.get(key)
-            })
+            self._webview.emit(
+                "__state_sync__", {"type": "set", "key": key, "value": self._data.get(key)}
+            )
         else:
             # Full sync
-            self._webview.emit("__state_sync__", {
-                "type": "full",
-                "data": self._data
-            })
-            
+            self._webview.emit("__state_sync__", {"type": "full", "data": self._data})
+
     def _notify_handlers(self, key: str, value: Any, source: str) -> None:
         """Notify all registered change handlers.
-        
+
         Args:
             key: Changed key
             value: New value
@@ -132,17 +127,17 @@ class State:
                 handler(key, value, source)
             except Exception as e:
                 logger.error(f"State change handler error: {e}")
-                
+
     def on_change(self, handler: StateChangeHandler) -> StateChangeHandler:
         """Register a state change handler (decorator).
-        
+
         Args:
             handler: Function to call on state changes.
                     Signature: (key: str, value: Any, source: str) -> None
-                    
+
         Returns:
             The handler function (for decorator use)
-            
+
         Example:
             >>> @webview.state.on_change
             >>> def handle_change(key, value, source):
@@ -150,7 +145,7 @@ class State:
         """
         self._handlers.append(handler)
         return handler
-        
+
     def off_change(self, handler: StateChangeHandler) -> None:
         """Remove a state change handler.
 
@@ -176,10 +171,7 @@ class State:
         if key in self._data:
             del self._data[key]
             if self._webview and self._sync_enabled:
-                self._webview.emit("__state_sync__", {
-                    "type": "delete",
-                    "key": key
-                })
+                self._webview.emit("__state_sync__", {"type": "delete", "key": key})
             self._notify_handlers(key, None, "python")
 
     def __contains__(self, key: str) -> bool:
@@ -226,10 +218,7 @@ class State:
                 self._notify_handlers(key, value, "python")
         # Batch sync to JS - single IPC call for all updates
         if self._webview and self._sync_enabled:
-            self._webview.emit("__state_sync__", {
-                "type": "batch",
-                "data": data
-            })
+            self._webview.emit("__state_sync__", {"type": "batch", "data": data})
 
     def batch_update(self) -> "BatchUpdate":
         """Create a batch update context for efficient state updates.
@@ -332,4 +321,3 @@ class BatchUpdate:
             Dictionary of pending updates
         """
         return dict(self._updates)
-

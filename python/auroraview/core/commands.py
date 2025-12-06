@@ -26,7 +26,6 @@ Example:
 from __future__ import annotations
 
 import asyncio
-import functools
 import inspect
 import logging
 import traceback
@@ -130,34 +129,34 @@ class CommandError(Exception):
 
 class CommandRegistry:
     """Registry for managing commands callable from JavaScript.
-    
+
     This class manages the registration and invocation of Python commands
     that can be called from JavaScript via the IPC bridge.
-    
+
     Attributes:
         _commands: Dictionary mapping command names to handlers
         _webview: Associated WebView instance
     """
-    
+
     def __init__(self, webview: Optional[WebView] = None):
         """Initialize the CommandRegistry.
-        
+
         Args:
             webview: Associated WebView instance
         """
         self._commands: Dict[str, Callable[..., Any]] = {}
         self._webview: Optional[WebView] = webview
-        
+
     def _attach_webview(self, webview: WebView) -> None:
         """Attach a WebView instance and register IPC handler.
-        
+
         Args:
             webview: WebView instance to attach
         """
         self._webview = webview
         # Register the invoke handler
         webview.register_callback("__invoke__", self._handle_invoke)
-        
+
     def _handle_invoke(self, data: Dict[str, Any]) -> Any:
         """Handle command invocation from JavaScript.
 
@@ -211,8 +210,8 @@ class CommandRegistry:
             # Handle async functions
             if asyncio.iscoroutinefunction(handler):
                 try:
-                    loop = asyncio.get_running_loop()
-                    future = asyncio.ensure_future(handler(**args))
+                    asyncio.get_running_loop()
+                    asyncio.ensure_future(handler(**args))
                     return {"id": invoke_id, "pending": True}
                 except RuntimeError:
                     result = asyncio.run(handler(**args))
@@ -251,43 +250,42 @@ class CommandRegistry:
                     {"command": command_name, "exception": type(e).__name__},
                 )
             )
-            
+
     @overload
     def register(self, func: F) -> F: ...
-    
+
     @overload
     def register(self, name: str) -> Callable[[F], F]: ...
-    
-    def register(
-        self, func_or_name: Union[F, str, None] = None
-    ) -> Union[F, Callable[[F], F]]:
+
+    def register(self, func_or_name: Union[F, str, None] = None) -> Union[F, Callable[[F], F]]:
         """Register a command (decorator).
-        
+
         Can be used with or without arguments:
-        
+
             @commands.register
             def my_command(): ...
-            
+
             @commands.register("custom_name")
             def my_command(): ...
-            
+
         Args:
             func_or_name: Function to register or custom command name
-            
+
         Returns:
             Decorated function or decorator
         """
+
         def decorator(func: F, name: Optional[str] = None) -> F:
             cmd_name = name or func.__name__
             self._commands[cmd_name] = func
-            
+
             # Emit registration to JS if webview is attached
             if self._webview:
-                self._webview.emit("__command_registered__", {
-                    "name": cmd_name,
-                    "params": list(inspect.signature(func).parameters.keys())
-                })
-                
+                self._webview.emit(
+                    "__command_registered__",
+                    {"name": cmd_name, "params": list(inspect.signature(func).parameters.keys())},
+                )
+
             logger.debug(f"Registered command: {cmd_name}")
             return func
 
@@ -364,4 +362,3 @@ class CommandRegistry:
     def __repr__(self) -> str:
         """String representation."""
         return f"CommandRegistry({list(self._commands.keys())})"
-

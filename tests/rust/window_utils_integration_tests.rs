@@ -3,7 +3,7 @@
 //! These tests verify the complete window management functionality on Windows.
 
 #[cfg(target_os = "windows")]
-use auroraview::window_utils::{find_windows_by_title, get_all_windows, get_foreground_window};
+use _core::window_utils::{find_windows_by_title, get_all_windows, get_foreground_window};
 #[cfg(target_os = "windows")]
 use rstest::rstest;
 

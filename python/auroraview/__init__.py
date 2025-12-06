@@ -238,13 +238,18 @@ def diagnose_core_library() -> dict:
 from .core import (
     DEFAULT_SETTINGS,
     BackendType,
+    ConnectionGuard,
+    ConnectionId,
     Cookie,
     EventEmitter,
     EventHandler,
     LoadEvent,
     NavigationEvent,
+    Signal,
+    SignalRegistry,
     WebView,
     WebViewSettings,
+    WebViewSignals,
     WindowEvent,
     WindowEventData,
     deprecated,
@@ -295,9 +300,6 @@ except ImportError as e:
         pass
 
 
-# Backward-compatibility alias
-AuroraViewQt = QtWebView
-
 # Qt availability flag for tests
 _QT_IMPORT_ERROR = None
 try:
@@ -317,7 +319,9 @@ from . import core, integration, ui, utils
 webview = core.webview  # auroraview.webview -> auroraview.core.webview
 event_timer = utils.event_timer  # auroraview.event_timer -> auroraview.utils.event_timer
 file_protocol = utils.file_protocol  # auroraview.file_protocol -> auroraview.utils.file_protocol
-timer_backends = utils.timer_backends  # auroraview.timer_backends -> auroraview.utils.timer_backends
+timer_backends = (
+    utils.timer_backends
+)  # auroraview.timer_backends -> auroraview.utils.timer_backends
 dom = ui.dom  # auroraview.dom -> auroraview.ui.dom
 qt_integration = integration.qt  # auroraview.qt_integration -> auroraview.integration.qt
 
@@ -378,6 +382,12 @@ __all__ = [
     "NavigationEvent",
     "LoadEvent",
     "deprecated",
+    # Signals (Qt-inspired)
+    "Signal",
+    "SignalRegistry",
+    "ConnectionId",
+    "ConnectionGuard",
+    "WebViewSignals",
     # ============================================================
     # UI (auroraview.ui)
     # ============================================================
@@ -398,7 +408,6 @@ __all__ = [
     "AuroraView",
     # Qt backend
     "QtWebView",
-    "AuroraViewQt",
     # Bridge for DCC integration
     "Bridge",
     # Service Discovery

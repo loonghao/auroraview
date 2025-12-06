@@ -12,8 +12,8 @@ import threading
 from typing import TYPE_CHECKING, Literal, Optional, Union
 
 if TYPE_CHECKING:
-    from auroraview.core.webview import WebView
     from auroraview.bridge import Bridge
+    from auroraview.core.webview import WebView
 
 logger = logging.getLogger(__name__)
 
@@ -304,4 +304,3 @@ class WebViewFactory:
         logger.info("[create_for_dcc] Remember to call process_events_ipc_only() periodically!")
 
         return instance
-

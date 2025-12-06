@@ -42,6 +42,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register WebViewProxy class (thread-safe proxy for cross-thread operations)
     m.add_class::<webview::WebViewProxy>()?;
 
+    // Register PluginManager class (for file system and other native operations)
+    m.add_class::<webview::PluginManager>()?;
+
     // Register window utilities
     window_utils::register_window_utils(m)?;
 
