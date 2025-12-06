@@ -102,3 +102,36 @@ fn test_cli_run_missing_args() {
         stderr
     );
 }
+
+#[test]
+fn test_cli_info() {
+    let output = Command::new(cli_binary())
+        .args(["info"])
+        .output()
+        .expect("Failed to run CLI");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("AuroraView CLI Information"));
+    assert!(stdout.contains("Version:"));
+    assert!(stdout.contains("Dependencies:"));
+    assert!(stdout.contains("Cargo:"));
+}
+
+#[test]
+fn test_cli_pack_new_options() {
+    let output = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Verify new options are available
+    assert!(stdout.contains("--frameless"));
+    assert!(stdout.contains("--always-on-top"));
+    assert!(stdout.contains("--no-resize"));
+    assert!(stdout.contains("--user-agent"));
+}

@@ -459,6 +459,7 @@ version = "0.2.22"
 dependencies = [
  "active-win-pos-rs 0.8.4",
  "askama",
+ "base64 0.22.1",
  "dunce",
  "http 1.4.0",
  "mdns-sd 0.11.5",
@@ -491,6 +492,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.17",
  "tracing",
  "walkdir",
