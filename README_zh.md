@@ -1,57 +1,83 @@
-# AuroraView
+<p align="center">
+  <img src="assets/icons/auroraview-logo-text.png" alt="AuroraView Logo" width="400">
+</p>
 
-中文文档 | [English](./README.md)
+<p align="center">
+  中文文档 | <a href="./README.md">English</a>
+</p>
 
-[![PyPI 版本](https://img.shields.io/pypi/v/auroraview.svg)](https://pypi.org/project/auroraview/)
-[![Python 版本](https://img.shields.io/pypi/pyversions/auroraview.svg)](https://pypi.org/project/auroraview/)
-[![下载量](https://static.pepy.tech/badge/auroraview)](https://pepy.tech/project/auroraview)
-[![Codecov](https://codecov.io/gh/loonghao/auroraview/branch/main/graph/badge.svg)](https://codecov.io/gh/loonghao/auroraview)
-[![PR Checks](https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
-[![平台](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/loonghao/auroraview)
-[![CI](https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/ci.yml)
-[![Build Wheels](https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml)
-[![Release](https://github.com/loonghao/auroraview/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/release.yml)
-[![CodeQL](https://github.com/loonghao/auroraview/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/codeql.yml)
-[![Security Audit](https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml)
-[![Latest Release](https://img.shields.io/github/v/release/loonghao/auroraview?display_name=tag)](https://github.com/loonghao/auroraview/releases)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen.svg)](https://pre-commit.com/)
+<p align="center">
+  <a href="https://pypi.org/project/auroraview/"><img src="https://img.shields.io/pypi/v/auroraview.svg" alt="PyPI 版本"></a>
+  <a href="https://pypi.org/project/auroraview/"><img src="https://img.shields.io/pypi/pyversions/auroraview.svg" alt="Python 版本"></a>
+  <a href="https://pepy.tech/project/auroraview"><img src="https://static.pepy.tech/badge/auroraview" alt="下载量"></a>
+  <a href="https://codecov.io/gh/loonghao/auroraview"><img src="https://codecov.io/gh/loonghao/auroraview/branch/main/graph/badge.svg" alt="Codecov"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml/badge.svg" alt="PR Checks"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
-[![GitHub Stars](https://img.shields.io/github/stars/loonghao/auroraview?style=social)](https://github.com/loonghao/auroraview/stargazers)
-[![GitHub Downloads](https://img.shields.io/github/downloads/loonghao/auroraview/total)](https://github.com/loonghao/auroraview/releases)
-[![Last Commit](https://img.shields.io/github/last-commit/loonghao/auroraview)](https://github.com/loonghao/auroraview/commits/main)
-[![Commit Activity](https://img.shields.io/github/commit-activity/m/loonghao/auroraview)](https://github.com/loonghao/auroraview/graphs/commit-activity)
-[![Open Issues](https://img.shields.io/github/issues/loonghao/auroraview)](https://github.com/loonghao/auroraview/issues)
-[![Open PRs](https://img.shields.io/github/issues-pr/loonghao/auroraview)](https://github.com/loonghao/auroraview/pulls)
-[![Contributors](https://img.shields.io/github/contributors/loonghao/auroraview)](https://github.com/loonghao/auroraview/graphs/contributors)
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
-[![release-please](https://img.shields.io/badge/release--please-enabled-blue)](https://github.com/googleapis/release-please)
-[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](./.github/dependabot.yml)
-[![Code Style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://docs.astral.sh/ruff/)
-[![Type Checked: mypy](https://img.shields.io/badge/type%20checked-mypy-2A6DB0.svg)](http://mypy-lang.org/)
+<p align="center">
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.75+-orange.svg" alt="Rust"></a>
+  <a href="https://github.com/loonghao/auroraview"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg" alt="平台"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/ci.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml/badge.svg?branch=main" alt="Build Wheels"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/release.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/release.yml/badge.svg?branch=main" alt="Release"></a>
+</p>
 
-[行为准则](./CODE_OF_CONDUCT.md) • [安全策略](./SECURITY.md) • [问题追踪](https://github.com/loonghao/auroraview/issues)
+<p align="center">
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/codeql.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml/badge.svg?branch=main" alt="Security Audit"></a>
+  <a href="https://github.com/loonghao/auroraview/releases"><img src="https://img.shields.io/github/v/release/loonghao/auroraview?display_name=tag" alt="Latest Release"></a>
+  <a href="https://pre-commit.com/"><img src="https://img.shields.io/badge/pre--commit-enabled-brightgreen.svg" alt="pre-commit"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/loonghao/auroraview/stargazers"><img src="https://img.shields.io/github/stars/loonghao/auroraview?style=social" alt="GitHub Stars"></a>
+  <a href="https://github.com/loonghao/auroraview/releases"><img src="https://img.shields.io/github/downloads/loonghao/auroraview/total" alt="GitHub Downloads"></a>
+  <a href="https://github.com/loonghao/auroraview/commits/main"><img src="https://img.shields.io/github/last-commit/loonghao/auroraview" alt="Last Commit"></a>
+  <a href="https://github.com/loonghao/auroraview/graphs/commit-activity"><img src="https://img.shields.io/github/commit-activity/m/loonghao/auroraview" alt="Commit Activity"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/loonghao/auroraview/issues"><img src="https://img.shields.io/github/issues/loonghao/auroraview" alt="Open Issues"></a>
+  <a href="https://github.com/loonghao/auroraview/pulls"><img src="https://img.shields.io/github/issues-pr/loonghao/auroraview" alt="Open PRs"></a>
+  <a href="https://github.com/loonghao/auroraview/graphs/contributors"><img src="https://img.shields.io/github/contributors/loonghao/auroraview" alt="Contributors"></a>
+  <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/googleapis/release-please"><img src="https://img.shields.io/badge/release--please-enabled-blue" alt="release-please"></a>
+  <a href="./.github/dependabot.yml"><img src="https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot" alt="Dependabot"></a>
+  <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/code%20style-ruff-000000.svg" alt="Code Style: ruff"></a>
+  <a href="http://mypy-lang.org/"><img src="https://img.shields.io/badge/type%20checked-mypy-2A6DB0.svg" alt="Type Checked: mypy"></a>
+</p>
+
+<p align="center">
+  <a href="./CODE_OF_CONDUCT.md">行为准则</a> •
+  <a href="./SECURITY.md">安全策略</a> •
+  <a href="https://github.com/loonghao/auroraview/issues">问题追踪</a>
+</p>
 
 
-一个为DCC（数字内容创作）软件设计的超快速、轻量级WebView框架，使用Rust构建并提供Python绑定。完美支持Maya、3ds Max、Houdini、Blender等。
+一个为DCC（数字内容创作）软件设计的轻量级WebView框架，使用Rust构建并提供Python绑定。完美支持Maya、3ds Max、Houdini、Blender等。
 
 > **⚠️ 开发状态**: 本项目正在积极开发中。API 可能在 v1.0.0 发布前发生变化。项目尚未在 Linux 和 macOS 平台上进行广泛测试。
 
-## [TARGET] 概述
+## 概述
 
 AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Photoshop和Unreal Engine）提供现代化的Web UI解决方案。基于Rust的Wry库和PyO3绑定构建，提供原生性能和最小开销。
 
-### 为什么选择 AuroraView？
+### 主要特性
 
-- ** 轻量级**: 约5MB包体积，而Electron约120MB
-- **[LIGHTNING] 快速**: 原生性能，内存占用<30MB
-- **[LINK] 无缝集成**: 为所有主流DCC工具提供简单的Python API
-- **[GLOBE] 现代Web技术栈**: 支持React、Vue或任何Web框架
-- **[LOCK] 安全**: Rust的内存安全保证
-- **[PACKAGE] 跨平台**: 支持Windows、macOS和Linux
+- **轻量级**: 约5MB包体积，而Electron约120MB
+- **快速**: 原生Rust性能，最小内存占用
+- **无缝集成**: 为所有主流DCC工具提供简单的Python API
+- **现代Web技术栈**: 支持React、Vue或任何Web框架
+- **安全**: Rust的内存安全保证
+- **跨平台**: 支持Windows、macOS和Linux
+- **DCC优先设计**: 专为DCC软件集成而构建
+- **类型安全**: Rust + Python 完整类型检查
 
-## [ARCHITECTURE] 架构
+## 架构
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -407,34 +433,110 @@ WebViewPool.cleanup()
 
 ### 双向通信
 
-两种后端都支持相同的事件 API:
+AuroraView 提供完整的 Python 和 JavaScript 之间的双向通信系统。
+
+#### 通信 API 概览
+
+| 方向 | JavaScript API | Python API | 用途 |
+|------|---------------|------------|------|
+| JS → Python | `auroraview.call(method, params)` | `@webview.bind_call` | 带返回值的 RPC 调用 |
+| JS → Python | `auroraview.send_event(event, data)` | `@webview.on(event)` | 单向事件通知 |
+| Python → JS | - | `webview.emit(event, data)` | 推送通知 |
+| 仅 JS | `auroraview.on(event, handler)` | - | 接收 Python 事件 |
+| 仅 JS | `auroraview.trigger(event, data)` | - | JS 本地事件（不发送到 Python） |
+
+> **重要**: `auroraview.trigger()` 仅用于 JavaScript 端本地事件。要发送事件到 Python，请使用 `auroraview.send_event()`。
+
+#### Python → JavaScript（推送事件）
 
 ```python
-# Python → JavaScript
+# Python 端：向 JavaScript 发送事件
 webview.emit("update_data", {"frame": 120, "objects": ["cube", "sphere"]})
-
-# JavaScript → Python
-@webview.on("export_scene")
-def handle_export(data):
-    print(f"导出到: {data['path']}")
-    # 你的 DCC 导出逻辑
-
-# 或直接注册回调
-webview.register_callback("export_scene", handle_export)
+webview.emit("selection_changed", {"items": ["mesh1", "mesh2"]})
 ```
 
-**JavaScript 端:**
 ```javascript
-// 监听来自 Python 的事件
+// JavaScript 端：监听 Python 事件
 window.auroraview.on('update_data', (data) => {
     console.log('帧:', data.frame);
     console.log('对象:', data.objects);
 });
 
-// 发送事件到 Python
-window.auroraview.send_event('export_scene', {
-    path: '/path/to/export.fbx'
+window.auroraview.on('selection_changed', (data) => {
+    highlightItems(data.items);
 });
+```
+
+#### JavaScript → Python（事件）
+
+```javascript
+// JavaScript 端：发送事件到 Python
+window.auroraview.send_event('export_scene', {
+    path: '/path/to/export.fbx',
+    format: 'fbx'
+});
+
+window.auroraview.send_event('viewport_orbit', { dx: 10, dy: 5 });
+```
+
+```python
+# Python 端：注册事件处理器
+@webview.on("export_scene")
+def handle_export(data):
+    print(f"导出到: {data['path']}")
+    # 你的 DCC 导出逻辑
+
+@webview.on("viewport_orbit")
+def handle_orbit(data):
+    rotate_camera(data['dx'], data['dy'])
+```
+
+#### JavaScript → Python（带返回值的 RPC）
+
+对于请求-响应模式，使用 `auroraview.call()` 配合 `bind_call`：
+
+```javascript
+// JavaScript 端：调用 Python 方法并获取结果
+const hierarchy = await auroraview.call('api.get_hierarchy', { root: 'scene' });
+console.log('场景层级:', hierarchy);
+
+const result = await auroraview.call('api.rename_object', {
+    old_name: 'cube1',
+    new_name: 'hero_cube'
+});
+if (result.ok) {
+    console.log('重命名成功');
+}
+```
+
+```python
+# Python 端：绑定可调用方法
+@webview.bind_call("api.get_hierarchy")
+def get_hierarchy(root=None):
+    # 返回值会发送回 JavaScript
+    return {"children": ["group1", "mesh_cube"], "count": 2}
+
+@webview.bind_call("api.rename_object")
+def rename_object(old_name, new_name):
+    # 在 DCC 中执行重命名
+    cmds.rename(old_name, new_name)
+    return {"ok": True, "old": old_name, "new": new_name}
+```
+
+#### 常见错误
+
+```javascript
+// 错误：trigger() 仅限 JS 本地，不会到达 Python
+auroraview.trigger('my_event', data);  // Python 不会收到！
+
+// 错误：dispatchEvent 是浏览器 API，不会到达 Python
+window.dispatchEvent(new CustomEvent('my_event', {detail: data}));  // Python 不会收到！
+
+// 正确：使用 send_event() 发送单向事件
+auroraview.send_event('my_event', data);  // Python 通过 @webview.on() 接收
+
+// 正确：使用 call() 进行请求-响应
+const result = await auroraview.call('api.my_method', data);  // Python 通过 @webview.bind_call() 接收
 ```
 
 ### 窗口事件系统
@@ -831,20 +933,21 @@ webview.show()
 
 详细指南请参阅 [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md)。
 
-## [DOCS] 文档
+## 文档
 
 ### 核心文档
--  [项目综述](./docs/SUMMARY.md)
--  [技术设计](./docs/TECHNICAL_DESIGN.md)
--  [DCC 集成指南](./docs/DCC_INTEGRATION_GUIDE.md)
--  [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md)
+-  [架构设计](./docs/ARCHITECTURE.md) - 模块化后端架构
+-  [技术设计](./docs/TECHNICAL_DESIGN.md) - 技术实现细节
+-  [DCC 集成指南](./docs/DCC_INTEGRATION_GUIDE.md) - DCC 应用集成
+-  [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md) - JavaScript注入和AI聊天集成
+-  [路线图](./docs/ROADMAP.md) - 未来计划和开发
 
-### Maya 集成专题 ⭐
+### Maya 集成专题
 - **[Maya 集成解决方案](./docs/MAYA_SOLUTION.md)** - 推荐阅读！完整的 Maya 集成指南
 - [Maya 集成问题分析](./docs/MAYA_INTEGRATION_ISSUES.md) - 技术细节和问题根源
 - [当前状态说明](./docs/CURRENT_STATUS.md) - 已知限制和可用方案
 
-### 重要提示：Maya 用户必读 🎯
+### 重要提示：Maya 用户必读
 
 如果你在 Maya 中使用 AuroraView，请根据你的需求选择合适的模式：
 
@@ -859,12 +962,8 @@ webview.show()
 - 限制: 可能有轻微阻塞，需要手动管理生命周期
 
 详细说明请查看 [Maya 集成解决方案](./docs/MAYA_SOLUTION.md)。
--  [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md) - **新!** JavaScript注入和AI聊天集成
--  [项目优势](./docs/PROJECT_ADVANTAGES.md)
--  [与 PyWebView 的对比](./docs/COMPARISON_WITH_PYWEBVIEW.md)
--  [路线图](./docs/ROADMAP.md)
 
-##  DCC软件支持
+## DCC软件支持
 
 | DCC软件 | 状态 | Python版本 | 示例 |
 |---------|------|-----------|------|
@@ -877,7 +976,7 @@ webview.show()
 
 > **📚 示例**: 查看完整的工作示例，请访问 [Maya Outliner 示例](https://github.com/loonghao/auroraview-maya-outliner) - 使用 AuroraView、Vue 3 和 TypeScript 构建的现代化 Maya Outliner。
 
-## [TOOLS] 开发
+## 开发
 
 ### 前置要求
 
@@ -990,7 +1089,7 @@ uvx nox -s format          # 格式化代码
 uvx nox -s coverage        # 生成覆盖率报告
 ```
 
-## [PACKAGE] 项目结构
+## 项目结构
 
 ```
 auroraview/
@@ -1001,21 +1100,21 @@ auroraview/
 └── benches/                # 性能基准测试
 ```
 
-## [HANDSHAKE] 贡献
+## 贡献
 
 欢迎贡献！请阅读我们的[贡献指南](./CONTRIBUTING.md)了解详情。
 
-## [DOCUMENT] 许可证
+## 许可证
 
 本项目采用MIT许可证 - 详见[LICENSE](./LICENSE)文件。
 
-## [THANKS] 致谢
+## 致谢
 
 - [Wry](https://github.com/tauri-apps/wry) - 跨平台WebView库
 - [PyO3](https://github.com/PyO3/pyo3) - Python的Rust绑定
 - [Tauri](https://tauri.app/) - 灵感和生态系统
 
-## [MAILBOX] 联系方式
+## 联系方式
 
 - 作者: Hal Long
 - 邮箱: hal.long@outlook.com
