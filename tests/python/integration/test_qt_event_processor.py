@@ -7,21 +7,8 @@ import pytest
 
 from auroraview import WebView
 
-# Check if Qt is available
-try:
-    import auroraview
-
-    HAS_QT = auroraview._HAS_QT
-    QT_IMPORT_ERROR = auroraview._QT_IMPORT_ERROR
-except ImportError:
-    HAS_QT = False
-    QT_IMPORT_ERROR = "auroraview not installed"
-
-# Skip all tests in this module if Qt is not available
-pytestmark = [
-    pytest.mark.qt,
-    pytest.mark.skipif(not HAS_QT, reason=f"Qt backend not available: {QT_IMPORT_ERROR}"),
-]
+# Mark all tests as Qt tests
+pytestmark = [pytest.mark.qt]
 
 
 class TestQtEventProcessor(unittest.TestCase):

@@ -67,41 +67,34 @@ def test_context_menu_in_run_embedded():
     webview.close()
 
 
-@pytest.mark.skipif(
-    not pytest.importorskip("qtpy", reason="Qt not available"),
-    reason="Qt not available",
-)
+@pytest.mark.qt
 def test_qt_webview_context_menu():
     """Test context_menu parameter in QtWebView."""
-    try:
-        from qtpy.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
-        from auroraview import QtWebView
+    from auroraview import QtWebView
 
-        _ = QApplication.instance() or QApplication([])
+    _ = QApplication.instance() or QApplication([])
 
-        # Test with context menu disabled
-        webview = QtWebView(
-            title="Test",
-            width=800,
-            height=600,
-            context_menu=False,
-        )
-        assert webview is not None
-        webview.close()
+    # Test with context menu disabled
+    webview = QtWebView(
+        title="Test",
+        width=800,
+        height=600,
+        context_menu=False,
+    )
+    assert webview is not None
+    webview.close()
 
-        # Test with context menu enabled (default)
-        webview2 = QtWebView(
-            title="Test",
-            width=800,
-            height=600,
-            context_menu=True,
-        )
-        assert webview2 is not None
-        webview2.close()
-
-    except ImportError:
-        pytest.skip("Qt not available")
+    # Test with context menu enabled (default)
+    webview2 = QtWebView(
+        title="Test",
+        width=800,
+        height=600,
+        context_menu=True,
+    )
+    assert webview2 is not None
+    webview2.close()
 
 
 def test_core_webview_context_menu_parameter():

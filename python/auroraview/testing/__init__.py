@@ -14,7 +14,11 @@ This module provides multiple testing approaches:
    - Browser, Page, Locator classes
    - expect() assertions
 
-3. **PlaywrightBrowser**: Direct Playwright Chromium for frontend testing
+3. **Qt Testing**: pytest-qt based testing for QtWebView
+   - QtWebViewTestHelper for common patterns
+   - Fixtures for qtbot integration
+
+4. **PlaywrightBrowser**: Direct Playwright Chromium for frontend testing
 
 Example (HeadlessWebView - recommended):
     ```python
@@ -24,6 +28,15 @@ Example (HeadlessWebView - recommended):
         webview.goto("https://example.com")
         webview.click("#button")
         assert webview.text("#result") == "Success"
+    ```
+
+Example (Qt Testing with pytest-qt):
+    ```python
+    from auroraview.testing.qt import create_qt_webview
+
+    def test_qt_webview(qtbot):
+        webview = create_qt_webview(qtbot, html="<h1>Test</h1>")
+        # Test assertions...
     ```
 
 Example (AuroraTest - Playwright-like API):
@@ -65,6 +78,16 @@ from .headless_webview import (
 # Import auroratest submodule for Playwright-like API
 from . import auroratest
 
+# Qt testing utilities (lazy import to avoid requiring Qt)
+def __getattr__(name: str):
+    """Lazy import Qt testing utilities."""
+    if name in ("qt", "QtWebViewTestHelper", "create_qt_webview"):
+        from . import qt
+        if name == "qt":
+            return qt
+        return getattr(qt, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 __all__ = [
     # Playwright-like testing (auroratest submodule)
     "auroratest",
@@ -78,4 +101,8 @@ __all__ = [
     "headless_webview",
     # DOM assertions
     "DomAssertions",
+    # Qt testing (lazy loaded)
+    "qt",
+    "QtWebViewTestHelper",
+    "create_qt_webview",
 ]
