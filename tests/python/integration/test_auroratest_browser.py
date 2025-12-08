@@ -1,9 +1,12 @@
 """
-Tests for AuroraTest Browser - WebView2-based testing for AuroraView.
+Tests for AuroraTest Browser - Cross-platform WebView testing for AuroraView.
 
-This module tests the Browser class which uses our WebView2 implementation
+This module tests the Browser class which uses our wry-based WebView implementation
 for automated UI testing. The Browser class provides a Playwright-like API
-but runs on our native WebView2 backend.
+and runs on our native WebView backend:
+- Windows: WebView2 (Chromium Edge)
+- macOS: WKWebView (Safari)
+- Linux: WebKitGTK
 
 Tests cover:
 - Browser launch and close
@@ -21,15 +24,22 @@ import pytest
 # Check if running in CI
 IN_CI = os.environ.get("CI") == "true"
 
-# Skip on non-Windows platforms (WebView2 is Windows-only)
+# Check if we have a display (required for WebView)
+HAS_DISPLAY = os.environ.get("DISPLAY") is not None or sys.platform == "win32" or sys.platform == "darwin"
+
+# Common skip conditions
 pytestmark = [
-    pytest.mark.skipif(sys.platform != "win32", reason="WebView2 tests only run on Windows"),
     pytest.mark.integration,
 ]
 
 
+def skip_without_display(reason="WebView tests require display"):
+    """Skip test if no display is available."""
+    return pytest.mark.skipif(IN_CI and not HAS_DISPLAY, reason=reason)
+
+
 class TestBrowserImport:
-    """Test Browser module imports."""
+    """Test Browser module imports - works on all platforms."""
 
     def test_import_browser(self):
         """Test that Browser can be imported."""
@@ -59,9 +69,9 @@ class TestBrowserImport:
 
 
 class TestBrowserBasic:
-    """Basic Browser tests using our WebView2."""
+    """Basic Browser tests using our wry-based WebView (cross-platform)."""
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     def test_launch_and_close(self):
         """Test launching and closing Browser."""
         from auroraview.testing.auroratest import Browser
@@ -72,7 +82,7 @@ class TestBrowserBasic:
 
         browser.close()
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     def test_new_page(self):
         """Test creating a new page."""
         from auroraview.testing.auroratest import Browser
@@ -81,7 +91,7 @@ class TestBrowserBasic:
             page = browser.new_page()
             assert page is not None
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     def test_context_manager(self):
         """Test Browser as context manager."""
         from auroraview.testing.auroratest import Browser
@@ -94,9 +104,9 @@ class TestBrowserBasic:
 
 
 class TestPageNavigation:
-    """Test page navigation with our WebView2."""
+    """Test page navigation with our wry-based WebView (cross-platform)."""
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_set_content(self):
         """Test setting page content."""
@@ -107,7 +117,7 @@ class TestPageNavigation:
             await page.set_content("<h1>Hello World</h1>")
             await page.wait_for_timeout(500)
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_goto_data_url(self):
         """Test navigating to data URL."""
@@ -120,9 +130,9 @@ class TestPageNavigation:
 
 
 class TestJavaScriptExecution:
-    """Test JavaScript execution with our WebView2."""
+    """Test JavaScript execution with our wry-based WebView (cross-platform)."""
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_evaluate_simple(self):
         """Test simple JavaScript evaluation."""
@@ -136,7 +146,7 @@ class TestJavaScriptExecution:
             # Execute JavaScript
             await page.evaluate("document.title = 'Modified'")
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_evaluate_with_return(self):
         """Test JavaScript evaluation with return value."""
@@ -152,9 +162,9 @@ class TestJavaScriptExecution:
 
 
 class TestLocatorInteraction:
-    """Test Locator-based DOM interaction."""
+    """Test Locator-based DOM interaction (cross-platform)."""
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_locator_click(self):
         """Test clicking elements via Locator."""
@@ -172,7 +182,7 @@ class TestLocatorInteraction:
             await page.locator("#btn").click()
             await page.wait_for_timeout(200)
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_locator_fill(self):
         """Test filling input via Locator."""
@@ -190,7 +200,7 @@ class TestLocatorInteraction:
             await page.locator("#input").fill("Hello World")
             await page.wait_for_timeout(200)
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_get_by_test_id(self):
         """Test get_by_test_id locator."""
@@ -210,9 +220,9 @@ class TestLocatorInteraction:
 
 
 class TestAuroraViewBridge:
-    """Test AuroraView bridge functionality."""
+    """Test AuroraView bridge functionality (cross-platform)."""
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_bridge_injected(self):
         """Test that AuroraView bridge is injected."""
@@ -226,7 +236,7 @@ class TestAuroraViewBridge:
             # Check if bridge is available
             await page.evaluate("typeof window.auroraview !== 'undefined'")
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_bridge_api_proxy(self):
         """Test that bridge API proxy exists."""
@@ -240,7 +250,7 @@ class TestAuroraViewBridge:
             # Check if API proxy exists
             await page.evaluate("typeof window.auroraview.api !== 'undefined'")
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_bridge_event_system(self):
         """Test that bridge event system works."""
@@ -269,9 +279,9 @@ class TestAuroraViewBridge:
 
 
 class TestFormInteraction:
-    """Test form interaction capabilities."""
+    """Test form interaction capabilities (cross-platform)."""
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_fill_form(self):
         """Test filling a complete form."""
@@ -296,7 +306,7 @@ class TestFormInteraction:
             await page.locator("#message").fill("Hello from AuroraTest!")
             await page.wait_for_timeout(200)
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_checkbox_interaction(self):
         """Test checkbox interaction."""
@@ -317,7 +327,7 @@ class TestFormInteraction:
             await page.locator("#agree").click()
             await page.wait_for_timeout(200)
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     @pytest.mark.asyncio
     async def test_select_option(self):
         """Test select dropdown interaction."""
@@ -343,9 +353,9 @@ class TestFormInteraction:
 
 
 class TestMultiplePages:
-    """Test multiple page management."""
+    """Test multiple page management (cross-platform)."""
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     def test_multiple_pages_list(self):
         """Test that multiple pages are tracked."""
         from auroraview.testing.auroratest import Browser
@@ -360,9 +370,9 @@ class TestMultiplePages:
 
 
 class TestBrowserContext:
-    """Test BrowserContext functionality."""
+    """Test BrowserContext functionality (cross-platform)."""
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     def test_new_context(self):
         """Test creating a new browser context."""
         from auroraview.testing.auroratest import Browser
@@ -372,7 +382,7 @@ class TestBrowserContext:
             assert context is not None
             assert context.browser == browser
 
-    @pytest.mark.skipif(IN_CI, reason="WebView2 UI tests require display")
+    @skip_without_display()
     def test_context_new_page(self):
         """Test creating page in context."""
         from auroraview.testing.auroratest import Browser
