@@ -335,10 +335,11 @@ mod tests {
 
     #[test]
     fn test_js_templates() {
-        assert_eq!(js::GO_BACK, "history.back()");
-        assert_eq!(js::GO_FORWARD, "history.forward()");
-        assert_eq!(js::STOP, "window.stop()");
-        assert_eq!(js::RELOAD, "location.reload()");
+        // These use fallback pattern for custom protocol support
+        assert!(js::GO_BACK.contains("history.back()"));
+        assert!(js::GO_FORWARD.contains("history.forward()"));
+        assert!(js::STOP.contains("window.stop()"));
+        assert!(js::RELOAD.contains("location.reload()"));
 
         let zoom_script = js::set_zoom(1.5);
         assert!(zoom_script.contains("1.5"));
