@@ -1,12 +1,15 @@
 """
 Tests for PlaywrightBrowser - Playwright-based testing for AuroraView.
 
-These tests verify that PlaywrightBrowser can:
-1. Launch Chromium browser via Playwright
-2. Inject AuroraView bridge script
-3. Use full Playwright API for testing
+This module tests the PlaywrightBrowser class which provides two modes:
+1. Native mode: Uses Playwright's built-in Chromium (requires `playwright install`)
+2. CDP mode: Connects to our WebView2 via Chrome DevTools Protocol
+
+The Native mode tests are skipped in CI since they require browser installation.
+The CDP mode tests verify the actual WebView2 integration.
 """
 
+import os
 import sys
 
 import pytest
@@ -19,7 +22,10 @@ try:
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
 
-# Skip all tests if Python < 3.8 or playwright not installed
+# Check if running in CI
+IN_CI = os.environ.get("CI") == "true"
+
+# Common skip conditions
 pytestmark = [
     pytest.mark.skipif(sys.version_info < (3, 8), reason="Playwright requires Python 3.8+"),
     pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed"),
@@ -27,14 +33,45 @@ pytestmark = [
 ]
 
 
-class TestPlaywrightBrowserBasic:
-    """Basic PlaywrightBrowser tests."""
+class TestPlaywrightBrowserImport:
+    """Test PlaywrightBrowser module imports."""
 
     def test_import(self):
         """Test that PlaywrightBrowser can be imported."""
         from auroraview.testing.auroratest import PlaywrightBrowser
 
         assert PlaywrightBrowser is not None
+
+    def test_import_options(self):
+        """Test that PlaywrightBrowserOptions can be imported."""
+        from auroraview.testing.auroratest.playwright_browser import PlaywrightBrowserOptions
+
+        options = PlaywrightBrowserOptions()
+        assert options.headless is True
+        assert options.inject_bridge is True
+
+    def test_bridge_script_exists(self):
+        """Test that the AuroraView bridge script is defined."""
+        from auroraview.testing.auroratest.playwright_browser import AURORAVIEW_BRIDGE_SCRIPT
+
+        assert AURORAVIEW_BRIDGE_SCRIPT is not None
+        assert "window.auroraview" in AURORAVIEW_BRIDGE_SCRIPT
+        assert "auroraviewready" in AURORAVIEW_BRIDGE_SCRIPT
+
+
+class TestPlaywrightBrowserNative:
+    """
+    Tests for PlaywrightBrowser Native mode (uses Playwright's Chromium).
+
+    These tests are skipped in CI because they require `playwright install chromium`.
+    They test the testing tool itself, not core AuroraView functionality.
+    """
+
+    # Skip in CI - these require browser installation
+    pytestmark = pytest.mark.skipif(
+        IN_CI,
+        reason="Native mode tests skipped in CI (requires `playwright install chromium`)"
+    )
 
     @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_launch_and_close(self):
@@ -99,7 +136,6 @@ class TestPlaywrightBrowserBasic:
     @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_screenshot(self):
         """Test taking screenshots."""
-        import os
         import tempfile
 
         from auroraview.testing.auroratest import PlaywrightBrowser
@@ -121,7 +157,13 @@ class TestPlaywrightBrowserBasic:
 
 
 class TestPlaywrightBrowserAdvanced:
-    """Advanced PlaywrightBrowser tests."""
+    """Advanced PlaywrightBrowser tests (Native mode)."""
+
+    # Skip in CI
+    pytestmark = pytest.mark.skipif(
+        IN_CI,
+        reason="Native mode tests skipped in CI (requires `playwright install chromium`)"
+    )
 
     @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_fill_form(self):
@@ -189,7 +231,13 @@ class TestPlaywrightBrowserAdvanced:
 
 
 class TestAuroraViewBridge:
-    """Tests for AuroraView bridge injection."""
+    """Tests for AuroraView bridge injection (Native mode)."""
+
+    # Skip in CI
+    pytestmark = pytest.mark.skipif(
+        IN_CI,
+        reason="Native mode tests skipped in CI (requires `playwright install chromium`)"
+    )
 
     @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_bridge_injected(self):
