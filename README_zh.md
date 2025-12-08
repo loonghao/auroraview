@@ -1039,7 +1039,7 @@ with PlaywrightBrowser.launch(headless=True) as browser:
 uvx nox -s pytest
 
 # 或直接使用 pytest
-uv run pytest tests/test_qt_import_error.py -v
+uv run pytest tests/python/integration/test_qt_import_error.py -v
 ```
 
 **带 Qt 依赖的测试**（测试实际 Qt 功能）：
@@ -1049,7 +1049,7 @@ uvx nox -s pytest-qt
 
 # 或直接使用 pytest
 pip install auroraview[qt] pytest pytest-qt
-pytest tests/test_qt_backend.py -v
+pytest tests/python/integration/test_qt_backend.py -v
 ```
 
 **运行所有测试**：
