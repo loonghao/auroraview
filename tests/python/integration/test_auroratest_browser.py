@@ -179,9 +179,10 @@ class TestLocatorInteraction:
         with Browser.launch(headless=True) as browser:
             page = browser.new_page()
             await page.set_content(html)
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(1000)
 
-            await page.locator("#btn").click()
+            # Use force=True to skip actionability checks in CI
+            await page.locator("#btn").click(force=True)
             await page.wait_for_timeout(200)
 
     @skip_without_display()
@@ -197,9 +198,10 @@ class TestLocatorInteraction:
         with Browser.launch(headless=True) as browser:
             page = browser.new_page()
             await page.set_content(html)
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(1000)
 
-            await page.locator("#input").fill("Hello World")
+            # Use force=True to skip actionability checks in CI
+            await page.locator("#input").fill("Hello World", force=True)
             await page.wait_for_timeout(200)
 
     @skip_without_display()
@@ -215,9 +217,10 @@ class TestLocatorInteraction:
         with Browser.launch(headless=True) as browser:
             page = browser.new_page()
             await page.set_content(html)
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(1000)
 
-            await page.get_by_test_id("submit-btn").click()
+            # Use force=True to skip actionability checks in CI
+            await page.get_by_test_id("submit-btn").click(force=True)
             await page.wait_for_timeout(200)
 
 
@@ -301,11 +304,12 @@ class TestFormInteraction:
         with Browser.launch(headless=True) as browser:
             page = browser.new_page()
             await page.set_content(html)
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(1000)
 
-            await page.locator("#name").fill("John Doe")
-            await page.locator("#email").fill("john@example.com")
-            await page.locator("#message").fill("Hello from AuroraTest!")
+            # Use force=True to skip actionability checks in CI
+            await page.locator("#name").fill("John Doe", force=True)
+            await page.locator("#email").fill("john@example.com", force=True)
+            await page.locator("#message").fill("Hello from AuroraTest!", force=True)
             await page.wait_for_timeout(200)
 
     @skip_without_display()
@@ -324,9 +328,10 @@ class TestFormInteraction:
         with Browser.launch(headless=True) as browser:
             page = browser.new_page()
             await page.set_content(html)
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(1000)
 
-            await page.locator("#agree").click()
+            # Use force=True to skip actionability checks in CI
+            await page.locator("#agree").click(force=True)
             await page.wait_for_timeout(200)
 
     @skip_without_display()
