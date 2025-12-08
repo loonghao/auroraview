@@ -25,7 +25,9 @@ import pytest
 IN_CI = os.environ.get("CI") == "true"
 
 # Check if we have a display (required for WebView)
-HAS_DISPLAY = os.environ.get("DISPLAY") is not None or sys.platform == "win32" or sys.platform == "darwin"
+HAS_DISPLAY = (
+    os.environ.get("DISPLAY") is not None or sys.platform == "win32" or sys.platform == "darwin"
+)
 
 # Common skip conditions
 pytestmark = [
