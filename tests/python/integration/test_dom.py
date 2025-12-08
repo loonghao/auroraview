@@ -22,7 +22,7 @@ class TestElement:
     @pytest.fixture
     def element(self, mock_webview):
         """Create an Element instance for testing."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         return Element(mock_webview, "#test-element")
 
@@ -165,7 +165,7 @@ class TestElement:
 
     def test_query(self, element, mock_webview):
         """Test query returns a new Element."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         child = element.query(".child")
         assert isinstance(child, Element)
@@ -173,7 +173,7 @@ class TestElement:
 
     def test_query_all(self, element, mock_webview):
         """Test query_all returns an ElementCollection."""
-        from auroraview.dom import ElementCollection
+        from auroraview.ui.dom import ElementCollection
 
         children = element.query_all(".child")
         assert isinstance(children, ElementCollection)
@@ -334,7 +334,7 @@ class TestElement:
 
     def test_parent(self, element, mock_webview):
         """Test parent returns a new Element with correct selector."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         parent = element.parent()
         assert isinstance(parent, Element)
@@ -342,7 +342,7 @@ class TestElement:
 
     def test_closest(self, element, mock_webview):
         """Test closest returns a new Element with correct selector."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         ancestor = element.closest(".container")
         assert isinstance(ancestor, Element)
@@ -350,7 +350,7 @@ class TestElement:
 
     def test_first_child(self, element, mock_webview):
         """Test first_child returns a new Element with correct selector."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         child = element.first_child()
         assert isinstance(child, Element)
@@ -358,7 +358,7 @@ class TestElement:
 
     def test_last_child(self, element, mock_webview):
         """Test last_child returns a new Element with correct selector."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         child = element.last_child()
         assert isinstance(child, Element)
@@ -366,7 +366,7 @@ class TestElement:
 
     def test_nth_child(self, element, mock_webview):
         """Test nth_child returns a new Element with correct selector."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         child = element.nth_child(3)
         assert isinstance(child, Element)
@@ -374,7 +374,7 @@ class TestElement:
 
     def test_next_sibling(self, element, mock_webview):
         """Test next_sibling returns a new Element with correct selector."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         sibling = element.next_sibling()
         assert isinstance(sibling, Element)
@@ -382,7 +382,7 @@ class TestElement:
 
     def test_prev_sibling(self, element, mock_webview):
         """Test prev_sibling returns a new Element with correct selector."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         sibling = element.prev_sibling()
         assert isinstance(sibling, Element)
@@ -390,7 +390,7 @@ class TestElement:
 
     def test_children(self, element, mock_webview):
         """Test children returns an ElementCollection."""
-        from auroraview.dom import ElementCollection
+        from auroraview.ui.dom import ElementCollection
 
         children = element.children()
         assert isinstance(children, ElementCollection)
@@ -398,7 +398,7 @@ class TestElement:
 
     def test_siblings(self, element, mock_webview):
         """Test siblings returns an ElementCollection."""
-        from auroraview.dom import ElementCollection
+        from auroraview.ui.dom import ElementCollection
 
         siblings = element.siblings()
         assert isinstance(siblings, ElementCollection)
@@ -471,13 +471,13 @@ class TestElementCollection:
     @pytest.fixture
     def collection(self, mock_webview):
         """Create an ElementCollection instance for testing."""
-        from auroraview.dom import ElementCollection
+        from auroraview.ui.dom import ElementCollection
 
         return ElementCollection(mock_webview, ".items")
 
     def test_first(self, collection, mock_webview):
         """Test first returns an Element with same selector."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         first = collection.first()
         assert isinstance(first, Element)
@@ -486,7 +486,7 @@ class TestElementCollection:
 
     def test_nth(self, collection, mock_webview):
         """Test nth returns an Element with nth-child selector."""
-        from auroraview.dom import Element
+        from auroraview.ui.dom import Element
 
         # nth(3) means index 3 (0-based), which is :nth-child(4) (1-based)
         third = collection.nth(3)

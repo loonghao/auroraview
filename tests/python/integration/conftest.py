@@ -10,11 +10,23 @@ import pytest
 # Ensure auroraview is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "python"))
 
+# Import fixtures from auroraview.testing to make them available to tests
+# These fixtures are defined in python/auroraview/testing/fixtures.py
+from auroraview.testing.fixtures import (  # noqa: E402, F401
+    draggable_window_html,
+    headless_webview,
+    test_html,
+    webview,
+    webview_bot,
+    webview_with_html,
+)
+
 
 def pytest_configure(config):
     """Configure pytest for AuroraTest integration tests."""
     config.addinivalue_line("markers", "asyncio: mark test as async")
     config.addinivalue_line("markers", "slow: mark test as slow running")
+    config.addinivalue_line("markers", "ui: mark test as requiring UI")
 
 
 @pytest.fixture(scope="session")

@@ -42,6 +42,15 @@ runs:
           ${{ runner.os }}-build-${{ hashFiles('Cargo.lock') }}-
           ${{ runner.os }}-build-
 
+    - name: Setup sccache
+      uses: mozilla-actions/sccache-action@v0.0.9
+
+    - name: Configure sccache
+      shell: bash
+      run: |
+        echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+        echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+
     - name: Prefetch Cargo crates (retry)
       shell: bash
       run: |
