@@ -33,7 +33,7 @@ impl AuroraView {
         resizable: bool,
         decorations: bool,
         parent_hwnd: Option<u64>,
-        parent_mode: Option<&str>,
+        #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] parent_mode: Option<&str>,
         asset_root: Option<&str>,
         data_directory: Option<&str>,
         allow_file_protocol: bool,
