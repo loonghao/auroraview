@@ -17,6 +17,10 @@ class TestElement:
         """Create a mock WebView for testing."""
         webview = MagicMock()
         webview.eval_js = MagicMock()
+        # Mock _core.dom_op for methods that use Rust DOM operations
+        webview._core = MagicMock()
+        webview._core.dom_op = MagicMock()
+        webview._auto_process_events = MagicMock()
         return webview
 
     @pytest.fixture
@@ -36,18 +40,20 @@ class TestElement:
         assert "__auroraview_result" in call_args
 
     def test_set_text(self, element, mock_webview):
-        """Test set_text generates correct JavaScript."""
+        """Test set_text calls Rust dom_op."""
         element.set_text("Hello World")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "textContent" in call_args
-        assert "Hello World" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[0] == "#test-element"
+        assert call_args[1] == "set_text"
+        assert call_args[2] == "Hello World"
 
     def test_set_text_escapes_special_chars(self, element, mock_webview):
-        """Test set_text properly escapes special characters."""
+        """Test set_text properly passes special characters."""
         element.set_text('Test "quotes" and \\backslash')
-        call_args = mock_webview.eval_js.call_args[0][0]
-        # json.dumps should escape these properly
-        assert '\\"' in call_args or "quotes" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[2] == 'Test "quotes" and \\backslash'
 
     def test_get_html(self, element, mock_webview):
         """Test get_html generates correct JavaScript."""
@@ -56,10 +62,11 @@ class TestElement:
         assert "innerHTML" in call_args
 
     def test_set_html(self, element, mock_webview):
-        """Test set_html generates correct JavaScript."""
+        """Test set_html calls Rust dom_op."""
         element.set_html("<div>Content</div>")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "innerHTML" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "set_html"
 
     # === Attribute Tests ===
 
@@ -71,18 +78,20 @@ class TestElement:
         assert "data-id" in call_args
 
     def test_set_attribute(self, element, mock_webview):
-        """Test set_attribute generates correct JavaScript."""
+        """Test set_attribute calls Rust dom_op."""
         element.set_attribute("data-id", "123")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "setAttribute" in call_args
-        assert "data-id" in call_args
-        assert "123" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "set_attribute"
+        assert call_args[2] == "data-id"
+        assert call_args[3] == "123"
 
     def test_remove_attribute(self, element, mock_webview):
-        """Test remove_attribute generates correct JavaScript."""
+        """Test remove_attribute calls Rust dom_op."""
         element.remove_attribute("data-id")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "removeAttribute" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "remove_attribute"
 
     def test_has_attribute(self, element, mock_webview):
         """Test has_attribute generates correct JavaScript."""
@@ -93,23 +102,26 @@ class TestElement:
     # === Class Tests ===
 
     def test_add_class(self, element, mock_webview):
-        """Test add_class generates correct JavaScript."""
+        """Test add_class calls Rust dom_op."""
         element.add_class("active")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "classList.add" in call_args
-        assert "active" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "add_class"
+        assert call_args[2] == "active"
 
     def test_remove_class(self, element, mock_webview):
-        """Test remove_class generates correct JavaScript."""
+        """Test remove_class calls Rust dom_op."""
         element.remove_class("active")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "classList.remove" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "remove_class"
 
     def test_toggle_class(self, element, mock_webview):
-        """Test toggle_class generates correct JavaScript."""
+        """Test toggle_class calls Rust dom_op."""
         element.toggle_class("visible")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "classList.toggle" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "toggle_class"
 
     def test_has_class(self, element, mock_webview):
         """Test has_class generates correct JavaScript."""
@@ -127,33 +139,35 @@ class TestElement:
         assert "color" in call_args
 
     def test_set_style(self, element, mock_webview):
-        """Test set_style generates correct JavaScript."""
+        """Test set_style calls Rust dom_op."""
         element.set_style("color", "red")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "style" in call_args
-        assert "color" in call_args
-        assert "red" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "set_style"
+        assert call_args[2] == "color"
+        assert call_args[3] == "red"
 
     def test_set_styles(self, element, mock_webview):
         """Test set_styles generates correct JavaScript."""
         element.set_styles({"color": "red", "fontSize": "16px"})
         call_args = mock_webview.eval_js.call_args[0][0]
-        assert "setProperty" in call_args or "style" in call_args
+        assert "style" in call_args
 
     # === Visibility Tests ===
 
     def test_show(self, element, mock_webview):
-        """Test show generates correct JavaScript."""
+        """Test show calls Rust dom_op."""
         element.show()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "display" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "show"
 
     def test_hide(self, element, mock_webview):
-        """Test hide generates correct JavaScript."""
+        """Test hide calls Rust dom_op."""
         element.hide()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "display" in call_args
-        assert "none" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "hide"
 
     def test_is_visible(self, element, mock_webview):
         """Test is_visible generates correct JavaScript."""
@@ -201,11 +215,12 @@ class TestElement:
         assert "value" in call_args
 
     def test_set_value(self, element, mock_webview):
-        """Test set_value generates correct JavaScript."""
+        """Test set_value calls Rust dom_op."""
         element.set_value("test input")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "value" in call_args
-        assert "input" in call_args  # Event dispatch
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "set_value"
+        assert call_args[2] == "test input"
 
     def test_get_checked(self, element, mock_webview):
         """Test get_checked generates correct JavaScript."""
@@ -214,11 +229,12 @@ class TestElement:
         assert "checked" in call_args
 
     def test_set_checked(self, element, mock_webview):
-        """Test set_checked generates correct JavaScript."""
+        """Test set_checked calls Rust dom_op."""
         element.set_checked(True)
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "checked" in call_args
-        assert "true" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "set_checked"
+        assert call_args[2] == "true"
 
     def test_is_disabled(self, element, mock_webview):
         """Test is_disabled generates correct JavaScript."""
@@ -227,11 +243,12 @@ class TestElement:
         assert "disabled" in call_args
 
     def test_set_disabled(self, element, mock_webview):
-        """Test set_disabled generates correct JavaScript."""
+        """Test set_disabled calls Rust dom_op."""
         element.set_disabled(True)
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "disabled" in call_args
-        assert "true" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "set_disabled"
+        assert call_args[2] == "true"
 
     # === Select/Dropdown Tests ===
 
@@ -265,36 +282,39 @@ class TestElement:
     # === Interaction Tests ===
 
     def test_click(self, element, mock_webview):
-        """Test click generates correct JavaScript."""
+        """Test click calls Rust dom_op."""
         element.click()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "click()" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "click"
 
     def test_double_click(self, element, mock_webview):
-        """Test double_click generates correct JavaScript."""
+        """Test double_click calls Rust dom_op."""
         element.double_click()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "dblclick" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "double_click"
 
     def test_focus(self, element, mock_webview):
-        """Test focus generates correct JavaScript."""
+        """Test focus calls Rust dom_op."""
         element.focus()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "focus()" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "focus"
 
     def test_blur(self, element, mock_webview):
-        """Test blur generates correct JavaScript."""
+        """Test blur calls Rust dom_op."""
         element.blur()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "blur()" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "blur"
 
     def test_scroll_into_view(self, element, mock_webview):
-        """Test scroll_into_view generates correct JavaScript."""
+        """Test scroll_into_view calls Rust dom_op for default params."""
         element.scroll_into_view(behavior="smooth", block="center")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "scrollIntoView" in call_args
-        assert "smooth" in call_args
-        assert "center" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "scroll_into_view"
 
     def test_hover(self, element, mock_webview):
         """Test hover generates correct JavaScript."""
@@ -305,30 +325,34 @@ class TestElement:
     # === Type & Submit Tests ===
 
     def test_type_text(self, element, mock_webview):
-        """Test type_text generates correct JavaScript."""
+        """Test type_text calls Rust dom_op."""
         element.type_text("Hello")
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "value" in call_args
-        assert "Hello" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "type_text"
+        assert call_args[2] == "Hello"
 
     def test_type_text_clear_first(self, element, mock_webview):
-        """Test type_text with clear_first generates correct JavaScript."""
+        """Test type_text with clear_first calls Rust dom_op."""
         element.type_text("Hello", clear_first=True)
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "value=''" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "type_text"
+        assert call_args[3] == "true"
 
     def test_clear(self, element, mock_webview):
-        """Test clear generates correct JavaScript."""
+        """Test clear calls Rust dom_op."""
         element.clear()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "value=''" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "clear"
 
     def test_submit(self, element, mock_webview):
-        """Test submit generates correct JavaScript."""
+        """Test submit calls Rust dom_op."""
         element.submit()
-        call_args = mock_webview.eval_js.call_args[0][0]
-        assert "closest('form')" in call_args
-        assert "submit" in call_args
+        mock_webview._core.dom_op.assert_called_once()
+        call_args = mock_webview._core.dom_op.call_args[0]
+        assert call_args[1] == "submit"
 
     # === Traversal Tests ===
 
