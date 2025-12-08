@@ -61,8 +61,7 @@ jobs:
 
       - name: Check Python formatting (ruff)
         run: |
-          uv pip install ruff
-          ruff check python/ tests/ --select=E,F,W --ignore=E501
+          uvx ruff check python/ tests/ --select=E,F,W --ignore=E501
 
       - name: Cargo check (fast compile check)
         run: |

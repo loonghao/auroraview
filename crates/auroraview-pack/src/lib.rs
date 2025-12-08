@@ -105,7 +105,8 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert!(!VERSION.is_empty());
+        // VERSION is a compile-time constant, verify it has expected format
+        assert!(VERSION.contains('.'), "VERSION should contain a dot");
     }
 
     #[test]
