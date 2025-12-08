@@ -13,7 +13,7 @@ import pytest
 # Skip WebView creation tests in CI - these require display environment
 _skip_webview_in_ci = pytest.mark.skipif(
     os.environ.get("CI") == "true",
-    reason="WebView creation requires display environment, skipped in CI"
+    reason="WebView creation requires display environment, skipped in CI",
 )
 
 
