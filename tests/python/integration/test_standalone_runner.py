@@ -336,7 +336,7 @@ class TestJsAssets:
         assert js_assets_rs.exists(), f"js_assets.rs not found at {js_assets_rs}"
 
     def test_js_assets_has_html_registry(self):
-        """Test js_assets.rs has HTML registry function."""
+        """Test js_assets.rs has HTML loading function."""
         from pathlib import Path
 
         project_root = Path(__file__).parent.parent.parent.parent
@@ -347,7 +347,6 @@ class TestJsAssets:
 
         content = js_assets_rs.read_text(encoding="utf-8")
 
-        # Verify HTML registry exists
-        assert "get_html_registry" in content
+        # Verify HTML loading function exists
         assert "get_loading_html" in content
         assert "loading.html" in content

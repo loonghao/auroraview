@@ -2,11 +2,21 @@
 Tests for window dragging functionality
 
 Tests the window dragging and movement features.
+
+Note: These tests require a display environment and are skipped in CI
+unless a virtual display (xvfb) is configured.
 """
 
+import os
 import time
 
 import pytest
+
+# Skip all UI tests in CI environment (no display available)
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="UI tests require display environment, skipped in CI"
+)
 
 
 @pytest.mark.ui
