@@ -33,16 +33,16 @@ jobs:
             target: x86_64-pc-windows-msvc
             artifact: auroraview.exe
             archive: auroraview-windows-x64.zip
-          # macOS Intel
-          - os: macos-13
-            target: x86_64-apple-darwin
-            artifact: auroraview
-            archive: auroraview-macos-x64.tar.gz
-          # macOS Apple Silicon
+          # macOS Universal (build both archs on ARM runner)
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: auroraview
             archive: auroraview-macos-arm64.tar.gz
+          # macOS Intel (cross-compile on ARM runner)
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: auroraview
+            archive: auroraview-macos-x64.tar.gz
           # Linux
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
