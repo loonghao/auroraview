@@ -15,6 +15,16 @@ that use the @pytest.mark.ui marker for full UI testing.
 
 from __future__ import annotations
 
+import os
+
+import pytest
+
+# Skip UI tests in CI - these require a display and WebView2/wry runtime
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="WebView creation requires display environment, skipped in CI",
+)
+
 
 class TestJavaScriptAssetsPackaging:
     """Test that JavaScript assets are properly embedded in the .pyd file."""
@@ -26,7 +36,7 @@ class TestJavaScriptAssetsPackaging:
         are properly embedded in the compiled .pyd file by creating a WebView.
         If js_assets weren't embedded, WebView creation would fail.
         """
-        from auroraview.webview import WebView
+        from auroraview import WebView
 
         # Create a WebView - this internally uses js_assets.build_init_script()
         # which loads EVENT_BRIDGE and other JavaScript constants via include_str!
@@ -43,7 +53,7 @@ class TestJavaScriptAssetsPackaging:
         This test ensures that the context_menu.js script is embedded
         and can be conditionally included based on the context_menu parameter.
         """
-        from auroraview.webview import WebView
+        from auroraview import WebView
 
         # Create a WebView with context menu disabled
         # This internally uses js_assets.CONTEXT_MENU_DISABLE constant
@@ -64,7 +74,7 @@ class TestJavaScriptAssetsPackaging:
         This test ensures that the IPC mechanism works correctly
         with the embedded JavaScript assets.
         """
-        from auroraview.webview import WebView
+        from auroraview import WebView
 
         webview = WebView(title="Test IPC", width=100, height=100)
 
