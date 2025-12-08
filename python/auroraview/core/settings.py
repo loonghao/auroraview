@@ -148,4 +148,3 @@ __all__ = [
     "WebViewSettings",
     "DEFAULT_SETTINGS",
 ]
-

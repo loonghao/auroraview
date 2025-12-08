@@ -142,4 +142,3 @@ class TestIsBackendAvailable:
         """Test WKWebView availability on macOS."""
         assert is_backend_available(BackendType.WKWEBVIEW) is True
         assert is_backend_available(BackendType.WEBVIEW2) is False
-

@@ -157,4 +157,3 @@ class TestCookieHeader:
         cookie = Cookie(name="test", value="value", http_only=True)
         header = cookie.to_set_cookie_header()
         assert "HttpOnly" in header
-

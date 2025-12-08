@@ -239,4 +239,3 @@ class WebViewJSMixin:
                 self._core.process_events()
         except Exception as e:
             logger.debug(f"Auto process events failed (non-critical): {e}")
-

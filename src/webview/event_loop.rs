@@ -467,6 +467,12 @@ impl WebViewEventHandler {
                         if count > 0 {
                             tracing::debug!("[EventLoop] Processed {} messages via UserEvent", count);
                         }
+
+                        // Check if Close message was processed and exit immediately
+                        if state_guard.should_exit() {
+                            tracing::info!("[EventLoop] Exit requested after processing messages, exiting");
+                            *control_flow = ControlFlow::Exit;
+                        }
                     } else {
                         tracing::error!("[EventLoop] Failed to lock state");
                     }

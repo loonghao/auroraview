@@ -194,50 +194,58 @@ class MenuBar:
 
         # File menu
         file_menu = Menu("&File")
-        file_menu.add_items([
-            MenuItem.action("&New", "file.new", "Ctrl+N"),
-            MenuItem.action("&Open...", "file.open", "Ctrl+O"),
-            MenuItem.action("&Save", "file.save", "Ctrl+S"),
-            MenuItem.action("Save &As...", "file.save_as", "Ctrl+Shift+S"),
-            MenuItem.separator(),
-            MenuItem.action("E&xit", "file.exit", "Alt+F4"),
-        ])
+        file_menu.add_items(
+            [
+                MenuItem.action("&New", "file.new", "Ctrl+N"),
+                MenuItem.action("&Open...", "file.open", "Ctrl+O"),
+                MenuItem.action("&Save", "file.save", "Ctrl+S"),
+                MenuItem.action("Save &As...", "file.save_as", "Ctrl+Shift+S"),
+                MenuItem.separator(),
+                MenuItem.action("E&xit", "file.exit", "Alt+F4"),
+            ]
+        )
         bar.add_menu(file_menu)
 
         # Edit menu
         edit_menu = Menu("&Edit")
-        edit_menu.add_items([
-            MenuItem.action("&Undo", "edit.undo", "Ctrl+Z"),
-            MenuItem.action("&Redo", "edit.redo", "Ctrl+Y"),
-            MenuItem.separator(),
-            MenuItem.action("Cu&t", "edit.cut", "Ctrl+X"),
-            MenuItem.action("&Copy", "edit.copy", "Ctrl+C"),
-            MenuItem.action("&Paste", "edit.paste", "Ctrl+V"),
-            MenuItem.separator(),
-            MenuItem.action("Select &All", "edit.select_all", "Ctrl+A"),
-        ])
+        edit_menu.add_items(
+            [
+                MenuItem.action("&Undo", "edit.undo", "Ctrl+Z"),
+                MenuItem.action("&Redo", "edit.redo", "Ctrl+Y"),
+                MenuItem.separator(),
+                MenuItem.action("Cu&t", "edit.cut", "Ctrl+X"),
+                MenuItem.action("&Copy", "edit.copy", "Ctrl+C"),
+                MenuItem.action("&Paste", "edit.paste", "Ctrl+V"),
+                MenuItem.separator(),
+                MenuItem.action("Select &All", "edit.select_all", "Ctrl+A"),
+            ]
+        )
         bar.add_menu(edit_menu)
 
         # View menu
         view_menu = Menu("&View")
-        view_menu.add_items([
-            MenuItem.checkbox("Show &Toolbar", "view.toolbar", checked=True),
-            MenuItem.checkbox("Show &Sidebar", "view.sidebar", checked=True),
-            MenuItem.separator(),
-            MenuItem.action("&Zoom In", "view.zoom_in", "Ctrl++"),
-            MenuItem.action("Zoom &Out", "view.zoom_out", "Ctrl+-"),
-            MenuItem.action("&Reset Zoom", "view.zoom_reset", "Ctrl+0"),
-        ])
+        view_menu.add_items(
+            [
+                MenuItem.checkbox("Show &Toolbar", "view.toolbar", checked=True),
+                MenuItem.checkbox("Show &Sidebar", "view.sidebar", checked=True),
+                MenuItem.separator(),
+                MenuItem.action("&Zoom In", "view.zoom_in", "Ctrl++"),
+                MenuItem.action("Zoom &Out", "view.zoom_out", "Ctrl+-"),
+                MenuItem.action("&Reset Zoom", "view.zoom_reset", "Ctrl+0"),
+            ]
+        )
         bar.add_menu(view_menu)
 
         # Help menu
         help_menu = Menu("&Help")
-        help_menu.add_items([
-            MenuItem.action("&Documentation", "help.docs", "F1"),
-            MenuItem.action("&Check for Updates", "help.updates"),
-            MenuItem.separator(),
-            MenuItem.action(f"&About {app_name}", "help.about"),
-        ])
+        help_menu.add_items(
+            [
+                MenuItem.action("&Documentation", "help.docs", "F1"),
+                MenuItem.action("&Check for Updates", "help.updates"),
+                MenuItem.separator(),
+                MenuItem.action(f"&About {app_name}", "help.about"),
+            ]
+        )
         bar.add_menu(help_menu)
 
         return bar
@@ -247,4 +255,3 @@ class MenuBar:
         return {
             "menus": [menu.to_dict() for menu in self.menus],
         }
-

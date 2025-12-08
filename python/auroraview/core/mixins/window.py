@@ -124,4 +124,3 @@ class WebViewWindowMixin:
             self._core.focus()
         else:
             logger.warning("focus() not supported by current backend")
-
