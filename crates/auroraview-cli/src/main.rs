@@ -499,6 +499,12 @@ fn run_webview(args: RunArgs) -> Result<()> {
         .with_title(&args.title)
         .with_visible(false); // Start hidden to avoid white flash
 
+    // Set window icon from embedded ICO
+    if let Some(icon) = load_window_icon() {
+        window_builder = window_builder.with_window_icon(Some(icon));
+        tracing::info!("[CLI] Window icon set");
+    }
+
     // If width or height is 0, maximize the window; otherwise set the size
     if args.width == 0 || args.height == 0 {
         tracing::info!("[CLI] Maximizing window (width or height is 0)");
@@ -524,7 +530,7 @@ fn run_webview(args: RunArgs) -> Result<()> {
     let mut web_context = WebContext::new(Some(data_dir));
 
     // Create WebView with custom protocol support
-    let mut webview_builder = WryWebViewBuilder::with_web_context(&mut web_context);
+    let mut webview_builder = WryWebViewBuilder::new_with_web_context(&mut web_context);
 
     // Register auroraview:// protocol if assets_root is set
     // Use the project's protocol handler from protocol_handlers module
@@ -1118,4 +1124,18 @@ fn get_webview_data_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
         .join("AuroraView")
         .join("WebView2")
+}
+
+/// Embedded window icon (32x32 PNG)
+const ICON_PNG_BYTES: &[u8] = include_bytes!("../../../assets/icons/auroraview-32.png");
+
+/// Load window icon from embedded PNG bytes
+fn load_window_icon() -> Option<tao::window::Icon> {
+    use ::image::GenericImageView;
+
+    let img = ::image::load_from_memory(ICON_PNG_BYTES).ok()?;
+    let (width, height) = img.dimensions();
+    let rgba = img.into_rgba8().into_raw();
+
+    tao::window::Icon::from_rgba(rgba, width, height).ok()
 }

@@ -53,6 +53,9 @@ dirs = "6.0"
 # MIME type detection
 mime_guess = "2.0"
 
+# Image processing for window icon
+image = { version = "0.25", default-features = false, features = ["png"] }
+
 # Embed static assets
 rust-embed = "8.5"
 
