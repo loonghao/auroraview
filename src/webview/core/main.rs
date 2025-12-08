@@ -69,14 +69,14 @@ impl AuroraView {
         };
 
         // Map string to EmbedMode (Windows)
+        // Only "child" mode is supported (official recommended approach)
         #[cfg(target_os = "windows")]
         {
             use crate::webview::config::EmbedMode;
             config.embed_mode = match parent_mode.map(|s| s.to_ascii_lowercase()) {
                 Some(ref m) if m == "child" => EmbedMode::Child,
-                Some(ref m) if m == "owner" => EmbedMode::Owner,
-                Some(ref m) if m == "container" => EmbedMode::Container,
                 _ => {
+                    // Default: use Child mode if parent_hwnd is provided, otherwise None
                     if parent_hwnd.is_some() {
                         EmbedMode::Child
                     } else {
@@ -98,7 +98,16 @@ impl AuroraView {
             message_queue: Arc::new(MessageQueue::new()),
             event_loop_proxy: Rc::new(RefCell::new(None)),
             js_callback_manager,
+            on_hwnd_created: Rc::new(RefCell::new(None)),
         })
+    }
+
+    /// Set callback for when WebView2 HWND is created
+    ///
+    /// The callback receives the HWND (int) as argument.
+    /// This is called immediately when the underlying WebView2 window is created.
+    fn set_on_hwnd_created(&self, callback: Py<PyAny>) {
+        *self.on_hwnd_created.borrow_mut() = Some(callback);
     }
 
     /// Test method to verify Python bindings work
@@ -116,7 +125,7 @@ impl AuroraView {
         match embed_mode {
             EmbedMode::None => self.show_window(),
             #[cfg(target_os = "windows")]
-            EmbedMode::Child | EmbedMode::Owner | EmbedMode::Container => self.show_embedded(),
+            EmbedMode::Child => self.show_embedded(),
         }
     }
 
@@ -158,23 +167,57 @@ impl AuroraView {
         let title = self.config.borrow().title.clone();
         tracing::info!("Creating embedded WebView: {}", title);
 
-        let mut inner = self.inner.borrow_mut();
-        let need_create = inner.as_ref().map_or(true, |e| e.event_loop.is_none());
+        // Track if we need to invoke the callback after releasing the borrow
+        let mut created_hwnd: Option<u64> = None;
 
-        if need_create {
-            let config = self.config.borrow().clone();
-            let parent_hwnd = config.parent_hwnd.unwrap_or(0);
+        {
+            // Scope the mutable borrow to release it before callback invocation
+            let mut inner = self.inner.borrow_mut();
+            let need_create = inner.as_ref().map_or(true, |e| e.event_loop.is_none());
 
-            let webview = WebViewInner::create_embedded(
-                parent_hwnd,
-                config.width,
-                config.height,
-                config,
-                self.ipc_handler.clone(),
-                self.message_queue.clone(),
-            )
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-            *inner = Some(webview);
+            if need_create {
+                let config = self.config.borrow().clone();
+                let parent_hwnd = config.parent_hwnd.unwrap_or(0);
+
+                // Don't pass callback to create_embedded - we'll invoke it after releasing borrow
+                // This avoids RefCell borrow conflict when callback tries to access self.inner
+                let webview = WebViewInner::create_embedded(
+                    parent_hwnd,
+                    config.width,
+                    config.height,
+                    config,
+                    self.ipc_handler.clone(),
+                    self.message_queue.clone(),
+                    None, // No callback - we'll call it manually after borrow is released
+                )
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+                // Get HWND before storing webview
+                created_hwnd = webview.get_hwnd();
+
+                *inner = Some(webview);
+            }
+        } // inner borrow released here
+
+        // Now safe to invoke callback - self.inner is no longer borrowed
+        if let Some(hwnd) = created_hwnd {
+            if let Some(callback) = Python::attach(|py| {
+                self.on_hwnd_created
+                    .borrow()
+                    .as_ref()
+                    .map(|cb| cb.clone_ref(py))
+            }) {
+                tracing::info!(
+                    "[OK] [show_embedded] Invoking on_hwnd_created callback with HWND 0x{:X}",
+                    hwnd
+                );
+                Python::attach(|py| {
+                    if let Err(e) = callback.call1(py, (hwnd,)) {
+                        tracing::error!("Error calling on_hwnd_created callback: {:?}", e);
+                        e.print(py);
+                    }
+                });
+            }
         }
 
         Ok(())
@@ -184,18 +227,52 @@ impl AuroraView {
     fn create_embedded(&self, parent_hwnd: u64, width: u32, height: u32) -> PyResult<()> {
         tracing::info!("Creating embedded WebView for parent HWND: {}", parent_hwnd);
 
-        let mut inner = self.inner.borrow_mut();
-        if inner.is_none() {
-            let webview = WebViewInner::create_embedded(
-                parent_hwnd,
-                width,
-                height,
-                self.config.borrow().clone(),
-                self.ipc_handler.clone(),
-                self.message_queue.clone(),
-            )
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-            *inner = Some(webview);
+        // Track if we need to invoke the callback after releasing the borrow
+        let mut created_hwnd: Option<u64> = None;
+
+        {
+            // Scope the mutable borrow to release it before callback invocation
+            let mut inner = self.inner.borrow_mut();
+            if inner.is_none() {
+                // Don't pass callback to create_embedded - we'll invoke it after releasing borrow
+                // This avoids RefCell borrow conflict when callback tries to access self.inner
+                let webview = WebViewInner::create_embedded(
+                    parent_hwnd,
+                    width,
+                    height,
+                    self.config.borrow().clone(),
+                    self.ipc_handler.clone(),
+                    self.message_queue.clone(),
+                    None, // No callback - we'll call it manually after borrow is released
+                )
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+                // Get HWND before storing webview
+                created_hwnd = webview.get_hwnd();
+
+                *inner = Some(webview);
+            }
+        } // inner borrow released here
+
+        // Now safe to invoke callback - self.inner is no longer borrowed
+        if let Some(hwnd) = created_hwnd {
+            if let Some(callback) = Python::attach(|py| {
+                self.on_hwnd_created
+                    .borrow()
+                    .as_ref()
+                    .map(|cb| cb.clone_ref(py))
+            }) {
+                tracing::info!(
+                    "[OK] [create_embedded] Invoking on_hwnd_created callback with HWND 0x{:X}",
+                    hwnd
+                );
+                Python::attach(|py| {
+                    if let Err(e) = callback.call1(py, (hwnd,)) {
+                        tracing::error!("Error calling on_hwnd_created callback: {:?}", e);
+                        e.print(py);
+                    }
+                });
+            }
         }
 
         Ok(())
@@ -389,11 +466,21 @@ impl AuroraView {
 
     /// Get the window handle (HWND on Windows)
     fn get_hwnd(&self) -> PyResult<Option<u64>> {
-        let inner = self.inner.borrow();
-        if let Some(ref webview) = *inner {
-            Ok(webview.get_hwnd())
-        } else {
-            Ok(None)
+        // Use try_borrow to avoid panic if RefCell is already borrowed
+        // This can happen during callback invocations from show_embedded/create_embedded
+        match self.inner.try_borrow() {
+            Ok(inner) => {
+                if let Some(ref webview) = *inner {
+                    Ok(webview.get_hwnd())
+                } else {
+                    Ok(None)
+                }
+            }
+            Err(_) => {
+                // RefCell already borrowed - return None instead of panicking
+                tracing::debug!("[get_hwnd] RefCell already borrowed, returning None");
+                Ok(None)
+            }
         }
     }
 
@@ -424,5 +511,90 @@ impl AuroraView {
             self.message_queue.clone(),
             self.js_callback_manager.clone(),
         )
+    }
+
+    // === Lifecycle State Query APIs ===
+
+    /// Check if the WebView is alive and ready for operations
+    ///
+    /// Returns True if the WebView has been created and is not destroyed.
+    /// Use this to check if it's safe to call other WebView methods.
+    ///
+    /// Returns:
+    ///     bool: True if WebView is alive, False otherwise
+    ///
+    /// Example:
+    ///     >>> if webview.is_alive():
+    ///     ...     webview.eval_js("console.log('Hello!')")
+    fn is_alive(&self) -> PyResult<bool> {
+        let inner = self.inner.borrow();
+        if let Some(ref webview) = *inner {
+            use crate::webview::lifecycle::LifecycleState;
+            let state = webview.lifecycle_state();
+            Ok(!matches!(
+                state,
+                LifecycleState::Destroyed
+                    | LifecycleState::Destroying
+                    | LifecycleState::CloseRequested
+            ))
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Get the current lifecycle state as a string
+    ///
+    /// Returns one of: "creating", "active", "close_requested", "destroying", "destroyed", "none"
+    ///
+    /// Returns:
+    ///     str: Current lifecycle state
+    ///
+    /// Example:
+    ///     >>> state = webview.lifecycle_state
+    ///     >>> if state == "active":
+    ///     ...     webview.eval_js("console.log('Ready!')")
+    #[getter]
+    fn lifecycle_state(&self) -> PyResult<String> {
+        let inner = self.inner.borrow();
+        if let Some(ref webview) = *inner {
+            use crate::webview::lifecycle::LifecycleState;
+            let state = webview.lifecycle_state();
+            let state_str = match state {
+                LifecycleState::Creating => "creating",
+                LifecycleState::Active => "active",
+                LifecycleState::CloseRequested => "close_requested",
+                LifecycleState::Destroying => "destroying",
+                LifecycleState::Destroyed => "destroyed",
+            };
+            Ok(state_str.to_string())
+        } else {
+            Ok("none".to_string())
+        }
+    }
+
+    /// Reset the WebView state for reuse
+    ///
+    /// This clears internal state so the WebView can be shown again after being closed.
+    /// Call this before calling show() a second time on the same instance.
+    ///
+    /// Example:
+    ///     >>> webview.close()
+    ///     >>> # ... later ...
+    ///     >>> webview.reset()  # Clear old state
+    ///     >>> webview.show()   # Show again
+    fn reset(&self) -> PyResult<()> {
+        tracing::info!("[AuroraView::reset] Resetting WebView state for reuse");
+
+        // Clear the inner WebViewInner
+        *self.inner.borrow_mut() = None;
+
+        // Clear the event loop proxy
+        *self.event_loop_proxy.borrow_mut() = None;
+
+        // Clear the message queue
+        self.message_queue.clear();
+
+        tracing::info!("[AuroraView::reset] WebView state reset complete");
+        Ok(())
     }
 }

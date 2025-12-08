@@ -79,10 +79,35 @@ impl AuroraView {
     ///     event_name (str): Name of the event to listen for
     ///     callback (callable): Python function to call when event occurs
     fn on(&self, event_name: &str, callback: Py<PyAny>) -> PyResult<()> {
-        tracing::info!("Registering callback for event: {}", event_name);
+        tracing::debug!("Registering callback for event: {}", event_name);
         self.ipc_handler
             .register_python_callback(event_name, callback);
         Ok(())
+    }
+
+    /// Register multiple Python callbacks at once (batch registration)
+    ///
+    /// This is more efficient than calling on() multiple times because
+    /// it logs only once for the entire batch.
+    ///
+    /// Args:
+    ///     callbacks: List of tuples (event_name, callback)
+    ///
+    /// Example:
+    ///     >>> webview.on_batch([
+    ///     ...     ("navigation_started", on_nav_start),
+    ///     ...     ("navigation_finished", on_nav_finish),
+    ///     ...     ("api.echo", handle_echo),
+    ///     ... ])
+    #[pyo3(signature = (callbacks))]
+    fn on_batch(&self, callbacks: Vec<(String, Py<PyAny>)>) -> PyResult<usize> {
+        let count = callbacks.len();
+        if count == 0 {
+            return Ok(0);
+        }
+        tracing::info!("Registering {} callbacks in batch", count);
+        self.ipc_handler.register_python_callbacks_batch(callbacks);
+        Ok(count)
     }
 
     // ========================================

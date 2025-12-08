@@ -18,7 +18,7 @@ use wry::WebViewBuilderExtWindows;
 
 use super::WebViewBackend;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
-use crate::webview::config::WebViewConfig;
+use crate::webview::config::{EmbedMode, WebViewConfig};
 use crate::webview::event_loop::UserEvent;
 use crate::webview::js_assets;
 use crate::webview::message_pump;
@@ -75,7 +75,7 @@ impl WebViewBackend for NativeBackend {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Determine if this is embedded or standalone mode
         if let Some(parent_hwnd) = config.parent_hwnd {
-            Self::create_embedded(parent_hwnd, config, ipc_handler, message_queue)
+            Self::create_embedded(parent_hwnd, config, ipc_handler, message_queue, None)
         } else {
             #[cfg(feature = "python-bindings")]
             {
@@ -340,109 +340,310 @@ impl WebViewBackend for NativeBackend {
 }
 
 impl NativeBackend {
-    /// Apply anti-flicker optimizations for Container mode (Qt integration)
+    /// Apply WS_CHILD style to ensure the window is a true child window
     ///
-    /// This function applies Win32 optimizations to prevent the window from
-    /// being visible before Qt's createWindowContainer wraps it:
+    /// This function ensures the WebView window cannot be dragged independently
+    /// by setting WS_CHILD style and removing popup/caption styles.
+    /// It also removes extended styles that can cause white borders.
     ///
-    /// 1. Move window off-screen to prevent any visible flash
-    /// 2. Add WS_EX_LAYERED and set zero alpha for complete invisibility
-    /// 3. Pre-apply WS_CHILD-compatible styles to reduce transition artifacts
-    ///
-    /// These optimizations will be reversed by Qt when it calls createWindowContainer
-    /// and sets up proper visibility.
+    /// # Arguments
+    /// * `hwnd` - The WebView window handle
+    /// * `parent_hwnd` - The parent window handle (Qt widget)
     #[cfg(target_os = "windows")]
-    fn apply_anti_flicker_optimizations(hwnd: isize) {
-        use windows::Win32::Foundation::{COLORREF, HWND};
-        use windows::Win32::Graphics::Gdi::UpdateWindow;
+    #[allow(dead_code)]
+    fn apply_child_window_style(hwnd: isize, parent_hwnd: isize) {
+        use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::{
-            GetWindowLongW, SetLayeredWindowAttributes, SetWindowLongW, SetWindowPos, GWL_EXSTYLE,
-            HWND_BOTTOM, LWA_ALPHA, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER,
-            WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+            GetWindowLongW, SetParent, SetWindowLongW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
+            SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER, WS_BORDER, WS_CAPTION,
+            WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE,
+            WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
         };
 
         unsafe {
             let hwnd_win = HWND(hwnd as *mut _);
+            let parent_hwnd_win = HWND(parent_hwnd as *mut _);
 
-            // Step 1: Add WS_EX_LAYERED for transparency control
-            // Also add WS_EX_TOOLWINDOW to prevent taskbar icon and WS_EX_NOACTIVATE
+            // Get current window styles
+            let style = GetWindowLongW(hwnd_win, GWL_STYLE);
             let ex_style = GetWindowLongW(hwnd_win, GWL_EXSTYLE);
+
+            // Remove popup/caption/thickframe/border styles and add WS_CHILD
+            // WS_CHILD windows cannot be moved independently of their parent
+            let new_style = (style
+                & !(WS_POPUP.0 as i32)
+                & !(WS_CAPTION.0 as i32)
+                & !(WS_THICKFRAME.0 as i32)
+                & !(WS_BORDER.0 as i32)
+                & !(WS_DLGFRAME.0 as i32))
+                | (WS_CHILD.0 as i32);
+
+            // Remove extended styles that can cause white borders
+            // WS_EX_STATICEDGE, WS_EX_CLIENTEDGE, WS_EX_WINDOWEDGE are particularly problematic
             let new_ex_style = ex_style
-                | WS_EX_LAYERED.0 as i32
-                | WS_EX_TOOLWINDOW.0 as i32
-                | WS_EX_NOACTIVATE.0 as i32;
+                & !(WS_EX_STATICEDGE.0 as i32)
+                & !(WS_EX_CLIENTEDGE.0 as i32)
+                & !(WS_EX_WINDOWEDGE.0 as i32)
+                & !(WS_EX_DLGMODALFRAME.0 as i32);
+
+            SetWindowLongW(hwnd_win, GWL_STYLE, new_style);
             SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
 
-            // Step 2: Set zero alpha to make window completely invisible
-            // This is the key to preventing any flash - even if the window
-            // briefly appears on screen, it will be fully transparent
-            // COLORREF(0) is black but we use LWA_ALPHA so color key is ignored
-            let _ = SetLayeredWindowAttributes(hwnd_win, COLORREF(0), 0, LWA_ALPHA);
+            // Ensure parent is set correctly (in case tao didn't do it)
+            let _ = SetParent(hwnd_win, Some(parent_hwnd_win));
 
-            // Step 3: Move window far off-screen as a secondary safeguard
-            // Position: (-10000, -10000) is well outside any monitor
+            // Apply style changes AND move window to (0, 0) within parent
+            // CRITICAL: Remove SWP_NOMOVE to force position to (0, 0)
+            // This prevents the WebView from being dragged/offset within the Qt container
             let _ = SetWindowPos(
                 hwnd_win,
-                Some(HWND_BOTTOM), // Put at bottom of Z-order
-                -10000,            // X: far off-screen
-                -10000,            // Y: far off-screen
+                None,
+                0, // X position - top-left of parent
+                0, // Y position - top-left of parent
                 0,
                 0,
                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             );
 
-            // Ensure the window is updated
-            let _ = UpdateWindow(hwnd_win);
-
             tracing::info!(
-                "[OK] [NativeBackend] Applied anti-flicker optimizations: HWND 0x{:X} moved off-screen with zero alpha",
-                hwnd
+                "[OK] [NativeBackend] Applied WS_CHILD style: HWND 0x{:X} -> Parent 0x{:X} (style 0x{:08X} -> 0x{:08X}, ex_style 0x{:08X} -> 0x{:08X})",
+                hwnd,
+                parent_hwnd,
+                style,
+                new_style,
+                ex_style,
+                new_ex_style
             );
         }
     }
 
-    /// Remove anti-flicker optimizations (restore normal window behavior)
+    /// Fix all WebView2 child windows to prevent dragging (Qt6 compatibility)
     ///
-    /// This should be called after Qt's createWindowContainer has wrapped the window.
-    /// It removes the WS_EX_LAYERED style and restores normal alpha.
+    /// WebView2 creates multiple child windows (Chrome_WidgetWin_0, Intermediate D3D Window, etc.)
+    /// that may not inherit proper WS_CHILD styles. This function recursively fixes all child
+    /// windows to ensure they cannot be dragged independently.
+    ///
+    /// Additionally, this function subclasses Chrome_WidgetWin_0 and Chrome_WidgetWin_1 windows
+    /// to intercept WM_NCHITTEST messages and force them to return HTCLIENT, preventing any
+    /// drag behavior from the WebView2's internal window handling.
+    ///
+    /// This is especially important for Qt6 where createWindowContainer behavior differs from Qt5.
+    ///
+    /// # Arguments
+    /// * `hwnd` - The top-level WebView window handle
     #[cfg(target_os = "windows")]
-    #[allow(dead_code)]
-    pub fn remove_anti_flicker_optimizations(hwnd: isize) {
-        use windows::Win32::Foundation::{COLORREF, HWND};
+    pub fn fix_webview2_child_windows(hwnd: isize) {
+        use std::collections::HashMap;
+        use std::ffi::c_void;
+        use std::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::Mutex;
+        use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
         use windows::Win32::UI::WindowsAndMessaging::{
-            GetWindowLongW, SetLayeredWindowAttributes, SetWindowLongW, SetWindowPos, GWL_EXSTYLE,
-            LWA_ALPHA, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-            WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+            CallWindowProcW, DefWindowProcW, EnumChildWindows, GetClassNameW, GetWindowLongPtrW,
+            GetWindowLongW, SetWindowLongPtrW, SetWindowLongW, SetWindowPos, GWLP_WNDPROC,
+            GWL_EXSTYLE, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+            SWP_NOZORDER, WNDPROC, WS_BORDER, WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE,
+            WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
         };
 
-        unsafe {
-            let hwnd_win = HWND(hwnd as *mut _);
+        // WM_NCHITTEST message constant
+        const WM_NCHITTEST: u32 = 0x0084;
+        // HTCLIENT - indicates the client area (no dragging)
+        const HTCLIENT: isize = 1;
 
-            // Restore full alpha first (make window visible if it was layered)
-            let _ = SetLayeredWindowAttributes(hwnd_win, COLORREF(0), 255, LWA_ALPHA);
+        // Store original window procedures for subclassed windows
+        // Using a static HashMap protected by Mutex for thread safety
+        static ORIGINAL_WNDPROCS: Mutex<Option<HashMap<isize, isize>>> = Mutex::new(None);
 
-            // Remove WS_EX_LAYERED, WS_EX_TOOLWINDOW, and WS_EX_NOACTIVATE styles
-            let ex_style = GetWindowLongW(hwnd_win, GWL_EXSTYLE);
-            let new_ex_style = ex_style
-                & !(WS_EX_LAYERED.0 as i32)
-                & !(WS_EX_TOOLWINDOW.0 as i32)
-                & !(WS_EX_NOACTIVATE.0 as i32);
-            SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
+        // Initialize the HashMap if needed
+        {
+            let mut guard = ORIGINAL_WNDPROCS.lock().unwrap();
+            if guard.is_none() {
+                *guard = Some(HashMap::new());
+            }
+        }
 
-            // Apply style changes
-            let _ = SetWindowPos(
-                hwnd_win,
-                None,
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
-            );
+        // Custom window procedure that intercepts WM_NCHITTEST
+        unsafe extern "system" fn subclass_wndproc(
+            hwnd: HWND,
+            msg: u32,
+            wparam: WPARAM,
+            lparam: LPARAM,
+        ) -> LRESULT {
+            // Intercept WM_NCHITTEST to prevent dragging
+            if msg == WM_NCHITTEST {
+                // Always return HTCLIENT to indicate we're in the client area
+                // This prevents any part of the window from being treated as a drag handle
+                return LRESULT(HTCLIENT);
+            }
+
+            // Get the original window procedure
+            let original_wndproc = {
+                let guard = ORIGINAL_WNDPROCS.lock().unwrap();
+                guard
+                    .as_ref()
+                    .and_then(|map| map.get(&(hwnd.0 as isize)).copied())
+            };
+
+            if let Some(original) = original_wndproc {
+                // Call the original window procedure for all other messages
+                let wndproc: WNDPROC = std::mem::transmute(original);
+                CallWindowProcW(wndproc, hwnd, msg, wparam, lparam)
+            } else {
+                // Fallback to DefWindowProc if original not found
+                DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
+        }
+
+        // Counter for fixed windows
+        static FIXED_COUNT: AtomicU32 = AtomicU32::new(0);
+        static TOTAL_COUNT: AtomicU32 = AtomicU32::new(0);
+        static SUBCLASSED_COUNT: AtomicU32 = AtomicU32::new(0);
+        FIXED_COUNT.store(0, Ordering::SeqCst);
+        TOTAL_COUNT.store(0, Ordering::SeqCst);
+        SUBCLASSED_COUNT.store(0, Ordering::SeqCst);
+
+        // Callback function for EnumChildWindows
+        // Returns TRUE (non-zero) to continue enumeration, FALSE (0) to stop
+        unsafe extern "system" fn enum_child_proc(
+            child_hwnd: HWND,
+            _lparam: LPARAM,
+        ) -> windows::core::BOOL {
+            TOTAL_COUNT.fetch_add(1, Ordering::SeqCst);
+
+            // Get window class name for logging
+            let mut class_name_buf = [0u16; 256];
+            let class_len = GetClassNameW(child_hwnd, &mut class_name_buf);
+            let class_name = if class_len > 0 {
+                String::from_utf16_lossy(&class_name_buf[..class_len as usize])
+            } else {
+                String::from("<unknown>")
+            };
+
+            // Get current styles
+            let style = GetWindowLongW(child_hwnd, GWL_STYLE);
+            let ex_style = GetWindowLongW(child_hwnd, GWL_EXSTYLE);
+
+            // Check if this window has problematic styles
+            let has_popup = (style & WS_POPUP.0 as i32) != 0;
+            let has_caption = (style & WS_CAPTION.0 as i32) != 0;
+            let has_thickframe = (style & WS_THICKFRAME.0 as i32) != 0;
+            let is_child = (style & WS_CHILD.0 as i32) != 0;
 
             tracing::info!(
-                "[OK] [NativeBackend] Removed anti-flicker optimizations: HWND 0x{:X} restored",
-                hwnd
+                "[fix_webview2_child_windows] Checking child HWND 0x{:X} class='{}' style=0x{:08X} (popup={}, caption={}, thickframe={}, is_child={})",
+                child_hwnd.0 as isize,
+                class_name,
+                style,
+                has_popup,
+                has_caption,
+                has_thickframe,
+                is_child
+            );
+
+            // Subclass Chrome_WidgetWin_0 and Chrome_WidgetWin_1 to intercept WM_NCHITTEST
+            // These are the windows that handle mouse input and may cause dragging
+            if class_name == "Chrome_WidgetWin_0" || class_name == "Chrome_WidgetWin_1" {
+                // Check if already subclassed
+                let already_subclassed = {
+                    let guard = ORIGINAL_WNDPROCS.lock().unwrap();
+                    guard
+                        .as_ref()
+                        .map(|map| map.contains_key(&(child_hwnd.0 as isize)))
+                        .unwrap_or(false)
+                };
+
+                if !already_subclassed {
+                    // Get the current window procedure
+                    let original_wndproc = GetWindowLongPtrW(child_hwnd, GWLP_WNDPROC);
+                    if original_wndproc != 0 {
+                        // Store the original window procedure
+                        {
+                            let mut guard = ORIGINAL_WNDPROCS.lock().unwrap();
+                            if let Some(map) = guard.as_mut() {
+                                map.insert(child_hwnd.0 as isize, original_wndproc);
+                            }
+                        }
+
+                        // Set our custom window procedure
+                        SetWindowLongPtrW(
+                            child_hwnd,
+                            GWLP_WNDPROC,
+                            subclass_wndproc as usize as isize,
+                        );
+
+                        SUBCLASSED_COUNT.fetch_add(1, Ordering::SeqCst);
+
+                        tracing::info!(
+                            "[OK] [fix_webview2_child_windows] Subclassed HWND 0x{:X} class='{}' to intercept WM_NCHITTEST",
+                            child_hwnd.0 as isize,
+                            class_name
+                        );
+                    }
+                }
+            }
+
+            // Only fix windows that aren't already proper child windows
+            if has_popup || has_caption || has_thickframe || !is_child {
+                // Remove problematic styles and ensure WS_CHILD
+                let new_style = (style
+                    & !(WS_POPUP.0 as i32)
+                    & !(WS_CAPTION.0 as i32)
+                    & !(WS_THICKFRAME.0 as i32)
+                    & !(WS_BORDER.0 as i32)
+                    & !(WS_DLGFRAME.0 as i32))
+                    | (WS_CHILD.0 as i32);
+
+                // Remove extended styles that can cause issues
+                let new_ex_style = ex_style
+                    & !(WS_EX_STATICEDGE.0 as i32)
+                    & !(WS_EX_CLIENTEDGE.0 as i32)
+                    & !(WS_EX_WINDOWEDGE.0 as i32)
+                    & !(WS_EX_DLGMODALFRAME.0 as i32);
+
+                if new_style != style || new_ex_style != ex_style {
+                    SetWindowLongW(child_hwnd, GWL_STYLE, new_style);
+                    SetWindowLongW(child_hwnd, GWL_EXSTYLE, new_ex_style);
+
+                    // Apply changes
+                    let _ = SetWindowPos(
+                        child_hwnd,
+                        None,
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                    );
+
+                    FIXED_COUNT.fetch_add(1, Ordering::SeqCst);
+
+                    tracing::info!(
+                        "[OK] [fix_webview2_child_windows] Fixed child HWND 0x{:X} class='{}' (style 0x{:08X} -> 0x{:08X})",
+                        child_hwnd.0 as isize,
+                        class_name,
+                        style,
+                        new_style
+                    );
+                }
+            }
+
+            // Continue enumeration (TRUE = 1)
+            windows::core::BOOL::from(true)
+        }
+
+        unsafe {
+            let hwnd_win = HWND(hwnd as *mut c_void);
+            let _ = EnumChildWindows(Some(hwnd_win), Some(enum_child_proc), LPARAM(0));
+            let total = TOTAL_COUNT.load(Ordering::SeqCst);
+            let fixed = FIXED_COUNT.load(Ordering::SeqCst);
+            let subclassed = SUBCLASSED_COUNT.load(Ordering::SeqCst);
+            tracing::info!(
+                "[OK] [NativeBackend] Fixed WebView2 child windows for HWND 0x{:X} (total={}, fixed={}, subclassed={})",
+                hwnd,
+                total,
+                fixed,
+                subclassed
             );
         }
     }
@@ -471,6 +672,7 @@ impl NativeBackend {
     /// * `config` - WebView configuration (use embed_mode to control embedding behavior)
     /// * `ipc_handler` - IPC message handler
     /// * `message_queue` - Message queue for cross-thread communication
+    /// * `on_created` - Optional callback invoked when WebView2 HWND is created
     ///
     /// # Returns
     /// A NativeBackend instance without running event loop
@@ -480,6 +682,7 @@ impl NativeBackend {
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
+        on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         tracing::info!(
             "[OK] [NativeBackend::create_for_dcc] Creating WebView for DCC integration (parent_hwnd: {}, mode: {:?})",
@@ -490,7 +693,7 @@ impl NativeBackend {
         tracing::info!("[OK] DCC's Qt message pump will handle all messages");
 
         // Delegate to create_embedded which now handles all embedding modes
-        Self::create_embedded(parent_hwnd, config, ipc_handler, message_queue)
+        Self::create_embedded(parent_hwnd, config, ipc_handler, message_queue, on_created)
     }
 
     /// Create WebView for DCC integration (non-Windows platforms)
@@ -501,6 +704,7 @@ impl NativeBackend {
         _config: WebViewConfig,
         _ipc_handler: Arc<IpcHandler>,
         _message_queue: Arc<MessageQueue>,
+        _on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Err("DCC integration mode is only supported on Windows".into())
     }
@@ -550,6 +754,7 @@ impl NativeBackend {
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
+        on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         use crate::webview::config::EmbedMode;
         use tao::platform::windows::WindowBuilderExtWindows;
@@ -589,36 +794,37 @@ impl NativeBackend {
         };
 
         // Create window builder
+        // For Child mode (recommended), window starts hidden and is shown after WebView is ready
+        let start_visible = config.auto_show && matches!(config.embed_mode, EmbedMode::None);
+
         let mut window_builder = WindowBuilder::new()
             .with_title(&config.title)
             .with_inner_size(tao::dpi::LogicalSize::new(config.width, config.height))
             .with_resizable(config.resizable)
             .with_decorations(config.decorations)
             .with_always_on_top(config.always_on_top)
-            .with_transparent(config.transparent);
+            .with_transparent(config.transparent)
+            .with_visible(start_visible);
 
         // Set parent window based on embed mode
+        // Child mode is the official recommended approach by wry and WebView2
         match config.embed_mode {
             EmbedMode::Child => {
-                tracing::info!("[OK] [NativeBackend] Using Child mode (WS_CHILD)");
-                window_builder = window_builder.with_parent_window(parent_hwnd as isize);
-            }
-            EmbedMode::Owner => {
-                tracing::info!("[OK] [NativeBackend] Using Owner mode (GWLP_HWNDPARENT)");
-                window_builder = window_builder.with_owner_window(parent_hwnd as isize);
-            }
-            EmbedMode::Container => {
-                // Container mode: standalone window, no Win32 parent relationship
-                // Qt will wrap this window with createWindowContainer
+                // RECOMMENDED: Use WS_CHILD for true child window embedding
+                // - wry's build_as_child() is designed for this
+                // - WebView2's "Windowed Hosting" is the simplest option
+                // - Automatic resize when parent resizes
+                // - Works with Qt5/Qt6 by passing QWidget's winId()
                 tracing::info!(
-                    "[OK] [NativeBackend] Using Container mode (standalone for Qt container)"
+                    "[OK] [NativeBackend] Using Child mode (WS_CHILD, frameless) - RECOMMENDED"
                 );
-                window_builder = window_builder.with_decorations(false);
+                window_builder = window_builder
+                    .with_decorations(false)
+                    .with_parent_window(parent_hwnd as isize);
             }
             EmbedMode::None => {
-                tracing::warn!(
-                    "[WARNING] [NativeBackend] EmbedMode::None - creating standalone window"
-                );
+                // Standalone window mode - no parent relationship
+                tracing::info!("[OK] [NativeBackend] Using None mode - standalone window");
             }
         }
 
@@ -627,7 +833,7 @@ impl NativeBackend {
             .build(&event_loop)
             .map_err(|e| format!("Failed to create window: {}", e))?;
 
-        // Log window HWND and apply anti-flicker optimizations for Container mode
+        // Log window HWND and apply mode-specific optimizations
         #[cfg(target_os = "windows")]
         {
             use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -640,19 +846,37 @@ impl NativeBackend {
                         hwnd_value
                     );
 
-                    // For Container mode (Qt integration), apply anti-flicker optimizations
-                    // This prevents the window from being visible before Qt's createWindowContainer
-                    if matches!(config.embed_mode, EmbedMode::Container) {
-                        Self::apply_anti_flicker_optimizations(hwnd_value);
+                    // Call the callback immediately!
+                    if let Some(callback) = &on_created {
+                        tracing::info!("[OK] [NativeBackend] Invoking on_created callback");
+                        callback(hwnd_value as u64);
+                    }
+
+                    // For Child mode, tao's with_parent_window handles WS_CHILD automatically
+                    if matches!(config.embed_mode, EmbedMode::Child) {
+                        tracing::info!(
+                            "[OK] [NativeBackend] Child mode: tao's with_parent_window sets WS_CHILD"
+                        );
                     }
                 }
             }
         }
 
-        // Only make window visible if auto_show is true
-        // For DCC/Qt integration, we want to keep it hidden until Qt controls visibility
+        // Control window visibility based on embed mode and auto_show setting
         let auto_show = config.auto_show;
-        if auto_show {
+        if matches!(config.embed_mode, EmbedMode::Child) {
+            // Child mode: window visibility is controlled by parent
+            // Show immediately since it's embedded in parent
+            if auto_show {
+                window.set_visible(true);
+                tracing::info!(
+                    "[OK] [NativeBackend] Child mode: window shown (embedded in parent)"
+                );
+            } else {
+                window.set_visible(false);
+                tracing::info!("[OK] [NativeBackend] Child mode: window hidden (auto_show=false)");
+            }
+        } else if auto_show {
             window.set_visible(true);
             tracing::info!("[OK] [NativeBackend] Window auto-shown (auto_show=true)");
         } else {
@@ -662,6 +886,29 @@ impl NativeBackend {
 
         // Create WebView with IPC handler
         let webview = Self::create_webview(&window, &config, ipc_handler)?;
+
+        // Emit webview2_created event with HWND for Python to use SetParent
+        #[cfg(target_os = "windows")]
+        {
+            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+            if let Ok(window_handle) = window.window_handle() {
+                let raw_handle = window_handle.as_raw();
+                if let RawWindowHandle::Win32(handle) = raw_handle {
+                    let hwnd_value = handle.hwnd.get() as u64;
+                    tracing::info!(
+                        "[OK] [NativeBackend] Emitting webview2_created event with HWND 0x{:X}",
+                        hwnd_value
+                    );
+                    message_queue.push(crate::ipc::WebViewMessage::WindowEvent {
+                        event_type: crate::ipc::WindowEventType::WebView2Created,
+                        data: serde_json::json!({
+                            "hwnd": hwnd_value,
+                            "parent_hwnd": parent_hwnd
+                        }),
+                    });
+                }
+            }
+        }
 
         #[allow(clippy::arc_with_non_send_sync)]
         Ok(Self {
@@ -948,10 +1195,29 @@ impl NativeBackend {
             }
         });
 
-        // Build WebView
-        let webview = builder
-            .build(window)
-            .map_err(|e| format!("Failed to create WebView: {}", e))?;
+        // Build WebView based on embed mode
+        // Child mode (RECOMMENDED): use build_as_child for proper embedding
+        // None mode: use standard build for standalone windows
+        let webview = match config.embed_mode {
+            EmbedMode::Child => {
+                // Use build_as_child for Child mode (official recommended approach)
+                // This enables:
+                // - Proper WS_CHILD window style
+                // - wry's set_bounds() to work correctly
+                // - Automatic resize handling
+                tracing::info!("[OK] [NativeBackend] Building WebView as child (RECOMMENDED mode)");
+                builder
+                    .build_as_child(window)
+                    .map_err(|e| format!("Failed to create child WebView: {}", e))?
+            }
+            EmbedMode::None => {
+                // Use standard build for standalone mode
+                tracing::info!("[OK] [NativeBackend] Building WebView as standalone");
+                builder
+                    .build(window)
+                    .map_err(|e| format!("Failed to create WebView: {}", e))?
+            }
+        };
 
         tracing::info!("[OK] [NativeBackend] WebView created successfully");
 
@@ -1038,7 +1304,7 @@ mod tests {
         let message_queue = Arc::new(MessageQueue::new());
 
         // Should delegate to create_embedded
-        let result = NativeBackend::create_for_dcc(12345, config, ipc_handler, message_queue);
+        let result = NativeBackend::create_for_dcc(12345, config, ipc_handler, message_queue, None);
 
         // May fail due to invalid HWND, but should not panic
         assert!(result.is_ok() || result.is_err());
@@ -1052,7 +1318,7 @@ mod tests {
         let ipc_handler = Arc::new(IpcHandler::new());
         let message_queue = Arc::new(MessageQueue::new());
 
-        let result = NativeBackend::create_for_dcc(12345, config, ipc_handler, message_queue);
+        let result = NativeBackend::create_for_dcc(12345, config, ipc_handler, message_queue, None);
 
         assert!(result.is_err());
         assert!(result

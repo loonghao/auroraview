@@ -62,11 +62,15 @@ from auroraview.core.webview import WebView
 from auroraview.integration.qt._compat import (
     apply_clip_styles_to_parent,
     create_container_widget,
+    embed_window_directly,
     get_qt_info,
     hide_window_for_init,
+    is_qt6,
     post_container_setup,
     prepare_hwnd_for_container,
     show_window_after_init,
+    supports_direct_embedding,
+    update_embedded_window_geometry,
 )
 from auroraview.integration.qt.dialogs import FileDialogMixin
 
@@ -422,25 +426,30 @@ class QtWebView(FileDialogMixin, QWidget):
         self._last_emitted_size = (0, 0)  # Track last emitted size to avoid duplicates
 
         # Store embed mode for geometry synchronization
-        # IMPORTANT: We always use "container" mode for Qt integration
-        # The embed_mode parameter is now deprecated
-        self._embed_mode = "container"
+        # Supported modes:
+        # - "child": WS_CHILD mode - WebView is a real child window, cannot be dragged independently
+        # - "owner": GWLP_HWNDPARENT mode - owned window, can be dragged (not recommended)
+        # - "container": Qt createWindowContainer mode - standalone but non-blocking
+        self._embed_mode = embed_mode
 
-        # For all embedded modes, disable window decorations (title bar, borders)
+        # For all embedded modes, ALWAYS disable window decorations (title bar, borders)
         # The WebView should appear seamlessly embedded in the Qt widget
-        use_frame = False  # Always frameless for embedded mode
+        # This is critical for proper Qt integration - the WebView must be frameless
 
-        # Create the core WebView with "container" mode
+        # Create the core WebView with the specified embed mode
         # - parent=qt_hwnd tells WebView.create() this is embedded mode (enables auto_timer, etc.)
-        # - mode="container" tells Rust layer to create standalone window but with non-blocking event handling
-        # - We'll use Qt's createWindowContainer for layout instead of Win32 parenting!
+        # - mode controls how the WebView window relates to the parent:
+        #   - "child": WS_CHILD window, fully embedded, cannot be dragged independently
+        #   - "owner": Owned window, cross-thread safe but can be dragged
+        #   - "container": Standalone window for Qt createWindowContainer
+        # - frame=False: ALWAYS frameless for embedded mode (critical!)
         self._webview = WebView.create(
             title=title,
             width=width,
             height=height,
             parent=qt_hwnd,  # Tell WebView.create() this is embedded mode
-            mode="container",  # Container mode: standalone but non-blocking
-            frame=use_frame if not frameless else False,
+            mode=embed_mode,  # Use the specified embed mode
+            frame=False,  # ALWAYS frameless for embedded WebView
             debug=dev_tools,
             context_menu=context_menu,
             asset_root=asset_root,
@@ -668,7 +677,7 @@ class QtWebView(FileDialogMixin, QWidget):
         frameless: bool = False,
         transparent: bool = False,
         background_color: Optional[str] = None,
-        embed_mode: str = "owner",
+        embed_mode: str = "child",
         on_ready: Optional[Callable[["QtWebView"], None]] = None,
         on_error: Optional[Callable[[str], None]] = None,
         ipc_batch_size: int = 0,
@@ -702,7 +711,9 @@ class QtWebView(FileDialogMixin, QWidget):
             frameless: Enable frameless window mode
             transparent: Enable transparent window background
             background_color: Custom background color
-            embed_mode: WebView embedding mode (default: "owner" for DCC compatibility)
+            embed_mode: WebView embedding mode (default: "child" for proper embedding).
+                Use "child" to prevent WebView from being dragged independently.
+                Use "owner" if you experience UI freezes with "child" mode.
             on_ready: Callback invoked with QtWebView instance when ready
             on_error: Callback invoked with error message if creation fails
             ipc_batch_size: Max IPC messages per tick (0=unlimited, 5 for Houdini)
@@ -719,7 +730,6 @@ class QtWebView(FileDialogMixin, QWidget):
             >>> QtWebView.create_deferred(
             ...     parent=maya_main_window(),
             ...     on_ready=on_ready,
-            ...     embed_mode="owner",
             ... )
         """
         # Create placeholder widget immediately (non-blocking)
@@ -1182,26 +1192,28 @@ class QtWebView(FileDialogMixin, QWidget):
             if _VERBOSE_LOGGING:
                 logger.debug("QtWebView: failed to sync embedded geometry: %s", e)
 
-    def _create_webview_container(self, core) -> None:
+    def _create_webview_container(self, core, hwnd=None) -> None:
         """Create Qt container for WebView after WebView is initialized.
 
-        This wraps the WebView's native HWND with Qt's createWindowContainer,
-        allowing it to participate in Qt's automatic layout system.
+        This method supports two embedding modes:
+        1. Direct embedding (Qt6 preferred): Uses SetParent() directly, bypassing
+           createWindowContainer which has known issues on Qt6.
+        2. createWindowContainer (Qt5 fallback): Uses Qt's native container mechanism.
+
+        The mode is automatically selected based on:
+        - Qt version (Qt6 prefers direct embedding)
+        - Platform support (Windows required for direct embedding)
+        - Environment variable override: AURORAVIEW_USE_DIRECT_EMBED=1/0
 
         Uses the Qt compatibility layer to handle differences between
         Qt5 (PySide2) and Qt6 (PySide6).
-
-        The process:
-        1. Get HWND and prepare it using compat layer
-        2. Create QWindow from the HWND
-        3. Wrap QWindow with createWindowContainer (via compat layer)
-        4. Add container to layout
-        5. Finalize anti-flicker optimizations
-        6. Perform post-container setup for Qt version quirks
         """
         try:
-            get_hwnd = getattr(core, "get_hwnd", None)
-            webview_hwnd = get_hwnd() if callable(get_hwnd) else None
+            if hwnd is not None:
+                webview_hwnd = hwnd
+            else:
+                get_hwnd = getattr(core, "get_hwnd", None)
+                webview_hwnd = get_hwnd() if callable(get_hwnd) else None
 
             if not webview_hwnd:
                 logger.warning("[QtWebView] No HWND available for container")
@@ -1215,94 +1227,241 @@ class QtWebView(FileDialogMixin, QWidget):
                     f"(Qt binding: {qt_binding}, version: {qt_version})"
                 )
 
-            # Step 1: Prepare HWND using compat layer (handles Qt5/Qt6 differences)
-            # This removes all window borders, frames, and sets WS_CHILD style
-            # in a single consolidated operation for optimal performance.
-            prepare_hwnd_for_container(webview_hwnd)
+            # Determine embedding mode:
+            # - Environment variable override
+            # - Default: Use direct embedding on Qt6 if supported
+            env_direct = os.environ.get("AURORAVIEW_USE_DIRECT_EMBED", "").lower()
+            if env_direct in ("1", "true", "yes", "on"):
+                use_direct_embed = True
+            elif env_direct in ("0", "false", "no", "off"):
+                use_direct_embed = False
+            else:
+                # Auto-detect: Use direct embedding on Qt6 if platform supports it
+                use_direct_embed = is_qt6() and supports_direct_embedding()
 
-            # Step 2: Wrap the native HWND as a QWindow
-            self._webview_qwindow = QWindow.fromWinId(webview_hwnd)
-            if self._webview_qwindow is None:
-                logger.error("[QtWebView] QWindow.fromWinId returned None")
-                return
+            if use_direct_embed:
+                self._create_container_direct(webview_hwnd)
+            else:
+                self._create_container_qt(webview_hwnd)
 
-            if _VERBOSE_LOGGING:
-                logger.debug("[QtWebView] QWindow created from HWND")
-
-            # Step 3: Create container using compat layer (handles Qt5/Qt6 differences)
-            self._webview_container = create_container_widget(
-                self._webview_qwindow,
-                self,
-                focus_policy="strong",
-            )
-            if self._webview_container is None:
-                logger.error("[QtWebView] create_container_widget returned None")
-                return
-
-            # Ensure container has minimal styling - no borders or margins
-            # NOTE: Do NOT set transparent background on container for Qt6!
-            # Qt6 with PySide6 requires the container to have NO background style
-            # to properly display the embedded WebView content.
-            # Setting "background: transparent" causes black screen in Houdini.
-            self._webview_container.setStyleSheet("border: none; margin: 0; padding: 0;")
-
-            # Step 4: Add container to webview page layout (QStackedWidget page 1)
-            # This keeps it separate from the loading page for clean switching
-            self._webview_page_layout.addWidget(self._webview_container, 1)
-
-            # Step 5: Apply clip styles to QtWebView widget to reduce flicker
-            # WS_CLIPCHILDREN prevents parent from drawing over child windows
-            # WS_CLIPSIBLINGS prevents siblings from drawing over each other
-            if sys.platform == "win32":
-                self_hwnd = int(self.winId())
-                if self_hwnd:
-                    apply_clip_styles_to_parent(self_hwnd)
-
-            # Step 6: Finalize anti-flicker optimizations
-            # Remove WS_EX_LAYERED style and restore normal window behavior
-            core = getattr(self._webview, "_core", None)
-            if core is not None:
-                finalize_fn = getattr(core, "finalize_container_embedding", None)
-                if callable(finalize_fn):
-                    try:
-                        finalize_fn()
-                        if _VERBOSE_LOGGING:
-                            logger.debug("[QtWebView] Anti-flicker optimizations removed")
-                    except Exception as e:
-                        if _VERBOSE_LOGGING:
-                            logger.debug(f"[QtWebView] finalize_container_embedding failed: {e}")
-
-            # Step 7: Post-container setup (handles Qt version quirks)
-            post_container_setup(self._webview_container, webview_hwnd)
-
-            # Step 8: Force container to fill parent layout immediately
-            # This is critical for Qt6 where layout updates may be delayed
-            self._force_container_geometry()
-
-            if _VERBOSE_LOGGING:
-                logger.debug(
-                    "[QtWebView] Container created successfully for HWND=0x%X", webview_hwnd
-                )
         except Exception as e:
             logger.exception(f"[QtWebView] Failed to create container: {e}")
             self._webview_container = None
 
+    def _create_container_direct(self, webview_hwnd: int) -> None:
+        """Create container using direct SetParent embedding (bypasses createWindowContainer).
+
+        This mode is preferred for Qt6 where createWindowContainer has known issues
+        with WebView2. It uses Win32 SetParent() directly to establish the parent-child
+        relationship.
+
+        Args:
+            webview_hwnd: The WebView's native window handle.
+        """
+        logger.info(f"[QtWebView] Using DIRECT embedding mode for HWND=0x{webview_hwnd:X}")
+
+        # Get our widget's HWND
+        parent_hwnd = int(self.winId())
+        if not parent_hwnd:
+            logger.error("[QtWebView] Failed to get parent widget HWND")
+            self._create_container_qt(webview_hwnd)  # Fallback
+            return
+
+        # Get initial size
+        size = self.size()
+        width = size.width() if size.width() > 0 else 800
+        height = size.height() if size.height() > 0 else 600
+
+        # Use direct embedding via platform backend
+        success = embed_window_directly(webview_hwnd, parent_hwnd, width, height)
+        if not success:
+            logger.warning("[QtWebView] Direct embedding failed, falling back to createWindowContainer")
+            self._create_container_qt(webview_hwnd)
+            return
+
+        # Mark that we're using direct embedding mode
+        self._using_direct_embed = True
+        self._direct_embed_hwnd = webview_hwnd
+
+        # Create a placeholder widget to participate in Qt layout
+        # This widget doesn't actually contain the WebView, but helps with layout
+        self._webview_container = QWidget(self)
+        self._webview_container.setStyleSheet(
+            "border: none; margin: 0; padding: 0; background-color: transparent;"
+        )
+        self._webview_page.setStyleSheet("background-color: #0d0d0d;")
+
+        # Add placeholder to layout
+        self._webview_page_layout.addWidget(self._webview_container, 1)
+
+        # Apply clip styles to parent
+        apply_clip_styles_to_parent(parent_hwnd)
+
+        # Finalize anti-flicker optimizations
+        core = getattr(self._webview, "_core", None)
+        if core is not None:
+            finalize_fn = getattr(core, "finalize_container_embedding", None)
+            if callable(finalize_fn):
+                try:
+                    finalize_fn()
+                except Exception:
+                    pass
+
+        # Fix WebView2 child windows - IMMEDIATELY and with DELAYED retries
+        # WebView2 creates child windows asynchronously, so we need multiple attempts
+        self._schedule_child_window_fixes(webview_hwnd)
+
+        logger.info(f"[QtWebView] Direct embedding successful: HWND=0x{webview_hwnd:X}")
+
+    def _schedule_child_window_fixes(self, webview_hwnd: int) -> None:
+        """Schedule multiple attempts to fix WebView2 child windows.
+
+        WebView2 creates child windows (Chrome_WidgetWin_0, etc.) asynchronously
+        after the main window is created. We need to fix them multiple times
+        to catch all of them as they're created.
+
+        Args:
+            webview_hwnd: The WebView's native window handle.
+        """
+        from auroraview.integration.qt.platforms import get_backend
+
+        def fix_children():
+            """Fix all child windows."""
+            try:
+                backend = get_backend()
+                if hasattr(backend, "_fix_all_child_windows_recursive"):
+                    count = backend._fix_all_child_windows_recursive(webview_hwnd)
+                    if count > 0:
+                        logger.info(f"[QtWebView] Fixed {count} WebView2 child windows")
+            except Exception as e:
+                if _VERBOSE_LOGGING:
+                    logger.debug(f"[QtWebView] fix_children failed: {e}")
+
+        # Fix immediately
+        fix_children()
+
+        # Schedule delayed fixes to catch asynchronously created child windows
+        # WebView2 creates windows at various times during initialization
+        delays = [50, 100, 200, 500, 1000, 2000]
+        for delay in delays:
+            QTimer.singleShot(delay, fix_children)
+
+    def _create_container_qt(self, webview_hwnd: int) -> None:
+        """Create container using Qt's createWindowContainer.
+
+        This is the traditional embedding mode that works well on Qt5.
+        On Qt6, it may have issues with WebView2 (white frames, dragging problems).
+
+        Args:
+            webview_hwnd: The WebView's native window handle.
+        """
+        logger.info(f"[QtWebView] Using createWindowContainer mode for HWND=0x{webview_hwnd:X}")
+
+        self._using_direct_embed = False
+
+        # Step 1: Prepare HWND using compat layer (handles Qt5/Qt6 differences)
+        prepare_hwnd_for_container(webview_hwnd)
+
+        # Step 2: Wrap the native HWND as a QWindow
+        self._webview_qwindow = QWindow.fromWinId(webview_hwnd)
+        if self._webview_qwindow is None:
+            logger.error("[QtWebView] QWindow.fromWinId returned None")
+            return
+
+        if _VERBOSE_LOGGING:
+            logger.debug("[QtWebView] QWindow created from HWND")
+
+        # Step 3: Create container using compat layer (handles Qt5/Qt6 differences)
+        self._webview_container = create_container_widget(
+            self._webview_qwindow,
+            self,
+            focus_policy="strong",
+        )
+        if self._webview_container is None:
+            logger.error("[QtWebView] create_container_widget returned None")
+            return
+
+        # Ensure container has minimal styling - no borders or margins
+        self._webview_container.setStyleSheet(
+            "border: none; margin: 0; padding: 0; background-color: #0d0d0d;"
+        )
+        self._webview_page.setStyleSheet("background-color: #0d0d0d;")
+
+        # Step 4: Add container to webview page layout
+        self._webview_page_layout.addWidget(self._webview_container, 1)
+
+        # Step 5: Apply clip styles to QtWebView widget
+        if sys.platform == "win32":
+            self_hwnd = int(self.winId())
+            if self_hwnd:
+                apply_clip_styles_to_parent(self_hwnd)
+
+        # Step 6: Finalize anti-flicker optimizations
+        core = getattr(self._webview, "_core", None)
+        if core is not None:
+            finalize_fn = getattr(core, "finalize_container_embedding", None)
+            if callable(finalize_fn):
+                try:
+                    finalize_fn()
+                    if _VERBOSE_LOGGING:
+                        logger.debug("[QtWebView] Anti-flicker optimizations removed")
+                except Exception as e:
+                    if _VERBOSE_LOGGING:
+                        logger.debug(f"[QtWebView] finalize_container_embedding failed: {e}")
+
+        # Step 7: Post-container setup (handles Qt version quirks)
+        post_container_setup(self._webview_container, webview_hwnd)
+
+        # Step 8: Force container to fill parent layout immediately
+        self._force_container_geometry()
+
+        # Step 9: Fix WebView2 child windows for Qt6 compatibility
+        if sys.platform == "win32":
+            try:
+                import auroraview
+                fix_fn = getattr(auroraview, "fix_webview2_child_windows", None)
+                if callable(fix_fn):
+                    fix_fn(webview_hwnd)
+                    if _VERBOSE_LOGGING:
+                        logger.debug(
+                            f"[QtWebView] Fixed WebView2 child windows for HWND=0x{webview_hwnd:X}"
+                        )
+            except Exception as e:
+                if _VERBOSE_LOGGING:
+                    logger.debug(f"[QtWebView] fix_webview2_child_windows failed: {e}")
+
+        if _VERBOSE_LOGGING:
+            logger.debug(
+                "[QtWebView] Container created successfully for HWND=0x%X", webview_hwnd
+            )
+
     def resizeEvent(self, event) -> None:  # type: ignore[override]
         """Handle Qt widget resize.
 
-        When using createWindowContainer, Qt handles window geometry automatically.
-        However, WebView2's internal controller bounds may need explicit sync
-        in some DCC environments (especially Qt6).
+        For direct embedding mode, we need to manually update the WebView geometry.
+        For createWindowContainer mode, Qt handles geometry automatically but
+        WebView2's internal controller bounds may need explicit sync.
         """
         super().resizeEvent(event)
+
+        new_size = event.size()
+        width = new_size.width()
+        height = new_size.height()
+
+        # Handle direct embedding mode - manually update WebView geometry
+        if getattr(self, "_using_direct_embed", False):
+            direct_hwnd = getattr(self, "_direct_embed_hwnd", None)
+            if direct_hwnd:
+                update_embedded_window_geometry(direct_hwnd, 0, 0, width, height)
+                if _VERBOSE_LOGGING:
+                    logger.debug(f"[QtWebView] Direct embed resize: {width}x{height}")
 
         # Force container to fill parent and sync WebView2 controller bounds
         # Use getattr for safety - _webview_container may not exist if __init__ failed early
         if getattr(self, "_webview_container", None) is not None:
             # Force container geometry to match our size
             container = self._webview_container
-            new_size = event.size()
-            container.setGeometry(0, 0, new_size.width(), new_size.height())
+            container.setGeometry(0, 0, width, height)
             # Sync WebView2 controller bounds
             self._sync_webview2_controller_bounds()
 
@@ -1334,6 +1493,7 @@ class QtWebView(FileDialogMixin, QWidget):
             # Use getattr for safety - _webview_container may not exist if __init__ failed
             container = getattr(self, "_webview_container", None)
             if container is None:
+                logger.debug("[QtWebView] _sync_webview2_controller_bounds: container is None")
                 return
 
             # Get container size or use forced size
@@ -1346,36 +1506,47 @@ class QtWebView(FileDialogMixin, QWidget):
                 height = container_size.height()
 
             if width <= 0 or height <= 0:
+                logger.debug(f"[QtWebView] _sync_webview2_controller_bounds: invalid size {width}x{height}")
                 return
+
+            logger.info(f"[QtWebView] _sync_webview2_controller_bounds: syncing to {width}x{height}")
 
             # Try to sync WebView2 controller bounds via Rust API
             core = getattr(self._webview, "_core", None)
             if core is not None:
-                # Check if there's a set_size method for WebView2 controller
+                # Prefer sync_bounds for Qt6 compatibility (directly syncs wry WebView bounds)
+                sync_bounds = getattr(core, "sync_bounds", None)
+                if callable(sync_bounds):
+                    try:
+                        sync_bounds(width, height)
+                        logger.info(f"[QtWebView] sync_bounds({width}, {height}) called successfully")
+                        return
+                    except Exception as e:
+                        logger.warning(f"[QtWebView] sync_bounds failed: {e}")
+                else:
+                    logger.warning("[QtWebView] sync_bounds not available on core")
+                
+                # Fallback to set_size (also calls sync_webview_bounds internally now)
                 set_size = getattr(core, "set_size", None)
                 if callable(set_size):
                     try:
                         set_size(width, height)
-                        if _VERBOSE_LOGGING:
-                            logger.debug(f"[QtWebView] Synced WebView2 bounds: {width}x{height}")
-                    except Exception:
-                        pass  # Silently ignore - not critical
+                        logger.info(f"[QtWebView] Synced WebView2 bounds via set_size: {width}x{height}")
+                    except Exception as e:
+                        logger.warning(f"[QtWebView] set_size failed: {e}")
+            else:
+                logger.warning("[QtWebView] _sync_webview2_controller_bounds: core is None")
 
-        except Exception:
-            pass  # Silently ignore resize sync errors
+        except Exception as e:
+            logger.warning(f"[QtWebView] _sync_webview2_controller_bounds failed: {e}")
 
     def _force_container_geometry(self) -> None:
         """Force container to fill parent layout immediately.
 
-        This is needed in Qt6/PySide6 where layout updates may be delayed,
-        causing the container to not fill the parent widget correctly.
-        Especially important in DCC apps where the Qt event loop may behave
-        differently.
+        Qt5-style minimal implementation.
         """
         try:
             from qtpy.QtWidgets import QApplication
-
-            from auroraview.integration.qt._compat import is_qt6
 
             container = getattr(self, "_webview_container", None)
             if container is None:
@@ -1392,48 +1563,23 @@ class QtWebView(FileDialogMixin, QWidget):
             # Force container to fill our size
             container.setGeometry(0, 0, width, height)
             container.resize(width, height)
-            container.setMinimumSize(width, height)
 
             # Also resize the QWindow if available
             qwindow = getattr(self, "_webview_qwindow", None)
             if qwindow is not None:
                 try:
                     qwindow.resize(width, height)
-                    if _VERBOSE_LOGGING:
-                        logger.debug(f"[QtWebView] Resized QWindow to {width}x{height}")
-                except Exception as e:
-                    if _VERBOSE_LOGGING:
-                        logger.debug(f"[QtWebView] Failed to resize QWindow: {e}")
+                except Exception:
+                    pass
 
-            # Update layouts
-            self.updateGeometry()
-            container.updateGeometry()
-
-            # Process events to apply changes
+            # Qt5-style: single processEvents
             QApplication.processEvents()
 
-            # Qt6/PySide6: Additional layout refresh needed
-            if is_qt6():
-                # Force layout to recalculate
-                layout = self.layout()
-                if layout:
-                    layout.activate()
-                    layout.update()
-
-                # Process events again after layout update
-                QApplication.processEvents()
-
-                # Force repaint
-                container.repaint()
-                self.repaint()
-
-            # Sync WebView2 controller bounds with forced size
+            # Sync WebView2 controller bounds
             self._sync_webview2_controller_bounds(width, height)
 
             if _VERBOSE_LOGGING:
-                logger.debug(
-                    "[QtWebView] Forced container geometry: %dx%d (Qt6=%s)", width, height, is_qt6()
-                )
+                logger.debug(f"[QtWebView] Forced container geometry: {width}x{height}")
 
         except Exception as e:
             if _VERBOSE_LOGGING:
@@ -1550,6 +1696,25 @@ class QtWebView(FileDialogMixin, QWidget):
         embed_mode = getattr(self, "_embed_mode", None)
         show_embedded = getattr(core, "show_embedded", None)
 
+        # Setup callback for event-driven initialization
+        # This avoids RefCell borrow errors and race conditions by initializing
+        # the container immediately when the HWND is created in Rust.
+        setup_via_callback = False
+        if hasattr(core, "set_on_hwnd_created"):
+            def on_hwnd_created(hwnd):
+                if _VERBOSE_LOGGING:
+                    logger.debug(f"[QtWebView] Rust callback: HWND created 0x{hwnd:X}")
+                # Initialize container immediately (safe on main thread)
+                self._create_webview_container(core, hwnd=hwnd)
+
+            try:
+                core.set_on_hwnd_created(on_hwnd_created)
+                setup_via_callback = True
+                if _VERBOSE_LOGGING:
+                    logger.debug("[QtWebView] set_on_hwnd_created callback registered")
+            except Exception as e:
+                logger.warning(f"[QtWebView] Failed to set on_hwnd_created callback: {e}")
+
         try:
             if callable(show_embedded):
                 core_show_start = time.time()
@@ -1594,7 +1759,10 @@ class QtWebView(FileDialogMixin, QWidget):
 
         # Step 3: Create Qt container for WebView
         # Now that WebView is created, we can get its HWND and wrap it with Qt's layout
-        self._create_webview_container(core)
+        # If setup_via_callback is True, it was already called inside show_embedded()
+        if not setup_via_callback:
+            self._create_webview_container(core)
+        
         QApplication.processEvents()
 
         # Step 4: Ensure WebView is visible after container creation
@@ -1629,20 +1797,27 @@ class QtWebView(FileDialogMixin, QWidget):
 
         # Step 7: Schedule delayed geometry sync for DCC apps
         # Some DCCs (especially Maya) need additional time for layout to stabilize
+        # Qt6 requires more aggressive syncing due to delayed layout updates
         from qtpy.QtCore import QTimer
 
         def delayed_geometry_sync() -> None:
             """Sync geometry after layout has stabilized."""
             try:
                 self._force_container_geometry()
+                # Additional explicit bounds sync for Qt6
+                self._sync_webview2_controller_bounds()
                 if _VERBOSE_LOGGING:
                     logger.debug("[QtWebView] Delayed geometry sync completed")
             except Exception:
                 pass
 
         # Schedule multiple syncs at different intervals for robustness
+        # Qt6 needs more time for layout to stabilize
+        QTimer.singleShot(50, delayed_geometry_sync)
         QTimer.singleShot(100, delayed_geometry_sync)
+        QTimer.singleShot(250, delayed_geometry_sync)
         QTimer.singleShot(500, delayed_geometry_sync)
+        QTimer.singleShot(1000, delayed_geometry_sync)  # Final sync for slow DCCs
 
         # Step 8: Start EventTimer for message processing
         timer = getattr(self._webview, "_auto_timer", None)

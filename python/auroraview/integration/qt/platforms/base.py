@@ -5,7 +5,7 @@ that are needed to embed WebView windows into Qt containers.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Tuple
 
 
 class PlatformBackend(ABC):
@@ -18,6 +18,60 @@ class PlatformBackend(ABC):
     - Windows (win.py): Full implementation using Win32 API
     - Other platforms: No-op implementations (placeholder for future)
     """
+
+    @abstractmethod
+    def supports_direct_embedding(self) -> bool:
+        """Check if this platform supports direct window embedding without createWindowContainer.
+
+        Direct embedding uses platform-native APIs (SetParent on Windows) instead of
+        Qt's createWindowContainer. This can be more reliable on Qt6 where
+        createWindowContainer has known issues.
+
+        Returns:
+            True if direct embedding is supported, False otherwise.
+        """
+        pass
+
+    @abstractmethod
+    def embed_window_directly(
+        self, child_hwnd: int, parent_hwnd: int, width: int, height: int
+    ) -> bool:
+        """Embed a native window directly into a parent window without createWindowContainer.
+
+        This is an alternative to Qt's createWindowContainer that uses platform-native
+        APIs for window embedding. On Windows, this uses SetParent() + WS_CHILD.
+
+        Args:
+            child_hwnd: The child window handle (WebView HWND).
+            parent_hwnd: The parent window handle (Qt widget's winId()).
+            width: Initial width of the embedded window.
+            height: Initial height of the embedded window.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        pass
+
+    @abstractmethod
+    def update_embedded_window_geometry(
+        self, child_hwnd: int, x: int, y: int, width: int, height: int
+    ) -> bool:
+        """Update the geometry of a directly embedded window.
+
+        This should be called when the parent Qt widget is resized to keep
+        the embedded window in sync.
+
+        Args:
+            child_hwnd: The child window handle.
+            x: X position relative to parent.
+            y: Y position relative to parent.
+            width: New width.
+            height: New height.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        pass
 
     @abstractmethod
     def apply_clip_styles_to_parent(self, parent_hwnd: int) -> bool:
@@ -99,6 +153,22 @@ class NullPlatformBackend(PlatformBackend):
     It's used on platforms where native window embedding is not supported
     or not needed.
     """
+
+    def supports_direct_embedding(self) -> bool:
+        """No-op: returns False (direct embedding not supported)."""
+        return False
+
+    def embed_window_directly(
+        self, child_hwnd: int, parent_hwnd: int, width: int, height: int
+    ) -> bool:
+        """No-op: returns False."""
+        return False
+
+    def update_embedded_window_geometry(
+        self, child_hwnd: int, x: int, y: int, width: int, height: int
+    ) -> bool:
+        """No-op: returns False."""
+        return False
 
     def apply_clip_styles_to_parent(self, parent_hwnd: int) -> bool:
         """No-op: returns False."""

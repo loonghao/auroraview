@@ -76,6 +76,7 @@ Thumbs.db
 
 htmlcov/
 .augment/
+.codebuddy/
 
 # Additional build artifacts
 python/auroraview/_core.*

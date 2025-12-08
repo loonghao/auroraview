@@ -158,6 +158,9 @@ pub enum WindowEventType {
     NavigationStarted,
     /// Navigation finished (data includes url)
     NavigationFinished,
+    /// WebView2 native window has been created (data includes hwnd)
+    /// This is emitted after the WebView2 controller is ready and HWND is available
+    WebView2Created,
 }
 
 impl WindowEventType {
@@ -179,6 +182,7 @@ impl WindowEventType {
             Self::LoadFinished => "load_finished",
             Self::NavigationStarted => "navigation_started",
             Self::NavigationFinished => "navigation_finished",
+            Self::WebView2Created => "webview2_created",
         }
     }
 }
@@ -496,6 +500,20 @@ impl MessageQueue {
     /// Get the number of pending messages
     pub fn len(&self) -> usize {
         self.rx.len()
+    }
+
+    /// Clear all pending messages from the queue
+    ///
+    /// This is useful when resetting the WebView state for reuse.
+    /// All pending messages will be discarded.
+    pub fn clear(&self) {
+        let mut count = 0;
+        while self.rx.try_recv().is_ok() {
+            count += 1;
+        }
+        if count > 0 {
+            tracing::debug!("[MessageQueue::clear] Cleared {} pending messages", count);
+        }
     }
 
     /// Process all pending messages

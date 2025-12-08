@@ -510,16 +510,32 @@ impl WebViewEventHandler {
                         use super::message_pump;
 
                         // Get the window HWND for targeted message processing
-                        if let Ok(state_guard) = state_clone.lock() {
-                            if let Some(hwnd) = state_guard.get_hwnd() {
-                                // Process only this window's messages (isolated from DCC main thread)
-                                let _ = message_pump::process_messages_for_hwnd(hwnd);
+                        // CRITICAL: Release the lock BEFORE calling process_messages_for_hwnd
+                        // because DestroyWindow may trigger WM_DESTROY which could cause deadlock
+                        let (hwnd_opt, should_exit_arc) = {
+                            if let Ok(state_guard) = state_clone.lock() {
+                                (state_guard.get_hwnd(), state_guard.should_exit.clone())
                             } else {
-                                // Fallback: If HWND not available, use limited global processing
-                                // This should rarely happen (only during initialization)
-                                tracing::trace!("[event_loop] HWND not available, using fallback message pump");
-                                let _ = message_pump::process_all_messages_limited(100);
+                                (None, Arc::new(Mutex::new(false)))
                             }
+                        };
+
+                        if let Some(hwnd) = hwnd_opt {
+                            // Process only this window's messages (isolated from DCC main thread)
+                            // CRITICAL: Check return value for close intent
+                            let should_close = message_pump::process_messages_for_hwnd(hwnd);
+                            if should_close {
+                                tracing::info!("[EventLoop] Close detected from message pump, requesting exit");
+                                // Set exit flag directly without holding state lock
+                                if let Ok(mut flag) = should_exit_arc.lock() {
+                                    *flag = true;
+                                }
+                            }
+                        } else {
+                            // Fallback: If HWND not available, use limited global processing
+                            // This should rarely happen (only during initialization)
+                            tracing::trace!("[event_loop] HWND not available, using fallback message pump");
+                            let _ = message_pump::process_all_messages_limited(100);
                         }
                     }
 

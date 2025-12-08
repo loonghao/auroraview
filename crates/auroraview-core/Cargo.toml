@@ -15,6 +15,9 @@ name = "auroraview_core"
 path = "src/lib.rs"
 
 [dependencies]
+# Plugin system
+auroraview-plugins = { path = "../auroraview-plugins" }
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -30,9 +33,6 @@ rust-embed = "8.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 simd-json = "0.15"
-
-# Binary encoding (for fs plugin)
-base64 = "0.22"
 
 # MIME type detection
 mime_guess = "2.0"

@@ -394,11 +394,26 @@ class WebViewApiMixin:
 
         # Batch bind all methods - optimized inner loop
         method_names = []
+        callbacks_to_register = []  # Collect callbacks for batch registration
+
         for method_name, (short_name, func) in methods_to_bind.items():
-            # Inline the essential bind_call logic to avoid per-method overhead
+            # Store the function reference
             self._bound_functions[method_name] = func
-            self._register_ipc_handler(method_name, func)
+
+            # Create the handler for this method
+            handler = self._create_ipc_handler(method_name, func)
+            callbacks_to_register.append((method_name, handler))
             method_names.append(short_name)
+
+        # Batch register all callbacks with Rust core (single log entry)
+        if callbacks_to_register:
+            if hasattr(self._core, "on_batch"):
+                # Use batch registration if available (more efficient)
+                self._core.on_batch(callbacks_to_register)
+            else:
+                # Fallback to individual registration
+                for method_name, handler in callbacks_to_register:
+                    self._core.on(method_name, handler)
 
         # Single log entry for all methods (instead of 2x per method)
         logger.info(
@@ -435,15 +450,18 @@ class WebViewApiMixin:
         self._ensure_api_registry()
         return namespace in self._bound_namespaces
 
-    def _register_ipc_handler(self, method: str, func: Callable[..., Any]) -> None:
-        """Register IPC handler for a bound method (internal, no locking).
+    def _create_ipc_handler(self, method: str, func: Callable[..., Any]) -> Callable:
+        """Create an IPC handler for a bound method (internal).
 
-        This is an optimized internal method used by bind_api for batch registration.
-        For individual method binding, use bind_call() instead.
+        This creates a handler function without registering it, allowing for
+        batch registration of multiple handlers.
 
         Args:
             method: Full method name (e.g., "api.echo")
             func: Python callable to invoke
+
+        Returns:
+            Handler function to be registered with the IPC system.
         """
 
         def _handler(raw: Dict[str, Any]) -> None:
@@ -491,5 +509,18 @@ class WebViewApiMixin:
                 )
             self._emit_call_result_js(payload)
 
+        return _handler
+
+    def _register_ipc_handler(self, method: str, func: Callable[..., Any]) -> None:
+        """Register IPC handler for a bound method (internal, no locking).
+
+        This is an optimized internal method used by bind_api for batch registration.
+        For individual method binding, use bind_call() instead.
+
+        Args:
+            method: Full method name (e.g., "api.echo")
+            func: Python callable to invoke
+        """
+        handler = self._create_ipc_handler(method, func)
         # Register wrapper with core IPC handler
-        self._core.on(method, _handler)
+        self._core.on(method, handler)

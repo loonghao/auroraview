@@ -95,6 +95,34 @@ pub fn destroy_window_by_hwnd(hwnd: u64) -> PyResult<bool> {
     Ok(core_window::destroy_window_by_hwnd(hwnd))
 }
 
+/// Fix WebView2 child windows to prevent dragging (Qt6 compatibility)
+///
+/// WebView2 creates multiple child windows (Chrome_WidgetWin_0, etc.) that may
+/// not inherit proper WS_CHILD styles. This function recursively fixes all child
+/// windows to ensure they cannot be dragged independently.
+///
+/// This is especially important for Qt6 where createWindowContainer behavior
+/// differs from Qt5.
+///
+/// Args:
+///     hwnd: The WebView window handle (HWND)
+///
+/// Returns:
+///     True if successful, False otherwise (non-Windows platforms)
+#[pyfunction]
+pub fn fix_webview2_child_windows(hwnd: u64) -> PyResult<bool> {
+    #[cfg(target_os = "windows")]
+    {
+        crate::webview::backend::native::NativeBackend::fix_webview2_child_windows(hwnd as isize);
+        Ok(true)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = hwnd;
+        Ok(false)
+    }
+}
+
 /// Register window utilities functions with Python module
 pub fn register_window_utils(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_foreground_window, m)?)?;
@@ -103,6 +131,7 @@ pub fn register_window_utils(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_all_windows, m)?)?;
     m.add_function(wrap_pyfunction!(close_window_by_hwnd, m)?)?;
     m.add_function(wrap_pyfunction!(destroy_window_by_hwnd, m)?)?;
+    m.add_function(wrap_pyfunction!(fix_webview2_child_windows, m)?)?;
     m.add_class::<WindowInfo>()?;
     Ok(())
 }

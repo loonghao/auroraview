@@ -157,8 +157,9 @@ impl WebViewInner {
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
+        on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::create_for_dcc(parent_hwnd, config, ipc_handler, message_queue)
+        Self::create_for_dcc(parent_hwnd, config, ipc_handler, message_queue, on_created)
     }
 
     /// Create WebView for DCC integration (no event loop)
@@ -171,6 +172,7 @@ impl WebViewInner {
     /// * `config` - WebView configuration
     /// * `ipc_handler` - IPC message handler
     /// * `message_queue` - Message queue for cross-thread communication
+    /// * `on_created` - Optional callback invoked when WebView2 HWND is created
     ///
     /// # Returns
     /// A WebViewInner instance without an event loop
@@ -180,6 +182,7 @@ impl WebViewInner {
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
+        on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         use super::backend::native::NativeBackend;
         use super::backend::WebViewBackend;
@@ -190,6 +193,7 @@ impl WebViewInner {
             config.clone(),
             ipc_handler,
             message_queue.clone(),
+            on_created,
         )?;
 
         // Extract webview reference (but keep backend alive!)
@@ -218,6 +222,7 @@ impl WebViewInner {
         _config: WebViewConfig,
         _ipc_handler: Arc<IpcHandler>,
         _message_queue: Arc<MessageQueue>,
+        _on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Err("DCC integration mode is only supported on Windows".into())
     }
@@ -681,6 +686,14 @@ impl WebViewInner {
         }
     }
 
+    /// Get the current lifecycle state
+    ///
+    /// Returns the current lifecycle state of the WebView.
+    /// This is useful for checking if the WebView is ready for operations.
+    pub fn lifecycle_state(&self) -> super::lifecycle::LifecycleState {
+        self.lifecycle.state()
+    }
+
     /// Process pending window messages (for embedded mode)
     ///
     /// This method processes all pending Windows messages without blocking.
@@ -773,97 +786,13 @@ impl WebViewInner {
             return true;
         }
 
-        // Process message queue
+        // Process message queue using unified message processor
         tracing::trace!("[process_events] processing queue");
-
-        if let Ok(webview) = self.webview.lock() {
-            let count = self.message_queue.process_all(|message| {
-                tracing::trace!("[process_events] processing message: {:?}", message);
-                use crate::ipc::WebViewMessage;
-                match message {
-                    WebViewMessage::EvalJs(script) => {
-                        tracing::debug!("Processing EvalJs: {}", script);
-                        if let Err(e) = webview.evaluate_script(&script) {
-                            tracing::error!("Failed to execute JavaScript: {}", e);
-                        }
-                    }
-                    WebViewMessage::EmitEvent { event_name, data } => {
-                        tracing::debug!(
-                            "[OK] [process_events] Emitting event: {} with data: {}",
-                            event_name,
-                            data
-                        );
-                        // Properly escape JSON data to avoid JavaScript syntax errors
-                        let json_str = data.to_string();
-                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                        let script = format!(
-                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
-                            event_name, escaped_json
-                        );
-                        tracing::debug!("[CLOSE] [process_events] Generated script: {}", script);
-                        if let Err(e) = webview.evaluate_script(&script) {
-                            tracing::error!("Failed to emit event: {}", e);
-                        } else {
-                            tracing::debug!("[OK] [process_events] Event emitted successfully");
-                        }
-                    }
-                    WebViewMessage::LoadUrl(url) => {
-                        let script = js_assets::build_load_url_script(&url);
-                        if let Err(e) = webview.evaluate_script(&script) {
-                            tracing::error!("Failed to load URL: {}", e);
-                        }
-                    }
-                    WebViewMessage::LoadHtml(html) => {
-                        tracing::debug!("Processing LoadHtml ({} bytes)", html.len());
-                        if let Err(e) = webview.load_html(&html) {
-                            tracing::error!("Failed to load HTML: {}", e);
-                        }
-                    }
-                    WebViewMessage::WindowEvent { event_type, data } => {
-                        // Window events are handled by emitting to JavaScript
-                        let event_name = event_type.as_str();
-                        let json_str = data.to_string();
-                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                        let script = js_assets::build_emit_event_script(event_name, &escaped_json);
-                        tracing::debug!(
-                            "[WINDOW_EVENT] [process_events] Emitting window event: {}",
-                            event_name
-                        );
-                        if let Err(e) = webview.evaluate_script(&script) {
-                            tracing::error!("Failed to emit window event: {}", e);
-                        }
-                    }
-                    WebViewMessage::SetVisible(_) => {
-                        // SetVisible is handled at window level, not in process_events
-                    }
-                    WebViewMessage::EvalJsAsync { script, callback_id } => {
-                        // Execute JavaScript and send result back via IPC
-                        let async_script = js_assets::build_eval_js_async_script(&script, callback_id);
-                        if let Err(e) = webview.evaluate_script(&async_script) {
-                            tracing::error!("Failed to execute async JavaScript (id={}): {}", callback_id, e);
-                        }
-                    }
-                    WebViewMessage::Reload => {
-                        if let Err(e) = webview.evaluate_script("location.reload()") {
-                            tracing::error!("Failed to reload: {}", e);
-                        }
-                    }
-                    WebViewMessage::StopLoading => {
-                        if let Err(e) = webview.evaluate_script("window.stop()") {
-                            tracing::error!("Failed to stop loading: {}", e);
-                        }
-                    }
-                }
-            });
-
-            if count > 0 {
-                tracing::debug!("[process_events] processed {} messages from queue", count);
-            } else {
-                tracing::trace!("[process_events] no messages in queue");
-            }
-        } else {
-            tracing::error!("[process_events] failed to lock WebView");
-        }
+        super::message_processor::process_message_queue(
+            &self.webview,
+            &self.message_queue,
+            "process_events",
+        );
 
         tracing::trace!("[process_events] end");
 
@@ -910,98 +839,14 @@ impl WebViewInner {
             return true;
         }
 
-        // Process message queue (same semantics as process_events but without
-        // driving any native message pump).
+        // Process message queue using unified message processor
+        // (same semantics as process_events but without driving any native message pump)
         tracing::trace!("[process_ipc_only] processing queue");
-
-        if let Ok(webview) = self.webview.lock() {
-            let count = self.message_queue.process_all(|message| {
-                tracing::trace!("[process_ipc_only] processing message: {:?}", message);
-                use crate::ipc::WebViewMessage;
-                match message {
-                    WebViewMessage::EvalJs(script) => {
-                        tracing::debug!("Processing EvalJs: {}", script);
-                        if let Err(e) = webview.evaluate_script(&script) {
-                            tracing::error!("Failed to execute JavaScript: {}", e);
-                        }
-                    }
-                    WebViewMessage::EmitEvent { event_name, data } => {
-                        tracing::debug!(
-                            "[OK] [process_ipc_only] Emitting event: {} with data: {}",
-                            event_name,
-                            data
-                        );
-                        let json_str = data.to_string();
-                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                        let script = format!(
-                            "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
-                            event_name, escaped_json
-                        );
-                        if let Err(e) = webview.evaluate_script(&script) {
-                            tracing::error!("Failed to emit event: {}", e);
-                        } else {
-                            tracing::debug!(
-                                "[OK] [process_ipc_only] Event emitted successfully"
-                            );
-                        }
-                    }
-                    WebViewMessage::LoadUrl(url) => {
-                        let script = js_assets::build_load_url_script(&url);
-                        if let Err(e) = webview.evaluate_script(&script) {
-                            tracing::error!("Failed to load URL: {}", e);
-                        }
-                    }
-                    WebViewMessage::LoadHtml(html) => {
-                        tracing::debug!("Processing LoadHtml ({} bytes)", html.len());
-                        if let Err(e) = webview.load_html(&html) {
-                            tracing::error!("Failed to load HTML: {}", e);
-                        }
-                    }
-                    WebViewMessage::WindowEvent { event_type, data } => {
-                        // Window events are handled by emitting to JavaScript
-                        let event_name = event_type.as_str();
-                        let json_str = data.to_string();
-                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                        let script = js_assets::build_emit_event_script(event_name, &escaped_json);
-                        tracing::debug!(
-                            "[WINDOW_EVENT] [process_ipc_only] Emitting window event: {}",
-                            event_name
-                        );
-                        if let Err(e) = webview.evaluate_script(&script) {
-                            tracing::error!("Failed to emit window event: {}", e);
-                        }
-                    }
-                    WebViewMessage::SetVisible(_) => {
-                        // SetVisible is handled at window level, not in process_ipc_only
-                    }
-                    WebViewMessage::EvalJsAsync { script, callback_id } => {
-                        // Execute JavaScript and send result back via IPC
-                        let async_script = js_assets::build_eval_js_async_script(&script, callback_id);
-                        if let Err(e) = webview.evaluate_script(&async_script) {
-                            tracing::error!("Failed to execute async JavaScript (id={}): {}", callback_id, e);
-                        }
-                    }
-                    WebViewMessage::Reload => {
-                        if let Err(e) = webview.evaluate_script("location.reload()") {
-                            tracing::error!("Failed to reload: {}", e);
-                        }
-                    }
-                    WebViewMessage::StopLoading => {
-                        if let Err(e) = webview.evaluate_script("window.stop()") {
-                            tracing::error!("Failed to stop loading: {}", e);
-                        }
-                    }
-                }
-            });
-
-            if count > 0 {
-                tracing::debug!("[process_ipc_only] processed {} messages from queue", count);
-            } else {
-                tracing::trace!("[process_ipc_only] no messages in queue");
-            }
-        } else {
-            tracing::error!("[process_ipc_only] failed to lock WebView");
-        }
+        super::message_processor::process_message_queue(
+            &self.webview,
+            &self.message_queue,
+            "process_ipc_only",
+        );
 
         tracing::trace!("[process_ipc_only] end");
 
@@ -1209,7 +1054,8 @@ impl WebViewInner {
             return Ok(());
         }
 
-        // Try backend (DCC/embedded mode)
+        // Try backend (DCC/embedded mode) - Windows only
+        #[cfg(target_os = "windows")]
         if let Some(backend) = &self.backend {
             backend.set_visible(visible)?;
             tracing::debug!("[BOM] set_visible({}) via backend", visible);
@@ -1268,9 +1114,89 @@ impl WebViewInner {
             let size = tao::dpi::PhysicalSize::new(width, height);
             window.set_inner_size(size);
             tracing::debug!("[BOM] set_size({}, {}) executed", width, height);
+
+            // Also sync WebView bounds for Qt6 compatibility
+            // In Qt6 createWindowContainer mode, the window size is managed by Qt,
+            // but WebView2's controller bounds may not auto-sync
+            self.sync_webview_bounds(width, height);
+
             Ok(())
         } else {
             Err("Window not available".into())
+        }
+    }
+
+    /// Sync WebView bounds with container size
+    ///
+    /// This is critical for Qt6 where createWindowContainer manages the native window
+    /// but WebView2's internal controller bounds may not automatically update.
+    /// Call this after any size change to ensure WebView content fills the container.
+    ///
+    /// This method uses wry's set_bounds() API which internally:
+    /// 1. Calls ICoreWebView2Controller::SetBounds (WebView2 controller bounds)
+    /// 2. Calls SetWindowPos (native window bounds)
+    pub fn sync_webview_bounds(&self, width: u32, height: u32) {
+        tracing::info!("[BOM] sync_webview_bounds({}, {}) called", width, height);
+
+        // First, use Win32 API to force the tao window position and size
+        // This ensures the window is always at (0, 0) within its parent
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(hwnd) = self.get_hwnd() {
+                use std::ffi::c_void;
+                use windows::Win32::Foundation::HWND;
+                use windows::Win32::UI::WindowsAndMessaging::{
+                    SetWindowPos, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOZORDER,
+                };
+
+                unsafe {
+                    let hwnd_win = HWND(hwnd as *mut c_void);
+                    // Force position to (0, 0) and set size
+                    let result = SetWindowPos(
+                        hwnd_win,
+                        None,
+                        0, // X - always at origin
+                        0, // Y - always at origin
+                        width as i32,
+                        height as i32,
+                        SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                    );
+                    if result.is_ok() {
+                        tracing::debug!(
+                            "[BOM] SetWindowPos succeeded: pos=(0,0) size={}x{}",
+                            width,
+                            height
+                        );
+                    } else {
+                        tracing::warn!("[BOM] SetWindowPos failed");
+                    }
+                }
+            }
+        }
+
+        // Then, use wry's set_bounds to sync WebView2 controller bounds
+        if let Ok(webview) = self.webview.lock() {
+            // Use Physical size to avoid DPI scaling issues
+            // wry's set_bounds will convert this to the correct coordinates
+            let bounds = wry::Rect {
+                position: wry::dpi::Position::Physical(wry::dpi::PhysicalPosition::new(0, 0)),
+                size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(width, height)),
+            };
+            match webview.set_bounds(bounds) {
+                Ok(_) => {
+                    tracing::info!(
+                        "[BOM] sync_webview_bounds via wry::set_bounds succeeded: {}x{}",
+                        width,
+                        height
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "[BOM] sync_webview_bounds via wry::set_bounds failed: {:?}",
+                        e
+                    );
+                }
+            }
         }
     }
 

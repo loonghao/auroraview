@@ -6,6 +6,7 @@ members = [
     "crates/auroraview-core",
     "crates/auroraview-pack",
     "crates/auroraview-cli",
+    "crates/auroraview-plugins",
 ]
 resolver = "2"
 

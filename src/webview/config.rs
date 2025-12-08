@@ -10,18 +10,42 @@ use std::sync::Arc;
 pub type ProtocolCallback = Arc<dyn Fn(&str) -> Option<(Vec<u8>, String, u16)> + Send + Sync>;
 
 /// Embedding mode on Windows.
+///
+/// # Recommended Mode
+///
+/// **Use `Child` mode** - This is the official recommended approach by both wry and WebView2:
+/// - wry's `build_as_child()` is designed for this use case
+/// - WebView2's "Windowed Hosting" is the simplest and most reliable option
+/// - Automatic resize handling when parent window resizes
+///
+/// # Qt Integration
+///
+/// For Qt5/Qt6 applications (Maya, Houdini, Nuke, etc.):
+/// 1. Create a `QWidget` as the container
+/// 2. Get its HWND via `winId()`
+/// 3. Pass the HWND as `parent_hwnd` with `EmbedMode::Child`
+/// 4. The WebView will be created as a true child window (WS_CHILD)
+///
+/// This approach works with both Qt5 and Qt6, avoiding the complexity of
+/// `createWindowContainer` which has different behavior across Qt versions.
 #[cfg(target_os = "windows")]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EmbedMode {
-    /// No parent/owner specified (standalone top-level window)
+    /// No parent specified (standalone top-level window)
+    /// Use this for independent windows that are not embedded in any host application.
     None,
-    /// Create as real child window (WS_CHILD). Requires same-thread parenting; can freeze GUIs if cross-thread.
+
+    /// Create as real child window (WS_CHILD) - **RECOMMENDED**
+    ///
+    /// This is the official recommended mode for embedding WebView2:
+    /// - Uses wry's `build_as_child()` which is designed for embedding
+    /// - WebView becomes a true child window that cannot be moved independently
+    /// - Automatic resize when parent resizes
+    /// - Works with Qt5/Qt6 by passing QWidget's winId() as parent_hwnd
+    ///
+    /// Note: Requires the WebView to be created on the same thread as the parent window,
+    /// or use proper cross-thread window parenting techniques.
     Child,
-    /// Create as owned top-level window (GWLP_HWNDPARENT). Safe across threads; follows minimize/activate of owner.
-    Owner,
-    /// Qt container mode: standalone window that will be wrapped by Qt's createWindowContainer.
-    /// No Win32 parent relationship, but non-blocking event handling like embedded mode.
-    Container,
 }
 
 /// Dummy enum for non-Windows (compile-time placeholder)

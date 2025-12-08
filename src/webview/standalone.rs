@@ -52,6 +52,80 @@ use super::js_assets;
 use super::webview_inner::WebViewInner;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 
+/// Apply WS_CHILD style to ensure the window is a true child window
+///
+/// This function ensures the WebView window cannot be dragged independently
+/// by setting WS_CHILD style and removing popup/caption styles.
+/// It also removes extended styles that can cause white borders.
+///
+/// # Arguments
+/// * `hwnd` - The WebView window handle
+/// * `parent_hwnd` - The parent window handle (Qt widget)
+#[cfg(target_os = "windows")]
+fn apply_child_window_style(hwnd: isize, parent_hwnd: isize) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongW, SetParent, SetWindowLongW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
+        SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_BORDER,
+        WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE,
+        WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
+    };
+
+    unsafe {
+        let hwnd_win = HWND(hwnd as *mut _);
+        let parent_hwnd_win = HWND(parent_hwnd as *mut _);
+
+        // Get current window styles
+        let style = GetWindowLongW(hwnd_win, GWL_STYLE);
+        let ex_style = GetWindowLongW(hwnd_win, GWL_EXSTYLE);
+
+        // Remove popup/caption/thickframe/border styles and add WS_CHILD
+        // WS_CHILD windows cannot be moved independently of their parent
+        let new_style = (style
+            & !(WS_POPUP.0 as i32)
+            & !(WS_CAPTION.0 as i32)
+            & !(WS_THICKFRAME.0 as i32)
+            & !(WS_BORDER.0 as i32)
+            & !(WS_DLGFRAME.0 as i32))
+            | (WS_CHILD.0 as i32);
+
+        // Remove extended styles that can cause white borders
+        // WS_EX_STATICEDGE, WS_EX_CLIENTEDGE, WS_EX_WINDOWEDGE are particularly problematic
+        let new_ex_style = ex_style
+            & !(WS_EX_STATICEDGE.0 as i32)
+            & !(WS_EX_CLIENTEDGE.0 as i32)
+            & !(WS_EX_WINDOWEDGE.0 as i32)
+            & !(WS_EX_DLGMODALFRAME.0 as i32);
+
+        SetWindowLongW(hwnd_win, GWL_STYLE, new_style);
+        SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
+
+        // Ensure parent is set correctly (in case tao didn't do it)
+        let _ = SetParent(hwnd_win, Some(parent_hwnd_win));
+
+        // Apply style changes
+        let _ = SetWindowPos(
+            hwnd_win,
+            None,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        );
+
+        tracing::info!(
+            "[standalone] Applied WS_CHILD style: HWND 0x{:X} -> Parent 0x{:X} (style 0x{:08X} -> 0x{:08X}, ex_style 0x{:08X} -> 0x{:08X})",
+            hwnd,
+            parent_hwnd,
+            style,
+            new_style,
+            ex_style,
+            new_ex_style
+        );
+    }
+}
+
 /// Create standalone WebView with its own window
 ///
 /// This function creates a WebView instance with its own window and event loop.
@@ -148,36 +222,41 @@ pub fn create_standalone(
         if let Some(parent) = config.parent_hwnd {
             match config.embed_mode {
                 EmbedMode::Child => {
-                    tracing::info!("Creating WS_CHILD window (same-thread parenting required)");
-                    // Child windows typically have no decorations
+                    // RECOMMENDED: Use WS_CHILD for true child window embedding
+                    // - wry's build_as_child() is designed for this
+                    // - WebView2's "Windowed Hosting" is the simplest option
+                    tracing::info!("Creating WS_CHILD window (RECOMMENDED mode)");
                     window_builder = window_builder
                         .with_decorations(false)
                         .with_parent_window(parent as isize);
                 }
-                EmbedMode::Owner => {
-                    tracing::info!("Creating owned window (cross-thread safe)");
-                    window_builder = window_builder.with_owner_window(parent as isize);
+                EmbedMode::None => {
+                    // Standalone window mode - no parent relationship
+                    tracing::info!("EmbedMode::None with parent_hwnd - ignoring parent");
                 }
-                EmbedMode::Container => {
-                    // Container mode: standalone popup window for Qt createWindowContainer
-                    // Key requirements for createWindowContainer:
-                    // 1. NO Win32 parent relationship - Qt will reparent it
-                    // 2. Must be a top-level window (not WS_CHILD)
-                    // 3. Should be frameless for seamless embedding
-                    // 4. Start hidden - Qt will show it after reparenting
-                    tracing::info!(
-                        "Creating frameless popup window for Qt container (HWND={} ignored)",
-                        parent
-                    );
-                    window_builder = window_builder.with_decorations(false).with_visible(false);
-                    // Start hidden, Qt will show after reparenting
-                }
-                EmbedMode::None => {}
             }
         }
     }
 
     let window = window_builder.build(&event_loop)?;
+
+    // Apply WS_CHILD style for Child mode to prevent independent dragging
+    #[cfg(target_os = "windows")]
+    {
+        use crate::webview::config::EmbedMode;
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+        if let Some(parent) = config.parent_hwnd {
+            if matches!(config.embed_mode, EmbedMode::Child) {
+                if let Ok(window_handle) = window.window_handle() {
+                    if let RawWindowHandle::Win32(handle) = window_handle.as_raw() {
+                        let hwnd = handle.hwnd.get();
+                        apply_child_window_style(hwnd, parent as isize);
+                    }
+                }
+            }
+        }
+    }
 
     // No manual SetParent needed when using builder-ext on Windows
 

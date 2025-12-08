@@ -29,6 +29,37 @@ user32 = ctypes.windll.user32
 user32.SetParent.argtypes = [wintypes.HWND, wintypes.HWND]
 user32.SetParent.restype = wintypes.HWND
 
+# Configure GetWindowLongW/SetWindowLongW function signatures
+# On 64-bit Windows, use GetWindowLongPtrW/SetWindowLongPtrW
+if ctypes.sizeof(ctypes.c_void_p) == 8:
+    # 64-bit Windows
+    user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.GetWindowLongPtrW.restype = ctypes.c_longlong
+    user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_longlong]
+    user32.SetWindowLongPtrW.restype = ctypes.c_longlong
+    GetWindowLong = user32.GetWindowLongPtrW
+    SetWindowLong = user32.SetWindowLongPtrW
+else:
+    # 32-bit Windows
+    user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.GetWindowLongW.restype = wintypes.LONG
+    user32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.LONG]
+    user32.SetWindowLongW.restype = wintypes.LONG
+    GetWindowLong = user32.GetWindowLongW
+    SetWindowLong = user32.SetWindowLongW
+
+# Configure SetWindowPos function signature
+user32.SetWindowPos.argtypes = [
+    wintypes.HWND,  # hWnd
+    wintypes.HWND,  # hWndInsertAfter
+    ctypes.c_int,   # X
+    ctypes.c_int,   # Y
+    ctypes.c_int,   # cx
+    ctypes.c_int,   # cy
+    wintypes.UINT,  # uFlags
+]
+user32.SetWindowPos.restype = wintypes.BOOL
+
 # Configure SetLayeredWindowAttributes function signature
 user32.SetLayeredWindowAttributes.argtypes = [
     wintypes.HWND,
@@ -85,14 +116,244 @@ class WindowsPlatformBackend(PlatformBackend):
     for embedding WebView2 windows into Qt containers on Windows.
     """
 
+    def supports_direct_embedding(self) -> bool:
+        """Windows supports direct embedding via SetParent()."""
+        return True
+
+    def embed_window_directly(
+        self, child_hwnd: int, parent_hwnd: int, width: int, height: int
+    ) -> bool:
+        """Embed a native window directly into a parent window using SetParent().
+
+        This is an alternative to Qt's createWindowContainer that uses Win32 API
+        directly. This can be more reliable on Qt6 where createWindowContainer
+        has known issues with WebView2.
+
+        The process:
+        1. Remove all frame/border styles from child
+        2. Add WS_CHILD style
+        3. Call SetParent() to establish parent-child relationship
+        4. Position and size the child window
+        5. Apply clip styles to parent
+
+        Args:
+            child_hwnd: The child window handle (WebView HWND).
+            parent_hwnd: The parent window handle (Qt widget's winId()).
+            width: Initial width of the embedded window.
+            height: Initial height of the embedded window.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            # Step 1: Get current styles
+            style = GetWindowLong(child_hwnd, GWL_STYLE)
+            ex_style = GetWindowLong(child_hwnd, GWL_EXSTYLE)
+
+            old_style = style
+            old_ex_style = ex_style
+
+            # Step 2: Remove all frame/border styles
+            style &= ~(
+                WS_POPUP
+                | WS_CAPTION
+                | WS_THICKFRAME
+                | WS_MINIMIZEBOX
+                | WS_MAXIMIZEBOX
+                | WS_SYSMENU
+                | WS_BORDER
+                | WS_DLGFRAME
+                | WS_OVERLAPPEDWINDOW
+            )
+
+            # Step 3: Add WS_CHILD and WS_CLIPSIBLINGS
+            style |= WS_CHILD | WS_CLIPSIBLINGS
+
+            # Step 4: Remove extended styles that can cause issues
+            ex_style &= ~(
+                WS_EX_WINDOWEDGE
+                | WS_EX_CLIENTEDGE
+                | WS_EX_APPWINDOW
+                | WS_EX_TOOLWINDOW
+                | WS_EX_STATICEDGE
+                | WS_EX_DLGMODALFRAME
+            )
+
+            # Step 5: Apply new styles BEFORE SetParent
+            SetWindowLong(child_hwnd, GWL_STYLE, style)
+            SetWindowLong(child_hwnd, GWL_EXSTYLE, ex_style)
+
+            # Step 6: Call SetParent to establish parent-child relationship
+            old_parent = user32.SetParent(child_hwnd, parent_hwnd)
+            if old_parent == 0:
+                # SetParent failed
+                error_code = ctypes.get_last_error()
+                logger.error(
+                    f"[Win32] SetParent failed: child=0x{child_hwnd:X}, "
+                    f"parent=0x{parent_hwnd:X}, error={error_code}"
+                )
+                return False
+
+            # Step 7: Position and size the child window at (0, 0)
+            # Use SWP_SHOWWINDOW to make it visible
+            SWP_SHOWWINDOW = 0x0040
+            result = user32.SetWindowPos(
+                child_hwnd,
+                None,
+                0,  # X position - top-left of parent
+                0,  # Y position - top-left of parent
+                width,
+                height,
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
+            )
+
+            if not result:
+                logger.warning(f"[Win32] SetWindowPos failed for child 0x{child_hwnd:X}")
+
+            # Step 8: Apply clip styles to parent
+            self.apply_clip_styles_to_parent(parent_hwnd)
+
+            # Step 9: CRITICAL - Fix all WebView2 child windows recursively
+            # WebView2 creates multiple child windows (Chrome_WidgetWin_0, etc.)
+            # that may still be draggable. We need to fix ALL of them.
+            self._fix_all_child_windows_recursive(child_hwnd)
+
+            if _VERBOSE_LOGGING:
+                logger.info(
+                    f"[Win32] Direct embedding successful: "
+                    f"child=0x{child_hwnd:X} -> parent=0x{parent_hwnd:X} "
+                    f"(style=0x{old_style:08X}->0x{style:08X}, "
+                    f"ex_style=0x{old_ex_style:08X}->0x{ex_style:08X}, "
+                    f"size={width}x{height})"
+                )
+            return True
+
+        except Exception as e:
+            logger.error(f"[Win32] embed_window_directly failed: {e}")
+            return False
+
+    def _fix_all_child_windows_recursive(self, parent_hwnd: int, depth: int = 0) -> int:
+        """Recursively fix all child windows to prevent independent dragging.
+
+        WebView2 creates a hierarchy of child windows:
+        - Main WebView window
+          - Chrome_WidgetWin_0
+            - Chrome_WidgetWin_1
+              - Intermediate D3D Window
+              - ...
+
+        All of these need WS_CHILD style and proper positioning to prevent
+        them from being dragged independently.
+
+        Args:
+            parent_hwnd: The parent window to enumerate children from.
+            depth: Current recursion depth (for logging).
+
+        Returns:
+            Number of windows fixed.
+        """
+        fixed_count = 0
+        max_depth = 10  # Prevent infinite recursion
+
+        if depth > max_depth:
+            return 0
+
+        try:
+            # EnumChildWindows callback
+            WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+            child_windows = []
+
+            def enum_callback(hwnd, lparam):
+                child_windows.append(hwnd)
+                return True  # Continue enumeration
+
+            callback = WNDENUMPROC(enum_callback)
+            user32.EnumChildWindows(parent_hwnd, callback, 0)
+
+            for child_hwnd in child_windows:
+                try:
+                    # Get current style
+                    style = GetWindowLong(child_hwnd, GWL_STYLE)
+                    ex_style = GetWindowLong(child_hwnd, GWL_EXSTYLE)
+
+                    # Check if already a proper child
+                    if not (style & WS_CHILD):
+                        # Add WS_CHILD, remove WS_POPUP
+                        new_style = (style | WS_CHILD | WS_CLIPSIBLINGS) & ~WS_POPUP
+                        SetWindowLong(child_hwnd, GWL_STYLE, new_style)
+
+                        # Remove problematic extended styles
+                        new_ex_style = ex_style & ~(
+                            WS_EX_APPWINDOW | WS_EX_TOOLWINDOW
+                        )
+                        if new_ex_style != ex_style:
+                            SetWindowLong(child_hwnd, GWL_EXSTYLE, new_ex_style)
+
+                        # Apply changes
+                        user32.SetWindowPos(
+                            child_hwnd,
+                            None,
+                            0, 0, 0, 0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                        )
+
+                        fixed_count += 1
+                        if _VERBOSE_LOGGING:
+                            logger.debug(
+                                f"[Win32] Fixed child window: HWND=0x{child_hwnd:X} "
+                                f"(depth={depth}, style=0x{style:08X}->0x{new_style:08X})"
+                            )
+
+                except Exception as e:
+                    if _VERBOSE_LOGGING:
+                        logger.debug(f"[Win32] Failed to fix child 0x{child_hwnd:X}: {e}")
+
+            if fixed_count > 0:
+                logger.info(
+                    f"[Win32] Fixed {fixed_count} child windows at depth {depth} "
+                    f"for parent 0x{parent_hwnd:X}"
+                )
+
+        except Exception as e:
+            if _VERBOSE_LOGGING:
+                logger.debug(f"[Win32] _fix_all_child_windows_recursive failed: {e}")
+
+        return fixed_count
+
+    def update_embedded_window_geometry(
+        self, child_hwnd: int, x: int, y: int, width: int, height: int
+    ) -> bool:
+        """Update the geometry of a directly embedded window."""
+        try:
+            result = user32.SetWindowPos(
+                child_hwnd,
+                None,
+                x,
+                y,
+                width,
+                height,
+                SWP_NOZORDER | SWP_NOACTIVATE,
+            )
+            if _VERBOSE_LOGGING:
+                logger.debug(
+                    f"[Win32] Updated geometry: HWND=0x{child_hwnd:X}, "
+                    f"pos=({x},{y}), size={width}x{height}"
+                )
+            return bool(result)
+        except Exception as e:
+            if _VERBOSE_LOGGING:
+                logger.debug(f"[Win32] update_embedded_window_geometry failed: {e}")
+            return False
+
     def apply_clip_styles_to_parent(self, parent_hwnd: int) -> bool:
         """Apply WS_CLIPCHILDREN and WS_CLIPSIBLINGS to parent container."""
         try:
-            style = user32.GetWindowLongW(parent_hwnd, GWL_STYLE)
+            style = GetWindowLong(parent_hwnd, GWL_STYLE)
             new_style = style | WS_CLIPCHILDREN | WS_CLIPSIBLINGS
 
             if new_style != style:
-                user32.SetWindowLongW(parent_hwnd, GWL_STYLE, new_style)
+                SetWindowLong(parent_hwnd, GWL_STYLE, new_style)
                 user32.SetWindowPos(
                     parent_hwnd,
                     None,
@@ -115,8 +376,8 @@ class WindowsPlatformBackend(PlatformBackend):
         """Prepare a native HWND for Qt's createWindowContainer."""
         try:
             # Get current styles
-            style = user32.GetWindowLongW(hwnd, GWL_STYLE)
-            ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            style = GetWindowLong(hwnd, GWL_STYLE)
+            ex_style = GetWindowLong(hwnd, GWL_EXSTYLE)
 
             old_style = style
             old_ex_style = ex_style
@@ -149,18 +410,20 @@ class WindowsPlatformBackend(PlatformBackend):
             )
 
             # Apply new styles
-            user32.SetWindowLongW(hwnd, GWL_STYLE, style)
-            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style)
+            SetWindowLong(hwnd, GWL_STYLE, style)
+            SetWindowLong(hwnd, GWL_EXSTYLE, ex_style)
 
-            # Force Windows to apply the style changes (single call)
+            # Force Windows to apply the style changes
+            # CRITICAL: Do NOT use SWP_NOMOVE - we need to force position to (0, 0)
+            # This prevents the WebView from being dragged/offset within the Qt container
             user32.SetWindowPos(
                 hwnd,
                 None,
+                0,  # X position - top-left of parent
+                0,  # Y position - top-left of parent
                 0,
                 0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             )
 
             if _VERBOSE_LOGGING:
@@ -179,11 +442,11 @@ class WindowsPlatformBackend(PlatformBackend):
         """Hide a window during initialization using WS_EX_LAYERED with zero alpha."""
         try:
             # Get current extended style
-            ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            ex_style = GetWindowLong(hwnd, GWL_EXSTYLE)
 
             # Add WS_EX_LAYERED
             new_ex_style = ex_style | WS_EX_LAYERED
-            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex_style)
+            SetWindowLong(hwnd, GWL_EXSTYLE, new_ex_style)
 
             # Set zero alpha (completely invisible)
             user32.SetLayeredWindowAttributes(hwnd, 0, 0, LWA_ALPHA)
@@ -204,9 +467,9 @@ class WindowsPlatformBackend(PlatformBackend):
             user32.SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
 
             # Remove WS_EX_LAYERED style
-            ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            ex_style = GetWindowLong(hwnd, GWL_EXSTYLE)
             new_ex_style = ex_style & ~WS_EX_LAYERED
-            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex_style)
+            SetWindowLong(hwnd, GWL_EXSTYLE, new_ex_style)
 
             # Apply changes
             user32.SetWindowPos(
@@ -241,26 +504,27 @@ class WindowsPlatformBackend(PlatformBackend):
                 return
 
             # Re-apply WS_CHILD and set proper parent
-            style = user32.GetWindowLongW(hwnd, GWL_STYLE)
+            style = GetWindowLong(hwnd, GWL_STYLE)
 
             # Check if WS_CHILD is already set
             if not (style & WS_CHILD):
                 style |= WS_CHILD
                 style &= ~WS_POPUP
-                user32.SetWindowLongW(hwnd, GWL_STYLE, style)
+                SetWindowLong(hwnd, GWL_STYLE, style)
 
                 # Set the container as parent
                 user32.SetParent(hwnd, container_hwnd)
 
-                # Apply changes
+                # Apply changes and force position to (0, 0)
+                # CRITICAL: Do NOT use SWP_NOMOVE - we need to force position to (0, 0)
                 user32.SetWindowPos(
                     hwnd,
                     None,
+                    0,  # X position - top-left of parent
+                    0,  # Y position - top-left of parent
                     0,
                     0,
-                    0,
-                    0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
                 )
 
                 if _VERBOSE_LOGGING:

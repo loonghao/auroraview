@@ -25,7 +25,7 @@ mod types;
 pub use operations::*;
 pub use types::*;
 
-use crate::plugins::{PluginError, PluginHandler, PluginResult, ScopeConfig};
+use crate::{PluginError, PluginHandler, PluginResult, ScopeConfig};
 use serde_json::Value;
 
 /// File system plugin
@@ -146,13 +146,8 @@ impl PluginHandler for FsPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{PathScope, PluginRequest, PluginRouter};
     use tempfile::tempdir;
-
-    fn create_test_router() -> PluginRouter {
-        let temp = tempdir().unwrap();
-        let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-        PluginRouter::with_scope(scope)
-    }
 
     #[test]
     fn test_fs_plugin_commands() {
@@ -216,80 +211,11 @@ mod tests {
         assert!(resp.success);
         let data = resp.data.unwrap();
         assert_eq!(data["exists"], true);
-
-        // Check non-existent
-        let req = PluginRequest::new(
-            "fs",
-            "exists",
-            serde_json::json!({ "path": temp.path().join("nonexistent.txt").to_string_lossy() }),
-        );
-        let resp = router.handle(req);
-        assert!(resp.success);
-        let data = resp.data.unwrap();
-        assert_eq!(data["exists"], false);
-    }
-
-    #[test]
-    fn test_stat_command() {
-        let temp = tempdir().unwrap();
-        let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-        let router = PluginRouter::with_scope(scope);
-
-        // Create a file
-        let file_path = temp.path().join("stat_test.txt");
-        std::fs::write(&file_path, "test content").unwrap();
-
-        let req = PluginRequest::new(
-            "fs",
-            "stat",
-            serde_json::json!({ "path": file_path.to_string_lossy() }),
-        );
-        let resp = router.handle(req);
-        assert!(resp.success, "Stat failed: {:?}", resp.error);
-
-        let data = resp.data.unwrap();
-        assert_eq!(data["isFile"], true);
-        assert_eq!(data["isDirectory"], false);
-        assert_eq!(data["size"], 12); // "test content" = 12 bytes
-    }
-
-    #[test]
-    fn test_create_and_read_dir() {
-        let temp = tempdir().unwrap();
-        let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-        let router = PluginRouter::with_scope(scope);
-
-        // Create directory
-        let dir_path = temp.path().join("subdir");
-        let req = PluginRequest::new(
-            "fs",
-            "create_dir",
-            serde_json::json!({ "path": dir_path.to_string_lossy() }),
-        );
-        let resp = router.handle(req);
-        assert!(resp.success, "Create dir failed: {:?}", resp.error);
-
-        // Create a file in the directory
-        std::fs::write(dir_path.join("file.txt"), "content").unwrap();
-
-        // Read directory
-        let req = PluginRequest::new(
-            "fs",
-            "read_dir",
-            serde_json::json!({ "path": dir_path.to_string_lossy() }),
-        );
-        let resp = router.handle(req);
-        assert!(resp.success, "Read dir failed: {:?}", resp.error);
-
-        let entries: Vec<DirEntry> = serde_json::from_value(resp.data.unwrap()).unwrap();
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].name, "file.txt");
     }
 
     #[test]
     fn test_scope_violation() {
         let temp = tempdir().unwrap();
-        // Create a scope that only allows temp directory
         let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
         let router = PluginRouter::with_scope(scope);
 

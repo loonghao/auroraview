@@ -13,6 +13,7 @@
 //! - Timing metrics for WebView lifecycle
 //! - **IPC abstraction layer** (platform-agnostic messaging)
 //! - **Backend abstraction layer** (unified WebView interface)
+//! - **Plugin system** (native desktop capabilities)
 //!
 //! Used by:
 //! - `auroraview-cli` (Command-line interface)
@@ -29,7 +30,6 @@ pub mod ipc; // IPC abstractions (message, metrics) - platform-agnostic
 pub mod json;
 pub mod menu; // Native menu bar support
 pub mod metrics; // Timing metrics for WebView lifecycle
-pub mod plugins; // Plugin system for desktop capabilities (fs, clipboard, shell)
 pub mod port;
 pub mod protocol;
 pub mod service_discovery; // Service discovery (port allocation, service info)
@@ -37,3 +37,6 @@ pub mod signals; // Qt-inspired signal-slot event system
 pub mod templates; // JavaScript templates (Askama)
 pub mod utils;
 pub mod window; // Window information structures
+
+// Re-export plugin system from auroraview-plugins crate
+pub use auroraview_plugins as plugins;
