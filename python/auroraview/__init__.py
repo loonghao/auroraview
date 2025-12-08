@@ -133,6 +133,7 @@ try:
         find_windows_by_title,
         get_all_windows,
         get_foreground_window,
+        fix_webview2_child_windows,  # Qt6 compatibility
         # CLI utilities
         normalize_url,
         rewrite_html_for_custom_protocol,
@@ -164,6 +165,7 @@ except ImportError as e:
     get_all_windows = None  # type: ignore
     close_window_by_hwnd = None  # type: ignore
     destroy_window_by_hwnd = None  # type: ignore
+    fix_webview2_child_windows = None  # type: ignore
 
     # Placeholder for CLI utilities
     normalize_url = None  # type: ignore
@@ -443,6 +445,7 @@ __all__ = [
     "get_all_windows",
     "close_window_by_hwnd",
     "destroy_window_by_hwnd",
+    "fix_webview2_child_windows",  # Qt6 compatibility
     # ============================================================
     # CLI utilities (Rust-powered)
     # ============================================================

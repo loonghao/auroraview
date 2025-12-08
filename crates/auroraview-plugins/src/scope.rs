@@ -4,6 +4,7 @@
 //! Similar to Tauri's scope system, paths must be explicitly allowed.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -55,9 +56,25 @@ impl PathScope {
         self
     }
 
+    /// Add multiple allowed paths
+    pub fn allow_many(mut self, paths: &[impl AsRef<Path>]) -> Self {
+        for path in paths {
+            self.allowed.push(path.as_ref().to_path_buf());
+        }
+        self
+    }
+
     /// Add a denied path
     pub fn deny(mut self, path: impl AsRef<Path>) -> Self {
         self.denied.push(path.as_ref().to_path_buf());
+        self
+    }
+
+    /// Add multiple denied paths
+    pub fn deny_many(mut self, paths: &[impl AsRef<Path>]) -> Self {
+        for path in paths {
+            self.denied.push(path.as_ref().to_path_buf());
+        }
         self
     }
 
@@ -143,17 +160,24 @@ pub struct ScopeConfig {
     #[serde(default)]
     pub fs: PathScope,
 
+    /// Shell command scope (allowed commands/programs)
+    #[serde(default)]
+    pub shell: ShellScope,
+
     /// Enable/disable individual plugins
     #[serde(default)]
-    pub enabled_plugins: std::collections::HashSet<String>,
+    pub enabled_plugins: HashSet<String>,
 }
 
 impl ScopeConfig {
-    /// Create a new scope configuration
+    /// Create a new scope configuration with default plugins enabled
     pub fn new() -> Self {
         let mut config = Self::default();
-        // Enable fs plugin by default
+        // Enable default plugins
         config.enabled_plugins.insert("fs".to_string());
+        config.enabled_plugins.insert("clipboard".to_string());
+        config.enabled_plugins.insert("shell".to_string());
+        config.enabled_plugins.insert("dialog".to_string());
         config
     }
 
@@ -161,6 +185,7 @@ impl ScopeConfig {
     pub fn permissive() -> Self {
         let mut config = Self::new();
         config.fs = PathScope::allow_all();
+        config.shell = ShellScope::allow_all();
         config
     }
 
@@ -183,6 +208,89 @@ impl ScopeConfig {
     pub fn with_fs_scope(mut self, scope: PathScope) -> Self {
         self.fs = scope;
         self
+    }
+
+    /// Set the shell scope
+    pub fn with_shell_scope(mut self, scope: ShellScope) -> Self {
+        self.shell = scope;
+        self
+    }
+}
+
+/// Shell command scope for controlling which commands can be executed
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ShellScope {
+    /// Allowed commands/programs (by name or path)
+    #[serde(default)]
+    pub allowed_commands: Vec<String>,
+
+    /// Denied commands (take precedence over allowed)
+    #[serde(default)]
+    pub denied_commands: Vec<String>,
+
+    /// Allow all commands (dangerous!)
+    #[serde(default)]
+    pub allow_all: bool,
+
+    /// Allow opening URLs with default browser
+    #[serde(default = "default_true")]
+    pub allow_open_url: bool,
+
+    /// Allow opening files with default application
+    #[serde(default = "default_true")]
+    pub allow_open_file: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl ShellScope {
+    /// Create a new empty scope (blocks all commands)
+    pub fn new() -> Self {
+        Self {
+            allow_open_url: true,
+            allow_open_file: true,
+            ..Default::default()
+        }
+    }
+
+    /// Create a scope that allows all commands
+    pub fn allow_all() -> Self {
+        Self {
+            allow_all: true,
+            allow_open_url: true,
+            allow_open_file: true,
+            ..Default::default()
+        }
+    }
+
+    /// Add an allowed command
+    pub fn allow_command(mut self, cmd: impl Into<String>) -> Self {
+        self.allowed_commands.push(cmd.into());
+        self
+    }
+
+    /// Add a denied command
+    pub fn deny_command(mut self, cmd: impl Into<String>) -> Self {
+        self.denied_commands.push(cmd.into());
+        self
+    }
+
+    /// Check if a command is allowed
+    pub fn is_command_allowed(&self, cmd: &str) -> bool {
+        // Check denied list first
+        if self.denied_commands.iter().any(|c| c == cmd) {
+            return false;
+        }
+
+        // Allow all mode
+        if self.allow_all {
+            return true;
+        }
+
+        // Check allowed list
+        self.allowed_commands.iter().any(|c| c == cmd)
     }
 }
 
@@ -235,5 +343,25 @@ mod tests {
     fn test_scope_config_default() {
         let config = ScopeConfig::new();
         assert!(config.is_plugin_enabled("fs"));
+        assert!(config.is_plugin_enabled("clipboard"));
+        assert!(config.is_plugin_enabled("shell"));
+        assert!(config.is_plugin_enabled("dialog"));
+    }
+
+    #[test]
+    fn test_shell_scope() {
+        let scope = ShellScope::new().allow_command("git").allow_command("npm");
+
+        assert!(scope.is_command_allowed("git"));
+        assert!(scope.is_command_allowed("npm"));
+        assert!(!scope.is_command_allowed("rm"));
+    }
+
+    #[test]
+    fn test_shell_scope_deny() {
+        let scope = ShellScope::allow_all().deny_command("rm");
+
+        assert!(scope.is_command_allowed("git"));
+        assert!(!scope.is_command_allowed("rm"));
     }
 }

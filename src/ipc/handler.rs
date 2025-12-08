@@ -114,7 +114,23 @@ impl IpcHandler {
             .entry(event.to_string())
             .or_default()
             .push(PythonCallback::new(callback));
-        tracing::info!("Registered Python callback for event: {}", event);
+        tracing::debug!("Registered Python callback for event: {}", event);
+    }
+
+    /// Register multiple Python callbacks at once (batch registration)
+    ///
+    /// This is more efficient than calling register_python_callback multiple times
+    /// because it logs only once for the entire batch.
+    #[cfg(feature = "python-bindings")]
+    pub fn register_python_callbacks_batch(&self, callbacks: Vec<(String, Py<PyAny>)>) {
+        let count = callbacks.len();
+        for (event, callback) in callbacks {
+            self.python_callbacks
+                .entry(event)
+                .or_default()
+                .push(PythonCallback::new(callback));
+        }
+        tracing::info!("Registered {} Python callbacks in batch", count);
     }
 
     /// Emit an event to JavaScript

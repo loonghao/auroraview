@@ -62,6 +62,12 @@ pub enum PluginErrorCode {
     IoError,
     /// Encoding error
     EncodingError,
+    /// Clipboard error
+    ClipboardError,
+    /// Shell/process error
+    ShellError,
+    /// Dialog cancelled
+    DialogCancelled,
     /// Unknown error
     Unknown,
 }
@@ -78,6 +84,9 @@ impl PluginErrorCode {
             Self::FileNotFound => "FILE_NOT_FOUND",
             Self::IoError => "IO_ERROR",
             Self::EncodingError => "ENCODING_ERROR",
+            Self::ClipboardError => "CLIPBOARD_ERROR",
+            Self::ShellError => "SHELL_ERROR",
+            Self::DialogCancelled => "DIALOG_CANCELLED",
             Self::Unknown => "UNKNOWN",
         }
     }
@@ -117,6 +126,11 @@ impl PluginError {
         self.message.clone()
     }
 
+    /// Get the error code enum
+    pub fn error_code(&self) -> PluginErrorCode {
+        self.code
+    }
+
     /// Create a command not found error
     pub fn command_not_found(cmd: &str) -> Self {
         Self::new(
@@ -149,6 +163,21 @@ impl PluginError {
     /// Create an IO error
     pub fn io_error(err: std::io::Error) -> Self {
         Self::new(PluginErrorCode::IoError, err.to_string())
+    }
+
+    /// Create a clipboard error
+    pub fn clipboard_error(msg: impl Into<String>) -> Self {
+        Self::new(PluginErrorCode::ClipboardError, msg)
+    }
+
+    /// Create a shell error
+    pub fn shell_error(msg: impl Into<String>) -> Self {
+        Self::new(PluginErrorCode::ShellError, msg)
+    }
+
+    /// Create a dialog cancelled error
+    pub fn dialog_cancelled() -> Self {
+        Self::new(PluginErrorCode::DialogCancelled, "Dialog was cancelled")
     }
 }
 

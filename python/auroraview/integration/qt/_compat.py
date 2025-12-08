@@ -148,8 +148,7 @@ def create_container_widget(
             logger.error("[Qt Compat] createWindowContainer returned None")
             return None
 
-        # Set focus policy based on Qt version
-        # Qt6 is stricter about focus handling
+        # Qt5 minimal settings - only essential configuration
         if focus_policy:
             policy_map = {
                 "strong": QtCore.StrongFocus,
@@ -166,22 +165,8 @@ def create_container_widget(
         # Set minimum size to 0 to allow container to shrink
         container.setMinimumSize(0, 0)
 
-        # Qt6-specific: ensure proper window activation and layout
-        if is_qt6():
-            # Qt6 requires explicit window activation in some cases
-            container.setAttribute(QtCore.WA_NativeWindow, True)
-            # Also set WA_InputMethodEnabled for proper keyboard input
-            container.setAttribute(QtCore.WA_InputMethodEnabled, True)
-            # Ensure no extra margins from container
-            container.setContentsMargins(0, 0, 0, 0)
-            # NOTE: Do NOT set WA_OpaquePaintEvent on container!
-            # This causes black screen in Houdini and other Qt6 DCCs.
-            # The container must remain transparent to show embedded WebView content.
-            if _VERBOSE_LOGGING:
-                logger.debug("[Qt Compat] Applied Qt6-specific container settings")
-
-        # Qt5/Qt6 common: ensure container accepts focus properly
-        container.setAttribute(QtCore.WA_AcceptTouchEvents, True)
+        if _VERBOSE_LOGGING:
+            logger.debug("[Qt Compat] Applied Qt5-style minimal container settings")
 
         return container
 
@@ -193,8 +178,7 @@ def create_container_widget(
 def post_container_setup(container: Any, hwnd: int) -> None:
     """Perform post-creation setup for container widget.
 
-    This handles Qt version-specific quirks that need to be addressed
-    after the container is created and added to a layout.
+    Qt5-style minimal setup - just process events once.
 
     Args:
         container: The container QWidget from createWindowContainer.
@@ -203,24 +187,8 @@ def post_container_setup(container: Any, hwnd: int) -> None:
     try:
         from qtpy.QtWidgets import QApplication
 
-        # Process events to ensure Qt has completed its internal setup
-        # Using processEvents multiple times is more reliable than time.sleep
-        # and avoids blocking the thread unnecessarily.
+        # Qt5-style: single processEvents call
         QApplication.processEvents()
-
-        if is_qt6():
-            # Qt6 needs additional event processing for proper window attachment.
-            # Instead of a fixed time.sleep(), we process events in small batches
-            # which allows the event loop to complete native operations.
-            for _ in range(3):
-                QApplication.processEvents()
-
-            # Qt6/PySide6 specific: ensure native window is properly reparented
-            # This is critical for Houdini where PySide6 behaves differently
-            get_backend().ensure_native_child_style(hwnd, container)
-
-        # Force a repaint to ensure the content is visible
-        container.update()
 
         if _VERBOSE_LOGGING:
             logger.debug(f"[Qt Compat] Post-container setup complete for HWND 0x{hwnd:X}")
@@ -262,60 +230,79 @@ def show_window_after_init(hwnd: int) -> bool:
 
 
 def apply_qt6_dialog_optimizations(dialog: Any) -> bool:
-    """Apply Qt6-specific optimizations to a QDialog.
+    """Apply dialog optimizations - Qt5 style (minimal/no-op).
 
-    This function applies performance and compatibility optimizations
-    that are recommended for Qt6 environments. It should be called
-    after dialog creation but before showing the dialog.
-
-    Optimizations applied:
-    - WA_OpaquePaintEvent: Force opaque painting (better performance)
-    - WA_TranslucentBackground: Disable translucency (Qt6 performance issue)
-    - WA_NoSystemBackground: Ensure proper background handling
-    - WA_NativeWindow: Ensure native window creation
-    - WA_InputMethodEnabled: Enable input method for keyboard input
+    Currently disabled for testing - Qt5 doesn't need special optimizations.
 
     Args:
         dialog: The QDialog to optimize.
 
     Returns:
-        True if optimizations were applied, False if Qt6 not detected or error.
-
-    Example:
-        >>> dialog = QDialog()
-        >>> apply_qt6_dialog_optimizations(dialog)
-        >>> dialog.show()
+        True (no-op for Qt5 compatibility testing).
     """
-    if not is_qt6():
-        if _VERBOSE_LOGGING:
-            logger.debug("[Qt Compat] Not Qt6, skipping dialog optimizations")
-        return False
+    # Qt5-style: no special dialog optimizations needed
+    if _VERBOSE_LOGGING:
+        logger.debug("[Qt Compat] Qt5-style: skipping dialog optimizations")
+    return True
 
-    try:
-        from qtpy.QtCore import Qt
 
-        # NOTE: Do NOT set WA_OpaquePaintEvent on dialogs containing WebView!
-        # This causes black screen in Houdini and other Qt6 DCCs because
-        # Qt assumes the widget will paint its entire background, but
-        # the WebView container needs transparency to show the embedded content.
+# =============================================================================
+# Direct embedding (alternative to createWindowContainer)
+# =============================================================================
 
-        # Performance optimization: Disable translucent background
-        # (Qt6 has significant performance issues with translucency)
-        dialog.setAttribute(Qt.WA_TranslucentBackground, False)
 
-        # Ensure proper background handling
-        dialog.setAttribute(Qt.WA_NoSystemBackground, False)
+def supports_direct_embedding() -> bool:
+    """Check if the current platform supports direct window embedding.
 
-        # Qt6 compatibility: Ensure native window
-        dialog.setAttribute(Qt.WA_NativeWindow, True)
+    Direct embedding uses platform-native APIs (SetParent on Windows) instead of
+    Qt's createWindowContainer. This can be more reliable on Qt6 where
+    createWindowContainer has known issues with WebView2.
 
-        # Qt6 compatibility: Enable input method for keyboard
-        dialog.setAttribute(Qt.WA_InputMethodEnabled, True)
+    Returns:
+        True if direct embedding is supported, False otherwise.
+    """
+    return get_backend().supports_direct_embedding()
 
-        if _VERBOSE_LOGGING:
-            logger.debug("[Qt Compat] Applied Qt6 dialog optimizations")
-        return True
 
-    except Exception as e:
-        logger.error(f"[Qt Compat] Failed to apply Qt6 optimizations: {e}")
-        return False
+def embed_window_directly(
+    child_hwnd: int, parent_hwnd: int, width: int, height: int
+) -> bool:
+    """Embed a native window directly into a parent window without createWindowContainer.
+
+    This is an alternative to Qt's createWindowContainer that uses platform-native
+    APIs for window embedding. On Windows, this uses SetParent() + WS_CHILD.
+
+    This approach bypasses Qt's createWindowContainer entirely, which can help
+    avoid Qt6-specific issues with WebView2 embedding.
+
+    Args:
+        child_hwnd: The child window handle (WebView HWND).
+        parent_hwnd: The parent window handle (Qt widget's winId()).
+        width: Initial width of the embedded window.
+        height: Initial height of the embedded window.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    return get_backend().embed_window_directly(child_hwnd, parent_hwnd, width, height)
+
+
+def update_embedded_window_geometry(
+    child_hwnd: int, x: int, y: int, width: int, height: int
+) -> bool:
+    """Update the geometry of a directly embedded window.
+
+    This should be called when the parent Qt widget is resized to keep
+    the embedded window in sync.
+
+    Args:
+        child_hwnd: The child window handle.
+        x: X position relative to parent.
+        y: Y position relative to parent.
+        width: New width.
+        height: New height.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    return get_backend().update_embedded_window_geometry(child_hwnd, x, y, width, height)

@@ -18,6 +18,7 @@ pub mod js_assets; // JavaScript assets management
 #[cfg(feature = "templates")]
 pub mod js_templates; // Type-safe JS templates using Askama
 pub mod lifecycle; // Public for testing
+mod message_processor; // Unified message processing
 mod message_pump;
 pub mod protocol;
 pub mod protocol_handlers; // Custom protocol handlers

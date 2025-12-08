@@ -48,6 +48,8 @@ pub struct AuroraView {
     pub(crate) event_loop_proxy: Rc<RefCell<Option<tao::event_loop::EventLoopProxy<UserEvent>>>>,
     /// JavaScript callback manager for async execution
     pub(crate) js_callback_manager: Arc<JsCallbackManager>,
+    /// Callback invoked when WebView2 HWND is created (Windows only)
+    pub(crate) on_hwnd_created: Rc<RefCell<Option<Py<PyAny>>>>,
 }
 
 /// Implement Drop to track when AuroraView is destroyed

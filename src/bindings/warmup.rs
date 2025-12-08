@@ -4,6 +4,8 @@
 //! DCC applications to pre-initialize WebView2 for faster window creation.
 
 use pyo3::prelude::*;
+
+#[cfg(target_os = "windows")]
 use std::path::PathBuf;
 
 #[cfg(target_os = "windows")]

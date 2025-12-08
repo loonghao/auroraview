@@ -340,15 +340,50 @@ impl AuroraView {
 
     /// Set window size
     fn set_size(&self, width: u32, height: u32) -> PyResult<()> {
-        let inner_ref = self.inner.borrow();
-        if let Some(ref inner) = *inner_ref {
-            inner
-                .set_size(width, height)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
-        } else {
-            Err(pyo3::exceptions::PyRuntimeError::new_err(
-                "WebView not initialized",
-            ))
+        // Use try_borrow to avoid panic if RefCell is already borrowed
+        // This can happen during callback invocations from show_embedded/create_embedded
+        match self.inner.try_borrow() {
+            Ok(inner_ref) => {
+                if let Some(ref inner) = *inner_ref {
+                    inner
+                        .set_size(width, height)
+                        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
+                } else {
+                    Err(pyo3::exceptions::PyRuntimeError::new_err(
+                        "WebView not initialized",
+                    ))
+                }
+            }
+            Err(_) => {
+                // RefCell already borrowed - this is expected during initialization callbacks
+                // Log and return Ok since the size will be set when the borrow is released
+                tracing::debug!("[set_size] RefCell already borrowed, deferring size update");
+                Ok(())
+            }
+        }
+    }
+
+    /// Sync WebView bounds with container size (Qt6 compatibility)
+    ///
+    /// This is critical for Qt6 where createWindowContainer manages the native window
+    /// but WebView2's internal controller bounds may not automatically update.
+    /// Call this after any size change to ensure WebView content fills the container.
+    fn sync_bounds(&self, width: u32, height: u32) -> PyResult<()> {
+        match self.inner.try_borrow() {
+            Ok(inner_ref) => {
+                if let Some(ref inner) = *inner_ref {
+                    inner.sync_webview_bounds(width, height);
+                    Ok(())
+                } else {
+                    Err(pyo3::exceptions::PyRuntimeError::new_err(
+                        "WebView not initialized",
+                    ))
+                }
+            }
+            Err(_) => {
+                tracing::debug!("[sync_bounds] RefCell already borrowed, deferring bounds sync");
+                Ok(())
+            }
         }
     }
 

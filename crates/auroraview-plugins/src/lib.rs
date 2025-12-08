@@ -1,6 +1,6 @@
 //! AuroraView Plugin System
 //!
-//! This module provides a plugin architecture for extending AuroraView with
+//! This crate provides a plugin architecture for extending AuroraView with
 //! native desktop capabilities. Inspired by Tauri's plugin system.
 //!
 //! ## Architecture
@@ -10,15 +10,23 @@
 //! │                    JavaScript API                            │
 //! │  window.auroraview.fs.readFile()                            │
 //! │  window.auroraview.clipboard.write()                        │
+//! │  window.auroraview.shell.open()                             │
 //! ├─────────────────────────────────────────────────────────────┤
 //! │              Plugin Command Router                           │
 //! │  invoke("plugin:fs|read_file", { path, ... })               │
 //! ├────────────┬────────────┬────────────┬──────────────────────┤
-//! │ fs_plugin  │ clipboard  │ shell      │ (future plugins)     │
+//! │ fs_plugin  │ clipboard  │ shell      │ dialog               │
 //! ├────────────┴────────────┴────────────┴──────────────────────┤
-//! │               auroraview-core                                │
+//! │               auroraview-plugins                             │
 //! └─────────────────────────────────────────────────────────────┘
 //! ```
+//!
+//! ## Available Plugins
+//!
+//! - **fs**: File system operations (read, write, list, etc.)
+//! - **clipboard**: System clipboard access (read/write text, images)
+//! - **shell**: Execute commands, open URLs/files
+//! - **dialog**: Native file/folder dialogs
 //!
 //! ## Command Format
 //!
@@ -26,12 +34,15 @@
 //!
 //! Example: `plugin:fs|read_file`
 
+pub mod clipboard;
+pub mod dialog;
 pub mod fs;
-mod scope;
+pub mod scope;
+pub mod shell;
 mod types;
 
 pub use scope::{PathScope, ScopeConfig, ScopeError};
-pub use types::{PluginCommand, PluginError, PluginResult};
+pub use types::{PluginCommand, PluginError, PluginErrorCode, PluginResult};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -81,6 +92,12 @@ impl PluginRequest {
             id: None,
         }
     }
+
+    /// Set the request ID
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
+    }
 }
 
 /// Plugin command response
@@ -128,6 +145,18 @@ impl PluginResponse {
     }
 }
 
+/// Trait for plugin implementations
+pub trait PluginHandler: Send + Sync {
+    /// Plugin name
+    fn name(&self) -> &str;
+
+    /// Handle a command
+    fn handle(&self, command: &str, args: Value, scope: &ScopeConfig) -> PluginResult<Value>;
+
+    /// Get supported commands
+    fn commands(&self) -> Vec<&str>;
+}
+
 /// Plugin router for dispatching commands to plugins
 pub struct PluginRouter {
     /// Registered plugins
@@ -152,6 +181,9 @@ impl PluginRouter {
 
         // Register built-in plugins
         router.register("fs", Arc::new(fs::FsPlugin::new()));
+        router.register("clipboard", Arc::new(clipboard::ClipboardPlugin::new()));
+        router.register("shell", Arc::new(shell::ShellPlugin::new()));
+        router.register("dialog", Arc::new(dialog::DialogPlugin::new()));
 
         router
     }
@@ -168,8 +200,22 @@ impl PluginRouter {
         self.plugins.insert(name.into(), plugin);
     }
 
+    /// Unregister a plugin
+    pub fn unregister(&mut self, name: &str) -> Option<Arc<dyn PluginHandler>> {
+        self.plugins.remove(name)
+    }
+
     /// Handle a plugin command
     pub fn handle(&self, request: PluginRequest) -> PluginResponse {
+        // Check if plugin is enabled
+        if !self.scope.is_plugin_enabled(&request.plugin) {
+            return PluginResponse::err(
+                format!("Plugin '{}' is disabled", request.plugin),
+                "PLUGIN_DISABLED",
+            )
+            .with_id(request.id);
+        }
+
         let plugin = match self.plugins.get(&request.plugin) {
             Some(p) => p,
             None => {
@@ -192,27 +238,25 @@ impl PluginRouter {
         self.plugins.contains_key(name)
     }
 
+    /// Get list of registered plugin names
+    pub fn plugin_names(&self) -> Vec<&str> {
+        self.plugins.keys().map(|s| s.as_str()).collect()
+    }
+
     /// Get the scope configuration
     pub fn scope(&self) -> &ScopeConfig {
         &self.scope
+    }
+
+    /// Get mutable scope configuration
+    pub fn scope_mut(&mut self) -> &mut ScopeConfig {
+        &mut self.scope
     }
 
     /// Update scope configuration
     pub fn set_scope(&mut self, scope: ScopeConfig) {
         self.scope = scope;
     }
-}
-
-/// Trait for plugin implementations
-pub trait PluginHandler: Send + Sync {
-    /// Plugin name
-    fn name(&self) -> &str;
-
-    /// Handle a command
-    fn handle(&self, command: &str, args: Value, scope: &ScopeConfig) -> PluginResult<Value>;
-
-    /// Get supported commands
-    fn commands(&self) -> Vec<&str>;
 }
 
 #[cfg(test)]
@@ -252,5 +296,14 @@ mod tests {
         assert!(resp.data.is_none());
         assert_eq!(resp.error, Some("File not found".to_string()));
         assert_eq!(resp.code, Some("NOT_FOUND".to_string()));
+    }
+
+    #[test]
+    fn test_router_has_default_plugins() {
+        let router = PluginRouter::new();
+        assert!(router.has_plugin("fs"));
+        assert!(router.has_plugin("clipboard"));
+        assert!(router.has_plugin("shell"));
+        assert!(router.has_plugin("dialog"));
     }
 }

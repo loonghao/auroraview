@@ -1,7 +1,7 @@
 //! File system operations implementation
 
 use super::types::{DirEntry, FileStat};
-use crate::plugins::{PathScope, PluginError, PluginResult};
+use crate::{PathScope, PluginError, PluginResult};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;

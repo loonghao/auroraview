@@ -46,51 +46,22 @@ def create_optimal_qt_config(
 
     logger.info(f"Creating Qt config for {dcc_name or 'generic'} ({binding} Qt{version})")
 
-    # Base configuration (Qt version-specific)
-    if is_qt6_env:
-        # Qt6 defaults: longer delays, opaque windows
-        config = {
-            "init_delay_ms": 100,
-            "timer_interval_ms": 32,  # 30 FPS
-            "geometry_fix_delays": [50, 150, 300, 600, 1000],
-            "force_opaque_window": True,
-            "disable_translucent": True,
-            "is_qt6": True,
-        }
-    else:
-        # Qt5 defaults: faster initialization
-        config = {
-            "init_delay_ms": 10,
-            "timer_interval_ms": 16,  # 60 FPS
-            "geometry_fix_delays": [100, 500, 1000],
-            "force_opaque_window": False,
-            "disable_translucent": False,
-            "is_qt6": False,
-        }
+    # Base configuration (unified Qt5/Qt6 - testing without Qt6 optimizations)
+    # NOTE: Temporarily using Qt5 defaults for both to test if Qt6 optimizations are causing issues
+    # NOTE: geometry_fix_delays disabled for testing
+    config = {
+        "init_delay_ms": 10,
+        "timer_interval_ms": 16,  # 60 FPS
+        "geometry_fix_delays": [],  # Disabled for testing
+        "force_opaque_window": False,
+        "disable_translucent": False,
+        "is_qt6": is_qt6_env,
+    }
 
-    # DCC-specific overrides
-    if dcc_name:
-        dcc_lower = dcc_name.lower()
-
-        if dcc_lower in ("houdini", "hip"):
-            # Houdini: Heavy main thread, needs slower updates
-            config["timer_interval_ms"] = 50  # 20 FPS
-            if is_qt6_env:
-                config["geometry_fix_delays"] = [100, 300, 600, 1000, 2000]
-
-        elif dcc_lower in ("maya", "mayapy"):
-            # Maya: Standard settings work well
-            pass
-
-        elif dcc_lower in ("nuke", "nukex"):
-            # Nuke: Needs extended geometry fixes
-            config["geometry_fix_delays"] = [100, 500, 1000, 2000, 3000]
-
-        elif dcc_lower in ("substancepainter", "painter", "sp"):
-            # Substance Painter: Balanced for texture painting
-            config["timer_interval_ms"] = 32  # 30 FPS
-            if is_qt6_env:
-                config["geometry_fix_delays"] = [50, 150, 300, 500, 1000]
+    # DCC-specific overrides - disabled for unified testing
+    # if dcc_name:
+    #     dcc_lower = dcc_name.lower()
+    #     ...
 
     # Apply overrides
     if init_delay_ms is not None:

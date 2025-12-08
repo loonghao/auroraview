@@ -6,15 +6,16 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Embedding mode on Windows.
+/// All embedded modes (Child, Owner) create frameless windows for seamless Qt integration.
 #[cfg(target_os = "windows")]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum EmbedMode {
     /// No parent/owner specified (standalone top-level window)
     #[default]
     None,
-    /// Create as real child window (WS_CHILD). Requires same-thread parenting.
+    /// Create as real child window (WS_CHILD, frameless). Requires same-thread parenting.
     Child,
-    /// Create as owned top-level window (GWLP_HWNDPARENT). Safe across threads.
+    /// Create as owned top-level window (GWLP_HWNDPARENT, frameless). Safe across threads.
     Owner,
 }
 

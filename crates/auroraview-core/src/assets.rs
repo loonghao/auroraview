@@ -186,17 +186,55 @@ pub fn get_fs_plugin_js() -> String {
         .unwrap_or_default()
 }
 
+/// Get the dialog plugin JavaScript code
+pub fn get_dialog_plugin_js() -> String {
+    Assets::get("js/plugins/dialog.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the clipboard plugin JavaScript code
+pub fn get_clipboard_plugin_js() -> String {
+    Assets::get("js/plugins/clipboard.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the shell plugin JavaScript code
+pub fn get_shell_plugin_js() -> String {
+    Assets::get("js/plugins/shell.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get plugin JavaScript by name
+pub fn get_plugin_js(name: &str) -> Option<String> {
+    match name {
+        "fs" => Some(get_fs_plugin_js()),
+        "dialog" => Some(get_dialog_plugin_js()),
+        "clipboard" => Some(get_clipboard_plugin_js()),
+        "shell" => Some(get_shell_plugin_js()),
+        _ => None,
+    }
+}
+
+/// List available plugin names
+pub fn plugin_names() -> &'static [&'static str] {
+    &["fs", "dialog", "clipboard", "shell"]
+}
+
 /// Get all plugin JavaScript code concatenated
 pub fn get_all_plugins_js() -> String {
     let mut scripts = Vec::new();
 
-    // Add file system plugin
-    let fs_js = get_fs_plugin_js();
-    if !fs_js.is_empty() {
-        scripts.push(fs_js);
+    // Add all plugins
+    for name in plugin_names() {
+        if let Some(js) = get_plugin_js(name) {
+            if !js.is_empty() {
+                scripts.push(js);
+            }
+        }
     }
-
-    // Future plugins will be added here
 
     scripts.join("\n\n")
 }
