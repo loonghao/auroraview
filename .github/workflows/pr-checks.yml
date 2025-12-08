@@ -335,6 +335,17 @@ jobs:
       - name: Build CLI
         run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
 
+      - name: Test CLI (--help)
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            ./target/${{ matrix.target }}/release/auroraview.exe --help
+            ./target/${{ matrix.target }}/release/auroraview.exe --version
+          else
+            ./target/${{ matrix.target }}/release/auroraview --help
+            ./target/${{ matrix.target }}/release/auroraview --version
+          fi
+
   # Final gate - all critical checks must pass
   pr-ready:
     name: PR Ready
