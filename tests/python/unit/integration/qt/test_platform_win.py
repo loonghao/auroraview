@@ -2,12 +2,18 @@
 
 This module tests the WindowsPlatformBackend class using mocks
 to avoid actual Win32 API calls.
+
+Note: These tests require qtpy to be installed because the parent
+qt package imports it during package initialization.
 """
 
 import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+# Skip entire module if qtpy is not available
+pytest.importorskip("qtpy", reason="Qt tests require qtpy")
 
 # Skip all tests if not on Windows
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows only tests")
