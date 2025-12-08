@@ -14,6 +14,9 @@ Tests cover:
 - JavaScript execution
 - AuroraView bridge injection
 - DOM interaction
+
+Note: On Linux, wry requires the event loop to be initialized on the main thread.
+In CI environments where tests run in worker threads, these tests are skipped.
 """
 
 import os
@@ -29,9 +32,19 @@ HAS_DISPLAY = (
     os.environ.get("DISPLAY") is not None or sys.platform == "win32" or sys.platform == "darwin"
 )
 
+# On Linux, wry requires event loop to be on main thread
+# In CI, tests run in worker threads which causes panic
+IS_LINUX = sys.platform == "linux"
+LINUX_CI_SKIP = IS_LINUX and IN_CI
+
 # Common skip conditions
 pytestmark = [
     pytest.mark.integration,
+    # Skip all Browser tests on Linux CI due to main thread requirement
+    pytest.mark.skipif(
+        LINUX_CI_SKIP,
+        reason="wry requires event loop on main thread, CI runs tests in worker threads",
+    ),
 ]
 
 

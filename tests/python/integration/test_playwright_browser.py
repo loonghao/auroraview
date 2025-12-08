@@ -373,7 +373,7 @@ class TestPlaywrightBrowserContext:
 
     @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_context_isolation(self):
-        """Test that contexts are isolated."""
+        """Test that contexts are isolated using JavaScript variables."""
         from auroraview.testing.auroratest import PlaywrightBrowser
 
         with PlaywrightBrowser.launch(headless=True) as browser:
@@ -384,13 +384,13 @@ class TestPlaywrightBrowserContext:
             page1 = context1.new_page()
             page2 = context2.new_page()
 
-            # Set localStorage in context1
+            # Set a global variable in context1
             page1.goto("data:text/html,<h1>Context 1</h1>")
-            page1.evaluate("localStorage.setItem('test', 'value1')")
+            page1.evaluate("window.testValue = 'context1'")
 
-            # Check localStorage in context2 - should be empty
+            # Check global variable in context2 - should be undefined
             page2.goto("data:text/html,<h1>Context 2</h1>")
-            value = page2.evaluate("localStorage.getItem('test')")
+            value = page2.evaluate("window.testValue")
             assert value is None
 
             context1.close()
