@@ -488,6 +488,7 @@ dependencies = [
  "auroraview-plugins",
  "dunce",
  "http 1.4.0",
+ "image",
  "mdns-sd 0.11.5",
  "mime_guess",
  "parking_lot",

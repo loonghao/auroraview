@@ -55,6 +55,9 @@ pub enum WebViewError {
 
     /// Operation not supported by this backend
     Unsupported(String),
+
+    /// Icon loading/conversion error
+    Icon(String),
 }
 
 impl fmt::Display for WebViewError {
@@ -75,6 +78,7 @@ impl fmt::Display for WebViewError {
             Self::InvalidArgument(msg) => write!(f, "Invalid argument: {}", msg),
             Self::Internal(msg) => write!(f, "Internal error: {}", msg),
             Self::Unsupported(msg) => write!(f, "Unsupported operation: {}", msg),
+            Self::Icon(msg) => write!(f, "Icon error: {}", msg),
         }
     }
 }
@@ -105,6 +109,11 @@ impl WebViewError {
     /// Create an internal error
     pub fn internal(msg: impl Into<String>) -> Self {
         Self::Internal(msg.into())
+    }
+
+    /// Create an icon error
+    pub fn icon(msg: impl Into<String>) -> Self {
+        Self::Icon(msg.into())
     }
 }
 

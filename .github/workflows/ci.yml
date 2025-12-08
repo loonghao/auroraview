@@ -1,162 +1,46 @@
 name: CI
 
-# This workflow runs comprehensive testing on main branch and when explicitly requested.
-# For PR checks, see pr-checks.yml which runs essential validations.
+# Main CI workflow - runs on main branch pushes and can be triggered manually.
+# For PR checks, see pr-checks.yml which is optimized for PR feedback.
 
 on:
   push:
     branches: [main]
-  pull_request:
-    types: [labeled]  # Only run on labeled PRs (e.g., 'full-ci', 'test-wheels')
   workflow_dispatch:
   workflow_call:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_HTTP_TIMEOUT: '600'
+  CARGO_NET_RETRY: '10'
+
 jobs:
-  # Quick validation - runs on every PR, depends on version check
-  quick-test:
-    name: Quick Test (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false  # Allow other Python versions to continue if one fails
-      matrix:
-        python-version: ["3.8", "3.10", "3.12"]  # Test min, stable, and recent stable
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup AuroraView Environment
-        uses: ./.github/actions/setup-auroraview
-        with:
-          python-version: ${{ matrix.python-version }}
-          rust-components: 'clippy'
-          cache-key-suffix: 'quick-test'
-
-      - name: Build and Test
-        uses: ./.github/actions/build-and-test
-        with:
-          test-type: 'basic'
-          generate-stubs: 'true'
-
-      - name: Upload Python coverage to Codecov
-        if: matrix.python-version == '3.10'
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage.xml
-          flags: python,unit,py${{ matrix.python-version }},${{ runner.os }}
-          fail_ci_if_error: false
-          verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-  # Rust coverage - runs on ubuntu for speed
-  rust-coverage:
-    name: Rust Coverage
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Rust with llvm-tools
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libglib2.0-dev \
-            libpango1.0-dev \
-            libcairo2-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            pkg-config
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-coverage-
-            ${{ runner.os }}-cargo-
-
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --locked
-
-      - name: Run Rust tests with coverage
-        run: |
-          # Exclude tests that require Python bindings (pyo3)
-          # ipc_batch_integration requires Python DLL which is not available in pure Rust coverage
-          cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
-            --test config_integration \
-            --test file_protocol_integration \
-            --test http_discovery_integration \
-            --test ipc_json_integration \
-            --test ipc_message_queue_integration \
-            --test lifecycle_integration \
-            --test mdns_integration \
-            --test port_allocator_integration \
-            --test protocol_handlers_integration \
-            --test protocol_integration \
-            --test standalone_integration \
-            --test timer_integration
-
-      - name: Upload Rust coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: rust-coverage.lcov
-          flags: rust,unit,${{ runner.os }}
-          fail_ci_if_error: false
-          verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-  # Code quality and linting - runs on every PR
-  lint:
-    name: Code Quality
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup AuroraView Environment
-        uses: ./.github/actions/setup-auroraview
-        with:
-          python-version: "3.10"
-          rust-components: 'rustfmt,clippy'
-          cache-key-suffix: 'lint'
-
-      - name: Run linting and formatting checks
-        run: just ci-lint
-
-  # Comprehensive testing - runs on main branch and when requested
-  full-test:
-    name: Full Test Suite (${{ matrix.os }}, Python ${{ matrix.python-version }})
+  # Full test matrix on main branch
+  test-matrix:
+    name: Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'full-ci') || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.8", "3.10", "3.12"]
         include:
-          # Test additional Python versions on Ubuntu only
+          # Additional Python versions on Ubuntu
           - os: ubuntu-latest
             python-version: "3.9"
           - os: ubuntu-latest
             python-version: "3.11"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -169,47 +53,24 @@ jobs:
         with:
           test-type: 'full'
           upload-artifacts: 'true'
-          artifact-name: 'full-test-results-${{ matrix.os }}-py${{ matrix.python-version }}'
+          artifact-name: 'test-${{ matrix.os }}-py${{ matrix.python-version }}'
 
-      - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.10'
+      - name: Upload coverage
+        if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v5
         with:
-          files: coverage.xml
-          flags: python,unit,py${{ matrix.python-version }},${{ runner.os }}
+          files: coverage.xml,rust-coverage.lcov
+          flags: ${{ runner.os }},py${{ matrix.python-version }}
           fail_ci_if_error: false
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # Wheel testing - only for critical combinations
-  wheel-test:
-    name: Wheel Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
-    runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'test-wheels')
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.8", "3.10"]  # Test min and stable versions
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Build and Test Wheel
-        uses: ./.github/actions/build-wheel
-        with:
-          python-version: ${{ matrix.python-version }}
-          test-wheel: 'true'
-          upload-wheel: 'true'
-          artifact-name: 'test-wheels'
-
-  # Documentation tests - lightweight
+  # Documentation build and test
   docs:
     name: Documentation
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -217,58 +78,147 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libglib2.0-dev \
-            libpango1.0-dev \
-            libcairo2-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            pkg-config
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev pkg-config
 
-      - name: Cache Rust dependencies
+      - name: Cache Rust
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-docs-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-docs-
-            ${{ runner.os }}-cargo-
+          restore-keys: ${{ runner.os }}-cargo-docs-
 
       - name: Run doc tests
         run: cargo test --doc
 
-      - name: Check documentation
+      - name: Build documentation
         run: cargo doc --no-deps --document-private-items
+        env:
+          RUSTDOCFLAGS: "-D warnings"
 
-  # Overall CI status check - this job will be required for PR merging
+  # Wheel builds for all platforms (validates release readiness)
+  wheel-builds:
+    name: Wheel (${{ matrix.os }}, ${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64
+          - os: windows-latest
+            target: x64
+          - os: macos-latest
+            target: universal2-apple-darwin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and Test Wheel
+        uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ matrix.target }}
+          python-version: '3.11'
+          test-wheel: 'true'
+          upload-wheel: 'true'
+          artifact-name: 'wheels-${{ matrix.os }}'
+          maturin-args: ${{ matrix.os == 'windows-latest' && '--release --out dist --find-interpreter --features ext-module,win-webview2' || '--release --out dist --find-interpreter' }}
+
+  # CLI builds for all platforms
+  cli-builds:
+    name: CLI (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: auroraview
+            archive: auroraview-linux-x64.tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: auroraview.exe
+            archive: auroraview-windows-x64.zip
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: auroraview
+            archive: auroraview-macos-arm64.tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+
+      - name: Build CLI
+        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "target/${{ matrix.target }}/release/${{ matrix.artifact }}" -DestinationPath ${{ matrix.archive }}
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar -czvf ../../../${{ matrix.archive }} ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.target }}
+          path: ${{ matrix.archive }}
+
+  # CI success gate
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [quick-test, lint, rust-coverage]
+    needs: [test-matrix, docs, wheel-builds, cli-builds]
     if: always()
-
     steps:
-      - name: Check all required jobs
+      - name: Check results
         run: |
-          # Check if all required jobs passed
-          if [[ "${{ needs.quick-test.result }}" != "success" ]]; then
-            echo "[ERROR] Quick tests failed"
-            exit 1
-          fi
-          if [[ "${{ needs.lint.result }}" != "success" ]]; then
-            echo "[ERROR] Linting failed"
-            exit 1
-          fi
-          if [[ "${{ needs.rust-coverage.result }}" != "success" ]]; then
-            echo "[ERROR] Rust coverage failed"
-            exit 1
-          fi
-          echo "[OK] All required CI checks passed"
+          echo "## CI Results" >> $GITHUB_STEP_SUMMARY
 
+          if [[ "${{ needs.test-matrix.result }}" != "success" ]]; then
+            echo "❌ Test matrix failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "✅ Test matrix passed" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.docs.result }}" != "success" ]]; then
+            echo "❌ Documentation failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "✅ Documentation passed" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.wheel-builds.result }}" != "success" ]]; then
+            echo "❌ Wheel builds failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "✅ Wheel builds passed" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.cli-builds.result }}" != "success" ]]; then
+            echo "❌ CLI builds failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "✅ CLI builds passed" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All CI checks passed!**" >> $GITHUB_STEP_SUMMARY

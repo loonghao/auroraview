@@ -57,6 +57,9 @@ askama = "0.12"
 # Window utilities
 active-win-pos-rs = "0.8"
 
+# Image processing (for icon utilities)
+image = { version = "0.25", default-features = false, features = ["png", "ico"] }
+
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 

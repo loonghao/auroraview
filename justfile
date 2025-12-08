@@ -296,6 +296,21 @@ coverage-rust-lcov:
 coverage-all: coverage-rust coverage-python
     @echo "All coverage reports generated!"
 
+# Run benchmarks
+bench:
+    @echo "Running benchmarks..."
+    cargo bench --bench ipc_bench
+
+# Run benchmarks and save baseline
+bench-save BASELINE="main":
+    @echo "Running benchmarks and saving baseline: {{BASELINE}}..."
+    cargo bench --bench ipc_bench -- --save-baseline {{BASELINE}}
+
+# Compare benchmarks against baseline
+bench-compare BASELINE="main":
+    @echo "Comparing benchmarks against baseline: {{BASELINE}}..."
+    cargo bench --bench ipc_bench -- --baseline {{BASELINE}}
+
 # Clean build artifacts
 clean:
     @echo "Cleaning build artifacts..."
