@@ -36,6 +36,7 @@ dependencies = [
 [project.optional-dependencies]
 qt = [
     "qtpy>=2.0.0",
+    "pytest-qt>=4.2.0",
 ]
 
 [dependency-groups]

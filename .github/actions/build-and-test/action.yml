@@ -67,14 +67,8 @@ runs:
       id: build
       shell: bash
       run: |
-        uv pip install maturin
-        if [ "$RUNNER_OS" = "Windows" ]; then
-          echo "Building with Windows features: win-webview2,ext-module,python-bindings"
-          uv run maturin develop --features "win-webview2,ext-module,python-bindings"
-        else
-          echo "Building with features: ext-module,python-bindings"
-          uv run maturin develop --features "ext-module,python-bindings"
-        fi
+        # Use just command for consistent builds across local and CI
+        just ci-build
       env:
         RUST_BACKTRACE: 1
         CARGO_HTTP_TIMEOUT: '600'

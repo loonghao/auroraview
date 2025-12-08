@@ -27,6 +27,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "ui: mark test as requiring UI")
     config.addinivalue_line("markers", "webview: mark test as requiring WebView")
     config.addinivalue_line("markers", "playwright: mark test as using Playwright")
+    config.addinivalue_line("markers", "qt: mark test as requiring Qt")
 
 
 @pytest.fixture(scope="session")
@@ -37,3 +38,37 @@ def event_loop_policy():
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     return asyncio.get_event_loop_policy()
+
+
+# Qt testing fixtures (only available when pytest-qt is installed)
+@pytest.fixture
+def qt_webview(qtbot):
+    """Provide a QtWebView instance for testing.
+
+    This fixture requires pytest-qt to be installed.
+    Usage:
+        def test_qt_feature(qt_webview):
+            qt_webview.load_html("<h1>Test</h1>")
+    """
+    from auroraview.testing.qt import create_qt_webview
+
+    webview = create_qt_webview(qtbot)
+    yield webview
+    webview.close()
+
+
+@pytest.fixture
+def qt_helper(qtbot):
+    """Provide a QtWebViewTestHelper for testing.
+
+    This fixture requires pytest-qt to be installed.
+    Usage:
+        def test_with_helper(qt_helper):
+            webview = qt_helper.create_webview(html="<h1>Test</h1>")
+            qt_helper.wait_loaded(webview)
+    """
+    from auroraview.testing.qt import QtWebViewTestHelper
+
+    helper = QtWebViewTestHelper(qtbot)
+    yield helper
+    helper.cleanup()

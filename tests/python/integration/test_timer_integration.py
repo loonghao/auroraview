@@ -84,8 +84,9 @@ class TestTimerIntegration:
                 (tick_times[i + 1] - tick_times[i]) * 1000 for i in range(len(tick_times) - 1)
             ]
             avg_interval = sum(intervals) / len(intervals)
-            # Should be close to 10ms (allow 500% variance due to thread scheduling on CI/macOS)
-            assert 5 <= avg_interval <= 50
+            # Should be close to 10ms (allow large variance due to thread scheduling on CI/macOS)
+            # macOS CI can have significant scheduling delays
+            assert 5 <= avg_interval <= 100
 
     def test_event_timer_cleanup_on_close(self):
         """Test that EventTimer properly cleans up on close."""

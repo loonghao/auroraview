@@ -24,23 +24,23 @@ install:
 # Build the extension module
 build:
     @echo "Building extension module..."
-    uv run maturin develop --features "python-bindings,win-webview2"
+    uv run maturin develop --features "ext-module,python-bindings,win-webview2"
 
 # Build with release optimizations
 build-release:
     @echo "Building release version..."
-    uv run maturin develop --release --features "python-bindings,win-webview2"
+    uv run maturin develop --release --features "ext-module,python-bindings,win-webview2"
 
 # Build Python library (PyO3 bindings)
 rebuild-pylib:
     @echo "Building Python library with maturin..."
-    uv run maturin develop --release --features "python-bindings,win-webview2"
+    uv run maturin develop --release --features "ext-module,python-bindings,win-webview2"
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build Python library with verbose output
 rebuild-pylib-verbose:
     @echo "Building Python library with maturin (verbose)..."
-    uv run maturin develop --release --features "python-bindings,win-webview2" --verbose
+    uv run maturin develop --release --features "ext-module,python-bindings,win-webview2" --verbose
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build CLI binary
@@ -55,7 +55,7 @@ build-all:
     cargo build -p auroraview-core
     cargo build -p auroraview-pack
     cargo build -p auroraview-cli --release
-    uv run maturin develop --release --features "python-bindings,win-webview2"
+    uv run maturin develop --release --features "ext-module,python-bindings,win-webview2"
     @echo "[OK] All crates built successfully!"
 
 # Run all tests
@@ -215,13 +215,23 @@ check: format lint test
 
 # CI-specific commands
 ci-install:
-    @echo "Installing CI dependencies..."
+    @echo "Installing CI dependencies (including Qt)..."
     uv sync --group dev --group test
+    uv pip install qtpy PySide6 pytest-qt
 
+# CI build command - consistent across all platforms
+# Uses ext-module for proper Python extension module compilation
+[unix]
 ci-build:
-    @echo "Building extension for CI..."
+    @echo "Building extension for CI (Unix)..."
     uv pip install maturin
-    uv run maturin develop --features "python-bindings,win-webview2"
+    uv run maturin develop --features "ext-module,python-bindings"
+
+[windows]
+ci-build:
+    @echo "Building extension for CI (Windows)..."
+    uv pip install maturin
+    uv run maturin develop --features "ext-module,python-bindings,win-webview2"
 
 ci-test-rust:
     @echo "Running Rust doc tests..."
@@ -330,7 +340,7 @@ dev: install build
 # Build release wheels
 release:
     @echo "Building release wheels..."
-    uv run maturin build --release --features "python-bindings,win-webview2"
+    uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
     @echo "Wheels built in target/wheels/"
 
 # Run examples
@@ -468,5 +478,5 @@ maya-debug:
 # Build wheel
 build-wheel:
     @echo "Building Python wheel..."
-    uv run maturin build --release --features "python-bindings,win-webview2"
+    uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
     @echo "[OK] Wheel built in target/wheels/"
