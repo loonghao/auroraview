@@ -7,6 +7,12 @@ This module tests the event system including:
 - Event handlers and callbacks
 - Signal system (Qt-inspired)
 - Event timing and ordering
+
+NOTE: These tests use the original Browser class which requires WebView2.
+Due to Python GIL limitations, WebView2 event loop blocks other threads.
+For UI automation testing, use PlaywrightBrowser instead.
+
+See test_playwright_browser.py for working Playwright-based tests.
 """
 
 import logging
@@ -21,9 +27,12 @@ from auroraview.testing.auroratest import Browser
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.skipif(
-    sys.platform != "win32", reason="WebView2 tests only run on Windows"
-)
+pytestmark = [
+    pytest.mark.skip(
+        reason="WebView2 Browser class blocks due to GIL. Use PlaywrightBrowser instead."
+    ),
+    pytest.mark.skipif(sys.platform != "win32", reason="WebView2 tests only run on Windows"),
+]
 
 
 # ============================================================

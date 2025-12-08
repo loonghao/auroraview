@@ -165,6 +165,20 @@ impl WebViewProxy {
         Ok(())
     }
 
+    /// Close the WebView window (thread-safe)
+    ///
+    /// This sends a close message to the WebView's event loop,
+    /// which will trigger the window to close and the event loop to exit.
+    ///
+    /// Example:
+    ///     >>> proxy = webview.get_proxy()
+    ///     >>> proxy.close()  # Closes the window from another thread
+    fn close(&self) -> PyResult<()> {
+        tracing::info!("[WebViewProxy] Requesting window close");
+        self.message_queue.push(WebViewMessage::Close);
+        Ok(())
+    }
+
     /// Check if the proxy is valid (message queue is available)
     fn is_valid(&self) -> bool {
         // The proxy is always valid as long as it exists

@@ -33,6 +33,10 @@ use crate::webview::standalone;
 ///     allow_new_window (bool, optional): Allow opening new windows (default: False)
 ///     allow_file_protocol (bool, optional): Enable file:// protocol support (default: False)
 ///     always_on_top (bool, optional): Keep window always on top (default: False)
+///     headless (bool, optional): Run in headless mode without visible window (default: False).
+///         Useful for automated testing. Note: WebView2 creates a hidden window, not true headless.
+///     remote_debugging_port (int, optional): Enable CDP remote debugging on specified port.
+///         When set, Playwright/Puppeteer can connect via `connect_over_cdp(f"http://localhost:{port}")`.
 ///     asset_root (str, optional): Root directory for auroraview:// protocol.
 ///         When set, enables the auroraview:// custom protocol for secure local
 ///         resource loading. Files under this directory can be accessed using URLs
@@ -68,6 +72,8 @@ use crate::webview::standalone;
     allow_new_window=false,
     allow_file_protocol=false,
     always_on_top=false,
+    headless=false,
+    remote_debugging_port=None,
     asset_root=None,
     html_path=None,
     rewrite_relative_paths=true
@@ -86,6 +92,8 @@ fn run_standalone(
     allow_new_window: bool,
     allow_file_protocol: bool,
     always_on_top: bool,
+    headless: bool,
+    remote_debugging_port: Option<u16>,
     asset_root: Option<String>,
     html_path: Option<String>,
     rewrite_relative_paths: bool,
@@ -142,7 +150,9 @@ fn run_standalone(
         api_methods: std::collections::HashMap::new(),
         allow_new_window,
         allow_file_protocol,
-        auto_show: true, // Standalone mode always auto-shows
+        auto_show: !headless, // Don't auto-show in headless mode
+        headless,
+        remote_debugging_port,
         // Security defaults
         content_security_policy: None,
         cors_allowed_origins: Vec::new(),
@@ -242,6 +252,8 @@ mod tests {
             allow_new_window: false,
             allow_file_protocol: false,
             auto_show: true,
+            headless: false,
+            remote_debugging_port: None,
             content_security_policy: None,
             cors_allowed_origins: Vec::new(),
             allow_clipboard: false,
@@ -284,6 +296,8 @@ mod tests {
             allow_new_window: false,
             allow_file_protocol: false,
             auto_show: true,
+            headless: false,
+            remote_debugging_port: None,
             content_security_policy: None,
             cors_allowed_origins: Vec::new(),
             allow_clipboard: false,

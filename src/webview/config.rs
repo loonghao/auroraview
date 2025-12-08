@@ -141,6 +141,19 @@ pub struct WebViewConfig {
     /// Set to false for DCC embedding where window visibility is controlled externally
     pub auto_show: bool,
 
+    /// Headless mode - run without visible window
+    /// Default: false (show window)
+    /// When true, the window is created but never shown, useful for automated testing
+    /// Note: WebView2 doesn't support true headless mode, so this creates a hidden window
+    pub headless: bool,
+
+    /// Remote debugging port for CDP (Chrome DevTools Protocol) connections
+    /// Default: None (disabled)
+    /// When set, enables remote debugging on the specified port
+    /// Playwright/Puppeteer can connect via: `browser.connect_over_cdp(f"http://localhost:{port}")`
+    /// Note: This sets WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS environment variable
+    pub remote_debugging_port: Option<u16>,
+
     // ============================================================
     // Security Configuration
     // ============================================================
@@ -244,9 +257,11 @@ impl Default for WebViewConfig {
             data_directory: None,
             custom_protocols: HashMap::new(),
             api_methods: HashMap::new(),
-            allow_new_window: false,    // Block new windows by default
-            allow_file_protocol: false, // Block file:// protocol by default for security
-            auto_show: true,            // Show window after loading screen is ready
+            allow_new_window: false,     // Block new windows by default
+            allow_file_protocol: false,  // Block file:// protocol by default for security
+            auto_show: true,             // Show window after loading screen is ready
+            headless: false,             // Show window by default
+            remote_debugging_port: None, // CDP debugging disabled by default
             // Security defaults
             content_security_policy: None,
             cors_allowed_origins: Vec::new(),

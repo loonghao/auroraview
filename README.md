@@ -1210,6 +1210,35 @@ auroraview/
 
 AuroraView has comprehensive test coverage for both Qt and non-Qt environments.
 
+### AuroraTest - Playwright-like Testing Framework
+
+AuroraView includes a Playwright-inspired testing framework for UI automation:
+
+```python
+from auroraview.testing.auroratest import PlaywrightBrowser
+
+# Launch headless browser for testing
+with PlaywrightBrowser.launch(headless=True) as browser:
+    page = browser.new_page()
+    page.goto("https://example.com")
+    
+    # Use Playwright API for testing
+    page.locator("#button").click()
+    page.screenshot(path="screenshot.png")
+    
+    # AuroraView bridge is auto-injected
+    result = page.evaluate("window.auroraview !== undefined")
+    assert result is True
+```
+
+**Features:**
+- Full Playwright API access (locators, screenshots, network interception)
+- Automatic AuroraView bridge injection
+- Headless mode for CI/CD
+- Works with pytest
+
+**Requirements:** Python 3.8+ and `pip install playwright && playwright install chromium`
+
 ### Running Tests
 
 **Test without Qt dependencies** (tests error handling):
@@ -1238,12 +1267,17 @@ uvx nox -s pytest-all
 
 ### Test Structure
 
-- `tests/test_qt_import_error.py` - Tests error handling when Qt is not installed
+- `tests/python/integration/test_playwright_browser.py` - PlaywrightBrowser tests
+  - Headless browser automation
+  - AuroraView bridge injection
+  - Full Playwright API testing
+
+- `tests/python/integration/test_qt_import_error.py` - Tests error handling when Qt is not installed
   - Verifies placeholder classes work correctly
   - Tests diagnostic variables (`_HAS_QT`, `_QT_IMPORT_ERROR`)
   - Ensures helpful error messages are shown
 
-- `tests/test_qt_backend.py` - Tests actual Qt backend functionality
+- `tests/python/integration/test_qt_backend.py` - Tests actual Qt backend functionality
   - Requires Qt dependencies to be installed
   - Tests QtWebView instantiation and methods
   - Tests event handling and JavaScript integration

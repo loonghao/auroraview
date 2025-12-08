@@ -3,13 +3,18 @@ Browser and BrowserContext classes for AuroraTest.
 
 Browser manages the WebView2 instance and provides page creation.
 BrowserContext provides isolated browser sessions.
+
+Architecture (inspired by Playwright):
+- Browser runs WebView in a background thread
+- All communication happens through WebViewProxy (thread-safe message queue)
+- Page operations are async and use the proxy for cross-thread safety
 """
 
 from __future__ import annotations
 
 import logging
+import queue
 import threading
-import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -55,6 +60,11 @@ class Browser:
     """
     Browser instance that manages WebView2 and provides page creation.
 
+    Architecture:
+    - WebView runs in a dedicated background thread
+    - Communication uses WebViewProxy (thread-safe message queue)
+    - All Page operations go through the proxy
+
     Example:
         ```python
         browser = Browser.launch(headless=True)
@@ -70,9 +80,19 @@ class Browser:
         self._contexts: List[BrowserContext] = []
         self._pages: List["Page"] = []
         self._closed = False
+
+        # WebView instance (created in background thread)
         self._webview = None
-        self._event_loop = None
-        self._thread = None
+
+        # Thread-safe proxy for cross-thread communication
+        self._proxy = None
+
+        # Background thread running WebView event loop
+        self._thread: Optional[threading.Thread] = None
+
+        # Synchronization primitives
+        self._ready_event = threading.Event()
+        self._error_queue: queue.Queue = queue.Queue()
 
     @classmethod
     def launch(
@@ -119,49 +139,77 @@ class Browser:
         return browser
 
     def _start(self):
-        """Start the browser (WebView2) instance."""
-        from auroraview import WebView
-
+        """Start the browser (WebView2) in a background thread."""
         logger.info(f"Starting browser (headless={self._options.headless})")
 
-        viewport = self._options.viewport or {"width": 1280, "height": 720}
-
-        # Create WebView
-        # Note: True headless requires WebView2 headless mode (Windows only)
-        # For now, we use decorations=False as pseudo-headless
-        self._webview = WebView(
-            title="AuroraTest Browser",
-            width=viewport["width"],
-            height=viewport["height"],
-            debug=self._options.devtools,
-            decorations=not self._options.headless,
-            resizable=True,
-        )
-
-        # Start WebView in background thread for non-blocking operation
-        self._ready_event = threading.Event()
-        self._thread = threading.Thread(target=self._run_webview, daemon=True)
+        # Start WebView in background thread
+        self._thread = threading.Thread(target=self._run_webview_thread, daemon=True)
         self._thread.start()
 
-        # Wait for WebView to be ready
-        if not self._ready_event.wait(timeout=10):
-            raise RuntimeError("Browser failed to start within 10 seconds")
+        # Wait for WebView to be ready (proxy available)
+        timeout_sec = 15
+        if not self._ready_event.wait(timeout=timeout_sec):
+            # Check for errors
+            try:
+                error = self._error_queue.get_nowait()
+                raise RuntimeError(f"Browser failed to start: {error}") from None
+            except queue.Empty:
+                raise RuntimeError(
+                    f"Browser failed to start within {timeout_sec} seconds"
+                ) from None
+
+        # Check for startup errors
+        try:
+            error = self._error_queue.get_nowait()
+            raise RuntimeError(f"Browser startup error: {error}")
+        except queue.Empty:
+            pass
 
         logger.info("Browser started successfully")
 
-    def _run_webview(self):
-        """Run WebView in background thread."""
+    def _run_webview_thread(self):
+        """Run WebView in background thread (Playwright-style architecture)."""
         try:
-            self._webview.show(wait=False)
+            from auroraview._core import WebView as CoreWebView
+
+            logger.info(
+                "[Browser Thread] Creating WebView instance (headless=%s)", self._options.headless
+            )
+
+            viewport = self._options.viewport or {"width": 1280, "height": 720}
+
+            # Create WebView in this thread (required by WebView2)
+            # Pass headless=True to keep window hidden for automated testing
+            webview = CoreWebView(
+                title="AuroraTest Browser",
+                width=viewport["width"],
+                height=viewport["height"],
+                dev_tools=self._options.devtools,
+                decorations=not self._options.headless,
+                resizable=True,
+                headless=self._options.headless,  # Key: pass headless to Rust layer
+            )
+
+            # Store WebView reference
+            self._webview = webview
+
+            # Get thread-safe proxy for cross-thread communication
+            # This is the key to Playwright-style architecture
+            self._proxy = webview.get_proxy()
+            logger.info("[Browser Thread] WebViewProxy obtained")
+
+            # Signal that browser is ready
             self._ready_event.set()
 
-            # Keep thread alive while browser is open
-            while not self._closed:
-                time.sleep(0.1)
+            # Run the event loop (blocking)
+            logger.info("[Browser Thread] Starting event loop")
+            webview.show()
+            logger.info("[Browser Thread] Event loop exited")
 
         except Exception as e:
-            logger.error(f"WebView error: {e}")
-            self._ready_event.set()  # Unblock waiting
+            logger.error(f"[Browser Thread] Error: {e}", exc_info=True)
+            self._error_queue.put(str(e))
+            self._ready_event.set()  # Unblock the main thread
 
     def new_context(self, **kwargs) -> "BrowserContext":
         """
@@ -195,9 +243,17 @@ class Browser:
         """
         from .page import Page
 
-        page = Page(self, self._webview, **kwargs)
+        if self._proxy is None:
+            raise RuntimeError("Browser not started. Call Browser.launch() first.")
+
+        page = Page(self, self._proxy, **kwargs)
         self._pages.append(page)
         return page
+
+    @property
+    def proxy(self):
+        """Get the thread-safe WebViewProxy."""
+        return self._proxy
 
     @property
     def contexts(self) -> List["BrowserContext"]:
@@ -237,16 +293,22 @@ class Browser:
             page.close()
         self._pages.clear()
 
-        # Close WebView
-        if self._webview:
+        # Send close message via proxy to properly shut down the event loop
+        if self._proxy is not None:
             try:
-                self._webview.close()
+                logger.info("Sending close message via proxy")
+                self._proxy.close()
             except Exception as e:
-                logger.warning(f"Error closing WebView: {e}")
+                logger.warning(f"Error sending close message: {e}")
 
         # Wait for thread to finish
         if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=2)
+            logger.info("Waiting for browser thread to exit...")
+            self._thread.join(timeout=5)
+            if self._thread.is_alive():
+                logger.warning("Browser thread did not exit cleanly")
+            else:
+                logger.info("Browser thread exited")
 
         logger.info("Browser closed")
 
@@ -289,8 +351,11 @@ class BrowserContext:
         """
         from .page import Page
 
+        if self._browser._proxy is None:
+            raise RuntimeError("Browser not started.")
+
         merged_options = {**self._options, **kwargs}
-        page = Page(self._browser, self._browser._webview, **merged_options)
+        page = Page(self._browser, self._browser._proxy, **merged_options)
         self._pages.append(page)
         return page
 

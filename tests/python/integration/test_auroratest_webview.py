@@ -12,6 +12,12 @@ Tests cover:
 - DOM manipulation
 - API binding
 - Window management
+
+NOTE: These tests use the original Browser class which requires WebView2.
+Due to Python GIL limitations, WebView2 event loop blocks other threads.
+For UI automation testing, use PlaywrightBrowser instead.
+
+See test_playwright_browser.py for working Playwright-based tests.
 """
 
 import logging
@@ -28,10 +34,13 @@ from auroraview.testing.auroratest import Browser
 
 logger = logging.getLogger(__name__)
 
-# Skip all tests if not on Windows (WebView2 is Windows-only)
-pytestmark = pytest.mark.skipif(
-    sys.platform != "win32", reason="WebView2 tests only run on Windows"
-)
+# Skip all tests - WebView2 Browser class blocks due to GIL
+pytestmark = [
+    pytest.mark.skip(
+        reason="WebView2 Browser class blocks due to GIL. Use PlaywrightBrowser instead."
+    ),
+    pytest.mark.skipif(sys.platform != "win32", reason="WebView2 tests only run on Windows"),
+]
 
 
 # ============================================================

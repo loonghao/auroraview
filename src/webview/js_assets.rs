@@ -39,8 +39,8 @@ pub use auroraview_core::assets::{
     get_bridge_stub_js, get_browsing_data_js, get_channel_bridge_js, get_command_bridge_js,
     get_context_menu_js, get_dom_events_js, get_emit_event_js, get_event_bridge_js, get_js_asset,
     get_load_url_js, get_loading_html, get_loading_html as get_loading_html_string,
-    get_navigation_api_js, get_navigation_tracker_js, get_state_bridge_js,
-    get_typescript_definitions, get_zoom_api_js,
+    get_navigation_api_js, get_navigation_tracker_js, get_network_intercept_js, get_screenshot_js,
+    get_state_bridge_js, get_test_callback_js, get_typescript_definitions, get_zoom_api_js,
 };
 
 /// Get JavaScript code by path
@@ -134,6 +134,18 @@ pub fn build_init_script(config: &WebViewConfig) -> String {
 
     // Channel bridge for streaming data
     script.push_str(&get_channel_bridge_js());
+    script.push('\n');
+
+    // Screenshot support - always included for testing framework
+    script.push_str(&get_screenshot_js());
+    script.push('\n');
+
+    // Network interception - always included for testing framework
+    script.push_str(&get_network_intercept_js());
+    script.push('\n');
+
+    // Test callback bridge - always included for testing framework
+    script.push_str(&get_test_callback_js());
     script.push('\n');
 
     // Optional features based on configuration

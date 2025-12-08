@@ -32,7 +32,7 @@ class TestTimerIntegration:
 
     def test_event_timer_with_thread_backend(self):
         """Test EventTimer with thread-based backend."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -47,7 +47,7 @@ class TestTimerIntegration:
 
         # Verify timer is using thread backend (fallback)
         # In test environment, Qt/Maya/etc are not available
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         assert isinstance(timer._backend, ThreadTimerBackend)
 
@@ -59,7 +59,7 @@ class TestTimerIntegration:
 
     def test_event_timer_performance(self):
         """Test EventTimer performance and timing accuracy."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -89,7 +89,7 @@ class TestTimerIntegration:
 
     def test_event_timer_cleanup_on_close(self):
         """Test that EventTimer properly cleans up on close."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -112,7 +112,7 @@ class TestTimerIntegration:
 
     def test_event_timer_error_recovery(self):
         """Test that EventTimer recovers from errors in callbacks."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -154,8 +154,8 @@ class TestTimerIntegration:
 
     def test_timer_backend_fallback_chain(self):
         """Test that EventTimer tries backends in correct order."""
-        from auroraview.event_timer import EventTimer
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.event_timer import EventTimer
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -171,7 +171,7 @@ class TestTimerIntegration:
 
     def test_multiple_timers_simultaneously(self):
         """Test running multiple timers simultaneously."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview1 = MockWebView()
         webview2 = MockWebView()
@@ -215,7 +215,7 @@ class TestTimerIntegration:
 
     def test_event_timer_off_tick_callback(self):
         """Test unregistering a tick callback."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -248,7 +248,7 @@ class TestTimerIntegration:
 
     def test_event_timer_off_close_callback(self):
         """Test unregistering a close callback."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -276,7 +276,7 @@ class TestTimerIntegration:
 
     def test_event_timer_cleanup_method(self):
         """Test the cleanup method clears all callbacks."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -305,7 +305,7 @@ class TestTimerIntegration:
 
     def test_event_timer_context_manager(self):
         """Test EventTimer as context manager."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         tick_count = [0]
@@ -325,7 +325,7 @@ class TestTimerIntegration:
 
     def test_event_timer_repr(self):
         """Test EventTimer string representation."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=16)
@@ -341,7 +341,7 @@ class TestTimerIntegration:
 
     def test_event_timer_interval_property(self):
         """Test interval_ms property getter and setter."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=16)
@@ -361,7 +361,7 @@ class TestTimerIntegration:
 
     def test_event_timer_start_twice_raises(self):
         """Test that starting a running timer raises an error."""
-        from auroraview.event_timer import EventTimer
+        from auroraview.utils.event_timer import EventTimer
 
         webview = MockWebView()
         timer = EventTimer(webview, interval_ms=10)
@@ -379,28 +379,28 @@ class TestTimerBackends:
 
     def test_thread_backend_is_available(self):
         """Test ThreadTimerBackend is always available."""
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         backend = ThreadTimerBackend()
         assert backend.is_available() is True
 
     def test_thread_backend_get_name(self):
         """Test ThreadTimerBackend name."""
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         backend = ThreadTimerBackend()
         assert backend.get_name() == "ThreadTimer"
 
     def test_qt_backend_get_name(self):
         """Test QtTimerBackend name."""
-        from auroraview.timer_backends import QtTimerBackend
+        from auroraview.utils.timer_backends import QtTimerBackend
 
         backend = QtTimerBackend()
         assert backend.get_name() == "QtTimer"
 
     def test_register_timer_backend_update_priority(self):
         """Test that re-registering a backend updates its priority."""
-        from auroraview.timer_backends import (
+        from auroraview.utils.timer_backends import (
             _TIMER_BACKENDS,
             ThreadTimerBackend,
             register_timer_backend,
@@ -432,7 +432,7 @@ class TestTimerBackends:
 
     def test_list_registered_backends(self):
         """Test listing registered backends."""
-        from auroraview.timer_backends import list_registered_backends
+        from auroraview.utils.timer_backends import list_registered_backends
 
         backends = list_registered_backends()
 
@@ -452,7 +452,7 @@ class TestTimerBackends:
 
     def test_get_available_backend(self):
         """Test getting an available backend."""
-        from auroraview.timer_backends import get_available_backend
+        from auroraview.utils.timer_backends import get_available_backend
 
         backend = get_available_backend()
         assert backend is not None
@@ -460,7 +460,7 @@ class TestTimerBackends:
 
     def test_thread_backend_stop_with_none(self):
         """Test stopping thread backend with None handle."""
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         backend = ThreadTimerBackend()
         # Should not raise
@@ -468,7 +468,7 @@ class TestTimerBackends:
 
     def test_qt_backend_stop_with_none(self):
         """Test stopping Qt backend with None handle."""
-        from auroraview.timer_backends import QtTimerBackend
+        from auroraview.utils.timer_backends import QtTimerBackend
 
         backend = QtTimerBackend()
         # Should not raise

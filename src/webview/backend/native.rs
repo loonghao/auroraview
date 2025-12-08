@@ -264,6 +264,10 @@ impl WebViewBackend for NativeBackend {
                                     tracing::error!("Failed to stop loading: {}", e);
                                 }
                             }
+                            WebViewMessage::Close => {
+                                // Close is handled at event loop level
+                                tracing::info!("[NativeBackend] Close message received");
+                            }
                         }
                     });
 
@@ -719,8 +723,10 @@ impl NativeBackend {
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        // Save batch size before moving config
+        // Save config values before moving
         let ipc_batch_size = config.ipc_batch_size;
+        // auto_show should be false in headless mode
+        let auto_show = config.auto_show && !config.headless;
 
         // Delegate to standalone module for now
         // We need to use the existing standalone implementation
@@ -744,7 +750,7 @@ impl NativeBackend {
             message_queue,
             // In standalone mode, we own the message pump
             skip_message_pump: false,
-            auto_show: true, // Standalone mode always auto-shows
+            auto_show, // Use config value (false in headless mode)
             max_messages_per_tick: ipc_batch_size,
         })
     }

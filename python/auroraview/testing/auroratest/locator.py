@@ -3,6 +3,11 @@ Locator class for AuroraTest.
 
 Locator represents a way to find element(s) on the page.
 It provides methods for interaction and assertions.
+
+Architecture:
+- All JavaScript execution goes through Page.evaluate() or proxy.eval_js()
+- State queries use Page.evaluate() for async result retrieval
+- Actions use proxy.eval_js() for fire-and-forget execution
 """
 
 from __future__ import annotations
@@ -50,53 +55,31 @@ class Locator:
         """Get the page this locator belongs to."""
         return self._page
 
+    def _escape_selector(self, selector: str) -> str:
+        """Escape selector for JavaScript string."""
+        return selector.replace("\\", "\\\\").replace("'", "\\'")
+
     # ========== Chaining ==========
 
     def locator(self, selector: str) -> "Locator":
-        """
-        Create a child locator.
-
-        Args:
-            selector: Child selector.
-
-        Returns:
-            New Locator instance.
-        """
+        """Create a child locator."""
         combined = f"{self._selector} {selector}"
         return Locator(self._page, combined, **self._options)
 
     def first(self) -> "Locator":
-        """
-        Get the first matching element.
-
-        Returns:
-            Locator for first element.
-        """
+        """Get the first matching element."""
         locator = Locator(self._page, self._selector, **self._options)
         locator._filters.append({"type": "first"})
         return locator
 
     def last(self) -> "Locator":
-        """
-        Get the last matching element.
-
-        Returns:
-            Locator for last element.
-        """
+        """Get the last matching element."""
         locator = Locator(self._page, self._selector, **self._options)
         locator._filters.append({"type": "last"})
         return locator
 
     def nth(self, index: int) -> "Locator":
-        """
-        Get the nth matching element (0-indexed).
-
-        Args:
-            index: Element index.
-
-        Returns:
-            Locator for nth element.
-        """
+        """Get the nth matching element (0-indexed)."""
         locator = Locator(self._page, self._selector, **self._options)
         locator._filters.append({"type": "nth", "index": index})
         return locator
@@ -108,18 +91,7 @@ class Locator:
         has: Optional["Locator"] = None,
         has_not: Optional["Locator"] = None,
     ) -> "Locator":
-        """
-        Filter matching elements.
-
-        Args:
-            has_text: Filter by text content.
-            has_not_text: Exclude by text content.
-            has: Filter by child locator.
-            has_not: Exclude by child locator.
-
-        Returns:
-            Filtered Locator.
-        """
+        """Filter matching elements."""
         locator = Locator(self._page, self._selector, **self._options)
         locator._filters = self._filters.copy()
 
@@ -147,36 +119,17 @@ class Locator:
         timeout: Optional[float] = None,
         no_wait_after: bool = False,
     ):
-        """
-        Click the element.
-
-        Args:
-            button: Mouse button: "left", "right", "middle".
-            click_count: Number of clicks.
-            delay: Time between mousedown and mouseup in ms.
-            force: Bypass actionability checks.
-            modifiers: Modifier keys: ["Alt", "Control", "Meta", "Shift"].
-            position: Click position relative to element.
-            timeout: Timeout in milliseconds.
-            no_wait_after: Don't wait for navigation.
-
-        Example:
-            ```python
-            await page.locator("#submit").click()
-            await page.locator("#menu").click(button="right")
-            ```
-        """
+        """Click the element."""
         timeout = timeout or self._page._timeout
         logger.info(f"Clicking: {self._selector}")
 
-        # Wait for element to be actionable
         if not force:
             await self._wait_for_actionable(timeout)
 
-        # Execute click via JavaScript
+        selector = self._escape_selector(self._selector)
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el) {{
                 el.click();
                 return true;
@@ -184,7 +137,7 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
         # Apply slow_mo if configured
         if self._page._browser._options.slow_mo > 0:
@@ -202,30 +155,18 @@ class Locator:
         force: bool = False,
         timeout: Optional[float] = None,
     ):
-        """
-        Fill an input element. Clears existing value, then types the value.
-
-        Args:
-            value: Value to fill.
-            force: Bypass actionability checks.
-            timeout: Timeout in milliseconds.
-
-        Example:
-            ```python
-            await page.locator("#email").fill("test@example.com")
-            ```
-        """
+        """Fill an input element."""
         timeout = timeout or self._page._timeout
         logger.info(f"Filling '{self._selector}' with: {value}")
 
         if not force:
             await self._wait_for_actionable(timeout)
 
-        # Clear and set value via JavaScript
-        escaped_value = value.replace("'", "\\'").replace("\n", "\\n")
+        selector = self._escape_selector(self._selector)
+        escaped_value = value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el) {{
                 el.value = '';
                 el.value = '{escaped_value}';
@@ -236,7 +177,7 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
     async def type(
         self,
@@ -244,25 +185,18 @@ class Locator:
         delay: float = 0,
         timeout: Optional[float] = None,
     ):
-        """
-        Type text character by character.
-
-        Args:
-            text: Text to type.
-            delay: Delay between keystrokes in milliseconds.
-            timeout: Timeout in milliseconds.
-        """
+        """Type text character by character."""
         timeout = timeout or self._page._timeout
         logger.info(f"Typing into '{self._selector}': {text}")
 
         await self._wait_for_actionable(timeout)
 
-        # Type character by character
+        selector = self._escape_selector(self._selector)
         for char in text:
-            escaped_char = char.replace("'", "\\'")
+            escaped_char = char.replace("\\", "\\\\").replace("'", "\\'")
             js = f"""
             (function() {{
-                const el = document.querySelector('{self._selector}');
+                const el = document.querySelector('{selector}');
                 if (el) {{
                     el.value += '{escaped_char}';
                     el.dispatchEvent(new Event('input', {{ bubbles: true }}));
@@ -271,7 +205,7 @@ class Locator:
                 return false;
             }})()
             """
-            self._page._webview.eval_js(js)
+            self._page._proxy.eval_js(js)
 
             if delay > 0:
                 await asyncio.sleep(delay / 1000)
@@ -282,25 +216,12 @@ class Locator:
         delay: float = 0,
         timeout: Optional[float] = None,
     ):
-        """
-        Press a key (e.g., "Enter", "Control+c").
-
-        Args:
-            key: Key to press.
-            delay: Time between keydown and keyup in ms.
-            timeout: Timeout in milliseconds.
-
-        Example:
-            ```python
-            await page.locator("#search").press("Enter")
-            ```
-        """
+        """Press a key."""
         timeout = timeout or self._page._timeout
         logger.info(f"Pressing key '{key}' on: {self._selector}")
 
         await self._wait_for_actionable(timeout)
 
-        # Map key names to key codes
         key_map = {
             "Enter": 13,
             "Tab": 9,
@@ -312,12 +233,12 @@ class Locator:
             "ArrowLeft": 37,
             "ArrowRight": 39,
         }
-
         key_code = key_map.get(key, ord(key[0]) if len(key) == 1 else 0)
 
+        selector = self._escape_selector(self._selector)
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el) {{
                 const event = new KeyboardEvent('keydown', {{
                     key: '{key}',
@@ -330,7 +251,7 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
     async def check(self, force: bool = False, timeout: Optional[float] = None):
         """Check a checkbox."""
@@ -339,9 +260,10 @@ class Locator:
         if not force:
             await self._wait_for_actionable(timeout)
 
+        selector = self._escape_selector(self._selector)
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el && !el.checked) {{
                 el.checked = true;
                 el.dispatchEvent(new Event('change', {{ bubbles: true }}));
@@ -350,7 +272,7 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
     async def uncheck(self, force: bool = False, timeout: Optional[float] = None):
         """Uncheck a checkbox."""
@@ -359,9 +281,10 @@ class Locator:
         if not force:
             await self._wait_for_actionable(timeout)
 
+        selector = self._escape_selector(self._selector)
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el && el.checked) {{
                 el.checked = false;
                 el.dispatchEvent(new Event('change', {{ bubbles: true }}));
@@ -370,7 +293,7 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
     async def select_option(
         self,
@@ -385,10 +308,11 @@ class Locator:
         if isinstance(value, str):
             value = [value]
 
+        selector = self._escape_selector(self._selector)
         values_js = ", ".join(f"'{v}'" for v in value)
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el) {{
                 const values = [{values_js}];
                 for (const opt of el.options) {{
@@ -400,7 +324,7 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
     async def hover(self, force: bool = False, timeout: Optional[float] = None):
         """Hover over the element."""
@@ -409,9 +333,10 @@ class Locator:
         if not force:
             await self._wait_for_actionable(timeout)
 
+        selector = self._escape_selector(self._selector)
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el) {{
                 el.dispatchEvent(new MouseEvent('mouseenter', {{ bubbles: true }}));
                 el.dispatchEvent(new MouseEvent('mouseover', {{ bubbles: true }}));
@@ -420,7 +345,7 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
     async def focus(self, timeout: Optional[float] = None):
         """Focus the element."""
@@ -428,9 +353,10 @@ class Locator:
 
         await self._wait_for_actionable(timeout)
 
+        selector = self._escape_selector(self._selector)
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el) {{
                 el.focus();
                 return true;
@@ -438,13 +364,14 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
     async def blur(self, timeout: Optional[float] = None):
         """Remove focus from the element."""
+        selector = self._escape_selector(self._selector)
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el) {{
                 el.blur();
                 return true;
@@ -452,13 +379,14 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
     async def scroll_into_view_if_needed(self, timeout: Optional[float] = None):
         """Scroll element into view if needed."""
+        selector = self._escape_selector(self._selector)
         js = f"""
         (function() {{
-            const el = document.querySelector('{self._selector}');
+            const el = document.querySelector('{selector}');
             if (el) {{
                 el.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
                 return true;
@@ -466,14 +394,27 @@ class Locator:
             return false;
         }})()
         """
-        self._page._webview.eval_js(js)
+        self._page._proxy.eval_js(js)
 
-    # ========== State ==========
+    # ========== State (use Page.evaluate for results) ==========
 
     async def is_visible(self, timeout: Optional[float] = None) -> bool:
         """Check if element is visible."""
-        # TODO: Implement with eval_js_async
-        return True
+        selector = self._escape_selector(self._selector)
+        js = f"""
+        (function() {{
+            const el = document.querySelector('{selector}');
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' &&
+                   style.visibility !== 'hidden' &&
+                   style.opacity !== '0' &&
+                   el.offsetWidth > 0 &&
+                   el.offsetHeight > 0;
+        }})()
+        """
+        result = await self._page.evaluate(js)
+        return bool(result)
 
     async def is_hidden(self, timeout: Optional[float] = None) -> bool:
         """Check if element is hidden."""
@@ -481,8 +422,16 @@ class Locator:
 
     async def is_enabled(self, timeout: Optional[float] = None) -> bool:
         """Check if element is enabled."""
-        # TODO: Implement with eval_js_async
-        return True
+        selector = self._escape_selector(self._selector)
+        js = f"""
+        (function() {{
+            const el = document.querySelector('{selector}');
+            if (!el) return false;
+            return !el.disabled && !el.hasAttribute('disabled');
+        }})()
+        """
+        result = await self._page.evaluate(js)
+        return bool(result)
 
     async def is_disabled(self, timeout: Optional[float] = None) -> bool:
         """Check if element is disabled."""
@@ -490,45 +439,105 @@ class Locator:
 
     async def is_checked(self, timeout: Optional[float] = None) -> bool:
         """Check if checkbox/radio is checked."""
-        # TODO: Implement with eval_js_async
-        return False
+        selector = self._escape_selector(self._selector)
+        js = f"""
+        (function() {{
+            const el = document.querySelector('{selector}');
+            if (!el) return false;
+            return el.checked === true;
+        }})()
+        """
+        result = await self._page.evaluate(js)
+        return bool(result)
 
     async def is_editable(self, timeout: Optional[float] = None) -> bool:
         """Check if element is editable."""
-        # TODO: Implement with eval_js_async
-        return True
+        selector = self._escape_selector(self._selector)
+        js = f"""
+        (function() {{
+            const el = document.querySelector('{selector}');
+            if (!el) return false;
+            const tag = el.tagName.toLowerCase();
+            if (tag === 'input' || tag === 'textarea') {{
+                return !el.disabled && !el.readOnly;
+            }}
+            return el.isContentEditable;
+        }})()
+        """
+        result = await self._page.evaluate(js)
+        return bool(result)
 
     # ========== Content ==========
 
     async def text_content(self, timeout: Optional[float] = None) -> Optional[str]:
         """Get element text content."""
-        # TODO: Implement with eval_js_async
-        return None
+        selector = self._escape_selector(self._selector)
+        js = f"""
+        (function() {{
+            const el = document.querySelector('{selector}');
+            return el ? el.textContent : null;
+        }})()
+        """
+        return await self._page.evaluate(js)
 
     async def inner_text(self, timeout: Optional[float] = None) -> str:
         """Get element inner text."""
-        # TODO: Implement with eval_js_async
-        return ""
+        selector = self._escape_selector(self._selector)
+        js = f"""
+        (function() {{
+            const el = document.querySelector('{selector}');
+            return el ? el.innerText : '';
+        }})()
+        """
+        result = await self._page.evaluate(js)
+        return result or ""
 
     async def inner_html(self, timeout: Optional[float] = None) -> str:
         """Get element inner HTML."""
-        # TODO: Implement with eval_js_async
-        return ""
+        selector = self._escape_selector(self._selector)
+        js = f"""
+        (function() {{
+            const el = document.querySelector('{selector}');
+            return el ? el.innerHTML : '';
+        }})()
+        """
+        result = await self._page.evaluate(js)
+        return result or ""
 
     async def input_value(self, timeout: Optional[float] = None) -> str:
         """Get input element value."""
-        # TODO: Implement with eval_js_async
-        return ""
+        selector = self._escape_selector(self._selector)
+        js = f"""
+        (function() {{
+            const el = document.querySelector('{selector}');
+            return el ? el.value : '';
+        }})()
+        """
+        result = await self._page.evaluate(js)
+        return result or ""
 
     async def get_attribute(self, name: str, timeout: Optional[float] = None) -> Optional[str]:
         """Get element attribute value."""
-        # TODO: Implement with eval_js_async
-        return None
+        selector = self._escape_selector(self._selector)
+        escaped_name = name.replace("\\", "\\\\").replace("'", "\\'")
+        js = f"""
+        (function() {{
+            const el = document.querySelector('{selector}');
+            return el ? el.getAttribute('{escaped_name}') : null;
+        }})()
+        """
+        return await self._page.evaluate(js)
 
     async def count(self) -> int:
         """Get number of matching elements."""
-        # TODO: Implement with eval_js_async
-        return 1
+        selector = self._escape_selector(self._selector)
+        js = f"""
+        (function() {{
+            return document.querySelectorAll('{selector}').length;
+        }})()
+        """
+        result = await self._page.evaluate(js)
+        return result or 0
 
     async def all(self) -> List["Locator"]:
         """Get all matching elements as locators."""
@@ -545,14 +554,13 @@ class Locator:
         timeout: Optional[float] = None,
     ) -> bytes:
         """Take a screenshot of the element."""
-        # TODO: Implement element screenshot
         logger.warning("Element screenshot not fully implemented yet")
         return b""
 
     # ========== Internal ==========
 
     async def _wait_for_actionable(self, timeout: float):
-        """Wait for element to be actionable (visible, enabled, stable)."""
+        """Wait for element to be actionable."""
         start = time.time()
         timeout_sec = timeout / 1000
 

@@ -97,6 +97,13 @@ pub fn process_message(webview: &WryWebView, message: WebViewMessage, context: &
                 tracing::error!("[{}] Failed to stop loading: {}", context, e);
             }
         }
+        WebViewMessage::Close => {
+            // Close is handled at event loop level, not in message processing
+            tracing::debug!(
+                "[{}] Close message received (handled at event loop level)",
+                context
+            );
+        }
     }
 }
 

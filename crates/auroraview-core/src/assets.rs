@@ -176,6 +176,46 @@ pub fn get_channel_bridge_js() -> String {
 }
 
 // ========================================
+// Feature Scripts
+// ========================================
+
+/// Get the screenshot JavaScript code
+///
+/// This script provides screenshot capture functionality using html2canvas.
+/// It dynamically loads html2canvas from CDN and provides methods for:
+/// - Full page screenshots
+/// - Element screenshots
+/// - Viewport screenshots
+pub fn get_screenshot_js() -> String {
+    Assets::get("js/features/screenshot.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the network interception JavaScript code
+///
+/// This script provides network request interception and mocking capabilities.
+/// It intercepts fetch() and XMLHttpRequest to enable:
+/// - Request interception with pattern matching
+/// - Response mocking
+/// - Network monitoring and logging
+pub fn get_network_intercept_js() -> String {
+    Assets::get("js/features/network_intercept.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the test callback JavaScript code
+///
+/// This script provides callback mechanism for AuroraTest framework
+/// to receive JavaScript evaluation results asynchronously.
+pub fn get_test_callback_js() -> String {
+    Assets::get("js/features/test_callback.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+// ========================================
 // Plugin Scripts
 // ========================================
 
