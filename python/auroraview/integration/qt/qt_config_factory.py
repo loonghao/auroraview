@@ -126,4 +126,3 @@ def should_force_opaque(dcc_name: Optional[str] = None) -> bool:
     """
     config = create_optimal_qt_config(dcc_name)
     return config["force_opaque_window"]
-

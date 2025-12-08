@@ -104,14 +104,20 @@ impl Default for WarmupState {
 /// Get current warmup progress (0-100)
 pub fn get_warmup_progress() -> u8 {
     let state = get_warmup_state();
-    let guard = state.lock().unwrap();
+    let guard = match state.lock() {
+        Ok(g) => g,
+        Err(poisoned) => poisoned.into_inner(),
+    };
     guard.stage.progress()
 }
 
 /// Get current warmup stage description
 pub fn get_warmup_stage_description() -> String {
     let state = get_warmup_state();
-    let guard = state.lock().unwrap();
+    let guard = match state.lock() {
+        Ok(g) => g,
+        Err(poisoned) => poisoned.into_inner(),
+    };
     guard.stage.description().to_string()
 }
 
@@ -125,21 +131,30 @@ fn get_warmup_state() -> Arc<Mutex<WarmupState>> {
 /// Get current warmup status
 pub fn get_warmup_status() -> WarmupState {
     let state = get_warmup_state();
-    let guard = state.lock().unwrap();
+    let guard = match state.lock() {
+        Ok(g) => g,
+        Err(poisoned) => poisoned.into_inner(),
+    };
     guard.clone()
 }
 
 /// Check if warmup is complete
 pub fn is_warmup_complete() -> bool {
     let state = get_warmup_state();
-    let guard = state.lock().unwrap();
+    let guard = match state.lock() {
+        Ok(g) => g,
+        Err(poisoned) => poisoned.into_inner(),
+    };
     guard.complete
 }
 
 /// Get shared user data folder path
 pub fn get_shared_user_data_folder() -> Option<PathBuf> {
     let state = get_warmup_state();
-    let guard = state.lock().unwrap();
+    let guard = match state.lock() {
+        Ok(g) => g,
+        Err(poisoned) => poisoned.into_inner(),
+    };
     guard.user_data_folder.clone()
 }
 
@@ -160,7 +175,10 @@ pub fn start_warmup(user_data_folder: Option<PathBuf>) {
 
     // Check if already initiated
     {
-        let mut guard = state.lock().unwrap();
+        let mut guard = match state.lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         if guard.initiated {
             tracing::debug!("[warmup] Warmup already initiated, skipping");
             return;
@@ -179,7 +197,10 @@ pub fn start_warmup(user_data_folder: Option<PathBuf>) {
 
     // Store the user data folder path
     {
-        let mut guard = state.lock().unwrap();
+        let mut guard = match state.lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         guard.user_data_folder = Some(data_folder.clone());
     }
 
@@ -204,8 +225,11 @@ pub fn start_warmup(user_data_folder: Option<PathBuf>) {
 
             let duration_ms = start.elapsed().as_millis() as u64;
 
-            // Update state
-            let mut guard = state_clone.lock().unwrap();
+            // Update state - handle poisoned mutex gracefully
+            let mut guard = match state_clone.lock() {
+                Ok(g) => g,
+                Err(poisoned) => poisoned.into_inner(),
+            };
             guard.complete = true;
             guard.duration_ms = Some(duration_ms);
 
@@ -231,7 +255,10 @@ pub fn start_warmup(user_data_folder: Option<PathBuf>) {
 /// Helper to update warmup stage
 fn update_warmup_stage(stage: WarmupStage) {
     let state = get_warmup_state();
-    let mut guard = state.lock().unwrap();
+    let mut guard = match state.lock() {
+        Ok(g) => g,
+        Err(poisoned) => poisoned.into_inner(),
+    };
     guard.stage = stage;
     tracing::debug!(
         "[warmup] Stage: {} ({}%)",

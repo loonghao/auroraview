@@ -66,7 +66,10 @@ impl PyTimer {
     ///     RuntimeError: If the timer fails to start
     #[cfg(target_os = "windows")]
     fn start_windows(&mut self, hwnd: isize) -> PyResult<()> {
-        let mut timer = self.timer.lock().unwrap();
+        let mut timer = match self.timer.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         timer
             .start_windows(hwnd)
             .map_err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>)
@@ -74,7 +77,10 @@ impl PyTimer {
 
     /// Stop the timer
     fn stop(&mut self) {
-        let mut timer = self.timer.lock().unwrap();
+        let mut timer = match self.timer.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         timer.stop();
     }
 
@@ -83,7 +89,10 @@ impl PyTimer {
     /// Args:
     ///     callback: Python callable to invoke on each tick
     fn set_callback(&mut self, callback: Py<PyAny>) {
-        let mut cb = self.callback.lock().unwrap();
+        let mut cb = match self.callback.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         *cb = Some(callback);
     }
 
@@ -96,10 +105,16 @@ impl PyTimer {
     #[cfg(target_os = "windows")]
     fn process_messages(&mut self, _py: Python) -> PyResult<u32> {
         let callback = self.callback.clone();
-        let mut timer = self.timer.lock().unwrap();
+        let mut timer = match self.timer.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
 
         let count = timer.process_messages(|| {
-            let cb = callback.lock().unwrap();
+            let cb = match callback.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
             if let Some(ref callback) = *cb {
                 // Call the Python callback
                 Python::attach(|py| {
@@ -118,7 +133,10 @@ impl PyTimer {
     /// Returns:
     ///     Number of ticks since the timer started
     fn tick_count(&self) -> u64 {
-        let timer = self.timer.lock().unwrap();
+        let timer = match self.timer.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         timer.tick_count()
     }
 
@@ -127,7 +145,10 @@ impl PyTimer {
     /// Returns:
     ///     True if the timer is running, False otherwise
     fn is_running(&self) -> bool {
-        let timer = self.timer.lock().unwrap();
+        let timer = match self.timer.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         timer.is_running()
     }
 
@@ -136,7 +157,10 @@ impl PyTimer {
     /// Returns:
     ///     TimerBackend enum value
     fn backend(&self) -> PyTimerBackend {
-        let timer = self.timer.lock().unwrap();
+        let timer = match self.timer.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         PyTimerBackend {
             backend: timer.backend(),
         }
@@ -147,7 +171,10 @@ impl PyTimer {
     /// Returns:
     ///     Timer interval in milliseconds
     fn interval_ms(&self) -> u32 {
-        let timer = self.timer.lock().unwrap();
+        let timer = match self.timer.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         timer.interval_ms()
     }
 
@@ -168,7 +195,10 @@ impl PyTimer {
 
     /// String representation
     fn __repr__(&self) -> String {
-        let timer = self.timer.lock().unwrap();
+        let timer = match self.timer.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         format!(
             "NativeTimer(interval_ms={}, running={}, backend={:?}, ticks={})",
             timer.interval_ms(),
@@ -180,7 +210,10 @@ impl PyTimer {
 
     /// Get timer properties as a dictionary
     fn to_dict(&self, py: Python) -> PyResult<Py<PyAny>> {
-        let timer = self.timer.lock().unwrap();
+        let timer = match self.timer.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         let dict = PyDict::new(py);
         dict.set_item("interval_ms", timer.interval_ms())?;
         dict.set_item("running", timer.is_running())?;

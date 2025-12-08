@@ -52,10 +52,10 @@ else:
 user32.SetWindowPos.argtypes = [
     wintypes.HWND,  # hWnd
     wintypes.HWND,  # hWndInsertAfter
-    ctypes.c_int,   # X
-    ctypes.c_int,   # Y
-    ctypes.c_int,   # cx
-    ctypes.c_int,   # cy
+    ctypes.c_int,  # X
+    ctypes.c_int,  # Y
+    ctypes.c_int,  # cx
+    ctypes.c_int,  # cy
     wintypes.UINT,  # uFlags
 ]
 user32.SetWindowPos.restype = wintypes.BOOL
@@ -284,9 +284,7 @@ class WindowsPlatformBackend(PlatformBackend):
                         SetWindowLong(child_hwnd, GWL_STYLE, new_style)
 
                         # Remove problematic extended styles
-                        new_ex_style = ex_style & ~(
-                            WS_EX_APPWINDOW | WS_EX_TOOLWINDOW
-                        )
+                        new_ex_style = ex_style & ~(WS_EX_APPWINDOW | WS_EX_TOOLWINDOW)
                         if new_ex_style != ex_style:
                             SetWindowLong(child_hwnd, GWL_EXSTYLE, new_ex_style)
 
@@ -294,8 +292,15 @@ class WindowsPlatformBackend(PlatformBackend):
                         user32.SetWindowPos(
                             child_hwnd,
                             None,
-                            0, 0, 0, 0,
-                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                            0,
+                            0,
+                            0,
+                            0,
+                            SWP_NOMOVE
+                            | SWP_NOSIZE
+                            | SWP_NOZORDER
+                            | SWP_NOACTIVATE
+                            | SWP_FRAMECHANGED,
                         )
 
                         fixed_count += 1

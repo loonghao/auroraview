@@ -197,7 +197,11 @@ impl Timer {
     /// faster than the configured interval.
     #[cfg(any(test, target_os = "windows", feature = "test-helpers"))]
     pub fn should_tick(&self) -> bool {
-        let mut last_tick = self.last_tick.lock().unwrap();
+        // Use ok() to avoid panic if mutex is poisoned during shutdown
+        let mut last_tick = match self.last_tick.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
 
         let now = Instant::now();
 

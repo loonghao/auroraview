@@ -7,10 +7,29 @@ This module provides fixtures, utilities, and helpers for testing WebView-based
 applications with a focus on UI automation and DOM verification.
 
 Features:
+    - **AuroraTest**: Playwright-like testing API (auroratest submodule)
     - **DomAssertions**: Real value verification using the DOM API
     - **HeadlessTestRunner**: Run tests without visible windows
     - **WebViewBot**: High-level automation API
     - **Pytest fixtures**: Ready-to-use fixtures for common patterns
+
+Example (AuroraTest - Playwright-like API):
+    ```python
+    from auroraview.testing.auroratest import Browser, expect
+
+    async def test_login():
+        browser = Browser.launch(headless=True)
+        page = browser.new_page()
+
+        await page.goto("https://example.com/login")
+        await page.locator("#email").fill("test@example.com")
+        await page.locator("#password").fill("secret")
+        await page.get_by_role("button", name="Login").click()
+
+        await expect(page.locator(".welcome")).to_have_text("Welcome!")
+
+        browser.close()
+    ```
 
 Example (DOM Assertions):
     ```python
@@ -62,7 +81,12 @@ from .fixtures import (
 from .headless import HeadlessTestRunner, headless_test
 from .webview_bot import EventRecord, WebViewBot
 
+# Import auroratest submodule for Playwright-like API
+from . import auroratest
+
 __all__ = [
+    # Playwright-like testing (auroratest submodule)
+    "auroratest",
     # New DOM-based testing
     "DomAssertions",
     "HeadlessTestRunner",

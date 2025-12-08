@@ -44,7 +44,11 @@ impl ProtocolHandler {
     where
         F: Fn(&str) -> Option<ProtocolResponse> + Send + Sync + 'static,
     {
-        let mut handlers = self.handlers.lock().unwrap();
+        // Use ok() and into_inner() to handle poisoned mutex gracefully
+        let mut handlers = match self.handlers.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         handlers.insert(scheme.to_string(), Arc::new(handler));
         tracing::info!("Registered custom protocol: {}", scheme);
     }
@@ -58,7 +62,11 @@ impl ProtocolHandler {
         // Parse scheme from URI
         let scheme = uri.split("://").next()?;
 
-        let handlers = self.handlers.lock().unwrap();
+        // Use ok() and into_inner() to handle poisoned mutex gracefully
+        let handlers = match self.handlers.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
 
         if let Some(handler) = handlers.get(scheme) {
             tracing::debug!("Handling protocol request: {}", uri);
@@ -72,7 +80,11 @@ impl ProtocolHandler {
     /// Unregister a protocol
     #[allow(dead_code)]
     pub fn unregister(&self, scheme: &str) {
-        let mut handlers = self.handlers.lock().unwrap();
+        // Use ok() and into_inner() to handle poisoned mutex gracefully
+        let mut handlers = match self.handlers.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         handlers.remove(scheme);
         tracing::info!("Unregistered protocol: {}", scheme);
     }
@@ -80,7 +92,11 @@ impl ProtocolHandler {
     /// Clear all protocol handlers
     #[allow(dead_code)]
     pub fn clear(&self) {
-        let mut handlers = self.handlers.lock().unwrap();
+        // Use ok() and into_inner() to handle poisoned mutex gracefully
+        let mut handlers = match self.handlers.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         handlers.clear();
     }
 }

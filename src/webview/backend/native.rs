@@ -457,9 +457,11 @@ impl NativeBackend {
 
         // Initialize the HashMap if needed
         {
-            let mut guard = ORIGINAL_WNDPROCS.lock().unwrap();
-            if guard.is_none() {
-                *guard = Some(HashMap::new());
+            // Use ok() to avoid panic if mutex is poisoned during shutdown
+            if let Ok(mut guard) = ORIGINAL_WNDPROCS.lock() {
+                if guard.is_none() {
+                    *guard = Some(HashMap::new());
+                }
             }
         }
 
@@ -477,13 +479,12 @@ impl NativeBackend {
                 return LRESULT(HTCLIENT);
             }
 
-            // Get the original window procedure
-            let original_wndproc = {
-                let guard = ORIGINAL_WNDPROCS.lock().unwrap();
+            // Get the original window procedure - use ok() to avoid panic during shutdown
+            let original_wndproc = ORIGINAL_WNDPROCS.lock().ok().and_then(|guard| {
                 guard
                     .as_ref()
                     .and_then(|map| map.get(&(hwnd.0 as isize)).copied())
-            };
+            });
 
             if let Some(original) = original_wndproc {
                 // Call the original window procedure for all other messages
@@ -544,22 +545,23 @@ impl NativeBackend {
             // Subclass Chrome_WidgetWin_0 and Chrome_WidgetWin_1 to intercept WM_NCHITTEST
             // These are the windows that handle mouse input and may cause dragging
             if class_name == "Chrome_WidgetWin_0" || class_name == "Chrome_WidgetWin_1" {
-                // Check if already subclassed
-                let already_subclassed = {
-                    let guard = ORIGINAL_WNDPROCS.lock().unwrap();
-                    guard
-                        .as_ref()
-                        .map(|map| map.contains_key(&(child_hwnd.0 as isize)))
-                        .unwrap_or(false)
-                };
+                // Check if already subclassed - use ok() to avoid panic during shutdown
+                let already_subclassed = ORIGINAL_WNDPROCS
+                    .lock()
+                    .ok()
+                    .and_then(|guard| {
+                        guard
+                            .as_ref()
+                            .map(|map| map.contains_key(&(child_hwnd.0 as isize)))
+                    })
+                    .unwrap_or(false);
 
                 if !already_subclassed {
                     // Get the current window procedure
                     let original_wndproc = GetWindowLongPtrW(child_hwnd, GWLP_WNDPROC);
                     if original_wndproc != 0 {
-                        // Store the original window procedure
-                        {
-                            let mut guard = ORIGINAL_WNDPROCS.lock().unwrap();
+                        // Store the original window procedure - use ok() to avoid panic
+                        if let Ok(mut guard) = ORIGINAL_WNDPROCS.lock() {
                             if let Some(map) = guard.as_mut() {
                                 map.insert(child_hwnd.0 as isize, original_wndproc);
                             }

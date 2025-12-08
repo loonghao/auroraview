@@ -2,6 +2,7 @@
 Pytest configuration and fixtures for AuroraView tests
 
 This module registers all test fixtures and configures pytest for AuroraView testing.
+Includes support for both legacy fixtures and new AuroraTest framework.
 """
 
 import os
@@ -12,7 +13,7 @@ import pytest
 # Add python directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 
-# Import fixtures from auroraview.testing
+# Import fixtures from auroraview.testing (legacy)
 from auroraview.testing import (
     draggable_window_html,
     headless_webview,
@@ -22,8 +23,22 @@ from auroraview.testing import (
     webview_with_html,
 )
 
+# Import AuroraTest fixtures
+try:
+    from auroraview.testing.auroratest.fixtures import (  # noqa: F401
+        browser,
+        browser_options,
+        context,
+        page,
+    )
+
+    AURORATEST_AVAILABLE = True
+except ImportError:
+    AURORATEST_AVAILABLE = False
+
 # Re-export fixtures so pytest can discover them
 __all__ = [
+    # Legacy fixtures
     "webview",
     "webview_bot",
     "webview_with_html",
@@ -31,6 +46,17 @@ __all__ = [
     "test_html",
     "draggable_window_html",
 ]
+
+# Add AuroraTest fixtures if available
+if AURORATEST_AVAILABLE:
+    __all__.extend(
+        [
+            "browser",
+            "context",
+            "page",
+            "browser_options",
+        ]
+    )
 
 
 def pytest_configure(config):
@@ -45,6 +71,8 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "maya: mark test as requiring Maya")
     config.addinivalue_line("markers", "qt: mark test as requiring Qt dependencies")
     config.addinivalue_line("markers", "headless: mark test as headless (no display required)")
+    config.addinivalue_line("markers", "asyncio: mark test as async (requires pytest-asyncio)")
+    config.addinivalue_line("markers", "auroratest: mark test as using AuroraTest framework")
 
 
 def pytest_collection_modifyitems(config, items):
