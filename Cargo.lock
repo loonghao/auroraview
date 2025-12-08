@@ -465,6 +465,7 @@ dependencies = [
  "clap",
  "dirs",
  "dunce",
+ "image",
  "mime_guess",
  "path-clean",
  "regex",
