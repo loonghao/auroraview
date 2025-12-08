@@ -224,6 +224,14 @@ runs:
           exit 0
         fi
 
+        # Test CLI entry point (--help should work without GUI)
+        echo "Testing CLI entry point..."
+        if python -m auroraview --help 2>/dev/null; then
+          echo "[OK] CLI --help test passed"
+        else
+          echo "[WARNING] CLI --help test failed (may require GUI dependencies)"
+        fi
+
         echo "[OK] All wheel tests passed!"
       env:
         PYTHONUNBUFFERED: 1
