@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from typing import Any, Callable, Dict, List, Tuple
 
-from auroraview.webview import WebView
+from auroraview import WebView
 
 # Unit tests for WebView.bind_call and bind_api parameter handling.
 # These tests exercise the pure-Python wrapper logic without requiring the

@@ -290,6 +290,18 @@ pub fn create_standalone(
         webview_builder = webview_builder.with_devtools(true);
     }
 
+    // Set remote debugging port for CDP (Chrome DevTools Protocol) connections
+    // This allows Playwright/Puppeteer to connect to WebView2
+    #[cfg(target_os = "windows")]
+    if let Some(port) = config.remote_debugging_port {
+        let args = format!("--remote-debugging-port={}", port);
+        webview_builder = webview_builder.with_additional_browser_args(&args);
+        tracing::info!(
+            "[standalone] Set WebView2 additional browser args: {}",
+            args
+        );
+    }
+
     // Set background color to match app background (dark theme)
     // This prevents white flash and removes white border
     // RGBA is a tuple type (u8, u8, u8, u8) in wry
@@ -491,6 +503,9 @@ pub fn create_standalone(
     let lifecycle = Arc::new(LifecycleManager::new());
     lifecycle.set_state(crate::webview::lifecycle::LifecycleState::Active);
 
+    // Determine auto_show: false in headless mode
+    let auto_show = config.auto_show && !config.headless;
+
     #[allow(clippy::arc_with_non_send_sync)]
     Ok(WebViewInner {
         webview: Arc::new(Mutex::new(webview)),
@@ -499,6 +514,7 @@ pub fn create_standalone(
         message_queue,
         event_loop_proxy: Some(event_loop_proxy),
         lifecycle,
+        auto_show,
         #[cfg(target_os = "windows")]
         backend: None, // Only used in DCC mode
     })
@@ -560,8 +576,9 @@ pub fn run_standalone(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use tao::event_loop::ControlFlow;
 
-    // Save auto_show before config is consumed
+    // Save auto_show and headless before config is consumed
     let auto_show = config.auto_show;
+    let headless = config.headless;
 
     // Create the WebView
     let mut webview_inner = create_standalone(config, ipc_handler, message_queue)?;
@@ -575,8 +592,10 @@ pub fn run_standalone(
     let webview = webview_inner.webview.clone();
 
     // Window starts hidden - will be shown after a short delay to let loading screen render
-    // (only if auto_show is enabled)
-    if auto_show {
+    // (only if auto_show is enabled and not in headless mode)
+    if headless {
+        tracing::info!("[Standalone] Headless mode enabled, window will remain hidden");
+    } else if auto_show {
         tracing::info!(
             "[Standalone] Window created (hidden), will show after loading screen renders..."
         );
@@ -589,7 +608,8 @@ pub fn run_standalone(
     // Use a simple delay to ensure loading screen is rendered before showing window
     // This avoids the white flash that occurs when showing window before WebView is ready
     let show_time = std::time::Instant::now() + std::time::Duration::from_millis(100);
-    let mut window_shown = !auto_show; // If auto_show is false, pretend window is already shown
+    // Window should only be shown if: auto_show is true AND headless is false
+    let mut window_shown = !auto_show || headless;
 
     tracing::info!("[Standalone] Starting event loop with run()");
 
@@ -605,8 +625,8 @@ pub fn run_standalone(
         // Keep webview alive
         let _ = &webview;
 
-        // Show window after delay (once) - only if auto_show is enabled
-        if auto_show && !window_shown && std::time::Instant::now() >= show_time {
+        // Show window after delay (once) - only if auto_show is enabled and not headless
+        if !headless && auto_show && !window_shown && std::time::Instant::now() >= show_time {
             tracing::info!("[Standalone] Loading screen should be rendered, showing window now!");
             window.set_visible(true);
             window.request_redraw();

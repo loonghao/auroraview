@@ -21,7 +21,7 @@ impl AuroraView {
     /// Create a new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, ipc_batch_size=0))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0))]
     fn new(
         title: &str,
         width: u32,
@@ -41,6 +41,8 @@ impl AuroraView {
         transparent: bool,
         background_color: Option<&str>,
         auto_show: bool,
+        headless: bool,
+        remote_debugging_port: Option<u16>,
         ipc_batch_size: usize,
     ) -> PyResult<Self> {
         tracing::info!("AuroraView::new() called with title: {}", title);
@@ -63,7 +65,9 @@ impl AuroraView {
             always_on_top,
             transparent,
             background_color: background_color.map(|s| s.to_string()),
-            auto_show,
+            auto_show: auto_show && !headless, // Don't auto-show in headless mode
+            headless,
+            remote_debugging_port,
             ipc_batch_size,
             ..Default::default()
         };

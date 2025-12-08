@@ -8,6 +8,7 @@ This module provides content loading methods for the WebView class.
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -30,6 +31,8 @@ class WebViewContentMixin:
 
     # Type hints for attributes from main class
     _core: Any
+    _async_core: Optional[Any]
+    _async_core_lock: threading.Lock
     _stored_url: Optional[str]
     _stored_html: Optional[str]
 
@@ -45,7 +48,11 @@ class WebViewContentMixin:
         logger.info(f"Loading URL: {url}")
         self._stored_url = url
         self._stored_html = None
-        self._core.load_url(url)
+
+        # Use the async core if available (when running in background thread)
+        with self._async_core_lock:
+            core = self._async_core if self._async_core is not None else self._core
+        core.load_url(url)
 
     def get_current_url(self) -> Optional[str]:
         """Get the current URL of the WebView.
@@ -57,10 +64,14 @@ class WebViewContentMixin:
             >>> url = webview.get_current_url()
             >>> print(f"Current URL: {url}")
         """
+        # Use the async core if available
+        with self._async_core_lock:
+            core = self._async_core if self._async_core is not None else self._core
+
         # Try to get from Rust core first
-        if hasattr(self._core, "get_current_url"):
+        if hasattr(core, "get_current_url"):
             try:
-                return self._core.get_current_url()
+                return core.get_current_url()
             except Exception as e:
                 logger.debug(f"Failed to get URL from core: {e}")
 
@@ -79,7 +90,11 @@ class WebViewContentMixin:
         logger.info(f"Loading HTML ({len(html)} bytes)")
         self._stored_html = html
         self._stored_url = None
-        self._core.load_html(html)
+
+        # Use the async core if available (when running in background thread)
+        with self._async_core_lock:
+            core = self._async_core if self._async_core is not None else self._core
+        core.load_html(html)
 
     def load_file(self, path: Union[str, Path]) -> None:
         """Load a local HTML file via a ``file://`` URL.
@@ -153,4 +168,3 @@ class WebViewContentMixin:
             logger.info(f"Loaded local HTML file: {html_path} ({len(html_content)} bytes)")
 
         self.load_html(html_content)
-

@@ -903,6 +903,37 @@ pip install -e .
 
 AuroraView 为 Qt 和非 Qt 环境提供了全面的测试覆盖。
 
+#### AuroraTest - 类 Playwright 测试框架
+
+AuroraView 包含一个 Playwright 风格的 UI 自动化测试框架：
+
+```python
+from auroraview.testing.auroratest import PlaywrightBrowser
+
+# 启动无头浏览器进行测试
+with PlaywrightBrowser.launch(headless=True) as browser:
+    page = browser.new_page()
+    page.goto("https://example.com")
+    
+    # 使用 Playwright API 进行测试
+    page.locator("#button").click()
+    page.screenshot(path="screenshot.png")
+    
+    # AuroraView bridge 自动注入
+    result = page.evaluate("window.auroraview !== undefined")
+    assert result is True
+```
+
+**功能特性：**
+- 完整的 Playwright API 访问（定位器、截图、网络拦截）
+- 自动注入 AuroraView bridge
+- 支持无头模式用于 CI/CD
+- 与 pytest 集成
+
+**依赖要求：** Python 3.8+ 和 `pip install playwright && playwright install chromium`
+
+#### 基础测试命令
+
 **不带 Qt 依赖的测试**（测试错误处理）：
 ```bash
 # 使用 nox（推荐）
@@ -929,12 +960,17 @@ uvx nox -s pytest-all
 
 **测试结构**：
 
-- `tests/test_qt_import_error.py` - 测试未安装 Qt 时的错误处理
+- `tests/python/integration/test_playwright_browser.py` - PlaywrightBrowser 测试
+  - 无头浏览器自动化
+  - AuroraView bridge 注入
+  - 完整 Playwright API 测试
+
+- `tests/python/integration/test_qt_import_error.py` - 测试未安装 Qt 时的错误处理
   - 验证占位符类正常工作
   - 测试诊断变量（`_HAS_QT`、`_QT_IMPORT_ERROR`）
   - 确保显示有用的错误消息
 
-- `tests/test_qt_backend.py` - 测试实际的 Qt 后端功能
+- `tests/python/integration/test_qt_backend.py` - 测试实际的 Qt 后端功能
   - 需要安装 Qt 依赖
   - 测试 QtWebView 实例化和方法
   - 测试事件处理和 JavaScript 集成

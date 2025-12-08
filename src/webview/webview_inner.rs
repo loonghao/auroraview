@@ -30,6 +30,8 @@ pub struct WebViewInner {
     pub(crate) event_loop_proxy: Option<tao::event_loop::EventLoopProxy<UserEvent>>,
     /// Cross-platform lifecycle manager
     pub(crate) lifecycle: Arc<LifecycleManager>,
+    /// Whether to auto-show the window (false in headless mode)
+    pub(crate) auto_show: bool,
     /// Backend instance for DCC mode - MUST be kept alive to prevent window destruction
     #[allow(dead_code)]
     #[cfg(target_os = "windows")]
@@ -211,6 +213,7 @@ impl WebViewInner {
             message_queue,
             event_loop_proxy: None,
             lifecycle: Arc::new(LifecycleManager::new()),
+            auto_show: true,                  // DCC mode: visibility controlled by Qt
             backend: Some(Box::new(backend)), // CRITICAL: Keep backend alive!
         })
     }
@@ -328,6 +331,10 @@ impl WebViewInner {
                                         if let Err(e) = webview.evaluate_script("window.stop()") {
                                             tracing::error!("Failed to stop loading: {}", e);
                                         }
+                                    }
+                                    WebViewMessage::Close => {
+                                        // Close is handled at event loop level
+                                        tracing::info!("[WebViewInner] Close message received");
                                     }
                                 }
                             });
@@ -515,8 +522,8 @@ impl WebViewInner {
             state_guard.set_webview(self.webview.clone());
         }
 
-        // Run the improved event loop (standalone mode always auto-shows)
-        WebViewEventHandler::run_blocking(event_loop, state, true);
+        // Run the improved event loop (use stored auto_show setting for headless support)
+        WebViewEventHandler::run_blocking(event_loop, state, self.auto_show);
 
         tracing::info!("Event loop exited");
     }

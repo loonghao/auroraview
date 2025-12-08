@@ -369,8 +369,19 @@ impl WebViewEventHandler {
                                     WebViewMessage::Reload => "Reload",
                                     WebViewMessage::StopLoading => "StopLoading",
                                     WebViewMessage::WindowEvent { event_type, .. } => event_type.as_str(),
+                                    WebViewMessage::Close => "Close",
                                 }
                             );
+
+                            // Handle Close message - request exit
+                            if matches!(&message, WebViewMessage::Close) {
+                                tracing::info!("[EventLoop] Close message received, requesting exit");
+                                state_guard.request_exit();
+                                if let Some(ref window) = state_guard.window {
+                                    window.set_visible(false);
+                                }
+                                return; // Skip other processing for Close
+                            }
 
                             if let Some(webview_arc) = &state_guard.webview {
                                 if let Ok(webview) = webview_arc.lock() {
@@ -432,6 +443,9 @@ impl WebViewEventHandler {
                                             if let Err(e) = webview.evaluate_script("window.stop()") {
                                                 tracing::error!("Failed to stop loading: {}", e);
                                             }
+                                        }
+                                        WebViewMessage::Close => {
+                                            // Close is handled above, this branch should not be reached
                                         }
                                     }
                                 } else {
@@ -543,6 +557,16 @@ impl WebViewEventHandler {
                     if let Ok(state_guard) = state_clone.lock() {
                         // Process all pending messages
                         let count = state_guard.message_queue.process_all(|message| {
+                            // Handle Close message - request exit
+                            if matches!(&message, WebViewMessage::Close) {
+                                tracing::info!("[EventLoop] Close message received in MainEventsCleared, requesting exit");
+                                state_guard.request_exit();
+                                if let Some(ref window) = state_guard.window {
+                                    window.set_visible(false);
+                                }
+                                return; // Skip other processing for Close
+                            }
+
                             if let Some(webview_arc) = &state_guard.webview {
                                 if let Ok(webview) = webview_arc.lock() {
                                     match &message {
@@ -601,6 +625,9 @@ impl WebViewEventHandler {
                                             if let Err(e) = webview.evaluate_script("window.stop()") {
                                                 tracing::error!("Failed to stop loading: {}", e);
                                             }
+                                        }
+                                        WebViewMessage::Close => {
+                                            // Close is handled above, this branch should not be reached
                                         }
                                     }
                                 }
@@ -667,6 +694,16 @@ impl WebViewEventHandler {
                     tracing::debug!("[OK] [poll_events_once] Processing messages");
                     if let Ok(state_guard) = state_clone.lock() {
                         state_guard.message_queue.process_all(|message| {
+                            // Handle Close message - request exit
+                            if matches!(&message, WebViewMessage::Close) {
+                                tracing::info!("[poll_events_once] Close message received, requesting exit");
+                                state_guard.request_exit();
+                                if let Some(ref window) = state_guard.window {
+                                    window.set_visible(false);
+                                }
+                                return;
+                            }
+
                             if let Some(webview_arc) = &state_guard.webview {
                                 if let Ok(webview) = webview_arc.lock() {
                                     match &message {
@@ -746,6 +783,9 @@ impl WebViewEventHandler {
                                             if let Err(e) = webview.evaluate_script("window.stop()") {
                                                 tracing::error!("Failed to stop loading: {}", e);
                                             }
+                                        }
+                                        WebViewMessage::Close => {
+                                            // Close is handled above, this branch should not be reached
                                         }
                                     }
                                 }

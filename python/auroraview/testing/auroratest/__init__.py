@@ -23,21 +23,47 @@ Example:
 
         browser.close()
     ```
+
+For full Playwright API access (recommended for testing):
+    ```python
+    from auroraview.testing.auroratest import PlaywrightBrowser
+
+    browser = PlaywrightBrowser.launch(headless=True)
+    page = browser.new_page()
+
+    page.goto("https://example.com")
+    page.locator("#button").click()
+    page.screenshot(path="screenshot.png")
+
+    browser.close()
+    ```
 """
 
-from .browser import Browser, BrowserContext
+from .browser import Browser, BrowserContext, BrowserOptions
 from .page import Page
 from .locator import Locator
 from .expect import expect
 from .network import Route, Request, Response
 from .fixtures import browser, page, context
 
+# Playwright CDP-based browser (recommended for testing)
+try:
+    from .playwright_browser import PlaywrightBrowser, PlaywrightBrowserOptions
+except ImportError:
+    # Playwright not installed
+    PlaywrightBrowser = None  # type: ignore
+    PlaywrightBrowserOptions = None  # type: ignore
+
 __all__ = [
     # Core classes
     "Browser",
     "BrowserContext",
+    "BrowserOptions",
     "Page",
     "Locator",
+    # Playwright CDP browser (recommended)
+    "PlaywrightBrowser",
+    "PlaywrightBrowserOptions",
     # Assertions
     "expect",
     # Network

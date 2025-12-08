@@ -64,6 +64,9 @@ pub enum WebViewMessage {
         event_type: WindowEventType,
         data: serde_json::Value,
     },
+
+    /// Close the WebView window
+    Close,
 }
 
 impl Clone for WebViewMessage {
@@ -90,6 +93,7 @@ impl Clone for WebViewMessage {
                 event_type: event_type.clone(),
                 data: data.clone(),
             },
+            Self::Close => Self::Close,
         }
     }
 }
@@ -121,6 +125,7 @@ impl std::fmt::Debug for WebViewMessage {
                 .field("event_type", event_type)
                 .field("data", data)
                 .finish(),
+            Self::Close => f.debug_tuple("Close").finish(),
         }
     }
 }
@@ -304,6 +309,7 @@ impl MessageQueue {
                 WebViewMessage::Reload => "Reload",
                 WebViewMessage::StopLoading => "StopLoading",
                 WebViewMessage::WindowEvent { event_type, .. } => event_type.as_str(),
+                WebViewMessage::Close => "Close",
             }
         );
 

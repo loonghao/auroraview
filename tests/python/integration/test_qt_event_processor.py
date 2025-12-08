@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from auroraview.webview import WebView
+from auroraview import WebView
 
 # Check if Qt is available
 try:
@@ -29,7 +29,7 @@ class TestQtEventProcessor(unittest.TestCase):
 
     def test_qt_event_processor_creation(self):
         """Test creating QtEventProcessor."""
-        from auroraview.qt_integration import QtEventProcessor
+        from auroraview.integration.qt import QtEventProcessor
 
         webview = WebView()
         processor = QtEventProcessor(webview)
@@ -39,13 +39,13 @@ class TestQtEventProcessor(unittest.TestCase):
 
     def test_qt_event_processor_process(self):
         """Test QtEventProcessor.process() calls both Qt and WebView events."""
-        from auroraview.qt_integration import QtEventProcessor
+        from auroraview.integration.qt import QtEventProcessor
 
         webview = WebView()
         processor = QtEventProcessor(webview)
 
         # Mock Qt and WebView process_events
-        with patch("auroraview.qt_integration.QCoreApplication") as mock_qt:
+        with patch("auroraview.integration.qt.QCoreApplication") as mock_qt:
             # Call process
             processor.process()
 
@@ -57,7 +57,7 @@ class TestQtEventProcessor(unittest.TestCase):
 
     def test_webview_with_qt_processor(self):
         """Test WebView with QtEventProcessor set."""
-        from auroraview.qt_integration import QtEventProcessor
+        from auroraview.integration.qt import QtEventProcessor
 
         webview = WebView()
         processor = QtEventProcessor(webview)

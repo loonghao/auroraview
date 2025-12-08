@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from auroraview.event_timer import EventTimer
+from auroraview import EventTimer
 
 
 class MockWebView:
@@ -318,7 +318,7 @@ class TestEventTimer:
         timer.start()
 
         # Should have selected a backend (Qt or thread)
-        from auroraview.timer_backends import QtTimerBackend, ThreadTimerBackend
+        from auroraview.utils.timer_backends import QtTimerBackend, ThreadTimerBackend
 
         assert isinstance(timer._backend, (QtTimerBackend, ThreadTimerBackend))
         assert timer._timer_handle is not None
@@ -449,7 +449,7 @@ class TestEventTimer:
         """Test that backend.stop() is called when timer stops."""
         from unittest.mock import MagicMock
 
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         webview = MockWebView()
 
@@ -474,7 +474,7 @@ class TestEventTimer:
         """Test error handling when backend.stop() raises exception."""
         from unittest.mock import MagicMock
 
-        from auroraview.timer_backends import ThreadTimerBackend
+        from auroraview.utils.timer_backends import ThreadTimerBackend
 
         webview = MockWebView()
 
