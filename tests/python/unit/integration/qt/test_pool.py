@@ -2,12 +2,16 @@
 
 This module tests the WebViewPool class using mocks to avoid
 actual WebView2 initialization in unit tests.
+
+Note: We import directly from the pool module to avoid
+triggering Qt imports from the parent qt package.
 """
 
 import threading
 import time
 from unittest.mock import MagicMock, patch
 
+# Import directly from pool module to avoid Qt dependency
 from auroraview.integration.qt.pool import WebViewPool
 
 # The correct path to patch - WebView is imported inside prewarm()

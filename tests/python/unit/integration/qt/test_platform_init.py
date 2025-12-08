@@ -2,6 +2,9 @@
 
 This module tests the platform detection and singleton pattern
 implemented in the platforms package __init__.py.
+
+Note: We import directly from the platforms subpackage to avoid
+triggering Qt imports from the parent qt package.
 """
 
 import sys
@@ -9,6 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
+# Import directly from platforms subpackage to avoid Qt dependency
 from auroraview.integration.qt.platforms import (
     NullPlatformBackend,
     PlatformBackend,
