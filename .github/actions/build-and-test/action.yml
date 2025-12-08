@@ -90,10 +90,24 @@ runs:
           cargo install cargo-llvm-cov --locked
         fi
 
+    - name: Install xvfb for headless UI tests (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb
+
     - name: Run tests
       id: test
       shell: bash
       run: |
+        # Use xvfb-run on Linux for headless UI tests
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          XVFB_PREFIX="xvfb-run -a --server-args='-screen 0 1920x1080x24'"
+        else
+          XVFB_PREFIX=""
+        fi
+
         case "${{ inputs.test-type }}" in
           "basic")
             echo "Running basic import tests..."
@@ -121,7 +135,7 @@ runs:
             ;;
           "python")
             echo "Running Python unit tests..."
-            just ci-test-python
+            eval "$XVFB_PREFIX just ci-test-python"
             ;;
           "full")
             echo "Running comprehensive test suite..."
@@ -143,7 +157,7 @@ runs:
             echo "  -> Rust doc tests..."
             cargo test --doc
             echo "  -> Python unit tests..."
-            just ci-test-python
+            eval "$XVFB_PREFIX just ci-test-python"
             echo "  -> Basic functionality tests..."
             just ci-test-basic
             echo "[OK] All tests completed"
@@ -156,6 +170,7 @@ runs:
         esac
       env:
         PYTHONUNBUFFERED: 1
+        DISPLAY: ':99'
 
     - name: Upload test artifacts
       if: inputs.upload-artifacts == 'true' && always()

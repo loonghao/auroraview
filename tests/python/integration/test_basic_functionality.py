@@ -3,12 +3,8 @@ Basic functionality tests for AuroraView
 
 Tests core WebView features like event handling, JavaScript execution,
 and element interaction.
-
-Note: These tests require a display environment and are skipped in CI
-unless a virtual display (xvfb) is configured.
 """
 
-import os
 import time
 
 import pytest
@@ -18,13 +14,6 @@ from auroraview.testing import (
     assert_element_text,
     assert_event_emitted,
     assert_window_title,
-)
-
-# Skip all UI tests in CI environment (no display available)
-# To run these tests locally, ensure you have a display or use xvfb
-pytestmark = pytest.mark.skipif(
-    os.environ.get("CI") == "true",
-    reason="UI tests require display environment, skipped in CI"
 )
 
 
