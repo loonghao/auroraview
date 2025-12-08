@@ -34,7 +34,7 @@ use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 use tao::event_loop::{ControlFlow, EventLoop};
 use url::Url;
-use wry::WebViewBuilder as WryWebViewBuilder;
+use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
 
 mod protocol_handlers;
 
@@ -518,8 +518,13 @@ fn run_webview(args: RunArgs) -> Result<()> {
         .build(&event_loop)
         .context("Failed to create window")?;
 
+    // Create WebContext with user data in AppData (not current directory)
+    let data_dir = get_webview_data_dir();
+    tracing::info!("[CLI] WebView2 user data directory: {}", data_dir.display());
+    let mut web_context = WebContext::new(Some(data_dir));
+
     // Create WebView with custom protocol support
-    let mut webview_builder = WryWebViewBuilder::new();
+    let mut webview_builder = WryWebViewBuilder::with_web_context(&mut web_context);
 
     // Register auroraview:// protocol if assets_root is set
     // Use the project's protocol handler from protocol_handlers module
@@ -1102,4 +1107,15 @@ fn format_bytes(bytes: u64) -> String {
     } else {
         format!("{} B", bytes)
     }
+}
+
+/// Get the WebView2 user data directory in AppData
+///
+/// Returns a path like: `%LOCALAPPDATA%/AuroraView/WebView2`
+/// This prevents WebView2 from creating data folders in the current directory.
+fn get_webview_data_dir() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("AuroraView")
+        .join("WebView2")
 }
