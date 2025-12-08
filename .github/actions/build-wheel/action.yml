@@ -26,6 +26,10 @@ inputs:
     description: 'Name for the wheel artifact'
     required: false
     default: 'wheels'
+  use-sccache:
+    description: 'Whether to use sccache for faster builds (disable for GLIBC compatibility)'
+    required: false
+    default: 'true'
 
 outputs:
   wheel-path:
@@ -109,7 +113,8 @@ runs:
       with:
         target: ${{ inputs.target }}
         args: ${{ inputs.maturin-args }}
-        sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        # Disable sccache for older runners to avoid GLIBC incompatibility
+        sccache: ${{ inputs.use-sccache == 'true' && !startsWith(github.ref, 'refs/tags/') }}
         # IMPORTANT: wry requires webkit2gtk system libraries at build time
         # We build on the host (not in manylinux container) because:
         # 1. manylinux containers don't have webkit2gtk-devel packages

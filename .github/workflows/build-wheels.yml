@@ -93,6 +93,7 @@ jobs:
 
   # ============================================================================
   # Python 3.7 builds (non-abi3) - Separate wheel for each platform
+  # Note: sccache disabled to avoid GLIBC incompatibility with older runners
   # ============================================================================
 
   # Linux Python 3.7 build
@@ -114,6 +115,8 @@ jobs:
           maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-linux-${{ matrix.target }}-py37'
+          # Disable sccache to avoid GLIBC incompatibility
+          use-sccache: 'false'
 
   # Windows Python 3.7 build
   windows-py37:
@@ -134,6 +137,8 @@ jobs:
           maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2'
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-windows-${{ matrix.target }}-py37'
+          # Disable sccache to avoid potential compatibility issues
+          use-sccache: 'false'
 
   # macOS Python 3.7 build
   macos-py37:
@@ -154,4 +159,6 @@ jobs:
           maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-macos-${{ matrix.target }}-py37'
+          # Disable sccache to avoid potential compatibility issues
+          use-sccache: 'false'
 
