@@ -11,9 +11,18 @@ import sys
 
 import pytest
 
-# Skip all tests if Python < 3.8 (Playwright requires 3.8+)
+# Check if playwright is available
+try:
+    from importlib.util import find_spec
+
+    PLAYWRIGHT_AVAILABLE = find_spec("playwright") is not None
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+
+# Skip all tests if Python < 3.8 or playwright not installed
 pytestmark = [
     pytest.mark.skipif(sys.version_info < (3, 8), reason="Playwright requires Python 3.8+"),
+    pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed"),
     pytest.mark.integration,
 ]
 
