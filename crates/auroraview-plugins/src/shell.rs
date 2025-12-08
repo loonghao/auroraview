@@ -297,7 +297,7 @@ mod tests {
         scope.shell = scope.shell.allow_command("echo");
 
         #[cfg(windows)]
-        let result = plugin.handle(
+        let _result = plugin.handle(
             "execute",
             serde_json::json!({
                 "command": "cmd",
@@ -307,7 +307,7 @@ mod tests {
         );
 
         #[cfg(not(windows))]
-        let result = plugin.handle(
+        let _result = plugin.handle(
             "execute",
             serde_json::json!({
                 "command": "echo",
