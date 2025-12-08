@@ -100,16 +100,25 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-  # Python tests across versions (parallel matrix)
+  # Python tests across platforms and versions (parallel matrix)
   python-tests:
-    name: Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    name: Python ${{ matrix.python-version }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     needs: [quick-checks]  # Wait for quick checks to pass
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.9", "3.11"]
+        include:
+          # Additional Python versions on Linux only (to save CI time)
+          - os: ubuntu-latest
+            python-version: "3.8"
+          - os: ubuntu-latest
+            python-version: "3.10"
+          - os: ubuntu-latest
+            python-version: "3.12"
     steps:
       - uses: actions/checkout@v4
 
@@ -117,7 +126,7 @@ jobs:
         uses: ./.github/actions/setup-auroraview
         with:
           python-version: ${{ matrix.python-version }}
-          cache-key-suffix: 'py-test'
+          cache-key-suffix: 'py-test-${{ matrix.os }}'
 
       - name: Build and Test
         uses: ./.github/actions/build-and-test
@@ -125,8 +134,8 @@ jobs:
           test-type: 'python'
           generate-stubs: 'true'
 
-      - name: Upload coverage (3.11 only)
-        if: matrix.python-version == '3.11'
+      - name: Upload coverage (3.11 on ubuntu only)
+        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
