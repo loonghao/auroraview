@@ -160,4 +160,3 @@ class WindowEventData:
 
 # Convenience type alias
 EventHandler = Callable[[Dict[str, Any]], Any]
-

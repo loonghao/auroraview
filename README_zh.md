@@ -79,28 +79,9 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 
 ## 架构
 
-```
-┌─────────────────────────────────────────────────────────┐
-│         DCC软件 (Maya/Max/Houdini等)                    │
-└────────────────────┬────────────────────────────────────┘
-                     │ Python API
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│               auroraview (Python包)                     │
-│                   PyO3绑定                               │
-└────────────────────┬────────────────────────────────────┘
-                     │ FFI
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│           auroraview_core (Rust库)                      │
-│                  Wry WebView引擎                         │
-└────────────────────┬────────────────────────────────────┘
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│              系统原生WebView                             │
-│    Windows: WebView2 | macOS: WKWebView | Linux: WebKit│
-└─────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="assets/images/architecture.png" alt="AuroraView 架构图" width="800">
+</p>
 ##  技术框架
 
 - 核心栈：Rust 1.75+、PyO3 0.22（abi3）、Wry 0.47、Tao 0.30
@@ -998,94 +979,101 @@ cargo build --release
 pip install -e .
 ```
 
-### 运行测试
+### 测试
 
-AuroraView 为 Qt 和非 Qt 环境提供了全面的测试覆盖。
+AuroraView 提供了一个全面的测试框架，支持多种后端以适应不同的测试场景。
 
-#### AuroraTest - 类 Playwright 测试框架
+#### HeadlessWebView - 统一测试框架
 
-AuroraView 包含一个 Playwright 风格的 UI 自动化测试框架：
+AuroraView 包含一个统一的无头测试框架，支持多种后端：
 
 ```python
-from auroraview.testing.auroratest import PlaywrightBrowser
+from auroraview.testing import HeadlessWebView
 
-# 启动无头浏览器进行测试
-with PlaywrightBrowser.launch(headless=True) as browser:
-    page = browser.new_page()
-    page.goto("https://example.com")
-    
-    # 使用 Playwright API 进行测试
-    page.locator("#button").click()
-    page.screenshot(path="screenshot.png")
-    
-    # AuroraView bridge 自动注入
-    result = page.evaluate("window.auroraview !== undefined")
-    assert result is True
+# 自动检测最佳后端（推荐 Playwright）
+with HeadlessWebView.auto() as webview:
+    webview.goto("https://example.com")
+    webview.click("#button")
+    assert webview.text("#result") == "Success"
+
+# 或显式使用 Playwright 后端
+with HeadlessWebView.playwright() as webview:
+    webview.load_html("<h1>测试</h1>")
+    assert webview.text("h1") == "测试"
+    webview.screenshot("test.png")
 ```
+
+**可用后端：**
+
+| 后端 | 方法 | 平台 | 用途 |
+|------|------|------|------|
+| Playwright | `HeadlessWebView.playwright()` | 全平台 | 推荐用于 CI/CD |
+| Xvfb | `HeadlessWebView.virtual_display()` | Linux | 真实 WebView 测试 |
+| WebView2 CDP | `HeadlessWebView.webview2_cdp(url)` | Windows | 真实 WebView2 测试 |
 
 **功能特性：**
+- 所有后端统一 API
+- 使用 `HeadlessWebView.auto()` 自动选择后端
 - 完整的 Playwright API 访问（定位器、截图、网络拦截）
-- 自动注入 AuroraView bridge
-- 支持无头模式用于 CI/CD
-- 与 pytest 集成
+- 包含 Pytest fixtures
+- CI/CD 就绪
 
-**依赖要求：** Python 3.8+ 和 `pip install playwright && playwright install chromium`
+**依赖要求：** `pip install playwright && playwright install chromium`
 
-#### 基础测试命令
+#### Pytest 集成
 
-**不带 Qt 依赖的测试**（测试错误处理）：
+```python
+import pytest
+from auroraview.testing import HeadlessWebView
+
+# 使用上下文管理器
+def test_basic_navigation():
+    with HeadlessWebView.playwright() as webview:
+        webview.goto("https://example.com")
+        assert "Example" in webview.title()
+
+# 使用 pytest fixture
+def test_with_fixture(headless_webview):
+    headless_webview.load_html("<button id='btn'>点击</button>")
+    headless_webview.click("#btn")
+```
+
+#### 运行测试
+
 ```bash
 # 使用 nox（推荐）
-uvx nox -s pytest
+uvx nox -s pytest          # 不带 Qt 的测试
+uvx nox -s pytest-qt       # 带 Qt 的测试
+uvx nox -s pytest-all      # 运行所有测试
 
 # 或直接使用 pytest
-uv run pytest tests/python/integration/test_qt_import_error.py -v
+uv run pytest tests/python/ -v
+
+# 运行无头 WebView 测试
+uv run pytest tests/python/integration/test_headless_webview.py -v
 ```
 
-**带 Qt 依赖的测试**（测试实际 Qt 功能）：
-```bash
-# 使用 nox（推荐）
-uvx nox -s pytest-qt
+#### CI/CD 配置
 
-# 或直接使用 pytest
-pip install auroraview[qt] pytest pytest-qt
-pytest tests/python/integration/test_qt_backend.py -v
+```yaml
+# GitHub Actions 示例
+- name: 安装依赖
+  run: |
+    pip install playwright
+    playwright install chromium
+
+- name: 运行测试
+  run: pytest tests/ -v
 ```
 
-**运行所有测试**：
-```bash
-uvx nox -s pytest-all
-```
-
-**测试结构**：
-
-- `tests/python/integration/test_playwright_browser.py` - PlaywrightBrowser 测试
-  - 无头浏览器自动化
-  - AuroraView bridge 注入
-  - 完整 Playwright API 测试
-
-- `tests/python/integration/test_qt_import_error.py` - 测试未安装 Qt 时的错误处理
-  - 验证占位符类正常工作
-  - 测试诊断变量（`_HAS_QT`、`_QT_IMPORT_ERROR`）
-  - 确保显示有用的错误消息
-
-- `tests/python/integration/test_qt_backend.py` - 测试实际的 Qt 后端功能
-  - 需要安装 Qt 依赖
-  - 测试 QtWebView 实例化和方法
-  - 测试事件处理和 JavaScript 集成
-
-**可用的 Nox 会话**：
+#### 可用的 Nox 会话
 
 ```bash
-# 列出所有可用的测试会话
-uvx nox -l
-
-# 常用会话：
+uvx nox -l                 # 列出所有会话
 uvx nox -s pytest          # 不带 Qt 的测试
 uvx nox -s pytest-qt       # 带 Qt 的测试
 uvx nox -s pytest-all      # 运行所有测试
 uvx nox -s lint            # 运行代码检查
-uvx nox -s format          # 格式化代码
 uvx nox -s coverage        # 生成覆盖率报告
 ```
 

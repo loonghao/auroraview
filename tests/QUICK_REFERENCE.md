@@ -4,59 +4,99 @@
 
 ### All Tests
 ```bash
-just test
+uvx nox -s pytest-all
+```
+
+### Without Qt
+```bash
+uvx nox -s pytest
+```
+
+### With Qt
+```bash
+uvx nox -s pytest-qt
 ```
 
 ### Specific Test File
 ```bash
-just test-file tests/test_basic.py
-```
-
-### With Marker
-```bash
-just test-marker ui
-```
-
-### Fast Tests Only
-```bash
-just test-fast
+uv run pytest tests/python/integration/test_headless_webview.py -v
 ```
 
 ### With Coverage
 ```bash
-just test-cov
+uvx nox -s coverage
 ```
 
 ## Test Markers
 
-- `@pytest.mark.ui` - UI tests requiring display
+- `@pytest.mark.webview` - WebView tests
+- `@pytest.mark.playwright` - Playwright-specific tests
+- `@pytest.mark.xvfb` - Xvfb tests (Linux only)
 - `@pytest.mark.slow` - Slow running tests
-- `@pytest.mark.maya` - Maya-specific tests
-- `@pytest.mark.headless` - Tests without display
 - `@pytest.mark.integration` - Integration tests
 - `@pytest.mark.unit` - Unit tests
 
-## Common Fixtures
+## HeadlessWebView Quick Reference
 
-### webview
-Basic WebView instance for testing.
+### Create Instance
 
-### webview_bot
-High-level automation API for WebView testing.
+```python
+from auroraview.testing import HeadlessWebView
 
-### test_html
-Sample HTML for testing.
+# Auto-detect best backend
+with HeadlessWebView.auto() as webview:
+    pass
 
-### webview_with_html
-WebView pre-loaded with test HTML.
+# Playwright backend
+with HeadlessWebView.playwright() as webview:
+    pass
 
-## WebViewBot Methods
+# Xvfb backend (Linux)
+with HeadlessWebView.virtual_display() as webview:
+    pass
+```
 
-- `click(selector)` - Click element
-- `type(selector, text)` - Type text
-- `drag(selector, offset)` - Drag element
-- `wait_for_event(event, timeout)` - Wait for event
-- `assert_event_emitted(event)` - Assert event was emitted
-- `element_exists(selector)` - Check if element exists
-- `get_element_text(selector)` - Get element text
+### Common Methods
 
+| Method | Description |
+|--------|-------------|
+| `goto(url)` | Navigate to URL |
+| `load_html(html)` | Load HTML content |
+| `click(selector)` | Click element |
+| `fill(selector, text)` | Fill input |
+| `text(selector)` | Get element text |
+| `screenshot(path)` | Take screenshot |
+| `wait_for_selector(sel)` | Wait for element |
+| `is_visible(selector)` | Check visibility |
+| `evaluate(js)` | Execute JavaScript |
+
+### Pytest Fixtures
+
+| Fixture | Description |
+|---------|-------------|
+| `headless_webview` | Auto-detected headless WebView |
+| `playwright_webview` | Playwright-based WebView |
+| `xvfb_webview` | Xvfb-based WebView (Linux) |
+
+## CI/CD Quick Setup
+
+### GitHub Actions
+
+```yaml
+- name: Install Playwright
+  run: |
+    pip install playwright
+    playwright install chromium
+
+- name: Run tests
+  run: pytest tests/ -v
+```
+
+### Linux with Xvfb
+
+```yaml
+- name: Run tests
+  run: |
+    sudo apt-get install -y xvfb
+    xvfb-run pytest tests/ -v
+```

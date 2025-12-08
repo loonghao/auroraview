@@ -245,9 +245,7 @@ class TestQtWebViewIpcSignals:
     def test_emit_ipc_message(self, signals):
         """Test emitting ipcMessageReceived signal."""
         received = []
-        signals.ipcMessageReceived.connect(
-            lambda event, data: received.append((event, data))
-        )
+        signals.ipcMessageReceived.connect(lambda event, data: received.append((event, data)))
 
         signals.emit_ipc_message("save_file", {"path": "/tmp/test.txt"})
 
@@ -258,9 +256,7 @@ class TestQtWebViewIpcSignals:
     def test_emit_ipc_message_with_none_data(self, signals):
         """Test emitting ipcMessageReceived with None data."""
         received = []
-        signals.ipcMessageReceived.connect(
-            lambda event, data: received.append((event, data))
-        )
+        signals.ipcMessageReceived.connect(lambda event, data: received.append((event, data)))
 
         signals.emit_ipc_message("ping", None)
 
@@ -354,4 +350,3 @@ class TestQtWebViewSignalsOnClass:
 
         assert hasattr(QtWebView, "windowCloseRequested")
         assert hasattr(QtWebView, "fullScreenRequested")
-

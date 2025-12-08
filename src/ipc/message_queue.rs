@@ -292,26 +292,31 @@ impl MessageQueue {
     /// - If `block_on_full` is true, this will block until space is available
     /// - If `block_on_full` is false, this will drop the message and log an error
     pub fn push(&self, message: WebViewMessage) {
-        tracing::debug!(
-            "[PUSH] [MessageQueue::push] Pushing message: {:?}",
-            match &message {
-                WebViewMessage::EvalJs(_) => "EvalJs",
-                WebViewMessage::EvalJsAsync { .. } => "EvalJsAsync",
-                WebViewMessage::EmitEvent { event_name, .. } => event_name,
-                WebViewMessage::LoadUrl(_) => "LoadUrl",
-                WebViewMessage::LoadHtml(_) => "LoadHtml",
-                WebViewMessage::SetVisible(v) =>
-                    if *v {
-                        "SetVisible(true)"
-                    } else {
-                        "SetVisible(false)"
-                    },
-                WebViewMessage::Reload => "Reload",
-                WebViewMessage::StopLoading => "StopLoading",
-                WebViewMessage::WindowEvent { event_type, .. } => event_type.as_str(),
-                WebViewMessage::Close => "Close",
+        // Use info level for Close message to help diagnose shutdown issues
+        let msg_type = match &message {
+            WebViewMessage::EvalJs(_) => "EvalJs",
+            WebViewMessage::EvalJsAsync { .. } => "EvalJsAsync",
+            WebViewMessage::EmitEvent { event_name, .. } => event_name,
+            WebViewMessage::LoadUrl(_) => "LoadUrl",
+            WebViewMessage::LoadHtml(_) => "LoadHtml",
+            WebViewMessage::SetVisible(v) => {
+                if *v {
+                    "SetVisible(true)"
+                } else {
+                    "SetVisible(false)"
+                }
             }
-        );
+            WebViewMessage::Reload => "Reload",
+            WebViewMessage::StopLoading => "StopLoading",
+            WebViewMessage::WindowEvent { event_type, .. } => event_type.as_str(),
+            WebViewMessage::Close => "Close",
+        };
+
+        if matches!(&message, WebViewMessage::Close) {
+            tracing::info!("[PUSH] [MessageQueue::push] Pushing Close message");
+        } else {
+            tracing::debug!("[PUSH] [MessageQueue::push] Pushing message: {}", msg_type);
+        }
 
         // Try to send the message
         match self.tx.try_send(message.clone()) {
@@ -320,10 +325,17 @@ impl MessageQueue {
                 let queue_len = self.len();
                 self.metrics.update_peak_queue_length(queue_len);
 
-                tracing::debug!(
-                    "[PUSH] [MessageQueue::push] Message sent successfully (queue length: {})",
-                    queue_len
-                );
+                if matches!(&message, WebViewMessage::Close) {
+                    tracing::info!(
+                        "[PUSH] [MessageQueue::push] Close message sent successfully (queue length: {})",
+                        queue_len
+                    );
+                } else {
+                    tracing::debug!(
+                        "[PUSH] [MessageQueue::push] Message sent successfully (queue length: {})",
+                        queue_len
+                    );
+                }
 
                 // Wake up the event loop immediately
                 self.wake_event_loop();
@@ -466,10 +478,10 @@ impl MessageQueue {
         // Perform the actual wake-up
         if let Ok(proxy_guard) = self.event_loop_proxy.lock() {
             if let Some(proxy) = proxy_guard.as_ref() {
-                tracing::debug!("[WAKE] [MessageQueue] Sending wake-up event...");
+                tracing::info!("[WAKE] [MessageQueue] Sending wake-up event to event loop...");
                 match proxy.send_event(UserEvent::ProcessMessages) {
                     Ok(_) => {
-                        tracing::debug!("[OK] [MessageQueue] Event loop woken up successfully!");
+                        tracing::info!("[OK] [MessageQueue] Event loop woken up successfully!");
                     }
                     Err(e) => {
                         tracing::error!(
@@ -479,7 +491,7 @@ impl MessageQueue {
                     }
                 }
             } else {
-                tracing::debug!(
+                tracing::warn!(
                     "[WARNING] [MessageQueue] Event loop proxy is None - cannot wake up event loop!"
                 );
             }

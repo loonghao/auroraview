@@ -81,28 +81,9 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│         DCC Software (Maya/Max/Houdini/etc.)            │
-└────────────────────┬────────────────────────────────────┘
-                     │ Python API
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│               auroraview (Python Package)               │
-│                   PyO3 Bindings                          │
-└────────────────────┬────────────────────────────────────┘
-                     │ FFI
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│           auroraview_core (Rust Library)               │
-│                  Wry WebView Engine                      │
-└────────────────────┬────────────────────────────────────┘
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│              System Native WebView                       │
-│    Windows: WebView2 | macOS: WKWebView | Linux: WebKit│
-└─────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="assets/images/architecture.png" alt="AuroraView Architecture" width="800">
+</p>
 ##  Technical Framework
 
 - Core stack: Rust 1.75+, PyO3 0.22 (abi3), Wry 0.47, Tao 0.30
@@ -1278,92 +1259,99 @@ auroraview/
 
 ## Testing
 
-AuroraView has comprehensive test coverage for both Qt and non-Qt environments.
+AuroraView provides a comprehensive testing framework with multiple backends for different testing scenarios.
 
-### AuroraTest - Playwright-like Testing Framework
+### HeadlessWebView - Unified Testing Framework
 
-AuroraView includes a Playwright-inspired testing framework for UI automation:
+AuroraView includes a unified headless testing framework that supports multiple backends:
 
 ```python
-from auroraview.testing.auroratest import PlaywrightBrowser
+from auroraview.testing import HeadlessWebView
 
-# Launch headless browser for testing
-with PlaywrightBrowser.launch(headless=True) as browser:
-    page = browser.new_page()
-    page.goto("https://example.com")
-    
-    # Use Playwright API for testing
-    page.locator("#button").click()
-    page.screenshot(path="screenshot.png")
-    
-    # AuroraView bridge is auto-injected
-    result = page.evaluate("window.auroraview !== undefined")
-    assert result is True
+# Auto-detect best backend (Playwright recommended)
+with HeadlessWebView.auto() as webview:
+    webview.goto("https://example.com")
+    webview.click("#button")
+    assert webview.text("#result") == "Success"
+
+# Or explicitly use Playwright backend
+with HeadlessWebView.playwright() as webview:
+    webview.load_html("<h1>Test</h1>")
+    assert webview.text("h1") == "Test"
+    webview.screenshot("test.png")
 ```
 
-**Features:**
-- Full Playwright API access (locators, screenshots, network interception)
-- Automatic AuroraView bridge injection
-- Headless mode for CI/CD
-- Works with pytest
+**Available Backends:**
 
-**Requirements:** Python 3.8+ and `pip install playwright && playwright install chromium`
+| Backend | Method | Platform | Use Case |
+|---------|--------|----------|----------|
+| Playwright | `HeadlessWebView.playwright()` | All | Recommended for CI/CD |
+| Xvfb | `HeadlessWebView.virtual_display()` | Linux | Real WebView testing |
+| WebView2 CDP | `HeadlessWebView.webview2_cdp(url)` | Windows | Real WebView2 testing |
+
+**Features:**
+- Unified API across all backends
+- Automatic backend selection with `HeadlessWebView.auto()`
+- Full Playwright API access (locators, screenshots, network interception)
+- Pytest fixtures included
+- CI/CD ready
+
+**Requirements:** `pip install playwright && playwright install chromium`
+
+### Pytest Integration
+
+```python
+import pytest
+from auroraview.testing import HeadlessWebView
+
+# Using context manager
+def test_basic_navigation():
+    with HeadlessWebView.playwright() as webview:
+        webview.goto("https://example.com")
+        assert "Example" in webview.title()
+
+# Using pytest fixture
+def test_with_fixture(headless_webview):
+    headless_webview.load_html("<button id='btn'>Click</button>")
+    headless_webview.click("#btn")
+```
 
 ### Running Tests
 
-**Test without Qt dependencies** (tests error handling):
 ```bash
 # Using nox (recommended)
-uvx nox -s pytest
+uvx nox -s pytest          # Test without Qt
+uvx nox -s pytest-qt       # Test with Qt
+uvx nox -s pytest-all      # Run all tests
 
 # Or using pytest directly
-uv run pytest tests/python/integration/test_qt_import_error.py -v
+uv run pytest tests/python/ -v
+
+# Run headless WebView tests
+uv run pytest tests/python/integration/test_headless_webview.py -v
 ```
 
-**Test with Qt dependencies** (tests actual Qt functionality):
-```bash
-# Using nox (recommended)
-uvx nox -s pytest-qt
+### CI/CD Configuration
 
-# Or using pytest directly
-pip install auroraview[qt] pytest pytest-qt
-pytest tests/python/integration/test_qt_backend.py -v
+```yaml
+# GitHub Actions example
+- name: Install dependencies
+  run: |
+    pip install playwright
+    playwright install chromium
+
+- name: Run tests
+  run: pytest tests/ -v
 ```
-
-**Run all tests**:
-```bash
-uvx nox -s pytest-all
-```
-
-### Test Structure
-
-- `tests/python/integration/test_playwright_browser.py` - PlaywrightBrowser tests
-  - Headless browser automation
-  - AuroraView bridge injection
-  - Full Playwright API testing
-
-- `tests/python/integration/test_qt_import_error.py` - Tests error handling when Qt is not installed
-  - Verifies placeholder classes work correctly
-  - Tests diagnostic variables (`_HAS_QT`, `_QT_IMPORT_ERROR`)
-  - Ensures helpful error messages are shown
-
-- `tests/python/integration/test_qt_backend.py` - Tests actual Qt backend functionality
-  - Requires Qt dependencies to be installed
-  - Tests QtWebView instantiation and methods
-  - Tests event handling and JavaScript integration
 
 ### Available Nox Sessions
 
 ```bash
-# List all available test sessions
-uvx nox -l
-
-# Common sessions:
+uvx nox -l                 # List all sessions
 uvx nox -s pytest          # Test without Qt
 uvx nox -s pytest-qt       # Test with Qt
 uvx nox -s pytest-all      # Run all tests
 uvx nox -s lint            # Run linting
-uvx nox -s format          # Format code
 uvx nox -s coverage        # Generate coverage report
 ```
 

@@ -66,9 +66,7 @@ class BackendType(Enum):
         }
         if value_lower not in mapping:
             valid = ", ".join(sorted(set(mapping.keys())))
-            raise ValueError(
-                f"Unknown backend: '{value}'. Valid backends: {valid}"
-            )
+            raise ValueError(f"Unknown backend: '{value}'. Valid backends: {valid}")
         return mapping[value_lower]
 
 
@@ -156,4 +154,3 @@ __all__ = [
     "set_backend_type",
     "is_backend_available",
 ]
-

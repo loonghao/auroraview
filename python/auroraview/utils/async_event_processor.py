@@ -64,8 +64,7 @@ class AsyncEventProcessor:
         self._batches_processed = 0
 
         logger.debug(
-            f"AsyncEventProcessor created: interval={interval_ms}ms, "
-            f"batch_size={batch_size}"
+            f"AsyncEventProcessor created: interval={interval_ms}ms, batch_size={batch_size}"
         )
 
     def start(self) -> None:
@@ -192,4 +191,3 @@ class AsyncEventProcessor:
 
 
 __all__ = ["AsyncEventProcessor"]
-

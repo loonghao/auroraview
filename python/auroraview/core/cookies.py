@@ -147,4 +147,3 @@ class Cookie:
 __all__ = [
     "Cookie",
 ]
-
