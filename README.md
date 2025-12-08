@@ -351,14 +351,14 @@ from auroraview import WebView
 
 view = WebView(title="My Tool", url="http://localhost:3000")
 
-# Register API methods using decorators
-@view.slot
+# Register API methods using bind_call decorator
+@view.bind_call("api.get_data")
 def get_data() -> dict:
     """Called from JS: await auroraview.api.get_data()"""
     return {"items": [1, 2, 3], "count": 3}
 
-@view.slot
-def save_file(path: str, content: str) -> dict:
+@view.bind_call("api.save_file")
+def save_file(path: str = "", content: str = "") -> dict:
     """Called from JS: await auroraview.api.save_file({path: "/tmp/a.txt", content: "hello"})"""
     with open(path, "w") as f:
         f.write(content)
@@ -367,7 +367,7 @@ def save_file(path: str, content: str) -> dict:
 # Register event handlers (no return value)
 @view.on("button_clicked")
 def handle_click(data: dict):
-    """Called when JS emits: auroraview.emit("button_clicked", {...})"""
+    """Called when JS sends: auroraview.send_event("button_clicked", {...})"""
     print(f"Button clicked: {data['id']}")
 
 view.show()
@@ -382,8 +382,8 @@ console.log(data.items);  // [1, 2, 3]
 const result = await auroraview.api.save_file({ path: "/tmp/test.txt", content: "Hello" });
 console.log(result.ok);  // true
 
-// Emit events (fire-and-forget)
-auroraview.emit("button_clicked", { id: "save_btn" });
+// Send events to Python (fire-and-forget)
+auroraview.send_event("button_clicked", { id: "save_btn" });
 
 // Listen for Python events
 auroraview.on("data_updated", (data) => {
@@ -413,42 +413,45 @@ class OutlinerTool(WebView):
             width=400,
             height=600
         )
-        self.setup_connections()
+        self._setup_api()
+        self._setup_connections()
 
-    # ─── API Methods (JS → Python, auto-bound) ───
+    def _setup_api(self):
+        """Bind API methods for JavaScript access."""
+        # Bind all public methods of self under "api" namespace
+        self.bind_api(self, namespace="api")
+
+    # ─── API Methods (JS → Python) ───
     def get_hierarchy(self, root: str = None) -> dict:
         """Get scene hierarchy. JS: await auroraview.api.get_hierarchy()"""
-        # Your DCC-specific logic here
         return {
             "children": ["group1", "mesh_cube", "camera1"],
             "count": 3
         }
 
-    def rename_object(self, old_name: str, new_name: str) -> dict:
+    def rename_object(self, old_name: str = "", new_name: str = "") -> dict:
         """Rename scene object. JS: await auroraview.api.rename_object({old_name: "a", new_name: "b"})"""
-        # Perform rename in DCC
         return {"ok": True, "old": old_name, "new": new_name}
 
-    def delete_objects(self, names: list) -> dict:
+    def delete_objects(self, names: list = None) -> dict:
         """Delete objects. JS: await auroraview.api.delete_objects({names: ["obj1", "obj2"]})"""
+        names = names or []
         return {"ok": True, "deleted": len(names)}
 
-    # ─── Event Handlers (on_ prefix, auto-bound) ───
-    def on_item_selected(self, data: dict):
-        """Handle selection from UI. JS: auroraview.emit("item_selected", {...})"""
-        items = data.get("items", [])
-        # Update DCC selection
-        self.selection_changed.emit(items)
+    # ─── Event Handlers ───
+    def _setup_connections(self):
+        """Setup event handlers and signal connections."""
+        @self.on("item_selected")
+        def handle_selection(data: dict):
+            items = data.get("items", [])
+            self.selection_changed.emit(items)
 
-    def on_viewport_orbit(self, data: dict):
-        """Handle viewport rotation. JS: auroraview.emit("viewport_orbit", {...})"""
-        dx, dy = data.get("dx", 0), data.get("dy", 0)
-        # Rotate camera in DCC
-        print(f"Orbiting: dx={dx}, dy={dy}")
+        @self.on("viewport_orbit")
+        def handle_orbit(data: dict):
+            dx, dy = data.get("dx", 0), data.get("dy", 0)
+            print(f"Orbiting: dx={dx}, dy={dy}")
 
-    # ─── Signal Connections (like Qt) ───
-    def setup_connections(self):
-        """Connect signals to handlers."""
+        # Connect signals to handlers
         self.selection_changed.connect(self._log_selection)
 
     def _log_selection(self, items: list):
@@ -466,9 +469,9 @@ tool.show()
 const hierarchy = await auroraview.api.get_hierarchy();
 const result = await auroraview.api.rename_object({ old_name: "cube1", new_name: "hero_cube" });
 
-// Emit events to Python
-auroraview.emit("item_selected", { items: ["mesh1", "mesh2"] });
-auroraview.emit("viewport_orbit", { dx: 10, dy: 5 });
+// Send events to Python
+auroraview.send_event("item_selected", { items: ["mesh1", "mesh2"] });
+auroraview.send_event("viewport_orbit", { dx: 10, dy: 5 });
 
 // Listen for Python signals
 auroraview.on("selection_changed", (items) => {
@@ -543,7 +546,7 @@ auroraview.emit("plugin_event", { type: "activated", plugin: "plugin_a" });
 | **Complexity** | ⭐ Simple | ⭐⭐ Medium | ⭐⭐⭐ Advanced |
 | **Best For** | Prototypes | Production | Plugins |
 | **Signal Support** | ❌ | ✅ Full | ⚠️ Limited |
-| **Auto-binding** | ✅ | ✅ | ❌ Manual |
+| **Auto-binding** | ❌ Manual | ✅ via bind_api | ❌ Manual |
 | **Type Hints** | ✅ | ✅ | ✅ |
 | **Qt Familiarity** | Low | High | Medium |
 | **Testability** | Good | Excellent | Good |

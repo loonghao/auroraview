@@ -7,7 +7,7 @@ Usage:
     python examples/simple_decorator.py
 
 Features demonstrated:
-    - @view.slot decorator for API methods
+    - @view.bind_call() decorator for API methods
     - @view.on() decorator for event handlers
     - Python → JavaScript communication via emit()
     - JavaScript → Python communication via API calls
@@ -17,8 +17,8 @@ JavaScript side (index.html):
     const data = await auroraview.api.get_data();
     const result = await auroraview.api.save_item({name: "test", value: 42});
 
-    // Emit events to Python
-    auroraview.emit("item_clicked", {id: "btn1"});
+    // Send events to Python
+    auroraview.send_event("item_clicked", {id: "btn1"});
 
     // Listen for Python events
     auroraview.on("data_updated", (data) => console.log(data));
@@ -125,11 +125,11 @@ def main():
             }
 
             function emitEvent() {
-                auroraview.emit("item_clicked", {
+                auroraview.send_event("item_clicked", {
                     id: "demo_button",
                     timestamp: Date.now()
                 });
-                log({message: "Event emitted to Python!"});
+                log({message: "Event sent to Python!"});
             }
 
             // Listen for Python events
@@ -148,11 +148,11 @@ def main():
     view = WebView(title="Decorator Pattern Demo", html=html_content, width=700, height=600)
 
     # ─────────────────────────────────────────────────────────────────
-    # API Methods: Use @view.slot to expose functions to JavaScript
+    # API Methods: Use @view.bind_call() to expose functions to JavaScript
     # These can be called via: await auroraview.api.method_name({...})
     # ─────────────────────────────────────────────────────────────────
 
-    @view.slot
+    @view.bind_call("api.get_data")
     def get_data() -> dict:
         """Return sample data. JS: await auroraview.api.get_data()"""
         return {
@@ -161,7 +161,7 @@ def main():
             "timestamp": "2024-01-01T12:00:00Z",
         }
 
-    @view.slot
+    @view.bind_call("api.save_item")
     def save_item(name: str = "", value: int = 0) -> dict:
         """Save an item. JS: await auroraview.api.save_item({name: "x", value: 1})"""
         print(f"[Python] Saving item: {name} = {value}")
@@ -173,7 +173,7 @@ def main():
 
     # ─────────────────────────────────────────────────────────────────
     # Event Handlers: Use @view.on() for fire-and-forget events from JS
-    # These are called via: auroraview.emit("event_name", {...})
+    # These are called via: auroraview.send_event("event_name", {...})
     # ─────────────────────────────────────────────────────────────────
 
     @view.on("item_clicked")
