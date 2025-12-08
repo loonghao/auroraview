@@ -3,6 +3,7 @@
 //! This module defines the Python-specific IPC backend trait. Core types
 //! like IpcMessage and IpcMode are re-exported from auroraview-core.
 
+#[cfg(feature = "python-bindings")]
 use super::json::Value;
 #[cfg(feature = "python-bindings")]
 use pyo3::{Py, PyAny};

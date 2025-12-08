@@ -18,7 +18,7 @@ use wry::WebViewBuilderExtWindows;
 
 use super::WebViewBackend;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
-use crate::webview::config::{EmbedMode, WebViewConfig};
+use crate::webview::config::WebViewConfig;
 use crate::webview::event_loop::UserEvent;
 use crate::webview::js_assets;
 use crate::webview::message_pump;
@@ -939,6 +939,7 @@ impl NativeBackend {
         _config: WebViewConfig,
         _ipc_handler: Arc<IpcHandler>,
         _message_queue: Arc<MessageQueue>,
+        _on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Err("Embedded mode is only supported on Windows".into())
     }
@@ -1203,29 +1204,11 @@ impl NativeBackend {
             }
         });
 
-        // Build WebView based on embed mode
-        // Child mode (RECOMMENDED): use build_as_child for proper embedding
-        // None mode: use standard build for standalone windows
-        let webview = match config.embed_mode {
-            EmbedMode::Child => {
-                // Use build_as_child for Child mode (official recommended approach)
-                // This enables:
-                // - Proper WS_CHILD window style
-                // - wry's set_bounds() to work correctly
-                // - Automatic resize handling
-                tracing::info!("[OK] [NativeBackend] Building WebView as child (RECOMMENDED mode)");
-                builder
-                    .build_as_child(window)
-                    .map_err(|e| format!("Failed to create child WebView: {}", e))?
-            }
-            EmbedMode::None => {
-                // Use standard build for standalone mode
-                tracing::info!("[OK] [NativeBackend] Building WebView as standalone");
-                builder
-                    .build(window)
-                    .map_err(|e| format!("Failed to create WebView: {}", e))?
-            }
-        };
+        // Build WebView - use standard build for standalone mode
+        tracing::info!("[OK] [NativeBackend] Building WebView as standalone");
+        let webview = builder
+            .build(window)
+            .map_err(|e| format!("Failed to create WebView: {}", e))?;
 
         tracing::info!("[OK] [NativeBackend] WebView created successfully");
 
