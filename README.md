@@ -1317,7 +1317,7 @@ with PlaywrightBrowser.launch(headless=True) as browser:
 uvx nox -s pytest
 
 # Or using pytest directly
-uv run pytest tests/test_qt_import_error.py -v
+uv run pytest tests/python/integration/test_qt_import_error.py -v
 ```
 
 **Test with Qt dependencies** (tests actual Qt functionality):
@@ -1327,7 +1327,7 @@ uvx nox -s pytest-qt
 
 # Or using pytest directly
 pip install auroraview[qt] pytest pytest-qt
-pytest tests/test_qt_backend.py -v
+pytest tests/python/integration/test_qt_backend.py -v
 ```
 
 **Run all tests**:

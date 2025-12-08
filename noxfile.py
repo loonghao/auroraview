@@ -19,8 +19,7 @@ def pytest(session):
     session.install("pytest", "pytest-cov")
     session.run(
         "pytest",
-        "tests/test_qt_import_error.py",
-        "tests/test_testing_framework.py",
+        "tests/python/integration/test_qt_import_error.py",
         "-v",
         "--cov=auroraview",
         "--cov-report=term-missing",
@@ -38,7 +37,8 @@ def pytest_qt(session):
     session.install("pytest", "pytest-cov", "pytest-qt")
     session.run(
         "pytest",
-        "tests/test_qt_backend.py",
+        "tests/python/integration/test_qt_backend.py",
+        "tests/python/integration/test_qt_lifecycle.py",
         "-v",
         "--cov=auroraview",
         "--cov-report=term-missing",
@@ -148,7 +148,7 @@ def test_maya(session):
     # Note: This would need to be run with mayapy instead of regular python
     session.run(
         "pytest",
-        "tests/test_qt_import_error.py",
+        "tests/python/integration/test_qt_import_error.py",
         "-v",
         "-k",
         "native",
