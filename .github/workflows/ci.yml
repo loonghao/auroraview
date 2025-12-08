@@ -167,6 +167,12 @@ jobs:
       - name: Build CLI
         run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
 
+      - name: Test CLI (--help)
+        shell: bash
+        run: |
+          ./target/${{ matrix.target }}/release/${{ matrix.artifact }} --help
+          ./target/${{ matrix.target }}/release/${{ matrix.artifact }} --version
+
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
