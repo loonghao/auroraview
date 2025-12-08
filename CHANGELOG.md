@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.22...auroraview-v0.3.0) (2025-12-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* Major architecture refactoring
+
+### Features
+
+* add apply_qt6_dialog_optimizations function ([434236d](https://github.com/loonghao/auroraview/commit/434236d23679307d419d61a138fc849fafb6260a))
+* add cross-platform PlaywrightBrowser tests with CI browser installation ([d1dbc5b](https://github.com/loonghao/auroraview/commit/d1dbc5b6eb225dffe591dce40ccaa04e102267ee))
+* add cross-platform Python tests (Linux, Windows, macOS) ([016ae05](https://github.com/loonghao/auroraview/commit/016ae05174adaf4b3e60cf53aa9a8960ae7d5de0))
+* add Qt5/Qt6 compatibility layer and diagnostics ([acf9fe8](https://github.com/loonghao/auroraview/commit/acf9fe846ae044fe8d332322b511eb4179faa9e6))
+* add xvfb support for headless UI tests in CI ([5eaf136](https://github.com/loonghao/auroraview/commit/5eaf136100f0d929ba630a41664951095c9629b7))
+* **pack:** complete MVP for auroraview-pack and auroraview-cli crates ([72811de](https://github.com/loonghao/auroraview/commit/72811de66c277e69fe0ddad92ad6b5b721d2f9e3))
+* refactor architecture - migrate core modules to auroraview-core crate ([2085d94](https://github.com/loonghao/auroraview/commit/2085d94fe9a26cc25909f105d890dd360c949b7e))
+* **signals:** add Qt-inspired signal-slot event system ([373b93d](https://github.com/loonghao/auroraview/commit/373b93dbf6feaaf22d5896294c3b34e72ff8e3af))
+* **testing:** add PlaywrightBrowser for Playwright-based UI testing ([3988d1a](https://github.com/loonghao/auroraview/commit/3988d1aafc977f426e5f222216c9e97aef8c61c7))
+
+
+### Bug Fixes
+
+* add python-bindings feature to Linux build in CI ([8fabe2c](https://github.com/loonghao/auroraview/commit/8fabe2c25fde84191c06ebe4b0ac51a3c7e19c81))
+* add url-utils to python-bindings feature and export png_bytes_to_ico ([156a4d3](https://github.com/loonghao/auroraview/commit/156a4d35f3d5851f7d0b191b4e3ec67513e54091))
+* add x-release-please-version tag to version fields ([f1d4ec0](https://github.com/loonghao/auroraview/commit/f1d4ec0ff09a4941bfeae4a0d6afa76f0062ad7d))
+* **ci:** correct Rust integration test names in CI configuration ([1efed3a](https://github.com/loonghao/auroraview/commit/1efed3a6edabc3091bd3e5e163222aabe4993250))
+* **ci:** correct rust-toolchain action name ([d688621](https://github.com/loonghao/auroraview/commit/d6886217307bd9f7923d362a8078a545de95064e))
+* correct function name in cli_utils test ([402c629](https://github.com/loonghao/auroraview/commit/402c629e366ed72b9c50d30607aadf0f59bd0f45))
+* correct Qt test paths in pr-checks.yml ([4b562a6](https://github.com/loonghao/auroraview/commit/4b562a619d1da0ffffaefe658c10446e803dd30d))
+* correct test file paths in noxfile.py and README ([404b17a](https://github.com/loonghao/auroraview/commit/404b17ada4cbe5d14a9813fb479086ddf69de869))
+* correct wry API and image crate import in CLI ([75c00ef](https://github.com/loonghao/auroraview/commit/75c00efd6acdafd651697ba5b51e3086df01a50a))
+* handle poisoned mutex gracefully to prevent panic on close ([a5a6cd3](https://github.com/loonghao/auroraview/commit/a5a6cd316566dad1b28ad9c7f8b1518e6895d8b3))
+* import testing fixtures in conftest and skip UI tests in CI ([635368b](https://github.com/loonghao/auroraview/commit/635368b9b74318c6d086f23500acc87bd954613b))
+* replace deprecated macos-13 runner with macos-latest cross-compile ([ebc0842](https://github.com/loonghao/auroraview/commit/ebc0842c4bc48730d72c86a56aa7865c3db0c216))
+* resolve clippy warnings and CI ruff installation ([68c3e18](https://github.com/loonghao/auroraview/commit/68c3e185d69fa256ae3c8acf43c6506c82a00de5))
+* resolve cross-platform compilation errors for Linux CI ([652b4fa](https://github.com/loonghao/auroraview/commit/652b4fa710d2137f3af2f154d6e20753b86bcf9e))
+* resolve lint and clippy warnings ([c15ad33](https://github.com/loonghao/auroraview/commit/c15ad33230e6455a3cff37e3a16ce4db8ce72230))
+* resolve unit test collection errors on Linux CI ([3fe9007](https://github.com/loonghao/auroraview/commit/3fe9007771d91fd72c390c7ca5102fa8817322b5))
+* skip Browser tests on Linux CI and fix localStorage test ([df162ed](https://github.com/loonghao/auroraview/commit/df162eda8960c9b504d3be72df50430be25bf9df))
+* skip Browser tests on macOS CI and fix actions/checkout version ([57fcd73](https://github.com/loonghao/auroraview/commit/57fcd732e266e69990332be33eff781a0c4903f9))
+* skip PlaywrightBrowser native mode tests in CI ([cbd6e88](https://github.com/loonghao/auroraview/commit/cbd6e8811a1cfb5dc1af9c7a1fcec739b99f9304))
+* unused variable in shell plugin test ([a5964ba](https://github.com/loonghao/auroraview/commit/a5964ba8d74d5b5e5461a308c379ef70dbfee27a))
+* unused variable in shell plugin test ([eddde5a](https://github.com/loonghao/auroraview/commit/eddde5aa37390d7fb21749f9d3e3d76e2f29e18b))
+* update bom test to match fallback pattern in JS templates ([afc10ed](https://github.com/loonghao/auroraview/commit/afc10ed605de2004ce1e44e579203ba6257f6ba7))
+* update integration tests for CI compatibility ([d2ababf](https://github.com/loonghao/auroraview/commit/d2ababf242be5c45cd08ff490b448f0b08f36b84))
+* use find_spec instead of import for playwright check ([5dfc9e0](https://github.com/loonghao/auroraview/commit/5dfc9e032008bcacaf75ad9e5c38fab304d709a1))
+* use force=True in Locator tests to skip actionability checks ([c0dcd76](https://github.com/loonghao/auroraview/commit/c0dcd7638116dd7a9bc49d412a6e2d06613cd4b6))
+
+
+### Performance Improvements
+
+* **logging:** add conditional verbose logging for DCC environments ([004ffe1](https://github.com/loonghao/auroraview/commit/004ffe1f1b27e1854bb50c5d60bba3efea8118d6))
+* **qt:** optimize window style operations and fix initialization timing ([3fe3025](https://github.com/loonghao/auroraview/commit/3fe3025caf68d4a5928529b3abb670bf65067fe3))
+* **warmup:** auto-start WebView2 warmup on module import ([4f04815](https://github.com/loonghao/auroraview/commit/4f04815d06bbf00962e5bdc6ee4aac68c19f74e8))
+
+
+### Code Refactoring
+
+* clean up dead code and fix integration test imports ([39b116c](https://github.com/loonghao/auroraview/commit/39b116cbe68cf390e1530686816012506e37d997))
+* replace Playwright native tests with WebView2 Browser tests ([a658808](https://github.com/loonghao/auroraview/commit/a65880878ccee04f1fff446ce12c0ccdaa94848c))
+* **testing:** replace legacy testing modules with HeadlessWebView framework ([5e67fc7](https://github.com/loonghao/auroraview/commit/5e67fc7d7979263128102d8d292567a8ad425d07))
+* update test files for cross-platform WebView testing ([8a393df](https://github.com/loonghao/auroraview/commit/8a393dfdfba4987c32e695828d6ce0d74d70bae1))
+* update test_auroratest_browser.py for cross-platform WebView testing ([c2cfa72](https://github.com/loonghao/auroraview/commit/c2cfa726e94f40ee709e574e7f98829954dead3c))
+
+
+### Documentation
+
+* add JS-Python communication guide and improve coverage config ([89c350d](https://github.com/loonghao/auroraview/commit/89c350dd5eb268864db9c20e4032c07a6c70ca0e))
+* update API examples and add llms.txt index file ([d441e69](https://github.com/loonghao/auroraview/commit/d441e696a0a552595e9254ee8356d252109d5528))
+
 ## [0.2.22](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.21...auroraview-v0.2.22) (2025-11-30)
 
 
