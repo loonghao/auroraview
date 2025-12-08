@@ -73,9 +73,10 @@ jobs:
       attestations: write
 
     steps:
-      - name: Download all artifacts
+      - name: Download wheel artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: wheels-*
           path: dist
           merge-multiple: true
 
@@ -84,8 +85,13 @@ jobs:
           ls -la dist/
           echo "Total files: $(ls -1 dist/ | wc -l)"
 
-      - name: Remove Linux wheels (not accepted by PyPI)
+      - name: Remove non-wheel files and Linux wheels (not accepted by PyPI)
         run: |
+          # Remove any non-wheel files (e.g., CLI binaries that might be included)
+          find dist -type f ! -name "*.whl" ! -name "*.tar.gz" -delete || true
+          # Remove CLI tar.gz files (keep only sdist tar.gz which has proper metadata)
+          rm -f dist/auroraview-*.tar.gz 2>/dev/null || true
+          # Keep only the sdist if it exists (it will be named like auroraview-0.3.0.tar.gz)
           # Remove linux_x86_64 wheels as PyPI doesn't accept them
           # These wheels require webkit2gtk at runtime and use non-standard platform tags
           # Linux users should install from GitHub Releases or build from source
