@@ -143,7 +143,8 @@ mod tests {
             let m = pyo3::types::PyModule::new(py, "cli_test").unwrap();
             register_cli_utils(&m).expect("register should succeed");
             assert!(m.getattr("normalize_url").is_ok());
-            assert!(m.getattr("py_rewrite_html_for_custom_protocol").is_ok());
+            // Function is registered with name="rewrite_html_for_custom_protocol"
+            assert!(m.getattr("rewrite_html_for_custom_protocol").is_ok());
         });
     }
 }
