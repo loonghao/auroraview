@@ -1,84 +1,85 @@
-# AuroraView
+<p align="center">
+  <img src="assets/icons/auroraview-logo-text.png" alt="AuroraView Logo" width="400">
+</p>
 
-[中文文档](./README_zh.md) | English
+<p align="center">
+  <a href="./README_zh.md">中文文档</a> | English
+</p>
 
-[![PyPI Version](https://img.shields.io/pypi/v/auroraview.svg)](https://pypi.org/project/auroraview/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/auroraview.svg)](https://pypi.org/project/auroraview/)
-[![Downloads](https://static.pepy.tech/badge/auroraview)](https://pepy.tech/project/auroraview)
-[![Codecov](https://codecov.io/gh/loonghao/auroraview/branch/main/graph/badge.svg)](https://codecov.io/gh/loonghao/auroraview)
-[![PR Checks](https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/loonghao/auroraview)
-[![CI](https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/ci.yml)
-[![Build Wheels](https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml)
-[![Release](https://github.com/loonghao/auroraview/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/release.yml)
-[![CodeQL](https://github.com/loonghao/auroraview/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/codeql.yml)
-[![Security Audit](https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml/badge.svg?branch=main)](https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml)
-[![Latest Release](https://img.shields.io/github/v/release/loonghao/auroraview?display_name=tag)](https://github.com/loonghao/auroraview/releases)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen.svg)](https://pre-commit.com/)
+<p align="center">
+  <a href="https://pypi.org/project/auroraview/"><img src="https://img.shields.io/pypi/v/auroraview.svg" alt="PyPI Version"></a>
+  <a href="https://pypi.org/project/auroraview/"><img src="https://img.shields.io/pypi/pyversions/auroraview.svg" alt="Python Versions"></a>
+  <a href="https://pepy.tech/project/auroraview"><img src="https://static.pepy.tech/badge/auroraview" alt="Downloads"></a>
+  <a href="https://codecov.io/gh/loonghao/auroraview"><img src="https://codecov.io/gh/loonghao/auroraview/branch/main/graph/badge.svg" alt="Codecov"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml/badge.svg" alt="PR Checks"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
-[![GitHub Stars](https://img.shields.io/github/stars/loonghao/auroraview?style=social)](https://github.com/loonghao/auroraview/stargazers)
-[![GitHub Downloads](https://img.shields.io/github/downloads/loonghao/auroraview/total)](https://github.com/loonghao/auroraview/releases)
-[![Last Commit](https://img.shields.io/github/last-commit/loonghao/auroraview)](https://github.com/loonghao/auroraview/commits/main)
-[![Commit Activity](https://img.shields.io/github/commit-activity/m/loonghao/auroraview)](https://github.com/loonghao/auroraview/graphs/commit-activity)
-[![Open Issues](https://img.shields.io/github/issues/loonghao/auroraview)](https://github.com/loonghao/auroraview/issues)
-[![Open PRs](https://img.shields.io/github/issues-pr/loonghao/auroraview)](https://github.com/loonghao/auroraview/pulls)
-[![Contributors](https://img.shields.io/github/contributors/loonghao/auroraview)](https://github.com/loonghao/auroraview/graphs/contributors)
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
-[![release-please](https://img.shields.io/badge/release--please-enabled-blue)](https://github.com/googleapis/release-please)
-[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](./.github/dependabot.yml)
-[![Code Style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://docs.astral.sh/ruff/)
-[![Type Checked: mypy](https://img.shields.io/badge/type%20checked-mypy-2A6DB0.svg)](http://mypy-lang.org/)
+<p align="center">
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.75+-orange.svg" alt="Rust"></a>
+  <a href="https://github.com/loonghao/auroraview"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg" alt="Platform"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/ci.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml/badge.svg?branch=main" alt="Build Wheels"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/release.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/release.yml/badge.svg?branch=main" alt="Release"></a>
+</p>
 
-[Code of Conduct](./CODE_OF_CONDUCT.md) • [Security Policy](./SECURITY.md) • [Issue Tracker](https://github.com/loonghao/auroraview/issues)
+<p align="center">
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/codeql.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
+  <a href="https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml/badge.svg?branch=main" alt="Security Audit"></a>
+  <a href="https://github.com/loonghao/auroraview/releases"><img src="https://img.shields.io/github/v/release/loonghao/auroraview?display_name=tag" alt="Latest Release"></a>
+  <a href="https://pre-commit.com/"><img src="https://img.shields.io/badge/pre--commit-enabled-brightgreen.svg" alt="pre-commit"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/loonghao/auroraview/stargazers"><img src="https://img.shields.io/github/stars/loonghao/auroraview?style=social" alt="GitHub Stars"></a>
+  <a href="https://github.com/loonghao/auroraview/releases"><img src="https://img.shields.io/github/downloads/loonghao/auroraview/total" alt="GitHub Downloads"></a>
+  <a href="https://github.com/loonghao/auroraview/commits/main"><img src="https://img.shields.io/github/last-commit/loonghao/auroraview" alt="Last Commit"></a>
+  <a href="https://github.com/loonghao/auroraview/graphs/commit-activity"><img src="https://img.shields.io/github/commit-activity/m/loonghao/auroraview" alt="Commit Activity"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/loonghao/auroraview/issues"><img src="https://img.shields.io/github/issues/loonghao/auroraview" alt="Open Issues"></a>
+  <a href="https://github.com/loonghao/auroraview/pulls"><img src="https://img.shields.io/github/issues-pr/loonghao/auroraview" alt="Open PRs"></a>
+  <a href="https://github.com/loonghao/auroraview/graphs/contributors"><img src="https://img.shields.io/github/contributors/loonghao/auroraview" alt="Contributors"></a>
+  <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/googleapis/release-please"><img src="https://img.shields.io/badge/release--please-enabled-blue" alt="release-please"></a>
+  <a href="./.github/dependabot.yml"><img src="https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot" alt="Dependabot"></a>
+  <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/code%20style-ruff-000000.svg" alt="Code Style: ruff"></a>
+  <a href="http://mypy-lang.org/"><img src="https://img.shields.io/badge/type%20checked-mypy-2A6DB0.svg" alt="Type Checked: mypy"></a>
+</p>
+
+<p align="center">
+  <a href="./CODE_OF_CONDUCT.md">Code of Conduct</a> •
+  <a href="./SECURITY.md">Security Policy</a> •
+  <a href="https://github.com/loonghao/auroraview/issues">Issue Tracker</a>
+</p>
 
 
-A blazingly fast, lightweight WebView framework for DCC (Digital Content Creation) software, built with Rust and Python bindings. Perfect for Maya, 3ds Max, Houdini, Blender, and more.
+A lightweight WebView framework for DCC (Digital Content Creation) software, built with Rust and Python bindings. Perfect for Maya, 3ds Max, Houdini, Blender, and more.
 
 > **⚠️ Development Status**: This project is under active development. APIs may change before v1.0.0 release. The project has not been extensively tested on Linux and macOS platforms.
 
-## [TARGET] Overview
+## Overview
 
 AuroraView provides a modern web-based UI solution for professional DCC applications like Maya, 3ds Max, Houdini, Blender, Photoshop, and Unreal Engine. Built on Rust's Wry library with PyO3 bindings, it offers native performance with minimal overhead.
 
-### Why AuroraView?
+### Key Features
 
-- ** Lightweight**: ~5MB package size vs ~120MB for Electron
-- **[LIGHTNING] Fast**: Native performance with <30MB memory footprint (2.5x faster than PyWebView)
-- **[LINK] Seamless Integration**: Easy Python API for all major DCC tools
-- **[GLOBE] Modern Web Stack**: Use React, Vue, or any web framework
-- **[LOCK] Safe**: Rust's memory safety guarantees
-- **[PACKAGE] Cross-Platform**: Windows, macOS, and Linux support
-- **[TARGET] DCC-First Design**: Built specifically for DCC software, not a generic framework
-- **[SETTINGS] Type-Safe**: Full type checking with Rust + Python
-
-### Comparison with PyWebView
-
-AuroraView is **not** a fork of PyWebView. It's a completely new project designed specifically for DCC software:
-
-| Feature | PyWebView | AuroraView |
-|---------|-----------|------------|
-| **Performance** | Good | Excellent (2.5x faster) |
-| **DCC Integration** | Limited | Native support |
-| **Type Safety** | Dynamic | Static (Rust) |
-| **Memory Usage** | ~100MB | ~50MB |
-| **Event Latency** | ~50ms | ~10ms |
-| **Maya Support** | [WARNING] Unstable | [OK] Full support |
-| **Houdini Support** | [ERROR] Not recommended | [OK] Full support |
-| **Blender Support** | [WARNING] Unstable | [OK] Full support |
-| **Multi-Window** | Basic | [OK] WindowManager + cross-window events |
-| **Storage API** | Basic | [OK] localStorage/sessionStorage/Cookie |
-| **EventEmitter** | ❌ | [OK] Node.js-style on/once/off |
-| **Async/Await** | Limited | [OK] Native Future support |
-| **File Dialogs** | [OK] | [OK] open/save/folder |
-| **WebView2 Warmup** | ❌ | [OK] Pre-init for DCC |
-
-[POINTER] **[Read the full comparison](./docs/COMPARISON_WITH_PYWEBVIEW.md)** to understand why AuroraView is better for DCC development.
+- **Lightweight**: ~5MB package size vs ~120MB for Electron
+- **Fast**: Native Rust performance with minimal memory footprint
+- **Seamless Integration**: Easy Python API for all major DCC tools
+- **Modern Web Stack**: Use React, Vue, or any web framework
+- **Safe**: Rust's memory safety guarantees
+- **Cross-Platform**: Windows, macOS, and Linux support
+- **DCC-First Design**: Built specifically for DCC software integration
+- **Type-Safe**: Full type checking with Rust + Python
 
 [POINTER] **[DCC Integration Guide](./docs/DCC_INTEGRATION.md)** - Learn how to integrate AuroraView into Maya, Houdini, Nuke, and other DCC applications.
 
-## [ARCHITECTURE] Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -124,7 +125,7 @@ AuroraView is **not** a fork of PyWebView. It's a completely new project designe
 - Testing: pytest unit smoke + cargo tests; wheels built in CI for 3 OSes
 
 
-## [FEATURE] Features
+## Features
 
 ### Core Features
 - [OK] **Native WebView Integration**: Uses system WebView (WebView2/WKWebView/WebKitGTK) for minimal footprint
@@ -1026,34 +1027,110 @@ WebViewPool.cleanup()
 
 ### Bidirectional Communication
 
-Both backends support the same event API:
+AuroraView provides a complete bidirectional communication system between Python and JavaScript.
+
+#### Communication API Overview
+
+| Direction | JavaScript API | Python API | Use Case |
+|-----------|---------------|------------|----------|
+| JS → Python | `auroraview.call(method, params)` | `@webview.bind_call` | RPC with return value |
+| JS → Python | `auroraview.send_event(event, data)` | `@webview.on(event)` | Fire-and-forget events |
+| Python → JS | - | `webview.emit(event, data)` | Push notifications |
+| JS only | `auroraview.on(event, handler)` | - | Receive Python events |
+| JS only | `auroraview.trigger(event, data)` | - | Local JS events (not sent to Python) |
+
+> **Important**: `auroraview.trigger()` is for JavaScript-side local events only. To send events to Python, use `auroraview.send_event()`.
+
+#### Python → JavaScript (Push Events)
 
 ```python
-# Python → JavaScript
+# Python side: emit events to JavaScript
 webview.emit("update_data", {"frame": 120, "objects": ["cube", "sphere"]})
-
-# JavaScript → Python
-@webview.on("export_scene")
-def handle_export(data):
-    print(f"Exporting to: {data['path']}")
-    # Your DCC export logic here
-
-# Or register callback directly
-webview.register_callback("export_scene", handle_export)
+webview.emit("selection_changed", {"items": ["mesh1", "mesh2"]})
 ```
 
-**JavaScript side:**
 ```javascript
-// Listen for events from Python
+// JavaScript side: listen for Python events
 window.auroraview.on('update_data', (data) => {
     console.log('Frame:', data.frame);
     console.log('Objects:', data.objects);
 });
 
-// Send events to Python
-window.auroraview.send_event('export_scene', {
-    path: '/path/to/export.fbx'
+window.auroraview.on('selection_changed', (data) => {
+    highlightItems(data.items);
 });
+```
+
+#### JavaScript → Python (Events)
+
+```javascript
+// JavaScript side: send events to Python
+window.auroraview.send_event('export_scene', {
+    path: '/path/to/export.fbx',
+    format: 'fbx'
+});
+
+window.auroraview.send_event('viewport_orbit', { dx: 10, dy: 5 });
+```
+
+```python
+# Python side: register event handlers
+@webview.on("export_scene")
+def handle_export(data):
+    print(f"Exporting to: {data['path']}")
+    # Your DCC export logic here
+
+@webview.on("viewport_orbit")
+def handle_orbit(data):
+    rotate_camera(data['dx'], data['dy'])
+```
+
+#### JavaScript → Python (RPC with Return Value)
+
+For request-response patterns, use `auroraview.call()` with `bind_call`:
+
+```javascript
+// JavaScript side: call Python method and get result
+const hierarchy = await auroraview.call('api.get_hierarchy', { root: 'scene' });
+console.log('Scene hierarchy:', hierarchy);
+
+const result = await auroraview.call('api.rename_object', {
+    old_name: 'cube1',
+    new_name: 'hero_cube'
+});
+if (result.ok) {
+    console.log('Renamed successfully');
+}
+```
+
+```python
+# Python side: bind callable methods
+@webview.bind_call("api.get_hierarchy")
+def get_hierarchy(root=None):
+    # Return value is sent back to JavaScript
+    return {"children": ["group1", "mesh_cube"], "count": 2}
+
+@webview.bind_call("api.rename_object")
+def rename_object(old_name, new_name):
+    # Perform rename in DCC
+    cmds.rename(old_name, new_name)
+    return {"ok": True, "old": old_name, "new": new_name}
+```
+
+#### Common Mistakes
+
+```javascript
+// WRONG: trigger() is JS-local only, won't reach Python
+auroraview.trigger('my_event', data);  // Python won't receive this!
+
+// WRONG: dispatchEvent is browser API, won't reach Python
+window.dispatchEvent(new CustomEvent('my_event', {detail: data}));  // Python won't receive!
+
+// CORRECT: use send_event() for fire-and-forget
+auroraview.send_event('my_event', data);  // Python receives via @webview.on()
+
+// CORRECT: use call() for request-response
+const result = await auroraview.call('api.my_method', data);  // Python receives via @webview.bind_call()
 ```
 
 ### Advanced Features
@@ -1135,22 +1212,15 @@ webview.show()
 
 For detailed guide, see [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEGRATION.md).
 
-## [DOCS] Documentation
+## Documentation
 
-**Start here:**
--  [Architecture](./docs/ARCHITECTURE.md) - **NEW!** Modular backend architecture
--  [Project Summary](./docs/SUMMARY.md) - Overview and key advantages
--  [Current Status](./docs/CURRENT_STATUS.md) - What's done and what's next
+-  [Architecture](./docs/ARCHITECTURE.md) - Modular backend architecture
+-  [Technical Design](./docs/TECHNICAL_DESIGN.md) - Technical implementation details
+-  [DCC Integration Guide](./docs/DCC_INTEGRATION_GUIDE.md) - Integration with DCC applications
+-  [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEGRATION.md) - JavaScript injection and AI chat integration
+-  [Project Roadmap](./docs/ROADMAP.md) - Future plans and development
 
-**Detailed Guides:**
--  [Technical Design](./docs/TECHNICAL_DESIGN.md)
--  [DCC Integration Guide](./docs/DCC_INTEGRATION_GUIDE.md)
--  [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEGRATION.md) - **NEW!** JavaScript injection and AI chat integration
--  [Project Advantages](./docs/PROJECT_ADVANTAGES.md) - Why AuroraView is better than PyWebView
--  [Comparison with PyWebView](./docs/COMPARISON_WITH_PYWEBVIEW.md)
--  [Project Roadmap](./docs/ROADMAP.md)
-
-##  DCC Software Support
+## DCC Software Support
 
 | DCC Software | Status | Python Version | Example |
 |--------------|--------|----------------|---------|
@@ -1163,7 +1233,7 @@ For detailed guide, see [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEG
 
 > **📚 Examples**: For a complete working example, check out the [Maya Outliner Example](https://github.com/loonghao/auroraview-maya-outliner) - a modern, web-based Maya Outliner built with AuroraView, Vue 3, and TypeScript.
 
-## [TOOLS] Development
+## Development
 
 ### Prerequisites
 
@@ -1195,7 +1265,7 @@ cargo test
 pytest tests/
 ```
 
-## [PACKAGE] Project Structure
+## Project Structure
 
 ```
 auroraview/
@@ -1206,7 +1276,7 @@ auroraview/
 └── benches/                # Performance benchmarks
 ```
 
-## [TEST_TUBE] Testing
+## Testing
 
 AuroraView has comprehensive test coverage for both Qt and non-Qt environments.
 
@@ -1297,21 +1367,21 @@ uvx nox -s format          # Format code
 uvx nox -s coverage        # Generate coverage report
 ```
 
-## [HANDSHAKE] Contributing
+## Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](./CONTRIBUTING.md) for details.
 
-## [DOCUMENT] License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
-## [THANKS] Acknowledgments
+## Acknowledgments
 
 - [Wry](https://github.com/tauri-apps/wry) - Cross-platform WebView library
 - [PyO3](https://github.com/PyO3/pyo3) - Rust bindings for Python
 - [Tauri](https://tauri.app/) - Inspiration and ecosystem
 
-## [MAILBOX] Contact
+## Contact
 
 - Author: Hal Long
 - Email: hal.long@outlook.com

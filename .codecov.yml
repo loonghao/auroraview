@@ -49,10 +49,31 @@ flags:
       - python/
     carryforward: true  # Carry forward if missing
 
-  # Rust coverage
+  # Rust coverage (main crate)
   rust:
     paths:
       - src/
+    carryforward: true
+
+  # Rust crates coverage
+  rust-core:
+    paths:
+      - crates/auroraview-core/
+    carryforward: true
+
+  rust-pack:
+    paths:
+      - crates/auroraview-pack/
+    carryforward: true
+
+  rust-cli:
+    paths:
+      - crates/auroraview-cli/
+    carryforward: true
+
+  rust-plugins:
+    paths:
+      - crates/auroraview-plugins/
     carryforward: true
 
   # Unit tests
@@ -78,21 +99,50 @@ component_management:
       flag_regexes:
         - python
 
-    # Rust components
-    - component_id: rust_core
-      name: Rust Core
+    - component_id: python_qt
+      name: Python Qt Integration
+      paths:
+        - python/auroraview/integration/qt/*.py
+      flag_regexes:
+        - python
+        - qt
+
+    # Rust main crate
+    - component_id: rust_main
+      name: Rust Main
       paths:
         - src/**/*.rs
       flag_regexes:
         - rust
 
-    # Qt integration
-    - component_id: qt_integration
-      name: Qt Integration
+    # Rust crates
+    - component_id: rust_core
+      name: AuroraView Core
       paths:
-        - python/auroraview/qt_integration.py
+        - crates/auroraview-core/**/*.rs
       flag_regexes:
-        - qt
+        - rust-core
+
+    - component_id: rust_pack
+      name: AuroraView Pack
+      paths:
+        - crates/auroraview-pack/**/*.rs
+      flag_regexes:
+        - rust-pack
+
+    - component_id: rust_cli
+      name: AuroraView CLI
+      paths:
+        - crates/auroraview-cli/**/*.rs
+      flag_regexes:
+        - rust-cli
+
+    - component_id: rust_plugins
+      name: AuroraView Plugins
+      paths:
+        - crates/auroraview-plugins/**/*.rs
+      flag_regexes:
+        - rust-plugins
 
 # Ignore paths (for project coverage calculation only, not patch coverage)
 ignore:
@@ -107,6 +157,7 @@ ignore:
   - "scripts/"
   - "python/auroraview/_version.py"  # Auto-generated
   - "**/mod.rs"  # Rust module definition files (no logic to test)
+  - "**/templates/"  # Template files
 
 # GitHub checks
 github_checks:

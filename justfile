@@ -263,6 +263,36 @@ coverage-rust:
 	@echo "Running Rust tests with coverage (preferring cargo-llvm-cov) in headless mode..."
 	if (Get-Command py -ErrorAction SilentlyContinue) { $pyBase = py -c "import sys; print(sys.base_prefix)" } else { $pyBase = python -c "import sys; print(sys.base_prefix)" }; $env:Path = "$pyBase;$pyBase\DLLs;$pyBase\bin;$env:Path"; if (Get-Command cargo-llvm-cov -ErrorAction SilentlyContinue) { $ignore = "(src[/\\]webview[/\\](aurora_view\\.rs|embedded\\.rs|standalone\\.rs|protocol\\.rs|timer_bindings\\.rs|webview_inner\\.rs|backend[/\\].*|platform[/\\].*)|src[/\\]service_discovery[/\\]mdns_service\\.rs)"; if ($env:CI -eq "true") { rustup component add llvm-tools-preview; cargo llvm-cov --workspace --html --tests --no-default-features --features "python-bindings threaded-ipc test-helpers" --ignore-filename-regex $ignore --fail-under-lines 50 } else { cargo llvm-cov --workspace --html --tests --no-default-features --features "python-bindings threaded-ipc test-helpers" --ignore-filename-regex $ignore; $json = cargo llvm-cov --summary-only --json --workspace --tests --no-default-features --features "python-bindings threaded-ipc test-helpers" --ignore-filename-regex $ignore | Out-String | ConvertFrom-Json; $covered = [double]$json.data[0].totals.lines.covered; $count = [double]$json.data[0].totals.lines.count; if ($count -gt 0) { $lines = [math]::Round((100.0 * $covered / $count), 2) } else { $lines = 0 }; if ($lines -ge 50) { echo ("[OK] Rust coverage lines: {0}% (>=50) report: target/llvm-cov/html/index.html" -f $lines) } else { echo ("[WARN] Rust coverage lines: {0}% (<50)" -f $lines) } } } elseif (Get-Command cargo-tarpaulin -ErrorAction SilentlyContinue) { cargo tarpaulin --no-default-features --features "python-bindings threaded-ipc test-helpers" --out Html --out Xml --output-dir target/tarpaulin; if ($LASTEXITCODE -eq 0) { echo "[OK] Rust coverage report: target/tarpaulin/tarpaulin-report.html" } else { echo "[WARN] cargo-tarpaulin exited with code $LASTEXITCODE" } } else { echo "[INFO] No Rust coverage tool found."; echo "      Install recommended: cargo install cargo-llvm-cov"; echo "      Also run: rustup component add llvm-tools-preview" }
 
+# Run coverage for individual crates
+coverage-crate CRATE:
+    @echo "Running coverage for crate: {{CRATE}}..."
+    cargo llvm-cov --package {{CRATE}} --html --tests --output-dir target/llvm-cov/{{CRATE}}
+    @echo "[OK] Coverage report: target/llvm-cov/{{CRATE}}/html/index.html"
+
+# Run coverage for auroraview-core crate
+coverage-core:
+    @echo "Running coverage for auroraview-core..."
+    cargo llvm-cov --package auroraview-core --html --tests --output-dir target/llvm-cov/auroraview-core
+    @echo "[OK] Coverage report: target/llvm-cov/auroraview-core/html/index.html"
+
+# Run coverage for auroraview-pack crate
+coverage-pack:
+    @echo "Running coverage for auroraview-pack..."
+    cargo llvm-cov --package auroraview-pack --html --tests --output-dir target/llvm-cov/auroraview-pack
+    @echo "[OK] Coverage report: target/llvm-cov/auroraview-pack/html/index.html"
+
+# Run coverage for auroraview-cli crate
+coverage-cli:
+    @echo "Running coverage for auroraview-cli..."
+    cargo llvm-cov --package auroraview-cli --html --tests --output-dir target/llvm-cov/auroraview-cli
+    @echo "[OK] Coverage report: target/llvm-cov/auroraview-cli/html/index.html"
+
+# Run coverage for all crates with lcov output (for CI)
+coverage-rust-lcov:
+    @echo "Running Rust coverage with lcov output..."
+    cargo llvm-cov --workspace --lcov --output-path rust-coverage.lcov --tests --no-default-features --features "python-bindings threaded-ipc test-helpers"
+    @echo "[OK] Coverage report: rust-coverage.lcov"
+
 coverage-all: coverage-rust coverage-python
     @echo "All coverage reports generated!"
 
