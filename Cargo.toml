@@ -144,7 +144,7 @@ opt-level = 0
 default = ["threaded-ipc", "wry-backend", "templates", "url-utils"]
 
 # Python bindings (for Python wheel)
-python-bindings = ["pyo3"]
+python-bindings = ["pyo3", "url-utils"]
 
 # Enable PyO3 auto-initialize in test builds
 test-helpers = ["pyo3/auto-initialize"]
@@ -232,4 +232,8 @@ path = "tests/rust/mdns_integration_tests.rs"
 name = "http_discovery_integration"
 path = "tests/rust/http_discovery_integration_tests.rs"
 
+# Benchmarks
+[[bench]]
+name = "ipc_bench"
+harness = false
 

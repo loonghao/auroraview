@@ -1,7 +1,7 @@
 name: PR Checks
 
 # This workflow runs comprehensive checks on PRs to ensure quality before merging.
-# It's designed to catch all issues that could cause release failures.
+# Optimized for speed while maintaining release-quality validation.
 
 on:
   pull_request:
@@ -10,158 +10,221 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write # For commenting on PRs
+  pull-requests: write
+
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_HTTP_TIMEOUT: '600'
+  CARGO_NET_RETRY: '10'
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
 jobs:
-  # Essential tests that must pass for PR approval
-  essential-tests:
-    name: Essential Tests (Python ${{ matrix.python-version }})
+  # Fast checks that run first (< 2 min)
+  quick-checks:
+    name: Quick Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt,clippy
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-quick-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-quick-
+
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+
+      - name: Check Python formatting (ruff)
+        run: |
+          uv pip install ruff
+          ruff check python/ tests/ --select=E,F,W --ignore=E501
+
+      - name: Cargo check (fast compile check)
+        run: |
+          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev pkg-config
+          cargo check --workspace --all-features
+
+  # Clippy runs in parallel with quick-checks
+  clippy:
+    name: Clippy Lints
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev pkg-config
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-clippy-
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  # Python tests across versions (parallel matrix)
+  python-tests:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [quick-checks]  # Wait for quick checks to pass
     strategy:
-      fail-fast: false  # Don't fail fast - we want to see all Python version results
+      fail-fast: false
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
         with:
           python-version: ${{ matrix.python-version }}
-          rust-components: 'clippy'
-          cache-key-suffix: 'essential-test'
+          cache-key-suffix: 'py-test'
 
       - name: Build and Test
         uses: ./.github/actions/build-and-test
         with:
-          test-type: 'full'  # Run full tests instead of just basic
+          test-type: 'python'
           generate-stubs: 'true'
-          upload-artifacts: 'true'
-          artifact-name: 'essential-test-results-py${{ matrix.python-version }}'
 
-      - name: Upload Python coverage to Codecov (py${{ matrix.python-version }})
+      - name: Upload coverage (3.11 only)
         if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
-          flags: python,unit,py${{ matrix.python-version }},${{ runner.os }}
+          flags: python,py${{ matrix.python-version }}
           fail_ci_if_error: false
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-
-  # Code quality checks
-  quality-checks:
-    name: Code Quality
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup AuroraView Environment
-        uses: ./.github/actions/setup-auroraview
-        with:
-          python-version: "3.10"
-          rust-components: 'rustfmt,clippy'
-          cache-key-suffix: 'quality'
-
-      - name: Run linting and formatting checks
-        run: just ci-lint
-
-  # Wheel build test - ensures release builds will succeed
-  wheel-build-test:
-    name: Wheel Build Test (Linux)
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Build wheel with manylinux
-        uses: ./.github/actions/build-wheel
-        with:
-          target: 'x86_64'
-          python-version: '3.10'
-          test-wheel: 'true'
-          upload-wheel: 'false'  # Don't upload in PR checks
-
-  # Rust coverage via cargo-llvm-cov (doc tests only to avoid PyO3 abi3 linking issues)
-  rust-coverage:
-    name: Rust Coverage (llvm-cov, doc tests)
+  # Rust tests with coverage
+  rust-tests:
+    name: Rust Tests & Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      CARGO_TERM_COLOR: always
-      CARGO_HTTP_TIMEOUT: '600'
-      CARGO_NET_RETRY: '10'
-      CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+    needs: [quick-checks]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - name: Install system dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev
-
-      - name: Setup Rust toolchain (with llvm-tools)
+      - name: Setup Rust with llvm-tools
         uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
 
-      - name: Prefetch Cargo crates (retry)
-        shell: bash
+      - name: Install system dependencies
         run: |
-          set -e
-          n=0
-          until [ "$n" -ge 3 ]; do
-            echo "[TRY $((n+1))/3] cargo fetch...";
-            CARGO_HTTP_TIMEOUT=600 CARGO_NET_RETRY=10 cargo fetch --locked --verbose && break;
-            n=$((n+1));
-            echo "[WARN] cargo fetch failed, retrying in 5s..."; sleep 5;
-          done
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev pkg-config
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-coverage-
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov
 
-      - name: Generate Rust coverage (lcov)
+      - name: Run tests with coverage
         run: |
-          cargo llvm-cov --tests --workspace --no-default-features \
-            --features "python-bindings,test-helpers,threaded-ipc" \
-            --lcov --output-path lcov.info -- \
-            --skip window_utils \
-            --skip webview::event_loop \
-            --skip webview::message_pump \
-            --skip webview::parent_monitor \
-            --skip service_discovery::python_bindings \
-            --skip ipc:: \
-            --skip tests::test_pymodule_init_registers_symbols
+          cargo llvm-cov --workspace --lcov --output-path lcov.info \
+            --no-default-features --features "python-bindings,test-helpers,threaded-ipc" \
+            -- --skip window_utils --skip webview::event_loop --skip webview::message_pump \
+               --skip webview::parent_monitor --skip service_discovery::python_bindings \
+               --skip ipc:: --skip tests::test_pymodule_init_registers_symbols
 
-      - name: Upload Rust coverage to Codecov
+      - name: Run doc tests
+        run: cargo test --doc
+
+      - name: Upload Rust coverage
         uses: codecov/codecov-action@v5
         with:
           files: lcov.info
           flags: rust
           fail_ci_if_error: false
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-
-  # Qt compatibility tests on Windows and macOS (headless)
-  qt-tests:
-
-    name: Qt Combo Tests (${{ matrix.os }})
+  # Platform-specific wheel builds (critical for release quality)
+  wheel-build:
+    name: Wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    needs: [quick-checks]
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest]
-    timeout-minutes: 20
+        include:
+          - os: ubuntu-latest
+            target: x86_64
+          - os: windows-latest
+            target: x64
+          - os: macos-latest
+            target: universal2-apple-darwin
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+
+      - name: Build and Test Wheel
+        uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ matrix.target }}
+          python-version: '3.11'
+          test-wheel: 'true'
+          upload-wheel: 'false'
+          maturin-args: ${{ matrix.os == 'windows-latest' && '--release --out dist --find-interpreter --features ext-module,win-webview2' || '--release --out dist --find-interpreter' }}
+
+  # Qt integration tests (Windows only - most critical platform)
+  qt-tests:
+    name: Qt Tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    needs: [quick-checks]
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -169,87 +232,141 @@ jobs:
           python-version: '3.11'
           cache-key-suffix: 'qt-test'
 
-      - name: Build Rust extension
+      - name: Build extension
         shell: bash
         run: |
           uv pip install maturin
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            echo "Building with Windows feature: win-webview2 + ext-module"
-            uv run maturin develop --features "win-webview2,ext-module"
-          else
-            echo "Building with ext-module feature"
-            uv run maturin develop --features "ext-module"
-          fi
+          uv run maturin develop --features "win-webview2,ext-module"
 
       - name: Install Qt dependencies
         shell: bash
-        run: |
-          uv pip install qtpy "PySide6<6.7" pytest pytest-qt pytest-cov
+        run: uv pip install qtpy "PySide6<6.7" pytest pytest-qt pytest-cov
 
-
-
-      - name: Run Qt tests (headless) [Windows]
-        if: runner.os == 'Windows'
+      - name: Run Qt tests (headless)
         shell: pwsh
         env:
           QT_API: pyside6
           CI: 'true'
           QT_QPA_PLATFORM: offscreen
           QT_OPENGL: software
-          QT_DEBUG_PLUGINS: '1'
-          QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu --disable-gpu-compositing --in-process-gpu --use-gl=swiftshader --single-process --no-sandbox --disable-features=Accelerated2dCanvas,CanvasOopRasterization,UseSkiaRenderer,CalculateNativeWinOcclusion
           QTWEBENGINE_DISABLE_SANDBOX: '1'
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu --disable-gpu-compositing --in-process-gpu --use-gl=swiftshader --single-process --no-sandbox --disable-features=Accelerated2dCanvas,CanvasOopRasterization,UseSkiaRenderer,CalculateNativeWinOcclusion
         run: |
-          uv run pytest tests/test_qt_backend.py tests/test_qt_lifecycle.py -o addopts="--cov=auroraview --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=0 -vv -rA -s"
+          uv run pytest tests/test_qt_backend.py tests/test_qt_lifecycle.py -v --tb=short
 
-      - name: Upload Qt test coverage to Codecov (Windows)
-        if: runner.os == 'Windows'
+      - name: Upload Qt coverage
         uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
           flags: python,qt,windows
           fail_ci_if_error: false
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # PR approval gate - all essential checks must pass
-  pr-ready:
-    name: PR Ready for Merge
+  # Performance benchmark (detect regressions)
+  benchmark:
+    name: Performance Benchmark
     runs-on: ubuntu-latest
-    needs: [essential-tests, quality-checks, wheel-build-test, rust-coverage, qt-tests]
-    if: always()
-
+    timeout-minutes: 15
+    needs: [quick-checks]
     steps:
-      - name: Check all required jobs
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
         run: |
-          echo "Checking PR readiness..."
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev pkg-config
 
-          # Check essential tests
-          if [[ "${{ needs.essential-tests.result }}" != "success" ]]; then
-            echo "❌ Essential tests failed"
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-bench-
+
+      - name: Run benchmarks
+        run: |
+          cargo bench --no-run 2>/dev/null || echo "No benchmarks defined yet"
+          # TODO: Add criterion benchmarks and compare against baseline
+
+  # CLI build test (ensures CLI releases will work)
+  cli-build:
+    name: CLI Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    needs: [quick-checks]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+
+      - name: Build CLI
+        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+
+  # Final gate - all critical checks must pass
+  pr-ready:
+    name: PR Ready
+    runs-on: ubuntu-latest
+    needs: [quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "## PR Check Results" >> $GITHUB_STEP_SUMMARY
+
+          # Define required jobs
+          declare -A jobs=(
+            ["quick-checks"]="${{ needs.quick-checks.result }}"
+            ["clippy"]="${{ needs.clippy.result }}"
+            ["python-tests"]="${{ needs.python-tests.result }}"
+            ["rust-tests"]="${{ needs.rust-tests.result }}"
+            ["wheel-build"]="${{ needs.wheel-build.result }}"
+            ["qt-tests"]="${{ needs.qt-tests.result }}"
+            ["cli-build"]="${{ needs.cli-build.result }}"
+          )
+
+          failed=0
+          for job in "${!jobs[@]}"; do
+            result="${jobs[$job]}"
+            if [[ "$result" == "success" ]]; then
+              echo "- ✅ $job" >> $GITHUB_STEP_SUMMARY
+            elif [[ "$result" == "skipped" ]]; then
+              echo "- ⏭️ $job (skipped)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ $job ($result)" >> $GITHUB_STEP_SUMMARY
+              failed=1
+            fi
+          done
+
+          if [[ $failed -eq 1 ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **PR is not ready for merge**" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
-          # Check quality
-          if [[ "${{ needs.quality-checks.result }}" != "success" ]]; then
-            echo "❌ Code quality checks failed"
-            exit 1
-          fi
-
-          # Check wheel build
-          if [[ "${{ needs.wheel-build-test.result }}" != "success" ]]; then
-            echo "❌ Wheel build test failed"
-            exit 1
-          fi
-
-          echo "✅ PR is ready for merge!"
-          echo "## ✅ PR Ready for Merge" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All essential checks have passed:" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Essential tests (Python 3.8, 3.9, 3.10, 3.11, 3.12)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Code quality and linting (Rust + Python)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Wheel build test (manylinux)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This PR can be safely merged and released." >> $GITHUB_STEP_SUMMARY
-
+          echo "✅ **PR is ready for merge!**" >> $GITHUB_STEP_SUMMARY

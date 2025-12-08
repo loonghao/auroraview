@@ -25,6 +25,7 @@ pub mod bom; // Browser Object Model APIs (navigation, zoom, window control)
 pub mod cli; // CLI utilities (URL normalization, HTML rewriting)
 pub mod config;
 pub mod dom; // DOM manipulation primitives (DomOp, DomBatch)
+pub mod icon; // Icon utilities (PNG loading, ICO conversion, compression)
 pub mod id_generator;
 pub mod ipc; // IPC abstractions (message, metrics) - platform-agnostic
 pub mod json;
