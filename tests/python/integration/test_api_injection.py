@@ -6,6 +6,16 @@ which handles JavaScript injection via js_assets module.
 
 from __future__ import annotations
 
+import os
+
+import pytest
+
+# Skip UI tests in CI - these require WebView runtime
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="WebView creation requires display environment, skipped in CI"
+)
+
 
 class TestAPIInjection:
     """Test that bind_api registers methods with Rust core."""
@@ -17,7 +27,7 @@ class TestAPIInjection:
         registered with the Rust core, which will inject them into
         JavaScript via the js_assets module.
         """
-        from auroraview.webview import WebView
+        from auroraview import WebView
 
         # Create a simple API class
         class TestAPI:
@@ -43,7 +53,7 @@ class TestAPIInjection:
 
     def test_bind_api_with_custom_namespace(self) -> None:
         """Verify that bind_api works with custom namespace."""
-        from auroraview.webview import WebView
+        from auroraview import WebView
 
         class CustomAPI:
             def custom_method(self) -> str:
@@ -59,7 +69,7 @@ class TestAPIInjection:
 
     def test_bind_api_filters_private_methods(self) -> None:
         """Verify that bind_api only exposes public methods."""
-        from auroraview.webview import WebView
+        from auroraview import WebView
 
         class APIWithPrivate:
             def public_method(self) -> str:
@@ -84,7 +94,7 @@ class TestAPIInjection:
 
     def test_bind_api_multiple_namespaces(self) -> None:
         """Verify that bind_api can register multiple namespaces."""
-        from auroraview.webview import WebView
+        from auroraview import WebView
 
         class API1:
             def method1(self) -> str:
