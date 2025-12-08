@@ -224,12 +224,18 @@ runs:
           exit 0
         fi
 
-        # Test CLI entry point (--help should work without GUI)
-        echo "Testing CLI entry point..."
-        if python -m auroraview --help 2>/dev/null; then
-          echo "[OK] CLI --help test passed"
+        # Test CLI entry point executable (installed via pip)
+        # This tests the actual 'auroraview' command created by setuptools entry_points
+        echo "Testing CLI entry point executable..."
+        if auroraview --help; then
+          echo "[OK] CLI executable --help test passed"
         else
-          echo "[WARNING] CLI --help test failed (may require GUI dependencies)"
+          echo "[WARNING] CLI executable not found or failed, trying python -m fallback..."
+          if python -m auroraview --help; then
+            echo "[OK] CLI python -m fallback test passed"
+          else
+            echo "[WARNING] CLI --help test failed (may require GUI dependencies)"
+          fi
         fi
 
         echo "[OK] All wheel tests passed!"
