@@ -93,22 +93,20 @@ runs:
           "rust")
             echo "Running Rust tests with coverage..."
             echo "  -> Rust integration tests with coverage..."
-            # Exclude ipc_batch_integration_tests which requires Python bindings
+            # Exclude ipc_batch_integration which requires Python bindings
             cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
-              --test config_integration_tests \
-              --test file_protocol_integration_tests \
-              --test http_discovery_integration_tests \
-              --test ipc_json_integration_tests \
-              --test ipc_message_queue_integration_tests \
-              --test lifecycle_integration_tests \
-              --test mdns_integration_tests \
-              --test parent_monitor_integration_tests \
-              --test port_allocator_integration_tests \
-              --test protocol_handlers_integration_tests \
-              --test protocol_integration_tests \
-              --test standalone_integration_tests \
-              --test timer_integration_tests \
-              --test window_utils_integration_tests
+              --test config_integration \
+              --test file_protocol_integration \
+              --test http_discovery_integration \
+              --test ipc_json_integration \
+              --test ipc_message_queue_integration \
+              --test lifecycle_integration \
+              --test mdns_integration \
+              --test port_allocator_integration \
+              --test protocol_handlers_integration \
+              --test protocol_integration \
+              --test standalone_integration \
+              --test timer_integration
             echo "  -> Rust doc tests..."
             cargo test --doc
             ;;
@@ -119,22 +117,20 @@ runs:
           "full")
             echo "Running comprehensive test suite..."
             echo "  -> Rust integration tests with coverage..."
-            # Exclude ipc_batch_integration_tests which requires Python bindings
+            # Exclude ipc_batch_integration which requires Python bindings
             cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
-              --test config_integration_tests \
-              --test file_protocol_integration_tests \
-              --test http_discovery_integration_tests \
-              --test ipc_json_integration_tests \
-              --test ipc_message_queue_integration_tests \
-              --test lifecycle_integration_tests \
-              --test mdns_integration_tests \
-              --test parent_monitor_integration_tests \
-              --test port_allocator_integration_tests \
-              --test protocol_handlers_integration_tests \
-              --test protocol_integration_tests \
-              --test standalone_integration_tests \
-              --test timer_integration_tests \
-              --test window_utils_integration_tests
+              --test config_integration \
+              --test file_protocol_integration \
+              --test http_discovery_integration \
+              --test ipc_json_integration \
+              --test ipc_message_queue_integration \
+              --test lifecycle_integration \
+              --test mdns_integration \
+              --test port_allocator_integration \
+              --test protocol_handlers_integration \
+              --test protocol_integration \
+              --test standalone_integration \
+              --test timer_integration
             echo "  -> Rust doc tests..."
             cargo test --doc
             echo "  -> Python unit tests..."
