@@ -97,6 +97,18 @@ runs:
         sudo apt-get update
         sudo apt-get install -y xvfb
 
+    - name: Install Playwright browsers for cross-platform testing
+      shell: bash
+      run: |
+        # Install playwright and browsers for cross-platform UI testing
+        # This allows PlaywrightBrowser tests to run on all platforms
+        if uv pip show playwright > /dev/null 2>&1; then
+          echo "Installing Playwright Chromium browser..."
+          uv run playwright install chromium --with-deps
+        else
+          echo "Playwright not installed, skipping browser installation"
+        fi
+
     - name: Run tests
       id: test
       shell: bash
