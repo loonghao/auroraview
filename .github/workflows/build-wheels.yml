@@ -1,4 +1,4 @@
-name: Build Wheels (abi3)
+name: Build Wheels
 
 on:
   push:
@@ -28,7 +28,11 @@ permissions:
   actions: write # Required for uploading artifacts
 
 jobs:
-  # Linux builds
+  # ============================================================================
+  # ABI3 builds (Python 3.8+) - Single wheel works for all Python 3.8+ versions
+  # ============================================================================
+
+  # Linux builds (abi3)
   linux:
     runs-on: ubuntu-latest
     strategy:
@@ -46,7 +50,7 @@ jobs:
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-linux-${{ matrix.target }}'
 
-  # Windows builds
+  # Windows builds (abi3)
   windows:
     runs-on: windows-latest
     strategy:
@@ -65,7 +69,7 @@ jobs:
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-windows-${{ matrix.target }}'
 
-  # macOS builds
+  # macOS builds (abi3)
   macos:
     runs-on: macos-latest
     strategy:
@@ -86,4 +90,68 @@ jobs:
           maturin-args: '--release --out dist --sdist --find-interpreter'
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-macos-${{ matrix.target }}'
+
+  # ============================================================================
+  # Python 3.7 builds (non-abi3) - Separate wheel for each platform
+  # ============================================================================
+
+  # Linux Python 3.7 build
+  linux-py37:
+    runs-on: ubuntu-22.04  # Use older Ubuntu for Python 3.7 compatibility
+    strategy:
+      matrix:
+        target: [x86_64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Python 3.7 Wheel
+        uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ matrix.target }}
+          python-version: '3.7'
+          # Non-abi3 build: use python-bindings without abi3 feature
+          maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
+          test-wheel: ${{ inputs.test-wheel }}
+          artifact-name: 'wheels-linux-${{ matrix.target }}-py37'
+
+  # Windows Python 3.7 build
+  windows-py37:
+    runs-on: windows-2019  # Use older Windows for Python 3.7 compatibility
+    strategy:
+      matrix:
+        target: [x64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Python 3.7 Wheel
+        uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ matrix.target }}
+          python-version: '3.7'
+          # Non-abi3 build: use python-bindings without abi3 feature
+          maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2'
+          test-wheel: ${{ inputs.test-wheel }}
+          artifact-name: 'wheels-windows-${{ matrix.target }}-py37'
+
+  # macOS Python 3.7 build
+  macos-py37:
+    runs-on: macos-13  # Use x86_64 runner for Python 3.7 (no ARM64 Python 3.7)
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Python 3.7 Wheel
+        uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ matrix.target }}
+          python-version: '3.7'
+          # Non-abi3 build: use python-bindings without abi3 feature
+          maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
+          test-wheel: ${{ inputs.test-wheel }}
+          artifact-name: 'wheels-macos-${{ matrix.target }}-py37'
 
