@@ -42,9 +42,11 @@ runs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
+        # Allow pre-release versions for older Python (3.7)
+        allow-prereleases: false
 
     - name: Install uv
-      if: inputs.test-wheel == 'true'
+      if: inputs.test-wheel == 'true' && inputs.python-version != '3.7'
       uses: astral-sh/setup-uv@v6
       with:
         python-version: ${{ inputs.python-version }}
@@ -79,8 +81,9 @@ runs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-${{ inputs.target || 'default' }}-cargo-wheel-${{ hashFiles('Cargo.lock') }}
+        key: ${{ runner.os }}-${{ inputs.target || 'default' }}-py${{ inputs.python-version }}-cargo-wheel-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
+          ${{ runner.os }}-${{ inputs.target || 'default' }}-py${{ inputs.python-version }}-cargo-wheel-
           ${{ runner.os }}-${{ inputs.target || 'default' }}-cargo-wheel-
           ${{ runner.os }}-cargo-
 
