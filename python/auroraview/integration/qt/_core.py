@@ -1275,7 +1275,9 @@ class QtWebView(FileDialogMixin, QWidget):
         # Use direct embedding via platform backend
         success = embed_window_directly(webview_hwnd, parent_hwnd, width, height)
         if not success:
-            logger.warning("[QtWebView] Direct embedding failed, falling back to createWindowContainer")
+            logger.warning(
+                "[QtWebView] Direct embedding failed, falling back to createWindowContainer"
+            )
             self._create_container_qt(webview_hwnd)
             return
 
@@ -1419,6 +1421,7 @@ class QtWebView(FileDialogMixin, QWidget):
         if sys.platform == "win32":
             try:
                 import auroraview
+
                 fix_fn = getattr(auroraview, "fix_webview2_child_windows", None)
                 if callable(fix_fn):
                     fix_fn(webview_hwnd)
@@ -1431,9 +1434,7 @@ class QtWebView(FileDialogMixin, QWidget):
                     logger.debug(f"[QtWebView] fix_webview2_child_windows failed: {e}")
 
         if _VERBOSE_LOGGING:
-            logger.debug(
-                "[QtWebView] Container created successfully for HWND=0x%X", webview_hwnd
-            )
+            logger.debug("[QtWebView] Container created successfully for HWND=0x%X", webview_hwnd)
 
     def resizeEvent(self, event) -> None:  # type: ignore[override]
         """Handle Qt widget resize.
@@ -1506,10 +1507,14 @@ class QtWebView(FileDialogMixin, QWidget):
                 height = container_size.height()
 
             if width <= 0 or height <= 0:
-                logger.debug(f"[QtWebView] _sync_webview2_controller_bounds: invalid size {width}x{height}")
+                logger.debug(
+                    f"[QtWebView] _sync_webview2_controller_bounds: invalid size {width}x{height}"
+                )
                 return
 
-            logger.info(f"[QtWebView] _sync_webview2_controller_bounds: syncing to {width}x{height}")
+            logger.info(
+                f"[QtWebView] _sync_webview2_controller_bounds: syncing to {width}x{height}"
+            )
 
             # Try to sync WebView2 controller bounds via Rust API
             core = getattr(self._webview, "_core", None)
@@ -1519,19 +1524,23 @@ class QtWebView(FileDialogMixin, QWidget):
                 if callable(sync_bounds):
                     try:
                         sync_bounds(width, height)
-                        logger.info(f"[QtWebView] sync_bounds({width}, {height}) called successfully")
+                        logger.info(
+                            f"[QtWebView] sync_bounds({width}, {height}) called successfully"
+                        )
                         return
                     except Exception as e:
                         logger.warning(f"[QtWebView] sync_bounds failed: {e}")
                 else:
                     logger.warning("[QtWebView] sync_bounds not available on core")
-                
+
                 # Fallback to set_size (also calls sync_webview_bounds internally now)
                 set_size = getattr(core, "set_size", None)
                 if callable(set_size):
                     try:
                         set_size(width, height)
-                        logger.info(f"[QtWebView] Synced WebView2 bounds via set_size: {width}x{height}")
+                        logger.info(
+                            f"[QtWebView] Synced WebView2 bounds via set_size: {width}x{height}"
+                        )
                     except Exception as e:
                         logger.warning(f"[QtWebView] set_size failed: {e}")
             else:
@@ -1701,6 +1710,7 @@ class QtWebView(FileDialogMixin, QWidget):
         # the container immediately when the HWND is created in Rust.
         setup_via_callback = False
         if hasattr(core, "set_on_hwnd_created"):
+
             def on_hwnd_created(hwnd):
                 if _VERBOSE_LOGGING:
                     logger.debug(f"[QtWebView] Rust callback: HWND created 0x{hwnd:X}")
@@ -1762,7 +1772,7 @@ class QtWebView(FileDialogMixin, QWidget):
         # If setup_via_callback is True, it was already called inside show_embedded()
         if not setup_via_callback:
             self._create_webview_container(core)
-        
+
         QApplication.processEvents()
 
         # Step 4: Ensure WebView is visible after container creation

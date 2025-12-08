@@ -5,7 +5,7 @@ that are needed to embed WebView windows into Qt containers.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Tuple
+from typing import Any
 
 
 class PlatformBackend(ABC):

@@ -264,9 +264,7 @@ def supports_direct_embedding() -> bool:
     return get_backend().supports_direct_embedding()
 
 
-def embed_window_directly(
-    child_hwnd: int, parent_hwnd: int, width: int, height: int
-) -> bool:
+def embed_window_directly(child_hwnd: int, parent_hwnd: int, width: int, height: int) -> bool:
     """Embed a native window directly into a parent window without createWindowContainer.
 
     This is an alternative to Qt's createWindowContainer that uses platform-native

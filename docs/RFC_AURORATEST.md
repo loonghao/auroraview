@@ -1,8 +1,11 @@
-# RFC: Playwright-like Testing Framework for AuroraView
+# RFC: AuroraTest - Playwright-like Testing Framework for AuroraView
 
 ## 概述
 
 为AuroraView添加类似Playwright的自动化测试能力，支持CI/CD环境下的无头测试。
+
+**包名**: `auroratest` (内部模块: `auroraview.testing.auroratest`)
+**未来独立PyPI包**: `auroraview-test`
 
 ## 背景
 
@@ -123,7 +126,7 @@ class CDPSession:
 ### 核心类
 
 ```python
-from auroraview.testing import Page, Browser, expect
+from auroraview.testing.auroratest import Browser, Page, Locator, expect
 
 class Browser:
     """浏览器实例，管理多个Page。"""
@@ -305,12 +308,11 @@ class Locator:
 
 
 # === 断言 ===
-class expect:
+def expect(target: Locator | Page) -> LocatorAssertions | PageAssertions:
     """Playwright风格的断言。"""
-    
-    def __init__(self, locator: Locator):
-        self.locator = locator
-    
+    pass
+
+class LocatorAssertions:
     async def to_be_visible(self, timeout: float = 5000):
         """断言可见。"""
         pass
@@ -348,7 +350,7 @@ class expect:
 
 ```python
 import pytest
-from auroraview.testing import Browser, expect
+from auroraview.testing.auroratest import Browser, expect
 
 @pytest.fixture
 async def page():
@@ -406,7 +408,7 @@ async def test_visual_regression(page):
 ```python
 # conftest.py
 import pytest
-from auroraview.testing import Browser
+from auroraview.testing.auroratest import Browser
 
 @pytest.fixture(scope="session")
 def browser():
@@ -480,22 +482,27 @@ asyncio_mode = auto
 
 ```
 python/auroraview/testing/
-├── __init__.py          # 公开API
-├── browser.py           # Browser类
-├── page.py              # Page类
-├── locator.py           # Locator类
-├── expect.py            # 断言
-├── network.py           # 网络拦截
-├── screenshot.py        # 截图工具
-├── trace.py             # Trace录制
-└── fixtures.py          # Pytest fixtures
+├── __init__.py              # 公开API
+├── auroratest/              # Playwright-like testing framework
+│   ├── __init__.py          # 公开API
+│   ├── browser.py           # Browser类
+│   ├── page.py              # Page类
+│   ├── locator.py           # Locator类
+│   ├── expect.py            # 断言
+│   ├── network.py           # 网络拦截
+│   └── fixtures.py          # Pytest fixtures
+├── assertions.py            # Legacy assertions
+├── dom_assertions.py        # DOM assertions
+├── fixtures.py              # Legacy fixtures
+├── headless.py              # HeadlessTestRunner
+└── webview_bot.py           # WebViewBot
 
-crates/auroraview-testing/
+crates/auroraview-testing/   # Future Rust crate for native support
 ├── src/
 │   ├── lib.rs
-│   ├── headless.rs      # Headless WebView2
-│   ├── screenshot.rs    # 截图实现
-│   └── cdp.rs           # CDP支持
+│   ├── headless.rs          # Headless WebView2
+│   ├── screenshot.rs        # 截图实现
+│   └── cdp.rs               # CDP支持
 └── Cargo.toml
 ```
 

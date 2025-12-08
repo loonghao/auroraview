@@ -13,14 +13,14 @@ Example:
     async def test_login():
         browser = Browser.launch(headless=True)
         page = browser.new_page()
-        
+
         await page.goto("https://auroraview.localhost/login.html")
         await page.locator("#email").fill("test@example.com")
         await page.locator("#password").fill("secret")
         await page.get_by_role("button", name="Login").click()
-        
+
         await expect(page.locator(".welcome")).to_have_text("Welcome!")
-        
+
         browser.close()
     ```
 """
@@ -35,14 +35,14 @@ from .fixtures import browser, page, context
 __all__ = [
     # Core classes
     "Browser",
-    "BrowserContext", 
+    "BrowserContext",
     "Page",
     "Locator",
     # Assertions
     "expect",
     # Network
     "Route",
-    "Request", 
+    "Request",
     "Response",
     # Fixtures
     "browser",
