@@ -259,7 +259,7 @@ jobs:
           QT_OPENGL: software
           QTWEBENGINE_DISABLE_SANDBOX: '1'
         run: |
-          uv run pytest tests/test_qt_backend.py tests/test_qt_lifecycle.py -v --tb=short
+          uv run pytest tests/python/integration/test_qt_backend.py tests/python/integration/test_qt_lifecycle.py -v --tb=short
 
       - name: Upload Qt coverage
         uses: codecov/codecov-action@v5
