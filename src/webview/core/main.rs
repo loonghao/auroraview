@@ -141,7 +141,7 @@ impl AuroraView {
         tracing::info!("Showing WebView (standalone mode): {}", title);
 
         let mut inner = self.inner.borrow_mut();
-        let need_create = inner.as_ref().map_or(true, |e| e.event_loop.is_none());
+        let need_create = inner.as_ref().is_none_or(|e| e.event_loop.is_none());
 
         if need_create {
             let mut webview = WebViewInner::create_standalone(
@@ -179,7 +179,7 @@ impl AuroraView {
         {
             // Scope the mutable borrow to release it before callback invocation
             let mut inner = self.inner.borrow_mut();
-            let need_create = inner.as_ref().map_or(true, |e| e.event_loop.is_none());
+            let need_create = inner.as_ref().is_none_or(|e| e.event_loop.is_none());
 
             if need_create {
                 let config = self.config.borrow().clone();
