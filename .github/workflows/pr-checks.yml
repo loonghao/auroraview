@@ -142,8 +142,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install dist/*.whl
           python -c "import auroraview; print('Python 3.7 import OK')"
-          pip install pytest
+          pip install pytest qtpy "PySide2>=5.15.0"
           pytest tests/python/unit/ -v --tb=short -x || echo "Some tests may require newer Python features"
+        env:
+          QT_API: pyside2
+          CI: 'true'
+          QT_QPA_PLATFORM: offscreen
+          QT_OPENGL: software
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
@@ -275,7 +280,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install dist/*.whl
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov qtpy "PySide6<6.7"
 
       - name: Verify import
         shell: bash
@@ -284,6 +289,11 @@ jobs:
 
       - name: Run tests
         shell: bash
+        env:
+          QT_API: pyside6
+          CI: 'true'
+          QT_QPA_PLATFORM: offscreen
+          QT_OPENGL: software
         run: |
           pytest tests/python/unit/ -v --tb=short --cov=auroraview --cov-report=xml
 

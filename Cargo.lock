@@ -414,7 +414,7 @@ dependencies = [
  "flume 0.12.0",
  "hyper 1.8.1",
  "hyper-util",
- "image 0.24.9",
+ "image",
  "ipc-channel",
  "mdns-sd 0.17.1",
  "mime_guess",
@@ -463,7 +463,7 @@ dependencies = [
  "clap",
  "dirs",
  "dunce",
- "image 0.25.9",
+ "image",
  "mime_guess",
  "path-clean",
  "regex",
@@ -489,7 +489,7 @@ dependencies = [
  "auroraview-plugins",
  "dunce",
  "http 1.4.0",
- "image 0.24.9",
+ "image",
  "mdns-sd 0.11.5",
  "mime_guess",
  "parking_lot",
@@ -686,12 +686,6 @@ name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
-
-[[package]]
-name = "byteorder-lite"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "bytes"
@@ -2488,20 +2482,7 @@ dependencies = [
  "byteorder",
  "color_quant",
  "num-traits",
- "png 0.17.16",
-]
-
-[[package]]
-name = "image"
-version = "0.25.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6506c6c10786659413faa717ceebcb8f70731c0a60cbae39795fdf114519c1a"
-dependencies = [
- "bytemuck",
- "byteorder-lite",
- "moxcms",
- "num-traits",
- "png 0.18.0",
+ "png",
 ]
 
 [[package]]
@@ -2973,16 +2954,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.111",
-]
-
-[[package]]
-name = "moxcms"
-version = "0.7.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80986bbbcf925ebd3be54c26613d861255284584501595cf418320c078945608"
-dependencies = [
- "num-traits",
- "pxfm",
 ]
 
 [[package]]
@@ -3639,19 +3610,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "png"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97baced388464909d42d89643fe4361939af9b7ce7a31ee32a168f832a70f2a0"
-dependencies = [
- "bitflags 2.10.0",
- "crc32fast",
- "fdeflate",
- "flate2",
- "miniz_oxide",
-]
-
-[[package]]
 name = "polling"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3844,15 +3802,6 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
-]
-
-[[package]]
-name = "pxfm"
-version = "0.1.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7186d3822593aa4393561d186d1393b3923e9d6163d3fbfd6e825e3e6cf3e6a8"
-dependencies = [
- "num-traits",
 ]
 
 [[package]]
