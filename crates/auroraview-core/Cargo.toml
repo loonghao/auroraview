@@ -53,7 +53,7 @@ tokio = { version = "1", features = ["sync", "net", "rt-multi-thread", "macros"]
 warp = "0.3"
 
 # Templates
-askama = "0.12"
+askama = "0.14"
 
 # Window utilities
 active-win-pos-rs = "0.8"
