@@ -25,6 +25,7 @@ env:
 
 jobs:
   # Pre-build ABI3 wheels for all platforms (one wheel works for Python 3.8+)
+  # Artifact names match release workflow for reuse
   pre-build:
     name: Pre-build Wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -35,13 +36,13 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64
-            artifact-name: wheel-linux
+            artifact-name: wheels-linux-x86_64
           - os: windows-latest
             target: x64
-            artifact-name: wheel-windows
+            artifact-name: wheels-windows-x64
           - os: macos-latest
             target: universal2-apple-darwin
-            artifact-name: wheel-macos
+            artifact-name: wheels-macos-universal2-apple-darwin
     steps:
       - uses: actions/checkout@v4
 
@@ -74,17 +75,18 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: ${{ matrix.os == 'windows-latest' && '--release --out dist --features ext-module,abi3-py38,win-webview2' || '--release --out dist --features ext-module,abi3-py38' }}
+          args: ${{ matrix.os == 'windows-latest' && '--release --out dist --features ext-module,abi3-py38,win-webview2' || (matrix.os == 'macos-latest' && '--release --out dist --sdist --features ext-module,abi3-py38' || '--release --out dist --features ext-module,abi3-py38') }}
           manylinux: off
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
-          path: dist/*.whl
-          retention-days: 1
+          path: dist/*
+          retention-days: 7
 
   # Python 3.7 separate build and test (abi3-py37 feature)
+  # Artifact names match release workflow for reuse
   python37-test:
     name: Python 3.7 (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -93,10 +95,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             target: x86_64
-          - os: windows-latest
+            artifact-name: wheels-linux-x86_64-py37
+          - os: windows-2019
             target: x64
+            artifact-name: wheels-windows-x64-py37
     steps:
       - uses: actions/checkout@v4
 
@@ -129,7 +133,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: ${{ matrix.os == 'windows-latest' && '--release --out dist --features ext-module,abi3-py37,win-webview2' || '--release --out dist --features ext-module,abi3-py37' }}
+          args: ${{ contains(matrix.os, 'windows') && '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2' || '--release --out dist -i python3.7 --features python-bindings,ext-module' }}
           manylinux: off
 
       - name: Install and test wheel
@@ -140,6 +144,13 @@ jobs:
           python -c "import auroraview; print('Python 3.7 import OK')"
           pip install pytest
           pytest tests/python/unit/ -v --tb=short -x || echo "Some tests may require newer Python features"
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: dist/*.whl
+          retention-days: 7
 
   # Fast checks that run first (< 2 min)
   quick-checks:
@@ -238,6 +249,13 @@ jobs:
             python-version: "3.9"
           - os: macos-latest
             python-version: "3.10"
+        include:
+          - os: ubuntu-latest
+            artifact-name: wheels-linux-x86_64
+          - os: windows-latest
+            artifact-name: wheels-windows-x64
+          - os: macos-latest
+            artifact-name: wheels-macos-universal2-apple-darwin
     steps:
       - uses: actions/checkout@v4
 
@@ -249,7 +267,7 @@ jobs:
       - name: Download pre-built wheel
         uses: actions/download-artifact@v4
         with:
-          name: wheel-${{ runner.os == 'Linux' && 'linux' || runner.os == 'Windows' && 'windows' || 'macos' }}
+          name: ${{ matrix.os == 'ubuntu-latest' && 'wheels-linux-x86_64' || matrix.os == 'windows-latest' && 'wheels-windows-x64' || 'wheels-macos-universal2-apple-darwin' }}
           path: dist/
 
       - name: Install wheel and test dependencies
@@ -343,11 +361,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact-name: wheel-linux
+            artifact-name: wheels-linux-x86_64
           - os: windows-latest
-            artifact-name: wheel-windows
+            artifact-name: wheels-windows-x64
           - os: macos-latest
-            artifact-name: wheel-macos
+            artifact-name: wheels-macos-universal2-apple-darwin
     steps:
       - uses: actions/checkout@v4
 
@@ -388,7 +406,7 @@ jobs:
       - name: Download pre-built wheel
         uses: actions/download-artifact@v4
         with:
-          name: wheel-windows
+          name: wheels-windows-x64
           path: dist/
 
       - name: Install wheel and Qt dependencies

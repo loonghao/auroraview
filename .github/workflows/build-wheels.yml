@@ -12,6 +12,12 @@ on:
       - 'Cargo.lock'
       - 'pyproject.toml'
   workflow_dispatch:
+    inputs:
+      reuse-pr-artifacts:
+        description: 'Reuse artifacts from PR workflow (run_id)'
+        required: false
+        type: string
+        default: ''
   workflow_call:
     inputs:
       test-wheel:
@@ -22,6 +28,11 @@ on:
         required: false
         type: string
         default: '3.11'
+      reuse-pr-artifacts:
+        description: 'Reuse artifacts from PR workflow (run_id)'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
