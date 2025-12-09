@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.0...auroraview-v0.3.1) (2025-12-09)
+
+
+### Features
+
+* add Python 3.7 support with separate non-abi3 builds ([bfcc0c8](https://github.com/loonghao/auroraview/commit/bfcc0c8c373d41a4587ee6f38a2bfb4914e4ac35))
+
+
+### Bug Fixes
+
+* add missing serde_json::Value import in tests ([6877c45](https://github.com/loonghao/auroraview/commit/6877c455f259e459599b5b0fbec428f4ff16a7b9))
+* add Qt system dependencies for Linux CI ([c521dd0](https://github.com/loonghao/auroraview/commit/c521dd04d3aabf1b735ce6f55162abff9d7ed658))
+* always show window when show() is called explicitly ([f5d07a0](https://github.com/loonghao/auroraview/commit/f5d07a04c71420ea89ec0a7f9e067bc8cdef9f1e))
+* **ci:** add python-bindings feature for Qt tests build ([24080f7](https://github.com/loonghao/auroraview/commit/24080f7dcd26e4792b895e3b7e253a7138066a86))
+* disable sccache for Python 3.7 builds to avoid GLIBC incompatibility ([ae895f7](https://github.com/loonghao/auroraview/commit/ae895f789825e6608c18eacd173cfd711c93e9fc))
+* downgrade image to 0.24 and add Qt test dependencies ([b0e21dd](https://github.com/loonghao/auroraview/commit/b0e21dd68a8b7068057f42ff988248ca9887fab3))
+* downgrade simd-json to 0.13 for Rust 1.80 compatibility ([3be5429](https://github.com/loonghao/auroraview/commit/3be542950a4feb1a1887b6d72185e9ce6cd99306))
+* downgrade tao to 0.33 to avoid dlopen2 edition2024 requirement ([d8dfa15](https://github.com/loonghao/auroraview/commit/d8dfa158c0b5da693d345c0aec9f4d11be6f141e))
+* ensure all type annotations are Python 3.7+ compatible ([5dc07e1](https://github.com/loonghao/auroraview/commit/5dc07e1ff0f18b5b7f055625530d643ccb607c59))
+* improve test compatibility for cross-platform and CI environments ([08c37a7](https://github.com/loonghao/auroraview/commit/08c37a79c810653ce7ba544cb376791c3ea0e23e))
+* only download wheel artifacts for PyPI publish, exclude CLI binaries ([bf0c0fd](https://github.com/loonghao/auroraview/commit/bf0c0fd46b71c4ce1a2ca47e855eabae30542ba3))
+* pin dlopen2 to 0.8.1 to avoid edition2024 requirement ([9454d5b](https://github.com/loonghao/auroraview/commit/9454d5b7659fdb51c8bbd781a4dcf6404d6a73d3))
+* Python 3.7/3.8 type annotation compatibility and timer test stability ([386367c](https://github.com/loonghao/auroraview/commit/386367c233bbf07dae51de9204c10dd7baa9e438))
+* Qt placeholder tests to work in CI environments ([039cffe](https://github.com/loonghao/auroraview/commit/039cffe14d7d97e7b9200a870409c66a16a91fac))
+* remove unused import and add ruff select options to pre-commit ([e0d29af](https://github.com/loonghao/auroraview/commit/e0d29af46fc48a53f9b9be73fd1b3278dcdc4759))
+* remove unused sys import and add auto_show unit tests ([de413b4](https://github.com/loonghao/auroraview/commit/de413b45f10e1a58121c5fe88b4ddcf7c0269b56))
+* resolve abi3-py38 conflict with Python 3.7 and CI test issues ([558df0f](https://github.com/loonghao/auroraview/commit/558df0f1e3bb318a277aaebdad7b2cc82f5f1340))
+* skip WebView browser tests in CI on all platforms ([200d76c](https://github.com/loonghao/auroraview/commit/200d76c11e93f606b9206e7a1f8b7dfe44958186))
+* use typing_extensions.Literal for Python 3.7 compatibility ([00519d1](https://github.com/loonghao/auroraview/commit/00519d18d7e633970ae7fb91ce8578d34341f50c))
+
 ## [0.3.0](https://github.com/loonghao/auroraview/compare/auroraview-v0.2.22...auroraview-v0.3.0) (2025-12-08)
 
 
