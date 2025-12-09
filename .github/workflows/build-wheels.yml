@@ -153,25 +153,9 @@ jobs:
           # Disable sccache to avoid potential compatibility issues
           use-sccache: 'false'
 
-  # macOS Python 3.7 build
-  macos-py37:
-    runs-on: macos-13  # Use x86_64 runner for Python 3.7 (no ARM64 Python 3.7)
-    strategy:
-      matrix:
-        target: [x86_64-apple-darwin]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Python 3.7 Wheel
-        uses: ./.github/actions/build-wheel
-        with:
-          target: ${{ matrix.target }}
-          python-version: '3.7'
-          # Non-abi3 build: use python-bindings without abi3 feature
-          maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
-          test-wheel: ${{ inputs.test-wheel }}
-          artifact-name: 'wheels-macos-${{ matrix.target }}-py37'
-          # Disable sccache to avoid potential compatibility issues
-          use-sccache: 'false'
+  # Note: macOS Python 3.7 build removed because:
+  # - macOS-13 (x86_64) runners have been retired (Sept 2025)
+  # - macOS-15 (ARM64) does not support Python 3.7
+  # - Python 3.7 reached EOL in June 2023
+  # Users needing Python 3.7 on macOS should use the source distribution
 
