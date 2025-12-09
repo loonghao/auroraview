@@ -43,11 +43,11 @@ auroraview-core = { path = "crates/auroraview-core" }
 # PyO3 for Python bindings (optional)
 # multiple-pymethods: Allow splitting #[pymethods] across multiple files
 # Note: abi3 feature is controlled separately via features section
-pyo3 = { version = "0.27.1", features = ["multiple-pymethods"], optional = true }
+pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true }
 
 # Wry for WebView
-wry = "0.53"
-tao = "0.34"
+wry = "0.53.5"
+tao = "0.34.5"
 
 # Window handle for DCC integration
 raw-window-handle = "0.6"
@@ -58,7 +58,7 @@ serde_json = "1.0"
 simd-json = "0.13"
 
 # Async runtime
-tokio = { version = "1.42", features = ["full"] }
+tokio = { version = "1.48", features = ["full"] }
 
 # Error handling
 anyhow = "1.0"
