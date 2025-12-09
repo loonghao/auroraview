@@ -109,7 +109,7 @@ jobs:
           - wheels-windows-x64-py37
     steps:
       - name: Download artifact from PR workflow
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: dist/
@@ -165,7 +165,7 @@ jobs:
 
     steps:
       - name: Download wheel artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: wheels-*
           path: dist
@@ -246,14 +246,14 @@ jobs:
             {{__unknown__}}
 
       - name: Download wheel artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: wheels-*
           path: release-artifacts
           merge-multiple: true
 
       - name: Download CLI artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: cli-all-platforms
           path: release-artifacts

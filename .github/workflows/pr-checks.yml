@@ -266,7 +266,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Download pre-built wheel
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: ${{ matrix.os == 'ubuntu-latest' && 'wheels-linux-x86_64' || matrix.os == 'windows-latest' && 'wheels-windows-x64' || 'wheels-macos-universal2-apple-darwin' }}
           path: dist/
@@ -387,7 +387,7 @@ jobs:
           python-version: '3.11'
 
       - name: Download pre-built wheel
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: ${{ matrix.artifact-name }}
           path: dist/
@@ -416,7 +416,7 @@ jobs:
           python-version: '3.11'
 
       - name: Download pre-built wheel
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: wheels-windows-x64
           path: dist/
