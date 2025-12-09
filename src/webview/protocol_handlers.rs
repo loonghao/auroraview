@@ -1,5 +1,6 @@
 //! Protocol handlers for custom URI schemes
 
+use auroraview_core::assets::build_error_page;
 use mime_guess::from_path;
 use path_clean::PathClean;
 use std::borrow::Cow;
@@ -108,6 +109,9 @@ pub fn handle_auroraview_protocol(
         full_path
     );
 
+    // Determine if this is an HTML page request for error page rendering
+    let is_html = is_html_page_request(path);
+
     // Security check: prevent directory traversal
     // Canonicalize both paths to resolve .. and symlinks
     let canonical_asset_root = match asset_root.canonicalize() {
@@ -116,10 +120,14 @@ pub fn handle_auroraview_protocol(
             tracing::error!("[Protocol] Failed to canonicalize asset_root: {}", e);
             #[cfg(test)]
             eprintln!("[Protocol] ERROR: asset_root.canonicalize() failed: {}", e);
-            return Response::builder()
-                .status(500)
-                .body(Cow::Borrowed(b"Internal Server Error" as &[u8]))
-                .unwrap();
+            return build_error_response(
+                500,
+                "Internal Server Error",
+                "Failed to resolve asset root directory.",
+                Some(&format!("Error: {}", e)),
+                Some(&uri_str),
+                is_html,
+            );
         }
     };
 
@@ -133,10 +141,14 @@ pub fn handle_auroraview_protocol(
                 "[Protocol] full_path.canonicalize() failed: {} (path: {:?})",
                 _e, full_path
             );
-            return Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Not Found" as &[u8]))
-                .unwrap();
+            return build_error_response(
+                404,
+                "Not Found",
+                &format!("The requested resource '{}' could not be found.", path),
+                Some(&format!("Path: {:?}", full_path)),
+                Some(&uri_str),
+                is_html,
+            );
         }
     };
 
@@ -161,10 +173,14 @@ pub fn handle_auroraview_protocol(
         );
         #[cfg(test)]
         eprintln!("[Protocol] Returning 403 Forbidden");
-        return Response::builder()
-            .status(403)
-            .body(Cow::Borrowed(b"Forbidden" as &[u8]))
-            .unwrap();
+        return build_error_response(
+            403,
+            "Forbidden",
+            "Access to this resource is not allowed.",
+            Some("Directory traversal attempt detected."),
+            Some(&uri_str),
+            is_html,
+        );
     }
 
     // Read file
@@ -186,10 +202,14 @@ pub fn handle_auroraview_protocol(
         }
         Err(e) => {
             tracing::warn!("[Protocol] File not found: {:?} ({})", full_path, e);
-            Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Not Found" as &[u8]))
-                .unwrap()
+            build_error_response(
+                404,
+                "Not Found",
+                &format!("The requested resource '{}' could not be found.", path),
+                Some(&format!("Error: {}", e)),
+                Some(&uri_str),
+                is_html,
+            )
         }
     }
 }
@@ -449,6 +469,73 @@ pub fn normalize_windows_path_without_colon(path: &str) -> String {
     format!("{}:{}", drive_letter, rest)
 }
 
+/// Build an error response with a styled HTML error page
+///
+/// This function creates an HTTP response with a custom error page that matches
+/// the AuroraView design language. For non-HTML requests (like CSS, JS, images),
+/// it returns a simple text response instead.
+///
+/// # Arguments
+/// * `status` - HTTP status code
+/// * `title` - Error title (e.g., "Internal Server Error")
+/// * `message` - User-friendly error message
+/// * `details` - Optional technical details
+/// * `url` - Optional URL that caused the error
+/// * `is_html_request` - Whether this is likely an HTML page request
+pub fn build_error_response(
+    status: u16,
+    title: &str,
+    message: &str,
+    details: Option<&str>,
+    url: Option<&str>,
+    is_html_request: bool,
+) -> Response<Cow<'static, [u8]>> {
+    if is_html_request {
+        // Return styled HTML error page
+        let html = build_error_page(status, title, message, details, url);
+        Response::builder()
+            .status(status)
+            .header("Content-Type", "text/html; charset=utf-8")
+            .body(Cow::Owned(html.into_bytes()))
+            .unwrap()
+    } else {
+        // Return simple text for non-HTML resources
+        Response::builder()
+            .status(status)
+            .header("Content-Type", "text/plain; charset=utf-8")
+            .body(Cow::Owned(format!("{}: {}", status, title).into_bytes()))
+            .unwrap()
+    }
+}
+
+/// Check if a request path looks like an HTML page request
+///
+/// Returns true for paths that:
+/// - End with .html or .htm
+/// - Have no extension (likely a route)
+/// - Are the root path
+fn is_html_page_request(path: &str) -> bool {
+    let path_lower = path.to_lowercase();
+
+    // Check for HTML extensions
+    if path_lower.ends_with(".html") || path_lower.ends_with(".htm") {
+        return true;
+    }
+
+    // Check for paths without extensions (likely routes)
+    let last_segment = path.rsplit('/').next().unwrap_or(path);
+    if !last_segment.contains('.') {
+        return true;
+    }
+
+    // Root path
+    if path.is_empty() || path == "/" || path == "index.html" {
+        return true;
+    }
+
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -537,6 +624,60 @@ mod tests {
         // The handler will try to parse this as a file path and fail
         // Returns 400 because it's not a valid file:// URI format
         assert_eq!(response.status(), 400);
+    }
+
+    /// Unit test: Verify HTML page request detection
+    #[rstest]
+    #[case("index.html", true)]
+    #[case("page.htm", true)]
+    #[case("about", true)] // No extension = likely a route
+    #[case("/", true)]
+    #[case("", true)]
+    #[case("style.css", false)]
+    #[case("script.js", false)]
+    #[case("image.png", false)]
+    #[case("data.json", false)]
+    #[case("assets/app.js", false)]
+    fn test_is_html_page_request(#[case] path: &str, #[case] expected: bool) {
+        assert_eq!(is_html_page_request(path), expected);
+    }
+
+    /// Unit test: Verify error response for HTML requests returns HTML page
+    #[test]
+    fn test_build_error_response_html() {
+        let response = build_error_response(
+            500,
+            "Internal Server Error",
+            "Something went wrong",
+            Some("Details here"),
+            Some("https://example.com"),
+            true,
+        );
+
+        assert_eq!(response.status(), 500);
+        let content_type = response.headers().get("Content-Type").unwrap();
+        assert!(content_type.to_str().unwrap().contains("text/html"));
+
+        let body = response.body();
+        let body_str = String::from_utf8_lossy(body);
+        assert!(body_str.contains("<!DOCTYPE html>"));
+        assert!(body_str.contains("500"));
+    }
+
+    /// Unit test: Verify error response for non-HTML requests returns plain text
+    #[test]
+    fn test_build_error_response_non_html() {
+        let response =
+            build_error_response(404, "Not Found", "Resource not found", None, None, false);
+
+        assert_eq!(response.status(), 404);
+        let content_type = response.headers().get("Content-Type").unwrap();
+        assert!(content_type.to_str().unwrap().contains("text/plain"));
+
+        let body = response.body();
+        let body_str = String::from_utf8_lossy(body);
+        assert!(body_str.contains("404"));
+        assert!(body_str.contains("Not Found"));
     }
 }
 

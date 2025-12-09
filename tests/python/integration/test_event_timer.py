@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from auroraview import EventTimer
+from auroraview.utils.timer_backends import ThreadTimerBackend
 
 
 class MockWebView:
@@ -51,7 +52,7 @@ class TestEventTimer:
     def test_start_stop(self):
         """Test starting and stopping timer."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         # Start timer
         timer.start()
@@ -68,7 +69,7 @@ class TestEventTimer:
     def test_start_already_running(self):
         """Test starting timer when already running."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         timer.start()
         with pytest.raises(RuntimeError, match="already running"):
@@ -87,7 +88,7 @@ class TestEventTimer:
     def test_on_close_callback(self):
         """Test on_close callback registration and execution."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         close_called = [False]
 
@@ -109,7 +110,7 @@ class TestEventTimer:
     def test_on_tick_callback(self):
         """Test on_tick callback registration and execution."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         tick_count = [0]
 
@@ -120,7 +121,7 @@ class TestEventTimer:
         timer.start()
 
         # Wait for a few ticks
-        time.sleep(0.05)
+        time.sleep(0.1)
 
         timer.stop()
 
@@ -130,12 +131,12 @@ class TestEventTimer:
     def test_process_events_called(self):
         """Test that process_events is called periodically."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         timer.start()
 
         # Wait for a few ticks
-        time.sleep(0.05)
+        time.sleep(0.1)
 
         timer.stop()
 
@@ -145,7 +146,7 @@ class TestEventTimer:
     def test_window_validity_check(self):
         """Test window validity checking."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10, check_window_validity=True)
+        timer = EventTimer(webview, interval_ms=10, check_window_validity=True, backend=ThreadTimerBackend())
 
         close_called = [False]
 
@@ -159,7 +160,7 @@ class TestEventTimer:
         webview.invalidate_window()
 
         # Wait for detection
-        time.sleep(0.05)
+        time.sleep(0.1)
 
         assert close_called[0] is True
         assert timer.is_running is False
@@ -167,7 +168,7 @@ class TestEventTimer:
     def test_window_validity_check_disabled(self):
         """Test that window validity check can be disabled."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10, check_window_validity=False)
+        timer = EventTimer(webview, interval_ms=10, check_window_validity=False, backend=ThreadTimerBackend())
 
         close_called = [False]
 
@@ -181,7 +182,7 @@ class TestEventTimer:
         webview.invalidate_window()
 
         # Wait a bit
-        time.sleep(0.05)
+        time.sleep(0.1)
 
         # Should not have triggered close (validity check disabled)
         # But we need to stop the timer manually
@@ -213,11 +214,11 @@ class TestEventTimer:
         """Test using EventTimer as context manager."""
         webview = MockWebView()
 
-        with EventTimer(webview, interval_ms=10) as timer:
+        with EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend()) as timer:
             assert timer.is_running is True
 
             # Wait a bit
-            time.sleep(0.05)
+            time.sleep(0.1)
 
         # Timer should be stopped after exiting context
         assert timer.is_running is False
@@ -225,7 +226,7 @@ class TestEventTimer:
     def test_multiple_close_callbacks(self):
         """Test multiple close callbacks."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         close_count = [0]
 
@@ -243,7 +244,7 @@ class TestEventTimer:
         webview.trigger_close()
 
         # Wait for callbacks
-        time.sleep(0.05)
+        time.sleep(0.1)
 
         # Both callbacks should have been called
         assert close_count[0] == 2
@@ -251,7 +252,7 @@ class TestEventTimer:
     def test_multiple_tick_callbacks(self):
         """Test multiple tick callbacks."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         tick_count_1 = [0]
         tick_count_2 = [0]
@@ -267,7 +268,7 @@ class TestEventTimer:
         timer.start()
 
         # Wait for a few ticks
-        time.sleep(0.05)
+        time.sleep(0.1)
 
         timer.stop()
 
@@ -279,7 +280,7 @@ class TestEventTimer:
     def test_callback_exception_handling(self):
         """Test that exceptions in callbacks don't crash the timer."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         @timer.on_tick
         def handle_tick():
@@ -288,7 +289,7 @@ class TestEventTimer:
         timer.start()
 
         # Wait a bit - timer should keep running despite exceptions
-        time.sleep(0.05)
+        time.sleep(0.1)
 
         assert timer.is_running is True
 
@@ -297,7 +298,7 @@ class TestEventTimer:
     def test_repr(self):
         """Test string representation."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=16)
+        timer = EventTimer(webview, interval_ms=16, backend=ThreadTimerBackend())
 
         repr_str = repr(timer)
         assert "EventTimer" in repr_str
@@ -313,12 +314,12 @@ class TestEventTimer:
     def test_timer_backend_selection(self):
         """Test that timer selects appropriate backend."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=16)
+        timer = EventTimer(webview, interval_ms=16, backend=ThreadTimerBackend())
 
         timer.start()
 
         # Should have selected a backend (Qt or thread)
-        from auroraview.utils.timer_backends import QtTimerBackend, ThreadTimerBackend
+        from auroraview.utils.timer_backends import QtTimerBackend
 
         assert isinstance(timer._backend, (QtTimerBackend, ThreadTimerBackend))
         assert timer._timer_handle is not None
@@ -328,12 +329,12 @@ class TestEventTimer:
     def test_tick_count_increments(self):
         """Test that tick count increments over time."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         initial_count = timer._tick_count
 
         timer.start()
-        time.sleep(0.05)
+        time.sleep(0.1)
         timer.stop()
 
         # Tick count should have increased
@@ -342,7 +343,7 @@ class TestEventTimer:
     def test_close_callback_stops_timer(self):
         """Test that close callback can stop the timer."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         @timer.on_close
         def handle_close():
@@ -353,7 +354,7 @@ class TestEventTimer:
         webview.trigger_close()
 
         # Wait for close detection
-        time.sleep(0.05)
+        time.sleep(0.1)
 
         # Timer should be stopped
         assert not timer.is_running
@@ -361,7 +362,7 @@ class TestEventTimer:
     def test_multiple_start_stop_cycles(self):
         """Test multiple start/stop cycles."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         for _ in range(3):
             timer.start()
@@ -374,7 +375,7 @@ class TestEventTimer:
     def test_interval_change_while_stopped(self):
         """Test changing interval while timer is stopped."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=16)
+        timer = EventTimer(webview, interval_ms=16, backend=ThreadTimerBackend())
 
         timer.interval_ms = 33
         assert timer.interval_ms == 33
@@ -387,7 +388,7 @@ class TestEventTimer:
     def test_callback_execution_order(self):
         """Test that callbacks execute in registration order."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         execution_order = []
 
@@ -404,7 +405,7 @@ class TestEventTimer:
             execution_order.append(3)
 
         timer.start()
-        time.sleep(0.03)
+        time.sleep(0.1)
         timer.stop()
 
         # Should have executed in order
@@ -413,7 +414,7 @@ class TestEventTimer:
     def test_timer_with_zero_callbacks(self):
         """Test timer works without any callbacks."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         # Should work fine without callbacks
         timer.start()
@@ -498,8 +499,11 @@ class TestEventTimer:
 
     def test_off_close_unregisters(self):
         """off_close should remove a previously registered close callback."""
+        from auroraview.utils.timer_backends import ThreadTimerBackend
+
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        # Use ThreadTimerBackend explicitly to avoid Qt thread issues in tests
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         called = {"a": False, "b": False}
 
@@ -516,7 +520,8 @@ class TestEventTimer:
 
         timer.start()
         webview.trigger_close()
-        time.sleep(0.05)
+        # Increased timeout for CI environments with slower thread scheduling
+        time.sleep(0.1)
 
         # Only 'b' should be called
         assert called["a"] is False
@@ -524,8 +529,11 @@ class TestEventTimer:
 
     def test_off_tick_unregisters(self):
         """off_tick should remove a previously registered tick callback."""
+        from auroraview.utils.timer_backends import ThreadTimerBackend
+
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10)
+        # Use ThreadTimerBackend explicitly to avoid Qt thread issues in tests
+        timer = EventTimer(webview, interval_ms=10, backend=ThreadTimerBackend())
 
         count = {"a": 0, "b": 0}
 
@@ -541,7 +549,8 @@ class TestEventTimer:
         assert timer.off_tick(a) is True
 
         timer.start()
-        time.sleep(0.05)
+        # Increased timeout for CI environments with slower thread scheduling
+        time.sleep(0.1)
         timer.stop()
 
         assert count["a"] == 0

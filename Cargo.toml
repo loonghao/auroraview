@@ -42,8 +42,8 @@ auroraview-core = { path = "crates/auroraview-core" }
 
 # PyO3 for Python bindings (optional)
 # multiple-pymethods: Allow splitting #[pymethods] across multiple files
-# abi3-py38: Use stable ABI starting from Python 3.8 (Python 3.7 requires separate build)
-pyo3 = { version = "0.27.1", features = ["abi3-py38", "multiple-pymethods"], optional = true }
+# Note: abi3 feature is controlled separately via features section
+pyo3 = { version = "0.27.1", features = ["multiple-pymethods"], optional = true }
 
 # Wry for WebView
 wry = "0.53"
@@ -149,6 +149,10 @@ default = ["threaded-ipc", "wry-backend", "templates", "url-utils"]
 
 # Python bindings (for Python wheel)
 python-bindings = ["pyo3", "url-utils"]
+
+# ABI3 stable ABI for Python 3.8+ (single wheel for all Python 3.8+ versions)
+# For Python 3.7, use python-bindings without this feature
+abi3-py38 = ["pyo3/abi3-py38"]
 
 # Enable PyO3 auto-initialize in test builds
 test-helpers = ["pyo3/auto-initialize"]

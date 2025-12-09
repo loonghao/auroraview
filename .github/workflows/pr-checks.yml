@@ -223,7 +223,7 @@ jobs:
           python-version: '3.11'
           test-wheel: 'true'
           upload-wheel: 'false'
-          maturin-args: ${{ matrix.os == 'windows-latest' && '--release --out dist --find-interpreter --features ext-module,win-webview2' || '--release --out dist --find-interpreter' }}
+          maturin-args: ${{ matrix.os == 'windows-latest' && '--release --out dist --find-interpreter --features ext-module,abi3-py38,win-webview2' || '--release --out dist --find-interpreter --features ext-module,abi3-py38' }}
 
   # Qt integration tests (Windows only - most critical platform)
   qt-tests:
@@ -244,7 +244,7 @@ jobs:
         shell: bash
         run: |
           uv pip install maturin
-          uv run maturin develop --features "python-bindings,win-webview2,ext-module"
+          uv run maturin develop --features "python-bindings,abi3-py38,win-webview2,ext-module"
 
       - name: Install Qt dependencies
         shell: bash
