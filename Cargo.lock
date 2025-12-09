@@ -414,7 +414,7 @@ dependencies = [
  "criterion",
  "crossbeam-channel",
  "dashmap",
- "flume",
+ "flume 0.12.0",
  "hyper 1.8.1",
  "hyper-util",
  "ipc-channel",
@@ -430,7 +430,7 @@ dependencies = [
  "raw-window-handle",
  "regex",
  "reqwest",
- "rfd",
+ "rfd 0.16.0",
  "rstest 0.26.1",
  "rust-embed",
  "scopeguard",
@@ -537,7 +537,7 @@ dependencies = [
  "cocoa",
  "dunce",
  "open",
- "rfd",
+ "rfd 0.15.4",
  "rstest 0.24.0",
  "serde",
  "serde_json",
@@ -1438,6 +1438,9 @@ name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
+dependencies = [
+ "getrandom 0.2.16",
+]
 
 [[package]]
 name = "fax"
@@ -1520,7 +1523,18 @@ checksum = "da0e4dd2a88388a1f4ccc7c9ce104604dab68d9f408dc34cd45823d5a9069095"
 dependencies = [
  "futures-core",
  "futures-sink",
- "nanorand",
+ "spin",
+]
+
+[[package]]
+name = "flume"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e139bc46ca777eb5efaf62df0ab8cc5fd400866427e56c68b22e414e53bd3be"
+dependencies = [
+ "fastrand",
+ "futures-core",
+ "futures-sink",
  "spin",
 ]
 
@@ -2895,7 +2909,7 @@ version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fe7c11a1eb3cfbfcf702d1601c1f5f4c102cdc8665b8a557783ef634741676e"
 dependencies = [
- "flume",
+ "flume 0.11.1",
  "if-addrs 0.13.4",
  "log",
  "polling 2.8.0",
@@ -2909,7 +2923,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3426fcc57a3b93e136cbc83861d30ccbc6e6eb8788bd09b6eb92565d29841029"
 dependencies = [
  "fastrand",
- "flume",
+ "flume 0.11.1",
  "if-addrs 0.14.0",
  "log",
  "mio",
@@ -3028,15 +3042,6 @@ dependencies = [
  "mime",
  "spin",
  "version_check",
-]
-
-[[package]]
-name = "nanorand"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
-dependencies = [
- "getrandom 0.2.16",
 ]
 
 [[package]]
@@ -4266,6 +4271,30 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "rfd"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a15ad77d9e70a92437d8f74c35d99b4e4691128df018833e99f90bcd36152672"
+dependencies = [
+ "ashpd",
+ "block2",
+ "dispatch2",
+ "js-sys",
+ "log",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "pollster",
+ "raw-window-handle",
+ "urlencoding",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
