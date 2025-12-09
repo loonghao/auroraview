@@ -162,6 +162,7 @@ fn run_standalone(
         allow_media_devices: false,
         block_external_navigation: false,
         allowed_navigation_domains: Vec::new(),
+        icon: None, // Use default AuroraView icon
     };
 
     // Create IPC handler and message queue
@@ -262,6 +263,7 @@ mod tests {
             allow_media_devices: false,
             block_external_navigation: false,
             allowed_navigation_domains: Vec::new(),
+            icon: None,
         };
 
         assert_eq!(config.asset_root, Some(PathBuf::from("/tmp/assets")));
@@ -306,6 +308,7 @@ mod tests {
             allow_media_devices: false,
             block_external_navigation: false,
             allowed_navigation_domains: Vec::new(),
+            icon: None,
         };
 
         assert_eq!(config.asset_root, None);

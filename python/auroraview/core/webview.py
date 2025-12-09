@@ -110,6 +110,7 @@ class WebView(
         background_color: Optional[str] = None,
         auto_show: bool = True,
         ipc_batch_size: int = 0,
+        icon: Optional[str] = None,
     ) -> None:
         r"""Initialize the WebView.
 
@@ -216,6 +217,7 @@ class WebView(
             background_color=background_color,  # Window background color
             auto_show=auto_show,  # Control window visibility on creation
             ipc_batch_size=ipc_batch_size,  # Max messages per tick (0=unlimited)
+            icon=icon,  # Custom window icon path
         )
         self._event_handlers: Dict[str, list[Callable]] = {}
         self._title = title
@@ -232,6 +234,7 @@ class WebView(
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
         self._auto_timer = None  # Will be set by create() factory method
+        self._auto_show = auto_show  # Store auto_show setting
         # Store content for async mode
         self._stored_url: Optional[str] = None
         self._stored_html: Optional[str] = None
@@ -411,6 +414,8 @@ class WebView(
         singleton: Optional[str] = None,
         # IPC performance tuning
         ipc_batch_size: int = 0,
+        # Custom icon
+        icon: Optional[str] = None,
     ) -> "WebView":
         """Create WebView instance (recommended way).
 
@@ -528,6 +533,7 @@ class WebView(
             allow_file_protocol=allow_file_protocol,
             auto_show=rust_auto_show,  # Pass to Rust layer
             ipc_batch_size=ipc_batch_size,  # Max messages per tick (0=unlimited)
+            icon=icon,  # Custom window icon path
         )
 
         # Auto timer (embedded mode)

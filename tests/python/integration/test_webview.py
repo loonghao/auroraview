@@ -365,3 +365,99 @@ class TestWebViewAutoShow:
             webview.close()
         except ImportError:
             pytest.skip("Package not built yet")
+
+    def test_show_blocking_method_exists(self):
+        """Test that show_blocking() method exists and is callable."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView.create(title="Test", auto_show=False)
+            assert hasattr(webview, "show_blocking")
+            assert callable(webview.show_blocking)
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+
+@pytest.mark.unit
+class TestWebViewCreateFactory:
+    """Test WebView.create() factory method behavior."""
+
+    def test_create_with_asset_root(self, tmp_path):
+        """Test WebView.create() with asset_root parameter."""
+        try:
+            from auroraview import WebView
+
+            # Create a test HTML file
+            html_file = tmp_path / "index.html"
+            html_file.write_text("<h1>Test</h1>", encoding="utf-8")
+
+            webview = WebView.create(
+                title="Asset Root Test",
+                asset_root=str(tmp_path),
+            )
+            assert webview is not None
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_create_standalone_mode(self):
+        """Test WebView.create() in standalone mode (no parent)."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView.create(title="Standalone Test")
+            # Standalone mode: parent should be None
+            assert webview._parent is None
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_create_with_bind_call(self):
+        """Test WebView.create() with bind_call decorator."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView.create(title="Bind Call Test")
+
+            @webview.bind_call("test.method")
+            def test_handler(**kwargs):
+                return {"success": True}
+
+            # Verify handler is registered
+            assert webview.is_method_bound("test.method")
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_create_load_url_then_show(self, tmp_path):
+        """Test the recommended workflow: create -> bind_call -> load_url -> show."""
+        try:
+            from auroraview import WebView
+
+            # Create HTML file
+            html_file = tmp_path / "index.html"
+            html_file.write_text("<h1>Test</h1>", encoding="utf-8")
+
+            # 1. Create WebView with asset_root
+            webview = WebView.create(
+                title="Workflow Test",
+                asset_root=str(tmp_path),
+            )
+
+            # 2. Register handlers BEFORE load_url
+            @webview.bind_call("api.test")
+            def handler(**kwargs):
+                return {"ok": True}
+
+            # 3. Load URL
+            webview.load_url("https://auroraview.localhost/index.html")
+
+            # Verify state
+            assert webview.is_method_bound("api.test")
+            assert webview._stored_url == "https://auroraview.localhost/index.html"
+
+            # 4. Close without showing (for unit test)
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")

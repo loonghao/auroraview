@@ -244,7 +244,7 @@ jobs:
         shell: bash
         run: |
           uv pip install maturin
-          uv run maturin develop --features "win-webview2,ext-module"
+          uv run maturin develop --features "python-bindings,win-webview2,ext-module"
 
       - name: Install Qt dependencies
         shell: bash

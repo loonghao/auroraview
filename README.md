@@ -318,6 +318,32 @@ uvx auroraview --url https://example.com
 
 **[See CLI Documentation](./docs/CLI.md)** for more details.
 
+### Custom Window Icon
+
+AuroraView displays the default AuroraView icon by default. You can customize it with your own icon:
+
+```python
+from auroraview import WebView
+
+# Use custom icon
+webview = WebView.create(
+    "My App",
+    url="http://localhost:3000",
+    icon="path/to/my-icon.png"  # Custom icon path
+)
+webview.show()
+```
+
+**Icon Requirements:**
+| Property | Recommendation |
+|----------|----------------|
+| **Format** | PNG (recommended), ICO, JPEG, BMP, GIF |
+| **Size** | 32×32 (taskbar), 64×64 (alt-tab), 256×256 (high-DPI) |
+| **Color Depth** | 32-bit RGBA for transparency support |
+| **Best Practice** | Use a square image; non-square images will be stretched |
+
+> **Tip**: For best results across all Windows UI elements, provide a 32×32 PNG with transparency.
+
 **Nuke integration:**
 ```python
 from auroraview import WebView
@@ -504,8 +530,8 @@ def on_plugin_event(data: dict):
     print(f"Plugin event: {data}")
 
 # Explicitly bind at runtime
-view.bind_slot("get_plugins", get_plugins)
-view.bind_slot("load_plugin", load_plugin)
+view.bind_call("get_plugins", get_plugins)
+view.bind_call("load_plugin", load_plugin)
 
 # Connect to built-in signals
 view.on_ready.connect(lambda: print("WebView is ready!"))
@@ -517,9 +543,9 @@ view.register_callback("plugin_event", on_plugin_event)
 # Dynamic binding based on configuration
 config = {"features": ["export", "import"]}
 if "export" in config["features"]:
-    view.bind_slot("export_data", lambda fmt: {"data": "...", "format": fmt})
+    view.bind_call("export_data", lambda fmt: {"data": "...", "format": fmt})
 if "import" in config["features"]:
-    view.bind_slot("import_data", lambda data: {"ok": True})
+    view.bind_call("import_data", lambda data: {"ok": True})
 
 view.show()
 ```

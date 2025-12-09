@@ -7,7 +7,7 @@ Usage:
     python examples/dynamic_binding.py
 
 Features demonstrated:
-    - Runtime API binding with bind_slot()
+    - Runtime API binding with bind_call()
     - Dynamic feature loading based on configuration
     - Signal connections with on_ready, on_navigate
     - Plugin-like architecture
@@ -269,10 +269,10 @@ def create_plugin_host():
                 # Dynamically register plugin APIs
                 if plugin_id == "analytics":
                     config["features"].append("analytics")
-                    view.bind_slot("get_analytics", lambda: {"views": 1234, "users": 56})
+                    view.bind_call("get_analytics", lambda: {"views": 1234, "users": 56})
                 elif plugin_id == "admin":
                     config["features"].append("admin")
-                    view.bind_slot("admin_action", lambda action="": {"action": action, "users": ["admin", "user1"]})
+                    view.bind_call("admin_action", lambda action="": {"action": action, "users": ["admin", "user1"]})
 
                 view.emit("plugin_loaded", {"id": plugin_id, "name": plugin["name"]})
                 return {"ok": True, "name": plugin["name"]}
@@ -284,9 +284,9 @@ def create_plugin_host():
         return {"available": name in config["features"], "feature": name}
 
     # Bind core APIs
-    view.bind_slot("get_plugins", get_plugins)
-    view.bind_slot("activate_plugin", activate_plugin)
-    view.bind_slot("has_feature", has_feature)
+    view.bind_call("get_plugins", get_plugins)
+    view.bind_call("activate_plugin", activate_plugin)
+    view.bind_call("has_feature", has_feature)
 
     # ═══════════════════════════════════════════════════════════════════
     # Conditionally bind APIs based on configuration
@@ -299,7 +299,7 @@ def create_plugin_host():
             """Export data in specified format."""
             return {"ok": True, "format": format, "data": '{"exported": true}', "size": 42}
 
-        view.bind_slot("export_data", export_data)
+        view.bind_call("export_data", export_data)
 
     if "import" in config["features"]:
         print("[Config] Import feature enabled")
@@ -312,7 +312,7 @@ def create_plugin_host():
             except json.JSONDecodeError as e:
                 return {"ok": False, "error": str(e)}
 
-        view.bind_slot("import_data", import_data)
+        view.bind_call("import_data", import_data)
 
     # ═══════════════════════════════════════════════════════════════════
     # Connect to built-in signals
@@ -338,7 +338,7 @@ def main():
     print("Starting Plugin Host Demo (Dynamic Binding Pattern)...")
     print()
     print("This example demonstrates:")
-    print("  - Runtime API binding with bind_slot()")
+    print("  - Runtime API binding with bind_call()")
     print("  - Configuration-driven feature flags")
     print("  - Dynamic plugin loading")
     print("  - Signal connections (on_ready, on_navigate)")

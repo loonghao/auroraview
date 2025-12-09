@@ -200,6 +200,14 @@ pub fn create_standalone(
         .with_transparent(config.transparent)
         .with_visible(false); // Start hidden to avoid white flash
 
+    // Set window icon (custom or default)
+    if let Some(icon) = load_window_icon(config.icon.as_ref()) {
+        window_builder = window_builder.with_window_icon(Some(icon));
+        tracing::debug!("[standalone] Window icon set successfully");
+    } else {
+        tracing::debug!("[standalone] No window icon available");
+    }
+
     // If width or height is 0, maximize the window; otherwise set the size
     if config.width == 0 || config.height == 0 {
         tracing::info!(
@@ -646,6 +654,57 @@ pub fn run_standalone(
             *control_flow = ControlFlow::Exit;
         }
     });
+}
+
+/// Embedded window icon (32x32 PNG) - used as fallback
+const DEFAULT_ICON_PNG_BYTES: &[u8] = include_bytes!("../../assets/icons/auroraview-32.png");
+
+/// Load window icon from custom path or use embedded default
+///
+/// # Arguments
+/// * `custom_icon` - Optional path to custom icon file (PNG, ICO, JPEG, BMP, GIF)
+///
+/// # Icon Requirements
+/// - **Format**: PNG (recommended), ICO, JPEG, BMP, GIF
+/// - **Recommended sizes**: 32x32 (taskbar), 64x64 (alt-tab), 256x256 (high-DPI)
+/// - **Color depth**: 32-bit RGBA recommended for transparency support
+fn load_window_icon(custom_icon: Option<&std::path::PathBuf>) -> Option<tao::window::Icon> {
+    use ::image::GenericImageView;
+
+    // Try custom icon first
+    if let Some(icon_path) = custom_icon {
+        if icon_path.exists() {
+            match ::image::open(icon_path) {
+                Ok(img) => {
+                    let (width, height) = img.dimensions();
+                    let rgba = img.into_rgba8().into_raw();
+                    if let Ok(icon) = tao::window::Icon::from_rgba(rgba, width, height) {
+                        tracing::info!("[standalone] Loaded custom icon from {:?}", icon_path);
+                        return Some(icon);
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "[standalone] Failed to load custom icon {:?}: {}, using default",
+                        icon_path,
+                        e
+                    );
+                }
+            }
+        } else {
+            tracing::warn!(
+                "[standalone] Custom icon path does not exist: {:?}, using default",
+                icon_path
+            );
+        }
+    }
+
+    // Fall back to embedded default icon
+    let img = ::image::load_from_memory(DEFAULT_ICON_PNG_BYTES).ok()?;
+    let (width, height) = img.dimensions();
+    let rgba = img.into_rgba8().into_raw();
+
+    tao::window::Icon::from_rgba(rgba, width, height).ok()
 }
 
 #[cfg(test)]
