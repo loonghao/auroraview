@@ -47,7 +47,8 @@ pyo3 = { version = "0.27.1", features = ["multiple-pymethods"], optional = true 
 
 # Wry for WebView
 wry = "0.53"
-tao = "0.34"
+# Note: Using 0.33 for compatibility with Rust 1.80 (0.34+ requires dlopen2 0.8+ which needs edition2024)
+tao = "0.33"
 
 # Window handle for DCC integration
 raw-window-handle = "0.6"
