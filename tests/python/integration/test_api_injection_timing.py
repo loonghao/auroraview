@@ -6,7 +6,15 @@ even when bind_api is called before load_url.
 
 from __future__ import annotations
 
+import os
+
 import pytest
+
+# Skip UI tests in CI - these require WebView runtime and display
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="WebView creation requires display environment, skipped in CI",
+)
 
 
 @pytest.mark.qt

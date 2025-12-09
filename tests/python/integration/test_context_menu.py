@@ -3,6 +3,7 @@
 Signed-off-by: Hal Long <hal.long@outlook.com>
 """
 
+import os
 import sys
 
 import pytest
@@ -10,6 +11,10 @@ import pytest
 # Skip entire module if not on Windows (WebView2 is Windows-only)
 if sys.platform != "win32":
     pytest.skip("WebView2 context menu tests require Windows", allow_module_level=True)
+
+# Skip in CI (requires display environment)
+if os.environ.get("CI") == "true":
+    pytest.skip("WebView tests require display environment, skipped in CI", allow_module_level=True)
 
 from auroraview import WebView
 from auroraview._core import WebView as _CoreWebView

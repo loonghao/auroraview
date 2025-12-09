@@ -7,7 +7,17 @@ Usage:
     python examples/test_emit_fix.py
 """
 
+import os
+
+import pytest
+
 from auroraview import WebView
+
+# Skip in CI (requires display environment)
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="WebView tests require display environment, skipped in CI",
+)
 
 
 def test_emit_with_hook():

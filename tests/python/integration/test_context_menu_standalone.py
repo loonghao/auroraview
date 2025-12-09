@@ -9,9 +9,16 @@ Usage:
 Signed-off-by: Hal Long <hal.long@outlook.com>
 """
 
+import os
 import sys
 
 import pytest
+
+# Skip in CI (requires display environment)
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="WebView tests require display environment, skipped in CI",
+)
 
 
 def test_core_webview_context_menu():
