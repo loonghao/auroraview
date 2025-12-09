@@ -1,8 +1,12 @@
 """Unit tests for WebView class."""
 
+import sys
 import time
 
 import pytest
+
+# Skip tests that require native window handle on non-Windows platforms
+_SKIP_NATIVE_WINDOW_TESTS = sys.platform != "win32"
 
 
 @pytest.mark.unit
@@ -332,6 +336,7 @@ class TestWebViewAutoShow:
         except ImportError:
             pytest.skip("Package not built yet")
 
+    @pytest.mark.skipif(_SKIP_NATIVE_WINDOW_TESTS, reason="Requires Windows native window")
     def test_create_with_auto_show_true(self):
         """Test WebView.create() with auto_show=True."""
         try:
