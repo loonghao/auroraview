@@ -301,3 +301,67 @@ class TestWebViewAsync:
             assert webview._is_running is True
         except ImportError:
             pytest.skip("Package not built yet")
+
+
+@pytest.mark.unit
+class TestWebViewAutoShow:
+    """Test WebView auto_show parameter behavior."""
+
+    def test_create_default_auto_show_is_false(self):
+        """Test that WebView.create() defaults to auto_show=False."""
+        try:
+            from auroraview import WebView
+
+            # WebView.create() should default to auto_show=False
+            webview = WebView.create(title="Test")
+            # The _auto_show attribute should be False
+            assert webview._auto_show is False
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_init_default_auto_show_is_true(self):
+        """Test that WebView() constructor defaults to auto_show=True."""
+        try:
+            from auroraview import WebView
+
+            # WebView() constructor should default to auto_show=True
+            webview = WebView(title="Test")
+            assert webview._auto_show is True
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_create_with_auto_show_true(self):
+        """Test WebView.create() with auto_show=True."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView.create(title="Test", auto_show=True)
+            assert webview._auto_show is True
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_create_with_auto_show_false(self):
+        """Test WebView.create() with explicit auto_show=False."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView.create(title="Test", auto_show=False)
+            assert webview._auto_show is False
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
+
+    def test_show_method_exists(self):
+        """Test that show() method exists and is callable."""
+        try:
+            from auroraview import WebView
+
+            webview = WebView.create(title="Test", auto_show=False)
+            assert hasattr(webview, "show")
+            assert callable(webview.show)
+            webview.close()
+        except ImportError:
+            pytest.skip("Package not built yet")
