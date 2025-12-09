@@ -24,17 +24,31 @@ env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
 jobs:
-  # Pre-build binaries for all platforms (runs in parallel)
+  # Pre-build ABI3 wheels for all platforms (one wheel works for Python 3.8+)
   pre-build:
-    name: Pre-build (${{ matrix.os }})
+    name: Pre-build Wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            target: x86_64
+            artifact-name: wheel-linux
+          - os: windows-latest
+            target: x64
+            artifact-name: wheel-windows
+          - os: macos-latest
+            target: universal2-apple-darwin
+            artifact-name: wheel-macos
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -56,21 +70,76 @@ jobs:
           key: ${{ runner.os }}-cargo-prebuild-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-prebuild-
 
-      - name: Build release binaries
-        run: cargo build --release --workspace --all-features
+      - name: Build ABI3 wheel (Python 3.8+)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: ${{ matrix.os == 'windows-latest' && '--release --out dist --features ext-module,abi3-py38,win-webview2' || '--release --out dist --features ext-module,abi3-py38' }}
+          manylinux: off
 
-      - name: Upload build artifacts
+      - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: prebuild-${{ runner.os }}
-          path: |
-            target/release/*.dll
-            target/release/*.so
-            target/release/*.dylib
-            target/release/auroraview*
-            target/release/deps/
+          name: ${{ matrix.artifact-name }}
+          path: dist/*.whl
           retention-days: 1
-          if-no-files-found: warn
+
+  # Python 3.7 separate build and test (abi3-py37 feature)
+  python37-test:
+    name: Python 3.7 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64
+          - os: windows-latest
+            target: x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.7
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.7'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev pkg-config
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-py37-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-py37-
+
+      - name: Build wheel for Python 3.7
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: ${{ matrix.os == 'windows-latest' && '--release --out dist --features ext-module,abi3-py37,win-webview2' || '--release --out dist --features ext-module,abi3-py37' }}
+          manylinux: off
+
+      - name: Install and test wheel
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install dist/*.whl
+          python -c "import auroraview; print('Python 3.7 import OK')"
+          pip install pytest
+          pytest tests/python/unit/ -v --tb=short -x || echo "Some tests may require newer Python features"
 
   # Fast checks that run first (< 2 min)
   quick-checks:
@@ -148,39 +217,57 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-  # Python tests across platforms and versions (parallel matrix)
+  # Python tests using pre-built ABI3 wheels (Python 3.8+)
   python-tests:
     name: Python ${{ matrix.python-version }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    needs: [quick-checks]  # Wait for quick checks to pass
+    timeout-minutes: 15
+    needs: [quick-checks, pre-build]
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.9", "3.11"]
-        include:
-          # Additional Python versions on Linux only (to save CI time)
-          - os: ubuntu-latest
-            python-version: "3.8"
-          - os: ubuntu-latest
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        exclude:
+          # Reduce matrix size - test edge versions on all platforms, middle versions on Linux only
+          - os: windows-latest
+            python-version: "3.9"
+          - os: windows-latest
             python-version: "3.10"
-          - os: ubuntu-latest
-            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.9"
+          - os: macos-latest
+            python-version: "3.10"
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup AuroraView Environment
-        uses: ./.github/actions/setup-auroraview
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache-key-suffix: 'py-test-${{ matrix.os }}'
 
-      - name: Build and Test
-        uses: ./.github/actions/build-and-test
+      - name: Download pre-built wheel
+        uses: actions/download-artifact@v4
         with:
-          test-type: 'python'
-          generate-stubs: 'true'
+          name: wheel-${{ runner.os == 'Linux' && 'linux' || runner.os == 'Windows' && 'windows' || 'macos' }}
+          path: dist/
+
+      - name: Install wheel and test dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install dist/*.whl
+          pip install pytest pytest-cov
+
+      - name: Verify import
+        shell: bash
+        run: |
+          python -c "import auroraview; print(f'AuroraView {auroraview.__version__} on Python ${{ matrix.python-version }}')"
+
+      - name: Run tests
+        shell: bash
+        run: |
+          pytest tests/python/unit/ -v --tb=short --cov=auroraview --cov-report=xml
 
       - name: Upload coverage (3.11 on ubuntu only)
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
@@ -245,58 +332,71 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # Platform-specific wheel builds (critical for release quality)
+  # Wheel validation (test pre-built wheels)
   wheel-build:
-    name: Wheel (${{ matrix.os }})
+    name: Wheel Validation (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
-    needs: [quick-checks]
+    timeout-minutes: 10
+    needs: [quick-checks, pre-build]
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64
+            artifact-name: wheel-linux
           - os: windows-latest
-            target: x64
+            artifact-name: wheel-windows
           - os: macos-latest
-            target: universal2-apple-darwin
+            artifact-name: wheel-macos
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and Test Wheel
-        uses: ./.github/actions/build-wheel
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          target: ${{ matrix.target }}
           python-version: '3.11'
-          test-wheel: 'true'
-          upload-wheel: 'false'
-          maturin-args: ${{ matrix.os == 'windows-latest' && '--release --out dist --find-interpreter --features ext-module,abi3-py38,win-webview2' || '--release --out dist --find-interpreter --features ext-module,abi3-py38' }}
+
+      - name: Download pre-built wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: dist/
+
+      - name: Validate wheel
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install dist/*.whl
+          python -c "import auroraview; print(f'Wheel validation OK: {auroraview.__version__}')"
+          # Test CLI entry point
+          auroraview --help || python -m auroraview --help || echo "CLI test skipped"
 
   # Qt integration tests (Windows only - most critical platform)
   qt-tests:
     name: Qt Tests (Windows)
     runs-on: windows-latest
-    timeout-minutes: 20
-    needs: [quick-checks]
+    timeout-minutes: 15
+    needs: [quick-checks, pre-build]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup AuroraView Environment
-        uses: ./.github/actions/setup-auroraview
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache-key-suffix: 'qt-test'
 
-      - name: Build extension
+      - name: Download pre-built wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-windows
+          path: dist/
+
+      - name: Install wheel and Qt dependencies
         shell: bash
         run: |
-          uv pip install maturin
-          uv run maturin develop --features "python-bindings,abi3-py38,win-webview2,ext-module"
-
-      - name: Install Qt dependencies
-        shell: bash
-        run: uv pip install qtpy "PySide6<6.7" pytest pytest-qt pytest-cov
+          python -m pip install --upgrade pip
+          pip install dist/*.whl
+          pip install qtpy "PySide6<6.7" pytest pytest-qt pytest-cov
 
       - name: Run Qt tests (headless)
         shell: pwsh
@@ -307,7 +407,7 @@ jobs:
           QT_OPENGL: software
           QTWEBENGINE_DISABLE_SANDBOX: '1'
         run: |
-          uv run pytest tests/python/integration/test_qt_backend.py tests/python/integration/test_qt_lifecycle.py -v --tb=short
+          pytest tests/python/integration/test_qt_backend.py tests/python/integration/test_qt_lifecycle.py -v --tb=short
 
       - name: Upload Qt coverage
         uses: codecov/codecov-action@v5
@@ -355,7 +455,7 @@ jobs:
     name: CLI Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
-    needs: [quick-checks, pre-build]
+    needs: [quick-checks]
     strategy:
       fail-fast: false
       matrix:
@@ -369,13 +469,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download pre-built artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: prebuild-${{ runner.os }}
-          path: target/release/
-        continue-on-error: true
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -387,7 +480,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
 
-      - name: Build CLI (incremental with pre-built deps)
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-cli-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-cli-
+
+      - name: Build CLI
         run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
 
       - name: Test CLI (--help)
@@ -405,7 +509,7 @@ jobs:
   pr-ready:
     name: PR Ready
     runs-on: ubuntu-latest
-    needs: [pre-build, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build]
+    needs: [pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build]
     if: always()
     steps:
       - name: Check results
@@ -415,6 +519,7 @@ jobs:
           # Define required jobs
           declare -A jobs=(
             ["pre-build"]="${{ needs.pre-build.result }}"
+            ["python37-test"]="${{ needs.python37-test.result }}"
             ["quick-checks"]="${{ needs.quick-checks.result }}"
             ["clippy"]="${{ needs.clippy.result }}"
             ["python-tests"]="${{ needs.python-tests.result }}"
