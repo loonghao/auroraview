@@ -40,7 +40,7 @@ jobs:
             python-version: "3.11"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -116,7 +116,7 @@ jobs:
             target: universal2-apple-darwin
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build and Test Wheel
         uses: ./.github/actions/build-wheel
@@ -151,7 +151,7 @@ jobs:
             archive: auroraview-macos-arm64.tar.gz
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
