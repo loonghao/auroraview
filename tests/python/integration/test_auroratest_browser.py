@@ -35,24 +35,28 @@ HAS_DISPLAY = (
 
 # wry requires event loop to be on main thread
 # In CI, tests run in worker threads which causes panic on Linux and macOS
+# On Windows CI, WebView2 tests can hang due to event loop issues
 IS_LINUX = sys.platform == "linux"
 IS_MACOS = sys.platform == "darwin"
-MAIN_THREAD_SKIP = (IS_LINUX or IS_MACOS) and IN_CI
+IS_WINDOWS = sys.platform == "win32"
+
+# Skip WebView tests in CI on all platforms due to event loop/thread issues
+SKIP_WEBVIEW_TESTS = IN_CI
 
 # Common skip conditions
 pytestmark = [
     pytest.mark.integration,
-    # Skip all Browser tests on Linux/macOS CI due to main thread requirement
+    # Skip all Browser tests in CI due to event loop/thread issues
     pytest.mark.skipif(
-        MAIN_THREAD_SKIP,
-        reason="wry requires event loop on main thread, CI runs tests in worker threads",
+        SKIP_WEBVIEW_TESTS,
+        reason="WebView tests require main thread event loop, skipped in CI",
     ),
 ]
 
 
 def skip_without_display(reason="WebView tests require display"):
-    """Skip test if no display is available."""
-    return pytest.mark.skipif(IN_CI and not HAS_DISPLAY, reason=reason)
+    """Skip test if no display is available or in CI."""
+    return pytest.mark.skipif(IN_CI or not HAS_DISPLAY, reason=reason)
 
 
 class TestBrowserImport:

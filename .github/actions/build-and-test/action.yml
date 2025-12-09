@@ -177,6 +177,8 @@ runs:
       env:
         PYTHONUNBUFFERED: 1
         DISPLAY: ':99'
+        # Disable auto-warmup in CI to avoid delays during import
+        AURORAVIEW_DISABLE_WARMUP: '1'
 
     - name: Upload test artifacts
       if: inputs.upload-artifacts == 'true' && always()

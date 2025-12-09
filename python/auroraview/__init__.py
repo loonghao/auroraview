@@ -494,7 +494,11 @@ __all__ = [
 #
 # Note: The warmup runs in a background thread and does not block imports.
 # Users can still call start_warmup() manually for custom user_data_folder.
-if _sys.platform == "win32" and start_warmup is not None:
+#
+# Environment variables:
+#   AURORAVIEW_DISABLE_WARMUP=1 - Disable auto-warmup (useful for CI/testing)
+_disable_warmup = _os.environ.get("AURORAVIEW_DISABLE_WARMUP", "").lower() in ("1", "true", "yes")
+if _sys.platform == "win32" and start_warmup is not None and not _disable_warmup:
     try:
         start_warmup()
     except Exception:
