@@ -4,10 +4,19 @@ This module tests the new _auto_process_events mechanism that replaces
 the old _post_eval_js_hook pattern.
 """
 
+import os
+
 import pytest
 
-# Mark all tests as Qt tests
-pytestmark = [pytest.mark.qt, pytest.mark.unit]
+# Mark all tests as Qt tests and skip in CI (requires display)
+pytestmark = [
+    pytest.mark.qt,
+    pytest.mark.unit,
+    pytest.mark.skipif(
+        os.environ.get("CI") == "true",
+        reason="WebView tests require display environment, skipped in CI",
+    ),
+]
 
 
 class TestWebViewAutoProcessEvents:

@@ -8,12 +8,19 @@ These tests require Qt dependencies to be installed:
     pip install auroraview[qt]
 """
 
+import os
 import sys
 
 import pytest
 
-# Mark all tests as Qt tests
-pytestmark = [pytest.mark.qt]
+# Mark all tests as Qt tests and skip in CI (requires display)
+pytestmark = [
+    pytest.mark.qt,
+    pytest.mark.skipif(
+        os.environ.get("CI") == "true",
+        reason="Qt tests require display environment, skipped in CI",
+    ),
+]
 
 
 class TestQtWebViewLifecycle:
