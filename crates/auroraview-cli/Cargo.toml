@@ -63,4 +63,4 @@ rust-embed = "8.5"
 winresource = "0.1"
 
 [dev-dependencies]
-rstest = "0.24"
+rstest = "0.26"

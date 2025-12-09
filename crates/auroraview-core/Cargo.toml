@@ -69,6 +69,6 @@ windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsA
 default = []
 
 [dev-dependencies]
-rstest = "0.24"
+rstest = "0.26"
 tempfile = "3.15"
 
