@@ -102,7 +102,7 @@ def get_optimal_timer_interval(dcc_name: Optional[str] = None) -> int:
     return config["timer_interval_ms"]
 
 
-def get_optimal_geometry_delays(dcc_name: Optional[str] = None) -> list[int]:
+def get_optimal_geometry_delays(dcc_name: Optional[str] = None) -> "list[int]":
     """Get optimal geometry fix delays based on Qt version and DCC.
 
     Args:

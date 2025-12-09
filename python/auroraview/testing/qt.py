@@ -145,7 +145,7 @@ class QtWebViewTestHelper:
             qtbot: pytest-qt's QtBot fixture
         """
         self.qtbot = qtbot
-        self._webviews: list["QtWebView"] = []
+        self._webviews: "list[QtWebView]" = []
 
     def create_webview(self, **kwargs: Any) -> "QtWebView":
         """Create a QtWebView and track it for cleanup.
