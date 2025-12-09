@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def inject_api_methods_js(webview, api_methods: list[str]) -> None:
+def inject_api_methods_js(webview, api_methods: "list[str]") -> None:
     """Inject API method wrappers into JavaScript."""
     methods_js = ", ".join(f"'{m}'" for m in api_methods)
     js_code = f"""

@@ -106,8 +106,8 @@ class EventTimer:
         self._backend = backend  # Can be None, will be set in start()
         self._running = False
         self._timer_handle: Optional[Any] = None  # Handle returned by backend.start()
-        self._close_callbacks: list[Callable[[], None]] = []
-        self._tick_callbacks: list[Callable[[], None]] = []
+        self._close_callbacks: "list[Callable[[], None]]" = []
+        self._tick_callbacks: "list[Callable[[], None]]" = []
         self._last_valid = True
         self._tick_count = 0
 
