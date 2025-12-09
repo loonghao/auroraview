@@ -7,7 +7,8 @@ use std::io::BufReader;
 use std::path::Path;
 
 use image::codecs::png::PngDecoder;
-use image::{DynamicImage, ImageDecoder, ImageReader};
+use image::io::Reader as ImageReader;
+use image::{DynamicImage, ImageDecoder};
 
 use crate::backend::WebViewError;
 

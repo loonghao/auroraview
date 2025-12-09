@@ -21,8 +21,7 @@ _IN_CI = os.environ.get("CI", "").lower() == "true"
 
 # Skip tests that need QApplication in CI (even with xvfb, Qt can crash)
 skip_qapp_in_ci = pytest.mark.skipif(
-    _IN_CI,
-    reason="QApplication tests skipped in CI (requires display environment)"
+    _IN_CI, reason="QApplication tests skipped in CI (requires display environment)"
 )
 
 

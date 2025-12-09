@@ -32,7 +32,8 @@ base64 = "0.22"
 thiserror = "2.0"
 
 # Clipboard support
-arboard = "3.4"
+# Note: Disable default image feature to avoid image 0.25+ which requires edition2024 via pxfm
+arboard = { version = "3.4", default-features = false }
 
 # Shell/process execution
 which = "7.0"
