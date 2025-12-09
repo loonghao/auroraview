@@ -116,7 +116,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev pkg-config
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev pkg-config libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0
 
       - name: Cache Rust
         uses: actions/cache@v4
@@ -274,6 +274,12 @@ jobs:
         with:
           name: ${{ matrix.os == 'ubuntu-latest' && 'wheels-linux-x86_64' || matrix.os == 'windows-latest' && 'wheels-windows-x64' || 'wheels-macos-universal2-apple-darwin' }}
           path: dist/
+
+      - name: Install Qt system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0
 
       - name: Install wheel and test dependencies
         shell: bash
