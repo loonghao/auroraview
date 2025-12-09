@@ -16,6 +16,7 @@ use pyo3::prelude::*;
 use pyo3::{Py, PyAny};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+#[cfg(feature = "python-bindings")]
 use std::time::Instant;
 
 /// JavaScript callback result

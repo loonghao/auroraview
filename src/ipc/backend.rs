@@ -41,6 +41,7 @@ pub trait IpcBackend: Send + Sync {
 mod tests {
     use super::*;
     use rstest::*;
+    use serde_json::Value;
 
     #[test]
     fn test_ipc_message_new() {
