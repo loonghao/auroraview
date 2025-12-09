@@ -54,7 +54,8 @@ dirs = "6.0"
 mime_guess = "2.0"
 
 # Image processing for window icon
-image = { version = "0.25", default-features = false, features = ["png"] }
+# Note: Using 0.24 for compatibility with Rust 1.77+ (0.25+ requires edition2024 via pxfm)
+image = { version = "0.24", default-features = false, features = ["png"] }
 
 # Embed static assets
 rust-embed = "8.5"
