@@ -32,7 +32,7 @@ import logging
 import threading
 import uuid
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Callable, Dict, Generic, List, Optional, Set, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class Signal(Generic[T]):
         """
         self._name = name or f"Signal-{id(self)}"
         self._handlers: Dict[ConnectionId, Handler] = {}
-        self._once_handlers: set[ConnectionId] = set()
+        self._once_handlers: Set[ConnectionId] = set()
         self._lock = threading.RLock()
 
     @property

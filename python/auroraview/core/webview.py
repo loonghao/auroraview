@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 try:
     from typing import Literal  # py38+
@@ -219,7 +219,7 @@ class WebView(
             ipc_batch_size=ipc_batch_size,  # Max messages per tick (0=unlimited)
             icon=icon,  # Custom window icon path
         )
-        self._event_handlers: Dict[str, list[Callable]] = {}
+        self._event_handlers: Dict[str, List[Callable]] = {}
         self._title = title
         self._width = width
         self._height = height
