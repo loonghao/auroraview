@@ -327,7 +327,10 @@ impl WebViewBackend for NativeBackend {
             state_guard.set_webview(self.webview.clone());
         }
 
-        WebViewEventHandler::run_blocking(event_loop, state, self.auto_show);
+        // Always show window when run_event_loop_blocking is called
+        // The auto_show config controls whether show() is called automatically after create()
+        // But when show() is explicitly called, the window should always be visible
+        WebViewEventHandler::run_blocking(event_loop, state, true);
         tracing::info!("Event loop exited");
     }
 
