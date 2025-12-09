@@ -19,6 +19,36 @@ pytest.importorskip("qtpy", reason="Qt tests require qtpy")
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows only tests")
 
 
+@pytest.fixture
+def mock_win32_apis():
+    """Fixture that mocks all Win32 API functions used by win.py.
+
+    The win.py module creates module-level GetWindowLong/SetWindowLong
+    aliases that point to either GetWindowLongPtrW (64-bit) or
+    GetWindowLongW (32-bit). We need to mock these aliases, not the
+    underlying user32 functions.
+    """
+    with patch(
+        "auroraview.integration.qt.platforms.win.GetWindowLong"
+    ) as mock_get, patch(
+        "auroraview.integration.qt.platforms.win.SetWindowLong"
+    ) as mock_set, patch(
+        "auroraview.integration.qt.platforms.win.user32"
+    ) as mock_user32:
+        # Default return values
+        mock_get.return_value = 0
+        mock_set.return_value = 1
+        mock_user32.SetWindowPos.return_value = 1
+        mock_user32.SetParent.return_value = 1
+        mock_user32.SetLayeredWindowAttributes.return_value = 1
+
+        yield {
+            "GetWindowLong": mock_get,
+            "SetWindowLong": mock_set,
+            "user32": mock_user32,
+        }
+
+
 class TestWindowsPlatformBackendImport:
     """Tests for WindowsPlatformBackend import and instantiation."""
 
@@ -90,7 +120,7 @@ class TestWindowsConstants:
 class TestApplyClipStyles:
     """Tests for apply_clip_styles_to_parent method."""
 
-    def test_applies_clip_styles_when_not_set(self):
+    def test_applies_clip_styles_when_not_set(self, mock_win32_apis):
         """Test that clip styles are applied when not already set."""
         from auroraview.integration.qt.platforms.win import (
             WS_CLIPCHILDREN,
@@ -100,24 +130,22 @@ class TestApplyClipStyles:
 
         backend = WindowsPlatformBackend()
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            # Current style doesn't have clip styles
-            mock_user32.GetWindowLongW.return_value = 0
-            mock_user32.SetWindowLongW.return_value = 1
-            mock_user32.SetWindowPos.return_value = 1
+        # Current style doesn't have clip styles
+        mock_win32_apis["GetWindowLong"].return_value = 0
+        mock_win32_apis["SetWindowLong"].return_value = 1
 
-            result = backend.apply_clip_styles_to_parent(12345)
+        result = backend.apply_clip_styles_to_parent(12345)
 
-            assert result is True
-            mock_user32.GetWindowLongW.assert_called_once()
-            mock_user32.SetWindowLongW.assert_called_once()
-            # Verify the new style includes clip styles
-            call_args = mock_user32.SetWindowLongW.call_args
-            new_style = call_args[0][2]
-            assert new_style & WS_CLIPCHILDREN
-            assert new_style & WS_CLIPSIBLINGS
+        assert result is True
+        mock_win32_apis["GetWindowLong"].assert_called_once()
+        mock_win32_apis["SetWindowLong"].assert_called_once()
+        # Verify the new style includes clip styles
+        call_args = mock_win32_apis["SetWindowLong"].call_args
+        new_style = call_args[0][2]
+        assert new_style & WS_CLIPCHILDREN
+        assert new_style & WS_CLIPSIBLINGS
 
-    def test_skips_when_already_set(self):
+    def test_skips_when_already_set(self, mock_win32_apis):
         """Test that no changes are made when styles already set."""
         from auroraview.integration.qt.platforms.win import (
             WS_CLIPCHILDREN,
@@ -127,34 +155,32 @@ class TestApplyClipStyles:
 
         backend = WindowsPlatformBackend()
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            # Current style already has clip styles
-            mock_user32.GetWindowLongW.return_value = WS_CLIPCHILDREN | WS_CLIPSIBLINGS
+        # Current style already has clip styles
+        mock_win32_apis["GetWindowLong"].return_value = WS_CLIPCHILDREN | WS_CLIPSIBLINGS
 
-            result = backend.apply_clip_styles_to_parent(12345)
+        result = backend.apply_clip_styles_to_parent(12345)
 
-            assert result is True
-            # SetWindowLongW should not be called
-            mock_user32.SetWindowLongW.assert_not_called()
+        assert result is True
+        # SetWindowLong should not be called
+        mock_win32_apis["SetWindowLong"].assert_not_called()
 
-    def test_returns_false_on_exception(self):
+    def test_returns_false_on_exception(self, mock_win32_apis):
         """Test that False is returned on exception."""
         from auroraview.integration.qt.platforms.win import WindowsPlatformBackend
 
         backend = WindowsPlatformBackend()
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            mock_user32.GetWindowLongW.side_effect = Exception("Test error")
+        mock_win32_apis["GetWindowLong"].side_effect = Exception("Test error")
 
-            result = backend.apply_clip_styles_to_parent(12345)
+        result = backend.apply_clip_styles_to_parent(12345)
 
-            assert result is False
+        assert result is False
 
 
 class TestPrepareHwndForContainer:
     """Tests for prepare_hwnd_for_container method."""
 
-    def test_removes_frame_styles(self):
+    def test_removes_frame_styles(self, mock_win32_apis):
         """Test that frame/border styles are removed."""
         from auroraview.integration.qt.platforms.win import (
             WS_CAPTION,
@@ -166,39 +192,38 @@ class TestPrepareHwndForContainer:
 
         backend = WindowsPlatformBackend()
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            # Current style has popup and caption
-            mock_user32.GetWindowLongW.return_value = WS_POPUP | WS_CAPTION | WS_THICKFRAME
-            mock_user32.SetWindowLongW.return_value = 1
-            mock_user32.SetWindowPos.return_value = 1
+        # Current style has popup and caption
+        mock_win32_apis["GetWindowLong"].return_value = WS_POPUP | WS_CAPTION | WS_THICKFRAME
+        mock_win32_apis["SetWindowLong"].return_value = 1
 
-            result = backend.prepare_hwnd_for_container(12345)
+        result = backend.prepare_hwnd_for_container(12345)
 
-            assert result is True
-            # Verify styles were modified correctly
-            style_call = mock_user32.SetWindowLongW.call_args_list[0]
-            new_style = style_call[0][2]
-            assert new_style & WS_CHILD  # WS_CHILD added
-            assert not (new_style & WS_POPUP)  # WS_POPUP removed
+        assert result is True
+        # Verify styles were modified correctly
+        style_calls = mock_win32_apis["SetWindowLong"].call_args_list
+        # First call is for GWL_STYLE, second for GWL_EXSTYLE
+        style_call = style_calls[0]
+        new_style = style_call[0][2]
+        assert new_style & WS_CHILD  # WS_CHILD added
+        assert not (new_style & WS_POPUP)  # WS_POPUP removed
 
-    def test_returns_false_on_exception(self):
+    def test_returns_false_on_exception(self, mock_win32_apis):
         """Test that False is returned on exception."""
         from auroraview.integration.qt.platforms.win import WindowsPlatformBackend
 
         backend = WindowsPlatformBackend()
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            mock_user32.GetWindowLongW.side_effect = Exception("Test error")
+        mock_win32_apis["GetWindowLong"].side_effect = Exception("Test error")
 
-            result = backend.prepare_hwnd_for_container(12345)
+        result = backend.prepare_hwnd_for_container(12345)
 
-            assert result is False
+        assert result is False
 
 
 class TestHideWindowForInit:
     """Tests for hide_window_for_init method."""
 
-    def test_adds_layered_style(self):
+    def test_adds_layered_style(self, mock_win32_apis):
         """Test that WS_EX_LAYERED is added."""
         from auroraview.integration.qt.platforms.win import (
             WS_EX_LAYERED,
@@ -207,39 +232,36 @@ class TestHideWindowForInit:
 
         backend = WindowsPlatformBackend()
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            mock_user32.GetWindowLongW.return_value = 0
-            mock_user32.SetWindowLongW.return_value = 1
-            mock_user32.SetLayeredWindowAttributes.return_value = 1
+        mock_win32_apis["GetWindowLong"].return_value = 0
+        mock_win32_apis["SetWindowLong"].return_value = 1
 
-            result = backend.hide_window_for_init(12345)
+        result = backend.hide_window_for_init(12345)
 
-            assert result is True
-            # Verify WS_EX_LAYERED was added
-            style_call = mock_user32.SetWindowLongW.call_args
-            new_ex_style = style_call[0][2]
-            assert new_ex_style & WS_EX_LAYERED
-            # Verify alpha was set to 0
-            mock_user32.SetLayeredWindowAttributes.assert_called_once()
+        assert result is True
+        # Verify WS_EX_LAYERED was added
+        style_call = mock_win32_apis["SetWindowLong"].call_args
+        new_ex_style = style_call[0][2]
+        assert new_ex_style & WS_EX_LAYERED
+        # Verify alpha was set to 0
+        mock_win32_apis["user32"].SetLayeredWindowAttributes.assert_called_once()
 
-    def test_returns_false_on_exception(self):
+    def test_returns_false_on_exception(self, mock_win32_apis):
         """Test that False is returned on exception."""
         from auroraview.integration.qt.platforms.win import WindowsPlatformBackend
 
         backend = WindowsPlatformBackend()
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            mock_user32.GetWindowLongW.side_effect = Exception("Test error")
+        mock_win32_apis["GetWindowLong"].side_effect = Exception("Test error")
 
-            result = backend.hide_window_for_init(12345)
+        result = backend.hide_window_for_init(12345)
 
-            assert result is False
+        assert result is False
 
 
 class TestShowWindowAfterInit:
     """Tests for show_window_after_init method."""
 
-    def test_removes_layered_style(self):
+    def test_removes_layered_style(self, mock_win32_apis):
         """Test that WS_EX_LAYERED is removed."""
         from auroraview.integration.qt.platforms.win import (
             WS_EX_LAYERED,
@@ -248,40 +270,38 @@ class TestShowWindowAfterInit:
 
         backend = WindowsPlatformBackend()
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            mock_user32.GetWindowLongW.return_value = WS_EX_LAYERED
-            mock_user32.SetWindowLongW.return_value = 1
-            mock_user32.SetLayeredWindowAttributes.return_value = 1
-            mock_user32.SetWindowPos.return_value = 1
+        mock_win32_apis["GetWindowLong"].return_value = WS_EX_LAYERED
+        mock_win32_apis["SetWindowLong"].return_value = 1
 
-            result = backend.show_window_after_init(12345)
+        result = backend.show_window_after_init(12345)
 
-            assert result is True
-            # Verify alpha was set to 255 first
-            mock_user32.SetLayeredWindowAttributes.assert_called_once()
-            # Verify WS_EX_LAYERED was removed
-            style_call = mock_user32.SetWindowLongW.call_args
-            new_ex_style = style_call[0][2]
-            assert not (new_ex_style & WS_EX_LAYERED)
+        assert result is True
+        # Verify alpha was set to 255 first
+        mock_win32_apis["user32"].SetLayeredWindowAttributes.assert_called_once()
+        # Verify WS_EX_LAYERED was removed
+        style_call = mock_win32_apis["SetWindowLong"].call_args
+        new_ex_style = style_call[0][2]
+        assert not (new_ex_style & WS_EX_LAYERED)
 
-    def test_returns_false_on_exception(self):
+    def test_returns_false_on_exception(self, mock_win32_apis):
         """Test that False is returned on exception."""
         from auroraview.integration.qt.platforms.win import WindowsPlatformBackend
 
         backend = WindowsPlatformBackend()
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            mock_user32.SetLayeredWindowAttributes.side_effect = Exception("Test error")
+        mock_win32_apis["user32"].SetLayeredWindowAttributes.side_effect = Exception(
+            "Test error"
+        )
 
-            result = backend.show_window_after_init(12345)
+        result = backend.show_window_after_init(12345)
 
-            assert result is False
+        assert result is False
 
 
 class TestEnsureNativeChildStyle:
     """Tests for ensure_native_child_style method."""
 
-    def test_applies_child_style_when_missing(self):
+    def test_applies_child_style_when_missing(self, mock_win32_apis):
         """Test that WS_CHILD is applied when missing."""
         from auroraview.integration.qt.platforms.win import (
             WS_CHILD,
@@ -292,24 +312,21 @@ class TestEnsureNativeChildStyle:
         mock_container = MagicMock()
         mock_container.winId.return_value = 67890
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            # Current style doesn't have WS_CHILD
-            mock_user32.GetWindowLongW.return_value = 0
-            mock_user32.SetWindowLongW.return_value = 1
-            mock_user32.SetParent.return_value = 1
-            mock_user32.SetWindowPos.return_value = 1
+        # Current style doesn't have WS_CHILD
+        mock_win32_apis["GetWindowLong"].return_value = 0
+        mock_win32_apis["SetWindowLong"].return_value = 1
 
-            # Should not raise
-            backend.ensure_native_child_style(12345, mock_container)
+        # Should not raise
+        backend.ensure_native_child_style(12345, mock_container)
 
-            # Verify WS_CHILD was added
-            style_call = mock_user32.SetWindowLongW.call_args
-            new_style = style_call[0][2]
-            assert new_style & WS_CHILD
-            # Verify SetParent was called
-            mock_user32.SetParent.assert_called_once()
+        # Verify WS_CHILD was added
+        style_call = mock_win32_apis["SetWindowLong"].call_args
+        new_style = style_call[0][2]
+        assert new_style & WS_CHILD
+        # Verify SetParent was called
+        mock_win32_apis["user32"].SetParent.assert_called_once()
 
-    def test_skips_when_child_style_set(self):
+    def test_skips_when_child_style_set(self, mock_win32_apis):
         """Test that nothing happens when WS_CHILD already set."""
         from auroraview.integration.qt.platforms.win import (
             WS_CHILD,
@@ -320,17 +337,16 @@ class TestEnsureNativeChildStyle:
         mock_container = MagicMock()
         mock_container.winId.return_value = 67890
 
-        with patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
-            # Current style already has WS_CHILD
-            mock_user32.GetWindowLongW.return_value = WS_CHILD
+        # Current style already has WS_CHILD
+        mock_win32_apis["GetWindowLong"].return_value = WS_CHILD
 
-            backend.ensure_native_child_style(12345, mock_container)
+        backend.ensure_native_child_style(12345, mock_container)
 
-            # SetWindowLongW and SetParent should not be called
-            mock_user32.SetWindowLongW.assert_not_called()
-            mock_user32.SetParent.assert_not_called()
+        # SetWindowLong and SetParent should not be called
+        mock_win32_apis["SetWindowLong"].assert_not_called()
+        mock_win32_apis["user32"].SetParent.assert_not_called()
 
-    def test_handles_invalid_container(self):
+    def test_handles_invalid_container(self, mock_win32_apis):
         """Test that invalid container is handled gracefully."""
         from auroraview.integration.qt.platforms.win import WindowsPlatformBackend
 
@@ -338,6 +354,5 @@ class TestEnsureNativeChildStyle:
         mock_container = MagicMock()
         mock_container.winId.return_value = 0  # Invalid HWND
 
-        with patch("auroraview.integration.qt.platforms.win.user32"):
-            # Should not raise
-            backend.ensure_native_child_style(12345, mock_container)
+        # Should not raise
+        backend.ensure_native_child_style(12345, mock_container)
