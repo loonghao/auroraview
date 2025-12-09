@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.1...auroraview-v0.3.2) (2025-12-09)
+
+
+### Bug Fixes
+
+* **ci:** correct PyPI artifact filtering to preserve sdist ([9ca85f1](https://github.com/loonghao/auroraview/commit/9ca85f18239f3179448c2445924af341a804c3d1))
+* rustdoc bare URLs and timer test flakiness on macOS CI ([56cc05b](https://github.com/loonghao/auroraview/commit/56cc05be4237dfc0ba5a919d6aa0200a39b1a53f))
+
 ## [0.3.1](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.0...auroraview-v0.3.1) (2025-12-09)
 
 
