@@ -164,7 +164,7 @@ pub struct WebViewConfig {
 
     /// CORS allowed origins
     /// Default: empty (no CORS restrictions within WebView)
-    /// Example: vec!["https://api.example.com", "http://localhost:3000"]
+    /// Example: `vec!["https://api.example.com", "http://localhost:3000"]`
     pub cors_allowed_origins: Vec<String>,
 
     /// Enable clipboard access from JavaScript

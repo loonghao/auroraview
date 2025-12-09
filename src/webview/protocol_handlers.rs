@@ -338,7 +338,7 @@ pub fn handle_custom_protocol(
 /// Handle file path requests via /file/ prefix in auroraview protocol
 ///
 /// This allows loading arbitrary local files through the custom protocol:
-/// - URL: https://auroraview.localhost/file/C:/path/to/file.ext
+/// - URL: `https://auroraview.localhost/file/C:/path/to/file.ext`
 /// - Returns the file content with appropriate MIME type
 ///
 /// **Security Note**: This bypasses asset_root restrictions. Use with caution.

@@ -34,23 +34,24 @@ fn test_timer_throttling(timer: Timer) {
 #[rstest]
 fn test_timer_throttling_precise() {
     // Use a longer interval to reduce sensitivity to scheduler variance
-    let timer = Timer::new(100);
+    // macOS CI runners have very high scheduler variance (50-100ms+)
+    let timer = Timer::new(200);
 
     // First tick
     assert!(timer.should_tick(), "First tick should succeed");
 
     // Wait significantly less than interval (safe margin for CI environments)
-    // Using 40ms which is well under the 100ms interval
-    thread::sleep(Duration::from_millis(40));
+    // Using 50ms which is well under the 200ms interval
+    thread::sleep(Duration::from_millis(50));
     assert!(
         !timer.should_tick(),
         "Tick before interval should be throttled"
     );
 
-    // Wait for remaining time plus generous tolerance for CI environments
-    // macOS/Linux CI runners can have high scheduler variance (20-50ms)
-    // Total wait: 40ms + 80ms = 120ms, which gives 20ms tolerance over the 100ms interval
-    thread::sleep(Duration::from_millis(80));
+    // Wait for remaining time plus very generous tolerance for CI environments
+    // macOS/Linux CI runners can have extremely high scheduler variance (50-100ms+)
+    // Total wait: 50ms + 200ms = 250ms, which gives 50ms tolerance over the 200ms interval
+    thread::sleep(Duration::from_millis(200));
     assert!(
         timer.should_tick(),
         "Tick after full interval should succeed"
