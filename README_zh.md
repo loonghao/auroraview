@@ -86,7 +86,7 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 
 - 核心栈：Rust 1.75+、PyO3 0.22（abi3）、Wry 0.47、Tao 0.30
 - 引擎：Windows（WebView2）、macOS（WKWebView）、Linux（WebKitGTK）
-- 打包：maturin + abi3 → 单个 wheel 兼容 CPython 3.73.12
+- 打包：maturin + abi3 → 单个 wheel 兼容 CPython 3.7-3.13
 - 事件循环：默认阻塞式 show()；后续提供非阻塞模式以适配宿主循环
 - 延迟加载：在 show() 前设置的 URL/HTML 会保存并在创建时应用（最后写入生效）
 - IPC：Python ↔ JavaScript 双向事件总线（基于 CustomEvent）

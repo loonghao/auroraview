@@ -88,7 +88,7 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 
 - Core stack: Rust 1.75+, PyO3 0.22 (abi3), Wry 0.47, Tao 0.30
 - Web engines: Windows (WebView2), macOS (WKWebView), Linux (WebKitGTK)
-- Packaging: maturin with abi3 → one wheel works for CPython 3.73.12
+- Packaging: maturin with abi3 → one wheel works for CPython 3.7-3.13
 - Event loop: blocking show() by default; nonblocking mode planned for host loops
 - Deferred loading: URL/HTML set before show() are stored then applied at creation
 - IPC: bidirectional event bus (Python ↔ JavaScript via CustomEvent)
