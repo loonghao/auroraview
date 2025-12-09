@@ -13,34 +13,97 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            /* Aurora Borealis gradient - cyan to purple to magenta */
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             overflow: hidden;
+            position: relative;
+        }
+
+        /* Aurora animated background effect */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(255, 119, 198, 0.2) 0%, transparent 50%),
+                radial-gradient(ellipse at 40% 40%, rgba(98, 216, 243, 0.2) 0%, transparent 50%);
+            animation: aurora 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes aurora {
+            0% {
+                opacity: 0.5;
+                transform: scale(1) translateY(0);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1.1) translateY(-20px);
+            }
         }
 
         .loading-container {
             text-align: center;
             color: white;
-        }
-
-        .spinner {
-            width: 60px;
-            height: 60px;
-            margin: 0 auto 30px;
+            z-index: 1;
             position: relative;
         }
 
-        .spinner-ring {
+        /* Logo container with glow effect */
+        .logo-container {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Aurora logo SVG */
+        .logo {
+            width: 80px;
+            height: 80px;
+            animation: float 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px rgba(98, 216, 243, 0.5));
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Rotating ring around logo */
+        .logo-ring {
             position: absolute;
             width: 100%;
             height: 100%;
-            border: 4px solid rgba(255, 255, 255, 0.2);
-            border-top-color: white;
+            border: 2px solid transparent;
+            border-top-color: rgba(98, 216, 243, 0.8);
+            border-right-color: rgba(120, 119, 198, 0.6);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 3s linear infinite;
+        }
+
+        .logo-ring::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border: 2px solid transparent;
+            border-bottom-color: rgba(255, 119, 198, 0.6);
+            border-left-color: rgba(98, 216, 243, 0.4);
+            border-radius: 50%;
+            animation: spin 2s linear infinite reverse;
         }
 
         @keyframes spin {
@@ -48,58 +111,44 @@
         }
 
         .loading-text {
-            font-size: 24px;
-            font-weight: 300;
-            margin-bottom: 10px;
-            animation: pulse 2s ease-in-out infinite;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: 3px;
+            background: linear-gradient(90deg, #62d8f3, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 2s ease-in-out infinite;
+            text-transform: uppercase;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         .loading-subtext {
             font-size: 14px;
             opacity: 0.8;
-            font-weight: 300;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+            letter-spacing: 1px;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-
-        .dots {
-            display: inline-block;
-        }
-
-        .dots span {
-            animation: blink 1.4s infinite;
-            animation-fill-mode: both;
-        }
-
-        .dots span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .dots span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes blink {
-            0%, 80%, 100% { opacity: 0; }
-            40% { opacity: 1; }
-        }
-
-        /* Progress bar */
+        /* Progress bar with aurora colors */
         .progress-container {
             width: 200px;
             height: 3px;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
-            margin: 20px auto 0;
+            margin: 24px auto 0;
             overflow: hidden;
         }
 
         .progress-bar {
             height: 100%;
-            background: white;
+            background: linear-gradient(90deg, #62d8f3, #a78bfa, #f472b6);
             border-radius: 10px;
             animation: progress 2s ease-in-out infinite;
         }
@@ -122,13 +171,39 @@
 </head>
 <body>
     <div class="loading-container">
-        <div class="spinner">
-            <div class="spinner-ring"></div>
+        <div class="logo-container">
+            <div class="logo-ring"></div>
+            <!-- Aurora Logo SVG - stylized 'A' with aurora waves -->
+            <svg class="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Aurora waves background -->
+                <defs>
+                    <linearGradient id="auroraGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#62d8f3"/>
+                        <stop offset="50%" style="stop-color:#a78bfa"/>
+                        <stop offset="100%" style="stop-color:#f472b6"/>
+                    </linearGradient>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <!-- Stylized 'A' for Aurora -->
+                <path d="M50 15 L20 85 L35 85 L42 65 L58 65 L65 85 L80 85 L50 15Z M50 35 L55 55 L45 55 L50 35Z" 
+                      fill="url(#auroraGrad)" filter="url(#glow)"/>
+                <!-- Aurora wave accent -->
+                <path d="M15 50 Q30 40, 50 50 T85 50" 
+                      stroke="url(#auroraGrad)" stroke-width="3" fill="none" opacity="0.6">
+                    <animate attributeName="d" 
+                             values="M15 50 Q30 40, 50 50 T85 50;M15 50 Q30 60, 50 50 T85 50;M15 50 Q30 40, 50 50 T85 50" 
+                             dur="3s" repeatCount="indefinite"/>
+                </path>
+            </svg>
         </div>
-        <div class="loading-text">
-            Loading<span class="dots"><span>.</span><span>.</span><span>.</span></span>
-        </div>
-        <div class="loading-subtext">Please wait while we prepare your content</div>
+        <div class="loading-text">AuroraView</div>
+        <div class="loading-subtext">Preparing your experience</div>
         <div class="progress-container">
             <div class="progress-bar"></div>
         </div>

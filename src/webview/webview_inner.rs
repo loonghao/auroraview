@@ -31,6 +31,7 @@ pub struct WebViewInner {
     /// Cross-platform lifecycle manager
     pub(crate) lifecycle: Arc<LifecycleManager>,
     /// Whether to auto-show the window (false in headless mode)
+    #[allow(dead_code)]
     pub(crate) auto_show: bool,
     /// Backend instance for DCC mode - MUST be kept alive to prevent window destruction
     #[allow(dead_code)]
@@ -522,8 +523,11 @@ impl WebViewInner {
             state_guard.set_webview(self.webview.clone());
         }
 
-        // Run the improved event loop (use stored auto_show setting for headless support)
-        WebViewEventHandler::run_blocking(event_loop, state, self.auto_show);
+        // Run the improved event loop
+        // ALWAYS show window when run_event_loop_blocking is explicitly called
+        // The auto_show config only controls automatic showing after create()
+        // When show() is explicitly called, the window should always be visible
+        WebViewEventHandler::run_blocking(event_loop, state, true);
 
         tracing::info!("Event loop exited");
     }

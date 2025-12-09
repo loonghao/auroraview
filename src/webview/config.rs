@@ -191,6 +191,12 @@ pub struct WebViewConfig {
     /// Only used when block_external_navigation is true
     /// Example: vec!["example.com", "api.example.com"]
     pub allowed_navigation_domains: Vec<String>,
+
+    /// Custom window icon path (PNG format, recommended 32x32 pixels)
+    /// If None, uses the default AuroraView icon
+    /// Supported formats: PNG (recommended), ICO, JPEG, BMP, GIF
+    /// Recommended sizes: 32x32 (taskbar), 64x64 (alt-tab), 256x256 (high-DPI)
+    pub icon: Option<PathBuf>,
 }
 
 // Manual Debug implementation (ProtocolCallback doesn't implement Debug)
@@ -226,6 +232,7 @@ impl std::fmt::Debug for WebViewConfig {
             )
             .field("api_methods", &self.api_methods)
             .field("auto_show", &self.auto_show)
+            .field("icon", &self.icon)
             .finish()
     }
 }
@@ -271,6 +278,7 @@ impl Default for WebViewConfig {
             allow_media_devices: false,
             block_external_navigation: false,
             allowed_navigation_domains: Vec::new(),
+            icon: None, // Use default AuroraView icon
         }
     }
 }
