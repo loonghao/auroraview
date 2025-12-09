@@ -44,6 +44,7 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   # Try to find and download pre-built wheels from PR checks
+  # IMPORTANT: Only reuse artifacts that were built from the exact same commit SHA
   check-pr-artifacts:
     name: Check PR Artifacts
     runs-on: ubuntu-latest
@@ -52,25 +53,41 @@ jobs:
     outputs:
       artifacts-available: ${{ steps.check.outputs.available }}
       pr-run-id: ${{ steps.check.outputs.run_id }}
+      source-sha: ${{ steps.check.outputs.source_sha }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Find recent PR workflow run
+      - name: Find PR workflow run for this commit
         id: check
         uses: actions/github-script@v7
         with:
           script: |
-            // Find the most recent successful PR Checks workflow run for this commit
+            // Get the current commit SHA that we're releasing
+            const targetSha = context.sha;
+            console.log(`Looking for artifacts built from commit: ${targetSha}`);
+
+            // Find successful PR Checks workflow runs for this exact commit
             const { data: runs } = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'pr-checks.yml',
               status: 'success',
-              per_page: 5
+              head_sha: targetSha,  // Only match runs from this exact commit
+              per_page: 10
             });
 
-            // Check if any run has our expected artifacts
+            if (runs.workflow_runs.length === 0) {
+              console.log(`No PR workflow found for commit ${targetSha}`);
+              core.setOutput('available', 'false');
+              core.setOutput('run_id', '');
+              core.setOutput('source_sha', '');
+              return;
+            }
+
+            // Check if any matching run has our expected artifacts
             for (const run of runs.workflow_runs) {
+              console.log(`Checking run ${run.id} (commit: ${run.head_sha})`);
+
               const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -82,16 +99,18 @@ jobs:
               const hasMacos = artifacts.artifacts.some(a => a.name === 'wheels-macos-universal2-apple-darwin');
 
               if (hasLinux && hasWindows && hasMacos) {
-                console.log(`Found artifacts in run ${run.id}`);
+                console.log(`Found matching artifacts from run ${run.id} (commit: ${targetSha})`);
                 core.setOutput('available', 'true');
                 core.setOutput('run_id', run.id.toString());
+                core.setOutput('source_sha', targetSha);
                 return;
               }
             }
 
-            console.log('No suitable artifacts found, will rebuild');
+            console.log(`No suitable artifacts found for commit ${targetSha}, will rebuild`);
             core.setOutput('available', 'false');
             core.setOutput('run_id', '');
+            core.setOutput('source_sha', '');
 
   # Download and re-upload artifacts from PR workflow (if available)
   reuse-pr-wheels:
@@ -263,6 +282,15 @@ jobs:
           echo "Release artifacts:"
           ls -la release-artifacts/
 
+      - name: Document artifact source
+        id: artifact-source
+        run: |
+          if [ "${{ needs.check-pr-artifacts.outputs.artifacts-available }}" == "true" ]; then
+            echo "ARTIFACT_SOURCE=✅ **Reused from PR workflow** (Run: [${{ needs.check-pr-artifacts.outputs.pr-run-id }}](https://github.com/${{ github.repository }}/actions/runs/${{ needs.check-pr-artifacts.outputs.pr-run-id }}), SHA: \`${{ needs.check-pr-artifacts.outputs.source-sha }}\`)" >> $GITHUB_OUTPUT
+          else
+            echo "ARTIFACT_SOURCE=🔨 **Built fresh in release workflow** (SHA: \`${{ github.sha }}\`)" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
@@ -274,6 +302,11 @@ jobs:
             Comparing Changes: ${{ steps.changelog.outputs.compareurl }}
 
             ${{ steps.changelog.outputs.changelog }}
+
+            ---
+
+            ### Build Artifacts Source
+            ${{ steps.artifact-source.outputs.ARTIFACT_SOURCE }}
           draft: false
           prerelease: false
           allowUpdates: true
