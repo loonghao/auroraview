@@ -22,10 +22,16 @@ def test_auroraview_core_imports():
     assert hasattr(auroraview, "WebView")
     assert hasattr(auroraview, "AuroraView")
 
-    # Test core module
-    from auroraview import _core
+    # Test core module - skip if native module not built
+    try:
+        from auroraview import _core
 
-    assert hasattr(_core, "WebView")
+        assert hasattr(_core, "WebView")
+    except ImportError:
+        # Native module not available (e.g., CI without maturin build)
+        import pytest
+
+        pytest.skip("Native _core module not available")
 
 
 def test_auroraview_all_submodules():
