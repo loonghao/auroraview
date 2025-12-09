@@ -127,8 +127,8 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-py37-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-py37-
+          key: ${{ runner.os }}-cargo-py37-rust190-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-py37-rust190-
 
       - name: Build wheel for Python 3.7
         uses: PyO3/maturin-action@v1
