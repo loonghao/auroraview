@@ -119,6 +119,7 @@ runs:
       with:
         target: ${{ inputs.target }}
         args: ${{ inputs.maturin-args }}
+        rust-toolchain: ${{ inputs.rust-version }}
         # Disable sccache for older runners to avoid GLIBC incompatibility
         sccache: ${{ inputs.use-sccache == 'true' && !startsWith(github.ref, 'refs/tags/') }}
         # IMPORTANT: wry requires webkit2gtk system libraries at build time
