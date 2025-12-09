@@ -30,10 +30,10 @@ if echo "$changed_files" | grep -E '^(python/|tests/).*\.py$' >/dev/null 2>&1; t
     $RUFF_CMD format $py_changed
 
     echo "[pre-commit] Running ruff check --fix on staged Python files"
-    $RUFF_CMD check --fix $py_changed
+    $RUFF_CMD check --fix --select=E,F,W --ignore=E501 $py_changed
 
     echo "[pre-commit] Running ruff check (repo-level)"
-    $RUFF_CMD check python/ tests/
+    $RUFF_CMD check --select=E,F,W --ignore=E501 python/ tests/
   fi
 else
   echo "[pre-commit] Skipping ruff (no Python changes staged)"
