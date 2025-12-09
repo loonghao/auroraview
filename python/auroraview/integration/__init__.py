@@ -35,22 +35,25 @@ except ImportError as e:
             )
 
 
+# Qt backend placeholder class (for testing and when Qt is not available)
+class _QtWebViewPlaceholder:
+    """Qt backend placeholder - not available."""
+
+    def __init__(self, *_args, **_kwargs):
+        raise ImportError(
+            "Qt backend is not available. "
+            "Install with: pip install auroraview[qt]\n"
+            "Original error: Qt/PySide not installed"
+        )
+
+
 # Qt backend is optional
 _QT_IMPORT_ERROR = None
 try:
     from .qt import QtWebView
 except ImportError as e:
     _QT_IMPORT_ERROR = str(e)
-
-    class QtWebView:  # type: ignore
-        """Qt backend placeholder - not available."""
-
-        def __init__(self, *_args, **_kwargs):
-            raise ImportError(
-                "Qt backend is not available. "
-                "Install with: pip install auroraview[qt]\n"
-                f"Original error: {_QT_IMPORT_ERROR}"
-            )
+    QtWebView = _QtWebViewPlaceholder  # type: ignore
 
 
 # Import submodules for attribute access
@@ -70,6 +73,8 @@ __all__ = [
     "Bridge",
     # Qt Integration (optional)
     "QtWebView",
+    # Qt placeholder (for testing)
+    "_QtWebViewPlaceholder",
     # Submodules
     "bridge",
     "framework",

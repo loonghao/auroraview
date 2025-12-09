@@ -26,11 +26,16 @@ def test_bridge_placeholder_or_real():
 
 
 def test_qtwebview_placeholder_import_error():
-    mod = importlib.import_module("auroraview")
-    assert hasattr(mod, "QtWebView")
+    """Test that the QtWebView placeholder raises helpful ImportError.
+
+    This test verifies the placeholder class behavior directly,
+    avoiding issues when Qt is actually installed in the test environment.
+    """
+    mod = importlib.import_module("auroraview.integration")
+    assert hasattr(mod, "_QtWebViewPlaceholder")
 
     with pytest.raises(ImportError) as ei:
-        mod.QtWebView()  # type: ignore[call-arg]
+        mod._QtWebViewPlaceholder()
     msg = str(ei.value)
     assert "Qt backend is not available" in msg
     assert "pip install auroraview[qt]" in msg
