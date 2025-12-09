@@ -4,15 +4,17 @@ This module provides diagnostic tools to identify and troubleshoot
 Qt version-specific issues in DCC integrations.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any
+from typing import Any, Dict
 
 from auroraview.integration.qt._compat import get_qt_info, is_qt6
 
 logger = logging.getLogger(__name__)
 
 
-def diagnose_qt_environment() -> dict[str, Any]:
+def diagnose_qt_environment() -> Dict[str, Any]:
     """Diagnose Qt environment and detect potential issues.
 
     Returns:
@@ -53,7 +55,7 @@ def diagnose_qt_environment() -> dict[str, Any]:
     return info
 
 
-def diagnose_dialog(dialog: Any) -> dict[str, Any]:
+def diagnose_dialog(dialog: Any) -> Dict[str, Any]:
     """Diagnose QDialog configuration for Qt compatibility issues.
 
     Args:
@@ -116,7 +118,7 @@ def diagnose_dialog(dialog: Any) -> dict[str, Any]:
     return info
 
 
-def diagnose_webview_container(container: Any) -> dict[str, Any]:
+def diagnose_webview_container(container: Any) -> Dict[str, Any]:
     """Diagnose WebView container widget for Qt compatibility issues.
 
     Args:
@@ -170,7 +172,7 @@ def diagnose_webview_container(container: Any) -> dict[str, Any]:
     return info
 
 
-def print_diagnostics(diag: dict[str, Any], title: str = "Diagnostics") -> None:
+def print_diagnostics(diag: Dict[str, Any], title: str = "Diagnostics") -> None:
     """Print diagnostic information in a readable format.
 
     Args:

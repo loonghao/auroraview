@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import threading
 import traceback
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from auroraview.core.signals import ConnectionId, WebViewSignals
 
@@ -52,7 +52,7 @@ class WebViewEventMixin:
     _core: Any
     _async_core: Optional[Any]
     _async_core_lock: threading.Lock
-    _event_handlers: Dict[str, list]
+    _event_handlers: Dict[str, List[Callable]]
     _post_eval_js_hook: Optional[Callable[[], None]]
     _auto_process_events: Callable[[], None]
     _signals: Optional[WebViewSignals]
