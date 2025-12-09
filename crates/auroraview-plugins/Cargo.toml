@@ -39,7 +39,7 @@ arboard = { version = "3.4", default-features = false }
 which = "7.0"
 
 # File dialogs
-rfd = "0.15"
+rfd = "0.16"
 
 # Open URLs/files with default app
 open = "5.3"
