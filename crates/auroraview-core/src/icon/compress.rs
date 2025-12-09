@@ -7,7 +7,8 @@ use std::io::BufWriter;
 use std::path::Path;
 
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
-use image::{ImageEncoder, ImageReader};
+use image::io::Reader as ImageReader;
+use image::{ColorType, ImageEncoder};
 
 use crate::backend::WebViewError;
 
@@ -90,7 +91,7 @@ pub fn compress_png<P: AsRef<Path>, Q: AsRef<Path>>(
 
     // Encode image
     encoder
-        .write_image(&rgba, width, height, image::ExtendedColorType::Rgba8)
+        .write_image(&rgba, width, height, ColorType::Rgba8)
         .map_err(|e| WebViewError::Icon(format!("Failed to encode PNG: {}", e)))?;
 
     // Get compressed file size
@@ -157,7 +158,7 @@ pub fn compress_and_resize<P: AsRef<Path>, Q: AsRef<Path>>(
         PngEncoder::new_with_quality(writer, compression_level.into(), FilterType::Adaptive);
 
     encoder
-        .write_image(&rgba, width, height, image::ExtendedColorType::Rgba8)
+        .write_image(&rgba, width, height, ColorType::Rgba8)
         .map_err(|e| WebViewError::Icon(format!("Failed to encode PNG: {}", e)))?;
 
     let compressed_size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
