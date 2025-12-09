@@ -28,13 +28,9 @@ def mock_win32_apis():
     GetWindowLongW (32-bit). We need to mock these aliases, not the
     underlying user32 functions.
     """
-    with patch(
-        "auroraview.integration.qt.platforms.win.GetWindowLong"
-    ) as mock_get, patch(
+    with patch("auroraview.integration.qt.platforms.win.GetWindowLong") as mock_get, patch(
         "auroraview.integration.qt.platforms.win.SetWindowLong"
-    ) as mock_set, patch(
-        "auroraview.integration.qt.platforms.win.user32"
-    ) as mock_user32:
+    ) as mock_set, patch("auroraview.integration.qt.platforms.win.user32") as mock_user32:
         # Default return values
         mock_get.return_value = 0
         mock_set.return_value = 1
@@ -289,9 +285,7 @@ class TestShowWindowAfterInit:
 
         backend = WindowsPlatformBackend()
 
-        mock_win32_apis["user32"].SetLayeredWindowAttributes.side_effect = Exception(
-            "Test error"
-        )
+        mock_win32_apis["user32"].SetLayeredWindowAttributes.side_effect = Exception("Test error")
 
         result = backend.show_window_after_init(12345)
 
