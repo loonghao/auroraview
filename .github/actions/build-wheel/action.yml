@@ -10,6 +10,10 @@ inputs:
     description: 'Python version to use'
     required: false
     default: '3.10'
+  rust-version:
+    description: 'Rust toolchain version (use older versions for GLIBC compatibility)'
+    required: false
+    default: 'stable'
   maturin-args:
     description: 'Additional arguments for maturin'
     required: false
@@ -57,7 +61,9 @@ runs:
         enable-cache: false
 
     - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ inputs.rust-version }}
 
     - name: Install system dependencies (Ubuntu)
       if: runner.os == 'Linux'

@@ -93,12 +93,12 @@ jobs:
 
   # ============================================================================
   # Python 3.7 builds (non-abi3) - Separate wheel for each platform
-  # Note: sccache disabled to avoid GLIBC incompatibility with older runners
+  # Note: Uses older Rust toolchain (1.80) for GLIBC compatibility with Ubuntu 22.04
   # ============================================================================
 
   # Linux Python 3.7 build
   linux-py37:
-    runs-on: ubuntu-22.04  # Use older Ubuntu for Python 3.7 compatibility
+    runs-on: ubuntu-22.04  # Use Ubuntu 22.04 for Python 3.7 availability
     strategy:
       matrix:
         target: [x86_64]
@@ -111,11 +111,13 @@ jobs:
         with:
           target: ${{ matrix.target }}
           python-version: '3.7'
+          # Use Rust 1.80 for GLIBC 2.35 compatibility (Ubuntu 22.04)
+          rust-version: '1.80'
           # Non-abi3 build: use python-bindings without abi3 feature
           maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-linux-${{ matrix.target }}-py37'
-          # Disable sccache to avoid GLIBC incompatibility
+          # Disable sccache to avoid potential compatibility issues
           use-sccache: 'false'
 
   # Windows Python 3.7 build
