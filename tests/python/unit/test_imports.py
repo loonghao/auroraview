@@ -47,9 +47,20 @@ def test_auroraview_all_submodules():
         try:
             importlib.import_module(modname)
         except ImportError as e:
-            # Some modules may have optional dependencies (Qt, etc.)
-            # Only fail if it's not a known optional dependency
-            if "qtpy" not in str(e).lower() and "pyside" not in str(e).lower():
+            error_str = str(e).lower()
+            # Skip known optional dependencies and platform-specific errors
+            skip_patterns = [
+                "qtpy",
+                "pyside",
+                "windll",  # Windows-only ctypes attribute
+                "win32",  # Windows-only modules
+            ]
+            if not any(pattern in error_str for pattern in skip_patterns):
+                errors.append(f"{modname}: {e}")
+        except AttributeError as e:
+            error_str = str(e).lower()
+            # Skip Windows-only ctypes.windll AttributeError
+            if "windll" not in error_str:
                 errors.append(f"{modname}: {e}")
 
     # Report all errors at once
