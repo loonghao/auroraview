@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
+
+try:
+    from typing import Literal  # py38+
+except ImportError:  # pragma: no cover - only for py37
+    from typing_extensions import Literal  # type: ignore
 
 if TYPE_CHECKING:
     from auroraview.bridge import Bridge

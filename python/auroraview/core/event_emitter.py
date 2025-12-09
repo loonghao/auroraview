@@ -24,7 +24,12 @@ import logging
 import threading
 import warnings
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
+
+try:
+    from typing import Literal  # py38+
+except ImportError:  # pragma: no cover - only for py37
+    from typing_extensions import Literal  # type: ignore
 
 logger = logging.getLogger(__name__)
 
