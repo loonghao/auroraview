@@ -58,6 +58,142 @@ pub fn get_loading_html() -> String {
         })
 }
 
+/// Get the error HTML page content
+///
+/// Returns a styled error page that matches the AuroraView design language.
+/// The page accepts URL parameters to customize the error display:
+/// - `code`: HTTP status code (e.g., "500", "404")
+/// - `title`: Error title (e.g., "Internal Server Error")
+/// - `message`: User-friendly error message
+/// - `details`: Technical details (shown in a code block)
+/// - `url`: The URL that caused the error (for retry functionality)
+pub fn get_error_html() -> String {
+    Assets::get("html/error.html")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_else(|| {
+            // Fallback minimal error page
+            r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .container { text-align: center; }
+        h1 { font-size: 4rem; margin: 0; color: #f36262; }
+        h2 { font-size: 1.5rem; margin: 1rem 0; }
+        p { opacity: 0.8; }
+        button {
+            margin-top: 1rem;
+            padding: 10px 24px;
+            background: #f36262;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Error</h1>
+        <h2>Something went wrong</h2>
+        <p>An unexpected error occurred.</p>
+        <button onclick="location.reload()">Try Again</button>
+    </div>
+</body>
+</html>"#
+                .to_string()
+        })
+}
+
+/// Build an error page HTML with specific error information
+///
+/// This function generates a complete error page by injecting error details
+/// into the base error template via URL parameters.
+///
+/// # Arguments
+/// * `code` - HTTP status code (e.g., 500, 404)
+/// * `title` - Error title
+/// * `message` - User-friendly error message
+/// * `details` - Optional technical details
+/// * `url` - Optional URL that caused the error
+pub fn build_error_page(
+    code: u16,
+    title: &str,
+    message: &str,
+    details: Option<&str>,
+    url: Option<&str>,
+) -> String {
+    let base_html = get_error_html();
+
+    // Build JavaScript to update the error display
+    let js_update = format!(
+        r#"<script>
+        (function() {{
+            // Store error info globally for copy function
+            window._errorInfo = {{
+                code: '{}',
+                title: '{}',
+                message: '{}',
+                details: '{}',
+                url: '{}'
+            }};
+
+            document.addEventListener('DOMContentLoaded', function() {{
+                var info = window._errorInfo;
+                document.getElementById('error-code').textContent = info.code;
+                document.getElementById('error-title').textContent = info.title;
+                document.getElementById('error-message').textContent = info.message;
+
+                var detailsWrapper = document.getElementById('details-wrapper');
+                var detailsEl = document.getElementById('error-details');
+
+                if (info.details || info.url) {{
+                    var text = '';
+                    if (info.url) text += 'URL: ' + info.url + '\\n';
+                    if (info.details) text += info.details;
+                    detailsEl.textContent = text.trim();
+                    detailsWrapper.style.display = 'block';
+                }} else {{
+                    detailsWrapper.style.display = 'none';
+                }}
+            }});
+
+            // Override getErrorInfo to use injected data
+            window.getErrorInfo = function() {{
+                return window._errorInfo;
+            }};
+        }})();
+        </script>"#,
+        code,
+        escape_js_string(title),
+        escape_js_string(message),
+        escape_js_string(details.unwrap_or("")),
+        escape_js_string(url.unwrap_or(""))
+    );
+
+    // Insert the JavaScript before </body>
+    base_html.replace("</body>", &format!("{}</body>", js_update))
+}
+
+/// Escape a string for safe inclusion in JavaScript
+fn escape_js_string(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('\'', "\\'")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+}
+
 /// Get the event bridge JavaScript code
 pub fn get_event_bridge_js() -> String {
     Assets::get("js/core/event_bridge.js")
@@ -316,6 +452,37 @@ mod tests {
         let html = get_loading_html();
         assert!(!html.is_empty());
         assert!(html.contains("Loading") || html.contains("loading"));
+    }
+
+    #[test]
+    fn test_error_html_not_empty() {
+        let html = get_error_html();
+        assert!(!html.is_empty());
+        assert!(html.contains("Error") || html.contains("error"));
+    }
+
+    #[test]
+    fn test_build_error_page() {
+        let html = build_error_page(
+            500,
+            "Internal Server Error",
+            "Something went wrong",
+            Some("Details here"),
+            Some("https://example.com"),
+        );
+        assert!(html.contains("500"));
+        assert!(html.contains("Internal Server Error"));
+        assert!(html.contains("Something went wrong"));
+        assert!(html.contains("Details here"));
+        assert!(html.contains("https://example.com"));
+    }
+
+    #[test]
+    fn test_build_error_page_without_details() {
+        let html = build_error_page(404, "Not Found", "Page not found", None, None);
+        assert!(html.contains("404"));
+        assert!(html.contains("Not Found"));
+        assert!(html.contains("Page not found"));
     }
 
     #[test]

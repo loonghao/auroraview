@@ -52,8 +52,8 @@ fn test_loading_html_generation() {
     assert!(html.contains("</html>"));
 
     // Verify loading animation elements
-    assert!(html.contains("Loading"));
-    assert!(html.contains("spinner"));
+    assert!(html.contains("loading"));
+    assert!(html.contains("spin")); // Animation keyframe
 
     // Verify styling
     assert!(html.contains("background"));

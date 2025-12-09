@@ -159,6 +159,12 @@ impl IpcHandler {
             return self.handle_js_callback_result(&message.data);
         }
 
+        // Handle internal ready event (no handler needed, just acknowledge)
+        if message.event == "__auroraview_ready" {
+            tracing::debug!("WebView bridge ready: {:?}", message.data);
+            return Ok(serde_json::json!({"status": "ok", "message": "ready acknowledged"}));
+        }
+
         // First try Python callbacks (only when python-bindings feature is enabled)
         #[cfg(feature = "python-bindings")]
         if let Some(event_callbacks) = self.python_callbacks.get(&message.event) {

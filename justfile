@@ -24,23 +24,23 @@ install:
 # Build the extension module
 build:
     @echo "Building extension module..."
-    uv run maturin develop --features "ext-module,python-bindings,win-webview2"
+    uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 # Build with release optimizations
 build-release:
     @echo "Building release version..."
-    uv run maturin develop --release --features "ext-module,python-bindings,win-webview2"
+    uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 # Build Python library (PyO3 bindings)
 rebuild-pylib:
     @echo "Building Python library with maturin..."
-    uv run maturin develop --release --features "ext-module,python-bindings,win-webview2"
+    uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build Python library with verbose output
 rebuild-pylib-verbose:
     @echo "Building Python library with maturin (verbose)..."
-    uv run maturin develop --release --features "ext-module,python-bindings,win-webview2" --verbose
+    uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build CLI binary
@@ -55,7 +55,7 @@ build-all:
     cargo build -p auroraview-core
     cargo build -p auroraview-pack
     cargo build -p auroraview-cli --release
-    uv run maturin develop --release --features "ext-module,python-bindings,win-webview2"
+    uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] All crates built successfully!"
 
 # Run all tests
@@ -225,13 +225,13 @@ ci-install:
 ci-build:
     @echo "Building extension for CI (Unix)..."
     uv pip install maturin
-    uv run maturin develop --features "ext-module,python-bindings"
+    uv run maturin develop --features "ext-module,python-bindings,abi3-py38"
 
 [windows]
 ci-build:
     @echo "Building extension for CI (Windows)..."
     uv pip install maturin
-    uv run maturin develop --features "ext-module,python-bindings,win-webview2"
+    uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 ci-test-rust:
     @echo "Running Rust doc tests..."
