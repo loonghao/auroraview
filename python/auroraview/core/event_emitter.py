@@ -276,13 +276,16 @@ class EventEmitter:
 
         Returns:
             For cancellable events: True if not cancelled, False if cancelled
-            For non-cancellable events: True if any handlers were called
+            For non-cancellable events: True if any handlers were called, False otherwise
         """
         with self._lock:
             listeners = self._listeners.get(event, []).copy()
 
         if not listeners:
-            return not cancellable  # No handlers = not cancelled for cancellable events
+            # No handlers:
+            # - For cancellable events: return True (not cancelled, nothing to cancel)
+            # - For non-cancellable events: return False (no handlers were called)
+            return cancellable
 
         # Process listeners outside lock
         to_remove: List[_EventListener] = []
