@@ -163,6 +163,8 @@ fn run_standalone(
         block_external_navigation: false,
         allowed_navigation_domains: Vec::new(),
         icon: None, // Use default AuroraView icon
+        enable_plugins: true, // Enable plugin APIs
+        enabled_plugin_names: Vec::new(), // All plugins
     };
 
     // Create IPC handler and message queue
@@ -264,6 +266,8 @@ mod tests {
             block_external_navigation: false,
             allowed_navigation_domains: Vec::new(),
             icon: None,
+            enable_plugins: true,
+            enabled_plugin_names: Vec::new(),
         };
 
         assert_eq!(config.asset_root, Some(PathBuf::from("/tmp/assets")));
@@ -309,6 +313,8 @@ mod tests {
             block_external_navigation: false,
             allowed_navigation_domains: Vec::new(),
             icon: None,
+            enable_plugins: true,
+            enabled_plugin_names: Vec::new(),
         };
 
         assert_eq!(config.asset_root, None);

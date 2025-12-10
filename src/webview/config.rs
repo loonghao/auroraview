@@ -197,6 +197,16 @@ pub struct WebViewConfig {
     /// Supported formats: PNG (recommended), ICO, JPEG, BMP, GIF
     /// Recommended sizes: 32x32 (taskbar), 64x64 (alt-tab), 256x256 (high-DPI)
     pub icon: Option<PathBuf>,
+
+    /// Enable plugin JavaScript APIs (fs, dialog, clipboard, shell)
+    /// Default: true (inject plugin APIs)
+    /// When enabled, injects JavaScript wrappers for native plugin commands
+    pub enable_plugins: bool,
+
+    /// List of enabled plugin names
+    /// Default: all plugins ["fs", "dialog", "clipboard", "shell"]
+    /// Empty list means all plugins are enabled when enable_plugins is true
+    pub enabled_plugin_names: Vec<String>,
 }
 
 // Manual Debug implementation (ProtocolCallback doesn't implement Debug)
@@ -279,6 +289,8 @@ impl Default for WebViewConfig {
             block_external_navigation: false,
             allowed_navigation_domains: Vec::new(),
             icon: None, // Use default AuroraView icon
+            enable_plugins: true, // Enable plugin APIs by default
+            enabled_plugin_names: Vec::new(), // Empty = all plugins enabled
         }
     }
 }

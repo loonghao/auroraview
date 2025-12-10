@@ -84,6 +84,19 @@ class WindowEvent(str, Enum):
     NAVIGATION_FINISHED = "navigation_finished"
     """Emitted when navigation completes. Data includes {url}."""
 
+    # File drop events
+    FILE_DROP = "file_drop"
+    """Emitted when files are dropped. Data includes {files, paths, position}."""
+
+    FILE_DROP_HOVER = "file_drop_hover"
+    """Emitted when files are dragged over. Data includes {hovering, files, position}."""
+
+    FILE_DROP_CANCELLED = "file_drop_cancelled"
+    """Emitted when drag operation is cancelled. Data includes {hovering, reason}."""
+
+    FILE_PASTE = "file_paste"
+    """Emitted when files are pasted. Data includes {files, timestamp}."""
+
     def __str__(self) -> str:
         """Return the event name string."""
         return self.value
@@ -132,6 +145,42 @@ class WindowEventData:
     def focused(self) -> Optional[bool]:
         """Focus state for focus events."""
         return self._data.get("focused")
+
+    @property
+    def files(self) -> Optional[list]:
+        """List of file info dicts for file drop events.
+
+        Each file info contains: name, size, type, lastModified
+        """
+        return self._data.get("files")
+
+    @property
+    def paths(self) -> Optional[list]:
+        """List of file paths for file drop events."""
+        return self._data.get("paths")
+
+    @property
+    def position(self) -> Optional[Dict[str, int]]:
+        """Drop position for file drop events.
+
+        Contains: x, y, screenX, screenY
+        """
+        return self._data.get("position")
+
+    @property
+    def hovering(self) -> Optional[bool]:
+        """Hover state for file drop hover events."""
+        return self._data.get("hovering")
+
+    @property
+    def reason(self) -> Optional[str]:
+        """Reason for file drop cancelled events."""
+        return self._data.get("reason")
+
+    @property
+    def timestamp(self) -> Optional[int]:
+        """Timestamp for events that include it."""
+        return self._data.get("timestamp")
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value from the event data.

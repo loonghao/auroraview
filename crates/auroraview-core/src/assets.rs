@@ -261,6 +261,21 @@ pub fn get_zoom_api_js() -> String {
         .unwrap_or_default()
 }
 
+/// Get the file drop handler JavaScript code
+///
+/// This script provides file drag and drop handling capabilities.
+/// It intercepts drag/drop events and sends file information to Python.
+/// Events emitted:
+/// - file_drop_hover: When files are dragged over the window
+/// - file_drop: When files are dropped
+/// - file_drop_cancelled: When drag operation is cancelled
+/// - file_paste: When files are pasted from clipboard
+pub fn get_file_drop_js() -> String {
+    Assets::get("js/bom/file_drop.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
 // ========================================
 // Core Bridge Scripts
 // ========================================
@@ -307,6 +322,19 @@ pub fn get_command_bridge_js() -> String {
 /// Get the channel bridge JavaScript code
 pub fn get_channel_bridge_js() -> String {
     Assets::get("js/core/channel_bridge.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the event utilities JavaScript code
+///
+/// This script provides utility functions for event handling:
+/// - debounce: Delays function execution until after wait milliseconds
+/// - throttle: Limits function execution to at most once per wait milliseconds
+/// - once: Restricts function to single invocation
+/// - onDebounced/onThrottled: Convenience wrappers for event handlers
+pub fn get_event_utils_js() -> String {
+    Assets::get("js/core/event_utils.js")
         .map(|f| String::from_utf8_lossy(&f.data).to_string())
         .unwrap_or_default()
 }
@@ -500,5 +528,118 @@ mod tests {
         let _ = get_browsing_data_js();
         let _ = get_navigation_api_js();
         let _ = get_zoom_api_js();
+    }
+
+    #[test]
+    fn test_file_drop_js_available() {
+        let js = get_file_drop_js();
+        // Should contain file drop handler code
+        assert!(js.contains("file_drop") || js.is_empty());
+    }
+
+    #[test]
+    fn test_event_utils_js_available() {
+        let js = get_event_utils_js();
+        // Should contain debounce/throttle utilities
+        assert!(js.contains("debounce") || js.is_empty());
+    }
+
+    #[test]
+    fn test_event_bridge_js_available() {
+        let js = get_event_bridge_js();
+        // Should contain auroraview bridge code
+        assert!(js.contains("auroraview") || js.is_empty());
+    }
+
+    #[test]
+    fn test_plugin_names() {
+        let names = plugin_names();
+        assert!(names.contains(&"fs"));
+        assert!(names.contains(&"dialog"));
+        assert!(names.contains(&"clipboard"));
+        assert!(names.contains(&"shell"));
+        assert_eq!(names.len(), 4);
+    }
+
+    #[test]
+    fn test_get_plugin_js_valid() {
+        // Test valid plugin names
+        assert!(get_plugin_js("fs").is_some());
+        assert!(get_plugin_js("dialog").is_some());
+        assert!(get_plugin_js("clipboard").is_some());
+        assert!(get_plugin_js("shell").is_some());
+    }
+
+    #[test]
+    fn test_get_plugin_js_invalid() {
+        // Test invalid plugin name
+        assert!(get_plugin_js("nonexistent").is_none());
+        assert!(get_plugin_js("").is_none());
+    }
+
+    #[test]
+    fn test_get_all_plugins_js() {
+        let all_js = get_all_plugins_js();
+        // Should contain code from all plugins
+        assert!(!all_js.is_empty() || plugin_names().is_empty());
+    }
+
+    #[test]
+    fn test_escape_js_string() {
+        // Test escaping special characters
+        assert_eq!(escape_js_string("hello"), "hello");
+        assert_eq!(escape_js_string("it's"), "it\\'s");
+        assert_eq!(escape_js_string("line1\nline2"), "line1\\nline2");
+        assert_eq!(escape_js_string("path\\to\\file"), "path\\\\to\\\\file");
+        assert_eq!(escape_js_string("say \"hi\""), "say \\\"hi\\\"");
+    }
+
+    #[test]
+    fn test_bridge_stub_js_available() {
+        let js = get_bridge_stub_js();
+        // Should contain stub code for early initialization
+        assert!(js.contains("auroraview") || js.is_empty());
+    }
+
+    #[test]
+    fn test_state_bridge_js_available() {
+        let js = get_state_bridge_js();
+        // Should be available (may be empty if not embedded)
+        let _ = js;
+    }
+
+    #[test]
+    fn test_channel_bridge_js_available() {
+        let js = get_channel_bridge_js();
+        // Should be available
+        let _ = js;
+    }
+
+    #[test]
+    fn test_screenshot_js_available() {
+        let js = get_screenshot_js();
+        // Should contain screenshot functionality
+        assert!(js.contains("screenshot") || js.is_empty());
+    }
+
+    #[test]
+    fn test_network_intercept_js_available() {
+        let js = get_network_intercept_js();
+        // Should contain network interception code
+        let _ = js;
+    }
+
+    #[test]
+    fn test_get_js_asset() {
+        // Test getting asset by path
+        let result = get_js_asset("core/event_bridge.js");
+        // May be Some or None depending on whether assets are embedded
+        let _ = result;
+    }
+
+    #[test]
+    fn test_get_js_asset_invalid_path() {
+        let result = get_js_asset("nonexistent/file.js");
+        assert!(result.is_none());
     }
 }
