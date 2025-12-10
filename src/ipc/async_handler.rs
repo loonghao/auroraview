@@ -13,11 +13,15 @@
 //! ```
 
 use crossbeam_channel::{bounded, Sender};
+use dashmap::DashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
+
+/// Async callback type
+pub type AsyncCallback = Arc<dyn Fn(serde_json::Value) + Send + Sync>;
 
 /// Async message for IPC processing
 #[derive(Debug, Clone)]
@@ -62,6 +66,8 @@ pub struct AsyncIpcHandler {
     running: Arc<AtomicBool>,
     /// Handle to the background thread
     _thread_handle: Option<thread::JoinHandle<()>>,
+    /// Registered callbacks for events
+    callbacks: Arc<DashMap<String, Vec<AsyncCallback>>>,
 }
 
 impl AsyncIpcHandler {
@@ -76,6 +82,8 @@ impl AsyncIpcHandler {
         let running = Arc::new(AtomicBool::new(true));
         let running_clone = running.clone();
         let debug = config.debug;
+        let callbacks: Arc<DashMap<String, Vec<AsyncCallback>>> = Arc::new(DashMap::new());
+        let callbacks_clone = callbacks.clone();
 
         // Spawn background thread with tokio runtime
         let thread_handle = thread::spawn(move || {
@@ -101,7 +109,7 @@ impl AsyncIpcHandler {
                                 );
                             }
                             // Process message asynchronously
-                            Self::process_message_async(msg).await;
+                            Self::process_message_async(msg, &callbacks_clone).await;
                         }
                         _ = tokio::time::sleep(tokio::time::Duration::from_millis(100)) => {
                             // Periodic check for shutdown
@@ -117,7 +125,26 @@ impl AsyncIpcHandler {
             tx,
             running,
             _thread_handle: Some(thread_handle),
+            callbacks,
         }
+    }
+
+    /// Register a callback for an event
+    pub fn on<F>(&self, event: &str, callback: F)
+    where
+        F: Fn(serde_json::Value) + Send + Sync + 'static,
+    {
+        self.callbacks
+            .entry(event.to_string())
+            .or_default()
+            .push(Arc::new(callback));
+        tracing::debug!("[AsyncIpcHandler] Registered callback for event: {}", event);
+    }
+
+    /// Remove all callbacks for an event
+    #[allow(dead_code)]
+    pub fn off(&self, event: &str) {
+        self.callbacks.remove(event);
     }
 
     /// Submit a message for async processing (non-blocking)
@@ -157,14 +184,26 @@ impl AsyncIpcHandler {
     }
 
     /// Process a message asynchronously
-    async fn process_message_async(msg: AsyncIpcMessage) {
-        // TODO: Call registered callbacks here
-        // For now, just log the message
-        tracing::debug!(
-            "[AsyncIpcHandler] Processed event: {} (data: {})",
-            msg.event,
-            msg.data
-        );
+    async fn process_message_async(
+        msg: AsyncIpcMessage,
+        callbacks: &Arc<DashMap<String, Vec<AsyncCallback>>>,
+    ) {
+        // Call registered callbacks
+        if let Some(event_callbacks) = callbacks.get(&msg.event) {
+            for callback in event_callbacks.value() {
+                callback(msg.data.clone());
+            }
+            tracing::debug!(
+                "[AsyncIpcHandler] Processed event '{}' with {} callbacks",
+                msg.event,
+                event_callbacks.value().len()
+            );
+        } else {
+            tracing::debug!(
+                "[AsyncIpcHandler] No callbacks registered for event: {}",
+                msg.event
+            );
+        }
 
         // Send response if requested
         if let Some(response_tx) = msg.response_tx {
@@ -193,5 +232,56 @@ impl Default for AsyncIpcHandler {
 impl Drop for AsyncIpcHandler {
     fn drop(&mut self) {
         self.stop();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+
+    #[test]
+    fn test_async_handler_creation() {
+        let handler = AsyncIpcHandler::new();
+        assert!(handler.is_running());
+        handler.stop();
+    }
+
+    #[test]
+    fn test_async_handler_callback_registration() {
+        let handler = AsyncIpcHandler::new();
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = call_count.clone();
+
+        handler.on("test_event", move |_data| {
+            call_count_clone.fetch_add(1, Ordering::SeqCst);
+        });
+
+        // Submit a message and wait for response
+        let result = handler.submit_with_response(
+            "test_event".to_string(),
+            serde_json::json!({"test": "data"}),
+        );
+
+        assert!(result.is_ok());
+
+        // Give some time for the callback to be processed
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Callback should have been called
+        assert!(call_count.load(Ordering::SeqCst) >= 1);
+
+        handler.stop();
+    }
+
+    #[test]
+    fn test_async_handler_submit() {
+        let handler = AsyncIpcHandler::new();
+
+        // Submit should succeed
+        let result = handler.submit("test_event".to_string(), serde_json::json!({"data": "test"}));
+        assert!(result.is_ok());
+
+        handler.stop();
     }
 }
