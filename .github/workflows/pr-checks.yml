@@ -25,6 +25,7 @@ env:
 
 jobs:
   # Pre-build ABI3 wheels for all platforms (one wheel works for Python 3.8+)
+  # Uses the same build-wheel action as release workflow to ensure consistency
   # Artifact names match release workflow for reuse
   pre-build:
     name: Pre-build Wheel (${{ matrix.os }})
@@ -37,53 +38,29 @@ jobs:
           - os: ubuntu-latest
             target: x86_64
             artifact-name: wheels-linux-x86_64
+            maturin-args: '--release --out dist --find-interpreter --features ext-module,abi3-py38'
           - os: windows-latest
             target: x64
             artifact-name: wheels-windows-x64
+            maturin-args: '--release --out dist --find-interpreter --features ext-module,abi3-py38,win-webview2'
           - os: macos-latest
             target: universal2-apple-darwin
             artifact-name: wheels-macos-universal2-apple-darwin
+            maturin-args: '--release --out dist --sdist --find-interpreter --features ext-module,abi3-py38'
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Install system dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libayatana-appindicator3-dev pkg-config
-
-      - name: Cache Rust
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-prebuild-v2-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-prebuild-v2-
-
-      - name: Build ABI3 wheel (Python 3.8+)
-        uses: PyO3/maturin-action@v1
+      - name: Build and Test Wheel
+        uses: ./.github/actions/build-wheel
         with:
           target: ${{ matrix.target }}
-          args: ${{ matrix.os == 'windows-latest' && '--release --out dist --features ext-module,abi3-py38,win-webview2' || (matrix.os == 'macos-latest' && '--release --out dist --sdist --features ext-module,abi3-py38' || '--release --out dist --features ext-module,abi3-py38') }}
-          manylinux: off
-          rust-toolchain: 1.90.0
+          python-version: '3.11'
+          maturin-args: ${{ matrix.maturin-args }}
+          test-wheel: 'true'
+          artifact-name: ${{ matrix.artifact-name }}
 
-      - name: Upload wheel artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact-name }}
-          path: dist/*
-          retention-days: 7
-
-  # Python 3.7 separate build and test (abi3-py37 feature)
+  # Python 3.7 separate build and test (non-abi3)
+  # Uses the same build-wheel action as release workflow to ensure consistency
   # Artifact names match release workflow for reuse
   python37-test:
     name: Python 3.7 (${{ matrix.os }})
@@ -96,62 +73,24 @@ jobs:
           - os: ubuntu-22.04
             target: x86_64
             artifact-name: wheels-linux-x86_64-py37
+            maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
           - os: windows-2019
             target: x64
             artifact-name: wheels-windows-x64-py37
+            maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2'
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Python 3.7
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.7'
-
-      - name: Install system dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev pkg-config libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0
-
-      - name: Cache Rust
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-py37-v2-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-py37-v2-
-
-      - name: Build wheel for Python 3.7
-        uses: PyO3/maturin-action@v1
+      - name: Build Python 3.7 Wheel
+        uses: ./.github/actions/build-wheel
         with:
           target: ${{ matrix.target }}
-          args: ${{ contains(matrix.os, 'windows') && '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2' || '--release --out dist -i python3.7 --features python-bindings,ext-module' }}
-          manylinux: off
-          rust-toolchain: 1.90.0
-
-      - name: Install and test wheel
-        shell: bash
-        run: |
-          python -m pip install --upgrade pip
-          pip install dist/*.whl
-          python -c "import auroraview; print('Python 3.7 import OK')"
-          pip install pytest qtpy "PySide2>=5.15.0"
-          pytest tests/python/unit/ -v --tb=short -x || echo "Some tests may require newer Python features"
-        env:
-          QT_API: pyside2
-          CI: 'true'
-          QT_QPA_PLATFORM: offscreen
-          QT_OPENGL: software
-
-      - name: Upload wheel artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact-name }}
-          path: dist/*.whl
-          retention-days: 7
+          python-version: '3.7'
+          rust-version: '1.90.0'
+          maturin-args: ${{ matrix.maturin-args }}
+          test-wheel: 'true'
+          artifact-name: ${{ matrix.artifact-name }}
+          use-sccache: 'false'
 
   # Fast checks that run first (< 2 min)
   quick-checks:
