@@ -126,6 +126,9 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 - [OK] **Message Dialogs**: confirm, alert, error, ok_cancel dialogs
 - [OK] **Navigation Control**: go_back, go_forward, reload, stop, can_go_back/forward
 - [OK] **Window Events**: on_window_show/hide/focus/blur/resize, on_fullscreen_changed
+- [OK] **File Drop Events**: Drag and drop file support with file_drop, file_drop_hover, file_paste events
+- [OK] **Cancellable Events**: Event handlers can cancel events (e.g., prevent window closing)
+- [OK] **Event Utilities**: Debounce/throttle helpers for high-frequency events
 
 ### DCC Integration
 - [OK] **Lifecycle Management**: Automatic cleanup when parent DCC application closes

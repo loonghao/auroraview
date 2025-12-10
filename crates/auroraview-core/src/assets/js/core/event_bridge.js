@@ -175,6 +175,43 @@
         api: {},
 
         /**
+         * Invoke a plugin command (JS -> Python, Promise-based)
+         * Command format: "plugin:<plugin_name>|<command_name>"
+         * 
+         * @example
+         * // Read a file using the fs plugin
+         * const content = await auroraview.invoke('plugin:fs|read_file', { path: '/path/to/file.txt' });
+         * 
+         * // Open a file dialog
+         * const file = await auroraview.invoke('plugin:dialog|open_file', { title: 'Select File' });
+         * 
+         * @param {string} cmd - Plugin command in format "plugin:<plugin>|<command>"
+         * @param {object} [args={}] - Command arguments
+         * @returns {Promise} Promise that resolves with command result
+         */
+        invoke: function(cmd, args) {
+            console.log('[AuroraView] Invoking plugin command:', cmd, args);
+            return new Promise(function(resolve, reject) {
+                var id = auroraviewGenerateCallId();
+                auroraviewPendingCalls.set(id, { resolve: resolve, reject: reject });
+
+                try {
+                    var payload = {
+                        type: 'invoke',
+                        id: id,
+                        cmd: cmd,
+                        args: args || {}
+                    };
+                    window.ipc.postMessage(JSON.stringify(payload));
+                } catch (e) {
+                    console.error('[AuroraView] Failed to send invoke via IPC:', e);
+                    auroraviewPendingCalls.delete(id);
+                    reject(e);
+                }
+            });
+        },
+
+        /**
          * Ready state flag - true when bridge is fully initialized
          * Use whenReady() for async checking
          */

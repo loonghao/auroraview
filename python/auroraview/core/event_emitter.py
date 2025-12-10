@@ -248,21 +248,58 @@ class EventEmitter:
         Returns:
             True if any handlers were called
         """
+        return self._emit_internal(event, data, cancellable=False)
+
+    def emit_cancellable(self, event: str, data: Any = None) -> bool:
+        """Emit a cancellable event to all registered handlers.
+
+        If any handler returns False, the event is considered cancelled.
+        Useful for events like 'closing' where handlers can prevent the action.
+
+        Args:
+            event: Event name
+            data: Event data to pass to handlers
+
+        Returns:
+            True if event was NOT cancelled (all handlers returned True/None)
+            False if event was cancelled (any handler returned False)
+        """
+        return self._emit_internal(event, data, cancellable=True)
+
+    def _emit_internal(self, event: str, data: Any, cancellable: bool) -> bool:
+        """Internal emit implementation with cancellation support.
+
+        Args:
+            event: Event name
+            data: Event data to pass to handlers
+            cancellable: If True, check handler return values for cancellation
+
+        Returns:
+            For cancellable events: True if not cancelled, False if cancelled
+            For non-cancellable events: True if any handlers were called
+        """
         with self._lock:
             listeners = self._listeners.get(event, []).copy()
 
         if not listeners:
-            return False
+            return not cancellable  # No handlers = not cancelled for cancellable events
 
         # Process listeners outside lock
         to_remove: List[_EventListener] = []
+        cancelled = False
 
         for listener in listeners:
             try:
                 if data is None:
-                    listener.handler()
+                    result = listener.handler()
                 else:
-                    listener.handler(data)
+                    result = listener.handler(data)
+
+                # Check for cancellation
+                if cancellable and result is False:
+                    cancelled = True
+                    # Continue calling other handlers but mark as cancelled
+
             except Exception as e:
                 logger.exception(f"Error in event handler for '{event}': {e}")
 
@@ -276,7 +313,9 @@ class EventEmitter:
                     if event in self._listeners and listener in self._listeners[event]:
                         self._listeners[event].remove(listener)
 
-        return True
+        if cancellable:
+            return not cancelled  # Return True if NOT cancelled
+        return True  # Return True if handlers were called
 
     def remove_all_listeners(self, event: Optional[str] = None) -> None:
         """Remove all listeners, or all listeners for a specific event.

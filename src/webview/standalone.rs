@@ -410,6 +410,16 @@ pub fn create_standalone(
 
     // Add IPC handler to capture events and calls from JavaScript
     let ipc_handler_clone = ipc_handler.clone();
+    let message_queue_clone = message_queue.clone();
+
+    // Create plugin router for handling plugin commands
+    let plugin_router = Arc::new(std::sync::RwLock::new(
+        auroraview_core::plugins::PluginRouter::with_scope(
+            auroraview_core::plugins::ScopeConfig::permissive(),
+        ),
+    ));
+    let plugin_router_clone = plugin_router.clone();
+
     webview_builder = webview_builder.with_ipc_handler(move |request| {
         tracing::debug!("IPC message received");
 
@@ -476,6 +486,77 @@ pub fn create_standalone(
 
                         if let Err(e) = ipc_handler_clone.handle_message(ipc_message) {
                             tracing::error!("Error handling call: {}", e);
+                        }
+                    }
+                } else if msg_type == "invoke" {
+                    // Handle plugin invoke commands
+                    let cmd = message.get("cmd").and_then(|v| v.as_str());
+                    let args = message
+                        .get("args")
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+                    let id = message
+                        .get("id")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+
+                    if let Some(invoke_cmd) = cmd {
+                        tracing::info!(
+                            "Invoke received from JavaScript: {} with args: {} id: {:?}",
+                            invoke_cmd,
+                            args,
+                            id
+                        );
+
+                        // Handle plugin command
+                        let response = if let Ok(router) = plugin_router_clone.read() {
+                            if let Some(request) =
+                                auroraview_core::plugins::PluginRequest::from_invoke(
+                                    invoke_cmd, args,
+                                )
+                            {
+                                router.handle(request)
+                            } else {
+                                auroraview_core::plugins::PluginResponse::err(
+                                    format!("Invalid plugin command: {}", invoke_cmd),
+                                    "INVALID_COMMAND",
+                                )
+                            }
+                        } else {
+                            auroraview_core::plugins::PluginResponse::err(
+                                "Plugin router lock failed",
+                                "INTERNAL_ERROR",
+                            )
+                        };
+
+                        // Send result back to JavaScript
+                        if let Some(call_id) = id {
+                            let result_payload = if response.success {
+                                serde_json::json!({
+                                    "type": "call_result",
+                                    "id": call_id,
+                                    "ok": true,
+                                    "result": response.data
+                                })
+                            } else {
+                                serde_json::json!({
+                                    "type": "call_result",
+                                    "id": call_id,
+                                    "ok": false,
+                                    "error": {
+                                        "name": "PluginError",
+                                        "message": response.error.unwrap_or_default(),
+                                        "code": response.code
+                                    }
+                                })
+                            };
+
+                            // Dispatch call_result event to JavaScript
+                            let script = format!(
+                                "window.dispatchEvent(new CustomEvent('__auroraview_call_result', {{ detail: {} }}));",
+                                result_payload
+                            );
+                            message_queue_clone.push(crate::ipc::WebViewMessage::EvalJs(script));
                         }
                     }
                 }

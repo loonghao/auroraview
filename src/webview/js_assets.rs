@@ -36,11 +36,14 @@ use askama::Template;
 
 // Re-export from auroraview-core for convenience
 pub use auroraview_core::assets::{
-    get_bridge_stub_js, get_browsing_data_js, get_channel_bridge_js, get_command_bridge_js,
-    get_context_menu_js, get_dom_events_js, get_emit_event_js, get_event_bridge_js, get_js_asset,
-    get_load_url_js, get_loading_html, get_loading_html as get_loading_html_string,
-    get_navigation_api_js, get_navigation_tracker_js, get_network_intercept_js, get_screenshot_js,
+    get_all_plugins_js, get_bridge_stub_js, get_browsing_data_js, get_channel_bridge_js,
+    get_clipboard_plugin_js, get_command_bridge_js, get_context_menu_js, get_dialog_plugin_js,
+    get_dom_events_js, get_emit_event_js, get_event_bridge_js, get_event_utils_js,
+    get_file_drop_js, get_fs_plugin_js, get_js_asset, get_load_url_js, get_loading_html,
+    get_loading_html as get_loading_html_string, get_navigation_api_js, get_navigation_tracker_js,
+    get_network_intercept_js, get_plugin_js, get_screenshot_js, get_shell_plugin_js,
     get_state_bridge_js, get_test_callback_js, get_typescript_definitions, get_zoom_api_js,
+    plugin_names,
 };
 
 /// Get JavaScript code by path
@@ -124,6 +127,10 @@ pub fn build_init_script(config: &WebViewConfig) -> String {
     script.push_str(&get_zoom_api_js());
     script.push('\n');
 
+    // File drop handler - drag and drop file support
+    script.push_str(&get_file_drop_js());
+    script.push('\n');
+
     // State bridge for Python ↔ JavaScript state sync
     script.push_str(&get_state_bridge_js());
     script.push('\n');
@@ -134,6 +141,10 @@ pub fn build_init_script(config: &WebViewConfig) -> String {
 
     // Channel bridge for streaming data
     script.push_str(&get_channel_bridge_js());
+    script.push('\n');
+
+    // Event utilities - debounce, throttle, once
+    script.push_str(&get_event_utils_js());
     script.push('\n');
 
     // Screenshot support - always included for testing framework
@@ -151,6 +162,25 @@ pub fn build_init_script(config: &WebViewConfig) -> String {
     // Optional features based on configuration
     if !config.context_menu {
         script.push_str(&context_menu_disable());
+        script.push('\n');
+    }
+
+    // Plugin JavaScript APIs (fs, dialog, clipboard, shell)
+    if config.enable_plugins {
+        if config.enabled_plugin_names.is_empty() {
+            // All plugins enabled
+            script.push_str(&get_all_plugins_js());
+        } else {
+            // Only specific plugins
+            for name in &config.enabled_plugin_names {
+                if let Some(js) = get_plugin_js(name) {
+                    if !js.is_empty() {
+                        script.push_str(&js);
+                        script.push('\n');
+                    }
+                }
+            }
+        }
         script.push('\n');
     }
 

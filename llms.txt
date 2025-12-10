@@ -256,6 +256,54 @@ def on_closing(data):
     return True  # Return True to allow close, False to cancel
 ```
 
+### File Drop Events
+
+```python
+from auroraview.core.events import WindowEvent
+
+# Handle file drop
+@webview.on(WindowEvent.FILE_DROP)
+def on_file_drop(data):
+    for file_info in data.files:
+        print(f"Dropped: {file_info['name']} ({file_info['size']} bytes)")
+    print(f"Position: {data.position['x']}, {data.position['y']}")
+
+# Handle file hover
+@webview.on(WindowEvent.FILE_DROP_HOVER)
+def on_file_hover(data):
+    if data.hovering:
+        print("Files dragged over window")
+
+# Handle file paste
+@webview.on(WindowEvent.FILE_PASTE)
+def on_file_paste(data):
+    for file_info in data.files:
+        print(f"Pasted: {file_info['name']}")
+```
+
+### Cancellable Events
+
+```python
+from auroraview.core.event_emitter import EventEmitter
+
+emitter = EventEmitter()
+
+# Handler can cancel event by returning False
+@emitter.on("closing")
+def on_closing(data):
+    if has_unsaved_changes():
+        return False  # Prevent closing
+    return True  # Allow closing
+
+# Use emit_cancellable for events that can be cancelled
+if emitter.emit_cancellable("closing", {"reason": "user_request"}):
+    # Event was not cancelled, proceed with close
+    window.close()
+else:
+    # Event was cancelled by a handler
+    print("Close prevented by handler")
+```
+
 ### Signals (Qt-like Pattern)
 
 ```python
@@ -417,6 +465,10 @@ const result = await auroraview.call('api.method_name', { param: value });
 // Call via api proxy (shorthand)
 const result = await auroraview.api.method_name({ param: value });
 
+// Invoke plugin command (returns Promise)
+const content = await auroraview.invoke('plugin:fs|read_file', { path: '/path/to/file.txt' });
+const file = await auroraview.invoke('plugin:dialog|open_file', { title: 'Select File' });
+
 // Send event to Python (fire-and-forget)
 auroraview.send_event('event_name', { data: value });
 
@@ -432,6 +484,32 @@ unsubscribe();
 
 // Local JS event (does NOT reach Python)
 auroraview.trigger('local_event', data);
+```
+
+### Event Utilities (Debounce/Throttle)
+
+```javascript
+// Debounce - delays execution until after wait ms have elapsed
+const debouncedResize = auroraview.utils.debounce(function() {
+    console.log('Resized!');
+}, 250);
+window.addEventListener('resize', debouncedResize);
+
+// Throttle - limits execution to at most once per wait ms
+const throttledScroll = auroraview.utils.throttle(function() {
+    console.log('Scrolled!');
+}, 100);
+window.addEventListener('scroll', throttledScroll);
+
+// Once - restricts function to single invocation
+const initialize = auroraview.utils.once(function() {
+    console.log('Initialized!');
+    return { ready: true };
+});
+
+// Convenience wrappers for event handlers
+auroraview.onDebounced('resize', handler, 250);
+auroraview.onThrottled('scroll', handler, 100);
 ```
 
 ### Ready Event
