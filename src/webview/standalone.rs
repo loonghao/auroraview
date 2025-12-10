@@ -489,10 +489,15 @@ pub fn create_standalone(
 
     // Load the actual content after WebView is created
     // This happens in the background while the loading screen is visible
+    //
+    // IMPORTANT: Use wry's native load_url() instead of evaluate_script() with
+    // window.location.href. The JavaScript approach fails because:
+    // 1. The splash screen HTML may not be fully loaded when evaluate_script runs
+    // 2. window.location.href assignment can be blocked or ignored in certain contexts
+    // 3. Native load_url() is more reliable and handles all edge cases
     if let Some(ref url) = target_url {
         tracing::info!("[standalone] Loading target URL in background: {}", url);
-        let script = js_assets::build_load_url_script(url);
-        webview.evaluate_script(&script)?;
+        webview.load_url(url)?;
     } else if let Some(ref html) = target_html {
         tracing::info!("[standalone] Loading target HTML in background");
         webview.load_html(html)?;

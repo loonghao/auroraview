@@ -79,10 +79,13 @@ pub trait WebViewBackend {
     fn run_event_loop_blocking(&mut self);
 
     /// Load a URL
+    ///
+    /// Uses native WebView load_url() for reliable navigation.
+    /// This is preferred over JavaScript-based navigation (window.location.href)
+    /// as it handles all edge cases including splash screen transitions.
     fn load_url(&mut self, url: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let script = js_assets::build_load_url_script(url);
         if let Ok(webview) = self.webview().lock() {
-            webview.evaluate_script(&script)?;
+            webview.load_url(url)?;
         }
         Ok(())
     }

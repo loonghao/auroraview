@@ -45,8 +45,10 @@ pub fn process_message(webview: &WryWebView, message: WebViewMessage, context: &
             }
         }
         WebViewMessage::LoadUrl(url) => {
-            let script = js_assets::build_load_url_script(&url);
-            if let Err(e) = webview.evaluate_script(&script) {
+            // Use native WebView load_url() instead of JavaScript window.location.href
+            // This is more reliable, especially after splash screen loading
+            tracing::info!("[{}] Loading URL via native API: {}", context, url);
+            if let Err(e) = webview.load_url(&url) {
                 tracing::error!("[{}] Failed to load URL: {}", context, e);
             }
         }

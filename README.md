@@ -185,6 +185,56 @@ AuroraView provides three main integration modes for different use cases:
 | **HWND** | `AuroraView` | Unreal Engine, non-Qt apps | ✅ via HWND API |
 | **Standalone** | `run_standalone` | Desktop applications | N/A |
 
+### WebView vs AuroraView: Choosing the Right Class
+
+Understanding the difference between `WebView` and `AuroraView` helps you choose the right class for your use case:
+
+| Feature | `WebView` | `AuroraView` |
+|---------|-----------|--------------|
+| **Purpose** | Core class, direct Rust binding | High-level wrapper for HWND integration |
+| **API Style** | Mixin-based, full control | Simplified, delegate pattern |
+| **Best For** | Advanced customization, DCC embedding | Unreal Engine, quick prototyping |
+| **Keep-alive** | Manual management | Automatic (class-level registry) |
+| **API Binding** | Manual `bind_api()` call | Auto-bind via `api` parameter |
+| **Lifecycle Hooks** | `on_loaded`, `on_shown`, etc. | `on_show`, `on_hide`, `on_close`, `on_ready` |
+
+**When to use `WebView`:**
+- You need full control over the WebView lifecycle
+- You're building Qt-based DCC integrations (use with `QtWebView`)
+- You need advanced features like custom protocols, asset roots, etc.
+
+**When to use `AuroraView`:**
+- You're integrating with Unreal Engine or other HWND-based applications
+- You want a simpler API with automatic keep-alive management
+- You're migrating from pywebview and want a familiar API
+
+**Example: WebView (Core)**
+```python
+from auroraview import WebView
+
+# Full control mode
+webview = WebView.create(
+    title="My Tool",
+    url="http://localhost:3000",
+    auto_show=True,
+    auto_timer=True
+)
+webview.bind_api(my_api_object)  # Manual API binding
+webview.show()
+```
+
+**Example: AuroraView (HWND wrapper)**
+```python
+from auroraview import AuroraView
+
+# Simplified mode with auto API binding
+webview = AuroraView(
+    url="http://localhost:3000",
+    api=my_api_object  # Auto-bound at construction
+)
+webview.show()
+```
+
 #### 1. Qt Native Mode (QtWebView)
 
 **Best for Qt-based DCC applications** - Maya, Houdini, Nuke, 3ds Max.
