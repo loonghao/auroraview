@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.3...auroraview-v0.3.4) (2025-12-10)
+
+
+### Bug Fixes
+
+* **ci:** align artifact names between build-wheels and release workflows ([dd6fd61](https://github.com/loonghao/auroraview/commit/dd6fd611977c9b2535c50f0860ac43c9495c3d8d))
+* **ci:** use PySide6&gt;=6.8 for Python 3.13+ compatibility ([2aa8281](https://github.com/loonghao/auroraview/commit/2aa8281e5ca1a888b960dc7cfe773e62a8850434))
+
+
+### Code Refactoring
+
+* **ci:** unify PR and release build flows using build-wheel action ([2b0bc97](https://github.com/loonghao/auroraview/commit/2b0bc977a80f1c817bbf9cb0ec033d483d23386b))
+
+
+### Documentation
+
+* update Python version range to include 3.13 ([f5e2f63](https://github.com/loonghao/auroraview/commit/f5e2f63cf9188382e54adbbebbcab2833a35ca40))
+
 ## [0.3.3](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.2...auroraview-v0.3.3) (2025-12-09)
 
 
