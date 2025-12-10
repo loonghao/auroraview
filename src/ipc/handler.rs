@@ -159,22 +159,35 @@ impl IpcHandler {
             return self.handle_js_callback_result(&message.data);
         }
 
-        // Handle internal ready event (no handler needed, just acknowledge)
+        // Handle internal ready event
+        // Note: We still process Python callbacks for this event so users can hook into it
         if message.event == "__auroraview_ready" {
             tracing::debug!("WebView bridge ready: {:?}", message.data);
-            return Ok(serde_json::json!({"status": "ok", "message": "ready acknowledged"}));
+            // Don't return early - let it fall through to Python callback handling
         }
 
         // First try Python callbacks (only when python-bindings feature is enabled)
         #[cfg(feature = "python-bindings")]
         if let Some(event_callbacks) = self.python_callbacks.get(&message.event) {
+            tracing::info!(
+                "Found {} Python callbacks for event: {}",
+                event_callbacks.value().len(),
+                message.event
+            );
             for callback in event_callbacks.value() {
+                tracing::info!("Calling Python callback for event: {}", message.event);
                 if let Err(e) = callback.call(message.data.clone()) {
                     tracing::error!("Python callback error: {}", e);
                     return Err(e);
                 }
+                tracing::info!("Python callback completed for event: {}", message.event);
             }
             return Ok(serde_json::json!({"status": "ok"}));
+        }
+
+        // For __auroraview_ready, return success even if no Python callback is registered
+        if message.event == "__auroraview_ready" {
+            return Ok(serde_json::json!({"status": "ok", "message": "ready acknowledged"}));
         }
 
         // Then try Rust callbacks

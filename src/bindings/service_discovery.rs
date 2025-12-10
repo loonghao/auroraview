@@ -168,7 +168,7 @@ impl PyServiceDiscovery {
                     if let Err(e) = result {
                         error!("Failed to start HTTP discovery: {}", e);
                     } else {
-                        info!("✅ HTTP discovery started on background thread");
+                        info!("HTTP discovery started on background thread");
                     }
                 });
             });
@@ -197,7 +197,7 @@ impl PyServiceDiscovery {
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
         }
 
-        info!("✅ Service discovery started");
+        info!("Service discovery started");
         Ok(())
     }
 
@@ -219,7 +219,7 @@ impl PyServiceDiscovery {
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
         }
 
-        info!("✅ Service discovery stopped");
+        info!("Service discovery stopped");
         Ok(())
     }
 

@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use super::AuroraView;
 use crate::ipc::{IpcHandler, JsCallbackManager, MessageQueue, WebViewMessage};
+use crate::utils::normalize_url;
 use crate::webview::config::WebViewConfig;
 use crate::webview::webview_inner::WebViewInner;
 
@@ -48,12 +49,20 @@ impl AuroraView {
     ) -> PyResult<Self> {
         tracing::info!("AuroraView::new() called with title: {}", title);
 
+        // Normalize URL if provided
+        let normalized_url = url.map(normalize_url);
+        if let (Some(orig), Some(ref norm)) = (url, &normalized_url) {
+            if orig != norm {
+                tracing::info!("URL normalized: {} -> {}", orig, norm);
+            }
+        }
+
         #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
         let mut config = WebViewConfig {
             title: title.to_string(),
             width,
             height,
-            url: url.map(|s| s.to_string()),
+            url: normalized_url,
             html: html.map(|s| s.to_string()),
             dev_tools,
             context_menu,
@@ -105,6 +114,8 @@ impl AuroraView {
             event_loop_proxy: Rc::new(RefCell::new(None)),
             js_callback_manager,
             on_hwnd_created: Rc::new(RefCell::new(None)),
+            #[cfg(target_os = "windows")]
+            cached_hwnd: Rc::new(RefCell::new(None)),
         })
     }
 
@@ -154,6 +165,19 @@ impl AuroraView {
             if let Some(proxy) = webview.event_loop_proxy.take() {
                 *self.event_loop_proxy.borrow_mut() = Some(proxy);
             }
+
+            // Cache HWND at AuroraView level before storing webview
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(hwnd) = webview.get_hwnd() {
+                    tracing::debug!(
+                        "[show_window] Caching HWND at AuroraView level: 0x{:X}",
+                        hwnd
+                    );
+                    *self.cached_hwnd.borrow_mut() = Some(hwnd);
+                }
+            }
+
             *inner = Some(webview);
         }
 
@@ -204,6 +228,15 @@ impl AuroraView {
                 *inner = Some(webview);
             }
         } // inner borrow released here
+
+        // Cache HWND at AuroraView level
+        if let Some(hwnd) = created_hwnd {
+            tracing::info!(
+                "[show_embedded] Caching HWND at AuroraView level: 0x{:X}",
+                hwnd
+            );
+            *self.cached_hwnd.borrow_mut() = Some(hwnd);
+        }
 
         // Now safe to invoke callback - self.inner is no longer borrowed
         if let Some(hwnd) = created_hwnd {
@@ -259,6 +292,16 @@ impl AuroraView {
                 *inner = Some(webview);
             }
         } // inner borrow released here
+
+        // Cache HWND at AuroraView level
+        #[cfg(target_os = "windows")]
+        if let Some(hwnd) = created_hwnd {
+            tracing::info!(
+                "[create_embedded] Caching HWND at AuroraView level: 0x{:X}",
+                hwnd
+            );
+            *self.cached_hwnd.borrow_mut() = Some(hwnd);
+        }
 
         // Now safe to invoke callback - self.inner is no longer borrowed
         if let Some(hwnd) = created_hwnd {
@@ -352,25 +395,30 @@ impl AuroraView {
     // === Content Loading ===
 
     /// Load a URL in the WebView
+    ///
+    /// Automatically normalizes URLs:
+    /// - `baidu.com` -> `https://baidu.com`
+    /// - `localhost:8080` -> `https://localhost:8080`
+    /// - `/path/to/file.html` -> `file:///path/to/file.html`
     fn load_url(&self, url: &str) -> PyResult<()> {
-        tracing::info!("Loading URL: {}", url);
+        let normalized = normalize_url(url);
+        tracing::info!("Loading URL: {} (normalized from: {})", normalized, url);
 
         if let Some(webview) = self.inner.borrow_mut().as_mut() {
             webview
-                .load_url(url)
+                .load_url(&normalized)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
             return Ok(());
         }
 
         let has_parent = self.config.borrow().parent_hwnd.is_some();
         if has_parent {
-            self.message_queue
-                .push(WebViewMessage::LoadUrl(url.to_string()));
+            self.message_queue.push(WebViewMessage::LoadUrl(normalized));
             return Ok(());
         }
 
         let mut cfg = self.config.borrow_mut();
-        cfg.url = Some(url.to_string());
+        cfg.url = Some(normalized);
         cfg.html = None;
         Ok(())
     }
@@ -472,19 +520,40 @@ impl AuroraView {
 
     /// Get the window handle (HWND on Windows)
     fn get_hwnd(&self) -> PyResult<Option<u64>> {
+        // First check cached HWND at AuroraView level (always accessible)
+        #[cfg(target_os = "windows")]
+        {
+            let cached = *self.cached_hwnd.borrow();
+            if let Some(hwnd) = cached {
+                tracing::debug!("[AuroraView::get_hwnd] Returning cached HWND: 0x{:X}", hwnd);
+                return Ok(Some(hwnd));
+            }
+        }
+
+        // Fall back to getting HWND from inner WebViewInner
         // Use try_borrow to avoid panic if RefCell is already borrowed
         // This can happen during callback invocations from show_embedded/create_embedded
         match self.inner.try_borrow() {
             Ok(inner) => {
                 if let Some(ref webview) = *inner {
-                    Ok(webview.get_hwnd())
+                    let hwnd = webview.get_hwnd();
+
+                    // Cache the HWND for future use
+                    #[cfg(target_os = "windows")]
+                    if let Some(h) = hwnd {
+                        *self.cached_hwnd.borrow_mut() = Some(h);
+                    }
+
+                    Ok(hwnd)
                 } else {
                     Ok(None)
                 }
             }
             Err(_) => {
                 // RefCell already borrowed - return None instead of panicking
-                tracing::debug!("[get_hwnd] RefCell already borrowed, returning None");
+                tracing::debug!(
+                    "[get_hwnd] RefCell already borrowed, returning None (no cached HWND)"
+                );
                 Ok(None)
             }
         }

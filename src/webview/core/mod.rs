@@ -50,6 +50,10 @@ pub struct AuroraView {
     pub(crate) js_callback_manager: Arc<JsCallbackManager>,
     /// Callback invoked when WebView2 HWND is created (Windows only)
     pub(crate) on_hwnd_created: Rc<RefCell<Option<Py<PyAny>>>>,
+    /// Cached HWND value (Windows only) - stored at AuroraView level
+    /// so it can be accessed even when inner RefCell is borrowed
+    #[cfg(target_os = "windows")]
+    pub(crate) cached_hwnd: Rc<RefCell<Option<u64>>>,
 }
 
 /// Implement Drop to track when AuroraView is destroyed

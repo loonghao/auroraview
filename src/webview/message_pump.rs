@@ -186,9 +186,9 @@ pub fn process_all_messages() -> bool {
                 // FIX: Actually destroy the window
                 let destroy_result = DestroyWindow(msg.hwnd);
                 if destroy_result.is_ok() {
-                    tracing::info!("[OK] [message_pump] ✅ Window destroyed successfully");
+                    tracing::info!("[OK] [message_pump] Window destroyed successfully");
                 } else {
-                    tracing::warn!("[message_pump] ⚠️ DestroyWindow failed");
+                    tracing::warn!("[message_pump] DestroyWindow failed");
                 }
 
                 tracing::info!("[OK] [message_pump] Will return to Python for cleanup");
@@ -272,9 +272,9 @@ pub fn process_all_messages_limited(max_messages: usize) -> bool {
                 // FIX: Actually destroy the window
                 let destroy_result = DestroyWindow(msg.hwnd);
                 if destroy_result.is_ok() {
-                    tracing::debug!("[message_pump] ✅ Window destroyed (limited mode)");
+                    tracing::debug!("[message_pump] Window destroyed (limited mode)");
                 } else {
-                    tracing::warn!("[message_pump] ⚠️ DestroyWindow failed (limited mode)");
+                    tracing::warn!("[message_pump] DestroyWindow failed (limited mode)");
                 }
                 continue;
             } else if msg.message == WM_DESTROY {

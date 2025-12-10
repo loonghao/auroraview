@@ -77,6 +77,8 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 - **DCC优先设计**: 专为DCC软件集成而构建
 - **类型安全**: Rust + Python 完整类型检查
 
+[POINTER] **[DCC 集成指南](./docs/DCC_INTEGRATION.md)** - 了解如何将 AuroraView 集成到 Maya、Houdini、Nuke 和其他 DCC 应用程序中。
+
 ## 架构
 
 <p align="center">
@@ -175,6 +177,56 @@ AuroraView 提供三种主要集成模式以适应不同的使用场景：
 | **HWND** | `AuroraView` | Unreal Engine, 非 Qt 应用 | ✅ 通过 HWND API |
 | **独立** | `run_standalone` | 桌面应用程序 | N/A |
 
+### WebView vs AuroraView: 选择合适的类
+
+了解 `WebView` 和 `AuroraView` 的区别有助于你选择适合的类：
+
+| 特性 | `WebView` | `AuroraView` |
+|------|-----------|--------------|
+| **用途** | 核心类，直接 Rust 绑定 | HWND 集成的高级封装 |
+| **API 风格** | Mixin 模式，完全控制 | 简化的委托模式 |
+| **适用场景** | 高级定制，DCC 嵌入 | Unreal Engine，快速原型 |
+| **保活机制** | 手动管理 | 自动（类级别注册表） |
+| **API 绑定** | 手动调用 `bind_api()` | 通过 `api` 参数自动绑定 |
+| **生命周期钩子** | `on_loaded`、`on_shown` 等 | `on_show`、`on_hide`、`on_close`、`on_ready` |
+
+**何时使用 `WebView`：**
+- 需要完全控制 WebView 生命周期
+- 构建基于 Qt 的 DCC 集成（配合 `QtWebView` 使用）
+- 需要高级功能如自定义协议、资源根目录等
+
+**何时使用 `AuroraView`：**
+- 与 Unreal Engine 或其他基于 HWND 的应用集成
+- 希望使用更简单的 API 和自动保活管理
+- 从 pywebview 迁移并希望使用熟悉的 API
+
+**示例：WebView（核心类）**
+```python
+from auroraview import WebView
+
+# 完全控制模式
+webview = WebView.create(
+    title="我的工具",
+    url="http://localhost:3000",
+    auto_show=True,
+    auto_timer=True
+)
+webview.bind_api(my_api_object)  # 手动 API 绑定
+webview.show()
+```
+
+**示例：AuroraView（HWND 封装）**
+```python
+from auroraview import AuroraView
+
+# 简化模式，自动 API 绑定
+webview = AuroraView(
+    url="http://localhost:3000",
+    api=my_api_object  # 构造时自动绑定
+)
+webview.show()
+```
+
 #### 1. Qt 原生模式 (QtWebView)
 
 **最适合基于 Qt 的 DCC 应用程序** - Maya, Houdini, Nuke, 3ds Max。
@@ -253,9 +305,106 @@ run_standalone(
 ```
 
 **主要特性：**
-- ✅ 最简单的 API - 一个函数调用
-- ✅ 自动事件循环管理
-- ✅ 无需父窗口
+- 最简单的 API - 一个函数调用
+- 自动事件循环管理
+- 无需父窗口
+
+### 快速开始 (v0.2.0 新 API)
+
+**独立窗口（2 行代码！）：**
+```python
+from auroraview import WebView
+
+# 创建并显示 - 就这么简单！
+webview = WebView.create("我的应用", url="http://localhost:3000")
+webview.show()  # 自动阻塞直到关闭
+```
+
+**Maya 集成：**
+```python
+from auroraview import WebView
+
+
+maya_hwnd = int(omui.MQtUtil.mainWindow())
+webview = WebView.create("Maya 工具", url="http://localhost:3000", parent=maya_hwnd)
+webview.show()  # 嵌入模式：非阻塞，自动定时器
+```
+
+**Houdini 集成：**
+```python
+from auroraview import WebView
+import hou
+
+hwnd = int(hou.qt.mainWindow().winId())
+webview = WebView.create("Houdini 工具", url="http://localhost:3000", parent=hwnd)
+webview.show()  # 嵌入模式：非阻塞，自动定时器
+```
+
+### 命令行界面
+
+AuroraView 包含一个 CLI，用于快速启动 WebView 窗口：
+
+```bash
+# 加载 URL
+auroraview --url https://example.com
+
+# 加载本地 HTML 文件
+auroraview --html /path/to/file.html
+
+# 自定义窗口配置
+auroraview --url https://example.com --title "我的应用" --width 1024 --height 768
+
+# 使用 uvx（无需安装）
+uvx auroraview --url https://example.com
+```
+
+**[查看 CLI 文档](./docs/CLI.md)** 了解更多详情。
+
+### 自定义窗口图标
+
+AuroraView 默认显示 AuroraView 图标。你可以自定义图标：
+
+```python
+from auroraview import WebView
+
+# 使用自定义图标
+webview = WebView.create(
+    "我的应用",
+    url="http://localhost:3000",
+    icon="path/to/my-icon.png"  # 自定义图标路径
+)
+webview.show()
+```
+
+**图标要求：**
+| 属性 | 推荐 |
+|------|------|
+| **格式** | PNG（推荐）、ICO、JPEG、BMP、GIF |
+| **尺寸** | 32x32（任务栏）、64x64（Alt-Tab）、256x256（高 DPI） |
+| **色深** | 32 位 RGBA 以支持透明度 |
+| **最佳实践** | 使用正方形图片；非正方形图片会被拉伸 |
+
+> **提示**：为了在所有 Windows UI 元素中获得最佳效果，请提供带透明度的 32x32 PNG。
+
+**Nuke 集成：**
+```python
+from auroraview import WebView
+from qtpy import QtWidgets
+
+main = QtWidgets.QApplication.activeWindow()
+hwnd = int(main.winId())
+webview = WebView.create("Nuke 工具", url="http://localhost:3000", parent=hwnd)
+webview.show()  # 嵌入模式：非阻塞，自动定时器
+```
+
+**Blender 集成：**
+```python
+from auroraview import WebView
+
+# Blender 以独立模式运行（无父窗口）
+webview = WebView.create("Blender 工具", url="http://localhost:3000")
+webview.show()  # 独立模式：阻塞直到关闭（使用 show(wait=False) 异步）
+```
 
 **回调反注册（EventTimer）**：
 ```python
@@ -336,6 +485,149 @@ with webview.create_channel() as channel:
 # channel.onMessage((data) => console.log("收到:", data));
 # channel.onClose(() => console.log("流传输完成"));
 ```
+
+## 使用模式
+
+AuroraView 支持多种 API 风格以适应不同的开发工作流。选择最适合项目复杂度和团队偏好的模式。
+
+### 模式 1：装饰器风格（最简单）
+
+适用于：**快速原型、简单工具、一次性脚本**
+
+```python
+from auroraview import WebView
+
+view = WebView(title="我的工具", url="http://localhost:3000")
+
+# 使用 bind_call 装饰器注册 API 方法
+@view.bind_call("api.get_data")
+def get_data() -> dict:
+    """JS 调用: await auroraview.api.get_data()"""
+    return {"items": [1, 2, 3], "count": 3}
+
+@view.bind_call("api.save_file")
+def save_file(path: str = "", content: str = "") -> dict:
+    """JS 调用: await auroraview.api.save_file({path: "/tmp/a.txt", content: "hello"})"""
+    with open(path, "w") as f:
+        f.write(content)
+    return {"ok": True, "path": path}
+
+# 注册事件处理器（无返回值）
+@view.on("button_clicked")
+def handle_click(data: dict):
+    """JS 发送时调用: auroraview.send_event("button_clicked", {...})"""
+    print(f"按钮点击: {data['id']}")
+
+view.show()
+```
+
+**JavaScript 端：**
+```javascript
+// 调用 API 方法（有返回值）
+const data = await auroraview.api.get_data();
+console.log(data.items);  // [1, 2, 3]
+
+const result = await auroraview.api.save_file({ path: "/tmp/test.txt", content: "Hello" });
+console.log(result.ok);  // true
+
+// 发送事件到 Python（即发即忘）
+auroraview.send_event("button_clicked", { id: "save_btn" });
+
+// 监听 Python 事件
+auroraview.on("data_updated", (data) => {
+    console.log("数据更新:", data);
+});
+```
+
+### 模式 2：类继承（推荐，类 Qt 风格）
+
+适用于：**生产工具、团队协作、复杂应用**
+
+```python
+from auroraview import WebView, Signal
+
+class OutlinerTool(WebView):
+    """Maya 风格的大纲工具，演示类 Qt 模式。"""
+
+    # 信号定义（Python -> JS 通知）
+    selection_changed = Signal(list)
+    progress_updated = Signal(int, str)
+    scene_loaded = Signal(str)
+
+    def __init__(self):
+        super().__init__(
+            title="大纲工具",
+            url="http://localhost:3000",
+            width=400,
+            height=600
+        )
+        self._setup_api()
+        self._setup_connections()
+
+    def _setup_api(self):
+        """绑定 API 方法供 JavaScript 访问。"""
+        self.bind_api(self, namespace="api")
+
+    # API 方法（JS -> Python）
+    def get_hierarchy(self, root: str = None) -> dict:
+        """获取场景层级。JS: await auroraview.api.get_hierarchy()"""
+        return {
+            "children": ["group1", "mesh_cube", "camera1"],
+            "count": 3
+        }
+
+    def rename_object(self, old_name: str = "", new_name: str = "") -> dict:
+        """重命名场景对象。JS: await auroraview.api.rename_object({old_name: "a", new_name: "b"})"""
+        return {"ok": True, "old": old_name, "new": new_name}
+
+# 使用
+tool = OutlinerTool()
+tool.show()
+```
+
+### 模式 3：显式绑定（高级）
+
+适用于：**动态配置、插件系统、运行时定制**
+
+```python
+from auroraview import WebView
+
+view = WebView(title="插件宿主", url="http://localhost:3000")
+
+# 单独定义函数
+def get_plugins() -> dict:
+    return {"plugins": ["plugin_a", "plugin_b"]}
+
+def load_plugin(name: str) -> dict:
+    print(f"加载插件: {name}")
+    return {"ok": True, "plugin": name}
+
+# 运行时显式绑定
+view.bind_call("get_plugins", get_plugins)
+view.bind_call("load_plugin", load_plugin)
+
+# 连接内置信号
+view.on_ready.connect(lambda: print("WebView 已就绪!"))
+view.on_navigate.connect(lambda url: print(f"导航到: {url}"))
+
+view.show()
+```
+
+### 模式对比
+
+| 方面 | 装饰器 | 类继承 | 显式绑定 |
+|------|--------|--------|----------|
+| **复杂度** | 简单 | 中等 | 高级 |
+| **适用场景** | 原型 | 生产 | 插件 |
+| **信号支持** | 无 | 完整 | 有限 |
+| **自动绑定** | 手动 | 通过 bind_api | 手动 |
+| **类型提示** | 支持 | 支持 | 支持 |
+| **Qt 熟悉度** | 低 | 高 | 中 |
+| **可测试性** | 良好 | 优秀 | 良好 |
+
+> **推荐**：原型开发使用**模式 1**，生产工具使用**模式 2**，构建可扩展系统时使用**模式 3**。
+
+查看 [examples/](./examples/) 目录获取每种模式的完整可运行示例。
 
 #### 2. Qt 后端
 

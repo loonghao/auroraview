@@ -68,6 +68,25 @@ pub trait WebViewBackend {
     /// Get the window handle (if available)
     fn window(&self) -> Option<&tao::window::Window>;
 
+    /// Get the native window handle (HWND on Windows)
+    ///
+    /// Returns the platform-specific window handle for integration with external applications.
+    fn get_hwnd(&self) -> Option<u64> {
+        #[cfg(target_os = "windows")]
+        {
+            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+            if let Some(window) = self.window() {
+                if let Ok(window_handle) = window.window_handle() {
+                    let raw_handle = window_handle.as_raw();
+                    if let RawWindowHandle::Win32(handle) = raw_handle {
+                        return Some(handle.hwnd.get() as u64);
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// Get the event loop (if available)
     fn event_loop(&mut self) -> Option<tao::event_loop::EventLoop<UserEvent>>;
 

@@ -37,6 +37,10 @@ pub struct WebViewInner {
     #[allow(dead_code)]
     #[cfg(target_os = "windows")]
     pub(crate) backend: Option<Box<super::backend::native::NativeBackend>>,
+    /// Cached HWND value (Windows only)
+    /// This is cached because the window may be moved during event loop execution
+    #[cfg(target_os = "windows")]
+    pub(crate) cached_hwnd: Option<u64>,
 }
 
 impl Drop for WebViewInner {
@@ -202,6 +206,9 @@ impl WebViewInner {
         // Extract webview reference (but keep backend alive!)
         let webview = backend.webview();
 
+        // Cache HWND from backend
+        let cached_hwnd = backend.get_hwnd();
+
         tracing::info!("[OK] [create_for_dcc] Keeping backend alive to prevent window destruction");
         tracing::info!(
             "[OK] [create_for_dcc] process_events() will delegate to backend.process_events()"
@@ -216,6 +223,7 @@ impl WebViewInner {
             lifecycle: Arc::new(LifecycleManager::new()),
             auto_show: true,                  // DCC mode: visibility controlled by Qt
             backend: Some(Box::new(backend)), // CRITICAL: Keep backend alive!
+            cached_hwnd,
         })
     }
 
@@ -633,12 +641,25 @@ impl WebViewInner {
         {
             use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
-            // First try to get HWND from self.window (standalone mode)
+            // First check cached HWND (set during window creation)
+            if let Some(hwnd) = self.cached_hwnd {
+                tracing::debug!(
+                    "[WebViewInner::get_hwnd] Returning cached HWND: 0x{:x}",
+                    hwnd
+                );
+                return Some(hwnd);
+            }
+
+            // Try to get HWND from self.window (standalone mode)
             if let Some(window) = &self.window {
                 if let Ok(window_handle) = window.window_handle() {
                     let raw_handle = window_handle.as_raw();
                     if let RawWindowHandle::Win32(handle) = raw_handle {
                         let hwnd_value = handle.hwnd.get() as u64;
+                        tracing::debug!(
+                            "[WebViewInner::get_hwnd] Returning window HWND: 0x{:x}",
+                            hwnd_value
+                        );
                         return Some(hwnd_value);
                     }
                 }
@@ -651,11 +672,17 @@ impl WebViewInner {
                         let raw_handle = window_handle.as_raw();
                         if let RawWindowHandle::Win32(handle) = raw_handle {
                             let hwnd_value = handle.hwnd.get() as u64;
+                            tracing::debug!(
+                                "[WebViewInner::get_hwnd] Returning backend HWND: 0x{:x}",
+                                hwnd_value
+                            );
                             return Some(hwnd_value);
                         }
                     }
                 }
             }
+
+            tracing::debug!("[WebViewInner::get_hwnd] No HWND found, returning None");
         }
 
         #[cfg(not(target_os = "windows"))]
