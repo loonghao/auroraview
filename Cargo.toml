@@ -109,7 +109,7 @@ hyper = { version = "1.8", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 
 # Template engine for JS code generation
-askama = { version = "0.12", optional = true }
+askama = { version = "0.14", optional = true }
 
 # Regex for URL handling
 regex = { version = "1.11", optional = true }

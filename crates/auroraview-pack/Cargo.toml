@@ -31,7 +31,7 @@ walkdir = "2.5"
 dunce = "1.0"
 
 # Template engine
-askama = "0.12"
+askama = "0.14"
 
 # Embed static assets
 rust-embed = "8.5"
