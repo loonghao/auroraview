@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Qt backend - Qt host widget embedding the core AuroraView WebView.
 
 This module provides a Qt ``QWidget`` subclass (:class:`QtWebView`) that

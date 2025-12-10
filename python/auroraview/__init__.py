@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """AuroraView - Rust-powered WebView for Python & DCC embedding.
 
 This package provides a modern web-based UI solution for professional DCC applications
