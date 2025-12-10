@@ -162,8 +162,8 @@ fn run_standalone(
         allow_media_devices: false,
         block_external_navigation: false,
         allowed_navigation_domains: Vec::new(),
-        icon: None, // Use default AuroraView icon
-        enable_plugins: true, // Enable plugin APIs
+        icon: None,                       // Use default AuroraView icon
+        enable_plugins: true,             // Enable plugin APIs
         enabled_plugin_names: Vec::new(), // All plugins
     };
 
