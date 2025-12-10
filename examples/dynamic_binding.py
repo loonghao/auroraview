@@ -23,7 +23,6 @@ Use cases:
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from auroraview import WebView
 

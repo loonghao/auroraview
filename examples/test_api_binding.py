@@ -31,18 +31,18 @@ def test_api_binding():
     # Create outliner
     print("Creating Maya Outliner...")
     outliner = maya_outliner.main()
-    
+
     print()
     print("=" * 60)
     print("API Object Information")
     print("=" * 60)
-    
+
     # Check API object
     if hasattr(outliner, 'api'):
         api = outliner.api
         print(f"✓ API object found: {type(api)}")
         print()
-        
+
         # List all public methods
         print("Public methods on API object:")
         methods = [name for name in dir(api) if not name.startswith('_') and callable(getattr(api, name))]
@@ -52,33 +52,33 @@ def test_api_binding():
         print(f"Total: {len(methods)} public methods")
     else:
         print("✗ No API object found on outliner")
-    
+
     print()
     print("=" * 60)
     print("AuroraView Wrapper Information")
     print("=" * 60)
-    
+
     # Check AuroraView wrapper
     if hasattr(outliner, 'auroraview'):
         auroraview = outliner.auroraview
         print(f"✓ AuroraView wrapper found: {type(auroraview)}")
-        
+
         # Check if bind_api was called
         if hasattr(auroraview, '_view'):
             view = auroraview._view
             print(f"✓ Underlying view: {type(view)}")
-            
+
             # Try to access IPC handler
             if hasattr(view, '_webview'):
                 webview = view._webview
                 print(f"✓ WebView: {type(webview)}")
-                
+
                 if hasattr(webview, 'ipc_handler'):
                     ipc_handler = webview.ipc_handler
                     print(f"✓ IPC Handler: {type(ipc_handler)}")
     else:
         print("✗ No AuroraView wrapper found on outliner")
-    
+
     print()
     print("=" * 60)
     print("JavaScript Test")
@@ -98,7 +98,7 @@ def test_api_binding():
     print("  })")
     print()
     print("=" * 60)
-    
+
     return outliner
 
 

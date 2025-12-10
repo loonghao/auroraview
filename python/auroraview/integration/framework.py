@@ -156,6 +156,7 @@ class AuroraView:
             self._view = _view
         else:
             # Create native WebView with specified embed mode
+            # Note: WebView uses 'mode' parameter (maps to Rust's parent_mode)
             self._view = WebView(
                 title=title,
                 width=width,
@@ -164,7 +165,7 @@ class AuroraView:
                 html=html,
                 debug=debug,
                 parent=parent,
-                embed_mode=embed_mode,
+                mode=embed_mode,  # embed_mode -> mode (WebView parameter name)
                 **kwargs,
             )
 

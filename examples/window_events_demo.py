@@ -9,7 +9,7 @@ Works in standalone mode or embedded in DCC applications (Maya, Houdini, Blender
 """
 
 from auroraview import WebView
-from auroraview.core.events import WindowEvent, WindowEventData
+from auroraview.core.events import WindowEventData
 
 
 def create_demo_html() -> str:
