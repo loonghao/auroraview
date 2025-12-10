@@ -4,7 +4,80 @@ from __future__ import annotations
 
 import pytest
 
-from auroraview.core.commands import CommandRegistry
+from auroraview.core.commands import CommandError, CommandErrorCode, CommandRegistry
+
+
+class TestCommandErrorCode:
+    """Test CommandErrorCode enum."""
+
+    def test_error_codes_exist(self):
+        """Test all error codes are defined."""
+        assert CommandErrorCode.UNKNOWN.value == "UNKNOWN"
+        assert CommandErrorCode.INTERNAL.value == "INTERNAL"
+        assert CommandErrorCode.INVALID_DATA.value == "INVALID_DATA"
+        assert CommandErrorCode.MISSING_COMMAND.value == "MISSING_COMMAND"
+        assert CommandErrorCode.COMMAND_NOT_FOUND.value == "COMMAND_NOT_FOUND"
+        assert CommandErrorCode.INVALID_ARGUMENTS.value == "INVALID_ARGUMENTS"
+        assert CommandErrorCode.MISSING_ARGUMENT.value == "MISSING_ARGUMENT"
+        assert CommandErrorCode.TYPE_ERROR.value == "TYPE_ERROR"
+        assert CommandErrorCode.EXECUTION_ERROR.value == "EXECUTION_ERROR"
+        assert CommandErrorCode.TIMEOUT.value == "TIMEOUT"
+        assert CommandErrorCode.CANCELLED.value == "CANCELLED"
+        assert CommandErrorCode.PERMISSION_DENIED.value == "PERMISSION_DENIED"
+
+
+class TestCommandError:
+    """Test CommandError exception class."""
+
+    def test_basic_error(self):
+        """Test basic CommandError creation."""
+        error = CommandError(CommandErrorCode.UNKNOWN, "Test error")
+        assert error.code == CommandErrorCode.UNKNOWN
+        assert error.message == "Test error"
+        assert error.details == {}
+
+    def test_error_with_details(self):
+        """Test CommandError with details."""
+        error = CommandError(
+            CommandErrorCode.COMMAND_NOT_FOUND,
+            "Command not found",
+            {"command": "test_cmd", "available": ["cmd1", "cmd2"]},
+        )
+        assert error.code == CommandErrorCode.COMMAND_NOT_FOUND
+        assert error.details["command"] == "test_cmd"
+        assert error.details["available"] == ["cmd1", "cmd2"]
+
+    def test_to_dict(self):
+        """Test CommandError.to_dict()."""
+        error = CommandError(CommandErrorCode.INVALID_ARGUMENTS, "Bad args")
+        result = error.to_dict()
+
+        assert result["code"] == "INVALID_ARGUMENTS"
+        assert result["message"] == "Bad args"
+        assert "details" not in result  # Empty details excluded
+
+    def test_to_dict_with_details(self):
+        """Test CommandError.to_dict() with details."""
+        error = CommandError(
+            CommandErrorCode.TYPE_ERROR, "Type mismatch", {"expected": "int", "got": "str"}
+        )
+        result = error.to_dict()
+
+        assert result["code"] == "TYPE_ERROR"
+        assert result["details"]["expected"] == "int"
+
+    def test_repr(self):
+        """Test CommandError repr."""
+        error = CommandError(CommandErrorCode.EXECUTION_ERROR, "Failed")
+        assert "EXECUTION_ERROR" in repr(error)
+        assert "Failed" in repr(error)
+
+    def test_error_is_exception(self):
+        """Test CommandError can be raised and caught."""
+        with pytest.raises(CommandError) as exc_info:
+            raise CommandError(CommandErrorCode.TIMEOUT, "Operation timed out")
+
+        assert exc_info.value.code == CommandErrorCode.TIMEOUT
 
 
 class TestCommandRegistryBasic:
@@ -182,3 +255,93 @@ class TestCommandInvocation:
 
         assert "error" in result
         assert result["error"]["code"] == "INVALID_ARGUMENTS"
+
+    def test_handle_invoke_invalid_data_type(self):
+        """Test invocation with non-dict data."""
+        registry = CommandRegistry()
+
+        result = registry._handle_invoke("not a dict")
+
+        assert "error" in result
+        assert result["error"]["code"] == "INVALID_DATA"
+
+    def test_handle_invoke_execution_error(self):
+        """Test invocation when command raises exception."""
+        registry = CommandRegistry()
+
+        @registry.register
+        def failing_cmd():
+            raise ValueError("Something went wrong")
+
+        result = registry._handle_invoke({"id": "test_5", "command": "failing_cmd", "args": {}})
+
+        assert "error" in result
+        assert result["error"]["code"] == "EXECUTION_ERROR"
+        assert "Something went wrong" in result["error"]["message"]
+
+    def test_handle_invoke_command_error(self):
+        """Test invocation when command raises CommandError."""
+        registry = CommandRegistry()
+
+        @registry.register
+        def cmd_with_error():
+            raise CommandError(CommandErrorCode.PERMISSION_DENIED, "Access denied")
+
+        result = registry._handle_invoke({"id": "test_6", "command": "cmd_with_error", "args": {}})
+
+        assert "error" in result
+        assert result["error"]["code"] == "PERMISSION_DENIED"
+        assert "Access denied" in result["error"]["message"]
+
+    def test_handle_invoke_no_id(self):
+        """Test invocation without id field."""
+        registry = CommandRegistry()
+
+        @registry.register
+        def simple():
+            return "ok"
+
+        result = registry._handle_invoke({"command": "simple", "args": {}})
+
+        assert result["id"] == ""
+        assert result["result"] == "ok"
+
+    def test_handle_invoke_default_args(self):
+        """Test invocation uses empty dict for missing args."""
+        registry = CommandRegistry()
+
+        @registry.register
+        def no_args():
+            return "success"
+
+        result = registry._handle_invoke({"id": "test_7", "command": "no_args"})
+
+        assert result["result"] == "success"
+
+
+class TestCommandRegistryAsync:
+    """Test async command handling."""
+
+    def test_register_async_command(self):
+        """Test registering async command."""
+        registry = CommandRegistry()
+
+        @registry.register
+        async def async_cmd(x: int) -> int:
+            return x * 2
+
+        assert "async_cmd" in registry
+
+    def test_invoke_async_command_no_loop(self):
+        """Test invoking async command without running loop."""
+        registry = CommandRegistry()
+
+        @registry.register
+        async def async_add(a: int, b: int) -> int:
+            return a + b
+
+        result = registry._handle_invoke(
+            {"id": "async_1", "command": "async_add", "args": {"a": 1, "b": 2}}
+        )
+
+        assert result["result"] == 3
