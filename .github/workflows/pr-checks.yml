@@ -92,6 +92,23 @@ jobs:
           artifact-name: ${{ matrix.artifact-name }}
           use-sccache: 'false'
 
+      # Run unit tests on Python 3.7 to catch encoding and compatibility issues
+      - name: Run Python 3.7 Unit Tests
+        shell: bash
+        env:
+          CI: 'true'
+        run: |
+          # Install test dependencies (pytest only, no Qt for 3.7)
+          pip install pytest pytest-cov
+
+          # Install the built wheel
+          pip install dist/*.whl
+
+          # Run unit tests (skip Qt tests as PySide6 doesn't support Python 3.7)
+          pytest tests/python/unit/ -v --tb=short \
+            --ignore=tests/python/unit/test_qt_signals.py \
+            -k "not qt"
+
   # Fast checks that run first (< 2 min)
   quick-checks:
     name: Quick Checks
