@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """High-level AuroraView base class.
 
 This module provides the :class:`AuroraView` Python base class that wraps a

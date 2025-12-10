@@ -1,4 +1,5 @@
-"""Shared State System for Python ↔ JavaScript synchronization.
+# -*- coding: utf-8 -*-
+"""Shared State System for Python <-> JavaScript synchronization.
 
 This module provides a reactive state system inspired by PyWebView's state mechanism,
 allowing automatic synchronization between Python and JavaScript.

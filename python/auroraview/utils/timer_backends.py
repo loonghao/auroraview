@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Timer backend abstraction for EventTimer.
 
 This module provides an extensible timer backend system using the Strategy pattern.

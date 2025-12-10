@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """WebSocket Bridge for DCC and Web application integration.
 
 This module provides a generic WebSocket server that can be used to integrate

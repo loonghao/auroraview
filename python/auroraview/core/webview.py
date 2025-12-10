@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """High-level Python API for WebView."""
 
 from __future__ import annotations

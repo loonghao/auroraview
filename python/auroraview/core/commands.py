@@ -1,4 +1,5 @@
-"""Command System for simplified Python ↔ JavaScript API definition.
+# -*- coding: utf-8 -*-
+"""Command System for simplified Python <-> JavaScript API definition.
 
 This module provides a decorator-based command system inspired by Tauri's
 #[command] macro, allowing easy definition of Python functions callable
