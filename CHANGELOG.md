@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.6...auroraview-v0.3.7) (2025-12-10)
+
+
+### Features
+
+* enhance test coverage and IPC benchmarks ([8a994d1](https://github.com/loonghao/auroraview/commit/8a994d1dbc04afb7e5f6497990f47dd766be8ecd))
+
+
+### Bug Fixes
+
+* remove useless format! macro in benchmark ([4f6f558](https://github.com/loonghao/auroraview/commit/4f6f5583d18bd6638819464f7b3352a25da6c325))
+
 ## [0.3.6](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.5...auroraview-v0.3.6) (2025-12-10)
 
 
