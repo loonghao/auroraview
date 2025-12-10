@@ -159,17 +159,13 @@ fn bench_js_string_escape(c: &mut Criterion) {
             })
         });
 
-        group.bench_with_input(
-            BenchmarkId::new("single_pass", name),
-            &payload,
-            |b, p| {
-                b.iter(|| {
-                    // Alternative: single pass escape
-                    let escaped = escape_for_js_single_pass(p);
-                    black_box(escaped)
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("single_pass", name), &payload, |b, p| {
+            b.iter(|| {
+                // Alternative: single pass escape
+                let escaped = escape_for_js_single_pass(p);
+                black_box(escaped)
+            })
+        });
     }
 
     group.finish();
@@ -315,16 +311,12 @@ fn bench_payload_size_check(c: &mut Criterion) {
         .collect();
 
     for (size, payload) in &payloads {
-        group.bench_with_input(
-            BenchmarkId::new("len_check", size),
-            payload,
-            |b, p| {
-                b.iter(|| {
-                    let should_compress = p.len() > 4096;
-                    black_box(should_compress)
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("len_check", size), payload, |b, p| {
+            b.iter(|| {
+                let should_compress = p.len() > 4096;
+                black_box(should_compress)
+            })
+        });
     }
 
     group.finish();
