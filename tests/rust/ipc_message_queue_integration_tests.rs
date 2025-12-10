@@ -156,11 +156,7 @@ fn test_load_url_message() {
 
     assert_eq!(received_urls.len(), urls.len(), "Should receive all URLs");
     for (i, url) in urls.iter().enumerate() {
-        assert_eq!(
-            received_urls[i], *url,
-            "URL should match at index {}",
-            i
-        );
+        assert_eq!(received_urls[i], *url, "URL should match at index {}", i);
     }
 }
 
