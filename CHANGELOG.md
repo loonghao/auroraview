@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.5...auroraview-v0.3.6) (2025-12-10)
+
+
+### Bug Fixes
+
+* add UTF-8 encoding declarations for Python 3.7 compatibility ([b24beb1](https://github.com/loonghao/auroraview/commit/b24beb14569ab64afa438bec4a54fe81f15364ca))
+
 ## [0.3.5](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.4...auroraview-v0.3.5) (2025-12-10)
 
 
