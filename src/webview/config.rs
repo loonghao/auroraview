@@ -288,8 +288,8 @@ impl Default for WebViewConfig {
             allow_media_devices: false,
             block_external_navigation: false,
             allowed_navigation_domains: Vec::new(),
-            icon: None, // Use default AuroraView icon
-            enable_plugins: true, // Enable plugin APIs by default
+            icon: None,                       // Use default AuroraView icon
+            enable_plugins: true,             // Enable plugin APIs by default
             enabled_plugin_names: Vec::new(), // Empty = all plugins enabled
         }
     }
