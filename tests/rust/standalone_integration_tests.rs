@@ -61,6 +61,12 @@ fn test_loading_html_generation() {
 }
 
 /// Test URL loading script generation
+///
+/// Note: The `build_load_url_script` function generates JavaScript for
+/// window.location.href navigation. However, in standalone mode, we now
+/// use wry's native `load_url()` method for more reliable navigation,
+/// especially after splash screen loading. This test verifies the script
+/// generation still works for backward compatibility and other use cases.
 #[rstest]
 #[case("https://example.com")]
 #[case("https://google.com")]

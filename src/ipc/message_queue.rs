@@ -491,8 +491,11 @@ impl MessageQueue {
                     }
                 }
             } else {
-                tracing::warn!(
-                    "[WARNING] [MessageQueue] Event loop proxy is None - cannot wake up event loop!"
+                // This is expected during initialization before the event loop starts.
+                // Messages are still queued and will be processed when the event loop runs.
+                // Only log at debug level to reduce noise.
+                tracing::debug!(
+                    "[MessageQueue] Event loop proxy not yet set - message queued, will be processed when event loop starts"
                 );
             }
         }

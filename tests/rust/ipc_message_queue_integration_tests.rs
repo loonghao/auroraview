@@ -123,3 +123,65 @@ fn test_multiple_message_types(small_queue_no_retry: MessageQueue) {
 
     assert_eq!(count, 1, "Should process exactly one message");
 }
+
+/// Test LoadUrl message type
+#[rstest]
+fn test_load_url_message() {
+    let cfg = MessageQueueConfig {
+        capacity: 10,
+        block_on_full: false,
+        max_retries: 0,
+        retry_delay_ms: 1,
+        batch_interval_ms: 0,
+    };
+    let q = MessageQueue::with_config(cfg);
+
+    // Test various URL types
+    let urls = vec![
+        "https://example.com",
+        "http://localhost:8080",
+        "file:///path/to/file.html",
+    ];
+
+    for url in &urls {
+        q.push(WebViewMessage::LoadUrl(url.to_string()));
+    }
+
+    let mut received_urls = Vec::new();
+    q.process_all(|msg| {
+        if let WebViewMessage::LoadUrl(url) = msg {
+            received_urls.push(url);
+        }
+    });
+
+    assert_eq!(received_urls.len(), urls.len(), "Should receive all URLs");
+    for (i, url) in urls.iter().enumerate() {
+        assert_eq!(
+            received_urls[i], *url,
+            "URL should match at index {}",
+            i
+        );
+    }
+}
+
+/// Test that event loop proxy warning is not triggered when proxy is set
+#[rstest]
+fn test_event_loop_proxy_not_set_initially() {
+    let cfg = MessageQueueConfig {
+        capacity: 10,
+        block_on_full: false,
+        max_retries: 0,
+        retry_delay_ms: 1,
+        batch_interval_ms: 0,
+    };
+    let q = MessageQueue::with_config(cfg);
+
+    // Push a message without setting event loop proxy
+    // This should not panic, just log a debug message
+    q.push(WebViewMessage::EvalJs("test".into()));
+
+    // Message should still be in queue
+    let mut count = 0;
+    q.process_all(|_| count += 1);
+    assert_eq!(count, 1, "Message should be queued even without proxy");
+}
