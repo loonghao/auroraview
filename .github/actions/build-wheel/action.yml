@@ -261,7 +261,7 @@ runs:
       if: inputs.upload-wheel == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ inputs.artifact-name }}-${{ runner.os }}-py${{ inputs.python-version }}-${{ inputs.target || 'default' }}
+        name: ${{ inputs.artifact-name }}
         path: dist/
         retention-days: 30
 
