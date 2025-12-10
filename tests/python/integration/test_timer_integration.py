@@ -78,11 +78,19 @@ class TestTimerIntegration:
             # Verify timer is using thread backend
             assert isinstance(timer._backend, ThreadTimerBackend)
 
-            time.sleep(0.05)
+            # Use polling to handle CI environment variability (especially macOS)
+            # Wait up to 500ms for at least one tick
+            max_wait = 0.5
+            poll_interval = 0.02
+            elapsed = 0.0
+            while elapsed < max_wait and tick_count[0] == 0:
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+
             timer.stop()
 
-            # Should have ticked multiple times
-            assert tick_count[0] > 0
+            # Should have ticked at least once
+            assert tick_count[0] > 0, f"Timer did not tick after {elapsed}s"
         finally:
             _restore_backends(original_backends)
 
