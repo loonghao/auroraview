@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 // Re-export IpcMessage from backend module
 pub use super::backend::IpcMessage;
+pub use super::message_queue::{MessageQueue, WebViewMessage};
 
 #[cfg(feature = "python-bindings")]
 use super::js_callback::{JsCallbackManager, JsCallbackResult};
@@ -75,6 +76,9 @@ pub struct IpcHandler {
     /// JavaScript callback manager for async execution results
     #[cfg(feature = "python-bindings")]
     js_callback_manager: Option<Arc<JsCallbackManager>>,
+
+    /// Message queue for sending events to WebView
+    message_queue: Option<Arc<MessageQueue>>,
 }
 
 impl IpcHandler {
@@ -86,7 +90,13 @@ impl IpcHandler {
             python_callbacks: Arc::new(DashMap::new()),
             #[cfg(feature = "python-bindings")]
             js_callback_manager: None,
+            message_queue: None,
         }
+    }
+
+    /// Set the message queue for sending events to WebView
+    pub fn set_message_queue(&mut self, queue: Arc<MessageQueue>) {
+        self.message_queue = Some(queue);
     }
 
     /// Set the JavaScript callback manager for handling async execution results
@@ -134,18 +144,24 @@ impl IpcHandler {
     }
 
     /// Emit an event to JavaScript
+    ///
+    /// Sends an event to the WebView via the message queue.
+    /// The event will be dispatched to JavaScript handlers registered with `auroraview.on()`.
     #[allow(dead_code)]
     pub fn emit(&self, event: &str, data: serde_json::Value) -> Result<(), String> {
-        let _message = IpcMessage {
-            event: event.to_string(),
-            data,
-            id: None,
-        };
-
         tracing::debug!("Emitting IPC event: {}", event);
 
-        // TODO: Send message to WebView
-        Ok(())
+        if let Some(ref queue) = self.message_queue {
+            queue.push(WebViewMessage::EmitEvent {
+                event_name: event.to_string(),
+                data,
+            });
+            Ok(())
+        } else {
+            let err = "Message queue not set - cannot emit event to WebView".to_string();
+            tracing::warn!("{}", err);
+            Err(err)
+        }
     }
 
     /// Handle incoming message from JavaScript
@@ -371,5 +387,28 @@ mod tests {
             })
             .unwrap_err();
         assert!(err.contains("No handler registered"));
+    }
+
+    #[test]
+    fn test_emit_without_message_queue() {
+        let handler = IpcHandler::new();
+        // Without message queue, emit should return an error
+        let result = handler.emit("test_event", serde_json::json!({"data": "test"}));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Message queue not set"));
+    }
+
+    #[test]
+    fn test_emit_with_message_queue() {
+        let mut handler = IpcHandler::new();
+        let queue = Arc::new(MessageQueue::new());
+        handler.set_message_queue(queue.clone());
+
+        // With message queue, emit should succeed
+        let result = handler.emit("test_event", serde_json::json!({"data": "test"}));
+        assert!(result.is_ok());
+
+        // Verify message was pushed to queue
+        assert_eq!(queue.len(), 1);
     }
 }
