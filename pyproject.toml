@@ -74,11 +74,6 @@ module-name = "auroraview._core"
 # Note: abi3-py38 for Python 3.8+, Python 3.7 requires separate non-abi3 build
 features = ["python-bindings", "pyo3/extension-module", "abi3-py38"]
 bindings = "pyo3"
-# Include native Qt libraries for qt_native module
-include = [
-    { path = "python/auroraview/_native/**/*", format = "sdist" },
-    { path = "python/auroraview/_native/**/*", format = "wheel" },
-]
 
 # Ruff configuration
 [tool.ruff]
