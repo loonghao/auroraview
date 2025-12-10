@@ -131,9 +131,7 @@ fn bench_js_string_escape(c: &mut Criterion) {
         ("small_50b", r#"{"event":"click","x":100}"#.to_string()),
         (
             "medium_with_special",
-            format!(
-                r#"{{"event":"log","message":"Line1\nLine2\tTab\\Path'Quote"}}"#
-            ),
+            r#"{"event":"log","message":"Line1\nLine2\tTab\\Path'Quote"}"#.to_string(),
         ),
         (
             "large_clean",
