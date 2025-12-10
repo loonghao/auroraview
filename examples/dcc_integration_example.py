@@ -21,7 +21,7 @@ from auroraview.utils.event_timer import EventTimer
 
 class DCCWebViewPanel:
     """A WebView panel designed for DCC application integration.
-    
+
     This class wraps WebView with DCC-specific functionality:
     - Uses Qt timer for event processing (if available)
     - Handles DCC shutdown gracefully
@@ -36,7 +36,7 @@ class DCCWebViewPanel:
         timer_interval: int = 16,  # ~60 FPS
     ):
         """Initialize the DCC WebView panel.
-        
+
         Args:
             title: Window title
             width: Initial window width
@@ -55,7 +55,7 @@ class DCCWebViewPanel:
 
     def create(self, html_content: Optional[str] = None, url: Optional[str] = None):
         """Create and show the WebView panel.
-        
+
         Args:
             html_content: HTML content to load (optional)
             url: URL to load (optional, used if html_content is None)

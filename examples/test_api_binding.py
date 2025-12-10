@@ -13,12 +13,12 @@ Signed-off-by: Hal Long <hal.long@outlook.com>
 import sys
 from pathlib import Path
 
+from maya_integration import maya_outliner  # noqa: E402
+
 # Add parent directory to path for imports
 parent_dir = Path(__file__).parent.parent
 if str(parent_dir) not in sys.path:
     sys.path.insert(0, str(parent_dir))
-
-from maya_integration import maya_outliner
 
 
 def test_api_binding():

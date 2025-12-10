@@ -107,7 +107,7 @@ impl HttpDiscovery {
         self.port = bound_addr.port();
 
         info!(
-            "✅ HTTP discovery server started at http://{}/discover",
+            "HTTP discovery server started at http://{}/discover",
             bound_addr
         );
 
@@ -128,7 +128,7 @@ impl HttpDiscovery {
             handle.abort();
         }
 
-        info!("✅ HTTP discovery server stopped");
+        info!("HTTP discovery server stopped");
         Ok(())
     }
 

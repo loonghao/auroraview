@@ -40,17 +40,17 @@ def create_demo_html() -> str:
     <body>
         <h1>🪟 Window Events Demo</h1>
         <p>This demo shows window lifecycle events in real-time.</p>
-        
+
         <div class="controls">
             <button class="btn-primary" onclick="clearLog()">Clear Log</button>
             <button class="btn-secondary" onclick="testResize()">Test Resize</button>
             <button class="btn-secondary" onclick="testMove()">Test Move</button>
         </div>
-        
+
         <div class="event-log" id="eventLog">
             <div class="event-item event-shown">Waiting for events...</div>
         </div>
-        
+
         <script>
             function addEvent(type, data) {
                 const log = document.getElementById('eventLog');
@@ -60,19 +60,19 @@ def create_demo_html() -> str:
                 item.textContent = `[${time}] ${type.toUpperCase()}: ${JSON.stringify(data)}`;
                 log.insertBefore(item, log.firstChild);
             }
-            
+
             function clearLog() {
                 document.getElementById('eventLog').innerHTML = '';
             }
-            
+
             function testResize() {
                 window.auroraview.call('resize', {width: 900, height: 700});
             }
-            
+
             function testMove() {
                 window.auroraview.call('move', {x: 100, y: 100});
             }
-            
+
             // Register event listeners
             window.auroraview.on('shown', (data) => addEvent('shown', data));
             window.auroraview.on('hidden', (data) => addEvent('hidden', data));

@@ -85,3 +85,4 @@ target/wheels/
 coverage.lcov
 .qt/
 
+local-test.py

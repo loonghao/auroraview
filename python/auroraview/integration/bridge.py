@@ -217,7 +217,7 @@ class Bridge:
                     "protocol": self.protocol,
                 }
                 self._service_discovery.start(metadata)
-                logger.info("✅ Service discovery started")
+                logger.info("Service discovery started")
             except Exception as e:
                 logger.error(f"Failed to start service discovery: {e}")
 
@@ -225,7 +225,7 @@ class Bridge:
         self._loop = asyncio.get_event_loop()
 
         async with websockets.serve(self._handle_client, self.host, self.port):
-            logger.info(f"✅ WebSocket server listening on ws://{self.host}:{self.port}")
+            logger.info(f"WebSocket server listening on ws://{self.host}:{self.port}")
             logger.info("📡 Waiting for clients to connect...")
             await asyncio.Future()  # Run forever
 
@@ -263,7 +263,7 @@ class Bridge:
 
         self._thread = threading.Thread(target=_run_server, daemon=True)
         self._thread.start()
-        logger.info("✅ Bridge background thread started")
+        logger.info("Bridge background thread started")
 
         # Wait a bit for the server to start
         time.sleep(0.5)  # Give the thread time to start
@@ -286,12 +286,12 @@ class Bridge:
         if self._service_discovery:
             try:
                 self._service_discovery.stop()
-                logger.info("✅ Service discovery stopped")
+                logger.info("Service discovery stopped")
             except Exception as e:
                 logger.error(f"Failed to stop service discovery: {e}")
 
         self._is_running = False
-        logger.info("✅ Bridge stopped")
+        logger.info("Bridge stopped")
 
     async def _handle_client(self, websocket: Any):
         """Handle a new client connection.
@@ -300,7 +300,7 @@ class Bridge:
             websocket: WebSocket connection (ServerConnection in websockets 14.0+)
         """
         client_addr = websocket.remote_address
-        logger.info(f"✅ New client connected: {client_addr}")
+        logger.info(f"New client connected: {client_addr}")
 
         self._clients.add(websocket)
 
@@ -308,9 +308,9 @@ class Bridge:
             async for message in websocket:
                 await self._process_message(message, websocket)
         except websockets.exceptions.ConnectionClosed:
-            logger.info(f"🔌 Client disconnected: {client_addr}")
+            logger.info(f"Client disconnected: {client_addr}")
         except Exception as e:
-            logger.error(f"❌ Error handling client {client_addr}: {e}", exc_info=True)
+            logger.error(f"Error handling client {client_addr}: {e}", exc_info=True)
         finally:
             self._clients.remove(websocket)
             logger.info(f"Client removed: {client_addr} (total: {len(self._clients)})")
@@ -330,7 +330,7 @@ class Bridge:
                 raise ValueError(f"Unsupported protocol: {self.protocol}")
 
             action = data.get("action")
-            logger.info(f"📨 Received: {action}")
+            logger.info(f"Received: {action}")
             logger.debug(f"Message data: {data}")
 
             # Route to handler
@@ -349,9 +349,9 @@ class Bridge:
                 logger.warning(f"⚠️  No handler registered for action: {action}")
 
         except json.JSONDecodeError as e:
-            logger.error(f"❌ Invalid JSON: {e}")
+            logger.error(f"Invalid JSON: {e}")
         except Exception as e:
-            logger.error(f"❌ Error processing message: {e}", exc_info=True)
+            logger.error(f"Error processing message: {e}", exc_info=True)
 
     async def send(self, websocket: Any, data: Dict[str, Any]):
         """Send message to a specific client.
@@ -367,9 +367,9 @@ class Bridge:
                 raise ValueError(f"Unsupported protocol: {self.protocol}")
 
             await websocket.send(message)
-            logger.info(f"📤 Sent to client: {data.get('action', 'unknown')}")
+            logger.info(f"Sent to client: {data.get('action', 'unknown')}")
         except Exception as e:
-            logger.error(f"❌ Error sending message: {e}")
+            logger.error(f"Error sending message: {e}")
 
     async def broadcast(self, data: Dict[str, Any]):
         """Broadcast message to all connected clients.
@@ -378,7 +378,7 @@ class Bridge:
             data: Data to broadcast (will be JSON serialized)
         """
         if not self._clients:
-            logger.warning("⚠️  No clients connected to broadcast to")
+            logger.warning("No clients connected to broadcast to")
             return
 
         if self.protocol == "json":
@@ -391,9 +391,7 @@ class Bridge:
             *[client.send(message) for client in self._clients], return_exceptions=True
         )
 
-        logger.info(
-            f"📡 Broadcast to {len(self._clients)} clients: {data.get('action', 'unknown')}"
-        )
+        logger.info(f"Broadcast to {len(self._clients)} clients: {data.get('action', 'unknown')}")
 
     def execute_command(self, command: str, params: Dict[str, Any] = None):
         """Send command to all clients (non-blocking).

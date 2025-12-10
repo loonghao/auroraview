@@ -1232,7 +1232,7 @@ class WebView(
                 self._bridge.execute_command(command, params)
             return {"status": "sent"}
 
-        logger.info("✅ Bridge ↔ WebView integration complete")
+        logger.info("Bridge <-> WebView integration complete")
 
     @property
     def bridge(self) -> Optional["Bridge"]:  # type: ignore

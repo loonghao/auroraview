@@ -72,8 +72,8 @@ Direct access to the underlying WebView for maximum flexibility::
 
 | Use Case | Class | Docking Support |
 |----------|-------|-----------------|
-| Maya/Houdini/Nuke | ``QtWebView`` | ✅ QDockWidget |
-| Unreal Engine | ``AuroraView`` | ✅ via HWND |
+| Maya/Houdini/Nuke | ``QtWebView`` | Yes (QDockWidget) |
+| Unreal Engine | ``AuroraView`` | Yes (via HWND) |
 | Standalone App | ``run_standalone`` | N/A |
 | Advanced/Custom | ``WebView`` | Depends on mode |
 

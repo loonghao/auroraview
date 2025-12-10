@@ -78,15 +78,18 @@ from .headless_webview import (
 # Import auroratest submodule for Playwright-like API
 from . import auroratest
 
+
 # Qt testing utilities (lazy import to avoid requiring Qt)
 def __getattr__(name: str):
     """Lazy import Qt testing utilities."""
     if name in ("qt", "QtWebViewTestHelper", "create_qt_webview"):
         from . import qt
+
         if name == "qt":
             return qt
         return getattr(qt, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # Playwright-like testing (auroratest submodule)

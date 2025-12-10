@@ -519,6 +519,22 @@ pub fn create_standalone(
     // Determine auto_show: false in headless mode
     let auto_show = config.auto_show && !config.headless;
 
+    // Cache HWND before creating WebViewInner (window may be moved during event loop)
+    #[cfg(target_os = "windows")]
+    let cached_hwnd = {
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        if let Ok(window_handle) = window.window_handle() {
+            let raw_handle = window_handle.as_raw();
+            if let RawWindowHandle::Win32(handle) = raw_handle {
+                Some(handle.hwnd.get() as u64)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+
     #[allow(clippy::arc_with_non_send_sync)]
     Ok(WebViewInner {
         webview: Arc::new(Mutex::new(webview)),
@@ -530,6 +546,8 @@ pub fn create_standalone(
         auto_show,
         #[cfg(target_os = "windows")]
         backend: None, // Only used in DCC mode
+        #[cfg(target_os = "windows")]
+        cached_hwnd,
     })
 }
 
