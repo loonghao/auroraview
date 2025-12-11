@@ -52,79 +52,11 @@ use super::js_assets;
 use super::webview_inner::WebViewInner;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 
-/// Apply WS_CHILD style to ensure the window is a true child window
-///
-/// This function ensures the WebView window cannot be dragged independently
-/// by setting WS_CHILD style and removing popup/caption styles.
-/// It also removes extended styles that can cause white borders.
-///
-/// # Arguments
-/// * `hwnd` - The WebView window handle
-/// * `parent_hwnd` - The parent window handle (Qt widget)
-#[cfg(target_os = "windows")]
-fn apply_child_window_style(hwnd: isize, parent_hwnd: isize) {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongW, SetParent, SetWindowLongW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
-        SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_BORDER,
-        WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE,
-        WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
-    };
-
-    unsafe {
-        let hwnd_win = HWND(hwnd as *mut _);
-        let parent_hwnd_win = HWND(parent_hwnd as *mut _);
-
-        // Get current window styles
-        let style = GetWindowLongW(hwnd_win, GWL_STYLE);
-        let ex_style = GetWindowLongW(hwnd_win, GWL_EXSTYLE);
-
-        // Remove popup/caption/thickframe/border styles and add WS_CHILD
-        // WS_CHILD windows cannot be moved independently of their parent
-        let new_style = (style
-            & !(WS_POPUP.0 as i32)
-            & !(WS_CAPTION.0 as i32)
-            & !(WS_THICKFRAME.0 as i32)
-            & !(WS_BORDER.0 as i32)
-            & !(WS_DLGFRAME.0 as i32))
-            | (WS_CHILD.0 as i32);
-
-        // Remove extended styles that can cause white borders
-        // WS_EX_STATICEDGE, WS_EX_CLIENTEDGE, WS_EX_WINDOWEDGE are particularly problematic
-        let new_ex_style = ex_style
-            & !(WS_EX_STATICEDGE.0 as i32)
-            & !(WS_EX_CLIENTEDGE.0 as i32)
-            & !(WS_EX_WINDOWEDGE.0 as i32)
-            & !(WS_EX_DLGMODALFRAME.0 as i32);
-
-        SetWindowLongW(hwnd_win, GWL_STYLE, new_style);
-        SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
-
-        // Ensure parent is set correctly (in case tao didn't do it)
-        let _ = SetParent(hwnd_win, Some(parent_hwnd_win));
-
-        // Apply style changes
-        let _ = SetWindowPos(
-            hwnd_win,
-            None,
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
-        );
-
-        tracing::info!(
-            "[standalone] Applied WS_CHILD style: HWND 0x{:X} -> Parent 0x{:X} (style 0x{:08X} -> 0x{:08X}, ex_style 0x{:08X} -> 0x{:08X})",
-            hwnd,
-            parent_hwnd,
-            style,
-            new_style,
-            ex_style,
-            new_ex_style
-        );
-    }
-}
+// Use shared builder utilities from auroraview-core
+use auroraview_core::builder::{
+    apply_child_window_style, get_background_color, init_com_sta, log_background_color,
+    ChildWindowStyleOptions,
+};
 
 /// Create standalone WebView with its own window
 ///
@@ -158,26 +90,8 @@ pub fn create_standalone(
     ipc_handler: Arc<IpcHandler>,
     message_queue: Arc<MessageQueue>,
 ) -> Result<WebViewInner, Box<dyn std::error::Error>> {
-    // Initialize COM for WebView2 on Windows
-    // WebView2 requires COM to be initialized in STA (Single-Threaded Apartment) mode
-    // This is critical for background thread creation (HWND mode in DCC apps)
-    #[cfg(target_os = "windows")]
-    {
-        use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
-        unsafe {
-            // COINIT_APARTMENTTHREADED = STA mode required by WebView2
-            // Ignore errors if already initialized (e.g., by Qt on main thread)
-            let result = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-            if result.is_ok() {
-                tracing::info!("[standalone] COM initialized in STA mode for this thread");
-            } else {
-                tracing::debug!(
-                    "[standalone] COM already initialized or failed: {:?}",
-                    result
-                );
-            }
-        }
-    }
+    // Initialize COM for WebView2 on Windows (using shared utility)
+    init_com_sta();
 
     // Allow event loop to be created on any thread (required for DCC integration)
     // Use UserEvent for custom events (wake-up for immediate message processing)
@@ -259,7 +173,11 @@ pub fn create_standalone(
                 if let Ok(window_handle) = window.window_handle() {
                     if let RawWindowHandle::Win32(handle) = window_handle.as_raw() {
                         let hwnd = handle.hwnd.get();
-                        apply_child_window_style(hwnd, parent as isize);
+                        let _ = apply_child_window_style(
+                            hwnd,
+                            parent as isize,
+                            ChildWindowStyleOptions::for_standalone(),
+                        );
                     }
                 }
             }
@@ -310,17 +228,10 @@ pub fn create_standalone(
         );
     }
 
-    // Set background color to match app background (dark theme)
-    // This prevents white flash and removes white border
-    // RGBA is a tuple type (u8, u8, u8, u8) in wry
-    let background_color = (2u8, 6u8, 23u8, 255u8); // #020617 from Tailwind slate-950
+    // Set background color to match app background (dark theme) using shared utility
+    let background_color = get_background_color();
     webview_builder = webview_builder.with_background_color(background_color);
-    tracing::info!(
-        "[standalone] Set WebView background color to #{:02x}{:02x}{:02x}",
-        background_color.0,
-        background_color.1,
-        background_color.2
-    );
+    log_background_color(background_color);
 
     // Register auroraview:// custom protocol for local asset loading
     if let Some(ref asset_root) = config.asset_root {

@@ -12,31 +12,44 @@
 //! - `IpcMessageHandler`: Shared IPC message parsing and routing
 //! - `create_drag_drop_handler`: High-level helper for drag-drop
 //! - `create_ipc_handler`: High-level helper for IPC
+//! - `apply_child_window_style`: Windows child window style manipulation
+//! - `init_com_sta`: COM initialization for WebView2
+//! - `create_web_context`: WebContext creation with data directory
 //! - Background color, protocol registration, initialization scripts
 //!
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use auroraview_core::builder::{create_drag_drop_handler, create_ipc_handler};
+//! use auroraview_core::builder::{
+//!     create_drag_drop_handler, create_ipc_handler,
+//!     init_com_sta, apply_child_window_style, ChildWindowStyleOptions,
+//!     get_background_color, create_web_context, WebContextConfig,
+//! };
+//!
+//! // Initialize COM (Windows)
+//! init_com_sta();
+//!
+//! // Create WebContext
+//! let ctx_config = WebContextConfig::new()
+//!     .with_data_directory(PathBuf::from("/tmp/data"));
+//! let web_context = create_web_context(&ctx_config);
 //!
 //! // Create drag-drop handler
 //! let drag_handler = create_drag_drop_handler(|event_name, data| {
 //!     println!("Drag event: {} {:?}", event_name, data);
 //! });
 //!
-//! // Create IPC handler
-//! let ipc_handler = create_ipc_handler(
-//!     |name, data| println!("Event: {}", name),
-//!     |method, params, id| println!("Call: {}", method),
-//!     |cmd, args, id| println!("Invoke: {}", cmd),
-//!     |callback_id, data| println!("Callback: {}", callback_id),
-//! );
-//!
-//! let builder = WryWebViewBuilder::new()
-//!     .with_drag_drop_handler(drag_handler)
-//!     .with_ipc_handler(ipc_handler);
+//! // Apply child window style (Windows)
+//! apply_child_window_style(hwnd, parent_hwnd, ChildWindowStyleOptions::for_dcc_embedding());
 //! ```
 
+// Platform-independent modules
+mod com_init;
+mod common_config;
+mod web_context;
+mod window_style;
+
+// Wry-specific modules (require wry-builder feature)
 #[cfg(feature = "wry-builder")]
 mod drag_drop;
 #[cfg(feature = "wry-builder")]
@@ -46,6 +59,13 @@ mod ipc;
 #[cfg(feature = "wry-builder")]
 mod protocol;
 
+// Platform-independent exports
+pub use com_init::{init_com_sta, ComInitResult};
+pub use common_config::{get_background_color, log_background_color, DARK_BACKGROUND};
+pub use web_context::WebContextConfig;
+pub use window_style::{apply_child_window_style, ChildWindowStyleOptions, ChildWindowStyleResult};
+
+// Wry-specific exports
 #[cfg(feature = "wry-builder")]
 pub use drag_drop::{DragDropCallback, DragDropEventData, DragDropEventType, DragDropHandler};
 #[cfg(feature = "wry-builder")]
@@ -54,7 +74,5 @@ pub use helpers::{create_drag_drop_handler, create_ipc_handler, create_simple_ip
 pub use ipc::{IpcCallback, IpcMessageHandler, IpcMessageType, ParsedIpcMessage};
 #[cfg(feature = "wry-builder")]
 pub use protocol::ProtocolConfig;
-
-/// Dark background color (Tailwind slate-950: #020617)
-/// Used to prevent white flash during WebView initialization
-pub const DARK_BACKGROUND: (u8, u8, u8, u8) = (2, 6, 23, 255);
+#[cfg(feature = "wry-builder")]
+pub use web_context::create_web_context;
