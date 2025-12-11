@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.9](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.8...auroraview-v0.3.9) (2025-12-11)
+
+
+### Bug Fixes
+
+* **ci:** use correct tag format auroraview-v* for release-please ([678f0fa](https://github.com/loonghao/auroraview/commit/678f0fa128be931e4e6f4c3fa2f2f34c6752d552))
+
+
+### Documentation
+
+* add Python 3.7 Windows CLI workaround for uv/uvx ([ce92fd0](https://github.com/loonghao/auroraview/commit/ce92fd00d8726c7fa8f039b872d6dc7ba99ea993))
+
 ## [0.3.8](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.7...auroraview-v0.3.8) (2025-12-11)
 
 
