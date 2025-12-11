@@ -4,7 +4,9 @@ name: Release
 # It handles:
 # 1. Regular commits to main: Only runs release-please to check if a release PR should be created/updated
 # 2. release-please PR merge: Creates a release tag and triggers the full release process
-# 3. Tag push (v*): Publishes to PyPI and creates GitHub Release
+# 3. Tag push (auroraview-v*): Publishes to PyPI and creates GitHub Release
+#
+# Note: release-please creates tags in format "auroraview-v0.3.8" (component-v format)
 #
 # This design eliminates duplicate CI runs by:
 # - Not triggering build-wheels.yml, build-cli.yml, ci.yml, codeql.yml on main push
@@ -16,7 +18,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - 'auroraview-v*'  # release-please tag format: auroraview-v0.3.8
   workflow_dispatch:
     inputs:
       force-rebuild:
@@ -54,7 +56,7 @@ jobs:
   # Determine if this is a tag push (for publishing)
   check-tag:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/auroraview-v')
     outputs:
       is_tag: 'true'
       tag_name: ${{ github.ref_name }}
