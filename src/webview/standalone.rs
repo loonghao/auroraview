@@ -1065,4 +1065,283 @@ mod tests {
         };
         assert!(!config.resizable);
     }
+
+    /// Test dev_tools config
+    #[test]
+    fn test_config_dev_tools() {
+        let config = WebViewConfig {
+            dev_tools: true,
+            ..Default::default()
+        };
+        assert!(config.dev_tools);
+    }
+
+    /// Test dev_tools default is false
+    #[test]
+    fn test_config_dev_tools_default() {
+        let config = WebViewConfig::default();
+        assert!(!config.dev_tools);
+    }
+
+    /// Test headless config
+    #[test]
+    fn test_config_headless() {
+        let config = WebViewConfig {
+            headless: true,
+            ..Default::default()
+        };
+        assert!(config.headless);
+    }
+
+    /// Test headless default is false
+    #[test]
+    fn test_config_headless_default() {
+        let config = WebViewConfig::default();
+        assert!(!config.headless);
+    }
+
+    /// Test auto_show config
+    #[test]
+    fn test_config_auto_show() {
+        let config = WebViewConfig {
+            auto_show: false,
+            ..Default::default()
+        };
+        assert!(!config.auto_show);
+    }
+
+    /// Test auto_show default is true
+    #[test]
+    fn test_config_auto_show_default() {
+        let config = WebViewConfig::default();
+        assert!(config.auto_show);
+    }
+
+    /// Test auto_show logic with headless mode
+    #[test]
+    fn test_auto_show_disabled_in_headless() {
+        let config = WebViewConfig {
+            auto_show: true,
+            headless: true,
+            ..Default::default()
+        };
+        // auto_show should be effectively false when headless is true
+        let effective_auto_show = config.auto_show && !config.headless;
+        assert!(!effective_auto_show);
+    }
+
+    /// Test URL config
+    #[test]
+    fn test_config_url() {
+        let config = WebViewConfig {
+            url: Some("https://example.com".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(config.url, Some("https://example.com".to_string()));
+    }
+
+    /// Test HTML config
+    #[test]
+    fn test_config_html() {
+        let config = WebViewConfig {
+            html: Some("<html><body>Hello</body></html>".to_string()),
+            ..Default::default()
+        };
+        assert!(config.html.is_some());
+        assert!(config.html.as_ref().unwrap().contains("Hello"));
+    }
+
+    /// Test title config
+    #[test]
+    fn test_config_title() {
+        let config = WebViewConfig {
+            title: "My Custom Title".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(config.title, "My Custom Title");
+    }
+
+    /// Test default title
+    #[test]
+    fn test_config_title_default() {
+        let config = WebViewConfig::default();
+        assert!(!config.title.is_empty());
+    }
+
+    /// Test icon config
+    #[test]
+    fn test_config_icon() {
+        let config = WebViewConfig {
+            icon: Some(PathBuf::from("/path/to/icon.png")),
+            ..Default::default()
+        };
+        assert!(config.icon.is_some());
+        assert_eq!(
+            config.icon.as_ref().unwrap().to_str().unwrap(),
+            "/path/to/icon.png"
+        );
+    }
+
+    /// Test icon default is None
+    #[test]
+    fn test_config_icon_default() {
+        let config = WebViewConfig::default();
+        assert!(config.icon.is_none());
+    }
+
+    /// Test data_directory config
+    #[test]
+    fn test_config_data_directory() {
+        let config = WebViewConfig {
+            data_directory: Some(PathBuf::from("/tmp/webview_data")),
+            ..Default::default()
+        };
+        assert!(config.data_directory.is_some());
+    }
+
+    /// Test data_directory default is None
+    #[test]
+    fn test_config_data_directory_default() {
+        let config = WebViewConfig::default();
+        assert!(config.data_directory.is_none());
+    }
+
+    /// Test remote_debugging_port config
+    #[test]
+    fn test_config_remote_debugging_port() {
+        let config = WebViewConfig {
+            remote_debugging_port: Some(9222),
+            ..Default::default()
+        };
+        assert_eq!(config.remote_debugging_port, Some(9222));
+    }
+
+    /// Test remote_debugging_port default is None
+    #[test]
+    fn test_config_remote_debugging_port_default() {
+        let config = WebViewConfig::default();
+        assert!(config.remote_debugging_port.is_none());
+    }
+
+    /// Test block_external_navigation config
+    #[test]
+    fn test_config_block_external_navigation() {
+        let config = WebViewConfig {
+            block_external_navigation: true,
+            ..Default::default()
+        };
+        assert!(config.block_external_navigation);
+    }
+
+    /// Test block_external_navigation default
+    #[test]
+    fn test_config_block_external_navigation_default() {
+        let config = WebViewConfig::default();
+        assert!(!config.block_external_navigation);
+    }
+
+    /// Test allowed_navigation_domains config
+    #[test]
+    fn test_config_allowed_navigation_domains() {
+        let config = WebViewConfig {
+            allowed_navigation_domains: vec!["example.com".to_string(), "test.org".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(config.allowed_navigation_domains.len(), 2);
+        assert!(config
+            .allowed_navigation_domains
+            .contains(&"example.com".to_string()));
+    }
+
+    /// Test allowed_navigation_domains default is empty
+    #[test]
+    fn test_config_allowed_navigation_domains_default() {
+        let config = WebViewConfig::default();
+        assert!(config.allowed_navigation_domains.is_empty());
+    }
+
+    /// Test parent_hwnd config
+    #[test]
+    fn test_config_parent_hwnd() {
+        let config = WebViewConfig {
+            parent_hwnd: Some(12345),
+            ..Default::default()
+        };
+        assert_eq!(config.parent_hwnd, Some(12345));
+    }
+
+    /// Test parent_hwnd default is None
+    #[test]
+    fn test_config_parent_hwnd_default() {
+        let config = WebViewConfig::default();
+        assert!(config.parent_hwnd.is_none());
+    }
+
+    /// Test combined config for DCC embedding
+    #[test]
+    fn test_config_dcc_embedding() {
+        let config = WebViewConfig {
+            parent_hwnd: Some(0x12345678),
+            decorations: false,
+            resizable: true,
+            transparent: false,
+            ..Default::default()
+        };
+        assert!(config.parent_hwnd.is_some());
+        assert!(!config.decorations);
+        assert!(config.resizable);
+        assert!(!config.transparent);
+    }
+
+    /// Test combined config for standalone app
+    #[test]
+    fn test_config_standalone_app() {
+        let config = WebViewConfig {
+            title: "My App".to_string(),
+            width: 1024,
+            height: 768,
+            url: Some("https://myapp.com".to_string()),
+            dev_tools: true,
+            decorations: true,
+            resizable: true,
+            ..Default::default()
+        };
+        assert_eq!(config.title, "My App");
+        assert_eq!(config.width, 1024);
+        assert_eq!(config.height, 768);
+        assert!(config.url.is_some());
+        assert!(config.dev_tools);
+        assert!(config.decorations);
+        assert!(config.resizable);
+    }
+
+    /// Test combined config for headless testing
+    #[test]
+    fn test_config_headless_testing() {
+        let config = WebViewConfig {
+            headless: true,
+            auto_show: false,
+            remote_debugging_port: Some(9222),
+            url: Some("https://test.example.com".to_string()),
+            ..Default::default()
+        };
+        assert!(config.headless);
+        assert!(!config.auto_show);
+        assert_eq!(config.remote_debugging_port, Some(9222));
+    }
+
+    /// Test combined config for local development
+    #[test]
+    fn test_config_local_development() {
+        let config = WebViewConfig {
+            asset_root: Some(PathBuf::from("./frontend/dist")),
+            allow_file_protocol: true,
+            dev_tools: true,
+            url: Some("auroraview://localhost/index.html".to_string()),
+            ..Default::default()
+        };
+        assert!(config.asset_root.is_some());
+        assert!(config.allow_file_protocol);
+        assert!(config.dev_tools);
+    }
 }
