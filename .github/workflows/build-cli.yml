@@ -1,14 +1,10 @@
 name: Build CLI
 
+# Build CLI workflow - only runs on workflow_call (from release.yml) or manual trigger.
+# PR checks build CLI via pr-checks.yml.
+# Main branch pushes are handled by release.yml to avoid duplicate CI runs.
+
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-    paths:
-      - 'crates/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
   workflow_dispatch:
   workflow_call:
 

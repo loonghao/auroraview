@@ -1,8 +1,15 @@
 name: Release
 
-# This workflow handles both release-please automation and publishing
-# It creates releases when changes are pushed to main, and publishes to PyPI
-# Optimized to reuse pre-built wheels from PR checks when available
+# This workflow is the ONLY workflow that runs on main branch pushes.
+# It handles:
+# 1. Regular commits to main: Only runs release-please to check if a release PR should be created/updated
+# 2. release-please PR merge: Creates a release tag and triggers the full release process
+# 3. Tag push (v*): Publishes to PyPI and creates GitHub Release
+#
+# This design eliminates duplicate CI runs by:
+# - Not triggering build-wheels.yml, build-cli.yml, ci.yml, codeql.yml on main push
+# - Only running expensive builds when a release is actually created
+# - Reusing PR artifacts when available to avoid redundant builds
 
 on:
   push:
@@ -10,7 +17,6 @@ on:
       - main
     tags:
       - 'v*'
-      - 'auroraview-v*' # Support release-please tag format
   workflow_dispatch:
     inputs:
       force-rebuild:
@@ -29,8 +35,10 @@ permissions:
 
 jobs:
   # First job: Run release-please to create releases and tags
+  # This only runs on main branch pushes (not tag pushes)
   release-please:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -43,13 +51,30 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+  # Determine if this is a tag push (for publishing)
+  check-tag:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    outputs:
+      is_tag: 'true'
+      tag_name: ${{ github.ref_name }}
+    steps:
+      - name: Tag detected
+        run: |
+          echo "Tag push detected: ${{ github.ref_name }}"
+          echo "This will trigger the full release process"
+
   # Try to find and download pre-built wheels from PR checks
   # IMPORTANT: Only reuse artifacts that were built from the exact same commit SHA
   check-pr-artifacts:
     name: Check PR Artifacts
     runs-on: ubuntu-latest
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created && !inputs.force-rebuild }}
+    needs: [release-please, check-tag]
+    if: |
+      always() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
+      !inputs.force-rebuild
     outputs:
       artifacts-available: ${{ steps.check.outputs.available }}
       pr-run-id: ${{ steps.check.outputs.run_id }}
@@ -116,8 +141,11 @@ jobs:
   reuse-pr-wheels:
     name: Reuse PR Wheels
     runs-on: ubuntu-latest
-    needs: [release-please, check-pr-artifacts]
-    if: ${{ needs.check-pr-artifacts.outputs.artifacts-available == 'true' }}
+    needs: [release-please, check-tag, check-pr-artifacts]
+    if: |
+      always() &&
+      needs.check-pr-artifacts.result == 'success' &&
+      needs.check-pr-artifacts.outputs.artifacts-available == 'true'
     strategy:
       matrix:
         artifact:
@@ -146,8 +174,12 @@ jobs:
 
   # Fallback: Build wheels if PR artifacts not available
   build-wheels:
-    needs: [release-please, check-pr-artifacts]
-    if: ${{ needs.release-please.outputs.release_created && (needs.check-pr-artifacts.outputs.artifacts-available != 'true' || inputs.force-rebuild) }}
+    needs: [release-please, check-tag, check-pr-artifacts]
+    if: |
+      always() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
+      (needs.check-pr-artifacts.result != 'success' || needs.check-pr-artifacts.outputs.artifacts-available != 'true' || inputs.force-rebuild)
     uses: ./.github/workflows/build-wheels.yml
     with:
       test-wheel: 'false'
@@ -158,8 +190,11 @@ jobs:
 
   # Build CLI binaries for all platforms
   build-cli:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    needs: [release-please, check-tag]
+    if: |
+      always() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true'))
     uses: ./.github/workflows/build-cli.yml
     permissions:
       contents: read
@@ -169,10 +204,11 @@ jobs:
   pypi-publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    needs: [release-please, check-pr-artifacts, reuse-pr-wheels, build-wheels]
+    needs: [release-please, check-tag, check-pr-artifacts, reuse-pr-wheels, build-wheels]
     if: |
       always() &&
-      needs.release-please.outputs.release_created &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
       (needs.reuse-pr-wheels.result == 'success' || needs.build-wheels.result == 'success')
     environment:
       name: pypi
@@ -237,10 +273,11 @@ jobs:
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [release-please, pypi-publish, build-cli, reuse-pr-wheels, build-wheels]
+    needs: [release-please, check-tag, check-pr-artifacts, pypi-publish, build-cli, reuse-pr-wheels, build-wheels]
     if: |
       always() &&
-      needs.release-please.outputs.release_created &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
       (needs.reuse-pr-wheels.result == 'success' || needs.build-wheels.result == 'success' || needs.reuse-pr-wheels.result == 'skipped')
     permissions:
       contents: write
@@ -251,6 +288,15 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ "${{ needs.release-please.outputs.tag_name }}" != "" ]; then
+            echo "TAG_NAME=${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG_NAME=${{ needs.check-tag.outputs.tag_name }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Generate changelog
         id: changelog
@@ -307,8 +353,8 @@ jobs:
         with:
           artifacts: "release-artifacts/*"
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.release-please.outputs.tag_name }}
-          name: ${{ needs.release-please.outputs.tag_name }}
+          tag: ${{ steps.tag.outputs.TAG_NAME }}
+          name: ${{ steps.tag.outputs.TAG_NAME }}
           body: |
             Comparing Changes: ${{ steps.changelog.outputs.compareurl }}
 
