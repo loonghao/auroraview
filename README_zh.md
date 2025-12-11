@@ -126,7 +126,7 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 - [OK] **消息对话框**: confirm、alert、error、ok_cancel
 - [OK] **导航控制**: go_back、go_forward、reload、stop、can_go_back/forward
 - [OK] **窗口事件**: on_window_show/hide/focus/blur/resize、on_fullscreen_changed
-- [OK] **文件拖放事件**: 支持拖放文件，包括 file_drop、file_drop_hover、file_paste 事件
+- [OK] **文件拖放事件**: 原生拖放支持完整文件路径（file_drop、file_drop_hover、file_paste）
 - [OK] **可取消事件**: 事件处理器可以取消事件（例如阻止窗口关闭）
 - [OK] **事件工具**: 高频事件的防抖/节流辅助函数
 

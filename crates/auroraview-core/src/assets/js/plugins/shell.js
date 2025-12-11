@@ -8,6 +8,7 @@
  *   await auroraview.shell.openPath('/path/to/file.txt');
  *   await auroraview.shell.showInFolder('/path/to/file.txt');
  *   const result = await auroraview.shell.execute('echo', ['hello']);
+ *   const home = await auroraview.shell.getEnv('HOME');
  */
 
 (function() {
@@ -46,7 +47,7 @@
          * @returns {Promise<void>}
          */
         async open(url) {
-            return invokePlugin('shell', 'open', { url });
+            return invokePlugin('shell', 'open', { path: url });
         },
         
         /**
@@ -68,17 +69,17 @@
         },
         
         /**
-         * Execute a command
-         * @param {string} program - Program/command to execute
+         * Execute a command and wait for result
+         * @param {string} command - Command to execute
          * @param {string[]} [args=[]] - Command arguments
          * @param {object} [options] - Execution options
          * @param {string} [options.cwd] - Working directory
          * @param {object} [options.env] - Environment variables
-         * @returns {Promise<{stdout: string, stderr: string, exitCode: number}>}
+         * @returns {Promise<{code: number|null, stdout: string, stderr: string}>}
          */
-        async execute(program, args, options) {
+        async execute(command, args, options) {
             return invokePlugin('shell', 'execute', {
-                program,
+                command,
                 args: args || [],
                 cwd: options?.cwd,
                 env: options?.env
@@ -87,16 +88,16 @@
         
         /**
          * Spawn a detached process (doesn't wait for completion)
-         * @param {string} program - Program/command to spawn
+         * @param {string} command - Command to spawn
          * @param {string[]} [args=[]] - Command arguments
          * @param {object} [options] - Spawn options
          * @param {string} [options.cwd] - Working directory
          * @param {object} [options.env] - Environment variables
-         * @returns {Promise<{pid: number}>} Process ID
+         * @returns {Promise<{success: boolean, pid: number}>} Process ID
          */
-        async spawn(program, args, options) {
+        async spawn(command, args, options) {
             return invokePlugin('shell', 'spawn', {
-                program,
+                command,
                 args: args || [],
                 cwd: options?.cwd,
                 env: options?.env
@@ -105,11 +106,12 @@
         
         /**
          * Find an executable in PATH
-         * @param {string} name - Executable name
-         * @returns {Promise<{path: string|null}>} Full path or null if not found
+         * @param {string} command - Command name to find
+         * @returns {Promise<string|null>} Full path or null if not found
          */
-        async which(name) {
-            return invokePlugin('shell', 'which', { name });
+        async which(command) {
+            const result = await invokePlugin('shell', 'which', { command });
+            return result.path || null;
         },
         
         /**

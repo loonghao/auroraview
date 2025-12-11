@@ -228,14 +228,20 @@ def main():
     )
 
     # Register event handlers
+    # File drop events now provide full native file paths
     @webview.on(WindowEvent.FILE_DROP)
     def on_file_drop(data):
-        print(f"[Python] Files dropped: {data}")
+        paths = data.get("paths", [])
+        position = data.get("position", {})
+        print(f"[Python] Files dropped at ({position.get('x')}, {position.get('y')}):")
+        for path in paths:
+            print(f"  - {path}")
 
     @webview.on(WindowEvent.FILE_DROP_HOVER)
     def on_file_hover(data):
         if data.get("hovering"):
-            print(f"[Python] Files hovering: {len(data.get('files', []))} file(s)")
+            paths = data.get("paths", [])
+            print(f"[Python] Dragging {len(paths)} file(s) over window")
 
     @webview.on(WindowEvent.CLOSING)
     def on_closing(data):

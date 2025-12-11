@@ -84,18 +84,49 @@ class WindowEvent(str, Enum):
     NAVIGATION_FINISHED = "navigation_finished"
     """Emitted when navigation completes. Data includes {url}."""
 
-    # File drop events
+    # File drop events (handled natively by Rust/wry for full path access)
     FILE_DROP = "file_drop"
-    """Emitted when files are dropped. Data includes {files, paths, position}."""
+    """Emitted when files are dropped onto the window.
+
+    Data includes:
+        - paths: List of full file paths (native access, not limited by browser security)
+        - position: Drop position {x, y}
+        - timestamp: Unix timestamp in milliseconds
+
+    Example:
+        @webview.on(WindowEvent.FILE_DROP)
+        def on_file_drop(data):
+            for path in data['paths']:
+                print(f"Dropped: {path}")
+    """
 
     FILE_DROP_HOVER = "file_drop_hover"
-    """Emitted when files are dragged over. Data includes {hovering, files, position}."""
+    """Emitted when files are dragged over the window.
+
+    Data includes:
+        - hovering: True when files enter the window
+        - paths: List of full file paths being dragged
+        - position: Current drag position {x, y}
+    """
 
     FILE_DROP_CANCELLED = "file_drop_cancelled"
-    """Emitted when drag operation is cancelled. Data includes {hovering, reason}."""
+    """Emitted when drag operation is cancelled or leaves the window.
+
+    Data includes:
+        - hovering: False
+        - reason: 'left_window' when drag leaves the window area
+    """
 
     FILE_PASTE = "file_paste"
-    """Emitted when files are pasted. Data includes {files, timestamp}."""
+    """Emitted when files are pasted from clipboard.
+
+    Note: Unlike drag-drop, clipboard paste cannot provide full file paths
+    due to browser security restrictions.
+
+    Data includes:
+        - files: List of file info dicts {name, size, type, lastModified}
+        - timestamp: Unix timestamp in milliseconds
+    """
 
     def __str__(self) -> str:
         """Return the event name string."""
@@ -148,22 +179,27 @@ class WindowEventData:
 
     @property
     def files(self) -> Optional[list]:
-        """List of file info dicts for file drop events.
+        """List of file info dicts for file paste events.
 
         Each file info contains: name, size, type, lastModified
+        Note: Only available for FILE_PASTE events (clipboard).
         """
         return self._data.get("files")
 
     @property
     def paths(self) -> Optional[list]:
-        """List of file paths for file drop events."""
+        """List of full file paths for file drop events.
+
+        These are native file system paths (e.g., 'C:\\Users\\...\\file.txt').
+        Available for FILE_DROP and FILE_DROP_HOVER events.
+        """
         return self._data.get("paths")
 
     @property
     def position(self) -> Optional[Dict[str, int]]:
-        """Drop position for file drop events.
+        """Drop/drag position for file drop events.
 
-        Contains: x, y, screenX, screenY
+        Contains: x, y (relative to WebView top-left corner)
         """
         return self._data.get("position")
 
