@@ -899,11 +899,11 @@ mod tests {
         assert!(config.dev_tools);
     }
 
-    /// Test dev_tools default is false
+    /// Test dev_tools default is true (enabled for development convenience)
     #[test]
     fn test_config_dev_tools_default() {
         let config = WebViewConfig::default();
-        assert!(!config.dev_tools);
+        assert!(config.dev_tools);
     }
 
     /// Test headless config
