@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.7...auroraview-v0.3.8) (2025-12-11)
+
+
+### Features
+
+* implement desktop events with plugin system integration ([f60d2c7](https://github.com/loonghao/auroraview/commit/f60d2c7c4f663ff96ba560c3ec147c333b212178))
+* implement IPC emit and async callback mechanisms ([8ff92ce](https://github.com/loonghao/auroraview/commit/8ff92ce6d021200fec8c3f051a1ee7214e3bde98))
+
+
+### Bug Fixes
+
+* emit returns False when no handlers registered ([d93921d](https://github.com/loonghao/auroraview/commit/d93921dbe2ded419202bb47663e57a1769c14b35))
+* emit() returns False when no handlers registered ([bfe6cc5](https://github.com/loonghao/auroraview/commit/bfe6cc5f0b1512fb2aec567bb2f3748844da4b93))
+* improve timer test stability on macOS CI ([8ebb6d9](https://github.com/loonghao/auroraview/commit/8ebb6d933f24c338d6cca840a19407c81a1d0d81))
+* resolve get_hwnd returning None and add URL auto-normalization ([8a82b8e](https://github.com/loonghao/auroraview/commit/8a82b8e5fef53f267131c39b37968569fe0464a0))
+* use native load_url for splash screen navigation ([d13fda0](https://github.com/loonghao/auroraview/commit/d13fda0cc7e10dd2ca7f13e7d33e18ee97393202))
+
 ## [0.3.7](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.6...auroraview-v0.3.7) (2025-12-10)
 
 
