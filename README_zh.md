@@ -361,6 +361,11 @@ auroraview --url https://example.com --title "我的应用" --width 1024 --heigh
 uvx auroraview --url https://example.com
 ```
 
+> **Python 3.7 Windows 用户注意**：由于 [uv/uvx 的限制](https://github.com/astral-sh/uv/issues/10165)，请使用 `python -m auroraview` 代替：
+> ```bash
+> uvx --python 3.7 --from auroraview python -m auroraview --url https://example.com
+> ```
+
 **[查看 CLI 文档](./docs/CLI.md)** 了解更多详情。
 
 ### 自定义窗口图标

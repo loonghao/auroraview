@@ -123,6 +123,27 @@ sudo pacman -S webkit2gtk
 
 ## Troubleshooting
 
+### Python 3.7 on Windows with uvx
+
+Due to a [known limitation](https://github.com/astral-sh/uv/issues/10165) in uv/uvx, the `auroraview` command does not work with Python 3.7 on Windows. You will see an error like:
+
+```
+SyntaxError: Non-UTF-8 code starting with '\xe8' in file ...\auroraview.exe
+```
+
+**Workaround**: Use `python -m auroraview` instead:
+
+```bash
+# Instead of: uvx --python 3.7 auroraview --url https://example.com
+# Use:
+uvx --python 3.7 --from auroraview python -m auroraview --url https://example.com
+
+# Or with pip-installed package:
+python -m auroraview --url https://example.com
+```
+
+This issue only affects Python 3.7 on Windows. Python 3.8+ works correctly with the `auroraview` command.
+
 ### Binary Not Found
 
 If you get "auroraview: command not found", ensure the package is properly installed:
