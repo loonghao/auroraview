@@ -408,110 +408,22 @@ pub fn create_standalone(
     tracing::info!("[standalone] Loading splash screen to avoid white screen");
     webview_builder = webview_builder.with_html(loading_html);
 
-    // Add native file drag-drop handler using wry's DragDropEvent
+    // Add native file drag-drop handler using shared builder module
     // This provides full file paths that browsers cannot access due to security restrictions
     let ipc_handler_for_drop = ipc_handler.clone();
-    webview_builder = webview_builder.with_drag_drop_handler(move |event| {
-        use wry::DragDropEvent;
+    webview_builder = webview_builder.with_drag_drop_handler(
+        auroraview_core::builder::create_drag_drop_handler(move |event_name, data| {
+            let ipc_message = IpcMessage {
+                event: event_name.to_string(),
+                data,
+                id: None,
+            };
 
-        match event {
-            DragDropEvent::Enter { paths, position } => {
-                let paths_str: Vec<String> = paths
-                    .iter()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .collect();
-                let (x, y) = position;
-
-                tracing::debug!(
-                    "[standalone] DragDropEvent::Enter - {} files at ({}, {})",
-                    paths_str.len(),
-                    x,
-                    y
-                );
-
-                let data = serde_json::json!({
-                    "hovering": true,
-                    "paths": paths_str,
-                    "position": { "x": x, "y": y }
-                });
-
-                let ipc_message = IpcMessage {
-                    event: "file_drop_hover".to_string(),
-                    data,
-                    id: None,
-                };
-
-                if let Err(e) = ipc_handler_for_drop.handle_message(ipc_message) {
-                    tracing::error!("[standalone] Error handling file_drop_hover: {}", e);
-                }
+            if let Err(e) = ipc_handler_for_drop.handle_message(ipc_message) {
+                tracing::error!("[standalone] Error handling {}: {}", event_name, e);
             }
-            DragDropEvent::Over { position } => {
-                // Over events are frequent, only log at trace level
-                let (x, y) = position;
-                tracing::trace!("[standalone] DragDropEvent::Over at ({}, {})", x, y);
-            }
-            DragDropEvent::Drop { paths, position } => {
-                let paths_str: Vec<String> = paths
-                    .iter()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .collect();
-                let (x, y) = position;
-
-                tracing::info!(
-                    "[standalone] DragDropEvent::Drop - {} files at ({}, {}): {:?}",
-                    paths_str.len(),
-                    x,
-                    y,
-                    paths_str
-                );
-
-                let data = serde_json::json!({
-                    "paths": paths_str,
-                    "position": { "x": x, "y": y },
-                    "timestamp": std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map(|d| d.as_millis() as u64)
-                        .unwrap_or(0)
-                });
-
-                let ipc_message = IpcMessage {
-                    event: "file_drop".to_string(),
-                    data,
-                    id: None,
-                };
-
-                if let Err(e) = ipc_handler_for_drop.handle_message(ipc_message) {
-                    tracing::error!("[standalone] Error handling file_drop: {}", e);
-                }
-            }
-            DragDropEvent::Leave => {
-                tracing::debug!("[standalone] DragDropEvent::Leave");
-
-                let data = serde_json::json!({
-                    "hovering": false,
-                    "reason": "left_window"
-                });
-
-                let ipc_message = IpcMessage {
-                    event: "file_drop_cancelled".to_string(),
-                    data,
-                    id: None,
-                };
-
-                if let Err(e) = ipc_handler_for_drop.handle_message(ipc_message) {
-                    tracing::error!("[standalone] Error handling file_drop_cancelled: {}", e);
-                }
-            }
-            _ => {
-                // Handle future variants (DragDropEvent is non_exhaustive)
-                tracing::debug!("[standalone] Unknown DragDropEvent variant");
-            }
-        }
-
-        // Return true to prevent default browser drag-drop behavior
-        // This ensures our native handler takes precedence
-        true
-    });
+        }),
+    );
 
     // Add IPC handler to capture events and calls from JavaScript
     let ipc_handler_clone = ipc_handler.clone();

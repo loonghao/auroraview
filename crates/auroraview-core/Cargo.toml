@@ -62,11 +62,16 @@ active-win-pos-rs = "0.8"
 # Note: Using 0.24 for compatibility with Rust 1.77+ (0.25+ requires edition2024 via pxfm)
 image = { version = "0.24", default-features = false, features = ["png", "ico"] }
 
+# WebView (optional, for builder extensions)
+wry = { version = "0.53.5", optional = true }
+
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 
 [features]
 default = []
+# Enable wry-based builder extensions
+wry-builder = ["wry"]
 
 [dev-dependencies]
 rstest = "0.24"

@@ -13,6 +13,7 @@
 //! - Timing metrics for WebView lifecycle
 //! - **IPC abstraction layer** (platform-agnostic messaging)
 //! - **Backend abstraction layer** (unified WebView interface)
+//! - **Builder extensions** (shared WebView building logic)
 //! - **Plugin system** (native desktop capabilities)
 //!
 //! Used by:
@@ -22,6 +23,7 @@
 pub mod assets;
 pub mod backend; // WebView backend abstraction (traits, factory, settings)
 pub mod bom; // Browser Object Model APIs (navigation, zoom, window control)
+pub mod builder; // WebView builder extensions (drag-drop, IPC, protocols)
 pub mod cli; // CLI utilities (URL normalization, HTML rewriting)
 pub mod config;
 pub mod dom; // DOM manipulation primitives (DomOp, DomBatch)

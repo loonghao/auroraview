@@ -36,9 +36,10 @@ categories = ["gui", "multimedia", "graphics"]
 name = "_core"
 crate-type = ["cdylib", "rlib"]
 
+
 [dependencies]
-# Core library
-auroraview-core = { path = "crates/auroraview-core" }
+# Core library (with wry-builder for shared WebView building logic)
+auroraview-core = { path = "crates/auroraview-core", features = ["wry-builder"] }
 
 # PyO3 for Python bindings (optional)
 # multiple-pymethods: Allow splitting #[pymethods] across multiple files

@@ -1207,6 +1207,23 @@ impl NativeBackend {
             }
         });
 
+        // Add native file drag-drop handler using shared builder module
+        // This provides full file paths that browsers cannot access due to security restrictions
+        let ipc_handler_for_drop = ipc_handler.clone();
+        builder = builder.with_drag_drop_handler(
+            auroraview_core::builder::create_drag_drop_handler(move |event_name, data| {
+                let ipc_message = IpcMessage {
+                    event: event_name.to_string(),
+                    data,
+                    id: None,
+                };
+
+                if let Err(e) = ipc_handler_for_drop.handle_message(ipc_message) {
+                    tracing::error!("[NativeBackend] Error handling {}: {}", event_name, e);
+                }
+            }),
+        );
+
         // Build WebView - use standard build for standalone mode
         tracing::info!("[OK] [NativeBackend] Building WebView as standalone");
         let webview = builder
