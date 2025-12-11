@@ -283,9 +283,9 @@ class EventEmitter:
 
         if not listeners:
             # No handlers:
-            # - For cancellable events: return True (not cancelled, nothing to cancel)
+            # - For cancellable events: return False (not cancellable = False)
             # - For non-cancellable events: return False (no handlers were called)
-            return cancellable
+            return False
 
         # Process listeners outside lock
         to_remove: List[_EventListener] = []
