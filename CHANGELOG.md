@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.10](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.9...auroraview-v0.3.10) (2025-12-11)
+
+
+### Features
+
+* add native file drop events and shell plugin enhancements ([6729a56](https://github.com/loonghao/auroraview/commit/6729a565cc0ffa0fe593b3a6708f1be42aab4c21))
+
+
+### Bug Fixes
+
+* add cfg(windows) for platform-specific imports ([93d13d4](https://github.com/loonghao/auroraview/commit/93d13d4e8f16e1174023fd69c5ce0893505faf07))
+* correct dev_tools default test assertion ([800b363](https://github.com/loonghao/auroraview/commit/800b363f43a387392d2ffed6e5a61a093a55c7e2))
+* init_com_sta available on all platforms ([fbdfe56](https://github.com/loonghao/auroraview/commit/fbdfe562b6de5f871a82b02a0895c42823278363))
+* resolve fmt issues and add tests for builder module ([c31b417](https://github.com/loonghao/auroraview/commit/c31b417637b49c998381c87472d6a1d46949c236))
+
+
+### Code Refactoring
+
+* extract more shared WebView builder logic to auroraview-core ([e782c86](https://github.com/loonghao/auroraview/commit/e782c865f33c03aa4cb6d76c8dc1adea873ac34a))
+* extract shared WebView builder logic to auroraview-core ([19a02dd](https://github.com/loonghao/auroraview/commit/19a02dd551b25dd157eda4011ae218a7e424e6cc))
+* rename standalone to desktop with backward compatibility ([c43b6bb](https://github.com/loonghao/auroraview/commit/c43b6bb3611b89e3867e9349dd5b24c7eacd462a))
+
 ## [0.3.9](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.8...auroraview-v0.3.9) (2025-12-11)
 
 
