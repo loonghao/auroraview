@@ -208,6 +208,33 @@ mod tests {
     }
 
     #[test]
+    fn test_event_type_equality() {
+        assert_eq!(DragDropEventType::Enter, DragDropEventType::Enter);
+        assert_ne!(DragDropEventType::Enter, DragDropEventType::Leave);
+    }
+
+    #[test]
+    fn test_event_type_debug() {
+        let event = DragDropEventType::Drop;
+        let debug_str = format!("{:?}", event);
+        assert!(debug_str.contains("Drop"));
+    }
+
+    #[test]
+    fn test_event_type_clone() {
+        let original = DragDropEventType::Enter;
+        let cloned = original;
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_event_type_copy() {
+        let original = DragDropEventType::Over;
+        let copied = original;
+        assert_eq!(original, copied);
+    }
+
+    #[test]
     fn test_event_data_to_json_enter() {
         let data = DragDropEventData {
             event_type: DragDropEventType::Enter,
@@ -224,6 +251,47 @@ mod tests {
     }
 
     #[test]
+    fn test_event_data_to_json_enter_no_position() {
+        let data = DragDropEventData {
+            event_type: DragDropEventType::Enter,
+            paths: vec!["file.txt".to_string()],
+            position: None,
+            timestamp: None,
+        };
+
+        let json = data.to_json();
+        assert_eq!(json["hovering"], true);
+        assert!(json["position"].is_null());
+    }
+
+    #[test]
+    fn test_event_data_to_json_over() {
+        let data = DragDropEventData {
+            event_type: DragDropEventType::Over,
+            paths: Vec::new(),
+            position: Some((150.0, 250.0)),
+            timestamp: None,
+        };
+
+        let json = data.to_json();
+        assert_eq!(json["position"]["x"], 150.0);
+        assert_eq!(json["position"]["y"], 250.0);
+    }
+
+    #[test]
+    fn test_event_data_to_json_over_no_position() {
+        let data = DragDropEventData {
+            event_type: DragDropEventType::Over,
+            paths: Vec::new(),
+            position: None,
+            timestamp: None,
+        };
+
+        let json = data.to_json();
+        assert!(json["position"].is_null());
+    }
+
+    #[test]
     fn test_event_data_to_json_drop() {
         let data = DragDropEventData {
             event_type: DragDropEventType::Drop,
@@ -234,7 +302,44 @@ mod tests {
 
         let json = data.to_json();
         assert_eq!(json["paths"].as_array().unwrap().len(), 1);
+        assert_eq!(json["paths"][0], "file.txt");
         assert_eq!(json["timestamp"], 1234567890);
+        assert_eq!(json["position"]["x"], 50.0);
+        assert_eq!(json["position"]["y"], 75.0);
+    }
+
+    #[test]
+    fn test_event_data_to_json_drop_multiple_files() {
+        let data = DragDropEventData {
+            event_type: DragDropEventType::Drop,
+            paths: vec![
+                "/path/to/file1.txt".to_string(),
+                "/path/to/file2.png".to_string(),
+                "/path/to/file3.pdf".to_string(),
+            ],
+            position: Some((0.0, 0.0)),
+            timestamp: Some(0),
+        };
+
+        let json = data.to_json();
+        let paths = json["paths"].as_array().unwrap();
+        assert_eq!(paths.len(), 3);
+        assert_eq!(paths[0], "/path/to/file1.txt");
+        assert_eq!(paths[1], "/path/to/file2.png");
+        assert_eq!(paths[2], "/path/to/file3.pdf");
+    }
+
+    #[test]
+    fn test_event_data_to_json_drop_no_timestamp() {
+        let data = DragDropEventData {
+            event_type: DragDropEventType::Drop,
+            paths: vec!["file.txt".to_string()],
+            position: Some((10.0, 20.0)),
+            timestamp: None,
+        };
+
+        let json = data.to_json();
+        assert!(json["timestamp"].is_null());
     }
 
     #[test]
@@ -252,6 +357,37 @@ mod tests {
     }
 
     #[test]
+    fn test_event_data_debug() {
+        let data = DragDropEventData {
+            event_type: DragDropEventType::Drop,
+            paths: vec!["test.txt".to_string()],
+            position: Some((10.0, 20.0)),
+            timestamp: Some(12345),
+        };
+
+        let debug_str = format!("{:?}", data);
+        assert!(debug_str.contains("DragDropEventData"));
+        assert!(debug_str.contains("Drop"));
+        assert!(debug_str.contains("test.txt"));
+    }
+
+    #[test]
+    fn test_event_data_clone() {
+        let original = DragDropEventData {
+            event_type: DragDropEventType::Enter,
+            paths: vec!["file.txt".to_string()],
+            position: Some((1.0, 2.0)),
+            timestamp: None,
+        };
+
+        let cloned = original.clone();
+        assert_eq!(original.event_type, cloned.event_type);
+        assert_eq!(original.paths, cloned.paths);
+        assert_eq!(original.position, cloned.position);
+        assert_eq!(original.timestamp, cloned.timestamp);
+    }
+
+    #[test]
     fn test_handler_callback() {
         let counter = Arc::new(AtomicUsize::new(0));
         let counter_clone = counter.clone();
@@ -266,5 +402,31 @@ mod tests {
 
         // The callback should be callable
         assert_eq!(counter.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_handler_with_data_capture() {
+        let captured = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let captured_clone = captured.clone();
+
+        let _handler = DragDropHandler::new(move |data| {
+            captured_clone.lock().unwrap().push(data);
+        });
+
+        // Verify handler is created
+        assert!(captured.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_empty_paths() {
+        let data = DragDropEventData {
+            event_type: DragDropEventType::Enter,
+            paths: Vec::new(),
+            position: Some((0.0, 0.0)),
+            timestamp: None,
+        };
+
+        let json = data.to_json();
+        assert!(json["paths"].as_array().unwrap().is_empty());
     }
 }

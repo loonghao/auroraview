@@ -22,7 +22,7 @@
 //! signal.emit("Hello".to_string());
 //!
 //! // Disconnect (or let conn drop)
-//! signal.disconnect(conn.id());
+//! signal.disconnect(conn);
 //! ```
 
 use parking_lot::RwLock;

@@ -24,9 +24,9 @@ use crate::webview::js_assets;
 use crate::webview::message_pump;
 
 // Use shared builder utilities from auroraview-core
-use auroraview_core::builder::{get_background_color, log_background_color};
 #[cfg(target_os = "windows")]
 use auroraview_core::builder::init_com_sta;
+use auroraview_core::builder::{get_background_color, log_background_color};
 
 /// Native backend implementation
 ///
