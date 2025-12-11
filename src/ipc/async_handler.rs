@@ -279,7 +279,10 @@ mod tests {
         let handler = AsyncIpcHandler::new();
 
         // Submit should succeed
-        let result = handler.submit("test_event".to_string(), serde_json::json!({"data": "test"}));
+        let result = handler.submit(
+            "test_event".to_string(),
+            serde_json::json!({"data": "test"}),
+        );
         assert!(result.is_ok());
 
         handler.stop();
