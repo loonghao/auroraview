@@ -5,8 +5,13 @@
 //! ## Commands
 //!
 //! - `open` - Open a URL or file with the default application
+//! - `open_path` - Open a file/folder with the default application
+//! - `show_in_folder` - Reveal a file in its parent folder (file manager)
 //! - `execute` - Execute a shell command (requires scope permission)
+//! - `spawn` - Spawn a detached process
 //! - `which` - Find the path of an executable
+//! - `get_env` - Get an environment variable
+//! - `get_env_all` - Get all environment variables
 //!
 //! ## Example
 //!
@@ -15,13 +20,19 @@
 //! await auroraview.invoke("plugin:shell|open", { path: "https://example.com" });
 //!
 //! // Open a file with the default application
-//! await auroraview.invoke("plugin:shell|open", { path: "/path/to/document.pdf" });
+//! await auroraview.invoke("plugin:shell|open_path", { path: "/path/to/document.pdf" });
+//!
+//! // Reveal file in file manager
+//! await auroraview.invoke("plugin:shell|show_in_folder", { path: "/path/to/file.txt" });
 //!
 //! // Execute a command (if allowed by scope)
 //! const result = await auroraview.invoke("plugin:shell|execute", {
 //!     command: "git",
 //!     args: ["status"]
 //! });
+//!
+//! // Get environment variable
+//! const home = await auroraview.invoke("plugin:shell|get_env", { name: "HOME" });
 //! ```
 
 use crate::{PluginError, PluginHandler, PluginResult, ScopeConfig};
@@ -86,6 +97,22 @@ pub struct ExecuteOptions {
 pub struct WhichOptions {
     /// Command name to find
     pub command: String,
+}
+
+/// Options for path-based operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PathOptions {
+    /// File or folder path
+    pub path: String,
+}
+
+/// Options for environment variable lookup
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvOptions {
+    /// Environment variable name
+    pub name: String,
 }
 
 /// Command execution result
@@ -186,6 +213,92 @@ impl PluginHandler for ShellPlugin {
                     "path": path.map(|p| p.to_string_lossy().to_string())
                 }))
             }
+            "open_path" => {
+                // Open a file or folder with the default application
+                let opts: PathOptions = serde_json::from_value(args)
+                    .map_err(|e| PluginError::invalid_args(e.to_string()))?;
+
+                // Check scope permissions
+                if !scope.shell.allow_open_file {
+                    return Err(PluginError::shell_error("Opening files is not allowed"));
+                }
+
+                open::that(&opts.path)
+                    .map_err(|e| PluginError::shell_error(format!("Failed to open: {}", e)))?;
+
+                Ok(serde_json::json!({ "success": true }))
+            }
+            "show_in_folder" => {
+                // Reveal file in file manager (Explorer/Finder/etc.)
+                let opts: PathOptions = serde_json::from_value(args)
+                    .map_err(|e| PluginError::invalid_args(e.to_string()))?;
+
+                // Check scope permissions
+                if !scope.shell.allow_open_file {
+                    return Err(PluginError::shell_error("Opening files is not allowed"));
+                }
+
+                // Get parent directory and reveal
+                let path = std::path::Path::new(&opts.path);
+
+                #[cfg(target_os = "windows")]
+                {
+                    // Use explorer.exe /select to highlight the file
+                    let path_str = dunce::canonicalize(path)
+                        .unwrap_or_else(|_| path.to_path_buf())
+                        .to_string_lossy()
+                        .to_string();
+
+                    Command::new("explorer.exe")
+                        .args(["/select,", &path_str])
+                        .spawn()
+                        .map_err(|e| {
+                            PluginError::shell_error(format!("Failed to show in folder: {}", e))
+                        })?;
+                }
+
+                #[cfg(target_os = "macos")]
+                {
+                    Command::new("open")
+                        .args(["-R", &opts.path])
+                        .spawn()
+                        .map_err(|e| {
+                            PluginError::shell_error(format!("Failed to show in folder: {}", e))
+                        })?;
+                }
+
+                #[cfg(target_os = "linux")]
+                {
+                    // Try common file managers
+                    let parent = path.parent().unwrap_or(path);
+                    if Command::new("xdg-open").arg(parent).spawn().is_err() {
+                        // Fallback to nautilus if available
+                        Command::new("nautilus")
+                            .arg(&opts.path)
+                            .spawn()
+                            .map_err(|e| {
+                                PluginError::shell_error(format!("Failed to show in folder: {}", e))
+                            })?;
+                    }
+                }
+
+                Ok(serde_json::json!({ "success": true }))
+            }
+            "get_env" => {
+                // Get a single environment variable
+                let opts: EnvOptions = serde_json::from_value(args)
+                    .map_err(|e| PluginError::invalid_args(e.to_string()))?;
+
+                let value = std::env::var(&opts.name).ok();
+
+                Ok(serde_json::json!({ "value": value }))
+            }
+            "get_env_all" => {
+                // Get all environment variables
+                let env: std::collections::HashMap<String, String> = std::env::vars().collect();
+
+                Ok(serde_json::json!({ "env": env }))
+            }
             "spawn" => {
                 // Spawn a detached process (fire and forget)
                 let opts: ExecuteOptions = serde_json::from_value(args)
@@ -239,7 +352,16 @@ impl PluginHandler for ShellPlugin {
     }
 
     fn commands(&self) -> Vec<&str> {
-        vec!["open", "execute", "which", "spawn"]
+        vec![
+            "open",
+            "open_path",
+            "show_in_folder",
+            "execute",
+            "spawn",
+            "which",
+            "get_env",
+            "get_env_all",
+        ]
     }
 }
 
@@ -252,9 +374,13 @@ mod tests {
         let plugin = ShellPlugin::new();
         let commands = plugin.commands();
         assert!(commands.contains(&"open"));
+        assert!(commands.contains(&"open_path"));
+        assert!(commands.contains(&"show_in_folder"));
         assert!(commands.contains(&"execute"));
         assert!(commands.contains(&"which"));
         assert!(commands.contains(&"spawn"));
+        assert!(commands.contains(&"get_env"));
+        assert!(commands.contains(&"get_env_all"));
     }
 
     #[test]
@@ -272,6 +398,46 @@ mod tests {
         assert!(result.is_ok());
         let data = result.unwrap();
         assert!(data["path"].is_string() || data["path"].is_null());
+    }
+
+    #[test]
+    fn test_get_env() {
+        let plugin = ShellPlugin::new();
+        let scope = ScopeConfig::new();
+
+        // PATH should exist on all systems
+        let result = plugin.handle("get_env", serde_json::json!({ "name": "PATH" }), &scope);
+        assert!(result.is_ok());
+        let data = result.unwrap();
+        assert!(data["value"].is_string());
+    }
+
+    #[test]
+    fn test_get_env_nonexistent() {
+        let plugin = ShellPlugin::new();
+        let scope = ScopeConfig::new();
+
+        let result = plugin.handle(
+            "get_env",
+            serde_json::json!({ "name": "AURORAVIEW_NONEXISTENT_VAR_12345" }),
+            &scope,
+        );
+        assert!(result.is_ok());
+        let data = result.unwrap();
+        assert!(data["value"].is_null());
+    }
+
+    #[test]
+    fn test_get_env_all() {
+        let plugin = ShellPlugin::new();
+        let scope = ScopeConfig::new();
+
+        let result = plugin.handle("get_env_all", serde_json::json!({}), &scope);
+        assert!(result.is_ok());
+        let data = result.unwrap();
+        assert!(data["env"].is_object());
+        // Should have at least PATH
+        assert!(data["env"]["PATH"].is_string() || data["env"]["Path"].is_string());
     }
 
     #[test]
@@ -318,5 +484,33 @@ mod tests {
 
         // May fail if command not found, but should not fail due to scope
         // The test verifies scope check passes
+    }
+
+    #[test]
+    fn test_open_path_blocked_by_scope() {
+        let plugin = ShellPlugin::new();
+        let mut scope = ScopeConfig::new();
+        scope.shell.allow_open_file = false;
+
+        let result = plugin.handle(
+            "open_path",
+            serde_json::json!({ "path": "/tmp/test.txt" }),
+            &scope,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_show_in_folder_blocked_by_scope() {
+        let plugin = ShellPlugin::new();
+        let mut scope = ScopeConfig::new();
+        scope.shell.allow_open_file = false;
+
+        let result = plugin.handle(
+            "show_in_folder",
+            serde_json::json!({ "path": "/tmp/test.txt" }),
+            &scope,
+        );
+        assert!(result.is_err());
     }
 }

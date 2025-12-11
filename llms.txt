@@ -256,29 +256,33 @@ def on_closing(data):
     return True  # Return True to allow close, False to cancel
 ```
 
-### File Drop Events
+### File Drop Events (Native Paths)
+
+File drag-drop events are handled natively by Rust/wry, providing full file system paths
+that browsers cannot access due to security restrictions.
 
 ```python
 from auroraview.core.events import WindowEvent
 
-# Handle file drop
+# Handle file drop - receives full native file paths
 @webview.on(WindowEvent.FILE_DROP)
 def on_file_drop(data):
-    for file_info in data.files:
-        print(f"Dropped: {file_info['name']} ({file_info['size']} bytes)")
-    print(f"Position: {data.position['x']}, {data.position['y']}")
+    # data['paths'] contains full file paths like 'C:\\Users\\...\\file.txt'
+    for path in data['paths']:
+        print(f"Dropped: {path}")
+    print(f"Position: {data['position']['x']}, {data['position']['y']}")
 
-# Handle file hover
+# Handle file hover - also receives paths
 @webview.on(WindowEvent.FILE_DROP_HOVER)
 def on_file_hover(data):
-    if data.hovering:
-        print("Files dragged over window")
+    if data['hovering']:
+        print(f"Dragging {len(data['paths'])} files over window")
 
-# Handle file paste
+# Handle file paste (clipboard - no full paths due to browser security)
 @webview.on(WindowEvent.FILE_PASTE)
 def on_file_paste(data):
-    for file_info in data.files:
-        print(f"Pasted: {file_info['name']}")
+    for file_info in data['files']:
+        print(f"Pasted: {file_info['name']} ({file_info['size']} bytes)")
 ```
 
 ### Cancellable Events
@@ -322,6 +326,178 @@ class MyTool(WebView):
 
     def update_selection(self, items):
         self.selection_changed.emit(items)
+```
+
+## Desktop Application APIs
+
+AuroraView provides native desktop capabilities through JavaScript plugins:
+- `auroraview.fs` - File system operations
+- `auroraview.dialog` - Native file/folder dialogs
+- `auroraview.shell` - Shell commands and script execution
+- `auroraview.clipboard` - System clipboard access
+
+### File Dialogs
+
+```javascript
+// Open single file with filters
+const result = await auroraview.dialog.openFile({
+    title: 'Select a File',
+    defaultPath: '/home/user',
+    filters: [
+        { name: 'Images', extensions: ['png', 'jpg', 'gif'] },
+        { name: 'All Files', extensions: ['*'] }
+    ]
+});
+// result: { path: '/path/to/file.png', cancelled: false }
+
+// Open multiple files
+const files = await auroraview.dialog.openFiles({ title: 'Select Files' });
+// files: { paths: ['/path/1.txt', '/path/2.txt'], cancelled: false }
+
+// Open folder
+const folder = await auroraview.dialog.openFolder({ title: 'Select Folder' });
+
+// Save file dialog
+const savePath = await auroraview.dialog.saveFile({
+    title: 'Save As',
+    defaultName: 'document.txt',
+    filters: [{ name: 'Text', extensions: ['txt'] }]
+});
+
+// Message dialogs
+await auroraview.dialog.info('Operation completed!', 'Success');
+await auroraview.dialog.warning('This action cannot be undone.', 'Warning');
+await auroraview.dialog.error('File not found.', 'Error');
+
+// Confirmation dialog
+const confirmed = await auroraview.dialog.ask('Save changes?', 'Confirm');
+// confirmed: true or false
+```
+
+### File System Operations
+
+```javascript
+// Read file as text
+const content = await auroraview.fs.readFile('/path/to/file.txt');
+
+// Read file as binary (base64)
+const base64 = await auroraview.fs.readFileBinary('/path/to/image.png');
+
+// Read file as ArrayBuffer
+const buffer = await auroraview.fs.readFileBuffer('/path/to/file.bin');
+
+// Write file
+await auroraview.fs.writeFile('/path/to/file.txt', 'Hello World');
+
+// Append to file
+await auroraview.fs.writeFile('/path/to/file.txt', 'More content', true);
+
+// Write binary data
+await auroraview.fs.writeFileBinary('/path/to/file.bin', uint8Array);
+
+// Check if path exists
+const exists = await auroraview.fs.exists('/path/to/file.txt');
+
+// Get file/directory info
+const stat = await auroraview.fs.stat('/path/to/file.txt');
+// stat: { isFile: true, isDir: false, size: 1024, modified: 1699000000 }
+
+// List directory contents
+const entries = await auroraview.fs.readDir('/path/to/dir');
+// entries: [{ name: 'file.txt', isFile: true, isDir: false, size: 100 }, ...]
+
+// List directory recursively
+const allFiles = await auroraview.fs.readDir('/path/to/dir', true);
+
+// Create directory
+await auroraview.fs.createDir('/path/to/new/dir');
+
+// Remove file or directory
+await auroraview.fs.remove('/path/to/file.txt');
+await auroraview.fs.remove('/path/to/dir', true);  // recursive
+
+// Copy file
+await auroraview.fs.copy('/source/file.txt', '/dest/file.txt');
+
+// Rename/move file
+await auroraview.fs.rename('/old/path.txt', '/new/path.txt');
+```
+
+### Shell Commands & Script Execution
+
+```javascript
+// Execute command and wait for result
+const result = await auroraview.shell.execute('python', ['-c', 'print("Hello")']);
+// result: { code: 0, stdout: 'Hello\n', stderr: '' }
+
+// Execute with options
+const gitResult = await auroraview.shell.execute('git', ['status'], {
+    cwd: '/path/to/repo',
+    env: { GIT_AUTHOR_NAME: 'User' }
+});
+
+// Spawn detached process (fire and forget)
+const { pid } = await auroraview.shell.spawn('notepad', ['file.txt']);
+
+// Find executable path
+const pythonPath = await auroraview.shell.which('python');
+// pythonPath: 'C:\\Python39\\python.exe' or null
+
+// Get environment variable
+const home = await auroraview.shell.getEnv('HOME');
+const path = await auroraview.shell.getEnv('PATH');
+
+// Get all environment variables
+const env = await auroraview.shell.getEnvAll();
+// env: { HOME: '/home/user', PATH: '...', ... }
+
+// Open URL in default browser
+await auroraview.shell.open('https://github.com');
+
+// Open file with default application
+await auroraview.shell.openPath('/path/to/document.pdf');
+
+// Reveal file in file manager (Explorer/Finder)
+await auroraview.shell.showInFolder('/path/to/file.txt');
+```
+
+### Python API for Desktop Features
+
+```python
+from auroraview import WebView
+
+# Create webview with plugins enabled
+webview = WebView(
+    title="Desktop App",
+    width=1000,
+    height=800,
+    html=my_html,
+    debug=True,
+    plugins=["fs", "dialog", "shell", "clipboard"]
+)
+
+# Python-side file dialogs (alternative to JS)
+result = webview.open_file_dialog(
+    title="Select File",
+    filters=[("Python Files", ["py"]), ("All Files", ["*"])]
+)
+if result:
+    print(f"Selected: {result}")
+
+# Save dialog
+save_path = webview.save_file_dialog(
+    title="Save As",
+    default_name="script.py"
+)
+
+# Folder selection
+folder = webview.select_folder_dialog(title="Select Folder")
+
+# Message dialogs
+webview.alert_dialog("Success", "Operation completed!")
+if webview.confirm_dialog("Confirm", "Delete this file?"):
+    # User clicked Yes
+    pass
 ```
 
 ## Qt Integration (QtWebView)
