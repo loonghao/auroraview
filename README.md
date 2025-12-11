@@ -369,6 +369,11 @@ auroraview --url https://example.com --title "My App" --width 1024 --height 768
 uvx auroraview --url https://example.com
 ```
 
+> **Note for Python 3.7 on Windows**: Due to a [uv/uvx limitation](https://github.com/astral-sh/uv/issues/10165), use `python -m auroraview` instead:
+> ```bash
+> uvx --python 3.7 --from auroraview python -m auroraview --url https://example.com
+> ```
+
 **[See CLI Documentation](./docs/CLI.md)** for more details.
 
 ### Custom Window Icon
