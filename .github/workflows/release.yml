@@ -371,4 +371,5 @@ jobs:
           allowUpdates: true
           skipIfReleaseExists: false
           updateOnlyUnreleased: false
+          makeLatest: true
 
