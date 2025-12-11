@@ -11,7 +11,8 @@
 //! use auroraview_core::icon::{load_icon_rgba, png_to_ico, compress_png};
 //!
 //! // Load PNG as RGBA for window icon
-//! let (rgba, width, height) = load_icon_rgba("icon.png").unwrap();
+//! let icon_data = load_icon_rgba("icon.png").unwrap();
+//! let (rgba, width, height) = (icon_data.rgba, icon_data.width, icon_data.height);
 //!
 //! // Convert PNG to ICO for EXE embedding
 //! png_to_ico("icon.png", "icon.ico", &[16, 32, 48, 256]).unwrap();
