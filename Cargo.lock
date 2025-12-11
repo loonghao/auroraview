@@ -506,6 +506,7 @@ dependencies = [
  "url",
  "warp 0.3.7",
  "windows 0.61.3",
+ "wry",
 ]
 
 [[package]]
