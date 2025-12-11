@@ -57,9 +57,9 @@ use super::webview_inner::WebViewInner;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 
 // Use shared builder utilities from auroraview-core
-use auroraview_core::builder::{get_background_color, log_background_color};
+use auroraview_core::builder::{get_background_color, init_com_sta, log_background_color};
 #[cfg(target_os = "windows")]
-use auroraview_core::builder::{apply_child_window_style, init_com_sta, ChildWindowStyleOptions};
+use auroraview_core::builder::{apply_child_window_style, ChildWindowStyleOptions};
 
 /// Create desktop WebView with its own window
 ///
