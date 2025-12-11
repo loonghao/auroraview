@@ -13,6 +13,8 @@ mod webview_inner;
 // Core modules (always available)
 pub mod backend;
 pub mod config; // Public for testing
+#[cfg(feature = "python-bindings")]
+pub(crate) mod desktop;
 pub(crate) mod event_loop;
 pub mod js_assets; // JavaScript assets management
 #[cfg(feature = "templates")]
@@ -23,7 +25,7 @@ mod message_pump;
 pub mod protocol;
 pub mod protocol_handlers; // Custom protocol handlers
 #[cfg(feature = "python-bindings")]
-pub(crate) mod standalone;
+pub(crate) use desktop as standalone; // Backward compatibility alias
 pub mod timer;
 pub mod window_manager; // Multi-window support
 

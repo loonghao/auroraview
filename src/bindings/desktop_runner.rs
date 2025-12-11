@@ -1,8 +1,8 @@
-//! Python bindings for standalone WebView runner
+//! Python bindings for desktop WebView runner
 //!
-//! This module provides a Python function to run a standalone WebView using
+//! This module provides a Python function to run a desktop WebView using
 //! event_loop.run() instead of run_return(). This is the correct approach for
-//! standalone applications where the process should exit when the window closes.
+//! desktop applications where the process should exit when the window closes.
 
 use pyo3::prelude::*;
 use std::path::PathBuf;
@@ -10,15 +10,15 @@ use std::sync::Arc;
 
 use crate::ipc::{IpcHandler, MessageQueue};
 use crate::webview::config::WebViewConfig;
-use crate::webview::standalone;
+use crate::webview::desktop;
 
-/// Run a standalone WebView (blocking until window closes)
+/// Run a desktop WebView (blocking until window closes)
 ///
-/// This function creates and runs a standalone WebView window using event_loop.run().
+/// This function creates and runs a desktop WebView window using event_loop.run().
 /// It will block until the window is closed, then exit the entire process.
 ///
 /// IMPORTANT: This calls std::process::exit() when the window closes!
-/// Only use this for standalone applications, NOT for DCC integration.
+/// Only use this for desktop applications, NOT for DCC integration.
 ///
 /// Args:
 ///     title (str): Window title
@@ -50,14 +50,18 @@ use crate::webview::standalone;
 ///         (like ./script.js, ../style.css) to use auroraview:// protocol. Default: True.
 ///
 /// Example:
-///     >>> from auroraview._core import run_standalone
-///     >>> run_standalone(
+///     >>> from auroraview._core import run_desktop
+///     >>> run_desktop(
 ///     ...     title="My App",
 ///     ...     width=800,
 ///     ...     height=600,
 ///     ...     url="https://example.com"
 ///     ... )
 ///     # Window shows, blocks until closed, then process exits
+///
+///     # Or use the legacy alias:
+///     >>> from auroraview._core import run_standalone
+///     >>> run_standalone(...)
 #[pyfunction]
 #[pyo3(signature = (
     title,
@@ -79,7 +83,7 @@ use crate::webview::standalone;
     rewrite_relative_paths=true
 ))]
 #[allow(clippy::too_many_arguments)]
-fn run_standalone(
+fn run_desktop(
     title: String,
     width: u32,
     height: u32,
@@ -98,7 +102,7 @@ fn run_standalone(
     html_path: Option<String>,
     rewrite_relative_paths: bool,
 ) -> PyResult<()> {
-    tracing::info!("[run_standalone] Creating standalone WebView: {}", title);
+    tracing::info!("[run_desktop] Creating desktop WebView: {}", title);
 
     // Determine asset_root: explicit setting takes priority, otherwise derive from html_path
     let effective_asset_root = if let Some(root) = asset_root {
@@ -109,7 +113,7 @@ fn run_standalone(
         let parent_dir = html_file_path.parent().map(|p| p.to_path_buf());
         if let Some(ref dir) = parent_dir {
             tracing::info!(
-                "[run_standalone] Auto-detected asset_root from HTML path: {:?}",
+                "[run_desktop] Auto-detected asset_root from HTML path: {:?}",
                 dir
             );
         }
@@ -171,19 +175,91 @@ fn run_standalone(
     let ipc_handler = Arc::new(IpcHandler::new());
     let message_queue = Arc::new(MessageQueue::new());
 
-    // Run standalone - this will block until window closes and then exit the process
-    tracing::info!("[run_standalone] Starting standalone event loop...");
-    standalone::run_standalone(config, ipc_handler, message_queue)
+    // Run desktop - this will block until window closes and then exit the process
+    tracing::info!("[run_desktop] Starting desktop event loop...");
+    desktop::run_desktop(config, ipc_handler, message_queue)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
-    // This line will never be reached because run_standalone() calls std::process::exit()
-    unreachable!("run_standalone() should never return");
+    // This line will never be reached because run_desktop() calls std::process::exit()
+    unreachable!("run_desktop() should never return");
 }
 
-/// Register standalone runner functions with Python module
-pub fn register_standalone_runner(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(run_standalone, m)?)?;
+/// Legacy alias for `run_desktop` (backward compatibility)
+///
+/// This function is deprecated in favor of `run_desktop`.
+#[pyfunction]
+#[pyo3(signature = (
+    title,
+    width,
+    height,
+    url=None,
+    html=None,
+    dev_tools=true,
+    resizable=true,
+    decorations=true,
+    transparent=false,
+    allow_new_window=false,
+    allow_file_protocol=false,
+    always_on_top=false,
+    headless=false,
+    remote_debugging_port=None,
+    asset_root=None,
+    html_path=None,
+    rewrite_relative_paths=true
+))]
+#[allow(clippy::too_many_arguments)]
+fn run_standalone(
+    title: String,
+    width: u32,
+    height: u32,
+    url: Option<String>,
+    html: Option<String>,
+    dev_tools: bool,
+    resizable: bool,
+    decorations: bool,
+    transparent: bool,
+    allow_new_window: bool,
+    allow_file_protocol: bool,
+    always_on_top: bool,
+    headless: bool,
+    remote_debugging_port: Option<u16>,
+    asset_root: Option<String>,
+    html_path: Option<String>,
+    rewrite_relative_paths: bool,
+) -> PyResult<()> {
+    run_desktop(
+        title,
+        width,
+        height,
+        url,
+        html,
+        dev_tools,
+        resizable,
+        decorations,
+        transparent,
+        allow_new_window,
+        allow_file_protocol,
+        always_on_top,
+        headless,
+        remote_debugging_port,
+        asset_root,
+        html_path,
+        rewrite_relative_paths,
+    )
+}
+
+/// Register desktop runner functions with Python module
+pub fn register_desktop_runner(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(run_desktop, m)?)?;
+    m.add_function(wrap_pyfunction!(run_standalone, m)?)?; // Legacy alias
     Ok(())
+}
+
+/// Legacy alias for `register_desktop_runner` (backward compatibility)
+#[allow(dead_code)]
+#[inline]
+pub fn register_standalone_runner(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    register_desktop_runner(m)
 }
 
 #[cfg(test)]
@@ -196,29 +272,42 @@ mod tests {
         Python::initialize();
         Python::attach(|py| {
             let module = PyModule::new(py, "test_module").unwrap();
-            register_standalone_runner(&module).unwrap();
+            register_desktop_runner(&module).unwrap();
+            // Both new and legacy functions should be registered
+            assert!(module.getattr("run_desktop").is_ok());
             assert!(module.getattr("run_standalone").is_ok());
         });
     }
 
     #[test]
-    fn test_run_standalone_function_exists() {
+    fn test_run_desktop_function_exists() {
         Python::initialize();
         Python::attach(|py| {
             let module = PyModule::new(py, "test_module").unwrap();
-            register_standalone_runner(&module).unwrap();
+            register_desktop_runner(&module).unwrap();
+            let func = module.getattr("run_desktop").unwrap();
+            assert!(func.is_callable());
+        });
+    }
+
+    #[test]
+    fn test_run_standalone_legacy_alias_exists() {
+        Python::initialize();
+        Python::attach(|py| {
+            let module = PyModule::new(py, "test_module").unwrap();
+            register_desktop_runner(&module).unwrap();
             let func = module.getattr("run_standalone").unwrap();
             assert!(func.is_callable());
         });
     }
 
     #[test]
-    fn test_run_standalone_signature() {
+    fn test_run_desktop_signature() {
         Python::initialize();
         Python::attach(|py| {
             let module = PyModule::new(py, "test_module").unwrap();
-            register_standalone_runner(&module).unwrap();
-            let func = module.getattr("run_standalone").unwrap();
+            register_desktop_runner(&module).unwrap();
+            let func = module.getattr("run_desktop").unwrap();
 
             // Verify function has correct signature
             let signature = func.getattr("__signature__");

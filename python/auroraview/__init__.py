@@ -40,19 +40,23 @@ Best for Unreal Engine or any application that needs HWND access::
         import unreal
         unreal.parent_external_window_to_slate(hwnd)
 
-### 3. Standalone Mode - For Desktop Apps
+### 3. Desktop Mode - For Desktop Apps
 
 Best for standalone desktop applications::
 
-    from auroraview import run_standalone
+    from auroraview import run_desktop
 
-    # Quick one-liner for standalone apps
-    run_standalone(
+    # Quick one-liner for desktop apps
+    run_desktop(
         title="My App",
         url="https://example.com",
         width=1024,
         height=768
     )
+
+    # Or use the legacy alias:
+    from auroraview import run_standalone
+    run_standalone(...)
 
 ### 4. Low-level API (WebView) - For Advanced Users
 
@@ -74,7 +78,7 @@ Direct access to the underlying WebView for maximum flexibility::
 |----------|-------|-----------------|
 | Maya/Houdini/Nuke | ``QtWebView`` | Yes (QDockWidget) |
 | Unreal Engine | ``AuroraView`` | Yes (via HWND) |
-| Standalone App | ``run_standalone`` | N/A |
+| Desktop App | ``run_desktop`` | N/A |
 | Advanced/Custom | ``WebView`` | Depends on mode |
 
 ## Bidirectional Communication
@@ -138,7 +142,9 @@ try:
         # CLI utilities
         normalize_url,
         rewrite_html_for_custom_protocol,
-        # Standalone runner
+        # Desktop runner (new name)
+        run_desktop,
+        # Standalone runner (legacy alias)
         run_standalone,
         # WebView2 warmup (Windows performance optimization)
         start_warmup,
@@ -171,6 +177,7 @@ except ImportError as e:
     # Placeholder for CLI utilities
     normalize_url = None  # type: ignore
     rewrite_html_for_custom_protocol = None  # type: ignore
+    run_desktop = None  # type: ignore
     run_standalone = None  # type: ignore
 
     # Placeholder for DOM batch
@@ -452,7 +459,8 @@ __all__ = [
     # ============================================================
     "normalize_url",
     "rewrite_html_for_custom_protocol",
-    "run_standalone",
+    "run_desktop",
+    "run_standalone",  # Legacy alias for run_desktop
     # ============================================================
     # WebView2 warmup (Windows performance optimization)
     # ============================================================

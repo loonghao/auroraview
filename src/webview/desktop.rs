@@ -1,20 +1,24 @@
-//! Standalone mode - WebView with its own window
+//! Desktop mode - WebView with its own window
 //!
-//! This module handles creating WebView instances in standalone mode,
+//! This module handles creating WebView instances in desktop mode,
 //! where the WebView creates and manages its own window.
 //!
 //! # Examples
 //!
 //! From Python (recommended):
 //! ```python
-//! from auroraview._core import run_standalone
+//! from auroraview._core import run_desktop
 //!
-//! run_standalone(
+//! run_desktop(
 //!     title="My App",
 //!     width=800,
 //!     height=600,
 //!     url="https://example.com"
 //! )
+//!
+//! # Or use the legacy alias:
+//! from auroraview._core import run_standalone
+//! run_standalone(...)
 //! ```
 //!
 //! From Rust (internal use):
@@ -35,7 +39,7 @@
 //! let ipc_handler = Arc::new(IpcHandler::new());
 //! let message_queue = Arc::new(MessageQueue::new());
 //!
-//! // This will create a standalone window and run the event loop
+//! // This will create a desktop window and run the event loop
 //! // Note: This is a blocking call that will run until the window is closed
 //! ```
 
@@ -58,7 +62,7 @@ use auroraview_core::builder::{
     ChildWindowStyleOptions,
 };
 
-/// Create standalone WebView with its own window
+/// Create desktop WebView with its own window
 ///
 /// This function creates a WebView instance with its own window and event loop.
 /// The window starts hidden to avoid white flash and shows a loading screen.
@@ -66,7 +70,7 @@ use auroraview_core::builder::{
 /// # Examples
 ///
 /// ```ignore
-/// // This is an internal function, use run_standalone from Python bindings instead
+/// // This is an internal function, use run_desktop from Python bindings instead
 /// use auroraview_core::webview::config::WebViewConfig;
 /// use auroraview_core::ipc::{IpcHandler, MessageQueue};
 /// use std::sync::Arc;
@@ -82,10 +86,10 @@ use auroraview_core::builder::{
 /// let ipc_handler = Arc::new(IpcHandler::new());
 /// let message_queue = Arc::new(MessageQueue::new());
 ///
-/// // Internal use only - called by run_standalone
-/// // let webview = create_standalone(config, ipc_handler, message_queue).unwrap();
+/// // Internal use only - called by run_desktop
+/// // let webview = create_desktop(config, ipc_handler, message_queue).unwrap();
 /// ```
-pub fn create_standalone(
+pub fn create_desktop(
     config: WebViewConfig,
     ipc_handler: Arc<IpcHandler>,
     message_queue: Arc<MessageQueue>,
@@ -560,17 +564,17 @@ pub fn create_standalone(
     })
 }
 
-/// Run standalone WebView with event_loop.run() (blocking until window closes)
+/// Run desktop WebView with event_loop.run() (blocking until window closes)
 ///
-/// This function is designed for standalone applications where the WebView owns
+/// This function is designed for desktop applications where the WebView owns
 /// the event loop and the process should exit when the window closes.
 /// It uses event_loop.run() which calls std::process::exit() on completion.
 ///
 /// IMPORTANT: This will terminate the entire process when the window closes!
-/// Only use this for standalone mode, NOT for DCC integration (embedded mode).
+/// Only use this for desktop mode, NOT for DCC integration (embedded mode).
 ///
 /// Use cases:
-/// - Standalone Python scripts
+/// - Desktop Python scripts
 /// - CLI applications
 /// - Desktop applications
 ///
@@ -578,14 +582,18 @@ pub fn create_standalone(
 ///
 /// From Python:
 /// ```python
-/// from auroraview._core import run_standalone
+/// from auroraview._core import run_desktop
 ///
-/// run_standalone(
+/// run_desktop(
 ///     title="My App",
 ///     width=1024,
 ///     height=768,
 ///     url="https://example.com"
 /// )
+///
+/// # Or use the legacy alias:
+/// from auroraview._core import run_standalone
+/// run_standalone(...)
 /// ```
 ///
 /// From Rust (internal use):
@@ -596,7 +604,7 @@ pub fn create_standalone(
 /// use std::sync::Arc;
 ///
 /// let config = WebViewConfig {
-///     title: "My Standalone App".to_string(),
+///     title: "My Desktop App".to_string(),
 ///     width: 1024,
 ///     height: 768,
 ///     url: Some("https://example.com".to_string()),
@@ -607,9 +615,9 @@ pub fn create_standalone(
 /// let message_queue = Arc::new(MessageQueue::new());
 ///
 /// // This will block until the window is closed and then exit the process
-/// // run_standalone(config, ipc_handler, message_queue).unwrap();
+/// // run_desktop(config, ipc_handler, message_queue).unwrap();
 /// ```
-pub fn run_standalone(
+pub fn run_desktop(
     config: WebViewConfig,
     ipc_handler: Arc<IpcHandler>,
     message_queue: Arc<MessageQueue>,
@@ -621,7 +629,7 @@ pub fn run_standalone(
     let headless = config.headless;
 
     // Create the WebView
-    let mut webview_inner = create_standalone(config, ipc_handler, message_queue)?;
+    let mut webview_inner = create_desktop(config, ipc_handler, message_queue)?;
 
     // Take ownership of event loop and window using take()
     let event_loop = webview_inner
@@ -737,6 +745,37 @@ fn load_window_icon(custom_icon: Option<&std::path::PathBuf>) -> Option<tao::win
     let rgba = img.into_rgba8().into_raw();
 
     tao::window::Icon::from_rgba(rgba, width, height).ok()
+}
+
+// ============================================================
+// Backward compatibility aliases
+// ============================================================
+
+/// Alias for `create_desktop` (backward compatibility)
+///
+/// This function is deprecated in favor of `create_desktop`.
+/// It will be removed in a future version.
+#[inline]
+pub fn create_standalone(
+    config: WebViewConfig,
+    ipc_handler: Arc<IpcHandler>,
+    message_queue: Arc<MessageQueue>,
+) -> Result<WebViewInner, Box<dyn std::error::Error>> {
+    create_desktop(config, ipc_handler, message_queue)
+}
+
+/// Alias for `run_desktop` (backward compatibility)
+///
+/// This function is deprecated in favor of `run_desktop`.
+/// It will be removed in a future version.
+#[allow(dead_code)]
+#[inline]
+pub fn run_standalone(
+    config: WebViewConfig,
+    ipc_handler: Arc<IpcHandler>,
+    message_queue: Arc<MessageQueue>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    run_desktop(config, ipc_handler, message_queue)
 }
 
 #[cfg(test)]

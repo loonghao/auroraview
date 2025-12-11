@@ -60,8 +60,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register CLI utilities (HTML rewriting, URL normalization, etc.)
     bindings::cli_utils::register_cli_utils(m)?;
 
-    // Register standalone runner (uses event_loop.run() for standalone apps)
-    bindings::standalone_runner::register_standalone_runner(m)?;
+    // Register desktop runner (uses event_loop.run() for desktop apps)
+    // Also registers legacy run_standalone alias for backward compatibility
+    bindings::desktop_runner::register_desktop_runner(m)?;
 
     // Register WebView2 warmup functions (Windows performance optimization)
     bindings::warmup::register_warmup_functions(m)?;
@@ -187,9 +188,9 @@ mod tests {
         assert!(loading_html.contains("<!DOCTYPE html>") || loading_html.contains("<html"));
     }
 
-    /// Test standalone module functions
+    /// Test desktop module functions
     #[rstest]
-    fn test_standalone_module() {
+    fn test_desktop_module() {
         use crate::webview::js_assets;
 
         // Test loading HTML generation (from auroraview-core)

@@ -76,17 +76,17 @@ impl WebViewBackend for NativeBackend {
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        // Determine if this is embedded or standalone mode
+        // Determine if this is embedded or desktop mode
         if let Some(parent_hwnd) = config.parent_hwnd {
             Self::create_embedded(parent_hwnd, config, ipc_handler, message_queue, None)
         } else {
             #[cfg(feature = "python-bindings")]
             {
-                Self::create_standalone(config, ipc_handler, message_queue)
+                Self::create_desktop(config, ipc_handler, message_queue)
             }
             #[cfg(not(feature = "python-bindings"))]
             {
-                Err("Standalone mode requires python-bindings feature".into())
+                Err("Desktop mode requires python-bindings feature".into())
             }
         }
     }
@@ -338,7 +338,7 @@ impl WebViewBackend for NativeBackend {
     }
 
     fn set_visible(&self, visible: bool) -> Result<(), Box<dyn std::error::Error>> {
-        // Use tao::Window if available (works for both standalone and embedded modes)
+        // Use tao::Window if available (works for both desktop and embedded modes)
         if let Some(window) = &self.window {
             window.set_visible(visible);
             tracing::debug!("[NativeBackend] set_visible({}) via tao::Window", visible);
@@ -644,10 +644,10 @@ impl NativeBackend {
         Err("DCC integration mode is only supported on Windows".into())
     }
 
-    /// Create standalone WebView with its own window
+    /// Create desktop WebView with its own window
     #[cfg(feature = "python-bindings")]
     #[allow(dead_code)]
-    fn create_standalone(
+    fn create_desktop(
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
@@ -657,14 +657,11 @@ impl NativeBackend {
         // auto_show should be false in headless mode
         let auto_show = config.auto_show && !config.headless;
 
-        // Delegate to standalone module for now
-        // We need to use the existing standalone implementation
+        // Delegate to desktop module for now
+        // We need to use the existing desktop implementation
         // and convert it to NativeBackend structure
-        let mut inner = crate::webview::standalone::create_standalone(
-            config,
-            ipc_handler,
-            message_queue.clone(),
-        )?;
+        let mut inner =
+            crate::webview::desktop::create_desktop(config, ipc_handler, message_queue.clone())?;
 
         // Extract fields from WebViewInner
         // We can safely take these because we own the WebViewInner
@@ -677,11 +674,23 @@ impl NativeBackend {
             window,
             event_loop,
             message_queue,
-            // In standalone mode, we own the message pump
+            // In desktop mode, we own the message pump
             skip_message_pump: false,
             auto_show, // Use config value (false in headless mode)
             max_messages_per_tick: ipc_batch_size,
         })
+    }
+
+    /// Alias for `create_desktop` (backward compatibility)
+    #[cfg(feature = "python-bindings")]
+    #[allow(dead_code)]
+    #[inline]
+    fn create_standalone(
+        config: WebViewConfig,
+        ipc_handler: Arc<IpcHandler>,
+        message_queue: Arc<MessageQueue>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::create_desktop(config, ipc_handler, message_queue)
     }
 
     /// Create embedded WebView for DCC integration
@@ -743,8 +752,8 @@ impl NativeBackend {
                     .with_parent_window(parent_hwnd as isize);
             }
             EmbedMode::None => {
-                // Standalone window mode - no parent relationship
-                tracing::info!("[OK] [NativeBackend] Using None mode - standalone window");
+                // Desktop window mode - no parent relationship
+                tracing::info!("[OK] [NativeBackend] Using None mode - desktop window");
             }
         }
 
@@ -1126,8 +1135,8 @@ impl NativeBackend {
             }),
         );
 
-        // Build WebView - use standard build for standalone mode
-        tracing::info!("[OK] [NativeBackend] Building WebView as standalone");
+        // Build WebView - use standard build for desktop mode
+        tracing::info!("[OK] [NativeBackend] Building WebView as desktop");
         let webview = builder
             .build(window)
             .map_err(|e| format!("Failed to create WebView: {}", e))?;
@@ -1186,8 +1195,8 @@ mod tests {
 
     #[test]
     #[cfg(not(target_os = "linux"))]
-    fn test_native_backend_create_delegates_to_standalone_when_no_parent() {
-        // This test verifies that create() delegates to create_standalone when no parent_hwnd
+    fn test_native_backend_create_delegates_to_desktop_when_no_parent() {
+        // This test verifies that create() delegates to create_desktop when no parent_hwnd
         // Note: Skipped on Linux because EventLoop must be created on main thread
         let config = WebViewConfig {
             parent_hwnd: None,
@@ -1196,7 +1205,7 @@ mod tests {
         let ipc_handler = Arc::new(IpcHandler::new());
         let message_queue = Arc::new(MessageQueue::new());
 
-        // This should attempt to create standalone mode
+        // This should attempt to create desktop mode
         let result = NativeBackend::create(config, ipc_handler, message_queue);
 
         // Should not panic - may succeed or fail depending on environment
