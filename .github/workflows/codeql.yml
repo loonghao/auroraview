@@ -1,8 +1,10 @@
 name: CodeQL
 
+# CodeQL analysis - runs on PRs and weekly schedule.
+# Main branch pushes are handled by release.yml to avoid duplicate CI runs.
+# Security analysis is already done in PR checks, weekly schedule catches any gaps.
+
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
   schedule:
