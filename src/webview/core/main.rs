@@ -155,6 +155,7 @@ impl AuroraView {
     /// * `title` - Window title (for debugging)
     /// * `width` - Width in pixels
     /// * `height` - Height in pixels
+    #[cfg(target_os = "windows")]
     #[staticmethod]
     #[pyo3(signature = (parent_hwnd, title="Embedded WebView", width=800, height=600))]
     fn create_embedded(parent_hwnd: u64, title: &str, width: u32, height: u32) -> PyResult<Self> {
@@ -204,7 +205,6 @@ impl AuroraView {
             event_loop_proxy: Rc::new(RefCell::new(None)),
             js_callback_manager: Arc::new(JsCallbackManager::new()),
             on_hwnd_created: Rc::new(RefCell::new(None)),
-            #[cfg(target_os = "windows")]
             cached_hwnd: Rc::new(RefCell::new(cached_hwnd)),
         })
     }
