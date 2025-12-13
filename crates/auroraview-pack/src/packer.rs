@@ -198,7 +198,6 @@ impl Packer {
         let meta_json = serde_json::to_vec(&python_meta)?;
         overlay.add_asset("python_runtime.json".to_string(), meta_json);
 
-
         // Add Python distribution archive
         overlay.add_asset("python_runtime.tar.gz".to_string(), python_archive);
 
@@ -719,9 +718,8 @@ impl Packer {
             })?;
 
             for entry in entries {
-                let path = entry.map_err(|e| {
-                    PackError::Config(format!("Failed to read glob entry: {}", e))
-                })?;
+                let path = entry
+                    .map_err(|e| PackError::Config(format!("Failed to read glob entry: {}", e)))?;
 
                 if !path.is_file() {
                     continue;

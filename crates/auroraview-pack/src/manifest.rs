@@ -535,7 +535,7 @@ pub struct PyOxidizerManifestConfig {
 }
 
 fn default_python_version() -> String {
-    "3.11".to_string()
+    "3.10".to_string()
 }
 
 fn default_optimize() -> u8 {

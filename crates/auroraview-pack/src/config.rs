@@ -76,7 +76,7 @@ pub struct PythonBundleConfig {
 }
 
 fn default_python_version() -> String {
-    "3.11".to_string()
+    "3.10".to_string()
 }
 
 fn default_optimize() -> u8 {
@@ -667,7 +667,7 @@ mod tests {
         assert!(config.packages.is_empty());
         assert!(config.requirements.is_none());
         assert_eq!(config.strategy, BundleStrategy::Standalone);
-        assert_eq!(config.version, "3.11");
+        assert_eq!(config.version, "3.10");
         assert_eq!(config.optimize, 1);
         assert!(!config.include_pip);
         assert!(!config.include_setuptools);

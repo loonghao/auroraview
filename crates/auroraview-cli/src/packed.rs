@@ -367,7 +367,11 @@ fn extract_resources(overlay: &OverlayData, base_dir: &Path) -> Result<PathBuf> 
     }
 
     if resource_count > 0 {
-        tracing::info!("Extracted {} resource files to: {}", resource_count, resources_dir.display());
+        tracing::info!(
+            "Extracted {} resource files to: {}",
+            resource_count,
+            resources_dir.display()
+        );
     }
 
     Ok(resources_dir)

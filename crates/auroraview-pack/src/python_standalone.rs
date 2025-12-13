@@ -141,8 +141,12 @@ impl PythonStandalone {
             .unwrap_or_else(get_latest_release);
         let triple = self.target.triple();
 
+        // Map short version (e.g., "3.11") to full version (e.g., "3.11.14")
+        let full_version = get_full_python_version(version, &release);
+
+        // Repository moved from indygreg to astral-sh
         format!(
-            "https://github.com/indygreg/python-build-standalone/releases/download/{release}/cpython-{version}+{release}-{triple}-install_only.tar.gz"
+            "https://github.com/astral-sh/python-build-standalone/releases/download/{release}/cpython-{full_version}+{release}-{triple}-install_only.tar.gz"
         )
     }
 
@@ -233,9 +237,27 @@ impl PythonStandalone {
 
 /// Get the latest release tag from python-build-standalone
 fn get_latest_release() -> String {
-    // Default to a known stable release
+    // Default to a known stable release (updated 2025-12)
     // In production, this could query the GitHub API
-    "20241206".to_string()
+    "20251209".to_string()
+}
+
+/// Map short Python version to full version based on release
+///
+/// python-build-standalone uses full version numbers like "3.11.14"
+/// This maps common short versions to their full equivalents.
+fn get_full_python_version(short_version: &str, _release: &str) -> String {
+    // Version mapping for release 20251209
+    // These are the versions available in the latest release
+    match short_version {
+        "3.10" => "3.10.19".to_string(),
+        "3.11" => "3.11.14".to_string(),
+        "3.12" => "3.12.12".to_string(),
+        // If already a full version, use as-is
+        v if v.matches('.').count() >= 2 => v.to_string(),
+        // Default: assume it's a full version
+        v => v.to_string(),
+    }
 }
 
 /// Download a file using system tools
