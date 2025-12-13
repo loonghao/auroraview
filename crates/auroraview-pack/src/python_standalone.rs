@@ -441,14 +441,8 @@ mod tests {
     fn test_python_paths() {
         assert_eq!(PythonTarget::WindowsX64.python_exe(), "python.exe");
         assert_eq!(PythonTarget::LinuxX64.python_exe(), "python3");
-        assert_eq!(
-            PythonTarget::WindowsX64.python_path(),
-            "python/python.exe"
-        );
-        assert_eq!(
-            PythonTarget::LinuxX64.python_path(),
-            "python/bin/python3"
-        );
+        assert_eq!(PythonTarget::WindowsX64.python_path(), "python/python.exe");
+        assert_eq!(PythonTarget::LinuxX64.python_path(), "python/bin/python3");
     }
 
     #[test]

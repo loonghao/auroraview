@@ -337,10 +337,14 @@ impl PyOxidizerBuilder {
         // Add external binaries
         for binary in &self.external_binaries {
             let src = binary.source.to_string_lossy().replace('\\', "/");
-            let dest = binary
-                .dest
-                .clone()
-                .unwrap_or_else(|| binary.source.file_name().unwrap().to_string_lossy().to_string());
+            let dest = binary.dest.clone().unwrap_or_else(|| {
+                binary
+                    .source
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string()
+            });
             config.push_str(&format!(
                 "    files.add_file(FileContent(path = \"{}\"), dest = \"{}\")\n",
                 src, dest
@@ -350,7 +354,10 @@ impl PyOxidizerBuilder {
         // Add resources
         for resource in &self.resources {
             let src = resource.source.to_string_lossy().replace('\\', "/");
-            let dest = resource.dest.clone().unwrap_or_else(|| "resources".to_string());
+            let dest = resource
+                .dest
+                .clone()
+                .unwrap_or_else(|| "resources".to_string());
 
             if resource.source.is_dir() {
                 config.push_str(&format!(
@@ -426,9 +433,9 @@ resolve_targets()
         }
 
         tracing::info!("Running PyOxidizer build...");
-        let status = cmd.status().map_err(|e| {
-            PackError::Build(format!("Failed to run PyOxidizer: {}", e))
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| PackError::Build(format!("Failed to run PyOxidizer: {}", e)))?;
 
         if !status.success() {
             return Err(PackError::Build(format!(
@@ -445,20 +452,29 @@ resolve_targets()
         let possible_paths = [
             build_dir.join("install").join(&exe_name),
             build_dir.join(&exe_name),
-            build_dir.join("x86_64-pc-windows-msvc").join("release").join("install").join(&exe_name),
-            build_dir.join("x86_64-unknown-linux-gnu").join("release").join("install").join(&exe_name),
-            build_dir.join("x86_64-apple-darwin").join("release").join("install").join(&exe_name),
+            build_dir
+                .join("x86_64-pc-windows-msvc")
+                .join("release")
+                .join("install")
+                .join(&exe_name),
+            build_dir
+                .join("x86_64-unknown-linux-gnu")
+                .join("release")
+                .join("install")
+                .join(&exe_name),
+            build_dir
+                .join("x86_64-apple-darwin")
+                .join("release")
+                .join("install")
+                .join(&exe_name),
         ];
 
-        let built_exe = possible_paths
-            .iter()
-            .find(|p| p.exists())
-            .ok_or_else(|| {
-                PackError::Build(format!(
-                    "Built executable not found. Searched: {:?}",
-                    possible_paths
-                ))
-            })?;
+        let built_exe = possible_paths.iter().find(|p| p.exists()).ok_or_else(|| {
+            PackError::Build(format!(
+                "Built executable not found. Searched: {:?}",
+                possible_paths
+            ))
+        })?;
 
         // Copy to output directory
         std::fs::create_dir_all(output_dir)?;
@@ -485,11 +501,8 @@ resolve_targets()
 
 /// Check if PyOxidizer is installed and available
 pub fn check_pyoxidizer() -> PackResult<String> {
-    let builder = PyOxidizerBuilder::new(
-        PyOxidizerConfig::default(),
-        std::env::temp_dir(),
-        "check",
-    );
+    let builder =
+        PyOxidizerBuilder::new(PyOxidizerConfig::default(), std::env::temp_dir(), "check");
     builder.check_available()
 }
 
@@ -544,13 +557,9 @@ mod tests {
 
     #[test]
     fn test_generate_config() {
-        let builder = PyOxidizerBuilder::new(
-            PyOxidizerConfig::default(),
-            "/tmp/test",
-            "myapp",
-        )
-        .entry_point("myapp.main:run")
-        .packages(vec!["requests".to_string(), "pyyaml".to_string()]);
+        let builder = PyOxidizerBuilder::new(PyOxidizerConfig::default(), "/tmp/test", "myapp")
+            .entry_point("myapp.main:run")
+            .packages(vec!["requests".to_string(), "pyyaml".to_string()]);
 
         let config = builder.generate_config().unwrap();
         assert!(config.contains("name = \"myapp\""));
@@ -561,12 +570,8 @@ mod tests {
 
     #[test]
     fn test_get_run_module() {
-        let builder = PyOxidizerBuilder::new(
-            PyOxidizerConfig::default(),
-            "/tmp",
-            "app",
-        )
-        .entry_point("myapp.main:run_server");
+        let builder = PyOxidizerBuilder::new(PyOxidizerConfig::default(), "/tmp", "app")
+            .entry_point("myapp.main:run_server");
 
         assert_eq!(builder.get_run_module(), "myapp.main");
     }

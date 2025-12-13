@@ -81,28 +81,40 @@ fn test_pack_config_builder_pattern() {
 
 #[test]
 fn test_pack_mode_name() {
-    let url_mode = PackMode::Url { url: "https://example.com".to_string() };
+    let url_mode = PackMode::Url {
+        url: "https://example.com".to_string(),
+    };
     assert_eq!(url_mode.name(), "url");
 
-    let frontend_mode = PackMode::Frontend { path: "./dist".into() };
+    let frontend_mode = PackMode::Frontend {
+        path: "./dist".into(),
+    };
     assert_eq!(frontend_mode.name(), "frontend");
 }
 
 #[test]
 fn test_pack_mode_embeds_assets() {
-    let url_mode = PackMode::Url { url: "https://example.com".to_string() };
+    let url_mode = PackMode::Url {
+        url: "https://example.com".to_string(),
+    };
     assert!(!url_mode.embeds_assets());
 
-    let frontend_mode = PackMode::Frontend { path: "./dist".into() };
+    let frontend_mode = PackMode::Frontend {
+        path: "./dist".into(),
+    };
     assert!(frontend_mode.embeds_assets());
 }
 
 #[test]
 fn test_pack_mode_has_python() {
-    let url_mode = PackMode::Url { url: "https://example.com".to_string() };
+    let url_mode = PackMode::Url {
+        url: "https://example.com".to_string(),
+    };
     assert!(!url_mode.has_python());
 
-    let frontend_mode = PackMode::Frontend { path: "./dist".into() };
+    let frontend_mode = PackMode::Frontend {
+        path: "./dist".into(),
+    };
     assert!(!frontend_mode.has_python());
 }
 
@@ -238,7 +250,9 @@ fn test_overlay_roundtrip() {
     assert_eq!(read_data.assets.len(), 2);
 
     // Verify original size
-    let original_size = OverlayReader::get_original_size(temp.path()).unwrap().unwrap();
+    let original_size = OverlayReader::get_original_size(temp.path())
+        .unwrap()
+        .unwrap();
     assert_eq!(original_size, b"fake executable content".len() as u64);
 }
 
@@ -399,7 +413,11 @@ fn test_fullstack_config_embedded_strategy() {
 fn test_fullstack_config_with_packages() {
     let python_config = PythonBundleConfig {
         entry_point: "main:run".to_string(),
-        packages: vec!["pyyaml".to_string(), "requests".to_string(), "flask".to_string()],
+        packages: vec![
+            "pyyaml".to_string(),
+            "requests".to_string(),
+            "flask".to_string(),
+        ],
         ..Default::default()
     };
 
@@ -475,8 +493,8 @@ fn test_overlay_fullstack_roundtrip() {
         ..Default::default()
     };
 
-    let config = PackConfig::fullstack_with_config("./dist", python_config)
-        .with_title("FullStack App");
+    let config =
+        PackConfig::fullstack_with_config("./dist", python_config).with_title("FullStack App");
 
     let mut data = OverlayData::new(config);
     data.add_asset("frontend/index.html", b"<html></html>".to_vec());
@@ -644,8 +662,16 @@ fn test_python_target_all_platforms() {
     use auroraview_pack::PythonTarget;
 
     let targets = [
-        (PythonTarget::WindowsX64, "x86_64-pc-windows-msvc", "python.exe"),
-        (PythonTarget::LinuxX64, "x86_64-unknown-linux-gnu", "python3"),
+        (
+            PythonTarget::WindowsX64,
+            "x86_64-pc-windows-msvc",
+            "python.exe",
+        ),
+        (
+            PythonTarget::LinuxX64,
+            "x86_64-unknown-linux-gnu",
+            "python3",
+        ),
         (PythonTarget::MacOSX64, "x86_64-apple-darwin", "python3"),
         (PythonTarget::MacOSArm64, "aarch64-apple-darwin", "python3"),
     ];
@@ -695,5 +721,7 @@ fn test_python_standalone_cache_dir() {
 
     let cached_path = standalone.cached_path();
     assert!(cached_path.to_string_lossy().contains("cpython-3.11"));
-    assert!(cached_path.to_string_lossy().contains("x86_64-unknown-linux-gnu"));
+    assert!(cached_path
+        .to_string_lossy()
+        .contains("x86_64-unknown-linux-gnu"));
 }

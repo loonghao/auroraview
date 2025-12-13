@@ -123,10 +123,7 @@ impl BundleBuilder {
 
             // Check extension filter
             if !self.extensions.is_empty() {
-                let ext = path
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("");
+                let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
                 if !self.extensions.iter().any(|e| e == ext) {
                     continue;
                 }
@@ -138,9 +135,7 @@ impl BundleBuilder {
                 .map_err(|e| PackError::Bundle(e.to_string()))?;
 
             // Normalize path separators to forward slashes
-            let relative_str = relative
-                .to_string_lossy()
-                .replace('\\', "/");
+            let relative_str = relative.to_string_lossy().replace('\\', "/");
 
             // Read content
             let content = fs::read(path)?;

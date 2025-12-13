@@ -178,7 +178,9 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
 
     // Pack the application
     let packer = PackGenerator::new(config);
-    let output = packer.pack().with_context(|| "Failed to pack application")?;
+    let output = packer
+        .pack()
+        .with_context(|| "Failed to pack application")?;
 
     // Display success message based on mode
     let size_mb = output.size as f64 / (1024.0 * 1024.0);

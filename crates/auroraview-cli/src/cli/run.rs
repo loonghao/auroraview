@@ -267,8 +267,8 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
     // Register file:// protocol if enabled
     if args.allow_file_protocol {
         tracing::info!("[CLI] Enabling file:// protocol support");
-        webview_builder =
-            webview_builder.with_custom_protocol("file".into(), |_webview_id, request| {
+        webview_builder = webview_builder
+            .with_custom_protocol("file".into(), |_webview_id, request| {
                 protocol_handlers::handle_file_protocol(request)
             });
     }

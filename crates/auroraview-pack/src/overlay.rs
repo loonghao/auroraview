@@ -199,7 +199,9 @@ impl OverlayReader {
         reader.read_exact(&mut assets_len_bytes)?;
 
         if &header_magic != OVERLAY_MAGIC {
-            return Err(PackError::InvalidOverlay("Invalid header magic".to_string()));
+            return Err(PackError::InvalidOverlay(
+                "Invalid header magic".to_string(),
+            ));
         }
 
         let version = u32::from_le_bytes(version_bytes);
@@ -244,10 +246,7 @@ impl OverlayReader {
 
         for entry in archive.entries()? {
             let mut entry = entry?;
-            let path = entry
-                .path()?
-                .to_string_lossy()
-                .to_string();
+            let path = entry.path()?.to_string_lossy().to_string();
             let mut content = Vec::new();
             entry.read_to_end(&mut content)?;
             assets.push((path, content));
@@ -310,7 +309,9 @@ mod tests {
         assert_eq!(read_data.assets.len(), 2);
 
         // Verify original size
-        let original_size = OverlayReader::get_original_size(temp.path()).unwrap().unwrap();
+        let original_size = OverlayReader::get_original_size(temp.path())
+            .unwrap()
+            .unwrap();
         assert_eq!(original_size, b"fake executable content".len() as u64);
     }
 

@@ -95,6 +95,14 @@ pub use config::{
 };
 pub use error::{PackError, PackResult};
 pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator};
+pub use manifest::{
+    AppConfig, BuildConfig, BundleConfig, CollectEntry, DebugConfig, HooksManifestConfig,
+    InjectConfig, LicenseManifestConfig, LinuxBundleConfig, MacOSBundleConfig, Manifest,
+    PackageConfig, PyOxidizerManifestConfig, PythonConfig, RuntimeConfig, StartPosition,
+    WindowConfig as ManifestWindowConfig, WindowsBundleConfig,
+};
+pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};
+pub use packer::Packer;
 pub use pyoxidizer::{
     check_pyoxidizer, installation_instructions, DistributionFlavor, ExternalBinary,
     PyOxidizerBuilder, PyOxidizerConfig, ResourceFile,
@@ -103,14 +111,6 @@ pub use python_standalone::{
     extract_runtime, get_runtime_cache_dir, PythonRuntimeMeta, PythonStandalone,
     PythonStandaloneConfig, PythonTarget,
 };
-pub use manifest::{
-    AppConfig, BuildConfig, BundleConfig, CollectEntry, DebugConfig, HooksManifestConfig,
-    InjectConfig, LicenseManifestConfig, LinuxBundleConfig, MacOSBundleConfig, Manifest,
-    PackageConfig, PythonConfig, PyOxidizerManifestConfig, RuntimeConfig, StartPosition,
-    WindowConfig as ManifestWindowConfig, WindowsBundleConfig,
-};
-pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};
-pub use packer::Packer;
 
 /// Alias for backward compatibility with CLI
 pub type PackGenerator = Packer;
