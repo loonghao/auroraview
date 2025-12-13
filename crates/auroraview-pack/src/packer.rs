@@ -198,6 +198,7 @@ impl Packer {
         let meta_json = serde_json::to_vec(&python_meta)?;
         overlay.add_asset("python_runtime.json".to_string(), meta_json);
 
+
         // Add Python distribution archive
         overlay.add_asset("python_runtime.tar.gz".to_string(), python_archive);
 
@@ -211,17 +212,24 @@ impl Packer {
         // Bundle Python code
         let python_file_count = self.bundle_python_code(&mut overlay, python)?;
 
+        // Collect additional resources from hooks
+        let resource_count = self.collect_hook_resources(&mut overlay)?;
+        if resource_count > 0 {
+            tracing::info!("Collected {} resource files from hooks", resource_count);
+        }
+
         // Write overlay to executable
         OverlayWriter::write(&output_path, &overlay)?;
 
         let size = fs::metadata(&output_path)?.len();
 
         tracing::info!(
-            "Pack complete: {} ({:.2} MB, {} assets, {} python files)",
+            "Pack complete: {} ({:.2} MB, {} assets, {} python files, {} resources)",
             output_path.display(),
             size as f64 / (1024.0 * 1024.0),
             asset_count,
-            python_file_count
+            python_file_count,
+            resource_count
         );
 
         Ok(PackOutput {
@@ -692,6 +700,63 @@ impl Packer {
         }
     }
 
+    /// Collect additional resources from hooks configuration
+    ///
+    /// This processes the `hooks.collect` entries from the manifest,
+    /// expanding glob patterns and adding matched files to the overlay.
+    fn collect_hook_resources(&self, overlay: &mut OverlayData) -> PackResult<usize> {
+        let hooks = match &self.config.hooks {
+            Some(h) => h,
+            None => return Ok(0),
+        };
+
+        let mut count = 0;
+
+        for pattern in &hooks.collect_files {
+            // Expand glob pattern
+            let entries = glob::glob(&pattern.source).map_err(|e| {
+                PackError::Config(format!("Invalid glob pattern '{}': {}", pattern.source, e))
+            })?;
+
+            for entry in entries {
+                let path = entry.map_err(|e| {
+                    PackError::Config(format!("Failed to read glob entry: {}", e))
+                })?;
+
+                if !path.is_file() {
+                    continue;
+                }
+
+                // Determine destination path
+                let dest_path = if let Some(ref dest) = pattern.dest {
+                    if pattern.preserve_structure {
+                        // Preserve relative path structure under dest
+                        let file_name = path.file_name().unwrap_or_default();
+                        format!("{}/{}", dest, file_name.to_string_lossy())
+                    } else {
+                        // Just use filename under dest
+                        let file_name = path.file_name().unwrap_or_default();
+                        format!("{}/{}", dest, file_name.to_string_lossy())
+                    }
+                } else {
+                    // Use original filename
+                    path.file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string()
+                };
+
+                // Read and add file
+                let content = fs::read(&path)?;
+                tracing::debug!("Collecting resource: {} -> {}", path.display(), dest_path);
+                overlay.add_asset(dest_path, content);
+                count += 1;
+            }
+        }
+
+        Ok(count)
+    }
+
     /// Generate requirements.txt file
     fn generate_requirements_file(
         &self,
@@ -963,6 +1028,25 @@ impl PackConfig {
             expiration_message: l.expiration_message.clone(),
         });
 
+        // Build hooks config from manifest
+        let hooks = manifest.hooks.as_ref().map(|h| crate::HooksConfig {
+            before_collect: h.before_collect.clone(),
+            collect_files: h
+                .collect
+                .iter()
+                .map(|c| crate::CollectPattern {
+                    source: if std::path::Path::new(&c.source).is_absolute() {
+                        c.source.clone()
+                    } else {
+                        base_dir.join(&c.source).to_string_lossy().to_string()
+                    },
+                    dest: c.dest.clone(),
+                    preserve_structure: c.preserve_structure,
+                })
+                .collect(),
+            after_pack: h.after_pack.clone(),
+        });
+
         Ok(Self {
             mode,
             output_name: manifest.package.name.clone(),
@@ -981,6 +1065,7 @@ impl PackConfig {
             icon_path,
             env,
             license,
+            hooks,
         })
     }
 }

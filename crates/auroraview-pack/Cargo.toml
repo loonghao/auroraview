@@ -28,6 +28,7 @@ tracing = "0.1"
 
 # File system operations
 walkdir = "2.5"
+glob = "0.3"
 
 # Compression
 zstd = "0.13"

@@ -11,7 +11,7 @@ use auroraview_pack::{
 };
 use std::fs;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use tao::event_loop::{ControlFlow, EventLoop};
 use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
@@ -264,6 +264,9 @@ fn start_python_backend(
 
     tracing::info!("Extracted {} Python files", python_files.len());
 
+    // Extract resource directories (examples, etc.) from overlay assets
+    let resources_dir = extract_resources(overlay, &temp_dir)?;
+
     // Parse entry point (format: "module:function" or "file.py")
     let entry_point = &python_config.entry_point;
     let (module, function) = if entry_point.contains(':') {
@@ -297,20 +300,77 @@ fn start_python_backend(
     tracing::info!("Using Python: {}", python_exe.display());
     tracing::debug!("Python code: {}", python_code);
 
-    // Start Python process with AURORAVIEW_PACKED environment variable
-    let child = Command::new(&python_exe)
-        .args(["-c", &python_code])
+    // Start Python process with environment variables
+    let mut cmd = Command::new(&python_exe);
+    cmd.args(["-c", &python_code])
         .current_dir(&temp_dir)
         .env("AURORAVIEW_PACKED", "1")
+        .env("AURORAVIEW_RESOURCES_DIR", &resources_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    // Set specific resource paths as environment variables
+    let examples_dir = resources_dir.join("examples");
+    if examples_dir.exists() {
+        cmd.env("AURORAVIEW_EXAMPLES_DIR", &examples_dir);
+        tracing::info!("Examples directory: {}", examples_dir.display());
+    }
+
+    let child = cmd
         .spawn()
         .with_context(|| format!("Failed to start Python backend: {}", python_exe.display()))?;
 
     tracing::info!("Python backend started (PID: {})", child.id());
 
     Ok(child)
+}
+
+/// Extract resource directories from overlay assets
+///
+/// Resources are stored with prefixes like "resources/examples/", "resources/data/", etc.
+/// This function extracts them to the resources directory and returns the path.
+fn extract_resources(overlay: &OverlayData, base_dir: &Path) -> Result<PathBuf> {
+    let resources_dir = base_dir.join("resources");
+    fs::create_dir_all(&resources_dir)?;
+
+    let mut resource_count = 0;
+
+    for (path, content) in &overlay.assets {
+        // Check for resources with "resources/" prefix (from hooks.collect)
+        if path.starts_with("resources/") {
+            let rel_path = path.strip_prefix("resources/").unwrap_or(path);
+            let dest_path = resources_dir.join(rel_path);
+
+            // Create parent directories
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+
+            fs::write(&dest_path, content)?;
+            resource_count += 1;
+            tracing::debug!("Extracted resource: {}", rel_path);
+        }
+        // Also check for "examples/" prefix directly (legacy support)
+        else if path.starts_with("examples/") {
+            let dest_path = resources_dir.join(path);
+
+            // Create parent directories
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+
+            fs::write(&dest_path, content)?;
+            resource_count += 1;
+            tracing::debug!("Extracted resource: {}", path);
+        }
+    }
+
+    if resource_count > 0 {
+        tracing::info!("Extracted {} resource files to: {}", resource_count, resources_dir.display());
+    }
+
+    Ok(resources_dir)
 }
 
 /// Extract embedded Python runtime for standalone mode

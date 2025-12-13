@@ -523,6 +523,7 @@ version = "0.3.11"
 dependencies = [
  "dirs",
  "flate2",
+ "glob",
  "hostname",
  "serde",
  "serde_json",

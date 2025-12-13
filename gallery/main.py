@@ -27,11 +27,28 @@ from typing import Optional
 # Add parent directory to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent
 GALLERY_DIR = Path(__file__).parent
-EXAMPLES_DIR = PROJECT_ROOT / "examples"
 DIST_DIR = GALLERY_DIR / "dist"
 
 # Check if running in packed mode (set by Rust CLI)
 PACKED_MODE = os.environ.get("AURORAVIEW_PACKED", "0") == "1"
+
+# Determine examples directory based on mode
+# In packed mode, examples are extracted to AURORAVIEW_EXAMPLES_DIR
+# In development mode, examples are in the project root
+if PACKED_MODE:
+    _examples_env = os.environ.get("AURORAVIEW_EXAMPLES_DIR")
+    if _examples_env:
+        EXAMPLES_DIR = Path(_examples_env)
+    else:
+        # Fallback: check resources directory relative to script
+        _resources_dir = os.environ.get("AURORAVIEW_RESOURCES_DIR")
+        if _resources_dir:
+            EXAMPLES_DIR = Path(_resources_dir) / "examples"
+        else:
+            # Last resort: use project root (won't work in packed mode)
+            EXAMPLES_DIR = PROJECT_ROOT / "examples"
+else:
+    EXAMPLES_DIR = PROJECT_ROOT / "examples"
 
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "python"))
