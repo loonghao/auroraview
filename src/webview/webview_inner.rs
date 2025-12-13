@@ -216,6 +216,7 @@ impl WebViewInner {
 
     /// Create embedded WebView (non-Windows platforms)
     #[cfg(not(target_os = "windows"))]
+    #[allow(dead_code)]
     pub fn create_embedded(
         _parent_hwnd: u64,
         _config: WebViewConfig,

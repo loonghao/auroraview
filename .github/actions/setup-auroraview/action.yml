@@ -81,6 +81,7 @@ runs:
           libxi-dev \
           libxfixes-dev \
           libxtst-dev \
+          libxdo-dev \
           pkg-config
         # Qt6 dependencies for PySide6
         sudo apt-get install -y \
