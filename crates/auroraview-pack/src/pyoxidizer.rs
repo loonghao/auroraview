@@ -61,7 +61,7 @@ fn default_pyoxidizer_path() -> String {
 }
 
 fn default_python_version() -> String {
-    "3.11".to_string()
+    "3.10".to_string()
 }
 
 fn default_optimize() -> u8 {
@@ -550,7 +550,7 @@ mod tests {
     fn test_default_config() {
         let config = PyOxidizerConfig::default();
         assert_eq!(config.executable, "pyoxidizer");
-        assert_eq!(config.python_version, "3.11");
+        assert_eq!(config.python_version, "3.10");
         assert!(config.release);
         assert_eq!(config.optimize, 1);
     }

@@ -48,7 +48,7 @@ icon = "../assets/icon.ico"
 # This bundles the Gallery's Python backend (main.py) with all dependencies
 [python]
 enabled = true
-version = "3.11"
+version = "3.10"
 entry_point = "main:run_gallery"
 packages = ["pyyaml"]  # Add any Python dependencies here
 include_paths = ["."]  # Include gallery directory (main.py)
