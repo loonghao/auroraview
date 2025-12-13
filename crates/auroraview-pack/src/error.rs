@@ -1,44 +1,67 @@
-//! Pack module error types
+//! Error types for auroraview-pack
 
 use std::path::PathBuf;
 use thiserror::Error;
 
-/// Errors that can occur during pack operations
+/// Result type for pack operations
+pub type PackResult<T> = Result<T, PackError>;
+
+/// Errors that can occur during packing
 #[derive(Error, Debug)]
 pub enum PackError {
-    /// Invalid configuration
-    #[error("Invalid pack configuration: {0}")]
-    InvalidConfig(String),
+    /// I/O error
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+
+    /// Configuration error
+    #[error("Configuration error: {0}")]
+    Config(String),
+
+    /// Invalid URL
+    #[error("Invalid URL: {0}")]
+    InvalidUrl(String),
 
     /// Frontend path not found
     #[error("Frontend path not found: {0}")]
     FrontendNotFound(PathBuf),
 
-    /// Backend entry point invalid
-    #[error("Invalid backend entry point: {0}. Expected format: 'module:function'")]
-    InvalidBackendEntry(String),
+    /// Invalid manifest file
+    #[error("Invalid manifest: {0}")]
+    InvalidManifest(String),
 
-    /// URL parsing error
-    #[error("Invalid URL: {0}")]
-    InvalidUrl(String),
+    /// TOML parsing error
+    #[error("TOML parse error: {0}")]
+    TomlParse(#[from] toml::de::Error),
 
-    /// IO error
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    /// JSON serialization error
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 
-    /// Template generation error
-    #[error("Template generation failed: {0}")]
-    TemplateError(String),
+    /// Overlay format error
+    #[error("Invalid overlay format: {0}")]
+    InvalidOverlay(String),
 
-    /// Build error
-    #[error("Build failed: {0}")]
-    BuildError(String),
+    /// Asset not found
+    #[error("Asset not found: {0}")]
+    AssetNotFound(PathBuf),
 
-    /// Python runtime not available (PyOxidizer not installed)
-    #[error("Python runtime embedding requires PyOxidizer. Backend mode is not yet supported.")]
-    PythonRuntimeNotAvailable,
+    /// Bundle error
+    #[error("Bundle error: {0}")]
+    Bundle(String),
 
-    /// Unsupported platform
-    #[error("Unsupported platform: {0}")]
-    UnsupportedPlatform(String),
+    /// Icon processing error
+    #[error("Icon error: {0}")]
+    Icon(String),
+
+    /// Compression error
+    #[error("Compression error: {0}")]
+    Compression(String),
+
+    /// Build error (PyOxidizer, etc.)
+    #[error("Build error: {0}")]
+    Build(String),
+
+    /// Download error
+    #[error("Download error: {0}")]
+    Download(String),
 }

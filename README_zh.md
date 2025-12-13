@@ -1347,6 +1347,59 @@ Gallery 提供：
 - 运行时配置的设置面板
 - 跨所有示例的搜索功能
 
+### 应用打包
+
+AuroraView 提供强大的打包系统，可创建独立可执行文件：
+
+```bash
+# 打包基于 URL 的应用
+auroraview pack --url https://example.com --output myapp.exe
+
+# 打包前端项目（React、Vue 等）
+auroraview pack --frontend ./dist --output myapp.exe
+
+# 打包全栈应用（前端 + Python 后端）
+auroraview pack --config auroraview.pack.toml --output myapp.exe
+```
+
+**配置文件示例 (`auroraview.pack.toml`)：**
+
+```toml
+[window]
+title = "我的应用"
+width = 1200
+height = 800
+resizable = true
+
+[mode]
+type = "fullstack"
+
+[mode.frontend]
+path = "./frontend/dist"
+
+[mode.python]
+entry_point = "main:main"
+source = "./backend"
+strategy = "standalone"  # 嵌入 Python 运行时，支持离线使用
+```
+
+**打包策略：**
+
+| 策略 | 离线支持 | 体积 | 说明 |
+|------|----------|------|------|
+| `standalone`（默认） | 是 | ~50-80MB | 嵌入 Python 运行时，首次运行时解压 |
+| `embedded` | 否 | ~15MB | 需要系统 Python |
+| `portable` | 是 | ~50-80MB | 目录结构，包含 Python |
+| `pyoxidizer` | 是 | ~30-50MB | 需要安装 PyOxidizer |
+
+**主要特性：**
+- 单文件可执行分发
+- 嵌入式 Python 运行时（无需系统 Python）
+- 首次运行解压到用户缓存目录
+- 环境变量注入
+- 授权/Token 验证支持
+- 自定义 Hooks 收集额外文件
+
 ## 文档
 
 ### 核心文档
