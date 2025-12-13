@@ -2,6 +2,7 @@
 
 use crate::bundle::BundleBuilder;
 use crate::config::{BundleStrategy, PythonBundleConfig};
+use crate::deps_collector::DepsCollector;
 use crate::overlay::{OverlayData, OverlayWriter};
 use crate::python_standalone::{PythonRuntimeMeta, PythonStandalone, PythonStandaloneConfig};
 use crate::{Manifest, PackConfig, PackError, PackMode, PackResult};
@@ -575,6 +576,7 @@ impl Packer {
         python: &PythonBundleConfig,
     ) -> PackResult<usize> {
         let mut count = 0;
+        let mut entry_files = Vec::new();
 
         for include_path in &python.include_paths {
             if include_path.is_file() {
@@ -586,6 +588,7 @@ impl Packer {
                     .unwrap_or("main.py");
                 overlay.add_asset(format!("python/{}", name), content);
                 count += 1;
+                entry_files.push(include_path.clone());
             } else if include_path.is_dir() {
                 // Directory - walk and add all .py files
                 for entry in walkdir::WalkDir::new(include_path)
@@ -593,19 +596,139 @@ impl Packer {
                     .filter_map(|e| e.ok())
                     .filter(|e| e.path().extension().is_some_and(|ext| ext == "py"))
                 {
+                    // Skip excluded patterns
                     let rel_path = entry
                         .path()
                         .strip_prefix(include_path)
                         .unwrap_or(entry.path());
+
+                    // Check if path matches any exclude pattern
+                    let path_str = rel_path.to_string_lossy();
+                    let should_exclude = python.exclude.iter().any(|pattern| {
+                        // Simple glob matching
+                        if pattern.contains('*') {
+                            let pattern = pattern.replace("*", "");
+                            path_str.contains(&pattern)
+                        } else {
+                            path_str.contains(pattern)
+                        }
+                    });
+
+                    if should_exclude {
+                        continue;
+                    }
+
                     let content = fs::read(entry.path())?;
                     overlay.add_asset(
                         format!("python/{}", rel_path.to_string_lossy().replace('\\', "/")),
                         content,
                     );
                     count += 1;
+
+                    // Track main entry files for dependency analysis
+                    if rel_path.to_string_lossy() == "main.py"
+                        || rel_path.to_string_lossy().ends_with("/main.py")
+                    {
+                        entry_files.push(entry.path().to_path_buf());
+                    }
                 }
             }
         }
+
+        // Collect Python dependencies
+        let deps_count = self.collect_python_deps(overlay, python, &entry_files)?;
+        count += deps_count;
+
+        Ok(count)
+    }
+
+    /// Collect Python dependencies and add to overlay
+    fn collect_python_deps(
+        &self,
+        overlay: &mut OverlayData,
+        python: &PythonBundleConfig,
+        entry_files: &[PathBuf],
+    ) -> PackResult<usize> {
+        // Build list of packages to include
+        let mut packages_to_collect: Vec<String> = python.packages.clone();
+
+        // Always include auroraview if not explicitly excluded
+        if !python.exclude.iter().any(|e| e == "auroraview") {
+            packages_to_collect.push("auroraview".to_string());
+        }
+
+        // Read from requirements.txt if specified
+        if let Some(ref req_path) = python.requirements {
+            if req_path.exists() {
+                let content = fs::read_to_string(req_path)?;
+                for line in content.lines() {
+                    let line = line.trim();
+                    if !line.is_empty() && !line.starts_with('#') {
+                        // Extract package name (before any version specifier)
+                        let pkg_name = line
+                            .split(['=', '>', '<', '!', '[', ';'])
+                            .next()
+                            .unwrap_or(line)
+                            .trim();
+                        if !pkg_name.is_empty() {
+                            packages_to_collect.push(pkg_name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        if packages_to_collect.is_empty() && entry_files.is_empty() {
+            return Ok(0);
+        }
+
+        tracing::info!(
+            "Collecting Python dependencies: {:?}",
+            packages_to_collect
+        );
+
+        // Create temp directory for collecting deps
+        let temp_dir = std::env::temp_dir().join(format!(
+            "auroraview-deps-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&temp_dir)?;
+
+        // Use DepsCollector to collect packages
+        let collector = DepsCollector::new()
+            .include(packages_to_collect.iter().cloned())
+            .exclude(python.exclude.iter().cloned());
+
+        let collected = collector.collect(entry_files, &temp_dir)?;
+
+        tracing::info!(
+            "Collected {} packages ({} files, {:.2} MB)",
+            collected.packages.len(),
+            collected.file_count,
+            collected.total_size as f64 / (1024.0 * 1024.0)
+        );
+
+        // Add collected files to overlay
+        let mut count = 0;
+        for entry in walkdir::WalkDir::new(&temp_dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_file())
+        {
+            let rel_path = entry
+                .path()
+                .strip_prefix(&temp_dir)
+                .unwrap_or(entry.path());
+            let content = fs::read(entry.path())?;
+            overlay.add_asset(
+                format!("python/{}", rel_path.to_string_lossy().replace('\\', "/")),
+                content,
+            );
+            count += 1;
+        }
+
+        // Cleanup temp directory
+        let _ = fs::remove_dir_all(&temp_dir);
 
         Ok(count)
     }

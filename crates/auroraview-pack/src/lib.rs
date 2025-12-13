@@ -79,6 +79,7 @@
 
 mod bundle;
 mod config;
+mod deps_collector;
 mod error;
 mod license;
 mod manifest;
@@ -93,6 +94,7 @@ pub use config::{
     BundleStrategy, CollectPattern, HooksConfig, LicenseConfig, PackConfig, PackMode,
     PythonBundleConfig, TargetPlatform, WindowConfig, WindowStartPosition,
 };
+pub use deps_collector::{CollectedDeps, DepsCollector};
 pub use error::{PackError, PackResult};
 pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator};
 pub use manifest::{
