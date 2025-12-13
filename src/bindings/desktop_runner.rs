@@ -132,10 +132,8 @@ fn run_desktop(
     tray_icon: Option<String>,
     tray_show_on_click: bool,
     tray_hide_on_close: bool,
-    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
-    tool_window: bool,
-    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
-    undecorated_shadow: bool,
+    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] tool_window: bool,
+    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] undecorated_shadow: bool,
 ) -> PyResult<()> {
     tracing::info!("[run_desktop] Creating desktop WebView: {}", title);
 
@@ -294,10 +292,8 @@ fn run_standalone(
     tray_icon: Option<String>,
     tray_show_on_click: bool,
     tray_hide_on_close: bool,
-    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
-    tool_window: bool,
-    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
-    undecorated_shadow: bool,
+    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] tool_window: bool,
+    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] undecorated_shadow: bool,
 ) -> PyResult<()> {
     run_desktop(
         title,
