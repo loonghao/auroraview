@@ -537,3 +537,64 @@ gallery-pack-project: gallery-build
     @echo "Generating Gallery pack project..."
     cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --output-dir target/pack
     @echo "[OK] Gallery pack project generated in target/pack/auroraview-gallery/"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pack Commands (Application Packaging)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Test auroraview-pack crate
+test-pack:
+    @echo "Testing auroraview-pack crate..."
+    cargo test -p auroraview-pack --lib
+    @echo "[OK] Pack tests passed!"
+
+# Test auroraview-pack with verbose output
+test-pack-verbose:
+    @echo "Testing auroraview-pack crate (verbose)..."
+    cargo test -p auroraview-pack --lib -- --nocapture
+    @echo "[OK] Pack tests passed!"
+
+# Run clippy on pack crate
+lint-pack:
+    @echo "Linting auroraview-pack crate..."
+    cargo clippy -p auroraview-pack --all-targets -- -D warnings
+    @echo "[OK] Pack lint passed!"
+
+# Pack a URL into standalone executable
+pack-url URL OUTPUT="myapp":
+    @echo "Packing URL: {{URL}} -> {{OUTPUT}}.exe"
+    cargo run -p auroraview-cli --release -- pack --url "{{URL}}" --output "{{OUTPUT}}"
+    @echo "[OK] Packed to target/pack/{{OUTPUT}}/"
+
+# Pack a frontend directory into standalone executable
+pack-frontend FRONTEND OUTPUT="myapp":
+    @echo "Packing frontend: {{FRONTEND}} -> {{OUTPUT}}.exe"
+    cargo run -p auroraview-cli --release -- pack --frontend "{{FRONTEND}}" --output "{{OUTPUT}}"
+    @echo "[OK] Packed to target/pack/{{OUTPUT}}/"
+
+# Pack using a config file
+pack-config CONFIG:
+    @echo "Packing with config: {{CONFIG}}"
+    cargo run -p auroraview-cli --release -- pack --config "{{CONFIG}}"
+    @echo "[OK] Pack completed!"
+
+# Pack and build in one step
+pack-build CONFIG:
+    @echo "Packing and building with config: {{CONFIG}}"
+    cargo run -p auroraview-cli --release -- pack --config "{{CONFIG}}" --build
+    @echo "[OK] Pack and build completed!"
+
+# Show pack info for a config file
+pack-info CONFIG:
+    @echo "Pack info for: {{CONFIG}}"
+    cargo run -p auroraview-cli --release -- info --config "{{CONFIG}}"
+
+# Clean pack output directory
+pack-clean:
+    @echo "Cleaning pack output..."
+    rm -rf target/pack
+    @echo "[OK] Pack output cleaned!"
+
+# Full pack workflow: test, lint, then pack gallery
+pack-all: test-pack lint-pack gallery-pack
+    @echo "[OK] Full pack workflow completed!"
