@@ -136,6 +136,26 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 - [OK] **WebView2 Warmup**: Pre-initialize WebView2 for faster DCC startup
 - [OK] **Performance Monitoring**: get_performance_metrics(), get_ipc_stats()
 
+### Desktop Features
+- [OK] **System Tray**: System tray icon with context menu, hide to tray, click to show
+- [OK] **Tool Window**: Hide from taskbar/Alt+Tab with `tool_window=True` (WS_EX_TOOLWINDOW)
+- [OK] **Floating Panels**: Frameless, transparent windows for AI assistants and tool palettes
+- [OK] **Owner Mode**: Window follows parent minimize/restore with `embed_mode="owner"`
+
+### Plugin System
+- [OK] **Rust Plugin Architecture**: High-performance plugin system with IPC
+- [OK] **Process Plugin**: Run external processes with stdout/stderr streaming
+- [OK] **File System Plugin**: Native file operations (read, write, copy, move)
+- [OK] **Dialog Plugin**: Native file/folder dialogs and message boxes
+- [OK] **Shell Plugin**: Execute commands, open URLs, reveal in file manager
+- [OK] **Clipboard Plugin**: System clipboard read/write access
+
+### Gallery Application
+- [OK] **Interactive Showcase**: React-based gallery demonstrating all features
+- [OK] **Example Runner**: Run any example with live stdout/stderr output
+- [OK] **Category Browser**: Organized examples by category with search
+- [OK] **Pack Command**: Build standalone Gallery executable with `auroraview pack`
+
 ### Security
 - [OK] **CSP Configuration**: Content Security Policy support
 - [OK] **CORS Control**: Cross-Origin Resource Sharing management
@@ -1347,6 +1367,65 @@ webview.show()
 ```
 
 For detailed guide, see [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEGRATION.md).
+
+### System Tray Support
+
+Create desktop applications with system tray integration:
+
+```python
+from auroraview import run_desktop
+
+# Launch app with system tray support
+run_desktop(
+    title="My Background App",
+    html=my_html,
+    width=400,
+    height=300,
+    system_tray=True,  # Enable system tray
+    hide_on_close=True,  # Minimize to tray instead of closing
+)
+```
+
+### Floating Tool Windows
+
+Create floating panels for AI assistants or tool palettes:
+
+```python
+from auroraview import WebView
+
+# Create a floating tool window
+webview = WebView.create(
+    title="AI Assistant",
+    html=panel_html,
+    width=320,
+    height=400,
+    frame=False,  # Frameless window
+    transparent=True,  # Transparent background
+    always_on_top=True,  # Keep on top
+    tool_window=True,  # Hide from taskbar/Alt+Tab
+    parent=parent_hwnd,  # Optional: follow parent window
+    mode="owner",  # Window follows parent minimize/restore
+)
+webview.show()
+```
+
+### Gallery Application
+
+AuroraView includes an interactive Gallery showcasing all features:
+
+```bash
+# Run the Gallery
+just gallery
+
+# Or build a standalone Gallery executable
+just gallery-pack
+```
+
+The Gallery provides:
+- Interactive example browser with categories
+- Live example runner with stdout/stderr streaming
+- Settings panel for runtime configuration
+- Search functionality across all examples
 
 ## Documentation
 
