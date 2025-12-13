@@ -3,14 +3,20 @@
 This example demonstrates the simplest way to create a WebView tool
 using the decorator pattern. Best for quick prototypes and simple tools.
 
+Note: This example uses the low-level WebView API for demonstration.
+For most use cases, prefer:
+- QtWebView: For Qt-based DCC apps (Maya, Houdini, Nuke)
+- AuroraView: For HWND-based apps (Unreal Engine)
+- run_desktop: For standalone desktop applications
+
 Usage:
     python examples/simple_decorator.py
 
 Features demonstrated:
     - @view.bind_call() decorator for API methods
     - @view.on() decorator for event handlers
-    - Python → JavaScript communication via emit()
-    - JavaScript → Python communication via API calls
+    - Python -> JavaScript communication via emit()
+    - JavaScript -> Python communication via API calls
 
 JavaScript side (index.html):
     // Call Python API

@@ -76,10 +76,10 @@ webview = WebView.create(
     singleton="my_tool",   # Optional: singleton key
 )
 
-# For DCC embedding with HWND
-webview = WebView.create_for_dcc(
+# For embedded mode with HWND (DCC or any host application)
+webview = WebView.create_embedded(
     parent_hwnd=hwnd,
-    title="DCC Tool",
+    title="Embedded Tool",
     width=800,
     height=600,
     url="http://localhost:3000",

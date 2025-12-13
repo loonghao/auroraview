@@ -43,8 +43,10 @@
 //! // Note: This is a blocking call that will run until the window is closed
 //! ```
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tao::event_loop::EventLoopBuilder;
+use tao::platform::run_return::EventLoopExtRunReturn;
 use tao::window::WindowBuilder;
 use wry::WebViewBuilder as WryWebViewBuilder;
 #[cfg(target_os = "windows")]
@@ -53,12 +55,16 @@ use wry::WebViewBuilderExtWindows;
 use super::config::WebViewConfig;
 use super::event_loop::UserEvent;
 use super::js_assets;
+use super::tray::TrayManager;
 use super::webview_inner::WebViewInner;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 
 // Use shared builder utilities from auroraview-core
 #[cfg(target_os = "windows")]
-use auroraview_core::builder::{apply_child_window_style, ChildWindowStyleOptions};
+use auroraview_core::builder::{
+    apply_child_window_style, apply_owner_window_style, apply_tool_window_style,
+    disable_window_shadow, ChildWindowStyleOptions,
+};
 use auroraview_core::builder::{get_background_color, init_com_sta, log_background_color};
 
 /// Create desktop WebView with its own window
@@ -115,7 +121,18 @@ pub fn create_desktop(
         .with_resizable(config.resizable)
         .with_decorations(config.decorations)
         .with_transparent(config.transparent)
+        .with_always_on_top(config.always_on_top)
         .with_visible(false); // Start hidden to avoid white flash
+
+    // On Windows, apply platform-specific window styles
+    // NOTE: with_undecorated_shadow and with_skip_taskbar are NOT applied here
+    // because they cause WebView2 creation to fail with HRESULT 0x80070057.
+    // These styles are applied AFTER WebView2 creation via apply_tool_window_style().
+    #[cfg(target_os = "windows")]
+    {
+        // WindowBuilderExtWindows is imported but styles are applied post-creation
+        // to avoid WebView2 initialization issues.
+    }
 
     // Set window icon (custom or default)
     if let Some(icon) = load_window_icon(config.icon.as_ref()) {
@@ -147,13 +164,22 @@ pub fn create_desktop(
         if let Some(parent) = config.parent_hwnd {
             match config.embed_mode {
                 EmbedMode::Child => {
-                    // RECOMMENDED: Use WS_CHILD for true child window embedding
+                    // RECOMMENDED for embedding: Use WS_CHILD for true child window
                     // - wry's build_as_child() is designed for this
                     // - WebView2's "Windowed Hosting" is the simplest option
-                    tracing::info!("Creating WS_CHILD window (RECOMMENDED mode)");
+                    tracing::info!("Creating WS_CHILD window (RECOMMENDED for embedding)");
                     window_builder = window_builder
                         .with_decorations(false)
                         .with_parent_window(parent as isize);
+                }
+                EmbedMode::Owner => {
+                    // RECOMMENDED for floating windows: Owner relationship
+                    // - Window stays above owner in Z-order
+                    // - Hidden when owner is minimized
+                    // - Destroyed when owner is destroyed
+                    // Owner is set after window creation via SetWindowLongPtrW
+                    tracing::info!("Creating owned window (RECOMMENDED for floating windows)");
+                    // Don't set parent here - we'll set owner after creation
                 }
                 EmbedMode::None => {
                     // Standalone window mode - no parent relationship
@@ -165,24 +191,35 @@ pub fn create_desktop(
 
     let window = window_builder.build(&event_loop)?;
 
-    // Apply WS_CHILD style for Child mode to prevent independent dragging
+    // Apply window styles based on embed mode
     #[cfg(target_os = "windows")]
     {
         use crate::webview::config::EmbedMode;
         use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
-        if let Some(parent) = config.parent_hwnd {
-            if matches!(config.embed_mode, EmbedMode::Child) {
-                if let Ok(window_handle) = window.window_handle() {
-                    if let RawWindowHandle::Win32(handle) = window_handle.as_raw() {
-                        let hwnd = handle.hwnd.get();
-                        let _ = apply_child_window_style(
-                            hwnd,
-                            parent as isize,
-                            ChildWindowStyleOptions::for_standalone(),
-                        );
+        if let Ok(window_handle) = window.window_handle() {
+            if let RawWindowHandle::Win32(handle) = window_handle.as_raw() {
+                let hwnd = handle.hwnd.get();
+
+                if let Some(parent) = config.parent_hwnd {
+                    match config.embed_mode {
+                        EmbedMode::Child => {
+                            let _ = apply_child_window_style(
+                                hwnd,
+                                parent as isize,
+                                ChildWindowStyleOptions::for_standalone(),
+                            );
+                        }
+                        EmbedMode::Owner => {
+                            // Set owner relationship using GWLP_HWNDPARENT
+                            apply_owner_window_style(hwnd, parent, config.tool_window);
+                        }
+                        EmbedMode::None => {}
                     }
                 }
+                // NOTE: Tool window style for standalone windows (without owner) is
+                // applied AFTER WebView2 creation to avoid HRESULT 0x80070057 error.
+                // See the apply_tool_window_style call after webview_builder.build().
             }
         }
     }
@@ -231,34 +268,46 @@ pub fn create_desktop(
         );
     }
 
-    // Set background color to match app background (dark theme) using shared utility
-    let background_color = get_background_color();
-    webview_builder = webview_builder.with_background_color(background_color);
-    log_background_color(background_color);
+    // Set background color based on transparency setting
+    // Transparent windows need both:
+    // 1. with_transparent(true) on WebViewBuilder
+    // 2. with_background_color((0,0,0,0)) for fully transparent background
+    if config.transparent {
+        webview_builder = webview_builder
+            .with_transparent(true)
+            .with_background_color((0, 0, 0, 0));
+        tracing::info!("[standalone] Transparent window: WebView transparency enabled");
+    } else {
+        let background_color = get_background_color();
+        webview_builder = webview_builder.with_background_color(background_color);
+        log_background_color(background_color);
+    }
 
     // Register auroraview:// custom protocol for local asset loading
-    if let Some(ref asset_root) = config.asset_root {
-        let asset_root = asset_root.clone();
-        tracing::info!(
-            "[standalone] Registering auroraview:// protocol (asset_root: {:?})",
-            asset_root
-        );
+    // Always register this protocol to support https://auroraview.localhost/file/... URLs
+    let asset_root_for_protocol = config.asset_root.clone();
+    tracing::info!(
+        "[standalone] Registering auroraview:// protocol (asset_root: {:?})",
+        asset_root_for_protocol
+    );
 
-        // On Windows, use HTTPS scheme for secure context support
-        #[cfg(target_os = "windows")]
-        {
-            webview_builder = webview_builder.with_https_scheme(true);
-        }
-
-        webview_builder = webview_builder.with_custom_protocol(
-            "auroraview".into(),
-            move |_webview_id, request| {
-                crate::webview::protocol_handlers::handle_auroraview_protocol(&asset_root, request)
-            },
-        );
-    } else {
-        tracing::debug!("[standalone] asset_root is None, auroraview:// protocol not registered");
+    // On Windows, use HTTPS scheme for secure context support
+    #[cfg(target_os = "windows")]
+    {
+        webview_builder = webview_builder.with_https_scheme(true);
     }
+
+    // Use a default empty path if no asset_root is provided
+    let default_asset_root = std::env::current_dir().unwrap_or_default();
+    let protocol_asset_root = asset_root_for_protocol.unwrap_or(default_asset_root);
+
+    webview_builder =
+        webview_builder.with_custom_protocol("auroraview".into(), move |_webview_id, request| {
+            crate::webview::protocol_handlers::handle_auroraview_protocol(
+                &protocol_asset_root,
+                request,
+            )
+        });
 
     // Register file:// protocol if enabled
     if config.allow_file_protocol {
@@ -313,14 +362,45 @@ pub fn create_desktop(
         });
     }
 
-    // Store the target URL/HTML for later loading
+    // Handle new window requests (window.open())
+    // On Windows WebView2, NewWindowResponse::Allow may not work reliably.
+    // Instead, we open external links in the system default browser.
+    if config.allow_new_window {
+        tracing::info!("[standalone] Allowing new windows (opens in system browser)");
+        webview_builder = webview_builder.with_new_window_req_handler(|url, _features| {
+            tracing::info!("[standalone] New window requested: {}", url);
+            // Open in system default browser instead of creating a new WebView window
+            // This is more reliable on WebView2 and matches user expectations
+            if let Err(e) = open::that(&url) {
+                tracing::error!("[standalone] Failed to open URL in browser: {}", e);
+            }
+            // Deny creating a new WebView window since we opened in external browser
+            wry::NewWindowResponse::Deny
+        });
+    } else {
+        tracing::debug!("[standalone] New windows blocked by default");
+    }
+
+    // Determine initial content to load
+    // Priority: 1. Target HTML, 2. Target URL (via splash), 3. Splash screen only
     let target_url = config.url.clone();
     let target_html = config.html.clone();
 
-    // Load loading screen first to avoid white screen
-    let loading_html = js_assets::get_loading_html();
-    tracing::info!("[standalone] Loading splash screen to avoid white screen");
-    webview_builder = webview_builder.with_html(loading_html);
+    // If we have target HTML, load it directly (no splash screen needed)
+    // If we have target URL, show splash screen first then navigate
+    // If neither, just show splash screen
+    if let Some(ref html) = target_html {
+        tracing::info!(
+            "[standalone] Loading target HTML directly ({} bytes)",
+            html.len()
+        );
+        webview_builder = webview_builder.with_html(html);
+    } else {
+        // Load splash screen for URL navigation or empty state
+        let loading_html = js_assets::get_loading_html();
+        tracing::info!("[standalone] Loading splash screen");
+        webview_builder = webview_builder.with_html(loading_html);
+    }
 
     // Add native file drag-drop handler using shared builder module
     // This provides full file paths that browsers cannot access due to security restrictions
@@ -384,24 +464,29 @@ pub fn create_desktop(
                     }
                 } else if msg_type == "call" {
                     if let Some(method) = message.get("method").and_then(|v| v.as_str()) {
-                        let params = message
-                            .get("params")
-                            .cloned()
-                            .unwrap_or(serde_json::Value::Null);
+                        let has_params = message.get("params").is_some();
+                        let params = message.get("params").cloned();
                         let id = message
                             .get("id")
                             .and_then(|v| v.as_str())
                             .map(|s| s.to_string());
 
                         tracing::info!(
-                            "Call received from JavaScript: {} with params: {} id: {:?}",
+                            "Call received from JavaScript: {} with params: {:?} id: {:?}",
                             method,
                             params,
                             id
                         );
 
                         let mut payload = serde_json::Map::new();
-                        payload.insert("params".to_string(), params);
+                        // Only include params if it was present in the original message
+                        if has_params {
+                            if let Some(p) = params {
+                                payload.insert("params".to_string(), p);
+                            } else {
+                                payload.insert("params".to_string(), serde_json::Value::Null);
+                            }
+                        }
                         if let Some(ref call_id) = id {
                             payload.insert(
                                 "id".to_string(),
@@ -482,10 +567,17 @@ pub fn create_desktop(
                                 })
                             };
 
-                            // Dispatch call_result event to JavaScript
+                            // Dispatch call_result event to JavaScript using auroraview.trigger()
+                            let escaped_json = result_payload.to_string().replace('\\', "\\\\").replace('\'', "\\'");
                             let script = format!(
-                                "window.dispatchEvent(new CustomEvent('__auroraview_call_result', {{ detail: {} }}));",
-                                result_payload
+                                "(function() {{ \
+                                    if (window.auroraview && window.auroraview.trigger) {{ \
+                                        window.auroraview.trigger('__auroraview_call_result', JSON.parse('{}')); \
+                                    }} else {{ \
+                                        console.error('[AuroraView] Event bridge not ready, cannot emit call_result'); \
+                                    }} \
+                                }})();",
+                                escaped_json
                             );
                             message_queue_clone.push(crate::ipc::WebViewMessage::EvalJs(script));
                         }
@@ -495,25 +587,28 @@ pub fn create_desktop(
         }
     });
 
+    // Build the WebView - this is the slowest part of initialization
+    // On first run, WebView2 needs to:
+    // 1. Create WebView2 Environment (discover runtime, spawn browser process)
+    // 2. Create WebView2 Controller
+    // 3. Initialize the WebView with HTML content
+    tracing::info!("[standalone] Building WebView (this may take a few seconds on first run)...");
+    let build_start = std::time::Instant::now();
     let webview = webview_builder.build(&window)?;
+    let build_duration = build_start.elapsed();
 
-    tracing::info!("[standalone] WebView created successfully with loading screen");
+    tracing::info!(
+        "[standalone] WebView created successfully in {:.2}s",
+        build_duration.as_secs_f64()
+    );
 
-    // Load the actual content after WebView is created
-    // This happens in the background while the loading screen is visible
-    //
-    // IMPORTANT: Use wry's native load_url() instead of evaluate_script() with
-    // window.location.href. The JavaScript approach fails because:
-    // 1. The splash screen HTML may not be fully loaded when evaluate_script runs
-    // 2. window.location.href assignment can be blocked or ignored in certain contexts
-    // 3. Native load_url() is more reliable and handles all edge cases
+    // Load target URL if specified (HTML was already loaded via with_html)
+    // This navigates from splash screen to the target URL
     if let Some(ref url) = target_url {
-        tracing::info!("[standalone] Loading target URL in background: {}", url);
+        tracing::info!("[standalone] Loading target URL: {}", url);
         webview.load_url(url)?;
-    } else if let Some(ref html) = target_html {
-        tracing::info!("[standalone] Loading target HTML in background");
-        webview.load_html(html)?;
     }
+    // Note: target_html was already loaded via with_html() above
 
     // Create event loop proxy for sending close events
     let event_loop_proxy = event_loop.create_proxy();
@@ -546,6 +641,25 @@ pub fn create_desktop(
             None
         }
     };
+
+    // Apply tool window style AFTER WebView2 is created
+    // Doing this before WebView2 creation causes HRESULT 0x80070057 (E_INVALIDARG)
+    #[cfg(target_os = "windows")]
+    if config.tool_window {
+        if let Some(hwnd) = cached_hwnd {
+            apply_tool_window_style(hwnd as isize);
+        }
+    }
+
+    // Disable window shadow for transparent frameless windows
+    // undecorated_shadow=false means we want to disable the shadow
+    #[cfg(target_os = "windows")]
+    if !config.undecorated_shadow {
+        if let Some(hwnd) = cached_hwnd {
+            disable_window_shadow(hwnd as isize);
+            tracing::info!("[standalone] Disabled window shadow (undecorated_shadow=false)");
+        }
+    }
 
     #[allow(clippy::arc_with_non_send_sync)]
     Ok(WebViewInner {
@@ -622,21 +736,50 @@ pub fn run_desktop(
     message_queue: Arc<MessageQueue>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use tao::event_loop::ControlFlow;
+    use tray_icon::menu::MenuEvent;
+    use tray_icon::TrayIconEvent;
 
-    // Save auto_show and headless before config is consumed
+    // Save config values before config is consumed
     let auto_show = config.auto_show;
     let headless = config.headless;
+    let tray_config = config.tray.clone();
+    let window_icon = config.icon.clone();
 
     // Create the WebView
     let mut webview_inner = create_desktop(config, ipc_handler, message_queue)?;
 
     // Take ownership of event loop and window using take()
-    let event_loop = webview_inner
+    let mut event_loop = webview_inner
         .event_loop
         .take()
         .ok_or("Event loop is None")?;
     let window = webview_inner.window.take().ok_or("Window is None")?;
     let webview = webview_inner.webview.clone();
+
+    // Create system tray if configured
+    let tray_manager = if let Some(ref tray_cfg) = tray_config {
+        match TrayManager::new(tray_cfg, window_icon.as_ref()) {
+            Ok(manager) => Some(manager),
+            Err(e) => {
+                tracing::warn!("[Standalone] Failed to create system tray: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    // Get tray settings for event handling
+    let hide_on_close = tray_config.as_ref().is_some_and(|t| t.hide_on_close);
+    let show_on_click = tray_config.as_ref().is_some_and(|t| t.show_on_click);
+    let show_on_double_click = tray_config.as_ref().is_some_and(|t| t.show_on_double_click);
+
+    // Store menu IDs for event handling
+    let menu_ids = tray_manager
+        .as_ref()
+        .map(|m| Arc::new(m.menu_ids.clone()))
+        .unwrap_or_else(|| Arc::new(std::collections::HashMap::new()));
+    let menu_ids_clone = menu_ids.clone();
 
     // Window starts hidden - will be shown after a short delay to let loading screen render
     // (only if auto_show is enabled and not in headless mode)
@@ -657,20 +800,124 @@ pub fn run_desktop(
     let show_time = std::time::Instant::now() + std::time::Duration::from_millis(100);
     // Window should only be shown if: auto_show is true AND headless is false
     let mut window_shown = !auto_show || headless;
+    let mut window_visible = false;
 
-    tracing::info!("[Standalone] Starting event loop with run()");
+    // Set up Ctrl+C handler with atomic flag
+    let ctrlc_pressed = Arc::new(AtomicBool::new(false));
+    let ctrlc_flag = ctrlc_pressed.clone();
 
-    // Run the event loop - this will block until window closes and then exit the process
-    event_loop.run(move |event, _, control_flow| {
-        // Poll frequently to check if we should show the window (only if auto_show)
-        if auto_show && !window_shown {
-            *control_flow = ControlFlow::Poll;
-        } else {
-            *control_flow = ControlFlow::Wait;
+    // Try to set up Ctrl+C handler (may fail if already set)
+    if let Err(e) = ctrlc::try_set_handler(move || {
+        tracing::info!("[Standalone] Ctrl+C received, requesting exit...");
+        ctrlc_flag.store(true, Ordering::SeqCst);
+    }) {
+        tracing::warn!("[Standalone] Could not set Ctrl+C handler: {}", e);
+    }
+
+    let tray_enabled = tray_manager.is_some();
+    tracing::info!(
+        "[Standalone] Starting event loop with run_return() (Ctrl+C enabled, tray={})",
+        tray_enabled
+    );
+
+    // Run the event loop using run_return() to allow Ctrl+C handling
+    // This returns normally instead of calling std::process::exit()
+    event_loop.run_return(move |event, _, control_flow| {
+        // Check for Ctrl+C signal
+        if ctrlc_pressed.load(Ordering::SeqCst) {
+            tracing::info!("[Standalone] Ctrl+C detected, exiting event loop");
+            *control_flow = ControlFlow::Exit;
+            return;
         }
 
-        // Keep webview alive
+        // Process tray icon events
+        if tray_enabled {
+            if let Ok(event) = TrayIconEvent::receiver().try_recv() {
+                match event {
+                    TrayIconEvent::Click {
+                        button: tray_icon::MouseButton::Left,
+                        ..
+                    } => {
+                        if show_on_click && !window_visible {
+                            tracing::debug!("[Standalone] Tray click - showing window");
+                            window.set_visible(true);
+                            window.set_focus();
+                            window_visible = true;
+                        }
+                    }
+                    TrayIconEvent::DoubleClick {
+                        button: tray_icon::MouseButton::Left,
+                        ..
+                    } => {
+                        if show_on_double_click {
+                            tracing::debug!("[Standalone] Tray double-click - toggling window");
+                            if window_visible {
+                                window.set_visible(false);
+                                window_visible = false;
+                            } else {
+                                window.set_visible(true);
+                                window.set_focus();
+                                window_visible = true;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // Process menu events
+            if let Ok(event) = MenuEvent::receiver().try_recv() {
+                if let Some(id) = menu_ids_clone.get(&event.id) {
+                    tracing::info!("[Standalone] Tray menu clicked: {}", id);
+                    // Handle built-in menu actions
+                    match id.as_str() {
+                        "quit" | "exit" => {
+                            tracing::info!("[Standalone] Quit menu clicked, exiting");
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
+                        "show" => {
+                            window.set_visible(true);
+                            window.set_focus();
+                            window_visible = true;
+                        }
+                        "hide" => {
+                            window.set_visible(false);
+                            window_visible = false;
+                        }
+                        _ => {
+                            // Custom menu item - emit event to JavaScript
+                            if let Ok(wv) = webview.lock() {
+                                let js = format!(
+                                    r#"(function() {{
+                                        if (window.auroraview && window.auroraview.trigger) {{
+                                            window.auroraview.trigger('tray_menu_click', {{ id: '{}' }});
+                                        }}
+                                    }})()"#,
+                                    id
+                                );
+                                let _ = wv.evaluate_script(&js);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Poll frequently to check if we should show the window (only if auto_show)
+        // Also poll to check for Ctrl+C signal and tray events
+        if (auto_show && !window_shown) || tray_enabled {
+            *control_flow = ControlFlow::Poll;
+        } else {
+            // Use WaitUntil with a timeout to periodically check for Ctrl+C
+            *control_flow = ControlFlow::WaitUntil(
+                std::time::Instant::now() + std::time::Duration::from_millis(100),
+            );
+        }
+
+        // Keep webview and tray alive
         let _ = &webview;
+        let _ = &tray_manager;
 
         // Show window after delay (once) - only if auto_show is enabled and not headless
         if !headless && auto_show && !window_shown && std::time::Instant::now() >= show_time {
@@ -678,8 +925,7 @@ pub fn run_desktop(
             window.set_visible(true);
             window.request_redraw();
             window_shown = true;
-            // Switch to Wait mode after showing window to reduce CPU usage
-            *control_flow = ControlFlow::Wait;
+            window_visible = true;
         }
 
         if let tao::event::Event::WindowEvent {
@@ -687,12 +933,22 @@ pub fn run_desktop(
             ..
         } = event
         {
-            tracing::info!("[Standalone] Window close requested, exiting");
-            // Set Exit control flow - WebView and Window will be dropped automatically
-            // This helps avoid the Chrome_WidgetWin_0 unregister error
-            *control_flow = ControlFlow::Exit;
+            if hide_on_close && tray_enabled {
+                // Hide to tray instead of closing
+                tracing::info!("[Standalone] Window close requested, hiding to tray");
+                window.set_visible(false);
+                window_visible = false;
+            } else {
+                tracing::info!("[Standalone] Window close requested, exiting");
+                // Set Exit control flow - WebView and Window will be dropped automatically
+                // This helps avoid the Chrome_WidgetWin_0 unregister error
+                *control_flow = ControlFlow::Exit;
+            }
         }
     });
+
+    tracing::info!("[Standalone] Event loop exited normally");
+    Ok(())
 }
 
 /// Embedded window icon (32x32 PNG) - used as fallback

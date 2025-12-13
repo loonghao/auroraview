@@ -16,6 +16,7 @@ pub struct CargoTomlTemplate<'a> {
 #[derive(Template)]
 #[template(path = "main_url.rs.txt")]
 pub struct MainUrlTemplate<'a> {
+    pub name: &'a str,
     pub title: &'a str,
     pub url: &'a str,
     pub width: u32,
@@ -26,6 +27,7 @@ pub struct MainUrlTemplate<'a> {
 #[derive(Template)]
 #[template(path = "main_frontend.rs.txt")]
 pub struct MainFrontendTemplate<'a> {
+    pub name: &'a str,
     pub title: &'a str,
     pub width: u32,
     pub height: u32,
@@ -35,6 +37,7 @@ pub struct MainFrontendTemplate<'a> {
 #[derive(Template)]
 #[template(path = "main_fullstack.rs.txt")]
 pub struct MainFullstackTemplate<'a> {
+    pub name: &'a str,
     pub title: &'a str,
     pub width: u32,
     pub height: u32,
@@ -79,6 +82,7 @@ mod tests {
     #[test]
     fn test_main_url_template() {
         let template = MainUrlTemplate {
+            name: "my-app",
             title: "My App",
             url: "https://example.com",
             width: 1024,
@@ -87,11 +91,13 @@ mod tests {
         let result = template.render().unwrap();
         assert!(result.contains("const APP_URL: &str = \"https://example.com\""));
         assert!(result.contains("const WINDOW_TITLE: &str = \"My App\""));
+        assert!(result.contains("const APP_NAME: &str = \"my-app\""));
     }
 
     #[test]
     fn test_main_frontend_template() {
         let template = MainFrontendTemplate {
+            name: "frontend-app",
             title: "Frontend App",
             width: 800,
             height: 600,
@@ -99,5 +105,6 @@ mod tests {
         let result = template.render().unwrap();
         assert!(result.contains("rust_embed::RustEmbed"));
         assert!(result.contains("struct Assets"));
+        assert!(result.contains("const APP_NAME: &str = \"frontend-app\""));
     }
 }

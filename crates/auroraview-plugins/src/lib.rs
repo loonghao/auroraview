@@ -37,6 +37,7 @@
 pub mod clipboard;
 pub mod dialog;
 pub mod fs;
+pub mod process;
 pub mod scope;
 pub mod shell;
 mod types;
@@ -47,7 +48,10 @@ pub use types::{PluginCommand, PluginError, PluginErrorCode, PluginResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+
+/// Event callback type for plugins to emit events
+pub type PluginEventCallback = Arc<dyn Fn(&str, Value) + Send + Sync>;
 
 /// Plugin command request
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,6 +167,8 @@ pub struct PluginRouter {
     plugins: HashMap<String, Arc<dyn PluginHandler>>,
     /// Global scope configuration
     scope: ScopeConfig,
+    /// Event callback for plugins to emit events to frontend
+    event_callback: Arc<RwLock<Option<PluginEventCallback>>>,
 }
 
 impl Default for PluginRouter {
@@ -174,9 +180,12 @@ impl Default for PluginRouter {
 impl PluginRouter {
     /// Create a new plugin router with default plugins
     pub fn new() -> Self {
+        let event_callback: Arc<RwLock<Option<PluginEventCallback>>> = Arc::new(RwLock::new(None));
+
         let mut router = Self {
             plugins: HashMap::new(),
             scope: ScopeConfig::default(),
+            event_callback: event_callback.clone(),
         };
 
         // Register built-in plugins
@@ -184,6 +193,10 @@ impl PluginRouter {
         router.register("clipboard", Arc::new(clipboard::ClipboardPlugin::new()));
         router.register("shell", Arc::new(shell::ShellPlugin::new()));
         router.register("dialog", Arc::new(dialog::DialogPlugin::new()));
+
+        // Create process plugin with shared event callback
+        let process_plugin = process::ProcessPlugin::with_event_callback(event_callback);
+        router.register("process", Arc::new(process_plugin));
 
         router
     }
@@ -193,6 +206,28 @@ impl PluginRouter {
         let mut router = Self::new();
         router.scope = scope;
         router
+    }
+
+    /// Set the event callback for plugins to emit events
+    ///
+    /// This callback will be invoked when plugins (like ProcessPlugin) need
+    /// to send events to the frontend (e.g., process stdout/stderr output).
+    pub fn set_event_callback(&self, callback: PluginEventCallback) {
+        let mut cb = self.event_callback.write().unwrap();
+        *cb = Some(callback);
+    }
+
+    /// Clear the event callback
+    pub fn clear_event_callback(&self) {
+        let mut cb = self.event_callback.write().unwrap();
+        *cb = None;
+    }
+
+    /// Emit an event through the callback (if set)
+    pub fn emit_event(&self, event_name: &str, data: Value) {
+        if let Some(callback) = self.event_callback.read().unwrap().as_ref() {
+            callback(event_name, data);
+        }
     }
 
     /// Register a plugin

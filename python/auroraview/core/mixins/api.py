@@ -145,6 +145,7 @@ class WebViewApiMixin:
 
         This is a compatibility path for environments where the core
         event bridge does not reliably dispatch DOM CustomEvents.
+        Uses window.auroraview.trigger() for consistent event handling.
         """
         try:
             json_str = json.dumps(payload)
@@ -155,9 +156,15 @@ class WebViewApiMixin:
             )
             return
 
+        # Use auroraview.trigger() for consistent event handling
         script = (
-            "window.dispatchEvent(new CustomEvent('__auroraview_call_result', "
-            f"{{ detail: JSON.parse({json_str!r}) }}));"
+            "(function() {"
+            "  if (window.auroraview && window.auroraview.trigger) {"
+            f"    window.auroraview.trigger('__auroraview_call_result', JSON.parse({json_str!r}));"
+            "  } else {"
+            "    console.error('[AuroraView] Event bridge not ready, cannot emit call_result');"
+            "  }"
+            "})();"
         )
         print(f"[AuroraView DEBUG] _emit_call_result_js dispatching payload to JS: {payload}")
         try:
@@ -291,6 +298,15 @@ class WebViewApiMixin:
         # Register wrapper with core IPC handler
         self._core.on(method, _handler)
         logger.info("Bound auroraview.call handler: %s", method)
+
+        # Register API method in JavaScript (high-performance path via Rust)
+        # Parse namespace and method name from full method path (e.g., "api.echo" -> "api", "echo")
+        if "." in method:
+            parts = method.split(".", 1)
+            namespace = parts[0]
+            method_name = parts[1]
+            self._core.register_api_methods(namespace, [method_name])
+            logger.debug("Registered JS API method: %s.%s", namespace, method_name)
 
         # For decorator-style usage, return the original function
         return func

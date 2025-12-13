@@ -29,7 +29,7 @@ class WebViewFactory:
     Provides static methods for creating WebView instances:
     - create: Main factory method with all options
     - run_embedded: Convenience method for embedded mode
-    - create_for_dcc: Direct HWND embedding for DCC applications
+    - create_embedded: Direct HWND embedding for host applications
     """
 
     # Singleton registry (shared with WebView class)
@@ -219,12 +219,12 @@ class WebViewFactory:
         )
 
     @classmethod
-    def create_for_dcc(
+    def create_embedded(
         cls,
         webview_cls: type,
         parent_hwnd: int,
         *,
-        title: str = "DCC WebView",
+        title: str = "Embedded WebView",
         width: int = 800,
         height: int = 600,
         url: Optional[str] = None,
@@ -232,16 +232,16 @@ class WebViewFactory:
         asset_root: Optional[str] = None,
         debug: bool = True,
     ) -> "WebView":
-        """Create a WebView directly embedded into a DCC main window's HWND.
+        """Create a WebView directly embedded into a parent window's HWND.
 
-        This is the fastest way to embed a WebView into a DCC application because:
+        This is the fastest way to embed a WebView into a host application because:
         1. No Qt Widget intermediate layer
         2. WebView2 is created synchronously on the calling thread
-        3. Uses DCC's native message loop directly
+        3. Uses host's native message loop directly
 
         Args:
             webview_cls: The WebView class to instantiate
-            parent_hwnd: The HWND of the DCC main window
+            parent_hwnd: The HWND of the parent window
             title: Window title (for debugging/identification)
             width: Width in pixels
             height: Height in pixels
@@ -255,10 +255,10 @@ class WebViewFactory:
         """
         from auroraview._core import WebView as _CoreWebView
 
-        logger.info(f"[create_for_dcc] Creating WebView for parent HWND: {parent_hwnd}")
+        logger.info(f"[create_embedded] Creating WebView for parent HWND: {parent_hwnd}")
 
-        # Create core WebView using create_for_dcc static method
-        core = _CoreWebView.create_for_dcc(
+        # Create core WebView using create_embedded static method
+        core = _CoreWebView.create_embedded(
             parent_hwnd=parent_hwnd,
             title=title,
             width=width,
@@ -305,7 +305,45 @@ class WebViewFactory:
         elif html:
             core.load_html(html)
 
-        logger.info("[create_for_dcc] WebView created successfully")
-        logger.info("[create_for_dcc] Remember to call process_events_ipc_only() periodically!")
+        logger.info("[create_embedded] WebView created successfully")
+        logger.info("[create_embedded] Remember to call process_events_ipc_only() periodically!")
 
         return instance
+
+    @classmethod
+    def create_for_dcc(
+        cls,
+        webview_cls: type,
+        parent_hwnd: int,
+        *,
+        title: str = "DCC WebView",
+        width: int = 800,
+        height: int = 600,
+        url: Optional[str] = None,
+        html: Optional[str] = None,
+        asset_root: Optional[str] = None,
+        debug: bool = True,
+    ) -> "WebView":
+        """Create a WebView for DCC integration (deprecated alias).
+
+        .. deprecated:: 0.4.0
+            Use :meth:`create_embedded` instead. This method will be removed in a future version.
+        """
+        import warnings
+
+        warnings.warn(
+            "create_for_dcc is deprecated, use create_embedded instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.create_embedded(
+            webview_cls,
+            parent_hwnd,
+            title=title,
+            width=width,
+            height=height,
+            url=url,
+            html=html,
+            asset_root=asset_root,
+            debug=debug,
+        )

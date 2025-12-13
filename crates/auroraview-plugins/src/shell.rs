@@ -89,6 +89,9 @@ pub struct ExecuteOptions {
     /// Encoding for output (default: utf-8)
     #[serde(default)]
     pub encoding: Option<String>,
+    /// Show console window (Windows only, default: false)
+    #[serde(default)]
+    pub show_console: bool,
 }
 
 /// Options for finding an executable
@@ -329,13 +332,21 @@ impl PluginHandler for ShellPlugin {
                     cmd.env(key, value);
                 }
 
-                // Spawn (detached)
+                // Spawn (detached) with optional console window
                 #[cfg(windows)]
                 {
                     use std::os::windows::process::CommandExt;
                     const CREATE_NO_WINDOW: u32 = 0x08000000;
+                    const CREATE_NEW_CONSOLE: u32 = 0x00000010;
                     const DETACHED_PROCESS: u32 = 0x00000008;
-                    cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+
+                    if opts.show_console {
+                        // Show a new console window for the process
+                        cmd.creation_flags(CREATE_NEW_CONSOLE);
+                    } else {
+                        // Hide console window (default)
+                        cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+                    }
                 }
 
                 let child = cmd

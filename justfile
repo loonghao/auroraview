@@ -472,6 +472,51 @@ maya-debug:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Gallery Commands
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Build gallery frontend
+gallery-build:
+    @echo "Building gallery frontend..."
+    cd gallery; npm install; npm run build
+    @echo "[OK] Gallery built in gallery/dist/"
+
+# Run gallery (build frontend first, then launch with AuroraView)
+gallery: gallery-build
+    @echo "Starting AuroraView Gallery..."
+    uv run python gallery/main.py
+
+# Run gallery dev server (for frontend development)
+gallery-dev:
+    @echo "Starting gallery dev server..."
+    cd gallery; npm run dev
+
+# Run Gallery E2E tests
+gallery-test:
+    @echo "Running Gallery E2E tests..."
+    uv run pytest tests/python/integration/test_gallery_e2e.py tests/python/integration/test_gallery_contract.py tests/python/integration/test_gallery_plugin_api.py -v --tb=short
+
+# Run Gallery Playwright E2E tests (frontend only, with mock API)
+gallery-test-playwright:
+    @echo "Running Gallery Playwright E2E tests..."
+    uv run python scripts/test_gallery_e2e.py
+
+# Run Gallery real E2E tests (requires gallery-build first)
+gallery-test-real: gallery-build
+    @echo "Running Gallery real E2E tests..."
+    uv run pytest tests/python/integration/test_gallery_real_e2e.py -v --tb=short
+
+# Run Gallery test loop (continuous testing)
+gallery-test-loop:
+    @echo "Running Gallery test loop..."
+    uv run python scripts/test_gallery_loop.py
+
+# Run Gallery test loop in watch mode
+gallery-test-watch:
+    @echo "Running Gallery test loop in watch mode..."
+    uv run python scripts/test_gallery_loop.py --watch
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Packaging Commands
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -480,3 +525,15 @@ build-wheel:
     @echo "Building Python wheel..."
     uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
     @echo "[OK] Wheel built in target/wheels/"
+
+# Pack Gallery into standalone executable
+gallery-pack: gallery-build
+    @echo "Packing Gallery into standalone executable..."
+    cargo run -p auroraview-cli --release -- pack --frontend gallery/dist --output auroraview-gallery --title "AuroraView Gallery" --width 1200 --height 800 --build
+    @echo "[OK] Gallery packed successfully!"
+
+# Pack Gallery for release (generates project without building)
+gallery-pack-project: gallery-build
+    @echo "Generating Gallery pack project..."
+    cargo run -p auroraview-cli --release -- pack --frontend gallery/dist --output auroraview-gallery --title "AuroraView Gallery" --width 1200 --height 800 --output-dir target/pack
+    @echo "[OK] Gallery pack project generated in target/pack/auroraview-gallery/"

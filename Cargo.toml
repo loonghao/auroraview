@@ -61,6 +61,13 @@ simd-json = "0.13"
 # Async runtime
 tokio = { version = "1.48", features = ["full"] }
 
+# Signal handling (Ctrl+C)
+ctrlc = "3.4"
+
+# System tray support
+tray-icon = "0.19"
+muda = "0.16"
+
 # Error handling
 anyhow = "1.0"
 thiserror = "2.0"
@@ -99,6 +106,9 @@ active-win-pos-rs = "0.9"
 
 # File dialogs
 rfd = "0.16"
+
+# Open URLs/files in system default application
+open = "5.3"
 
 # Image processing for window icon (minimal features for PNG loading)
 image = { version = "0.24", default-features = false, features = ["png"] }

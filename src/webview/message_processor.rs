@@ -2,6 +2,12 @@
 //!
 //! This module provides a unified message processor to reduce code duplication
 //! between `process_events()` and `process_ipc_only()`.
+//!
+//! NOTE: This module is prepared for future refactoring. Currently the message
+//! processing logic is duplicated in `event_loop.rs` and `backend/native.rs`.
+//! Once stabilized, we can migrate to use this unified processor.
+
+#![allow(dead_code)]
 
 use crate::ipc::WebViewMessage;
 use crate::webview::js_assets;

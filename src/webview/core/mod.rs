@@ -11,6 +11,7 @@
 //! - `plugins.rs`: Plugin system integration
 
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -18,7 +19,8 @@ use std::sync::Arc;
 use super::config::WebViewConfig;
 use super::event_loop::UserEvent;
 use super::webview_inner::WebViewInner;
-use crate::ipc::{IpcHandler, JsCallbackManager, MessageQueue};
+use crate::bindings::webview::py_dict_to_json;
+use crate::ipc::{IpcHandler, JsCallbackManager, MessageQueue, WebViewMessage};
 
 // Sub-modules containing #[pymethods] implementations
 #[cfg(feature = "templates")]
@@ -34,6 +36,41 @@ pub mod plugins;
 mod storage;
 
 pub use plugins::PluginManager;
+
+/// Thread-safe event emitter for cross-thread event emission
+///
+/// This class can be safely used from any thread (including ProcessPlugin background threads)
+/// to emit events to the JavaScript frontend. It only holds an Arc<MessageQueue> which is
+/// thread-safe.
+///
+/// Example:
+///     emitter = webview.create_emitter()
+///     # Can be used from any thread:
+///     emitter.emit("my_event", {"data": "value"})
+#[pyclass(name = "EventEmitter")]
+pub struct EventEmitter {
+    message_queue: Arc<MessageQueue>,
+}
+
+#[pymethods]
+impl EventEmitter {
+    /// Emit an event to JavaScript (thread-safe)
+    ///
+    /// Args:
+    ///     event_name (str): Name of the event
+    ///     data (dict): Data to send with the event
+    fn emit(&self, event_name: &str, data: &Bound<'_, PyDict>) -> PyResult<()> {
+        let json_data = py_dict_to_json(data)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        self.message_queue.push(WebViewMessage::EmitEvent {
+            event_name: event_name.to_string(),
+            data: json_data,
+        });
+
+        Ok(())
+    }
+}
 
 /// Python-facing WebView class
 /// Supports both standalone and embedded modes (for DCC integration)
@@ -54,6 +91,24 @@ pub struct AuroraView {
     /// so it can be accessed even when inner RefCell is borrowed
     #[cfg(target_os = "windows")]
     pub(crate) cached_hwnd: Rc<RefCell<Option<u64>>>,
+}
+
+#[pymethods]
+impl AuroraView {
+    /// Create a thread-safe event emitter
+    ///
+    /// Returns an EventEmitter that can be used from any thread to emit events
+    /// to the JavaScript frontend. This is useful for plugin callbacks that run
+    /// on background threads.
+    ///
+    /// Example:
+    ///     emitter = webview.create_emitter()
+    ///     plugins.set_emit_callback(emitter.emit)
+    fn create_emitter(&self) -> EventEmitter {
+        EventEmitter {
+            message_queue: Arc::clone(&self.message_queue),
+        }
+    }
 }
 
 /// Implement Drop to track when AuroraView is destroyed

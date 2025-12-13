@@ -1,14 +1,37 @@
 //! Utility functions and helpers
 //!
 //! This module provides logging initialization, URL normalization,
-//! and re-exports the IdGenerator from auroraview-core for backward compatibility.
+//! and re-exports protocol utilities from auroraview-core.
+//!
+//! NOTE: Functions in this module are used by PyO3 bindings (conditionally compiled).
+//! The dead_code warnings are expected when compiling without python-bindings feature.
+//!
+//! ## AuroraView Protocol URL Format
+//!
+//! Local files are accessed through the custom protocol with type prefixes:
+//!
+//! - `type:file` - Converted from file:// URLs
+//!   - `file:///C:/path/to/file.ext` → `https://auroraview.localhost/type:file/C:/path/to/file.ext`
+//!
+//! - `type:local` - Converted from local file paths
+//!   - `C:/path/to/file.ext` → `https://auroraview.localhost/type:local/C:/path/to/file.ext`
+//!   - `/path/to/file.ext` → `https://auroraview.localhost/type:local/path/to/file.ext`
+//!
+//! The type prefix helps distinguish the source of the path for debugging and logging.
 
 use tracing_subscriber::{fmt, EnvFilter};
 
 // Re-export IdGenerator from core for backward compatibility
-// This may be unused in the library itself but is exported for external users
 #[allow(unused_imports)]
 pub use auroraview_core::id_generator::IdGenerator;
+
+// Re-export protocol utilities from auroraview-core
+pub use auroraview_core::protocol::{
+    file_url_to_auroraview, local_path_to_auroraview, PROTOCOL_TYPE_FILE, PROTOCOL_TYPE_LOCAL,
+};
+// Re-export additional utilities that may be used by external consumers
+#[allow(unused_imports)]
+pub use auroraview_core::protocol::{is_auroraview_url, strip_protocol_type, AURORAVIEW_HOST};
 
 /// Normalize a URL string to ensure it has a valid scheme.
 ///
@@ -17,15 +40,16 @@ pub use auroraview_core::id_generator::IdGenerator;
 /// - `www.example.com` -> `https://www.example.com`
 /// - `http://example.com` -> `http://example.com` (unchanged)
 /// - `https://example.com` -> `https://example.com` (unchanged)
-/// - `file:///path/to/file.html` -> `file:///path/to/file.html` (unchanged)
-/// - `/path/to/file.html` -> `file:///path/to/file.html` (local file)
-/// - `C:\path\to\file.html` -> `file:///C:/path/to/file.html` (Windows path)
+/// - `file:///path/to/file.html` -> `https://auroraview.localhost/type:file/path/to/file.html`
+/// - `/path/to/file.html` -> `https://auroraview.localhost/type:local/path/to/file.html`
+/// - `C:\path\to\file.html` -> `https://auroraview.localhost/type:local/C:/path/to/file.html`
 ///
 /// # Arguments
 /// * `url` - The URL string to normalize
 ///
 /// # Returns
 /// A normalized URL string with a valid scheme
+#[allow(dead_code)] // Used by webview/core/main.rs
 pub fn normalize_url(url: &str) -> String {
     let trimmed = url.trim();
 
@@ -45,9 +69,8 @@ pub fn normalize_url(url: &str) -> String {
                 && (chars[1] == ':')
                 && (chars.len() < 3 || chars[2] == '\\' || chars[2] == '/')
             {
-                // Convert Windows path to file:// URL
-                let normalized_path = trimmed.replace('\\', "/");
-                return format!("file:///{}", normalized_path);
+                // Convert Windows path to auroraview protocol URL with type:local prefix
+                return local_path_to_auroraview(trimmed);
             }
         }
     }
@@ -56,18 +79,22 @@ pub fn normalize_url(url: &str) -> String {
     // We only accept specific schemes, not arbitrary ones like "C:" or "localhost"
     if let Ok(parsed) = url::Url::parse(trimmed) {
         let scheme = parsed.scheme();
-        // Only accept known web/file schemes
+        // Convert file:// to auroraview protocol with type:file prefix
+        if scheme == "file" {
+            return file_url_to_auroraview(trimmed);
+        }
+        // Only accept known web schemes (keep as-is)
         if matches!(
             scheme,
-            "http" | "https" | "file" | "data" | "about" | "blob" | "javascript"
+            "http" | "https" | "data" | "about" | "blob" | "javascript"
         ) {
             return trimmed.to_string();
         }
     }
 
-    // Unix absolute path
+    // Unix absolute path - use type:local prefix
     if trimmed.starts_with('/') {
-        return format!("file://{}", trimmed);
+        return local_path_to_auroraview(trimmed);
     }
 
     // Looks like a domain or localhost
@@ -87,6 +114,7 @@ pub fn normalize_url(url: &str) -> String {
 }
 
 /// Initialize logging for the library
+#[allow(dead_code)] // Used by lib.rs when python-bindings feature is enabled
 pub fn init_logging() {
     // Only initialize once
     static INIT: std::sync::Once = std::sync::Once::new();
@@ -152,37 +180,37 @@ mod tests {
 
     #[test]
     fn test_normalize_url_file_protocol() {
-        // file:// URLs should remain unchanged
+        // file:// URLs should be converted to auroraview protocol with type:file prefix
         assert_eq!(
             normalize_url("file:///path/to/file.html"),
-            "file:///path/to/file.html"
+            "https://auroraview.localhost/type:file/path/to/file.html"
         );
     }
 
     #[test]
     fn test_normalize_url_unix_path() {
-        // Unix absolute paths should get file://
+        // Unix absolute paths should be converted to auroraview protocol with type:local prefix
         assert_eq!(
             normalize_url("/path/to/file.html"),
-            "file:///path/to/file.html"
+            "https://auroraview.localhost/type:local/path/to/file.html"
         );
         assert_eq!(
             normalize_url("/home/user/index.html"),
-            "file:///home/user/index.html"
+            "https://auroraview.localhost/type:local/home/user/index.html"
         );
     }
 
     #[cfg(target_os = "windows")]
     #[test]
     fn test_normalize_url_windows_path() {
-        // Windows paths should get file:///
+        // Windows paths should be converted to auroraview protocol with type:local prefix
         assert_eq!(
             normalize_url("C:\\Users\\test\\file.html"),
-            "file:///C:/Users/test/file.html"
+            "https://auroraview.localhost/type:local/C:/Users/test/file.html"
         );
         assert_eq!(
             normalize_url("D:/path/to/file.html"),
-            "file:///D:/path/to/file.html"
+            "https://auroraview.localhost/type:local/D:/path/to/file.html"
         );
     }
 
@@ -210,5 +238,30 @@ mod tests {
             normalize_url("data:text/html,<h1>Hello</h1>"),
             "data:text/html,<h1>Hello</h1>"
         );
+    }
+
+    #[test]
+    fn test_reexported_protocol_functions() {
+        // Verify re-exported functions work correctly
+        assert_eq!(
+            file_url_to_auroraview("file:///C:/path/to/file.html"),
+            "https://auroraview.localhost/type:file/C:/path/to/file.html"
+        );
+        assert_eq!(
+            local_path_to_auroraview("C:/path/to/file.html"),
+            "https://auroraview.localhost/type:local/C:/path/to/file.html"
+        );
+        assert!(is_auroraview_url(
+            "https://auroraview.localhost/type:file/path"
+        ));
+        assert!(!is_auroraview_url("https://example.com"));
+    }
+
+    #[test]
+    fn test_reexported_constants() {
+        // Verify re-exported constants
+        assert_eq!(AURORAVIEW_HOST, "auroraview.localhost");
+        assert_eq!(PROTOCOL_TYPE_FILE, "type:file");
+        assert_eq!(PROTOCOL_TYPE_LOCAL, "type:local");
     }
 }

@@ -122,7 +122,13 @@
     // Attach to auroraview object
     function attachToAuroraView() {
         if (window.auroraview) {
-            window.auroraview.invoke = invoke;
+            // Only set invoke if not already defined (event_bridge.js defines the correct one)
+            // The invoke in event_bridge.js uses window.ipc.postMessage for plugin commands
+            // This invoke uses emit('__invoke__') for Python command invocation
+            // They serve different purposes, so we use a different name for this one
+            if (!window.auroraview.invokeCommand) {
+                window.auroraview.invokeCommand = invoke;
+            }
             window.auroraview.on('__invoke_response__', handleInvokeResponse);
             window.auroraview.on('__command_registered__', handleCommandRegistered);
             console.log('[AuroraView] Command bridge initialized');

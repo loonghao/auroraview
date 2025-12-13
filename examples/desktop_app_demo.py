@@ -584,15 +584,13 @@ def create_demo_html():
 
 def main():
     """Run the desktop app demo."""
-    # Create webview with permissive scope for demo
+    # Create webview
     webview = auroraview.WebView(
         title="AuroraView Desktop App Demo",
         width=1100,
         height=900,
         html=create_demo_html(),
         debug=True,
-        # Enable all plugins with permissive scope
-        plugins=["fs", "dialog", "shell", "clipboard"],
     )
 
     print("Desktop App Demo")
@@ -605,7 +603,7 @@ def main():
     print()
     print("Starting webview...")
 
-    webview.run()
+    webview.show()
 
 
 if __name__ == "__main__":

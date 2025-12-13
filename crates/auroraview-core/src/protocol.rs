@@ -1,12 +1,140 @@
 //! Protocol handling utilities
 //!
 //! Common utilities for handling custom protocols in WebView applications.
+//!
+//! ## AuroraView Protocol URL Format
+//!
+//! Local files are accessed through the custom protocol with type prefixes:
+//!
+//! - `type:file` - Converted from file:// URLs
+//!   - `file:///C:/path/to/file.ext` → `https://auroraview.localhost/type:file/C:/path/to/file.ext`
+//!
+//! - `type:local` - Converted from local file paths
+//!   - `C:/path/to/file.ext` → `https://auroraview.localhost/type:local/C:/path/to/file.ext`
+//!   - `/path/to/file.ext` → `https://auroraview.localhost/type:local/path/to/file.ext`
+//!
+//! The type prefix helps distinguish the source of the path for debugging and logging.
 
 use mime_guess::from_path;
 use path_clean::PathClean;
 use std::borrow::Cow;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+// ============================================================================
+// Protocol Constants
+// ============================================================================
+
+/// The base hostname for AuroraView custom protocol
+pub const AURORAVIEW_HOST: &str = "auroraview.localhost";
+
+/// Protocol type prefix for file:// URL conversions
+pub const PROTOCOL_TYPE_FILE: &str = "type:file";
+
+/// Protocol type prefix for local path conversions
+pub const PROTOCOL_TYPE_LOCAL: &str = "type:local";
+
+// ============================================================================
+// URL Conversion Functions
+// ============================================================================
+
+/// Convert a file:// URL to auroraview protocol format
+///
+/// This converts `file:///path/to/file` to `https://auroraview.localhost/type:file/path/to/file`
+/// which allows loading local files through the custom protocol handler.
+///
+/// # Arguments
+/// * `file_url` - A file:// URL string
+///
+/// # Returns
+/// An auroraview protocol URL string with `type:file` prefix
+///
+/// # Examples
+/// ```
+/// use auroraview_core::protocol::file_url_to_auroraview;
+///
+/// let url = file_url_to_auroraview("file:///C:/path/to/file.html");
+/// assert_eq!(url, "https://auroraview.localhost/type:file/C:/path/to/file.html");
+/// ```
+pub fn file_url_to_auroraview(file_url: &str) -> String {
+    // Extract path from file:// URL
+    let path = if let Some(stripped) = file_url.strip_prefix("file:///") {
+        stripped
+    } else if let Some(stripped) = file_url.strip_prefix("file://") {
+        stripped
+    } else {
+        file_url
+    };
+
+    // Normalize path separators
+    let normalized_path = path.replace('\\', "/");
+
+    format!(
+        "https://{}/{}/{}",
+        AURORAVIEW_HOST, PROTOCOL_TYPE_FILE, normalized_path
+    )
+}
+
+/// Convert a local file path to auroraview protocol format
+///
+/// This converts local paths to `https://auroraview.localhost/type:local/path/to/file`
+/// which allows loading local files through the custom protocol handler.
+///
+/// # Arguments
+/// * `local_path` - A local file path string (e.g., `C:/path/to/file` or `/path/to/file`)
+///
+/// # Returns
+/// An auroraview protocol URL string with `type:local` prefix
+///
+/// # Examples
+/// ```
+/// use auroraview_core::protocol::local_path_to_auroraview;
+///
+/// let url = local_path_to_auroraview("C:/path/to/file.html");
+/// assert_eq!(url, "https://auroraview.localhost/type:local/C:/path/to/file.html");
+///
+/// let url = local_path_to_auroraview("/path/to/file.html");
+/// assert_eq!(url, "https://auroraview.localhost/type:local/path/to/file.html");
+/// ```
+pub fn local_path_to_auroraview(local_path: &str) -> String {
+    // Normalize path separators
+    let normalized_path = local_path.replace('\\', "/");
+
+    // Remove leading slash for consistency (Unix paths start with /)
+    let path = normalized_path.trim_start_matches('/');
+
+    format!(
+        "https://{}/{}/{}",
+        AURORAVIEW_HOST, PROTOCOL_TYPE_LOCAL, path
+    )
+}
+
+/// Check if a path string matches a protocol type prefix
+///
+/// # Arguments
+/// * `path` - The path to check (e.g., "type:file/C:/path/to/file")
+/// * `protocol_type` - The protocol type to match (e.g., PROTOCOL_TYPE_FILE)
+///
+/// # Returns
+/// The remaining path after the prefix if matched, None otherwise
+pub fn strip_protocol_type<'a>(path: &'a str, protocol_type: &str) -> Option<&'a str> {
+    let prefix = format!("{}/", protocol_type);
+    path.strip_prefix(&prefix)
+}
+
+/// Check if a URL is an auroraview protocol URL
+///
+/// # Examples
+/// ```
+/// use auroraview_core::protocol::is_auroraview_url;
+///
+/// assert!(is_auroraview_url("https://auroraview.localhost/type:file/C:/path"));
+/// assert!(is_auroraview_url("auroraview://localhost/index.html"));
+/// assert!(!is_auroraview_url("https://example.com"));
+/// ```
+pub fn is_auroraview_url(url: &str) -> bool {
+    url.contains("auroraview.localhost") || url.starts_with("auroraview://")
+}
 
 /// Normalize a URL for display/storage
 ///
@@ -185,6 +313,90 @@ pub fn load_asset_file(asset_root: &Path, relative_path: &str) -> FileResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ========================================================================
+    // URL Conversion Tests
+    // ========================================================================
+
+    #[test]
+    fn test_file_url_to_auroraview() {
+        // file:// URLs should use type:file prefix
+        assert_eq!(
+            file_url_to_auroraview("file:///C:/path/to/file.html"),
+            "https://auroraview.localhost/type:file/C:/path/to/file.html"
+        );
+        assert_eq!(
+            file_url_to_auroraview("file:///path/to/file.html"),
+            "https://auroraview.localhost/type:file/path/to/file.html"
+        );
+        // Windows backslashes in file:// URL
+        assert_eq!(
+            file_url_to_auroraview("file:///C:\\Users\\test\\file.html"),
+            "https://auroraview.localhost/type:file/C:/Users/test/file.html"
+        );
+    }
+
+    #[test]
+    fn test_local_path_to_auroraview() {
+        // Local paths should use type:local prefix
+        assert_eq!(
+            local_path_to_auroraview("C:/path/to/file.html"),
+            "https://auroraview.localhost/type:local/C:/path/to/file.html"
+        );
+        assert_eq!(
+            local_path_to_auroraview("/path/to/file.html"),
+            "https://auroraview.localhost/type:local/path/to/file.html"
+        );
+        // Windows backslashes should be normalized
+        assert_eq!(
+            local_path_to_auroraview("C:\\Users\\test\\file.html"),
+            "https://auroraview.localhost/type:local/C:/Users/test/file.html"
+        );
+    }
+
+    #[test]
+    fn test_strip_protocol_type() {
+        assert_eq!(
+            strip_protocol_type("type:file/C:/path/to/file.html", PROTOCOL_TYPE_FILE),
+            Some("C:/path/to/file.html")
+        );
+        assert_eq!(
+            strip_protocol_type("type:local/path/to/file.html", PROTOCOL_TYPE_LOCAL),
+            Some("path/to/file.html")
+        );
+        // Wrong prefix
+        assert_eq!(
+            strip_protocol_type("type:file/path", PROTOCOL_TYPE_LOCAL),
+            None
+        );
+        // No prefix
+        assert_eq!(
+            strip_protocol_type("path/to/file.html", PROTOCOL_TYPE_FILE),
+            None
+        );
+    }
+
+    #[test]
+    fn test_is_auroraview_url() {
+        assert!(is_auroraview_url(
+            "https://auroraview.localhost/type:file/C:/path"
+        ));
+        assert!(is_auroraview_url("https://auroraview.localhost/index.html"));
+        assert!(is_auroraview_url("auroraview://localhost/index.html"));
+        assert!(!is_auroraview_url("https://example.com"));
+        assert!(!is_auroraview_url("file:///C:/path/to/file.html"));
+    }
+
+    #[test]
+    fn test_protocol_constants() {
+        assert_eq!(AURORAVIEW_HOST, "auroraview.localhost");
+        assert_eq!(PROTOCOL_TYPE_FILE, "type:file");
+        assert_eq!(PROTOCOL_TYPE_LOCAL, "type:local");
+    }
+
+    // ========================================================================
+    // Legacy Tests (existing functionality)
+    // ========================================================================
 
     #[test]
     fn test_normalize_url() {

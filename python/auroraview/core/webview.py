@@ -112,6 +112,12 @@ class WebView(
         auto_show: bool = True,
         ipc_batch_size: int = 0,
         icon: Optional[str] = None,
+        tool_window: bool = False,
+        undecorated_shadow: bool = True,
+        allow_new_window: bool = False,
+        # Aliases for more intuitive API
+        parent_hwnd: Optional[int] = None,
+        embed_mode: Optional[str] = None,
     ) -> None:
         r"""Initialize the WebView.
 
@@ -160,6 +166,45 @@ class WebView(
 
             always_on_top: Keep window always on top of other windows (default: False).
                 Useful for floating tool panels or overlay windows.
+
+            tool_window: Apply tool window style (default: False, Windows only).
+                When enabled, the window:
+                - Does NOT appear in the taskbar
+                - Does NOT appear in Alt+Tab window switcher
+                - Has a smaller title bar (if decorations are enabled)
+
+                This is commonly used with ``embed_mode="owner"`` for floating tool windows.
+
+                See: https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles
+
+            undecorated_shadow: Show shadow for frameless windows (default: True, Windows only).
+                When ``frame=False``, Windows can still show a subtle shadow around the window.
+                Set this to ``False`` to disable the shadow completely, which is required for
+                truly transparent frameless windows (e.g., floating logo buttons).
+
+                Example::
+
+                    # Transparent logo button with no shadow
+                    webview = WebView(
+                        html=LOGO_HTML,
+                        width=64,
+                        height=64,
+                        frame=False,
+                        transparent=True,
+                        undecorated_shadow=False,
+                        tool_window=True,
+                    )
+
+            parent_hwnd: Alias for ``parent`` parameter (for backward compatibility).
+            embed_mode: Alias for ``mode`` parameter. Values: "child", "owner".
+
+                - **child**: Embed WebView inside a Qt widget (WS_CHILD).
+                  Window is clipped to parent bounds, cannot be moved independently.
+
+                - **owner**: Create floating tool window (GWLP_HWNDPARENT).
+                  Window stays above owner in Z-order, hidden when owner minimizes.
+
+                See: https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features
         """
         if _CoreWebView is None:
             import sys
@@ -197,6 +242,14 @@ class WebView(
         if frame is None:
             frame = True
 
+        # Handle parameter aliases for more intuitive API
+        # parent_hwnd is alias for parent
+        if parent_hwnd is not None and parent is None:
+            parent = parent_hwnd
+        # embed_mode is alias for mode
+        if embed_mode is not None and mode is None:
+            mode = embed_mode
+
         # Map new parameter names to Rust core (which still uses old names)
         self._core = _CoreWebView(
             title=title,
@@ -219,6 +272,9 @@ class WebView(
             auto_show=auto_show,  # Control window visibility on creation
             ipc_batch_size=ipc_batch_size,  # Max messages per tick (0=unlimited)
             icon=icon,  # Custom window icon path
+            tool_window=tool_window,  # Tool window style (hide from taskbar/Alt+Tab)
+            undecorated_shadow=undecorated_shadow,  # Show shadow for frameless windows
+            allow_new_window=allow_new_window,  # Allow window.open() to create new windows
         )
         self._event_handlers: Dict[str, List[Callable]] = {}
         self._title = title
@@ -232,6 +288,9 @@ class WebView(
         self._always_on_top = always_on_top
         self._transparent = transparent
         self._background_color = background_color
+        self._tool_window = tool_window
+        self._undecorated_shadow = undecorated_shadow
+        self._allow_new_window = allow_new_window
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
         self._auto_timer = None  # Will be set by create() factory method
@@ -607,11 +666,11 @@ class WebView(
         return instance
 
     @classmethod
-    def create_for_dcc(
+    def create_embedded(
         cls,
         parent_hwnd: int,
         *,
-        title: str = "DCC WebView",
+        title: str = "Embedded WebView",
         width: int = 800,
         height: int = 600,
         url: Optional[str] = None,
@@ -619,18 +678,19 @@ class WebView(
         asset_root: Optional[str] = None,
         debug: bool = True,
     ) -> "WebView":
-        """Create a WebView directly embedded into a DCC main window's HWND.
+        """Create a WebView directly embedded into a parent window's HWND.
 
-        This is the fastest way to embed a WebView into a DCC application because:
+        This is the fastest way to embed a WebView into a host application because:
         1. No Qt Widget intermediate layer
         2. WebView2 is created synchronously on the calling thread
-        3. Uses DCC's native message loop directly
+        3. Uses host's native message loop directly
 
-        This method is ideal when you have the DCC main window's HWND and want
-        maximum performance with minimal overhead.
+        This method is ideal when you have the host window's HWND and want
+        maximum performance with minimal overhead. Works with DCC applications
+        (Maya, 3ds Max, Houdini, etc.) or any Windows application with a HWND.
 
         Args:
-            parent_hwnd: The HWND of the DCC main window (e.g., from hou.qt.mainWindow().winId())
+            parent_hwnd: The HWND of the parent window (e.g., from Qt winId())
             title: Window title (for debugging/identification)
             width: Width in pixels
             height: Height in pixels
@@ -652,7 +712,7 @@ class WebView(
             >>> hwnd = int(main_window.winId())
             >>>
             >>> # Create WebView directly embedded
-            >>> webview = WebView.create_for_dcc(
+            >>> webview = WebView.create_embedded(
             ...     parent_hwnd=hwnd,
             ...     title="My Tool",
             ...     width=650,
@@ -667,10 +727,10 @@ class WebView(
         """
         from auroraview._core import WebView as _CoreWebView
 
-        logger.info(f"[create_for_dcc] Creating WebView for parent HWND: {parent_hwnd}")
+        logger.info(f"[create_embedded] Creating WebView for parent HWND: {parent_hwnd}")
 
-        # Create core WebView using create_for_dcc static method
-        core = _CoreWebView.create_for_dcc(
+        # Create core WebView using create_embedded static method
+        core = _CoreWebView.create_embedded(
             parent_hwnd=parent_hwnd,
             title=title,
             width=width,
@@ -709,10 +769,48 @@ class WebView(
         elif html:
             core.load_html(html)
 
-        logger.info("[create_for_dcc] WebView created successfully")
-        logger.info("[create_for_dcc] Remember to call process_events_ipc_only() periodically!")
+        logger.info("[create_embedded] WebView created successfully")
+        logger.info("[create_embedded] Remember to call process_events_ipc_only() periodically!")
 
         return instance
+
+    @classmethod
+    def create_for_dcc(
+        cls,
+        parent_hwnd: int,
+        *,
+        title: str = "DCC WebView",
+        width: int = 800,
+        height: int = 600,
+        url: Optional[str] = None,
+        html: Optional[str] = None,
+        asset_root: Optional[str] = None,
+        debug: bool = True,
+    ) -> "WebView":
+        """Create a WebView for DCC integration (deprecated alias).
+
+        .. deprecated:: 0.4.0
+            Use :meth:`create_embedded` instead. This method will be removed in a future version.
+
+        This is an alias for :meth:`create_embedded` for backward compatibility.
+        """
+        import warnings
+
+        warnings.warn(
+            "create_for_dcc is deprecated, use create_embedded instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.create_embedded(
+            parent_hwnd,
+            title=title,
+            width=width,
+            height=height,
+            url=url,
+            html=html,
+            asset_root=asset_root,
+            debug=debug,
+        )
 
     def show(self, *, wait: Optional[bool] = None) -> None:
         """Show the WebView window (smart mode).
@@ -816,6 +914,11 @@ class WebView(
                     parent_hwnd=self._parent,  # Use new parameter name
                     parent_mode=self._mode,  # Use new parameter name
                     always_on_top=self._always_on_top,  # Keep window always on top
+                    transparent=self._transparent,  # Enable transparent window
+                    background_color=self._background_color,  # Window background color
+                    tool_window=self._tool_window,  # Tool window style
+                    undecorated_shadow=self._undecorated_shadow,  # Shadow for frameless
+                    allow_new_window=self._allow_new_window,  # Allow window.open()
                 )
 
                 # Store the core instance for use by emit() and other methods
@@ -1124,6 +1227,34 @@ class WebView(
         with self._async_core_lock:
             core = self._async_core if self._async_core is not None else self._core
         return core.get_proxy()
+
+    def create_emitter(self) -> Any:
+        """Create a thread-safe event emitter.
+
+        Returns an EventEmitter that can be safely used from any thread to emit
+        events to the JavaScript frontend. This is useful for plugin callbacks
+        that run on background threads (e.g., ProcessPlugin).
+
+        Unlike `emit()` which must be called from the main thread, the emitter
+        returned by this method can be called from any thread safely.
+
+        Returns:
+            EventEmitter: A thread-safe emitter with an `emit(event_name, data)` method.
+
+        Example:
+            >>> # Create emitter for cross-thread event emission
+            >>> emitter = webview.create_emitter()
+            >>>
+            >>> # Use with PluginManager (ProcessPlugin runs on background threads)
+            >>> plugins = PluginManager.permissive()
+            >>> plugins.set_emit_callback(emitter.emit)
+            >>>
+            >>> # ProcessPlugin will emit events like:
+            >>> # - process:stdout - { pid, data }
+            >>> # - process:stderr - { pid, data }
+            >>> # - process:exit - { pid, code }
+        """
+        return self._core.create_emitter()
 
     def close(self) -> None:
         """Close the WebView window and remove from singleton registry."""

@@ -3,6 +3,9 @@
 This example demonstrates advanced runtime binding for plugin systems
 and dynamic configurations. Best for extensible applications.
 
+Note: This example uses the low-level WebView API for demonstration.
+For most use cases, prefer QtWebView, AuroraView, or run_desktop.
+
 Usage:
     python examples/dynamic_binding.py
 

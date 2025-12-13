@@ -188,39 +188,25 @@ AuroraView provides three main integration modes for different use cases:
 | **HWND** | `AuroraView` | Unreal Engine, non-Qt apps | ✅ via HWND API |
 | **Standalone** | `run_standalone` | Desktop applications | N/A |
 
-### WebView vs AuroraView: Choosing the Right Class
+### WebView vs AuroraView: Choosing the Right API
 
-Understanding the difference between `WebView` and `AuroraView` helps you choose the right class for your use case:
+AuroraView provides three recommended APIs for different use cases:
 
-| Feature | `WebView` | `AuroraView` |
-|---------|-----------|--------------|
-| **Purpose** | Core class, direct Rust binding | High-level wrapper for HWND integration |
-| **API Style** | Mixin-based, full control | Simplified, delegate pattern |
-| **Best For** | Advanced customization, DCC embedding | Unreal Engine, quick prototyping |
-| **Keep-alive** | Manual management | Automatic (class-level registry) |
-| **API Binding** | Manual `bind_api()` call | Auto-bind via `api` parameter |
-| **Lifecycle Hooks** | `on_loaded`, `on_shown`, etc. | `on_show`, `on_hide`, `on_close`, `on_ready` |
+| API | Best For | Description |
+|-----|----------|-------------|
+| **`QtWebView`** | Maya, Houdini, Nuke, 3ds Max | Qt widget with docking support |
+| **`AuroraView`** | Unreal Engine, non-Qt apps | HWND-based for window handle access |
+| **`run_desktop()`** | Desktop applications | One-liner for standalone apps |
+| `auroraview.core.WebView` | Advanced users | Low-level API (not recommended) |
 
-**When to use `WebView`:**
-- You need full control over the WebView lifecycle
-- You're building Qt-based DCC integrations (use with `QtWebView`)
-- You need advanced features like custom protocols, asset roots, etc.
-
-**When to use `AuroraView`:**
-- You're integrating with Unreal Engine or other HWND-based applications
-- You want a simpler API with automatic keep-alive management
-- You're migrating from pywebview and want a familiar API
-
-**Example: WebView (Core)**
+**Example: QtWebView (Qt DCC integration)**
 ```python
-from auroraview import WebView
+from auroraview import QtWebView
 
-# Full control mode
-webview = WebView.create(
-    title="My Tool",
-    url="http://localhost:3000",
-    auto_show=True,
-    auto_timer=True
+# For Maya, Houdini, Nuke, 3ds Max
+webview = QtWebView(
+    parent=dcc_main_window(),
+    url="http://localhost:3000"
 )
 webview.bind_api(my_api_object)  # Manual API binding
 webview.show()
@@ -230,13 +216,24 @@ webview.show()
 ```python
 from auroraview import AuroraView
 
-# Simplified mode with auto API binding
+# For Unreal Engine or non-Qt apps
 webview = AuroraView(
     url="http://localhost:3000",
     api=my_api_object  # Auto-bound at construction
 )
 webview.show()
 ```
+
+**Example: run_desktop (Desktop apps)**
+```python
+from auroraview import run_desktop
+
+# Simplest API - one function call
+run_desktop(title="My App", url="http://localhost:3000")
+```
+
+> **Note**: Direct use of `auroraview.core.WebView` is not recommended for most use cases.
+> Use `QtWebView` for Qt-based DCC apps or `AuroraView` for HWND-based apps.
 
 #### 1. Qt Native Mode (QtWebView)
 
@@ -320,35 +317,55 @@ run_standalone(
 - ✅ Automatic event loop management
 - ✅ No parent window required
 
-### Quick Start (v0.2.0 New API)
+### Quick Start
 
-**Standalone window (2 lines!):**
+**Desktop App (one-liner):**
 ```python
-from auroraview import WebView
+from auroraview import run_desktop
 
-# Create and show - that's it!
-webview = WebView.create("My App", url="http://localhost:3000")
-webview.show()  # Auto-blocks until closed
+# Launch standalone app - blocks until closed
+run_desktop(title="My App", url="http://localhost:3000")
 ```
 
-**Maya integration:**
+**Maya integration (Qt-based):**
 ```python
-from auroraview import WebView
+from auroraview import QtWebView
+import maya.OpenMayaUI as omui
 
-
-maya_hwnd = int(omui.MQtUtil.mainWindow())
-webview = WebView.create("Maya Tool", url="http://localhost:3000", parent=maya_hwnd)
-webview.show()  # Embedded mode: non-blocking, auto timer
+# Create WebView as Qt widget
+webview = QtWebView(
+    parent=maya_main_window(),
+    url="http://localhost:3000",
+    width=800,
+    height=600
+)
+webview.show()  # Non-blocking, auto timer
 ```
 
-**Houdini integration:**
+**Houdini integration (Qt-based):**
 ```python
-from auroraview import WebView
+from auroraview import QtWebView
 import hou
 
-hwnd = int(hou.qt.mainWindow().winId())
-webview = WebView.create("Houdini Tool", url="http://localhost:3000", parent=hwnd)
-webview.show()  # Embedded mode: non-blocking, auto timer
+webview = QtWebView(
+    parent=hou.qt.mainWindow(),
+    url="http://localhost:3000"
+)
+webview.show()  # Non-blocking, auto timer
+```
+
+**Unreal Engine integration (HWND-based):**
+```python
+from auroraview import AuroraView
+
+webview = AuroraView(url="http://localhost:3000")
+webview.show()
+
+# Get HWND for Unreal embedding
+hwnd = webview.get_hwnd()
+if hwnd:
+    import unreal
+    unreal.parent_external_window_to_slate(hwnd)
 ```
 
 ### Command-Line Interface
@@ -381,15 +398,14 @@ uvx auroraview --url https://example.com
 AuroraView displays the default AuroraView icon by default. You can customize it with your own icon:
 
 ```python
-from auroraview import WebView
+from auroraview import run_desktop
 
 # Use custom icon
-webview = WebView.create(
-    "My App",
+run_desktop(
+    title="My App",
     url="http://localhost:3000",
     icon="path/to/my-icon.png"  # Custom icon path
 )
-webview.show()
 ```
 
 **Icon Requirements:**
@@ -402,58 +418,48 @@ webview.show()
 
 > **Tip**: For best results across all Windows UI elements, provide a 32×32 PNG with transparency.
 
-**Nuke integration:**
+**Nuke integration (Qt-based):**
 ```python
-from auroraview import WebView
+from auroraview import QtWebView
 from qtpy import QtWidgets
 
 main = QtWidgets.QApplication.activeWindow()
-hwnd = int(main.winId())
-webview = WebView.create("Nuke Tool", url="http://localhost:3000", parent=hwnd)
-webview.show()  # Embedded mode: non-blocking, auto timer
+webview = QtWebView(parent=main, url="http://localhost:3000")
+webview.show()  # Non-blocking, auto timer
 ```
 
-**Blender integration:**
+**Blender integration (standalone):**
 ```python
-from auroraview import WebView
+from auroraview import run_desktop
 
 # Blender runs standalone (no parent window)
-webview = WebView.create("Blender Tool", url="http://localhost:3000")
-webview.show()  # Standalone: blocks until closed (use show(wait=False) for async)
+run_desktop(title="Blender Tool", url="http://localhost:3000")
 ```
 
 ## Usage Patterns
 
 AuroraView supports multiple API styles to fit your development workflow. Choose the pattern that best matches your project's complexity and team's preferences.
 
-### Pattern 1: Decorator Style (Simplest)
+### Pattern 1: AuroraView with API Object (Simplest)
 
 Best for: **Quick prototypes, simple tools, one-off scripts**
 
 ```python
-from auroraview import WebView
+from auroraview import AuroraView
 
-view = WebView(title="My Tool", url="http://localhost:3000")
+class MyAPI:
+    def get_data(self) -> dict:
+        """Called from JS: await auroraview.api.get_data()"""
+        return {"items": [1, 2, 3], "count": 3}
 
-# Register API methods using bind_call decorator
-@view.bind_call("api.get_data")
-def get_data() -> dict:
-    """Called from JS: await auroraview.api.get_data()"""
-    return {"items": [1, 2, 3], "count": 3}
+    def save_file(self, path: str = "", content: str = "") -> dict:
+        """Called from JS: await auroraview.api.save_file({path: "/tmp/a.txt", content: "hello"})"""
+        with open(path, "w") as f:
+            f.write(content)
+        return {"ok": True, "path": path}
 
-@view.bind_call("api.save_file")
-def save_file(path: str = "", content: str = "") -> dict:
-    """Called from JS: await auroraview.api.save_file({path: "/tmp/a.txt", content: "hello"})"""
-    with open(path, "w") as f:
-        f.write(content)
-    return {"ok": True, "path": path}
-
-# Register event handlers (no return value)
-@view.on("button_clicked")
-def handle_click(data: dict):
-    """Called when JS sends: auroraview.send_event("button_clicked", {...})"""
-    print(f"Button clicked: {data['id']}")
-
+# Create WebView with API auto-binding
+view = AuroraView(url="http://localhost:3000", api=MyAPI())
 view.show()
 ```
 
@@ -466,26 +472,54 @@ console.log(data.items);  // [1, 2, 3]
 const result = await auroraview.api.save_file({ path: "/tmp/test.txt", content: "Hello" });
 console.log(result.ok);  // true
 
-// Send events to Python (fire-and-forget)
-auroraview.send_event("button_clicked", { id: "save_btn" });
-
 // Listen for Python events
 auroraview.on("data_updated", (data) => {
     console.log("Data updated:", data);
 });
 ```
 
-### Pattern 2: Class Inheritance (Recommended, Qt-like)
+### Pattern 2: QtWebView for DCC Integration (Recommended)
 
-Best for: **Production tools, team collaboration, complex applications**
+Best for: **Maya, Houdini, Nuke, 3ds Max integration**
 
 ```python
-from auroraview import WebView, Signal
+from auroraview import QtWebView
+
+class SceneTool(QtWebView):
+    """A DCC tool with Qt widget integration."""
+
+    def __init__(self, parent=None):
+        super().__init__(
+            parent=parent,
+            url="http://localhost:3000",
+            width=400,
+            height=600
+        )
+
+    def on_ready(self):
+        """Called when WebView is ready."""
+        self.emit("tool_ready", {"version": "1.0"})
+
+# Usage in Maya
+webview = SceneTool(parent=maya_main_window())
+webview.show()
+```
+
+### Pattern 3: Advanced - Low-level WebView (For Experts)
+
+Best for: **Advanced customization, custom protocols, maximum control**
+
+> **Note**: Use `auroraview.core.WebView` only if you need low-level control.
+> For most use cases, prefer `QtWebView` or `AuroraView`.
+
+```python
+from auroraview.core import WebView
+from auroraview import Signal
 
 class OutlinerTool(WebView):
     """A Maya-style outliner tool demonstrating Qt-like patterns."""
 
-    # ─── Signal Definitions (Python → JS notifications) ───
+    # Signal Definitions (Python -> JS notifications)
     selection_changed = Signal(list)
     progress_updated = Signal(int, str)
     scene_loaded = Signal(str)
@@ -877,6 +911,40 @@ webview.register_protocol("fbx", handle_fbx_protocol)
 - ✅ Cross-platform path handling
 
 ### Custom Protocol Best Practices
+
+#### Automatic URL Conversion
+
+AuroraView automatically converts local file paths and `file://` URLs to the custom protocol format. This ensures consistent handling across all platforms.
+
+| Source | Input | Converted URL |
+|--------|-------|---------------|
+| `file://` URL | `file:///C:/path/to/file.html` | `https://auroraview.localhost/type:file/C:/path/to/file.html` |
+| Local path | `C:/path/to/file.html` | `https://auroraview.localhost/type:local/C:/path/to/file.html` |
+| Unix path | `/path/to/file.html` | `https://auroraview.localhost/type:local/path/to/file.html` |
+
+The `type:` prefix distinguishes the source of the path for debugging and logging:
+- `type:file` - Converted from `file://` URLs
+- `type:local` - Converted from local file paths
+
+**Usage:**
+```python
+from auroraview import WebView
+
+# All these are automatically converted to auroraview protocol
+webview = WebView.create("My App")
+
+# Load from file:// URL
+webview.load_url("file:///C:/projects/app/index.html")
+# → https://auroraview.localhost/type:file/C:/projects/app/index.html
+
+# Load from local path (Windows)
+webview.load_url("C:/projects/app/index.html")
+# → https://auroraview.localhost/type:local/C:/projects/app/index.html
+
+# Load from local path (Unix)
+webview.load_url("/home/user/app/index.html")
+# → https://auroraview.localhost/type:local/home/user/app/index.html
+```
 
 #### Platform-Specific URL Format
 

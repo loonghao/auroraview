@@ -153,29 +153,14 @@ impl WebViewInner {
         standalone::create_standalone(config, ipc_handler, message_queue)
     }
 
-    /// Create embedded WebView for DCC integration
+    /// Create embedded WebView for external window integration
     ///
-    /// This is a legacy wrapper that calls create_for_dcc.
-    /// The width and height parameters are ignored as they're handled by the parent window.
-    pub fn create_embedded(
-        parent_hwnd: u64,
-        _width: u32,
-        _height: u32,
-        config: WebViewConfig,
-        ipc_handler: Arc<IpcHandler>,
-        message_queue: Arc<MessageQueue>,
-        on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::create_for_dcc(parent_hwnd, config, ipc_handler, message_queue, on_created)
-    }
-
-    /// Create WebView for DCC integration (no event loop)
-    ///
-    /// This method creates a WebView that integrates with DCC applications by
-    /// reusing the DCC's Qt message pump instead of creating its own event loop.
+    /// This method creates a WebView that integrates with external applications
+    /// (such as DCC applications like Maya, 3ds Max, etc.) by embedding into
+    /// their window hierarchy instead of creating its own event loop.
     ///
     /// # Arguments
-    /// * `parent_hwnd` - HWND of the DCC main window
+    /// * `parent_hwnd` - HWND of the parent/owner window
     /// * `config` - WebView configuration
     /// * `ipc_handler` - IPC message handler
     /// * `message_queue` - Message queue for cross-thread communication
@@ -184,7 +169,7 @@ impl WebViewInner {
     /// # Returns
     /// A WebViewInner instance without an event loop
     #[cfg(target_os = "windows")]
-    pub fn create_for_dcc(
+    pub fn create_embedded(
         parent_hwnd: u64,
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
@@ -194,8 +179,8 @@ impl WebViewInner {
         use super::backend::native::NativeBackend;
         use super::backend::WebViewBackend;
 
-        // Create backend using DCC integration mode
-        let backend = NativeBackend::create_for_dcc(
+        // Create backend using embedded mode
+        let backend = NativeBackend::create_embedded(
             parent_hwnd,
             config.clone(),
             ipc_handler,
@@ -209,9 +194,11 @@ impl WebViewInner {
         // Cache HWND from backend
         let cached_hwnd = backend.get_hwnd();
 
-        tracing::info!("[OK] [create_for_dcc] Keeping backend alive to prevent window destruction");
         tracing::info!(
-            "[OK] [create_for_dcc] process_events() will delegate to backend.process_events()"
+            "[OK] [create_embedded] Keeping backend alive to prevent window destruction"
+        );
+        tracing::info!(
+            "[OK] [create_embedded] process_events() will delegate to backend.process_events()"
         );
 
         Ok(Self {
@@ -221,22 +208,22 @@ impl WebViewInner {
             message_queue,
             event_loop_proxy: None,
             lifecycle: Arc::new(LifecycleManager::new()),
-            auto_show: true,                  // DCC mode: visibility controlled by Qt
+            auto_show: true, // Embedded mode: visibility controlled by host
             backend: Some(Box::new(backend)), // CRITICAL: Keep backend alive!
             cached_hwnd,
         })
     }
 
-    /// Create WebView for DCC integration (non-Windows platforms)
+    /// Create embedded WebView (non-Windows platforms)
     #[cfg(not(target_os = "windows"))]
-    pub fn create_for_dcc(
+    pub fn create_embedded(
         _parent_hwnd: u64,
         _config: WebViewConfig,
         _ipc_handler: Arc<IpcHandler>,
         _message_queue: Arc<MessageQueue>,
         _on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        Err("DCC integration mode is only supported on Windows".into())
+        Err("Embedded mode is only supported on Windows".into())
     }
 
     /// Process messages for DCC integration mode

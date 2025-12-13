@@ -312,35 +312,55 @@ run_standalone(
 - 自动事件循环管理
 - 无需父窗口
 
-### 快速开始 (v0.2.0 新 API)
+### 快速开始
 
-**独立窗口（2 行代码！）：**
+**桌面应用（一行代码）：**
 ```python
-from auroraview import WebView
+from auroraview import run_desktop
 
-# 创建并显示 - 就这么简单！
-webview = WebView.create("我的应用", url="http://localhost:3000")
-webview.show()  # 自动阻塞直到关闭
+# 启动独立应用 - 阻塞直到关闭
+run_desktop(title="我的应用", url="http://localhost:3000")
 ```
 
-**Maya 集成：**
+**Maya 集成（Qt 模式）：**
 ```python
-from auroraview import WebView
+from auroraview import QtWebView
+import maya.OpenMayaUI as omui
 
-
-maya_hwnd = int(omui.MQtUtil.mainWindow())
-webview = WebView.create("Maya 工具", url="http://localhost:3000", parent=maya_hwnd)
-webview.show()  # 嵌入模式：非阻塞，自动定时器
+# 创建 WebView 作为 Qt 控件
+webview = QtWebView(
+    parent=maya_main_window(),
+    url="http://localhost:3000",
+    width=800,
+    height=600
+)
+webview.show()  # 非阻塞，自动定时器
 ```
 
-**Houdini 集成：**
+**Houdini 集成（Qt 模式）：**
 ```python
-from auroraview import WebView
+from auroraview import QtWebView
 import hou
 
-hwnd = int(hou.qt.mainWindow().winId())
-webview = WebView.create("Houdini 工具", url="http://localhost:3000", parent=hwnd)
-webview.show()  # 嵌入模式：非阻塞，自动定时器
+webview = QtWebView(
+    parent=hou.qt.mainWindow(),
+    url="http://localhost:3000"
+)
+webview.show()  # 非阻塞，自动定时器
+```
+
+**Unreal Engine 集成（HWND 模式）：**
+```python
+from auroraview import AuroraView
+
+webview = AuroraView(url="http://localhost:3000")
+webview.show()
+
+# 获取 HWND 用于 Unreal 嵌入
+hwnd = webview.get_hwnd()
+if hwnd:
+    import unreal
+    unreal.parent_external_window_to_slate(hwnd)
 ```
 
 ### 命令行界面
@@ -999,6 +1019,40 @@ webview.load_html("""
 - ✅ **跨平台** - 路径处理统一，Windows/macOS/Linux 一致
 
 #### 自定义协议最佳实践
+
+##### URL 自动转换
+
+AuroraView 会自动将本地文件路径和 `file://` URL 转换为自定义协议格式。这确保了跨平台的一致处理。
+
+| 来源 | 输入 | 转换后的 URL |
+|------|------|--------------|
+| `file://` URL | `file:///C:/path/to/file.html` | `https://auroraview.localhost/type:file/C:/path/to/file.html` |
+| 本地路径 | `C:/path/to/file.html` | `https://auroraview.localhost/type:local/C:/path/to/file.html` |
+| Unix 路径 | `/path/to/file.html` | `https://auroraview.localhost/type:local/path/to/file.html` |
+
+`type:` 前缀用于区分路径来源，便于调试和日志记录：
+- `type:file` - 从 `file://` URL 转换而来
+- `type:local` - 从本地文件路径转换而来
+
+**使用示例：**
+```python
+from auroraview import WebView
+
+# 以下所有方式都会自动转换为 auroraview 协议
+webview = WebView.create("我的应用")
+
+# 从 file:// URL 加载
+webview.load_url("file:///C:/projects/app/index.html")
+# → https://auroraview.localhost/type:file/C:/projects/app/index.html
+
+# 从本地路径加载（Windows）
+webview.load_url("C:/projects/app/index.html")
+# → https://auroraview.localhost/type:local/C:/projects/app/index.html
+
+# 从本地路径加载（Unix）
+webview.load_url("/home/user/app/index.html")
+# → https://auroraview.localhost/type:local/home/user/app/index.html
+```
 
 ##### 平台特定 URL 格式
 

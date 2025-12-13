@@ -3,7 +3,7 @@
 //! This module contains the core WebView functionality:
 //! - Constructor (`new`)
 //! - Lifecycle methods (`show`, `close`, `run`)
-//! - Factory methods (`create_for_dcc`, `create_for_dcc_async`)
+//! - Factory methods (`create_embedded`, `create_embedded_async`)
 //! - Property getters (`title`, `url`, `progress`, `loading`)
 
 use pyo3::prelude::*;
@@ -22,7 +22,7 @@ impl AuroraView {
     /// Create a new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None, tool_window=false, undecorated_shadow=true, allow_new_window=false))]
     fn new(
         title: &str,
         width: u32,
@@ -46,8 +46,14 @@ impl AuroraView {
         remote_debugging_port: Option<u16>,
         ipc_batch_size: usize,
         icon: Option<&str>,
+        #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] tool_window: bool,
+        #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] undecorated_shadow: bool,
+        allow_new_window: bool,
     ) -> PyResult<Self> {
-        tracing::info!("AuroraView::new() called with title: {}", title);
+        tracing::info!(
+            "AuroraView::new() called with title: {}, transparent={}, tool_window={}, decorations={}",
+            title, transparent, tool_window, decorations
+        );
 
         // Normalize URL if provided
         let normalized_url = url.map(normalize_url);
@@ -80,16 +86,18 @@ impl AuroraView {
             remote_debugging_port,
             ipc_batch_size,
             icon: icon.map(std::path::PathBuf::from),
+            allow_new_window,
             ..Default::default()
         };
 
         // Map string to EmbedMode (Windows)
-        // Only "child" mode is supported (official recommended approach)
+        // Supported modes: "child" (embed in Qt widget), "owner" (floating tool window)
         #[cfg(target_os = "windows")]
         {
             use crate::webview::config::EmbedMode;
             config.embed_mode = match parent_mode.map(|s| s.to_ascii_lowercase()) {
                 Some(ref m) if m == "child" => EmbedMode::Child,
+                Some(ref m) if m == "owner" => EmbedMode::Owner,
                 _ => {
                     // Default: use Child mode if parent_hwnd is provided, otherwise None
                     if parent_hwnd.is_some() {
@@ -99,6 +107,8 @@ impl AuroraView {
                     }
                 }
             };
+            config.tool_window = tool_window;
+            config.undecorated_shadow = undecorated_shadow;
         }
 
         // Create IPC handler and JS callback manager
@@ -132,6 +142,73 @@ impl AuroraView {
         Ok("test_method works!".to_string())
     }
 
+    // === Factory Methods ===
+
+    /// Create a WebView instance for embedded mode (static method)
+    ///
+    /// This creates a WebView that will be embedded into a parent window.
+    /// The WebView does not run its own event loop - the host application
+    /// must call process_events_ipc_only() periodically.
+    ///
+    /// # Arguments
+    /// * `parent_hwnd` - HWND of the parent window
+    /// * `title` - Window title (for debugging)
+    /// * `width` - Width in pixels
+    /// * `height` - Height in pixels
+    #[staticmethod]
+    #[pyo3(signature = (parent_hwnd, title="Embedded WebView", width=800, height=600))]
+    fn create_embedded(parent_hwnd: u64, title: &str, width: u32, height: u32) -> PyResult<Self> {
+        use crate::webview::config::EmbedMode;
+
+        tracing::info!(
+            "[create_embedded] Creating embedded WebView for parent HWND: 0x{:X}",
+            parent_hwnd
+        );
+
+        let config = WebViewConfig {
+            title: title.to_string(),
+            width,
+            height,
+            parent_hwnd: Some(parent_hwnd),
+            embed_mode: EmbedMode::Child,
+            dev_tools: true,
+            ..Default::default()
+        };
+
+        let ipc_handler = Arc::new(IpcHandler::new());
+        let message_queue = Arc::new(MessageQueue::new());
+
+        // Create the WebView using the inner create_embedded
+        let webview_inner = WebViewInner::create_embedded(
+            parent_hwnd,
+            config.clone(),
+            ipc_handler.clone(),
+            message_queue.clone(),
+            None,
+        )
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        // Get HWND from the created webview
+        let cached_hwnd = webview_inner.get_hwnd();
+
+        tracing::info!(
+            "[create_embedded] WebView created successfully, HWND: {:?}",
+            cached_hwnd
+        );
+
+        Ok(Self {
+            inner: Rc::new(RefCell::new(Some(webview_inner))),
+            config: Rc::new(RefCell::new(config)),
+            ipc_handler,
+            message_queue,
+            event_loop_proxy: Rc::new(RefCell::new(None)),
+            js_callback_manager: Arc::new(JsCallbackManager::new()),
+            on_hwnd_created: Rc::new(RefCell::new(None)),
+            #[cfg(target_os = "windows")]
+            cached_hwnd: Rc::new(RefCell::new(cached_hwnd)),
+        })
+    }
+
     // === Lifecycle Methods ===
 
     /// Show WebView window (standalone mode or embedded mode)
@@ -142,7 +219,7 @@ impl AuroraView {
         match embed_mode {
             EmbedMode::None => self.show_window(),
             #[cfg(target_os = "windows")]
-            EmbedMode::Child => self.show_embedded(),
+            EmbedMode::Child | EmbedMode::Owner => self.show_embedded(),
         }
     }
 
@@ -209,12 +286,22 @@ impl AuroraView {
                 let config = self.config.borrow().clone();
                 let parent_hwnd = config.parent_hwnd.unwrap_or(0);
 
+                // Debug: log config values
+                tracing::info!(
+                    "[show_embedded] title={}, Config: tool_window={}, undecorated_shadow={}, decorations={}, transparent={}, embed_mode={:?}, parent_hwnd={:?}",
+                    config.title,
+                    config.tool_window,
+                    config.undecorated_shadow,
+                    config.decorations,
+                    config.transparent,
+                    config.embed_mode,
+                    config.parent_hwnd
+                );
+
                 // Don't pass callback to create_embedded - we'll invoke it after releasing borrow
                 // This avoids RefCell borrow conflict when callback tries to access self.inner
                 let webview = WebViewInner::create_embedded(
                     parent_hwnd,
-                    config.width,
-                    config.height,
                     config,
                     self.ipc_handler.clone(),
                     self.message_queue.clone(),
@@ -262,71 +349,6 @@ impl AuroraView {
         Ok(())
     }
 
-    /// Create WebView for embedded mode (for DCC integration)
-    fn create_embedded(&self, parent_hwnd: u64, width: u32, height: u32) -> PyResult<()> {
-        tracing::info!("Creating embedded WebView for parent HWND: {}", parent_hwnd);
-
-        // Track if we need to invoke the callback after releasing the borrow
-        let mut created_hwnd: Option<u64> = None;
-
-        {
-            // Scope the mutable borrow to release it before callback invocation
-            let mut inner = self.inner.borrow_mut();
-            if inner.is_none() {
-                // Don't pass callback to create_embedded - we'll invoke it after releasing borrow
-                // This avoids RefCell borrow conflict when callback tries to access self.inner
-                let webview = WebViewInner::create_embedded(
-                    parent_hwnd,
-                    width,
-                    height,
-                    self.config.borrow().clone(),
-                    self.ipc_handler.clone(),
-                    self.message_queue.clone(),
-                    None, // No callback - we'll call it manually after borrow is released
-                )
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-                // Get HWND before storing webview
-                created_hwnd = webview.get_hwnd();
-
-                *inner = Some(webview);
-            }
-        } // inner borrow released here
-
-        // Cache HWND at AuroraView level
-        #[cfg(target_os = "windows")]
-        if let Some(hwnd) = created_hwnd {
-            tracing::info!(
-                "[create_embedded] Caching HWND at AuroraView level: 0x{:X}",
-                hwnd
-            );
-            *self.cached_hwnd.borrow_mut() = Some(hwnd);
-        }
-
-        // Now safe to invoke callback - self.inner is no longer borrowed
-        if let Some(hwnd) = created_hwnd {
-            if let Some(callback) = Python::attach(|py| {
-                self.on_hwnd_created
-                    .borrow()
-                    .as_ref()
-                    .map(|cb| cb.clone_ref(py))
-            }) {
-                tracing::info!(
-                    "[OK] [create_embedded] Invoking on_hwnd_created callback with HWND 0x{:X}",
-                    hwnd
-                );
-                Python::attach(|py| {
-                    if let Err(e) = callback.call1(py, (hwnd,)) {
-                        tracing::error!("Error calling on_hwnd_created callback: {:?}", e);
-                        e.print(py);
-                    }
-                });
-            }
-        }
-
-        Ok(())
-    }
-
     /// Close the WebView window
     fn close(&self) -> PyResult<()> {
         use super::super::event_loop::UserEvent;
@@ -349,7 +371,7 @@ impl AuroraView {
 
     /// Process IPC messages only (no window message pump)
     ///
-    /// For DCC integration mode (create_for_dcc_async), this processes
+    /// For embedded integration mode (create_embedded_async), this processes
     /// Python callbacks on the main thread while the background thread
     /// handles the actual WebView event loop.
     fn process_ipc_only(&self) -> PyResult<bool> {

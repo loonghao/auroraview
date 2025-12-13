@@ -3,6 +3,9 @@
 This example demonstrates how to disable the native browser context menu
 and implement a custom right-click menu using JavaScript.
 
+Note: This example uses the low-level WebView API for demonstration.
+For most use cases, prefer QtWebView, AuroraView, or run_desktop.
+
 Signed-off-by: Hal Long <hal.long@outlook.com>
 """
 
@@ -167,7 +170,7 @@ HTML_CONTENT = """
 def main():
     """Run the custom context menu demo."""
     # Create WebView with native context menu disabled
-    webview = WebView.create(
+    webview = WebView(
         title="Custom Context Menu Demo",
         width=900,
         height=700,
