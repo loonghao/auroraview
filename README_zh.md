@@ -136,6 +136,26 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 - [OK] **WebView2 预热**: 预初始化 WebView2 加速 DCC 启动
 - [OK] **性能监控**: get_performance_metrics()、get_ipc_stats()
 
+### 桌面功能
+- [OK] **系统托盘**: 系统托盘图标，右键菜单，最小化到托盘，点击显示
+- [OK] **工具窗口**: 通过 `tool_window=True` 隐藏任务栏/Alt+Tab (WS_EX_TOOLWINDOW)
+- [OK] **浮动面板**: 无边框透明窗口，适用于 AI 助手和工具面板
+- [OK] **Owner 模式**: 通过 `embed_mode="owner"` 实现窗口跟随父窗口最小化/恢复
+
+### 插件系统
+- [OK] **Rust 插件架构**: 高性能插件系统，支持 IPC
+- [OK] **进程插件**: 运行外部进程，支持 stdout/stderr 流式输出
+- [OK] **文件系统插件**: 原生文件操作（读取、写入、复制、移动）
+- [OK] **对话框插件**: 原生文件/文件夹对话框和消息框
+- [OK] **Shell 插件**: 执行命令、打开 URL、在文件管理器中显示
+- [OK] **剪贴板插件**: 系统剪贴板读写访问
+
+### Gallery 应用
+- [OK] **交互式展示**: 基于 React 的 Gallery，展示所有功能
+- [OK] **示例运行器**: 运行任意示例，实时显示 stdout/stderr 输出
+- [OK] **分类浏览器**: 按类别组织示例，支持搜索
+- [OK] **Pack 命令**: 通过 `auroraview pack` 构建独立 Gallery 可执行文件
+
 ### 安全
 - [OK] **CSP 配置**: 内容安全策略支持
 - [OK] **CORS 控制**: 跨域资源共享管理
@@ -1267,6 +1287,65 @@ webview.show()
 ```
 
 详细指南请参阅 [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md)。
+
+### 系统托盘支持
+
+创建带系统托盘的桌面应用：
+
+```python
+from auroraview import run_desktop
+
+# 启动带系统托盘的应用
+run_desktop(
+    title="我的后台应用",
+    html=my_html,
+    width=400,
+    height=300,
+    system_tray=True,  # 启用系统托盘
+    hide_on_close=True,  # 关闭时最小化到托盘
+)
+```
+
+### 浮动工具窗口
+
+创建浮动面板，适用于 AI 助手或工具面板：
+
+```python
+from auroraview import WebView
+
+# 创建浮动工具窗口
+webview = WebView.create(
+    title="AI 助手",
+    html=panel_html,
+    width=320,
+    height=400,
+    frame=False,  # 无边框窗口
+    transparent=True,  # 透明背景
+    always_on_top=True,  # 保持置顶
+    tool_window=True,  # 隐藏任务栏/Alt+Tab
+    parent=parent_hwnd,  # 可选：跟随父窗口
+    mode="owner",  # 窗口跟随父窗口最小化/恢复
+)
+webview.show()
+```
+
+### Gallery 应用
+
+AuroraView 包含一个交互式 Gallery，展示所有功能：
+
+```bash
+# 运行 Gallery
+just gallery
+
+# 或构建独立 Gallery 可执行文件
+just gallery-pack
+```
+
+Gallery 提供：
+- 交互式示例浏览器，按类别分组
+- 实时示例运行器，显示 stdout/stderr 输出
+- 运行时配置的设置面板
+- 跨所有示例的搜索功能
 
 ## 文档
 

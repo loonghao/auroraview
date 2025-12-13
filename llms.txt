@@ -574,6 +574,65 @@ run_standalone(
 )
 ```
 
+## System Tray Support
+
+Create desktop applications with system tray integration:
+
+```python
+from auroraview import run_desktop
+
+# Launch app with system tray
+run_desktop(
+    title="Background App",
+    html=my_html,
+    width=400,
+    height=300,
+    system_tray=True,  # Enable system tray icon
+    hide_on_close=True,  # Minimize to tray instead of closing
+)
+```
+
+## Floating Tool Windows
+
+Create floating panels for AI assistants or tool palettes:
+
+```python
+from auroraview import WebView
+
+# Create floating tool window
+webview = WebView.create(
+    title="AI Assistant",
+    html=panel_html,
+    width=320,
+    height=400,
+    frame=False,  # Frameless window
+    transparent=True,  # Transparent background
+    always_on_top=True,  # Keep on top
+    tool_window=True,  # Hide from taskbar/Alt+Tab (WS_EX_TOOLWINDOW)
+    parent=parent_hwnd,  # Optional: follow parent window
+    mode="owner",  # Window follows parent minimize/restore
+)
+webview.show()
+```
+
+## Gallery Application
+
+Interactive showcase of all AuroraView features:
+
+```bash
+# Run Gallery
+just gallery
+
+# Build standalone Gallery executable
+just gallery-pack
+```
+
+Features:
+- Example browser with categories
+- Live example runner with stdout/stderr streaming
+- Settings panel for runtime configuration
+- Search across all examples
+
 ## Command Line Interface
 
 ```bash
