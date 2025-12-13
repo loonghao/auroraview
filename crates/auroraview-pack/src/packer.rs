@@ -604,11 +604,7 @@ impl Packer {
     }
 
     /// Copy Python code to output directory
-    fn copy_python_code(
-        &self,
-        dest_dir: &Path,
-        python: &PythonBundleConfig,
-    ) -> PackResult<usize> {
+    fn copy_python_code(&self, dest_dir: &Path, python: &PythonBundleConfig) -> PackResult<usize> {
         let mut count = 0;
 
         for include_path in &python.include_paths {
@@ -719,7 +715,10 @@ impl Packer {
         if !packages.is_empty() {
             let req_file = output_dir.join("requirements.txt");
             fs::write(&req_file, packages.join("\n"))?;
-            tracing::info!("Generated requirements.txt with {} packages", packages.len());
+            tracing::info!(
+                "Generated requirements.txt with {} packages",
+                packages.len()
+            );
         }
 
         Ok(())

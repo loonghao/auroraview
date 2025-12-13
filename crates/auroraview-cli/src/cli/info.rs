@@ -32,11 +32,7 @@ pub fn run_info() -> Result<()> {
         .unwrap_or(false);
     println!(
         "  Cargo: {}",
-        if cargo_ok {
-            "Available"
-        } else {
-            "Not found"
-        }
+        if cargo_ok { "Available" } else { "Not found" }
     );
 
     // Check PyOxidizer

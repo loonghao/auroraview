@@ -156,10 +156,7 @@ pub enum WindowStartPosition {
     #[default]
     Center,
     /// Specific position
-    Position {
-        x: i32,
-        y: i32,
-    },
+    Position { x: i32, y: i32 },
 }
 
 /// Target platform for the packed executable
@@ -414,10 +411,7 @@ impl PackConfig {
     }
 
     /// Create a fullstack mode configuration (frontend + Python backend)
-    pub fn fullstack(
-        frontend_path: impl Into<PathBuf>,
-        entry_point: impl Into<String>,
-    ) -> Self {
+    pub fn fullstack(frontend_path: impl Into<PathBuf>, entry_point: impl Into<String>) -> Self {
         let frontend_path = frontend_path.into();
         let output_name = frontend_path
             .file_name()

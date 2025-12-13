@@ -273,10 +273,7 @@ impl Default for WindowConfig {
 #[serde(untagged)]
 pub enum StartPosition {
     /// Specific position
-    Position {
-        x: i32,
-        y: i32,
-    },
+    Position { x: i32, y: i32 },
     /// Named position (center, etc.)
     Named(String),
 }
@@ -739,7 +736,11 @@ impl Manifest {
     pub fn from_file(path: impl AsRef<Path>) -> PackResult<Self> {
         let path = path.as_ref();
         let content = std::fs::read_to_string(path).map_err(|e| {
-            PackError::Config(format!("Failed to read manifest file {}: {}", path.display(), e))
+            PackError::Config(format!(
+                "Failed to read manifest file {}: {}",
+                path.display(),
+                e
+            ))
         })?;
         Self::parse(&content)
     }
@@ -788,7 +789,11 @@ impl Manifest {
         if let Some(ref python) = self.python {
             if python.enabled {
                 // Validate version format
-                if !python.version.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                if !python
+                    .version
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '.')
+                {
                     return Err(PackError::Config(format!(
                         "Invalid Python version format: {}",
                         python.version
@@ -841,11 +846,7 @@ impl Manifest {
 
     /// Check if this is a fullstack (Python + frontend) configuration
     pub fn is_fullstack(&self) -> bool {
-        self.python
-            .as_ref()
-            .map(|p| p.enabled)
-            .unwrap_or(false)
-            && self.app.frontend_path.is_some()
+        self.python.as_ref().map(|p| p.enabled).unwrap_or(false) && self.app.frontend_path.is_some()
     }
 
     /// Check if this is a URL-only configuration

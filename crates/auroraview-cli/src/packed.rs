@@ -29,7 +29,11 @@ pub fn run_packed_app() -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("No overlay data found in packed executable"))?;
 
     // Initialize logging
-    let log_level = if overlay.config.debug { "debug" } else { "info" };
+    let log_level = if overlay.config.debug {
+        "debug"
+    } else {
+        "info"
+    };
     let local_time = tracing_subscriber::fmt::time::OffsetTime::local_rfc_3339();
 
     match local_time {
@@ -54,7 +58,10 @@ pub fn run_packed_app() -> Result<()> {
         }
     }
 
-    tracing::info!("Running packed application: {}", overlay.config.window.title);
+    tracing::info!(
+        "Running packed application: {}",
+        overlay.config.window.title
+    );
     tracing::info!("Assets: {} files", overlay.assets.len());
 
     // Inject environment variables
@@ -215,7 +222,10 @@ fn run_packed_webview(overlay: OverlayData) -> Result<()> {
 }
 
 /// Start Python backend process for FullStack mode
-fn start_python_backend(overlay: &OverlayData, python_config: &PythonBundleConfig) -> Result<Child> {
+fn start_python_backend(
+    overlay: &OverlayData,
+    python_config: &PythonBundleConfig,
+) -> Result<Child> {
     // Determine Python executable path based on strategy
     let python_exe = match python_config.strategy {
         BundleStrategy::Standalone => {
