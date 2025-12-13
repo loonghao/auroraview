@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.11](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.10...auroraview-v0.3.11) (2025-12-13)
+
+
+### Features
+
+* add Gallery app with plugin system and API unification ([51307db](https://github.com/loonghao/auroraview/commit/51307dbab10a93adcffdfc6ffbea6814a913c939))
+
+
+### Bug Fixes
+
+* add cfg guards for Windows-only code paths ([458a89f](https://github.com/loonghao/auroraview/commit/458a89f3c42e936e454caf30162a36b57d20468d))
+* add libxdo-dev dependency for Linux builds and fix dead_code warning ([8e3620f](https://github.com/loonghao/auroraview/commit/8e3620fcf471e19be19ae464d6af2e8a2b213bf8))
+* update wry WebViewBuilder API from with_web_context to new_with_web_context ([4d30b05](https://github.com/loonghao/auroraview/commit/4d30b0530235c25f16d5cddec87d0bec02532524))
+
+
+### Documentation
+
+* add new features documentation (Gallery, System Tray, Floating Panels, Plugin System) ([87a9d2b](https://github.com/loonghao/auroraview/commit/87a9d2babad62252bbcff7cb54c37cd6d2981236))
+
 ## [0.3.10](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.9...auroraview-v0.3.10) (2025-12-11)
 
 
