@@ -9,13 +9,14 @@
 
 use std::error::Error;
 use std::ffi::CString;
+use std::path::PathBuf;
 use std::thread;
 use tao::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-use wry::WebViewBuilder;
+use wry::{WebContext, WebViewBuilder};
 use rust_embed::Embed;
 
 // Embed frontend assets
@@ -26,9 +27,17 @@ struct Asset;
 // PyEmbed imports
 use pyembed::{MainPythonInterpreter, OxidizedPythonInterpreterConfig};
 
+const APP_NAME: &str = "{{ name }}";
 const APP_TITLE: &str = "{{ title }}";
 const APP_WIDTH: u32 = {{ width }};
 const APP_HEIGHT: u32 = {{ height }};
+
+/// Get the WebView data directory in the platform-specific app data location
+fn get_data_dir() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+        .join(APP_NAME)
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Initialize Python interpreter in a background thread
@@ -56,12 +65,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_inner_size(tao::dpi::LogicalSize::new(APP_WIDTH, APP_HEIGHT))
         .build(&event_loop)?;
 
+    // Create WebContext with app-specific data directory
+    let data_dir = get_data_dir();
+    std::fs::create_dir_all(&data_dir)?;
+    let mut web_context = WebContext::new(Some(data_dir));
+
     // Load embedded index.html
     let index_html = Asset::get("index.html")
         .expect("index.html not found in embedded assets");
     let html_content = std::str::from_utf8(index_html.data.as_ref())?;
 
-    let _webview = WebViewBuilder::new()
+    let _webview = WebViewBuilder::with_web_context(&mut web_context)
         .with_html(html_content)
         .with_custom_protocol("asset".into(), |_webview_id, request| {
             let path = request.uri().path().trim_start_matches('/');
@@ -96,4 +110,3 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 }
-

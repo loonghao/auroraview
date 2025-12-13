@@ -4,9 +4,18 @@
 This package provides a modern web-based UI solution for professional DCC applications
 like Maya, 3ds Max, Houdini, Blender, Nuke, and Unreal Engine.
 
-## Integration Modes
+## Quick Start
 
-AuroraView provides three main integration modes for different use cases:
+Choose the right API for your use case:
+
+| Use Case | API | Description |
+|----------|-----|-------------|
+| Maya/Houdini/Nuke | ``QtWebView`` | Qt widget with docking support |
+| Unreal Engine | ``AuroraView`` | HWND-based for non-Qt apps |
+| Desktop App | ``run_desktop()`` | One-liner for standalone apps |
+| Advanced | ``auroraview.core.WebView`` | Low-level API (not recommended) |
+
+## Integration Modes
 
 ### 1. Qt Native Mode (QtWebView) - For Qt-based DCC
 
@@ -54,44 +63,34 @@ Best for standalone desktop applications::
         height=768
     )
 
-    # Or use the legacy alias:
-    from auroraview import run_standalone
-    run_standalone(...)
-
-### 4. Low-level API (WebView) - For Advanced Users
-
-Direct access to the underlying WebView for maximum flexibility::
-
-    from auroraview import WebView
-
-    webview = WebView.create(
-        title="Advanced Tool",
-        url="http://localhost:3000",
-        embed_mode="child",  # or "owner", "none"
-        parent=parent_hwnd
-    )
-    webview.show()
-
-## Quick Reference
-
-| Use Case | Class | Docking Support |
-|----------|-------|-----------------|
-| Maya/Houdini/Nuke | ``QtWebView`` | Yes (QDockWidget) |
-| Unreal Engine | ``AuroraView`` | Yes (via HWND) |
-| Desktop App | ``run_desktop`` | N/A |
-| Advanced/Custom | ``WebView`` | Depends on mode |
-
 ## Bidirectional Communication
 
-Python → JavaScript::
+Python -> JavaScript::
 
     webview.emit("update_data", {"frame": 120})
 
-JavaScript → Python::
+JavaScript -> Python::
 
     @webview.on("export_scene")
     def handle_export(data):
         print(f"Exporting to: {data['path']}")
+
+## Advanced Usage
+
+For advanced users who need low-level control, use ``auroraview.core.WebView``::
+
+    from auroraview.core import WebView
+
+    webview = WebView.create(
+        title="Advanced Tool",
+        url="http://localhost:3000",
+        parent=parent_hwnd,
+        mode="owner"
+    )
+    webview.show()
+
+Note: Direct use of ``WebView`` is not recommended for most use cases.
+Use ``QtWebView`` for Qt-based DCC apps or ``AuroraView`` for HWND-based apps.
 """
 
 _CORE_IMPORT_ERROR = None
@@ -156,6 +155,12 @@ try:
         get_shared_user_data_folder,
         # Plugin system for native desktop operations
         PluginManager,
+        # Thread-safe event emitter for cross-thread operations
+        EventEmitter,
+        # High-performance JSON functions (orjson-equivalent, no Python deps)
+        json_loads,
+        json_dumps,
+        json_dumps_bytes,
     )
 except ImportError as e:
     # Capture the import error for diagnostics
@@ -194,6 +199,11 @@ except ImportError as e:
 
     # Placeholder for plugin system
     PluginManager = None  # type: ignore
+
+    # Placeholder for JSON functions
+    json_loads = None  # type: ignore
+    json_dumps = None  # type: ignore
+    json_dumps_bytes = None  # type: ignore
 
 
 def diagnose_core_library() -> dict:
@@ -257,7 +267,7 @@ from .core import (
     NavigationEvent,
     Signal,
     SignalRegistry,
-    WebView,
+    WebView,  # Kept for backward compatibility, prefer QtWebView/AuroraView
     WebViewSettings,
     WebViewSignals,
     WindowEvent,
@@ -269,6 +279,11 @@ from .core import (
     is_backend_available,
     set_backend_type,
 )
+
+# Note: WebView is exported for backward compatibility, but for new code:
+# - Use QtWebView for Qt-based DCC apps (Maya, Houdini, Nuke)
+# - Use AuroraView for HWND-based apps (Unreal Engine)
+# - Use run_desktop() for standalone desktop applications
 from .integration import AuroraView, Bridge, QtWebView
 from .ui import Element, ElementCollection, Menu, MenuBar, MenuItem, MenuItemType
 from .utils import (
@@ -368,9 +383,25 @@ __all__ = [
     "integration",  # auroraview.integration - AuroraView, Bridge, Qt
     "utils",  # auroraview.utils - EventTimer, FileProtocol, Automation
     # ============================================================
-    # Core (auroraview.core)
+    # Primary APIs (recommended)
     # ============================================================
+    # Qt-based DCC integration (Maya, Houdini, Nuke, 3ds Max)
+    "QtWebView",
+    # HWND-based integration (Unreal Engine, non-Qt apps)
+    "AuroraView",
+    # Desktop standalone apps
+    "run_desktop",
+    "run_standalone",  # Legacy alias for run_desktop
+    # Bridge for DCC integration
+    "Bridge",
+    # ============================================================
+    # Core WebView (backward compatibility)
+    # ============================================================
+    # Note: Prefer QtWebView/AuroraView/run_desktop for new code
     "WebView",
+    # ============================================================
+    # Core utilities (auroraview.core)
+    # ============================================================
     # Backend abstraction
     "BackendType",
     "get_backend_type",
@@ -412,15 +443,8 @@ __all__ = [
     "MenuItem",
     "MenuItemType",
     # ============================================================
-    # Integration (auroraview.integration)
-    # ============================================================
-    # Framework
-    "AuroraView",
-    # Qt backend
-    "QtWebView",
-    # Bridge for DCC integration
-    "Bridge",
     # Service Discovery
+    # ============================================================
     "ServiceDiscovery",
     "ServiceInfo",
     # ============================================================
@@ -459,8 +483,6 @@ __all__ = [
     # ============================================================
     "normalize_url",
     "rewrite_html_for_custom_protocol",
-    "run_desktop",
-    "run_standalone",  # Legacy alias for run_desktop
     # ============================================================
     # WebView2 warmup (Windows performance optimization)
     # ============================================================
@@ -471,6 +493,16 @@ __all__ = [
     "get_warmup_stage",
     "get_warmup_status",
     "get_shared_user_data_folder",
+    # ============================================================
+    # High-performance JSON (Rust-powered, orjson-equivalent)
+    # ============================================================
+    "json_loads",
+    "json_dumps",
+    "json_dumps_bytes",
+    # ============================================================
+    # Plugin system
+    # ============================================================
+    "PluginManager",
     # ============================================================
     # Helpers
     # ============================================================

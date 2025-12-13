@@ -34,7 +34,8 @@ anyhow = "1.0"
 
 # Logging
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "local-time"] }
+time = { version = "0.3", features = ["formatting", "local-offset"] }
 
 # Serialization for config files
 serde = { version = "1.0", features = ["derive"] }
@@ -52,6 +53,9 @@ dirs = "6.0"
 
 # MIME type detection
 mime_guess = "2.0"
+
+# Open URLs/files in system default application
+open = "5.3"
 
 # Image processing for window icon
 image = { version = "0.25", default-features = false, features = ["png"] }

@@ -48,6 +48,14 @@ use crate::webview::desktop;
 ///         resource paths in HTML to be resolved correctly relative to the HTML file.
 ///     rewrite_relative_paths (bool, optional): Automatically rewrite relative paths
 ///         (like ./script.js, ../style.css) to use auroraview:// protocol. Default: True.
+///     tray_enabled (bool, optional): Enable system tray icon (default: False).
+///     tray_tooltip (str, optional): Tooltip text shown when hovering over tray icon.
+///     tray_icon (str, optional): Path to tray icon (PNG recommended, 32x32 or 64x64).
+///     tray_show_on_click (bool, optional): Show window when tray icon is clicked (default: True).
+///     tray_hide_on_close (bool, optional): Hide to tray instead of closing (default: True).
+///     tool_window (bool, optional): Tool window style - hide from taskbar/Alt+Tab (default: False).
+///     undecorated_shadow (bool, optional): Show shadow for frameless windows (default: True).
+///         Set to False for transparent overlay windows.
 ///
 /// Example:
 ///     >>> from auroraview._core import run_desktop
@@ -58,6 +66,17 @@ use crate::webview::desktop;
 ///     ...     url="https://example.com"
 ///     ... )
 ///     # Window shows, blocks until closed, then process exits
+///
+///     # With system tray:
+///     >>> run_desktop(
+///     ...     title="Tray App",
+///     ...     width=800,
+///     ...     height=600,
+///     ...     html="<h1>Hello</h1>",
+///     ...     tray_enabled=True,
+///     ...     tray_tooltip="My App",
+///     ...     tray_hide_on_close=True,
+///     ... )
 ///
 ///     # Or use the legacy alias:
 ///     >>> from auroraview._core import run_standalone
@@ -80,7 +99,14 @@ use crate::webview::desktop;
     remote_debugging_port=None,
     asset_root=None,
     html_path=None,
-    rewrite_relative_paths=true
+    rewrite_relative_paths=true,
+    tray_enabled=false,
+    tray_tooltip=None,
+    tray_icon=None,
+    tray_show_on_click=true,
+    tray_hide_on_close=true,
+    tool_window=false,
+    undecorated_shadow=true
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_desktop(
@@ -101,6 +127,13 @@ fn run_desktop(
     asset_root: Option<String>,
     html_path: Option<String>,
     rewrite_relative_paths: bool,
+    tray_enabled: bool,
+    tray_tooltip: Option<String>,
+    tray_icon: Option<String>,
+    tray_show_on_click: bool,
+    tray_hide_on_close: bool,
+    tool_window: bool,
+    undecorated_shadow: bool,
 ) -> PyResult<()> {
     tracing::info!("[run_desktop] Creating desktop WebView: {}", title);
 
@@ -169,6 +202,27 @@ fn run_desktop(
         icon: None,                       // Use default AuroraView icon
         enable_plugins: true,             // Enable plugin APIs
         enabled_plugin_names: Vec::new(), // All plugins
+        #[cfg(target_os = "windows")]
+        tool_window,
+        #[cfg(target_os = "windows")]
+        undecorated_shadow,
+        tray: if tray_enabled {
+            Some(crate::webview::config::TrayConfig {
+                enabled: true,
+                tooltip: tray_tooltip,
+                icon: tray_icon.map(PathBuf::from),
+                menu_items: vec![
+                    crate::webview::config::TrayMenuItem::new("show", "Show Window"),
+                    crate::webview::config::TrayMenuItem::separator(),
+                    crate::webview::config::TrayMenuItem::new("exit", "Exit"),
+                ],
+                hide_on_close: tray_hide_on_close,
+                show_on_click: tray_show_on_click,
+                show_on_double_click: false,
+            })
+        } else {
+            None
+        },
     };
 
     // Create IPC handler and message queue
@@ -205,7 +259,14 @@ fn run_desktop(
     remote_debugging_port=None,
     asset_root=None,
     html_path=None,
-    rewrite_relative_paths=true
+    rewrite_relative_paths=true,
+    tray_enabled=false,
+    tray_tooltip=None,
+    tray_icon=None,
+    tray_show_on_click=true,
+    tray_hide_on_close=true,
+    tool_window=false,
+    undecorated_shadow=true
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_standalone(
@@ -226,6 +287,13 @@ fn run_standalone(
     asset_root: Option<String>,
     html_path: Option<String>,
     rewrite_relative_paths: bool,
+    tray_enabled: bool,
+    tray_tooltip: Option<String>,
+    tray_icon: Option<String>,
+    tray_show_on_click: bool,
+    tray_hide_on_close: bool,
+    tool_window: bool,
+    undecorated_shadow: bool,
 ) -> PyResult<()> {
     run_desktop(
         title,
@@ -245,6 +313,13 @@ fn run_standalone(
         asset_root,
         html_path,
         rewrite_relative_paths,
+        tray_enabled,
+        tray_tooltip,
+        tray_icon,
+        tray_show_on_click,
+        tray_hide_on_close,
+        tool_window,
+        undecorated_shadow,
     )
 }
 
@@ -318,45 +393,12 @@ mod tests {
     /// Test WebViewConfig creation with asset_root
     #[test]
     fn test_config_with_asset_root() {
-        let asset_root = Some("/tmp/assets".to_string());
         let config = WebViewConfig {
             title: "Test".to_string(),
             width: 800,
             height: 600,
-            url: None,
-            html: None,
-            dev_tools: true,
-            resizable: true,
-            decorations: true,
-            transparent: false,
-            always_on_top: false,
-            background_color: None,
-            context_menu: true,
-            parent_hwnd: None,
-            embed_mode: crate::webview::config::EmbedMode::None,
-            ipc_batching: false,
-            ipc_batch_size: 100,
-            ipc_batch_interval_ms: 16,
-            asset_root: asset_root.map(PathBuf::from),
-            data_directory: None,
-            custom_protocols: std::collections::HashMap::new(),
-            api_methods: std::collections::HashMap::new(),
-            allow_new_window: false,
-            allow_file_protocol: false,
-            auto_show: true,
-            headless: false,
-            remote_debugging_port: None,
-            content_security_policy: None,
-            cors_allowed_origins: Vec::new(),
-            allow_clipboard: false,
-            allow_geolocation: false,
-            allow_notifications: false,
-            allow_media_devices: false,
-            block_external_navigation: false,
-            allowed_navigation_domains: Vec::new(),
-            icon: None,
-            enable_plugins: true,
-            enabled_plugin_names: Vec::new(),
+            asset_root: Some(PathBuf::from("/tmp/assets")),
+            ..Default::default()
         };
 
         assert_eq!(config.asset_root, Some(PathBuf::from("/tmp/assets")));
@@ -365,45 +407,11 @@ mod tests {
     /// Test WebViewConfig creation without asset_root
     #[test]
     fn test_config_without_asset_root() {
-        let asset_root: Option<String> = None;
         let config = WebViewConfig {
             title: "Test".to_string(),
             width: 800,
             height: 600,
-            url: None,
-            html: None,
-            dev_tools: true,
-            resizable: true,
-            decorations: true,
-            transparent: false,
-            always_on_top: false,
-            background_color: None,
-            context_menu: true,
-            parent_hwnd: None,
-            embed_mode: crate::webview::config::EmbedMode::None,
-            ipc_batching: false,
-            ipc_batch_size: 100,
-            ipc_batch_interval_ms: 16,
-            asset_root: asset_root.map(PathBuf::from),
-            data_directory: None,
-            custom_protocols: std::collections::HashMap::new(),
-            api_methods: std::collections::HashMap::new(),
-            allow_new_window: false,
-            allow_file_protocol: false,
-            auto_show: true,
-            headless: false,
-            remote_debugging_port: None,
-            content_security_policy: None,
-            cors_allowed_origins: Vec::new(),
-            allow_clipboard: false,
-            allow_geolocation: false,
-            allow_notifications: false,
-            allow_media_devices: false,
-            block_external_navigation: false,
-            allowed_navigation_domains: Vec::new(),
-            icon: None,
-            enable_plugins: true,
-            enabled_plugin_names: Vec::new(),
+            ..Default::default()
         };
 
         assert_eq!(config.asset_root, None);

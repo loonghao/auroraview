@@ -611,41 +611,6 @@ impl NativeBackend {
     /// * `message_queue` - Message queue for cross-thread communication
     /// * `on_created` - Optional callback invoked when WebView2 HWND is created
     ///
-    /// # Returns
-    /// A NativeBackend instance without running event loop
-    #[cfg(target_os = "windows")]
-    pub fn create_for_dcc(
-        parent_hwnd: u64,
-        config: WebViewConfig,
-        ipc_handler: Arc<IpcHandler>,
-        message_queue: Arc<MessageQueue>,
-        on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        tracing::info!(
-            "[OK] [NativeBackend::create_for_dcc] Creating WebView for DCC integration (parent_hwnd: {}, mode: {:?})",
-            parent_hwnd,
-            config.embed_mode
-        );
-        tracing::info!("[OK] This WebView will NOT run its own event loop");
-        tracing::info!("[OK] DCC's Qt message pump will handle all messages");
-
-        // Delegate to create_embedded which now handles all embedding modes
-        Self::create_embedded(parent_hwnd, config, ipc_handler, message_queue, on_created)
-    }
-
-    /// Create WebView for DCC integration (non-Windows platforms)
-    #[cfg(not(target_os = "windows"))]
-    #[allow(dead_code)]
-    pub fn create_for_dcc(
-        _parent_hwnd: u64,
-        _config: WebViewConfig,
-        _ipc_handler: Arc<IpcHandler>,
-        _message_queue: Arc<MessageQueue>,
-        _on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        Err("DCC integration mode is only supported on Windows".into())
-    }
-
     /// Create desktop WebView with its own window
     #[cfg(feature = "python-bindings")]
     #[allow(dead_code)]
@@ -695,9 +660,9 @@ impl NativeBackend {
         Self::create_desktop(config, ipc_handler, message_queue)
     }
 
-    /// Create embedded WebView for DCC integration
+    /// Create embedded WebView for external window integration
     #[cfg(target_os = "windows")]
-    fn create_embedded(
+    pub fn create_embedded(
         parent_hwnd: u64,
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
@@ -741,17 +706,28 @@ impl NativeBackend {
         // Child mode is the official recommended approach by wry and WebView2
         match config.embed_mode {
             EmbedMode::Child => {
-                // RECOMMENDED: Use WS_CHILD for true child window embedding
+                // RECOMMENDED for embedding: Use WS_CHILD for true child window
                 // - wry's build_as_child() is designed for this
                 // - WebView2's "Windowed Hosting" is the simplest option
                 // - Automatic resize when parent resizes
                 // - Works with Qt5/Qt6 by passing QWidget's winId()
                 tracing::info!(
-                    "[OK] [NativeBackend] Using Child mode (WS_CHILD, frameless) - RECOMMENDED"
+                    "[OK] [NativeBackend] Using Child mode (WS_CHILD, frameless) - RECOMMENDED for embedding"
                 );
                 window_builder = window_builder
                     .with_decorations(false)
                     .with_parent_window(parent_hwnd as isize);
+            }
+            EmbedMode::Owner => {
+                // RECOMMENDED for floating windows: Owner relationship
+                // - Window stays above owner in Z-order
+                // - Hidden when owner is minimized
+                // - Destroyed when owner is destroyed
+                // Owner is set after window creation via SetWindowLongPtrW
+                tracing::info!(
+                    "[OK] [NativeBackend] Using Owner mode - RECOMMENDED for floating windows"
+                );
+                // Don't set parent here - we'll set owner after creation
             }
             EmbedMode::None => {
                 // Desktop window mode - no parent relationship
@@ -764,9 +740,11 @@ impl NativeBackend {
             .build(&event_loop)
             .map_err(|e| format!("Failed to create window: {}", e))?;
 
-        // Log window HWND and apply mode-specific optimizations
+        // Log window HWND and call on_created callback
+        // NOTE: Window styles (Owner, ToolWindow) are applied AFTER WebView2 creation
+        // to avoid HRESULT 0x80070057 (E_INVALIDARG) error
         #[cfg(target_os = "windows")]
-        {
+        let cached_hwnd: Option<isize> = {
             use raw_window_handle::{HasWindowHandle, RawWindowHandle};
             if let Ok(window_handle) = window.window_handle() {
                 let raw_handle = window_handle.as_raw();
@@ -783,40 +761,101 @@ impl NativeBackend {
                         callback(hwnd_value as u64);
                     }
 
-                    // For Child mode, tao's with_parent_window handles WS_CHILD automatically
-                    if matches!(config.embed_mode, EmbedMode::Child) {
-                        tracing::info!(
-                            "[OK] [NativeBackend] Child mode: tao's with_parent_window sets WS_CHILD"
-                        );
-                    }
+                    Some(hwnd_value)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        #[cfg(not(target_os = "windows"))]
+        let cached_hwnd: Option<isize> = None;
+
+        // Control window visibility based on embed mode and auto_show setting
+        let auto_show = config.auto_show;
+        match config.embed_mode {
+            EmbedMode::Child => {
+                // Child mode: window visibility is controlled by parent
+                // Show immediately since it's embedded in parent
+                if auto_show {
+                    window.set_visible(true);
+                    tracing::info!(
+                        "[OK] [NativeBackend] Child mode: window shown (embedded in parent)"
+                    );
+                } else {
+                    window.set_visible(false);
+                    tracing::info!(
+                        "[OK] [NativeBackend] Child mode: window hidden (auto_show=false)"
+                    );
+                }
+            }
+            EmbedMode::Owner => {
+                // Owner mode: floating window that follows owner
+                if auto_show {
+                    window.set_visible(true);
+                    tracing::info!("[OK] [NativeBackend] Owner mode: window shown (floating)");
+                } else {
+                    window.set_visible(false);
+                    tracing::info!(
+                        "[OK] [NativeBackend] Owner mode: window hidden (auto_show=false)"
+                    );
+                }
+            }
+            EmbedMode::None => {
+                if auto_show {
+                    window.set_visible(true);
+                    tracing::info!("[OK] [NativeBackend] Window auto-shown (auto_show=true)");
+                } else {
+                    window.set_visible(false);
+                    tracing::info!("[OK] [NativeBackend] Window stays hidden (auto_show=false)");
                 }
             }
         }
 
-        // Control window visibility based on embed mode and auto_show setting
-        let auto_show = config.auto_show;
-        if matches!(config.embed_mode, EmbedMode::Child) {
-            // Child mode: window visibility is controlled by parent
-            // Show immediately since it's embedded in parent
-            if auto_show {
-                window.set_visible(true);
-                tracing::info!(
-                    "[OK] [NativeBackend] Child mode: window shown (embedded in parent)"
-                );
-            } else {
-                window.set_visible(false);
-                tracing::info!("[OK] [NativeBackend] Child mode: window hidden (auto_show=false)");
-            }
-        } else if auto_show {
-            window.set_visible(true);
-            tracing::info!("[OK] [NativeBackend] Window auto-shown (auto_show=true)");
-        } else {
-            window.set_visible(false);
-            tracing::info!("[OK] [NativeBackend] Window stays hidden (auto_show=false)");
-        }
-
         // Create WebView with IPC handler
         let webview = Self::create_webview(&window, &config, ipc_handler)?;
+
+        // Apply mode-specific window styles AFTER WebView2 creation
+        // This is critical: applying WS_EX_TOOLWINDOW or owner styles before WebView2 creation
+        // causes HRESULT 0x80070057 (E_INVALIDARG) error
+        #[cfg(target_os = "windows")]
+        if let Some(hwnd_value) = cached_hwnd {
+            use crate::webview::config::EmbedMode;
+            use auroraview_core::builder::{
+                apply_owner_window_style, apply_tool_window_style, disable_window_shadow,
+            };
+
+            match config.embed_mode {
+                EmbedMode::Child => {
+                    // For Child mode, tao's with_parent_window handles WS_CHILD automatically
+                    tracing::info!(
+                        "[OK] [NativeBackend] Child mode: tao's with_parent_window sets WS_CHILD"
+                    );
+                }
+                EmbedMode::Owner => {
+                    // For Owner mode, set owner relationship using GWLP_HWNDPARENT
+                    // AFTER WebView2 is created to avoid E_INVALIDARG
+                    apply_owner_window_style(hwnd_value, parent_hwnd, config.tool_window);
+                }
+                EmbedMode::None => {
+                    // For None mode with tool_window, just apply tool window style
+                    if config.tool_window {
+                        apply_tool_window_style(hwnd_value);
+                    }
+                }
+            }
+
+            // Disable window shadow for transparent frameless windows
+            // undecorated_shadow=false means we want to disable the shadow
+            if !config.undecorated_shadow {
+                disable_window_shadow(hwnd_value);
+                tracing::info!(
+                    "[OK] [NativeBackend] Disabled window shadow (undecorated_shadow=false)"
+                );
+            }
+        }
 
         // Emit webview2_created event with HWND for Python to use SetParent
         #[cfg(target_os = "windows")]
@@ -904,10 +943,19 @@ impl NativeBackend {
 
         let mut builder = WryWebViewBuilder::new_with_web_context(&mut web_context);
 
-        // Set background color to match app background (dark theme) using shared utility
-        let background_color = get_background_color();
-        builder = builder.with_background_color(background_color);
-        log_background_color(background_color);
+        // Transparent windows need both:
+        // 1. with_transparent(true) on WebViewBuilder
+        // 2. with_background_color((0,0,0,0)) for fully transparent background
+        if config.transparent {
+            builder = builder
+                .with_transparent(true)
+                .with_background_color((0, 0, 0, 0));
+            tracing::info!("[NativeBackend] Transparent window: WebView transparency enabled");
+        } else {
+            let background_color = get_background_color();
+            builder = builder.with_background_color(background_color);
+            log_background_color(background_color);
+        }
 
         // Register auroraview:// protocol if asset_root is configured
         //
@@ -983,11 +1031,18 @@ impl NativeBackend {
         }
 
         // Configure new window handler
+        // On Windows WebView2, NewWindowResponse::Allow may not work reliably.
+        // Instead, we open external links in the system default browser.
         if config.allow_new_window {
-            tracing::debug!("[NativeBackend] Allowing new windows");
+            tracing::debug!("[NativeBackend] Allowing new windows (opens in system browser)");
             builder = builder.with_new_window_req_handler(|url, _features| {
-                tracing::debug!("[NativeBackend] New window: {}", url);
-                wry::NewWindowResponse::Allow
+                tracing::debug!("[NativeBackend] New window requested: {}", url);
+                // Open in system default browser instead of creating a new WebView window
+                if let Err(e) = open::that(&url) {
+                    tracing::error!("[NativeBackend] Failed to open URL in browser: {}", e);
+                }
+                // Deny creating a new WebView window since we opened in external browser
+                wry::NewWindowResponse::Deny
             });
         } else {
             tracing::debug!("[NativeBackend] Blocking new windows");
@@ -1077,24 +1132,29 @@ impl NativeBackend {
                         }
                     } else if msg_type == "call" {
                         if let Some(method) = message.get("method").and_then(|v| v.as_str()) {
-                            let params = message
-                                .get("params")
-                                .cloned()
-                                .unwrap_or(serde_json::Value::Null);
+                            let has_params = message.get("params").is_some();
+                            let params = message.get("params").cloned();
                             let id = message
                                 .get("id")
                                 .and_then(|v| v.as_str())
                                 .map(|s| s.to_string());
 
                             tracing::debug!(
-                                "[NativeBackend] Call: {} params: {} id: {:?}",
+                                "[NativeBackend] Call: {} params: {:?} id: {:?}",
                                 method,
                                 params,
                                 id
                             );
 
                             let mut payload = serde_json::Map::new();
-                            payload.insert("params".to_string(), params);
+                            // Only include params if it was present in the original message
+                            if has_params {
+                                if let Some(p) = params {
+                                    payload.insert("params".to_string(), p);
+                                } else {
+                                    payload.insert("params".to_string(), serde_json::Value::Null);
+                                }
+                            }
                             if let Some(ref call_id) = id {
                                 payload.insert(
                                     "id".to_string(),
@@ -1138,12 +1198,23 @@ impl NativeBackend {
         );
 
         // Build WebView - use standard build for desktop mode
-        tracing::info!("[OK] [NativeBackend] Building WebView as desktop");
+        // This is the slowest part of initialization on WebView2:
+        // 1. Create WebView2 Environment (discover runtime, spawn browser process)
+        // 2. Create WebView2 Controller
+        // 3. Initialize the WebView
+        tracing::info!(
+            "[OK] [NativeBackend] Building WebView (this may take a few seconds on first run)..."
+        );
+        let build_start = std::time::Instant::now();
         let webview = builder
             .build(window)
             .map_err(|e| format!("Failed to create WebView: {}", e))?;
+        let build_duration = build_start.elapsed();
 
-        tracing::info!("[OK] [NativeBackend] WebView created successfully");
+        tracing::info!(
+            "[OK] [NativeBackend] WebView created successfully in {:.2}s",
+            build_duration.as_secs_f64()
+        );
 
         // Load initial content using native WebView2 API
         if let Some(ref url) = config.url {
@@ -1216,8 +1287,8 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn test_create_for_dcc_delegates_to_create_embedded() {
-        // Verify that create_for_dcc properly delegates to create_embedded
+    fn test_create_embedded_with_parent_hwnd() {
+        // Verify that create_embedded works with a parent HWND
         use crate::webview::config::EmbedMode;
 
         let config = WebViewConfig {
@@ -1227,8 +1298,9 @@ mod tests {
         let ipc_handler = Arc::new(IpcHandler::new());
         let message_queue = Arc::new(MessageQueue::new());
 
-        // Should delegate to create_embedded
-        let result = NativeBackend::create_for_dcc(12345, config, ipc_handler, message_queue, None);
+        // Should attempt to create embedded WebView
+        let result =
+            NativeBackend::create_embedded(12345, config, ipc_handler, message_queue, None);
 
         // May fail due to invalid HWND, but should not panic
         assert!(result.is_ok() || result.is_err());
@@ -1236,13 +1308,14 @@ mod tests {
 
     #[cfg(not(target_os = "windows"))]
     #[test]
-    fn test_create_for_dcc_not_supported_on_non_windows() {
-        // Verify that create_for_dcc returns error on non-Windows platforms
+    fn test_create_embedded_not_supported_on_non_windows() {
+        // Verify that create_embedded returns error on non-Windows platforms
         let config = WebViewConfig::default();
         let ipc_handler = Arc::new(IpcHandler::new());
         let message_queue = Arc::new(MessageQueue::new());
 
-        let result = NativeBackend::create_for_dcc(12345, config, ipc_handler, message_queue, None);
+        let result =
+            NativeBackend::create_embedded(12345, config, ipc_handler, message_queue, None);
 
         assert!(result.is_err());
         assert!(result

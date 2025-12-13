@@ -1,4 +1,17 @@
 //! Protocol handlers for custom URI schemes
+//!
+//! ## AuroraView Protocol URL Format
+//!
+//! The auroraview protocol supports two type prefixes for local file access:
+//!
+//! - `type:file` - For file:// URL conversions
+//!   - `https://auroraview.localhost/type:file/C:/path/to/file.ext`
+//!
+//! - `type:local` - For local path conversions
+//!   - `https://auroraview.localhost/type:local/C:/path/to/file.ext`
+//!
+//! Both prefixes allow loading arbitrary local files through the custom protocol.
+//! The type prefix helps distinguish the source of the path for debugging.
 
 use auroraview_core::assets::build_error_page;
 use mime_guess::from_path;
@@ -7,6 +20,9 @@ use std::borrow::Cow;
 use std::fs;
 use std::path::{Path, PathBuf};
 use wry::http::{Request, Response};
+
+// Import protocol type constants
+use crate::utils::{PROTOCOL_TYPE_FILE, PROTOCOL_TYPE_LOCAL};
 
 /// Handle auroraview:// protocol requests
 ///
@@ -92,10 +108,20 @@ pub fn handle_auroraview_protocol(
     // Default to index.html if path is empty (root access)
     let path = if path.is_empty() { "index.html" } else { path };
 
-    // Check for /file/ prefix - allows loading arbitrary local files
-    // Format: https://auroraview.localhost/file/C:/path/to/file.ext
-    // This bypasses the asset_root restriction for local file access
-    if let Some(file_path) = path.strip_prefix("file/") {
+    // Check for type:file/ or type:local/ prefix - allows loading arbitrary local files
+    // Format: https://auroraview.localhost/type:file/C:/path/to/file.ext
+    //         https://auroraview.localhost/type:local/C:/path/to/file.ext
+    // Both bypass the asset_root restriction for local file access
+    let type_file_prefix = format!("{}/", PROTOCOL_TYPE_FILE);
+    let type_local_prefix = format!("{}/", PROTOCOL_TYPE_LOCAL);
+
+    if let Some(file_path) = path.strip_prefix(&type_file_prefix) {
+        tracing::debug!("[Protocol] {} request: {}", PROTOCOL_TYPE_FILE, file_path);
+        return handle_file_path_request(file_path);
+    }
+
+    if let Some(file_path) = path.strip_prefix(&type_local_prefix) {
+        tracing::debug!("[Protocol] {} request: {}", PROTOCOL_TYPE_LOCAL, file_path);
         return handle_file_path_request(file_path);
     }
 

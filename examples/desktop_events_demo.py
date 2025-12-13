@@ -6,6 +6,9 @@ This example showcases:
 3. Event cancellation - Cancel closing event
 4. Debounce/throttle - Event rate limiting
 
+Note: This example uses the low-level WebView API for demonstration.
+For most use cases, prefer QtWebView, AuroraView, or run_desktop.
+
 Run with:
     python examples/desktop_events_demo.py
 """
@@ -218,13 +221,13 @@ def main():
     print("  3. Debounce/throttle utilities")
     print()
 
-    # Create WebView with plugins enabled
-    webview = WebView.create(
+    # Create WebView
+    webview = WebView(
         title="Desktop Events Demo",
         width=900,
         height=800,
         html=HTML_CONTENT,
-        dev_tools=True,
+        debug=True,
     )
 
     # Register event handlers
@@ -248,8 +251,8 @@ def main():
         print("[Python] Window closing...")
         return True  # Allow close
 
-    # Run the WebView
-    webview.run()
+    # Show the WebView
+    webview.show()
 
 
 if __name__ == "__main__":

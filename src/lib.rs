@@ -39,6 +39,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register WebView class
     m.add_class::<webview::AuroraView>()?;
 
+    // Register EventEmitter class (thread-safe event emitter for cross-thread operations)
+    m.add_class::<webview::EventEmitter>()?;
+
     // Register WebViewProxy class (thread-safe proxy for cross-thread operations)
     m.add_class::<webview::WebViewProxy>()?;
 

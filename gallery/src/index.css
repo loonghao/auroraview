@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  /* Fluent Design inspired colors - lighter, more modern */
+  --color-background: oklch(97% 0.005 265);
+  --color-foreground: oklch(15% 0.02 265);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(15% 0.02 265);
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(15% 0.02 265);
+  --color-primary: oklch(55% 0.25 270);
+  --color-primary-foreground: oklch(100% 0 0);
+  --color-secondary: oklch(95% 0.01 265);
+  --color-secondary-foreground: oklch(15% 0.02 265);
+  --color-muted: oklch(92% 0.01 265);
+  --color-muted-foreground: oklch(45% 0.02 265);
+  --color-accent: oklch(95% 0.01 265);
+  --color-accent-foreground: oklch(15% 0.02 265);
+  --color-destructive: oklch(55% 0.22 25);
+  --color-destructive-foreground: oklch(100% 0 0);
+  --color-border: oklch(88% 0.01 265);
+  --color-input: oklch(95% 0.01 265);
+  --color-ring: oklch(55% 0.25 270);
+  --radius-lg: 8px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Fluent acrylic-like background */
+.acrylic {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Custom scrollbar - Fluent style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(75% 0.01 265);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(60% 0.01 265);
+}
+
+/* Code highlighting */
+.hljs {
+  background: transparent !important;
+}
+
+/* Fluent hover effects */
+.fluent-hover {
+  transition: all 0.15s ease;
+}
+
+.fluent-hover:hover {
+  background: oklch(92% 0.01 265);
+}
+
+.fluent-hover:active {
+  background: oklch(88% 0.01 265);
+  transform: scale(0.98);
+}
+
+/* Fluent card shadow */
+.fluent-card {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.fluent-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06);
+}

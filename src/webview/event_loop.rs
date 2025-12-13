@@ -27,6 +27,12 @@ pub enum UserEvent {
     ProcessMessages,
     /// Request to close the window
     CloseWindow,
+    /// Tray menu item clicked
+    TrayMenuClick(String),
+    /// Tray icon clicked (for show/hide window)
+    TrayIconClick,
+    /// Tray icon double-clicked
+    TrayIconDoubleClick,
 }
 
 /// Event loop state management
@@ -102,6 +108,10 @@ impl EventLoopState {
 
     /// Signal the event loop to exit
     pub fn request_exit(&self) {
+        // Shutdown the message queue first to prevent background threads
+        // from sending messages after the event loop is closed
+        self.message_queue.shutdown();
+
         if let Ok(mut should_exit) = self.should_exit.lock() {
             *should_exit = true;
         }

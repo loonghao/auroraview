@@ -6,6 +6,9 @@ This example shows how to use the window event system to track window
 lifecycle events like shown, hidden, focused, blurred, resized, moved, etc.
 
 Works in standalone mode or embedded in DCC applications (Maya, Houdini, Blender).
+
+Note: This example uses the low-level WebView API for demonstration.
+For most use cases, prefer QtWebView, AuroraView, or run_desktop.
 """
 
 from auroraview import WebView
@@ -135,9 +138,9 @@ def main():
         webview.move(data.get("x", 0), data.get("y", 0))
         return {"success": True}
 
-    # Load HTML and run
+    # Load HTML and show
     webview.load_html(create_demo_html())
-    webview.run()
+    webview.show()
 
 
 if __name__ == "__main__":

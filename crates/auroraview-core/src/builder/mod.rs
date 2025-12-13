@@ -63,7 +63,10 @@ mod protocol;
 pub use com_init::{init_com_sta, ComInitResult};
 pub use common_config::{get_background_color, log_background_color, DARK_BACKGROUND};
 pub use web_context::WebContextConfig;
-pub use window_style::{apply_child_window_style, ChildWindowStyleOptions, ChildWindowStyleResult};
+pub use window_style::{
+    apply_child_window_style, apply_owner_window_style, apply_tool_window_style,
+    disable_window_shadow, ChildWindowStyleOptions, ChildWindowStyleResult, OwnerWindowStyleResult,
+};
 
 // Wry-specific exports
 #[cfg(feature = "wry-builder")]

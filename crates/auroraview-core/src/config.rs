@@ -92,6 +92,21 @@ pub struct CoreConfig {
 
     /// Enable file:// protocol support
     pub allow_file_protocol: bool,
+
+    /// Show shadow for undecorated (frameless) windows (Windows only).
+    ///
+    /// When `decorations` is false, Windows can still show a subtle shadow
+    /// around the window. Set this to `false` to disable the shadow completely,
+    /// which is required for truly transparent frameless windows.
+    ///
+    /// Default: true (show shadow for undecorated windows)
+    ///
+    /// # When to disable
+    /// - Transparent overlay windows (e.g., floating logo buttons)
+    /// - Custom-shaped windows
+    /// - Windows that should blend seamlessly with the desktop
+    #[cfg(target_os = "windows")]
+    pub undecorated_shadow: bool,
 }
 
 impl Default for CoreConfig {
@@ -117,6 +132,8 @@ impl Default for CoreConfig {
             asset_root: None,
             allow_new_window: false,
             allow_file_protocol: false,
+            #[cfg(target_os = "windows")]
+            undecorated_shadow: true,
         }
     }
 }
@@ -142,5 +159,25 @@ mod tests {
         let parsed: CoreConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.title, config.title);
         assert_eq!(parsed.width, config.width);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_undecorated_shadow_default() {
+        let config = CoreConfig::default();
+        assert!(
+            config.undecorated_shadow,
+            "undecorated_shadow should default to true"
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_undecorated_shadow_disabled() {
+        let config = CoreConfig {
+            undecorated_shadow: false,
+            ..Default::default()
+        };
+        assert!(!config.undecorated_shadow);
     }
 }

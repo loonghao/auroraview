@@ -28,6 +28,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "webview: mark test as requiring WebView")
     config.addinivalue_line("markers", "playwright: mark test as using Playwright")
     config.addinivalue_line("markers", "qt: mark test as requiring Qt")
+    config.addinivalue_line("markers", "e2e: mark test as end-to-end test")
 
 
 @pytest.fixture(scope="session")

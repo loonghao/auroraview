@@ -73,26 +73,33 @@ pub fn json_to_python(py: Python, value: &Value) -> PyResult<Py<PyAny>> {
 /// Supports Python types: str, int, float, bool, None, list, dict (with nesting)
 #[cfg(feature = "python-bindings")]
 pub fn python_to_json(value: &Bound<'_, PyAny>) -> PyResult<Value> {
-    // Try basic types first
+    // Check for None first
+    if value.is_none() {
+        return Ok(Value::Null);
+    }
+
+    // IMPORTANT: Check bool BEFORE int because Python's True/False are subclasses of int
+    // (True == 1 and False == 0 in Python), so extract::<i64>() would succeed for booleans
+    if let Ok(b) = value.extract::<bool>() {
+        // Double-check it's actually a bool type, not just an int that happens to be 0 or 1
+        if value.is_instance_of::<pyo3::types::PyBool>() {
+            return Ok(Value::Bool(b));
+        }
+    }
+
+    // Try string
     if let Ok(s) = value.extract::<String>() {
         return Ok(Value::String(s));
     }
 
+    // Try integer
     if let Ok(i) = value.extract::<i64>() {
         return Ok(Value::Number(i.into()));
     }
 
+    // Try float
     if let Ok(f) = value.extract::<f64>() {
         return Ok(serde_json::json!(f));
-    }
-
-    if let Ok(b) = value.extract::<bool>() {
-        return Ok(Value::Bool(b));
-    }
-
-    // Check for None
-    if value.is_none() {
-        return Ok(Value::Null);
     }
 
     // Check for list

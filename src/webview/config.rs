@@ -5,6 +5,120 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+// ============================================================
+// System Tray Configuration
+// ============================================================
+
+/// System tray menu item type
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TrayMenuItemType {
+    /// Normal clickable menu item
+    Normal,
+    /// Separator line
+    Separator,
+    /// Checkbox item (can be checked/unchecked)
+    Checkbox { checked: bool },
+    /// Submenu containing child items
+    Submenu { items: Vec<TrayMenuItem> },
+}
+
+/// A single menu item in the system tray context menu
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrayMenuItem {
+    /// Unique identifier for this menu item
+    pub id: String,
+    /// Display text (ignored for separators)
+    pub text: String,
+    /// Whether the item is enabled
+    pub enabled: bool,
+    /// Item type (normal, separator, checkbox, submenu)
+    pub item_type: TrayMenuItemType,
+    /// Optional keyboard accelerator (e.g., "Ctrl+Q")
+    pub accelerator: Option<String>,
+}
+
+impl TrayMenuItem {
+    /// Create a normal menu item
+    pub fn new(id: impl Into<String>, text: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            text: text.into(),
+            enabled: true,
+            item_type: TrayMenuItemType::Normal,
+            accelerator: None,
+        }
+    }
+
+    /// Create a separator
+    pub fn separator() -> Self {
+        Self {
+            id: String::new(),
+            text: String::new(),
+            enabled: true,
+            item_type: TrayMenuItemType::Separator,
+            accelerator: None,
+        }
+    }
+
+    /// Create a checkbox item
+    pub fn checkbox(id: impl Into<String>, text: impl Into<String>, checked: bool) -> Self {
+        Self {
+            id: id.into(),
+            text: text.into(),
+            enabled: true,
+            item_type: TrayMenuItemType::Checkbox { checked },
+            accelerator: None,
+        }
+    }
+
+    /// Create a submenu
+    pub fn submenu(
+        id: impl Into<String>,
+        text: impl Into<String>,
+        items: Vec<TrayMenuItem>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            text: text.into(),
+            enabled: true,
+            item_type: TrayMenuItemType::Submenu { items },
+            accelerator: None,
+        }
+    }
+
+    /// Set enabled state
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    /// Set accelerator
+    pub fn with_accelerator(mut self, accelerator: impl Into<String>) -> Self {
+        self.accelerator = Some(accelerator.into());
+        self
+    }
+}
+
+/// System tray configuration
+#[derive(Debug, Clone, Default)]
+pub struct TrayConfig {
+    /// Enable system tray icon
+    pub enabled: bool,
+    /// Tooltip text shown on hover
+    pub tooltip: Option<String>,
+    /// Path to tray icon (PNG recommended, 32x32 or 64x64)
+    /// If None, uses the window icon or default AuroraView icon
+    pub icon: Option<PathBuf>,
+    /// Context menu items
+    pub menu_items: Vec<TrayMenuItem>,
+    /// Hide window to tray instead of closing
+    pub hide_on_close: bool,
+    /// Show window when tray icon is clicked
+    pub show_on_click: bool,
+    /// Show window when tray icon is double-clicked
+    pub show_on_double_click: bool,
+}
+
 /// Protocol handler callback type
 /// Takes a URI string and returns optional response (data, mime_type, status)
 pub type ProtocolCallback = Arc<dyn Fn(&str) -> Option<(Vec<u8>, String, u16)> + Send + Sync>;
@@ -28,24 +142,122 @@ pub type ProtocolCallback = Arc<dyn Fn(&str) -> Option<(Vec<u8>, String, u16)> +
 ///
 /// This approach works with both Qt5 and Qt6, avoiding the complexity of
 /// `createWindowContainer` which has different behavior across Qt versions.
+/// Window embedding mode for DCC integration.
+///
+/// # Overview
+///
+/// Windows provides two distinct parent-child relationships for windows:
+///
+/// | Mode | Relationship | Use Case |
+/// |------|-------------|----------|
+/// | `Child` | Parent-Child (containment) | Embed WebView inside a Qt widget |
+/// | `Owner` | Owner-Owned (management) | Floating tool windows, dialogs |
+///
+/// # Official Documentation
+///
+/// - [Window Features (Microsoft)](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features)
+/// - [SetWindowLongPtrW (GWLP_HWNDPARENT)](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowlongptrw)
+/// - [Window Styles (WS_CHILD, WS_POPUP)](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-styles)
+/// - [Extended Window Styles (WS_EX_TOOLWINDOW)](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles)
+///
+/// # Child vs Owner Comparison
+///
+/// | Feature | Child (WS_CHILD) | Owner (GWLP_HWNDPARENT) |
+/// |---------|------------------|-------------------------|
+/// | **Coordinate System** | Relative to parent's client area | Relative to screen |
+/// | **Clipping** | Clipped to parent bounds | Independent, can extend beyond owner |
+/// | **Z-Order** | Within parent's client area only | Always above owner window |
+/// | **Visibility** | Hidden when parent is hidden | Hidden when owner is minimized |
+/// | **Lifecycle** | Destroyed with parent | Destroyed with owner |
+/// | **Movement** | Cannot be moved independently | Can be dragged freely |
+/// | **Taskbar** | Never shown | Shown unless WS_EX_TOOLWINDOW |
+/// | **Alt+Tab** | Never shown | Shown unless WS_EX_TOOLWINDOW |
+///
+/// # When to Use Each Mode
+///
+/// ## Use `Child` mode when:
+/// - Embedding WebView inside a Qt widget (Maya, Houdini, Nuke panels)
+/// - WebView should fill a specific area in the host application
+/// - WebView should resize automatically with the container
+/// - User should NOT be able to drag the WebView independently
+///
+/// ## Use `Owner` mode when:
+/// - Creating floating tool windows (AI assistants, property editors)
+/// - Creating modal/modeless dialogs
+/// - Window should follow owner's minimize/restore state
+/// - Window should stay above the owner in Z-order
+/// - Window needs to be positioned freely on screen
+///
+/// # Example: Floating Tool Window
+///
+/// ```python
+/// from auroraview import AuroraView
+///
+/// class FloatingPanel(AuroraView):
+///     def __init__(self, owner_hwnd: int):
+///         super().__init__(
+///             html=PANEL_HTML,
+///             width=350,
+///             height=200,
+///             frame=False,           # Frameless window
+///             transparent=True,      # Transparent background
+///             always_on_top=True,    # Stay on top
+///             parent_hwnd=owner_hwnd,
+///             embed_mode="owner",    # Owner relationship
+///             tool_window=True,      # Hide from taskbar/Alt+Tab
+///         )
+/// ```
 #[cfg(target_os = "windows")]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EmbedMode {
-    /// No parent specified (standalone top-level window)
-    /// Use this for independent windows that are not embedded in any host application.
+    /// No parent specified (standalone top-level window).
+    ///
+    /// Use this for independent windows that are not associated with any host application.
+    /// The window will appear in the taskbar and Alt+Tab list.
     None,
 
-    /// Create as real child window (WS_CHILD) - **RECOMMENDED**
+    /// Create as real child window (WS_CHILD) - **RECOMMENDED for embedding**.
     ///
-    /// This is the official recommended mode for embedding WebView2:
+    /// This is the official recommended mode for embedding WebView2 into Qt widgets:
     /// - Uses wry's `build_as_child()` which is designed for embedding
     /// - WebView becomes a true child window that cannot be moved independently
     /// - Automatic resize when parent resizes
-    /// - Works with Qt5/Qt6 by passing QWidget's winId() as parent_hwnd
+    /// - Coordinates are relative to parent's client area
+    /// - Works with Qt5/Qt6 by passing QWidget's `winId()` as `parent_hwnd`
     ///
-    /// Note: Requires the WebView to be created on the same thread as the parent window,
-    /// or use proper cross-thread window parenting techniques.
+    /// # Windows API
+    /// - Window style: `WS_CHILD`
+    /// - Created via: `CreateWindowEx` with parent HWND
+    ///
+    /// # Requirements
+    /// - Must be created on the same thread as the parent window
+    /// - Parent must be a valid window handle
     Child,
+
+    /// Create as owned window (GWLP_HWNDPARENT) - **RECOMMENDED for floating windows**.
+    ///
+    /// This mode creates a top-level window with an owner relationship:
+    /// - Window stays above the owner in Z-order
+    /// - Hidden when owner is minimized
+    /// - Destroyed when owner is destroyed
+    /// - Can be positioned freely on screen
+    /// - Coordinates are relative to screen (not owner)
+    ///
+    /// # Windows API
+    /// - Window style: `WS_POPUP` (no `WS_CHILD`)
+    /// - Owner set via: `SetWindowLongPtrW(hwnd, GWLP_HWNDPARENT, owner_hwnd)`
+    /// - Optional: `WS_EX_TOOLWINDOW` to hide from taskbar/Alt+Tab
+    ///
+    /// # Use Cases
+    /// - Floating tool windows in DCC applications
+    /// - AI assistant panels (like in Photoshop)
+    /// - Property editors and inspectors
+    /// - Modal/modeless dialogs
+    ///
+    /// # Official Documentation
+    /// - [Owned Windows](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features#owned-windows)
+    /// - [SetWindowLongPtrW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowlongptrw)
+    Owner,
 }
 
 /// Dummy enum for non-Windows (compile-time placeholder)
@@ -100,7 +312,54 @@ pub struct WebViewConfig {
     pub parent_hwnd: Option<u64>,
 
     /// Embedding mode (Windows): Child vs Owner vs None
+    ///
+    /// See [`EmbedMode`] for detailed documentation.
     pub embed_mode: EmbedMode,
+
+    /// Tool window style (WS_EX_TOOLWINDOW on Windows).
+    ///
+    /// When enabled, the window:
+    /// - Does NOT appear in the taskbar
+    /// - Does NOT appear in Alt+Tab window switcher
+    /// - Has a smaller title bar (if decorations are enabled)
+    ///
+    /// This is commonly used with `embed_mode: Owner` for floating tool windows.
+    ///
+    /// # Official Documentation
+    /// - [WS_EX_TOOLWINDOW](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles)
+    #[cfg(target_os = "windows")]
+    pub tool_window: bool,
+
+    /// Show shadow for undecorated (frameless) windows (Windows only).
+    ///
+    /// When `decorations` is false, Windows can still show a subtle shadow
+    /// around the window. Set this to `false` to disable the shadow completely,
+    /// which is required for truly transparent frameless windows.
+    ///
+    /// Default: true (show shadow for undecorated windows)
+    ///
+    /// # When to disable
+    /// - Transparent overlay windows (e.g., floating logo buttons)
+    /// - Custom-shaped windows
+    /// - Windows that should blend seamlessly with the desktop
+    ///
+    /// # Example
+    /// ```python
+    /// from auroraview import run_desktop
+    ///
+    /// # Transparent logo button with no shadow
+    /// run_desktop(
+    ///     html=LOGO_HTML,
+    ///     width=64,
+    ///     height=64,
+    ///     frame=False,           # No decorations
+    ///     transparent=True,      # Transparent background
+    ///     undecorated_shadow=False,  # No shadow
+    ///     tool_window=True,      # Hide from taskbar
+    /// )
+    /// ```
+    #[cfg(target_os = "windows")]
+    pub undecorated_shadow: bool,
 
     /// Enable IPC message batching for better performance
     pub ipc_batching: bool,
@@ -207,13 +466,20 @@ pub struct WebViewConfig {
     /// Default: all plugins ["fs", "dialog", "clipboard", "shell"]
     /// Empty list means all plugins are enabled when enable_plugins is true
     pub enabled_plugin_names: Vec<String>,
+
+    // ============================================================
+    // System Tray Configuration
+    // ============================================================
+    /// System tray configuration
+    /// Default: None (no system tray)
+    pub tray: Option<TrayConfig>,
 }
 
 // Manual Debug implementation (ProtocolCallback doesn't implement Debug)
 impl std::fmt::Debug for WebViewConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WebViewConfig")
-            .field("title", &self.title)
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut f = fmt.debug_struct("WebViewConfig");
+        f.field("title", &self.title)
             .field("width", &self.width)
             .field("height", &self.height)
             .field("url", &self.url)
@@ -231,8 +497,12 @@ impl std::fmt::Debug for WebViewConfig {
             .field("always_on_top", &self.always_on_top)
             .field("transparent", &self.transparent)
             .field("parent_hwnd", &self.parent_hwnd)
-            .field("embed_mode", &self.embed_mode)
-            .field("ipc_batching", &self.ipc_batching)
+            .field("embed_mode", &self.embed_mode);
+
+        #[cfg(target_os = "windows")]
+        f.field("tool_window", &self.tool_window);
+
+        f.field("ipc_batching", &self.ipc_batching)
             .field("ipc_batch_size", &self.ipc_batch_size)
             .field("ipc_batch_interval_ms", &self.ipc_batch_interval_ms)
             .field("asset_root", &self.asset_root)
@@ -243,6 +513,7 @@ impl std::fmt::Debug for WebViewConfig {
             .field("api_methods", &self.api_methods)
             .field("auto_show", &self.auto_show)
             .field("icon", &self.icon)
+            .field("tray", &self.tray)
             .finish()
     }
 }
@@ -270,6 +541,10 @@ impl Default for WebViewConfig {
             embed_mode: EmbedMode::None,
             #[cfg(not(target_os = "windows"))]
             embed_mode: EmbedMode::None,
+            #[cfg(target_os = "windows")]
+            tool_window: false,
+            #[cfg(target_os = "windows")]
+            undecorated_shadow: true,
             asset_root: None,
             data_directory: None,
             custom_protocols: HashMap::new(),
@@ -291,6 +566,7 @@ impl Default for WebViewConfig {
             icon: None,                       // Use default AuroraView icon
             enable_plugins: true,             // Enable plugin APIs by default
             enabled_plugin_names: Vec::new(), // Empty = all plugins enabled
+            tray: None,                       // No system tray by default
         }
     }
 }
@@ -669,5 +945,41 @@ mod tests {
 
         assert_eq!(cfg.allow_new_window, allow_new_window);
         assert_eq!(cfg.allow_file_protocol, allow_file_protocol);
+    }
+
+    #[rstest]
+    #[cfg(target_os = "windows")]
+    fn test_undecorated_shadow_default(default_config: WebViewConfig) {
+        assert!(
+            default_config.undecorated_shadow,
+            "undecorated_shadow should default to true"
+        );
+    }
+
+    #[rstest]
+    #[cfg(target_os = "windows")]
+    fn test_undecorated_shadow_disabled() {
+        let cfg = WebViewConfig {
+            undecorated_shadow: false,
+            ..Default::default()
+        };
+        assert!(!cfg.undecorated_shadow);
+    }
+
+    #[rstest]
+    #[cfg(target_os = "windows")]
+    fn test_transparent_frameless_window() {
+        // Test configuration for transparent frameless window (like logo button)
+        let cfg = WebViewConfig {
+            transparent: true,
+            decorations: false,
+            undecorated_shadow: false,
+            tool_window: true,
+            ..Default::default()
+        };
+        assert!(cfg.transparent);
+        assert!(!cfg.decorations);
+        assert!(!cfg.undecorated_shadow);
+        assert!(cfg.tool_window);
     }
 }

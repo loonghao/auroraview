@@ -15,6 +15,7 @@
 //! This ensures all WebView operations happen on the correct thread.
 
 use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -254,6 +255,9 @@ pub struct MessageQueue {
 
     /// Last time the event loop was woken up (for batching)
     last_wake_time: Arc<Mutex<Option<Instant>>>,
+
+    /// Shutdown flag to prevent sending messages after event loop is closed
+    shutdown: Arc<AtomicBool>,
 }
 
 impl MessageQueue {
@@ -272,7 +276,22 @@ impl MessageQueue {
             metrics: IpcMetrics::new(),
             config,
             last_wake_time: Arc::new(Mutex::new(None)),
+            shutdown: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// Mark the queue as shutdown - no more messages will be sent
+    ///
+    /// This should be called when the event loop is closing to prevent
+    /// "EventLoopClosed" errors from background threads.
+    pub fn shutdown(&self) {
+        self.shutdown.store(true, Ordering::SeqCst);
+        tracing::info!("[MessageQueue] Shutdown flag set - no more messages will be sent");
+    }
+
+    /// Check if the queue is shutdown
+    pub fn is_shutdown(&self) -> bool {
+        self.shutdown.load(Ordering::Relaxed)
     }
 
     /// Set the event loop proxy for immediate wake-up
@@ -292,6 +311,13 @@ impl MessageQueue {
     /// - If `block_on_full` is true, this will block until space is available
     /// - If `block_on_full` is false, this will drop the message and log an error
     pub fn push(&self, message: WebViewMessage) {
+        // Check shutdown flag first - if shutdown, silently drop the message
+        // This prevents "EventLoopClosed" errors from background threads
+        if self.shutdown.load(Ordering::Relaxed) {
+            tracing::debug!("[MessageQueue::push] Queue is shutdown, dropping message silently");
+            return;
+        }
+
         // Use info level for Close message to help diagnose shutdown issues
         let msg_type = match &message {
             WebViewMessage::EvalJs(_) => "EvalJs",

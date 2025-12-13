@@ -10,6 +10,11 @@ Key features demonstrated:
 - Qt timer-based event processing
 - Window lifecycle management
 - Proper cleanup on DCC shutdown
+
+Recommended APIs:
+- QtWebView: For Qt-based DCC apps (Maya, Houdini, Nuke, 3ds Max)
+- AuroraView: For HWND-based apps (Unreal Engine)
+- run_desktop: For standalone desktop applications
 """
 
 from typing import Optional
@@ -173,4 +178,42 @@ class DCCWebViewPanel:
     def webview(self) -> Optional[WebView]:
         """Get the underlying WebView instance."""
         return self._webview
+
+    def show(self):
+        """Show the WebView panel."""
+        if self._webview:
+            self._webview.show()
+
+
+def main():
+    """Run the DCC integration example.
+
+    This demonstrates how to create a WebView panel that integrates
+    with DCC applications using non-blocking event processing.
+    """
+    print("DCC Integration Example")
+    print("=" * 50)
+    print("This example shows how to integrate AuroraView with DCC apps.")
+    print()
+    print("For real DCC integration, use:")
+    print("  - QtWebView: For Qt-based DCC apps (Maya, Houdini, Nuke)")
+    print("  - AuroraView: For HWND-based apps (Unreal Engine)")
+    print()
+
+    # Create and show the panel
+    panel = DCCWebViewPanel(
+        title="DCC Integration Demo",
+        width=800,
+        height=600,
+    )
+
+    # Create with default HTML
+    panel.create()
+
+    # Show the panel
+    panel.show()
+
+
+if __name__ == "__main__":
+    main()
 

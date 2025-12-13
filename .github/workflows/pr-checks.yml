@@ -496,11 +496,58 @@ jobs:
             ./target/${{ matrix.target }}/release/auroraview --version
           fi
 
+  # Gallery E2E tests with Playwright
+  gallery-e2e:
+    name: Gallery E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [quick-checks]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: gallery/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Build Gallery frontend
+        run: |
+          cd gallery
+          npm ci
+          npm run build
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Run Gallery Playwright E2E tests
+        run: |
+          python scripts/test_gallery_e2e.py
+
+      - name: Upload test screenshot
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: gallery-e2e-screenshot
+          path: test-screenshots/
+          retention-days: 7
+
   # Final gate - all critical checks must pass
   pr-ready:
     name: PR Ready
     runs-on: ubuntu-latest
-    needs: [pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build]
+    needs: [pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build, gallery-e2e]
     if: always()
     steps:
       - name: Check results
@@ -518,6 +565,7 @@ jobs:
             ["wheel-build"]="${{ needs.wheel-build.result }}"
             ["qt-tests"]="${{ needs.qt-tests.result }}"
             ["cli-build"]="${{ needs.cli-build.result }}"
+            ["gallery-e2e"]="${{ needs.gallery-e2e.result }}"
           )
 
           failed=0

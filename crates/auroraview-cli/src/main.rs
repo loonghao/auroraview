@@ -212,6 +212,10 @@ struct PackArgs {
     /// Custom user agent string
     #[arg(long)]
     user_agent: Option<String>,
+
+    /// Clean up build directory after successful build (only with --build)
+    #[arg(long)]
+    clean: bool,
 }
 
 /// Arguments for the 'icon' subcommand
@@ -410,16 +414,34 @@ fn detect_assets_root(html_path: &Path) -> Result<PathBuf> {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize logging with appropriate level
+    // Initialize logging with appropriate level and local time
     let log_level = if cli.debug { "debug" } else { "info" };
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
-        )
-        .with_target(false)
-        .init();
+    // Try to use local time, fallback to UTC if local offset cannot be determined
+    let local_time = tracing_subscriber::fmt::time::OffsetTime::local_rfc_3339();
+
+    match local_time {
+        Ok(timer) => {
+            tracing_subscriber::fmt()
+                .with_timer(timer)
+                .with_env_filter(
+                    tracing_subscriber::EnvFilter::try_from_default_env()
+                        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
+                )
+                .with_target(false)
+                .init();
+        }
+        Err(_) => {
+            // Fallback to default timer (UTC) if local time is not available
+            tracing_subscriber::fmt()
+                .with_env_filter(
+                    tracing_subscriber::EnvFilter::try_from_default_env()
+                        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
+                )
+                .with_target(false)
+                .init();
+        }
+    }
 
     // Handle commands
     match cli.command {
@@ -563,11 +585,18 @@ fn run_webview(args: RunArgs) -> Result<()> {
     }
 
     // Configure new window handler
+    // On Windows WebView2, NewWindowResponse::Allow may not work reliably.
+    // Instead, we open external links in the system default browser.
     if args.allow_new_window {
-        tracing::info!("[CLI] Allowing new windows");
+        tracing::info!("[CLI] Allowing new windows (opens in system browser)");
         webview_builder = webview_builder.with_new_window_req_handler(|url, _features| {
             tracing::info!("[CLI] New window requested: {}", url);
-            wry::NewWindowResponse::Allow
+            // Open in system default browser instead of creating a new WebView window
+            if let Err(e) = open::that(&url) {
+                tracing::error!("[CLI] Failed to open URL in browser: {}", e);
+            }
+            // Deny creating a new WebView window since we opened in external browser
+            wry::NewWindowResponse::Deny
         });
     } else {
         tracing::info!("[CLI] Blocking new windows");
@@ -741,9 +770,9 @@ fn run_pack(args: PackArgs) -> Result<()> {
     // Build if requested
     if args.build {
         if is_fullstack {
-            build_fullstack_project(&project_dir, &args.output, &output_dir)?;
+            build_fullstack_project(&project_dir, &args.output, &output_dir, args.clean)?;
         } else {
-            build_pack_project(&project_dir, &args.output, &output_dir)?;
+            build_pack_project(&project_dir, &args.output, &output_dir, args.clean)?;
         }
     } else if is_fullstack {
         println!(
@@ -782,6 +811,7 @@ fn build_fullstack_project(
     project_dir: &std::path::Path,
     output_name: &str,
     output_dir: &std::path::Path,
+    clean: bool,
 ) -> anyhow::Result<()> {
     use std::fs;
 
@@ -871,10 +901,16 @@ fn build_fullstack_project(
             println!("\n✅ Build completed successfully!\n");
             println!("📦 Executable: {}", dst_exe.display());
             println!("📊 Size: {:.2} MB", size_mb);
-            println!(
-                "\n💡 Tip: The build directory at '{}' can be removed to save space.",
-                project_dir.display()
-            );
+            if clean {
+                println!("\n🧹 Cleaning up build directory...");
+                if let Err(e) = fs::remove_dir_all(project_dir) {
+                    tracing::warn!("Failed to clean up build directory: {}", e);
+                } else {
+                    println!("✓ Build directory removed: {}", project_dir.display());
+                }
+            } else {
+                println!("\n💡 Tip: Use --clean flag to automatically remove the build directory.");
+            }
             return Ok(());
         }
 
@@ -895,10 +931,18 @@ fn build_fullstack_project(
     println!("📦 Executable: {}", dst_exe.display());
     println!("📊 Size: {:.2} MB", size_mb);
 
-    println!(
-        "\n💡 Tip: The build directory at '{}' can be removed to save space.",
-        project_dir.display()
-    );
+    // Clean up build directory if requested
+    if clean {
+        println!("\n🧹 Cleaning up build directory...");
+        if let Err(e) = fs::remove_dir_all(project_dir) {
+            tracing::warn!("Failed to clean up build directory: {}", e);
+            println!("⚠️  Failed to clean up: {}", e);
+        } else {
+            println!("✓ Build directory removed: {}", project_dir.display());
+        }
+    } else {
+        println!("\n💡 Tip: Use --clean flag to automatically remove the build directory.");
+    }
 
     Ok(())
 }
@@ -909,6 +953,7 @@ fn build_pack_project(
     project_dir: &std::path::Path,
     output_name: &str,
     output_dir: &std::path::Path,
+    clean: bool,
 ) -> anyhow::Result<()> {
     use std::fs;
 
@@ -968,12 +1013,18 @@ fn build_pack_project(
     println!("📦 Executable: {}", dst_exe.display());
     println!("📊 Size: {:.2} MB", size_mb);
 
-    // Optionally clean up the build directory
-    // For now, we keep it for debugging purposes
-    println!(
-        "\n💡 Tip: The build directory at '{}' can be removed to save space.",
-        project_dir.display()
-    );
+    // Clean up build directory if requested
+    if clean {
+        println!("\n🧹 Cleaning up build directory...");
+        if let Err(e) = fs::remove_dir_all(project_dir) {
+            tracing::warn!("Failed to clean up build directory: {}", e);
+            println!("⚠️  Failed to clean up: {}", e);
+        } else {
+            println!("✓ Build directory removed: {}", project_dir.display());
+        }
+    } else {
+        println!("\n💡 Tip: Use --clean flag to automatically remove the build directory.");
+    }
 
     Ok(())
 }

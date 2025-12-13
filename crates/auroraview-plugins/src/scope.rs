@@ -178,6 +178,7 @@ impl ScopeConfig {
         config.enabled_plugins.insert("clipboard".to_string());
         config.enabled_plugins.insert("shell".to_string());
         config.enabled_plugins.insert("dialog".to_string());
+        config.enabled_plugins.insert("process".to_string());
         config
     }
 
@@ -346,6 +347,7 @@ mod tests {
         assert!(config.is_plugin_enabled("clipboard"));
         assert!(config.is_plugin_enabled("shell"));
         assert!(config.is_plugin_enabled("dialog"));
+        assert!(config.is_plugin_enabled("process"));
     }
 
     #[test]

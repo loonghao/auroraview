@@ -15,6 +15,11 @@
 //! - AuroraView module is imported
 //!
 //! This reduces first window creation time from 2-8s to <1s.
+//!
+//! NOTE: Functions in this module are exposed via PyO3 bindings (src/bindings/warmup.rs).
+//! The dead_code warnings are expected when compiling without python-bindings feature.
+
+#![allow(dead_code)]
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -26,6 +31,7 @@ static WARMUP_STATE: OnceLock<Arc<Mutex<WarmupState>>> = OnceLock::new();
 
 /// Warmup progress stages
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // Some variants only used with win-webview2 feature
 pub enum WarmupStage {
     /// Not started
     NotStarted,
@@ -253,6 +259,7 @@ pub fn start_warmup(user_data_folder: Option<PathBuf>) {
 }
 
 /// Helper to update warmup stage
+#[allow(dead_code)] // Only used with win-webview2 feature
 fn update_warmup_stage(stage: WarmupStage) {
     let state = get_warmup_state();
     let mut guard = match state.lock() {

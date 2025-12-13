@@ -261,6 +261,8 @@ class QtWebView(FileDialogMixin, QWidget):
         title: str = "AuroraView",
         width: int = 800,
         height: int = 600,
+        url: Optional[str] = None,
+        html: Optional[str] = None,
         dev_tools: bool = True,
         context_menu: bool = True,
         asset_root: Optional[str] = None,
@@ -279,6 +281,10 @@ class QtWebView(FileDialogMixin, QWidget):
             title: Window title
             width: Window width in pixels
             height: Window height in pixels
+            url: URL to load (optional). If provided, the URL will be loaded
+                after the WebView is shown.
+            html: HTML content to load (optional). If provided, the HTML will
+                be loaded after the WebView is shown. Ignored if ``url`` is set.
             dev_tools: Enable developer tools (F12 or right-click > Inspect)
             context_menu: Enable native context menu
             asset_root: Root directory for auroraview:// protocol.
@@ -388,6 +394,8 @@ class QtWebView(FileDialogMixin, QWidget):
         self._frameless = frameless
         self._transparent = transparent
         self._embed_mode = embed_mode
+        self._initial_url = url
+        self._initial_html = html
 
         self.setWindowTitle(title)
         self.resize(width, height)
@@ -1830,7 +1838,18 @@ class QtWebView(FileDialogMixin, QWidget):
         QTimer.singleShot(500, delayed_geometry_sync)
         QTimer.singleShot(1000, delayed_geometry_sync)  # Final sync for slow DCCs
 
-        # Step 8: Start EventTimer for message processing
+        # Step 8: Load initial content (url or html)
+        # This must happen after WebView is created and visible
+        if self._initial_url:
+            if _VERBOSE_LOGGING:
+                logger.debug(f"[QtWebView] Loading initial URL: {self._initial_url}")
+            self._webview.load_url(self._initial_url)
+        elif self._initial_html:
+            if _VERBOSE_LOGGING:
+                logger.debug(f"[QtWebView] Loading initial HTML ({len(self._initial_html)} bytes)")
+            self._webview.load_html(self._initial_html)
+
+        # Step 9: Start EventTimer for message processing
         timer = getattr(self._webview, "_auto_timer", None)
         if timer is not None:
             try:

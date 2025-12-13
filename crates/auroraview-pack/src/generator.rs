@@ -12,6 +12,12 @@ use crate::templates::{
 };
 use crate::{PackConfig, PackError, PackMode, PackResult};
 
+/// Normalize line endings to LF (Unix style)
+/// This ensures generated files work correctly on all platforms
+fn normalize_line_endings(content: &str) -> String {
+    content.replace("\r\n", "\n").replace('\r', "\n")
+}
+
 /// Pack generator creates standalone executable projects
 pub struct PackGenerator {
     config: PackConfig,
@@ -99,11 +105,11 @@ impl PackGenerator {
         tracing::info!("Generating URL mode project for: {}", url);
 
         // Generate Cargo.toml (no embedded assets for URL mode)
-        let cargo_toml = self.generate_cargo_toml(false)?;
+        let cargo_toml = normalize_line_endings(&self.generate_cargo_toml(false)?);
         fs::write(project_dir.join("Cargo.toml"), cargo_toml)?;
 
         // Generate main.rs for URL mode
-        let main_rs = self.generate_url_main_rs(url)?;
+        let main_rs = normalize_line_endings(&self.generate_url_main_rs(url)?);
         let src_dir = project_dir.join("src");
         fs::create_dir_all(&src_dir)?;
         fs::write(src_dir.join("main.rs"), main_rs)?;
@@ -120,7 +126,7 @@ impl PackGenerator {
         );
 
         // Generate Cargo.toml with rust-embed
-        let cargo_toml = self.generate_cargo_toml(true)?;
+        let cargo_toml = normalize_line_endings(&self.generate_cargo_toml(true)?);
         fs::write(project_dir.join("Cargo.toml"), cargo_toml)?;
 
         // Copy frontend assets
@@ -128,7 +134,7 @@ impl PackGenerator {
         self.copy_frontend_assets(frontend, &assets_dir)?;
 
         // Generate main.rs for frontend mode
-        let main_rs = self.generate_frontend_main_rs()?;
+        let main_rs = normalize_line_endings(&self.generate_frontend_main_rs()?);
         let src_dir = project_dir.join("src");
         fs::create_dir_all(&src_dir)?;
         fs::write(src_dir.join("main.rs"), main_rs)?;
@@ -158,7 +164,7 @@ impl PackGenerator {
         };
 
         // Generate Cargo.toml with pyembed dependency
-        let cargo_toml = self.generate_cargo_toml_pyembed(true)?;
+        let cargo_toml = normalize_line_endings(&self.generate_cargo_toml_pyembed(true)?);
         fs::write(project_dir.join("Cargo.toml"), cargo_toml)?;
 
         // Copy frontend assets
@@ -166,18 +172,20 @@ impl PackGenerator {
         self.copy_frontend_assets(frontend, &assets_dir)?;
 
         // Generate main.rs for full-stack mode
-        let main_rs = self.generate_fullstack_main_rs(backend_module, backend_func)?;
+        let main_rs =
+            normalize_line_endings(&self.generate_fullstack_main_rs(backend_module, backend_func)?);
         let src_dir = project_dir.join("src");
         fs::create_dir_all(&src_dir)?;
         fs::write(src_dir.join("main.rs"), main_rs)?;
 
         // Generate build.rs for pyo3-build-config
-        let build_rs = self.generate_build_rs()?;
+        let build_rs = normalize_line_endings(&self.generate_build_rs()?);
         fs::write(project_dir.join("build.rs"), build_rs)?;
 
         // Generate pyoxidizer.bzl configuration
         let pyembed_config = PyEmbedConfig::with_entry_point(backend_entry);
-        let pyoxidizer_config = generate_pyoxidizer_config(&self.config, &pyembed_config)?;
+        let pyoxidizer_config =
+            normalize_line_endings(&generate_pyoxidizer_config(&self.config, &pyembed_config)?);
         fs::write(project_dir.join("pyoxidizer.bzl"), pyoxidizer_config)?;
 
         tracing::info!("Full-stack mode project generated successfully");
@@ -241,6 +249,7 @@ impl PackGenerator {
         };
 
         let template = MainUrlTemplate {
+            name: &self.config.output_name,
             title: &self.config.window_title,
             url: &normalized_url,
             width: self.config.window_width,
@@ -254,6 +263,7 @@ impl PackGenerator {
     /// Generate main.rs for frontend mode using Askama template
     fn generate_frontend_main_rs(&self) -> PackResult<String> {
         let template = MainFrontendTemplate {
+            name: &self.config.output_name,
             title: &self.config.window_title,
             width: self.config.window_width,
             height: self.config.window_height,
@@ -281,6 +291,7 @@ impl PackGenerator {
         backend_func: &str,
     ) -> PackResult<String> {
         let template = MainFullstackTemplate {
+            name: &self.config.output_name,
             title: &self.config.window_title,
             width: self.config.window_width,
             height: self.config.window_height,

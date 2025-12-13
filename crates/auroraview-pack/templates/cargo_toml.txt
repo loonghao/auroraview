@@ -3,6 +3,9 @@ name = "{{ name }}"
 version = "0.1.0"
 edition = "2021"
 
+# Standalone project - not part of any workspace
+[workspace]
+
 [dependencies]
 wry = "0.53"
 tao = "0.34"
@@ -10,6 +13,7 @@ anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.5"
+dirs = "6.0"
 {% if embed_assets %}
 rust-embed = { version = "8.5", features = ["compression"] }
 mime_guess = "2.0"
@@ -21,4 +25,6 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "abort"
+
+
 

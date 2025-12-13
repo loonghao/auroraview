@@ -3,15 +3,24 @@
 //! This is an auto-generated standalone WebView application.
 
 use anyhow::Result;
+use std::path::PathBuf;
 use tao::event::{Event, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop};
 use tao::window::WindowBuilder;
-use wry::WebViewBuilder;
+use wry::{WebContext, WebViewBuilder};
 
+const APP_NAME: &str = "{{ name }}";
 const APP_URL: &str = "{{ url }}";
 const WINDOW_TITLE: &str = "{{ title }}";
 const WINDOW_WIDTH: u32 = {{ width }};
 const WINDOW_HEIGHT: u32 = {{ height }};
+
+/// Get the WebView data directory in the platform-specific app data location
+fn get_data_dir() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+        .join(APP_NAME)
+}
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -24,7 +33,12 @@ fn main() -> Result<()> {
         .with_inner_size(tao::dpi::LogicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
         .build(&event_loop)?;
 
-    let webview = WebViewBuilder::new()
+    // Create WebContext with app-specific data directory
+    let data_dir = get_data_dir();
+    std::fs::create_dir_all(&data_dir)?;
+    let mut web_context = WebContext::new(Some(data_dir));
+
+    let webview = WebViewBuilder::with_web_context(&mut web_context)
         .with_url(APP_URL)
         .build(&window)?;
 
@@ -41,4 +55,3 @@ fn main() -> Result<()> {
         }
     });
 }
-

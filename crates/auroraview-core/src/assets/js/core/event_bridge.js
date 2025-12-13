@@ -44,11 +44,12 @@
 
     /**
      * Handle call_result events coming back from Python (Python -> JS)
+     * This is an internal handler called by trigger() for __auroraview_call_result events
+     * @param {object} detail - The call result payload
      */
-    window.addEventListener('__auroraview_call_result', function(event) {
+    function handleCallResult(detail) {
         try {
-            const detail = event && event.detail ? event.detail : {};
-            const id = detail.id;
+            const id = detail && detail.id;
             
             if (!id) {
                 console.warn('[AuroraView] call_result without id:', detail);
@@ -76,7 +77,7 @@
         } catch (e) {
             console.error('[AuroraView] Error handling call_result:', e);
         }
-    });
+    }
 
     /**
      * Primary AuroraView bridge API
@@ -155,6 +156,12 @@
          * @param {*} detail - Event data
          */
         trigger: function(event, detail) {
+            // Special handling for internal call_result events
+            if (event === '__auroraview_call_result') {
+                handleCallResult(detail);
+                return;
+            }
+
             const handlers = eventHandlers.get(event);
             if (!handlers || handlers.length === 0) {
                 console.warn('[AuroraView] No handlers for event:', event);
