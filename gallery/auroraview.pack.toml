@@ -116,15 +116,16 @@ before_collect = []
 after_pack = []
 
 # Collect example files for the gallery
+# These will be extracted to AURORAVIEW_EXAMPLES_DIR at runtime
 [[hooks.collect]]
 source = "../examples/*.py"
-dest = "examples"
+dest = "resources/examples"
 preserve_structure = false
 description = "Python example files for the gallery"
 
 [[hooks.collect]]
 source = "../examples/*.html"
-dest = "examples"
+dest = "resources/examples"
 preserve_structure = false
 description = "HTML example files"
 

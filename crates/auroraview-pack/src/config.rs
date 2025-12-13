@@ -352,6 +352,9 @@ pub struct PackConfig {
     /// License configuration for authorization
     #[serde(default)]
     pub license: Option<LicenseConfig>,
+    /// Hooks configuration for collecting additional files
+    #[serde(default)]
+    pub hooks: Option<HooksConfig>,
 }
 
 impl PackConfig {
@@ -381,6 +384,7 @@ impl PackConfig {
             icon_path: None,
             env: HashMap::new(),
             license: None,
+            hooks: None,
         }
     }
 
@@ -407,6 +411,7 @@ impl PackConfig {
             icon_path: None,
             env: HashMap::new(),
             license: None,
+            hooks: None,
         }
     }
 
@@ -439,6 +444,7 @@ impl PackConfig {
             icon_path: None,
             env: HashMap::new(),
             license: None,
+            hooks: None,
         }
     }
 
@@ -471,6 +477,7 @@ impl PackConfig {
             icon_path: None,
             env: HashMap::new(),
             license: None,
+            hooks: None,
         }
     }
 
@@ -565,6 +572,12 @@ impl PackConfig {
         license.enabled = true;
         license.require_token = true;
         self.license = Some(license);
+        self
+    }
+
+    /// Set hooks configuration for collecting additional files
+    pub fn with_hooks(mut self, hooks: HooksConfig) -> Self {
+        self.hooks = Some(hooks);
         self
     }
 }
