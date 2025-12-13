@@ -564,7 +564,7 @@ mod tests {
                 url
             );
             assert!(url.contains("install_only.tar.gz"));
-            assert!(url.starts_with("https://github.com/indygreg/python-build-standalone"));
+            assert!(url.starts_with("https://github.com/astral-sh/python-build-standalone"));
         }
     }
 
