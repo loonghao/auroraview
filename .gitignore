@@ -36,6 +36,7 @@ coverage.xml
 *.mo
 *.pot
 node_modules/
+pack-output/
 
 # Virtual environments
 venv/

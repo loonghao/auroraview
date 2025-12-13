@@ -529,11 +529,11 @@ build-wheel:
 # Pack Gallery into standalone executable
 gallery-pack: gallery-build
     @echo "Packing Gallery into standalone executable..."
-    cargo run -p auroraview-cli --release -- pack --frontend gallery/dist --output auroraview-gallery --title "AuroraView Gallery" --width 1200 --height 800 --build
+    cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --build
     @echo "[OK] Gallery packed successfully!"
 
 # Pack Gallery for release (generates project without building)
 gallery-pack-project: gallery-build
     @echo "Generating Gallery pack project..."
-    cargo run -p auroraview-cli --release -- pack --frontend gallery/dist --output auroraview-gallery --title "AuroraView Gallery" --width 1200 --height 800 --output-dir target/pack
+    cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --output-dir target/pack
     @echo "[OK] Gallery pack project generated in target/pack/auroraview-gallery/"

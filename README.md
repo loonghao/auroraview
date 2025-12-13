@@ -1427,6 +1427,59 @@ The Gallery provides:
 - Settings panel for runtime configuration
 - Search functionality across all examples
 
+### Application Packaging
+
+AuroraView provides a powerful packaging system to create standalone executables:
+
+```bash
+# Pack a URL-based application
+auroraview pack --url https://example.com --output myapp.exe
+
+# Pack a frontend project (React, Vue, etc.)
+auroraview pack --frontend ./dist --output myapp.exe
+
+# Pack a fullstack application (frontend + Python backend)
+auroraview pack --config auroraview.pack.toml --output myapp.exe
+```
+
+**Configuration file example (`auroraview.pack.toml`):**
+
+```toml
+[window]
+title = "My Application"
+width = 1200
+height = 800
+resizable = true
+
+[mode]
+type = "fullstack"
+
+[mode.frontend]
+path = "./frontend/dist"
+
+[mode.python]
+entry_point = "main:main"
+source = "./backend"
+strategy = "standalone"  # Embeds Python runtime for offline use
+```
+
+**Bundle Strategies:**
+
+| Strategy | Offline | Size | Description |
+|----------|---------|------|-------------|
+| `standalone` (default) | Yes | ~50-80MB | Embeds Python runtime, extracts on first run |
+| `embedded` | No | ~15MB | Requires system Python |
+| `portable` | Yes | ~50-80MB | Directory structure with Python |
+| `pyoxidizer` | Yes | ~30-50MB | Requires PyOxidizer installed |
+
+**Key Features:**
+- Single executable distribution
+- Embedded Python runtime (no system Python required)
+- First-run extraction to user cache directory
+- Environment variable injection
+- License/token validation support
+- Custom hooks for additional files
+
 ## Documentation
 
 -  [Architecture](./docs/ARCHITECTURE.md) - Modular backend architecture

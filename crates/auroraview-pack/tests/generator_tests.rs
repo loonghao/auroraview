@@ -1,24 +1,19 @@
-//! Integration tests for PackGenerator
+//! Integration tests for Packer (PackGenerator)
+//!
+//! These tests verify the overlay-based packaging functionality.
 //!
 //! ## Cleanup Mechanism
 //!
-//! All tests in this module use `tempfile::tempdir()` for creating temporary directories.
-//! The `TempDir` type implements `Drop` trait, which automatically removes the directory
-//! and all its contents when the `TempDir` instance goes out of scope (test function ends).
-//!
-//! This ensures:
-//! - No temporary files are left in the project directory after tests
-//! - Failed tests still clean up their temporary directories
-//! - No manual cleanup code is needed
+//! All tests use `tempfile::tempdir()` for creating temporary directories.
+//! The `TempDir` type automatically removes the directory when it goes out of scope.
 
 use std::fs;
-use std::process::Command;
 
-use auroraview_pack::{PackConfig, PackGenerator};
+use auroraview_pack::{BundleStrategy, PackConfig, PackMode, Packer, PythonBundleConfig};
 use tempfile::tempdir;
 
 // ============================================================================
-// Configuration Validation Tests
+// Configuration Tests
 // ============================================================================
 
 #[test]
@@ -28,435 +23,677 @@ fn test_pack_config_url_mode() {
         .with_title("Test App")
         .with_size(1024, 768);
 
-    let generator = PackGenerator::new(config);
-    assert!(generator.validate().is_ok());
+    assert_eq!(config.output_name, "test-app");
+    assert_eq!(config.window.title, "Test App");
+    assert_eq!(config.window.width, 1024);
+    assert_eq!(config.window.height, 768);
+    assert!(matches!(config.mode, PackMode::Url { .. }));
 }
 
 #[test]
-fn test_pack_config_url_mode_invalid() {
-    let config = PackConfig::url("invalid") // No dots, no scheme
-        .with_output("test-app");
+fn test_pack_config_frontend_mode() {
+    let config = PackConfig::frontend("./dist")
+        .with_output("frontend-app")
+        .with_title("Frontend App");
 
-    let generator = PackGenerator::new(config);
-    assert!(generator.validate().is_err());
+    assert_eq!(config.output_name, "frontend-app");
+    assert!(matches!(config.mode, PackMode::Frontend { .. }));
 }
 
 #[test]
-fn test_pack_config_frontend_mode_not_found() {
-    let config = PackConfig::frontend("/nonexistent/path").with_output("test-app");
+fn test_pack_config_fullstack_mode() {
+    let config = PackConfig::fullstack("./dist", "main:run")
+        .with_output("fullstack-app")
+        .with_title("FullStack App");
 
-    let generator = PackGenerator::new(config);
-    assert!(generator.validate().is_err());
+    assert_eq!(config.output_name, "fullstack-app");
+    assert!(matches!(config.mode, PackMode::FullStack { .. }));
+
+    if let PackMode::FullStack { python, .. } = &config.mode {
+        assert_eq!(python.entry_point, "main:run");
+    }
 }
 
-// ============================================================================
-// End-to-End URL Mode Tests
-// ============================================================================
-
-/// Test complete URL mode packaging flow
-///
-/// This test:
-/// 1. Creates a temporary output directory
-/// 2. Generates a URL mode project with custom settings
-/// 3. Verifies all expected files are created
-/// 4. Verifies file contents are correct
-/// 5. Optionally runs cargo check to ensure the project compiles
 #[test]
-fn test_pack_generator_url_mode() {
-    // Create temporary directory for output (auto-cleaned on drop)
-    let temp_dir = tempdir().expect("Failed to create temp directory");
-    let output_dir = temp_dir.path();
-
-    // Configure URL mode pack
-    let config = PackConfig::url("https://github.com")
-        .with_output("test-url-app")
-        .with_output_dir(output_dir)
-        .with_title("GitHub Viewer")
-        .with_size(1280, 720);
-
-    // Generate the project
-    let generator = PackGenerator::new(config);
-    let result = generator.generate();
-    assert!(result.is_ok(), "Generation failed: {:?}", result.err());
-
-    let project_dir = result.unwrap();
-
-    // Verify project structure
-    assert!(project_dir.exists(), "Project directory should exist");
-    assert!(
-        project_dir.join("Cargo.toml").exists(),
-        "Cargo.toml should exist"
-    );
-    assert!(
-        project_dir.join("src").exists(),
-        "src directory should exist"
-    );
-    assert!(
-        project_dir.join("src/main.rs").exists(),
-        "src/main.rs should exist"
-    );
-
-    // URL mode should NOT have assets directory
-    assert!(
-        !project_dir.join("assets").exists(),
-        "URL mode should not have assets directory"
-    );
-
-    // Verify Cargo.toml content
-    let cargo_toml =
-        fs::read_to_string(project_dir.join("Cargo.toml")).expect("Failed to read Cargo.toml");
-    assert!(
-        cargo_toml.contains("name = \"test-url-app\""),
-        "Cargo.toml should contain project name"
-    );
-    assert!(
-        cargo_toml.contains("wry"),
-        "Cargo.toml should include wry dependency"
-    );
-    assert!(
-        cargo_toml.contains("tao"),
-        "Cargo.toml should include tao dependency"
-    );
-    // URL mode should NOT have rust-embed
-    assert!(
-        !cargo_toml.contains("rust-embed"),
-        "URL mode Cargo.toml should not include rust-embed"
-    );
-
-    // Verify main.rs content
-    let main_rs =
-        fs::read_to_string(project_dir.join("src/main.rs")).expect("Failed to read main.rs");
-    assert!(
-        main_rs.contains("https://github.com"),
-        "main.rs should contain the target URL"
-    );
-    assert!(
-        main_rs.contains("GitHub Viewer"),
-        "main.rs should contain window title"
-    );
-    assert!(
-        main_rs.contains("1280") && main_rs.contains("720"),
-        "main.rs should contain window dimensions"
-    );
-
-    // TempDir automatically cleaned up when `temp_dir` goes out of scope
-}
-
-/// Test URL mode with minimal configuration
-#[test]
-fn test_pack_generator_url_mode_minimal() {
-    let temp_dir = tempdir().expect("Failed to create temp directory");
-
+fn test_pack_config_builder_pattern() {
     let config = PackConfig::url("example.com")
-        .with_output("minimal-app")
+        .with_output("my-app")
+        .with_title("My App")
+        .with_size(1920, 1080)
+        .with_debug(true)
+        .with_frameless(true)
+        .with_always_on_top(true)
+        .with_resizable(false);
+
+    assert_eq!(config.output_name, "my-app");
+    assert_eq!(config.window.title, "My App");
+    assert_eq!(config.window.width, 1920);
+    assert_eq!(config.window.height, 1080);
+    assert!(config.debug);
+    assert!(config.window.frameless);
+    assert!(config.window.always_on_top);
+    assert!(!config.window.resizable);
+}
+
+// ============================================================================
+// Pack Mode Tests
+// ============================================================================
+
+#[test]
+fn test_pack_mode_name() {
+    let url_mode = PackMode::Url { url: "https://example.com".to_string() };
+    assert_eq!(url_mode.name(), "url");
+
+    let frontend_mode = PackMode::Frontend { path: "./dist".into() };
+    assert_eq!(frontend_mode.name(), "frontend");
+}
+
+#[test]
+fn test_pack_mode_embeds_assets() {
+    let url_mode = PackMode::Url { url: "https://example.com".to_string() };
+    assert!(!url_mode.embeds_assets());
+
+    let frontend_mode = PackMode::Frontend { path: "./dist".into() };
+    assert!(frontend_mode.embeds_assets());
+}
+
+#[test]
+fn test_pack_mode_has_python() {
+    let url_mode = PackMode::Url { url: "https://example.com".to_string() };
+    assert!(!url_mode.has_python());
+
+    let frontend_mode = PackMode::Frontend { path: "./dist".into() };
+    assert!(!frontend_mode.has_python());
+}
+
+// ============================================================================
+// Packer Validation Tests (via pack() which calls validate internally)
+// ============================================================================
+
+#[test]
+fn test_packer_url_mode_empty_url() {
+    let temp_dir = tempdir().expect("Failed to create temp directory");
+
+    let config = PackConfig::url("")
+        .with_output("test-app")
         .with_output_dir(temp_dir.path());
 
-    let generator = PackGenerator::new(config);
-    let result = generator.generate();
-    assert!(result.is_ok(), "Minimal URL mode generation should work");
+    let packer = Packer::new(config);
+    let result = packer.pack();
 
-    let project_dir = result.unwrap();
-
-    // Verify URL is normalized with https://
-    let main_rs =
-        fs::read_to_string(project_dir.join("src/main.rs")).expect("Failed to read main.rs");
-    assert!(
-        main_rs.contains("https://example.com"),
-        "URL should be normalized with https:// prefix"
-    );
+    assert!(result.is_err(), "Empty URL should fail validation");
 }
 
-// ============================================================================
-// End-to-End Frontend Mode Tests
-// ============================================================================
-
-/// Test complete Frontend mode packaging flow with a directory
-///
-/// This test:
-/// 1. Creates temporary directories for input (frontend) and output
-/// 2. Creates test HTML/CSS/JS files
-/// 3. Generates a Frontend mode project
-/// 4. Verifies all expected files are created including assets
-/// 5. Verifies assets are correctly copied
 #[test]
-fn test_pack_generator_frontend_mode_directory() {
-    // Create temporary directories (auto-cleaned on drop)
+fn test_packer_frontend_mode_not_found() {
+    let temp_dir = tempdir().expect("Failed to create temp directory");
+
+    let config = PackConfig::frontend("/nonexistent/path")
+        .with_output("test-app")
+        .with_output_dir(temp_dir.path());
+
+    let packer = Packer::new(config);
+    let result = packer.pack();
+
+    assert!(result.is_err(), "Nonexistent frontend path should fail");
+}
+
+#[test]
+fn test_packer_frontend_mode_no_index_html() {
     let input_temp = tempdir().expect("Failed to create input temp directory");
     let output_temp = tempdir().expect("Failed to create output temp directory");
 
-    let frontend_dir = input_temp.path();
-    let output_dir = output_temp.path();
-
-    // Create test frontend files
-    let index_html = r#"<!DOCTYPE html>
-<html>
-<head>
-    <title>Test App</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <h1>Hello AuroraView!</h1>
-    <script src="app.js"></script>
-</body>
-</html>"#;
-
-    let styles_css = r#"body { font-family: sans-serif; margin: 0; padding: 20px; }
-h1 { color: #333; }"#;
-
-    let app_js = r#"console.log('AuroraView Frontend Mode');
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('App loaded');
-});"#;
-
-    fs::write(frontend_dir.join("index.html"), index_html).expect("Failed to write index.html");
-    fs::write(frontend_dir.join("styles.css"), styles_css).expect("Failed to write styles.css");
-    fs::write(frontend_dir.join("app.js"), app_js).expect("Failed to write app.js");
-
-    // Create a subdirectory with additional assets
-    let img_dir = frontend_dir.join("images");
-    fs::create_dir_all(&img_dir).expect("Failed to create images directory");
-    fs::write(img_dir.join("logo.svg"), "<svg></svg>").expect("Failed to write logo.svg");
-
-    // Configure Frontend mode pack
-    let config = PackConfig::frontend(frontend_dir)
-        .with_output("test-frontend-app")
-        .with_output_dir(output_dir)
-        .with_title("Frontend Test App")
-        .with_size(1024, 768);
-
-    // Generate the project
-    let generator = PackGenerator::new(config);
-    let result = generator.generate();
-    assert!(result.is_ok(), "Generation failed: {:?}", result.err());
-
-    let project_dir = result.unwrap();
-
-    // Verify project structure
-    assert!(project_dir.exists(), "Project directory should exist");
-    assert!(
-        project_dir.join("Cargo.toml").exists(),
-        "Cargo.toml should exist"
-    );
-    assert!(
-        project_dir.join("src/main.rs").exists(),
-        "src/main.rs should exist"
-    );
-    assert!(
-        project_dir.join("assets").exists(),
-        "assets directory should exist"
-    );
-
-    // Verify assets are copied correctly
-    let assets_dir = project_dir.join("assets");
-    assert!(
-        assets_dir.join("index.html").exists(),
-        "index.html should be copied"
-    );
-    assert!(
-        assets_dir.join("styles.css").exists(),
-        "styles.css should be copied"
-    );
-    assert!(
-        assets_dir.join("app.js").exists(),
-        "app.js should be copied"
-    );
-    assert!(
-        assets_dir.join("images/logo.svg").exists(),
-        "Subdirectory assets should be copied"
-    );
-
-    // Verify copied content is correct
-    let copied_html =
-        fs::read_to_string(assets_dir.join("index.html")).expect("Failed to read copied index");
-    assert!(
-        copied_html.contains("Hello AuroraView!"),
-        "Copied HTML should have correct content"
-    );
-
-    // Verify Cargo.toml has rust-embed
-    let cargo_toml =
-        fs::read_to_string(project_dir.join("Cargo.toml")).expect("Failed to read Cargo.toml");
-    assert!(
-        cargo_toml.contains("rust-embed"),
-        "Frontend mode Cargo.toml should include rust-embed"
-    );
-
-    // Verify main.rs has embedded assets code
-    let main_rs =
-        fs::read_to_string(project_dir.join("src/main.rs")).expect("Failed to read main.rs");
-    assert!(
-        main_rs.contains("RustEmbed") || main_rs.contains("rust_embed"),
-        "Frontend mode main.rs should use rust-embed"
-    );
-    assert!(
-        main_rs.contains("Frontend Test App"),
-        "main.rs should contain window title"
-    );
-}
-
-/// Test Frontend mode with a single HTML file (not a directory)
-#[test]
-fn test_pack_generator_frontend_mode_single_file() {
-    let input_temp = tempdir().expect("Failed to create input temp directory");
-    let output_temp = tempdir().expect("Failed to create output temp directory");
-
-    // Create a single HTML file
-    let html_file = input_temp.path().join("single-page.html");
-    let html_content = r#"<!DOCTYPE html>
-<html>
-<head><title>Single Page</title></head>
-<body><h1>Single Page App</h1></body>
-</html>"#;
-    fs::write(&html_file, html_content).expect("Failed to write HTML file");
-
-    let config = PackConfig::frontend(&html_file)
-        .with_output("single-file-app")
+    // Create empty directory (no index.html)
+    let config = PackConfig::frontend(input_temp.path())
+        .with_output("test-app")
         .with_output_dir(output_temp.path());
 
-    let generator = PackGenerator::new(config);
-    let result = generator.generate();
-    assert!(result.is_ok(), "Single file mode should work");
+    let packer = Packer::new(config);
+    let result = packer.pack();
 
-    let project_dir = result.unwrap();
-
-    // Single file should be copied as index.html in assets
-    assert!(
-        project_dir.join("assets/index.html").exists(),
-        "Single file should be copied as index.html"
-    );
-
-    let copied_content = fs::read_to_string(project_dir.join("assets/index.html"))
-        .expect("Failed to read copied file");
-    assert!(
-        copied_content.contains("Single Page App"),
-        "Content should be preserved"
-    );
+    assert!(result.is_err(), "Frontend without index.html should fail");
 }
 
 // ============================================================================
-// Cargo Check Compilation Tests (Optional - skipped if cargo not available)
+// Bundle Builder Tests
 // ============================================================================
 
-/// Test that generated URL mode project can be checked by cargo
-///
-/// This test is more expensive as it runs cargo check, but ensures
-/// the generated code is syntactically correct and compiles.
 #[test]
-fn test_pack_generator_url_mode_cargo_check() {
-    // Skip if cargo is not available
-    if Command::new("cargo").arg("--version").output().is_err() {
-        eprintln!("Skipping cargo check test: cargo not available");
-        return;
-    }
+fn test_bundle_builder_directory() {
+    use auroraview_pack::BundleBuilder;
 
     let temp_dir = tempdir().expect("Failed to create temp directory");
 
-    let config = PackConfig::url("https://rust-lang.org")
-        .with_output("cargo-check-app")
-        .with_output_dir(temp_dir.path())
-        .with_title("Cargo Check Test");
+    // Create test files
+    fs::write(temp_dir.path().join("index.html"), "<html></html>").unwrap();
+    fs::write(temp_dir.path().join("style.css"), "body { }").unwrap();
+    fs::create_dir(temp_dir.path().join("js")).unwrap();
+    fs::write(temp_dir.path().join("js/app.js"), "console.log('hi')").unwrap();
 
-    let generator = PackGenerator::new(config);
-    let project_dir = generator.generate().expect("Generation should succeed");
+    let bundle = BundleBuilder::new(temp_dir.path()).build().unwrap();
 
-    // Run cargo check on the generated project
-    let output = Command::new("cargo")
-        .arg("check")
-        .current_dir(&project_dir)
-        .output()
-        .expect("Failed to run cargo check");
-
-    assert!(
-        output.status.success(),
-        "cargo check should succeed. stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    assert_eq!(bundle.len(), 3);
+    assert!(bundle.total_size() > 0);
 }
 
-/// Test that generated Frontend mode project can be checked by cargo
 #[test]
-fn test_pack_generator_frontend_mode_cargo_check() {
-    // Skip if cargo is not available
-    if Command::new("cargo").arg("--version").output().is_err() {
-        eprintln!("Skipping cargo check test: cargo not available");
-        return;
-    }
+fn test_bundle_builder_single_file() {
+    use auroraview_pack::BundleBuilder;
 
-    let input_temp = tempdir().expect("Failed to create input temp directory");
-    let output_temp = tempdir().expect("Failed to create output temp directory");
+    let temp_dir = tempdir().expect("Failed to create temp directory");
+    let html_path = temp_dir.path().join("page.html");
+    fs::write(&html_path, "<html>test</html>").unwrap();
 
-    // Create minimal frontend
-    fs::write(
-        input_temp.path().join("index.html"),
-        "<!DOCTYPE html><html><body>Test</body></html>",
-    )
-    .expect("Failed to write index.html");
+    let bundle = BundleBuilder::new(&html_path).build().unwrap();
 
-    let config = PackConfig::frontend(input_temp.path())
-        .with_output("cargo-check-frontend")
-        .with_output_dir(output_temp.path());
-
-    let generator = PackGenerator::new(config);
-    let project_dir = generator.generate().expect("Generation should succeed");
-
-    // Run cargo check on the generated project
-    let output = Command::new("cargo")
-        .arg("check")
-        .current_dir(&project_dir)
-        .output()
-        .expect("Failed to run cargo check");
-
-    assert!(
-        output.status.success(),
-        "cargo check should succeed. stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    assert_eq!(bundle.len(), 1);
+    assert_eq!(bundle.assets()[0].0, "index.html");
 }
 
-// ============================================================================
-// Edge Cases and Error Handling Tests
-// ============================================================================
-
-/// Test that generator handles empty frontend directory gracefully
 #[test]
-fn test_pack_generator_frontend_mode_empty_directory() {
-    let input_temp = tempdir().expect("Failed to create input temp directory");
-    let output_temp = tempdir().expect("Failed to create output temp directory");
+fn test_bundle_builder_excludes() {
+    use auroraview_pack::BundleBuilder;
 
-    // Empty directory - no index.html
-    let config = PackConfig::frontend(input_temp.path())
-        .with_output("empty-frontend")
-        .with_output_dir(output_temp.path());
-
-    let generator = PackGenerator::new(config);
-
-    // Validation should fail because no index.html
-    let result = generator.validate();
-    assert!(
-        result.is_err(),
-        "Empty frontend directory should fail validation"
-    );
-}
-
-/// Test URL mode with various URL formats
-#[test]
-fn test_pack_generator_url_mode_formats() {
     let temp_dir = tempdir().expect("Failed to create temp directory");
 
-    // Test with http:// prefix
-    let config = PackConfig::url("http://localhost:8080")
-        .with_output("http-app")
+    fs::write(temp_dir.path().join("index.html"), "<html></html>").unwrap();
+    fs::write(temp_dir.path().join("app.js.map"), "sourcemap").unwrap();
+    fs::write(temp_dir.path().join(".DS_Store"), "").unwrap();
+
+    let bundle = BundleBuilder::new(temp_dir.path()).build().unwrap();
+
+    // Should only include index.html (excludes .map and .DS_Store)
+    assert_eq!(bundle.len(), 1);
+    assert_eq!(bundle.assets()[0].0, "index.html");
+}
+
+// ============================================================================
+// Overlay Tests
+// ============================================================================
+
+#[test]
+fn test_overlay_roundtrip() {
+    use auroraview_pack::{OverlayData, OverlayReader, OverlayWriter};
+    use tempfile::NamedTempFile;
+
+    // Create a temp file with some content
+    let temp = NamedTempFile::new().unwrap();
+    fs::write(temp.path(), b"fake executable content").unwrap();
+
+    // Create overlay data
+    let config = PackConfig::url("https://example.com").with_title("Test App");
+    let mut data = OverlayData::new(config);
+    data.add_asset("index.html", b"<html></html>".to_vec());
+    data.add_asset("style.css", b"body { }".to_vec());
+
+    // Write overlay
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    // Verify overlay exists
+    assert!(OverlayReader::has_overlay(temp.path()).unwrap());
+
+    // Read overlay
+    let read_data = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read_data.config.window.title, "Test App");
+    assert_eq!(read_data.assets.len(), 2);
+
+    // Verify original size
+    let original_size = OverlayReader::get_original_size(temp.path()).unwrap().unwrap();
+    assert_eq!(original_size, b"fake executable content".len() as u64);
+}
+
+#[test]
+fn test_no_overlay() {
+    use auroraview_pack::OverlayReader;
+    use tempfile::NamedTempFile;
+
+    let temp = NamedTempFile::new().unwrap();
+    fs::write(temp.path(), b"just a regular file").unwrap();
+
+    assert!(!OverlayReader::has_overlay(temp.path()).unwrap());
+    assert!(OverlayReader::read(temp.path()).unwrap().is_none());
+}
+
+// ============================================================================
+// Manifest Tests
+// ============================================================================
+
+#[test]
+fn test_manifest_parse_minimal() {
+    use auroraview_pack::Manifest;
+
+    let toml = r#"
+[package]
+name = "test-app"
+
+[app]
+title = "Test App"
+url = "https://example.com"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    assert_eq!(manifest.package.name, "test-app");
+    assert_eq!(manifest.app.title, "Test App");
+    assert_eq!(manifest.app.url, Some("https://example.com".to_string()));
+}
+
+#[test]
+fn test_manifest_parse_fullstack() {
+    use auroraview_pack::Manifest;
+
+    let toml = r#"
+[package]
+name = "my-app"
+version = "1.0.0"
+
+[app]
+title = "My Application"
+frontend_path = "./dist"
+
+[window]
+width = 1280
+height = 720
+
+[python]
+enabled = true
+version = "3.11"
+entry_point = "main:run"
+packages = ["pyyaml", "requests"]
+
+[debug]
+enabled = true
+devtools = true
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    assert_eq!(manifest.package.name, "my-app");
+    assert!(manifest.is_fullstack());
+    assert!(manifest.python.is_some());
+
+    let python = manifest.python.unwrap();
+    assert!(python.enabled);
+    assert_eq!(python.version, "3.11");
+    assert_eq!(python.entry_point, Some("main:run".to_string()));
+    assert_eq!(python.packages, vec!["pyyaml", "requests"]);
+}
+
+#[test]
+fn test_manifest_validate() {
+    use auroraview_pack::Manifest;
+
+    // Missing both url and frontend_path
+    let toml = r#"
+[package]
+name = "test"
+
+[app]
+title = "Test"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    assert!(manifest.validate().is_err());
+
+    // Both url and frontend_path specified
+    let toml = r#"
+[package]
+name = "test"
+
+[app]
+title = "Test"
+url = "https://example.com"
+frontend_path = "./dist"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    assert!(manifest.validate().is_err());
+}
+
+// ============================================================================
+// FullStack Mode Tests
+// ============================================================================
+
+#[test]
+fn test_fullstack_mode_has_python() {
+    let fullstack_mode = PackMode::FullStack {
+        frontend_path: "./dist".into(),
+        python: Box::new(PythonBundleConfig::default()),
+    };
+    assert!(fullstack_mode.has_python());
+    assert!(fullstack_mode.embeds_assets());
+    assert_eq!(fullstack_mode.name(), "fullstack");
+}
+
+#[test]
+fn test_fullstack_config_with_strategy() {
+    let python_config = PythonBundleConfig {
+        entry_point: "main:run".to_string(),
+        strategy: BundleStrategy::Standalone,
+        version: "3.11".to_string(),
+        ..Default::default()
+    };
+
+    let config = PackConfig::fullstack_with_config("./dist", python_config);
+
+    if let PackMode::FullStack { python, .. } = &config.mode {
+        assert_eq!(python.strategy, BundleStrategy::Standalone);
+        assert_eq!(python.version, "3.11");
+    } else {
+        panic!("Expected FullStack mode");
+    }
+}
+
+#[test]
+fn test_fullstack_config_embedded_strategy() {
+    let python_config = PythonBundleConfig {
+        entry_point: "app:main".to_string(),
+        strategy: BundleStrategy::Embedded,
+        ..Default::default()
+    };
+
+    let config = PackConfig::fullstack_with_config("./dist", python_config);
+
+    if let PackMode::FullStack { python, .. } = &config.mode {
+        assert_eq!(python.strategy, BundleStrategy::Embedded);
+    } else {
+        panic!("Expected FullStack mode");
+    }
+}
+
+#[test]
+fn test_fullstack_config_with_packages() {
+    let python_config = PythonBundleConfig {
+        entry_point: "main:run".to_string(),
+        packages: vec!["pyyaml".to_string(), "requests".to_string(), "flask".to_string()],
+        ..Default::default()
+    };
+
+    let config = PackConfig::fullstack_with_config("./dist", python_config);
+
+    if let PackMode::FullStack { python, .. } = &config.mode {
+        assert_eq!(python.packages.len(), 3);
+        assert!(python.packages.contains(&"pyyaml".to_string()));
+        assert!(python.packages.contains(&"requests".to_string()));
+        assert!(python.packages.contains(&"flask".to_string()));
+    } else {
+        panic!("Expected FullStack mode");
+    }
+}
+
+#[test]
+fn test_packer_fullstack_validation_missing_frontend() {
+    let temp_dir = tempdir().expect("Failed to create temp directory");
+
+    let python_config = PythonBundleConfig {
+        entry_point: "main:run".to_string(),
+        ..Default::default()
+    };
+
+    let config = PackConfig::fullstack_with_config("/nonexistent/path", python_config)
+        .with_output("test-app")
         .with_output_dir(temp_dir.path());
 
-    let generator = PackGenerator::new(config);
-    let result = generator.generate();
-    assert!(result.is_ok(), "http:// URL should work");
+    let packer = Packer::new(config);
+    let result = packer.pack();
 
-    let main_rs =
-        fs::read_to_string(result.unwrap().join("src/main.rs")).expect("Failed to read main.rs");
-    // Should preserve http:// (not convert to https://)
-    assert!(
-        main_rs.contains("http://localhost:8080"),
-        "http:// URL should be preserved"
-    );
+    assert!(result.is_err(), "Missing frontend should fail validation");
+}
+
+#[test]
+fn test_packer_fullstack_validation_empty_entry_point() {
+    let frontend_temp = tempdir().expect("Failed to create frontend temp directory");
+    let output_temp = tempdir().expect("Failed to create output temp directory");
+
+    // Create index.html
+    fs::write(frontend_temp.path().join("index.html"), "<html></html>").unwrap();
+
+    let python_config = PythonBundleConfig {
+        entry_point: String::new(), // Empty entry point
+        ..Default::default()
+    };
+
+    let config = PackConfig::fullstack_with_config(frontend_temp.path(), python_config)
+        .with_output("test-app")
+        .with_output_dir(output_temp.path());
+
+    let packer = Packer::new(config);
+    let result = packer.pack();
+
+    assert!(result.is_err(), "Empty entry point should fail validation");
+}
+
+#[test]
+fn test_overlay_fullstack_roundtrip() {
+    use auroraview_pack::{OverlayData, OverlayReader, OverlayWriter};
+    use tempfile::NamedTempFile;
+
+    // Create a temp file with some content
+    let temp = NamedTempFile::new().unwrap();
+    fs::write(temp.path(), b"fake executable content").unwrap();
+
+    // Create fullstack overlay data
+    let python_config = PythonBundleConfig {
+        entry_point: "main:run".to_string(),
+        strategy: BundleStrategy::Standalone,
+        version: "3.11".to_string(),
+        packages: vec!["pyyaml".to_string()],
+        ..Default::default()
+    };
+
+    let config = PackConfig::fullstack_with_config("./dist", python_config)
+        .with_title("FullStack App");
+
+    let mut data = OverlayData::new(config);
+    data.add_asset("frontend/index.html", b"<html></html>".to_vec());
+    data.add_asset("frontend/style.css", b"body { }".to_vec());
+    data.add_asset("python/main.py", b"def run(): pass".to_vec());
+
+    // Write overlay
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    // Verify overlay exists
+    assert!(OverlayReader::has_overlay(temp.path()).unwrap());
+
+    // Read overlay
+    let read_data = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read_data.config.window.title, "FullStack App");
+    assert_eq!(read_data.assets.len(), 3);
+
+    // Verify assets
+    let asset_paths: Vec<&str> = read_data.assets.iter().map(|(p, _)| p.as_str()).collect();
+    assert!(asset_paths.contains(&"frontend/index.html"));
+    assert!(asset_paths.contains(&"frontend/style.css"));
+    assert!(asset_paths.contains(&"python/main.py"));
+}
+
+#[test]
+fn test_manifest_parse_fullstack_standalone() {
+    use auroraview_pack::Manifest;
+
+    let toml = r#"
+[package]
+name = "my-fullstack-app"
+version = "1.0.0"
+
+[app]
+title = "FullStack Application"
+frontend_path = "./dist"
+
+[window]
+width = 1200
+height = 800
+
+[python]
+enabled = true
+version = "3.11"
+entry_point = "main:run_gallery"
+packages = ["pyyaml"]
+strategy = "standalone"
+
+[debug]
+enabled = true
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    assert_eq!(manifest.package.name, "my-fullstack-app");
+    assert!(manifest.is_fullstack());
+    assert!(manifest.python.is_some());
+
+    let python = manifest.python.unwrap();
+    assert!(python.enabled);
+    assert_eq!(python.version, "3.11");
+    assert_eq!(python.entry_point, Some("main:run_gallery".to_string()));
+    assert_eq!(python.strategy, "standalone");
+}
+
+#[test]
+fn test_manifest_parse_fullstack_embedded() {
+    use auroraview_pack::Manifest;
+
+    let toml = r#"
+[package]
+name = "embedded-app"
+
+[app]
+title = "Embedded App"
+frontend_path = "./dist"
+
+[python]
+enabled = true
+entry_point = "app:main"
+strategy = "embedded"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    assert!(manifest.is_fullstack());
+
+    let python = manifest.python.unwrap();
+    assert_eq!(python.strategy, "embedded");
+}
+
+#[test]
+fn test_bundle_strategy_equality() {
+    assert_eq!(BundleStrategy::Standalone, BundleStrategy::Standalone);
+    assert_eq!(BundleStrategy::Embedded, BundleStrategy::Embedded);
+    assert_eq!(BundleStrategy::Portable, BundleStrategy::Portable);
+    assert_eq!(BundleStrategy::System, BundleStrategy::System);
+    assert_eq!(BundleStrategy::PyOxidizer, BundleStrategy::PyOxidizer);
+
+    assert_ne!(BundleStrategy::Standalone, BundleStrategy::Embedded);
+    assert_ne!(BundleStrategy::Portable, BundleStrategy::System);
+}
+
+#[test]
+fn test_python_bundle_config_with_include_paths() {
+    let temp_dir = tempdir().expect("Failed to create temp directory");
+    let python_dir = temp_dir.path().join("python");
+    fs::create_dir(&python_dir).unwrap();
+    fs::write(python_dir.join("main.py"), "def run(): pass").unwrap();
+
+    let python_config = PythonBundleConfig {
+        entry_point: "main:run".to_string(),
+        include_paths: vec![python_dir.clone()],
+        ..Default::default()
+    };
+
+    assert_eq!(python_config.include_paths.len(), 1);
+    assert_eq!(python_config.include_paths[0], python_dir);
+}
+
+#[test]
+fn test_overlay_with_python_runtime_meta() {
+    use auroraview_pack::{OverlayData, OverlayReader, OverlayWriter, PythonRuntimeMeta};
+    use tempfile::NamedTempFile;
+
+    let temp = NamedTempFile::new().unwrap();
+    fs::write(temp.path(), b"fake executable").unwrap();
+
+    let config = PackConfig::fullstack("./dist", "main:run").with_title("Runtime Test");
+    let mut data = OverlayData::new(config);
+
+    // Add Python runtime metadata
+    let meta = PythonRuntimeMeta {
+        version: "3.11.11".to_string(),
+        target: "x86_64-pc-windows-msvc".to_string(),
+        archive_size: 50_000_000,
+    };
+    let meta_json = serde_json::to_vec(&meta).unwrap();
+    data.add_asset("python_runtime.json", meta_json);
+
+    // Add frontend and python assets
+    data.add_asset("frontend/index.html", b"<html></html>".to_vec());
+    data.add_asset("python/main.py", b"def run(): pass".to_vec());
+
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read_data = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read_data.assets.len(), 3);
+
+    // Find and verify runtime metadata
+    let meta_asset = read_data
+        .assets
+        .iter()
+        .find(|(p, _)| p == "python_runtime.json");
+    assert!(meta_asset.is_some());
+
+    let (_, content) = meta_asset.unwrap();
+    let parsed_meta: PythonRuntimeMeta = serde_json::from_slice(content).unwrap();
+    assert_eq!(parsed_meta.version, "3.11.11");
+    assert_eq!(parsed_meta.target, "x86_64-pc-windows-msvc");
+}
+
+// ============================================================================
+// Python Standalone Tests
+// ============================================================================
+
+#[test]
+fn test_python_target_all_platforms() {
+    use auroraview_pack::PythonTarget;
+
+    let targets = [
+        (PythonTarget::WindowsX64, "x86_64-pc-windows-msvc", "python.exe"),
+        (PythonTarget::LinuxX64, "x86_64-unknown-linux-gnu", "python3"),
+        (PythonTarget::MacOSX64, "x86_64-apple-darwin", "python3"),
+        (PythonTarget::MacOSArm64, "aarch64-apple-darwin", "python3"),
+    ];
+
+    for (target, expected_triple, expected_exe) in targets {
+        assert_eq!(target.triple(), expected_triple);
+        assert_eq!(target.python_exe(), expected_exe);
+    }
+}
+
+#[test]
+fn test_python_standalone_config() {
+    use auroraview_pack::{PythonStandalone, PythonStandaloneConfig};
+
+    let config = PythonStandaloneConfig {
+        version: "3.12".to_string(),
+        release: Some("20241206".to_string()),
+        target: Some("x86_64-pc-windows-msvc".to_string()),
+        cache_dir: None,
+    };
+
+    let standalone = PythonStandalone::new(config).unwrap();
+    assert_eq!(standalone.version(), "3.12");
+
+    let url = standalone.download_url();
+    assert!(url.contains("cpython-3.12"));
+    assert!(url.contains("20241206"));
+    assert!(url.contains("x86_64-pc-windows-msvc"));
+    assert!(url.contains("install_only.tar.gz"));
+}
+
+#[test]
+fn test_python_standalone_cache_dir() {
+    use auroraview_pack::{PythonStandalone, PythonStandaloneConfig};
+
+    let temp_dir = tempdir().expect("Failed to create temp directory");
+
+    let config = PythonStandaloneConfig {
+        version: "3.11".to_string(),
+        release: None,
+        target: Some("x86_64-unknown-linux-gnu".to_string()),
+        cache_dir: Some(temp_dir.path().to_path_buf()),
+    };
+
+    let standalone = PythonStandalone::new(config).unwrap();
+    assert_eq!(standalone.cache_dir(), temp_dir.path());
+
+    let cached_path = standalone.cached_path();
+    assert!(cached_path.to_string_lossy().contains("cpython-3.11"));
+    assert!(cached_path.to_string_lossy().contains("x86_64-unknown-linux-gnu"));
 }
