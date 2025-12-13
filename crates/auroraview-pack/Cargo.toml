@@ -6,7 +6,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "AuroraView Pack: Application packaging and bundling tools"
+description = "AuroraView Pack: Zero-dependency application packaging"
 keywords = ["webview", "packaging", "bundler", "rust"]
 categories = ["development-tools", "command-line-utilities"]
 
@@ -18,9 +18,9 @@ path = "src/lib.rs"
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+toml = "0.8"
 
 # Error handling
-anyhow = "1.0"
 thiserror = "2.0"
 
 # Logging
@@ -28,22 +28,20 @@ tracing = "0.1"
 
 # File system operations
 walkdir = "2.5"
-dunce = "1.0"
 
-# Template engine
-askama = "0.14"
+# Compression
+zstd = "0.13"
+flate2 = "1.0"
 
-# Embed static assets
-rust-embed = "8.5"
+# Archive format
+tar = "0.4"
+
+# System directories
+dirs = "6.0"
+
+# Machine ID
+hostname = "0.4"
 
 [dev-dependencies]
 # Testing utilities
 tempfile = "3.20"
-
-[features]
-default = []
-# Enable PyOxidizer runtime integration (future feature)
-pyembed-runtime = []
-
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("pyembed-runtime"))'] }

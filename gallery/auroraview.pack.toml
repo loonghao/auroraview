@@ -1,0 +1,148 @@
+# AuroraView Gallery - Pack Configuration
+# This manifest defines how to package the Gallery application
+#
+# Bundle Strategy Options:
+# - "standalone": Bundle python-build-standalone runtime (default, fully offline)
+# - "pyoxidizer": Use PyOxidizer to embed Python runtime
+# - "embedded": Embed Python code as overlay (requires system Python to run)
+# - "portable": Create portable directory with Python runtime
+# - "system": Use system Python (smallest output, requires Python installed)
+
+[package]
+name = "auroraview-gallery"
+version = "0.1.0"
+description = "Interactive showcase of all AuroraView features and components"
+authors = ["AuroraView Team"]
+license = "MIT"
+homepage = "https://github.com/AuroraView/auroraview"
+repository = "https://github.com/AuroraView/auroraview"
+
+[app]
+title = "AuroraView Gallery"
+frontend_path = "./dist"
+allow_new_window = true
+
+[window]
+width = 1200
+height = 800
+min_width = 800
+min_height = 600
+resizable = true
+frameless = false
+transparent = false
+always_on_top = false
+start_position = "center"
+
+[bundle]
+icon = "../assets/icon.png"
+identifier = "com.auroraview.gallery"
+copyright = "Copyright 2025 AuroraView Team"
+category = "Developer Tools"
+short_description = "AuroraView Feature Gallery"
+resources = ["../examples"]
+
+[bundle.windows]
+icon = "../assets/icon.ico"
+
+# FullStack mode: Frontend + Python backend
+# This bundles the Gallery's Python backend (main.py) with all dependencies
+[python]
+enabled = true
+version = "3.11"
+entry_point = "main:run_gallery"
+packages = ["pyyaml"]  # Add any Python dependencies here
+include_paths = ["."]  # Include gallery directory (main.py)
+exclude = ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"]
+optimize = 1
+
+# Bundle strategy (default: "standalone" for fully offline distribution)
+# - "standalone": Single-file with embedded Python runtime (~50-80MB)
+#   Downloads python-build-standalone, embeds in overlay, extracts on first run
+# - "embedded": Overlay mode, requires system Python (~15MB)
+# - "portable": Directory with bundled Python runtime
+# - "system": Uses system Python, smallest output
+strategy = "standalone"
+
+# Include pip/setuptools in the bundle (for runtime package installation)
+include_pip = false
+include_setuptools = false
+
+# External binaries to bundle (e.g., ffmpeg, imagemagick)
+# These will be included in the final executable
+external_bin = []
+
+# Additional resource directories to bundle
+resources = []
+
+# PyOxidizer-specific configuration (only used when strategy = "pyoxidizer")
+[python.pyoxidizer]
+# Path to PyOxidizer executable (optional, uses PATH by default)
+# executable = "/path/to/pyoxidizer"
+
+# Target triple for cross-compilation (optional)
+# target = "x86_64-pc-windows-msvc"
+
+# Distribution flavor: "standalone" (default), "standalone_dynamic", or "system"
+flavor = "standalone"
+
+# Build in release mode
+release = true
+
+# Enable filesystem importer fallback (for dynamic imports)
+filesystem_importer = false
+
+[python.env]
+# Environment variables for Python runtime
+GALLERY_MODE = "production"
+
+[build]
+before_build = ["npm run build"]
+after_build = []
+resources = ["./public"]
+exclude = ["*.map", "*.ts", "node_modules"]
+out_dir = "./pack-output"
+release = true
+
+# Runtime environment configuration
+[runtime]
+# Environment variables injected at application startup
+[runtime.env]
+AURORAVIEW_APP = "gallery"
+LOG_LEVEL = "info"
+
+# Hooks for collecting additional files
+[hooks]
+before_collect = []
+after_pack = []
+
+# Collect example files for the gallery
+[[hooks.collect]]
+source = "../examples/*.py"
+dest = "examples"
+preserve_structure = false
+description = "Python example files for the gallery"
+
+[[hooks.collect]]
+source = "../examples/*.html"
+dest = "examples"
+preserve_structure = false
+description = "HTML example files"
+
+# License/authorization configuration (optional)
+# Uncomment to enable license validation
+# [license]
+# enabled = true
+# expires_at = "2025-12-31"
+# require_token = false
+# grace_period_days = 7
+# expiration_message = "Your AuroraView Gallery license has expired. Please renew."
+
+[inject]
+# Optional: inject custom JS/CSS
+# js = "./inject.js"
+# css = "./inject.css"
+
+[debug]
+enabled = true
+devtools = true
+verbose = false

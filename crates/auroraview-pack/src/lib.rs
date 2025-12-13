@@ -1,102 +1,136 @@
-//! AuroraView Pack - Standalone Executable Packaging
+//! AuroraView Pack - Zero-Dependency Standalone Executable Packaging
 //!
 //! This crate provides functionality to package AuroraView-based applications
-//! into standalone executables, similar to Pake/Tauri.
+//! into standalone executables **without requiring any build tools**.
+//!
+//! # Design Philosophy
+//!
+//! Unlike traditional packaging tools that generate source code and require
+//! compilation, AuroraView Pack uses a **self-replicating approach**:
+//!
+//! 1. The `auroraview` CLI itself is a fully functional WebView shell
+//! 2. During `pack`, it copies itself and appends configuration + assets as overlay data
+//! 3. On startup, the packed exe detects the overlay and runs as a standalone app
+//!
+//! This means users only need the `auroraview` binary - no Rust, Cargo, or any
+//! other build tools required!
 //!
 //! # Features
 //!
-//! - **URL Mode**: Pack a URL into a standalone desktop app
-//! - **Frontend Mode**: Pack local HTML/CSS/JS into a standalone app
-//! - **Full Stack Mode**: Pack frontend + Python backend (requires PyOxidizer)
+//! - **URL Mode**: Wrap any website into a desktop app
+//! - **Frontend Mode**: Bundle local HTML/CSS/JS into a standalone app
+//! - **Manifest Support**: Declarative configuration via `auroraview.pack.toml`
+//! - **Zero Dependencies**: No build tools required on user's machine
 //!
 //! # Quick Start
 //!
-//! ## URL Mode - Wrap a website
+//! ## Command Line Usage
 //!
-//! ```rust,ignore
-//! use auroraview_pack::{PackConfig, PackGenerator};
+//! ```bash
+//! # Wrap a website
+//! auroraview pack --url www.example.com --output my-app
 //!
-//! let config = PackConfig::url("https://example.com")
-//!     .with_output("my-app")
-//!     .with_title("My App")
-//!     .with_size(1280, 720);
+//! # Bundle local frontend
+//! auroraview pack --frontend ./dist --output my-app
 //!
-//! let generator = PackGenerator::new(config);
-//! let project_dir = generator.generate()?;
-//! println!("Project generated at: {}", project_dir.display());
+//! # Use manifest file
+//! auroraview pack --config auroraview.pack.toml
 //! ```
 //!
-//! ## Frontend Mode - Bundle local assets
+//! ## Manifest File (auroraview.pack.toml)
 //!
-//! ```rust,ignore
-//! use auroraview_pack::{PackConfig, PackGenerator};
+//! ```toml
+//! [package]
+//! name = "my-app"
+//! version = "1.0.0"
 //!
-//! let config = PackConfig::frontend("./dist")
-//!     .with_output("my-app")
-//!     .with_title("My Frontend App");
+//! [app]
+//! title = "My Application"
+//! url = "https://example.com"
+//! # OR
+//! # frontend_path = "./dist"
 //!
-//! let generator = PackGenerator::new(config);
-//! generator.generate()?;
+//! [window]
+//! width = 1280
+//! height = 720
+//!
+//! [bundle]
+//! icon = "./assets/icon.png"
 //! ```
 //!
-//! ## Full Stack Mode - Frontend + Python backend
+//! # Technical Details
 //!
-//! ```rust,ignore
-//! use auroraview_pack::{PackConfig, PackGenerator};
+//! ## Overlay Format
 //!
-//! let config = PackConfig::fullstack("./dist", "myapp.main:run")
-//!     .with_output("my-fullstack-app")
-//!     .with_title("Full Stack App");
-//!
-//! let generator = PackGenerator::new(config);
-//! generator.generate()?;
-//! // Then run: pyoxidizer build --release
+//! The packed executable contains:
+//! ```text
+//! [Original auroraview.exe]
+//! [Overlay Data]
+//!   - Magic: "AVPK" (4 bytes)
+//!   - Version: u32 (4 bytes)
+//!   - Config Length: u64 (8 bytes)
+//!   - Assets Length: u64 (8 bytes)
+//!   - Config JSON (compressed)
+//!   - Assets Archive (tar.zstd)
+//! [Footer]
+//!   - Overlay Offset: u64 (8 bytes)
+//!   - Magic: "AVPK" (4 bytes)
 //! ```
 
+mod bundle;
 mod config;
 mod error;
-mod generator;
-mod pyembed_integration;
-mod templates;
+mod license;
+mod manifest;
+mod overlay;
+mod packer;
+mod pyoxidizer;
+mod python_standalone;
 
-// Public API exports
-pub use config::{PackConfig, PackMode, TargetPlatform, WindowStartPosition};
-pub use error::PackError;
-pub use generator::PackGenerator;
-pub use pyembed_integration::{
-    check_pyembed_availability, generate_pyoxidizer_config, PyEmbedConfig,
+// Re-export public API
+pub use bundle::{AssetBundle, BundleBuilder};
+pub use config::{
+    BundleStrategy, CollectPattern, HooksConfig, LicenseConfig, PackConfig, PackMode,
+    PythonBundleConfig, TargetPlatform, WindowConfig, WindowStartPosition,
 };
+pub use error::{PackError, PackResult};
+pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator};
+pub use pyoxidizer::{
+    check_pyoxidizer, installation_instructions, DistributionFlavor, ExternalBinary,
+    PyOxidizerBuilder, PyOxidizerConfig, ResourceFile,
+};
+pub use python_standalone::{
+    extract_runtime, get_runtime_cache_dir, PythonRuntimeMeta, PythonStandalone,
+    PythonStandaloneConfig, PythonTarget,
+};
+pub use manifest::{
+    AppConfig, BuildConfig, BundleConfig, CollectEntry, DebugConfig, HooksManifestConfig,
+    InjectConfig, LicenseManifestConfig, LinuxBundleConfig, MacOSBundleConfig, Manifest,
+    PackageConfig, PythonConfig, PyOxidizerManifestConfig, RuntimeConfig, StartPosition,
+    WindowConfig as ManifestWindowConfig, WindowsBundleConfig,
+};
+pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};
+pub use packer::Packer;
 
-/// Result type for pack operations
-pub type PackResult<T> = Result<T, PackError>;
+/// Alias for backward compatibility with CLI
+pub type PackGenerator = Packer;
 
 /// Crate version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Check if all required dependencies are available for packing
-///
-/// Returns a list of missing dependencies, if any.
-pub fn check_dependencies() -> Vec<&'static str> {
-    let mut missing = Vec::new();
-
-    // Check for cargo
-    if std::process::Command::new("cargo")
-        .arg("--version")
-        .output()
-        .is_err()
-    {
-        missing.push("cargo (Rust toolchain)");
-    }
-
-    missing
+/// Check if the current executable has overlay data (is a packed app)
+pub fn is_packed() -> bool {
+    let exe_path = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    OverlayReader::has_overlay(&exe_path).unwrap_or(false)
 }
 
-/// Check if PyOxidizer is available for fullstack mode
-pub fn is_pyoxidizer_available() -> bool {
-    std::process::Command::new("pyoxidizer")
-        .arg("--version")
-        .output()
-        .is_ok()
+/// Read overlay data from the current executable
+pub fn read_overlay() -> PackResult<Option<OverlayData>> {
+    let exe_path = std::env::current_exe()?;
+    OverlayReader::read(&exe_path)
 }
 
 #[cfg(test)]
@@ -105,41 +139,12 @@ mod tests {
 
     #[test]
     fn test_version() {
-        // VERSION is a compile-time constant, verify it has expected format
         assert!(VERSION.contains('.'), "VERSION should contain a dot");
     }
 
     #[test]
-    fn test_pack_mode_variants() {
-        use std::path::PathBuf;
-
-        let url_mode = PackMode::Url {
-            url: "https://example.com".to_string(),
-        };
-        assert_eq!(url_mode.name(), "url");
-        assert!(!url_mode.embeds_assets());
-
-        let frontend_mode = PackMode::Frontend {
-            path: PathBuf::from("/path/to/dist"),
-        };
-        assert_eq!(frontend_mode.name(), "frontend");
-        assert!(frontend_mode.embeds_assets());
-
-        let fullstack_mode = PackMode::FullStack {
-            frontend_path: PathBuf::from("/path/to/dist"),
-            backend_entry: "myapp:main".to_string(),
-        };
-        assert_eq!(fullstack_mode.name(), "fullstack");
-        assert!(fullstack_mode.requires_pyoxidizer());
-    }
-
-    #[test]
-    fn test_check_dependencies() {
-        // cargo should be available in the test environment
-        let missing = check_dependencies();
-        assert!(
-            !missing.contains(&"cargo (Rust toolchain)"),
-            "cargo should be available"
-        );
+    fn test_is_packed() {
+        // In test environment, should not be packed
+        assert!(!is_packed());
     }
 }

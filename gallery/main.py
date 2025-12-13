@@ -19,6 +19,7 @@ Signed-off-by: Hal Long <hal.long@outlook.com>
 from __future__ import annotations
 
 import ast
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -28,6 +29,9 @@ PROJECT_ROOT = Path(__file__).parent.parent
 GALLERY_DIR = Path(__file__).parent
 EXAMPLES_DIR = PROJECT_ROOT / "examples"
 DIST_DIR = GALLERY_DIR / "dist"
+
+# Check if running in packed mode (set by Rust CLI)
+PACKED_MODE = os.environ.get("AURORAVIEW_PACKED", "0") == "1"
 
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "python"))
@@ -337,6 +341,12 @@ def run_gallery():
     print("Interactive showcase of all features and components")
     print("=" * 50)
 
+    # In packed mode, run as API server (headless)
+    if PACKED_MODE:
+        print("Running in packed mode (API server)")
+        run_api_server()
+        return
+
     # Check if dist exists
     index_html = DIST_DIR / "index.html"
     if not index_html.exists():
@@ -493,6 +503,7 @@ def run_gallery():
         """Get all categories."""
         return CATEGORIES
 
+
     # Cleanup on close - kill all managed processes
     @view.on("close")
     def on_close():
@@ -501,6 +512,81 @@ def run_gallery():
 
     # Show the gallery
     view.show()
+
+
+def run_api_server():
+    """Run the Gallery as a headless API server for packed mode.
+
+    In packed mode, the Rust CLI creates the WebView and loads the frontend.
+    This function provides the Python API backend via JSON-RPC over stdin/stdout.
+    """
+    import json
+    import signal
+
+    print("Gallery API Server started")
+    print("Waiting for JSON-RPC requests on stdin...")
+
+    # API handlers
+    api_handlers = {
+        "api.get_samples": lambda **_: SAMPLES,
+        "api.get_categories": lambda **_: CATEGORIES,
+        "api.get_source": lambda sample_id="", **_: get_source_code(
+            get_sample_by_id(sample_id)["source_file"]
+        ) if get_sample_by_id(sample_id) else f"# Sample not found: {sample_id}",
+    }
+
+    def handle_request(request: dict) -> dict:
+        """Handle a JSON-RPC request."""
+        req_id = request.get("id")
+        method = request.get("method", "")
+        params = request.get("params", {})
+
+        if method in api_handlers:
+            try:
+                if isinstance(params, dict):
+                    result = api_handlers[method](**params)
+                elif isinstance(params, list):
+                    result = api_handlers[method](*params)
+                else:
+                    result = api_handlers[method](params)
+                return {"id": req_id, "ok": True, "result": result}
+            except Exception as e:
+                return {"id": req_id, "ok": False, "error": str(e)}
+        else:
+            return {"id": req_id, "ok": False, "error": f"Unknown method: {method}"}
+
+    # Handle SIGTERM gracefully
+    running = True
+
+    def signal_handler(signum, frame):
+        nonlocal running
+        print("Received shutdown signal")
+        running = False
+
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Main loop: read JSON-RPC requests from stdin
+    while running:
+        try:
+            line = sys.stdin.readline()
+            if not line:
+                break
+
+            line = line.strip()
+            if not line:
+                continue
+
+            request = json.loads(line)
+            response = handle_request(request)
+            print(json.dumps(response), flush=True)
+
+        except json.JSONDecodeError as e:
+            print(json.dumps({"ok": False, "error": f"Invalid JSON: {e}"}), flush=True)
+        except Exception as e:
+            print(json.dumps({"ok": False, "error": str(e)}), flush=True)
+
+    print("Gallery API Server stopped")
 
 
 if __name__ == "__main__":
