@@ -43,6 +43,9 @@ dirs = "6.0"
 # Machine ID
 hostname = "0.4"
 
+# Parallel processing
+rayon = "1.10"
+
 [dev-dependencies]
 # Testing utilities
 tempfile = "3.20"

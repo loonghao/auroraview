@@ -497,13 +497,33 @@ pub struct PythonConfig {
     #[serde(default)]
     pub resources: Vec<PathBuf>,
 
+    /// Module search paths (relative to extract directory)
+    /// These paths are added to PYTHONPATH at runtime.
+    /// Special variables: $EXTRACT_DIR, $RESOURCES_DIR, $SITE_PACKAGES
+    #[serde(default = "default_module_search_paths")]
+    pub module_search_paths: Vec<String>,
+
+    /// Whether to use filesystem importer (allows dynamic imports)
+    #[serde(default = "default_true")]
+    pub filesystem_importer: bool,
+
+    /// Show console window for Python process (Windows only).
+    /// When false (default), Python runs without a visible console window.
+    /// Set to true for debugging purposes.
+    #[serde(default)]
+    pub show_console: bool,
+
     /// PyOxidizer-specific configuration
     #[serde(default)]
     pub pyoxidizer: Option<PyOxidizerManifestConfig>,
 }
 
 fn default_strategy() -> String {
-    "pyoxidizer".to_string()
+    "standalone".to_string()
+}
+
+fn default_module_search_paths() -> Vec<String> {
+    vec!["$EXTRACT_DIR".to_string(), "$SITE_PACKAGES".to_string()]
 }
 
 /// PyOxidizer-specific manifest configuration
@@ -559,6 +579,9 @@ impl Default for PythonConfig {
             strategy: default_strategy(),
             external_bin: Vec::new(),
             resources: Vec::new(),
+            module_search_paths: default_module_search_paths(),
+            filesystem_importer: true,
+            show_console: false,
             pyoxidizer: None,
         }
     }

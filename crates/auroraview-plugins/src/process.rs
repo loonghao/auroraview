@@ -140,6 +140,20 @@ impl ProcessPlugin {
         // when connected to a pipe. Critical for real-time IPC.
         cmd.env("PYTHONUNBUFFERED", "1");
 
+        // In packed mode, inherit AURORAVIEW_PYTHON_PATH to PYTHONPATH
+        // This allows spawned Python processes to find bundled modules
+        if let Ok(python_path) = std::env::var("AURORAVIEW_PYTHON_PATH") {
+            // Merge with existing PYTHONPATH if any
+            let separator = if cfg!(windows) { ";" } else { ":" };
+            let existing = std::env::var("PYTHONPATH").unwrap_or_default();
+            let merged = if existing.is_empty() {
+                python_path
+            } else {
+                format!("{}{}{}", python_path, separator, existing)
+            };
+            cmd.env("PYTHONPATH", merged);
+        }
+
         // Windows: hide console window unless requested
         #[cfg(windows)]
         {

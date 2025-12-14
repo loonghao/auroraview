@@ -63,6 +63,18 @@ optimize = 1
 # - "system": Uses system Python, smallest output
 strategy = "standalone"
 
+# Module search paths for Python imports at runtime
+# Special variables: $EXTRACT_DIR, $RESOURCES_DIR, $SITE_PACKAGES
+# These paths are added to PYTHONPATH when spawning Python processes
+module_search_paths = ["$EXTRACT_DIR", "$SITE_PACKAGES"]
+
+# Enable filesystem importer for dynamic imports
+filesystem_importer = true
+
+# Hide console window for Python process (Windows only)
+# Set to true for debugging purposes
+show_console = false
+
 # Include pip/setuptools in the bundle (for runtime package installation)
 include_pip = false
 include_setuptools = false

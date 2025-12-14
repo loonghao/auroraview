@@ -10,6 +10,10 @@
 - **[Architecture](ARCHITECTURE.md)** - Modular backend architecture
 - **[Technical Design](TECHNICAL_DESIGN.md)** - Overall architecture and design decisions
 - **[IPC Architecture](IPC_ARCHITECTURE.md)** - Inter-process communication system
+- **[Packing Guide](PACKING.md)** - Bundle applications into standalone executables
+
+### CLI & Tools
+- **[CLI Documentation](CLI.md)** - Command-line interface usage
 
 ### Maya-Specific
 - **[Maya Solution](MAYA_SOLUTION.md)** - Maya integration guide
@@ -28,6 +32,10 @@
 2. Read [Technical Design](TECHNICAL_DESIGN.md)
 3. Read [IPC Architecture](IPC_ARCHITECTURE.md)
 
+#### ...pack my application
+1. Read [Packing Guide](PACKING.md)
+2. Check [CLI Documentation](CLI.md)
+
 #### ...contribute to the project
 1. Read [Roadmap](ROADMAP.md)
 2. Check [Current Status](CURRENT_STATUS.md) for known issues
@@ -38,6 +46,8 @@
 docs/
 ├── README.md                       # Documentation index
 ├── ARCHITECTURE.md                 # Backend architecture
+├── PACKING.md                      # Packing and distribution
+├── CLI.md                          # CLI usage
 ├── ROADMAP.md                      # Future plans
 ├── DCC_INTEGRATION_GUIDE.md        # Integration guide
 ├── TECHNICAL_DESIGN.md             # Architecture overview
@@ -47,6 +57,17 @@ docs/
 ```
 
 ## Document Summaries
+
+### PACKING.md
+**What**: Complete guide for packing AuroraView applications
+
+**When to read**:
+- Building standalone executables
+- Understanding packed vs development mode
+- Configuring Python dependencies and resources
+- Troubleshooting packing issues
+
+---
 
 ### ARCHITECTURE.md
 **What**: Modular backend architecture and design

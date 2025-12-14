@@ -127,6 +127,7 @@ pub fn init_logging() {
             .with_target(false)
             .with_thread_ids(true)
             .with_line_number(true)
+            .with_writer(std::io::stderr) // Write to stderr to avoid interfering with stdout
             .init();
     });
 }

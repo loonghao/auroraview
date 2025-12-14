@@ -5,7 +5,8 @@
 //! corresponding packages from the current Python environment.
 
 use crate::{PackError, PackResult};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -20,6 +21,94 @@ pub struct CollectedDeps {
     pub file_count: usize,
     /// Package names that were collected
     pub packages: Vec<String>,
+}
+
+/// File hash cache for detecting changes
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct FileHashCache {
+    /// Map of file path to content hash
+    pub hashes: HashMap<String, String>,
+    /// Cache version for compatibility
+    pub version: u32,
+}
+
+impl FileHashCache {
+    const CURRENT_VERSION: u32 = 1;
+
+    /// Create a new empty cache
+    pub fn new() -> Self {
+        Self {
+            hashes: HashMap::new(),
+            version: Self::CURRENT_VERSION,
+        }
+    }
+
+    /// Load cache from file
+    pub fn load(path: &Path) -> PackResult<Self> {
+        if !path.exists() {
+            return Ok(Self::new());
+        }
+
+        let content = std::fs::read_to_string(path)?;
+        let cache: Self = serde_json::from_str(&content)
+            .map_err(|e| PackError::Config(format!("Failed to parse cache: {}", e)))?;
+
+        // Check version compatibility
+        if cache.version != Self::CURRENT_VERSION {
+            tracing::info!("Cache version mismatch, rebuilding");
+            return Ok(Self::new());
+        }
+
+        Ok(cache)
+    }
+
+    /// Save cache to file
+    pub fn save(&self, path: &Path) -> PackResult<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| PackError::Config(format!("Failed to serialize cache: {}", e)))?;
+        std::fs::write(path, content)?;
+        Ok(())
+    }
+
+    /// Compute hash of file content
+    pub fn compute_hash(path: &Path) -> PackResult<String> {
+        use std::hash::{Hash, Hasher};
+
+        let mut file = std::fs::File::open(path)?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+
+        // Use a simple hash for speed (not cryptographic)
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        buffer.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        Ok(format!("{:016x}", hash))
+    }
+
+    /// Check if file has changed since last cache
+    pub fn has_changed(&self, path: &Path, key: &str) -> PackResult<bool> {
+        let current_hash = Self::compute_hash(path)?;
+        match self.hashes.get(key) {
+            Some(cached_hash) => Ok(cached_hash != &current_hash),
+            None => Ok(true), // Not in cache, consider changed
+        }
+    }
+
+    /// Update hash for a file
+    pub fn update(&mut self, key: &str, path: &Path) -> PackResult<()> {
+        let hash = Self::compute_hash(path)?;
+        self.hashes.insert(key.to_string(), hash);
+        Ok(())
+    }
+
+    /// Remove entry from cache
+    pub fn remove(&mut self, key: &str) {
+        self.hashes.remove(key);
+    }
 }
 
 /// Python dependency collector
@@ -242,10 +331,7 @@ elif spec and spec.submodule_search_locations:
                 std::fs::create_dir_all(&dest_path)?;
             } else if path.is_file() {
                 // Skip __pycache__ and .pyc files
-                if rel_path
-                    .to_string_lossy()
-                    .contains("__pycache__")
-                {
+                if rel_path.to_string_lossy().contains("__pycache__") {
                     continue;
                 }
                 if path.extension().is_some_and(|e| e == "pyc") {

@@ -5,26 +5,145 @@
 //! are used to extract and run the packed content.
 
 use anyhow::{Context, Result};
+use auroraview_core::assets::get_event_bridge_js;
+use auroraview_core::plugins::{PluginRequest, PluginRouter, ScopeConfig};
 use auroraview_pack::{
-    read_overlay, BundleStrategy, LicenseConfig, LicenseReason, LicenseValidator, OverlayData,
-    PackMode, PythonBundleConfig, PythonRuntimeMeta,
+    BundleStrategy, LicenseConfig, LicenseReason, LicenseValidator, OverlayData, OverlayReader,
+    PackMode, PackedMetrics, PythonBundleConfig, PythonRuntimeMeta,
 };
+use rayon::prelude::*;
+use std::collections::HashSet;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
-use tao::event_loop::{ControlFlow, EventLoop};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::{Arc, Mutex, RwLock};
+use std::thread;
+use std::time::Instant;
+use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
+#[cfg(target_os = "windows")]
+use tao::platform::windows::EventLoopBuilderExtWindows;
 use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
 
 use crate::{load_window_icon, normalize_url};
+
+/// Start WebView2 warmup in background thread
+///
+/// This pre-initializes WebView2 environment while overlay is being read,
+/// reducing cold-start latency by 2-4 seconds.
+#[cfg(target_os = "windows")]
+fn start_webview2_warmup() {
+    use std::sync::OnceLock;
+    use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+
+    static WARMUP_STARTED: OnceLock<()> = OnceLock::new();
+
+    // Only start warmup once
+    WARMUP_STARTED.get_or_init(|| {
+        let data_dir = get_webview_data_dir();
+
+        thread::Builder::new()
+            .name("webview2-warmup".to_string())
+            .spawn(move || {
+                let start = Instant::now();
+                tracing::info!(
+                    "[warmup] Starting WebView2 warmup (data_folder: {:?})",
+                    data_dir
+                );
+
+                // Initialize COM in STA mode
+                unsafe {
+                    let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+                }
+
+                // Create data directory
+                let _ = std::fs::create_dir_all(&data_dir);
+
+                // Create WebView2 environment to trigger runtime discovery
+                let data_dir_wide: Vec<u16> = data_dir
+                    .to_string_lossy()
+                    .encode_utf16()
+                    .chain(std::iter::once(0))
+                    .collect();
+
+                let result = unsafe {
+                    CreateCoreWebView2EnvironmentWithOptions(
+                        PCWSTR::null(),
+                        PCWSTR(data_dir_wide.as_ptr()),
+                        None,
+                        &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
+                            move |_env_result, _env| {
+                                // Environment created successfully
+                                Ok(())
+                            },
+                        )),
+                    )
+                };
+
+                let duration = start.elapsed();
+                match result {
+                    Ok(_) => {
+                        tracing::info!("[warmup] WebView2 warmup complete in {}ms", duration.as_millis());
+                    }
+                    Err(e) => {
+                        tracing::warn!("[warmup] WebView2 warmup failed: {:?}", e);
+                    }
+                }
+            })
+            .expect("Failed to spawn warmup thread");
+    });
+}
+
+#[cfg(not(target_os = "windows"))]
+fn start_webview2_warmup() {
+    // No-op on non-Windows platforms
+}
+
+/// User event for communication between threads and WebView
+#[derive(Debug, Clone)]
+enum UserEvent {
+    /// Python response to be sent to WebView
+    PythonResponse(String),
+    /// Plugin event to be sent to WebView
+    PluginEvent { event: String, data: String },
+}
+
+/// Python backend handle for IPC communication
+struct PythonBackend {
+    #[allow(dead_code)]
+    process: Child,
+    stdin: Arc<Mutex<ChildStdin>>,
+}
+
+impl PythonBackend {
+    /// Send a JSON-RPC request to Python backend
+    fn send_request(&self, request: &str) -> Result<()> {
+        let mut stdin = self.stdin.lock().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+        writeln!(stdin, "{}", request)?;
+        stdin.flush()?;
+        Ok(())
+    }
+}
 
 /// Run a packed application (overlay mode)
 ///
 /// This function is called when the executable contains embedded overlay data.
 /// It reads the overlay, initializes logging, validates license, and launches the WebView.
 pub fn run_packed_app() -> Result<()> {
-    // Read overlay data from the executable
-    let overlay = read_overlay()
+    // Start WebView2 warmup IMMEDIATELY - this runs in background while we read overlay
+    // This is critical for reducing cold-start latency by 2-4 seconds
+    start_webview2_warmup();
+
+    // Start performance metrics
+    let mut metrics = PackedMetrics::new();
+    let startup_start = Instant::now();
+
+    // Read overlay data from the executable with metrics
+    // Note: WebView2 warmup is running in parallel during this I/O operation
+    let exe_path = std::env::current_exe()?;
+    let overlay = OverlayReader::read_with_metrics(&exe_path, Some(&mut metrics))
         .with_context(|| "Failed to read overlay data")?
         .ok_or_else(|| anyhow::anyhow!("No overlay data found in packed executable"))?;
 
@@ -36,10 +155,12 @@ pub fn run_packed_app() -> Result<()> {
     };
     let local_time = tracing_subscriber::fmt::time::OffsetTime::local_rfc_3339();
 
+    // Configure tracing to output to stderr (stdout is used for JSON-RPC in packed mode)
     match local_time {
         Ok(timer) => {
             tracing_subscriber::fmt()
                 .with_timer(timer)
+                .with_writer(std::io::stderr)
                 .with_env_filter(
                     tracing_subscriber::EnvFilter::try_from_default_env()
                         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
@@ -49,6 +170,7 @@ pub fn run_packed_app() -> Result<()> {
         }
         Err(_) => {
             tracing_subscriber::fmt()
+                .with_writer(std::io::stderr)
                 .with_env_filter(
                     tracing_subscriber::EnvFilter::try_from_default_env()
                         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
@@ -63,6 +185,10 @@ pub fn run_packed_app() -> Result<()> {
         overlay.config.window.title
     );
     tracing::info!("Assets: {} files", overlay.assets.len());
+    tracing::info!(
+        "Overlay read completed in {:.2}ms",
+        startup_start.elapsed().as_secs_f64() * 1000.0
+    );
 
     // Inject environment variables
     inject_environment_variables(&overlay.config.env);
@@ -74,22 +200,53 @@ pub fn run_packed_app() -> Result<()> {
         }
     }
 
-    run_packed_webview(overlay)
+    run_packed_webview(overlay, metrics)
 }
 
 /// Run WebView from overlay data
-fn run_packed_webview(overlay: OverlayData) -> Result<()> {
+///
+/// Note: This function uses event_loop.run() which never returns.
+/// It will call std::process::exit() when the window closes.
+#[allow(unreachable_code)]
+fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Result<()> {
     let config = &overlay.config;
+    let is_fullstack = matches!(config.mode, PackMode::FullStack { .. });
 
-    // For FullStack mode, extract Python files and start backend
-    let mut python_process = if let PackMode::FullStack { ref python, .. } = config.mode {
-        Some(start_python_backend(&overlay, python)?)
+    // Create event loop with user event support
+    #[cfg(target_os = "windows")]
+    let event_loop: EventLoop<UserEvent> = EventLoopBuilder::<UserEvent>::with_user_event()
+        .with_any_thread(true)
+        .build();
+
+    #[cfg(not(target_os = "windows"))]
+    let event_loop: EventLoop<UserEvent> = EventLoopBuilder::<UserEvent>::with_user_event().build();
+
+    let proxy = event_loop.create_proxy();
+
+    // Create PluginRouter for handling native plugin commands
+    let plugin_router = Arc::new(RwLock::new(PluginRouter::with_scope(ScopeConfig::permissive())));
+
+    // Set up event callback for plugins to emit events to WebView
+    let proxy_for_events = proxy.clone();
+    {
+        let router = plugin_router.read().unwrap();
+        router.set_event_callback(Arc::new(move |event_name: &str, data: serde_json::Value| {
+            let data_str = serde_json::to_string(&data).unwrap_or_default();
+            let _ = proxy_for_events.send_event(UserEvent::PluginEvent {
+                event: event_name.to_string(),
+                data: data_str,
+            });
+        }));
+    }
+
+    // For FullStack mode, start Python backend BEFORE creating window
+    // This allows Python to initialize while the window is being created
+    let python_backend = if let PackMode::FullStack { ref python, .. } = config.mode {
+        tracing::info!("Starting Python backend before window creation...");
+        Some(start_python_backend_with_ipc(&overlay, python, proxy.clone(), &mut metrics)?)
     } else {
         None
     };
-
-    // Create event loop
-    let event_loop = EventLoop::new();
 
     // Create window
     let mut window_builder = tao::window::WindowBuilder::new()
@@ -118,9 +275,20 @@ fn run_packed_webview(overlay: OverlayData) -> Result<()> {
         .build(&event_loop)
         .with_context(|| "Failed to create window")?;
 
+    metrics.mark_window_created();
+
     // Create WebContext
     let data_dir = get_webview_data_dir();
     let mut web_context = WebContext::new(Some(data_dir));
+
+    // Build initialization script with JS bridge
+    let init_script = build_packed_init_script(is_fullstack);
+
+    // Clone for IPC handler
+    let python_backend_arc = python_backend.map(Arc::new);
+    let python_backend_for_ipc = python_backend_arc.clone();
+    let plugin_router_for_ipc = plugin_router.clone();
+    let proxy_for_ipc = proxy.clone();
 
     // Create WebView based on pack mode
     let webview = match &config.mode {
@@ -130,6 +298,15 @@ fn run_packed_webview(overlay: OverlayData) -> Result<()> {
 
             WryWebViewBuilder::new_with_web_context(&mut web_context)
                 .with_url(&normalized_url)
+                .with_initialization_script(&init_script)
+                .with_ipc_handler(move |request| {
+                    handle_ipc_message(
+                        request.body(),
+                        python_backend_for_ipc.as_ref(),
+                        &plugin_router_for_ipc,
+                        &proxy_for_ipc,
+                    );
+                })
                 .with_devtools(config.debug)
                 .build(&window)
                 .with_context(|| "Failed to create WebView")?
@@ -191,6 +368,15 @@ fn run_packed_webview(overlay: OverlayData) -> Result<()> {
                         }
                     }
                 })
+                .with_initialization_script(&init_script)
+                .with_ipc_handler(move |request| {
+                    handle_ipc_message(
+                        request.body(),
+                        python_backend_for_ipc.as_ref(),
+                        &plugin_router_for_ipc,
+                        &proxy_for_ipc,
+                    );
+                })
                 // Use with_url to load from custom protocol, avoiding CORS issues
                 .with_url("auroraview://localhost/index.html")
                 .with_devtools(config.debug)
@@ -199,38 +385,254 @@ fn run_packed_webview(overlay: OverlayData) -> Result<()> {
         }
     };
 
+    metrics.mark_webview_created();
+    metrics.mark_total();
+
+    // Log performance report
+    tracing::info!("Startup completed in {:.2}ms", metrics.elapsed().as_secs_f64() * 1000.0);
+    // Always log performance report for debugging startup issues
+    metrics.log_report();
+
+    // Wrap webview in Rc<RefCell> for single-threaded access
+    // Note: WebView is not Send+Sync, so we use Rc instead of Arc
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    let webview = Rc::new(RefCell::new(webview));
+    let webview_for_event = webview.clone();
+
     // Run event loop
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        if let tao::event::Event::WindowEvent {
-            event: tao::event::WindowEvent::CloseRequested,
-            ..
-        } = event
-        {
-            // Kill Python process on close
-            if let Some(ref mut process) = python_process {
-                tracing::info!("Stopping Python backend...");
-                let _ = process.kill();
+        match event {
+            tao::event::Event::WindowEvent {
+                event: tao::event::WindowEvent::CloseRequested,
+                ..
+            } => {
+                // Kill all managed processes on close
+                if let Ok(router) = plugin_router.read() {
+                    let request = PluginRequest::new("process", "kill_all", serde_json::json!({}));
+                    let _ = router.handle(request);
+                }
+                // Kill Python process on close
+                if let Some(ref _backend) = python_backend_arc {
+                    tracing::info!("Stopping Python backend...");
+                }
+                *control_flow = ControlFlow::Exit;
             }
-            *control_flow = ControlFlow::Exit;
+            tao::event::Event::UserEvent(user_event) => {
+                if let Ok(wv) = webview_for_event.try_borrow() {
+                    match user_event {
+                        UserEvent::PythonResponse(response) => {
+                            // Send response back to WebView
+                            let escaped = escape_json_for_js(&response);
+                            let script = format!(
+                                r#"(function() {{
+                                    if (window.auroraview && window.auroraview.trigger) {{
+                                        try {{
+                                            var data = JSON.parse("{}");
+                                            window.auroraview.trigger('__auroraview_call_result', data);
+                                        }} catch (e) {{
+                                            console.error('[AuroraView] Failed to parse response:', e);
+                                        }}
+                                    }}
+                                }})()"#,
+                                escaped
+                            );
+                            let _ = wv.evaluate_script(&script);
+                        }
+                        UserEvent::PluginEvent { event, data } => {
+                            // Send plugin event to WebView
+                            let escaped = escape_json_for_js(&data);
+                            let script = format!(
+                                r#"(function() {{
+                                    if (window.auroraview && window.auroraview.trigger) {{
+                                        try {{
+                                            var data = JSON.parse("{}");
+                                            window.auroraview.trigger('{}', data);
+                                        }} catch (e) {{
+                                            console.error('[AuroraView] Failed to parse event data:', e);
+                                        }}
+                                    }}
+                                }})()"#,
+                                escaped, event
+                            );
+                            let _ = wv.evaluate_script(&script);
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
 
         // Keep webview alive
         let _ = &webview;
     });
+
+    // This is unreachable because event_loop.run() never returns
+    #[allow(unreachable_code)]
+    Ok(())
 }
 
-/// Start Python backend process for FullStack mode
-fn start_python_backend(
+/// Escape JSON string for embedding in JavaScript
+fn escape_json_for_js(json: &str) -> String {
+    json.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
+}
+
+/// Build initialization script for packed mode
+fn build_packed_init_script(is_fullstack: bool) -> String {
+    let mut script = String::with_capacity(32768);
+
+    // Add event bridge
+    script.push_str(&get_event_bridge_js());
+    script.push('\n');
+
+    // Register API methods for fullstack mode
+    if is_fullstack {
+        script.push_str(r#"
+// Register Gallery API methods
+(function() {
+    if (window.auroraview && window.auroraview._registerApiMethods) {
+        window.auroraview._registerApiMethods('api', [
+            'get_samples',
+            'get_categories',
+            'get_source',
+            'run_sample',
+            'kill_process',
+            'send_to_process',
+            'list_processes',
+            'open_url'
+        ]);
+        console.log('[AuroraView] Registered Gallery API methods');
+    }
+})();
+"#);
+    }
+
+    script
+}
+
+/// Handle IPC message from WebView
+///
+/// This function routes messages to either:
+/// 1. PluginRouter - for native plugin commands (plugin:*, shell, process, etc.)
+/// 2. Python backend - for application-specific API calls (api.*)
+fn handle_ipc_message(
+    body: &str,
+    python_backend: Option<&Arc<PythonBackend>>,
+    plugin_router: &Arc<RwLock<PluginRouter>>,
+    proxy: &EventLoopProxy<UserEvent>,
+) {
+    tracing::debug!("IPC message received: {}", body);
+
+    // Parse the message
+    let msg: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!("Failed to parse IPC message: {}", e);
+            return;
+        }
+    };
+
+    let msg_type = msg.get("type").and_then(|v| v.as_str()).unwrap_or("");
+
+    match msg_type {
+        "call" => {
+            // Handle API call
+            let id = msg.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let method = msg.get("method").and_then(|v| v.as_str()).unwrap_or("");
+            let params = msg.get("params").cloned().unwrap_or(serde_json::Value::Null);
+
+            tracing::debug!("API call: {} (id: {})", method, id);
+
+            // Check if this is a plugin command (plugin:*)
+            if method.starts_with("plugin:") {
+                // Handle via PluginRouter
+                if let Some(request) = PluginRequest::from_invoke(method, params) {
+                    let router = plugin_router.read().unwrap();
+                    let response = router.handle(request);
+
+                    // Send response back via event loop
+                    let result = serde_json::json!({
+                        "id": id,
+                        "ok": response.success,
+                        "result": response.data,
+                        "error": response.error
+                    });
+                    let _ = proxy.send_event(UserEvent::PythonResponse(result.to_string()));
+                } else {
+                    tracing::warn!("Invalid plugin command format: {}", method);
+                }
+            } else if let Some(backend) = python_backend {
+                // Forward to Python backend for api.* calls
+                let request = serde_json::json!({
+                    "id": id,
+                    "method": method,
+                    "params": params
+                });
+
+                if let Err(e) = backend.send_request(&request.to_string()) {
+                    tracing::error!("Failed to send request to Python: {}", e);
+                }
+            } else {
+                tracing::warn!("No Python backend available for API call: {}", method);
+            }
+        }
+        "plugin" => {
+            // Direct plugin invocation (alternative format)
+            let plugin = msg.get("plugin").and_then(|v| v.as_str()).unwrap_or("");
+            let command = msg.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            let args = msg.get("args").cloned().unwrap_or(serde_json::Value::Null);
+            let id = msg.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+            tracing::debug!("Plugin call: {}|{} (id: {})", plugin, command, id);
+
+            let request = PluginRequest::new(plugin, command, args);
+            let router = plugin_router.read().unwrap();
+            let response = router.handle(request);
+
+            // Send response back via event loop
+            let result = serde_json::json!({
+                "id": id,
+                "ok": response.success,
+                "result": response.data,
+                "error": response.error
+            });
+            let _ = proxy.send_event(UserEvent::PythonResponse(result.to_string()));
+        }
+        "event" => {
+            // Handle event (fire-and-forget)
+            let event = msg.get("event").and_then(|v| v.as_str()).unwrap_or("");
+            tracing::debug!("Event received: {}", event);
+        }
+        _ => {
+            tracing::warn!("Unknown IPC message type: {}", msg_type);
+        }
+    }
+}
+
+/// Start Python backend process for FullStack mode with IPC support
+fn start_python_backend_with_ipc(
     overlay: &OverlayData,
     python_config: &PythonBundleConfig,
-) -> Result<Child> {
+    proxy: EventLoopProxy<UserEvent>,
+    metrics: &mut PackedMetrics,
+) -> Result<PythonBackend> {
+    let func_start = Instant::now();
+
     // Determine Python executable path based on strategy
     let python_exe = match python_config.strategy {
         BundleStrategy::Standalone => {
             // Extract embedded Python runtime
-            extract_standalone_python(overlay)?
+            let runtime_start = Instant::now();
+            let exe = extract_standalone_python(overlay)?;
+            metrics.add_phase("python_runtime_extract", runtime_start.elapsed());
+            metrics.mark_python_runtime_extract();
+            exe
         }
         _ => {
             // Use system Python for other strategies
@@ -244,28 +646,65 @@ fn start_python_backend(
 
     tracing::info!("Extracting Python files to: {}", temp_dir.display());
 
-    // Extract Python files from overlay assets
-    let mut python_files = Vec::new();
-    for (path, content) in &overlay.assets {
-        if path.starts_with("python/") {
-            let rel_path = path.strip_prefix("python/").unwrap_or(path);
-            let dest_path = temp_dir.join(rel_path);
+    // Collect Python files to extract
+    let python_assets: Vec<_> = overlay
+        .assets
+        .iter()
+        .filter(|(path, _)| path.starts_with("python/"))
+        .collect();
 
-            // Create parent directories
-            if let Some(parent) = dest_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
+    if !python_assets.is_empty() {
+        let extract_start = Instant::now();
 
-            fs::write(&dest_path, content)?;
-            python_files.push(rel_path.to_string());
-            tracing::debug!("Extracted: {}", rel_path);
+        // Pre-create all directories in batch (collect unique parent dirs)
+        let dirs: HashSet<PathBuf> = python_assets
+            .iter()
+            .filter_map(|(path, _)| {
+                let rel_path = path.strip_prefix("python/").unwrap_or(path);
+                temp_dir.join(rel_path).parent().map(|p| p.to_path_buf())
+            })
+            .collect();
+
+        for dir in &dirs {
+            fs::create_dir_all(dir)?;
         }
+
+        metrics.add_phase("python_dirs_create", extract_start.elapsed());
+
+        // Parallel file extraction using rayon
+        let write_start = Instant::now();
+        let results: Vec<Result<String, anyhow::Error>> = python_assets
+            .par_iter()
+            .map(|(path, content)| {
+                let rel_path = path.strip_prefix("python/").unwrap_or(path);
+                let dest_path = temp_dir.join(rel_path);
+                fs::write(&dest_path, content)
+                    .with_context(|| format!("Failed to write: {}", dest_path.display()))?;
+                Ok(rel_path.to_string())
+            })
+            .collect();
+
+        // Check for errors
+        let mut python_files = Vec::with_capacity(results.len());
+        for result in results {
+            python_files.push(result?);
+        }
+
+        metrics.add_phase("python_files_write", write_start.elapsed());
+        metrics.mark_python_files_extract();
+
+        tracing::info!(
+            "Extracted {} Python files in {:.2}ms",
+            python_files.len(),
+            extract_start.elapsed().as_secs_f64() * 1000.0
+        );
     }
 
-    tracing::info!("Extracted {} Python files", python_files.len());
-
     // Extract resource directories (examples, etc.) from overlay assets
-    let resources_dir = extract_resources(overlay, &temp_dir)?;
+    let resources_start = Instant::now();
+    let resources_dir = extract_resources_parallel(overlay, &temp_dir)?;
+    metrics.add_phase("resources_extract", resources_start.elapsed());
+    metrics.mark_resources_extract();
 
     // Parse entry point (format: "module:function" or "file.py")
     let entry_point = &python_config.entry_point;
@@ -276,7 +715,16 @@ fn start_python_backend(
         (entry_point.as_str(), None)
     };
 
-    // Build Python command
+    // Build module search paths from configuration
+    let site_packages_dir = temp_dir.join("site-packages");
+    let module_paths = build_module_search_paths(
+        &python_config.module_search_paths,
+        &temp_dir,
+        &resources_dir,
+        &site_packages_dir,
+    );
+
+    // Build Python command with module paths
     let python_code = if let Some(func) = function {
         // Import module and call function
         format!(
@@ -299,16 +747,38 @@ fn start_python_backend(
     tracing::info!("Starting Python backend: {}", entry_point);
     tracing::info!("Using Python: {}", python_exe.display());
     tracing::debug!("Python code: {}", python_code);
+    tracing::debug!("Module search paths: {:?}", module_paths);
+
+    // Build PYTHONPATH from module search paths
+    let pythonpath = module_paths.join(if cfg!(windows) { ";" } else { ":" });
 
     // Start Python process with environment variables
+    let spawn_start = Instant::now();
     let mut cmd = Command::new(&python_exe);
     cmd.args(["-c", &python_code])
         .current_dir(&temp_dir)
         .env("AURORAVIEW_PACKED", "1")
         .env("AURORAVIEW_RESOURCES_DIR", &resources_dir)
+        .env("AURORAVIEW_PYTHON_PATH", &pythonpath)
+        .env("PYTHONPATH", &pythonpath)
         .stdin(Stdio::piped())
-        .stdout(Stdio::inherit())
+        .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
+
+    // Windows: hide console window unless show_console is enabled
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+
+        if python_config.show_console {
+            tracing::debug!("Python console window enabled");
+            cmd.creation_flags(CREATE_NEW_CONSOLE);
+        } else {
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+    }
 
     // Set specific resource paths as environment variables
     let examples_dir = resources_dir.join("examples");
@@ -317,19 +787,120 @@ fn start_python_backend(
         tracing::info!("Examples directory: {}", examples_dir.display());
     }
 
-    let child = cmd
+    let mut child = cmd
         .spawn()
         .with_context(|| format!("Failed to start Python backend: {}", python_exe.display()))?;
 
-    tracing::info!("Python backend started (PID: {})", child.id());
+    metrics.add_phase("python_spawn", spawn_start.elapsed());
+    metrics.mark_python_start();
 
-    Ok(child)
+    tracing::info!(
+        "Python backend started (PID: {}) in {:.2}ms",
+        child.id(),
+        func_start.elapsed().as_secs_f64() * 1000.0
+    );
+
+    // Take ownership of stdin and stdout
+    let stdin = child.stdin.take().ok_or_else(|| anyhow::anyhow!("Failed to get stdin"))?;
+    let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("Failed to get stdout"))?;
+
+    let stdin = Arc::new(Mutex::new(stdin));
+
+    // Spawn thread to read Python stdout and forward responses
+    thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            match line {
+                Ok(response) => {
+                    if response.trim().is_empty() {
+                        continue;
+                    }
+                    tracing::debug!("Python response: {}", response);
+                    // Send response to event loop
+                    if let Err(e) = proxy.send_event(UserEvent::PythonResponse(response)) {
+                        tracing::error!("Failed to send response to event loop: {}", e);
+                        break;
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Error reading Python stdout: {}", e);
+                    break;
+                }
+            }
+        }
+        tracing::info!("Python stdout reader thread exiting");
+    });
+
+    Ok(PythonBackend {
+        process: child,
+        stdin,
+    })
 }
 
-/// Extract resource directories from overlay assets
+/// Extract resource directories from overlay assets (parallel version)
 ///
 /// Resources are stored with prefixes like "resources/examples/", "resources/data/", etc.
 /// This function extracts them to the resources directory and returns the path.
+fn extract_resources_parallel(overlay: &OverlayData, base_dir: &Path) -> Result<PathBuf> {
+    let resources_dir = base_dir.join("resources");
+    fs::create_dir_all(&resources_dir)?;
+
+    // Collect resource files to extract
+    let resource_assets: Vec<_> = overlay
+        .assets
+        .iter()
+        .filter_map(|(path, content)| {
+            if path.starts_with("resources/") {
+                let rel_path = path.strip_prefix("resources/").unwrap_or(path);
+                Some((resources_dir.join(rel_path), content))
+            } else if path.starts_with("examples/") {
+                Some((resources_dir.join(path), content))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if resource_assets.is_empty() {
+        return Ok(resources_dir);
+    }
+
+    // Pre-create all directories in batch
+    let dirs: HashSet<PathBuf> = resource_assets
+        .iter()
+        .filter_map(|(path, _)| path.parent().map(|p| p.to_path_buf()))
+        .collect();
+
+    for dir in &dirs {
+        fs::create_dir_all(dir)?;
+    }
+
+    // Parallel file extraction
+    let results: Vec<Result<(), anyhow::Error>> = resource_assets
+        .par_iter()
+        .map(|(dest_path, content)| {
+            fs::write(dest_path, content)
+                .with_context(|| format!("Failed to write: {}", dest_path.display()))?;
+            Ok(())
+        })
+        .collect();
+
+    // Check for errors
+    for result in results {
+        result?;
+    }
+
+    tracing::info!(
+        "Extracted {} resource files to: {}",
+        resource_assets.len(),
+        resources_dir.display()
+    );
+
+    Ok(resources_dir)
+}
+
+#[allow(dead_code)]
+/// Extract resource directories from overlay assets (sequential version, kept for reference)
 fn extract_resources(overlay: &OverlayData, base_dir: &Path) -> Result<PathBuf> {
     let resources_dir = base_dir.join("resources");
     fs::create_dir_all(&resources_dir)?;
@@ -502,6 +1073,38 @@ fn get_python_extract_dir() -> PathBuf {
         .join("AuroraView")
         .join("python")
         .join(exe_name)
+}
+
+/// Build module search paths from configuration
+///
+/// Expands special variables:
+/// - `$EXTRACT_DIR` - The directory where Python files are extracted
+/// - `$RESOURCES_DIR` - The resources directory
+/// - `$SITE_PACKAGES` - The site-packages directory
+fn build_module_search_paths(
+    config_paths: &[String],
+    extract_dir: &Path,
+    resources_dir: &Path,
+    site_packages_dir: &Path,
+) -> Vec<String> {
+    config_paths
+        .iter()
+        .map(|path| {
+            path.replace("$EXTRACT_DIR", &extract_dir.to_string_lossy())
+                .replace("$RESOURCES_DIR", &resources_dir.to_string_lossy())
+                .replace("$SITE_PACKAGES", &site_packages_dir.to_string_lossy())
+        })
+        .filter(|path| {
+            // Only include paths that exist
+            let p = Path::new(path);
+            if p.exists() {
+                true
+            } else {
+                tracing::debug!("Module search path does not exist: {}", path);
+                false
+            }
+        })
+        .collect()
 }
 
 /// Get the WebView2 user data directory in AppData

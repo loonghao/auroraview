@@ -73,6 +73,26 @@ pub struct PythonBundleConfig {
     /// Custom PyOxidizer executable path
     #[serde(default)]
     pub pyoxidizer_path: Option<PathBuf>,
+    /// Module search paths (relative to extract directory).
+    /// These paths are added to PYTHONPATH at runtime.
+    ///
+    /// Special variables:
+    /// - `$EXTRACT_DIR` - The directory where Python files are extracted
+    /// - `$RESOURCES_DIR` - The resources directory
+    /// - `$SITE_PACKAGES` - The site-packages directory
+    ///
+    /// Default: `["$EXTRACT_DIR", "$SITE_PACKAGES"]`
+    #[serde(default = "default_module_search_paths")]
+    pub module_search_paths: Vec<String>,
+    /// Whether to use filesystem importer (allows dynamic imports).
+    /// When false, only embedded modules can be imported.
+    #[serde(default = "default_true")]
+    pub filesystem_importer: bool,
+    /// Show console window for Python process (Windows only).
+    /// When false (default), Python runs without a visible console window.
+    /// Set to true for debugging purposes.
+    #[serde(default)]
+    pub show_console: bool,
 }
 
 fn default_python_version() -> String {
@@ -81,6 +101,10 @@ fn default_python_version() -> String {
 
 fn default_optimize() -> u8 {
     1
+}
+
+fn default_module_search_paths() -> Vec<String> {
+    vec!["$EXTRACT_DIR".to_string(), "$SITE_PACKAGES".to_string()]
 }
 
 impl Default for PythonBundleConfig {
@@ -100,6 +124,9 @@ impl Default for PythonBundleConfig {
             include_setuptools: false,
             distribution_flavor: None,
             pyoxidizer_path: None,
+            module_search_paths: default_module_search_paths(),
+            filesystem_importer: true,
+            show_console: false,
         }
     }
 }
@@ -671,6 +698,11 @@ mod tests {
         assert_eq!(config.optimize, 1);
         assert!(!config.include_pip);
         assert!(!config.include_setuptools);
+        assert_eq!(
+            config.module_search_paths,
+            vec!["$EXTRACT_DIR".to_string(), "$SITE_PACKAGES".to_string()]
+        );
+        assert!(config.filesystem_importer);
     }
 
     #[test]
