@@ -315,8 +315,10 @@ class TestRunApiServer:
                         run_api_server(webview)
 
                         # Verify response was printed
-                        assert len(printed_values) > 0
-                        response = json.loads(printed_values[0])
+                        # First printed value is the ready signal, second is the response
+                        assert len(printed_values) >= 2
+                        # Skip ready signal, get the actual response
+                        response = json.loads(printed_values[1])
                         assert response["id"] == "1"
                         assert response["ok"] is True
                         assert response["result"] == "echo: hello"

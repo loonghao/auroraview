@@ -46,6 +46,14 @@ if echo "$changed_files" | grep -E '(^src/.*\.rs$|^crates/.*\.rs$|^benches/.*\.r
     echo "[pre-commit] Running cargo fmt --all"
     cargo fmt --all
 
+    # Verify formatting passes (same as CI check)
+    echo "[pre-commit] Verifying cargo fmt --check passes"
+    if ! cargo fmt --all -- --check; then
+      echo "[pre-commit] ERROR: cargo fmt --check failed after formatting. This should not happen."
+      echo "[pre-commit] Please run 'cargo fmt --all' manually and try again."
+      exit 1
+    fi
+
     echo "[pre-commit] Running cargo clippy --fix --allow-dirty --allow-staged"
     cargo clippy --fix --allow-dirty --allow-staged --workspace --all-targets --all-features -- -D warnings 2>/dev/null || true
 
