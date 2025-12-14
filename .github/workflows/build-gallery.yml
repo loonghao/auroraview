@@ -74,7 +74,7 @@ jobs:
       - name: Build CLI (for pack command)
         run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
 
-      - name: Generate Gallery pack project
+      - name: Pack Gallery executable
         shell: bash
         run: |
           mkdir -p target/pack
@@ -94,22 +94,29 @@ jobs:
               --output-dir target/pack
           fi
 
-      - name: Build Gallery executable
+      - name: Verify pack output
+        shell: bash
         run: |
-          cd target/pack/auroraview-gallery
-          cargo build --release --target ${{ matrix.target }}
+          echo "Pack output:"
+          ls -la target/pack/
+          # Verify executable exists
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            test -f "target/pack/auroraview-gallery.exe" || (echo "ERROR: Executable not found" && exit 1)
+          else
+            test -f "target/pack/auroraview-gallery" || (echo "ERROR: Executable not found" && exit 1)
+          fi
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $artifact = "target/pack/auroraview-gallery/target/${{ matrix.target }}/release/${{ matrix.artifact }}"
+          $artifact = "target/pack/${{ matrix.artifact }}"
           Compress-Archive -Path $artifact -DestinationPath ${{ matrix.archive }}
 
       - name: Package (Unix)
         if: runner.os != 'Windows'
         run: |
-          cd target/pack/auroraview-gallery/target/${{ matrix.target }}/release
+          cd target/pack
           tar -czvf ${{ github.workspace }}/${{ matrix.archive }} ${{ matrix.artifact }}
 
       - name: Upload artifact

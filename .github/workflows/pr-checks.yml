@@ -603,7 +603,7 @@ jobs:
       - name: Build CLI
         run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
 
-      - name: Pack Gallery (generate project)
+      - name: Pack Gallery (generate executable)
         shell: bash
         run: |
           ./target/${{ matrix.target }}/release/auroraview${{ matrix.exe-ext }} pack \
@@ -615,11 +615,17 @@ jobs:
         run: |
           echo "Checking pack output..."
           ls -la target/pack/
-          if [ -d "target/pack/auroraview-gallery" ]; then
-            echo "Pack project generated successfully"
-            ls -la target/pack/auroraview-gallery/
+          # Pack now outputs executable directly, not a project directory
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            expected_exe="target/pack/auroraview-gallery.exe"
           else
-            echo "ERROR: Pack project not found"
+            expected_exe="target/pack/auroraview-gallery"
+          fi
+          if [ -f "$expected_exe" ]; then
+            echo "Pack executable generated successfully: $expected_exe"
+            ls -la "$expected_exe"
+          else
+            echo "ERROR: Pack executable not found: $expected_exe"
             exit 1
           fi
 
@@ -627,7 +633,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: gallery-pack-${{ matrix.os }}
-          path: target/pack/
+          path: target/pack/auroraview-gallery${{ matrix.exe-ext }}
           retention-days: 3
 
   # Final gate - all critical checks must pass
