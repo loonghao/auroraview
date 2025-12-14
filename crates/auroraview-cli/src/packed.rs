@@ -5,7 +5,7 @@
 //! are used to extract and run the packed content.
 
 use anyhow::{Context, Result};
-use auroraview_core::assets::get_event_bridge_js;
+use auroraview_core::assets::{get_event_bridge_js, get_loading_html};
 use auroraview_core::plugins::{PluginRequest, PluginRouter, ScopeConfig};
 use auroraview_pack::{
     BundleStrategy, LicenseConfig, LicenseReason, LicenseValidator, OverlayData, OverlayReader,
@@ -111,18 +111,43 @@ enum UserEvent {
     PythonResponse(String),
     /// Plugin event to be sent to WebView
     PluginEvent { event: String, data: String },
+    /// Python backend is ready, navigate to actual content
+    PythonReady,
 }
 
 /// Python backend handle for IPC communication
 struct PythonBackend {
-    #[allow(dead_code)]
-    process: Child,
+    process: Mutex<Child>,
     stdin: Arc<Mutex<ChildStdin>>,
 }
 
 impl PythonBackend {
+    /// Check if Python process is still running
+    fn is_alive(&self) -> bool {
+        if let Ok(mut process) = self.process.lock() {
+            match process.try_wait() {
+                Ok(None) => true,  // Still running
+                Ok(Some(status)) => {
+                    tracing::warn!("Python process exited with status: {:?}", status);
+                    false
+                }
+                Err(e) => {
+                    tracing::error!("Failed to check Python process status: {}", e);
+                    false
+                }
+            }
+        } else {
+            false
+        }
+    }
+
     /// Send a JSON-RPC request to Python backend
     fn send_request(&self, request: &str) -> Result<()> {
+        // Check if process is still alive before sending
+        if !self.is_alive() {
+            return Err(anyhow::anyhow!("Python backend process has exited"));
+        }
+
         let mut stdin = self
             .stdin
             .lock()
@@ -251,6 +276,7 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
 
     // For FullStack mode, start Python backend BEFORE creating window
     // This allows Python to initialize while the window is being created
+    // We'll show a loading screen while waiting for Python to be ready
     let python_backend = if let PackMode::FullStack { ref python, .. } = config.mode {
         tracing::info!("Starting Python backend before window creation...");
         Some(start_python_backend_with_ipc(
@@ -262,6 +288,9 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
     } else {
         None
     };
+
+    // Track if we're waiting for Python to be ready (for FullStack mode)
+    let waiting_for_python = Arc::new(RwLock::new(python_backend.is_some()));
 
     // Create window
     let mut window_builder = tao::window::WindowBuilder::new()
@@ -344,10 +373,32 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
             tracing::info!("Loading embedded assets via auroraview:// protocol");
             tracing::info!("Index path: {}", index_path);
 
+            // For FullStack mode, show loading screen while waiting for Python
+            // For Frontend mode, load index.html directly
+            let initial_url = if is_fullstack {
+                tracing::info!("FullStack mode: showing loading screen while Python initializes");
+                "auroraview://localhost/__loading__"
+            } else {
+                "auroraview://localhost/index.html"
+            };
+
+            // Get loading HTML for the protocol handler
+            let loading_html = get_loading_html();
+
             WryWebViewBuilder::new_with_web_context(&mut web_context)
                 .with_custom_protocol("auroraview".to_string(), move |_webview_id, request| {
                     let path = request.uri().path();
                     let path = path.trim_start_matches('/');
+
+                    // Handle special loading page for FullStack mode
+                    if path == "__loading__" {
+                        return wry::http::Response::builder()
+                            .status(200)
+                            .header("Content-Type", "text/html; charset=utf-8")
+                            .header("Access-Control-Allow-Origin", "*")
+                            .body(loading_html.clone().into_bytes().into())
+                            .unwrap();
+                    }
 
                     // Default to index.html for root path
                     let path = if path.is_empty() { "index.html" } else { path };
@@ -393,7 +444,7 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
                     );
                 })
                 // Use with_url to load from custom protocol, avoiding CORS issues
-                .with_url("auroraview://localhost/index.html")
+                .with_url(initial_url)
                 .with_devtools(config.debug)
                 .build(&window)
                 .with_context(|| "Failed to create WebView")?
@@ -441,6 +492,15 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
             tao::event::Event::UserEvent(user_event) => {
                 if let Ok(wv) = webview_for_event.try_borrow() {
                     match user_event {
+                        UserEvent::PythonReady => {
+                            // Python backend is ready, navigate to actual content
+                            tracing::info!("Python backend ready, navigating to application");
+                            if let Ok(mut waiting) = waiting_for_python.write() {
+                                *waiting = false;
+                            }
+                            // Navigate to the actual application
+                            let _ = wv.load_url("auroraview://localhost/index.html");
+                        }
                         UserEvent::PythonResponse(response) => {
                             // Send response back to WebView
                             let escaped = escape_json_for_js(&response);
@@ -604,9 +664,31 @@ fn handle_ipc_message(
 
                 if let Err(e) = backend.send_request(&request.to_string()) {
                     tracing::error!("Failed to send request to Python: {}", e);
+                    // Send error response back to WebView so it doesn't hang
+                    let error_response = serde_json::json!({
+                        "id": id,
+                        "ok": false,
+                        "result": null,
+                        "error": {
+                            "name": "PythonBackendError",
+                            "message": format!("{}", e)
+                        }
+                    });
+                    let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
                 }
             } else {
                 tracing::warn!("No Python backend available for API call: {}", method);
+                // Send error response for missing backend
+                let error_response = serde_json::json!({
+                    "id": id,
+                    "ok": false,
+                    "result": null,
+                    "error": {
+                        "name": "NoPythonBackend",
+                        "message": "No Python backend available for API calls"
+                    }
+                });
+                let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
             }
         }
         "plugin" => {
@@ -847,9 +929,58 @@ fn start_python_backend_with_ipc(
 
     let stdin = Arc::new(Mutex::new(stdin));
 
-    // Spawn thread to read Python stdout and forward responses
+    // Spawn thread to wait for Python ready signal and then read responses
+    // This is non-blocking so WebView can show loading screen while waiting
+    let ready_start = Instant::now();
     thread::spawn(move || {
-        let reader = BufReader::new(stdout);
+        let mut reader = BufReader::new(stdout);
+        let mut ready_line = String::new();
+
+        // Read the first line - should be the ready signal
+        match reader.read_line(&mut ready_line) {
+            Ok(0) => {
+                tracing::error!("Python process closed stdout before sending ready signal");
+                return;
+            }
+            Ok(_) => {
+                let ready_line_trimmed = ready_line.trim();
+                if let Ok(msg) = serde_json::from_str::<serde_json::Value>(ready_line_trimmed) {
+                    if msg.get("type").and_then(|v| v.as_str()) == Some("ready") {
+                        let handlers = msg
+                            .get("handlers")
+                            .and_then(|v| v.as_array())
+                            .map(|a| a.len())
+                            .unwrap_or(0);
+                        tracing::info!(
+                            "Python backend ready with {} handlers in {:.2}ms",
+                            handlers,
+                            ready_start.elapsed().as_secs_f64() * 1000.0
+                        );
+                        // Notify WebView to navigate to actual content
+                        if let Err(e) = proxy.send_event(UserEvent::PythonReady) {
+                            tracing::error!("Failed to send PythonReady event: {}", e);
+                        }
+                    } else {
+                        tracing::warn!(
+                            "Unexpected first message from Python (expected ready signal): {}",
+                            ready_line_trimmed
+                        );
+                        // Still notify ready to avoid hanging on loading screen
+                        let _ = proxy.send_event(UserEvent::PythonReady);
+                    }
+                } else {
+                    tracing::warn!("Failed to parse Python ready signal: {}", ready_line_trimmed);
+                    // Still notify ready to avoid hanging on loading screen
+                    let _ = proxy.send_event(UserEvent::PythonReady);
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to read Python ready signal: {}", e);
+                return;
+            }
+        }
+
+        // Continue reading Python stdout and forward responses
         for line in reader.lines() {
             match line {
                 Ok(response) => {
@@ -873,7 +1004,7 @@ fn start_python_backend_with_ipc(
     });
 
     Ok(PythonBackend {
-        process: child,
+        process: Mutex::new(child),
         stdin,
     })
 }
