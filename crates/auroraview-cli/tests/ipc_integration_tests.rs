@@ -1,6 +1,7 @@
 //! Integration tests for Python IPC communication
 //!
 //! These tests verify the JSON-RPC communication between Rust and Python.
+//! They require Python to be available and are skipped in CI coverage runs.
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
@@ -22,6 +23,7 @@ fn get_python_command() -> &'static str {
 
 /// Test that Python packed module sends ready signal on startup
 #[test]
+#[ignore = "requires Python runtime, run with --ignored"]
 fn test_python_sends_ready_signal() {
     // Create a minimal Python script that mimics packed mode behavior
     let python_code = r#"
@@ -97,6 +99,7 @@ if line:
 
 /// Test that Python handles multiple requests correctly
 #[test]
+#[ignore = "requires Python runtime, run with --ignored"]
 fn test_python_handles_multiple_requests() {
     let python_code = r#"
 import json
@@ -161,6 +164,7 @@ for _ in range(3):
 
 /// Test that closing stdin causes Python to exit gracefully
 #[test]
+#[ignore = "requires Python runtime, run with --ignored"]
 fn test_python_exits_on_stdin_close() {
     let python_code = r#"
 import json
@@ -220,6 +224,7 @@ while True:
 
 /// Test error handling when Python returns an error
 #[test]
+#[ignore = "requires Python runtime, run with --ignored"]
 fn test_python_error_response() {
     let python_code = r#"
 import json
@@ -287,6 +292,7 @@ if line:
 
 /// Test the actual packed.py module if available
 #[test]
+#[ignore = "requires Python runtime, run with --ignored"]
 fn test_real_packed_module() {
     // This test uses the actual packed.py module
     let project_root = std::env::current_dir()
