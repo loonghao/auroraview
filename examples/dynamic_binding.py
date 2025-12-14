@@ -12,7 +12,7 @@ Usage:
 Features demonstrated:
     - Runtime API binding with bind_call()
     - Dynamic feature loading based on configuration
-    - Signal connections with on_ready, on_navigate
+    - Event handlers with @view.on() decorator
     - Plugin-like architecture
     - Conditional API registration
 
@@ -317,11 +317,20 @@ def create_plugin_host():
         view.bind_call("import_data", import_data)
 
     # ═══════════════════════════════════════════════════════════════════
-    # Connect to built-in signals
+    # Connect to lifecycle events via decorators
+    # Note: WebView uses @view.on() decorator pattern instead of signals
     # ═══════════════════════════════════════════════════════════════════
 
-    view.on_ready.connect(lambda: print("[Signal] WebView is ready!"))
-    view.on_navigate.connect(lambda url: print(f"[Signal] Navigated to: {url}"))
+    @view.on("ready")
+    def on_ready_handler():
+        """Handle WebView ready event."""
+        print("[Event] WebView is ready!")
+
+    @view.on("navigate")
+    def on_navigate_handler(data: dict):
+        """Handle navigation events."""
+        url = data.get("url", "")
+        print(f"[Event] Navigated to: {url}")
 
     # ═══════════════════════════════════════════════════════════════════
     # Register event handlers
@@ -343,7 +352,7 @@ def main():
     print("  - Runtime API binding with bind_call()")
     print("  - Configuration-driven feature flags")
     print("  - Dynamic plugin loading")
-    print("  - Signal connections (on_ready, on_navigate)")
+    print("  - Event handlers with @view.on() decorator")
     print()
     print("Enabled features: export, import")
     print("Available plugins: analytics, admin, export_pro")

@@ -30,7 +30,6 @@ Available Examples:
     - native_menu_demo.py: Application menu bar with shortcuts
 
     Advanced:
-    - custom_protocol_demo.py: Register custom URL schemes
     - multi_window_demo.py: Multiple windows with communication
     - signals_advanced_demo.py: Qt-style signal-slot system
     - cookie_management_demo.py: Session and persistent cookies
