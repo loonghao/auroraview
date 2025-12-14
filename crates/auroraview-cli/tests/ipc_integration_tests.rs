@@ -5,6 +5,21 @@
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
 
+/// Get the Python command - try python3 first (Linux), then python (Windows)
+fn get_python_command() -> &'static str {
+    // Check if python3 exists (common on Linux/macOS)
+    if Command::new("python3")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return "python3";
+    }
+    // Fall back to python (Windows)
+    "python"
+}
+
 /// Test that Python packed module sends ready signal on startup
 #[test]
 fn test_python_sends_ready_signal() {
@@ -30,7 +45,7 @@ if line:
     print(json.dumps(response), flush=True)
 "#;
 
-    let mut child = Command::new("python")
+    let mut child = Command::new(get_python_command())
         .args(["-c", python_code])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -104,7 +119,7 @@ for _ in range(3):
     print(json.dumps(response), flush=True)
 "#;
 
-    let mut child = Command::new("python")
+    let mut child = Command::new(get_python_command())
         .args(["-c", python_code])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -162,7 +177,7 @@ while True:
         sys.exit(0)
 "#;
 
-    let mut child = Command::new("python")
+    let mut child = Command::new(get_python_command())
         .args(["-c", python_code])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -228,7 +243,7 @@ if line:
     print(json.dumps(response), flush=True)
 "#;
 
-    let mut child = Command::new("python")
+    let mut child = Command::new(get_python_command())
         .args(["-c", python_code])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -312,7 +327,7 @@ print(json.dumps(response2), flush=True)
         python_path.display()
     );
 
-    let output = Command::new("python")
+    let output = Command::new(get_python_command())
         .args(["-c", &python_code])
         .output()
         .expect("Failed to run Python");
