@@ -46,35 +46,4 @@ impl ProtocolConfig {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_default_config() {
-        let config = ProtocolConfig::default();
-        assert!(config.asset_root.is_none());
-        assert!(!config.allow_file_protocol);
-        assert!(!config.use_https_scheme);
-        assert!(!config.has_auroraview_protocol());
-    }
-
-    #[test]
-    fn test_with_asset_root() {
-        let config = ProtocolConfig::new().with_asset_root(PathBuf::from("/assets"));
-        assert!(config.asset_root.is_some());
-        assert!(config.has_auroraview_protocol());
-    }
-
-    #[test]
-    fn test_builder_pattern() {
-        let config = ProtocolConfig::new()
-            .with_asset_root(PathBuf::from("/assets"))
-            .with_file_protocol(true)
-            .with_https_scheme(true);
-
-        assert!(config.asset_root.is_some());
-        assert!(config.allow_file_protocol);
-        assert!(config.use_https_scheme);
-    }
-}

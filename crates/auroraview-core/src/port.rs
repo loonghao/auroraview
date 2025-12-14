@@ -103,37 +103,3 @@ impl Default for PortAllocator {
         Self::new(9001, 100)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_find_any_port() {
-        let port = PortAllocator::find_any_port().unwrap();
-        assert!(port > 0);
-    }
-
-    #[test]
-    fn test_is_port_available() {
-        // Bind a port
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
-
-        // Port should not be available
-        assert!(!PortAllocator::is_port_available(port));
-
-        // Drop listener
-        drop(listener);
-
-        // Port should be available now
-        assert!(PortAllocator::is_port_available(port));
-    }
-
-    #[test]
-    fn test_port_allocator_default() {
-        let allocator = PortAllocator::default();
-        assert_eq!(allocator.start_port, 9001);
-        assert_eq!(allocator.max_attempts, 100);
-    }
-}

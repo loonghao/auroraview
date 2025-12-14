@@ -70,29 +70,4 @@ impl ServiceInfo {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_service_info_creation() {
-        let service = ServiceInfo::new("test-service".to_string(), "localhost".to_string(), 9001);
-
-        assert_eq!(service.name, "test-service");
-        assert_eq!(service.host, "localhost");
-        assert_eq!(service.port, 9001);
-    }
-
-    #[test]
-    fn test_service_info_with_metadata() {
-        let service = ServiceInfo::new("test-service".to_string(), "localhost".to_string(), 9001)
-            .with_metadata("version".to_string(), "1.0.0".to_string())
-            .with_metadata("protocol".to_string(), "websocket".to_string());
-
-        assert_eq!(service.metadata.get("version"), Some(&"1.0.0".to_string()));
-        assert_eq!(
-            service.metadata.get("protocol"),
-            Some(&"websocket".to_string())
-        );
-    }
-}

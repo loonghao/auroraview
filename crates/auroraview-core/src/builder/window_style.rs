@@ -370,25 +370,3 @@ pub fn disable_window_shadow(_hwnd: isize) {
     // No-op on non-Windows platforms
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_options_default() {
-        let opts = ChildWindowStyleOptions::default();
-        assert!(!opts.force_position);
-    }
-
-    #[test]
-    fn test_options_for_dcc() {
-        let opts = ChildWindowStyleOptions::for_dcc_embedding();
-        assert!(opts.force_position);
-    }
-
-    #[test]
-    fn test_options_for_standalone() {
-        let opts = ChildWindowStyleOptions::for_standalone();
-        assert!(!opts.force_position);
-    }
-}

@@ -142,7 +142,4 @@ pub fn process_message_queue(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    // Tests would go here once we have mock WebView support
-}
+

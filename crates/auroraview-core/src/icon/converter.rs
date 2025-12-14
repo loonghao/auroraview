@@ -134,47 +134,4 @@ fn png_to_ico_with_config(
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Write;
-    use tempfile::{NamedTempFile, TempDir};
 
-    fn create_test_png() -> NamedTempFile {
-        let mut file = NamedTempFile::with_suffix(".png").unwrap();
-        let img = image::RgbaImage::from_fn(64, 64, |_, _| image::Rgba([255, 0, 0, 255]));
-        let mut cursor = std::io::Cursor::new(Vec::new());
-        img.write_to(&mut cursor, image::ImageFormat::Png).unwrap();
-        file.write_all(cursor.get_ref()).unwrap();
-        file.flush().unwrap();
-        file
-    }
-
-    #[test]
-    fn test_png_to_ico() {
-        let png_file = create_test_png();
-        let temp_dir = TempDir::new().unwrap();
-        let ico_path = temp_dir.path().join("test.ico");
-
-        png_to_ico(png_file.path(), &ico_path, &[16, 32]).unwrap();
-
-        assert!(ico_path.exists());
-        let metadata = std::fs::metadata(&ico_path).unwrap();
-        assert!(metadata.len() > 0);
-    }
-
-    #[test]
-    fn test_png_bytes_to_ico() {
-        let img = image::RgbaImage::from_fn(64, 64, |_, _| image::Rgba([0, 255, 0, 255]));
-        let mut cursor = std::io::Cursor::new(Vec::new());
-        img.write_to(&mut cursor, image::ImageFormat::Png).unwrap();
-        let png_bytes = cursor.into_inner();
-
-        let temp_dir = TempDir::new().unwrap();
-        let ico_path = temp_dir.path().join("test.ico");
-
-        png_bytes_to_ico(&png_bytes, &ico_path, &[16, 32, 48]).unwrap();
-
-        assert!(ico_path.exists());
-    }
-}

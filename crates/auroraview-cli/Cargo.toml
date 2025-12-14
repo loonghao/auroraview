@@ -11,6 +11,10 @@ keywords = ["webview", "cli", "rust", "wry"]
 categories = ["command-line-utilities", "gui"]
 build = "build.rs"
 
+[lib]
+name = "auroraview_cli"
+path = "src/lib.rs"
+
 [[bin]]
 name = "auroraview"
 path = "src/main.rs"

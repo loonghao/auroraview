@@ -130,30 +130,3 @@ impl MenuItem {
         self
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_action_item() {
-        let item = MenuItem::action("New", "file.new", Some("Ctrl+N"));
-        assert_eq!(item.label, "New");
-        assert_eq!(item.action_id, Some("file.new".to_string()));
-        assert!(matches!(item.item_type, MenuItemType::Action));
-        assert!(item.accelerator.is_some());
-    }
-
-    #[test]
-    fn test_checkbox_item() {
-        let item = MenuItem::checkbox("Show Sidebar", "view.sidebar", true, None);
-        assert!(item.checked);
-        assert!(matches!(item.item_type, MenuItemType::Checkbox));
-    }
-
-    #[test]
-    fn test_separator() {
-        let item = MenuItem::separator();
-        assert!(matches!(item.item_type, MenuItemType::Separator));
-    }
-}

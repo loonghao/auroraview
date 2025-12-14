@@ -493,7 +493,7 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
 }
 
 /// Escape JSON string for embedding in JavaScript
-fn escape_json_for_js(json: &str) -> String {
+pub fn escape_json_for_js(json: &str) -> String {
     json.replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")
@@ -502,7 +502,7 @@ fn escape_json_for_js(json: &str) -> String {
 }
 
 /// Build initialization script for packed mode
-fn build_packed_init_script(is_fullstack: bool) -> String {
+pub fn build_packed_init_script(is_fullstack: bool) -> String {
     let mut script = String::with_capacity(32768);
 
     // Add event bridge
@@ -756,6 +756,9 @@ fn start_python_backend_with_ipc(
     );
 
     // Build Python command with module paths
+    // Use runpy.run_path() to properly set __file__ and __name__ variables,
+    // so developers don't need to handle packed mode specially in their code.
+    let script_path = temp_dir.join(module);
     let python_code = if let Some(func) = function {
         // Import module and call function
         format!(
@@ -766,12 +769,13 @@ fn start_python_backend_with_ipc(
             func
         )
     } else {
-        // Just run the file
+        // Use runpy.run_path() which properly sets __file__, __name__, etc.
+        // This allows developers to use `if __name__ == "__main__"` and
+        // Path(__file__).parent without any packed-mode specific handling.
         format!(
-            "import sys; sys.path.insert(0, r'{}'); exec(open(r'{}/{}').read())",
+            r#"import sys; sys.path.insert(0, r'{}'); import runpy; runpy.run_path(r'{}', run_name='__main__')"#,
             temp_dir.display(),
-            temp_dir.display(),
-            module
+            script_path.display()
         )
     };
 
@@ -1076,7 +1080,7 @@ fn extract_standalone_python(overlay: &OverlayData) -> Result<PathBuf> {
 }
 
 /// Get the runtime cache directory for an app
-fn get_runtime_cache_dir(app_name: &str) -> PathBuf {
+pub fn get_runtime_cache_dir(app_name: &str) -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("AuroraView")
@@ -1085,7 +1089,7 @@ fn get_runtime_cache_dir(app_name: &str) -> PathBuf {
 }
 
 /// Get the Python executable path within the extracted runtime
-fn get_python_exe_path(cache_dir: &std::path::Path) -> PathBuf {
+pub fn get_python_exe_path(cache_dir: &std::path::Path) -> PathBuf {
     #[cfg(target_os = "windows")]
     {
         cache_dir.join("python").join("python.exe")
@@ -1118,7 +1122,7 @@ fn get_python_extract_dir() -> PathBuf {
 /// - `$EXTRACT_DIR` - The directory where Python files are extracted
 /// - `$RESOURCES_DIR` - The resources directory
 /// - `$SITE_PACKAGES` - The site-packages directory
-fn build_module_search_paths(
+pub fn build_module_search_paths(
     config_paths: &[String],
     extract_dir: &Path,
     resources_dir: &Path,
@@ -1156,7 +1160,7 @@ pub fn get_webview_data_dir() -> PathBuf {
 }
 
 /// Inject environment variables from config
-fn inject_environment_variables(env: &std::collections::HashMap<String, String>) {
+pub fn inject_environment_variables(env: &std::collections::HashMap<String, String>) {
     for (key, value) in env {
         tracing::debug!("Setting env: {}={}", key, value);
         std::env::set_var(key, value);

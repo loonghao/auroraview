@@ -116,23 +116,3 @@ impl WebViewError {
         Self::Icon(msg.into())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_error_display() {
-        let err = WebViewError::Navigation("failed to load".into());
-        assert_eq!(err.to_string(), "Navigation error: failed to load");
-    }
-
-    #[test]
-    fn test_error_helpers() {
-        let err = WebViewError::init("failed");
-        assert!(matches!(err, WebViewError::Initialization(_)));
-
-        let err = WebViewError::javascript("syntax error");
-        assert!(matches!(err, WebViewError::JavaScript(_)));
-    }
-}

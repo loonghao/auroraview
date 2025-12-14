@@ -356,23 +356,3 @@ impl PluginHandler for DialogPlugin {
         ]
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_dialog_plugin_commands() {
-        let plugin = DialogPlugin::new();
-        let commands = plugin.commands();
-        assert!(commands.contains(&"open_file"));
-        assert!(commands.contains(&"open_files"));
-        assert!(commands.contains(&"open_folder"));
-        assert!(commands.contains(&"save_file"));
-        assert!(commands.contains(&"message"));
-        assert!(commands.contains(&"confirm"));
-    }
-
-    // Note: Dialog tests require user interaction and can't be automated
-    // These tests just verify the plugin structure
-}

@@ -400,7 +400,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.3.11"
+version = "0.3.12"
 dependencies = [
  "active-win-pos-rs 0.9.1",
  "anyhow",
@@ -457,7 +457,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.11"
+version = "0.3.12"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -491,7 +491,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.11"
+version = "0.3.12"
 dependencies = [
  "active-win-pos-rs 0.8.4",
  "askama",
@@ -522,7 +522,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.3.11"
+version = "0.3.12"
 dependencies = [
  "dirs",
  "flate2",
@@ -542,7 +542,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.3.11"
+version = "0.3.12"
 dependencies = [
  "arboard",
  "base64 0.22.1",
