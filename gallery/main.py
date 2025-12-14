@@ -353,14 +353,15 @@ def get_source_code(source_file: str) -> str:
 
 def run_gallery():
     """Run the AuroraView Gallery application."""
-    print("Starting AuroraView Gallery...")
-    print("=" * 50)
-    print("Interactive showcase of all features and components")
-    print("=" * 50)
+    # Log to stderr to avoid interfering with JSON-RPC on stdout in packed mode
+    print("Starting AuroraView Gallery...", file=sys.stderr)
+    print("=" * 50, file=sys.stderr)
+    print("Interactive showcase of all features and components", file=sys.stderr)
+    print("=" * 50, file=sys.stderr)
 
     # In packed mode, run as API server (headless)
     if PACKED_MODE:
-        print("Running in packed mode (API server)")
+        print("Running in packed mode (API server)", file=sys.stderr)
         run_api_server()
         return
 
@@ -539,33 +540,137 @@ def run_api_server():
     """
     import json
     import signal
+    import subprocess
 
-    print("Gallery API Server started")
-    print("Waiting for JSON-RPC requests on stdin...")
+    # Log to stderr to avoid interfering with JSON-RPC on stdout
+    print("Gallery API Server started", file=sys.stderr)
+    print("Waiting for JSON-RPC requests on stdin...", file=sys.stderr)
+
+    # Track running processes for cleanup
+    running_processes: dict[int, subprocess.Popen] = {}
+
+    def run_sample(sample_id: str = "", show_console: bool = False) -> dict:
+        """Run a sample demo."""
+        sample = get_sample_by_id(sample_id)
+        if not sample:
+            return {"ok": False, "error": f"Sample not found: {sample_id}"}
+
+        sample_path = EXAMPLES_DIR / sample["source_file"]
+        if not sample_path.exists():
+            return {"ok": False, "error": f"File not found: {sample['source_file']}"}
+
+        try:
+            # Build command
+            cmd = [sys.executable, str(sample_path)]
+
+            # Configure process creation flags
+            creation_flags = 0
+            if sys.platform == "win32":
+                if show_console:
+                    creation_flags = subprocess.CREATE_NEW_CONSOLE
+                else:
+                    creation_flags = subprocess.CREATE_NO_WINDOW
+
+            # Start process
+            process = subprocess.Popen(
+                cmd,
+                cwd=str(EXAMPLES_DIR),
+                creationflags=creation_flags if sys.platform == "win32" else 0,
+                stdout=subprocess.PIPE if not show_console else None,
+                stderr=subprocess.PIPE if not show_console else None,
+            )
+
+            running_processes[process.pid] = process
+            mode = "with console" if show_console else "background"
+            print(f"Started sample {sample_id} (PID: {process.pid}, {mode})", file=sys.stderr)
+
+            return {
+                "ok": True,
+                "pid": process.pid,
+                "message": f"Started {sample['title']} ({mode})",
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def kill_process(pid: int = 0) -> dict:
+        """Kill a running process by PID."""
+        if not pid:
+            return {"ok": False, "error": "No PID provided"}
+
+        if pid in running_processes:
+            try:
+                running_processes[pid].terminate()
+                del running_processes[pid]
+                return {"ok": True}
+            except Exception as e:
+                return {"ok": False, "error": str(e)}
+        else:
+            # Try to kill by PID directly
+            try:
+                import os
+                os.kill(pid, signal.SIGTERM)
+                return {"ok": True}
+            except Exception as e:
+                return {"ok": False, "error": str(e)}
+
+
+    def list_processes() -> dict:
+        """List all running processes."""
+        # Clean up finished processes
+        finished = []
+        for pid, proc in running_processes.items():
+            if proc.poll() is not None:
+                finished.append(pid)
+        for pid in finished:
+            del running_processes[pid]
+
+        processes = [{"pid": pid} for pid in running_processes.keys()]
+        return {"ok": True, "processes": processes}
+
+    def open_url(url: str = "") -> dict:
+        """Open a URL in the default browser."""
+        if not url:
+            return {"ok": False, "error": "No URL provided"}
+        try:
+            import webbrowser
+            webbrowser.open(url)
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
     # API handlers
     api_handlers = {
-        "api.get_samples": lambda **_: SAMPLES,
-        "api.get_categories": lambda **_: CATEGORIES,
-        "api.get_source": lambda sample_id="", **_: get_source_code(
+        "api.get_samples": lambda: SAMPLES,
+        "api.get_categories": lambda: CATEGORIES,
+        "api.get_source": lambda sample_id="": get_source_code(
             get_sample_by_id(sample_id)["source_file"]
         ) if get_sample_by_id(sample_id) else f"# Sample not found: {sample_id}",
+        "api.run_sample": run_sample,
+        "api.kill_process": kill_process,
+        "api.list_processes": list_processes,
+        "api.open_url": open_url,
     }
 
     def handle_request(request: dict) -> dict:
         """Handle a JSON-RPC request."""
         req_id = request.get("id")
         method = request.get("method", "")
-        params = request.get("params", {})
+        params = request.get("params")
 
         if method in api_handlers:
             try:
-                if isinstance(params, dict):
-                    result = api_handlers[method](**params)
+                handler = api_handlers[method]
+                # Handle different param types
+                # Note: JSON null becomes Python None
+                if params is None or params == {}:
+                    result = handler()
+                elif isinstance(params, dict):
+                    result = handler(**params)
                 elif isinstance(params, list):
-                    result = api_handlers[method](*params)
+                    result = handler(*params)
                 else:
-                    result = api_handlers[method](params)
+                    # Single value parameter - but our handlers don't expect this
+                    result = handler()
                 return {"id": req_id, "ok": True, "result": result}
             except Exception as e:
                 return {"id": req_id, "ok": False, "error": str(e)}
@@ -577,7 +682,7 @@ def run_api_server():
 
     def signal_handler(signum, frame):
         nonlocal running
-        print("Received shutdown signal")
+        print("Received shutdown signal", file=sys.stderr)
         running = False
 
     signal.signal(signal.SIGTERM, signal_handler)
@@ -603,7 +708,15 @@ def run_api_server():
         except Exception as e:
             print(json.dumps({"ok": False, "error": str(e)}), flush=True)
 
-    print("Gallery API Server stopped")
+    # Cleanup: kill all running processes
+    for pid, proc in running_processes.items():
+        try:
+            proc.terminate()
+            print(f"Terminated process {pid}", file=sys.stderr)
+        except Exception:
+            pass
+
+    print("Gallery API Server stopped", file=sys.stderr)
 
 
 if __name__ == "__main__":

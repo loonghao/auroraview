@@ -639,6 +639,58 @@ impl Packer {
         let deps_count = self.collect_python_deps(overlay, python, &entry_files)?;
         count += deps_count;
 
+        // Bundle external binaries to python/bin/
+        let bin_count = self.bundle_external_binaries(overlay, python)?;
+        count += bin_count;
+
+        Ok(count)
+    }
+
+    /// Bundle external binaries into overlay
+    fn bundle_external_binaries(
+        &self,
+        overlay: &mut OverlayData,
+        python: &PythonBundleConfig,
+    ) -> PackResult<usize> {
+        let mut count = 0;
+
+        for bin_path in &python.external_bin {
+            if !bin_path.exists() {
+                tracing::warn!("External binary not found: {}", bin_path.display());
+                continue;
+            }
+
+            if bin_path.is_file() {
+                let name = bin_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown");
+                let content = fs::read(bin_path)?;
+                overlay.add_asset(format!("python/bin/{}", name), content);
+                tracing::debug!("Bundled external binary: {} -> python/bin/{}", bin_path.display(), name);
+                count += 1;
+            } else if bin_path.is_dir() {
+                // Bundle all executables in directory
+                for entry in walkdir::WalkDir::new(bin_path)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().is_file())
+                {
+                    let rel_path = entry.path().strip_prefix(bin_path).unwrap_or(entry.path());
+                    let content = fs::read(entry.path())?;
+                    overlay.add_asset(
+                        format!("python/bin/{}", rel_path.to_string_lossy().replace('\\', "/")),
+                        content,
+                    );
+                    count += 1;
+                }
+            }
+        }
+
+        if count > 0 {
+            tracing::info!("Bundled {} external binaries", count);
+        }
+
         Ok(count)
     }
 
@@ -682,16 +734,10 @@ impl Packer {
             return Ok(0);
         }
 
-        tracing::info!(
-            "Collecting Python dependencies: {:?}",
-            packages_to_collect
-        );
+        tracing::info!("Collecting Python dependencies: {:?}", packages_to_collect);
 
         // Create temp directory for collecting deps
-        let temp_dir = std::env::temp_dir().join(format!(
-            "auroraview-deps-{}",
-            std::process::id()
-        ));
+        let temp_dir = std::env::temp_dir().join(format!("auroraview-deps-{}", std::process::id()));
         fs::create_dir_all(&temp_dir)?;
 
         // Use DepsCollector to collect packages
@@ -708,20 +754,21 @@ impl Packer {
             collected.total_size as f64 / (1024.0 * 1024.0)
         );
 
-        // Add collected files to overlay
+        // Add collected files to overlay under site-packages/
         let mut count = 0;
         for entry in walkdir::WalkDir::new(&temp_dir)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.path().is_file())
         {
-            let rel_path = entry
-                .path()
-                .strip_prefix(&temp_dir)
-                .unwrap_or(entry.path());
+            let rel_path = entry.path().strip_prefix(&temp_dir).unwrap_or(entry.path());
             let content = fs::read(entry.path())?;
+            // Put dependencies in python/site-packages/ for clean separation
             overlay.add_asset(
-                format!("python/{}", rel_path.to_string_lossy().replace('\\', "/")),
+                format!(
+                    "python/site-packages/{}",
+                    rel_path.to_string_lossy().replace('\\', "/")
+                ),
                 content,
             );
             count += 1;
@@ -1083,6 +1130,9 @@ impl PackConfig {
                         .pyoxidizer
                         .as_ref()
                         .and_then(|p| p.executable.clone()),
+                    module_search_paths: python_config.module_search_paths.clone(),
+                    filesystem_importer: python_config.filesystem_importer,
+                    show_console: python_config.show_console,
                 };
 
                 PackMode::FullStack {

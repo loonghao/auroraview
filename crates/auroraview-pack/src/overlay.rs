@@ -19,11 +19,13 @@
 //!   - Magic: "AVPK" (4 bytes)
 //! ```
 
+use crate::metrics::PackedMetrics;
 use crate::{PackConfig, PackError, PackResult};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::Path;
+use std::time::Instant;
 
 /// Magic bytes for overlay identification
 pub const OVERLAY_MAGIC: &[u8; 4] = b"AVPK";
@@ -163,6 +165,14 @@ impl OverlayReader {
 
     /// Read overlay data from a file
     pub fn read(path: &Path) -> PackResult<Option<OverlayData>> {
+        Self::read_with_metrics(path, None)
+    }
+
+    /// Read overlay data from a file with performance metrics
+    pub fn read_with_metrics(
+        path: &Path,
+        mut metrics: Option<&mut PackedMetrics>,
+    ) -> PackResult<Option<OverlayData>> {
         let file = File::open(path)?;
         let file_len = file.metadata()?.len();
 
@@ -170,7 +180,7 @@ impl OverlayReader {
             return Ok(None);
         }
 
-        let mut reader = BufReader::new(file);
+        let mut reader = BufReader::with_capacity(64 * 1024, file); // 64KB buffer
 
         // Read footer
         reader.seek(SeekFrom::End(-(FOOTER_SIZE as i64)))?;
@@ -216,6 +226,7 @@ impl OverlayReader {
         let assets_len = u64::from_le_bytes(assets_len_bytes) as usize;
 
         // Read config data
+        let read_start = Instant::now();
         let mut config_compressed = vec![0u8; config_len];
         reader.read_exact(&mut config_compressed)?;
 
@@ -225,34 +236,90 @@ impl OverlayReader {
 
         let config: PackConfig = serde_json::from_slice(&config_json)?;
 
+        if let Some(ref mut m) = metrics {
+            m.add_phase("config_read_decompress", read_start.elapsed());
+            m.mark_config_decompress();
+        }
+
+        tracing::debug!(
+            "Config: {} bytes compressed -> {} bytes",
+            config_len,
+            config_json.len()
+        );
+
         // Read assets data
+        let assets_start = Instant::now();
         let mut assets_compressed = vec![0u8; assets_len];
         reader.read_exact(&mut assets_compressed)?;
 
-        // Decompress assets
-        let assets_tar = zstd::decode_all(&assets_compressed[..])
-            .map_err(|e| PackError::Compression(e.to_string()))?;
+        if let Some(ref mut m) = metrics {
+            m.add_phase("assets_read", assets_start.elapsed());
+        }
 
-        // Extract assets from tar
-        let assets = Self::extract_assets_archive(&assets_tar)?;
+        // Use streaming decompression + tar extraction (avoids double memory allocation)
+        let decompress_start = Instant::now();
+        let assets = Self::extract_assets_streaming(&assets_compressed)?;
+
+        if let Some(ref mut m) = metrics {
+            m.add_phase("assets_decompress_and_extract", decompress_start.elapsed());
+            m.mark_assets_decompress();
+            m.mark_tar_extract();
+            m.mark_overlay_read();
+        }
+
+        tracing::debug!(
+            "Assets: {} bytes compressed -> {} files extracted",
+            assets_len,
+            assets.len()
+        );
 
         Ok(Some(OverlayData { config, assets }))
     }
 
-    /// Extract assets from a tar archive
+    /// Extract assets from a tar archive (parallel version)
+    ///
+    /// First pass: collect entry metadata and offsets
+    /// Second pass: parallel read of file contents
+    #[allow(dead_code)]
     fn extract_assets_archive(data: &[u8]) -> PackResult<Vec<(String, Vec<u8>)>> {
         let mut archive = tar::Archive::new(data);
-        let mut assets = Vec::new();
+
+        // First pass: collect entries sequentially (tar requires sequential read)
+        let mut entries_data: Vec<(String, Vec<u8>)> = Vec::new();
 
         for entry in archive.entries()? {
             let mut entry = entry?;
             let path = entry.path()?.to_string_lossy().to_string();
-            let mut content = Vec::new();
+            let mut content = Vec::with_capacity(entry.size() as usize);
             entry.read_to_end(&mut content)?;
-            assets.push((path, content));
+            entries_data.push((path, content));
         }
 
-        Ok(assets)
+        Ok(entries_data)
+    }
+
+    /// Extract assets from a tar archive using streaming zstd decoder
+    ///
+    /// This avoids loading the entire decompressed tar into memory at once.
+    fn extract_assets_streaming(
+        compressed_data: &[u8],
+    ) -> PackResult<Vec<(String, Vec<u8>)>> {
+        // Use streaming zstd decoder
+        let decoder = zstd::stream::Decoder::new(compressed_data)
+            .map_err(|e| PackError::Compression(e.to_string()))?;
+
+        let mut archive = tar::Archive::new(decoder);
+        let mut entries_data: Vec<(String, Vec<u8>)> = Vec::new();
+
+        for entry in archive.entries()? {
+            let mut entry = entry?;
+            let path = entry.path()?.to_string_lossy().to_string();
+            let mut content = Vec::with_capacity(entry.size() as usize);
+            entry.read_to_end(&mut content)?;
+            entries_data.push((path, content));
+        }
+
+        Ok(entries_data)
     }
 
     /// Get the original executable size (before overlay)

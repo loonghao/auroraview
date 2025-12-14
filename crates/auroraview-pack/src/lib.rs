@@ -83,6 +83,7 @@ mod deps_collector;
 mod error;
 mod license;
 mod manifest;
+mod metrics;
 mod overlay;
 mod packer;
 mod pyoxidizer;
@@ -94,7 +95,7 @@ pub use config::{
     BundleStrategy, CollectPattern, HooksConfig, LicenseConfig, PackConfig, PackMode,
     PythonBundleConfig, TargetPlatform, WindowConfig, WindowStartPosition,
 };
-pub use deps_collector::{CollectedDeps, DepsCollector};
+pub use deps_collector::{CollectedDeps, DepsCollector, FileHashCache};
 pub use error::{PackError, PackResult};
 pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator};
 pub use manifest::{
@@ -113,6 +114,7 @@ pub use python_standalone::{
     extract_runtime, get_runtime_cache_dir, PythonRuntimeMeta, PythonStandalone,
     PythonStandaloneConfig, PythonTarget,
 };
+pub use metrics::PackedMetrics;
 
 /// Alias for backward compatibility with CLI
 pub type PackGenerator = Packer;
