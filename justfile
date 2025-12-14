@@ -533,6 +533,50 @@ gallery-pack: gallery-build
     cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --build
     @echo "[OK] Gallery packed successfully!"
 
+# Run Gallery CDP tests (build, start, test, cleanup)
+gallery-cdp: gallery-pack
+    @echo "=========================================="
+    @echo "Gallery CDP Test Suite"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/4] Starting Gallery with CDP enabled..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "[2/4] Waiting for CDP port (9222)..."
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo ""
+    @echo "[3/4] Running CDP tests..."
+    -uv run pytest tests/test_gallery_cdp.py -v --tb=short
+    @echo ""
+    @echo "[4/4] Cleaning up..."
+    @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "=========================================="
+    @echo "[OK] Gallery CDP tests completed!"
+    @echo "=========================================="
+
+# Run Gallery CDP tests without rebuilding (assumes gallery-pack already run)
+gallery-cdp-only:
+    @echo "=========================================="
+    @echo "Gallery CDP Test Suite (no rebuild)"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/3] Starting Gallery with CDP enabled..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "[2/3] Waiting for CDP port (9222)..."
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo ""
+    @echo "[3/3] Running CDP tests..."
+    -uv run pytest tests/test_gallery_cdp.py -v --tb=short
+    @echo ""
+    @echo "Cleaning up..."
+    @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "=========================================="
+    @echo "[OK] Gallery CDP tests completed!"
+    @echo "=========================================="
+
 # Pack Gallery for release (generates project without building)
 gallery-pack-project: gallery-build
     @echo "Generating Gallery pack project..."

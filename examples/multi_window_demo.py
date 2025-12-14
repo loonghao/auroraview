@@ -643,7 +643,7 @@ def main():
     """Run the multi-window demo."""
     main_window = create_main_window()
     broadcast_window_list()
-    main_window.run()
+    main_window.show()  # Use show() instead of run()
 
 
 if __name__ == "__main__":
