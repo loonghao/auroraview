@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.12](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.11...auroraview-v0.3.12) (2025-12-14)
+
+
+### Features
+
+* **pack:** add automatic Python dependency collection ([6430170](https://github.com/loonghao/auroraview/commit/64301703ce1c8624483e09bcae7520a115846611))
+* **pack:** add hooks.collect support for bundling examples ([4e4a893](https://github.com/loonghao/auroraview/commit/4e4a893f046047bf9cb5bed05a6b43781d098937))
+* **pack:** add standalone Python runtime bundling strategy ([906aec4](https://github.com/loonghao/auroraview/commit/906aec4389aae4fb047376b92254b6f87675139d))
+* **pack:** add standalone Python runtime bundling strategy ([6c914ef](https://github.com/loonghao/auroraview/commit/6c914ef88511d9bafb640a091d83f37d48dd75ad))
+
+
+### Bug Fixes
+
+* **ci:** update gallery pack workflow for direct executable output ([9c1a27c](https://github.com/loonghao/auroraview/commit/9c1a27c0fd733535af1ace50f4609a096deada08))
+
+
+### Performance Improvements
+
+* **pack:** streaming decompression and WebView2 warmup ([f47b132](https://github.com/loonghao/auroraview/commit/f47b1322c3b902a1c9f19178bebf95958a8487cf))
+
 ## [0.3.11](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.10...auroraview-v0.3.11) (2025-12-13)
 
 
