@@ -60,6 +60,12 @@ def run_api_server(webview: "WebView") -> None:
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
+    # Send ready signal to Rust backend
+    # This tells Rust that Python is ready to receive requests
+    ready_signal = json.dumps({"type": "ready", "handlers": list(bound_functions.keys())})
+    print(ready_signal, flush=True)
+    print("[AuroraView] Ready signal sent", file=sys.stderr)
+
     # Main JSON-RPC loop
     while running:
         try:

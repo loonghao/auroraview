@@ -362,3 +362,95 @@ fn test_json_build_response() {
     assert!(escaped.contains("\\\"id\\\""));
     assert!(escaped.contains("\\\"ok\\\""));
 }
+
+// =============================================================================
+// Python ready signal format tests
+// =============================================================================
+
+#[test]
+fn test_python_ready_signal_format() {
+    // Test the expected format of Python ready signal
+    let handlers = vec!["get_samples", "get_categories", "run_sample"];
+    let ready_signal = serde_json::json!({
+        "type": "ready",
+        "handlers": handlers
+    });
+
+    let json_str = json::to_string(&ready_signal).unwrap();
+
+    // Parse it back
+    let parsed: serde_json::Value = json::from_str(&json_str).unwrap();
+    assert_eq!(parsed["type"], "ready");
+    assert!(parsed["handlers"].is_array());
+    assert_eq!(parsed["handlers"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn test_python_ready_signal_parsing() {
+    // Simulate receiving a ready signal from Python
+    let ready_line = r#"{"type": "ready", "handlers": ["get_samples", "get_categories"]}"#;
+
+    let msg: serde_json::Value = json::from_str(ready_line).unwrap();
+
+    assert_eq!(msg.get("type").and_then(|v| v.as_str()), Some("ready"));
+    let handlers = msg.get("handlers").and_then(|v| v.as_array());
+    assert!(handlers.is_some());
+    assert_eq!(handlers.unwrap().len(), 2);
+}
+
+#[test]
+fn test_python_error_response_format() {
+    // Test the error response format sent when Python backend fails
+    let error_response = serde_json::json!({
+        "id": "call_123",
+        "ok": false,
+        "result": null,
+        "error": {
+            "name": "PythonBackendError",
+            "message": "Python backend process has exited"
+        }
+    });
+
+    let json_str = json::to_string(&error_response).unwrap();
+    let parsed: serde_json::Value = json::from_str(&json_str).unwrap();
+
+    assert_eq!(parsed["ok"], false);
+    assert!(parsed["error"]["name"].as_str().is_some());
+    assert!(parsed["error"]["message"].as_str().is_some());
+}
+
+#[test]
+fn test_api_request_format() {
+    // Test the format of API requests sent to Python
+    let request = serde_json::json!({
+        "id": "av_call_123456_1",
+        "method": "get_samples",
+        "params": null
+    });
+
+    let json_str = json::to_string(&request).unwrap();
+
+    // Verify it can be parsed back
+    let parsed: serde_json::Value = json::from_str(&json_str).unwrap();
+    assert_eq!(parsed["method"], "get_samples");
+    assert!(parsed["id"].as_str().unwrap().starts_with("av_call_"));
+}
+
+#[test]
+fn test_api_response_format() {
+    // Test the format of API responses from Python
+    let response = serde_json::json!({
+        "id": "av_call_123456_1",
+        "ok": true,
+        "result": [
+            {"id": "sample1", "title": "Sample 1"},
+            {"id": "sample2", "title": "Sample 2"}
+        ]
+    });
+
+    let json_str = json::to_string(&response).unwrap();
+    let parsed: serde_json::Value = json::from_str(&json_str).unwrap();
+
+    assert_eq!(parsed["ok"], true);
+    assert!(parsed["result"].is_array());
+}
