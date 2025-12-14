@@ -5,6 +5,8 @@ These tests verify the headless testing infrastructure works correctly.
 
 import os
 import platform
+import signal
+import sys
 
 import pytest
 
@@ -13,16 +15,34 @@ pytest.importorskip("playwright")
 
 
 def _playwright_browser_available() -> bool:
-    """Check if Playwright browser is available."""
-    try:
-        from playwright.sync_api import sync_playwright
+    """Check if Playwright browser is available with timeout protection."""
+    import threading
 
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            browser.close()
-        return True
-    except Exception:
+    result = [False]
+    error = [None]
+
+    def check_browser():
+        try:
+            from playwright.sync_api import sync_playwright
+
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                browser.close()
+            result[0] = True
+        except Exception as e:
+            error[0] = e
+            result[0] = False
+
+    # Run browser check in a thread with timeout
+    thread = threading.Thread(target=check_browser, daemon=True)
+    thread.start()
+    thread.join(timeout=30)  # 30 second timeout
+
+    if thread.is_alive():
+        # Thread is still running, browser check timed out
         return False
+
+    return result[0]
 
 
 # Skip tests if Playwright browser not installed

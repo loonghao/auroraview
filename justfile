@@ -246,7 +246,8 @@ ci-test-python:
         --cov-report=term-missing \
         --cov-report=html \
         --cov-report=xml \
-        --cov-fail-under=0
+        --cov-fail-under=0 \
+        --timeout=60
 
 ci-test-basic:
     @echo "Running basic import tests..."

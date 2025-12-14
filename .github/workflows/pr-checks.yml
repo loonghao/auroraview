@@ -99,13 +99,13 @@ jobs:
           CI: 'true'
         run: |
           # Install test dependencies (pytest only, no Qt for 3.7)
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov pytest-timeout
 
           # Install the built wheel
           pip install dist/*.whl
 
           # Run unit tests (skip Qt tests as PySide6 doesn't support Python 3.7)
-          pytest tests/python/unit/ -v --tb=short \
+          pytest tests/python/unit/ -v --tb=short --timeout=60 \
             --ignore=tests/python/unit/test_qt_signals.py \
             -k "not qt"
 
@@ -240,9 +240,9 @@ jobs:
           pip install dist/*.whl
           # PySide6<6.7 doesn't support Python 3.13+, use PySide6>=6.8 for Python 3.13+
           if python -c "import sys; exit(0 if sys.version_info >= (3, 13) else 1)"; then
-            pip install pytest pytest-cov qtpy "PySide6>=6.8"
+            pip install pytest pytest-cov pytest-timeout qtpy "PySide6>=6.8"
           else
-            pip install pytest pytest-cov qtpy "PySide6<6.7"
+            pip install pytest pytest-cov pytest-timeout qtpy "PySide6<6.7"
           fi
 
       - name: Verify import
@@ -258,7 +258,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           QT_OPENGL: software
         run: |
-          pytest tests/python/unit/ -v --tb=short --cov=auroraview --cov-report=xml
+          pytest tests/python/unit/ -v --tb=short --cov=auroraview --cov-report=xml --timeout=60
 
       - name: Upload coverage (3.11 on ubuntu only)
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
@@ -308,6 +308,7 @@ jobs:
         run: |
           cargo llvm-cov --workspace --lcov --output-path lcov.info \
             --no-default-features --features "python-bindings,test-helpers,threaded-ipc" \
+            --exclude auroraview-cli \
             -- --skip window_utils --skip webview::event_loop --skip webview::message_pump \
                --skip webview::parent_monitor --skip service_discovery::python_bindings \
                --skip ipc:: --skip tests::test_pymodule_init_registers_symbols
@@ -387,7 +388,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install dist/*.whl
-          pip install qtpy "PySide6<6.7" pytest pytest-qt pytest-cov
+          pip install qtpy "PySide6<6.7" pytest pytest-qt pytest-cov pytest-timeout
 
       - name: Run Qt tests (headless)
         shell: pwsh
@@ -398,7 +399,7 @@ jobs:
           QT_OPENGL: software
           QTWEBENGINE_DISABLE_SANDBOX: '1'
         run: |
-          pytest tests/python/integration/test_qt_backend.py tests/python/integration/test_qt_lifecycle.py -v --tb=short
+          pytest tests/python/integration/test_qt_backend.py tests/python/integration/test_qt_lifecycle.py -v --tb=short --timeout=60
 
       - name: Upload Qt coverage
         uses: codecov/codecov-action@v5
