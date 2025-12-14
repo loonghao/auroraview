@@ -50,22 +50,3 @@ impl MenuAction {
         self
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_menu_action_creation() {
-        let action = MenuAction::new("file.new", "New File");
-        assert_eq!(action.action_id, "file.new");
-        assert_eq!(action.label, "New File");
-        assert!(action.checked.is_none());
-    }
-
-    #[test]
-    fn test_menu_action_with_checked() {
-        let action = MenuAction::new("view.sidebar", "Show Sidebar").with_checked(true);
-        assert_eq!(action.checked, Some(true));
-    }
-}

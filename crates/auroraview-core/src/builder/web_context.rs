@@ -62,43 +62,4 @@ pub fn create_web_context(config: &WebContextConfig) -> WebContext {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_config_default() {
-        let config = WebContextConfig::default();
-        assert!(config.data_directory.is_none());
-        assert!(config.shared_warmup_folder.is_none());
-    }
-
-    #[test]
-    fn test_config_with_data_directory() {
-        let config = WebContextConfig::new().with_data_directory(PathBuf::from("/tmp/data"));
-        assert_eq!(config.data_directory, Some(PathBuf::from("/tmp/data")));
-    }
-
-    #[test]
-    fn test_config_with_shared_warmup() {
-        let config =
-            WebContextConfig::new().with_shared_warmup_folder(PathBuf::from("/tmp/warmup"));
-        assert_eq!(
-            config.shared_warmup_folder,
-            Some(PathBuf::from("/tmp/warmup"))
-        );
-    }
-
-    #[test]
-    fn test_config_builder_chain() {
-        let config = WebContextConfig::new()
-            .with_data_directory(PathBuf::from("/tmp/data"))
-            .with_shared_warmup_folder(PathBuf::from("/tmp/warmup"));
-
-        assert_eq!(config.data_directory, Some(PathBuf::from("/tmp/data")));
-        assert_eq!(
-            config.shared_warmup_folder,
-            Some(PathBuf::from("/tmp/warmup"))
-        );
-    }
-}

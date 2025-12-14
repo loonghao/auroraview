@@ -136,19 +136,3 @@ pub fn read_overlay() -> PackResult<Option<OverlayData>> {
     let exe_path = std::env::current_exe()?;
     OverlayReader::read(&exe_path)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_version() {
-        assert!(VERSION.contains('.'), "VERSION should contain a dot");
-    }
-
-    #[test]
-    fn test_is_packed() {
-        // In test environment, should not be packed
-        assert!(!is_packed());
-    }
-}

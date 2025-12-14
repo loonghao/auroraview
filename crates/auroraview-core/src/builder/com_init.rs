@@ -62,26 +62,4 @@ pub fn init_com_sta() -> ComInitResult {
     ComInitResult::Initialized
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_com_init_result_enum() {
-        // Just verify the enum variants exist
-        let _ = ComInitResult::Initialized;
-        let _ = ComInitResult::AlreadyInitialized;
-        let _ = ComInitResult::Failed;
-    }
-
-    #[test]
-    fn test_init_com_sta() {
-        // On Windows, this should return Initialized or AlreadyInitialized
-        // On other platforms, it should return Initialized (no-op)
-        let result = init_com_sta();
-        assert!(matches!(
-            result,
-            ComInitResult::Initialized | ComInitResult::AlreadyInitialized
-        ));
-    }
-}

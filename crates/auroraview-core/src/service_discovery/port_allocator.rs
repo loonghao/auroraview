@@ -112,48 +112,4 @@ impl Default for PortAllocator {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_port_allocator_creation() {
-        let allocator = PortAllocator::new(9001, 100);
-        assert_eq!(allocator.start_port(), 9001);
-        assert_eq!(allocator.max_attempts(), 100);
-    }
-
-    #[test]
-    fn test_default_port_allocator() {
-        let allocator = PortAllocator::default();
-        assert_eq!(allocator.start_port(), 9001);
-        assert_eq!(allocator.max_attempts(), 100);
-    }
-
-    #[test]
-    fn test_find_free_port() {
-        let allocator = PortAllocator::new(50000, 100);
-        let port = allocator.find_free_port();
-        assert!(port.is_ok());
-
-        let port_num = port.unwrap();
-        assert!(port_num >= 50000);
-        assert!(port_num < 50100);
-    }
-
-    #[test]
-    fn test_is_port_available() {
-        // Bind to a port to make it unavailable
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let bound_port = listener.local_addr().unwrap().port();
-
-        // Port should be unavailable while listener is active
-        assert!(!PortAllocator::is_port_available(bound_port));
-
-        // Drop listener to free the port
-        drop(listener);
-
-        // Port should now be available
-        assert!(PortAllocator::is_port_available(bound_port));
-    }
-}

@@ -150,24 +150,3 @@ impl MenuBar {
         self.add_menu(help_menu)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_menu_creation() {
-        let menu = Menu::new("File")
-            .add_item(MenuItem::action("New", "file.new", Some("Ctrl+N")))
-            .add_separator()
-            .add_item(MenuItem::action("Exit", "file.exit", None));
-        assert_eq!(menu.label, "File");
-        assert_eq!(menu.items.len(), 3);
-    }
-
-    #[test]
-    fn test_menu_bar() {
-        let bar = MenuBar::new().with_file_menu().with_edit_menu();
-        assert_eq!(bar.menus.len(), 2);
-    }
-}

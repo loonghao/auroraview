@@ -815,7 +815,8 @@ class WebView(
     def show(self, *, wait: Optional[bool] = None) -> None:
         """Show the WebView window (smart mode).
 
-        Automatically detects standalone/embedded mode and chooses the best behavior:
+        Automatically detects standalone/embedded/packed mode and chooses the best behavior:
+        - Packed mode: Runs as headless API server (no window, JSON-RPC via stdin/stdout)
         - Standalone window: Blocks until closed (unless wait=False)
         - Embedded window: Non-blocking, auto-starts timer if available
 
@@ -838,7 +839,19 @@ class WebView(
             >>> # Embedded window - auto non-blocking
             >>> webview = WebView(title="Tool", parent=maya_hwnd)
             >>> webview.show()  # Returns immediately, timer auto-runs
+
+            >>> # Packed mode - automatic API server (no code changes needed)
+            >>> # When running in a packed .exe, show() automatically switches
+            >>> # to API server mode. All bind_call() handlers work seamlessly.
         """
+        # Check for packed mode first - transparent to developers
+        from .packed import is_packed_mode, run_api_server
+
+        if is_packed_mode():
+            logger.info("Packed mode detected: running as API server")
+            run_api_server(self)
+            return
+
         # Detect mode
         is_embedded = self._parent is not None
 

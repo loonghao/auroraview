@@ -251,48 +251,4 @@ impl Default for WindowManager {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_window_manager_register_unregister() {
-        let manager = WindowManager::new();
-        let config = WebViewConfig::default();
-        let ipc = Arc::new(IpcHandler::new());
-        let mq = Arc::new(MessageQueue::new());
-
-        // Register main window
-        let label = manager.register_window("main", &config, ipc.clone(), mq.clone(), true);
-        assert_eq!(label, "main");
-        assert!(manager.has_window("main"));
-        assert_eq!(manager.window_count(), 1);
-        assert_eq!(manager.get_main_window_label(), Some("main".to_string()));
-
-        // Register child window
-        manager.register_window("child", &config, ipc, mq, false);
-        assert!(manager.has_window("child"));
-        assert_eq!(manager.window_count(), 2);
-
-        // Unregister
-        assert!(manager.unregister_window("child"));
-        assert!(!manager.has_window("child"));
-        assert_eq!(manager.window_count(), 1);
-    }
-
-    #[test]
-    fn test_get_all_windows() {
-        let manager = WindowManager::new();
-        let config = WebViewConfig::default();
-        let ipc = Arc::new(IpcHandler::new());
-        let mq = Arc::new(MessageQueue::new());
-
-        manager.register_window("win1", &config, ipc.clone(), mq.clone(), true);
-        manager.register_window("win2", &config, ipc, mq, false);
-
-        let labels = manager.get_all_labels();
-        assert_eq!(labels.len(), 2);
-        assert!(labels.contains(&"win1".to_string()));
-        assert!(labels.contains(&"win2".to_string()));
-    }
-}

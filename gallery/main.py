@@ -24,29 +24,19 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-# Add parent directory to path for imports
+# Path setup - __file__ is correctly set by runpy.run_path() in packed mode
 PROJECT_ROOT = Path(__file__).parent.parent
 GALLERY_DIR = Path(__file__).parent
 DIST_DIR = GALLERY_DIR / "dist"
 
-# Check if running in packed mode (set by Rust CLI)
-PACKED_MODE = os.environ.get("AURORAVIEW_PACKED", "0") == "1"
-
-# Determine examples directory based on mode
-# In packed mode, examples are extracted to AURORAVIEW_EXAMPLES_DIR
-# In development mode, examples are in the project root
-if PACKED_MODE:
-    _examples_env = os.environ.get("AURORAVIEW_EXAMPLES_DIR")
-    if _examples_env:
-        EXAMPLES_DIR = Path(_examples_env)
-    else:
-        # Fallback: check resources directory relative to script
-        _resources_dir = os.environ.get("AURORAVIEW_RESOURCES_DIR")
-        if _resources_dir:
-            EXAMPLES_DIR = Path(_resources_dir) / "examples"
-        else:
-            # Last resort: use project root (won't work in packed mode)
-            EXAMPLES_DIR = PROJECT_ROOT / "examples"
+# Determine examples directory
+# Priority: AURORAVIEW_EXAMPLES_DIR env > AURORAVIEW_RESOURCES_DIR/examples > project/examples
+_examples_env = os.environ.get("AURORAVIEW_EXAMPLES_DIR")
+_resources_env = os.environ.get("AURORAVIEW_RESOURCES_DIR")
+if _examples_env:
+    EXAMPLES_DIR = Path(_examples_env)
+elif _resources_env:
+    EXAMPLES_DIR = Path(_resources_env) / "examples"
 else:
     EXAMPLES_DIR = PROJECT_ROOT / "examples"
 
@@ -290,11 +280,26 @@ def filename_to_id(filename: str) -> str:
     return name
 
 
-def scan_examples() -> list:
-    """Scan examples directory and build sample list from docstrings."""
+# Lazy-loaded samples cache
+_SAMPLES_CACHE = None
+
+
+def get_samples_list() -> list:
+    """Get samples list with lazy loading."""
+    global _SAMPLES_CACHE
+    if _SAMPLES_CACHE is None:
+        _SAMPLES_CACHE = scan_examples_from(EXAMPLES_DIR)
+    return _SAMPLES_CACHE
+
+
+def scan_examples_from(examples_dir: Path) -> list:
+    """Scan examples from a specific directory."""
     samples = []
 
-    for py_file in sorted(EXAMPLES_DIR.glob("*.py")):
+    if not examples_dir.exists():
+        return samples
+
+    for py_file in sorted(examples_dir.glob("*.py")):
         # Skip __init__.py and non-demo files
         if py_file.name.startswith("__"):
             continue
@@ -331,13 +336,10 @@ def scan_examples() -> list:
     return samples
 
 
-# Scan examples on module load
-SAMPLES = scan_examples()
-
-
-def get_sample_by_id(sample_id: str) -> dict | None:
+def get_sample_by_id(sample_id: str):
+    # type: (str) -> dict | None
     """Get a sample by its ID."""
-    for sample in SAMPLES:
+    for sample in get_samples_list():
         if sample["id"] == sample_id:
             return sample
     return None
@@ -352,29 +354,30 @@ def get_source_code(source_file: str) -> str:
 
 
 def run_gallery():
-    """Run the AuroraView Gallery application."""
-    # Log to stderr to avoid interfering with JSON-RPC on stdout in packed mode
+    """Run the AuroraView Gallery application.
+
+    In packed mode, WebView.show() automatically switches to API server mode.
+    No special handling needed - the framework handles it transparently.
+    """
     print("Starting AuroraView Gallery...", file=sys.stderr)
     print("=" * 50, file=sys.stderr)
     print("Interactive showcase of all features and components", file=sys.stderr)
     print("=" * 50, file=sys.stderr)
 
-    # In packed mode, run as API server (headless)
-    if PACKED_MODE:
-        print("Running in packed mode (API server)", file=sys.stderr)
-        run_api_server()
-        return
-
-    # Check if dist exists
+    # Check if dist exists (only needed in development mode)
+    # In packed mode, frontend is embedded in the executable
     index_html = DIST_DIR / "index.html"
     if not index_html.exists():
-        print("Error: Gallery not built. Run 'just gallery-build' first.")
-        print(f"Expected: {index_html}")
-        sys.exit(1)
-
-    # Use local file path - normalize_url will convert to auroraview protocol
-    url = str(index_html)
-    print(f"Loading: {url}")
+        # In packed mode, the Rust CLI handles frontend loading
+        from auroraview.core.packed import is_packed_mode
+        if not is_packed_mode():
+            print("Error: Gallery not built. Run 'just gallery-build' first.")
+            print(f"Expected: {index_html}")
+            sys.exit(1)
+        url = None  # Packed mode doesn't need URL
+    else:
+        url = str(index_html)
+        print(f"Loading: {url}")
 
     view = WebView(
         title="AuroraView Gallery",
@@ -513,7 +516,7 @@ def run_gallery():
     @view.bind_call("api.get_samples")
     def get_samples() -> list:
         """Get all samples."""
-        return SAMPLES
+        return get_samples_list()
 
     # API: Get categories
     @view.bind_call("api.get_categories")
@@ -529,194 +532,8 @@ def run_gallery():
         plugins.handle_command("plugin:process|kill_all", "{}")
 
     # Show the gallery
+    # In packed mode, this automatically switches to API server mode
     view.show()
-
-
-def run_api_server():
-    """Run the Gallery as a headless API server for packed mode.
-
-    In packed mode, the Rust CLI creates the WebView and loads the frontend.
-    This function provides the Python API backend via JSON-RPC over stdin/stdout.
-    """
-    import json
-    import signal
-    import subprocess
-
-    # Log to stderr to avoid interfering with JSON-RPC on stdout
-    print("Gallery API Server started", file=sys.stderr)
-    print("Waiting for JSON-RPC requests on stdin...", file=sys.stderr)
-
-    # Track running processes for cleanup
-    running_processes: dict[int, subprocess.Popen] = {}
-
-    def run_sample(sample_id: str = "", show_console: bool = False) -> dict:
-        """Run a sample demo."""
-        sample = get_sample_by_id(sample_id)
-        if not sample:
-            return {"ok": False, "error": f"Sample not found: {sample_id}"}
-
-        sample_path = EXAMPLES_DIR / sample["source_file"]
-        if not sample_path.exists():
-            return {"ok": False, "error": f"File not found: {sample['source_file']}"}
-
-        try:
-            # Build command
-            cmd = [sys.executable, str(sample_path)]
-
-            # Configure process creation flags
-            creation_flags = 0
-            if sys.platform == "win32":
-                if show_console:
-                    creation_flags = subprocess.CREATE_NEW_CONSOLE
-                else:
-                    creation_flags = subprocess.CREATE_NO_WINDOW
-
-            # Start process
-            process = subprocess.Popen(
-                cmd,
-                cwd=str(EXAMPLES_DIR),
-                creationflags=creation_flags if sys.platform == "win32" else 0,
-                stdout=subprocess.PIPE if not show_console else None,
-                stderr=subprocess.PIPE if not show_console else None,
-            )
-
-            running_processes[process.pid] = process
-            mode = "with console" if show_console else "background"
-            print(f"Started sample {sample_id} (PID: {process.pid}, {mode})", file=sys.stderr)
-
-            return {
-                "ok": True,
-                "pid": process.pid,
-                "message": f"Started {sample['title']} ({mode})",
-            }
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def kill_process(pid: int = 0) -> dict:
-        """Kill a running process by PID."""
-        if not pid:
-            return {"ok": False, "error": "No PID provided"}
-
-        if pid in running_processes:
-            try:
-                running_processes[pid].terminate()
-                del running_processes[pid]
-                return {"ok": True}
-            except Exception as e:
-                return {"ok": False, "error": str(e)}
-        else:
-            # Try to kill by PID directly
-            try:
-                import os
-                os.kill(pid, signal.SIGTERM)
-                return {"ok": True}
-            except Exception as e:
-                return {"ok": False, "error": str(e)}
-
-
-    def list_processes() -> dict:
-        """List all running processes."""
-        # Clean up finished processes
-        finished = []
-        for pid, proc in running_processes.items():
-            if proc.poll() is not None:
-                finished.append(pid)
-        for pid in finished:
-            del running_processes[pid]
-
-        processes = [{"pid": pid} for pid in running_processes.keys()]
-        return {"ok": True, "processes": processes}
-
-    def open_url(url: str = "") -> dict:
-        """Open a URL in the default browser."""
-        if not url:
-            return {"ok": False, "error": "No URL provided"}
-        try:
-            import webbrowser
-            webbrowser.open(url)
-            return {"ok": True}
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    # API handlers
-    api_handlers = {
-        "api.get_samples": lambda: SAMPLES,
-        "api.get_categories": lambda: CATEGORIES,
-        "api.get_source": lambda sample_id="": get_source_code(
-            get_sample_by_id(sample_id)["source_file"]
-        ) if get_sample_by_id(sample_id) else f"# Sample not found: {sample_id}",
-        "api.run_sample": run_sample,
-        "api.kill_process": kill_process,
-        "api.list_processes": list_processes,
-        "api.open_url": open_url,
-    }
-
-    def handle_request(request: dict) -> dict:
-        """Handle a JSON-RPC request."""
-        req_id = request.get("id")
-        method = request.get("method", "")
-        params = request.get("params")
-
-        if method in api_handlers:
-            try:
-                handler = api_handlers[method]
-                # Handle different param types
-                # Note: JSON null becomes Python None
-                if params is None or params == {}:
-                    result = handler()
-                elif isinstance(params, dict):
-                    result = handler(**params)
-                elif isinstance(params, list):
-                    result = handler(*params)
-                else:
-                    # Single value parameter - but our handlers don't expect this
-                    result = handler()
-                return {"id": req_id, "ok": True, "result": result}
-            except Exception as e:
-                return {"id": req_id, "ok": False, "error": str(e)}
-        else:
-            return {"id": req_id, "ok": False, "error": f"Unknown method: {method}"}
-
-    # Handle SIGTERM gracefully
-    running = True
-
-    def signal_handler(signum, frame):
-        nonlocal running
-        print("Received shutdown signal", file=sys.stderr)
-        running = False
-
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-
-    # Main loop: read JSON-RPC requests from stdin
-    while running:
-        try:
-            line = sys.stdin.readline()
-            if not line:
-                break
-
-            line = line.strip()
-            if not line:
-                continue
-
-            request = json.loads(line)
-            response = handle_request(request)
-            print(json.dumps(response), flush=True)
-
-        except json.JSONDecodeError as e:
-            print(json.dumps({"ok": False, "error": f"Invalid JSON: {e}"}), flush=True)
-        except Exception as e:
-            print(json.dumps({"ok": False, "error": str(e)}), flush=True)
-
-    # Cleanup: kill all running processes
-    for pid, proc in running_processes.items():
-        try:
-            proc.terminate()
-            print(f"Terminated process {pid}", file=sys.stderr)
-        except Exception:
-            pass
-
-    print("Gallery API Server stopped", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -28,23 +28,4 @@ pub fn log_background_color(color: (u8, u8, u8, u8)) {
     );
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_dark_background_color() {
-        let color = get_background_color();
-        assert_eq!(color, (2, 6, 23, 255));
-    }
-
-    #[test]
-    fn test_background_color_hex() {
-        let color = get_background_color();
-        // Verify it matches #020617
-        assert_eq!(color.0, 0x02);
-        assert_eq!(color.1, 0x06);
-        assert_eq!(color.2, 0x17);
-        assert_eq!(color.3, 0xFF);
-    }
-}

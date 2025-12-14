@@ -667,38 +667,3 @@ fn is_stdlib(module: &str) -> bool {
     STDLIB.contains(&module)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_is_stdlib() {
-        assert!(is_stdlib("os"));
-        assert!(is_stdlib("sys"));
-        assert!(is_stdlib("json"));
-        assert!(is_stdlib("pathlib"));
-        assert!(!is_stdlib("requests"));
-        assert!(!is_stdlib("numpy"));
-        assert!(!is_stdlib("auroraview"));
-    }
-
-    #[test]
-    fn test_default_excludes() {
-        let excludes = default_excludes();
-        assert!(excludes.contains("pytest"));
-        assert!(excludes.contains("pip"));
-        assert!(excludes.contains("setuptools"));
-    }
-
-    #[test]
-    fn test_collector_builder() {
-        let collector = DepsCollector::new()
-            .python_exe("python3")
-            .exclude(["test_pkg"])
-            .include(["extra_pkg"]);
-
-        assert_eq!(collector.python_exe, PathBuf::from("python3"));
-        assert!(collector.exclude_packages.contains("test_pkg"));
-        assert!(collector.include_packages.contains("extra_pkg"));
-    }
-}

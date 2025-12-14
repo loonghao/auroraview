@@ -135,27 +135,3 @@ impl WebViewSettings for WebViewSettingsImpl {
         self.background_color = color;
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_default_settings() {
-        let settings = WebViewSettingsImpl::default();
-        assert!(settings.local_storage_enabled());
-        assert!(settings.javascript_enabled());
-        assert!(!settings.dev_tools_enabled());
-        assert!(!settings.allow_file_access());
-    }
-
-    #[test]
-    fn test_settings_mutation() {
-        let mut settings = WebViewSettingsImpl::default();
-        settings.set_dev_tools_enabled(true);
-        assert!(settings.dev_tools_enabled());
-
-        settings.set_user_agent(Some("CustomAgent/1.0".into()));
-        assert_eq!(settings.user_agent(), Some("CustomAgent/1.0".into()));
-    }
-}

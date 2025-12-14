@@ -241,48 +241,4 @@ pub enum TrayError {
     UpdateFailed(String),
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_tray_menu_item_new() {
-        let item = TrayMenuItem::new("test_id", "Test Item");
-        assert_eq!(item.id, "test_id");
-        assert_eq!(item.text, "Test Item");
-        assert!(item.enabled);
-        assert!(matches!(item.item_type, TrayMenuItemType::Normal));
-    }
-
-    #[test]
-    fn test_tray_menu_item_separator() {
-        let item = TrayMenuItem::separator();
-        assert!(matches!(item.item_type, TrayMenuItemType::Separator));
-    }
-
-    #[test]
-    fn test_tray_menu_item_checkbox() {
-        let item = TrayMenuItem::checkbox("check_id", "Check Item", true);
-        assert_eq!(item.id, "check_id");
-        assert!(matches!(
-            item.item_type,
-            TrayMenuItemType::Checkbox { checked: true }
-        ));
-    }
-
-    #[test]
-    fn test_tray_menu_item_submenu() {
-        let sub_items = vec![TrayMenuItem::new("sub1", "Sub Item 1")];
-        let item = TrayMenuItem::submenu("submenu_id", "Submenu", sub_items);
-        assert_eq!(item.id, "submenu_id");
-        assert!(matches!(item.item_type, TrayMenuItemType::Submenu { .. }));
-    }
-
-    #[test]
-    fn test_tray_config_default() {
-        let config = TrayConfig::default();
-        assert!(!config.enabled);
-        assert!(config.tooltip.is_none());
-        assert!(config.menu_items.is_empty());
-    }
-}

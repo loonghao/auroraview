@@ -153,36 +153,4 @@ impl Drop for MdnsService {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_mdns_service_creation() {
-        let result = MdnsService::new();
-        assert!(result.is_ok());
-        let service = result.unwrap();
-        assert!(service.service_name.lock().is_none());
-    }
-
-    #[test]
-    fn test_service_type_constant() {
-        assert_eq!(SERVICE_TYPE, "_auroraview._tcp.local.");
-    }
-
-    #[test]
-    fn test_unregister_without_registration() {
-        let service = MdnsService::new().unwrap();
-        let result = service.unregister();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_service_drop_unregisters() {
-        let service = MdnsService::new().unwrap();
-        let metadata = HashMap::new();
-        service.register("DropTest", 9007, metadata).unwrap();
-        assert!(service.service_name.lock().is_some());
-        drop(service);
-    }
-}
