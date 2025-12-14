@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.13](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.12...auroraview-v0.3.13) (2025-12-14)
+
+
+### Features
+
+* enhance gallery E2E screenshots with multi-page capture ([6cad8a9](https://github.com/loonghao/auroraview/commit/6cad8a91dd736fff14a1c5de2153ee06423c6d60))
+* **packed:** show loading screen while waiting for Python backend ([b3efaec](https://github.com/loonghao/auroraview/commit/b3efaec017614b5ab6cc18ff2ba11db39cd4cb59))
+* **testing:** add Edge WebDriver support for E2E testing ([f14907b](https://github.com/loonghao/auroraview/commit/f14907b81f36bc83be8142d95184e1fe09c78439))
+
+
+### Bug Fixes
+
+* **ci:** add npm retry and improve gallery artifact handling ([5624d22](https://github.com/loonghao/auroraview/commit/5624d221f6f78aa03fe05f4e0f1573e5a2d8708e))
+* **ci:** exclude auroraview-cli from rust coverage tests ([6474e8e](https://github.com/loonghao/auroraview/commit/6474e8e4856a064e1541dc9d7710871360c504d3))
+* **ci:** use separate cache keys for sccache vs non-sccache builds ([d3ce23c](https://github.com/loonghao/auroraview/commit/d3ce23c5e8ef870196915be1c9afdd9469142f16))
+* **cli:** add timeout to command execution in info command ([02e719f](https://github.com/loonghao/auroraview/commit/02e719f7489941dd2a3bf5966da12e124d47e9af))
+* clippy field_reassign_with_default warning and enhance pre-commit ([6d52f4f](https://github.com/loonghao/auroraview/commit/6d52f4f1a673ecdedc7d4da943d544c096f016bb))
+* **cli:** use Stdio::null() in info command to prevent hanging ([7651e65](https://github.com/loonghao/auroraview/commit/7651e65a4ef4d15c9aa2977320bad83a4879c956))
+* remove unused imports in test_headless_webview.py ([59ca770](https://github.com/loonghao/auroraview/commit/59ca770adcf4bb7e0ec5be0227c7d516a8ec335f))
+* **test:** ignore IPC integration tests in CI coverage ([af090a1](https://github.com/loonghao/auroraview/commit/af090a18f6e7f1225b870ac68462b0a7f2602b77))
+* **test:** skip ready signal in test_processes_valid_request ([d362824](https://github.com/loonghao/auroraview/commit/d362824e767246de4a86ecc140ccca96057be600))
+* **test:** use python3 on Linux for IPC integration tests ([949f9ce](https://github.com/loonghao/auroraview/commit/949f9cee123283a3b609fd910a1742e93189acf1))
+
+
+### Code Refactoring
+
+* reorganize tests into crate-specific directories and add visibility modifiers ([f1137a9](https://github.com/loonghao/auroraview/commit/f1137a9e820e2da52e9fbb78bbb0bc2355e93fa4))
+
 ## [0.3.12](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.11...auroraview-v0.3.12) (2025-12-14)
 
 
