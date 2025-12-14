@@ -301,9 +301,7 @@ impl OverlayReader {
     /// Extract assets from a tar archive using streaming zstd decoder
     ///
     /// This avoids loading the entire decompressed tar into memory at once.
-    fn extract_assets_streaming(
-        compressed_data: &[u8],
-    ) -> PackResult<Vec<(String, Vec<u8>)>> {
+    fn extract_assets_streaming(compressed_data: &[u8]) -> PackResult<Vec<(String, Vec<u8>)>> {
         // Use streaming zstd decoder
         let decoder = zstd::stream::Decoder::new(compressed_data)
             .map_err(|e| PackError::Compression(e.to_string()))?;

@@ -85,7 +85,10 @@ fn start_webview2_warmup() {
                 let duration = start.elapsed();
                 match result {
                     Ok(_) => {
-                        tracing::info!("[warmup] WebView2 warmup complete in {}ms", duration.as_millis());
+                        tracing::info!(
+                            "[warmup] WebView2 warmup complete in {}ms",
+                            duration.as_millis()
+                        );
                     }
                     Err(e) => {
                         tracing::warn!("[warmup] WebView2 warmup failed: {:?}", e);
@@ -120,7 +123,10 @@ struct PythonBackend {
 impl PythonBackend {
     /// Send a JSON-RPC request to Python backend
     fn send_request(&self, request: &str) -> Result<()> {
-        let mut stdin = self.stdin.lock().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+        let mut stdin = self
+            .stdin
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
         writeln!(stdin, "{}", request)?;
         stdin.flush()?;
         Ok(())
@@ -224,26 +230,35 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
     let proxy = event_loop.create_proxy();
 
     // Create PluginRouter for handling native plugin commands
-    let plugin_router = Arc::new(RwLock::new(PluginRouter::with_scope(ScopeConfig::permissive())));
+    let plugin_router = Arc::new(RwLock::new(PluginRouter::with_scope(
+        ScopeConfig::permissive(),
+    )));
 
     // Set up event callback for plugins to emit events to WebView
     let proxy_for_events = proxy.clone();
     {
         let router = plugin_router.read().unwrap();
-        router.set_event_callback(Arc::new(move |event_name: &str, data: serde_json::Value| {
-            let data_str = serde_json::to_string(&data).unwrap_or_default();
-            let _ = proxy_for_events.send_event(UserEvent::PluginEvent {
-                event: event_name.to_string(),
-                data: data_str,
-            });
-        }));
+        router.set_event_callback(Arc::new(
+            move |event_name: &str, data: serde_json::Value| {
+                let data_str = serde_json::to_string(&data).unwrap_or_default();
+                let _ = proxy_for_events.send_event(UserEvent::PluginEvent {
+                    event: event_name.to_string(),
+                    data: data_str,
+                });
+            },
+        ));
     }
 
     // For FullStack mode, start Python backend BEFORE creating window
     // This allows Python to initialize while the window is being created
     let python_backend = if let PackMode::FullStack { ref python, .. } = config.mode {
         tracing::info!("Starting Python backend before window creation...");
-        Some(start_python_backend_with_ipc(&overlay, python, proxy.clone(), &mut metrics)?)
+        Some(start_python_backend_with_ipc(
+            &overlay,
+            python,
+            proxy.clone(),
+            &mut metrics,
+        )?)
     } else {
         None
     };
@@ -389,7 +404,10 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
     metrics.mark_total();
 
     // Log performance report
-    tracing::info!("Startup completed in {:.2}ms", metrics.elapsed().as_secs_f64() * 1000.0);
+    tracing::info!(
+        "Startup completed in {:.2}ms",
+        metrics.elapsed().as_secs_f64() * 1000.0
+    );
     // Always log performance report for debugging startup issues
     metrics.log_report();
 
@@ -493,7 +511,8 @@ fn build_packed_init_script(is_fullstack: bool) -> String {
 
     // Register API methods for fullstack mode
     if is_fullstack {
-        script.push_str(r#"
+        script.push_str(
+            r#"
 // Register Gallery API methods
 (function() {
     if (window.auroraview && window.auroraview._registerApiMethods) {
@@ -510,7 +529,8 @@ fn build_packed_init_script(is_fullstack: bool) -> String {
         console.log('[AuroraView] Registered Gallery API methods');
     }
 })();
-"#);
+"#,
+        );
     }
 
     script
@@ -543,9 +563,16 @@ fn handle_ipc_message(
     match msg_type {
         "call" => {
             // Handle API call
-            let id = msg.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let id = msg
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let method = msg.get("method").and_then(|v| v.as_str()).unwrap_or("");
-            let params = msg.get("params").cloned().unwrap_or(serde_json::Value::Null);
+            let params = msg
+                .get("params")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
 
             tracing::debug!("API call: {} (id: {})", method, id);
 
@@ -587,7 +614,11 @@ fn handle_ipc_message(
             let plugin = msg.get("plugin").and_then(|v| v.as_str()).unwrap_or("");
             let command = msg.get("command").and_then(|v| v.as_str()).unwrap_or("");
             let args = msg.get("args").cloned().unwrap_or(serde_json::Value::Null);
-            let id = msg.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let id = msg
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
 
             tracing::debug!("Plugin call: {}|{} (id: {})", plugin, command, id);
 
@@ -801,8 +832,14 @@ fn start_python_backend_with_ipc(
     );
 
     // Take ownership of stdin and stdout
-    let stdin = child.stdin.take().ok_or_else(|| anyhow::anyhow!("Failed to get stdin"))?;
-    let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("Failed to get stdout"))?;
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("Failed to get stdin"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("Failed to get stdout"))?;
 
     let stdin = Arc::new(Mutex::new(stdin));
 

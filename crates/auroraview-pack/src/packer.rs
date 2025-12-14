@@ -667,7 +667,11 @@ impl Packer {
                     .unwrap_or("unknown");
                 let content = fs::read(bin_path)?;
                 overlay.add_asset(format!("python/bin/{}", name), content);
-                tracing::debug!("Bundled external binary: {} -> python/bin/{}", bin_path.display(), name);
+                tracing::debug!(
+                    "Bundled external binary: {} -> python/bin/{}",
+                    bin_path.display(),
+                    name
+                );
                 count += 1;
             } else if bin_path.is_dir() {
                 // Bundle all executables in directory
@@ -679,7 +683,10 @@ impl Packer {
                     let rel_path = entry.path().strip_prefix(bin_path).unwrap_or(entry.path());
                     let content = fs::read(entry.path())?;
                     overlay.add_asset(
-                        format!("python/bin/{}", rel_path.to_string_lossy().replace('\\', "/")),
+                        format!(
+                            "python/bin/{}",
+                            rel_path.to_string_lossy().replace('\\', "/")
+                        ),
                         content,
                     );
                     count += 1;
