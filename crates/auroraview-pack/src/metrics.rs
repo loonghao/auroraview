@@ -166,7 +166,10 @@ impl PackedMetrics {
     pub fn report(&self) -> String {
         let mut lines = Vec::new();
         lines.push("=== Packed App Startup Performance ===".to_string());
-        lines.push(format!("Total elapsed: {}", Self::format_duration(self.elapsed())));
+        lines.push(format!(
+            "Total elapsed: {}",
+            Self::format_duration(self.elapsed())
+        ));
         lines.push(String::new());
 
         // Main phases

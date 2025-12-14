@@ -220,7 +220,9 @@ fn test_get_package_path_nonexistent() {
     let collector = DepsCollector::new();
 
     // Nonexistent package should return None
-    let result = collector.get_package_path("nonexistent_package_xyz123").unwrap();
+    let result = collector
+        .get_package_path("nonexistent_package_xyz123")
+        .unwrap();
     assert!(result.is_none());
 }
 
@@ -450,10 +452,7 @@ fn test_collect_package_with_native_extension() {
 
         // Native packages should have binary files
         // Note: This may not always be true depending on the package structure
-        println!(
-            "Package {} has binary files: {}",
-            package, has_binary
-        );
+        println!("Package {} has binary files: {}", package, has_binary);
     }
 }
 

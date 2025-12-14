@@ -104,6 +104,7 @@ pub use manifest::{
     PackageConfig, PyOxidizerManifestConfig, PythonConfig, RuntimeConfig, StartPosition,
     WindowConfig as ManifestWindowConfig, WindowsBundleConfig,
 };
+pub use metrics::PackedMetrics;
 pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};
 pub use packer::Packer;
 pub use pyoxidizer::{
@@ -114,7 +115,6 @@ pub use python_standalone::{
     extract_runtime, get_runtime_cache_dir, PythonRuntimeMeta, PythonStandalone,
     PythonStandaloneConfig, PythonTarget,
 };
-pub use metrics::PackedMetrics;
 
 /// Alias for backward compatibility with CLI
 pub type PackGenerator = Packer;
