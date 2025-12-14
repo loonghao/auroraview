@@ -321,4 +321,3 @@ impl<'a> Drop for ScopedTimer<'a> {
             .push((self.name.clone(), self.start.elapsed()));
     }
 }
-

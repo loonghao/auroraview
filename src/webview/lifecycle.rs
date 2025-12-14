@@ -168,5 +168,3 @@ impl Default for LifecycleManager {
         Self::new()
     }
 }
-
-

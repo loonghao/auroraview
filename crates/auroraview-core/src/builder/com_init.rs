@@ -61,5 +61,3 @@ pub fn init_com_sta() -> ComInitResult {
     // COM is Windows-only, no-op on other platforms
     ComInitResult::Initialized
 }
-
-

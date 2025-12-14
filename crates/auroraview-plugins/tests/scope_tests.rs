@@ -134,9 +134,7 @@ mod shell_scope {
 
     #[test]
     fn test_shell_scope_deny_takes_precedence() {
-        let scope = ShellScope::new()
-            .allow_command("rm")
-            .deny_command("rm");
+        let scope = ShellScope::new().allow_command("rm").deny_command("rm");
 
         assert!(!scope.is_command_allowed("rm"));
     }

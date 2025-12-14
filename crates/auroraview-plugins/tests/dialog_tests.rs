@@ -2,7 +2,9 @@
 //!
 //! Tests for DialogPlugin commands and options.
 
-use auroraview_plugins::dialog::{DialogPlugin, FileDialogOptions, FileFilter, MessageDialogOptions};
+use auroraview_plugins::dialog::{
+    DialogPlugin, FileDialogOptions, FileFilter, MessageDialogOptions,
+};
 use auroraview_plugins::{PluginHandler, ScopeConfig};
 
 #[test]

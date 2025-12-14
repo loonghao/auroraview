@@ -3,8 +3,7 @@
 //! Tests for ShellPlugin commands and options.
 
 use auroraview_plugins::shell::{
-    EnvOptions, ExecuteOptions, ExecuteResult, OpenOptions, PathOptions, ShellPlugin,
-    WhichOptions,
+    EnvOptions, ExecuteOptions, ExecuteResult, OpenOptions, PathOptions, ShellPlugin, WhichOptions,
 };
 use auroraview_plugins::{PluginHandler, ScopeConfig};
 

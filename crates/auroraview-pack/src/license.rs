@@ -319,5 +319,3 @@ fn get_fallback_machine_id() -> String {
         .map(|h| h.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string())
 }
-
-

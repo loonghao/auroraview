@@ -178,5 +178,3 @@ impl BundleBuilder {
         false
     }
 }
-
-

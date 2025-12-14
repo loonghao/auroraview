@@ -79,11 +79,7 @@ fn test_clipboard_has_text() {
     let scope = ScopeConfig::new();
 
     // Write text first
-    let _ = plugin.handle(
-        "write_text",
-        serde_json::json!({ "text": "test" }),
-        &scope,
-    );
+    let _ = plugin.handle("write_text", serde_json::json!({ "text": "test" }), &scope);
 
     // Check has_text
     let result = plugin.handle("has_text", serde_json::json!({}), &scope);
@@ -99,11 +95,7 @@ fn test_clipboard_clear() {
     let scope = ScopeConfig::new();
 
     // Write text first
-    let _ = plugin.handle(
-        "write_text",
-        serde_json::json!({ "text": "test" }),
-        &scope,
-    );
+    let _ = plugin.handle("write_text", serde_json::json!({ "text": "test" }), &scope);
 
     // Clear
     let result = plugin.handle("clear", serde_json::json!({}), &scope);

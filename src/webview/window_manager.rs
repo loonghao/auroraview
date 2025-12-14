@@ -250,5 +250,3 @@ impl Default for WindowManager {
         Self::new()
     }
 }
-
-

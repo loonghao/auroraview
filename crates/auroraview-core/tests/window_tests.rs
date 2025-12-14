@@ -1,7 +1,7 @@
 //! Window module tests
 
-use auroraview_core::window::WindowInfo;
 use active_win_pos_rs::{ActiveWindow, WindowPosition};
+use auroraview_core::window::WindowInfo;
 use std::path::PathBuf;
 
 #[test]

@@ -190,5 +190,3 @@ impl DragDropEventData {
         }
     }
 }
-
-

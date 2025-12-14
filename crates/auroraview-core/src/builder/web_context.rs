@@ -61,5 +61,3 @@ pub fn create_web_context(config: &WebContextConfig) -> WebContext {
         WebContext::default()
     }
 }
-
-

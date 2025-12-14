@@ -27,5 +27,3 @@ pub fn log_background_color(color: (u8, u8, u8, u8)) {
         color.2
     );
 }
-
-

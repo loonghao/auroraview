@@ -32,7 +32,7 @@ fn test_port_allocator_default() {
     let allocator = PortAllocator::default();
     let port = allocator.find_free_port().unwrap();
     // Default starts at 9001, max 100 attempts, so port should be in [9001, 9101)
-    assert!(port >= 9001 && port < 9101);
+    assert!((9001..9101).contains(&port));
 }
 
 #[rstest]

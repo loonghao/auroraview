@@ -1,11 +1,11 @@
 //! Assets tests
 
 use auroraview_core::assets::{
-    build_error_page, build_load_url_script, get_bridge_stub_js, get_browsing_data_js,
-    get_channel_bridge_js, get_dom_events_js, get_error_html, get_event_bridge_js,
-    get_event_utils_js, get_file_drop_js, get_loading_html, get_navigation_api_js,
-    get_navigation_tracker_js, get_network_intercept_js, get_plugin_js, get_screenshot_js,
-    get_state_bridge_js, get_zoom_api_js, plugin_names, get_all_plugins_js, get_js_asset,
+    build_error_page, build_load_url_script, get_all_plugins_js, get_bridge_stub_js,
+    get_browsing_data_js, get_channel_bridge_js, get_dom_events_js, get_error_html,
+    get_event_bridge_js, get_event_utils_js, get_file_drop_js, get_js_asset, get_loading_html,
+    get_navigation_api_js, get_navigation_tracker_js, get_network_intercept_js, get_plugin_js,
+    get_screenshot_js, get_state_bridge_js, get_zoom_api_js, plugin_names,
 };
 
 #[test]

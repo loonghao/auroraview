@@ -237,8 +237,12 @@ fn test_build_module_search_paths_expands_variables() {
         "$SITE_PACKAGES".to_string(),
     ];
 
-    let result =
-        build_module_search_paths(&config_paths, &extract_dir, &resources_dir, &site_packages_dir);
+    let result = build_module_search_paths(
+        &config_paths,
+        &extract_dir,
+        &resources_dir,
+        &site_packages_dir,
+    );
 
     // All paths should exist and be included
     assert_eq!(result.len(), 3);
@@ -261,8 +265,12 @@ fn test_build_module_search_paths_filters_nonexistent() {
     let resources_dir = PathBuf::from("/tmp");
     let site_packages_dir = PathBuf::from("/tmp");
 
-    let result =
-        build_module_search_paths(&config_paths, &extract_dir, &resources_dir, &site_packages_dir);
+    let result = build_module_search_paths(
+        &config_paths,
+        &extract_dir,
+        &resources_dir,
+        &site_packages_dir,
+    );
 
     // Non-existent paths should be filtered out
     assert!(result.is_empty());
