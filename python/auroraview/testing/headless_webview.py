@@ -12,6 +12,9 @@ in headless/CI environments:
 3. **WebView2 CDP Mode** (Windows): Connects to WebView2 via Chrome
    DevTools Protocol for real WebView2 testing.
 
+4. **Edge WebDriver Mode** (Windows): Uses Microsoft Edge WebDriver
+   for Selenium-based testing with real Edge/WebView2.
+
 Example (Playwright - recommended):
     ```python
     from auroraview.testing.headless_webview import HeadlessWebView
@@ -41,10 +44,21 @@ Example (WebView2 CDP - Windows):
         webview.goto("https://example.com")
     ```
 
+Example (Edge WebDriver - Windows):
+    ```python
+    from auroraview.testing.headless_webview import HeadlessWebView
+
+    # Requires: pip install selenium, msedgedriver in PATH
+    with HeadlessWebView.edge_webdriver(headless=True) as webview:
+        webview.goto("https://example.com")
+        assert webview.text("h1") == "Example Domain"
+    ```
+
 References:
     - https://crates.io/crates/headless_webview
     - https://github.com/tauri-apps/wry/discussions/761
     - https://tauri.app/develop/tests/webdriver/ci/
+    - https://learn.microsoft.com/en-us/microsoft-edge/webdriver/
 """
 
 from __future__ import annotations
@@ -460,6 +474,167 @@ class WebView2CDPWebView(HeadlessWebViewBase):
         logger.info("WebView2 CDP connection closed")
 
 
+class EdgeWebDriverWebView(HeadlessWebViewBase):
+    """Headless WebView using Microsoft Edge WebDriver (Selenium).
+
+    This mode uses Selenium with Microsoft Edge WebDriver for testing.
+    It provides real Edge/WebView2 behavior and is useful for
+    compatibility testing.
+
+    Requires:
+        - pip install selenium
+        - msedgedriver in PATH (download from Microsoft Edge WebDriver page)
+
+    Reference:
+        https://learn.microsoft.com/en-us/microsoft-edge/webdriver/
+    """
+
+    def __init__(self, options: HeadlessOptions, headless: bool = True, edge_args: Optional[list] = None):
+        super().__init__(options)
+        self._headless = headless
+        self._edge_args = edge_args or []
+        self._driver = None
+        self._start()
+
+    def _start(self):
+        """Start Edge WebDriver."""
+        try:
+            from selenium import webdriver
+            from selenium.webdriver.edge.options import Options as EdgeOptions
+            from selenium.webdriver.edge.service import Service as EdgeService
+        except ImportError as err:
+            raise RuntimeError(
+                "Selenium not installed. Run: pip install selenium"
+            ) from err
+
+        logger.info("Starting Edge WebDriver")
+
+        edge_options = EdgeOptions()
+
+        if self._headless:
+            edge_options.add_argument("--headless=new")
+
+        # Common useful arguments
+        edge_options.add_argument(f"--window-size={self._options.width},{self._options.height}")
+        edge_options.add_argument("--disable-gpu")
+        edge_options.add_argument("--no-sandbox")
+        edge_options.add_argument("--disable-dev-shm-usage")
+
+        # Add custom arguments
+        for arg in self._edge_args:
+            edge_options.add_argument(arg)
+
+        # Try to find msedgedriver
+        msedgedriver_path = shutil.which("msedgedriver")
+        if msedgedriver_path:
+            service = EdgeService(executable_path=msedgedriver_path)
+            self._driver = webdriver.Edge(service=service, options=edge_options)
+        else:
+            # Let Selenium try to find it
+            self._driver = webdriver.Edge(options=edge_options)
+
+        self._driver.set_page_load_timeout(self._options.timeout)
+        self._driver.implicitly_wait(self._options.timeout)
+
+        # Inject AuroraView bridge if enabled
+        if self._options.inject_bridge:
+            self._inject_bridge()
+
+        logger.info("Edge WebDriver started")
+
+    def _inject_bridge(self):
+        """Inject AuroraView bridge script on page load."""
+        # We'll inject on each navigation
+        pass
+
+    def _ensure_bridge(self):
+        """Ensure bridge is injected in current page."""
+        if self._options.inject_bridge:
+            try:
+                # Check if bridge already exists
+                has_bridge = self._driver.execute_script("return !!window.auroraview")
+                if not has_bridge:
+                    self._driver.execute_script(_get_bridge_script())
+            except Exception:
+                pass
+
+    def goto(self, url: str) -> None:
+        self._driver.get(url)
+        self._ensure_bridge()
+
+    def load_html(self, html: str) -> None:
+        # Use data URL for HTML content
+        import base64
+        encoded = base64.b64encode(html.encode()).decode()
+        self._driver.get(f"data:text/html;base64,{encoded}")
+        self._ensure_bridge()
+
+    def click(self, selector: str) -> None:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+
+        element = WebDriverWait(self._driver, self._options.timeout).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+        )
+        element.click()
+
+    def fill(self, selector: str, value: str) -> None:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+
+        element = WebDriverWait(self._driver, self._options.timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+        )
+        element.clear()
+        element.send_keys(value)
+
+    def text(self, selector: str) -> str:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+
+        element = WebDriverWait(self._driver, self._options.timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+        )
+        return element.text
+
+    def evaluate(self, script: str) -> Any:
+        return self._driver.execute_script(f"return {script}")
+
+    def screenshot(self, path: str) -> None:
+        self._driver.save_screenshot(path)
+
+    def wait_for_selector(self, selector: str, timeout: Optional[float] = None) -> None:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+
+        t = timeout or self._options.timeout
+        WebDriverWait(self._driver, t).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+        )
+
+    @property
+    def driver(self):
+        """Get the Selenium WebDriver for advanced operations."""
+        return self._driver
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+
+        if self._driver:
+            try:
+                self._driver.quit()
+            except Exception as e:
+                logger.warning(f"Error closing Edge WebDriver: {e}")
+
+        logger.info("Edge WebDriver closed")
+
+
 class HeadlessWebView:
     """Factory class for creating headless WebView instances.
 
@@ -478,6 +653,10 @@ class HeadlessWebView:
 
         # WebView2 CDP mode (Windows)
         with HeadlessWebView.webview2_cdp("http://localhost:9222") as webview:
+            webview.goto("https://example.com")
+
+        # Edge WebDriver mode (Windows)
+        with HeadlessWebView.edge_webdriver(headless=True) as webview:
             webview.goto("https://example.com")
 
         # Auto-detect best mode
@@ -565,6 +744,49 @@ class HeadlessWebView:
         return WebView2CDPWebView(options, cdp_url=cdp_url)
 
     @staticmethod
+    def edge_webdriver(
+        timeout: float = 30.0,
+        width: int = 1280,
+        height: int = 720,
+        headless: bool = True,
+        inject_bridge: bool = True,
+        edge_args: Optional[list] = None,
+        **kwargs,
+    ) -> EdgeWebDriverWebView:
+        """Create an Edge WebDriver-based headless WebView.
+
+        Uses Microsoft Edge WebDriver (Selenium) for testing with real
+        Edge browser behavior. Useful for WebView2 compatibility testing.
+
+        Args:
+            timeout: Default timeout in seconds.
+            width: Viewport width.
+            height: Viewport height.
+            headless: Run in headless mode.
+            inject_bridge: Inject AuroraView bridge script.
+            edge_args: Additional Edge command-line arguments.
+            **kwargs: Additional options.
+
+        Returns:
+            EdgeWebDriverWebView instance.
+
+        Requires:
+            - pip install selenium
+            - msedgedriver in PATH
+
+        Reference:
+            https://learn.microsoft.com/en-us/microsoft-edge/webdriver/
+        """
+        options = HeadlessOptions(
+            timeout=timeout,
+            width=width,
+            height=height,
+            inject_bridge=inject_bridge,
+            **kwargs,
+        )
+        return EdgeWebDriverWebView(options, headless=headless, edge_args=edge_args)
+
+    @staticmethod
     def auto(
         timeout: float = 30.0,
         width: int = 1280,
@@ -575,8 +797,9 @@ class HeadlessWebView:
 
         Detection order:
         1. If WEBVIEW2_CDP_URL env var is set, use WebView2 CDP
-        2. If on Linux with Xvfb available, use virtual display
-        3. Otherwise, use Playwright (default)
+        2. If AURORAVIEW_USE_EDGE env var is set, use Edge WebDriver
+        3. If on Linux with Xvfb available and AURORAVIEW_USE_XVFB is set, use virtual display
+        4. Otherwise, use Playwright (default)
 
         Args:
             timeout: Default timeout in seconds.
@@ -592,6 +815,13 @@ class HeadlessWebView:
         if cdp_url:
             logger.info(f"Using WebView2 CDP mode: {cdp_url}")
             return HeadlessWebView.webview2_cdp(cdp_url, timeout=timeout, **kwargs)
+
+        # Check for Edge WebDriver preference
+        if os.environ.get("AURORAVIEW_USE_EDGE", "").lower() in ("1", "true", "yes"):
+            logger.info("Using Edge WebDriver mode")
+            return HeadlessWebView.edge_webdriver(
+                timeout=timeout, width=width, height=height, **kwargs
+            )
 
         # Check for Xvfb on Linux
         if platform.system() == "Linux" and shutil.which("Xvfb"):
@@ -683,7 +913,7 @@ def headless_webview(
     """Context manager for headless WebView testing.
 
     Args:
-        mode: One of "auto", "playwright", "xvfb", "cdp".
+        mode: One of "auto", "playwright", "xvfb", "cdp", "edge".
         **kwargs: Options passed to the WebView constructor.
 
     Yields:
@@ -696,6 +926,10 @@ def headless_webview(
         with headless_webview() as webview:
             webview.goto("https://example.com")
             assert webview.text("h1") == "Example Domain"
+
+        # Use Edge WebDriver
+        with headless_webview(mode="edge") as webview:
+            webview.goto("https://example.com")
         ```
     """
     if mode == "auto":
@@ -707,8 +941,10 @@ def headless_webview(
     elif mode == "cdp":
         cdp_url = kwargs.pop("cdp_url", os.environ.get("WEBVIEW2_CDP_URL", "http://localhost:9222"))
         webview = HeadlessWebView.webview2_cdp(cdp_url, **kwargs)
+    elif mode == "edge":
+        webview = HeadlessWebView.edge_webdriver(**kwargs)
     else:
-        raise ValueError(f"Unknown mode: {mode}")
+        raise ValueError(f"Unknown mode: {mode}. Valid modes: auto, playwright, xvfb, cdp, edge")
 
     try:
         yield webview

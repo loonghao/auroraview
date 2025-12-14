@@ -56,6 +56,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "xvfb: mark test to use Xvfb virtual display (Linux only)")
     config.addinivalue_line("markers", "playwright: mark test to use Playwright browser")
     config.addinivalue_line("markers", "webview2_cdp: mark test to use WebView2 CDP connection")
+    config.addinivalue_line("markers", "edge_webdriver: mark test to use Edge WebDriver (Selenium)")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -63,6 +64,8 @@ def pytest_collection_modifyitems(config, items):
     skip_xvfb = pytest.mark.skip(reason="Xvfb only available on Linux")
     skip_no_xvfb = pytest.mark.skip(reason="Xvfb not installed")
     skip_no_playwright = pytest.mark.skip(reason="Playwright not installed")
+    skip_no_selenium = pytest.mark.skip(reason="Selenium not installed")
+    skip_no_edge = pytest.mark.skip(reason="Edge WebDriver not available")
 
     for item in items:
         # Skip Xvfb tests on non-Linux
@@ -76,6 +79,13 @@ def pytest_collection_modifyitems(config, items):
         if "playwright" in item.keywords:
             if not _has_playwright():
                 item.add_marker(skip_no_playwright)
+
+        # Skip Edge WebDriver tests if not available
+        if "edge_webdriver" in item.keywords:
+            if not _has_selenium():
+                item.add_marker(skip_no_selenium)
+            elif not _has_edge_webdriver():
+                item.add_marker(skip_no_edge)
 
 
 def _has_xvfb() -> bool:
@@ -93,6 +103,23 @@ def _has_playwright() -> bool:
         return importlib.util.find_spec("playwright") is not None
     except (ImportError, ModuleNotFoundError):
         return False
+
+
+def _has_selenium() -> bool:
+    """Check if Selenium is installed."""
+    try:
+        import importlib.util
+
+        return importlib.util.find_spec("selenium") is not None
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+
+def _has_edge_webdriver() -> bool:
+    """Check if Edge WebDriver (msedgedriver) is available."""
+    import shutil
+
+    return shutil.which("msedgedriver") is not None
 
 
 @pytest.fixture(scope="function")
@@ -178,6 +205,34 @@ def webview2_cdp_webview() -> Generator["HeadlessWebViewBase", None, None]:
 
     cdp_url = os.environ.get("WEBVIEW2_CDP_URL", "http://localhost:9222")
     webview = HeadlessWebView.webview2_cdp(cdp_url)
+    try:
+        yield webview
+    finally:
+        webview.close()
+
+
+@pytest.fixture(scope="function")
+def edge_webdriver_webview() -> Generator["HeadlessWebViewBase", None, None]:
+    """Fixture providing Edge WebDriver-based headless WebView.
+
+    Uses Microsoft Edge WebDriver (Selenium) for testing with real
+    Edge browser behavior. Useful for WebView2 compatibility testing.
+
+    Requires:
+        - pip install selenium
+        - msedgedriver in PATH
+
+    Example:
+        ```python
+        @pytest.mark.edge_webdriver
+        def test_with_edge(edge_webdriver_webview):
+            edge_webdriver_webview.goto("https://example.com")
+            assert edge_webdriver_webview.text("h1") == "Example Domain"
+        ```
+    """
+    from .headless_webview import HeadlessWebView
+
+    webview = HeadlessWebView.edge_webdriver(headless=True)
     try:
         yield webview
     finally:
