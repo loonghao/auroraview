@@ -5,8 +5,6 @@ These tests verify the headless testing infrastructure works correctly.
 
 import os
 import platform
-import signal
-import sys
 
 import pytest
 
