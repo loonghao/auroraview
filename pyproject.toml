@@ -45,6 +45,7 @@ test = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "pytest-asyncio>=0.21.0",
+    "pytest-timeout>=2.0.0",
     "coverage[toml]>=7.0",
     "websockets>=10.0",
     "playwright>=1.40.0; python_version>='3.8'",
@@ -121,11 +122,13 @@ strict_optional = true
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --cov=auroraview --cov-report=term-missing --cov-report=html --cov-report=xml"
+addopts = "-ra -q --strict-markers --cov=auroraview --cov-report=term-missing --cov-report=html --cov-report=xml --timeout=60"
 testpaths = ["tests/python/unit", "tests/python/integration"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+timeout = 60
+timeout_method = "thread"
 markers = [
     "unit: Unit tests",
     "integration: Integration tests",
@@ -134,6 +137,7 @@ markers = [
     "maya: Maya-specific tests",
     "qt: Qt-specific tests",
     "headless: Headless tests (no display required)",
+    "e2e: End-to-end tests",
 ]
 
 # Coverage configuration

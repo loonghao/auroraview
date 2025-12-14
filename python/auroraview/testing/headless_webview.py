@@ -489,7 +489,9 @@ class EdgeWebDriverWebView(HeadlessWebViewBase):
         https://learn.microsoft.com/en-us/microsoft-edge/webdriver/
     """
 
-    def __init__(self, options: HeadlessOptions, headless: bool = True, edge_args: Optional[list] = None):
+    def __init__(
+        self, options: HeadlessOptions, headless: bool = True, edge_args: Optional[list] = None
+    ):
         super().__init__(options)
         self._headless = headless
         self._edge_args = edge_args or []
@@ -503,9 +505,7 @@ class EdgeWebDriverWebView(HeadlessWebViewBase):
             from selenium.webdriver.edge.options import Options as EdgeOptions
             from selenium.webdriver.edge.service import Service as EdgeService
         except ImportError as err:
-            raise RuntimeError(
-                "Selenium not installed. Run: pip install selenium"
-            ) from err
+            raise RuntimeError("Selenium not installed. Run: pip install selenium") from err
 
         logger.info("Starting Edge WebDriver")
 
@@ -565,6 +565,7 @@ class EdgeWebDriverWebView(HeadlessWebViewBase):
     def load_html(self, html: str) -> None:
         # Use data URL for HTML content
         import base64
+
         encoded = base64.b64encode(html.encode()).decode()
         self._driver.get(f"data:text/html;base64,{encoded}")
         self._ensure_bridge()

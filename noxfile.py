@@ -16,13 +16,14 @@ def pytest(session):
     This tests the error handling when Qt is not installed.
     """
     session.install(".")
-    session.install("pytest", "pytest-cov")
+    session.install("pytest", "pytest-cov", "pytest-timeout")
     session.run(
         "pytest",
         "tests/python/integration/test_qt_import_error.py",
         "-v",
         "--cov=auroraview",
         "--cov-report=term-missing",
+        "--timeout=60",
         *session.posargs,
     )
 
@@ -34,7 +35,7 @@ def pytest_qt(session):
     This tests the actual Qt backend functionality.
     """
     session.install(".[qt]")
-    session.install("pytest", "pytest-cov", "pytest-qt")
+    session.install("pytest", "pytest-cov", "pytest-qt", "pytest-timeout")
     session.run(
         "pytest",
         "tests/python/integration/test_qt_backend.py",
@@ -42,6 +43,7 @@ def pytest_qt(session):
         "-v",
         "--cov=auroraview",
         "--cov-report=term-missing",
+        "--timeout=60",
         *session.posargs,
     )
 
@@ -53,7 +55,7 @@ def pytest_all(session):
     This runs the complete test suite.
     """
     session.install(".[qt]")
-    session.install("pytest", "pytest-cov", "pytest-qt")
+    session.install("pytest", "pytest-cov", "pytest-qt", "pytest-timeout")
     session.run(
         "pytest",
         "tests/",
@@ -61,6 +63,7 @@ def pytest_all(session):
         "--cov=auroraview",
         "--cov-report=term-missing",
         "--cov-report=html",
+        "--timeout=60",
         *session.posargs,
     )
 
@@ -124,7 +127,7 @@ def docs_server(session):
 def coverage(session):
     """Generate coverage report."""
     session.install(".[qt]")
-    session.install("pytest", "pytest-cov", "coverage[toml]")
+    session.install("pytest", "pytest-cov", "coverage[toml]", "pytest-timeout")
     session.run(
         "pytest",
         "tests/",
@@ -133,6 +136,7 @@ def coverage(session):
         "--cov=auroraview",
         "--cov-report=html",
         "--cov-report=term-missing",
+        "--timeout=60",
     )
     session.run("coverage", "report")
 
