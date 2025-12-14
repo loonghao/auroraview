@@ -535,13 +535,91 @@ jobs:
         run: |
           python scripts/test_gallery_e2e.py
 
-      - name: Upload test screenshot
+      - name: Upload test screenshots
         if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: gallery-e2e-screenshot
+          name: gallery-e2e-screenshots
           path: test-screenshots/
           retention-days: 7
+
+      - name: Post screenshots to PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            const screenshotsDir = 'test-screenshots';
+            if (!fs.existsSync(screenshotsDir)) {
+              console.log('No screenshots directory found');
+              return;
+            }
+            
+            const files = fs.readdirSync(screenshotsDir).filter(f => f.endsWith('.png'));
+            if (files.length === 0) {
+              console.log('No screenshots found');
+              return;
+            }
+            
+            // Get artifact URL
+            const runId = context.runId;
+            const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
+            
+            // Build comment body
+            let body = '## 📸 Gallery E2E Screenshots\n\n';
+            body += `Screenshots from this PR's E2E tests. [View all artifacts](${artifactUrl})\n\n`;
+            body += '| Page | Screenshot |\n';
+            body += '|------|------------|\n';
+            
+            const pageNames = {
+              'gallery_home': '🏠 Home',
+              'gallery_getting_started': '🚀 Getting Started',
+              'gallery_api_patterns': '💻 API Patterns',
+              'gallery_window_features': '🪟 Window Features',
+              'gallery_settings': '⚙️ Settings'
+            };
+            
+            for (const file of files) {
+              const name = file.replace('.png', '');
+              const displayName = pageNames[name] || name;
+              body += `| ${displayName} | [View](${artifactUrl}) |\n`;
+            }
+            
+            body += '\n<details><summary>ℹ️ How to view screenshots</summary>\n\n';
+            body += '1. Click "View all artifacts" above\n';
+            body += '2. Scroll to "Artifacts" section\n';
+            body += '3. Download `gallery-e2e-screenshots`\n';
+            body += '</details>';
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const botComment = comments.find(c => 
+              c.user.type === 'Bot' && 
+              c.body.includes('Gallery E2E Screenshots')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
 
   # Gallery pack build test (ensures gallery packaging works)
   gallery-pack:

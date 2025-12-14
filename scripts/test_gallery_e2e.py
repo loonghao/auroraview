@@ -8,9 +8,12 @@ This script tests the Gallery frontend by:
 3. Injecting the AuroraView bridge
 4. Mocking the Python backend API responses
 5. Running UI tests
+6. Taking screenshots of different pages
 
 Usage:
     python scripts/test_gallery_e2e.py
+    python scripts/test_gallery_e2e.py --screenshots-only  # Only take screenshots
+    python scripts/test_gallery_e2e.py --update-assets     # Update assets/images/
     
 Requirements:
     pip install playwright
@@ -19,6 +22,7 @@ Requirements:
 
 from __future__ import annotations
 
+import argparse
 import http.server
 import json
 import socketserver
@@ -28,7 +32,18 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
 GALLERY_DIST = PROJECT_ROOT / "gallery" / "dist"
+SCREENSHOTS_DIR = PROJECT_ROOT / "test-screenshots"
+ASSETS_DIR = PROJECT_ROOT / "assets" / "images"
 SERVER_PORT = 8765
+
+# Screenshot configurations: (name, action_description, click_selector, wait_ms)
+SCREENSHOT_CONFIGS = [
+    ("gallery_home", "Home page", None, 2000),
+    ("gallery_getting_started", "Getting Started category", 'button[title*="Getting Started"]', 1000),
+    ("gallery_api_patterns", "API Patterns category", 'button[title*="API Patterns"]', 1000),
+    ("gallery_window_features", "Window Features category", 'button[title*="Window Features"]', 1000),
+    ("gallery_settings", "Settings dialog", 'button[title="Settings"]', 1500),
+]
 
 
 # Mock data for Gallery API
@@ -183,7 +198,54 @@ def start_http_server(port: int = SERVER_PORT) -> socketserver.TCPServer:
     return server
 
 
-def run_tests():
+def take_screenshots(page, output_dir: Path, update_assets: bool = False) -> list[str]:
+    """Take screenshots of different Gallery pages.
+    
+    Returns list of screenshot paths.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    screenshots = []
+    
+    for name, description, selector, wait_ms in SCREENSHOT_CONFIGS:
+        try:
+            # Click the element if selector is provided
+            if selector:
+                # First go back to home to reset state
+                page.goto(f"http://localhost:{SERVER_PORT}/index.html", wait_until="networkidle")
+                page.wait_for_timeout(1500)
+                
+                # Try to click the element
+                element = page.query_selector(selector)
+                if element:
+                    element.click()
+                    page.wait_for_timeout(wait_ms)
+                else:
+                    print(f"  [WARN] Selector not found: {selector}")
+                    continue
+            else:
+                page.wait_for_timeout(wait_ms)
+            
+            # Take screenshot
+            screenshot_path = output_dir / f"{name}.png"
+            page.screenshot(path=str(screenshot_path))
+            screenshots.append(str(screenshot_path))
+            print(f"  ✓ {description}: {screenshot_path.name}")
+            
+            # Also copy to assets if requested
+            if update_assets:
+                asset_path = ASSETS_DIR / f"{name}.png"
+                asset_path.parent.mkdir(parents=True, exist_ok=True)
+                import shutil
+                shutil.copy(screenshot_path, asset_path)
+                print(f"    → Updated: {asset_path.relative_to(PROJECT_ROOT)}")
+                
+        except Exception as e:
+            print(f"  ✗ {description}: {e}")
+    
+    return screenshots
+
+
+def run_tests(screenshots_only: bool = False, update_assets: bool = False):
     """Run Gallery E2E tests using Playwright."""
     try:
         from playwright.sync_api import sync_playwright
@@ -201,7 +263,8 @@ def run_tests():
     results = {
         "passed": 0,
         "failed": 0,
-        "tests": []
+        "tests": [],
+        "screenshots": []
     }
     
     def test(name: str, condition: bool, details: str = ""):
@@ -235,145 +298,119 @@ def run_tests():
             
             try:
                 page.goto(gallery_url, wait_until="networkidle", timeout=30000)
-                test("Page loads successfully", True)
+                if not screenshots_only:
+                    test("Page loads successfully", True)
             except Exception as e:
-                test("Page loads successfully", False, str(e))
+                if not screenshots_only:
+                    test("Page loads successfully", False, str(e))
                 browser.close()
                 return 1
             
-            # Test 1: AuroraView bridge is available
-            try:
-                has_bridge = page.evaluate("typeof window.auroraview === 'object'")
-                test("AuroraView bridge available", has_bridge)
-            except Exception as e:
-                test("AuroraView bridge available", False, str(e))
-            
-            # Test 2: API proxy is available
-            try:
-                has_api = page.evaluate("typeof window.auroraview?.api === 'object'")
-                test("API proxy available", has_api)
-            except Exception as e:
-                test("API proxy available", False, str(e))
-            
-            # Test 3: React root element exists
-            try:
-                has_root = page.evaluate("document.getElementById('root') !== null")
-                test("React root element exists", has_root)
-            except Exception as e:
-                test("React root element exists", False, str(e))
-            
-            # Wait for React to render and data to load
+            # Wait for React to render
             page.wait_for_timeout(3000)
             
-            # Check for console errors
-            console_messages = []
-            page.on("console", lambda msg: console_messages.append(f"{msg.type}: {msg.text}"))
-            page.on("pageerror", lambda err: console_messages.append(f"ERROR: {err}"))
+            if not screenshots_only:
+                # Run all tests
+                # Test 1: AuroraView bridge is available
+                try:
+                    has_bridge = page.evaluate("typeof window.auroraview === 'object'")
+                    test("AuroraView bridge available", has_bridge)
+                except Exception as e:
+                    test("AuroraView bridge available", False, str(e))
+                
+                # Test 2: API proxy is available
+                try:
+                    has_api = page.evaluate("typeof window.auroraview?.api === 'object'")
+                    test("API proxy available", has_api)
+                except Exception as e:
+                    test("API proxy available", False, str(e))
+                
+                # Test 3: React root element exists
+                try:
+                    has_root = page.evaluate("document.getElementById('root') !== null")
+                    test("React root element exists", has_root)
+                except Exception as e:
+                    test("React root element exists", False, str(e))
+                
+                # Test 4: Check page title
+                try:
+                    title = page.title()
+                    test("Page has title", len(title) > 0, f"Title: {title}")
+                except Exception as e:
+                    test("Page has title", False, str(e))
+                
+                # Test 5: Check for main content
+                try:
+                    body_text = page.evaluate("document.body.innerText.substring(0, 200)")
+                    has_content = len(body_text) > 10
+                    test("Page has content", has_content, f"Content preview: {body_text[:50]}...")
+                except Exception as e:
+                    test("Page has content", False, str(e))
+                
+                # Test 6: Event system works
+                try:
+                    result = page.evaluate("""
+                        (() => {
+                            let received = false;
+                            const unsub = window.auroraview.on('test_event', (data) => {
+                                received = data.value === 42;
+                            });
+                            window.auroraview.trigger('test_event', { value: 42 });
+                            unsub();
+                            return received;
+                        })()
+                    """)
+                    test("Event system works", result is True)
+                except Exception as e:
+                    test("Event system works", False, str(e))
+                
+                # Test 7: API call returns Promise
+                try:
+                    result = page.evaluate("""
+                        (() => {
+                            const promise = window.auroraview.api.get_samples();
+                            return promise instanceof Promise;
+                        })()
+                    """)
+                    test("API call returns Promise", result is True)
+                except Exception as e:
+                    test("API call returns Promise", False, str(e))
+                
+                # Test 8: API call resolves with data
+                try:
+                    result = page.evaluate("""
+                        async () => {
+                            const samples = await window.auroraview.api.get_samples();
+                            return Array.isArray(samples) && samples.length > 0;
+                        }
+                    """)
+                    test("API call resolves with data", result is True)
+                except Exception as e:
+                    test("API call resolves with data", False, str(e))
+                
+                # Test 9: Check for sidebar or navigation
+                try:
+                    has_nav = page.evaluate("""
+                        (() => {
+                            const nav = document.querySelector('nav, aside, [class*="sidebar"], [class*="Sidebar"]');
+                            return nav !== null;
+                        })()
+                    """)
+                    test("Navigation/sidebar exists", has_nav)
+                except Exception as e:
+                    test("Navigation/sidebar exists", False, str(e))
+                
+                # Test 10: Check for buttons
+                try:
+                    button_count = page.evaluate("document.querySelectorAll('button').length")
+                    test("Buttons exist", button_count > 0, f"Found {button_count} buttons")
+                except Exception as e:
+                    test("Buttons exist", False, str(e))
             
-            # Reload to capture console messages
-            page.reload(wait_until="networkidle")
-            page.wait_for_timeout(3000)
-            
-            # Debug: Print console messages
-            if console_messages:
-                print(f"[DEBUG] Console messages:")
-                for msg in console_messages[:10]:
-                    print(f"  {msg[:100]}")
-            
-            # Debug: Print page content
-            try:
-                html_preview = page.evaluate("document.body.innerHTML.substring(0, 500)")
-                print(f"[DEBUG] Body HTML preview: {html_preview[:200]}...")
-            except Exception:
-                pass
-            
-            # Check if isReady is true
-            try:
-                is_ready = page.evaluate("window.auroraview !== undefined")
-                print(f"[DEBUG] AuroraView available: {is_ready}")
-            except Exception as e:
-                print(f"[DEBUG] Failed to check AuroraView: {e}")
-            
-            # Test 4: Check page title
-            try:
-                title = page.title()
-                test("Page has title", len(title) > 0, f"Title: {title}")
-            except Exception as e:
-                test("Page has title", False, str(e))
-            
-            # Test 5: Check for main content
-            try:
-                body_text = page.evaluate("document.body.innerText.substring(0, 200)")
-                has_content = len(body_text) > 10
-                test("Page has content", has_content, f"Content preview: {body_text[:50]}...")
-            except Exception as e:
-                test("Page has content", False, str(e))
-            
-            # Test 6: Event system works
-            try:
-                result = page.evaluate("""
-                    (() => {
-                        let received = false;
-                        const unsub = window.auroraview.on('test_event', (data) => {
-                            received = data.value === 42;
-                        });
-                        window.auroraview.trigger('test_event', { value: 42 });
-                        unsub();
-                        return received;
-                    })()
-                """)
-                test("Event system works", result is True)
-            except Exception as e:
-                test("Event system works", False, str(e))
-            
-            # Test 7: API call returns Promise
-            try:
-                result = page.evaluate("""
-                    (() => {
-                        const promise = window.auroraview.api.get_samples();
-                        return promise instanceof Promise;
-                    })()
-                """)
-                test("API call returns Promise", result is True)
-            except Exception as e:
-                test("API call returns Promise", False, str(e))
-            
-            # Test 8: API call resolves with data
-            try:
-                result = page.evaluate("""
-                    async () => {
-                        const samples = await window.auroraview.api.get_samples();
-                        return Array.isArray(samples) && samples.length > 0;
-                    }
-                """)
-                test("API call resolves with data", result is True)
-            except Exception as e:
-                test("API call resolves with data", False, str(e))
-            
-            # Test 9: Check for sidebar or navigation
-            try:
-                has_nav = page.evaluate("""
-                    (() => {
-                        const nav = document.querySelector('nav, aside, [class*="sidebar"], [class*="Sidebar"]');
-                        return nav !== null;
-                    })()
-                """)
-                test("Navigation/sidebar exists", has_nav)
-            except Exception as e:
-                test("Navigation/sidebar exists", False, str(e))
-            
-            # Test 10: Check for buttons
-            try:
-                button_count = page.evaluate("document.querySelectorAll('button').length")
-                test("Buttons exist", button_count > 0, f"Found {button_count} buttons")
-            except Exception as e:
-                test("Buttons exist", False, str(e))
-            
-            # Take a screenshot for debugging
-            screenshot_path = PROJECT_ROOT / "test-screenshots" / "gallery_e2e.png"
-            screenshot_path.parent.mkdir(exist_ok=True)
-            page.screenshot(path=str(screenshot_path))
-            print(f"\n[INFO] Screenshot saved to: {screenshot_path}")
+            # Take screenshots
+            print("\n[INFO] Taking screenshots...")
+            screenshots = take_screenshots(page, SCREENSHOTS_DIR, update_assets)
+            results["screenshots"] = screenshots
             
             browser.close()
     
@@ -383,11 +420,27 @@ def run_tests():
     
     # Print summary
     print(f"\n{'='*50}")
-    print(f"Test Results: {results['passed']} passed, {results['failed']} failed")
+    if not screenshots_only:
+        print(f"Test Results: {results['passed']} passed, {results['failed']} failed")
+    print(f"Screenshots: {len(results['screenshots'])} captured")
     print(f"{'='*50}")
     
     return 0 if results["failed"] == 0 else 1
 
 
+def main():
+    parser = argparse.ArgumentParser(description="Gallery E2E Tests")
+    parser.add_argument("--screenshots-only", action="store_true", 
+                        help="Only take screenshots, skip tests")
+    parser.add_argument("--update-assets", action="store_true",
+                        help="Update assets/images/ with new screenshots")
+    args = parser.parse_args()
+    
+    return run_tests(
+        screenshots_only=args.screenshots_only,
+        update_assets=args.update_assets
+    )
+
+
 if __name__ == "__main__":
-    sys.exit(run_tests())
+    sys.exit(main())
