@@ -126,7 +126,7 @@ impl PythonBackend {
     fn is_alive(&self) -> bool {
         if let Ok(mut process) = self.process.lock() {
             match process.try_wait() {
-                Ok(None) => true,  // Still running
+                Ok(None) => true, // Still running
                 Ok(Some(status)) => {
                     tracing::warn!("Python process exited with status: {:?}", status);
                     false
@@ -969,7 +969,10 @@ fn start_python_backend_with_ipc(
                         let _ = proxy.send_event(UserEvent::PythonReady);
                     }
                 } else {
-                    tracing::warn!("Failed to parse Python ready signal: {}", ready_line_trimmed);
+                    tracing::warn!(
+                        "Failed to parse Python ready signal: {}",
+                        ready_line_trimmed
+                    );
                     // Still notify ready to avoid hanging on loading screen
                     let _ = proxy.send_event(UserEvent::PythonReady);
                 }
