@@ -92,11 +92,12 @@ runs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-${{ inputs.target || 'default' }}-py${{ inputs.python-version }}-cargo-wheel-${{ hashFiles('Cargo.lock') }}
+        # Use sccache flag in cache key to avoid mixing sccache-built artifacts with non-sccache builds
+        # This prevents GLIBC incompatibility issues when sccache binaries are built on newer systems
+        key: ${{ runner.os }}-${{ inputs.target || 'default' }}-py${{ inputs.python-version }}-sccache${{ inputs.use-sccache }}-cargo-wheel-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-${{ inputs.target || 'default' }}-py${{ inputs.python-version }}-cargo-wheel-
-          ${{ runner.os }}-${{ inputs.target || 'default' }}-cargo-wheel-
-          ${{ runner.os }}-cargo-
+          ${{ runner.os }}-${{ inputs.target || 'default' }}-py${{ inputs.python-version }}-sccache${{ inputs.use-sccache }}-cargo-wheel-
+          ${{ runner.os }}-${{ inputs.target || 'default' }}-sccache${{ inputs.use-sccache }}-cargo-wheel-
 
     - name: Prefetch Cargo crates (retry)
       shell: bash
