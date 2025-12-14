@@ -243,8 +243,6 @@ impl Drop for Timer {
     }
 }
 
-
-
 // Note: Integration tests have been moved to tests/timer_integration_tests.rs
 // This includes tests for:
 // - Timer throttling with actual time delays

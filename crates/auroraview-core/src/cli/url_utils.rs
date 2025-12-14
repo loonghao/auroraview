@@ -39,5 +39,3 @@ pub fn normalize_url(url_str: &str) -> Result<String, UrlError> {
     let url = Url::parse(&with_scheme).map_err(|e| UrlError::InvalidUrl(e.to_string()))?;
     Ok(url.to_string())
 }
-
-

@@ -429,5 +429,3 @@ pub fn process_messages_enhanced(hwnd_value: u64) -> bool {
 pub fn process_messages_enhanced(_hwnd: u64) -> bool {
     false
 }
-
-

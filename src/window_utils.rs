@@ -135,5 +135,3 @@ pub fn register_window_utils(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<WindowInfo>()?;
     Ok(())
 }
-
-

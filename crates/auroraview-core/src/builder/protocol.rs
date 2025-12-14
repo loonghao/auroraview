@@ -45,5 +45,3 @@ impl ProtocolConfig {
         self.asset_root.is_some()
     }
 }
-
-

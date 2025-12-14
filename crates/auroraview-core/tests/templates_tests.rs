@@ -1,7 +1,9 @@
 //! Template tests
 
-use auroraview_core::templates::{ApiMethodEntry, ApiRegistrationTemplate, EmitEventTemplate, LoadUrlTemplate};
 use askama::Template;
+use auroraview_core::templates::{
+    ApiMethodEntry, ApiRegistrationTemplate, EmitEventTemplate, LoadUrlTemplate,
+};
 
 #[test]
 fn test_emit_event_template() {

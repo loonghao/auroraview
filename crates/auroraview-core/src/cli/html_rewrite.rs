@@ -103,5 +103,3 @@ pub fn rewrite_html_for_custom_protocol(html: &str) -> String {
 
     result
 }
-
-

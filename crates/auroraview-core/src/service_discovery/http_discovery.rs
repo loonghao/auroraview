@@ -146,5 +146,3 @@ impl Drop for HttpDiscovery {
         }
     }
 }
-
-

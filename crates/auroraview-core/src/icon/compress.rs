@@ -220,5 +220,3 @@ fn format_size(bytes: u64) -> String {
         format!("{} B", bytes)
     }
 }
-
-

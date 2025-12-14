@@ -240,5 +240,3 @@ pub enum TrayError {
     #[error("Failed to update tray: {0}")]
     UpdateFailed(String),
 }
-
-

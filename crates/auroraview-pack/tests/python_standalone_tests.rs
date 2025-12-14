@@ -1,6 +1,9 @@
 //! Tests for auroraview-pack python_standalone module
 
-use auroraview_pack::{get_runtime_cache_dir, PythonRuntimeMeta, PythonStandalone, PythonStandaloneConfig, PythonTarget};
+use auroraview_pack::{
+    get_runtime_cache_dir, PythonRuntimeMeta, PythonStandalone, PythonStandaloneConfig,
+    PythonTarget,
+};
 
 #[test]
 fn test_target_detection() {

@@ -848,5 +848,3 @@ impl WebViewEventHandler {
         should_close
     }
 }
-
-

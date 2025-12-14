@@ -531,5 +531,3 @@ Verify installation:
 pyoxidizer --version
 "#
 }
-
-

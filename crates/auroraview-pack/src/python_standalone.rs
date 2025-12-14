@@ -424,5 +424,3 @@ pub struct PythonRuntimeMeta {
     /// Size of the compressed archive
     pub archive_size: u64,
 }
-
-

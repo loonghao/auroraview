@@ -320,5 +320,3 @@ pub fn stat(path: &str, scope: &PathScope) -> PluginResult<FileStat> {
         readonly: metadata.permissions().readonly(),
     })
 }
-
-

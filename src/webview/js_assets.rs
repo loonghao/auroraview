@@ -508,5 +508,3 @@ pub fn build_load_url_script(url: &str) -> String {
 pub fn build_load_url_script(url: &str) -> String {
     get_load_url_js().replace("{URL}", url)
 }
-
-

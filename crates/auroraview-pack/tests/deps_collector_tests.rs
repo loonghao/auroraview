@@ -13,9 +13,8 @@ fn test_collector_builder() {
         .exclude(["test_pkg"])
         .include(["extra_pkg"]);
 
-    // We can't directly access private fields, but we can verify construction works
-    assert!(true);
-    let _ = collector; // Use the collector to avoid unused warning
+    // Verify construction works by using the collector
+    drop(collector);
 }
 
 #[test]

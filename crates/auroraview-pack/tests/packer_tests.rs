@@ -6,10 +6,9 @@ use tempfile::TempDir;
 #[test]
 fn test_packer_validate_url() {
     let config = PackConfig::url("https://example.com");
-    let packer = Packer::new(config);
+    let _packer = Packer::new(config);
     // Packer::validate is private, but we can test through pack()
     // For now, just verify construction works
-    assert!(true);
 }
 
 #[test]

@@ -365,9 +365,9 @@ fn test_error_helpers() {
 
 #[test]
 fn test_wry_backend_creation() {
-    use auroraview_core::backend::WryBackend;
     use auroraview_core::backend::WebViewBackend;
-    
+    use auroraview_core::backend::WryBackend;
+
     let backend = WryBackend::new();
     assert!(backend.url().is_none());
     assert!(!backend.is_loading());
@@ -376,9 +376,9 @@ fn test_wry_backend_creation() {
 
 #[test]
 fn test_wry_backend_navigate() {
-    use auroraview_core::backend::WryBackend;
     use auroraview_core::backend::WebViewBackend;
-    
+    use auroraview_core::backend::WryBackend;
+
     let backend = WryBackend::new();
     backend.navigate("https://example.com").unwrap();
     assert_eq!(backend.url(), Some("https://example.com".to_string()));
@@ -387,9 +387,9 @@ fn test_wry_backend_navigate() {
 
 #[test]
 fn test_wry_backend_load_progress() {
-    use auroraview_core::backend::WryBackend;
     use auroraview_core::backend::WebViewBackend;
-    
+    use auroraview_core::backend::WryBackend;
+
     let backend = WryBackend::new();
     backend.set_load_progress(50);
     let progress = backend.load_progress();
@@ -398,9 +398,9 @@ fn test_wry_backend_load_progress() {
 
 #[test]
 fn test_wry_backend_close() {
-    use auroraview_core::backend::WryBackend;
     use auroraview_core::backend::WebViewBackend;
-    
+    use auroraview_core::backend::WryBackend;
+
     let backend = WryBackend::new();
     assert!(!backend.is_closed());
     backend.close().unwrap();
@@ -409,9 +409,9 @@ fn test_wry_backend_close() {
 
 #[test]
 fn test_wry_backend_user_agent() {
-    use auroraview_core::backend::WryBackend;
     use auroraview_core::backend::WebViewBackend;
-    
+    use auroraview_core::backend::WryBackend;
+
     let backend = WryBackend::new();
     let ua = backend.http_user_agent();
     assert!(ua.starts_with("AuroraView/"));

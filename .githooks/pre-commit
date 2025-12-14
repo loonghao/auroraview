@@ -40,16 +40,17 @@ else
 fi
 
 # ---------- Rust (fmt + clippy) ----------
-if echo "$changed_files" | grep -E '(^src/.*\.rs$|^crates/.*\.rs$|^Cargo\.toml$|^build\.rs$)' >/dev/null 2>&1; then
+# Match: src/**/*.rs, crates/**/*.rs (including tests/), benches/**/*.rs, Cargo.toml, build.rs
+if echo "$changed_files" | grep -E '(^src/.*\.rs$|^crates/.*\.rs$|^benches/.*\.rs$|^Cargo\.toml$|^build\.rs$)' >/dev/null 2>&1; then
   if command -v cargo >/dev/null 2>&1; then
     echo "[pre-commit] Running cargo fmt --all"
     cargo fmt --all
 
     echo "[pre-commit] Running cargo clippy --fix --allow-dirty --allow-staged"
-    cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features -- -D warnings 2>/dev/null || true
+    cargo clippy --fix --allow-dirty --allow-staged --workspace --all-targets --all-features -- -D warnings 2>/dev/null || true
 
     echo "[pre-commit] Verifying clippy passes"
-    cargo clippy --all-targets --all-features -- -D warnings
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
   else
     echo "[pre-commit] cargo not found; skipping Rust checks"
   fi

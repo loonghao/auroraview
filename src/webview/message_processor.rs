@@ -141,5 +141,3 @@ pub fn process_message_queue(
         0
     }
 }
-
-

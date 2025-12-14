@@ -369,4 +369,3 @@ pub fn disable_window_shadow(hwnd: isize) {
 pub fn disable_window_shadow(_hwnd: isize) {
     // No-op on non-Windows platforms
 }
-

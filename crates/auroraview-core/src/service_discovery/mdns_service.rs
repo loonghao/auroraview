@@ -152,5 +152,3 @@ impl Drop for MdnsService {
         }
     }
 }
-
-

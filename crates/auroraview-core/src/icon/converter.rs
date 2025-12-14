@@ -133,5 +133,3 @@ fn png_to_ico_with_config(
 
     Ok(())
 }
-
-

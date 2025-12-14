@@ -344,4 +344,3 @@ impl OverlayReader {
         Ok(Some(u64::from_le_bytes(offset_bytes)))
     }
 }
-

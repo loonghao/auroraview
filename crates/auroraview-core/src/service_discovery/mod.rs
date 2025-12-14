@@ -69,5 +69,3 @@ impl ServiceInfo {
         self
     }
 }
-
-

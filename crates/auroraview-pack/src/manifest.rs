@@ -882,5 +882,3 @@ impl Manifest {
         self.app.frontend_path.is_some() && !self.is_fullstack()
     }
 }
-
-

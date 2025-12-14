@@ -46,12 +46,14 @@ fn test_get_run_module() {
 
 #[test]
 fn test_config_with_options() {
-    let mut config = PyOxidizerConfig::default();
-    config.python_version = "3.12".to_string();
-    config.optimize = 2;
-    config.include_pip = true;
-    config.include_setuptools = true;
-    config.filesystem_importer = true;
+    let config = PyOxidizerConfig {
+        python_version: "3.12".to_string(),
+        optimize: 2,
+        include_pip: true,
+        include_setuptools: true,
+        filesystem_importer: true,
+        ..Default::default()
+    };
 
     let builder = PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
 
