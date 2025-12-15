@@ -86,7 +86,7 @@ jobs:
 
       - name: Find PR workflow run for this commit
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             // Get the current commit SHA that we're releasing
