@@ -6,7 +6,6 @@ use crate::deps_collector::DepsCollector;
 use crate::overlay::{OverlayData, OverlayWriter};
 use crate::python_standalone::{PythonRuntimeMeta, PythonStandalone, PythonStandaloneConfig};
 use crate::{Manifest, PackConfig, PackError, PackMode, PackResult};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -1275,7 +1274,6 @@ impl PackConfig {
             license,
             hooks,
             remote_debugging_port: manifest.debug.remote_debugging_port,
-            api_methods: HashMap::new(), // API methods are registered at runtime
         })
     }
 }

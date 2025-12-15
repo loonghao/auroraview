@@ -57,46 +57,13 @@ fn test_escape_json_for_js_with_json_module() {
 // =============================================================================
 
 #[test]
-fn test_build_packed_init_script_no_api_methods() {
-    let script = build_packed_init_script(None);
-    // Should not contain the API registration IIFE when no methods provided
-    // Note: event_bridge.js defines _registerApiMethods, but the IIFE that calls it should not be present
+fn test_build_packed_init_script() {
+    let script = build_packed_init_script();
+    // Should contain event bridge
+    assert!(script.contains("auroraview"));
+    // API methods are registered dynamically by Python backend,
+    // not via static configuration
     assert!(!script.contains("Auto-generated API method registration"));
-}
-
-#[test]
-fn test_build_packed_init_script_with_api_methods() {
-    let mut api_methods = HashMap::new();
-    api_methods.insert(
-        "api".to_string(),
-        vec![
-            "get_samples".to_string(),
-            "run_sample".to_string(),
-            "kill_process".to_string(),
-        ],
-    );
-
-    let script = build_packed_init_script(Some(&api_methods));
-    // Should contain API registration
-    assert!(script.contains("_registerApiMethods"));
-    assert!(script.contains("get_samples"));
-    assert!(script.contains("run_sample"));
-    assert!(script.contains("kill_process"));
-}
-
-#[test]
-fn test_build_packed_init_script_multiple_namespaces() {
-    let mut api_methods = HashMap::new();
-    api_methods.insert(
-        "api".to_string(),
-        vec!["method1".to_string(), "method2".to_string()],
-    );
-    api_methods.insert("custom".to_string(), vec!["custom_method".to_string()]);
-
-    let script = build_packed_init_script(Some(&api_methods));
-    // Should contain both namespaces
-    assert!(script.contains("method1"));
-    assert!(script.contains("custom_method"));
 }
 
 // =============================================================================
