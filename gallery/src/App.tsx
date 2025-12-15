@@ -228,8 +228,15 @@ function App() {
   const handleOpenUrl = useCallback(async (url: string) => {
     if (isReady) {
       try {
-        await openUrl(url);
-      } catch {
+        const result = await openUrl(url);
+        if (!result.ok) {
+          console.error('[handleOpenUrl] Failed:', result.error);
+          showToast(result.error || 'Failed to open URL', 'error');
+          // Fallback to window.open
+          window.open(url, '_blank');
+        }
+      } catch (err) {
+        console.error('[handleOpenUrl] Exception:', err);
         // Fallback to window.open
         window.open(url, '_blank');
       }
@@ -237,13 +244,15 @@ function App() {
       // Fallback for development
       window.open(url, '_blank');
     }
-  }, [isReady, openUrl]);
+  }, [isReady, openUrl, showToast]);
 
   const handleOpenInWebView = useCallback(async (url: string, title?: string) => {
     if (isReady) {
       try {
-        await openInWebView(url, title);
-      } catch {
+        // openInWebView uses window.open() internally, no return value
+        openInWebView(url, title);
+      } catch (err) {
+        console.error('[handleOpenInWebView] Exception:', err);
         // Fallback to window.open
         window.open(url, '_blank');
       }

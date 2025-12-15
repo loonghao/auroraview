@@ -10,15 +10,13 @@ This script creates a minimal HWND mode test to verify:
 Usage:
     python scripts/debug_hwnd_mode.py
 """
+
 import logging
 import threading
 import time
 
 # Setup logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-)
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -195,7 +193,7 @@ const pollInterval = setInterval(() => {
 }, 100);
 </script>
 </body></html>"""
-            
+
             webview.load_html(html)
 
             # Inject API methods after a short delay
@@ -220,7 +218,7 @@ const pollInterval = setInterval(() => {
     # Start background thread
     thread = threading.Thread(target=run_webview, name="HWND-Debug", daemon=True)
     thread.start()
-    
+
     # Wait for ready
     logger.info("Main thread waiting for WebView...")
     if ready_event.wait(timeout=30):
@@ -228,7 +226,7 @@ const pollInterval = setInterval(() => {
     else:
         logger.error("Timeout waiting for WebView")
         return
-    
+
     # Keep main thread alive
     logger.info("Press Ctrl+C to exit...")
     try:
@@ -240,4 +238,3 @@ const pollInterval = setInterval(() => {
 
 if __name__ == "__main__":
     test_hwnd_mode()
-

@@ -291,13 +291,17 @@ class DomManipulationDemo:
 
     def set_html(self) -> None:
         """Set HTML content."""
-        html = '<strong style="color: #667eea;">Rich HTML</strong> content with <em>formatting</em>!'
+        html = (
+            '<strong style="color: #667eea;">Rich HTML</strong> content with <em>formatting</em>!'
+        )
         self.view.dom("#target-element").set_html(html)
         self.set_status("set_html() - Changed HTML content")
 
     def append_content(self) -> None:
         """Append HTML to element."""
-        self.view.dom("#target-element").append_html(' <span style="color: #48bb78;">[Appended]</span>')
+        self.view.dom("#target-element").append_html(
+            ' <span style="color: #48bb78;">[Appended]</span>'
+        )
         self.set_status("append_html() - Appended content")
 
     def clear_content(self) -> None:
@@ -345,6 +349,7 @@ class DomManipulationDemo:
     def change_background(self) -> None:
         """Change background color."""
         import random
+
         colors = ["#fef3c7", "#dbeafe", "#dcfce7", "#fce7f3", "#e0e7ff"]
         color = random.choice(colors)
         self.view.dom("#target-element").set_style("background", color)
@@ -359,11 +364,7 @@ class DomManipulationDemo:
     def change_font(self) -> None:
         """Change font style."""
         target = self.view.dom("#target-element")
-        target.set_styles({
-            "font-size": "18px",
-            "font-weight": "bold",
-            "color": "#667eea"
-        })
+        target.set_styles({"font-size": "18px", "font-weight": "bold", "color": "#667eea"})
         self.set_status("set_styles() - Changed font")
 
     def reset_styles(self) -> None:

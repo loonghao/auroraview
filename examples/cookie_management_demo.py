@@ -15,7 +15,6 @@ Features demonstrated:
 from __future__ import annotations
 
 import datetime
-import json
 
 # WebView import is done in main() to avoid circular imports
 from auroraview.core.cookies import Cookie

@@ -45,7 +45,6 @@ sys.path.insert(0, str(PROJECT_ROOT / "python"))
 
 from auroraview import PluginManager, WebView, json_dumps, json_loads
 
-
 # Category definitions
 CATEGORIES = {
     "getting_started": {
@@ -323,15 +322,17 @@ def scan_examples_from(examples_dir: Path) -> list:
         if len(description) > 100:
             description = description[:97] + "..."
 
-        samples.append({
-            "id": sample_id,
-            "title": title,
-            "category": category,
-            "description": description,
-            "icon": icon,
-            "source_file": py_file.name,
-            "tags": tags,
-        })
+        samples.append(
+            {
+                "id": sample_id,
+                "title": title,
+                "category": category,
+                "description": description,
+                "icon": icon,
+                "source_file": py_file.name,
+                "tags": tags,
+            }
+        )
 
     return samples
 
@@ -359,10 +360,19 @@ def run_gallery():
     In packed mode, WebView.show() automatically switches to API server mode.
     No special handling needed - the framework handles it transparently.
     """
-    print("Starting AuroraView Gallery...", file=sys.stderr)
-    print("=" * 50, file=sys.stderr)
-    print("Interactive showcase of all features and components", file=sys.stderr)
-    print("=" * 50, file=sys.stderr)
+    print("[Python] Starting AuroraView Gallery...", file=sys.stderr)
+    print("[Python] " + "=" * 50, file=sys.stderr)
+    print("[Python] Interactive showcase of all features and components", file=sys.stderr)
+    print("[Python] " + "=" * 50, file=sys.stderr)
+
+    # Pre-load samples during startup to avoid delay when frontend requests them
+    # This runs in parallel with WebView initialization
+    import time
+
+    start_time = time.time()
+    samples = get_samples_list()
+    elapsed = (time.time() - start_time) * 1000
+    print(f"[Python] Pre-loaded {len(samples)} samples in {elapsed:.1f}ms", file=sys.stderr)
 
     # Check if dist exists (only needed in development mode)
     # In packed mode, frontend is embedded in the executable
@@ -370,14 +380,18 @@ def run_gallery():
     if not index_html.exists():
         # In packed mode, the Rust CLI handles frontend loading
         from auroraview.core.packed import is_packed_mode
+
         if not is_packed_mode():
-            print("Error: Gallery not built. Run 'just gallery-build' first.")
-            print(f"Expected: {index_html}")
+            print(
+                "[Python] Error: Gallery not built. Run 'just gallery-build' first.",
+                file=sys.stderr,
+            )
+            print(f"[Python] Expected: {index_html}", file=sys.stderr)
             sys.exit(1)
         url = None  # Packed mode doesn't need URL
     else:
         url = str(index_html)
-        print(f"Loading: {url}")
+        print(f"[Python] Loading: {url}", file=sys.stderr)
 
     view = WebView(
         title="AuroraView Gallery",
@@ -422,35 +436,73 @@ def run_gallery():
             sample_id: The ID of the sample to run
             show_console: If True, show console window (for debugging)
         """
+        print(
+            f"[Python:run_sample] sample_id={sample_id}, show_console={show_console}",
+            file=sys.stderr,
+        )
+
         sample = get_sample_by_id(sample_id)
         if not sample:
-            return {"ok": False, "error": f"Sample not found: {sample_id}"}
+            error_msg = f"Sample not found: {sample_id}"
+            print(f"[Python:run_sample] ERROR: {error_msg}", file=sys.stderr)
+            return {"ok": False, "error": error_msg}
 
         sample_path = EXAMPLES_DIR / sample["source_file"]
+        print(f"[Python:run_sample] sample_path={sample_path}", file=sys.stderr)
+
         if not sample_path.exists():
-            return {"ok": False, "error": f"File not found: {sample['source_file']}"}
+            error_msg = f"File not found: {sample['source_file']} (full path: {sample_path})"
+            print(f"[Python:run_sample] ERROR: {error_msg}", file=sys.stderr)
+            return {"ok": False, "error": error_msg}
 
-        # Use Rust ProcessPlugin for IPC-enabled spawn
-        args_json = json_dumps({
-            "command": sys.executable,
-            "args": [str(sample_path)],
-            "cwd": str(EXAMPLES_DIR),
-            "showConsole": show_console,
-        })
-        result_json = plugins.handle_command("plugin:process|spawn_ipc", args_json)
-        result = json_loads(result_json)
+        # Log Python executable being used
+        # In packed mode, prefer AURORAVIEW_PYTHON_EXE if set
+        python_exe = os.environ.get("AURORAVIEW_PYTHON_EXE", sys.executable)
+        print(f"[Python:run_sample] Python executable: {python_exe}", file=sys.stderr)
+        print(f"[Python:run_sample] Working directory: {EXAMPLES_DIR}", file=sys.stderr)
+        print(
+            f"[Python:run_sample] AURORAVIEW_PYTHON_PATH: {os.environ.get('AURORAVIEW_PYTHON_PATH', 'not set')}",
+            file=sys.stderr,
+        )
 
-        if result.get("success"):
-            # Extract data from PluginResponse structure
-            data = result.get("data", {})
-            mode = "with console" if show_console else "with IPC"
-            return {
-                "ok": True,
-                "pid": data.get("pid"),
-                "message": f"Started {sample['title']} ({mode})",
-            }
-        else:
-            return {"ok": False, "error": result.get("error", "Unknown error")}
+        try:
+            # Use Rust ProcessPlugin for IPC-enabled spawn
+            args_json = json_dumps(
+                {
+                    "command": python_exe,
+                    "args": [str(sample_path)],
+                    "cwd": str(EXAMPLES_DIR),
+                    "showConsole": show_console,
+                }
+            )
+            print(f"[Python:run_sample] Spawning with args: {args_json}", file=sys.stderr)
+
+            result_json = plugins.handle_command("plugin:process|spawn_ipc", args_json)
+            result = json_loads(result_json)
+            print(f"[Python:run_sample] Result: {result}", file=sys.stderr)
+
+            if result.get("success"):
+                # Extract data from PluginResponse structure
+                data = result.get("data", {})
+                mode = "with console" if show_console else "with IPC"
+                pid = data.get("pid")
+                print(f"[Python:run_sample] SUCCESS: Started with PID {pid}", file=sys.stderr)
+                return {
+                    "ok": True,
+                    "pid": pid,
+                    "message": f"Started {sample['title']} ({mode})",
+                }
+            else:
+                error_msg = result.get("error", "Unknown error from ProcessPlugin")
+                print(f"[Python:run_sample] ERROR from plugin: {error_msg}", file=sys.stderr)
+                return {"ok": False, "error": error_msg}
+        except Exception as e:
+            error_msg = f"Exception while spawning: {e}"
+            print(f"[Python:run_sample] EXCEPTION: {error_msg}", file=sys.stderr)
+            import traceback
+
+            traceback.print_exc(file=sys.stderr)
+            return {"ok": False, "error": error_msg}
 
     # API: Kill a running process
     @view.bind_call("api.kill_process")
@@ -501,16 +553,30 @@ def run_gallery():
     @view.bind_call("api.open_url")
     def open_url(url: str = "") -> dict:
         """Open a URL in the default browser."""
+        print(f"[Python:open_url] url={url}", file=sys.stderr)
+
         if not url:
-            return {"ok": False, "error": "No URL provided"}
+            error_msg = "No URL provided"
+            print(f"[Python:open_url] ERROR: {error_msg}", file=sys.stderr)
+            return {"ok": False, "error": error_msg}
 
         try:
             args_json = json_dumps({"path": url})
             result_json = plugins.handle_command("plugin:shell|open", args_json)
             result = json_loads(result_json)
-            return {"ok": result.get("success", False)}
+            print(f"[Python:open_url] Result: {result}", file=sys.stderr)
+
+            if result.get("success"):
+                print(f"[Python:open_url] SUCCESS: Opened {url}", file=sys.stderr)
+                return {"ok": True}
+            else:
+                error_msg = result.get("error", "Failed to open URL")
+                print(f"[Python:open_url] ERROR: {error_msg}", file=sys.stderr)
+                return {"ok": False, "error": error_msg}
         except Exception as e:
-            return {"ok": False, "error": str(e)}
+            error_msg = f"Exception while opening URL: {e}"
+            print(f"[Python:open_url] EXCEPTION: {error_msg}", file=sys.stderr)
+            return {"ok": False, "error": error_msg}
 
     # API: Get samples list
     @view.bind_call("api.get_samples")
@@ -523,7 +589,6 @@ def run_gallery():
     def get_categories() -> dict:
         """Get all categories."""
         return CATEGORIES
-
 
     # Cleanup on close - kill all managed processes
     @view.on("close")

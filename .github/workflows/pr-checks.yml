@@ -490,11 +490,11 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            ./target/${{ matrix.target }}/release/auroraview.exe --help
-            ./target/${{ matrix.target }}/release/auroraview.exe --version
+            ./target/${{ matrix.target }}/release/auroraview-cli.exe --help
+            ./target/${{ matrix.target }}/release/auroraview-cli.exe --version
           else
-            ./target/${{ matrix.target }}/release/auroraview --help
-            ./target/${{ matrix.target }}/release/auroraview --version
+            ./target/${{ matrix.target }}/release/auroraview-cli --help
+            ./target/${{ matrix.target }}/release/auroraview-cli --version
           fi
 
   # Gallery E2E tests with Playwright
@@ -623,11 +623,12 @@ jobs:
             }
 
   # Gallery pack build test (ensures gallery packaging works)
+  # Requires pre-built wheels for auroraview dependency collection
   gallery-pack:
     name: Gallery Pack Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
-    needs: [quick-checks, cli-build]
+    needs: [quick-checks, cli-build, pre-build]
     strategy:
       fail-fast: false
       matrix:
@@ -635,12 +636,15 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             exe-ext: .exe
+            wheel-artifact: wheels-windows-x64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             exe-ext: ''
+            wheel-artifact: wheels-linux-x86_64
           - os: macos-latest
             target: aarch64-apple-darwin
             exe-ext: ''
+            wheel-artifact: wheels-macos-universal2-apple-darwin
     steps:
       - uses: actions/checkout@v6
 
@@ -655,6 +659,24 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: gallery/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Download pre-built auroraview wheel
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ matrix.wheel-artifact }}
+          path: dist/
+
+      - name: Install auroraview wheel
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install dist/*.whl
+          python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -685,7 +707,7 @@ jobs:
       - name: Pack Gallery (generate executable)
         shell: bash
         run: |
-          ./target/${{ matrix.target }}/release/auroraview${{ matrix.exe-ext }} pack \
+          ./target/${{ matrix.target }}/release/auroraview-cli${{ matrix.exe-ext }} pack \
             --config gallery/auroraview.pack.toml \
             --output-dir target/pack
 

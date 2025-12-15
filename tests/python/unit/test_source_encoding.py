@@ -25,9 +25,7 @@ PYTHON_SRC_DIR = Path(__file__).parent.parent.parent.parent / "python"
 
 # Pattern to match encoding declaration (PEP 263)
 # Examples: # -*- coding: utf-8 -*-  or  # coding=utf-8  or  # coding: utf-8
-ENCODING_PATTERN = re.compile(
-    r"^[ \t\f]*#.*?coding[:=][ \t]*([-\w.]+)", re.ASCII
-)
+ENCODING_PATTERN = re.compile(r"^[ \t\f]*#.*?coding[:=][ \t]*([-\w.]+)", re.ASCII)
 
 
 def has_non_ascii(content: str) -> bool:

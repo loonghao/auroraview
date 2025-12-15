@@ -24,6 +24,8 @@ use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 #[cfg(target_os = "windows")]
 use tao::platform::windows::EventLoopBuilderExtWindows;
 use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
+#[cfg(target_os = "windows")]
+use wry::WebViewBuilderExtWindows;
 
 use crate::{load_window_icon, normalize_url};
 
@@ -111,8 +113,20 @@ enum UserEvent {
     PythonResponse(String),
     /// Plugin event to be sent to WebView
     PluginEvent { event: String, data: String },
-    /// Python backend is ready, navigate to actual content
+    /// Python backend is ready, notify frontend
     PythonReady,
+    /// Loading screen is ready (DOM rendered)
+    LoadingScreenReady,
+    /// Navigate to application (triggered by frontend)
+    NavigateToApp,
+    /// Loading screen update (progress, text, steps)
+    LoadingUpdate {
+        progress: Option<i32>,
+        text: Option<String>,
+        step_id: Option<String>,
+        step_text: Option<String>,
+        step_status: Option<String>,
+    },
 }
 
 /// Python backend handle for IPC communication
@@ -212,12 +226,12 @@ pub fn run_packed_app() -> Result<()> {
     }
 
     tracing::info!(
-        "Running packed application: {}",
+        "[Rust] Running packed application: {}",
         overlay.config.window.title
     );
-    tracing::info!("Assets: {} files", overlay.assets.len());
+    tracing::info!("[Rust] Assets: {} files", overlay.assets.len());
     tracing::info!(
-        "Overlay read completed in {:.2}ms",
+        "[Rust] Overlay read completed in {:.2}ms",
         startup_start.elapsed().as_secs_f64() * 1000.0
     );
 
@@ -242,6 +256,8 @@ pub fn run_packed_app() -> Result<()> {
 fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Result<()> {
     let config = &overlay.config;
     let is_fullstack = matches!(config.mode, PackMode::FullStack { .. });
+
+    tracing::info!("[Rust] Pack mode: {:?}, is_fullstack: {}", config.mode, is_fullstack);
 
     // Create event loop with user event support
     #[cfg(target_os = "windows")]
@@ -289,7 +305,10 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
         None
     };
 
-    // Track if we're waiting for Python to be ready (for FullStack mode)
+    // Track loading state for FullStack mode
+    // We need both loading screen ready AND Python ready before navigating
+    let loading_screen_ready = Arc::new(RwLock::new(false));
+    let python_ready = Arc::new(RwLock::new(false));
     let waiting_for_python = Arc::new(RwLock::new(python_backend.is_some()));
 
     // Create window
@@ -375,23 +394,87 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
 
             // For FullStack mode, show loading screen while waiting for Python
             // For Frontend mode, load index.html directly
-            let initial_url = if is_fullstack {
+            //
+            // URL format depends on platform:
+            // - Windows with with_https_scheme(true): https://auroraview.localhost/path
+            // - Other platforms: auroraview://localhost/path
+            #[cfg(target_os = "windows")]
+            let (initial_url, app_url) = if is_fullstack {
                 tracing::info!("FullStack mode: showing loading screen while Python initializes");
-                "auroraview://localhost/__loading__"
+                (
+                    "https://auroraview.localhost/__loading__",
+                    "https://auroraview.localhost/index.html",
+                )
             } else {
-                "auroraview://localhost/index.html"
+                (
+                    "https://auroraview.localhost/index.html",
+                    "https://auroraview.localhost/index.html",
+                )
             };
+
+            #[cfg(not(target_os = "windows"))]
+            let (initial_url, app_url) = if is_fullstack {
+                tracing::info!("FullStack mode: showing loading screen while Python initializes");
+                (
+                    "auroraview://localhost/__loading__",
+                    "auroraview://localhost/index.html",
+                )
+            } else {
+                (
+                    "auroraview://localhost/index.html",
+                    "auroraview://localhost/index.html",
+                )
+            };
+
+            tracing::info!("Initial URL: {}", initial_url);
+            tracing::info!("App URL (after Python ready): {}", app_url);
 
             // Get loading HTML for the protocol handler
             let loading_html = get_loading_html();
+            tracing::debug!("Loading HTML size: {} bytes", loading_html.len());
 
-            WryWebViewBuilder::new_with_web_context(&mut web_context)
+            // Log available assets for debugging
+            tracing::info!("Available assets ({} total):", assets.len());
+            for (path, data) in assets.iter().take(10) {
+                tracing::debug!("  - {} ({} bytes)", path, data.len());
+            }
+            if assets.len() > 10 {
+                tracing::debug!("  ... and {} more", assets.len() - 10);
+            }
+
+            let mut builder = WryWebViewBuilder::new_with_web_context(&mut web_context);
+
+            // On Windows, use HTTPS scheme for secure context support
+            // This is required for custom protocols to work correctly
+            #[cfg(target_os = "windows")]
+            {
+                builder = builder.with_https_scheme(true);
+                tracing::debug!("Enabled HTTPS scheme for Windows");
+            }
+
+            // Set remote debugging port for CDP (Chrome DevTools Protocol) connections
+            // This allows Playwright/Puppeteer to connect to WebView2
+            #[cfg(target_os = "windows")]
+            if let Some(port) = config.remote_debugging_port {
+                let args = format!("--remote-debugging-port={}", port);
+                builder = builder.with_additional_browser_args(&args);
+                tracing::info!(
+                    "[packed] Set WebView2 remote debugging port: {}",
+                    port
+                );
+            }
+
+            builder
                 .with_custom_protocol("auroraview".to_string(), move |_webview_id, request| {
-                    let path = request.uri().path();
+                    let uri = request.uri();
+                    let path = uri.path();
                     let path = path.trim_start_matches('/');
+
+                    tracing::debug!("Protocol request: {} -> path: '{}'", uri, path);
 
                     // Handle special loading page for FullStack mode
                     if path == "__loading__" {
+                        tracing::info!("Serving loading page ({} bytes)", loading_html.len());
                         return wry::http::Response::builder()
                             .status(200)
                             .header("Content-Type", "text/html; charset=utf-8")
@@ -418,6 +501,7 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
                             let mime = mime_guess::from_path(path)
                                 .first_or_octet_stream()
                                 .to_string();
+                            tracing::debug!("Serving asset: {} ({} bytes, {})", path, data.len(), mime);
                             wry::http::Response::builder()
                                 .status(200)
                                 .header("Content-Type", mime)
@@ -426,7 +510,12 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
                                 .unwrap()
                         }
                         None => {
-                            tracing::warn!("Asset not found: {}", path);
+                            tracing::warn!("Asset not found: '{}' (requested URI: {})", path, uri);
+                            // Log all available asset paths for debugging
+                            tracing::debug!("Available asset paths:");
+                            for (p, _) in assets.iter() {
+                                tracing::debug!("  - {}", p);
+                            }
                             wry::http::Response::builder()
                                 .status(404)
                                 .body(b"Not Found".to_vec().into())
@@ -491,15 +580,76 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
             }
             tao::event::Event::UserEvent(user_event) => {
                 if let Ok(wv) = webview_for_event.try_borrow() {
-                    match user_event {
-                        UserEvent::PythonReady => {
-                            // Python backend is ready, navigate to actual content
-                            tracing::info!("Python backend ready, navigating to application");
-                            if let Ok(mut waiting) = waiting_for_python.write() {
-                                *waiting = false;
+                    // Helper function to navigate to app
+                    let do_navigate = |wv: &wry::WebView| {
+                        #[cfg(target_os = "windows")]
+                        let target_url = "https://auroraview.localhost/index.html";
+                        #[cfg(not(target_os = "windows"))]
+                        let target_url = "auroraview://localhost/index.html";
+
+                        tracing::info!("[Rust] Navigating to: {}", target_url);
+                        match wv.load_url(target_url) {
+                            Ok(_) => {
+                                tracing::info!("[Rust] Navigation initiated successfully");
                             }
-                            // Navigate to the actual application
-                            let _ = wv.load_url("auroraview://localhost/index.html");
+                            Err(e) => {
+                                tracing::error!("[Rust] Failed to navigate to application: {}", e);
+                            }
+                        }
+                    };
+
+                    match user_event {
+                        UserEvent::LoadingScreenReady => {
+                            tracing::info!("[Rust] Loading screen is ready (DOM rendered)");
+                            if let Ok(mut ready) = loading_screen_ready.write() {
+                                *ready = true;
+                            }
+                            // If Python is already ready, send backend_ready event to frontend
+                            let is_python_ready = *python_ready.read().unwrap();
+                            if is_python_ready {
+                                tracing::info!("[Rust] Python already ready, sending backend_ready to frontend");
+                                let script = r#"
+                                    (function() {
+                                        if (window.auroraview && window.auroraview.trigger) {
+                                            window.auroraview.trigger('backend_ready', { ready: true });
+                                        }
+                                        // Also dispatch a custom event for the loading page
+                                        window.dispatchEvent(new CustomEvent('auroraview:backend_ready', { detail: { ready: true } }));
+                                    })()
+                                "#;
+                                let _ = wv.evaluate_script(script);
+                            }
+                        }
+                        UserEvent::PythonReady => {
+                            // Python backend is ready
+                            tracing::info!("[Rust] ========================================");
+                            tracing::info!("[Rust] Python backend ready");
+                            if let Ok(mut ready) = python_ready.write() {
+                                *ready = true;
+                            }
+                            // If loading screen is ready, send backend_ready event to frontend
+                            let is_loading_ready = *loading_screen_ready.read().unwrap();
+                            if is_loading_ready {
+                                tracing::info!("[Rust] Loading screen ready, sending backend_ready to frontend");
+                                let script = r#"
+                                    (function() {
+                                        if (window.auroraview && window.auroraview.trigger) {
+                                            window.auroraview.trigger('backend_ready', { ready: true });
+                                        }
+                                        // Also dispatch a custom event for the loading page
+                                        window.dispatchEvent(new CustomEvent('auroraview:backend_ready', { detail: { ready: true } }));
+                                    })()
+                                "#;
+                                let _ = wv.evaluate_script(script);
+                            }
+                        }
+                        UserEvent::NavigateToApp => {
+                            // Frontend requested navigation to app
+                            tracing::info!("[Rust] Frontend requested navigation to app");
+                            if let Ok(mut w) = waiting_for_python.write() {
+                                *w = false;
+                            }
+                            do_navigate(&wv);
                         }
                         UserEvent::PythonResponse(response) => {
                             // Send response back to WebView
@@ -536,6 +686,47 @@ fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Resul
                                 escaped, event
                             );
                             let _ = wv.evaluate_script(&script);
+                        }
+                        UserEvent::LoadingUpdate {
+                            progress,
+                            text,
+                            step_id,
+                            step_text,
+                            step_status,
+                        } => {
+                            // Update loading screen progress and text
+                            let mut updates = Vec::new();
+
+                            if let Some(p) = progress {
+                                updates.push(format!("window.auroraLoading.setProgress({});", p));
+                            }
+                            if let Some(t) = text {
+                                let escaped_text = t.replace('\\', "\\\\").replace('\'', "\\'");
+                                updates.push(format!(
+                                    "window.auroraLoading.setText('{}');",
+                                    escaped_text
+                                ));
+                            }
+                            if let (Some(id), Some(txt), Some(status)) =
+                                (step_id, step_text, step_status)
+                            {
+                                let escaped_id = id.replace('\\', "\\\\").replace('\'', "\\'");
+                                let escaped_txt = txt.replace('\\', "\\\\").replace('\'', "\\'");
+                                let escaped_status =
+                                    status.replace('\\', "\\\\").replace('\'', "\\'");
+                                updates.push(format!(
+                                    "window.auroraLoading.setStep('{}', '{}', '{}');",
+                                    escaped_id, escaped_txt, escaped_status
+                                ));
+                            }
+
+                            if !updates.is_empty() {
+                                let script = format!(
+                                    "(function() {{ if (window.auroraLoading) {{ {} }} }})()",
+                                    updates.join(" ")
+                                );
+                                let _ = wv.evaluate_script(&script);
+                            }
                         }
                     }
                 }
@@ -607,7 +798,7 @@ fn handle_ipc_message(
     plugin_router: &Arc<RwLock<PluginRouter>>,
     proxy: &EventLoopProxy<UserEvent>,
 ) {
-    tracing::debug!("IPC message received: {}", body);
+    tracing::debug!("[Rust] IPC message received: {}", body);
 
     // Parse the message
     let msg: serde_json::Value = match serde_json::from_str(body) {
@@ -634,7 +825,7 @@ fn handle_ipc_message(
                 .cloned()
                 .unwrap_or(serde_json::Value::Null);
 
-            tracing::debug!("API call: {} (id: {})", method, id);
+            tracing::debug!("[Rust] API call: {} (id: {})", method, id);
 
             // Check if this is a plugin command (plugin:*)
             if method.starts_with("plugin:") {
@@ -721,6 +912,17 @@ fn handle_ipc_message(
             // Handle event (fire-and-forget)
             let event = msg.get("event").and_then(|v| v.as_str()).unwrap_or("");
             tracing::debug!("Event received: {}", event);
+
+            // Handle loading screen ready event
+            if event == "loading_screen_ready" {
+                tracing::info!("[Rust] Received loading_screen_ready event from WebView");
+                let _ = proxy.send_event(UserEvent::LoadingScreenReady);
+            }
+            // Handle navigate to app event (frontend requests navigation)
+            else if event == "navigate_to_app" {
+                tracing::info!("[Rust] Received navigate_to_app event from WebView");
+                let _ = proxy.send_event(UserEvent::NavigateToApp);
+            }
         }
         _ => {
             tracing::warn!("Unknown IPC message type: {}", msg_type);
@@ -737,18 +939,79 @@ fn start_python_backend_with_ipc(
 ) -> Result<PythonBackend> {
     let func_start = Instant::now();
 
+    // Helper to send loading update
+    let send_loading_update = |proxy: &EventLoopProxy<UserEvent>,
+                               progress: Option<i32>,
+                               text: Option<&str>,
+                               step_id: Option<&str>,
+                               step_text: Option<&str>,
+                               step_status: Option<&str>| {
+        let _ = proxy.send_event(UserEvent::LoadingUpdate {
+            progress,
+            text: text.map(|s| s.to_string()),
+            step_id: step_id.map(|s| s.to_string()),
+            step_text: step_text.map(|s| s.to_string()),
+            step_status: step_status.map(|s| s.to_string()),
+        });
+    };
+
+    // Initial loading state
+    send_loading_update(
+        &proxy,
+        Some(5),
+        Some("Initializing environment..."),
+        Some("init"),
+        Some("Initializing environment"),
+        Some("active"),
+    );
+
     // Determine Python executable path based on strategy
     let python_exe = match python_config.strategy {
         BundleStrategy::Standalone => {
+            // Update loading: extracting Python runtime
+            send_loading_update(
+                &proxy,
+                Some(10),
+                Some("Extracting Python runtime..."),
+                Some("init"),
+                Some("Initializing environment"),
+                Some("completed"),
+            );
+            send_loading_update(
+                &proxy,
+                None,
+                None,
+                Some("python_runtime"),
+                Some("Extracting Python runtime"),
+                Some("active"),
+            );
+
             // Extract embedded Python runtime
             let runtime_start = Instant::now();
             let exe = extract_standalone_python(overlay)?;
             metrics.add_phase("python_runtime_extract", runtime_start.elapsed());
             metrics.mark_python_runtime_extract();
+
+            send_loading_update(
+                &proxy,
+                Some(40),
+                Some("Python runtime ready"),
+                Some("python_runtime"),
+                Some("Extracting Python runtime"),
+                Some("completed"),
+            );
             exe
         }
         _ => {
             // Use system Python for other strategies
+            send_loading_update(
+                &proxy,
+                Some(20),
+                Some("Using system Python..."),
+                Some("init"),
+                Some("Initializing environment"),
+                Some("completed"),
+            );
             PathBuf::from("python")
         }
     };
@@ -767,6 +1030,16 @@ fn start_python_backend_with_ipc(
         .collect();
 
     if !python_assets.is_empty() {
+        // Update loading: extracting Python files
+        send_loading_update(
+            &proxy,
+            Some(50),
+            Some("Extracting application files..."),
+            Some("python_files"),
+            Some("Extracting application files"),
+            Some("active"),
+        );
+
         let extract_start = Instant::now();
 
         // Pre-create all directories in batch (collect unique parent dirs)
@@ -785,15 +1058,57 @@ fn start_python_backend_with_ipc(
         metrics.add_phase("python_dirs_create", extract_start.elapsed());
 
         // Parallel file extraction using rayon
+        // Handle file locking gracefully - if file exists and is locked (e.g., .pyd files),
+        // check if content matches and skip if identical
         let write_start = Instant::now();
         let results: Vec<Result<String, anyhow::Error>> = python_assets
             .par_iter()
             .map(|(path, content)| {
                 let rel_path = path.strip_prefix("python/").unwrap_or(path);
                 let dest_path = temp_dir.join(rel_path);
-                fs::write(&dest_path, content)
-                    .with_context(|| format!("Failed to write: {}", dest_path.display()))?;
-                Ok(rel_path.to_string())
+                
+                // Try to write the file
+                match fs::write(&dest_path, content) {
+                    Ok(_) => Ok(rel_path.to_string()),
+                    Err(e) => {
+                        // Check if it's a file locking error (os error 32 on Windows)
+                        let os_error = e.raw_os_error();
+                        if os_error == Some(32) {
+                            // File is locked, check if existing file has same content
+                            match fs::read(&dest_path) {
+                                Ok(existing_content) => {
+                                    if existing_content.as_slice() == content.as_slice() {
+                                        tracing::info!(
+                                            "File {} is locked but content matches, skipping",
+                                            rel_path
+                                        );
+                                        return Ok(rel_path.to_string());
+                                    }
+                                    tracing::warn!(
+                                        "File {} is locked and content differs (existing: {} bytes, new: {} bytes)",
+                                        rel_path, existing_content.len(), content.len()
+                                    );
+                                    Err(anyhow::anyhow!(
+                                        "File {} is locked by another process and content differs",
+                                        dest_path.display()
+                                    ))
+                                }
+                                Err(read_err) => {
+                                    tracing::warn!(
+                                        "File {} is locked and cannot be read: {}",
+                                        rel_path, read_err
+                                    );
+                                    Err(anyhow::anyhow!(
+                                        "File {} is locked and cannot be read: {}",
+                                        dest_path.display(), read_err
+                                    ))
+                                }
+                            }
+                        } else {
+                            Err(e).with_context(|| format!("Failed to write: {}", dest_path.display()))
+                        }
+                    }
+                }
             })
             .collect();
 
@@ -811,13 +1126,40 @@ fn start_python_backend_with_ipc(
             python_files.len(),
             extract_start.elapsed().as_secs_f64() * 1000.0
         );
+
+        send_loading_update(
+            &proxy,
+            Some(60),
+            Some("Application files ready"),
+            Some("python_files"),
+            Some("Extracting application files"),
+            Some("completed"),
+        );
     }
 
     // Extract resource directories (examples, etc.) from overlay assets
+    send_loading_update(
+        &proxy,
+        Some(65),
+        Some("Extracting resources..."),
+        Some("resources"),
+        Some("Extracting resources"),
+        Some("active"),
+    );
+
     let resources_start = Instant::now();
     let resources_dir = extract_resources_parallel(overlay, &temp_dir)?;
     metrics.add_phase("resources_extract", resources_start.elapsed());
     metrics.mark_resources_extract();
+
+    send_loading_update(
+        &proxy,
+        Some(70),
+        Some("Resources ready"),
+        Some("resources"),
+        Some("Extracting resources"),
+        Some("completed"),
+    );
 
     // Parse entry point (format: "module:function" or "file.py")
     let entry_point = &python_config.entry_point;
@@ -861,13 +1203,34 @@ fn start_python_backend_with_ipc(
         )
     };
 
-    tracing::info!("Starting Python backend: {}", entry_point);
-    tracing::info!("Using Python: {}", python_exe.display());
-    tracing::debug!("Python code: {}", python_code);
-    tracing::debug!("Module search paths: {:?}", module_paths);
+    // Update loading: starting Python
+    send_loading_update(
+        &proxy,
+        Some(80),
+        Some("Starting Python backend..."),
+        Some("python_start"),
+        Some("Starting Python backend"),
+        Some("active"),
+    );
+
+    tracing::info!("[Rust] Starting Python backend: {}", entry_point);
+    tracing::info!("[Rust] Using Python: {}", python_exe.display());
+    tracing::debug!("[Rust] Python code: {}", python_code);
+    tracing::debug!("[Rust] Module search paths: {:?}", module_paths);
 
     // Build PYTHONPATH from module search paths
     let pythonpath = module_paths.join(if cfg!(windows) { ";" } else { ":" });
+
+    // Set environment variables in the current Rust process as well
+    // This is needed for ProcessPlugin.spawn_ipc to inherit these values
+    // when spawning child processes (e.g., running examples)
+    std::env::set_var("AURORAVIEW_PACKED", "1");
+    std::env::set_var("AURORAVIEW_RESOURCES_DIR", &resources_dir);
+    std::env::set_var("AURORAVIEW_PYTHON_PATH", &pythonpath);
+    std::env::set_var("AURORAVIEW_PYTHON_EXE", &python_exe);
+    tracing::info!("[Rust] Set AURORAVIEW_PYTHON_PATH={}", pythonpath);
+    tracing::info!("[Rust] Set AURORAVIEW_RESOURCES_DIR={}", resources_dir.display());
+    tracing::info!("[Rust] Set AURORAVIEW_PYTHON_EXE={}", python_exe.display());
 
     // Start Python process with environment variables
     let spawn_start = Instant::now();
@@ -877,7 +1240,9 @@ fn start_python_backend_with_ipc(
         .env("AURORAVIEW_PACKED", "1")
         .env("AURORAVIEW_RESOURCES_DIR", &resources_dir)
         .env("AURORAVIEW_PYTHON_PATH", &pythonpath)
+        .env("AURORAVIEW_PYTHON_EXE", &python_exe)
         .env("PYTHONPATH", &pythonpath)
+        .env("PYTHONUNBUFFERED", "1")  // Ensure Python stderr is not buffered
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
@@ -901,7 +1266,9 @@ fn start_python_backend_with_ipc(
     let examples_dir = resources_dir.join("examples");
     if examples_dir.exists() {
         cmd.env("AURORAVIEW_EXAMPLES_DIR", &examples_dir);
-        tracing::info!("Examples directory: {}", examples_dir.display());
+        tracing::info!("[Rust] Examples directory: {}", examples_dir.display());
+    } else {
+        tracing::warn!("[Rust] Examples directory not found: {}", examples_dir.display());
     }
 
     let mut child = cmd
@@ -910,6 +1277,24 @@ fn start_python_backend_with_ipc(
 
     metrics.add_phase("python_spawn", spawn_start.elapsed());
     metrics.mark_python_start();
+
+    // Update loading: Python process started
+    send_loading_update(
+        &proxy,
+        Some(85),
+        Some("Python process started, waiting for initialization..."),
+        Some("python_start"),
+        Some("Starting Python backend"),
+        Some("completed"),
+    );
+    send_loading_update(
+        &proxy,
+        None,
+        None,
+        Some("python_init"),
+        Some("Initializing application"),
+        Some("active"),
+    );
 
     tracing::info!(
         "Python backend started (PID: {}) in {:.2}ms",
@@ -932,6 +1317,7 @@ fn start_python_backend_with_ipc(
     // Spawn thread to wait for Python ready signal and then read responses
     // This is non-blocking so WebView can show loading screen while waiting
     let ready_start = Instant::now();
+    let proxy_for_loading = proxy.clone();
     thread::spawn(move || {
         let mut reader = BufReader::new(stdout);
         let mut ready_line = String::new();
@@ -956,6 +1342,16 @@ fn start_python_backend_with_ipc(
                             handlers,
                             ready_start.elapsed().as_secs_f64() * 1000.0
                         );
+
+                        // Update loading: Python ready, navigating to app
+                        let _ = proxy_for_loading.send_event(UserEvent::LoadingUpdate {
+                            progress: Some(95),
+                            text: Some("Application ready, loading UI...".to_string()),
+                            step_id: Some("python_init".to_string()),
+                            step_text: Some("Initializing application".to_string()),
+                            step_status: Some("completed".to_string()),
+                        });
+
                         // Notify WebView to navigate to actual content
                         if let Err(e) = proxy.send_event(UserEvent::PythonReady) {
                             tracing::error!("Failed to send PythonReady event: {}", e);
@@ -1050,13 +1446,34 @@ fn extract_resources_parallel(overlay: &OverlayData, base_dir: &Path) -> Result<
         fs::create_dir_all(dir)?;
     }
 
-    // Parallel file extraction
+    // Parallel file extraction with file locking handling
     let results: Vec<Result<(), anyhow::Error>> = resource_assets
         .par_iter()
         .map(|(dest_path, content)| {
-            fs::write(dest_path, content)
-                .with_context(|| format!("Failed to write: {}", dest_path.display()))?;
-            Ok(())
+            match fs::write(dest_path, content) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    // Check if it's a file locking error (os error 32 on Windows)
+                    if e.raw_os_error() == Some(32) {
+                        // File is locked, check if existing file has same content
+                        if let Ok(existing_content) = fs::read(dest_path) {
+                            if existing_content == content.as_slice() {
+                                tracing::debug!(
+                                    "Resource file {} is locked but content matches, skipping",
+                                    dest_path.display()
+                                );
+                                return Ok(());
+                            }
+                        }
+                        Err(anyhow::anyhow!(
+                            "Resource file {} is locked by another process",
+                            dest_path.display()
+                        ))
+                    } else {
+                        Err(e).with_context(|| format!("Failed to write: {}", dest_path.display()))
+                    }
+                }
+            }
         })
         .collect();
 

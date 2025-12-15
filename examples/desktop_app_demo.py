@@ -11,10 +11,6 @@ This example shows how to build a desktop-like application with
 full file system access and native dialogs.
 """
 
-import json
-import tempfile
-from pathlib import Path
-
 import auroraview
 
 

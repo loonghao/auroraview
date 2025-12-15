@@ -13,11 +13,11 @@ Features demonstrated:
 
 from __future__ import annotations
 
-import json
 import threading
 from typing import Dict, List, Optional
 
 from auroraview import WebView
+
 
 # Shared state manager for inter-window communication
 class WindowManager:

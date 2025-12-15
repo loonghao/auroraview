@@ -37,7 +37,6 @@ sys.path.insert(0, str(PROJECT_ROOT / "python"))
 
 from auroraview.testing import HeadlessWebView, WebView2CDPWebView  # noqa: E402
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Test Configuration
 # ─────────────────────────────────────────────────────────────────────────────
@@ -242,7 +241,6 @@ class ExampleTester:
                     return await auroraview.api.list_processes();
                 })()
             """)
-
 
             # Check if process is still running
             if processes and processes.get("ok"):

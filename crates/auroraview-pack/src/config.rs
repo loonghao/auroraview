@@ -382,6 +382,12 @@ pub struct PackConfig {
     /// Hooks configuration for collecting additional files
     #[serde(default)]
     pub hooks: Option<HooksConfig>,
+    /// Remote debugging port for CDP (Chrome DevTools Protocol) connections
+    /// Default: None (disabled)
+    /// When set, enables remote debugging on the specified port
+    /// Playwright/Puppeteer can connect via: `browser.connect_over_cdp(f"http://localhost:{port}")`
+    #[serde(default)]
+    pub remote_debugging_port: Option<u16>,
 }
 
 impl PackConfig {
@@ -412,6 +418,7 @@ impl PackConfig {
             env: HashMap::new(),
             license: None,
             hooks: None,
+            remote_debugging_port: None,
         }
     }
 
@@ -439,6 +446,7 @@ impl PackConfig {
             env: HashMap::new(),
             license: None,
             hooks: None,
+            remote_debugging_port: None,
         }
     }
 
@@ -472,6 +480,7 @@ impl PackConfig {
             env: HashMap::new(),
             license: None,
             hooks: None,
+            remote_debugging_port: None,
         }
     }
 
@@ -505,6 +514,7 @@ impl PackConfig {
             env: HashMap::new(),
             license: None,
             hooks: None,
+            remote_debugging_port: None,
         }
     }
 
@@ -584,6 +594,13 @@ impl PackConfig {
     /// Set license configuration
     pub fn with_license(mut self, license: LicenseConfig) -> Self {
         self.license = Some(license);
+        self
+    }
+
+    /// Set remote debugging port for CDP connections
+    /// When set, Playwright/Puppeteer can connect via `connect_over_cdp(f"http://localhost:{port}")`
+    pub fn with_remote_debugging_port(mut self, port: u16) -> Self {
+        self.remote_debugging_port = Some(port);
         self
     }
 

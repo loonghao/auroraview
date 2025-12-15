@@ -572,8 +572,8 @@ class EdgeWebDriverWebView(HeadlessWebViewBase):
 
     def click(self, selector: str) -> None:
         from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
 
         element = WebDriverWait(self._driver, self._options.timeout).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
@@ -582,8 +582,8 @@ class EdgeWebDriverWebView(HeadlessWebViewBase):
 
     def fill(self, selector: str, value: str) -> None:
         from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
 
         element = WebDriverWait(self._driver, self._options.timeout).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, selector))
@@ -593,8 +593,8 @@ class EdgeWebDriverWebView(HeadlessWebViewBase):
 
     def text(self, selector: str) -> str:
         from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
 
         element = WebDriverWait(self._driver, self._options.timeout).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, selector))
@@ -609,8 +609,8 @@ class EdgeWebDriverWebView(HeadlessWebViewBase):
 
     def wait_for_selector(self, selector: str, timeout: Optional[float] = None) -> None:
         from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
 
         t = timeout or self._options.timeout
         WebDriverWait(self._driver, t).until(

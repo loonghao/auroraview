@@ -257,7 +257,7 @@ class TestGalleryDemoDiscovery:
         if "main" in sys.modules:
             del sys.modules["main"]
 
-        from main import SAMPLES, CATEGORIES
+        from main import CATEGORIES, SAMPLES
 
         assert len(SAMPLES) > 0, "Should find at least one sample"
         assert len(CATEGORIES) > 0, "Should have categories defined"

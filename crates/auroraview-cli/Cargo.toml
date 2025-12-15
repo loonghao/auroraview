@@ -16,7 +16,7 @@ name = "auroraview_cli"
 path = "src/lib.rs"
 
 [[bin]]
-name = "auroraview"
+name = "auroraview-cli"
 path = "src/main.rs"
 
 [dependencies]

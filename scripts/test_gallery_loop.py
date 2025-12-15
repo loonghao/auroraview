@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import ast
-import json
 import subprocess
 import sys
 import time
@@ -130,7 +129,9 @@ def run_pytest(test_pattern: str, verbose: bool = False) -> TestResult:
     start = time.time()
 
     cmd = [
-        sys.executable, "-m", "pytest",
+        sys.executable,
+        "-m",
+        "pytest",
         test_pattern,
         "-v" if verbose else "-q",
         "--tb=short",

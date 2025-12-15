@@ -246,13 +246,14 @@ class MenuDemoApp:
     def log_action(self, action: str) -> None:
         """Log a menu action to the UI."""
         import datetime
+
         time_str = datetime.datetime.now().strftime("%H:%M:%S")
-        html = f'''
+        html = f"""
             <div class="log-entry">
                 <span class="time">{time_str}</span>
                 <span class="action">{action}</span>
             </div>
-        '''
+        """
         self.view.dom("#log-container").prepend_html(html)
 
     def update_toggle(self, toggle_id: str, is_on: bool) -> None:
@@ -358,59 +359,70 @@ def create_menu_bar() -> MenuBar:
 
     # File menu
     file_menu = Menu("&File")
-    file_menu.add_items([
-        MenuItem.action("&New", "file.new", "Ctrl+N"),
-        MenuItem.action("&Open...", "file.open", "Ctrl+O"),
-        MenuItem.separator(),
-        MenuItem.action("&Save", "file.save", "Ctrl+S"),
-        MenuItem.action("Save &As...", "file.save_as", "Ctrl+Shift+S"),
-        MenuItem.separator(),
-        # Export submenu
-        MenuItem.submenu("&Export", [
-            MenuItem.action("As &PDF", "file.export.pdf"),
-            MenuItem.action("As &HTML", "file.export.html"),
-            MenuItem.action("As &JSON", "file.export.json"),
-        ]),
-        MenuItem.separator(),
-        MenuItem.action("E&xit", "file.exit", "Alt+F4"),
-    ])
+    file_menu.add_items(
+        [
+            MenuItem.action("&New", "file.new", "Ctrl+N"),
+            MenuItem.action("&Open...", "file.open", "Ctrl+O"),
+            MenuItem.separator(),
+            MenuItem.action("&Save", "file.save", "Ctrl+S"),
+            MenuItem.action("Save &As...", "file.save_as", "Ctrl+Shift+S"),
+            MenuItem.separator(),
+            # Export submenu
+            MenuItem.submenu(
+                "&Export",
+                [
+                    MenuItem.action("As &PDF", "file.export.pdf"),
+                    MenuItem.action("As &HTML", "file.export.html"),
+                    MenuItem.action("As &JSON", "file.export.json"),
+                ],
+            ),
+            MenuItem.separator(),
+            MenuItem.action("E&xit", "file.exit", "Alt+F4"),
+        ]
+    )
     menu_bar.add_menu(file_menu)
 
     # Edit menu
     edit_menu = Menu("&Edit")
-    edit_menu.add_items([
-        MenuItem.action("&Undo", "edit.undo", "Ctrl+Z"),
-        MenuItem.action("&Redo", "edit.redo", "Ctrl+Y"),
-        MenuItem.separator(),
-        MenuItem.action("Cu&t", "edit.cut", "Ctrl+X"),
-        MenuItem.action("&Copy", "edit.copy", "Ctrl+C"),
-        MenuItem.action("&Paste", "edit.paste", "Ctrl+V"),
-        MenuItem.separator(),
-        MenuItem.action("Select &All", "edit.select_all", "Ctrl+A"),
-    ])
+    edit_menu.add_items(
+        [
+            MenuItem.action("&Undo", "edit.undo", "Ctrl+Z"),
+            MenuItem.action("&Redo", "edit.redo", "Ctrl+Y"),
+            MenuItem.separator(),
+            MenuItem.action("Cu&t", "edit.cut", "Ctrl+X"),
+            MenuItem.action("&Copy", "edit.copy", "Ctrl+C"),
+            MenuItem.action("&Paste", "edit.paste", "Ctrl+V"),
+            MenuItem.separator(),
+            MenuItem.action("Select &All", "edit.select_all", "Ctrl+A"),
+        ]
+    )
     menu_bar.add_menu(edit_menu)
 
     # View menu with checkboxes
     view_menu = Menu("&View")
-    view_menu.add_items([
-        MenuItem.checkbox("Show &Toolbar", "view.toolbar", checked=True),
-        MenuItem.checkbox("Show &Sidebar", "view.sidebar", checked=True),
-        MenuItem.checkbox("Show Status &Bar", "view.statusbar", checked=True),
-        MenuItem.separator(),
-        MenuItem.action("Zoom &In", "view.zoom_in", "Ctrl++"),
-        MenuItem.action("Zoom &Out", "view.zoom_out", "Ctrl+-"),
-        MenuItem.action("&Reset Zoom", "view.zoom_reset", "Ctrl+0"),
-    ])
+    view_menu.add_items(
+        [
+            MenuItem.checkbox("Show &Toolbar", "view.toolbar", checked=True),
+            MenuItem.checkbox("Show &Sidebar", "view.sidebar", checked=True),
+            MenuItem.checkbox("Show Status &Bar", "view.statusbar", checked=True),
+            MenuItem.separator(),
+            MenuItem.action("Zoom &In", "view.zoom_in", "Ctrl++"),
+            MenuItem.action("Zoom &Out", "view.zoom_out", "Ctrl+-"),
+            MenuItem.action("&Reset Zoom", "view.zoom_reset", "Ctrl+0"),
+        ]
+    )
     menu_bar.add_menu(view_menu)
 
     # Help menu
     help_menu = Menu("&Help")
-    help_menu.add_items([
-        MenuItem.action("&Documentation", "help.docs", "F1"),
-        MenuItem.action("&Check for Updates", "help.updates"),
-        MenuItem.separator(),
-        MenuItem.action("&About", "help.about"),
-    ])
+    help_menu.add_items(
+        [
+            MenuItem.action("&Documentation", "help.docs", "F1"),
+            MenuItem.action("&Check for Updates", "help.updates"),
+            MenuItem.separator(),
+            MenuItem.action("&About", "help.about"),
+        ]
+    )
     menu_bar.add_menu(help_menu)
 
     return menu_bar
