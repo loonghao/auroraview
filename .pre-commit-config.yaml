@@ -10,10 +10,10 @@ repos:
     rev: v0.6.9
     hooks:
       - id: ruff
-        args: ["--select=E,W,F,I,B,C4", "--ignore=E501,B008,C901"]
-        files: "^(python|tests)/"
+        args: ["--fix", "--select=E,W,F,I,B,C4", "--ignore=E501,B008,C901"]
+        files: "^(python|tests|examples|gallery)/"
       - id: ruff-format
-        files: "^(python|tests)/"
+        files: "^(python|tests|examples|gallery)/"
   - repo: local
     hooks:
       - id: cargo-fmt
