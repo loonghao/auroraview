@@ -3,8 +3,9 @@
 //! Handles creating the WebView window and running the main event loop.
 
 use anyhow::{Context, Result};
-use auroraview_core::assets::{get_event_bridge_js, get_loading_html};
+use auroraview_core::assets::{build_packed_init_script, get_loading_html};
 use auroraview_core::plugins::{PluginRequest, PluginRouter, ScopeConfig};
+use auroraview_core::protocol::MemoryAssets;
 use auroraview_pack::{OverlayData, PackMode, PackedMetrics};
 use std::sync::{Arc, RwLock};
 use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
@@ -19,41 +20,6 @@ use crate::{load_window_icon, normalize_url};
 use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
 use super::utils::{escape_json_for_js, get_webview_data_dir};
-
-/// Build initialization script for packed mode
-pub fn build_packed_init_script(is_fullstack: bool) -> String {
-    let mut script = String::with_capacity(32768);
-
-    // Add event bridge
-    script.push_str(&get_event_bridge_js());
-    script.push('\n');
-
-    // Register API methods for fullstack mode
-    if is_fullstack {
-        script.push_str(
-            r#"
-// Register Gallery API methods
-(function() {
-    if (window.auroraview && window.auroraview._registerApiMethods) {
-        window.auroraview._registerApiMethods('api', [
-            'get_samples',
-            'get_categories',
-            'get_source',
-            'run_sample',
-            'kill_process',
-            'send_to_process',
-            'list_processes',
-            'open_url'
-        ]);
-        console.log('[AuroraView] Registered Gallery API methods');
-    }
-})();
-"#,
-        );
-    }
-
-    script
-}
 
 /// Handle IPC message from WebView
 ///
@@ -298,8 +264,13 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     let data_dir = get_webview_data_dir();
     let mut web_context = WebContext::new(Some(data_dir));
 
-    // Build initialization script with JS bridge
-    let init_script = build_packed_init_script(is_fullstack);
+    // Build initialization script with JS bridge and API methods from config
+    let api_methods = if config.api_methods.is_empty() {
+        None
+    } else {
+        Some(&config.api_methods)
+    };
+    let init_script = build_packed_init_script(api_methods);
 
     // Clone for IPC handler
     let python_backend_arc = python_backend.map(Arc::new);
@@ -329,18 +300,20 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                 .with_context(|| "Failed to create WebView")?
         }
         PackMode::Frontend { .. } | PackMode::FullStack { .. } => {
-            // Clone assets for the protocol handler
-            let assets = overlay.assets.clone();
+            // Create MemoryAssets from overlay assets
+            let memory_assets = MemoryAssets::from_vec(overlay.assets.clone())
+                .with_loading_html(get_loading_html());
 
             // Find index.html path for logging
-            let index_path = assets
+            let index_path = memory_assets
+                .list_paths()
                 .iter()
-                .find(|(path, _)| {
-                    path == "index.html"
-                        || path == "frontend/index.html"
+                .find(|path| {
+                    **path == "index.html"
+                        || **path == "frontend/index.html"
                         || path.ends_with("/index.html")
                 })
-                .map(|(path, _)| path.clone())
+                .map(|p| (*p).clone())
                 .unwrap_or_else(|| "index.html".to_string());
 
             tracing::info!("Loading embedded assets via auroraview:// protocol");
@@ -382,19 +355,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
             tracing::info!("Initial URL: {}", initial_url);
             tracing::info!("App URL (after Python ready): {}", _app_url);
-
-            // Get loading HTML for the protocol handler
-            let loading_html = get_loading_html();
-            tracing::debug!("Loading HTML size: {} bytes", loading_html.len());
-
-            // Log available assets for debugging
-            tracing::info!("Available assets ({} total):", assets.len());
-            for (path, data) in assets.iter().take(10) {
-                tracing::debug!("  - {} ({} bytes)", path, data.len());
-            }
-            if assets.len() > 10 {
-                tracing::debug!("  ... and {} more", assets.len() - 10);
-            }
+            tracing::info!("Available assets: {} total", memory_assets.len());
 
             let mut builder = WryWebViewBuilder::new_with_web_context(&mut web_context);
 
@@ -419,65 +380,16 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                 .with_custom_protocol("auroraview".to_string(), move |_webview_id, request| {
                     let uri = request.uri();
                     let path = uri.path();
-                    let path = path.trim_start_matches('/');
 
-                    tracing::debug!("Protocol request: {} -> path: '{}'", uri, path);
+                    // Use MemoryAssets to handle the request
+                    let response = memory_assets.handle_request(path);
 
-                    // Handle special loading page for FullStack mode
-                    if path == "__loading__" {
-                        tracing::info!("Serving loading page ({} bytes)", loading_html.len());
-                        return wry::http::Response::builder()
-                            .status(200)
-                            .header("Content-Type", "text/html; charset=utf-8")
-                            .header("Access-Control-Allow-Origin", "*")
-                            .body(loading_html.clone().into_bytes().into())
-                            .unwrap();
-                    }
-
-                    // Default to index.html for root path
-                    let path = if path.is_empty() { "index.html" } else { path };
-
-                    // Try different path variations
-                    let content = assets
-                        .iter()
-                        .find(|(p, _)| {
-                            p == path
-                                || p == &format!("frontend/{}", path)
-                                || p.ends_with(&format!("/{}", path))
-                        })
-                        .map(|(_, content)| content.clone());
-
-                    match content {
-                        Some(data) => {
-                            let mime = mime_guess::from_path(path)
-                                .first_or_octet_stream()
-                                .to_string();
-                            tracing::debug!(
-                                "Serving asset: {} ({} bytes, {})",
-                                path,
-                                data.len(),
-                                mime
-                            );
-                            wry::http::Response::builder()
-                                .status(200)
-                                .header("Content-Type", mime)
-                                .header("Access-Control-Allow-Origin", "*")
-                                .body(data.into())
-                                .unwrap()
-                        }
-                        None => {
-                            tracing::warn!("Asset not found: '{}' (requested URI: {})", path, uri);
-                            // Log all available asset paths for debugging
-                            tracing::debug!("Available asset paths:");
-                            for (p, _) in assets.iter() {
-                                tracing::debug!("  - {}", p);
-                            }
-                            wry::http::Response::builder()
-                                .status(404)
-                                .body(b"Not Found".to_vec().into())
-                                .unwrap()
-                        }
-                    }
+                    wry::http::Response::builder()
+                        .status(response.status)
+                        .header("Content-Type", &response.mime_type)
+                        .header("Access-Control-Allow-Origin", "*")
+                        .body(response.data.into_owned().into())
+                        .unwrap()
                 })
                 .with_initialization_script(&init_script)
                 .with_ipc_handler(move |request| {

@@ -309,3 +309,138 @@ pub fn load_asset_file(asset_root: &Path, relative_path: &str) -> FileResponse {
         }
     }
 }
+
+// ============================================================================
+// In-Memory Asset Protocol Handler
+// ============================================================================
+
+/// In-memory asset store for protocol handlers
+///
+/// This struct provides a way to serve assets from memory (e.g., embedded assets
+/// in packed applications) through the custom protocol handler.
+#[derive(Clone)]
+pub struct MemoryAssets {
+    /// Map of path -> content
+    assets: std::collections::HashMap<String, Vec<u8>>,
+    /// Optional loading HTML for special `__loading__` path
+    loading_html: Option<String>,
+}
+
+impl MemoryAssets {
+    /// Create a new empty asset store
+    pub fn new() -> Self {
+        Self {
+            assets: std::collections::HashMap::new(),
+            loading_html: None,
+        }
+    }
+
+    /// Create from a HashMap of assets
+    pub fn from_map(assets: std::collections::HashMap<String, Vec<u8>>) -> Self {
+        Self {
+            assets,
+            loading_html: None,
+        }
+    }
+
+    /// Create from a Vec of (path, content) tuples
+    pub fn from_vec(assets: Vec<(String, Vec<u8>)>) -> Self {
+        Self {
+            assets: assets.into_iter().collect(),
+            loading_html: None,
+        }
+    }
+
+    /// Set the loading HTML for the `__loading__` path
+    pub fn with_loading_html(mut self, html: String) -> Self {
+        self.loading_html = Some(html);
+        self
+    }
+
+    /// Add an asset
+    pub fn insert(&mut self, path: String, content: Vec<u8>) {
+        self.assets.insert(path, content);
+    }
+
+    /// Get the number of assets
+    pub fn len(&self) -> usize {
+        self.assets.len()
+    }
+
+    /// Check if empty
+    pub fn is_empty(&self) -> bool {
+        self.assets.is_empty()
+    }
+
+    /// Handle a protocol request and return a response
+    ///
+    /// This method handles:
+    /// - `__loading__` - Returns the loading HTML if set
+    /// - Empty path or `/` - Returns `index.html`
+    /// - Other paths - Looks up in assets with fallback variations
+    pub fn handle_request(&self, path: &str) -> FileResponse {
+        let path = path.trim_start_matches('/');
+
+        tracing::debug!("MemoryAssets: handling request for '{}'", path);
+
+        // Handle special loading page
+        if path == "__loading__" {
+            if let Some(ref html) = self.loading_html {
+                tracing::debug!("MemoryAssets: serving loading page ({} bytes)", html.len());
+                return FileResponse {
+                    data: Cow::Owned(html.clone().into_bytes()),
+                    mime_type: "text/html; charset=utf-8".to_string(),
+                    status: 200,
+                };
+            }
+        }
+
+        // Default to index.html for root path
+        let path = if path.is_empty() { "index.html" } else { path };
+
+        // Try different path variations
+        let content = self
+            .assets
+            .get(path)
+            .or_else(|| self.assets.get(&format!("frontend/{}", path)))
+            .or_else(|| {
+                // Try finding a path that ends with the requested path
+                self.assets
+                    .iter()
+                    .find(|(p, _)| p.ends_with(&format!("/{}", path)))
+                    .map(|(_, content)| content)
+            });
+
+        match content {
+            Some(data) => {
+                let mime = guess_mime_type(Path::new(path));
+                tracing::debug!(
+                    "MemoryAssets: serving '{}' ({} bytes, {})",
+                    path,
+                    data.len(),
+                    mime
+                );
+                FileResponse {
+                    data: Cow::Owned(data.clone()),
+                    mime_type: mime,
+                    status: 200,
+                }
+            }
+            None => {
+                tracing::warn!("MemoryAssets: asset not found: '{}'", path);
+                FileResponse::not_found()
+            }
+        }
+    }
+
+    /// List all asset paths (for debugging)
+    pub fn list_paths(&self) -> Vec<&String> {
+        self.assets.keys().collect()
+    }
+}
+
+impl Default for MemoryAssets {
+    fn default() -> Self {
+        Self::new()
+    }
+}

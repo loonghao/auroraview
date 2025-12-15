@@ -57,44 +57,46 @@ fn test_escape_json_for_js_with_json_module() {
 // =============================================================================
 
 #[test]
-fn test_build_packed_init_script_frontend_mode() {
-    let script = build_packed_init_script(false);
-    // Frontend mode should NOT contain Gallery API registration
-    assert!(!script.contains("Register Gallery API methods"));
-    assert!(!script.contains("'get_samples'"));
+fn test_build_packed_init_script_no_api_methods() {
+    let script = build_packed_init_script(None);
+    // Should not contain the API registration IIFE when no methods provided
+    // Note: event_bridge.js defines _registerApiMethods, but the IIFE that calls it should not be present
+    assert!(!script.contains("Auto-generated API method registration"));
 }
 
 #[test]
-fn test_build_packed_init_script_fullstack_mode() {
-    let script = build_packed_init_script(true);
-    // Should contain API registration for fullstack mode
-    assert!(script.contains("Register Gallery API methods"));
+fn test_build_packed_init_script_with_api_methods() {
+    let mut api_methods = HashMap::new();
+    api_methods.insert(
+        "api".to_string(),
+        vec![
+            "get_samples".to_string(),
+            "run_sample".to_string(),
+            "kill_process".to_string(),
+        ],
+    );
+
+    let script = build_packed_init_script(Some(&api_methods));
+    // Should contain API registration
+    assert!(script.contains("_registerApiMethods"));
     assert!(script.contains("get_samples"));
     assert!(script.contains("run_sample"));
+    assert!(script.contains("kill_process"));
 }
 
-#[rstest]
-#[case(true, &["Register Gallery API methods", "get_samples", "run_sample", "kill_process"])]
-#[case(false, &[])]
-fn test_build_packed_init_script_api_methods(
-    #[case] is_fullstack: bool,
-    #[case] expected_methods: &[&str],
-) {
-    let script = build_packed_init_script(is_fullstack);
+#[test]
+fn test_build_packed_init_script_multiple_namespaces() {
+    let mut api_methods = HashMap::new();
+    api_methods.insert(
+        "api".to_string(),
+        vec!["method1".to_string(), "method2".to_string()],
+    );
+    api_methods.insert("custom".to_string(), vec!["custom_method".to_string()]);
 
-    for method in expected_methods {
-        assert!(
-            script.contains(method),
-            "Expected script to contain '{}' for fullstack={}",
-            method,
-            is_fullstack
-        );
-    }
-
-    if !is_fullstack {
-        // Frontend mode should not have Gallery-specific API registration
-        assert!(!script.contains("Register Gallery API methods"));
-    }
+    let script = build_packed_init_script(Some(&api_methods));
+    // Should contain both namespaces
+    assert!(script.contains("method1"));
+    assert!(script.contains("custom_method"));
 }
 
 // =============================================================================

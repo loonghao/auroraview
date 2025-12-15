@@ -388,6 +388,11 @@ pub struct PackConfig {
     /// Playwright/Puppeteer can connect via: `browser.connect_over_cdp(f"http://localhost:{port}")`
     #[serde(default)]
     pub remote_debugging_port: Option<u16>,
+    /// API methods to register in the WebView
+    /// Key: namespace (e.g., "api"), Value: list of method names
+    /// These methods will be available as window.auroraview.{namespace}.{method}()
+    #[serde(default)]
+    pub api_methods: HashMap<String, Vec<String>>,
 }
 
 impl PackConfig {
@@ -419,6 +424,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
+            api_methods: HashMap::new(),
         }
     }
 
@@ -447,6 +453,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
+            api_methods: HashMap::new(),
         }
     }
 
@@ -481,6 +488,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
+            api_methods: HashMap::new(),
         }
     }
 
@@ -515,6 +523,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
+            api_methods: HashMap::new(),
         }
     }
 
@@ -622,6 +631,23 @@ impl PackConfig {
     /// Set hooks configuration for collecting additional files
     pub fn with_hooks(mut self, hooks: HooksConfig) -> Self {
         self.hooks = Some(hooks);
+        self
+    }
+
+    /// Set API methods to register in the WebView
+    /// These methods will be available as window.auroraview.{namespace}.{method}()
+    pub fn with_api_methods(mut self, api_methods: HashMap<String, Vec<String>>) -> Self {
+        self.api_methods = api_methods;
+        self
+    }
+
+    /// Add API methods for a namespace
+    pub fn with_api_namespace(
+        mut self,
+        namespace: impl Into<String>,
+        methods: Vec<String>,
+    ) -> Self {
+        self.api_methods.insert(namespace.into(), methods);
         self
     }
 }
