@@ -13,10 +13,10 @@ Usage:
     # In CI, first build and start gallery:
     just gallery-pack
     ./gallery/pack-output/auroraview-gallery.exe &
-    
+
     # Then run tests:
     pytest tests/test_gallery_cdp.py -v
-    
+
     # Or run directly:
     python tests/test_gallery_cdp.py
 
@@ -61,6 +61,7 @@ EXAMPLE_RUN_TIMEOUT = 2  # Example run duration (reduced for faster tests)
 @dataclass
 class CDPTestResult:
     """Result of a test case."""
+
     name: str
     passed: bool
     duration_ms: float
@@ -72,14 +73,15 @@ class CDPTestResult:
 # CDP Connection Utilities
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def wait_for_cdp(url: str = CDP_URL, timeout: int = STARTUP_TIMEOUT) -> bool:
     """Wait for CDP endpoint to become available."""
     import urllib.error
     import urllib.request
-    
+
     host_port = url.replace("http://", "").replace("https://", "")
     start = time.time()
-    
+
     while time.time() - start < timeout:
         try:
             req = urllib.request.urlopen(f"http://{host_port}/json/version", timeout=2)
@@ -99,26 +101,27 @@ def is_cdp_available() -> bool:
 # Gallery Process Manager
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class GalleryManager:
     """Manage gallery process for testing."""
-    
+
     def __init__(self, exe_path: Path = GALLERY_EXE):
         self.exe_path = exe_path
         self.process: Optional[subprocess.Popen] = None
         self._started_by_us = False
-    
+
     def start(self, timeout: int = STARTUP_TIMEOUT) -> bool:
         """Start gallery if not already running."""
         if is_cdp_available():
             print("Gallery already running (CDP available)")
             return True
-        
+
         if not self.exe_path.exists():
             print(f"Gallery exe not found: {self.exe_path}")
             return False
-        
+
         print(f"Starting gallery: {self.exe_path}")
-        
+
         self.process = subprocess.Popen(
             [str(self.exe_path)],
             cwd=str(self.exe_path.parent),
@@ -126,17 +129,17 @@ class GalleryManager:
             stderr=subprocess.PIPE,
         )
         self._started_by_us = True
-        
+
         print(f"Process started: PID {self.process.pid}")
         print("Waiting for CDP...")
-        
+
         if not wait_for_cdp(timeout=timeout):
             self.stop()
             return False
-        
+
         print("CDP is available!")
         return True
-    
+
     def stop(self):
         """Stop gallery if we started it."""
         if self._started_by_us and self.process:
@@ -154,31 +157,32 @@ class GalleryManager:
 # Gallery Test Client
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class GalleryTestClient:
     """Test client for Gallery via CDP."""
-    
+
     def __init__(self, cdp_url: str = CDP_URL):
         self.cdp_url = cdp_url
         self._playwright = None
         self._browser = None
         self._page = None
-    
+
     def connect(self):
         """Connect to gallery via CDP."""
         from playwright.sync_api import sync_playwright
-        
+
         self._playwright = sync_playwright().start()
         self._browser = self._playwright.chromium.connect_over_cdp(self.cdp_url)
-        
+
         # Get the existing page
         if self._browser.contexts and self._browser.contexts[0].pages:
             self._page = self._browser.contexts[0].pages[0]
         else:
             raise RuntimeError("No page found in gallery")
-        
+
         # Wait for gallery to be ready
         self._wait_for_ready()
-    
+
     def _wait_for_ready(self, timeout: int = 30):
         """Wait for gallery to be fully loaded."""
         start = time.time()
@@ -191,28 +195,29 @@ class GalleryTestClient:
                 pass
             time.sleep(0.5)
         raise TimeoutError("Gallery not ready within timeout")
-    
+
     def disconnect(self):
         """Disconnect from CDP."""
         if self._browser:
             self._browser.close()
         if self._playwright:
             self._playwright.stop()
-    
+
     @property
     def page(self):
         """Get Playwright page."""
         return self._page
-    
+
     # ─────────────────────────────────────────────────────────────────────
     # Gallery API Methods
     # ─────────────────────────────────────────────────────────────────────
-    
+
     def call_api(self, method: str, args: dict = None, timeout: int = API_TIMEOUT * 1000) -> Any:
         """Call a gallery API method with timeout."""
         args_json = json.dumps(args or {})
         try:
-            result = self._page.evaluate(f"""
+            result = self._page.evaluate(
+                f"""
                 (async () => {{
                     try {{
                         return await auroraview.api.{method}({args_json});
@@ -220,8 +225,10 @@ class GalleryTestClient:
                         return {{ __error__: e.message }};
                     }}
                 }})()
-            """, timeout=timeout)
-            
+            """,
+                timeout=timeout,
+            )
+
             if isinstance(result, dict) and "__error__" in result:
                 raise RuntimeError(result["__error__"])
             return result
@@ -230,89 +237,86 @@ class GalleryTestClient:
             if "Target" in str(e) and "closed" in str(e):
                 raise RuntimeError(f"Gallery closed unexpectedly during {method} call") from e
             raise
-    
+
     def get_samples(self) -> list:
         """Get all samples."""
         return self.call_api("get_samples")
-    
+
     def get_categories(self) -> dict:
         """Get all categories."""
         return self.call_api("get_categories")
-    
+
     def get_source(self, sample_id: str) -> str:
         """Get source code for a sample."""
         return self.call_api("get_source", {"sample_id": sample_id})
-    
+
     def run_sample(self, sample_id: str, show_console: bool = False) -> dict:
         """Run a sample."""
-        return self.call_api("run_sample", {
-            "sample_id": sample_id,
-            "show_console": show_console
-        })
-    
+        return self.call_api("run_sample", {"sample_id": sample_id, "show_console": show_console})
+
     def kill_process(self, pid: int) -> dict:
         """Kill a process."""
         return self.call_api("kill_process", {"pid": pid})
-    
+
     def list_processes(self) -> dict:
         """List running processes."""
         return self.call_api("list_processes")
-    
+
     def open_url(self, url: str) -> dict:
         """Open URL in browser."""
         return self.call_api("open_url", {"url": url})
-    
+
     # ─────────────────────────────────────────────────────────────────────
     # UI Interaction Methods
     # ─────────────────────────────────────────────────────────────────────
-    
+
     def search(self, query: str):
         """Search for samples."""
         # Find search input and type
         self._page.fill('input[placeholder*="Search"]', query)
         time.sleep(0.3)  # Wait for filter
-    
+
     def clear_search(self):
         """Clear search."""
         self._page.fill('input[placeholder*="Search"]', "")
         time.sleep(0.3)
-    
+
     def click_sample(self, sample_id: str):
         """Click on a sample card."""
         self._page.click(f'[data-sample-id="{sample_id}"]')
         time.sleep(0.3)
-    
+
     def click_run_button(self):
         """Click the run button."""
         self._page.click('button:has-text("Run")')
         time.sleep(0.5)
-    
+
     def click_stop_button(self):
         """Click the stop button."""
         self._page.click('button:has-text("Stop")')
         time.sleep(0.3)
-    
+
     def get_visible_samples(self) -> list:
         """Get list of visible sample IDs."""
         return self._page.evaluate("""
             Array.from(document.querySelectorAll('[data-sample-id]'))
                 .map(el => el.dataset.sampleId)
         """)
-    
+
     def get_console_output(self) -> str:
         """Get console output text."""
         return self._page.evaluate("""
             document.querySelector('.console-output')?.textContent || ''
         """)
-    
+
     def take_screenshot(self, path: str):
         """Take a screenshot."""
         self._page.screenshot(path=path)
-    
+
     def __enter__(self):
         self.connect()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.disconnect()
         return False
@@ -322,74 +326,75 @@ class GalleryTestClient:
 # Test Cases
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestGalleryAPI:
     """Test Gallery API functionality."""
-    
+
     @pytest.fixture(scope="class")
     def client(self):
         """Create test client."""
         if not is_cdp_available():
             pytest.skip("CDP not available - start gallery first")
-        
+
         with GalleryTestClient() as client:
             yield client
-    
+
     def test_get_samples(self, client):
         """Test getting samples list."""
         samples = client.get_samples()
-        
+
         assert samples, "No samples returned"
         assert len(samples) > 10, f"Expected >10 samples, got {len(samples)}"
-        
+
         # Check sample structure
         sample = samples[0]
         assert "id" in sample
         assert "title" in sample
         assert "category" in sample
-        
+
         print(f"?Got {len(samples)} samples")
-    
+
     def test_get_categories(self, client):
         """Test getting categories."""
         categories = client.get_categories()
-        
+
         assert categories, "No categories returned"
         assert len(categories) >= 3, f"Expected >=3 categories, got {len(categories)}"
-        
+
         print(f"?Got {len(categories)} categories: {list(categories.keys())}")
-    
+
     def test_get_source(self, client):
         """Test getting source code."""
         source = client.get_source("simple_decorator")
-        
+
         assert source, "No source returned"
         assert "def main" in source, "Source should contain main function"
         assert "WebView" in source, "Source should import WebView"
-        
+
         print(f"?Got source code ({len(source)} chars)")
-    
+
     def test_list_processes_empty(self, client):
         """Test listing processes when none running."""
         result = client.list_processes()
-        
+
         assert result.get("ok"), f"list_processes failed: {result}"
         assert "processes" in result
-        
+
         print(f"?Listed {len(result['processes'])} processes")
 
 
 class TestGalleryExamples:
     """Test running examples through Gallery."""
-    
+
     @pytest.fixture(scope="function")
     def client(self):
         """Create test client for each test (isolated)."""
         if not is_cdp_available():
             pytest.skip("CDP not available - start gallery first")
-        
+
         with GalleryTestClient() as client:
             yield client
-    
+
     # Examples to test (subset for CI speed)
     EXAMPLES_TO_TEST = [
         "simple_decorator",
@@ -398,52 +403,53 @@ class TestGalleryExamples:
         "system_tray",
         "native_menu",
     ]
-    
+
     @pytest.mark.parametrize("sample_id", EXAMPLES_TO_TEST)
     def test_run_example(self, client, sample_id):
         """Test running an example."""
         # Run the sample
         result = client.run_sample(sample_id)
-        
+
         assert result.get("ok"), f"Failed to run {sample_id}: {result.get('error')}"
         assert result.get("pid"), "No PID returned"
-        
+
         pid = result["pid"]
         print(f"  Started {sample_id} with PID {pid}")
-        
+
         # Let it run briefly
         time.sleep(EXAMPLE_RUN_TIMEOUT)
-        
+
         # Kill the process (with error handling)
         try:
             kill_result = client.kill_process(pid)
-            assert kill_result.get("ok") or kill_result.get("already_exited"), \
+            assert kill_result.get("ok") or kill_result.get("already_exited"), (
                 f"Failed to kill process: {kill_result}"
+            )
         except Exception as e:
             # Process might have exited on its own
             print(f"  Note: kill_process raised {e}")
-        
+
         print(f"?{sample_id} ran successfully")
-    
+
     def test_run_all_examples(self, client):
         """Test that all examples can be started (quick check)."""
         samples = client.get_samples()
-        
+
         # Skip examples that require special environments
         skip_ids = {"maya_qt_echo", "qt_style_tool", "qt_custom_menu", "dcc_integration"}
-        
+
         passed = 0
         failed = []
-        
+
         for sample in samples:
             sample_id = sample["id"]
-            
+
             if sample_id in skip_ids:
                 continue
-            
+
             try:
                 result = client.run_sample(sample_id)
-                
+
                 if result.get("ok"):
                     pid = result.get("pid")
                     time.sleep(1)  # Brief run
@@ -460,69 +466,69 @@ class TestGalleryExamples:
                     failed.append((sample_id, "Gallery closed unexpectedly"))
                     break  # Stop testing if Gallery crashed
                 failed.append((sample_id, str(e)))
-        
+
         print(f"\n?{passed} examples passed")
         if failed:
             print(f"?{len(failed)} examples failed:")
             for sid, err in failed:
                 print(f"    - {sid}: {err}")
-        
+
         # Allow some failures (Qt examples without Qt)
         assert passed > len(samples) * 0.5, f"Too many failures: {len(failed)}/{len(samples)}"
 
 
 class TestGalleryUI:
     """Test Gallery UI interactions."""
-    
+
     @pytest.fixture(scope="class")
     def client(self):
         """Create test client."""
         if not is_cdp_available():
             pytest.skip("CDP not available - start gallery first")
-        
+
         with GalleryTestClient() as client:
             yield client
-    
+
     def test_page_title(self, client):
         """Test page title."""
         title = client.page.title()
         assert "AuroraView" in title or "Gallery" in title
         print(f"?Page title: {title}")
-    
+
     def test_page_url(self, client):
         """Test page URL."""
         url = client.page.url
         assert "auroraview" in url.lower() or "localhost" in url.lower()
         print(f"?Page URL: {url}")
-    
+
     def test_search_filter(self, client):
         """Test search functionality."""
         # Get initial count
         initial = client.get_visible_samples()
-        
+
         # Search for specific term
         client.search("window")
         filtered = client.get_visible_samples()
-        
+
         # Should have fewer results
         assert len(filtered) <= len(initial), "Search should filter results"
-        
+
         # Clear and verify
         client.clear_search()
         restored = client.get_visible_samples()
-        
+
         assert len(restored) == len(initial), "Clear should restore all samples"
-        
+
         print(f"?Search filter works: {len(initial)} -> {len(filtered)} -> {len(restored)}")
-    
+
     def test_screenshot(self, client, tmp_path):
         """Test taking screenshot."""
         screenshot_path = tmp_path / "gallery_test.png"
         client.take_screenshot(str(screenshot_path))
-        
+
         assert screenshot_path.exists(), "Screenshot not saved"
         assert screenshot_path.stat().st_size > 1000, "Screenshot too small"
-        
+
         print(f"?Screenshot saved: {screenshot_path.stat().st_size} bytes")
 
 
@@ -530,12 +536,13 @@ class TestGalleryUI:
 # Standalone Test Runner
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def run_all_tests():
     """Run all gallery tests."""
     print("=" * 70)
     print("AuroraView Gallery CDP Integration Tests")
     print("=" * 70)
-    
+
     # Check CDP
     if not is_cdp_available():
         print("\nCDP not available. Starting gallery...")
@@ -548,9 +555,9 @@ def run_all_tests():
         print("\nUsing existing gallery (CDP available)")
         manager = None
         own_gallery = False
-    
+
     results: list[CDPTestResult] = []
-    
+
     try:
         with GalleryTestClient() as client:
             # Test 1: Get samples
@@ -559,56 +566,68 @@ def run_all_tests():
             start = time.time()
             try:
                 samples = client.get_samples()
-                results.append(CDPTestResult(
-                    name="get_samples",
-                    passed=True,
-                    duration_ms=(time.time() - start) * 1000,
-                    details={"count": len(samples)}
-                ))
+                results.append(
+                    CDPTestResult(
+                        name="get_samples",
+                        passed=True,
+                        duration_ms=(time.time() - start) * 1000,
+                        details={"count": len(samples)},
+                    )
+                )
                 print(f"  ?Got {len(samples)} samples")
             except Exception as e:
-                results.append(CDPTestResult(
-                    name="get_samples",
-                    passed=False,
-                    duration_ms=(time.time() - start) * 1000,
-                    error=str(e)
-                ))
+                results.append(
+                    CDPTestResult(
+                        name="get_samples",
+                        passed=False,
+                        duration_ms=(time.time() - start) * 1000,
+                        error=str(e),
+                    )
+                )
                 print(f"  ?Failed: {e}")
-            
+
             # Test 2: Get categories
             print("\n" + "-" * 50)
             print("Test: API - Get Categories")
             start = time.time()
             try:
                 categories = client.get_categories()
-                results.append(CDPTestResult(
-                    name="get_categories",
-                    passed=True,
-                    duration_ms=(time.time() - start) * 1000,
-                    details={"categories": list(categories.keys())}
-                ))
+                results.append(
+                    CDPTestResult(
+                        name="get_categories",
+                        passed=True,
+                        duration_ms=(time.time() - start) * 1000,
+                        details={"categories": list(categories.keys())},
+                    )
+                )
                 print(f"  ?Got {len(categories)} categories")
             except Exception as e:
-                results.append(CDPTestResult(
-                    name="get_categories",
-                    passed=False,
-                    duration_ms=(time.time() - start) * 1000,
-                    error=str(e)
-                ))
+                results.append(
+                    CDPTestResult(
+                        name="get_categories",
+                        passed=False,
+                        duration_ms=(time.time() - start) * 1000,
+                        error=str(e),
+                    )
+                )
                 print(f"  ?Failed: {e}")
-            
+
             # Test 3: Run examples
             print("\n" + "-" * 50)
             print("Test: Run Examples")
-            
-            skip_ids = {"maya_qt_echo_demo", "qt_style_tool", "qt_custom_menu_demo", 
-                       "dcc_integration_example"}
-            
+
+            skip_ids = {
+                "maya_qt_echo_demo",
+                "qt_style_tool",
+                "qt_custom_menu_demo",
+                "dcc_integration_example",
+            }
+
             for sample in samples[:10]:  # Test first 10 for speed
                 sample_id = sample["id"]
                 if sample_id in skip_ids:
                     continue
-                
+
                 start = time.time()
                 try:
                     result = client.run_sample(sample_id)
@@ -616,30 +635,36 @@ def run_all_tests():
                         pid = result.get("pid")
                         time.sleep(1)
                         client.kill_process(pid)
-                        results.append(CDPTestResult(
-                            name=f"run_{sample_id}",
-                            passed=True,
-                            duration_ms=(time.time() - start) * 1000,
-                            details={"pid": pid}
-                        ))
+                        results.append(
+                            CDPTestResult(
+                                name=f"run_{sample_id}",
+                                passed=True,
+                                duration_ms=(time.time() - start) * 1000,
+                                details={"pid": pid},
+                            )
+                        )
                         print(f"  ?{sample_id}")
                     else:
-                        results.append(CDPTestResult(
+                        results.append(
+                            CDPTestResult(
+                                name=f"run_{sample_id}",
+                                passed=False,
+                                duration_ms=(time.time() - start) * 1000,
+                                error=result.get("error"),
+                            )
+                        )
+                        print(f"  ?{sample_id}: {result.get('error')}")
+                except Exception as e:
+                    results.append(
+                        CDPTestResult(
                             name=f"run_{sample_id}",
                             passed=False,
                             duration_ms=(time.time() - start) * 1000,
-                            error=result.get("error")
-                        ))
-                        print(f"  ?{sample_id}: {result.get('error')}")
-                except Exception as e:
-                    results.append(CDPTestResult(
-                        name=f"run_{sample_id}",
-                        passed=False,
-                        duration_ms=(time.time() - start) * 1000,
-                        error=str(e)
-                    ))
+                            error=str(e),
+                        )
+                    )
                     print(f"  ?{sample_id}: {e}")
-            
+
             # Test 4: Screenshot
             print("\n" + "-" * 50)
             print("Test: Screenshot")
@@ -647,46 +672,50 @@ def run_all_tests():
             try:
                 screenshot_path = PROJECT_ROOT / "gallery" / "test_screenshot.png"
                 client.take_screenshot(str(screenshot_path))
-                results.append(CDPTestResult(
-                    name="screenshot",
-                    passed=True,
-                    duration_ms=(time.time() - start) * 1000,
-                    details={"path": str(screenshot_path)}
-                ))
+                results.append(
+                    CDPTestResult(
+                        name="screenshot",
+                        passed=True,
+                        duration_ms=(time.time() - start) * 1000,
+                        details={"path": str(screenshot_path)},
+                    )
+                )
                 print(f"  ?Saved to {screenshot_path}")
             except Exception as e:
-                results.append(CDPTestResult(
-                    name="screenshot",
-                    passed=False,
-                    duration_ms=(time.time() - start) * 1000,
-                    error=str(e)
-                ))
+                results.append(
+                    CDPTestResult(
+                        name="screenshot",
+                        passed=False,
+                        duration_ms=(time.time() - start) * 1000,
+                        error=str(e),
+                    )
+                )
                 print(f"  ?Failed: {e}")
-    
+
     finally:
         if own_gallery and manager:
             manager.stop()
-    
+
     # Summary
     print("\n" + "=" * 70)
     print("Test Summary")
     print("=" * 70)
-    
+
     passed = sum(1 for r in results if r.passed)
     failed = sum(1 for r in results if not r.passed)
     total_time = sum(r.duration_ms for r in results)
-    
+
     print(f"Total: {len(results)}")
     print(f"Passed: {passed}")
     print(f"Failed: {failed}")
     print(f"Duration: {total_time:.0f}ms")
-    
+
     if failed > 0:
         print("\nFailed tests:")
         for r in results:
             if not r.passed:
                 print(f"  - {r.name}: {r.error}")
-    
+
     return 0 if failed == 0 else 1
 
 
