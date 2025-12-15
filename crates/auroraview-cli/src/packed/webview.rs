@@ -264,13 +264,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     let data_dir = get_webview_data_dir();
     let mut web_context = WebContext::new(Some(data_dir));
 
-    // Build initialization script with JS bridge and API methods from config
-    let api_methods = if config.api_methods.is_empty() {
-        None
-    } else {
-        Some(&config.api_methods)
-    };
-    let init_script = build_packed_init_script(api_methods);
+    // Build initialization script with JS bridge
+    // Note: API methods are registered dynamically by Python backend
+    let init_script = build_packed_init_script();
 
     // Clone for IPC handler
     let python_backend_arc = python_backend.map(Arc::new);
