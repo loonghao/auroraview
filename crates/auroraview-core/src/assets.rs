@@ -470,3 +470,102 @@ pub fn build_load_url_script(url: &str) -> String {
         url.replace('\\', "\\\\").replace('"', "\\\"")
     )
 }
+
+// ========================================
+// Packed Mode Initialization
+// ========================================
+
+/// Build initialization script for packed mode
+///
+/// This function creates a JavaScript initialization script that includes:
+/// - Event bridge (core IPC functionality)
+/// - API method registration (if api_methods is provided)
+///
+/// # Arguments
+/// * `api_methods` - Optional map of namespace to method names to register
+///
+/// # Example
+/// ```rust,ignore
+/// use std::collections::HashMap;
+/// use auroraview_core::assets::build_packed_init_script;
+///
+/// let mut api_methods = HashMap::new();
+/// api_methods.insert("api".to_string(), vec![
+///     "get_data".to_string(),
+///     "save_data".to_string(),
+/// ]);
+///
+/// let script = build_packed_init_script(Some(&api_methods));
+/// ```
+pub fn build_packed_init_script(
+    api_methods: Option<&std::collections::HashMap<String, Vec<String>>>,
+) -> String {
+    let mut script = String::with_capacity(32768);
+
+    // Add event bridge
+    script.push_str(&get_event_bridge_js());
+    script.push('\n');
+
+    // Register API methods if provided
+    if let Some(methods) = api_methods {
+        if !methods.is_empty() {
+            script.push_str(&build_api_registration_script(methods));
+            script.push('\n');
+        }
+    }
+
+    script
+}
+
+/// Build API registration script
+///
+/// Generates JavaScript code to register API methods using the
+/// window.auroraview._registerApiMethods helper function.
+///
+/// # Arguments
+/// * `api_methods` - Map of namespace to method names
+///
+/// # Returns
+/// JavaScript code that registers all API methods
+pub fn build_api_registration_script(
+    api_methods: &std::collections::HashMap<String, Vec<String>>,
+) -> String {
+    let mut script = String::new();
+
+    script.push_str("// Auto-generated API method registration\n");
+    script.push_str("(function() {\n");
+    script.push_str("    if (!window.auroraview || !window.auroraview._registerApiMethods) {\n");
+    script.push_str(
+        "        console.warn('[AuroraView] Event bridge not initialized, retrying...');\n",
+    );
+    script.push_str("        setTimeout(arguments.callee, 50);\n");
+    script.push_str("        return;\n");
+    script.push_str("    }\n\n");
+
+    for (namespace, methods) in api_methods {
+        if methods.is_empty() {
+            continue;
+        }
+
+        // Build JSON array of method names
+        let methods_json: Vec<String> = methods
+            .iter()
+            .map(|m| format!("'{}'", m.replace('\'', "\\'")))
+            .collect();
+
+        script.push_str(&format!(
+            "    window.auroraview._registerApiMethods('{}', [{}]);\n",
+            namespace.replace('\'', "\\'"),
+            methods_json.join(", ")
+        ));
+        script.push_str(&format!(
+            "    console.log('[AuroraView] Registered {} API methods: {}');\n",
+            namespace,
+            methods.join(", ")
+        ));
+    }
+
+    script.push_str("})();\n");
+
+    script
+}

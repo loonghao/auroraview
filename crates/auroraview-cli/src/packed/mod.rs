@@ -31,7 +31,9 @@ pub use utils::{
     build_module_search_paths, escape_json_for_js, get_python_exe_path, get_runtime_cache_dir,
     get_webview_data_dir, inject_environment_variables,
 };
-pub use webview::build_packed_init_script;
+
+// Re-export from auroraview-core
+pub use auroraview_core::assets::build_packed_init_script;
 
 /// Run a packed application (overlay mode)
 ///
