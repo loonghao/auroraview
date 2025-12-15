@@ -159,3 +159,6 @@ description = "HTML example files"
 enabled = true
 devtools = true
 verbose = false
+# Remote debugging port for CDP (Chrome DevTools Protocol) connections
+# When set, Playwright/Puppeteer can connect via: browser.connect_over_cdp("http://localhost:9222")
+remote_debugging_port = 9222

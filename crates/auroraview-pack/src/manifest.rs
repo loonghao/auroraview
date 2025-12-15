@@ -665,6 +665,13 @@ pub struct DebugConfig {
     /// Enable verbose logging
     #[serde(default)]
     pub verbose: bool,
+
+    /// Remote debugging port for CDP (Chrome DevTools Protocol) connections
+    /// Default: None (disabled)
+    /// When set, enables remote debugging on the specified port
+    /// Playwright/Puppeteer can connect via: `browser.connect_over_cdp(f"http://localhost:{port}")`
+    #[serde(default)]
+    pub remote_debugging_port: Option<u16>,
 }
 
 /// License/authorization manifest configuration

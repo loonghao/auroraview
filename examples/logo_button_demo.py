@@ -29,6 +29,7 @@ def get_logo_data_uri():
         data = base64.b64encode(f.read()).decode("utf-8")
     return f"data:image/png;base64,{data}"
 
+
 # HTML for the logo button - transparent window showing just the logo
 LOGO_HTML = """
 <!DOCTYPE html>

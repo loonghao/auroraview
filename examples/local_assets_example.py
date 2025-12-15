@@ -6,7 +6,6 @@ to load local files (images, GIFs, CSS, JS, etc.) in run_standalone().
 IMPORTANT: You must set allow_file_protocol=True to enable file:// support!
 """
 
-
 from auroraview import run_standalone
 
 
@@ -150,4 +149,3 @@ html = '''
 
 if __name__ == "__main__":
     main()
-

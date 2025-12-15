@@ -146,7 +146,9 @@ class TestEventTimer:
     def test_window_validity_check(self):
         """Test window validity checking."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10, check_window_validity=True, backend=ThreadTimerBackend())
+        timer = EventTimer(
+            webview, interval_ms=10, check_window_validity=True, backend=ThreadTimerBackend()
+        )
 
         close_called = [False]
 
@@ -168,7 +170,9 @@ class TestEventTimer:
     def test_window_validity_check_disabled(self):
         """Test that window validity check can be disabled."""
         webview = MockWebView()
-        timer = EventTimer(webview, interval_ms=10, check_window_validity=False, backend=ThreadTimerBackend())
+        timer = EventTimer(
+            webview, interval_ms=10, check_window_validity=False, backend=ThreadTimerBackend()
+        )
 
         close_called = [False]
 

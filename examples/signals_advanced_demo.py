@@ -15,7 +15,6 @@ Features demonstrated:
 
 from __future__ import annotations
 
-import threading
 import time
 from typing import List
 
@@ -615,8 +614,10 @@ class SignalsDemo:
     def connect_to_registry(self) -> None:
         """Connect a handler to all registry signals."""
         for name in self.registry.names():
+
             def handler(data, n=name):
                 self.log(f"Registry handler for '{n}' called", "handler")
+
             self.registry.connect(name, handler)
         self.update_registry_display()
         self.log(f"Connected handlers to {len(self.registry.names())} signals", "handler")
@@ -627,7 +628,9 @@ class SignalsDemo:
         for name in self.registry.names():
             count = self.registry.emit(name, {"signal": name})
             total += count
-        self.log(f"Emitted to {len(self.registry.names())} signals ({total} handlers called)", "signal")
+        self.log(
+            f"Emitted to {len(self.registry.names())} signals ({total} handlers called)", "signal"
+        )
 
     def clear_registry(self) -> None:
         """Clear all signals from the registry."""

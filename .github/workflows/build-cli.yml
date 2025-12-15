@@ -27,23 +27,23 @@ jobs:
           # Windows
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact: auroraview.exe
-            archive: auroraview-windows-x64.zip
+            artifact: auroraview-cli.exe
+            archive: auroraview-cli-windows-x64.zip
           # macOS Universal (build both archs on ARM runner)
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact: auroraview
-            archive: auroraview-macos-arm64.tar.gz
+            artifact: auroraview-cli
+            archive: auroraview-cli-macos-arm64.tar.gz
           # macOS Intel (cross-compile on ARM runner)
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact: auroraview
-            archive: auroraview-macos-x64.tar.gz
+            artifact: auroraview-cli
+            archive: auroraview-cli-macos-x64.tar.gz
           # Linux
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact: auroraview
-            archive: auroraview-linux-x64.tar.gz
+            artifact: auroraview-cli
+            archive: auroraview-cli-linux-x64.tar.gz
 
     steps:
       - uses: actions/checkout@v6

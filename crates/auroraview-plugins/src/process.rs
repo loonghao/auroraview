@@ -110,6 +110,12 @@ impl ProcessPlugin {
 
     /// Spawn a process with IPC support
     fn spawn_ipc(&self, opts: SpawnIpcOptions, scope: &ScopeConfig) -> PluginResult<Value> {
+        tracing::info!("[Rust:ProcessPlugin] spawn_ipc called");
+        tracing::info!("[Rust:ProcessPlugin] command: {}", opts.command);
+        tracing::info!("[Rust:ProcessPlugin] args: {:?}", opts.args);
+        tracing::info!("[Rust:ProcessPlugin] cwd: {:?}", opts.cwd);
+        tracing::info!("[Rust:ProcessPlugin] show_console: {}", opts.show_console);
+
         // Check if command is allowed
         if !scope.shell.is_command_allowed(&opts.command) {
             return Err(PluginError::shell_error(format!(
@@ -142,16 +148,24 @@ impl ProcessPlugin {
 
         // In packed mode, inherit AURORAVIEW_PYTHON_PATH to PYTHONPATH
         // This allows spawned Python processes to find bundled modules
-        if let Ok(python_path) = std::env::var("AURORAVIEW_PYTHON_PATH") {
+        let python_path_result = std::env::var("AURORAVIEW_PYTHON_PATH");
+        eprintln!(
+            "[Rust:ProcessPlugin] AURORAVIEW_PYTHON_PATH env check: {:?}",
+            python_path_result
+        );
+        if let Ok(python_path) = python_path_result {
             // Merge with existing PYTHONPATH if any
             let separator = if cfg!(windows) { ";" } else { ":" };
             let existing = std::env::var("PYTHONPATH").unwrap_or_default();
             let merged = if existing.is_empty() {
-                python_path
+                python_path.clone()
             } else {
                 format!("{}{}{}", python_path, separator, existing)
             };
+            eprintln!("[Rust:ProcessPlugin] Setting PYTHONPATH={}", merged);
             cmd.env("PYTHONPATH", merged);
+        } else {
+            eprintln!("[Rust:ProcessPlugin] AURORAVIEW_PYTHON_PATH not set - spawned Python may not find modules");
         }
 
         // Windows: hide console window unless requested
@@ -162,18 +176,39 @@ impl ProcessPlugin {
             const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 
             if opts.show_console {
+                tracing::info!("[Rust:ProcessPlugin] Creating with new console window");
                 cmd.creation_flags(CREATE_NEW_CONSOLE);
             } else {
+                tracing::debug!("[Rust:ProcessPlugin] Creating without console window");
                 cmd.creation_flags(CREATE_NO_WINDOW);
             }
         }
 
         // Spawn the process
+        tracing::info!("[Rust:ProcessPlugin] Spawning process...");
         let mut child = cmd
             .spawn()
-            .map_err(|e| PluginError::shell_error(format!("Failed to spawn: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!("[Rust:ProcessPlugin] Failed to spawn: {}", e);
+                PluginError::shell_error(format!("Failed to spawn: {}", e))
+            })?;
 
         let pid = child.id();
+        tracing::info!("[Rust:ProcessPlugin] Process spawned with PID: {}", pid);
+
+        // Brief check to see if process exits immediately (indicates startup error)
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                tracing::warn!("[Rust:ProcessPlugin] Process {} exited immediately with status: {:?}", pid, status);
+            }
+            Ok(None) => {
+                tracing::info!("[Rust:ProcessPlugin] Process {} is still running after 50ms", pid);
+            }
+            Err(e) => {
+                tracing::warn!("[Rust:ProcessPlugin] Failed to check process status: {}", e);
+            }
+        }
 
         // Take stdout/stderr for async reading
         let stdout = child.stdout.take();
@@ -201,6 +236,7 @@ impl ProcessPlugin {
                     }
                     match line {
                         Ok(data) => {
+                            tracing::debug!("[Rust:ProcessPlugin] Process {} stdout: {}", pid, data);
                             if let Some(cb) = event_cb.read().unwrap().as_ref() {
                                 cb(
                                     "process:stdout",
@@ -218,6 +254,7 @@ impl ProcessPlugin {
                 if !shutdown.load(Ordering::Relaxed) {
                     Self::check_exit(&processes, &event_cb, pid);
                 }
+                tracing::debug!("[Rust:ProcessPlugin] Process {} stdout reader exiting", pid);
             });
         }
 
@@ -234,6 +271,8 @@ impl ProcessPlugin {
                     }
                     match line {
                         Ok(data) => {
+                            // Always log stderr for debugging
+                            tracing::info!("[Rust:ProcessPlugin] Process {} stderr: {}", pid, data);
                             if let Some(cb) = event_cb.read().unwrap().as_ref() {
                                 cb(
                                     "process:stderr",
@@ -247,6 +286,7 @@ impl ProcessPlugin {
                         Err(_) => break,
                     }
                 }
+                tracing::debug!("[Rust:ProcessPlugin] Process {} stderr reader exiting", pid);
             });
         }
 

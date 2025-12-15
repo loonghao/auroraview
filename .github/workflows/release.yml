@@ -309,13 +309,11 @@ jobs:
           echo "Before cleanup:"
           ls -la dist/
           
-          # Remove CLI tar.gz files (they don't have version numbers in the name)
-          # CLI files: auroraview-linux-x64.tar.gz, auroraview-macos-arm64.tar.gz, etc.
+          # Remove CLI tar.gz/zip files (they don't have version numbers in the name)
+          # CLI files: auroraview-cli-linux-x64.tar.gz, auroraview-cli-macos-arm64.tar.gz, etc.
           # sdist file: auroraview-0.3.1.tar.gz (has version number)
-          rm -f dist/auroraview-linux-*.tar.gz || true
-          rm -f dist/auroraview-macos-*.tar.gz || true
-          rm -f dist/auroraview-windows-*.tar.gz || true
-          rm -f dist/auroraview-windows-*.zip || true
+          rm -f dist/auroraview-cli-*.tar.gz || true
+          rm -f dist/auroraview-cli-*.zip || true
           
           # Remove any other non-wheel, non-sdist files
           # Keep only .whl files and versioned .tar.gz (sdist)

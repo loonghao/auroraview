@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Tests for file drop events."""
 
-
 from auroraview.core.events import WindowEvent, WindowEventData
 
 
@@ -123,7 +122,12 @@ class TestFileDropEventData:
         """Test complete file drop event data with all properties."""
         event_data = {
             "files": [
-                {"name": "document.pdf", "size": 4096, "type": "application/pdf", "lastModified": 1234567890}
+                {
+                    "name": "document.pdf",
+                    "size": 4096,
+                    "type": "application/pdf",
+                    "lastModified": 1234567890,
+                }
             ],
             "paths": ["/downloads/document.pdf"],
             "position": {"x": 150, "y": 250, "screenX": 650, "screenY": 750},
@@ -162,7 +166,14 @@ class TestFileDropEventData:
     def test_complete_file_paste_event_data(self):
         """Test complete file paste event data."""
         event_data = {
-            "files": [{"name": "clipboard_image.png", "size": 8192, "type": "image/png", "lastModified": 0}],
+            "files": [
+                {
+                    "name": "clipboard_image.png",
+                    "size": 8192,
+                    "type": "image/png",
+                    "lastModified": 0,
+                }
+            ],
             "timestamp": 1234567890123,
         }
         data = WindowEventData(event_data)

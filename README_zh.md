@@ -1349,17 +1349,19 @@ Gallery 提供：
 
 ### 应用打包
 
-AuroraView 提供强大的打包系统，可创建独立可执行文件：
+AuroraView 提供强大的打包系统，可创建独立可执行文件。使用 `auroraview-cli`（Rust CLI）进行打包：
+
+> **注意**：`auroraview-cli` 是用于打包的 Rust CLI。从 [GitHub Releases](https://github.com/AuroraView/auroraview/releases) 下载或使用 `cargo build -p auroraview-cli --release` 构建。
 
 ```bash
 # 打包基于 URL 的应用
-auroraview pack --url https://example.com --output myapp.exe
+auroraview-cli pack --url https://example.com --output myapp
 
 # 打包前端项目（React、Vue 等）
-auroraview pack --frontend ./dist --output myapp.exe
+auroraview-cli pack --frontend ./dist --output myapp
 
 # 打包全栈应用（前端 + Python 后端）
-auroraview pack --config auroraview.pack.toml --output myapp.exe
+auroraview-cli pack --config auroraview.pack.toml
 ```
 
 **配置文件示例 (`auroraview.pack.toml`)：**

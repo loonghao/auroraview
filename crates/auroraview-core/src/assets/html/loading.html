@@ -134,39 +134,318 @@
             font-weight: 500;
             color: rgba(255, 255, 255, 0.9);
             letter-spacing: 1px;
+            min-height: 20px;
+            transition: opacity 0.3s ease;
         }
 
         /* Progress bar with aurora colors */
         .progress-container {
-            width: 200px;
-            height: 3px;
+            width: 280px;
+            height: 4px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             margin: 24px auto 0;
             overflow: hidden;
+            position: relative;
         }
 
+        /* Indeterminate progress animation (default) */
         .progress-bar {
             height: 100%;
             background: linear-gradient(90deg, #62d8f3, #a78bfa, #f472b6);
             border-radius: 10px;
-            animation: progress 2s ease-in-out infinite;
+            transition: width 0.3s ease;
         }
 
-        @keyframes progress {
-            0% { width: 0%; transform: translateX(0); }
-            50% { width: 70%; transform: translateX(0); }
-            100% { width: 100%; transform: translateX(0); }
+        .progress-bar.indeterminate {
+            width: 30%;
+            animation: indeterminate 1.5s ease-in-out infinite;
+        }
+
+        .progress-bar.determinate {
+            animation: none;
+        }
+
+        @keyframes indeterminate {
+            0% { 
+                transform: translateX(-100%);
+            }
+            100% { 
+                transform: translateX(400%);
+            }
+        }
+
+        /* Progress percentage text */
+        .progress-text {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 8px;
+            min-height: 16px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .progress-text.visible {
+            opacity: 1;
+        }
+
+        /* Step indicators */
+        .step-container {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .step-item {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.3s ease, opacity 0.3s ease;
+        }
+
+        .step-item.active {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .step-item.completed {
+            color: #62d8f3;
+        }
+
+        .step-icon {
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .step-icon .spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #62d8f3;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .step-icon .check {
+            color: #62d8f3;
+            font-size: 14px;
         }
     </style>
     <script>
-        // Notify Rust that loading screen is ready to be shown
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('[Loading] DOM ready, notifying Rust to show window');
-            if (window.auroraview && window.auroraview.emit) {
-                window.auroraview.emit('loading_screen_ready', {});
+        /**
+         * AuroraView Loading Screen API
+         * 
+         * Global API for controlling the loading screen progress and status.
+         * Can be called from Rust via evaluate_script or from JavaScript.
+         * 
+         * Usage:
+         *   window.auroraLoading.setProgress(50);           // Set progress to 50%
+         *   window.auroraLoading.setText('Loading...');     // Set status text
+         *   window.auroraLoading.setStep('init', true);     // Mark step as active
+         *   window.auroraLoading.update({ progress: 75, text: 'Almost done' });
+         */
+        (function() {
+            'use strict';
+
+            // State
+            var state = {
+                progress: -1,  // -1 means indeterminate
+                text: 'Preparing your experience',
+                steps: []
+            };
+
+            // DOM elements (cached after DOMContentLoaded)
+            var elements = {};
+
+            /**
+             * Update the progress bar
+             * @param {number} percent - Progress percentage (0-100), or -1 for indeterminate
+             */
+            function setProgress(percent) {
+                state.progress = percent;
+                if (!elements.progressBar) return;
+
+                if (percent < 0) {
+                    // Indeterminate mode
+                    elements.progressBar.classList.add('indeterminate');
+                    elements.progressBar.classList.remove('determinate');
+                    elements.progressBar.style.width = '';
+                    elements.progressText.classList.remove('visible');
+                } else {
+                    // Determinate mode
+                    elements.progressBar.classList.remove('indeterminate');
+                    elements.progressBar.classList.add('determinate');
+                    elements.progressBar.style.width = Math.min(100, Math.max(0, percent)) + '%';
+                    elements.progressText.textContent = Math.round(percent) + '%';
+                    elements.progressText.classList.add('visible');
+                }
             }
-        });
+
+            /**
+             * Update the status text
+             * @param {string} text - Status text to display
+             */
+            function setText(text) {
+                state.text = text;
+                if (elements.subtext) {
+                    elements.subtext.textContent = text;
+                }
+            }
+
+            /**
+             * Add or update a step indicator
+             * @param {string} id - Unique step identifier
+             * @param {string} text - Step description
+             * @param {string} status - 'pending', 'active', or 'completed'
+             */
+            function setStep(id, text, status) {
+                var existing = state.steps.find(function(s) { return s.id === id; });
+                if (existing) {
+                    existing.text = text;
+                    existing.status = status;
+                } else {
+                    state.steps.push({ id: id, text: text, status: status });
+                }
+                renderSteps();
+            }
+
+            /**
+             * Clear all steps
+             */
+            function clearSteps() {
+                state.steps = [];
+                renderSteps();
+            }
+
+            /**
+             * Render step indicators
+             */
+            function renderSteps() {
+                if (!elements.stepContainer) return;
+
+                elements.stepContainer.innerHTML = '';
+                state.steps.forEach(function(step) {
+                    var item = document.createElement('div');
+                    item.className = 'step-item ' + step.status;
+
+                    var icon = document.createElement('span');
+                    icon.className = 'step-icon';
+
+                    if (step.status === 'completed') {
+                        icon.innerHTML = '<span class="check">✓</span>';
+                    } else if (step.status === 'active') {
+                        icon.innerHTML = '<span class="spinner"></span>';
+                    } else {
+                        icon.innerHTML = '<span style="opacity: 0.3">○</span>';
+                    }
+
+                    var text = document.createElement('span');
+                    text.textContent = step.text;
+
+                    item.appendChild(icon);
+                    item.appendChild(text);
+                    elements.stepContainer.appendChild(item);
+                });
+            }
+
+            /**
+             * Batch update multiple properties
+             * @param {Object} options - { progress, text, steps }
+             */
+            function update(options) {
+                if (options.progress !== undefined) {
+                    setProgress(options.progress);
+                }
+                if (options.text !== undefined) {
+                    setText(options.text);
+                }
+                if (options.steps !== undefined) {
+                    state.steps = options.steps;
+                    renderSteps();
+                }
+            }
+
+            /**
+             * Get current state
+             */
+            function getState() {
+                return JSON.parse(JSON.stringify(state));
+            }
+
+            // Initialize DOM references
+            function initElements() {
+                elements.progressBar = document.getElementById('progress-bar');
+                elements.progressText = document.getElementById('progress-text');
+                elements.subtext = document.getElementById('loading-subtext');
+                elements.stepContainer = document.getElementById('step-container');
+
+                // Apply initial state
+                setProgress(state.progress);
+                setText(state.text);
+                renderSteps();
+            }
+
+            // Expose global API
+            window.auroraLoading = {
+                setProgress: setProgress,
+                setText: setText,
+                setStep: setStep,
+                clearSteps: clearSteps,
+                update: update,
+                getState: getState
+            };
+
+            // Also expose via window.AuroraLoading for consistency
+            window.AuroraLoading = window.auroraLoading;
+
+            // Initialize on DOM ready
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('[Loading] DOM ready, initializing loading API');
+                initElements();
+
+                // Notify Rust that loading screen is ready
+                // Use send_event which is the correct method name in event_bridge.js
+                if (window.auroraview && window.auroraview.send_event) {
+                    console.log('[Loading] Sending loading_screen_ready event');
+                    window.auroraview.send_event('loading_screen_ready', {});
+                } else {
+                    console.warn('[Loading] auroraview.send_event not available, event bridge may not be initialized');
+                }
+            });
+
+            // Listen for loading updates from Rust via custom events
+            window.addEventListener('auroraview:loading_update', function(e) {
+                if (e.detail) {
+                    update(e.detail);
+                }
+            });
+
+            // Listen for backend_ready event - when Python is ready
+            // This will update the UI and then trigger navigation
+            window.addEventListener('auroraview:backend_ready', function(e) {
+                console.log('[Loading] Backend is ready!', e.detail);
+                
+                // Update loading UI to show ready state
+                setProgress(100);
+                setText('Ready! Loading application...');
+                
+                // Short delay to show the "Ready" state, then navigate
+                setTimeout(function() {
+                    console.log('[Loading] Triggering navigation to app');
+                    if (window.auroraview && window.auroraview.send_event) {
+                        window.auroraview.send_event('navigate_to_app', {});
+                    } else {
+                        console.error('[Loading] auroraview.send_event not available for navigation');
+                    }
+                }, 300);  // 300ms delay to show "Ready" state
+            });
+        })();
     </script>
 </head>
 <body>
@@ -203,10 +482,12 @@
             </svg>
         </div>
         <div class="loading-text">AuroraView</div>
-        <div class="loading-subtext">Preparing your experience</div>
+        <div class="loading-subtext" id="loading-subtext">Preparing your experience</div>
         <div class="progress-container">
-            <div class="progress-bar"></div>
+            <div class="progress-bar indeterminate" id="progress-bar"></div>
         </div>
+        <div class="progress-text" id="progress-text"></div>
+        <div class="step-container" id="step-container"></div>
     </div>
 </body>
 </html>

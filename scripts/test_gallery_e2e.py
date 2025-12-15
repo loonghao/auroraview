@@ -14,7 +14,7 @@ Usage:
     python scripts/test_gallery_e2e.py --live             # Live mode with real Python backend
     python scripts/test_gallery_e2e.py --screenshots-only # Only take screenshots
     python scripts/test_gallery_e2e.py --update-assets    # Update assets/images/
-    
+
 Requirements:
     pip install playwright
     playwright install chromium
@@ -26,7 +26,6 @@ import argparse
 import http.server
 import json
 import os
-import signal
 import socketserver
 import subprocess
 import sys
@@ -46,9 +45,19 @@ PYTHON_API_PORT = 8766
 # Screenshot configurations: (name, action_description, click_selector, wait_ms)
 SCREENSHOT_CONFIGS = [
     ("gallery_home", "Home page", None, 2000),
-    ("gallery_getting_started", "Getting Started category", 'button[title*="Getting Started"]', 1000),
+    (
+        "gallery_getting_started",
+        "Getting Started category",
+        'button[title*="Getting Started"]',
+        1000,
+    ),
     ("gallery_api_patterns", "API Patterns category", 'button[title*="API Patterns"]', 1000),
-    ("gallery_window_features", "Window Features category", 'button[title*="Window Features"]', 1000),
+    (
+        "gallery_window_features",
+        "Window Features category",
+        'button[title*="Window Features"]',
+        1000,
+    ),
     ("gallery_settings", "Settings dialog", 'button[title="Settings"]', 1500),
 ]
 
@@ -184,7 +193,7 @@ def get_auroraview_bridge_script() -> str:
 
 def get_live_bridge_script(api_port: int = PYTHON_API_PORT) -> str:
     """Get the AuroraView bridge script that connects to real Python backend.
-    
+
     This creates a bridge that forwards API calls to the Python backend via HTTP.
     """
     return f"""
@@ -271,17 +280,17 @@ def get_live_bridge_script(api_port: int = PYTHON_API_PORT) -> str:
 
 class PythonAPIServer:
     """HTTP server that wraps the Gallery Python API for testing."""
-    
+
     def __init__(self, port: int = PYTHON_API_PORT):
         self.port = port
         self.process: Optional[subprocess.Popen] = None
         self.server_thread: Optional[threading.Thread] = None
-        
+
     def start(self) -> bool:
         """Start the Python API server."""
         # Create a simple HTTP wrapper around the Gallery API
         server_script = PROJECT_ROOT / "scripts" / "_gallery_api_server.py"
-        
+
         # Write the server script
         server_code = '''
 #!/usr/bin/env python
@@ -363,7 +372,7 @@ if __name__ == "__main__":
     server.serve_forever()
 '''
         server_script.write_text(server_code)
-        
+
         try:
             self.process = subprocess.Popen(
                 [sys.executable, str(server_script), str(self.port)],
@@ -371,23 +380,23 @@ if __name__ == "__main__":
                 stderr=subprocess.PIPE,
                 cwd=str(PROJECT_ROOT),
             )
-            
+
             # Wait for server to start
             time.sleep(1)
-            
+
             # Check if process is still running
             if self.process.poll() is not None:
                 stderr = self.process.stderr.read().decode() if self.process.stderr else ""
                 print(f"[ERROR] API server failed to start: {stderr}")
                 return False
-            
+
             print(f"[INFO] Python API server started on port {self.port}")
             return True
-            
+
         except Exception as e:
             print(f"[ERROR] Failed to start API server: {e}")
             return False
-    
+
     def stop(self):
         """Stop the Python API server."""
         if self.process:
@@ -397,7 +406,7 @@ if __name__ == "__main__":
             except subprocess.TimeoutExpired:
                 self.process.kill()
             self.process = None
-        
+
         # Clean up temp script
         server_script = PROJECT_ROOT / "scripts" / "_gallery_api_server.py"
         if server_script.exists():
@@ -406,35 +415,36 @@ if __name__ == "__main__":
 
 def start_http_server(port: int = SERVER_PORT) -> socketserver.TCPServer:
     """Start a simple HTTP server to serve Gallery files."""
-    import os
     os.chdir(str(GALLERY_DIST))
-    
+
     handler = http.server.SimpleHTTPRequestHandler
-    handler.extensions_map.update({
-        '.js': 'application/javascript',
-        '.mjs': 'application/javascript',
-        '.css': 'text/css',
-    })
-    
+    handler.extensions_map.update(
+        {
+            ".js": "application/javascript",
+            ".mjs": "application/javascript",
+            ".css": "text/css",
+        }
+    )
+
     # Allow address reuse
     socketserver.TCPServer.allow_reuse_address = True
     server = socketserver.TCPServer(("", port), handler)
-    
+
     # Start server in background thread
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    
+
     return server
 
 
 def take_screenshots(page, output_dir: Path, update_assets: bool = False) -> list[str]:
     """Take screenshots of different Gallery pages.
-    
+
     Returns list of screenshot paths.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     screenshots = []
-    
+
     for name, description, selector, wait_ms in SCREENSHOT_CONFIGS:
         try:
             # Click the element if selector is provided
@@ -442,7 +452,7 @@ def take_screenshots(page, output_dir: Path, update_assets: bool = False) -> lis
                 # First go back to home to reset state
                 page.goto(f"http://localhost:{SERVER_PORT}/index.html", wait_until="networkidle")
                 page.wait_for_timeout(1500)
-                
+
                 # Try to click the element
                 element = page.query_selector(selector)
                 if element:
@@ -453,30 +463,31 @@ def take_screenshots(page, output_dir: Path, update_assets: bool = False) -> lis
                     continue
             else:
                 page.wait_for_timeout(wait_ms)
-            
+
             # Take screenshot
             screenshot_path = output_dir / f"{name}.png"
             page.screenshot(path=str(screenshot_path))
             screenshots.append(str(screenshot_path))
             print(f"  ✓ {description}: {screenshot_path.name}")
-            
+
             # Also copy to assets if requested
             if update_assets:
                 asset_path = ASSETS_DIR / f"{name}.png"
                 asset_path.parent.mkdir(parents=True, exist_ok=True)
                 import shutil
+
                 shutil.copy(screenshot_path, asset_path)
                 print(f"    → Updated: {asset_path.relative_to(PROJECT_ROOT)}")
-                
+
         except Exception as e:
             print(f"  ✗ {description}: {e}")
-    
+
     return screenshots
 
 
 def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_mode: bool = False):
     """Run Gallery E2E tests using Playwright.
-    
+
     Args:
         screenshots_only: Only take screenshots, skip tests
         update_assets: Update assets/images/ with new screenshots
@@ -485,23 +496,20 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print("[ERROR] Playwright not installed. Run: pip install playwright && playwright install chromium")
+        print(
+            "[ERROR] Playwright not installed. Run: pip install playwright && playwright install chromium"
+        )
         return 1
-    
+
     # Check if Gallery is built
     index_html = GALLERY_DIST / "index.html"
     if not index_html.exists():
-        print(f"[ERROR] Gallery not built. Run: cd gallery && npm run build")
+        print("[ERROR] Gallery not built. Run: cd gallery && npm run build")
         print(f"[ERROR] Expected: {index_html}")
         return 1
-    
-    results = {
-        "passed": 0,
-        "failed": 0,
-        "tests": [],
-        "screenshots": []
-    }
-    
+
+    results = {"passed": 0, "failed": 0, "tests": [], "screenshots": []}
+
     def test(name: str, condition: bool, details: str = ""):
         """Record a test result."""
         if condition:
@@ -510,15 +518,17 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
         else:
             results["failed"] += 1
             print(f"  ✗ {name}: {details}")
-        results["tests"].append({"name": name, "status": "PASS" if condition else "FAIL", "details": details})
-    
+        results["tests"].append(
+            {"name": name, "status": "PASS" if condition else "FAIL", "details": details}
+        )
+
     mode_str = "LIVE (real Python backend)" if live_mode else "MOCK"
     print(f"\n[TEST] Running Gallery E2E Tests with Playwright ({mode_str})...\n")
-    
+
     # Start HTTP server for frontend
     print(f"[INFO] Starting HTTP server on port {SERVER_PORT}...")
     server = start_http_server(SERVER_PORT)
-    
+
     # Start Python API server if in live mode
     api_server: Optional[PythonAPIServer] = None
     if live_mode:
@@ -528,23 +538,23 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
             print("[ERROR] Failed to start Python API server")
             server.shutdown()
             return 1
-    
+
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(viewport={"width": 1280, "height": 800})
             page = context.new_page()
-            
+
             # Inject appropriate AuroraView bridge
             if live_mode:
                 page.add_init_script(get_live_bridge_script(PYTHON_API_PORT))
             else:
                 page.add_init_script(get_auroraview_bridge_script())
-            
+
             # Navigate to Gallery
             gallery_url = f"http://localhost:{SERVER_PORT}/index.html"
             print(f"[INFO] Loading Gallery from: {gallery_url}")
-            
+
             try:
                 page.goto(gallery_url, wait_until="networkidle", timeout=30000)
                 if not screenshots_only:
@@ -554,10 +564,10 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                     test("Page loads successfully", False, str(e))
                 browser.close()
                 return 1
-            
+
             # Wait for React to render
             page.wait_for_timeout(3000)
-            
+
             if not screenshots_only:
                 # Run all tests
                 # Test 1: AuroraView bridge is available
@@ -566,28 +576,28 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                     test("AuroraView bridge available", has_bridge)
                 except Exception as e:
                     test("AuroraView bridge available", False, str(e))
-                
+
                 # Test 2: API proxy is available
                 try:
                     has_api = page.evaluate("typeof window.auroraview?.api === 'object'")
                     test("API proxy available", has_api)
                 except Exception as e:
                     test("API proxy available", False, str(e))
-                
+
                 # Test 3: React root element exists
                 try:
                     has_root = page.evaluate("document.getElementById('root') !== null")
                     test("React root element exists", has_root)
                 except Exception as e:
                     test("React root element exists", False, str(e))
-                
+
                 # Test 4: Check page title
                 try:
                     title = page.title()
                     test("Page has title", len(title) > 0, f"Title: {title}")
                 except Exception as e:
                     test("Page has title", False, str(e))
-                
+
                 # Test 5: Check for main content
                 try:
                     body_text = page.evaluate("document.body.innerText.substring(0, 200)")
@@ -595,7 +605,7 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                     test("Page has content", has_content, f"Content preview: {body_text[:50]}...")
                 except Exception as e:
                     test("Page has content", False, str(e))
-                
+
                 # Test 6: Event system works
                 try:
                     result = page.evaluate("""
@@ -612,7 +622,7 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                     test("Event system works", result is True)
                 except Exception as e:
                     test("Event system works", False, str(e))
-                
+
                 # Test 7: API call returns Promise
                 try:
                     result = page.evaluate("""
@@ -624,7 +634,7 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                     test("API call returns Promise", result is True)
                 except Exception as e:
                     test("API call returns Promise", False, str(e))
-                
+
                 # Test 8: API call resolves with data
                 try:
                     result = page.evaluate("""
@@ -636,7 +646,7 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                     test("API call resolves with data", result is True)
                 except Exception as e:
                     test("API call resolves with data", False, str(e))
-                
+
                 # Test 9: Check for sidebar or navigation
                 try:
                     has_nav = page.evaluate("""
@@ -648,18 +658,18 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                     test("Navigation/sidebar exists", has_nav)
                 except Exception as e:
                     test("Navigation/sidebar exists", False, str(e))
-                
+
                 # Test 10: Check for buttons
                 try:
                     button_count = page.evaluate("document.querySelectorAll('button').length")
                     test("Buttons exist", button_count > 0, f"Found {button_count} buttons")
                 except Exception as e:
                     test("Buttons exist", False, str(e))
-                
+
                 # Live mode specific tests - verify real API integration
                 if live_mode:
                     print("\n[INFO] Running live mode API tests...")
-                    
+
                     # Test 11: get_categories returns real data
                     try:
                         categories = page.evaluate("""
@@ -669,11 +679,14 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                             }
                         """)
                         has_categories = isinstance(categories, dict) and len(categories) > 0
-                        test("[LIVE] get_categories returns data", has_categories, 
-                             f"Got {len(categories) if categories else 0} categories")
+                        test(
+                            "[LIVE] get_categories returns data",
+                            has_categories,
+                            f"Got {len(categories) if categories else 0} categories",
+                        )
                     except Exception as e:
                         test("[LIVE] get_categories returns data", False, str(e))
-                    
+
                     # Test 12: get_samples returns real samples
                     try:
                         samples = page.evaluate("""
@@ -683,11 +696,14 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                             }
                         """)
                         has_samples = isinstance(samples, list) and len(samples) > 0
-                        test("[LIVE] get_samples returns data", has_samples,
-                             f"Got {len(samples) if samples else 0} samples")
+                        test(
+                            "[LIVE] get_samples returns data",
+                            has_samples,
+                            f"Got {len(samples) if samples else 0} samples",
+                        )
                     except Exception as e:
                         test("[LIVE] get_samples returns data", False, str(e))
-                    
+
                     # Test 13: get_source returns source code
                     try:
                         source_result = page.evaluate("""
@@ -700,12 +716,19 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                                 return null;
                             }
                         """)
-                        has_source = source_result and "source" in source_result and len(source_result["source"]) > 0
-                        test("[LIVE] get_source returns code", has_source,
-                             f"Source length: {len(source_result.get('source', '')) if source_result else 0}")
+                        has_source = (
+                            source_result
+                            and "source" in source_result
+                            and len(source_result["source"]) > 0
+                        )
+                        test(
+                            "[LIVE] get_source returns code",
+                            has_source,
+                            f"Source length: {len(source_result.get('source', '')) if source_result else 0}",
+                        )
                     except Exception as e:
                         test("[LIVE] get_source returns code", False, str(e))
-                    
+
                     # Test 14: API error handling
                     try:
                         error_result = page.evaluate("""
@@ -718,49 +741,57 @@ def run_tests(screenshots_only: bool = False, update_assets: bool = False, live_
                                 }
                             }
                         """)
-                        test("[LIVE] API error handling works", error_result.get("caught", False),
-                             f"Error: {error_result.get('message', 'N/A')}")
+                        test(
+                            "[LIVE] API error handling works",
+                            error_result.get("caught", False),
+                            f"Error: {error_result.get('message', 'N/A')}",
+                        )
                     except Exception as e:
                         test("[LIVE] API error handling works", False, str(e))
-            
+
             # Take screenshots
             print("\n[INFO] Taking screenshots...")
             screenshots = take_screenshots(page, SCREENSHOTS_DIR, update_assets)
             results["screenshots"] = screenshots
-            
+
             browser.close()
-    
+
     finally:
         # Shutdown servers
         server.shutdown()
         if api_server:
             api_server.stop()
-    
+
     # Print summary
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"Mode: {mode_str}")
     if not screenshots_only:
         print(f"Test Results: {results['passed']} passed, {results['failed']} failed")
     print(f"Screenshots: {len(results['screenshots'])} captured")
-    print(f"{'='*50}")
-    
+    print(f"{'=' * 50}")
+
     return 0 if results["failed"] == 0 else 1
 
 
 def main():
     parser = argparse.ArgumentParser(description="Gallery E2E Tests")
-    parser.add_argument("--screenshots-only", action="store_true", 
-                        help="Only take screenshots, skip tests")
-    parser.add_argument("--update-assets", action="store_true",
-                        help="Update assets/images/ with new screenshots")
-    parser.add_argument("--live", action="store_true",
-                        help="Use real Python backend instead of mocks (eat your own dogfood)")
+    parser.add_argument(
+        "--screenshots-only", action="store_true", help="Only take screenshots, skip tests"
+    )
+    parser.add_argument(
+        "--update-assets", action="store_true", help="Update assets/images/ with new screenshots"
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Use real Python backend instead of mocks (eat your own dogfood)",
+    )
     args = parser.parse_args()
-    
+
     return run_tests(
         screenshots_only=args.screenshots_only,
         update_assets=args.update_assets,
-        live_mode=args.live
+        live_mode=args.live,
     )
 
 

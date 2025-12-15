@@ -738,6 +738,7 @@ impl Packer {
         }
 
         if packages_to_collect.is_empty() && entry_files.is_empty() {
+            tracing::info!("No Python packages to collect");
             return Ok(0);
         }
 
@@ -752,7 +753,35 @@ impl Packer {
             .include(packages_to_collect.iter().cloned())
             .exclude(python.exclude.iter().cloned());
 
+        // Log Python environment info for debugging
+        collector.log_python_info();
+
+        // Check if critical packages are available
+        for pkg in &packages_to_collect {
+            collector.check_package(pkg);
+        }
+
         let collected = collector.collect(entry_files, &temp_dir)?;
+
+        tracing::info!(
+            "Collected {} packages ({} files, {:.2} MB)",
+            collected.packages.len(),
+            collected.file_count,
+            collected.total_size as f64 / (1024.0 * 1024.0)
+        );
+
+        if collected.packages.is_empty() && !packages_to_collect.is_empty() {
+            tracing::warn!(
+                "WARNING: No packages were collected! Expected: {:?}",
+                packages_to_collect
+            );
+            tracing::warn!(
+                "This usually means the packages are not installed in the Python environment."
+            );
+            tracing::warn!(
+                "For FullStack mode, ensure 'auroraview' wheel is installed: pip install auroraview"
+            );
+        }
 
         tracing::info!(
             "Collected {} packages ({} files, {:.2} MB)",
@@ -1244,6 +1273,7 @@ impl PackConfig {
             env,
             license,
             hooks,
+            remote_debugging_port: manifest.debug.remote_debugging_port,
         })
     }
 }

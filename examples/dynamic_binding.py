@@ -274,7 +274,10 @@ def create_plugin_host():
                     view.bind_call("get_analytics", lambda: {"views": 1234, "users": 56})
                 elif plugin_id == "admin":
                     config["features"].append("admin")
-                    view.bind_call("admin_action", lambda action="": {"action": action, "users": ["admin", "user1"]})
+                    view.bind_call(
+                        "admin_action",
+                        lambda action="": {"action": action, "users": ["admin", "user1"]},
+                    )
 
                 view.emit("plugin_loaded", {"id": plugin_id, "name": plugin["name"]})
                 return {"ok": True, "name": plugin["name"]}
@@ -364,4 +367,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

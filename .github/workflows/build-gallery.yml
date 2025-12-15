@@ -1,7 +1,8 @@
 name: Build Gallery
 
-# Build Gallery standalone executable workflow
+# Build Gallery standalone executable workflow (FullStack mode with Python backend)
 # Only runs on workflow_call (from release.yml) or manual trigger.
+# Requires pre-built auroraview wheels for Python dependency collection.
 
 on:
   workflow_dispatch:
@@ -16,9 +17,43 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  # First, build wheels for all platforms (needed for Python dependency collection)
+  build-wheels:
+    name: Build Wheel (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64
+            artifact-name: wheels-linux-x86_64
+            maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
+          - os: windows-latest
+            target: x64
+            artifact-name: wheels-windows-x64
+            maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38,win-webview2'
+          - os: macos-latest
+            target: universal2-apple-darwin
+            artifact-name: wheels-macos-universal2-apple-darwin
+            maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build Wheel
+        uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ matrix.target }}
+          python-version: '3.11'
+          maturin-args: ${{ matrix.maturin-args }}
+          test-wheel: 'false'
+          artifact-name: ${{ matrix.artifact-name }}
+
   build:
     name: Build Gallery (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    needs: build-wheels
     strategy:
       fail-fast: false
       matrix:
@@ -28,21 +63,25 @@ jobs:
             target: x86_64-pc-windows-msvc
             artifact: auroraview-gallery.exe
             archive: auroraview-gallery-windows-x64.zip
+            wheel-artifact: wheels-windows-x64
           # macOS ARM
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: auroraview-gallery
             archive: auroraview-gallery-macos-arm64.tar.gz
+            wheel-artifact: wheels-macos-universal2-apple-darwin
           # macOS Intel (cross-compile on ARM runner)
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact: auroraview-gallery
             archive: auroraview-gallery-macos-x64.tar.gz
+            wheel-artifact: wheels-macos-universal2-apple-darwin
           # Linux
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: auroraview-gallery
             archive: auroraview-gallery-linux-x64.tar.gz
+            wheel-artifact: wheels-linux-x86_64
 
     steps:
       - uses: actions/checkout@v6
@@ -53,6 +92,24 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: gallery/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Download pre-built auroraview wheel
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ matrix.wheel-artifact }}
+          path: dist/
+
+      - name: Install auroraview wheel
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install dist/*.whl
+          python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.90.0
@@ -89,23 +146,17 @@ jobs:
       - name: Build CLI (for pack command)
         run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
 
-      - name: Pack Gallery executable
+      - name: Pack Gallery executable (FullStack mode)
         shell: bash
         run: |
           mkdir -p target/pack
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            ./target/${{ matrix.target }}/release/auroraview.exe pack \
-              --frontend gallery/dist \
-              --output auroraview-gallery \
-              --title "AuroraView Gallery" \
-              --width 1200 --height 800 \
+            ./target/${{ matrix.target }}/release/auroraview-cli.exe pack \
+              --config gallery/auroraview.pack.toml \
               --output-dir target/pack
           else
-            ./target/${{ matrix.target }}/release/auroraview pack \
-              --frontend gallery/dist \
-              --output auroraview-gallery \
-              --title "AuroraView Gallery" \
-              --width 1200 --height 800 \
+            ./target/${{ matrix.target }}/release/auroraview-cli pack \
+              --config gallery/auroraview.pack.toml \
               --output-dir target/pack
           fi
 

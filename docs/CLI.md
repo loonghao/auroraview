@@ -1,10 +1,15 @@
 # AuroraView CLI
 
-AuroraView provides a command-line interface for quickly launching WebView windows with URLs or local HTML files.
+AuroraView provides two command-line interfaces:
 
-## Installation
+1. **`auroraview`** (Python) - Installed via pip, for quick WebView previews
+2. **`auroraview-cli`** (Rust) - Standalone binary for packaging and advanced features
 
-The CLI is automatically installed when you install the auroraview package:
+## Quick Start
+
+### Python CLI (via pip)
+
+The Python CLI is automatically installed when you install the auroraview package:
 
 ```bash
 pip install auroraview
@@ -12,30 +17,50 @@ pip install auroraview
 uv pip install auroraview
 ```
 
-## Usage
-
-### Load a URL
-
 ```bash
+# Load a URL
 auroraview --url https://example.com
-```
 
-### Load a Local HTML File
-
-```bash
+# Load a local HTML file
 auroraview --html /path/to/file.html
+
+# Custom window configuration
+auroraview --url https://example.com --title "My App" --width 1024 --height 768
 ```
 
-### Custom Window Configuration
+### Rust CLI (for packaging)
+
+The Rust CLI (`auroraview-cli`) provides additional features like application packaging. Download from [GitHub Releases](https://github.com/AuroraView/auroraview/releases) or build from source:
 
 ```bash
-auroraview --url https://example.com \
-  --title "My App" \
-  --width 1024 \
-  --height 768
+# Build from source
+cargo build -p auroraview-cli --release
+# Binary: target/release/auroraview-cli (or auroraview-cli.exe on Windows)
 ```
 
-## Options
+```bash
+# Pack a URL-based application
+auroraview-cli pack --url https://example.com --output myapp
+
+# Pack a frontend project (React, Vue, etc.)
+auroraview-cli pack --frontend ./dist --output myapp
+
+# Pack a fullstack application (frontend + Python backend)
+auroraview-cli pack --config auroraview.pack.toml
+```
+
+## CLI Comparison
+
+| Feature | `auroraview` (Python) | `auroraview-cli` (Rust) |
+|---------|----------------------|-------------------------|
+| Installation | `pip install auroraview` | GitHub Releases or `cargo build` |
+| URL/HTML preview | ✅ | ✅ |
+| Application packaging | ❌ | ✅ |
+| FullStack mode (Python backend) | ❌ | ✅ |
+| Embedded Python runtime | ❌ | ✅ |
+| No Python required | ❌ | ✅ |
+
+## Python CLI Options
 
 - `-u, --url <URL>` - URL to load in the WebView
 - `-f, --html <HTML>` - Local HTML file to load in the WebView
@@ -45,9 +70,31 @@ auroraview --url https://example.com \
 - `-h, --help` - Print help information
 - `-V, --version` - Print version information
 
+## Rust CLI Commands
+
+### `auroraview-cli` (preview)
+
+```bash
+auroraview-cli --url https://example.com
+auroraview-cli --html index.html
+```
+
+### `auroraview-cli pack` (packaging)
+
+```bash
+# URL mode - creates a standalone browser for a specific URL
+auroraview-cli pack --url https://example.com --output myapp
+
+# Frontend mode - bundles static assets
+auroraview-cli pack --frontend ./dist --output myapp
+
+# FullStack mode - bundles frontend + Python backend
+auroraview-cli pack --config auroraview.pack.toml
+```
+
 ## Examples
 
-### Quick Web Preview
+### Quick Web Preview (Python)
 
 ```bash
 # Preview a website
@@ -57,7 +104,7 @@ auroraview --url https://github.com
 auroraview --url https://github.com --width 1920 --height 1080
 ```
 
-### Local Development
+### Local Development (Python)
 
 ```bash
 # Preview local HTML file
@@ -77,25 +124,19 @@ uvx auroraview --url https://example.com
 uvx auroraview --html test.html
 ```
 
-## Development
-
-### Building the CLI
+### Application Packaging (Rust CLI)
 
 ```bash
-# Build the CLI binary
-cargo build --release --features cli --bin auroraview
+# Download auroraview-cli from GitHub Releases, then:
 
-# The binary will be at: target/release/auroraview (or auroraview.exe on Windows)
-```
+# Pack a simple URL app
+auroraview-cli pack --url https://myapp.com --output myapp
 
-### Testing
+# Pack a React/Vue frontend
+auroraview-cli pack --frontend ./build --output myapp --title "My App"
 
-```bash
-# Test with URL
-./target/release/auroraview --url https://example.com
-
-# Test with local file
-./target/release/auroraview --html test.html
+# Pack a fullstack app with Python backend
+auroraview-cli pack --config auroraview.pack.toml
 ```
 
 ## Platform Support

@@ -51,7 +51,9 @@ class SceneOutliner(WebView):
         # HTML content for demonstration
         html = self._get_demo_html()
 
-        super().__init__(title="Scene Outliner (Qt-Style)", html=html, width=500, height=700, debug=True)
+        super().__init__(
+            title="Scene Outliner (Qt-Style)", html=html, width=500, height=700, debug=True
+        )
 
         # Internal state
         self._scene_items = ["Group1", "Mesh_Cube", "Mesh_Sphere", "Camera1", "Light_Key"]
@@ -425,4 +427,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

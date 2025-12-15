@@ -1429,17 +1429,19 @@ The Gallery provides:
 
 ### Application Packaging
 
-AuroraView provides a powerful packaging system to create standalone executables:
+AuroraView provides a powerful packaging system to create standalone executables. Use `auroraview-cli` (Rust CLI) for packaging:
+
+> **Note**: `auroraview-cli` is the Rust-based CLI for packaging. Download from [GitHub Releases](https://github.com/AuroraView/auroraview/releases) or build with `cargo build -p auroraview-cli --release`.
 
 ```bash
 # Pack a URL-based application
-auroraview pack --url https://example.com --output myapp.exe
+auroraview-cli pack --url https://example.com --output myapp
 
 # Pack a frontend project (React, Vue, etc.)
-auroraview pack --frontend ./dist --output myapp.exe
+auroraview-cli pack --frontend ./dist --output myapp
 
 # Pack a fullstack application (frontend + Python backend)
-auroraview pack --config auroraview.pack.toml --output myapp.exe
+auroraview-cli pack --config auroraview.pack.toml
 ```
 
 **Configuration file example (`auroraview.pack.toml`):**
