@@ -1,0 +1,80 @@
+{
+  "name": "@auroraview/sdk",
+  "version": "0.1.0",
+  "description": "Framework-agnostic SDK for AuroraView WebView bridge",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "import": "./dist/vue.js",
+      "require": "./dist/vue.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "build:assets": "tsup --config tsup.assets.config.ts",
+    "build:all": "npm run build && npm run build:assets",
+    "dev": "tsup --watch",
+    "dev:test": "npx serve tests/e2e/test-app -p 5173",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:all": "npm run test && npm run test:e2e",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "vue": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.2.7",
+    "@vitest/coverage-v8": "^3.2.4",
+    "serve": "^14.2.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.4",
+    "vue": "^3.5.25"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "auroraview",
+    "webview",
+    "dcc",
+    "ipc",
+    "bridge",
+    "tauri-like"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/loonghao/auroraview"
+  }
+}

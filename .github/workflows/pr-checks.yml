@@ -31,6 +31,7 @@ jobs:
     name: Pre-build Wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
+    needs: [sdk-build]
     strategy:
       fail-fast: false
       matrix:
@@ -49,6 +50,12 @@ jobs:
             maturin-args: '--release --out dist --sdist --find-interpreter --features python-bindings,ext-module,abi3-py38'
     steps:
       - uses: actions/checkout@v6
+
+      - name: Download SDK assets
+        uses: actions/download-artifact@v6
+        with:
+          name: sdk-assets
+          path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
         uses: ./.github/actions/build-wheel
@@ -497,6 +504,12 @@ jobs:
             ./target/${{ matrix.target }}/release/auroraview-cli --version
           fi
 
+  # SDK build and test (calls reusable workflow)
+  sdk-build:
+    name: SDK CI
+    uses: ./.github/workflows/sdk-ci.yml
+    secrets: inherit
+
   # Gallery E2E tests with Playwright
   gallery-e2e:
     name: Gallery E2E Tests
@@ -741,7 +754,7 @@ jobs:
   pr-ready:
     name: PR Ready
     runs-on: ubuntu-latest
-    needs: [pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build, gallery-e2e, gallery-pack]
+    needs: [pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build, gallery-e2e, gallery-pack, sdk-build]
     if: always()
     steps:
       - name: Check results
@@ -761,6 +774,7 @@ jobs:
             ["cli-build"]="${{ needs.cli-build.result }}"
             ["gallery-e2e"]="${{ needs.gallery-e2e.result }}"
             ["gallery-pack"]="${{ needs.gallery-pack.result }}"
+            ["sdk-build"]="${{ needs.sdk-build.result }}"
           )
 
           failed=0
