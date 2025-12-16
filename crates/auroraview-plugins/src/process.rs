@@ -22,6 +22,12 @@
 //! shares the router's event callback. Events are emitted to the frontend
 //! when the callback is set via `PluginRouter::set_event_callback()`.
 //!
+//! ## Graceful Shutdown (powered by ipckit)
+//!
+//! Uses ipckit's `ShutdownState` for coordinated shutdown across all
+//! background threads. This prevents "EventLoopClosed" errors when
+//! the WebView is closing.
+//!
 //! ## Example
 //!
 //! ```javascript
@@ -45,12 +51,12 @@
 //! ```
 
 use crate::{PluginError, PluginEventCallback, PluginHandler, PluginResult, ScopeConfig};
+use ipckit::graceful::ShutdownState;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
@@ -69,14 +75,16 @@ struct ManagedProcess {
 }
 
 /// Process plugin with IPC support
+///
+/// Uses ipckit's `ShutdownState` for graceful shutdown coordination.
 pub struct ProcessPlugin {
     name: String,
     /// Managed processes by PID
     processes: ProcessRegistry,
     /// Event callback for emitting events to frontend (shared with PluginRouter)
     event_callback: Arc<RwLock<Option<PluginEventCallback>>>,
-    /// Shutdown flag to stop background threads from emitting events
-    shutdown: Arc<AtomicBool>,
+    /// Shutdown state from ipckit for graceful shutdown coordination
+    shutdown_state: Arc<ShutdownState>,
 }
 
 impl ProcessPlugin {
@@ -86,7 +94,7 @@ impl ProcessPlugin {
             name: "process".to_string(),
             processes: Arc::new(RwLock::new(HashMap::new())),
             event_callback: Arc::new(RwLock::new(None)),
-            shutdown: Arc::new(AtomicBool::new(false)),
+            shutdown_state: Arc::new(ShutdownState::new()),
         }
     }
 
@@ -98,7 +106,7 @@ impl ProcessPlugin {
             name: "process".to_string(),
             processes: Arc::new(RwLock::new(HashMap::new())),
             event_callback: callback,
-            shutdown: Arc::new(AtomicBool::new(false)),
+            shutdown_state: Arc::new(ShutdownState::new()),
         }
     }
 
@@ -106,6 +114,11 @@ impl ProcessPlugin {
     pub fn set_event_callback(&self, callback: PluginEventCallback) {
         let mut cb = self.event_callback.write().unwrap();
         *cb = Some(callback);
+    }
+
+    /// Check if shutdown has been initiated
+    fn is_shutting_down(&self) -> bool {
+        self.shutdown_state.is_shutdown()
     }
 
     /// Spawn a process with IPC support
@@ -186,12 +199,10 @@ impl ProcessPlugin {
 
         // Spawn the process
         tracing::info!("[Rust:ProcessPlugin] Spawning process...");
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| {
-                tracing::error!("[Rust:ProcessPlugin] Failed to spawn: {}", e);
-                PluginError::shell_error(format!("Failed to spawn: {}", e))
-            })?;
+        let mut child = cmd.spawn().map_err(|e| {
+            tracing::error!("[Rust:ProcessPlugin] Failed to spawn: {}", e);
+            PluginError::shell_error(format!("Failed to spawn: {}", e))
+        })?;
 
         let pid = child.id();
         tracing::info!("[Rust:ProcessPlugin] Process spawned with PID: {}", pid);
@@ -200,10 +211,17 @@ impl ProcessPlugin {
         std::thread::sleep(std::time::Duration::from_millis(50));
         match child.try_wait() {
             Ok(Some(status)) => {
-                tracing::warn!("[Rust:ProcessPlugin] Process {} exited immediately with status: {:?}", pid, status);
+                tracing::warn!(
+                    "[Rust:ProcessPlugin] Process {} exited immediately with status: {:?}",
+                    pid,
+                    status
+                );
             }
             Ok(None) => {
-                tracing::info!("[Rust:ProcessPlugin] Process {} is still running after 50ms", pid);
+                tracing::info!(
+                    "[Rust:ProcessPlugin] Process {} is still running after 50ms",
+                    pid
+                );
             }
             Err(e) => {
                 tracing::warn!("[Rust:ProcessPlugin] Failed to check process status: {}", e);
@@ -222,21 +240,33 @@ impl ProcessPlugin {
             processes.insert(pid, managed.clone());
         }
 
-        // Spawn stdout reader thread
+        // Spawn stdout reader thread with graceful shutdown support
         if let Some(stdout) = stdout {
             let event_cb = self.event_callback.clone();
             let processes = self.processes.clone();
-            let shutdown = self.shutdown.clone();
+            let shutdown_state = Arc::clone(&self.shutdown_state);
             thread::spawn(move || {
                 let reader = BufReader::new(stdout);
                 for line in reader.lines() {
-                    // Check shutdown flag before emitting
-                    if shutdown.load(Ordering::Relaxed) {
+                    // Check shutdown state before emitting (using ipckit)
+                    if shutdown_state.is_shutdown() {
+                        tracing::debug!(
+                            "[Rust:ProcessPlugin] Shutdown detected, stopping stdout reader for PID {}",
+                            pid
+                        );
                         break;
                     }
+
+                    // Use operation guard to track this emit operation
+                    let _guard = shutdown_state.begin_operation();
+
                     match line {
                         Ok(data) => {
-                            tracing::debug!("[Rust:ProcessPlugin] Process {} stdout: {}", pid, data);
+                            tracing::debug!(
+                                "[Rust:ProcessPlugin] Process {} stdout: {}",
+                                pid,
+                                data
+                            );
                             if let Some(cb) = event_cb.read().unwrap().as_ref() {
                                 cb(
                                     "process:stdout",
@@ -251,24 +281,32 @@ impl ProcessPlugin {
                     }
                 }
                 // Process stdout closed, check if process exited (only if not shutting down)
-                if !shutdown.load(Ordering::Relaxed) {
+                if !shutdown_state.is_shutdown() {
                     Self::check_exit(&processes, &event_cb, pid);
                 }
                 tracing::debug!("[Rust:ProcessPlugin] Process {} stdout reader exiting", pid);
             });
         }
 
-        // Spawn stderr reader thread
+        // Spawn stderr reader thread with graceful shutdown support
         if let Some(stderr) = stderr {
             let event_cb = self.event_callback.clone();
-            let shutdown = self.shutdown.clone();
+            let shutdown_state = Arc::clone(&self.shutdown_state);
             thread::spawn(move || {
                 let reader = BufReader::new(stderr);
                 for line in reader.lines() {
-                    // Check shutdown flag before emitting
-                    if shutdown.load(Ordering::Relaxed) {
+                    // Check shutdown state before emitting (using ipckit)
+                    if shutdown_state.is_shutdown() {
+                        tracing::debug!(
+                            "[Rust:ProcessPlugin] Shutdown detected, stopping stderr reader for PID {}",
+                            pid
+                        );
                         break;
                     }
+
+                    // Use operation guard to track this emit operation
+                    let _guard = shutdown_state.begin_operation();
+
                     match line {
                         Ok(data) => {
                             // Always log stderr for debugging
@@ -351,11 +389,20 @@ impl ProcessPlugin {
                     }
                 }
 
-                // Wait for process to fully terminate (with timeout)
-                // This ensures stdout/stderr pipes are closed
-                let _ = managed.child.wait();
+                // Try to wait for process to terminate (non-blocking with timeout)
+                // Use try_wait to avoid blocking if process doesn't exit immediately
+                for _ in 0..10 {
+                    match managed.child.try_wait() {
+                        Ok(Some(_)) => break, // Process exited
+                        Ok(None) => {
+                            // Still running, wait a bit
+                            std::thread::sleep(std::time::Duration::from_millis(50));
+                        }
+                        Err(_) => break, // Error, stop waiting
+                    }
+                }
 
-                // Remove from managed
+                // Remove from managed (even if process hasn't fully exited)
                 {
                     let mut processes = self.processes.write().unwrap();
                     processes.remove(&pid);
@@ -371,10 +418,25 @@ impl ProcessPlugin {
     }
 
     /// Kill all managed processes (for cleanup on shutdown)
+    ///
+    /// Uses ipckit's graceful shutdown mechanism to coordinate with background threads.
     fn kill_all(&self) -> PluginResult<Value> {
-        // Set shutdown flag first to stop background threads from emitting events
-        // This prevents "EventLoopClosed" errors when WebView is closing
-        self.shutdown.store(true, Ordering::SeqCst);
+        // Signal shutdown to all background threads using ipckit
+        self.shutdown_state.shutdown();
+        tracing::info!(
+            "[Rust:ProcessPlugin] Shutdown signaled, waiting for operations to complete..."
+        );
+
+        // Wait for pending operations to complete (with timeout)
+        // This uses ipckit's wait_for_drain mechanism
+        let drain_result = self
+            .shutdown_state
+            .wait_for_drain(Some(std::time::Duration::from_secs(2)));
+        if drain_result.is_err() {
+            tracing::warn!(
+                "[Rust:ProcessPlugin] Drain timeout, some operations may not have completed"
+            );
+        }
 
         let pids: Vec<u32> = {
             let processes = self.processes.read().unwrap();
@@ -483,6 +545,17 @@ impl PluginHandler for ProcessPlugin {
     }
 
     fn handle(&self, command: &str, args: Value, scope: &ScopeConfig) -> PluginResult<Value> {
+        // Check if we're shutting down - reject new operations
+        if self.is_shutting_down()
+            && command != "kill"
+            && command != "kill_all"
+            && command != "list"
+        {
+            return Err(PluginError::shell_error(
+                "ProcessPlugin is shutting down, new operations not accepted",
+            ));
+        }
+
         match command {
             "spawn_ipc" => {
                 let opts: SpawnIpcOptions = serde_json::from_value(args)

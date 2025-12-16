@@ -158,10 +158,7 @@ impl DepsCollector {
         tracing::info!("Python executable: {}", self.python_exe.display());
 
         // Get Python version
-        match Command::new(&self.python_exe)
-            .args(["--version"])
-            .output()
-        {
+        match Command::new(&self.python_exe).args(["--version"]).output() {
             Ok(output) if output.status.success() => {
                 let version = String::from_utf8_lossy(&output.stdout);
                 tracing::info!("Python version: {}", version.trim());
@@ -187,10 +184,7 @@ print(f"Executable: {sys.executable}")
 print(f"Prefix: {sys.prefix}")
 print(f"Site-packages: {site.getsitepackages()}")
 "#;
-        match Command::new(&self.python_exe)
-            .args(["-c", script])
-            .output()
-        {
+        match Command::new(&self.python_exe).args(["-c", script]).output() {
             Ok(output) if output.status.success() => {
                 for line in String::from_utf8_lossy(&output.stdout).lines() {
                     tracing::info!("  {}", line);
@@ -210,18 +204,11 @@ print(f"Site-packages: {site.getsitepackages()}")
     pub fn check_package(&self, package_name: &str) -> bool {
         match self.get_package_path(package_name) {
             Ok(Some(path)) => {
-                tracing::info!(
-                    "Package '{}' found at: {}",
-                    package_name,
-                    path.display()
-                );
+                tracing::info!("Package '{}' found at: {}", package_name, path.display());
                 true
             }
             Ok(None) => {
-                tracing::warn!(
-                    "Package '{}' NOT FOUND in Python environment",
-                    package_name
-                );
+                tracing::warn!("Package '{}' NOT FOUND in Python environment", package_name);
                 tracing::warn!(
                     "  Hint: Install with 'pip install {}' or ensure the wheel is installed",
                     package_name
@@ -229,11 +216,7 @@ print(f"Site-packages: {site.getsitepackages()}")
                 false
             }
             Err(e) => {
-                tracing::error!(
-                    "Failed to check package '{}': {}",
-                    package_name,
-                    e
-                );
+                tracing::error!("Failed to check package '{}': {}", package_name, e);
                 false
             }
         }
