@@ -159,6 +159,12 @@ impl ProcessPlugin {
         // when connected to a pipe. Critical for real-time IPC.
         cmd.env("PYTHONUNBUFFERED", "1");
 
+        // IMPORTANT: Clear AURORAVIEW_PACKED so spawned processes run in standalone mode
+        // Otherwise, examples would detect packed mode and run as API servers instead of
+        // creating their own windows. The parent Gallery is in packed mode, but spawned
+        // examples should run independently.
+        cmd.env("AURORAVIEW_PACKED", "0");
+
         // In packed mode, inherit AURORAVIEW_PYTHON_PATH to PYTHONPATH
         // This allows spawned Python processes to find bundled modules
         let python_path_result = std::env::var("AURORAVIEW_PYTHON_PATH");
