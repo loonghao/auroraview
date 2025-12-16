@@ -8,7 +8,8 @@ pub enum UserEvent {
     /// Plugin event to be sent to WebView
     PluginEvent { event: String, data: String },
     /// Python backend is ready, notify frontend
-    PythonReady,
+    /// Contains list of registered API handlers (e.g., ["api.get_samples", "api.run_sample"])
+    PythonReady { handlers: Vec<String> },
     /// Loading screen is ready (DOM rendered)
     LoadingScreenReady,
     /// Navigate to application (triggered by frontend)

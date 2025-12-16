@@ -471,16 +471,23 @@ pub fn start_python_backend_with_ipc(
                 let ready_line_trimmed = ready_line.trim();
                 if let Ok(msg) = serde_json::from_str::<serde_json::Value>(ready_line_trimmed) {
                     if msg.get("type").and_then(|v| v.as_str()) == Some("ready") {
-                        let handlers = msg
+                        // Extract handler names from Python ready signal
+                        let handlers: Vec<String> = msg
                             .get("handlers")
                             .and_then(|v| v.as_array())
-                            .map(|a| a.len())
-                            .unwrap_or(0);
+                            .map(|a| {
+                                a.iter()
+                                    .filter_map(|v| v.as_str().map(String::from))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+
                         tracing::info!(
                             "Python backend ready with {} handlers in {:.2}ms",
-                            handlers,
+                            handlers.len(),
                             ready_start.elapsed().as_secs_f64() * 1000.0
                         );
+                        tracing::debug!("Registered handlers: {:?}", handlers);
 
                         // Update loading: Python ready, navigating to app
                         let _ = proxy_for_loading.send_event(UserEvent::LoadingUpdate {
@@ -491,8 +498,8 @@ pub fn start_python_backend_with_ipc(
                             step_status: Some("completed".to_string()),
                         });
 
-                        // Notify WebView to navigate to actual content
-                        if let Err(e) = proxy.send_event(UserEvent::PythonReady) {
+                        // Notify WebView to navigate to actual content with handlers
+                        if let Err(e) = proxy.send_event(UserEvent::PythonReady { handlers }) {
                             tracing::error!("Failed to send PythonReady event: {}", e);
                         }
                     } else {
@@ -501,7 +508,9 @@ pub fn start_python_backend_with_ipc(
                             ready_line_trimmed
                         );
                         // Still notify ready to avoid hanging on loading screen
-                        let _ = proxy.send_event(UserEvent::PythonReady);
+                        let _ = proxy.send_event(UserEvent::PythonReady {
+                            handlers: Vec::new(),
+                        });
                     }
                 } else {
                     tracing::warn!(
@@ -509,7 +518,9 @@ pub fn start_python_backend_with_ipc(
                         ready_line_trimmed
                     );
                     // Still notify ready to avoid hanging on loading screen
-                    let _ = proxy.send_event(UserEvent::PythonReady);
+                    let _ = proxy.send_event(UserEvent::PythonReady {
+                        handlers: Vec::new(),
+                    });
                 }
             }
             Err(e) => {
