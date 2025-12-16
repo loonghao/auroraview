@@ -353,24 +353,24 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             tracing::info!("App URL (after Python ready): {}", _app_url);
             tracing::info!("Available assets: {} total", memory_assets.len());
 
+            #[allow(unused_mut)]
             let mut builder = WryWebViewBuilder::new_with_web_context(&mut web_context);
 
             // On Windows, use HTTPS scheme for secure context support
             // This is required for custom protocols to work correctly
             #[cfg(target_os = "windows")]
-            {
-                builder = builder.with_https_scheme(true);
-                tracing::debug!("Enabled HTTPS scheme for Windows");
-            }
+            let builder = builder.with_https_scheme(true);
 
             // Set remote debugging port for CDP (Chrome DevTools Protocol) connections
             // This allows Playwright/Puppeteer to connect to WebView2
             #[cfg(target_os = "windows")]
-            if let Some(port) = config.remote_debugging_port {
+            let builder = if let Some(port) = config.remote_debugging_port {
                 let args = format!("--remote-debugging-port={}", port);
-                builder = builder.with_additional_browser_args(&args);
                 tracing::info!("[packed] Set WebView2 remote debugging port: {}", port);
-            }
+                builder.with_additional_browser_args(&args)
+            } else {
+                builder
+            };
 
             builder
                 .with_custom_protocol("auroraview".to_string(), move |_webview_id, request| {
