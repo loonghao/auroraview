@@ -7,6 +7,7 @@ use auroraview_core::assets::{build_packed_init_script, get_loading_html};
 use auroraview_core::plugins::{PluginRequest, PluginRouter, ScopeConfig};
 use auroraview_core::protocol::MemoryAssets;
 use auroraview_pack::{OverlayData, PackMode, PackedMetrics};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 #[cfg(target_os = "windows")]
@@ -20,6 +21,59 @@ use crate::{load_window_icon, normalize_url};
 use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
 use super::utils::{escape_json_for_js, get_webview_data_dir};
+
+/// Build JavaScript to register API methods in frontend
+///
+/// Groups handlers by namespace (e.g., "api.get_samples" -> namespace "api", method "get_samples")
+/// and generates a script that calls `window.auroraview._registerApiMethods()` for each namespace.
+fn build_api_registration_script(handlers: &[String]) -> String {
+    if handlers.is_empty() {
+        return String::new();
+    }
+
+    // Group handlers by namespace
+    let mut namespaces: HashMap<String, Vec<String>> = HashMap::new();
+    for handler in handlers {
+        if let Some(dot_pos) = handler.find('.') {
+            let namespace = &handler[..dot_pos];
+            let method = &handler[dot_pos + 1..];
+            namespaces
+                .entry(namespace.to_string())
+                .or_default()
+                .push(method.to_string());
+        }
+    }
+
+    if namespaces.is_empty() {
+        return String::new();
+    }
+
+    // Generate registration script
+    let mut script = String::from(
+        "(function() {\n\
+        if (!window.auroraview || !window.auroraview._registerApiMethods) {\n\
+            console.warn('[AuroraView] Event bridge not ready for API registration');\n\
+            return;\n\
+        }\n",
+    );
+
+    for (namespace, methods) in &namespaces {
+        let methods_json: Vec<String> = methods.iter().map(|m| format!("'{}'", m)).collect();
+        script.push_str(&format!(
+            "window.auroraview._registerApiMethods('{}', [{}]);\n",
+            namespace,
+            methods_json.join(", ")
+        ));
+        tracing::info!(
+            "[Rust] Registering {} methods in namespace '{}'",
+            methods.len(),
+            namespace
+        );
+    }
+
+    script.push_str("})()");
+    script
+}
 
 /// Handle IPC message from WebView
 ///
@@ -230,6 +284,8 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     let loading_screen_ready = Arc::new(RwLock::new(false));
     let python_ready = Arc::new(RwLock::new(false));
     let waiting_for_python = Arc::new(RwLock::new(python_backend.is_some()));
+    // Store registered handlers for API method registration
+    let registered_handlers: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
 
     // Create window
     let mut window_builder = tao::window::WindowBuilder::new()
@@ -486,13 +542,28 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 let _ = wv.evaluate_script(script);
                             }
                         }
-                        UserEvent::PythonReady => {
+                        UserEvent::PythonReady { handlers } => {
                             // Python backend is ready
                             tracing::info!("[Rust] ========================================");
-                            tracing::info!("[Rust] Python backend ready");
+                            tracing::info!(
+                                "[Rust] Python backend ready with {} handlers",
+                                handlers.len()
+                            );
                             if let Ok(mut ready) = python_ready.write() {
                                 *ready = true;
                             }
+
+                            // Store handlers for later use (e.g., after navigation)
+                            if let Ok(mut stored) = registered_handlers.write() {
+                                *stored = handlers.clone();
+                            }
+
+                            // Register API methods in frontend
+                            let register_script = build_api_registration_script(&handlers);
+                            if !register_script.is_empty() {
+                                let _ = wv.evaluate_script(&register_script);
+                            }
+
                             // If loading screen is ready, send backend_ready event to frontend
                             let is_loading_ready = *loading_screen_ready.read().unwrap();
                             if is_loading_ready {
