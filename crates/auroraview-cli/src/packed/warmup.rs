@@ -2,11 +2,6 @@
 //!
 //! Pre-initializes WebView2 environment in background to reduce cold-start latency.
 
-use std::thread;
-use std::time::Instant;
-
-use super::utils::get_webview_data_dir;
-
 /// Start WebView2 warmup in background thread
 ///
 /// This pre-initializes WebView2 environment while overlay is being read,
@@ -14,9 +9,13 @@ use super::utils::get_webview_data_dir;
 #[cfg(target_os = "windows")]
 pub fn start_webview2_warmup() {
     use std::sync::OnceLock;
+    use std::thread;
+    use std::time::Instant;
     use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
     use windows::core::PCWSTR;
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+
+    use super::utils::get_webview_data_dir;
 
     static WARMUP_STARTED: OnceLock<()> = OnceLock::new();
 
