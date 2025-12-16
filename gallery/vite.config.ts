@@ -9,4 +9,10 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
   },
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom'],
+  },
 })

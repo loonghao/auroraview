@@ -1,7 +1,30 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+/**
+ * AuroraView React Hooks for Gallery
+ *
+ * This file re-exports hooks from @auroraview/sdk and adds Gallery-specific
+ * API wrappers for sample management.
+ */
 
+import { useState, useEffect, useCallback } from 'react';
+import {
+  useAuroraView as useAuroraViewBase,
+  useProcessEvents as useProcessEventsBase,
+  type ProcessOutput,
+  type ProcessExit,
+} from '@auroraview/sdk/react';
+
+// Re-export types from SDK
+export type { ProcessOutput, ProcessExit } from '@auroraview/sdk/react';
+
+// Gallery-specific types
 export interface RunOptions {
   showConsole?: boolean;
+}
+
+export interface ApiResult {
+  ok: boolean;
+  error?: string;
+  pid?: number;
 }
 
 export interface Sample {
@@ -20,16 +43,6 @@ export interface Category {
   description: string;
 }
 
-export interface ProcessOutput {
-  pid: number;
-  data: string;
-}
-
-export interface ProcessExit {
-  pid: number;
-  code: number | null;
-}
-
 export interface ProcessInfo {
   pid: number;
   sampleId: string;
@@ -37,94 +50,77 @@ export interface ProcessInfo {
   startTime: number;
 }
 
+/**
+ * Gallery-specific hook that wraps SDK's useAuroraView with Gallery API methods
+ */
 export function useAuroraView() {
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    const checkReady = () => {
-      if (window.auroraview) {
-        setIsReady(true);
-      }
-    };
-
-    // Check immediately
-    checkReady();
-
-    // Listen for ready event
-    const handleReady = () => setIsReady(true);
-    window.addEventListener('auroraviewready', handleReady);
-
-    return () => {
-      window.removeEventListener('auroraviewready', handleReady);
-    };
-  }, []);
+  const { client, isReady } = useAuroraViewBase();
 
   const getSource = useCallback(async (sampleId: string): Promise<string> => {
-    if (!window.auroraview) {
+    if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return window.auroraview.api.get_source({ sample_id: sampleId });
-  }, []);
+    return client.call<string>('api.get_source', { sample_id: sampleId });
+  }, [client]);
 
-  const runSample = useCallback(async (sampleId: string, options?: RunOptions) => {
-    if (!window.auroraview) {
+  const runSample = useCallback(async (sampleId: string, options?: RunOptions): Promise<ApiResult> => {
+    if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return window.auroraview.api.run_sample({
+    return client.call<ApiResult>('api.run_sample', {
       sample_id: sampleId,
       show_console: options?.showConsole ?? false,
     });
-  }, []);
+  }, [client]);
 
   const getSamples = useCallback(async (): Promise<Sample[]> => {
-    if (!window.auroraview) {
+    if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return window.auroraview.api.get_samples();
-  }, []);
+    return client.call<Sample[]>('api.get_samples');
+  }, [client]);
 
   const getCategories = useCallback(async (): Promise<Record<string, Category>> => {
-    if (!window.auroraview) {
+    if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return window.auroraview.api.get_categories();
-  }, []);
+    return client.call<Record<string, Category>>('api.get_categories');
+  }, [client]);
 
-  const openUrl = useCallback(async (url: string) => {
-    if (!window.auroraview) {
+  const openUrl = useCallback(async (url: string): Promise<ApiResult> => {
+    if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return window.auroraview.api.open_url({ url });
-  }, []);
+    return client.call<ApiResult>('api.open_url', { url });
+  }, [client]);
 
   const openInWebView = useCallback((url: string, title?: string) => {
     // Use native window.open() - WebView2 will handle creating a new browser window
-    // This is enabled by allow_new_window=True in the Python WebView config
     const windowName = title ?? 'AuroraView';
     const features = 'width=1024,height=768,menubar=no,toolbar=no,location=yes,status=no';
     window.open(url, windowName, features);
   }, []);
 
-  const killProcess = useCallback(async (pid: number) => {
-    if (!window.auroraview) {
+  const killProcess = useCallback(async (pid: number): Promise<ApiResult> => {
+    if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return window.auroraview.api.kill_process({ pid });
-  }, []);
+    return client.call<ApiResult>('api.kill_process', { pid });
+  }, [client]);
 
   const sendToProcess = useCallback(async (pid: number, data: string) => {
-    if (!window.auroraview) {
+    if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return window.auroraview.api.send_to_process({ pid, data });
-  }, []);
+    return client.call('api.send_to_process', { pid, data });
+  }, [client]);
 
   const listProcesses = useCallback(async () => {
-    if (!window.auroraview) {
+    if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return window.auroraview.api.list_processes();
-  }, []);
+    return client.call('api.list_processes');
+  }, [client]);
 
   return {
     isReady,
@@ -141,7 +137,7 @@ export function useAuroraView() {
 }
 
 /**
- * Hook to subscribe to process events (stdout, stderr, exit)
+ * Re-export useProcessEvents from SDK with Gallery-compatible interface
  */
 export function useProcessEvents(options?: {
   onStdout?: (data: ProcessOutput) => void;
@@ -149,51 +145,18 @@ export function useProcessEvents(options?: {
   onExit?: (data: ProcessExit) => void;
 }) {
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const optionsRef = useRef(options);
-  optionsRef.current = options;
+
+  // Use SDK's useProcessEvents
+  useProcessEventsBase({
+    onStdout: options?.onStdout,
+    onStderr: options?.onStderr,
+    onExit: options?.onExit,
+  });
 
   useEffect(() => {
-    const subscribe = () => {
-      if (!window.auroraview || isSubscribed) return;
+    setIsSubscribed(true);
+    return () => setIsSubscribed(false);
+  }, []);
 
-      const unsubscribers: (() => void)[] = [];
-
-      // Always subscribe to all events
-      const unsubStdout = window.auroraview.on('process:stdout', (data: unknown) => {
-        optionsRef.current?.onStdout?.(data as ProcessOutput);
-      });
-      if (unsubStdout) unsubscribers.push(unsubStdout);
-
-      const unsubStderr = window.auroraview.on('process:stderr', (data: unknown) => {
-        optionsRef.current?.onStderr?.(data as ProcessOutput);
-      });
-      if (unsubStderr) unsubscribers.push(unsubStderr);
-
-      const unsubExit = window.auroraview.on('process:exit', (data: unknown) => {
-        optionsRef.current?.onExit?.(data as ProcessExit);
-      });
-      if (unsubExit) unsubscribers.push(unsubExit);
-
-      setIsSubscribed(true);
-
-      return () => {
-        unsubscribers.forEach(unsub => unsub());
-        setIsSubscribed(false);
-      };
-    };
-
-    // Try to subscribe immediately
-    const cleanup = subscribe();
-
-    // Also listen for ready event in case auroraview isn't ready yet
-    const handleReady = () => {
-      subscribe();
-    };
-    window.addEventListener('auroraviewready', handleReady);
-
-    return () => {
-      window.removeEventListener('auroraviewready', handleReady);
-      cleanup?.();
-    };
-  }, [isSubscribed]);
+  return { isSubscribed };
 }
