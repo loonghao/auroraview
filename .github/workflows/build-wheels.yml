@@ -34,18 +34,34 @@ permissions:
 
 jobs:
   # ============================================================================
+  # Build SDK assets first (shared by all wheel builds)
+  # Uses reusable SDK CI workflow
+  # ============================================================================
+  sdk-assets:
+    name: SDK Assets
+    uses: ./.github/workflows/sdk-ci.yml
+    secrets: inherit
+
+  # ============================================================================
   # ABI3 builds (Python 3.8+) - Single wheel works for all Python 3.8+ versions
   # ============================================================================
 
   # Linux builds (abi3)
   linux:
     runs-on: ubuntu-latest
+    needs: [sdk-assets]
     strategy:
       matrix:
         target: [x86_64]
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Download SDK assets
+        uses: actions/download-artifact@v6
+        with:
+          name: sdk-assets
+          path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
         uses: ./.github/actions/build-wheel
@@ -58,12 +74,19 @@ jobs:
   # Windows builds (abi3)
   windows:
     runs-on: windows-latest
+    needs: [sdk-assets]
     strategy:
       matrix:
         target: [x64]
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Download SDK assets
+        uses: actions/download-artifact@v6
+        with:
+          name: sdk-assets
+          path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
         uses: ./.github/actions/build-wheel
@@ -77,6 +100,7 @@ jobs:
   # macOS builds (abi3)
   macos:
     runs-on: macos-latest
+    needs: [sdk-assets]
     strategy:
       matrix:
         # Only build universal2 on macos-latest (ARM64 runner)
@@ -86,6 +110,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Download SDK assets
+        uses: actions/download-artifact@v6
+        with:
+          name: sdk-assets
+          path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
         uses: ./.github/actions/build-wheel
@@ -104,12 +134,19 @@ jobs:
   # Linux Python 3.7 build
   linux-py37:
     runs-on: ubuntu-22.04  # Use Ubuntu 22.04 for Python 3.7 availability
+    needs: [sdk-assets]
     strategy:
       matrix:
         target: [x86_64]
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Download SDK assets
+        uses: actions/download-artifact@v6
+        with:
+          name: sdk-assets
+          path: crates/auroraview-core/src/assets/js/
 
       - name: Build Python 3.7 Wheel
         uses: ./.github/actions/build-wheel
@@ -128,12 +165,19 @@ jobs:
   # Windows Python 3.7 build
   windows-py37:
     runs-on: windows-2019  # Use older Windows for Python 3.7 compatibility
+    needs: [sdk-assets]
     strategy:
       matrix:
         target: [x64]
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Download SDK assets
+        uses: actions/download-artifact@v6
+        with:
+          name: sdk-assets
+          path: crates/auroraview-core/src/assets/js/
 
       - name: Build Python 3.7 Wheel
         uses: ./.github/actions/build-wheel

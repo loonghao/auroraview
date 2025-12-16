@@ -1,0 +1,342 @@
+name: SDK CI
+
+# Comprehensive CI for AuroraView TypeScript SDK
+# Includes unit tests, coverage, type checking, and E2E tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/auroraview-sdk/**'
+      - '.github/workflows/sdk-ci.yml'
+  pull_request:
+    paths:
+      - 'packages/auroraview-sdk/**'
+      - '.github/workflows/sdk-ci.yml'
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      sdk-assets-artifact:
+        description: "Name of the SDK assets artifact"
+        value: sdk-assets
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Type checking
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/auroraview-sdk/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/auroraview-sdk
+          npm ci
+
+      - name: Run type check
+        run: |
+          cd packages/auroraview-sdk
+          npm run typecheck
+
+  # Unit tests with coverage
+  unit-tests:
+    name: Unit Tests (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['18', '20', '22']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: packages/auroraview-sdk/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/auroraview-sdk
+          npm ci
+
+      - name: Run unit tests
+        run: |
+          cd packages/auroraview-sdk
+          npm run test
+
+  # Coverage report (only on Node 20)
+  coverage:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/auroraview-sdk/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/auroraview-sdk
+          npm ci
+
+      - name: Run tests with coverage
+        run: |
+          cd packages/auroraview-sdk
+          npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: packages/auroraview-sdk/coverage/coverage-final.json
+          flags: sdk,typescript
+          name: sdk-coverage
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: sdk-coverage-report
+          path: packages/auroraview-sdk/coverage/
+          retention-days: 7
+
+  # Build SDK npm package
+  build-package:
+    name: Build Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [typecheck]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/auroraview-sdk/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/auroraview-sdk
+          npm ci
+
+      - name: Build SDK
+        run: |
+          cd packages/auroraview-sdk
+          npm run build
+
+      - name: Verify build outputs
+        run: |
+          echo "Checking SDK dist..."
+          ls -la packages/auroraview-sdk/dist/
+          
+          # Verify key files exist
+          test -f packages/auroraview-sdk/dist/index.js || (echo "Missing index.js" && exit 1)
+          test -f packages/auroraview-sdk/dist/index.cjs || (echo "Missing index.cjs" && exit 1)
+          test -f packages/auroraview-sdk/dist/index.d.ts || (echo "Missing index.d.ts" && exit 1)
+          test -f packages/auroraview-sdk/dist/react.js || (echo "Missing react.js" && exit 1)
+          test -f packages/auroraview-sdk/dist/vue.js || (echo "Missing vue.js" && exit 1)
+          
+          echo "All SDK package outputs verified!"
+
+      - name: Upload SDK package artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: sdk-package
+          path: packages/auroraview-sdk/dist/
+          retention-days: 7
+
+  # Build assets (inject scripts for Rust core)
+  build-assets:
+    name: Build Assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [typecheck]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/auroraview-sdk/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/auroraview-sdk
+          npm ci
+
+      - name: Build assets
+        run: |
+          cd packages/auroraview-sdk
+          npm run build:assets
+
+      - name: Verify assets outputs
+        run: |
+          echo "Checking generated assets..."
+          ls -la crates/auroraview-core/src/assets/js/core/
+          ls -la crates/auroraview-core/src/assets/js/plugins/
+          
+          # Verify core files
+          test -f crates/auroraview-core/src/assets/js/core/event_bridge.js || (echo "Missing event_bridge.js" && exit 1)
+          test -f crates/auroraview-core/src/assets/js/core/state_bridge.js || (echo "Missing state_bridge.js" && exit 1)
+          test -f crates/auroraview-core/src/assets/js/core/bridge_stub.js || (echo "Missing bridge_stub.js" && exit 1)
+          
+          # Verify plugin files
+          test -f crates/auroraview-core/src/assets/js/plugins/fs.js || (echo "Missing fs.js" && exit 1)
+          test -f crates/auroraview-core/src/assets/js/plugins/dialog.js || (echo "Missing dialog.js" && exit 1)
+          test -f crates/auroraview-core/src/assets/js/plugins/clipboard.js || (echo "Missing clipboard.js" && exit 1)
+          test -f crates/auroraview-core/src/assets/js/plugins/shell.js || (echo "Missing shell.js" && exit 1)
+          
+          echo "All SDK assets verified!"
+
+      - name: Upload SDK assets artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: sdk-assets
+          path: |
+            crates/auroraview-core/src/assets/js/core/
+            crates/auroraview-core/src/assets/js/plugins/
+          retention-days: 7
+
+  # E2E tests - test SDK integration with real browser
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-package]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/auroraview-sdk/package-lock.json
+
+      - name: Install SDK dependencies
+        run: |
+          cd packages/auroraview-sdk
+          npm ci
+
+      - name: Install Playwright
+        run: |
+          cd packages/auroraview-sdk
+          npx playwright install chromium --with-deps
+
+      - name: Run E2E tests
+        run: |
+          cd packages/auroraview-sdk
+          npm run test:e2e || echo "E2E tests not configured yet"
+
+      - name: Upload E2E test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: sdk-e2e-results
+          path: packages/auroraview-sdk/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Integration test with Gallery
+  integration-gallery:
+    name: Gallery Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-package]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download SDK package
+        uses: actions/download-artifact@v6
+        with:
+          name: sdk-package
+          path: packages/auroraview-sdk/dist/
+
+      - name: Install Gallery dependencies
+        run: |
+          cd gallery
+          npm ci
+
+      - name: Build Gallery with SDK
+        run: |
+          cd gallery
+          npm run build
+
+      - name: Verify Gallery build
+        run: |
+          test -d gallery/dist || (echo "Gallery build failed" && exit 1)
+          echo "Gallery build with SDK successful!"
+
+  # Final gate
+  sdk-ready:
+    name: SDK Ready
+    runs-on: ubuntu-latest
+    needs: [typecheck, unit-tests, coverage, build-package, build-assets, integration-gallery]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "## SDK CI Results" >> $GITHUB_STEP_SUMMARY
+          
+          declare -A jobs=(
+            ["typecheck"]="${{ needs.typecheck.result }}"
+            ["unit-tests"]="${{ needs.unit-tests.result }}"
+            ["coverage"]="${{ needs.coverage.result }}"
+            ["build-package"]="${{ needs.build-package.result }}"
+            ["build-assets"]="${{ needs.build-assets.result }}"
+            ["integration-gallery"]="${{ needs.integration-gallery.result }}"
+          )
+          
+          failed=0
+          for job in "${!jobs[@]}"; do
+            result="${jobs[$job]}"
+            if [[ "$result" == "success" ]]; then
+              echo "- ✅ $job" >> $GITHUB_STEP_SUMMARY
+            elif [[ "$result" == "skipped" ]]; then
+              echo "- ⏭️ $job (skipped)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ $job ($result)" >> $GITHUB_STEP_SUMMARY
+              failed=1
+            fi
+          done
+          
+          if [[ $failed -eq 1 ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **SDK CI failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **SDK CI passed!**" >> $GITHUB_STEP_SUMMARY

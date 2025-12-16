@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuroraView SDK E2E Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .status {
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    .pending { background: #fff3cd; color: #856404; }
+    pre {
+      background: #f5f5f5;
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>AuroraView SDK E2E Test</h1>
+  
+  <div id="status" class="status pending">
+    Loading SDK...
+  </div>
+  
+  <h2>Test Results</h2>
+  <pre id="results">Running tests...</pre>
+
+  <script type="module">
+    // Mock window.auroraview for testing
+    window.auroraview = {
+      _ready: true,
+      call: async (method, params) => {
+        console.log('Mock call:', method, params);
+        return { success: true, method, params };
+      },
+      invoke: async (command, args) => {
+        console.log('Mock invoke:', command, args);
+        return { result: 'ok', command, args };
+      },
+      trigger: (event, data) => {
+        console.log('Mock trigger:', event, data);
+      },
+      whenReady: async () => Promise.resolve(),
+      on: (event, handler) => {
+        console.log('Mock on:', event);
+      },
+      off: (event, handler) => {
+        console.log('Mock off:', event);
+      },
+      state: {
+        get: (key) => null,
+        set: (key, value) => {},
+        subscribe: (key, handler) => () => {},
+        getAll: () => ({}),
+      },
+    };
+
+    // Import SDK
+    import { createAuroraView, EventEmitter } from '/dist/index.js';
+
+    // Expose to window for E2E tests
+    window.AuroraView = {
+      createAuroraView,
+      EventEmitter,
+    };
+
+    // Run self-tests
+    const results = [];
+    
+    function test(name, fn) {
+      try {
+        fn();
+        results.push({ name, status: 'pass' });
+      } catch (e) {
+        results.push({ name, status: 'fail', error: e.message });
+      }
+    }
+
+    // Test EventEmitter
+    test('EventEmitter: subscribe and emit', () => {
+      const emitter = new EventEmitter();
+      let received = false;
+      emitter.on('test', () => { received = true; });
+      emitter.emit('test', {});
+      if (!received) throw new Error('Event not received');
+    });
+
+    test('EventEmitter: unsubscribe', () => {
+      const emitter = new EventEmitter();
+      let count = 0;
+      const unsub = emitter.on('test', () => { count++; });
+      emitter.emit('test', 1);
+      unsub();
+      emitter.emit('test', 2);
+      if (count !== 1) throw new Error(`Expected 1, got ${count}`);
+    });
+
+    test('EventEmitter: once', () => {
+      const emitter = new EventEmitter();
+      let count = 0;
+      emitter.once('test', () => { count++; });
+      emitter.emit('test', 1);
+      emitter.emit('test', 2);
+      if (count !== 1) throw new Error(`Expected 1, got ${count}`);
+    });
+
+    // Test Client
+    test('Client: create', () => {
+      const client = createAuroraView();
+      if (typeof client.call !== 'function') throw new Error('Missing call');
+      if (typeof client.on !== 'function') throw new Error('Missing on');
+    });
+
+    test('Client: isReady', () => {
+      const client = createAuroraView();
+      if (!client.isReady()) throw new Error('Should be ready');
+    });
+
+    // Display results
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    
+    const passed = results.filter(r => r.status === 'pass').length;
+    const failed = results.filter(r => r.status === 'fail').length;
+    
+    if (failed === 0) {
+      statusEl.className = 'status success';
+      statusEl.textContent = `✅ All ${passed} tests passed!`;
+    } else {
+      statusEl.className = 'status error';
+      statusEl.textContent = `❌ ${failed} of ${passed + failed} tests failed`;
+    }
+    
+    resultsEl.textContent = JSON.stringify(results, null, 2);
+  </script>
+</body>
+</html>

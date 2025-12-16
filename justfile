@@ -49,8 +49,8 @@ build-cli:
     cargo build -p auroraview-cli --release
     @echo "[OK] CLI built: target/release/auroraview.exe"
 
-# Build all workspace crates
-build-all:
+# Build all workspace crates (including SDK assets)
+build-all: sdk-build-all
     @echo "Building all workspace crates..."
     cargo build -p auroraview-core
     cargo build -p auroraview-pack
@@ -473,11 +473,79 @@ maya-debug:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SDK Commands (TypeScript SDK for frontend)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Install SDK dependencies
+sdk-install:
+    @echo "Installing SDK dependencies..."
+    cd packages/auroraview-sdk; npm install
+    @echo "[OK] SDK dependencies installed!"
+
+# Build SDK npm package
+sdk-build:
+    @echo "Building SDK npm package..."
+    cd packages/auroraview-sdk; npm run build
+    @echo "[OK] SDK built in packages/auroraview-sdk/dist/"
+
+# Build SDK assets (inject scripts for Rust)
+sdk-build-assets:
+    @echo "Building SDK assets (inject scripts)..."
+    cd packages/auroraview-sdk; npm run build:assets
+    @echo "[OK] Assets built in crates/auroraview-core/src/assets/js/"
+
+# Build SDK all (npm package + assets)
+sdk-build-all: sdk-install
+    @echo "Building SDK (all)..."
+    cd packages/auroraview-sdk; npm run build:all
+    @echo "[OK] SDK and assets built!"
+
+# Run SDK unit tests
+sdk-test:
+    @echo "Running SDK unit tests..."
+    cd packages/auroraview-sdk; npm run test
+    @echo "[OK] SDK tests passed!"
+
+# Run SDK tests with coverage
+sdk-test-cov:
+    @echo "Running SDK tests with coverage..."
+    cd packages/auroraview-sdk; npm run test:coverage
+    @echo "[OK] SDK coverage report: packages/auroraview-sdk/coverage/"
+
+# Run SDK E2E tests (requires Playwright)
+sdk-test-e2e:
+    @echo "Running SDK E2E tests..."
+    cd packages/auroraview-sdk; npm run test:e2e
+    @echo "[OK] SDK E2E tests passed!"
+
+# Run all SDK tests (unit + E2E)
+sdk-test-all:
+    @echo "Running all SDK tests..."
+    cd packages/auroraview-sdk; npm run test:all
+    @echo "[OK] All SDK tests passed!"
+
+# Run SDK type check
+sdk-typecheck:
+    @echo "Running SDK type check..."
+    cd packages/auroraview-sdk; npm run typecheck
+    @echo "[OK] SDK type check passed!"
+
+# Install Playwright for SDK E2E tests
+sdk-playwright-install:
+    @echo "Installing Playwright for SDK E2E tests..."
+    cd packages/auroraview-sdk; npx playwright install chromium --with-deps
+    @echo "[OK] Playwright installed!"
+
+# Full SDK CI check (typecheck + test + coverage + build)
+sdk-ci: sdk-install sdk-typecheck sdk-test-cov sdk-build-all
+    @echo "[OK] SDK CI check passed!"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Gallery Commands
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Build gallery frontend
-gallery-build:
+# Build gallery frontend (builds SDK first)
+gallery-build: sdk-build
     @echo "Building gallery frontend..."
     cd gallery; npm install; npm run build
     @echo "[OK] Gallery built in gallery/dist/"
