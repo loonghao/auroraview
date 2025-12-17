@@ -47,6 +47,8 @@ jobs:
         run: |
           cd packages/auroraview-sdk
           npm ci
+          # Fix rollup native module issue (npm bug with optional deps)
+          npm rebuild rollup
 
       - name: Run type check
         run: |
@@ -76,6 +78,8 @@ jobs:
         run: |
           cd packages/auroraview-sdk
           npm ci
+          # Fix rollup native module issue (npm bug with optional deps)
+          npm rebuild rollup
 
       - name: Run unit tests
         run: |
@@ -101,6 +105,8 @@ jobs:
         run: |
           cd packages/auroraview-sdk
           npm ci
+          # Fix rollup native module issue (npm bug with optional deps)
+          npm rebuild rollup
 
       - name: Run tests with coverage
         run: |
@@ -143,6 +149,8 @@ jobs:
         run: |
           cd packages/auroraview-sdk
           npm ci
+          # Fix rollup native module issue (npm bug with optional deps)
+          npm rebuild rollup
 
       - name: Build SDK
         run: |
@@ -190,6 +198,8 @@ jobs:
         run: |
           cd packages/auroraview-sdk
           npm ci
+          # Fix rollup native module issue (npm bug with optional deps)
+          npm rebuild rollup
 
       - name: Build assets
         run: |
@@ -244,6 +254,8 @@ jobs:
         run: |
           cd packages/auroraview-sdk
           npm ci
+          # Fix rollup native module issue (npm bug with optional deps)
+          npm rebuild rollup
 
       - name: Install Playwright
         run: |
