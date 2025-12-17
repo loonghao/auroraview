@@ -44,7 +44,7 @@ jobs:
       - name: Upload SDK assets artifact
         uses: actions/upload-artifact@v5
         with:
-          name: sdk-assets
+          name: gallery-sdk-assets
           path: |
             crates/auroraview-core/src/assets/js/core/
             crates/auroraview-core/src/assets/js/plugins/
@@ -78,7 +78,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v6
         with:
-          name: sdk-assets
+          name: gallery-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build Wheel
