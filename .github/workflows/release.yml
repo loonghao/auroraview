@@ -243,6 +243,13 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Build SDK first (Gallery depends on it)
+        run: |
+          cd packages/auroraview-sdk
+          rm -rf node_modules package-lock.json
+          npm install
+          npm run build
+
       - name: Build Gallery frontend
         run: |
           cd gallery

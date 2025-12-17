@@ -534,6 +534,13 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
+      - name: Build SDK first (Gallery depends on it)
+        run: |
+          cd packages/auroraview-sdk
+          rm -rf node_modules package-lock.json
+          npm install
+          npm run build
+
       - name: Build Gallery frontend
         run: |
           cd gallery
@@ -707,6 +714,13 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-gallery-pack-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-gallery-pack-
+
+      - name: Build SDK first (Gallery depends on it)
+        run: |
+          cd packages/auroraview-sdk
+          rm -rf node_modules package-lock.json
+          npm install
+          npm run build
 
       - name: Build Gallery frontend
         run: |
