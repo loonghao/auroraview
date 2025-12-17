@@ -46,6 +46,9 @@ hostname = "0.4"
 # Parallel processing
 rayon = "1.10"
 
+# Content hashing (for cache key generation)
+blake3 = "1.5"
+
 [dev-dependencies]
 # Testing utilities
 tempfile = "3.20"

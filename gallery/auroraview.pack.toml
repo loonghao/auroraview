@@ -51,7 +51,7 @@ enabled = true
 version = "3.10"
 entry_point = "main:run_gallery"
 packages = ["pyyaml"]  # Add any Python dependencies here
-include_paths = ["."]  # Include gallery directory (main.py)
+include_paths = [".", "../python"]  # Include gallery directory and auroraview module
 exclude = ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"]
 optimize = 1
 
@@ -106,6 +106,38 @@ filesystem_importer = false
 [python.env]
 # Environment variables for Python runtime
 GALLERY_MODE = "production"
+
+# Environment isolation configuration (rez-style)
+# Controls how the packed application isolates its environment from the host system
+[python.isolation]
+# Isolate PYTHONPATH (default: true)
+# When true: Only bundled paths are used, host PYTHONPATH is NOT inherited
+# When false: Host PYTHONPATH is inherited and bundled paths are prepended
+isolate_pythonpath = true
+
+# Isolate PATH (default: true)
+# When true: Only system essential paths + bundled binaries are used
+# When false: Host PATH is inherited
+isolate_path = true
+
+# Additional paths to include in PATH (always included regardless of isolation)
+# Special variables: $EXTRACT_DIR, $RESOURCES_DIR, $PYTHON_HOME
+extra_path = []
+
+# Additional paths to include in PYTHONPATH
+extra_pythonpath = []
+
+# System essential PATH entries (only used when isolate_path = true)
+# Default Windows: ["C:\\Windows\\System32", "C:\\Windows", "C:\\Windows\\System32\\Wbem"]
+# Default Unix: ["/usr/local/bin", "/usr/bin", "/bin"]
+# system_path = ["C:\\Windows\\System32", "C:\\Windows"]
+
+# Environment variables to explicitly inherit from host (even when isolated)
+# Default includes: SYSTEMROOT, TEMP, TMP, USERPROFILE, HOME, USER, DISPLAY, etc.
+# inherit_env = ["SYSTEMROOT", "TEMP", "TMP", "USERPROFILE"]
+
+# Environment variables to explicitly clear/remove
+# clear_env = ["PYTHONSTARTUP", "VIRTUAL_ENV"]
 
 [build]
 before_build = ["npm run build"]

@@ -74,6 +74,9 @@ rust-embed = "8.5"
 # Parallel processing
 rayon = "1.10"
 
+# IPC communication (for Python backend)
+ipckit = "0.1"
+
 [target.'cfg(windows)'.dependencies]
 # WebView2 COM bindings for warmup
 webview2-com = "0.37"

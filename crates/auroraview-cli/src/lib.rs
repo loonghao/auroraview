@@ -10,7 +10,7 @@ pub mod protocol_handlers;
 // Re-export utilities used by other modules
 pub use packed::{
     build_module_search_paths, build_packed_init_script, escape_json_for_js, get_python_exe_path,
-    get_runtime_cache_dir, get_webview_data_dir, inject_environment_variables,
+    get_runtime_cache_dir_with_hash, get_webview_data_dir, inject_environment_variables,
 };
 
 /// Embedded window icon (32x32 PNG)

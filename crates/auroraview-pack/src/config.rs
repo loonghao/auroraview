@@ -29,6 +29,184 @@ pub enum PackMode {
     },
 }
 
+/// Environment isolation configuration
+///
+/// Controls how the packed application isolates its environment from the host system.
+/// Inspired by rez's environment isolation design.
+///
+/// ## Design Philosophy
+///
+/// By default, packed applications run in an isolated environment:
+/// - PYTHONPATH: Only includes bundled module paths, not inherited from host
+/// - PATH: Only includes system essential paths + bundled binaries
+///
+/// This ensures reproducible execution regardless of the host environment.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IsolationConfig {
+    /// Whether to isolate PYTHONPATH (default: true)
+    ///
+    /// When true:
+    /// - PYTHONPATH is set to only include bundled paths ($EXTRACT_DIR, $SITE_PACKAGES)
+    /// - Host PYTHONPATH is NOT inherited
+    ///
+    /// When false:
+    /// - Host PYTHONPATH is inherited and bundled paths are prepended
+    #[serde(default = "default_true")]
+    pub isolate_pythonpath: bool,
+
+    /// Whether to isolate PATH (default: true)
+    ///
+    /// When true:
+    /// - PATH includes only system essential paths + bundled binaries
+    /// - Host PATH is NOT inherited (except system essentials)
+    ///
+    /// When false:
+    /// - Host PATH is inherited
+    #[serde(default = "default_true")]
+    pub isolate_path: bool,
+
+    /// Additional paths to include in PATH (always included regardless of isolation)
+    ///
+    /// These paths are added to PATH in addition to system essentials.
+    /// Useful for including bundled external binaries.
+    ///
+    /// Special variables:
+    /// - `$EXTRACT_DIR` - The directory where files are extracted
+    /// - `$RESOURCES_DIR` - The resources directory
+    /// - `$PYTHON_HOME` - The Python runtime directory
+    #[serde(default)]
+    pub extra_path: Vec<String>,
+
+    /// Additional paths to include in PYTHONPATH (always included regardless of isolation)
+    ///
+    /// These paths are added in addition to the default module_search_paths.
+    #[serde(default)]
+    pub extra_pythonpath: Vec<String>,
+
+    /// System essential PATH entries to always include when PATH is isolated
+    ///
+    /// Default (Windows): ["C:\\Windows\\System32", "C:\\Windows"]
+    /// Default (Unix): ["/usr/bin", "/bin", "/usr/local/bin"]
+    ///
+    /// Set to empty to use only bundled paths (fully isolated).
+    #[serde(default = "default_system_path")]
+    pub system_path: Vec<String>,
+
+    /// Environment variables to explicitly inherit from host
+    ///
+    /// Even when isolation is enabled, these variables are inherited.
+    /// Useful for: HOME, USER, TEMP, DISPLAY, etc.
+    #[serde(default = "default_inherit_env")]
+    pub inherit_env: Vec<String>,
+
+    /// Environment variables to explicitly clear/remove
+    ///
+    /// These variables are removed from the child process environment.
+    #[serde(default)]
+    pub clear_env: Vec<String>,
+}
+
+fn default_system_path() -> Vec<String> {
+    if cfg!(windows) {
+        vec![
+            "C:\\Windows\\System32".to_string(),
+            "C:\\Windows".to_string(),
+            "C:\\Windows\\System32\\Wbem".to_string(),
+        ]
+    } else {
+        vec![
+            "/usr/local/bin".to_string(),
+            "/usr/bin".to_string(),
+            "/bin".to_string(),
+        ]
+    }
+}
+
+fn default_inherit_env() -> Vec<String> {
+    if cfg!(windows) {
+        vec![
+            "SYSTEMROOT".to_string(),
+            "SYSTEMDRIVE".to_string(),
+            "TEMP".to_string(),
+            "TMP".to_string(),
+            "USERPROFILE".to_string(),
+            "APPDATA".to_string(),
+            "LOCALAPPDATA".to_string(),
+            "HOMEDRIVE".to_string(),
+            "HOMEPATH".to_string(),
+            "COMPUTERNAME".to_string(),
+            "USERNAME".to_string(),
+            // Display/GPU related
+            "DISPLAY".to_string(),
+            "WAYLAND_DISPLAY".to_string(),
+        ]
+    } else {
+        vec![
+            "HOME".to_string(),
+            "USER".to_string(),
+            "LOGNAME".to_string(),
+            "SHELL".to_string(),
+            "TERM".to_string(),
+            "LANG".to_string(),
+            "LC_ALL".to_string(),
+            "DISPLAY".to_string(),
+            "WAYLAND_DISPLAY".to_string(),
+            "XDG_RUNTIME_DIR".to_string(),
+            "XDG_SESSION_TYPE".to_string(),
+            "DBUS_SESSION_BUS_ADDRESS".to_string(),
+        ]
+    }
+}
+
+impl Default for IsolationConfig {
+    fn default() -> Self {
+        Self {
+            isolate_pythonpath: true,
+            isolate_path: true,
+            extra_path: Vec::new(),
+            extra_pythonpath: Vec::new(),
+            system_path: default_system_path(),
+            inherit_env: default_inherit_env(),
+            clear_env: Vec::new(),
+        }
+    }
+}
+
+impl IsolationConfig {
+    /// Create a fully isolated configuration (no host environment inherited)
+    pub fn full() -> Self {
+        Self::default()
+    }
+
+    /// Create a non-isolated configuration (inherits host environment)
+    pub fn none() -> Self {
+        Self {
+            isolate_pythonpath: false,
+            isolate_path: false,
+            ..Default::default()
+        }
+    }
+
+    /// Create a configuration that only isolates PYTHONPATH
+    pub fn pythonpath_only() -> Self {
+        Self {
+            isolate_pythonpath: true,
+            isolate_path: false,
+            ..Default::default()
+        }
+    }
+
+    /// Get default system PATH entries
+    pub fn default_system_path() -> Vec<String> {
+        default_system_path()
+    }
+
+    /// Get default inherit environment variables
+    pub fn default_inherit_env() -> Vec<String> {
+        default_inherit_env()
+    }
+}
+
 /// Python bundle configuration for FullStack mode
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PythonBundleConfig {
@@ -93,6 +271,12 @@ pub struct PythonBundleConfig {
     /// Set to true for debugging purposes.
     #[serde(default)]
     pub show_console: bool,
+    /// Environment isolation configuration
+    ///
+    /// Controls how the packed application isolates its environment from the host.
+    /// Default: full isolation (PYTHONPATH and PATH are isolated)
+    #[serde(default)]
+    pub isolation: IsolationConfig,
 }
 
 fn default_python_version() -> String {
@@ -127,6 +311,7 @@ impl Default for PythonBundleConfig {
             module_search_paths: default_module_search_paths(),
             filesystem_importer: true,
             show_console: false,
+            isolation: IsolationConfig::default(),
         }
     }
 }

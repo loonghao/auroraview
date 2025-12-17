@@ -211,6 +211,13 @@ fn handle_ipc_message(
                 tracing::info!("[Rust] Received navigate_to_app event from WebView");
                 let _ = proxy.send_event(UserEvent::NavigateToApp);
             }
+            // Handle page ready event (auroraview bridge initialized after navigation)
+            else if event == "__auroraview_ready" {
+                tracing::info!(
+                    "[Rust] Received __auroraview_ready event - page bridge initialized"
+                );
+                let _ = proxy.send_event(UserEvent::PageReady);
+            }
         }
         _ => {
             tracing::warn!("Unknown IPC message type: {}", msg_type);
@@ -492,9 +499,10 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     let request = PluginRequest::new("process", "kill_all", serde_json::json!({}));
                     let _ = router.handle(request);
                 }
-                // Kill Python process on close
-                if let Some(ref _backend) = python_backend_arc {
+                // Gracefully shutdown Python backend using ipckit
+                if let Some(ref backend) = python_backend_arc {
                     tracing::info!("Stopping Python backend...");
+                    backend.shutdown();
                 }
                 *control_flow = ControlFlow::Exit;
             }
@@ -589,6 +597,23 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 *w = false;
                             }
                             do_navigate(&wv);
+                        }
+                        UserEvent::PageReady => {
+                            // Page bridge is ready after navigation
+                            // Re-register API methods that were registered during PythonReady
+                            tracing::info!("[Rust] Page ready - re-registering API methods");
+                            if let Ok(handlers) = registered_handlers.read() {
+                                if !handlers.is_empty() {
+                                    let register_script = build_api_registration_script(&handlers);
+                                    if !register_script.is_empty() {
+                                        tracing::info!(
+                                            "[Rust] Re-registering {} API handlers",
+                                            handlers.len()
+                                        );
+                                        let _ = wv.evaluate_script(&register_script);
+                                    }
+                                }
+                            }
                         }
                         UserEvent::PythonResponse(response) => {
                             // Send response back to WebView

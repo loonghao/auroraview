@@ -28,8 +28,8 @@ use std::time::Instant;
 
 // Re-export public items
 pub use utils::{
-    build_module_search_paths, escape_json_for_js, get_python_exe_path, get_runtime_cache_dir,
-    get_webview_data_dir, inject_environment_variables,
+    build_module_search_paths, escape_json_for_js, get_python_exe_path,
+    get_runtime_cache_dir_with_hash, get_webview_data_dir, inject_environment_variables,
 };
 
 // Re-export from auroraview-core
@@ -64,6 +64,12 @@ pub fn run_packed_app() -> Result<()> {
     let local_time = tracing_subscriber::fmt::time::OffsetTime::local_rfc_3339();
 
     // Configure tracing to output to stderr (stdout is used for JSON-RPC in packed mode)
+    // Disable ANSI colors on Windows to avoid garbled output in parent process console
+    #[cfg(target_os = "windows")]
+    let use_ansi = false;
+    #[cfg(not(target_os = "windows"))]
+    let use_ansi = true;
+
     match local_time {
         Ok(timer) => {
             tracing_subscriber::fmt()
@@ -74,6 +80,7 @@ pub fn run_packed_app() -> Result<()> {
                         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
                 )
                 .with_target(false)
+                .with_ansi(use_ansi)
                 .init();
         }
         Err(_) => {
@@ -84,6 +91,7 @@ pub fn run_packed_app() -> Result<()> {
                         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
                 )
                 .with_target(false)
+                .with_ansi(use_ansi)
                 .init();
         }
     }

@@ -14,6 +14,9 @@ pub enum UserEvent {
     LoadingScreenReady,
     /// Navigate to application (triggered by frontend)
     NavigateToApp,
+    /// Page ready event (triggered when new page loads and auroraview bridge is initialized)
+    /// This is used to re-register API methods after navigation
+    PageReady,
     /// Loading screen update (progress, text, steps)
     LoadingUpdate {
         progress: Option<i32>,

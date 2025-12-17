@@ -18,6 +18,14 @@
 //!   - Overlay Start Offset: u64 LE (8 bytes)
 //!   - Magic: "AVPK" (4 bytes)
 //! ```
+//!
+//! ## Content Hash
+//!
+//! The overlay includes a content hash (BLAKE3) computed from all assets.
+//! This hash is used as a cache key at runtime, enabling:
+//! - Cache reuse: Same content → same hash → skip extraction
+//! - Conflict avoidance: Different content → different hash → new directory
+//! - Multi-version support: Multiple versions can coexist
 
 use crate::metrics::PackedMetrics;
 use crate::{PackConfig, PackError, PackResult};
@@ -45,6 +53,9 @@ const HEADER_SIZE: u64 = 24;
 pub struct OverlayData {
     /// Pack configuration
     pub config: PackConfig,
+    /// Content hash (BLAKE3) of all assets - used as cache key
+    /// Format: 16 hex chars (first 64 bits of BLAKE3 hash)
+    pub content_hash: String,
     /// Embedded assets (file path -> content)
     #[serde(skip)]
     pub assets: Vec<(String, Vec<u8>)>,
@@ -55,6 +66,7 @@ impl OverlayData {
     pub fn new(config: PackConfig) -> Self {
         Self {
             config,
+            content_hash: String::new(),
             assets: Vec::new(),
         }
     }
@@ -63,6 +75,59 @@ impl OverlayData {
     pub fn add_asset(&mut self, path: impl Into<String>, content: Vec<u8>) {
         self.assets.push((path.into(), content));
     }
+
+    /// Compute and set the content hash from all assets
+    ///
+    /// The hash is computed by hashing all asset paths and contents in order.
+    /// Returns the computed hash string (16 hex chars).
+    pub fn compute_content_hash(&mut self) -> String {
+        let mut hasher = blake3::Hasher::new();
+
+        // Sort assets by path for deterministic hashing
+        let mut sorted_assets: Vec<_> = self.assets.iter().collect();
+        sorted_assets.sort_by(|a, b| a.0.cmp(&b.0));
+
+        for (path, content) in &sorted_assets {
+            // Hash the path
+            hasher.update(path.as_bytes());
+            hasher.update(&[0]); // Separator
+                                 // Hash the content length (for robustness)
+            hasher.update(&(content.len() as u64).to_le_bytes());
+            // Hash the content
+            hasher.update(content);
+        }
+
+        // Use first 64 bits (16 hex chars) for shorter, still-unique cache keys
+        let hash = hasher.finalize();
+        let short_hash = format!(
+            "{:016x}",
+            u64::from_le_bytes(hash.as_bytes()[..8].try_into().unwrap())
+        );
+
+        self.content_hash = short_hash.clone();
+        short_hash
+    }
+
+    /// Get the content hash, computing it if not already set
+    pub fn get_content_hash(&mut self) -> String {
+        if self.content_hash.is_empty() {
+            self.compute_content_hash();
+        }
+        self.content_hash.clone()
+    }
+}
+
+/// Metadata stored in the overlay (config + content hash)
+///
+/// This is what gets serialized to JSON and stored in the overlay.
+/// It's separate from OverlayData to avoid serializing assets.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OverlayMetadata {
+    /// Pack configuration
+    #[serde(flatten)]
+    config: PackConfig,
+    /// Content hash (BLAKE3) of all assets
+    content_hash: String,
 }
 
 /// Writer for appending overlay data to executables
@@ -73,18 +138,28 @@ impl OverlayWriter {
     ///
     /// This appends the overlay to the end of the file without modifying
     /// the original executable content.
+    ///
+    /// The content hash is computed before writing if not already set.
     pub fn write(exe_path: &Path, data: &OverlayData) -> PackResult<()> {
+        // Clone and compute hash if needed
+        let mut data = data.clone();
+        let content_hash = data.get_content_hash();
+
         let file = File::options().append(true).open(exe_path)?;
         let mut writer = BufWriter::new(file);
 
         // Get the current end of file (where overlay starts)
         let overlay_start = writer.seek(SeekFrom::End(0))?;
 
-        // Serialize config to JSON
-        let config_json = serde_json::to_vec(&data.config)?;
+        // Create a metadata object that includes the hash
+        let metadata = OverlayMetadata {
+            config: data.config.clone(),
+            content_hash: content_hash.clone(),
+        };
+        let metadata_json = serde_json::to_vec(&metadata)?;
 
         // Compress config with zstd
-        let config_compressed = zstd::encode_all(&config_json[..], 3)
+        let config_compressed = zstd::encode_all(&metadata_json[..], 3)
             .map_err(|e| PackError::Compression(e.to_string()))?;
 
         // Create tar archive for assets
@@ -111,9 +186,10 @@ impl OverlayWriter {
         writer.flush()?;
 
         tracing::info!(
-            "Overlay written: config={} bytes, assets={} bytes",
+            "Overlay written: config={} bytes, assets={} bytes, hash={}",
             config_compressed.len(),
-            assets_compressed.len()
+            assets_compressed.len(),
+            content_hash
         );
 
         Ok(())
@@ -234,7 +310,12 @@ impl OverlayReader {
         let config_json = zstd::decode_all(&config_compressed[..])
             .map_err(|e| PackError::Compression(e.to_string()))?;
 
-        let config: PackConfig = serde_json::from_slice(&config_json)?;
+        // Parse overlay metadata
+        let metadata: OverlayMetadata = serde_json::from_slice(&config_json)?;
+        let config = metadata.config;
+        let content_hash = metadata.content_hash;
+
+        tracing::debug!("Overlay content hash: {}", content_hash);
 
         if let Some(ref mut m) = metrics {
             m.add_phase("config_read_decompress", read_start.elapsed());
@@ -273,7 +354,11 @@ impl OverlayReader {
             assets.len()
         );
 
-        Ok(Some(OverlayData { config, assets }))
+        Ok(Some(OverlayData {
+            config,
+            content_hash,
+            assets,
+        }))
     }
 
     /// Extract assets from a tar archive (parallel version)

@@ -423,7 +423,9 @@ def run_gallery():
 
     # API: Run sample with IPC support (using Rust ProcessPlugin)
     @view.bind_call("api.run_sample")
-    def run_sample(sample_id: str = "", show_console: bool = False) -> dict:
+    def run_sample(
+        sample_id: str = "", show_console: bool = False, use_channel: bool = False
+    ) -> dict:
         """Run a sample demo with IPC support.
 
         Uses the Rust ProcessPlugin for efficient process management.
@@ -431,13 +433,15 @@ def run_gallery():
         - process:stdout - { pid, data }
         - process:stderr - { pid, data }
         - process:exit - { pid, code }
+        - process:message - { pid, data } (only with use_channel=True)
 
         Args:
             sample_id: The ID of the sample to run
             show_console: If True, show console window (for debugging)
+            use_channel: If True, use ipckit LocalSocket for IPC (more efficient)
         """
         print(
-            f"[Python:run_sample] sample_id={sample_id}, show_console={show_console}",
+            f"[Python:run_sample] sample_id={sample_id}, show_console={show_console}, use_channel={use_channel}",
             file=sys.stderr,
         )
 
@@ -477,21 +481,37 @@ def run_gallery():
             )
             print(f"[Python:run_sample] Spawning with args: {args_json}", file=sys.stderr)
 
-            result_json = plugins.handle_command("plugin:process|spawn_ipc", args_json)
+            # Choose IPC mode: channel (ipckit LocalSocket) or pipe (stdout/stderr)
+            ipc_command = (
+                "plugin:process|spawn_ipc_channel"
+                if use_channel
+                else "plugin:process|spawn_ipc"
+            )
+            print(f"[Python:run_sample] Using IPC command: {ipc_command}", file=sys.stderr)
+
+            result_json = plugins.handle_command(ipc_command, args_json)
             result = json_loads(result_json)
             print(f"[Python:run_sample] Result: {result}", file=sys.stderr)
 
             if result.get("success"):
                 # Extract data from PluginResponse structure
                 data = result.get("data", {})
-                mode = "with console" if show_console else "with IPC"
+                mode = data.get("mode", "pipe")
                 pid = data.get("pid")
-                print(f"[Python:run_sample] SUCCESS: Started with PID {pid}", file=sys.stderr)
-                return {
+                channel_name = data.get("channel")
+                print(
+                    f"[Python:run_sample] SUCCESS: Started with PID {pid}, mode={mode}",
+                    file=sys.stderr,
+                )
+                response = {
                     "ok": True,
                     "pid": pid,
-                    "message": f"Started {sample['title']} ({mode})",
+                    "mode": mode,
+                    "message": f"Started {sample['title']} (mode: {mode})",
                 }
+                if channel_name:
+                    response["channel"] = channel_name
+                return response
             else:
                 error_msg = result.get("error", "Unknown error from ProcessPlugin")
                 print(f"[Python:run_sample] ERROR from plugin: {error_msg}", file=sys.stderr)
@@ -523,12 +543,38 @@ def run_gallery():
     # API: Send data to a process
     @view.bind_call("api.send_to_process")
     def send_to_process(pid: int = 0, data: str = "") -> dict:
-        """Send data to a process's stdin."""
+        """Send data to a process's stdin (pipe mode only)."""
         if not pid:
             return {"ok": False, "error": "No PID provided"}
 
         args_json = json_dumps({"pid": pid, "data": data})
         result_json = plugins.handle_command("plugin:process|send", args_json)
+        result = json_loads(result_json)
+
+        if result.get("success"):
+            return {"ok": True}
+        else:
+            return {"ok": False, "error": result.get("error", "Unknown error")}
+
+    # API: Send JSON to a process (channel mode only)
+    @view.bind_call("api.send_json_to_process")
+    def send_json_to_process(pid: int = 0, data: dict = None) -> dict:
+        """Send JSON data to a process via IPC channel.
+
+        This only works for processes spawned with use_channel=True.
+        For pipe mode processes, use send_to_process instead.
+
+        Args:
+            pid: Process ID
+            data: JSON-serializable data to send
+        """
+        if not pid:
+            return {"ok": False, "error": "No PID provided"}
+        if data is None:
+            data = {}
+
+        args_json = json_dumps({"pid": pid, "data": data})
+        result_json = plugins.handle_command("plugin:process|send_json", args_json)
         result = json_loads(result_json)
 
         if result.get("success"):

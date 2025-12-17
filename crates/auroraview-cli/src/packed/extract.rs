@@ -9,9 +9,13 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::utils::{get_python_exe_path, get_runtime_cache_dir};
+use super::utils::{get_python_exe_path, get_runtime_cache_dir_with_hash};
 
 /// Extract embedded Python runtime for standalone mode
+///
+/// Uses content hash for cache isolation:
+/// - Same hash → reuse cached runtime
+/// - Different hash → extract to new directory
 pub fn extract_standalone_python(overlay: &OverlayData) -> Result<PathBuf> {
     // Find Python runtime metadata
     let meta_data = overlay
@@ -45,27 +49,22 @@ pub fn extract_standalone_python(overlay: &OverlayData) -> Result<PathBuf> {
         .and_then(|n| n.to_str())
         .unwrap_or("auroraview");
 
-    // Extract to cache directory
-    let cache_dir = get_runtime_cache_dir(app_name);
+    // Determine cache directory based on content hash
+    let cache_dir = get_runtime_cache_dir_with_hash(app_name, &overlay.content_hash);
+
+    // Check if Python executable already exists in cache
+    // Since we use content hash for the directory, same hash = same content
+    // No need to check version marker - the hash is the version
+    let python_path = get_python_exe_path(&cache_dir);
+    if python_path.exists() {
+        tracing::info!("Using cached Python runtime: {}", cache_dir.display());
+        return Ok(python_path);
+    }
+
     let version_marker = cache_dir.join(".version");
 
-    // Check if already extracted with correct version
-    if version_marker.exists() {
-        if let Ok(cached_version) = fs::read_to_string(&version_marker) {
-            if cached_version.trim() == meta.version {
-                let python_path = get_python_exe_path(&cache_dir);
-                if python_path.exists() {
-                    tracing::info!("Using cached Python runtime: {}", cache_dir.display());
-                    return Ok(python_path);
-                }
-            }
-        }
-    }
-
-    // Clean up old extraction if exists
-    if cache_dir.exists() {
-        fs::remove_dir_all(&cache_dir)?;
-    }
+    // Create cache directory (no cleanup needed for hash-based directories
+    // as each version has its own isolated directory)
     fs::create_dir_all(&cache_dir)?;
 
     tracing::info!("Extracting Python runtime to: {}", cache_dir.display());
@@ -73,14 +72,31 @@ pub fn extract_standalone_python(overlay: &OverlayData) -> Result<PathBuf> {
     // Decompress and extract tar.gz
     let decoder = flate2::read::GzDecoder::new(&archive_data[..]);
     let mut archive = tar::Archive::new(decoder);
-    archive
-        .unpack(&cache_dir)
-        .with_context(|| "Failed to extract Python runtime")?;
+
+    // Try to unpack, but handle case where files are locked
+    if let Err(e) = archive.unpack(&cache_dir) {
+        // Check if it's an access denied error (os error 5 on Windows)
+        // or sharing violation (os error 32)
+        let is_file_locked = e.raw_os_error() == Some(5) || e.raw_os_error() == Some(32);
+
+        if is_file_locked {
+            // Files might be locked by another process
+            // Check if Python executable already exists and is usable
+            if python_path.exists() {
+                tracing::warn!(
+                    "Extraction failed (files locked), but Python runtime exists: {}",
+                    python_path.display()
+                );
+                return Ok(python_path);
+            }
+        }
+
+        return Err(e).with_context(|| "Failed to extract Python runtime");
+    }
 
     // Write version marker
     fs::write(&version_marker, &meta.version)?;
 
-    let python_path = get_python_exe_path(&cache_dir);
     if !python_path.exists() {
         return Err(anyhow::anyhow!(
             "Python executable not found after extraction: {}",

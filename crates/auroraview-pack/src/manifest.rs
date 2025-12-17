@@ -516,6 +516,43 @@ pub struct PythonConfig {
     /// PyOxidizer-specific configuration
     #[serde(default)]
     pub pyoxidizer: Option<PyOxidizerManifestConfig>,
+
+    /// Environment isolation configuration (rez-style)
+    /// Controls how the packed application isolates its environment from the host
+    #[serde(default)]
+    pub isolation: Option<IsolationManifestConfig>,
+}
+
+/// Environment isolation manifest configuration (rez-style)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct IsolationManifestConfig {
+    /// Isolate PYTHONPATH (default: true)
+    #[serde(default = "default_true")]
+    pub isolate_pythonpath: bool,
+
+    /// Isolate PATH (default: true)
+    #[serde(default = "default_true")]
+    pub isolate_path: bool,
+
+    /// Additional paths to include in PATH
+    #[serde(default)]
+    pub extra_path: Vec<String>,
+
+    /// Additional paths to include in PYTHONPATH
+    #[serde(default)]
+    pub extra_pythonpath: Vec<String>,
+
+    /// System essential PATH entries
+    #[serde(default)]
+    pub system_path: Option<Vec<String>>,
+
+    /// Environment variables to inherit from host
+    #[serde(default)]
+    pub inherit_env: Option<Vec<String>>,
+
+    /// Environment variables to clear
+    #[serde(default)]
+    pub clear_env: Vec<String>,
 }
 
 fn default_strategy() -> String {
@@ -583,6 +620,7 @@ impl Default for PythonConfig {
             filesystem_importer: true,
             show_console: false,
             pyoxidizer: None,
+            isolation: None,
         }
     }
 }
