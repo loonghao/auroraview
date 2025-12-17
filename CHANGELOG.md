@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.14](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.13...auroraview-v0.3.14) (2025-12-17)
+
+
+### Features
+
+* add ipckit LocalSocket IPC support for high-performance subprocess communication ([7681610](https://github.com/loonghao/auroraview/commit/7681610bc90386f27e15f249e1cac63fab2cb8ea))
+* **ipc:** add IpcChannel Python client and comprehensive E2E tests ([7189ce9](https://github.com/loonghao/auroraview/commit/7189ce9cfdd9af96328f358c8e288d56b0d63663))
+
+
+### Bug Fixes
+
+* **ci:** add npm rebuild rollup to fix native module issue in CI ([9fa7462](https://github.com/loonghao/auroraview/commit/9fa746240fd9e43e31514c219abddba525cf2a2d))
+* **ci:** build SDK before Gallery to resolve @auroraview/sdk/react import ([f99b10e](https://github.com/loonghao/auroraview/commit/f99b10e7fea32de7c15f301b480f3673b995489f))
+* **ci:** improve sdk-ci concurrency to prevent hanging jobs ([b639d9f](https://github.com/loonghao/auroraview/commit/b639d9fd92d8f083e3281959c627d2977d82de65))
+* **ci:** use clean npm install to fix rollup native module issue ([734ecb1](https://github.com/loonghao/auroraview/commit/734ecb1d1c9034c34e0e94de985fb2a8a6361ac7))
+* **ci:** use shell: bash for rm -rf on Windows runners ([144486a](https://github.com/loonghao/auroraview/commit/144486a6b058067fb74ceecd2476a6cffb3375ff))
+* **ci:** use unique concurrency group for sdk-ci to avoid deadlock ([6b0026b](https://github.com/loonghao/auroraview/commit/6b0026b76e87237c80a3ea90add2657c3685ea5e))
+* **gallery:** add ApiResult types and fix vite react resolution ([c739c13](https://github.com/loonghao/auroraview/commit/c739c132b11ade7bed6153194d3dc1f9f7d51e42))
+* **packed:** register API methods dynamically from Python handlers ([90e3410](https://github.com/loonghao/auroraview/commit/90e34106778231fce6ceea1b6a004914f3e52495))
+* **plugins:** clear AURORAVIEW_PACKED for spawned processes ([497faf5](https://github.com/loonghao/auroraview/commit/497faf549c0b33f8463061d848d5dabddd32a0bb))
+* remove unused imports in test_headless_webview.py ([a15b48e](https://github.com/loonghao/auroraview/commit/a15b48e47986e90e5c215d916354ad35eb2b00b2))
+* resolve unused imports and mut warnings for cross-platform build ([a39640d](https://github.com/loonghao/auroraview/commit/a39640d7a8e824a60447e64e337636aa5796583e))
+
+
+### Code Refactoring
+
+* **cli:** split packed.rs into modular structure ([95e48d4](https://github.com/loonghao/auroraview/commit/95e48d49b3bcf0ac298343b0ef3d8208a8d13dcc))
+* **pack:** remove redundant api_methods static configuration ([b921222](https://github.com/loonghao/auroraview/commit/b9212224fdc680436bdc1ccf59726299756d36b5))
+
 ## [0.3.13](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.12...auroraview-v0.3.13) (2025-12-14)
 
 
