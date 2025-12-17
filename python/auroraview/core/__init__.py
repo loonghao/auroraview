@@ -26,6 +26,14 @@ from .backend import (
 )
 from .channel import Channel, ChannelManager
 from .commands import CommandError, CommandErrorCode, CommandRegistry
+from .ipc_channel import (
+    IpcChannel,
+    IpcChannelError,
+    emit_event,
+    report_progress,
+    report_result,
+    send_to_parent,
+)
 from .cookies import Cookie
 from .event_emitter import (
     EventEmitter,
@@ -47,6 +55,7 @@ from . import commands as commands
 from . import cookies as cookies
 from . import event_emitter as event_emitter
 from . import events as events
+from . import ipc_channel as ipc_channel
 from . import settings as settings
 from . import state as state
 from . import webview as webview
@@ -90,6 +99,13 @@ __all__ = [
     # Channels
     "Channel",
     "ChannelManager",
+    # IPC Channel (subprocess communication)
+    "IpcChannel",
+    "IpcChannelError",
+    "send_to_parent",
+    "emit_event",
+    "report_progress",
+    "report_result",
     # Submodules
     "backend",
     "channel",
@@ -97,6 +113,7 @@ __all__ = [
     "cookies",
     "events",
     "event_emitter",
+    "ipc_channel",
     "settings",
     "state",
     "webview",
