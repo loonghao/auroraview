@@ -535,6 +535,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Build SDK first (Gallery depends on it)
+        shell: bash
         run: |
           cd packages/auroraview-sdk
           rm -rf node_modules package-lock.json
@@ -716,6 +717,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-gallery-pack-
 
       - name: Build SDK first (Gallery depends on it)
+        shell: bash
         run: |
           cd packages/auroraview-sdk
           rm -rf node_modules package-lock.json
