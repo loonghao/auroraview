@@ -4,20 +4,6 @@ version = 4
 
 [[package]]
 name = "active-win-pos-rs"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e227f8493de9f5e493f8e762ac7516d2ae42464df2e8122fcafd604f0b16c634"
-dependencies = [
- "appkit-nsworkspace-bindings",
- "core-foundation 0.9.4",
- "core-graphics 0.23.2",
- "objc",
- "windows 0.48.0",
- "xcb",
-]
-
-[[package]]
-name = "active-win-pos-rs"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b376311b66ae164d60150395ade1b382584d25be0c5ac2d837b8eb2e549ca224"
@@ -105,7 +91,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -116,7 +102,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -412,9 +398,9 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.3.13"
+version = "0.3.15"
 dependencies = [
- "active-win-pos-rs 0.9.1",
+ "active-win-pos-rs",
  "anyhow",
  "askama",
  "auroraview-core",
@@ -470,7 +456,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.13"
+version = "0.3.15"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -505,9 +491,9 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.13"
+version = "0.3.15"
 dependencies = [
- "active-win-pos-rs 0.8.4",
+ "active-win-pos-rs",
  "askama",
  "auroraview-plugins",
  "dunce",
@@ -536,7 +522,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.3.13"
+version = "0.3.15"
 dependencies = [
  "blake3",
  "dirs",
@@ -557,7 +543,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.3.13"
+version = "0.3.15"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -1317,7 +1303,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1355,7 +1341,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.8.9",
+ "libloading 0.7.4",
 ]
 
 [[package]]
@@ -1481,7 +1467,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3307,7 +3293,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4721,7 +4707,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4734,7 +4720,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.11.0",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5378,7 +5364,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.2",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -6383,7 +6369,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

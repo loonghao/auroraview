@@ -56,7 +56,7 @@ warp = "0.3"
 askama = "0.14"
 
 # Window utilities
-active-win-pos-rs = "0.8"
+active-win-pos-rs = "0.9"
 
 # Image processing (for icon utilities)
 # Note: Using 0.24 for compatibility with Rust 1.77+ (0.25+ requires edition2024 via pxfm)
