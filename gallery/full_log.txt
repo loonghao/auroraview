@@ -1,0 +1,277 @@
+2025-12-15T22:57:13.2664666+08:00  INFO [Rust] Running packed application: AuroraView
+2025-12-15T22:57:13.266507+08:00  INFO [Rust] Assets: 92 files
+2025-12-15T22:57:13.2665124+08:00  INFO [Rust] Overlay read completed in 66.82ms
+2025-12-15T22:57:13.266523+08:00 DEBUG Setting env: AURORAVIEW_APP=gallery
+2025-12-15T22:57:13.2665389+08:00 DEBUG Setting env: LOG_LEVEL=info
+2025-12-15T22:57:13.2665521+08:00 DEBUG Setting env: GALLERY_MODE=production
+2025-12-15T22:57:13.2665602+08:00  INFO Injected 3 environment variables
+2025-12-15T22:57:13.2665646+08:00  INFO [Rust] Pack mode: FullStack { frontend_path: "", python: PythonBundleConfig { entry_point: "main:run_gallery", include_paths: ["C:\\Users\\hallo\\Documents\\augment-projects\\dcc_webview\\gallery\\."], packages: ["pyyaml"], requirements: None, strategy: Standalone, version: "3.10", optimize: 1, exclude: ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"], external_bin: [], resources: [], include_pip: false, include_setuptools: false, distribution_flavor: Some("standalone"), pyoxidizer_path: None, module_search_paths: ["$EXTRACT_DIR", "$SITE_PACKAGES"], filesystem_importer: true, show_console: false } }, is_fullstack: true
+2025-12-15T22:57:13.278934+08:00  INFO Starting Python backend before window creation...
+2025-12-15T22:57:13.2873601+08:00  INFO Extracting Python 3.10 runtime (38.02 MB)...
+2025-12-15T22:57:13.2877423+08:00  INFO Using cached Python runtime: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output
+2025-12-15T22:57:13.2895521+08:00  INFO Extracting Python files to: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output
+2025-12-15T22:57:13.3027956+08:00  INFO Extracted 63 Python files in 13.21ms
+2025-12-15T22:57:13.3089632+08:00  INFO Extracted 22 resource files to: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources
+2025-12-15T22:57:13.3092608+08:00  INFO [Rust] Starting Python backend: main:run_gallery
+2025-12-15T22:57:13.3092881+08:00  INFO [Rust] Using Python: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+2025-12-15T22:57:13.3092974+08:00 DEBUG [Rust] Python code: import sys; sys.path.insert(0, r'C:\Users\hallo\AppData\Local\AuroraView\python\pack-output'); from main import run_gallery; run_gallery()
+2025-12-15T22:57:13.3093097+08:00 DEBUG [Rust] Module search paths: ["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output", "C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\site-packages"]
+2025-12-15T22:57:13.3093933+08:00  INFO [Rust] Set AURORAVIEW_PYTHON_PATH=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+2025-12-15T22:57:13.3094087+08:00  INFO [Rust] Set AURORAVIEW_RESOURCES_DIR=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources
+2025-12-15T22:57:13.3094166+08:00  INFO [Rust] Set AURORAVIEW_PYTHON_EXE=C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+2025-12-15T22:57:13.3095495+08:00  INFO [Rust] Examples directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+2025-12-15T22:57:13.3302454+08:00  INFO Python backend started (PID: 11756) in 51.28ms
+2025-12-15T22:57:13.7464669+08:00  INFO Loading embedded assets via auroraview:// protocol
+2025-12-15T22:57:13.7465087+08:00  INFO Index path: frontend/index.html
+2025-12-15T22:57:13.7465251+08:00  INFO FullStack mode: showing loading screen while Python initializes
+2025-12-15T22:57:13.7465311+08:00  INFO Initial URL: https://auroraview.localhost/__loading__
+2025-12-15T22:57:13.7465362+08:00  INFO App URL (after Python ready): https://auroraview.localhost/index.html
+2025-12-15T22:57:13.7465843+08:00 DEBUG Loading HTML size: 17830 bytes
+2025-12-15T22:57:13.7465949+08:00  INFO Available assets (92 total):
+2025-12-15T22:57:13.7465995+08:00 DEBUG   - python_runtime.json (76 bytes)
+2025-12-15T22:57:13.746607+08:00 DEBUG   - python_runtime.tar.gz (39870898 bytes)
+2025-12-15T22:57:13.7466119+08:00 DEBUG   - frontend/assets/index-CGiRs5FM.js (288470 bytes)
+2025-12-15T22:57:13.7466161+08:00 DEBUG   - frontend/assets/index-DpNf9Pgw.css (31717 bytes)
+2025-12-15T22:57:13.7466201+08:00 DEBUG   - frontend/auroraview-logo.png (9470215 bytes)
+2025-12-15T22:57:13.746624+08:00 DEBUG   - frontend/index.html (468 bytes)
+2025-12-15T22:57:13.7466279+08:00 DEBUG   - frontend/logo.svg (531 bytes)
+2025-12-15T22:57:13.7466316+08:00 DEBUG   - python/main.py (20858 bytes)
+2025-12-15T22:57:13.7466352+08:00 DEBUG   - python/site-packages/auroraview/core/backend.py (4268 bytes)
+2025-12-15T22:57:13.7466392+08:00 DEBUG   - python/site-packages/auroraview/core/channel.py (7430 bytes)
+2025-12-15T22:57:13.7466542+08:00 DEBUG   ... and 82 more
+2025-12-15T22:57:13.746663+08:00 DEBUG Enabled HTTPS scheme for Windows
+2025-12-15T14:57:13.918464Z  INFO ThreadId(01) 213: [warmup] Starting WebView2 warmup (data_folder: "C:\\Users\\hallo\\AppData\\Local\\AuroraView\\WebView2")
+[Python] Starting AuroraView Gallery...
+[Python] ==================================================
+[Python] Interactive showcase of all features and components
+[Python] ==================================================
+2025-12-15T14:57:13.918819Z  INFO ThreadId(02) 245: [warmup] WebView2 warmup complete in 0ms
+[Python] Pre-loaded 20 samples in 26.8ms
+2025-12-15T14:57:13.949578Z  INFO ThreadId(01) 53: AuroraView::new() called with title: AuroraView Gallery, transparent=false, tool_window=false, decorations=true
+2025-12-15T14:57:13.950222Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T14:57:13.950312Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T14:57:13.950339Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T14:57:13.950358Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T14:57:13.950378Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T14:57:13.950406Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T14:57:13.950423Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T14:57:13.950439Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+[AuroraView] Running in packed mode (API server)
+[AuroraView] Registered 8 API handlers
+[AuroraView] Ready signal sent
+2025-12-15T22:57:13.9509268+08:00  INFO Python backend ready with 8 handlers in 620.64ms
+2025-12-15T22:57:16.5008035+08:00  INFO Startup completed in 3301.11ms
+2025-12-15T22:57:16.5008851+08:00  INFO === Packed App Startup Performance ===
+2025-12-15T22:57:16.5008933+08:00  INFO Total elapsed: 3.30s
+2025-12-15T22:57:16.5008979+08:00  INFO --- Main Phases ---
+2025-12-15T22:57:16.500902+08:00  INFO   Overlay read:           64.93ms (+64.93ms)
+2025-12-15T22:57:16.5009065+08:00  INFO   Config decompress:        298碌s ()
+2025-12-15T22:57:16.5009105+08:00  INFO   Assets decompress:      64.93ms (+64.63ms)
+2025-12-15T22:57:16.5009143+08:00  INFO   Tar extract:            64.93ms ()
+2025-12-15T22:57:16.500918+08:00  INFO   Python runtime:         89.54ms (+24.61ms)
+2025-12-15T22:57:16.5009216+08:00  INFO   Python files:          103.09ms (+13.55ms)
+2025-12-15T22:57:16.5009254+08:00  INFO   Resources extract:     109.31ms (+6.22ms)
+2025-12-15T22:57:16.5009291+08:00  INFO   Python start:          130.53ms (+21.21ms)
+2025-12-15T22:57:16.5009329+08:00  INFO   Window created:        532.44ms (+401.92ms)
+2025-12-15T22:57:16.5009365+08:00  INFO   WebView created:          3.30s (+2.77s)
+2025-12-15T22:57:16.5009402+08:00  INFO --- Detailed Phases ---
+2025-12-15T22:57:16.5009439+08:00  INFO   config_read_decompress      148碌s
+2025-12-15T22:57:16.5009474+08:00  INFO   assets_read             19.60ms
+2025-12-15T22:57:16.5009508+08:00  INFO   assets_decompress_and_extract    45.03ms
+2025-12-15T22:57:16.5009544+08:00  INFO   python_runtime_extract    10.24ms
+2025-12-15T22:57:16.5009579+08:00  INFO   python_dirs_create       2.33ms
+2025-12-15T22:57:16.5009612+08:00  INFO   python_files_write      10.87ms
+2025-12-15T22:57:16.5009648+08:00  INFO   resources_extract        6.11ms
+2025-12-15T22:57:16.5009682+08:00  INFO   python_spawn            20.80ms
+2025-12-15T22:57:16.5009717+08:00  INFO ========================================
+2025-12-15T22:57:16.5012662+08:00  INFO [Rust] ========================================
+2025-12-15T22:57:16.5012787+08:00  INFO [Rust] Python backend ready
+2025-12-15T22:57:16.5027651+08:00 DEBUG Protocol request: auroraview://localhost/__loading__ -> path: '__loading__'
+2025-12-15T22:57:16.502784+08:00  INFO Serving loading page (17830 bytes)
+2025-12-15T22:57:16.5423531+08:00 DEBUG [Rust] IPC message received: {"type":"event","event":"__auroraview_ready","detail":{"timestamp":1765810636535,"url":"https://auroraview.localhost/__loading__"}}
+2025-12-15T22:57:16.5424059+08:00 DEBUG Event received: __auroraview_ready
+2025-12-15T22:57:16.5461918+08:00 DEBUG [Rust] IPC message received: {"type":"event","event":"loading_screen_ready","detail":{}}
+2025-12-15T22:57:16.5462307+08:00 DEBUG Event received: loading_screen_ready
+2025-12-15T22:57:16.5462517+08:00  INFO [Rust] Received loading_screen_ready event from WebView
+2025-12-15T22:57:16.5463204+08:00  INFO [Rust] Loading screen is ready (DOM rendered)
+2025-12-15T22:57:16.5463293+08:00  INFO [Rust] Python already ready, sending backend_ready to frontend
+2025-12-15T22:57:16.5765517+08:00 DEBUG Protocol request: auroraview://localhost/favicon.ico -> path: 'favicon.ico'
+2025-12-15T22:57:16.5766099+08:00  WARN Asset not found: 'favicon.ico' (requested URI: auroraview://localhost/favicon.ico)
+2025-12-15T22:57:16.5766149+08:00 DEBUG Available asset paths:
+2025-12-15T22:57:16.5766178+08:00 DEBUG   - python_runtime.json
+2025-12-15T22:57:16.5766201+08:00 DEBUG   - python_runtime.tar.gz
+2025-12-15T22:57:16.5766218+08:00 DEBUG   - frontend/assets/index-CGiRs5FM.js
+2025-12-15T22:57:16.5766241+08:00 DEBUG   - frontend/assets/index-DpNf9Pgw.css
+2025-12-15T22:57:16.5766259+08:00 DEBUG   - frontend/auroraview-logo.png
+2025-12-15T22:57:16.5766279+08:00 DEBUG   - frontend/index.html
+2025-12-15T22:57:16.5766296+08:00 DEBUG   - frontend/logo.svg
+2025-12-15T22:57:16.5766312+08:00 DEBUG   - python/main.py
+2025-12-15T22:57:16.576633+08:00 DEBUG   - python/site-packages/auroraview/core/backend.py
+2025-12-15T22:57:16.5766354+08:00 DEBUG   - python/site-packages/auroraview/core/channel.py
+2025-12-15T22:57:16.5766373+08:00 DEBUG   - python/site-packages/auroraview/core/commands.py
+2025-12-15T22:57:16.5766394+08:00 DEBUG   - python/site-packages/auroraview/core/cookies.py
+2025-12-15T22:57:16.5766411+08:00 DEBUG   - python/site-packages/auroraview/core/events.py
+2025-12-15T22:57:16.5766436+08:00 DEBUG   - python/site-packages/auroraview/core/event_emitter.py
+2025-12-15T22:57:16.5766459+08:00 DEBUG   - python/site-packages/auroraview/core/factory.py
+2025-12-15T22:57:16.5766477+08:00 DEBUG   - python/site-packages/auroraview/core/mixins/api.py
+2025-12-15T22:57:16.5766494+08:00 DEBUG   - python/site-packages/auroraview/core/mixins/content.py
+2025-12-15T22:57:16.5766513+08:00 DEBUG   - python/site-packages/auroraview/core/mixins/dom.py
+2025-12-15T22:57:16.576653+08:00 DEBUG   - python/site-packages/auroraview/core/mixins/events.py
+2025-12-15T22:57:16.5766549+08:00 DEBUG   - python/site-packages/auroraview/core/mixins/javascript.py
+2025-12-15T22:57:16.5766566+08:00 DEBUG   - python/site-packages/auroraview/core/mixins/window.py
+2025-12-15T22:57:16.5766585+08:00 DEBUG   - python/site-packages/auroraview/core/mixins/__init__.py
+2025-12-15T22:57:16.5766605+08:00 DEBUG   - python/site-packages/auroraview/core/packed.py
+2025-12-15T22:57:16.5766623+08:00 DEBUG   - python/site-packages/auroraview/core/settings.py
+2025-12-15T22:57:16.5766641+08:00 DEBUG   - python/site-packages/auroraview/core/signals.py
+2025-12-15T22:57:16.5766658+08:00 DEBUG   - python/site-packages/auroraview/core/state.py
+2025-12-15T22:57:16.5766675+08:00 DEBUG   - python/site-packages/auroraview/core/webview.py
+2025-12-15T22:57:16.5766702+08:00 DEBUG   - python/site-packages/auroraview/core/__init__.py
+2025-12-15T22:57:16.5766722+08:00 DEBUG   - python/site-packages/auroraview/integration/bridge.py
+2025-12-15T22:57:16.5766742+08:00 DEBUG   - python/site-packages/auroraview/integration/framework.py
+2025-12-15T22:57:16.5766759+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/diagnostics.py
+2025-12-15T22:57:16.5766778+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/dialogs.py
+2025-12-15T22:57:16.5766796+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/platforms/base.py
+2025-12-15T22:57:16.5766814+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/platforms/win.py
+2025-12-15T22:57:16.5766831+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/platforms/__init__.py
+2025-12-15T22:57:16.576685+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/pool.py
+2025-12-15T22:57:16.576714+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/qt_config_factory.py
+2025-12-15T22:57:16.5767302+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/signals.py
+2025-12-15T22:57:16.576736+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/_compat.py
+2025-12-15T22:57:16.5767403+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/_core.py
+2025-12-15T22:57:16.5767442+08:00 DEBUG   - python/site-packages/auroraview/integration/qt/__init__.py
+2025-12-15T22:57:16.5767484+08:00 DEBUG   - python/site-packages/auroraview/integration/__init__.py
+2025-12-15T22:57:16.5767523+08:00 DEBUG   - python/site-packages/auroraview/testing/auroratest/browser.py
+2025-12-15T22:57:16.5767581+08:00 DEBUG   - python/site-packages/auroraview/testing/auroratest/expect.py
+2025-12-15T22:57:16.5767618+08:00 DEBUG   - python/site-packages/auroraview/testing/auroratest/fixtures.py
+2025-12-15T22:57:16.5767655+08:00 DEBUG   - python/site-packages/auroraview/testing/auroratest/locator.py
+2025-12-15T22:57:16.5767692+08:00 DEBUG   - python/site-packages/auroraview/testing/auroratest/network.py
+2025-12-15T22:57:16.5767729+08:00 DEBUG   - python/site-packages/auroraview/testing/auroratest/page.py
+2025-12-15T22:57:16.5767767+08:00 DEBUG   - python/site-packages/auroraview/testing/auroratest/playwright_browser.py
+2025-12-15T22:57:16.5767805+08:00 DEBUG   - python/site-packages/auroraview/testing/auroratest/__init__.py
+2025-12-15T22:57:16.5767839+08:00 DEBUG   - python/site-packages/auroraview/testing/dom_assertions.py
+2025-12-15T22:57:16.5767873+08:00 DEBUG   - python/site-packages/auroraview/testing/fixtures.py
+2025-12-15T22:57:16.5768096+08:00 DEBUG   - python/site-packages/auroraview/testing/headless_webview.py
+2025-12-15T22:57:16.5768131+08:00 DEBUG   - python/site-packages/auroraview/testing/pytest_plugin.py
+2025-12-15T22:57:16.5768149+08:00 DEBUG   - python/site-packages/auroraview/testing/qt.py
+2025-12-15T22:57:16.5768168+08:00 DEBUG   - python/site-packages/auroraview/testing/__init__.py
+2025-12-15T22:57:16.5768186+08:00 DEBUG   - python/site-packages/auroraview/ui/dom.py
+2025-12-15T22:57:16.5768206+08:00 DEBUG   - python/site-packages/auroraview/ui/dom_proxy.py
+2025-12-15T22:57:16.5768224+08:00 DEBUG   - python/site-packages/auroraview/ui/menu.py
+2025-12-15T22:57:16.5768241+08:00 DEBUG   - python/site-packages/auroraview/ui/__init__.py
+2025-12-15T22:57:16.5768261+08:00 DEBUG   - python/site-packages/auroraview/utils/async_event_processor.py
+2025-12-15T22:57:16.576828+08:00 DEBUG   - python/site-packages/auroraview/utils/automation.py
+2025-12-15T22:57:16.5768298+08:00 DEBUG   - python/site-packages/auroraview/utils/event_timer.py
+2025-12-15T22:57:16.5768315+08:00 DEBUG   - python/site-packages/auroraview/utils/file_protocol.py
+2025-12-15T22:57:16.5768334+08:00 DEBUG   - python/site-packages/auroraview/utils/logging.py
+2025-12-15T22:57:16.5768352+08:00 DEBUG   - python/site-packages/auroraview/utils/timer_backends.py
+2025-12-15T22:57:16.5768369+08:00 DEBUG   - python/site-packages/auroraview/utils/__init__.py
+2025-12-15T22:57:16.5768387+08:00 DEBUG   - python/site-packages/auroraview/_core.pyd
+2025-12-15T22:57:16.5768406+08:00 DEBUG   - python/site-packages/auroraview/__init__.py
+2025-12-15T22:57:16.5768423+08:00 DEBUG   - python/site-packages/auroraview/__main__.py
+2025-12-15T22:57:16.576844+08:00 DEBUG   - resources/examples/__init__.py
+2025-12-15T22:57:16.5768459+08:00 DEBUG   - resources/examples/cookie_management_demo.py
+2025-12-15T22:57:16.5769772+08:00 DEBUG   - resources/examples/custom_context_menu_demo.py
+2025-12-15T22:57:16.5769905+08:00 DEBUG   - resources/examples/custom_protocol_demo.py
+2025-12-15T22:57:16.5769976+08:00 DEBUG   - resources/examples/dcc_integration_example.py
+2025-12-15T22:57:16.5770008+08:00 DEBUG   - resources/examples/desktop_app_demo.py
+2025-12-15T22:57:16.5770044+08:00 DEBUG   - resources/examples/desktop_events_demo.py
+2025-12-15T22:57:16.5770075+08:00 DEBUG   - resources/examples/dom_manipulation_demo.py
+2025-12-15T22:57:16.5770149+08:00 DEBUG   - resources/examples/dynamic_binding.py
+2025-12-15T22:57:16.5770179+08:00 DEBUG   - resources/examples/floating_panel_demo.py
+2025-12-15T22:57:16.5770209+08:00 DEBUG   - resources/examples/local_assets_example.py
+2025-12-15T22:57:16.5770256+08:00 DEBUG   - resources/examples/logo_button_demo.py
+2025-12-15T22:57:16.5770288+08:00 DEBUG   - resources/examples/maya_qt_echo_demo.py
+2025-12-15T22:57:16.5770347+08:00 DEBUG   - resources/examples/multi_window_demo.py
+2025-12-15T22:57:16.5770377+08:00 DEBUG   - resources/examples/native_menu_demo.py
+2025-12-15T22:57:16.5770406+08:00 DEBUG   - resources/examples/qt_custom_menu_demo.py
+2025-12-15T22:57:16.5770438+08:00 DEBUG   - resources/examples/qt_style_tool.py
+2025-12-15T22:57:16.5770469+08:00 DEBUG   - resources/examples/signals_advanced_demo.py
+2025-12-15T22:57:16.5770499+08:00 DEBUG   - resources/examples/simple_decorator.py
+2025-12-15T22:57:16.5770528+08:00 DEBUG   - resources/examples/system_tray_demo.py
+2025-12-15T22:57:16.5770557+08:00 DEBUG   - resources/examples/window_events_demo.py
+2025-12-15T22:57:16.5770614+08:00 DEBUG   - resources/examples/maya_qt_echo_demo.html
+2025-12-15T22:57:16.8840443+08:00 DEBUG [Rust] IPC message received: {"type":"event","event":"navigate_to_app","detail":{}}
+2025-12-15T22:57:16.8840742+08:00 DEBUG Event received: navigate_to_app
+2025-12-15T22:57:16.884083+08:00  INFO [Rust] Received navigate_to_app event from WebView
+2025-12-15T22:57:16.8848866+08:00  INFO [Rust] Frontend requested navigation to app
+2025-12-15T22:57:16.8848981+08:00  INFO [Rust] Navigating to: https://auroraview.localhost/index.html
+2025-12-15T22:57:16.8849267+08:00  INFO [Rust] Navigation initiated successfully
+2025-12-15T22:57:16.8904623+08:00 DEBUG Protocol request: auroraview://localhost/index.html -> path: 'index.html'
+2025-12-15T22:57:16.8905287+08:00 DEBUG Serving asset: index.html (468 bytes, text/html)
+2025-12-15T22:57:16.9025362+08:00 DEBUG Protocol request: auroraview://localhost/assets/index-CGiRs5FM.js -> path: 'assets/index-CGiRs5FM.js'
+2025-12-15T22:57:16.9027306+08:00 DEBUG Serving asset: assets/index-CGiRs5FM.js (288470 bytes, text/javascript)
+2025-12-15T22:57:16.9032663+08:00 DEBUG [Rust] IPC message received: {"type":"event","event":"__auroraview_ready","detail":{"timestamp":1765810636898,"url":"https://auroraview.localhost/index.html"}}
+2025-12-15T22:57:16.903301+08:00 DEBUG Event received: __auroraview_ready
+2025-12-15T22:57:16.9034961+08:00 DEBUG Protocol request: auroraview://localhost/assets/index-DpNf9Pgw.css -> path: 'assets/index-DpNf9Pgw.css'
+2025-12-15T22:57:16.9035566+08:00 DEBUG Serving asset: assets/index-DpNf9Pgw.css (31717 bytes, text/css)
+2025-12-15T22:57:16.9296221+08:00 DEBUG Protocol request: auroraview://localhost/auroraview-logo.png -> path: 'auroraview-logo.png'
+2025-12-15T22:57:16.9321115+08:00 DEBUG Serving asset: auroraview-logo.png (9470215 bytes, image/png)
+2025-12-15T22:57:16.934927+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765810636930_1","method":"api.get_samples"}
+2025-12-15T22:57:16.9349686+08:00 DEBUG [Rust] API call: api.get_samples (id: av_call_1765810636930_1)
+2025-12-15T22:57:16.935075+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765810636930_2","method":"api.get_categories"}
+2025-12-15T22:57:16.9350924+08:00 DEBUG [Rust] API call: api.get_categories (id: av_call_1765810636930_2)
+2025-12-15T22:57:16.9353597+08:00 DEBUG Python response: {"id": "av_call_1765810636930_1", "ok": true, "result": [{"id": "cookie_management", "title": "Cookie Management Demo", "category": "getting_started", "description": "Session and persistent cookies.", "icon": "code", "source_file": "cookie_management_demo.py", "tags": []}, {"id": "custom_context_menu", "title": "Custom Context Menu Demo", "category": "window_features", "description": "This example demonstrates how to disable the native browser context menu and implement a custom r...", "icon": "menu", "source_file": "custom_context_menu_demo.py", "tags": ["api", "qt", "standalone", "ui"]}, {"id": "custom_protocol", "title": "Custom Protocol Demo", "category": "getting_started", "description": "Register custom URL schemes.", "icon": "image", "source_file": "custom_protocol_demo.py", "tags": ["api", "qt"]}, {"id": "dcc_integration", "title": "DCC Integration Example", "category": "api_patterns", "description": "Shows how to integrate AuroraView with DCC applications.", "icon": "bell", "source_file": "dcc_integration_example.py", "tags": ["api", "events", "qt", "standalone", "window"]}, {"id": "desktop_app", "title": "AuroraView Desktop Application Demo", "category": "desktop_features", "description": "Demonstrates desktop application capabilities: This example shows how to build a desktop-like app...", "icon": "folder", "source_file": "desktop_app_demo.py", "tags": ["standalone", "ui"]}, {"id": "desktop_events", "title": "Desktop Events Demo", "category": "api_patterns", "description": "Demonstrates new desktop event features.", "icon": "bell", "source_file": "desktop_events_demo.py", "tags": ["advanced", "api", "events", "qt", "standalone"]}, {"id": "dom_manipulation", "title": "DOM Manipulation Demo", "category": "getting_started", "description": "Element operations via Python.", "icon": "palette", "source_file": "dom_manipulation_demo.py", "tags": ["ui"]}, {"id": "dynamic_binding", "title": "Dynamic Binding Pattern Example", "category": "getting_started", "description": "AuroraView API Demo.", "icon": "link", "source_file": "dynamic_binding.py", "tags": ["advanced", "api", "qt", "standalone"]}, {"id": "floating_panel", "title": "Floating Panel Demo", "category": "window_features", "description": "Create floating tool windows for DCC applications.", "icon": "layers", "source_file": "floating_panel_demo.py", "tags": ["advanced", "beginner", "ui", "window"]}, {"id": "local_assets", "title": "Example: Loading HTML with local assets using file:// protocol", "category": "desktop_features", "description": "This example demonstrates how to use file:// URLs in HTML content to load local files (images, GI...", "icon": "image", "source_file": "local_assets_example.py", "tags": ["standalone"]}, {"id": "logo_button", "title": "Logo Button Demo", "category": "window_features", "description": "Transparent floating logo button with AI panel.", "icon": "layers", "source_file": "logo_button_demo.py", "tags": ["advanced", "ui", "window"]}, {"id": "maya_qt_echo", "title": "Maya + QtWebView shelf demo using auroraview.api.rename_selected", "category": "getting_started", "description": "Usage inside Maya Script Editor:: import examples.maya_qt_echo_demo as demo", "icon": "link", "source_file": "maya_qt_echo_demo.py", "tags": ["api", "events", "qt", "ui"]}, {"id": "multi_window", "title": "Multi-Window Demo", "category": "window_features", "description": "Multiple WebView windows with communication.", "icon": "layout", "source_file": "multi_window_demo.py", "tags": ["events", "window"]}, {"id": "native_menu", "title": "Native Menu Demo", "category": "getting_started", "description": "Application menu bar with keyboard shortcuts.", "icon": "menu", "source_file": "native_menu_demo.py", "tags": ["ui"]}, {"id": "qt_custom_menu", "title": "Qt Custom Context Menu Demo", "category": "window_features", "description": "This example demonstrates how to use custom context menus in QtWebView for DCC applications like ...", "icon": "menu", "source_file": "qt_custom_menu_demo.py", "tags": ["qt", "ui"]}, {"id": "qt_style_tool", "title": "Qt-Style Class Inheritance Pattern Example", "category": "getting_started", "description": "AuroraView API Demo.", "icon": "link", "source_file": "qt_style_tool.py", "tags": ["advanced", "api", "events", "qt", "ui"]}, {"id": "signals_advanced", "title": "Signals Advanced Demo", "category": "getting_started", "description": "Qt-inspired Signal-Slot System.", "icon": "bell", "source_file": "signals_advanced_demo.py", "tags": ["advanced", "events", "qt"]}, {"id": "simple_decorator", "title": "Simple Decorator Pattern Example", "category": "getting_started", "description": "AuroraView API Demo.", "icon": "wand-2", "source_file": "simple_decorator.py", "tags": ["api", "beginner", "events", "qt", "standalone", "ui"]}, {"id": "system_tray", "title": "System Tray Demo", "category": "window_features", "description": "Desktop application with system tray support.", "icon": "layers", "source_file": "system_tray_demo.py", "tags": ["advanced", "standalone", "ui", "window"]}, {"id": "window_events", "title": "Window Events Demo", "category": "api_patterns", "description": "Demonstrates window lifecycle event handling.", "icon": "bell", "source_file": "window_events_demo.py", "tags": ["api", "events", "qt", "standalone", "window"]}]}
+2025-12-15T22:57:16.93561+08:00 DEBUG Python response: {"id": "av_call_1765810636930_2", "ok": true, "result": {"getting_started": {"title": "Getting Started", "icon": "rocket", "description": "Quick start examples and basic usage patterns"}, "api_patterns": {"title": "API Patterns", "icon": "code", "description": "Different ways to use the AuroraView API"}, "window_features": {"title": "Window Features", "icon": "layout", "description": "Window styles, events, and customization"}, "desktop_features": {"title": "Desktop Features", "icon": "monitor", "description": "File dialogs, shell commands, and system integration"}, "dcc_integration": {"title": "DCC Integration", "icon": "box", "description": "Maya, Houdini, Blender, and other DCC apps"}}}
+2025-12-15T22:57:20.997719+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765810640997_3","method":"api.run_sample","params":{"sample_id":"custom_protocol","show_console":true}}
+2025-12-15T22:57:20.9977621+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765810640997_3)
+[Python:run_sample] sample_id=custom_protocol, show_console=True
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\custom_protocol_demo.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\custom_protocol_demo.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":true}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 35768, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 35768
+2025-12-15T22:57:21.0263705+08:00 DEBUG Python response: {"id": "av_call_1765810640997_3", "ok": true, "result": {"ok": true, "pid": 35768, "message": "Started Custom Protocol Demo (with console)"}}
+2025-12-15T22:57:27.5512835+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765810647550_4","method":"api.run_sample","params":{"sample_id":"local_assets","show_console":true}}
+2025-12-15T22:57:27.5513343+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765810647550_4)
+[Python:run_sample] sample_id=local_assets, show_console=True
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\local_assets_example.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\local_assets_example.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":true}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 16984, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 16984
+2025-12-15T22:57:27.5760993+08:00 DEBUG Python response: {"id": "av_call_1765810647550_4", "ok": true, "result": {"ok": true, "pid": 16984, "message": "Started Example: Loading HTML with local assets using file:// protocol (with console)"}}
+2025-12-15T22:57:28.8496468+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765810648848_5","method":"api.run_sample","params":{"sample_id":"desktop_app","show_console":true}}
+2025-12-15T22:57:28.8496776+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765810648848_5)
+[Python:run_sample] sample_id=desktop_app, show_console=True
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\desktop_app_demo.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\desktop_app_demo.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":true}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 46352, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 46352
+2025-12-15T22:57:28.8879424+08:00 DEBUG Python response: {"id": "av_call_1765810648848_5", "ok": true, "result": {"ok": true, "pid": 46352, "message": "Started AuroraView Desktop Application Demo (with console)"}}
+2025-12-15T22:57:39.5132574+08:00  WARN NewEvents emitted without explicit RedrawEventsCleared
+2025-12-15T22:57:39.5599503+08:00  WARN RedrawEventsCleared emitted without explicit MainEventsCleared
+2025-12-15T22:57:39.6807946+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765810659679_6","method":"api.get_source","params":{"sample_id":"system_tray"}}
+2025-12-15T22:57:39.6808404+08:00 DEBUG [Rust] API call: api.get_source (id: av_call_1765810659679_6)
+2025-12-15T22:57:39.6820787+08:00 DEBUG Python response: {"id": "av_call_1765810659679_6", "ok": true, "result": "\"\"\"System Tray Demo - Desktop application with system tray support.\n\nThis example demonstrates how to create a desktop application with:\n- System tray icon\n- Context menu in tray\n- Hide to tray on close\n- Show on tray click\n\nFeatures demonstrated:\n- System tray icon with tooltip\n- Context menu with Show/Hide/Exit options\n- Minimize to tray instead of closing\n- Click tray icon to show/hide window\n- Tool window style for floating panels\n\nUse cases:\n- Background applications (monitoring tools, sync services)\n- Desktop assistants that stay in tray\n- Notification-based tools\n- Always-available utilities\n\nNote: System tray support is currently available through run_desktop().\nFor advanced tray configuration, see the TrayConfig in Rust.\n\nSigned-off-by: Hal Long <hal.long@outlook.com>\n\"\"\"\n\nimport sys\n\n# HTML for the main application UI\nAPP_HTML = \"\"\"\n<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"UTF-8\">\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n\n        body {\n            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);\n            color: #e4e4e4;\n            min-height: 100vh;\n            display: flex;\n            flex-direction: column;\n            align-items: center;\n            justify-content: center;\n            padding: 40px;\n        }\n\n        .container {\n            text-align: center;\n            max-width: 500px;\n        }\n\n        .icon {\n            font-size: 64px;\n            margin-bottom: 24px;\n        }\n\n        h1 {\n            font-size: 28px;\n            font-weight: 600;\n            color: #00d4ff;\n            margin-bottom: 16px;\n        }\n\n        p {\n            font-size: 16px;\n            color: #aaa;\n            line-height: 1.6;\n            margin-bottom: 24px;\n        }\n\n        .status {\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            gap: 8px;\n            padding: 12px 24px;\n            background: rgba(0, 212, 255, 0.1);\n            border: 1px solid rgba(0, 212, 255, 0.3);\n            border-radius: 8px;\n            margin-bottom: 24px;\n        }\n\n        .status-dot {\n            width: 10px;\n            height: 10px;\n            border-radius: 50%;\n            background: #00ff88;\n            animation: pulse 2s infinite;\n        }\n\n        @keyframes pulse {\n            0%, 100% { opacity: 1; }\n            50% { opacity: 0.5; }\n        }\n\n        .actions {\n            display: flex;\n            gap: 12px;\n            justify-content: center;\n        }\n\n        .btn {\n            padding: 12px 24px;\n            border: none;\n            border-radius: 8px;\n            font-size: 14px;\n            font-weight: 600;\n            cursor: pointer;\n            transition: all 0.2s;\n        }\n\n        .btn-primary {\n            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);\n            color: #fff;\n        }\n\n        .btn-primary:hover {\n            transform: translateY(-2px);\n            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);\n        }\n\n        .btn-secondary {\n            background: rgba(255, 255, 255, 0.1);\n            color: #e4e4e4;\n            border: 1px solid rgba(255, 255, 255, 0.2);\n        }\n\n        .btn-secondary:hover {\n            background: rgba(255, 255, 255, 0.15);\n        }\n\n        .info {\n            margin-top: 32px;\n            font-size: 12px;\n            color: #666;\n        }\n\n        .info code {\n            background: rgba(255, 255, 255, 0.1);\n            padding: 2px 6px;\n            border-radius: 4px;\n            font-family: 'Fira Code', monospace;\n        }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <div class=\"icon\">\ud83c\udfaf</div>\n        <h1>AuroraView Tray Demo</h1>\n        <p>\n            This application demonstrates system tray functionality.\n            Close the window to minimize to tray, or use the tray menu\n            to control the application.\n        </p>\n        <div class=\"status\">\n            <span class=\"status-dot\"></span>\n            <span>Running in background</span>\n        </div>\n        <div class=\"actions\">\n            <button class=\"btn btn-primary\" onclick=\"hideToTray()\">Hide to Tray</button>\n            <button class=\"btn btn-secondary\" onclick=\"showNotification()\">Test Notification</button>\n        </div>\n        <div class=\"info\">\n            <p>Right-click the tray icon for options</p>\n            <p>Use <code>tool_window=True</code> to hide from taskbar</p>\n        </div>\n    </div>\n\n    <script>\n        function hideToTray() {\n            if (window.auroraview && window.auroraview.call) {\n                window.auroraview.call('hide_to_tray');\n            }\n        }\n\n        function showNotification() {\n            if (window.auroraview && window.auroraview.call) {\n                window.auroraview.call('show_notification', {\n                    title: 'AuroraView',\n                    message: 'This is a test notification!'\n                });\n            }\n        }\n\n        // Listen for tray events\n        window.addEventListener('auroraviewready', () => {\n            console.log('AuroraView ready - tray demo');\n\n            // Subscribe to tray menu events\n            if (window.auroraview && window.auroraview.on) {\n                window.auroraview.on('tray_menu', (data) => {\n                    console.log('Tray menu clicked:', data);\n                });\n            }\n        });\n    </script>\n</body>\n</html>\n\"\"\"\n\n\ndef run_tray_demo():\n    \"\"\"Run the system tray demo.\n\n    This demo shows how to create a desktop application with system tray support.\n    Uses run_desktop() with tray parameters for full system tray functionality.\n    \"\"\"\n    from auroraview._core import run_desktop\n\n    print(\"Starting System Tray Demo...\")\n    print()\n    print(\"Features:\")\n    print(\"  - System tray icon with tooltip\")\n    print(\"  - Right-click menu: Show Window / Exit\")\n    print(\"  - Click tray icon to show window\")\n    print(\"  - Close window to hide to tray\")\n    print()\n    print(\"Try:\")\n    print(\"  1. Close the window (X button) - it will hide to tray\")\n    print(\"  2. Click the tray icon to show the window again\")\n    print(\"  3. Right-click tray icon for menu options\")\n    print()\n\n    run_desktop(\n        title=\"AuroraView Tray Demo\",\n        width=600,\n        height=500,\n        html=APP_HTML,\n        tray_enabled=True,\n        tray_tooltip=\"AuroraView Tray Demo\",\n        tray_show_on_click=True,\n        tray_hide_on_close=True,\n    )\n\n\ndef run_tool_window_demo():\n    \"\"\"Run a demo showing tool_window mode.\n\n    tool_window=True creates a window that:\n    - Does NOT appear in the taskbar\n    - Does NOT appear in Alt+Tab\n    - Has a smaller title bar (if frame=True)\n\n    This is useful for floating tool panels, property editors, etc.\n    \"\"\"\n    from auroraview import AuroraView\n\n    class ToolWindow(AuroraView):\n        \"\"\"A tool window that hides from taskbar and Alt+Tab.\"\"\"\n\n        def __init__(self):\n            super().__init__(\n                title=\"Tool Window\",\n                html=APP_HTML,\n                width=400,\n                height=300,\n                frame=True,  # Show window frame (smaller for tool windows)\n                always_on_top=True,  # Keep on top\n                tool_window=True,  # Hide from taskbar and Alt+Tab\n            )\n            self.bind_call(\"hide_to_tray\", self.close)\n            self.bind_call(\"show_notification\", lambda **kw: print(f\"Notification: {kw}\"))\n\n    print(\"Starting Tool Window Demo...\")\n    print()\n    print(\"This window:\")\n    print(\"  - Does NOT appear in taskbar\")\n    print(\"  - Does NOT appear in Alt+Tab\")\n    print(\"  - Stays on top of other windows\")\n    print()\n\n    tool = ToolWindow()\n    tool.show()\n\n\nif __name__ == \"__main__\":\n    if len(sys.argv) > 1 and sys.argv[1] == \"--tool\":\n        run_tool_window_demo()\n    else:\n        run_tray_demo()\n"}
+2025-12-15T22:57:43.2327076+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765810663232_7","method":"api.run_sample","params":{"sample_id":"local_assets","show_console":true}}
+2025-12-15T22:57:43.2327457+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765810663232_7)
+[Python:run_sample] sample_id=local_assets, show_console=True
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\local_assets_example.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\local_assets_example.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":true}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 45924, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 45924
+2025-12-15T22:57:43.2586866+08:00 DEBUG Python response: {"id": "av_call_1765810663232_7", "ok": true, "result": {"ok": true, "pid": 45924, "message": "Started Example: Loading HTML with local assets using file:// protocol (with console)"}}
+2025-12-15T22:57:50.5876368+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765810670587_8","method":"api.run_sample","params":{"sample_id":"desktop_app","show_console":true}}
+2025-12-15T22:57:50.5876712+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765810670587_8)
+[Python:run_sample] sample_id=desktop_app, show_console=True
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\desktop_app_demo.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\desktop_app_demo.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":true}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 43208, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 43208
+2025-12-15T22:57:50.6116655+08:00 DEBUG Python response: {"id": "av_call_1765810670587_8", "ok": true, "result": {"ok": true, "pid": 43208, "message": "Started AuroraView Desktop Application Demo (with console)"}}
+2025-12-15T22:58:01.6494784+08:00  INFO Stopping Python backend...
+[AuroraView] stdin closed, shutting down
+[AuroraView] API server stopped

@@ -1,0 +1,191 @@
+2025-12-15T23:56:59.341836+08:00  INFO [Rust] Running packed application: AuroraView
+2025-12-15T23:56:59.3418767+08:00  INFO [Rust] Assets: 95 files
+2025-12-15T23:56:59.3418862+08:00  INFO [Rust] Overlay read completed in 82.62ms
+2025-12-15T23:56:59.3418974+08:00 DEBUG Setting env: AURORAVIEW_APP=gallery
+2025-12-15T23:56:59.3419233+08:00 DEBUG Setting env: LOG_LEVEL=info
+2025-12-15T23:56:59.3419392+08:00 DEBUG Setting env: GALLERY_MODE=production
+2025-12-15T23:56:59.3419557+08:00  INFO Injected 3 environment variables
+2025-12-15T23:56:59.3419618+08:00  INFO [Rust] Pack mode: FullStack { frontend_path: "", python: PythonBundleConfig { entry_point: "main:run_gallery", include_paths: ["C:\\Users\\hallo\\Documents\\augment-projects\\dcc_webview\\gallery\\."], packages: ["pyyaml"], requirements: None, strategy: Standalone, version: "3.10", optimize: 1, exclude: ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"], external_bin: [], resources: [], include_pip: false, include_setuptools: false, distribution_flavor: Some("standalone"), pyoxidizer_path: None, module_search_paths: ["$EXTRACT_DIR", "$SITE_PACKAGES"], filesystem_importer: true, show_console: false } }, is_fullstack: true
+2025-12-15T23:56:59.3835578+08:00  INFO Starting Python backend before window creation...
+2025-12-15T23:56:59.3910551+08:00  INFO Extracting Python 3.10 runtime (38.02 MB)...
+2025-12-15T23:56:59.3913502+08:00  INFO Using cached Python runtime: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output
+2025-12-15T23:56:59.3927872+08:00  INFO Extracting Python files to: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output
+2025-12-15T23:56:59.4049855+08:00  INFO File site-packages/auroraview/_core.pyd is locked but content matches, skipping
+2025-12-15T23:56:59.4056628+08:00  INFO Extracted 66 Python files in 12.85ms
+2025-12-15T23:56:59.4102593+08:00  INFO Extracted 22 resource files to: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources
+2025-12-15T23:56:59.4105651+08:00  INFO [Rust] Starting Python backend: main:run_gallery
+2025-12-15T23:56:59.4106082+08:00  INFO [Rust] Using Python: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+2025-12-15T23:56:59.4106245+08:00 DEBUG [Rust] Python code: import sys; sys.path.insert(0, r'C:\Users\hallo\AppData\Local\AuroraView\python\pack-output'); from main import run_gallery; run_gallery()
+2025-12-15T23:56:59.4106372+08:00 DEBUG [Rust] Module search paths: ["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output", "C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\site-packages"]
+2025-12-15T23:56:59.4108067+08:00  INFO [Rust] Set AURORAVIEW_PYTHON_PATH=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+2025-12-15T23:56:59.4108303+08:00  INFO [Rust] Set AURORAVIEW_RESOURCES_DIR=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources
+2025-12-15T23:56:59.4108428+08:00  INFO [Rust] Set AURORAVIEW_PYTHON_EXE=C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+2025-12-15T23:56:59.4110519+08:00  INFO [Rust] Examples directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+2025-12-15T23:56:59.5524618+08:00  INFO Python backend started (PID: 12144) in 168.87ms
+2025-12-15T23:57:00.028279+08:00  INFO Loading embedded assets via auroraview:// protocol
+2025-12-15T23:57:00.0283406+08:00  INFO Index path: frontend/index.html
+2025-12-15T23:57:00.0283557+08:00  INFO FullStack mode: showing loading screen while Python initializes
+2025-12-15T23:57:00.0283655+08:00  INFO Initial URL: https://auroraview.localhost/__loading__
+2025-12-15T23:57:00.028374+08:00  INFO App URL (after Python ready): https://auroraview.localhost/index.html
+2025-12-15T23:57:00.0284252+08:00 DEBUG Loading HTML size: 17830 bytes
+2025-12-15T23:57:00.0284364+08:00  INFO Available assets (95 total):
+2025-12-15T23:57:00.0284446+08:00 DEBUG   - python_runtime.json (76 bytes)
+2025-12-15T23:57:00.0284531+08:00 DEBUG   - python_runtime.tar.gz (39870898 bytes)
+2025-12-15T23:57:00.0284606+08:00 DEBUG   - frontend/assets/index-CGiRs5FM.js (288470 bytes)
+2025-12-15T23:57:00.0284681+08:00 DEBUG   - frontend/assets/index-DpNf9Pgw.css (31717 bytes)
+2025-12-15T23:57:00.0284756+08:00 DEBUG   - frontend/auroraview-logo.png (9470215 bytes)
+2025-12-15T23:57:00.0284827+08:00 DEBUG   - frontend/index.html (468 bytes)
+2025-12-15T23:57:00.0284897+08:00 DEBUG   - frontend/logo.svg (531 bytes)
+2025-12-15T23:57:00.0284964+08:00 DEBUG   - python/check_window.py (5640 bytes)
+2025-12-15T23:57:00.0285034+08:00 DEBUG   - python/debug_packed.py (1759 bytes)
+2025-12-15T23:57:00.0285104+08:00 DEBUG   - python/main.py (20858 bytes)
+2025-12-15T23:57:00.0285183+08:00 DEBUG   ... and 85 more
+2025-12-15T23:57:00.0285265+08:00 DEBUG Enabled HTTPS scheme for Windows
+2025-12-15T15:57:00.432459Z  INFO ThreadId(01) 213: [warmup] Starting WebView2 warmup (data_folder: "C:\\Users\\hallo\\AppData\\Local\\AuroraView\\WebView2")
+[Python] Starting AuroraView Gallery...
+[Python] ==================================================
+[Python] Interactive showcase of all features and components
+[Python] ==================================================
+2025-12-15T15:57:00.432935Z  INFO ThreadId(02) 245: [warmup] WebView2 warmup complete in 0ms
+[Python] Pre-loaded 20 samples in 50.6ms
+2025-12-15T15:57:00.486713Z  INFO ThreadId(01) 53: AuroraView::new() called with title: AuroraView Gallery, transparent=false, tool_window=false, decorations=true
+2025-12-15T15:57:00.487197Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T15:57:00.487253Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T15:57:00.487272Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T15:57:00.487287Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T15:57:00.487308Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T15:57:00.487326Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T15:57:00.487343Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+2025-12-15T15:57:00.487357Z  INFO ThreadId(01) 51: Registering 1 API methods for namespace 'api' via Rust template
+[AuroraView] Running in packed mode (API server)
+[AuroraView] Registered 8 API handlers
+[AuroraView] Ready signal sent
+2025-12-15T23:57:00.4876551+08:00  INFO Python backend ready with 8 handlers in 935.16ms
+2025-12-15T23:57:01.0748812+08:00  INFO Startup completed in 1815.61ms
+2025-12-15T23:57:01.0749525+08:00  INFO === Packed App Startup Performance ===
+2025-12-15T23:57:01.0749623+08:00  INFO Total elapsed: 1.82s
+2025-12-15T23:57:01.0749671+08:00  INFO --- Main Phases ---
+2025-12-15T23:57:01.0749712+08:00  INFO   Overlay read:           78.25ms (+78.25ms)
+2025-12-15T23:57:01.0749755+08:00  INFO   Config decompress:        293碌s ()
+2025-12-15T23:57:01.0749801+08:00  INFO   Assets decompress:      78.25ms (+77.96ms)
+2025-12-15T23:57:01.0749839+08:00  INFO   Tar extract:            78.25ms ()
+2025-12-15T23:57:01.0749879+08:00  INFO   Python runtime:        133.42ms (+55.17ms)
+2025-12-15T23:57:01.0749916+08:00  INFO   Python files:          146.40ms (+12.98ms)
+2025-12-15T23:57:01.0749955+08:00  INFO   Resources extract:     151.03ms (+4.64ms)
+2025-12-15T23:57:01.0749992+08:00  INFO   Python start:          293.17ms (+142.14ms)
+2025-12-15T23:57:01.0750212+08:00  INFO   Window created:        752.53ms (+459.36ms)
+2025-12-15T23:57:01.0750269+08:00  INFO   WebView created:          1.82s (+1.06s)
+2025-12-15T23:57:01.0750307+08:00  INFO --- Detailed Phases ---
+2025-12-15T23:57:01.0750344+08:00  INFO   config_read_decompress      144碌s
+2025-12-15T23:57:01.0750381+08:00  INFO   assets_read             22.86ms
+2025-12-15T23:57:01.0750417+08:00  INFO   assets_decompress_and_extract    55.09ms
+2025-12-15T23:57:01.0750452+08:00  INFO   python_runtime_extract     8.68ms
+2025-12-15T23:57:01.0750492+08:00  INFO   python_dirs_create        934碌s
+2025-12-15T23:57:01.0750551+08:00  INFO   python_files_write      11.90ms
+2025-12-15T23:57:01.0750586+08:00  INFO   resources_extract        4.58ms
+2025-12-15T23:57:01.0750622+08:00  INFO   python_spawn           141.57ms
+2025-12-15T23:57:01.0750672+08:00  INFO ========================================
+2025-12-15T23:57:01.0756232+08:00  INFO [Rust] ========================================
+2025-12-15T23:57:01.0756445+08:00  INFO [Rust] Python backend ready
+2025-12-15T23:57:01.0783329+08:00 DEBUG Protocol request: auroraview://localhost/__loading__ -> path: '__loading__'
+2025-12-15T23:57:01.0783768+08:00  INFO Serving loading page (17830 bytes)
+2025-12-15T23:57:01.1383254+08:00 DEBUG [Rust] IPC message received: {"type":"event","event":"__auroraview_ready","detail":{"timestamp":1765814221125,"url":"https://auroraview.localhost/__loading__"}}
+2025-12-15T23:57:01.138363+08:00 DEBUG Event received: __auroraview_ready
+2025-12-15T23:57:01.1432901+08:00 DEBUG [Rust] IPC message received: {"type":"event","event":"loading_screen_ready","detail":{}}
+2025-12-15T23:57:01.1433303+08:00 DEBUG Event received: loading_screen_ready
+2025-12-15T23:57:01.143341+08:00  INFO [Rust] Received loading_screen_ready event from WebView
+2025-12-15T23:57:01.1434235+08:00  INFO [Rust] Loading screen is ready (DOM rendered)
+2025-12-15T23:57:01.1434391+08:00  INFO [Rust] Python already ready, sending backend_ready to frontend
+2025-12-15T23:57:01.5027963+08:00 DEBUG [Rust] IPC message received: {"type":"event","event":"navigate_to_app","detail":{}}
+2025-12-15T23:57:01.5028665+08:00 DEBUG Event received: navigate_to_app
+2025-12-15T23:57:01.502885+08:00  INFO [Rust] Received navigate_to_app event from WebView
+2025-12-15T23:57:01.5039255+08:00  INFO [Rust] Frontend requested navigation to app
+2025-12-15T23:57:01.5039536+08:00  INFO [Rust] Navigating to: https://auroraview.localhost/index.html
+2025-12-15T23:57:01.5039996+08:00  INFO [Rust] Navigation initiated successfully
+2025-12-15T23:57:01.5117408+08:00 DEBUG Protocol request: auroraview://localhost/index.html -> path: 'index.html'
+2025-12-15T23:57:01.51182+08:00 DEBUG Serving asset: index.html (468 bytes, text/html)
+2025-12-15T23:57:01.5295887+08:00 DEBUG Protocol request: auroraview://localhost/assets/index-CGiRs5FM.js -> path: 'assets/index-CGiRs5FM.js'
+2025-12-15T23:57:01.5297956+08:00 DEBUG Serving asset: assets/index-CGiRs5FM.js (288470 bytes, text/javascript)
+2025-12-15T23:57:01.5334685+08:00 DEBUG Protocol request: auroraview://localhost/assets/index-DpNf9Pgw.css -> path: 'assets/index-DpNf9Pgw.css'
+2025-12-15T23:57:01.5336563+08:00 DEBUG Serving asset: assets/index-DpNf9Pgw.css (31717 bytes, text/css)
+2025-12-15T23:57:01.5429232+08:00 DEBUG [Rust] IPC message received: {"type":"event","event":"__auroraview_ready","detail":{"timestamp":1765814221520,"url":"https://auroraview.localhost/index.html"}}
+2025-12-15T23:57:01.5431247+08:00 DEBUG Event received: __auroraview_ready
+2025-12-15T23:57:01.6158818+08:00 DEBUG Protocol request: auroraview://localhost/auroraview-logo.png -> path: 'auroraview-logo.png'
+2025-12-15T23:57:01.6178276+08:00 DEBUG Serving asset: auroraview-logo.png (9470215 bytes, image/png)
+2025-12-15T23:57:01.6314777+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765814221630_1","method":"api.get_samples"}
+2025-12-15T23:57:01.6315332+08:00 DEBUG [Rust] API call: api.get_samples (id: av_call_1765814221630_1)
+2025-12-15T23:57:01.6319939+08:00 DEBUG Python response: {"id": "av_call_1765814221630_1", "ok": true, "result": [{"id": "cookie_management", "title": "Cookie Management Demo", "category": "getting_started", "description": "Session and persistent cookies.", "icon": "code", "source_file": "cookie_management_demo.py", "tags": []}, {"id": "custom_context_menu", "title": "Custom Context Menu Demo", "category": "window_features", "description": "This example demonstrates how to disable the native browser context menu and implement a custom r...", "icon": "menu", "source_file": "custom_context_menu_demo.py", "tags": ["api", "qt", "standalone", "ui"]}, {"id": "custom_protocol", "title": "Custom Protocol Demo", "category": "getting_started", "description": "Register custom URL schemes.", "icon": "image", "source_file": "custom_protocol_demo.py", "tags": ["api", "qt"]}, {"id": "dcc_integration", "title": "DCC Integration Example", "category": "api_patterns", "description": "Shows how to integrate AuroraView with DCC applications.", "icon": "bell", "source_file": "dcc_integration_example.py", "tags": ["api", "events", "qt", "standalone", "window"]}, {"id": "desktop_app", "title": "AuroraView Desktop Application Demo", "category": "desktop_features", "description": "Demonstrates desktop application capabilities: This example shows how to build a desktop-like app...", "icon": "folder", "source_file": "desktop_app_demo.py", "tags": ["standalone", "ui"]}, {"id": "desktop_events", "title": "Desktop Events Demo", "category": "api_patterns", "description": "Demonstrates new desktop event features.", "icon": "bell", "source_file": "desktop_events_demo.py", "tags": ["advanced", "api", "events", "qt", "standalone"]}, {"id": "dom_manipulation", "title": "DOM Manipulation Demo", "category": "getting_started", "description": "Element operations via Python.", "icon": "palette", "source_file": "dom_manipulation_demo.py", "tags": ["ui"]}, {"id": "dynamic_binding", "title": "Dynamic Binding Pattern Example", "category": "getting_started", "description": "AuroraView API Demo.", "icon": "link", "source_file": "dynamic_binding.py", "tags": ["advanced", "api", "qt", "standalone"]}, {"id": "floating_panel", "title": "Floating Panel Demo", "category": "window_features", "description": "Create floating tool windows for DCC applications.", "icon": "layers", "source_file": "floating_panel_demo.py", "tags": ["advanced", "beginner", "ui", "window"]}, {"id": "local_assets", "title": "Example: Loading HTML with local assets using file:// protocol", "category": "desktop_features", "description": "This example demonstrates how to use file:// URLs in HTML content to load local files (images, GI...", "icon": "image", "source_file": "local_assets_example.py", "tags": ["standalone"]}, {"id": "logo_button", "title": "Logo Button Demo", "category": "window_features", "description": "Transparent floating logo button with AI panel.", "icon": "layers", "source_file": "logo_button_demo.py", "tags": ["advanced", "ui", "window"]}, {"id": "maya_qt_echo", "title": "Maya + QtWebView shelf demo using auroraview.api.rename_selected", "category": "getting_started", "description": "Usage inside Maya Script Editor:: import examples.maya_qt_echo_demo as demo", "icon": "link", "source_file": "maya_qt_echo_demo.py", "tags": ["api", "events", "qt", "ui"]}, {"id": "multi_window", "title": "Multi-Window Demo", "category": "window_features", "description": "Multiple WebView windows with communication.", "icon": "layout", "source_file": "multi_window_demo.py", "tags": ["events", "window"]}, {"id": "native_menu", "title": "Native Menu Demo", "category": "getting_started", "description": "Application menu bar with keyboard shortcuts.", "icon": "menu", "source_file": "native_menu_demo.py", "tags": ["ui"]}, {"id": "qt_custom_menu", "title": "Qt Custom Context Menu Demo", "category": "window_features", "description": "This example demonstrates how to use custom context menus in QtWebView for DCC applications like ...", "icon": "menu", "source_file": "qt_custom_menu_demo.py", "tags": ["qt", "ui"]}, {"id": "qt_style_tool", "title": "Qt-Style Class Inheritance Pattern Example", "category": "getting_started", "description": "AuroraView API Demo.", "icon": "link", "source_file": "qt_style_tool.py", "tags": ["advanced", "api", "events", "qt", "ui"]}, {"id": "signals_advanced", "title": "Signals Advanced Demo", "category": "getting_started", "description": "Qt-inspired Signal-Slot System.", "icon": "bell", "source_file": "signals_advanced_demo.py", "tags": ["advanced", "events", "qt"]}, {"id": "simple_decorator", "title": "Simple Decorator Pattern Example", "category": "getting_started", "description": "AuroraView API Demo.", "icon": "wand-2", "source_file": "simple_decorator.py", "tags": ["api", "beginner", "events", "qt", "standalone", "ui"]}, {"id": "system_tray", "title": "System Tray Demo", "category": "window_features", "description": "Desktop application with system tray support.", "icon": "layers", "source_file": "system_tray_demo.py", "tags": ["advanced", "standalone", "ui", "window"]}, {"id": "window_events", "title": "Window Events Demo", "category": "api_patterns", "description": "Demonstrates window lifecycle event handling.", "icon": "bell", "source_file": "window_events_demo.py", "tags": ["api", "events", "qt", "standalone", "window"]}]}
+2025-12-15T23:57:01.6324503+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765814221630_2","method":"api.get_categories"}
+2025-12-15T23:57:01.6324767+08:00 DEBUG [Rust] API call: api.get_categories (id: av_call_1765814221630_2)
+2025-12-15T23:57:01.6326592+08:00 DEBUG Python response: {"id": "av_call_1765814221630_2", "ok": true, "result": {"getting_started": {"title": "Getting Started", "icon": "rocket", "description": "Quick start examples and basic usage patterns"}, "api_patterns": {"title": "API Patterns", "icon": "code", "description": "Different ways to use the AuroraView API"}, "window_features": {"title": "Window Features", "icon": "layout", "description": "Window styles, events, and customization"}, "desktop_features": {"title": "Desktop Features", "icon": "monitor", "description": "File dialogs, shell commands, and system integration"}, "dcc_integration": {"title": "DCC Integration", "icon": "box", "description": "Maya, Houdini, Blender, and other DCC apps"}}}
+2025-12-15T23:57:05.616891+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765814225607_3","method":"api.run_sample","params":{"sample_id":"desktop_app","show_console":false}}
+2025-12-15T23:57:05.6169409+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765814225607_3)
+[Python:run_sample] sample_id=desktop_app, show_console=False
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\desktop_app_demo.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\desktop_app_demo.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":false}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 21664, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 21664
+2025-12-15T23:57:05.640133+08:00 DEBUG Python response: {"id": "av_call_1765814225607_3", "ok": true, "result": {"ok": true, "pid": 21664, "message": "Started AuroraView Desktop Application Demo (with IPC)"}}
+2025-12-15T23:57:18.2906525+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765814238290_4","method":"api.run_sample","params":{"sample_id":"desktop_app","show_console":false}}
+2025-12-15T23:57:18.2907126+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765814238290_4)
+[Python:run_sample] sample_id=desktop_app, show_console=False
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\desktop_app_demo.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\desktop_app_demo.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":false}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 48424, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 48424
+2025-12-15T23:57:18.3051727+08:00 DEBUG Python response: {"id": "av_call_1765814238290_4", "ok": true, "result": {"ok": true, "pid": 48424, "message": "Started AuroraView Desktop Application Demo (with IPC)"}}
+2025-12-15T23:57:23.3267222+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765814243326_5","method":"api.run_sample","params":{"sample_id":"system_tray","show_console":false}}
+2025-12-15T23:57:23.3267747+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765814243326_5)
+[Python:run_sample] sample_id=system_tray, show_console=False
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\system_tray_demo.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\system_tray_demo.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":false}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 54540, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 54540
+2025-12-15T23:57:23.3444183+08:00 DEBUG Python response: {"id": "av_call_1765814243326_5", "ok": true, "result": {"ok": true, "pid": 54540, "message": "Started System Tray Demo (with IPC)"}}
+2025-12-15T23:57:25.8606679+08:00  WARN NewEvents emitted without explicit RedrawEventsCleared
+2025-12-15T23:57:25.9138074+08:00  WARN RedrawEventsCleared emitted without explicit MainEventsCleared
+2025-12-15T23:57:25.961951+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765814245961_6","method":"api.run_sample","params":{"sample_id":"qt_custom_menu","show_console":false}}
+2025-12-15T23:57:25.9620069+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765814245961_6)
+[Python:run_sample] sample_id=qt_custom_menu, show_console=False
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\qt_custom_menu_demo.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\qt_custom_menu_demo.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":false}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 16724, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 16724
+2025-12-15T23:57:25.9784335+08:00 DEBUG Python response: {"id": "av_call_1765814245961_6", "ok": true, "result": {"ok": true, "pid": 16724, "message": "Started Qt Custom Context Menu Demo (with IPC)"}}
+2025-12-15T23:57:29.5204984+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765814249520_7","method":"api.run_sample","params":{"sample_id":"multi_window","show_console":false}}
+2025-12-15T23:57:29.5205474+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765814249520_7)
+[Python:run_sample] sample_id=multi_window, show_console=False
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\multi_window_demo.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\multi_window_demo.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":false}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 40660, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 40660
+2025-12-15T23:57:29.5307319+08:00 DEBUG Python response: {"id": "av_call_1765814249520_7", "ok": true, "result": {"ok": true, "pid": 40660, "message": "Started Multi-Window Demo (with IPC)"}}
+2025-12-15T23:57:32.7500999+08:00 DEBUG [Rust] IPC message received: {"type":"call","id":"av_call_1765814252749_8","method":"api.run_sample","params":{"sample_id":"custom_context_menu","show_console":false}}
+2025-12-15T23:57:32.7501442+08:00 DEBUG [Rust] API call: api.run_sample (id: av_call_1765814252749_8)
+[Python:run_sample] sample_id=custom_context_menu, show_console=False
+[Python:run_sample] sample_path=C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples\custom_context_menu_demo.py
+[Python:run_sample] Python executable: C:\Users\hallo\AppData\Local\AuroraView\runtime\pack-output\python\python.exe
+[Python:run_sample] Working directory: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\resources\examples
+[Python:run_sample] AURORAVIEW_PYTHON_PATH: C:\Users\hallo\AppData\Local\AuroraView\python\pack-output;C:\Users\hallo\AppData\Local\AuroraView\python\pack-output\site-packages
+[Python:run_sample] Spawning with args: {"args":["C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples\\custom_context_menu_demo.py"],"command":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\runtime\\pack-output\\python\\python.exe","cwd":"C:\\Users\\hallo\\AppData\\Local\\AuroraView\\python\\pack-output\\resources\\examples","showConsole":false}
+[Python:run_sample] Result: {'code': None, 'data': {'pid': 42760, 'success': True}, 'error': None, 'id': None, 'success': True}
+[Python:run_sample] SUCCESS: Started with PID 42760
+2025-12-15T23:57:32.763729+08:00 DEBUG Python response: {"id": "av_call_1765814252749_8", "ok": true, "result": {"ok": true, "pid": 42760, "message": "Started Custom Context Menu Demo (with IPC)"}}
+2025-12-15T23:57:35.8757025+08:00  INFO Stopping Python backend...
+[AuroraView] stdin closed, shutting down
+[AuroraView] API server stopped

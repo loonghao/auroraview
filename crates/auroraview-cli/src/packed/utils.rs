@@ -1,8 +1,12 @@
 //! Utility functions for packed mode
 //!
-//! Includes path helpers, environment variable injection, and string escaping.
+//! Includes path helpers, environment variable injection, string escaping,
+//! and environment isolation (rez-style).
 
+use auroraview_pack::IsolationConfig;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 /// Escape JSON string for embedding in JavaScript
 pub fn escape_json_for_js(json: &str) -> String {
@@ -13,13 +17,17 @@ pub fn escape_json_for_js(json: &str) -> String {
         .replace('\t', "\\t")
 }
 
-/// Get the runtime cache directory for an app
-pub fn get_runtime_cache_dir(app_name: &str) -> PathBuf {
+/// Get the runtime cache directory with content hash
+///
+/// Uses hash-based caching for cache isolation:
+/// - `%LOCALAPPDATA%/AuroraView/runtime/{app_name}/{content_hash}`
+pub fn get_runtime_cache_dir_with_hash(app_name: &str, content_hash: &str) -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("AuroraView")
         .join("runtime")
         .join(app_name)
+        .join(content_hash)
 }
 
 /// Get the Python executable path within the extracted runtime
@@ -34,9 +42,16 @@ pub fn get_python_exe_path(cache_dir: &Path) -> PathBuf {
     }
 }
 
-/// Get the directory for extracting Python files
-pub fn get_python_extract_dir() -> PathBuf {
-    // Use a unique directory based on the executable path
+/// Get the directory for extracting Python files with content hash
+///
+/// Uses hash-based caching similar to uv:
+/// - `%LOCALAPPDATA%/AuroraView/python/{app_name}/{content_hash}`
+///
+/// Benefits:
+/// - Same content → same hash → skip extraction entirely
+/// - Different content → different hash → no file lock conflicts
+/// - Multiple versions can coexist safely
+pub fn get_python_extract_dir_with_hash(content_hash: &str) -> PathBuf {
     let exe_path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("auroraview"));
     let exe_name = exe_path
         .file_stem()
@@ -48,6 +63,7 @@ pub fn get_python_extract_dir() -> PathBuf {
         .join("AuroraView")
         .join("python")
         .join(exe_name)
+        .join(content_hash)
 }
 
 /// Build module search paths from configuration
@@ -103,4 +119,227 @@ pub fn inject_environment_variables(env: &std::collections::HashMap<String, Stri
     if !env.is_empty() {
         tracing::info!("Injected {} environment variables", env.len());
     }
+}
+
+/// Context for expanding path variables in isolation config
+#[derive(Debug, Clone)]
+pub struct IsolationContext {
+    /// The directory where Python files are extracted
+    pub extract_dir: PathBuf,
+    /// The resources directory
+    pub resources_dir: PathBuf,
+    /// The Python home directory (parent of python.exe)
+    pub python_home: PathBuf,
+    /// The site-packages directory
+    pub site_packages_dir: PathBuf,
+    /// Built PYTHONPATH (from module_search_paths)
+    pub pythonpath: String,
+}
+
+impl IsolationContext {
+    /// Expand special variables in a path string
+    pub fn expand_path(&self, path: &str) -> String {
+        path.replace("$EXTRACT_DIR", &self.extract_dir.to_string_lossy())
+            .replace("$RESOURCES_DIR", &self.resources_dir.to_string_lossy())
+            .replace("$PYTHON_HOME", &self.python_home.to_string_lossy())
+            .replace("$SITE_PACKAGES", &self.site_packages_dir.to_string_lossy())
+    }
+}
+
+/// Build an isolated PATH string based on isolation config
+///
+/// When isolation is enabled:
+/// - Starts with bundled paths (Python home, external binaries)
+/// - Adds system essential paths from config
+/// - Does NOT inherit host PATH
+///
+/// When isolation is disabled:
+/// - Prepends bundled paths to existing PATH
+pub fn build_isolated_path(isolation: &IsolationConfig, context: &IsolationContext) -> String {
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let mut paths: Vec<String> = Vec::new();
+
+    // Always add Python home bin directory first (for python.exe)
+    #[cfg(windows)]
+    {
+        paths.push(context.python_home.to_string_lossy().to_string());
+        // Also add Scripts directory for pip-installed executables
+        let scripts_dir = context.python_home.join("Scripts");
+        if scripts_dir.exists() {
+            paths.push(scripts_dir.to_string_lossy().to_string());
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let bin_dir = context.python_home.join("bin");
+        paths.push(bin_dir.to_string_lossy().to_string());
+    }
+
+    // Add extra paths from config (expanded)
+    for extra in &isolation.extra_path {
+        let expanded = context.expand_path(extra);
+        if !expanded.is_empty() && Path::new(&expanded).exists() {
+            paths.push(expanded);
+        }
+    }
+
+    if isolation.isolate_path {
+        // Add system essential paths
+        for system_path in &isolation.system_path {
+            if Path::new(system_path).exists() {
+                paths.push(system_path.clone());
+            }
+        }
+        tracing::debug!(
+            "[IsolatedEnv] PATH isolated: {} entries (system essentials only)",
+            paths.len()
+        );
+    } else {
+        // Inherit host PATH
+        if let Ok(host_path) = std::env::var("PATH") {
+            paths.push(host_path);
+        }
+        tracing::debug!("[IsolatedEnv] PATH inherited from host");
+    }
+
+    paths.join(separator)
+}
+
+/// Build an isolated PYTHONPATH string based on isolation config
+///
+/// When isolation is enabled:
+/// - Uses only the configured module_search_paths
+/// - Does NOT inherit host PYTHONPATH
+///
+/// When isolation is disabled:
+/// - Prepends bundled paths to existing PYTHONPATH
+pub fn build_isolated_pythonpath(
+    isolation: &IsolationConfig,
+    context: &IsolationContext,
+) -> String {
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let mut paths: Vec<String> = Vec::new();
+
+    // Always add the pre-built pythonpath from module_search_paths
+    if !context.pythonpath.is_empty() {
+        for p in context.pythonpath.split(separator) {
+            if !p.is_empty() {
+                paths.push(p.to_string());
+            }
+        }
+    }
+
+    // Add extra PYTHONPATH entries from isolation config
+    for extra in &isolation.extra_pythonpath {
+        let expanded = context.expand_path(extra);
+        if !expanded.is_empty() && Path::new(&expanded).exists() {
+            paths.push(expanded);
+        }
+    }
+
+    if !isolation.isolate_pythonpath {
+        // Inherit host PYTHONPATH
+        if let Ok(host_pythonpath) = std::env::var("PYTHONPATH") {
+            if !host_pythonpath.is_empty() {
+                paths.push(host_pythonpath);
+            }
+        }
+        tracing::debug!("[IsolatedEnv] PYTHONPATH inherited from host");
+    } else {
+        tracing::debug!("[IsolatedEnv] PYTHONPATH isolated: {} entries", paths.len());
+    }
+
+    paths.join(separator)
+}
+
+/// Apply environment isolation to a Command
+///
+/// This configures the Command's environment based on the isolation settings.
+/// It handles:
+/// - PATH isolation
+/// - PYTHONPATH isolation
+/// - Environment variable inheritance
+/// - Environment variable clearing
+pub fn apply_isolation_to_command(
+    cmd: &mut Command,
+    isolation: &IsolationConfig,
+    context: &IsolationContext,
+) {
+    // Build isolated paths
+    let isolated_path = build_isolated_path(isolation, context);
+    let isolated_pythonpath = build_isolated_pythonpath(isolation, context);
+
+    // Clear environment if full isolation is needed
+    if isolation.isolate_path || isolation.isolate_pythonpath {
+        // Start with a minimal environment
+        // We need to selectively inherit only what's specified
+        let inherited_vars: HashMap<String, String> = isolation
+            .inherit_env
+            .iter()
+            .filter_map(|key| std::env::var(key).ok().map(|v| (key.clone(), v)))
+            .collect();
+
+        // Clear all env and set only what we want
+        cmd.env_clear();
+
+        // Re-add inherited variables
+        for (key, value) in &inherited_vars {
+            cmd.env(key, value);
+        }
+    }
+
+    // Set the isolated PATH
+    cmd.env("PATH", &isolated_path);
+    tracing::debug!("[IsolatedEnv] PATH={}", isolated_path);
+
+    // Set the isolated PYTHONPATH
+    cmd.env("PYTHONPATH", &isolated_pythonpath);
+    tracing::debug!("[IsolatedEnv] PYTHONPATH={}", isolated_pythonpath);
+
+    // Set PYTHONHOME for python-build-standalone
+    cmd.env("PYTHONHOME", &context.python_home);
+
+    // Clear any explicitly specified variables
+    for var in &isolation.clear_env {
+        cmd.env_remove(var);
+        tracing::debug!("[IsolatedEnv] Cleared env: {}", var);
+    }
+}
+
+/// Store isolation context in environment variables for child processes
+///
+/// This allows ProcessPlugin.spawn_ipc to access the isolation context
+/// when spawning child processes.
+pub fn store_isolation_context_in_env(context: &IsolationContext, isolation: &IsolationConfig) {
+    // Store the pre-built isolated paths
+    let isolated_path = build_isolated_path(isolation, context);
+    let isolated_pythonpath = build_isolated_pythonpath(isolation, context);
+
+    std::env::set_var("AURORAVIEW_ISOLATED_PATH", &isolated_path);
+    std::env::set_var("AURORAVIEW_ISOLATED_PYTHONPATH", &isolated_pythonpath);
+    std::env::set_var("AURORAVIEW_PYTHON_HOME", &context.python_home);
+    std::env::set_var("AURORAVIEW_EXTRACT_DIR", &context.extract_dir);
+    std::env::set_var("AURORAVIEW_RESOURCES_DIR", &context.resources_dir);
+
+    // Store isolation flags
+    let isolate_path_flag = if isolation.isolate_path { "1" } else { "0" };
+    let isolate_pythonpath_flag = if isolation.isolate_pythonpath {
+        "1"
+    } else {
+        "0"
+    };
+
+    std::env::set_var("AURORAVIEW_ISOLATE_PATH", isolate_path_flag);
+    std::env::set_var("AURORAVIEW_ISOLATE_PYTHONPATH", isolate_pythonpath_flag);
+
+    // Store inherit_env list as comma-separated
+    std::env::set_var("AURORAVIEW_INHERIT_ENV", isolation.inherit_env.join(","));
+
+    tracing::info!(
+        "[IsolatedEnv] Stored isolation context: isolate_path={}, isolate_pythonpath={}",
+        isolate_path_flag,
+        isolate_pythonpath_flag
+    );
+    tracing::debug!("[IsolatedEnv] ISOLATED_PATH={}", isolated_path);
+    tracing::debug!("[IsolatedEnv] ISOLATED_PYTHONPATH={}", isolated_pythonpath);
 }

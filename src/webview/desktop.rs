@@ -99,6 +99,15 @@ pub fn create_desktop(
     ipc_handler: Arc<IpcHandler>,
     message_queue: Arc<MessageQueue>,
 ) -> Result<WebViewInner, Box<dyn std::error::Error>> {
+    // Debug: Log config values
+    tracing::info!(
+        "[standalone] create_desktop config: title='{}', width={}, height={}, decorations={}",
+        config.title,
+        config.width,
+        config.height,
+        config.decorations
+    );
+
     // Initialize COM for WebView2 on Windows (using shared utility)
     init_com_sta();
 
@@ -226,28 +235,42 @@ pub fn create_desktop(
 
     // No manual SetParent needed when using builder-ext on Windows
 
-    // Create WebContext with shared user data folder for better performance
-    // Priority: 1. config.data_directory, 2. shared warmup folder, 3. system default
+    // Create WebContext with unique user data folder per process
+    // Priority: 1. config.data_directory, 2. process-unique cache, 3. system default
+    //
+    // CRITICAL: On Windows, WebView2 has issues when multiple processes share the same
+    // user data folder. The first process becomes the "browser process" and if it exits
+    // while other processes are still initializing, those processes will hang indefinitely.
+    //
+    // Strategy: Use process ID to ensure each process has its own WebView2 data folder.
+    // This trades disk space for reliability - each process gets isolated WebView2 state.
     let mut web_context = if let Some(ref data_dir) = config.data_directory {
         tracing::info!("[standalone] Using custom data directory: {:?}", data_dir);
         wry::WebContext::new(Some(data_dir.clone()))
     } else {
-        // Try to use shared user data folder from warmup (Windows only)
         #[cfg(target_os = "windows")]
-        let shared_folder = crate::platform::windows::warmup::get_shared_user_data_folder();
-        #[cfg(not(target_os = "windows"))]
-        let shared_folder: Option<std::path::PathBuf> = None;
+        let web_context = {
+            let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
 
-        if let Some(ref shared_dir) = shared_folder {
+            // Use process ID to ensure unique data directory per process
+            // This prevents WebView2 initialization hangs when parent/child processes
+            // try to share the same user data folder
+            let pid = std::process::id();
+            let cache_dir = std::path::PathBuf::from(local_app_data)
+                .join("AuroraView")
+                .join("WebView2")
+                .join(format!("process_{}", pid));
+
             tracing::info!(
-                "[standalone] Using shared warmup data directory: {:?}",
-                shared_dir
+                "[standalone] Using process-unique data directory: {:?}",
+                cache_dir
             );
-            wry::WebContext::new(Some(shared_dir.clone()))
-        } else {
-            tracing::debug!("[standalone] Using default data directory");
-            wry::WebContext::default()
-        }
+            wry::WebContext::new(Some(cache_dir))
+        };
+        #[cfg(not(target_os = "windows"))]
+        let web_context = wry::WebContext::default();
+
+        web_context
     };
 
     // Create the WebView with IPC handler and web context
@@ -593,8 +616,28 @@ pub fn create_desktop(
     // 2. Create WebView2 Controller
     // 3. Initialize the WebView with HTML content
     tracing::info!("[standalone] Building WebView (this may take a few seconds on first run)...");
+
+    // Debug: Log window state before WebView build
+    #[cfg(target_os = "windows")]
+    {
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        if let Ok(window_handle) = window.window_handle() {
+            if let RawWindowHandle::Win32(handle) = window_handle.as_raw() {
+                let hwnd = handle.hwnd.get();
+                tracing::info!(
+                    "[standalone] Window HWND before build: 0x{:X}, inner_size: {:?}, outer_size: {:?}",
+                    hwnd,
+                    window.inner_size(),
+                    window.outer_size()
+                );
+            }
+        }
+    }
+
     let build_start = std::time::Instant::now();
+    tracing::info!("[standalone] Calling webview_builder.build()...");
     let webview = webview_builder.build(&window)?;
+    tracing::info!("[standalone] webview_builder.build() returned successfully");
     let build_duration = build_start.elapsed();
 
     tracing::info!(

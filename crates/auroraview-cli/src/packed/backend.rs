@@ -1,7 +1,11 @@
 //! Python backend process and IPC communication
+//!
+//! Uses ipckit's `ShutdownState` for graceful shutdown coordination,
+//! preventing "EventLoopClosed" errors when the WebView is closing.
 
 use anyhow::{Context, Result};
 use auroraview_pack::{BundleStrategy, OverlayData, PackedMetrics, PythonBundleConfig};
+use ipckit::graceful::ShutdownState;
 use rayon::prelude::*;
 use std::collections::HashSet;
 use std::fs;
@@ -15,12 +19,16 @@ use tao::event_loop::EventLoopProxy;
 
 use super::events::UserEvent;
 use super::extract::{extract_resources_parallel, extract_standalone_python};
-use super::utils::{build_module_search_paths, get_python_extract_dir};
+use super::utils::{build_module_search_paths, get_python_extract_dir_with_hash};
 
 /// Python backend handle for IPC communication
+///
+/// Uses ipckit's `ShutdownState` for graceful shutdown coordination.
 pub struct PythonBackend {
     process: Mutex<Child>,
     stdin: Arc<Mutex<ChildStdin>>,
+    /// Shutdown state from ipckit for graceful shutdown coordination
+    shutdown_state: Arc<ShutdownState>,
 }
 
 impl PythonBackend {
@@ -45,6 +53,11 @@ impl PythonBackend {
 
     /// Send a JSON-RPC request to Python backend
     pub fn send_request(&self, request: &str) -> Result<()> {
+        // Check if shutdown has been initiated
+        if self.shutdown_state.is_shutdown() {
+            return Err(anyhow::anyhow!("Python backend is shutting down"));
+        }
+
         // Check if process is still alive before sending
         if !self.is_alive() {
             return Err(anyhow::anyhow!("Python backend process has exited"));
@@ -57,6 +70,28 @@ impl PythonBackend {
         writeln!(stdin, "{}", request)?;
         stdin.flush()?;
         Ok(())
+    }
+
+    /// Initiate graceful shutdown
+    ///
+    /// Signals all background threads to stop and waits for pending operations.
+    pub fn shutdown(&self) {
+        tracing::info!("[Rust] Initiating Python backend shutdown...");
+        self.shutdown_state.shutdown();
+
+        // Wait for pending operations with timeout
+        if let Err(e) = self
+            .shutdown_state
+            .wait_for_drain(Some(std::time::Duration::from_secs(2)))
+        {
+            tracing::warn!("[Rust] Shutdown drain timeout: {:?}", e);
+        }
+    }
+
+    /// Check if shutdown has been initiated
+    #[allow(dead_code)]
+    pub fn is_shutting_down(&self) -> bool {
+        self.shutdown_state.is_shutdown()
     }
 }
 
@@ -146,11 +181,35 @@ pub fn start_python_backend_with_ipc(
         }
     };
 
-    // Create temp directory for Python files
-    let temp_dir = get_python_extract_dir();
+    // Determine cache directory based on content hash
+    // Uses hash-based caching (like uv) for:
+    // - Cache reuse: Same content → same hash → skip extraction
+    // - Conflict avoidance: Different content → different hash → new directory
+    // - Multi-version support: Multiple versions can coexist
+    let hash = &overlay.content_hash;
+    let hash_dir = get_python_extract_dir_with_hash(hash);
+    let marker_file = hash_dir.join(".cache_valid");
+
+    // Check if cache is already valid
+    let cache_valid = marker_file.exists();
+    if cache_valid {
+        tracing::info!(
+            "Using cached Python files (hash: {}): {}",
+            hash,
+            hash_dir.display()
+        );
+    } else {
+        tracing::info!(
+            "Extracting Python files (hash: {}): {}",
+            hash,
+            hash_dir.display()
+        );
+    }
+    let temp_dir = hash_dir;
+
     fs::create_dir_all(&temp_dir)?;
 
-    tracing::info!("Extracting Python files to: {}", temp_dir.display());
+    tracing::info!("Python files directory: {}", temp_dir.display());
 
     // Collect Python files to extract
     let python_assets: Vec<_> = overlay
@@ -159,7 +218,7 @@ pub fn start_python_backend_with_ipc(
         .filter(|(path, _)| path.starts_with("python/"))
         .collect();
 
-    if !python_assets.is_empty() {
+    if !python_assets.is_empty() && !cache_valid {
         // Update loading: extracting Python files
         send_loading_update(
             &proxy,
@@ -268,31 +327,71 @@ pub fn start_python_backend_with_ipc(
             Some("Extracting application files"),
             Some("completed"),
         );
+    } else if cache_valid {
+        // Cache is valid, skip extraction
+        send_loading_update(
+            &proxy,
+            Some(60),
+            Some("Using cached application files"),
+            Some("python_files"),
+            Some("Using cached files"),
+            Some("completed"),
+        );
+        tracing::info!(
+            "Skipped extraction: {} Python files (cache valid)",
+            python_assets.len()
+        );
     }
 
     // Extract resource directories (examples, etc.) from overlay assets
-    send_loading_update(
-        &proxy,
-        Some(65),
-        Some("Extracting resources..."),
-        Some("resources"),
-        Some("Extracting resources"),
-        Some("active"),
-    );
+    // Only extract if cache is not valid
+    let resources_dir = if cache_valid {
+        // Use cached resources directory
+        let cached_resources = temp_dir.join("resources");
+        send_loading_update(
+            &proxy,
+            Some(70),
+            Some("Using cached resources"),
+            Some("resources"),
+            Some("Using cached resources"),
+            Some("completed"),
+        );
+        tracing::info!("Using cached resources: {}", cached_resources.display());
+        cached_resources
+    } else {
+        send_loading_update(
+            &proxy,
+            Some(65),
+            Some("Extracting resources..."),
+            Some("resources"),
+            Some("Extracting resources"),
+            Some("active"),
+        );
 
-    let resources_start = Instant::now();
-    let resources_dir = extract_resources_parallel(overlay, &temp_dir)?;
-    metrics.add_phase("resources_extract", resources_start.elapsed());
-    metrics.mark_resources_extract();
+        let resources_start = Instant::now();
+        let resources_dir = extract_resources_parallel(overlay, &temp_dir)?;
+        metrics.add_phase("resources_extract", resources_start.elapsed());
+        metrics.mark_resources_extract();
 
-    send_loading_update(
-        &proxy,
-        Some(70),
-        Some("Resources ready"),
-        Some("resources"),
-        Some("Extracting resources"),
-        Some("completed"),
-    );
+        send_loading_update(
+            &proxy,
+            Some(70),
+            Some("Resources ready"),
+            Some("resources"),
+            Some("Extracting resources"),
+            Some("completed"),
+        );
+
+        // Write cache marker after successful extraction
+        let marker_file = temp_dir.join(".cache_valid");
+        if let Err(e) = fs::write(&marker_file, "1") {
+            tracing::warn!("Failed to write cache marker: {}", e);
+        } else {
+            tracing::info!("Cache marker written: {}", marker_file.display());
+        }
+
+        resources_dir
+    };
 
     // Parse entry point (format: "module:function" or "file.py")
     let entry_point = &python_config.entry_point;
@@ -346,68 +445,105 @@ pub fn start_python_backend_with_ipc(
         Some("active"),
     );
 
-    tracing::info!("[Rust] Starting Python backend: {}", entry_point);
-    tracing::info!("[Rust] Using Python: {}", python_exe.display());
+    tracing::debug!("[Rust] Starting Python backend: {}", entry_point);
+    tracing::debug!("[Rust] Using Python: {}", python_exe.display());
     tracing::debug!("[Rust] Python code: {}", python_code);
     tracing::debug!("[Rust] Module search paths: {:?}", module_paths);
 
     // Build PYTHONPATH from module search paths
     let pythonpath = module_paths.join(if cfg!(windows) { ";" } else { ":" });
 
-    // Set environment variables in the current Rust process as well
-    // This is needed for ProcessPlugin.spawn_ipc to inherit these values
-    // when spawning child processes (e.g., running examples)
+    // Get Python home directory (parent of python.exe)
+    // This is required for python-build-standalone to find its standard library
+    let python_home = python_exe
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("Failed to get Python home directory"))?;
+
+    // Create isolation context for environment isolation
+    use super::utils::{
+        apply_isolation_to_command, store_isolation_context_in_env, IsolationContext,
+    };
+
+    let isolation_context = IsolationContext {
+        extract_dir: temp_dir.clone(),
+        resources_dir: resources_dir.clone(),
+        python_home: python_home.to_path_buf(),
+        site_packages_dir: site_packages_dir.clone(),
+        pythonpath: pythonpath.clone(),
+    };
+
+    // Log isolation config values for debugging
+    tracing::info!(
+        "[Rust] Isolation config from overlay: isolate_path={}, isolate_pythonpath={}",
+        python_config.isolation.isolate_path,
+        python_config.isolation.isolate_pythonpath
+    );
+
+    // Store isolation context in environment for child processes (ProcessPlugin.spawn_ipc)
+    store_isolation_context_in_env(&isolation_context, &python_config.isolation);
+
+    // Set basic environment variables in the current Rust process
+    // These are needed for ProcessPlugin.spawn_ipc to inherit
     std::env::set_var("AURORAVIEW_PACKED", "1");
     std::env::set_var("AURORAVIEW_RESOURCES_DIR", &resources_dir);
     std::env::set_var("AURORAVIEW_PYTHON_PATH", &pythonpath);
     std::env::set_var("AURORAVIEW_PYTHON_EXE", &python_exe);
-    tracing::info!("[Rust] Set AURORAVIEW_PYTHON_PATH={}", pythonpath);
-    tracing::info!(
+    tracing::debug!("[Rust] Set AURORAVIEW_PYTHON_PATH={}", pythonpath);
+    tracing::debug!(
         "[Rust] Set AURORAVIEW_RESOURCES_DIR={}",
         resources_dir.display()
     );
-    tracing::info!("[Rust] Set AURORAVIEW_PYTHON_EXE={}", python_exe.display());
+    tracing::debug!("[Rust] Set AURORAVIEW_PYTHON_EXE={}", python_exe.display());
 
-    // Start Python process with environment variables
+    // Log isolation settings
+    tracing::info!(
+        "[Rust] Environment isolation: PATH={}, PYTHONPATH={}",
+        if python_config.isolation.isolate_path {
+            "isolated"
+        } else {
+            "inherited"
+        },
+        if python_config.isolation.isolate_pythonpath {
+            "isolated"
+        } else {
+            "inherited"
+        }
+    );
+
+    // Start Python process with environment isolation
     let spawn_start = Instant::now();
     let mut cmd = Command::new(&python_exe);
     cmd.args(["-c", &python_code])
         .current_dir(&temp_dir)
-        .env("AURORAVIEW_PACKED", "1")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped()); // Capture stderr for error diagnostics
+
+    // Apply environment isolation (rez-style)
+    apply_isolation_to_command(&mut cmd, &python_config.isolation, &isolation_context);
+
+    // Set additional AuroraView-specific environment variables
+    cmd.env("AURORAVIEW_PACKED", "1")
         .env("AURORAVIEW_RESOURCES_DIR", &resources_dir)
         .env("AURORAVIEW_PYTHON_PATH", &pythonpath)
         .env("AURORAVIEW_PYTHON_EXE", &python_exe)
-        .env("PYTHONPATH", &pythonpath)
-        .env("PYTHONUNBUFFERED", "1") // Ensure Python stderr is not buffered
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit());
+        .env("PYTHONUNBUFFERED", "1"); // Ensure Python stderr is not buffered
 
     // Windows: hide console window unless show_console is enabled
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        const DETACHED_PROCESS: u32 = 0x00000008;
         const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 
         if python_config.show_console {
             tracing::debug!("Python console window enabled");
             cmd.creation_flags(CREATE_NEW_CONSOLE);
         } else {
-            cmd.creation_flags(CREATE_NO_WINDOW);
+            // Use DETACHED_PROCESS instead of CREATE_NO_WINDOW
+            // CREATE_NO_WINDOW (0x08000000) can cause issues with some Python operations
+            cmd.creation_flags(DETACHED_PROCESS);
         }
-    }
-
-    // Set specific resource paths as environment variables
-    let examples_dir = resources_dir.join("examples");
-    if examples_dir.exists() {
-        cmd.env("AURORAVIEW_EXAMPLES_DIR", &examples_dir);
-        tracing::info!("[Rust] Examples directory: {}", examples_dir.display());
-    } else {
-        tracing::warn!(
-            "[Rust] Examples directory not found: {}",
-            examples_dir.display()
-        );
     }
 
     let mut child = cmd
@@ -441,7 +577,7 @@ pub fn start_python_backend_with_ipc(
         func_start.elapsed().as_secs_f64() * 1000.0
     );
 
-    // Take ownership of stdin and stdout
+    // Take ownership of stdin, stdout, and stderr
     let stdin = child
         .stdin
         .take()
@@ -450,11 +586,37 @@ pub fn start_python_backend_with_ipc(
         .stdout
         .take()
         .ok_or_else(|| anyhow::anyhow!("Failed to get stdout"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("Failed to get stderr"))?;
 
     let stdin = Arc::new(Mutex::new(stdin));
 
+    // Spawn thread to read stderr and log errors
+    thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            match line {
+                Ok(line) if !line.is_empty() => {
+                    tracing::error!("[Python stderr] {}", line);
+                }
+                Err(e) => {
+                    tracing::debug!("Python stderr reader ended: {}", e);
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
+
+    // Create shutdown state for graceful shutdown coordination (using ipckit)
+    let shutdown_state = Arc::new(ShutdownState::new());
+    let shutdown_state_for_thread = Arc::clone(&shutdown_state);
+
     // Spawn thread to wait for Python ready signal and then read responses
     // This is non-blocking so WebView can show loading screen while waiting
+    // Uses ipckit's ShutdownState for graceful shutdown
     let ready_start = Instant::now();
     let proxy_for_loading = proxy.clone();
     thread::spawn(move || {
@@ -530,16 +692,32 @@ pub fn start_python_backend_with_ipc(
         }
 
         // Continue reading Python stdout and forward responses
+        // Check shutdown state before each send to avoid EventLoopClosed errors
         for line in reader.lines() {
+            // Check if shutdown has been initiated (using ipckit)
+            if shutdown_state_for_thread.is_shutdown() {
+                tracing::debug!("[Rust] Shutdown detected, stopping Python stdout reader");
+                break;
+            }
+
             match line {
                 Ok(response) => {
                     if response.trim().is_empty() {
                         continue;
                     }
+
+                    // Use operation guard to track this send operation (ipckit)
+                    let _guard = shutdown_state_for_thread.begin_operation();
+
                     tracing::debug!("Python response: {}", response);
                     // Send response to event loop
                     if let Err(e) = proxy.send_event(UserEvent::PythonResponse(response)) {
-                        tracing::error!("Failed to send response to event loop: {}", e);
+                        // Check if this is an EventLoopClosed error
+                        if shutdown_state_for_thread.is_shutdown() {
+                            tracing::debug!("Event loop closed during shutdown, stopping reader");
+                        } else {
+                            tracing::error!("Failed to send response to event loop: {}", e);
+                        }
                         break;
                     }
                 }
@@ -555,5 +733,6 @@ pub fn start_python_backend_with_ipc(
     Ok(PythonBackend {
         process: Mutex::new(child),
         stdin,
+        shutdown_state,
     })
 }

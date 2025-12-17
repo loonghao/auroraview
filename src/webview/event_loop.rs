@@ -107,10 +107,21 @@ impl EventLoopState {
     }
 
     /// Signal the event loop to exit
+    ///
+    /// Uses ipckit's graceful shutdown mechanism to wait for pending operations.
     pub fn request_exit(&self) {
         // Shutdown the message queue first to prevent background threads
         // from sending messages after the event loop is closed
         self.message_queue.shutdown();
+
+        // Wait for pending operations to complete (with short timeout)
+        // This uses ipckit's wait_for_drain mechanism
+        if let Err(e) = self
+            .message_queue
+            .wait_for_drain(Some(std::time::Duration::from_millis(500)))
+        {
+            tracing::warn!("[EventLoopState] Drain timeout during exit: {}", e);
+        }
 
         if let Ok(mut should_exit) = self.should_exit.lock() {
             *should_exit = true;

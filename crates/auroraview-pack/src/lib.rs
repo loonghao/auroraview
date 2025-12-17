@@ -92,17 +92,17 @@ mod python_standalone;
 // Re-export public API
 pub use bundle::{AssetBundle, BundleBuilder};
 pub use config::{
-    BundleStrategy, CollectPattern, HooksConfig, LicenseConfig, PackConfig, PackMode,
-    PythonBundleConfig, TargetPlatform, WindowConfig, WindowStartPosition,
+    BundleStrategy, CollectPattern, HooksConfig, IsolationConfig, LicenseConfig, PackConfig,
+    PackMode, PythonBundleConfig, TargetPlatform, WindowConfig, WindowStartPosition,
 };
 pub use deps_collector::{CollectedDeps, DepsCollector, FileHashCache};
 pub use error::{PackError, PackResult};
 pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator};
 pub use manifest::{
     AppConfig, BuildConfig, BundleConfig, CollectEntry, DebugConfig, HooksManifestConfig,
-    InjectConfig, LicenseManifestConfig, LinuxBundleConfig, MacOSBundleConfig, Manifest,
-    PackageConfig, PyOxidizerManifestConfig, PythonConfig, RuntimeConfig, StartPosition,
-    WindowConfig as ManifestWindowConfig, WindowsBundleConfig,
+    InjectConfig, IsolationManifestConfig, LicenseManifestConfig, LinuxBundleConfig,
+    MacOSBundleConfig, Manifest, PackageConfig, PyOxidizerManifestConfig, PythonConfig,
+    RuntimeConfig, StartPosition, WindowConfig as ManifestWindowConfig, WindowsBundleConfig,
 };
 pub use metrics::PackedMetrics;
 pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};

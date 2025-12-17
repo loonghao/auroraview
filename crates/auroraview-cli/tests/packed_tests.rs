@@ -4,7 +4,7 @@
 
 use auroraview_cli::packed::{
     build_module_search_paths, build_packed_init_script, escape_json_for_js, get_python_exe_path,
-    get_runtime_cache_dir, get_webview_data_dir, inject_environment_variables,
+    get_runtime_cache_dir_with_hash, get_webview_data_dir, inject_environment_variables,
 };
 use auroraview_core::json;
 use rstest::rstest;
@@ -138,24 +138,30 @@ fn test_inject_environment_variables_multiple() {
 }
 
 // =============================================================================
-// get_runtime_cache_dir tests
+// get_runtime_cache_dir_with_hash tests
 // =============================================================================
 
 #[test]
-fn test_get_runtime_cache_dir() {
-    let dir = get_runtime_cache_dir("test_app");
-    // Should contain AuroraView/runtime/test_app
-    assert!(dir.ends_with("test_app"));
+fn test_get_runtime_cache_dir_with_hash() {
+    let dir = get_runtime_cache_dir_with_hash("test_app", "abc123def456");
+    // Should contain AuroraView/runtime/test_app/hash
+    assert!(dir.ends_with("abc123def456"));
     let parent = dir.parent().unwrap();
-    assert!(parent.ends_with("runtime"));
+    assert!(parent.ends_with("test_app"));
+    let grandparent = parent.parent().unwrap();
+    assert!(grandparent.ends_with("runtime"));
 }
 
 #[rstest]
-#[case("my_app", "my_app")]
-#[case("gallery", "gallery")]
-#[case("test-app", "test-app")]
-fn test_get_runtime_cache_dir_various_names(#[case] app_name: &str, #[case] expected_suffix: &str) {
-    let dir = get_runtime_cache_dir(app_name);
+#[case("my_app", "hash1234", "hash1234")]
+#[case("gallery", "abcd5678", "abcd5678")]
+#[case("test-app", "xyz99999", "xyz99999")]
+fn test_get_runtime_cache_dir_with_hash_various(
+    #[case] app_name: &str,
+    #[case] hash: &str,
+    #[case] expected_suffix: &str,
+) {
+    let dir = get_runtime_cache_dir_with_hash(app_name, hash);
     assert!(dir.ends_with(expected_suffix));
 }
 

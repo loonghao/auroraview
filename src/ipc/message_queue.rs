@@ -13,9 +13,14 @@
 //! 2. Background thread's event loop polls queue -> executes JavaScript
 //!
 //! This ensures all WebView operations happen on the correct thread.
+//!
+//! ## Graceful Shutdown (powered by ipckit)
+//!
+//! Uses ipckit's `ShutdownState` for coordinated shutdown. This prevents
+//! "EventLoopClosed" errors from background threads when the WebView is closing.
 
 use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
-use std::sync::atomic::{AtomicBool, Ordering};
+use ipckit::graceful::ShutdownState;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -235,6 +240,11 @@ impl Default for MessageQueueConfig {
 ///
 /// Uses crossbeam-channel for high-performance lock-free communication.
 /// Provides backpressure control to prevent unbounded memory growth.
+///
+/// ## Graceful Shutdown (powered by ipckit)
+///
+/// Uses ipckit's `ShutdownState` for coordinated shutdown coordination.
+/// This prevents "EventLoopClosed" errors when the WebView is closing.
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct MessageQueue {
@@ -256,8 +266,8 @@ pub struct MessageQueue {
     /// Last time the event loop was woken up (for batching)
     last_wake_time: Arc<Mutex<Option<Instant>>>,
 
-    /// Shutdown flag to prevent sending messages after event loop is closed
-    shutdown: Arc<AtomicBool>,
+    /// Shutdown state from ipckit for graceful shutdown coordination
+    shutdown_state: Arc<ShutdownState>,
 }
 
 impl MessageQueue {
@@ -276,7 +286,7 @@ impl MessageQueue {
             metrics: IpcMetrics::new(),
             config,
             last_wake_time: Arc::new(Mutex::new(None)),
-            shutdown: Arc::new(AtomicBool::new(false)),
+            shutdown_state: Arc::new(ShutdownState::new()),
         }
     }
 
@@ -284,14 +294,33 @@ impl MessageQueue {
     ///
     /// This should be called when the event loop is closing to prevent
     /// "EventLoopClosed" errors from background threads.
+    ///
+    /// Uses ipckit's `ShutdownState` for graceful shutdown coordination.
     pub fn shutdown(&self) {
-        self.shutdown.store(true, Ordering::SeqCst);
-        tracing::info!("[MessageQueue] Shutdown flag set - no more messages will be sent");
+        self.shutdown_state.shutdown();
+        tracing::info!(
+            "[MessageQueue] Shutdown signaled via ipckit - no more messages will be sent"
+        );
+    }
+
+    /// Wait for pending operations to complete (with optional timeout)
+    ///
+    /// This uses ipckit's `wait_for_drain` mechanism to ensure all in-flight
+    /// operations complete before shutdown.
+    pub fn wait_for_drain(&self, timeout: Option<std::time::Duration>) -> Result<(), String> {
+        self.shutdown_state
+            .wait_for_drain(timeout)
+            .map_err(|e| format!("Drain timeout: {:?}", e))
     }
 
     /// Check if the queue is shutdown
     pub fn is_shutdown(&self) -> bool {
-        self.shutdown.load(Ordering::Relaxed)
+        self.shutdown_state.is_shutdown()
+    }
+
+    /// Get the shutdown state for sharing with other components
+    pub fn shutdown_state(&self) -> Arc<ShutdownState> {
+        Arc::clone(&self.shutdown_state)
     }
 
     /// Set the event loop proxy for immediate wake-up
@@ -310,13 +339,18 @@ impl MessageQueue {
     /// # Backpressure
     /// - If `block_on_full` is true, this will block until space is available
     /// - If `block_on_full` is false, this will drop the message and log an error
+    ///
+    /// Uses ipckit's operation guard to track in-flight operations for graceful shutdown.
     pub fn push(&self, message: WebViewMessage) {
         // Check shutdown flag first - if shutdown, silently drop the message
         // This prevents "EventLoopClosed" errors from background threads
-        if self.shutdown.load(Ordering::Relaxed) {
+        if self.shutdown_state.is_shutdown() {
             tracing::debug!("[MessageQueue::push] Queue is shutdown, dropping message silently");
             return;
         }
+
+        // Use operation guard to track this push operation (ipckit)
+        let _guard = self.shutdown_state.begin_operation();
 
         // Use info level for Close message to help diagnose shutdown issues
         let msg_type = match &message {

@@ -37,10 +37,6 @@ class TestIpcChannelModule:
         from auroraview.core import (
             IpcChannel,
             IpcChannelError,
-            emit_event,
-            report_progress,
-            report_result,
-            send_to_parent,
         )
 
         assert IpcChannel is not None
@@ -204,7 +200,6 @@ class TestConvenienceFunctions:
 
     def test_emit_event_structure(self):
         """Test emit_event creates correct message structure."""
-        from auroraview.core.ipc_channel import IpcChannel
 
         # We can't actually send, but we can verify the function exists
         # and has correct signature
@@ -302,4 +297,3 @@ class TestRustJsonIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

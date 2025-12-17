@@ -188,7 +188,12 @@ class GalleryTestClient:
         start = time.time()
         while time.time() - start < timeout:
             try:
-                result = self._page.evaluate("typeof auroraview !== 'undefined'")
+                # Check that auroraview and auroraview.api are both available
+                result = self._page.evaluate("""
+                    typeof auroraview !== 'undefined' &&
+                    typeof auroraview.api !== 'undefined' &&
+                    typeof auroraview.api.get_samples === 'function'
+                """)
                 if result:
                     return
             except Exception:
@@ -216,17 +221,24 @@ class GalleryTestClient:
         """Call a gallery API method with timeout."""
         args_json = json.dumps(args or {})
         try:
+            # Use JS-level timeout since page.evaluate doesn't accept timeout parameter
             result = self._page.evaluate(
                 f"""
                 (async () => {{
-                    try {{
-                        return await auroraview.api.{method}({args_json});
-                    }} catch (e) {{
-                        return {{ __error__: e.message }};
-                    }}
+                    const timeoutMs = {timeout};
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('API call timeout')), timeoutMs)
+                    );
+                    const apiPromise = (async () => {{
+                        try {{
+                            return await auroraview.api.{method}({args_json});
+                        }} catch (e) {{
+                            return {{ __error__: e.message }};
+                        }}
+                    }})();
+                    return Promise.race([apiPromise, timeoutPromise]);
                 }})()
-            """,
-                timeout=timeout,
+            """
             )
 
             if isinstance(result, dict) and "__error__" in result:

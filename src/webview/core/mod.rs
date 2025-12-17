@@ -59,9 +59,29 @@ impl EventEmitter {
     /// Args:
     ///     event_name (str): Name of the event
     ///     data (dict): Data to send with the event
-    fn emit(&self, event_name: &str, data: &Bound<'_, PyDict>) -> PyResult<()> {
-        let json_data = py_dict_to_json(data)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    ///
+    /// Note: data can be any Python object that can be converted to a dict.
+    /// This is more flexible to support callbacks from PluginManager.
+    #[allow(deprecated)]
+    fn emit(&self, event_name: &str, data: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Try to extract as PyDict first, then try to convert
+        let json_data = if let Ok(dict) = data.downcast::<PyDict>() {
+            py_dict_to_json(dict)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?
+        } else {
+            // Try to convert to dict using Python's dict() constructor
+            let dict = PyDict::new(data.py());
+            if let Ok(mapping) = data.call_method0("items") {
+                for item in mapping.try_iter()? {
+                    let item = item?;
+                    let key = item.get_item(0)?;
+                    let value = item.get_item(1)?;
+                    dict.set_item(key, value)?;
+                }
+            }
+            py_dict_to_json(&dict)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?
+        };
 
         self.message_queue.push(WebViewMessage::EmitEvent {
             event_name: event_name.to_string(),

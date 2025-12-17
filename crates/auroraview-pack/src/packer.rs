@@ -590,11 +590,17 @@ impl Packer {
                 count += 1;
                 entry_files.push(include_path.clone());
             } else if include_path.is_dir() {
-                // Directory - walk and add all .py files
+                // Directory - walk and add all Python files (.py, .pyd, .so)
+                // .pyd files are Windows Python extension modules (compiled Rust/C)
+                // .so files are Unix Python extension modules
                 for entry in walkdir::WalkDir::new(include_path)
                     .into_iter()
                     .filter_map(|e| e.ok())
-                    .filter(|e| e.path().extension().is_some_and(|ext| ext == "py"))
+                    .filter(|e| {
+                        e.path()
+                            .extension()
+                            .is_some_and(|ext| ext == "py" || ext == "pyd" || ext == "so")
+                    })
                 {
                     // Skip excluded patterns
                     let rel_path = entry
@@ -1169,6 +1175,23 @@ impl PackConfig {
                     module_search_paths: python_config.module_search_paths.clone(),
                     filesystem_importer: python_config.filesystem_importer,
                     show_console: python_config.show_console,
+                    isolation: python_config
+                        .isolation
+                        .as_ref()
+                        .map(|iso| crate::config::IsolationConfig {
+                            isolate_pythonpath: iso.isolate_pythonpath,
+                            isolate_path: iso.isolate_path,
+                            extra_path: iso.extra_path.clone(),
+                            extra_pythonpath: iso.extra_pythonpath.clone(),
+                            system_path: iso.system_path.clone().unwrap_or_else(
+                                crate::config::IsolationConfig::default_system_path,
+                            ),
+                            inherit_env: iso.inherit_env.clone().unwrap_or_else(
+                                crate::config::IsolationConfig::default_inherit_env,
+                            ),
+                            clear_env: iso.clear_env.clone(),
+                        })
+                        .unwrap_or_default(),
                 };
 
                 PackMode::FullStack {

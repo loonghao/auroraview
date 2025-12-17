@@ -11,10 +11,15 @@
 //! │  (non-blocking) │     │  (background)    │     │  Callbacks      │
 //! └─────────────────┘     └──────────────────┘     └─────────────────┘
 //! ```
+//!
+//! ## Graceful Shutdown (powered by ipckit)
+//!
+//! Uses ipckit's `ShutdownState` for coordinated shutdown. This ensures
+//! all in-flight operations complete before the handler stops.
 
 use crossbeam_channel::{bounded, Sender};
 use dashmap::DashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use ipckit::graceful::ShutdownState;
 use std::sync::Arc;
 use std::thread;
 use tokio::runtime::Runtime;
@@ -59,11 +64,15 @@ impl Default for AsyncIpcConfig {
 ///
 /// This handler receives messages from the UI thread and processes them
 /// asynchronously, preventing UI blocking during IPC operations.
+///
+/// ## Graceful Shutdown (powered by ipckit)
+///
+/// Uses ipckit's `ShutdownState` for coordinated shutdown coordination.
 pub struct AsyncIpcHandler {
     /// Sender for submitting messages (UI thread -> tokio runtime)
     tx: mpsc::Sender<AsyncIpcMessage>,
-    /// Flag indicating if the handler is running
-    running: Arc<AtomicBool>,
+    /// Shutdown state from ipckit for graceful shutdown coordination
+    shutdown_state: Arc<ShutdownState>,
     /// Handle to the background thread
     _thread_handle: Option<thread::JoinHandle<()>>,
     /// Registered callbacks for events
@@ -79,8 +88,8 @@ impl AsyncIpcHandler {
     /// Create a new async IPC handler with custom configuration
     pub fn with_config(config: AsyncIpcConfig) -> Self {
         let (tx, mut rx) = mpsc::channel::<AsyncIpcMessage>(config.channel_capacity);
-        let running = Arc::new(AtomicBool::new(true));
-        let running_clone = running.clone();
+        let shutdown_state = Arc::new(ShutdownState::new());
+        let shutdown_state_clone = Arc::clone(&shutdown_state);
         let debug = config.debug;
         let callbacks: Arc<DashMap<String, Vec<AsyncCallback>>> = Arc::new(DashMap::new());
         let callbacks_clone = callbacks.clone();
@@ -98,10 +107,19 @@ impl AsyncIpcHandler {
             rt.block_on(async move {
                 tracing::info!("[AsyncIpcHandler] Background runtime started");
 
-                while running_clone.load(Ordering::SeqCst) {
+                while !shutdown_state_clone.is_shutdown() {
                     // Use tokio::select! for efficient async waiting
                     tokio::select! {
                         Some(msg) = rx.recv() => {
+                            // Check shutdown before processing (using ipckit)
+                            if shutdown_state_clone.is_shutdown() {
+                                tracing::debug!("[AsyncIpcHandler] Shutdown detected, skipping message");
+                                break;
+                            }
+
+                            // Use operation guard to track this processing (ipckit)
+                            let _guard = shutdown_state_clone.begin_operation();
+
                             if debug {
                                 tracing::debug!(
                                     "[AsyncIpcHandler] Processing event: {}",
@@ -123,7 +141,7 @@ impl AsyncIpcHandler {
 
         Self {
             tx,
-            running,
+            shutdown_state,
             _thread_handle: Some(thread_handle),
             callbacks,
         }
@@ -213,13 +231,28 @@ impl AsyncIpcHandler {
 
     /// Check if the handler is running
     pub fn is_running(&self) -> bool {
-        self.running.load(Ordering::SeqCst)
+        !self.shutdown_state.is_shutdown()
     }
 
     /// Stop the async handler
+    ///
+    /// Uses ipckit's graceful shutdown mechanism to wait for pending operations.
     pub fn stop(&self) {
-        self.running.store(false, Ordering::SeqCst);
-        tracing::info!("[AsyncIpcHandler] Stop requested");
+        self.shutdown_state.shutdown();
+        tracing::info!("[AsyncIpcHandler] Shutdown signaled via ipckit");
+
+        // Wait for pending operations to complete (with timeout)
+        if let Err(e) = self
+            .shutdown_state
+            .wait_for_drain(Some(std::time::Duration::from_secs(2)))
+        {
+            tracing::warn!("[AsyncIpcHandler] Drain timeout: {:?}", e);
+        }
+    }
+
+    /// Get the shutdown state for sharing with other components
+    pub fn shutdown_state(&self) -> Arc<ShutdownState> {
+        Arc::clone(&self.shutdown_state)
     }
 }
 
@@ -238,7 +271,7 @@ impl Drop for AsyncIpcHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn test_async_handler_creation() {

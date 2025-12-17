@@ -38,6 +38,9 @@ arboard = { version = "3.4", default-features = false }
 # Shell/process execution
 which = "7.0"
 
+# IPC communication (for ProcessPlugin)
+ipckit = "0.1"
+
 # File dialogs
 rfd = "0.15"
 

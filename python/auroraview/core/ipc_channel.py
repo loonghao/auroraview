@@ -130,7 +130,7 @@ class IpcChannel:
         """Establish connection to the LocalSocket.
 
         On Windows, ipckit uses Named Pipes with format:
-        \\.\pipe\ipckit_{channel_name}
+        \\.\\pipe\\ipckit_{channel_name}
         """
         if self._connected:
             return
@@ -144,7 +144,6 @@ class IpcChannel:
                 # Use socket-like interface for Named Pipes via file operations
                 # Python's socket module doesn't support Named Pipes directly,
                 # so we use open() with the pipe path
-                import msvcrt
 
                 # Open the named pipe as a file
                 self._file = open(pipe_path, "r+b", buffering=0)
