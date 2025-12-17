@@ -17,11 +17,45 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  # First, build wheels for all platforms (needed for Python dependency collection)
+  # First, build SDK assets (needed for wheel builds)
+  build-sdk-assets:
+    name: Build SDK Assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install SDK dependencies
+        run: |
+          cd packages/auroraview-sdk
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Build SDK assets
+        run: |
+          cd packages/auroraview-sdk
+          npm run build:assets
+
+      - name: Upload SDK assets artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: sdk-assets
+          path: |
+            crates/auroraview-core/src/assets/js/core/
+            crates/auroraview-core/src/assets/js/plugins/
+          retention-days: 7
+
+  # Build wheels for all platforms (needed for Python dependency collection)
   build-wheels:
     name: Build Wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
+    needs: build-sdk-assets
     strategy:
       fail-fast: false
       matrix:
@@ -40,6 +74,12 @@ jobs:
             maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
     steps:
       - uses: actions/checkout@v6
+
+      - name: Download SDK assets
+        uses: actions/download-artifact@v6
+        with:
+          name: sdk-assets
+          path: crates/auroraview-core/src/assets/js/
 
       - name: Build Wheel
         uses: ./.github/actions/build-wheel
@@ -121,6 +161,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
+
+      - name: Build SDK first (Gallery depends on it)
+        shell: bash
+        run: |
+          cd packages/auroraview-sdk
+          rm -rf node_modules package-lock.json
+          npm install
+          npm run build
 
       - name: Build Gallery frontend
         shell: bash
