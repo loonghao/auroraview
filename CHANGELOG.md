@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.16](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.15...auroraview-v0.3.16) (2025-12-17)
+
+
+### Bug Fixes
+
+* **ci:** rename sdk-assets artifact in build-gallery.yml to avoid conflict ([507320d](https://github.com/loonghao/auroraview/commit/507320d6172c14eb6a66a6037dc6a014d8578b53))
+
 ## [0.3.15](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.14...auroraview-v0.3.15) (2025-12-17)
 
 
