@@ -97,7 +97,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
@@ -122,7 +122,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
@@ -151,7 +151,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
@@ -182,7 +182,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
@@ -213,7 +213,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
