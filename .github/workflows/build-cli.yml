@@ -76,7 +76,7 @@ jobs:
           tar -czvf ../../../${{ matrix.archive }} ${{ matrix.artifact }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: cli-${{ matrix.target }}
           path: ${{ matrix.archive }}
@@ -99,7 +99,7 @@ jobs:
         run: ls -la artifacts/
 
       - name: Upload combined artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: cli-all-platforms
           path: artifacts/*

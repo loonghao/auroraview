@@ -134,7 +134,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-prefix }}sdk-coverage-report
           path: packages/auroraview-sdk/coverage/
@@ -184,7 +184,7 @@ jobs:
           echo "All SDK package outputs verified!"
 
       - name: Upload SDK package artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-prefix }}sdk-package
           path: packages/auroraview-sdk/dist/
@@ -242,7 +242,7 @@ jobs:
 
       - name: Upload SDK assets artifact
         id: upload
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-prefix }}sdk-assets
           path: |
@@ -289,7 +289,7 @@ jobs:
 
       - name: Upload E2E test results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-prefix }}sdk-e2e-results
           path: packages/auroraview-sdk/test-results/
