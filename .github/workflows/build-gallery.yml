@@ -44,7 +44,8 @@ jobs:
       - name: Upload SDK assets artifact
         uses: actions/upload-artifact@v5
         with:
-          name: gallery-sdk-assets
+          # Use unique name with run_id to avoid conflicts with other workflows
+          name: gallery-sdk-assets-${{ github.run_id }}
           path: |
             crates/auroraview-core/src/assets/js/core/
             crates/auroraview-core/src/assets/js/plugins/
@@ -62,15 +63,15 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64
-            artifact-name: wheels-linux-x86_64
+            artifact-name: gallery-wheels-linux-x86_64
             maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
           - os: windows-latest
             target: x64
-            artifact-name: wheels-windows-x64
+            artifact-name: gallery-wheels-windows-x64
             maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38,win-webview2'
           - os: macos-latest
             target: universal2-apple-darwin
-            artifact-name: wheels-macos-universal2-apple-darwin
+            artifact-name: gallery-wheels-macos-universal2-apple-darwin
             maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
     steps:
       - uses: actions/checkout@v6
@@ -78,7 +79,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v6
         with:
-          name: gallery-sdk-assets
+          name: gallery-sdk-assets-${{ github.run_id }}
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build Wheel
@@ -103,25 +104,25 @@ jobs:
             target: x86_64-pc-windows-msvc
             artifact: auroraview-gallery.exe
             archive: auroraview-gallery-windows-x64.zip
-            wheel-artifact: wheels-windows-x64
+            wheel-artifact: gallery-wheels-windows-x64
           # macOS ARM
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: auroraview-gallery
             archive: auroraview-gallery-macos-arm64.tar.gz
-            wheel-artifact: wheels-macos-universal2-apple-darwin
+            wheel-artifact: gallery-wheels-macos-universal2-apple-darwin
           # macOS Intel (cross-compile on ARM runner)
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact: auroraview-gallery
             archive: auroraview-gallery-macos-x64.tar.gz
-            wheel-artifact: wheels-macos-universal2-apple-darwin
+            wheel-artifact: gallery-wheels-macos-universal2-apple-darwin
           # Linux
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: auroraview-gallery
             archive: auroraview-gallery-linux-x64.tar.gz
-            wheel-artifact: wheels-linux-x86_64
+            wheel-artifact: gallery-wheels-linux-x86_64
 
     steps:
       - uses: actions/checkout@v6
