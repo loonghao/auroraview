@@ -508,6 +508,8 @@ jobs:
   sdk-build:
     name: SDK CI
     uses: ./.github/workflows/sdk-ci.yml
+    with:
+      artifact-prefix: 'pr-'
     secrets: inherit
 
   # Gallery E2E tests with Playwright
