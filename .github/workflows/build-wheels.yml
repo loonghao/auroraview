@@ -35,12 +35,51 @@ permissions:
 jobs:
   # ============================================================================
   # Build SDK assets first (shared by all wheel builds)
-  # Uses reusable SDK CI workflow
+  # Build assets directly instead of calling sdk-ci.yml to avoid artifact conflicts
   # ============================================================================
   sdk-assets:
-    name: SDK Assets
-    uses: ./.github/workflows/sdk-ci.yml
-    secrets: inherit
+    name: Build SDK Assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install SDK dependencies
+        run: |
+          cd packages/auroraview-sdk
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Build SDK assets
+        run: |
+          cd packages/auroraview-sdk
+          npm run build:assets
+
+      - name: Verify assets outputs
+        run: |
+          echo "Checking generated assets..."
+          ls -la crates/auroraview-core/src/assets/js/core/
+          ls -la crates/auroraview-core/src/assets/js/plugins/
+          
+          # Verify core files
+          test -f crates/auroraview-core/src/assets/js/core/event_bridge.js || (echo "Missing event_bridge.js" && exit 1)
+          test -f crates/auroraview-core/src/assets/js/core/state_bridge.js || (echo "Missing state_bridge.js" && exit 1)
+          
+          echo "All SDK assets verified!"
+
+      - name: Upload SDK assets artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: wheels-sdk-assets
+          path: |
+            crates/auroraview-core/src/assets/js/core/
+            crates/auroraview-core/src/assets/js/plugins/
+          retention-days: 7
 
   # ============================================================================
   # ABI3 builds (Python 3.8+) - Single wheel works for all Python 3.8+ versions
@@ -60,7 +99,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v6
         with:
-          name: sdk-assets
+          name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
@@ -85,7 +124,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v6
         with:
-          name: sdk-assets
+          name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
@@ -114,7 +153,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v6
         with:
-          name: sdk-assets
+          name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
@@ -145,7 +184,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v6
         with:
-          name: sdk-assets
+          name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build Python 3.7 Wheel
@@ -176,7 +215,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v6
         with:
-          name: sdk-assets
+          name: wheels-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build Python 3.7 Wheel
