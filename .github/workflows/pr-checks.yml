@@ -54,7 +54,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v6
         with:
-          name: sdk-assets
+          name: pr-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
