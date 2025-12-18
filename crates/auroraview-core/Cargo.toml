@@ -33,7 +33,7 @@ rust-embed = "8.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # Note: Using 0.13 for compatibility with Rust 1.80 (0.15+ requires edition2024)
-simd-json = "0.13"
+simd-json = "0.17"
 
 # MIME type detection
 mime_guess = "2.0"
