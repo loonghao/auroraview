@@ -831,9 +831,20 @@ jobs:
           # Make executable
           chmod +x "$exe"
           
-          # Start process in background and capture stderr
-          "$exe" 2>&1 &
-          PID=$!
+          # On Linux, we need a virtual display for GTK
+          # On macOS, we can run directly
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            # Install xvfb if not present
+            sudo apt-get update -qq && sudo apt-get install -y -qq xvfb || true
+            
+            # Start process with virtual display
+            xvfb-run --auto-servernum "$exe" 2>&1 &
+            PID=$!
+          else
+            # macOS - run directly
+            "$exe" 2>&1 &
+            PID=$!
+          fi
           
           # Wait for startup (max 30 seconds)
           for i in {1..30}; do
