@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.18](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.17...auroraview-v0.3.18) (2025-12-18)
+
+
+### Bug Fixes
+
+* auto-merge _core extension when bundling auroraview source ([090f18c](https://github.com/loonghao/auroraview/commit/090f18cefa997715cffbeb704986dd3d1d00ece0))
+* update SDK assets artifact name to use pr- prefix ([40d565b](https://github.com/loonghao/auroraview/commit/40d565bac81d00eb097aeb3aea19cf91aa9c49a9))
+
 ## [0.3.17](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.16...auroraview-v0.3.17) (2025-12-18)
 
 
