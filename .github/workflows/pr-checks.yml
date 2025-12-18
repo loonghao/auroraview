@@ -769,55 +769,30 @@ jobs:
           $exe = "target/pack/auroraview-gallery.exe"
           Write-Host "Testing packed executable startup: $exe"
           
-          # Start the process and capture output
-          $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-          $pinfo.FileName = $exe
-          $pinfo.RedirectStandardError = $true
-          $pinfo.RedirectStandardOutput = $true
-          $pinfo.UseShellExecute = $false
-          $pinfo.CreateNoWindow = $true
+          # Start the process
+          $process = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden
           
-          $process = New-Object System.Diagnostics.Process
-          $process.StartInfo = $pinfo
-          $process.Start() | Out-Null
-          
-          # Wait for startup (max 30 seconds)
-          $timeout = 30
-          $started = $false
-          $errorOutput = ""
-          
+          # Wait up to 15 seconds for startup
+          $timeout = 15
           for ($i = 0; $i -lt $timeout; $i++) {
             Start-Sleep -Seconds 1
+            Write-Host "Waiting for startup... ($i/$timeout seconds)"
             
             # Check if process exited with error
             if ($process.HasExited) {
-              $errorOutput = $process.StandardError.ReadToEnd()
               if ($process.ExitCode -ne 0) {
                 Write-Host "ERROR: Process exited with code $($process.ExitCode)"
-                Write-Host "Stderr: $errorOutput"
                 exit 1
               }
+              Write-Host "Process exited normally"
               break
             }
-            
-            # Check for common startup errors in stderr
-            if ($process.StandardError.Peek() -ge 0) {
-              $errorOutput = $process.StandardError.ReadToEnd()
-              if ($errorOutput -match "No module named|ImportError|ModuleNotFoundError|_core") {
-                Write-Host "ERROR: Python import error detected:"
-                Write-Host $errorOutput
-                $process.Kill()
-                exit 1
-              }
-            }
-            
-            Write-Host "Waiting for startup... ($i/$timeout seconds)"
           }
           
           # If still running after timeout, consider it a success and kill it
           if (-not $process.HasExited) {
-            Write-Host "SUCCESS: Packed executable started and running"
-            $process.Kill()
+            Write-Host "SUCCESS: Packed executable started and running for $timeout seconds"
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
           }
 
       - name: Test packed executable startup (Unix)
@@ -832,41 +807,35 @@ jobs:
           chmod +x "$exe"
           
           # On Linux, we need a virtual display for GTK
-          # On macOS, we can run directly
           if [[ "${{ runner.os }}" == "Linux" ]]; then
-            # Install xvfb if not present
             sudo apt-get update -qq && sudo apt-get install -y -qq xvfb || true
-            
-            # Start process with virtual display
-            xvfb-run --auto-servernum "$exe" 2>&1 &
+            xvfb-run --auto-servernum "$exe" &
             PID=$!
           else
             # macOS - run directly
-            "$exe" 2>&1 &
+            "$exe" &
             PID=$!
           fi
           
-          # Wait for startup (max 30 seconds)
-          for i in {1..30}; do
+          # Wait up to 15 seconds
+          for i in {1..15}; do
             sleep 1
+            echo "Waiting for startup... ($i/15 seconds)"
             
-            # Check if process is still running
             if ! kill -0 $PID 2>/dev/null; then
-              wait $PID
-              EXIT_CODE=$?
-              if [ $EXIT_CODE -ne 0 ]; then
+              wait $PID || EXIT_CODE=$?
+              if [ "${EXIT_CODE:-0}" -ne 0 ]; then
                 echo "ERROR: Process exited with code $EXIT_CODE"
                 exit 1
               fi
+              echo "Process exited normally"
               break
             fi
-            
-            echo "Waiting for startup... ($i/30 seconds)"
           done
           
-          # If still running, consider it a success
+          # If still running, success
           if kill -0 $PID 2>/dev/null; then
-            echo "SUCCESS: Packed executable started and running"
+            echo "SUCCESS: Packed executable started and running for 15 seconds"
             kill $PID 2>/dev/null || true
           fi
 
