@@ -51,7 +51,11 @@ enabled = true
 version = "3.10"
 entry_point = "main:run_gallery"
 packages = ["pyyaml"]  # Add any Python dependencies here
-include_paths = [".", "../python"]  # Include gallery directory and auroraview module
+# NOTE: When including "../python" (auroraview source code), the packer will
+# automatically merge the compiled _core.pyd/_core.so extension from the
+# installed auroraview wheel. This allows local development with source code
+# while ensuring the compiled Rust extension is included in the final package.
+include_paths = [".", "../python"]  # Include gallery directory and auroraview source
 exclude = ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"]
 optimize = 1
 
