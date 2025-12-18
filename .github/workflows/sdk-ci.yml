@@ -313,7 +313,7 @@ jobs:
       - name: Download SDK package
         uses: actions/download-artifact@v6
         with:
-          name: sdk-package
+          name: ${{ inputs.artifact-prefix }}sdk-package
           path: packages/auroraview-sdk/dist/
 
       - name: Verify SDK dist exists
