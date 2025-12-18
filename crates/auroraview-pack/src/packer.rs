@@ -577,6 +577,7 @@ impl Packer {
     ) -> PackResult<usize> {
         let mut count = 0;
         let mut entry_files = Vec::new();
+        let mut bundled_packages: std::collections::HashSet<String> = std::collections::HashSet::new();
 
         for include_path in &python.include_paths {
             if include_path.is_file() {
@@ -624,6 +625,15 @@ impl Packer {
                         continue;
                     }
 
+                    // Track package names for conflict detection
+                    // A package is identified by its top-level directory containing __init__.py
+                    if let Some(first_component) = rel_path.components().next() {
+                        let pkg_name = first_component.as_os_str().to_string_lossy().to_string();
+                        if !pkg_name.is_empty() && !pkg_name.starts_with('.') {
+                            bundled_packages.insert(pkg_name);
+                        }
+                    }
+
                     let content = fs::read(entry.path())?;
                     overlay.add_asset(
                         format!("python/{}", rel_path.to_string_lossy().replace('\\', "/")),
@@ -641,6 +651,24 @@ impl Packer {
             }
         }
 
+        // If 'auroraview' package is bundled from include_paths (source code),
+        // automatically merge the compiled _core extension from the installed wheel.
+        // This allows local development with source code while still including the
+        // compiled Rust extension that only exists in the installed wheel.
+        if bundled_packages.contains("auroraview") {
+            tracing::info!(
+                "Detected 'auroraview' package in include_paths - will merge _core extension from installed wheel"
+            );
+            let merged_count = self.merge_auroraview_core_module(overlay, python)?;
+            if merged_count > 0 {
+                tracing::info!(
+                    "Successfully merged {} _core extension file(s) into auroraview package",
+                    merged_count
+                );
+                count += merged_count;
+            }
+        }
+
         // Collect Python dependencies
         let deps_count = self.collect_python_deps(overlay, python, &entry_files)?;
         count += deps_count;
@@ -648,6 +676,106 @@ impl Packer {
         // Bundle external binaries to python/bin/
         let bin_count = self.bundle_external_binaries(overlay, python)?;
         count += bin_count;
+
+        Ok(count)
+    }
+
+    /// Merge auroraview _core extension module from installed wheel into overlay.
+    ///
+    /// When bundling auroraview source code from include_paths, the compiled
+    /// _core.pyd (Windows) or _core.so (Unix) extension is missing because it
+    /// only exists in the installed wheel. This function finds and merges the
+    /// _core extension from the installed wheel into the bundled auroraview package.
+    fn merge_auroraview_core_module(
+        &self,
+        overlay: &mut OverlayData,
+        _python: &PythonBundleConfig,
+    ) -> PackResult<usize> {
+        use std::process::Command;
+
+        // Find the auroraview package location in the Python environment
+        let script = r#"
+import importlib.util
+import os
+spec = importlib.util.find_spec("auroraview")
+if spec and spec.submodule_search_locations:
+    for loc in spec.submodule_search_locations:
+        print(loc)
+        break
+elif spec and spec.origin:
+    print(os.path.dirname(spec.origin))
+"#;
+
+        // Use "python" as the default executable
+        let python_exe = "python";
+
+        let output = Command::new(python_exe)
+            .args(["-c", script])
+            .output()
+            .map_err(|e| PackError::Config(format!("Failed to run Python: {}", e)))?;
+
+        if !output.status.success() {
+            tracing::warn!(
+                "Could not find installed auroraview package to merge _core extension"
+            );
+            tracing::warn!(
+                "Make sure auroraview wheel is installed: pip install auroraview"
+            );
+            return Ok(0);
+        }
+
+        let auroraview_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if auroraview_path.is_empty() {
+            tracing::warn!("auroraview package not found in Python environment");
+            return Ok(0);
+        }
+
+        let auroraview_dir = std::path::Path::new(&auroraview_path);
+        if !auroraview_dir.exists() {
+            tracing::warn!(
+                "auroraview directory does not exist: {}",
+                auroraview_path
+            );
+            return Ok(0);
+        }
+
+        tracing::info!(
+            "Found installed auroraview at: {}",
+            auroraview_dir.display()
+        );
+
+        // Look for _core.pyd (Windows) or _core*.so (Unix)
+        let mut count = 0;
+        for entry in std::fs::read_dir(auroraview_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+            // Match _core.pyd (Windows) or _core.cpython-*.so (Unix)
+            let is_core_module = file_name == "_core.pyd"
+                || (file_name.starts_with("_core") && file_name.ends_with(".so"));
+
+            if is_core_module && path.is_file() {
+                let content = fs::read(&path)?;
+                let dest_path = format!("python/auroraview/{}", file_name);
+                overlay.add_asset(dest_path.clone(), content);
+                tracing::info!(
+                    "Merged _core extension: {} -> {}",
+                    path.display(),
+                    dest_path
+                );
+                count += 1;
+            }
+        }
+
+        if count == 0 {
+            tracing::warn!(
+                "_core extension not found in installed auroraview package"
+            );
+            tracing::warn!(
+                "This may indicate an incomplete auroraview installation"
+            );
+        }
 
         Ok(count)
     }
