@@ -577,7 +577,8 @@ impl Packer {
     ) -> PackResult<usize> {
         let mut count = 0;
         let mut entry_files = Vec::new();
-        let mut bundled_packages: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut bundled_packages: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
 
         for include_path in &python.include_paths {
             if include_path.is_file() {
@@ -715,12 +716,8 @@ elif spec and spec.origin:
             .map_err(|e| PackError::Config(format!("Failed to run Python: {}", e)))?;
 
         if !output.status.success() {
-            tracing::warn!(
-                "Could not find installed auroraview package to merge _core extension"
-            );
-            tracing::warn!(
-                "Make sure auroraview wheel is installed: pip install auroraview"
-            );
+            tracing::warn!("Could not find installed auroraview package to merge _core extension");
+            tracing::warn!("Make sure auroraview wheel is installed: pip install auroraview");
             return Ok(0);
         }
 
@@ -732,10 +729,7 @@ elif spec and spec.origin:
 
         let auroraview_dir = std::path::Path::new(&auroraview_path);
         if !auroraview_dir.exists() {
-            tracing::warn!(
-                "auroraview directory does not exist: {}",
-                auroraview_path
-            );
+            tracing::warn!("auroraview directory does not exist: {}", auroraview_path);
             return Ok(0);
         }
 
@@ -769,12 +763,8 @@ elif spec and spec.origin:
         }
 
         if count == 0 {
-            tracing::warn!(
-                "_core extension not found in installed auroraview package"
-            );
-            tracing::warn!(
-                "This may indicate an incomplete auroraview installation"
-            );
+            tracing::warn!("_core extension not found in installed auroraview package");
+            tracing::warn!("This may indicate an incomplete auroraview installation");
         }
 
         Ok(count)
