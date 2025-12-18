@@ -15,10 +15,16 @@ on:
       - '.github/workflows/sdk-ci.yml'
   workflow_dispatch:
   workflow_call:
+    inputs:
+      artifact-prefix:
+        description: "Prefix for artifact names to avoid conflicts"
+        required: false
+        type: string
+        default: ''
     outputs:
       sdk-assets-artifact:
         description: "Name of the SDK assets artifact"
-        value: sdk-assets
+        value: ${{ jobs.build-assets.outputs.artifact-name }}
 
 permissions:
   contents: read
@@ -130,7 +136,7 @@ jobs:
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v5
         with:
-          name: sdk-coverage-report
+          name: ${{ inputs.artifact-prefix }}sdk-coverage-report
           path: packages/auroraview-sdk/coverage/
           retention-days: 7
 
@@ -180,7 +186,7 @@ jobs:
       - name: Upload SDK package artifact
         uses: actions/upload-artifact@v5
         with:
-          name: sdk-package
+          name: ${{ inputs.artifact-prefix }}sdk-package
           path: packages/auroraview-sdk/dist/
           retention-days: 7
 
@@ -190,6 +196,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [typecheck]
+    outputs:
+      artifact-name: ${{ steps.upload.outputs.artifact-name }}
     steps:
       - uses: actions/checkout@v6
 
@@ -233,13 +241,17 @@ jobs:
           echo "All SDK assets verified!"
 
       - name: Upload SDK assets artifact
+        id: upload
         uses: actions/upload-artifact@v5
         with:
-          name: sdk-assets
+          name: ${{ inputs.artifact-prefix }}sdk-assets
           path: |
             crates/auroraview-core/src/assets/js/core/
             crates/auroraview-core/src/assets/js/plugins/
           retention-days: 7
+
+      - name: Set artifact name output
+        run: echo "artifact-name=${{ inputs.artifact-prefix }}sdk-assets" >> $GITHUB_OUTPUT
 
   # E2E tests - test SDK integration with real browser
   e2e-tests:
@@ -279,7 +291,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: sdk-e2e-results
+          name: ${{ inputs.artifact-prefix }}sdk-e2e-results
           path: packages/auroraview-sdk/test-results/
           retention-days: 7
           if-no-files-found: ignore
