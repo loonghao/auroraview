@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.19](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.18...auroraview-v0.3.19) (2025-12-18)
+
+
+### Bug Fixes
+
+* **ci:** resolve artifact name conflicts between workflows ([fcf7f96](https://github.com/loonghao/auroraview/commit/fcf7f969786c234958eb497599d664598941c1e9))
+
 ## [0.3.18](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.17...auroraview-v0.3.18) (2025-12-18)
 
 
