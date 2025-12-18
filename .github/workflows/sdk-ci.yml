@@ -5,7 +5,10 @@ name: SDK CI
 
 on:
   push:
-    branches: [main, develop]
+    # Only trigger on develop branch, not main
+    # On main branch, release.yml calls this workflow via workflow_call
+    # This prevents duplicate runs and artifact conflicts
+    branches: [develop]
     paths:
       - 'packages/auroraview-sdk/**'
       - '.github/workflows/sdk-ci.yml'
