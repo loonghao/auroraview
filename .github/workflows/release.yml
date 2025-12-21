@@ -333,7 +333,9 @@ jobs:
       - name: Publish to npm
         run: |
           cd packages/auroraview-sdk
-          npm publish --access public
+          # Skip prepublishOnly since we already have pre-built dist from build-sdk job
+          # This avoids the "tsup: not found" error
+          npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -359,6 +361,9 @@ jobs:
       - name: Download wheel artifacts
         uses: actions/download-artifact@v7
         with:
+          # Download wheel artifacts only
+          # Artifact names: wheels-linux-x86_64, wheels-windows-x64, wheels-macos-universal2-apple-darwin, etc.
+          # Note: build-sdk-assets (renamed from wheels-sdk-assets) won't match this pattern
           pattern: wheels-*
           path: dist
           merge-multiple: true
@@ -373,6 +378,12 @@ jobs:
           echo "Before cleanup:"
           ls -la dist/
           
+          # Remove any directories that might have been accidentally included
+          find dist -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
+          
+          # Remove any .js files (shouldn't be here, but just in case)
+          rm -f dist/*.js 2>/dev/null || true
+          
           # Remove CLI tar.gz/zip files (they don't have version numbers in the name)
           # CLI files: auroraview-cli-linux-x64.tar.gz, auroraview-cli-macos-arm64.tar.gz, etc.
           # sdist file: auroraview-0.3.1.tar.gz (has version number)
@@ -381,7 +392,7 @@ jobs:
           
           # Remove any other non-wheel, non-sdist files
           # Keep only .whl files and versioned .tar.gz (sdist)
-          find dist -type f ! -name "*.whl" ! -name "auroraview-[0-9]*.tar.gz" -delete || true
+          find dist -maxdepth 1 -type f ! -name "*.whl" ! -name "auroraview-[0-9]*.tar.gz" -delete || true
           
           # Remove linux_x86_64 wheels as PyPI doesn't accept them
           # These wheels require webkit2gtk at runtime and use non-standard platform tags
