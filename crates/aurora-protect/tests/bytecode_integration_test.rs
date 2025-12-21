@@ -59,7 +59,7 @@ if __name__ == "__main__":
     // Test X25519 encryption
     let key_pair = EccKeyPair::generate(EccAlgorithm::X25519);
     let encryption_result = encrypt_bytecode(
-        &[bytecode_file.clone()],
+        std::slice::from_ref(&bytecode_file),
         EccAlgorithm::X25519,
         Some(key_pair.clone()),
     )
