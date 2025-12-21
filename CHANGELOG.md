@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.20](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.19...auroraview-v0.3.20) (2025-12-21)
+
+
+### Features
+
+* **aurora-protect:** add hybrid encryption for Python bytecode protection ([f8f5701](https://github.com/loonghao/auroraview/commit/f8f57012b5b1d966f46c4599ce3bafb39d1d2f7f))
+
+
+### Bug Fixes
+
+* use std::slice::from_ref instead of clone for slice ([5e08053](https://github.com/loonghao/auroraview/commit/5e0805342957ad6c2441e5ebafb5cda06ee0cd07))
+
 ## [0.3.19](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.18...auroraview-v0.3.19) (2025-12-18)
 
 
