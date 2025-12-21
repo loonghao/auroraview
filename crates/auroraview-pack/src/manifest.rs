@@ -521,6 +521,11 @@ pub struct PythonConfig {
     /// Controls how the packed application isolates its environment from the host
     #[serde(default)]
     pub isolation: Option<IsolationManifestConfig>,
+
+    /// Code protection configuration (py2pyd compilation)
+    /// When enabled, `.py` files are compiled to native extensions (`.pyd`/`.so`).
+    #[serde(default)]
+    pub protection: Option<ProtectionManifestConfig>,
 }
 
 /// Environment isolation manifest configuration (rez-style)
@@ -591,6 +596,46 @@ pub struct PyOxidizerManifestConfig {
     pub extra_config: HashMap<String, String>,
 }
 
+/// Code protection manifest configuration (py2pyd compilation)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtectionManifestConfig {
+    /// Enable code protection (default: true)
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Python executable path (default: auto-detect via uv)
+    #[serde(default)]
+    pub python_path: Option<String>,
+
+    /// Python version to use (e.g., "3.11")
+    #[serde(default)]
+    pub python_version: Option<String>,
+
+    /// Optimization level for C compiler (0, 1, 2, 3)
+    #[serde(default = "default_optimization")]
+    pub optimization: u8,
+
+    /// Keep temporary files for debugging
+    #[serde(default)]
+    pub keep_temp: bool,
+
+    /// Files/patterns to exclude from compilation
+    #[serde(default)]
+    pub exclude: Vec<String>,
+
+    /// Target DCC application (e.g., "maya", "houdini")
+    #[serde(default)]
+    pub target_dcc: Option<String>,
+
+    /// Additional Python packages to install
+    #[serde(default)]
+    pub packages: Vec<String>,
+}
+
+fn default_optimization() -> u8 {
+    2
+}
+
 fn default_python_version() -> String {
     "3.10".to_string()
 }
@@ -621,6 +666,22 @@ impl Default for PythonConfig {
             show_console: false,
             pyoxidizer: None,
             isolation: None,
+            protection: Some(ProtectionManifestConfig::default()),
+        }
+    }
+}
+
+impl Default for ProtectionManifestConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            python_path: None,
+            python_version: None,
+            optimization: default_optimization(),
+            keep_temp: false,
+            exclude: Vec::new(),
+            target_dcc: None,
+            packages: Vec::new(),
         }
     }
 }

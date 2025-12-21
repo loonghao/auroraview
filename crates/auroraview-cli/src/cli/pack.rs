@@ -1,6 +1,7 @@
 //! Pack command - Package applications into standalone executables
 
 use anyhow::{Context, Result};
+use auroraview_pack::progress::{PackProgress, ProgressExt};
 use clap::Parser;
 use std::path::{Path, PathBuf};
 
@@ -78,7 +79,8 @@ pub struct PackArgs {
 pub fn run_pack(args: PackArgs) -> Result<()> {
     use auroraview_pack::{Manifest, PackConfig, PackGenerator};
 
-    tracing::info!("Starting pack operation...");
+    let progress = PackProgress::new();
+    let spinner = progress.spinner("Loading configuration...");
 
     // Create pack configuration - either from manifest or CLI args
     let mut config = if let Some(config_path) = &args.config {
@@ -90,6 +92,10 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
         };
 
         if !manifest_path.exists() {
+            spinner.finish_error(&format!(
+                "Config file not found: {}",
+                manifest_path.display()
+            ));
             anyhow::bail!("Config file not found: {}", manifest_path.display());
         }
 
@@ -101,15 +107,21 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
             .with_context(|| "Invalid manifest configuration")?;
 
         let base_dir = manifest_path.parent().unwrap_or(Path::new("."));
-        tracing::info!("Loaded manifest from: {}", manifest_path.display());
+        spinner.finish_success(&format!(
+            "Loaded manifest from: {}",
+            manifest_path.display()
+        ));
 
         PackConfig::from_manifest(&manifest, base_dir)?
     } else if let Some(url) = args.url {
+        spinner.finish_success(&format!("Packing URL: {}", url));
         PackConfig::url(url)
     } else if let Some(frontend) = args.frontend {
         if let Some(backend) = args.backend {
+            spinner.finish_success("Packing fullstack application");
             PackConfig::fullstack(frontend, backend)
         } else {
+            spinner.finish_success("Packing frontend application");
             PackConfig::frontend(frontend)
         }
     } else {
@@ -123,10 +135,11 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
                 .with_context(|| "Invalid manifest configuration")?;
 
             let base_dir = manifest_path.parent().unwrap_or(Path::new("."));
-            tracing::info!("Found manifest at: {}", manifest_path.display());
+            spinner.finish_success(&format!("Found manifest at: {}", manifest_path.display()));
 
             PackConfig::from_manifest(&manifest, base_dir)?
         } else {
+            spinner.finish_error("No configuration provided");
             anyhow::bail!(
                 "No configuration provided.\n\n\
                 Options:\n  \
@@ -176,16 +189,26 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
     let output_dir = config.output_dir.clone();
     let output_name = config.output_name.clone();
 
-    // Pack the application
+    // Pack the application with progress
+    let pack_spinner = progress.spinner("Packing application...");
     let packer = PackGenerator::new(config);
-    let output = packer
-        .pack()
-        .with_context(|| "Failed to pack application")?;
+    let output = match packer.pack() {
+        Ok(o) => {
+            pack_spinner.finish_success("Pack completed");
+            o
+        }
+        Err(e) => {
+            pack_spinner.finish_error(&format!("Pack failed: {}", e));
+            return Err(e.into());
+        }
+    };
 
     // Display success message based on mode
     let size_mb = output.size as f64 / (1024.0 * 1024.0);
 
-    println!("\n Pack completed successfully!\n");
+    println!();
+    progress.success("Pack completed successfully!");
+    println!();
     println!("  Mode: {}", output.mode);
     println!("  Output: {}", output.executable.display());
     println!("  Size: {:.2} MB", size_mb);
@@ -200,7 +223,8 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
     // For portable/system modes, show additional info
     if output.mode.contains("portable") || output.mode.contains("system") {
         let _app_dir = output_dir.join(&output_name);
-        println!("\n  The application directory contains:");
+        println!();
+        println!("  The application directory contains:");
         println!(
             "    - {} (launcher)",
             output
@@ -216,10 +240,12 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
         } else {
             println!("    - requirements.txt (install with: pip install -r requirements.txt)");
         }
-        println!("\n  Run the application:");
+        println!();
+        println!("  Run the application:");
         println!("    {}", output.executable.display());
     } else {
-        println!("\n  Run the application:");
+        println!();
+        println!("  Run the application:");
         println!("    {}", output.executable.display());
     }
 

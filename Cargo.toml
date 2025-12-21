@@ -7,6 +7,7 @@ members = [
     "crates/auroraview-pack",
     "crates/auroraview-cli",
     "crates/auroraview-plugins",
+    "crates/aurora-protect",
 ]
 resolver = "2"
 

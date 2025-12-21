@@ -1,5 +1,6 @@
 //! Pack configuration types
 
+use crate::protection::ProtectionConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -277,6 +278,17 @@ pub struct PythonBundleConfig {
     /// Default: full isolation (PYTHONPATH and PATH are isolated)
     #[serde(default)]
     pub isolation: IsolationConfig,
+    /// Code protection configuration (py2pyd compilation)
+    ///
+    /// When enabled, `.py` files can be compiled to native extensions (`.pyd`/`.so`).
+    /// Default: disabled
+    #[serde(default = "default_protection_config")]
+    pub protection: ProtectionConfig,
+}
+
+fn default_protection_config() -> ProtectionConfig {
+    // Disabled by default: enabling protection requires build tools to compile extensions.
+    ProtectionConfig::default()
 }
 
 fn default_python_version() -> String {
@@ -312,6 +324,7 @@ impl Default for PythonBundleConfig {
             filesystem_importer: true,
             show_console: false,
             isolation: IsolationConfig::default(),
+            protection: default_protection_config(),
         }
     }
 }

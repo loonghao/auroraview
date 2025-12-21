@@ -48,7 +48,7 @@ icon = "../assets/icon.ico"
 # This bundles the Gallery's Python backend (main.py) with all dependencies
 [python]
 enabled = true
-version = "3.10"
+version = "3.11"
 entry_point = "main:run_gallery"
 packages = ["pyyaml"]  # Add any Python dependencies here
 # NOTE: When including "../python" (auroraview source code), the packer will

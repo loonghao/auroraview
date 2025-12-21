@@ -26,6 +26,10 @@ thiserror = "2.0"
 # Logging
 tracing = "0.1"
 
+# Progress bars and spinners
+indicatif = "0.17"
+console = "0.15"
+
 # File system operations
 walkdir = "2.5"
 glob = "0.3"
@@ -48,6 +52,23 @@ rayon = "1.10"
 
 # Content hashing (for cache key generation)
 blake3 = "1.5"
+
+# Temp files
+tempfile = "3.20"
+
+# Base64 encoding (for bytecode)
+base64 = "0.22"
+
+# Random number generation
+rand = "0.8"
+
+# Code protection (optional)
+aurora-protect = { path = "../aurora-protect", optional = true }
+
+[features]
+default = []
+# Enable Python code protection
+code-protection = ["aurora-protect"]
 
 [dev-dependencies]
 # Testing utilities
