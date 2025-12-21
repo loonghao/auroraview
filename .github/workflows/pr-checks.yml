@@ -563,9 +563,11 @@ jobs:
           npm run build
 
       - name: Build Gallery frontend
+        shell: bash
         run: |
           cd gallery
-          npm ci
+          rm -rf node_modules package-lock.json
+          npm install
           npm run build
 
       - name: Install Playwright
@@ -745,9 +747,11 @@ jobs:
           npm run build
 
       - name: Build Gallery frontend
+        shell: bash
         run: |
           cd gallery
-          npm ci
+          rm -rf node_modules package-lock.json
+          npm install
           npm run build
 
       - name: Build CLI
