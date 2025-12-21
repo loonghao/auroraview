@@ -124,6 +124,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
         with:
@@ -167,6 +173,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -284,6 +296,12 @@ jobs:
     needs: [quick-checks]
     steps:
       - uses: actions/checkout@v6
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h
 
       - name: Setup Rust with llvm-tools
         uses: dtolnay/rust-toolchain@1.90.0
