@@ -75,7 +75,9 @@ jobs:
       - name: Upload SDK assets artifact
         uses: actions/upload-artifact@v6
         with:
-          name: wheels-sdk-assets
+          # Use 'build-' prefix instead of 'wheels-' to avoid being matched by
+          # 'pattern: wheels-*' in release.yml PyPI publish step
+          name: build-sdk-assets
           path: |
             crates/auroraview-core/src/assets/js/core/
             crates/auroraview-core/src/assets/js/plugins/
@@ -99,7 +101,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v7
         with:
-          name: wheels-sdk-assets
+          name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
@@ -124,7 +126,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v7
         with:
-          name: wheels-sdk-assets
+          name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
@@ -153,7 +155,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v7
         with:
-          name: wheels-sdk-assets
+          name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build and Test Wheel
@@ -184,7 +186,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v7
         with:
-          name: wheels-sdk-assets
+          name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build Python 3.7 Wheel
@@ -215,7 +217,7 @@ jobs:
       - name: Download SDK assets
         uses: actions/download-artifact@v7
         with:
-          name: wheels-sdk-assets
+          name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
 
       - name: Build Python 3.7 Wheel
