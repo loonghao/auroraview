@@ -86,6 +86,8 @@ mod manifest;
 mod metrics;
 mod overlay;
 mod packer;
+pub mod progress;
+mod protection;
 mod pyoxidizer;
 mod python_standalone;
 
@@ -107,6 +109,10 @@ pub use manifest::{
 pub use metrics::PackedMetrics;
 pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};
 pub use packer::Packer;
+pub use progress::{progress_bar, spinner, PackProgress, ProgressExt, ProgressStyles};
+pub use protection::{
+    is_protection_available, protect_python_code, ProtectionConfig, ProtectionResult,
+};
 pub use pyoxidizer::{
     check_pyoxidizer, installation_instructions, DistributionFlavor, ExternalBinary,
     PyOxidizerBuilder, PyOxidizerConfig, ResourceFile,

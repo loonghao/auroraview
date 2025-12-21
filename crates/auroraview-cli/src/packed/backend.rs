@@ -414,25 +414,59 @@ pub fn start_python_backend_with_ipc(
     // Build Python command with module paths
     // Use runpy.run_path() to properly set __file__ and __name__ variables,
     // so developers don't need to handle packed mode specially in their code.
+    //
+    // For encrypted modules: import __aurora_bootstrap__ first to initialize
+    // the decryption runtime before importing any protected modules.
     let script_path = temp_dir.join(module);
+
+    // Check if bytecode encryption is enabled (bootstrap file exists)
+    let bootstrap_path = temp_dir.join("__aurora_bootstrap__.py");
+    let has_bootstrap = bootstrap_path.exists();
+    tracing::info!(
+        "Checking for bootstrap file: {} (exists: {})",
+        bootstrap_path.display(),
+        has_bootstrap
+    );
+    if has_bootstrap {
+        tracing::info!("Bytecode encryption detected, will import __aurora_bootstrap__ first");
+    }
+
     let python_code = if let Some(func) = function {
         // Import module and call function
-        format!(
-            "import sys; sys.path.insert(0, r'{}'); from {} import {}; {}()",
-            temp_dir.display(),
-            module.replace(['/', '\\'], ".").trim_end_matches(".py"),
-            func,
-            func
-        )
+        if has_bootstrap {
+            format!(
+                "import sys; sys.path.insert(0, r'{}'); import __aurora_bootstrap__; from {} import {}; {}()",
+                temp_dir.display(),
+                module.replace(['/', '\\'], ".").trim_end_matches(".py"),
+                func,
+                func
+            )
+        } else {
+            format!(
+                "import sys; sys.path.insert(0, r'{}'); from {} import {}; {}()",
+                temp_dir.display(),
+                module.replace(['/', '\\'], ".").trim_end_matches(".py"),
+                func,
+                func
+            )
+        }
     } else {
         // Use runpy.run_path() which properly sets __file__, __name__, etc.
         // This allows developers to use `if __name__ == "__main__"` and
         // Path(__file__).parent without any packed-mode specific handling.
-        format!(
-            r#"import sys; sys.path.insert(0, r'{}'); import runpy; runpy.run_path(r'{}', run_name='__main__')"#,
-            temp_dir.display(),
-            script_path.display()
-        )
+        if has_bootstrap {
+            format!(
+                r#"import sys; sys.path.insert(0, r'{}'); import __aurora_bootstrap__; import runpy; runpy.run_path(r'{}', run_name='__main__')"#,
+                temp_dir.display(),
+                script_path.display()
+            )
+        } else {
+            format!(
+                r#"import sys; sys.path.insert(0, r'{}'); import runpy; runpy.run_path(r'{}', run_name='__main__')"#,
+                temp_dir.display(),
+                script_path.display()
+            )
+        }
     };
 
     // Update loading: starting Python

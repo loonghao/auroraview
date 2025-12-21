@@ -1,0 +1,55 @@
+# AuroraView Pack Configuration with Code Protection
+# This example demonstrates how to protect Python code during packaging
+
+[package]
+name = "protected-app"
+version = "1.0.0"
+description = "Example application with code protection"
+
+[app]
+title = "Protected Application"
+frontend_path = "./frontend/dist"
+
+[window]
+width = 1280
+height = 720
+resizable = true
+
+[python]
+enabled = true
+version = "3.11"
+entry_point = "main:run"
+include_paths = ["./backend"]
+packages = ["auroraview"]
+strategy = "standalone"
+
+# Code Protection Configuration (py2pyd compilation)
+#
+# When enabled, `.py` sources will be compiled to native extensions
+# (`.pyd` on Windows, `.so` on Linux/macOS). Excluded files are copied as-is.
+[python.protection]
+# Disabled by default; set to true to enable compilation.
+enabled = true
+
+# C compiler optimization level (0..3)
+optimization = 2
+
+# Keep temporary build files for debugging
+keep_temp = false
+
+# Optional: force a specific Python version (e.g. "3.11")
+# python_version = "3.11"
+
+# Files to exclude from compilation (glob-like patterns)
+exclude = [
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/test_*.py",
+    "**/*_test.py",
+    "**/tests/**",
+    "**/setup.py",
+]
+
+
+[build]
+out_dir = "./dist"

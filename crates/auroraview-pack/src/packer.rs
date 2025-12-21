@@ -4,6 +4,7 @@ use crate::bundle::BundleBuilder;
 use crate::config::{BundleStrategy, PythonBundleConfig};
 use crate::deps_collector::DepsCollector;
 use crate::overlay::{OverlayData, OverlayWriter};
+use crate::protection::ProtectionConfig;
 use crate::python_standalone::{PythonRuntimeMeta, PythonStandalone, PythonStandaloneConfig};
 use crate::{Manifest, PackConfig, PackError, PackMode, PackResult};
 use std::fs;
@@ -575,87 +576,155 @@ impl Packer {
         overlay: &mut OverlayData,
         python: &PythonBundleConfig,
     ) -> PackResult<usize> {
+        // Use the standard Python bundling path
+        // Protection via py2pyd compilation is handled separately via protect_python_code()
+        self.bundle_python_code_standard(overlay, python)
+    }
+
+    /// Bundle Python code with optional py2pyd compilation
+    fn bundle_python_code_standard(
+        &self,
+        overlay: &mut OverlayData,
+        python: &PythonBundleConfig,
+    ) -> PackResult<usize> {
         let mut count = 0;
         let mut entry_files = Vec::new();
         let mut bundled_packages: std::collections::HashSet<String> =
             std::collections::HashSet::new();
 
-        for include_path in &python.include_paths {
+        // Check if protection is enabled
+        let protection_enabled = python.protection.enabled && crate::is_protection_available();
+
+        // Create temp directory for protection if enabled
+        let temp_dir = if protection_enabled {
+            let dir = tempfile::tempdir().map_err(|e| PackError::Io(std::io::Error::other(e)))?;
+            Some(dir)
+        } else {
+            None
+        };
+
+        if protection_enabled {
+            // Avoid failing halfway through bundling
+            crate::protection::check_build_tools_available()?;
+        }
+
+        // If entry_point is a script (e.g. "main.py"), keep it as .py so runpy.run_path() works.
+        let mut protect_cfg = python.protection.clone();
+        if protection_enabled
+            && !python.entry_point.contains(':')
+            && python.entry_point.ends_with(".py")
+        {
+            protect_cfg.exclude.push(python.entry_point.clone());
+            if let Some(name) = Path::new(&python.entry_point)
+                .file_name()
+                .and_then(|n| n.to_str())
+            {
+                protect_cfg.exclude.push(name.to_string());
+            }
+        }
+
+        for (idx, include_path) in python.include_paths.iter().enumerate() {
             if include_path.is_file() {
-                // Single file
-                let content = fs::read(include_path)?;
+                // Single file (kept as-is; protection is applied at directory level)
                 let name = include_path
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("main.py");
-                overlay.add_asset(format!("python/{}", name), content);
+                overlay.add_asset(format!("python/{}", name), fs::read(include_path)?);
                 count += 1;
                 entry_files.push(include_path.clone());
-            } else if include_path.is_dir() {
-                // Directory - walk and add all Python files (.py, .pyd, .so)
-                // .pyd files are Windows Python extension modules (compiled Rust/C)
-                // .so files are Unix Python extension modules
-                for entry in walkdir::WalkDir::new(include_path)
-                    .into_iter()
-                    .filter_map(|e| e.ok())
-                    .filter(|e| {
-                        e.path()
+                continue;
+            }
+
+            if !include_path.is_dir() {
+                continue;
+            }
+
+            // Track main entry files for dependency analysis (scan original source tree)
+            for entry in walkdir::WalkDir::new(include_path)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    e.file_type().is_file() && e.path().file_name().is_some_and(|n| n == "main.py")
+                })
+            {
+                entry_files.push(entry.path().to_path_buf());
+            }
+
+            // If protection is enabled, compile the directory to a temporary output first.
+            let scan_root: PathBuf = if protection_enabled {
+                let temp_dir = temp_dir.as_ref().ok_or_else(|| {
+                    PackError::Config("Protection temp directory is not available".to_string())
+                })?;
+                let protected_root = temp_dir.path().join(format!("protected_{}", idx));
+                crate::protect_python_code(include_path, &protected_root, &protect_cfg)?;
+                protected_root
+            } else {
+                include_path.clone()
+            };
+
+            // Walk and add Python files (.py, .pyd, .so)
+            for entry in walkdir::WalkDir::new(&scan_root)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    e.file_type().is_file()
+                        && e.path()
                             .extension()
                             .is_some_and(|ext| ext == "py" || ext == "pyd" || ext == "so")
-                    })
-                {
-                    // Skip excluded patterns
-                    let rel_path = entry
-                        .path()
-                        .strip_prefix(include_path)
-                        .unwrap_or(entry.path());
+                })
+            {
+                // Skip excluded patterns
+                let rel_path = entry
+                    .path()
+                    .strip_prefix(&scan_root)
+                    .unwrap_or(entry.path());
 
-                    // Check if path matches any exclude pattern
-                    let path_str = rel_path.to_string_lossy();
-                    let should_exclude = python.exclude.iter().any(|pattern| {
-                        // Simple glob matching
-                        if pattern.contains('*') {
-                            let pattern = pattern.replace("*", "");
-                            path_str.contains(&pattern)
-                        } else {
-                            path_str.contains(pattern)
-                        }
-                    });
-
-                    if should_exclude {
-                        continue;
+                // Check if path matches any exclude pattern
+                let path_str = rel_path.to_string_lossy();
+                let should_exclude = python.exclude.iter().any(|pattern| {
+                    if pattern.contains('*') {
+                        let pattern = pattern.replace("*", "");
+                        path_str.contains(&pattern)
+                    } else {
+                        path_str.contains(pattern)
                     }
+                });
 
-                    // Track package names for conflict detection
-                    // A package is identified by its top-level directory containing __init__.py
-                    if let Some(first_component) = rel_path.components().next() {
-                        let pkg_name = first_component.as_os_str().to_string_lossy().to_string();
-                        if !pkg_name.is_empty() && !pkg_name.starts_with('.') {
-                            bundled_packages.insert(pkg_name);
-                        }
-                    }
+                if should_exclude {
+                    continue;
+                }
 
-                    let content = fs::read(entry.path())?;
-                    overlay.add_asset(
-                        format!("python/{}", rel_path.to_string_lossy().replace('\\', "/")),
-                        content,
-                    );
-                    count += 1;
-
-                    // Track main entry files for dependency analysis
-                    if rel_path.to_string_lossy() == "main.py"
-                        || rel_path.to_string_lossy().ends_with("/main.py")
-                    {
-                        entry_files.push(entry.path().to_path_buf());
+                // Track package names
+                if let Some(first_component) = rel_path.components().next() {
+                    let pkg_name = first_component.as_os_str().to_string_lossy().to_string();
+                    if !pkg_name.is_empty() && !pkg_name.starts_with('.') {
+                        bundled_packages.insert(pkg_name);
                     }
                 }
+
+                let content = fs::read(entry.path())?;
+                overlay.add_asset(
+                    format!("python/{}", rel_path.to_string_lossy().replace('\\', "/")),
+                    content,
+                );
+                count += 1;
             }
         }
 
+        // Log protection status
+        if protection_enabled {
+            tracing::info!(
+                "Code protection enabled: optimization={}",
+                python.protection.optimization
+            );
+        }
+
+        // Clean up temp directory
+        drop(temp_dir);
+
         // If 'auroraview' package is bundled from include_paths (source code),
         // automatically merge the compiled _core extension from the installed wheel.
-        // This allows local development with source code while still including the
-        // compiled Rust extension that only exists in the installed wheel.
         if bundled_packages.contains("auroraview") {
             tracing::info!(
                 "Detected 'auroraview' package in include_paths - will merge _core extension from installed wheel"
@@ -671,7 +740,8 @@ impl Packer {
         }
 
         // Collect Python dependencies
-        let deps_count = self.collect_python_deps(overlay, python, &entry_files)?;
+        let deps_count =
+            self.collect_python_deps(overlay, python, &entry_files, &bundled_packages)?;
         count += deps_count;
 
         // Bundle external binaries to python/bin/
@@ -826,19 +896,29 @@ elif spec and spec.origin:
     }
 
     /// Collect Python dependencies and add to overlay
+    ///
+    /// # Arguments
+    /// * `bundled_packages` - Packages already bundled from include_paths (will be excluded from site-packages)
     fn collect_python_deps(
         &self,
         overlay: &mut OverlayData,
         python: &PythonBundleConfig,
         entry_files: &[PathBuf],
+        bundled_packages: &std::collections::HashSet<String>,
     ) -> PackResult<usize> {
         // Build list of packages to include
         let mut packages_to_collect: Vec<String> = python.packages.clone();
 
-        // Always include auroraview if not explicitly excluded
-        if !python.exclude.iter().any(|e| e == "auroraview") {
+        // Always include auroraview if not explicitly excluded AND not already bundled
+        if !python.exclude.iter().any(|e| e == "auroraview")
+            && !bundled_packages.contains("auroraview")
+        {
             packages_to_collect.push("auroraview".to_string());
         }
+
+        // Remove packages that are already bundled from include_paths
+        // These should not be collected again into site-packages
+        packages_to_collect.retain(|pkg| !bundled_packages.contains(pkg));
 
         // Read from requirements.txt if specified
         if let Some(ref req_path) = python.requirements {
@@ -944,15 +1024,48 @@ elif spec and spec.origin:
     fn copy_python_code(&self, dest_dir: &Path, python: &PythonBundleConfig) -> PackResult<usize> {
         let mut count = 0;
 
+        let protection_enabled = python.protection.enabled && crate::is_protection_available();
+        if protection_enabled {
+            crate::protection::check_build_tools_available()?;
+        }
+
+        // If entry_point is a script (e.g. "main.py"), keep it as .py so runpy.run_path() works.
+        let mut protect_cfg = python.protection.clone();
+        if protection_enabled
+            && !python.entry_point.contains(':')
+            && python.entry_point.ends_with(".py")
+        {
+            protect_cfg.exclude.push(python.entry_point.clone());
+            if let Some(name) = Path::new(&python.entry_point)
+                .file_name()
+                .and_then(|n| n.to_str())
+            {
+                protect_cfg.exclude.push(name.to_string());
+            }
+        }
+
         for include_path in &python.include_paths {
             if include_path.is_file() {
+                // Keep single files as-is (protection is applied at directory level)
                 let name = include_path
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("main.py");
                 fs::copy(include_path, dest_dir.join(name))?;
                 count += 1;
-            } else if include_path.is_dir() {
+                continue;
+            }
+
+            if !include_path.is_dir() {
+                continue;
+            }
+
+            if protection_enabled {
+                // Compile the directory and write outputs directly into dest_dir
+                let result = crate::protect_python_code(include_path, dest_dir, &protect_cfg)?;
+                count += result.files_compiled + result.files_skipped;
+            } else {
+                // Copy .py sources as-is
                 for entry in walkdir::WalkDir::new(include_path)
                     .into_iter()
                     .filter_map(|e| e.ok())
@@ -1308,6 +1421,20 @@ impl PackConfig {
                                 crate::config::IsolationConfig::default_inherit_env,
                             ),
                             clear_env: iso.clear_env.clone(),
+                        })
+                        .unwrap_or_default(),
+                    protection: python_config
+                        .protection
+                        .as_ref()
+                        .map(|prot| ProtectionConfig {
+                            enabled: prot.enabled,
+                            python_path: prot.python_path.clone(),
+                            python_version: prot.python_version.clone(),
+                            optimization: prot.optimization,
+                            keep_temp: prot.keep_temp,
+                            exclude: prot.exclude.clone(),
+                            target_dcc: prot.target_dcc.clone(),
+                            packages: prot.packages.clone(),
                         })
                         .unwrap_or_default(),
                 };
