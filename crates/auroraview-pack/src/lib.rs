@@ -81,6 +81,7 @@ mod bundle;
 mod config;
 mod deps_collector;
 mod error;
+pub mod icon;
 mod license;
 mod manifest;
 mod metrics;
@@ -101,6 +102,7 @@ pub use config::{
 };
 pub use deps_collector::{CollectedDeps, DepsCollector, FileHashCache};
 pub use error::{PackError, PackResult};
+pub use icon::{convert_icon_data, load_icon, IconData, IconFormat};
 pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator};
 pub use manifest::{
     AppConfig, BuildConfig, BundleConfig, CollectEntry, DebugConfig, HooksManifestConfig,

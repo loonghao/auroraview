@@ -1460,14 +1460,21 @@ width = 1200
 height = 800
 resizable = true
 
+[bundle]
+# Unified icon configuration (supports PNG, JPG, ICO)
+# PNG/JPG: Auto-converted to multi-resolution ICO (16-256px) for Windows
+# ICO: Auto-extracts PNG for window title bar icon
+# Recommended: Use 256x256 or larger PNG for best quality
+icon = "./assets/my-app-icon.png"
+
 # Windows-specific configuration
 [bundle.windows]
-# Custom icon for Windows executable (.ico format required)
-icon = "./assets/my-app-icon.ico"
 # Hide console window (no black command prompt window)
 # console = false (default) -> GUI application, no console
 # console = true -> Console application, shows black window
 console = false
+# Optional: Override with specific ICO file (if auto-conversion not desired)
+# icon = "./assets/my-app-icon.ico"
 
 [python]
 entry_point = "main:main"
@@ -1475,13 +1482,13 @@ include_paths = ["./backend"]
 strategy = "standalone"  # Embeds Python runtime for offline use
 ```
 
-> **Note**: The custom icon and console hiding features were contributed by community feedback. See [examples/pack-example.toml](./examples/pack-example.toml) for a complete configuration example.
+> **Note**: The unified icon configuration automatically handles format conversion - just provide a single PNG image and it will be used for both the Windows executable icon (converted to multi-resolution ICO) and the window title bar icon. See [examples/pack-example.toml](./examples/pack-example.toml) for a complete configuration example.
 
 **CLI Options for Icon and Console:**
 
 ```bash
-# Specify custom icon via CLI
-auroraview pack --config app.toml --icon ./my-icon.ico --build
+# Specify custom icon via CLI (supports PNG, JPG, ICO)
+auroraview pack --config app.toml --icon ./my-icon.png --build
 
 # Force show console (for debugging)
 auroraview pack --config app.toml --console --build
