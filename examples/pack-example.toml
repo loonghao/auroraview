@@ -1,43 +1,69 @@
 # AuroraView 打包配置示例
 # ============================================================================
-# 此配置展示了主要功能：
-#   1. 统一图标配置 - 支持 PNG/JPG/ICO，自动转换
-#   2. 禁用控制台黑框 (console = false)
 #
-# 图标自动转换说明：
-#   - 输入 PNG/JPG: 自动生成多分辨率 ICO (16-256px) 用于 Windows
-#   - 输入 ICO: 自动提取 PNG 用于窗口标题栏
-#   - 无需手动准备两种格式！
-# ============================================================================
+# 配置层级结构:
+#   [package]              - 包元数据 & 身份标识
+#   [frontend]             - 前端配置 (path 或 url)
+#   [backend]              - 后端抽象层 (可选)
+#   [backend.python]       - Python 特定设置
+#   [backend.go]           - Go 特定设置
+#   [backend.rust]         - Rust 特定设置
+#   [backend.node]         - Node.js 特定设置
+#   [backend.process]      - 通用进程设置
+#   [window]               - 运行时窗口行为
+#   [bundle]               - 通用打包设置
+#   [bundle.windows]       - Windows 特定
+#   [bundle.macos]         - macOS 特定
+#   [bundle.linux]         - Linux 特定
+#   [build]                - 构建钩子
+#   [hooks]                - 文件收集
+#   [runtime]              - 运行时环境
+#   [debug]                - 调试设置
+#   [license]              - 许可证验证
+#   [inject]               - JS/CSS 注入
+#
+# 后端类型:
+#   - "python": Python 后端 (standalone, pyoxidizer, embedded, portable, system)
+#   - "go": Go 后端 (编译为二进制)
+#   - "rust": Rust 后端 (编译为二进制)
+#   - "node": Node.js 后端 (pkg, nexe, sea, portable)
+#   - "none": 仅前端模式 (默认，可省略 [backend])
 #
 # 使用方法:
 #   auroraview pack --config examples/pack-example.toml --build
 #
-# 或者通过命令行参数覆盖:
+# 命令行覆盖:
 #   auroraview pack --config examples/pack-example.toml --icon ./my-icon.png --no-console --build
 
 # ============================================================================
-# 包信息
+# 包信息 & 身份标识
 # ============================================================================
 [package]
 name = "my-awesome-app"
 version = "1.0.0"
-description = "我的应用程序 - 展示统一图标配置和禁用黑框功能"
+title = "My Awesome App"
+identifier = "com.mycompany.myapp"
+description = "我的应用程序 - 展示新配置结构"
 authors = ["Your Name <your@email.com>"]
 license = "MIT"
-
-# ============================================================================
-# 应用配置
-# ============================================================================
-[app]
-title = "My Awesome App"
-# 前端资源目录（相对于此配置文件的路径）
-frontend_path = "./dist"
-# 是否允许打开新窗口
 allow_new_window = false
 
 # ============================================================================
-# 窗口配置
+# 前端配置
+# ============================================================================
+[frontend]
+path = "./dist"
+# url = "https://example.com"                   # 或远程 URL (二选一)
+
+# ============================================================================
+# 后端配置 (可选)
+# ============================================================================
+# 如果不需要后端，可以省略整个 [backend] 部分
+# [backend]
+# type = "none"                                 # 显式声明无后端
+
+# ============================================================================
+# 窗口配置 (运行时窗口行为)
 # ============================================================================
 [window]
 width = 1280
@@ -45,116 +71,69 @@ height = 720
 min_width = 800
 min_height = 600
 resizable = true
-# 无边框模式（去掉系统标题栏）
 frameless = false
-# 透明窗口
 transparent = false
-# 窗口置顶
 always_on_top = false
-# 启动位置: "center" 或 { type = "position", x = 100, y = 100 }
-start_position = "center"
+start_position = "center"                       # 或 { x = 100, y = 100 }
 
 # ============================================================================
 # 打包配置
 # ============================================================================
 [bundle]
-# ┌─────────────────────────────────────────────────────────────────────────┐
-# │ 统一图标配置（★ 简化后只需要这一个配置 ★）                               │
-# │                                                                         │
-# │ 支持格式: PNG, JPG, ICO                                                 │
-# │ 推荐: 使用 256x256 或更大的 PNG 图片                                    │
-# │                                                                         │
-# │ 自动转换:                                                               │
-# │   - PNG/JPG → 多分辨率 ICO (16/24/32/48/64/128/256px)                  │
-# │   - ICO → PNG (提取最大尺寸图像)                                        │
-# │                                                                         │
-# │ 用途:                                                                   │
-# │   - Windows 可执行文件图标 (资源管理器中显示)                            │
-# │   - 窗口标题栏图标                                                      │
-# │   - 任务栏图标                                                          │
-# └─────────────────────────────────────────────────────────────────────────┘
 icon = "./assets/my-app-icon.png"
-
-# 应用标识符
-identifier = "com.mycompany.myapp"
-# 版权信息
 copyright = "Copyright 2025 My Company"
-# 应用分类
 category = "Productivity"
-# 简短描述
 short_description = "一个很棒的应用"
-# 额外资源文件
 resources = []
+external_bin = []
 
 # ============================================================================
-# Windows 特定配置
+# 平台特定配置
 # ============================================================================
 [bundle.windows]
-# ┌─────────────────────────────────────────────────────────────────────────┐
-# │ 禁用控制台黑框                                                          │
-# │                                                                         │
-# │ console = false  -> GUI 应用模式（默认）                                │
-# │                     不显示控制台窗口，适合正式发布                        │
-# │                                                                         │
-# │ console = true   -> 控制台应用模式                                      │
-# │                     显示黑色命令行窗口，适合调试                          │
-# │                     可以看到 println! 和日志输出                         │
-# │                                                                         │
-# │ 命令行覆盖:                                                             │
-# │   --console     强制显示控制台                                          │
-# │   --no-console  强制隐藏控制台                                          │
-# └─────────────────────────────────────────────────────────────────────────┘
+# icon = "./assets/my-app-icon.ico"             # 可选覆盖统一图标
 console = false
-
-# 可选：覆盖统一图标，使用特定的 ICO 文件
-# 如果不设置，会自动从 [bundle].icon 生成
-# icon = "./assets/my-app-icon.ico"
-
-# 可选：Windows 版本信息（显示在文件属性 -> 详细信息中）
 file_version = "1.0.0.0"
 product_version = "1.0.0"
 file_description = "My Awesome App"
 product_name = "My Awesome App"
 company_name = "My Company"
 
+# [bundle.macos]
+# icon = "./assets/my-app-icon.icns"
+
+# [bundle.linux]
+# icon = "./assets/my-app-icon.png"
+# categories = ["Utility", "Development"]
+
 # ============================================================================
 # 构建配置
 # ============================================================================
 [build]
-# 构建前执行的命令（例如构建前端）
-before_build = ["npm run build"]
-# 构建后执行的命令
-after_build = []
-# 额外资源目录
+before = ["npm run build"]
+after = []
 resources = ["./public"]
-# 排除的文件模式
 exclude = ["*.map", "*.ts", "node_modules", "*.log"]
-# 输出目录
 out_dir = "./pack-output"
-# 是否为 release 模式
 release = true
 
 # ============================================================================
 # 调试配置
 # ============================================================================
 [debug]
-# 是否启用调试模式
 enabled = false
-# 是否启用开发者工具
 devtools = false
-# 详细日志
 verbose = false
-# 远程调试端口（用于 Playwright/Puppeteer 连接）
 # remote_debugging_port = 9222
 
 # ============================================================================
-# 注入配置（可选）
+# 注入配置
 # ============================================================================
 [inject]
-# 注入自定义 JavaScript
 # js = "./inject.js"
-# 注入自定义 CSS
 # css = "./inject.css"
+# js_code = "console.log('App loaded');"
+# css_code = "body { background: #fff; }"
 
 # ============================================================================
 # 运行时环境变量
@@ -165,21 +144,56 @@ APP_ENV = "production"
 LOG_LEVEL = "info"
 
 # ============================================================================
-# Python 后端配置（可选，用于 FullStack 模式）
+# Python 后端配置示例
 # ============================================================================
-# 如果不需要 Python 后端，可以删除或注释掉整个 [python] 部分
-# [python]
-# enabled = true
+# 取消注释以下部分启用 Python 后端
+
+# [backend]
+# type = "python"
+#
+# [backend.python]
 # version = "3.11"
 # entry_point = "main:run"
 # packages = ["requests", "pyyaml"]
 # include_paths = ["."]
 # exclude = ["*.pyc", "__pycache__", "tests"]
-# strategy = "standalone"
-# show_console = false
+# optimize = 1
+# strategy = "standalone"                       # standalone | pyoxidizer | embedded | portable | system
+#
+# [backend.python.isolation]
+# pythonpath = true
+# path = true
+#
+# [backend.python.protection]
+# enabled = true
+# optimization = 2
+#
+# [backend.process]
+# console = false
+# args = []
+# env = { APP_MODE = "production" }
+# restart_on_crash = true
+# max_restarts = 3
+#
+# [backend.process.health_check]
+# url = "http://localhost:8080/health"
+# timeout = 30
 
 # ============================================================================
-# 授权配置（可选）
+# 钩子配置 (文件收集)
+# ============================================================================
+# [hooks]
+# before_collect = []
+# after_pack = []
+#
+# [[hooks.collect]]
+# source = "./data/*.json"
+# dest = "resources/data"
+# preserve_structure = false
+# description = "Application data files"
+
+# ============================================================================
+# 许可证配置 (可选)
 # ============================================================================
 # [license]
 # enabled = true

@@ -1,9 +1,26 @@
 //! Pack configuration types
+//!
+//! This module provides runtime configuration types for the packer.
+//! Common types are re-exported from the `common` module for consistency.
 
+use crate::common::{
+    default_module_search_paths, default_optimize, default_python_version, CollectPattern,
+    HooksConfig,
+};
 use crate::protection::ProtectionConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+
+// Re-export common types
+pub use crate::common::{
+    BundleStrategy, DebugConfig, IsolationConfig, LicenseConfig, TargetPlatform, WindowConfig,
+    WindowsPlatformConfig, WindowsResourceConfig,
+};
+
+// ============================================================================
+// Pack Mode
+// ============================================================================
 
 /// Pack mode determines how the application loads content
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,277 +47,138 @@ pub enum PackMode {
     },
 }
 
-/// Environment isolation configuration
-///
-/// Controls how the packed application isolates its environment from the host system.
-/// Inspired by rez's environment isolation design.
-///
-/// ## Design Philosophy
-///
-/// By default, packed applications run in an isolated environment:
-/// - PYTHONPATH: Only includes bundled module paths, not inherited from host
-/// - PATH: Only includes system essential paths + bundled binaries
-///
-/// This ensures reproducible execution regardless of the host environment.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IsolationConfig {
-    /// Whether to isolate PYTHONPATH (default: true)
-    ///
-    /// When true:
-    /// - PYTHONPATH is set to only include bundled paths ($EXTRACT_DIR, $SITE_PACKAGES)
-    /// - Host PYTHONPATH is NOT inherited
-    ///
-    /// When false:
-    /// - Host PYTHONPATH is inherited and bundled paths are prepended
-    #[serde(default = "default_true")]
-    pub isolate_pythonpath: bool,
-
-    /// Whether to isolate PATH (default: true)
-    ///
-    /// When true:
-    /// - PATH includes only system essential paths + bundled binaries
-    /// - Host PATH is NOT inherited (except system essentials)
-    ///
-    /// When false:
-    /// - Host PATH is inherited
-    #[serde(default = "default_true")]
-    pub isolate_path: bool,
-
-    /// Additional paths to include in PATH (always included regardless of isolation)
-    ///
-    /// These paths are added to PATH in addition to system essentials.
-    /// Useful for including bundled external binaries.
-    ///
-    /// Special variables:
-    /// - `$EXTRACT_DIR` - The directory where files are extracted
-    /// - `$RESOURCES_DIR` - The resources directory
-    /// - `$PYTHON_HOME` - The Python runtime directory
-    #[serde(default)]
-    pub extra_path: Vec<String>,
-
-    /// Additional paths to include in PYTHONPATH (always included regardless of isolation)
-    ///
-    /// These paths are added in addition to the default module_search_paths.
-    #[serde(default)]
-    pub extra_pythonpath: Vec<String>,
-
-    /// System essential PATH entries to always include when PATH is isolated
-    ///
-    /// Default (Windows): ["C:\\Windows\\System32", "C:\\Windows"]
-    /// Default (Unix): ["/usr/bin", "/bin", "/usr/local/bin"]
-    ///
-    /// Set to empty to use only bundled paths (fully isolated).
-    #[serde(default = "default_system_path")]
-    pub system_path: Vec<String>,
-
-    /// Environment variables to explicitly inherit from host
-    ///
-    /// Even when isolation is enabled, these variables are inherited.
-    /// Useful for: HOME, USER, TEMP, DISPLAY, etc.
-    #[serde(default = "default_inherit_env")]
-    pub inherit_env: Vec<String>,
-
-    /// Environment variables to explicitly clear/remove
-    ///
-    /// These variables are removed from the child process environment.
-    #[serde(default)]
-    pub clear_env: Vec<String>,
-}
-
-fn default_system_path() -> Vec<String> {
-    if cfg!(windows) {
-        vec![
-            "C:\\Windows\\System32".to_string(),
-            "C:\\Windows".to_string(),
-            "C:\\Windows\\System32\\Wbem".to_string(),
-        ]
-    } else {
-        vec![
-            "/usr/local/bin".to_string(),
-            "/usr/bin".to_string(),
-            "/bin".to_string(),
-        ]
+impl PackMode {
+    /// Get the mode name
+    pub fn name(&self) -> &'static str {
+        match self {
+            PackMode::Url { .. } => "url",
+            PackMode::Frontend { .. } => "frontend",
+            PackMode::FullStack { .. } => "fullstack",
+        }
     }
-}
 
-fn default_inherit_env() -> Vec<String> {
-    if cfg!(windows) {
-        vec![
-            "SYSTEMROOT".to_string(),
-            "SYSTEMDRIVE".to_string(),
-            "TEMP".to_string(),
-            "TMP".to_string(),
-            "USERPROFILE".to_string(),
-            "APPDATA".to_string(),
-            "LOCALAPPDATA".to_string(),
-            "HOMEDRIVE".to_string(),
-            "HOMEPATH".to_string(),
-            "COMPUTERNAME".to_string(),
-            "USERNAME".to_string(),
-            // Display/GPU related
-            "DISPLAY".to_string(),
-            "WAYLAND_DISPLAY".to_string(),
-        ]
-    } else {
-        vec![
-            "HOME".to_string(),
-            "USER".to_string(),
-            "LOGNAME".to_string(),
-            "SHELL".to_string(),
-            "TERM".to_string(),
-            "LANG".to_string(),
-            "LC_ALL".to_string(),
-            "DISPLAY".to_string(),
-            "WAYLAND_DISPLAY".to_string(),
-            "XDG_RUNTIME_DIR".to_string(),
-            "XDG_SESSION_TYPE".to_string(),
-            "DBUS_SESSION_BUS_ADDRESS".to_string(),
-        ]
+    /// Check if this mode embeds assets
+    pub fn embeds_assets(&self) -> bool {
+        matches!(self, PackMode::Frontend { .. } | PackMode::FullStack { .. })
     }
-}
 
-impl Default for IsolationConfig {
-    fn default() -> Self {
-        Self {
-            isolate_pythonpath: true,
-            isolate_path: true,
-            extra_path: Vec::new(),
-            extra_pythonpath: Vec::new(),
-            system_path: default_system_path(),
-            inherit_env: default_inherit_env(),
-            clear_env: Vec::new(),
+    /// Check if this mode includes Python backend
+    pub fn has_python(&self) -> bool {
+        matches!(self, PackMode::FullStack { .. })
+    }
+
+    /// Get the frontend path if applicable
+    pub fn frontend_path(&self) -> Option<&PathBuf> {
+        match self {
+            PackMode::Frontend { path } => Some(path),
+            PackMode::FullStack { frontend_path, .. } => Some(frontend_path),
+            PackMode::Url { .. } => None,
+        }
+    }
+
+    /// Get the URL if applicable
+    pub fn url(&self) -> Option<&str> {
+        match self {
+            PackMode::Url { url } => Some(url),
+            _ => None,
+        }
+    }
+
+    /// Get the Python config if applicable
+    pub fn python_config(&self) -> Option<&PythonBundleConfig> {
+        match self {
+            PackMode::FullStack { python, .. } => Some(python),
+            _ => None,
         }
     }
 }
 
-impl IsolationConfig {
-    /// Create a fully isolated configuration (no host environment inherited)
-    pub fn full() -> Self {
-        Self::default()
-    }
-
-    /// Create a non-isolated configuration (inherits host environment)
-    pub fn none() -> Self {
-        Self {
-            isolate_pythonpath: false,
-            isolate_path: false,
-            ..Default::default()
-        }
-    }
-
-    /// Create a configuration that only isolates PYTHONPATH
-    pub fn pythonpath_only() -> Self {
-        Self {
-            isolate_pythonpath: true,
-            isolate_path: false,
-            ..Default::default()
-        }
-    }
-
-    /// Get default system PATH entries
-    pub fn default_system_path() -> Vec<String> {
-        default_system_path()
-    }
-
-    /// Get default inherit environment variables
-    pub fn default_inherit_env() -> Vec<String> {
-        default_inherit_env()
-    }
-}
+// ============================================================================
+// Python Bundle Configuration
+// ============================================================================
 
 /// Python bundle configuration for FullStack mode
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PythonBundleConfig {
     /// Entry point (e.g., "myapp.main:run" or "main.py")
     pub entry_point: String,
+
     /// Python source paths to include
     #[serde(default)]
     pub include_paths: Vec<PathBuf>,
+
     /// Pip packages to install
     #[serde(default)]
     pub packages: Vec<String>,
+
     /// Path to requirements.txt
     #[serde(default)]
     pub requirements: Option<PathBuf>,
+
     /// Bundle strategy
     #[serde(default)]
     pub strategy: BundleStrategy,
+
     /// Python version (e.g., "3.11")
     #[serde(default = "default_python_version")]
     pub version: String,
+
     /// Bytecode optimization level (0, 1, or 2)
     #[serde(default = "default_optimize")]
     pub optimize: u8,
+
     /// Exclude patterns
     #[serde(default)]
     pub exclude: Vec<String>,
+
     /// External binaries to bundle (paths to executables)
     #[serde(default)]
     pub external_bin: Vec<PathBuf>,
+
     /// Additional resource files/directories
     #[serde(default)]
     pub resources: Vec<PathBuf>,
+
     /// Include pip in the bundle (for PyOxidizer)
     #[serde(default)]
     pub include_pip: bool,
+
     /// Include setuptools in the bundle (for PyOxidizer)
     #[serde(default)]
     pub include_setuptools: bool,
+
     /// PyOxidizer distribution flavor
     #[serde(default)]
     pub distribution_flavor: Option<String>,
+
     /// Custom PyOxidizer executable path
     #[serde(default)]
     pub pyoxidizer_path: Option<PathBuf>,
+
     /// Module search paths (relative to extract directory).
-    /// These paths are added to PYTHONPATH at runtime.
-    ///
-    /// Special variables:
-    /// - `$EXTRACT_DIR` - The directory where Python files are extracted
-    /// - `$RESOURCES_DIR` - The resources directory
-    /// - `$SITE_PACKAGES` - The site-packages directory
-    ///
-    /// Default: `["$EXTRACT_DIR", "$SITE_PACKAGES"]`
+    /// Special variables: $EXTRACT_DIR, $RESOURCES_DIR, $SITE_PACKAGES, $PYTHON_HOME
     #[serde(default = "default_module_search_paths")]
     pub module_search_paths: Vec<String>,
-    /// Whether to use filesystem importer (allows dynamic imports).
-    /// When false, only embedded modules can be imported.
+
+    /// Whether to use filesystem importer (allows dynamic imports)
     #[serde(default = "default_true")]
     pub filesystem_importer: bool,
-    /// Show console window for Python process (Windows only).
-    /// When false (default), Python runs without a visible console window.
-    /// Set to true for debugging purposes.
+
+    /// Show console window for Python process (Windows only)
     #[serde(default)]
     pub show_console: bool,
+
     /// Environment isolation configuration
-    ///
-    /// Controls how the packed application isolates its environment from the host.
-    /// Default: full isolation (PYTHONPATH and PATH are isolated)
     #[serde(default)]
     pub isolation: IsolationConfig,
+
     /// Code protection configuration (py2pyd compilation)
-    ///
-    /// When enabled, `.py` files can be compiled to native extensions (`.pyd`/`.so`).
-    /// Default: disabled
-    #[serde(default = "default_protection_config")]
+    #[serde(default)]
     pub protection: ProtectionConfig,
 }
 
-fn default_protection_config() -> ProtectionConfig {
-    // Disabled by default: enabling protection requires build tools to compile extensions.
-    ProtectionConfig::default()
-}
-
-fn default_python_version() -> String {
-    "3.10".to_string()
-}
-
-fn default_optimize() -> u8 {
-    1
-}
-
-fn default_module_search_paths() -> Vec<String> {
-    vec!["$EXTRACT_DIR".to_string(), "$SITE_PACKAGES".to_string()]
+fn default_true() -> bool {
+    true
 }
 
 impl Default for PythonBundleConfig {
@@ -324,277 +202,117 @@ impl Default for PythonBundleConfig {
             filesystem_importer: true,
             show_console: false,
             isolation: IsolationConfig::default(),
-            protection: default_protection_config(),
+            protection: ProtectionConfig::default(),
         }
     }
 }
 
-/// Bundle strategy for Python runtime
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum BundleStrategy {
-    /// Standalone mode: Bundle python-build-standalone runtime with the executable
-    /// Downloads a pre-built Python distribution and embeds it in the overlay
-    /// No external dependencies required at runtime (default)
-    #[default]
-    Standalone,
-    /// PyOxidizer mode: Use PyOxidizer to create a single-file executable
-    /// Requires PyOxidizer to be installed
-    PyOxidizer,
-    /// Embed Python code as overlay data (requires system Python to run)
-    /// Smallest executable size, but requires Python installed on target
-    Embedded,
-    /// Portable directory with Python runtime extracted alongside executable
-    /// Creates a directory structure with Python runtime and app files
-    Portable,
-    /// Use system Python (smallest output, requires Python installed)
-    /// Only embeds Python source code, uses system Python to run
-    System,
-}
-
-impl PackMode {
-    /// Get the mode name
-    pub fn name(&self) -> &'static str {
-        match self {
-            PackMode::Url { .. } => "url",
-            PackMode::Frontend { .. } => "frontend",
-            PackMode::FullStack { .. } => "fullstack",
-        }
-    }
-
-    /// Check if this mode embeds assets
-    pub fn embeds_assets(&self) -> bool {
-        matches!(self, PackMode::Frontend { .. } | PackMode::FullStack { .. })
-    }
-
-    /// Check if this mode includes Python backend
-    pub fn has_python(&self) -> bool {
-        matches!(self, PackMode::FullStack { .. })
-    }
-}
-
-/// Window start position
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum WindowStartPosition {
-    /// Center on screen
-    #[default]
-    Center,
-    /// Specific position
-    Position { x: i32, y: i32 },
-}
-
-/// Target platform for the packed executable
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum TargetPlatform {
-    /// Current platform
-    #[default]
-    Current,
-    /// Windows
-    Windows,
-    /// macOS
-    MacOS,
-    /// Linux
-    Linux,
-}
-
-/// Window configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WindowConfig {
-    /// Window title
-    pub title: String,
-    /// Window width
-    pub width: u32,
-    /// Window height
-    pub height: u32,
-    /// Minimum width
-    #[serde(default)]
-    pub min_width: Option<u32>,
-    /// Minimum height
-    #[serde(default)]
-    pub min_height: Option<u32>,
-    /// Start position
-    #[serde(default)]
-    pub start_position: WindowStartPosition,
-    /// Whether the window is resizable
-    #[serde(default = "default_true")]
-    pub resizable: bool,
-    /// Whether the window is frameless (no title bar)
-    #[serde(default)]
-    pub frameless: bool,
-    /// Whether the window is transparent
-    #[serde(default)]
-    pub transparent: bool,
-    /// Whether the window is always on top
-    #[serde(default)]
-    pub always_on_top: bool,
-}
-
-fn default_true() -> bool {
-    true
-}
-
-impl Default for WindowConfig {
-    fn default() -> Self {
+impl PythonBundleConfig {
+    /// Create a new Python bundle config with entry point
+    pub fn new(entry_point: impl Into<String>) -> Self {
         Self {
-            title: "AuroraView App".to_string(),
-            width: 1280,
-            height: 720,
-            min_width: None,
-            min_height: None,
-            start_position: WindowStartPosition::Center,
-            resizable: true,
-            frameless: false,
-            transparent: false,
-            always_on_top: false,
-        }
-    }
-}
-
-/// License/authorization configuration
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct LicenseConfig {
-    /// Whether license validation is enabled
-    #[serde(default)]
-    pub enabled: bool,
-    /// License expiration date (ISO 8601 format: YYYY-MM-DD)
-    #[serde(default)]
-    pub expires_at: Option<String>,
-    /// Whether a token is required to run
-    #[serde(default)]
-    pub require_token: bool,
-    /// Pre-embedded token (for pre-authorized builds)
-    #[serde(default)]
-    pub embedded_token: Option<String>,
-    /// Token validation URL (for online validation)
-    #[serde(default)]
-    pub validation_url: Option<String>,
-    /// Allowed machine IDs (for hardware binding)
-    #[serde(default)]
-    pub allowed_machines: Vec<String>,
-    /// Grace period in days after expiration
-    #[serde(default)]
-    pub grace_period_days: u32,
-    /// Custom expiration message
-    #[serde(default)]
-    pub expiration_message: Option<String>,
-}
-
-impl LicenseConfig {
-    /// Create a time-limited license
-    pub fn time_limited(expires_at: impl Into<String>) -> Self {
-        Self {
-            enabled: true,
-            expires_at: Some(expires_at.into()),
+            entry_point: entry_point.into(),
             ..Default::default()
         }
     }
 
-    /// Create a token-required license
-    pub fn token_required() -> Self {
-        Self {
-            enabled: true,
-            require_token: true,
-            ..Default::default()
-        }
+    /// Set Python version
+    pub fn with_version(mut self, version: impl Into<String>) -> Self {
+        self.version = version.into();
+        self
     }
 
-    /// Create a license with both time limit and token
-    pub fn full(expires_at: impl Into<String>) -> Self {
-        Self {
-            enabled: true,
-            expires_at: Some(expires_at.into()),
-            require_token: true,
-            ..Default::default()
-        }
+    /// Add include paths
+    pub fn with_include_paths(mut self, paths: Vec<PathBuf>) -> Self {
+        self.include_paths = paths;
+        self
+    }
+
+    /// Set bundle strategy
+    pub fn with_strategy(mut self, strategy: BundleStrategy) -> Self {
+        self.strategy = strategy;
+        self
+    }
+
+    /// Set isolation config
+    pub fn with_isolation(mut self, isolation: IsolationConfig) -> Self {
+        self.isolation = isolation;
+        self
     }
 }
 
-/// Hook configuration for collecting additional files
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct HooksConfig {
-    /// Commands to run before collecting files
-    #[serde(default)]
-    pub before_collect: Vec<String>,
-    /// Additional file patterns to collect (glob patterns)
-    #[serde(default)]
-    pub collect_files: Vec<CollectPattern>,
-    /// Commands to run after packing
-    #[serde(default)]
-    pub after_pack: Vec<String>,
-}
-
-/// Pattern for collecting additional files
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CollectPattern {
-    /// Source path or glob pattern
-    pub source: String,
-    /// Destination path in the bundle (relative to assets root)
-    #[serde(default)]
-    pub dest: Option<String>,
-    /// Whether to preserve directory structure
-    #[serde(default = "default_true")]
-    pub preserve_structure: bool,
-}
+// ============================================================================
+// Complete Pack Configuration
+// ============================================================================
 
 /// Complete pack configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackConfig {
-    /// Pack mode (URL or Frontend)
+    /// Pack mode (URL, Frontend, or FullStack)
     pub mode: PackMode,
+
     /// Output executable name (without extension)
     pub output_name: String,
+
     /// Output directory
     #[serde(skip)]
     pub output_dir: PathBuf,
+
     /// Window configuration
     pub window: WindowConfig,
+
     /// Target platform
     #[serde(default)]
     pub target_platform: TargetPlatform,
+
     /// Enable debug mode
     #[serde(default)]
     pub debug: bool,
+
     /// Allow opening new windows
     #[serde(default)]
     pub allow_new_window: bool,
+
     /// Custom user agent
     #[serde(default)]
     pub user_agent: Option<String>,
+
     /// JavaScript to inject
     #[serde(default)]
     pub inject_js: Option<String>,
+
     /// CSS to inject
     #[serde(default)]
     pub inject_css: Option<String>,
+
     /// Icon path (for resource injection)
     #[serde(skip)]
     pub icon_path: Option<PathBuf>,
-    /// Window icon PNG data (embedded at pack time, used for window title bar icon)
-    /// This is separate from icon_path which is for Windows .exe resource icon (.ico)
+
+    /// Window icon PNG data (embedded at pack time)
     #[serde(default)]
     #[serde(with = "serde_bytes_base64")]
     pub window_icon: Option<Vec<u8>>,
+
     /// Environment variables to inject at runtime
     #[serde(default)]
     pub env: HashMap<String, String>,
+
     /// License configuration for authorization
     #[serde(default)]
     pub license: Option<LicenseConfig>,
+
     /// Hooks configuration for collecting additional files
     #[serde(default)]
     pub hooks: Option<HooksConfig>,
-    /// Remote debugging port for CDP (Chrome DevTools Protocol) connections
-    /// Default: None (disabled)
-    /// When set, enables remote debugging on the specified port
-    /// Playwright/Puppeteer can connect via: `browser.connect_over_cdp(f"http://localhost:{port}")`
+
+    /// Remote debugging port for CDP connections
     #[serde(default)]
     pub remote_debugging_port: Option<u16>,
 
     /// Windows-specific resource configuration
     #[serde(skip)]
-    pub windows_resource: WindowsResourceConfig,
+    pub windows_resource: WindowsPlatformConfig,
 }
 
 /// Serde helper module for serializing Option<Vec<u8>> as base64
@@ -627,36 +345,6 @@ mod serde_bytes_base64 {
     }
 }
 
-/// Windows executable resource configuration
-#[derive(Debug, Clone, Default)]
-pub struct WindowsResourceConfig {
-    /// Path to the .ico icon file
-    pub icon: Option<PathBuf>,
-
-    /// Whether to show console window (default: false)
-    /// When false, the executable runs as a Windows GUI application (no console)
-    /// When true, the executable runs as a console application (shows black window)
-    pub console: bool,
-
-    /// File version (e.g., "1.0.0.0")
-    pub file_version: Option<String>,
-
-    /// Product version (e.g., "1.0.0")
-    pub product_version: Option<String>,
-
-    /// File description
-    pub file_description: Option<String>,
-
-    /// Product name
-    pub product_name: Option<String>,
-
-    /// Company name
-    pub company_name: Option<String>,
-
-    /// Copyright string
-    pub copyright: Option<String>,
-}
-
 impl PackConfig {
     /// Create a URL mode configuration
     pub fn url(url: impl Into<String>) -> Self {
@@ -687,7 +375,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
-            windows_resource: WindowsResourceConfig::default(),
+            windows_resource: WindowsPlatformConfig::default(),
         }
     }
 
@@ -717,7 +405,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
-            windows_resource: WindowsResourceConfig::default(),
+            windows_resource: WindowsPlatformConfig::default(),
         }
     }
 
@@ -733,10 +421,7 @@ impl PackConfig {
         Self {
             mode: PackMode::FullStack {
                 frontend_path,
-                python: Box::new(PythonBundleConfig {
-                    entry_point: entry_point.into(),
-                    ..Default::default()
-                }),
+                python: Box::new(PythonBundleConfig::new(entry_point)),
             },
             output_name,
             output_dir: PathBuf::from("."),
@@ -753,7 +438,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
-            windows_resource: WindowsResourceConfig::default(),
+            windows_resource: WindowsPlatformConfig::default(),
         }
     }
 
@@ -789,7 +474,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
-            windows_resource: WindowsResourceConfig::default(),
+            windows_resource: WindowsPlatformConfig::default(),
         }
     }
 
@@ -873,7 +558,6 @@ impl PackConfig {
     }
 
     /// Set remote debugging port for CDP connections
-    /// When set, Playwright/Puppeteer can connect via `connect_over_cdp(f"http://localhost:{port}")`
     pub fn with_remote_debugging_port(mut self, port: u16) -> Self {
         self.remote_debugging_port = Some(port);
         self
@@ -898,5 +582,15 @@ impl PackConfig {
     pub fn with_hooks(mut self, hooks: HooksConfig) -> Self {
         self.hooks = Some(hooks);
         self
+    }
+
+    /// Get debug configuration
+    pub fn debug_config(&self) -> DebugConfig {
+        DebugConfig {
+            enabled: self.debug,
+            devtools: self.debug,
+            verbose: false,
+            remote_debugging_port: self.remote_debugging_port,
+        }
     }
 }

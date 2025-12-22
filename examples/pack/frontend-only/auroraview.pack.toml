@@ -1,0 +1,116 @@
+# AuroraView Pack - Frontend-Only Example
+# ============================================================================
+#
+# This example demonstrates a frontend-only application with:
+# - Static frontend assets (React/Vue/HTML)
+# - No backend process
+#
+# This is the simplest configuration, perfect for:
+# - Static websites wrapped as desktop apps
+# - Single-page applications (SPA)
+# - Electron-like desktop wrappers
+# - Kiosk applications
+
+# ============================================================================
+# Package Metadata
+# ============================================================================
+[package]
+name = "frontend-only-app"
+version = "1.0.0"
+title = "My Desktop App"
+identifier = "com.example.frontend-app"
+description = "A frontend-only desktop application"
+authors = ["Your Name <your@email.com>"]
+
+# ============================================================================
+# Frontend Configuration
+# ============================================================================
+[frontend]
+path = "./dist"
+# url = "https://example.com"                   # OR load remote URL
+
+# ============================================================================
+# Backend Configuration (optional - can be omitted entirely)
+# ============================================================================
+# [backend]
+# type = "none"                                 # Explicitly no backend
+
+# ============================================================================
+# Window Configuration
+# ============================================================================
+[window]
+width = 1280
+height = 720
+min_width = 800
+min_height = 600
+resizable = true
+frameless = false
+transparent = false
+always_on_top = false
+start_position = "center"
+fullscreen = false
+maximized = false
+
+# ============================================================================
+# Bundle Configuration
+# ============================================================================
+[bundle]
+icon = "./assets/icon.png"
+copyright = "Copyright 2025"
+category = "Utility"
+short_description = "My Desktop Application"
+resources = ["./assets"]
+
+[bundle.windows]
+icon = "./assets/icon.ico"
+console = false
+
+[bundle.macos]
+icon = "./assets/icon.icns"
+
+[bundle.linux]
+icon = "./assets/icon.png"
+categories = ["Utility"]
+
+# ============================================================================
+# Build Configuration
+# ============================================================================
+[build]
+before = ["npm run build"]
+out_dir = "./pack-output"
+release = true
+exclude = ["*.map", "*.ts", "node_modules"]
+
+# ============================================================================
+# Runtime Environment (optional)
+# ============================================================================
+[runtime]
+[runtime.env]
+APP_MODE = "production"
+
+# ============================================================================
+# Debug Configuration
+# ============================================================================
+[debug]
+enabled = false
+devtools = false
+
+# ============================================================================
+# Inject Configuration (optional)
+# ============================================================================
+[inject]
+# Inject custom JavaScript
+# js_code = """
+# // Custom initialization code
+# window.addEventListener('DOMContentLoaded', () => {
+#     console.log('App loaded!');
+# });
+# """
+
+# Inject custom CSS
+# css_code = """
+# /* Custom styles */
+# body {
+#     font-family: system-ui, -apple-system, sans-serif;
+# }
+# """

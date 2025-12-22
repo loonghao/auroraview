@@ -1,0 +1,116 @@
+# AuroraView Pack - Go Backend Example
+# ============================================================================
+#
+# This example demonstrates a fullstack application with:
+# - React/Vue frontend (built to ./dist)
+# - Go backend (compiled binary)
+#
+# Go backend compiles to a single binary, making distribution simple.
+# The binary is automatically built and bundled during the pack process.
+
+# ============================================================================
+# Package Metadata
+# ============================================================================
+[package]
+name = "go-fullstack-app"
+version = "1.0.0"
+title = "Go Fullstack App"
+identifier = "com.example.go-app"
+description = "A fullstack application with Go backend"
+authors = ["Your Name <your@email.com>"]
+
+# ============================================================================
+# Frontend Configuration
+# ============================================================================
+[frontend]
+path = "./dist"
+
+# ============================================================================
+# Backend Configuration
+# ============================================================================
+[backend]
+type = "go"
+
+[backend.go]
+module = "github.com/yourname/myapp"
+entry_point = "./cmd/server"
+version = "1.21"
+build_flags = ["-ldflags", "-s -w"]
+tags = ["production"]
+cgo_enabled = false
+env = { CGO_ENABLED = "0" }
+
+# Common process settings
+[backend.process]
+console = false
+args = ["--port", "8080", "--mode", "prod"]
+env = { GIN_MODE = "release" }
+working_dir = "$APP_DIR"
+restart_on_crash = true
+max_restarts = 3
+
+# Health check
+[backend.process.health_check]
+url = "http://localhost:8080/api/health"
+timeout = 10
+interval = 5
+retries = 3
+
+# ============================================================================
+# Window Configuration
+# ============================================================================
+[window]
+width = 1280
+height = 720
+min_width = 800
+min_height = 600
+resizable = true
+start_position = "center"
+
+# ============================================================================
+# Bundle Configuration
+# ============================================================================
+[bundle]
+icon = "./assets/icon.png"
+copyright = "Copyright 2025"
+resources = ["./config", "./templates"]
+
+[bundle.windows]
+icon = "./assets/icon.ico"
+console = false
+
+[bundle.linux]
+categories = ["Development", "Utility"]
+
+# ============================================================================
+# Build Configuration
+# ============================================================================
+[build]
+before = [
+    "npm run build",
+    "go mod tidy",
+    "go build -o ./bin/server ./cmd/server"
+]
+out_dir = "./pack-output"
+release = true
+
+# ============================================================================
+# Hooks Configuration
+# ============================================================================
+[hooks]
+[[hooks.collect]]
+source = "./bin/server*"
+dest = "backend"
+description = "Go backend binary"
+
+[[hooks.collect]]
+source = "./config/*.yaml"
+dest = "config"
+description = "Configuration files"
+
+# ============================================================================
+# Debug Configuration
+# ============================================================================
+[debug]
+enabled = false
+devtools = false

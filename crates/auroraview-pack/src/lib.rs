@@ -19,6 +19,7 @@
 //!
 //! - **URL Mode**: Wrap any website into a desktop app
 //! - **Frontend Mode**: Bundle local HTML/CSS/JS into a standalone app
+//! - **FullStack Mode**: Bundle frontend + backend (Python/Go/Rust/Node.js)
 //! - **Manifest Support**: Declarative configuration via `auroraview.pack.toml`
 //! - **Zero Dependencies**: No build tools required on user's machine
 //!
@@ -43,12 +44,18 @@
 //! [package]
 //! name = "my-app"
 //! version = "1.0.0"
-//!
-//! [app]
 //! title = "My Application"
-//! url = "https://example.com"
-//! # OR
-//! # frontend_path = "./dist"
+//!
+//! [frontend]
+//! path = "./dist"
+//! # url = "https://example.com"
+//!
+//! [backend]
+//! type = "python"  # or "go", "rust", "node", "none"
+//!
+//! [backend.python]
+//! version = "3.11"
+//! entry_point = "main:run"
 //!
 //! [window]
 //! width = 1280
@@ -78,6 +85,7 @@
 //! ```
 
 mod bundle;
+pub mod common;
 mod config;
 mod deps_collector;
 mod error;
@@ -95,21 +103,38 @@ mod resource_editor;
 
 // Re-export public API
 pub use bundle::{AssetBundle, BundleBuilder};
-pub use config::{
-    BundleStrategy, CollectPattern, HooksConfig, IsolationConfig, LicenseConfig, PackConfig,
-    PackMode, PythonBundleConfig, TargetPlatform, WindowConfig, WindowStartPosition,
-    WindowsResourceConfig,
+
+// Re-export common types (unified configuration types)
+pub use common::{
+    BundleStrategy, CollectPattern, DebugConfig, HooksConfig, IsolationConfig, LicenseConfig,
+    LinuxPlatformConfig, MacOSPlatformConfig, NotarizationConfig, PlatformConfig, ProcessConfig,
+    ProtectionConfig as CommonProtectionConfig, PyOxidizerConfig, RuntimeConfig, TargetPlatform,
+    WindowConfig, WindowStartPosition, WindowsPlatformConfig, WindowsResourceConfig,
 };
+
+// Re-export config types (runtime configuration)
+pub use config::{PackConfig, PackMode, PythonBundleConfig};
+
 pub use deps_collector::{CollectedDeps, DepsCollector, FileHashCache};
 pub use error::{PackError, PackResult};
 pub use icon::{convert_icon_data, load_icon, IconData, IconFormat};
 pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator};
+
+// Re-export manifest types (TOML parsing)
 pub use manifest::{
-    AppConfig, BuildConfig, BundleConfig, CollectEntry, DebugConfig, HooksManifestConfig,
-    InjectConfig, IsolationManifestConfig, LicenseManifestConfig, LinuxBundleConfig,
-    MacOSBundleConfig, Manifest, PackageConfig, PyOxidizerManifestConfig, PythonConfig,
-    RuntimeConfig, StartPosition, WindowConfig as ManifestWindowConfig, WindowsBundleConfig,
+    BackendConfig, BackendGoConfig, BackendNodeConfig, BackendProcessConfig, BackendPythonConfig,
+    BackendRustConfig, BackendType, BuildConfig, BundleConfig, CollectEntry, FrontendConfig,
+    HealthCheckConfig, HooksManifestConfig, IsolationManifestConfig, Manifest,
+    ManifestWindowConfig, PackageConfig, ProcessManifestConfig, ProtectionManifestConfig,
+    PyOxidizerManifestConfig, StartPosition,
 };
+
+// Backward compatibility aliases for manifest platform types
+pub use manifest::{LinuxBundleConfig, MacOSBundleConfig, WindowsBundleConfig};
+
+// Re-export InjectConfig from common
+pub use common::InjectConfig;
+
 pub use metrics::PackedMetrics;
 pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};
 pub use packer::Packer;

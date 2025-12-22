@@ -8,6 +8,8 @@ auroraview-gallery/
 **/*.rs.bk
 *.pdb
 rust-coverage.lcov
+coverage.lcov
+coverage.xml
 # Cargo.lock is committed for binary/application projects to ensure reproducible builds
 
 # Python
@@ -29,7 +31,6 @@ pip-delete-this-directory.txt
 .coverage.*
 .cache
 nosetests.xml
-coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
@@ -52,10 +53,11 @@ ENV/
 *.swp
 *.swo
 *~
-.DS_Store
 
-# Documentation
+# Documentation build output
 docs/_build/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 site/
 
 # Temporary files
@@ -79,7 +81,10 @@ Thumbs.db
 # Maturin
 .maturin/
 
+# Coverage reports
 htmlcov/
+
+# AI assistants
 .augment/
 .codebuddy/
 
@@ -87,7 +92,11 @@ htmlcov/
 python/auroraview/_core.*
 target/llvm-cov/
 target/wheels/
-coverage.lcov
 .qt/
 
+# Local test files
 local-test.py
+
+# Gallery debug files
+gallery/debug_log.txt
+gallery/full_log.txt

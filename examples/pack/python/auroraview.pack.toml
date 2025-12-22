@@ -1,0 +1,120 @@
+# AuroraView Pack - Python Backend Example
+# ============================================================================
+#
+# This example demonstrates a fullstack application with:
+# - React/Vue frontend (built to ./dist)
+# - Python backend (Flask/FastAPI server)
+#
+# Bundle Strategy Options:
+#   - "standalone": Bundle python-build-standalone runtime (default, fully offline)
+#   - "pyoxidizer": Use PyOxidizer to embed Python runtime
+#   - "embedded": Embed Python code as overlay (requires system Python)
+#   - "portable": Create portable directory with Python runtime
+#   - "system": Use system Python (smallest output)
+
+# ============================================================================
+# Package Metadata
+# ============================================================================
+[package]
+name = "python-fullstack-app"
+version = "1.0.0"
+title = "Python Fullstack App"
+identifier = "com.example.python-app"
+description = "A fullstack application with Python backend"
+authors = ["Your Name <your@email.com>"]
+
+# ============================================================================
+# Frontend Configuration
+# ============================================================================
+[frontend]
+path = "./dist"
+
+# ============================================================================
+# Backend Configuration
+# ============================================================================
+[backend]
+type = "python"
+
+[backend.python]
+version = "3.11"
+entry_point = "server:main"
+packages = ["flask", "flask-cors"]
+# requirements = "./requirements.txt"
+include_paths = ["./backend"]
+exclude = [
+    "*.pyc",
+    "__pycache__",
+    "*.egg-info",
+    "tests",
+    ".pytest_cache",
+    ".venv",
+    "venv"
+]
+optimize = 1
+strategy = "standalone"
+
+# Environment isolation (rez-style)
+[backend.python.isolation]
+pythonpath = true
+path = true
+extra_pythonpath = ["$EXTRACT_DIR/lib"]
+
+# Code protection (compile to .pyd/.so)
+[backend.python.protection]
+enabled = true
+optimization = 2
+keep_temp = false
+exclude = ["config.py"]
+
+# Common process settings
+[backend.process]
+console = false
+args = ["--port", "8080"]
+env = { FLASK_ENV = "production" }
+restart_on_crash = true
+max_restarts = 3
+
+# Health check for backend process
+[backend.process.health_check]
+url = "http://localhost:8080/health"
+timeout = 30
+interval = 5
+retries = 3
+
+# ============================================================================
+# Window Configuration
+# ============================================================================
+[window]
+width = 1280
+height = 720
+min_width = 800
+min_height = 600
+resizable = true
+start_position = "center"
+
+# ============================================================================
+# Bundle Configuration
+# ============================================================================
+[bundle]
+icon = "./assets/icon.png"
+copyright = "Copyright 2025"
+resources = ["./assets", "./config"]
+
+[bundle.windows]
+icon = "./assets/icon.ico"
+console = false
+
+# ============================================================================
+# Build Configuration
+# ============================================================================
+[build]
+before = ["npm run build", "pip install -r requirements.txt"]
+out_dir = "./pack-output"
+release = true
+
+# ============================================================================
+# Debug Configuration
+# ============================================================================
+[debug]
+enabled = false
+devtools = false
