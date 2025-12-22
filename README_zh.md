@@ -1380,14 +1380,21 @@ width = 1200
 height = 800
 resizable = true
 
+[bundle]
+# 统一图标配置（支持 PNG、JPG、ICO 格式）
+# PNG/JPG：自动转换为多分辨率 ICO（16-256px）用于 Windows
+# ICO：自动提取 PNG 用于窗口标题栏图标
+# 推荐：使用 256x256 或更大的 PNG 图片以获得最佳质量
+icon = "./assets/my-app-icon.png"
+
 # Windows 特定配置
 [bundle.windows]
-# 自定义 Windows 可执行文件图标（必须是 .ico 格式）
-icon = "./assets/my-app-icon.ico"
 # 隐藏控制台窗口（不显示黑色命令行窗口）
 # console = false（默认）-> GUI 应用，无控制台
 # console = true -> 控制台应用，显示黑框
 console = false
+# 可选：使用特定的 ICO 文件覆盖（如果不想自动转换）
+# icon = "./assets/my-app-icon.ico"
 
 [python]
 entry_point = "main:main"
@@ -1395,13 +1402,13 @@ include_paths = ["./backend"]
 strategy = "standalone"  # 嵌入 Python 运行时，支持离线使用
 ```
 
-> **注意**：自定义图标和隐藏控制台功能是根据社区反馈添加的。完整配置示例请参考 [examples/pack-example.toml](./examples/pack-example.toml)。
+> **注意**：统一图标配置自动处理格式转换 - 只需提供一个 PNG 图片，它将同时用于 Windows 可执行文件图标（转换为多分辨率 ICO）和窗口标题栏图标。完整配置示例请参考 [examples/pack-example.toml](./examples/pack-example.toml)。
 
 **图标和控制台的 CLI 选项：**
 
 ```bash
-# 通过 CLI 指定自定义图标
-auroraview pack --config app.toml --icon ./my-icon.ico --build
+# 通过 CLI 指定自定义图标（支持 PNG、JPG、ICO）
+auroraview pack --config app.toml --icon ./my-icon.png --build
 
 # 强制显示控制台（用于调试）
 auroraview pack --config app.toml --console --build

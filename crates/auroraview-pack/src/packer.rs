@@ -1586,88 +1586,84 @@ impl PackConfig {
             after_pack: h.after_pack.clone(),
         });
 
-        // Build Windows resource config
-        let windows_resource = {
-            let mut config = crate::WindowsResourceConfig::default();
+        // Process icon using unified icon conversion
+        // This handles PNG/JPG/ICO and auto-converts to both formats
+        let (windows_resource, window_icon) = {
+            let mut win_config = crate::WindowsResourceConfig::default();
 
-            // Get Windows-specific icon or fall back to generic icon
+            // Get Windows-specific settings (console, version info, etc.)
             if let Some(ref windows) = manifest.bundle.windows {
-                if let Some(ref icon) = windows.icon {
-                    config.icon = Some(if icon.is_absolute() {
-                        icon.clone()
-                    } else {
-                        base_dir.join(icon)
-                    });
-                }
-                config.console = windows.console;
-                config.file_version = windows.file_version.clone();
-                config.product_version = windows.product_version.clone();
-                config.file_description = windows.file_description.clone();
-                config.product_name = windows.product_name.clone();
-                config.company_name = windows.company_name.clone();
-            }
-
-            // Fall back to generic icon if Windows-specific not set
-            if config.icon.is_none() {
-                if let Some(ref icon) = manifest.bundle.icon {
-                    // Only use if it's an .ico file
-                    if icon.extension().and_then(|e| e.to_str()) == Some("ico") {
-                        config.icon = Some(if icon.is_absolute() {
-                            icon.clone()
-                        } else {
-                            base_dir.join(icon)
-                        });
-                    }
-                }
+                win_config.console = windows.console;
+                win_config.file_version = windows.file_version.clone();
+                win_config.product_version = windows.product_version.clone();
+                win_config.file_description = windows.file_description.clone();
+                win_config.product_name = windows.product_name.clone();
+                win_config.company_name = windows.company_name.clone();
             }
 
             // Use copyright from bundle config
-            if config.copyright.is_none() {
-                config.copyright = manifest.bundle.copyright.clone();
-            }
+            win_config.copyright = manifest.bundle.copyright.clone();
 
-            config
-        };
+            // Process unified icon (auto-convert PNG/JPG to ICO, extract PNG from ICO)
+            let icon_path = manifest.bundle.icon.as_ref().map(|p| {
+                if p.is_absolute() {
+                    p.clone()
+                } else {
+                    base_dir.join(p)
+                }
+            });
 
-        // Load window icon PNG data if specified
-        let window_icon = {
-            // Try window_icon first, then fall back to generic icon (if PNG)
-            let icon_path = manifest
+            // Also check Windows-specific icon override
+            let windows_icon_path = manifest
                 .bundle
-                .window_icon
+                .windows
                 .as_ref()
-                .or(manifest.bundle.icon.as_ref())
-                .and_then(|p| {
-                    // Only use PNG files for window icon
-                    if p.extension().and_then(|e| e.to_str()) == Some("png") {
-                        Some(if p.is_absolute() {
-                            p.clone()
-                        } else {
-                            base_dir.join(p)
-                        })
+                .and_then(|w| w.icon.as_ref())
+                .map(|p| {
+                    if p.is_absolute() {
+                        p.clone()
                     } else {
-                        None
+                        base_dir.join(p)
                     }
                 });
 
-            if let Some(ref path) = icon_path {
-                match std::fs::read(path) {
-                    Ok(data) => {
+            // Use Windows-specific icon if provided, otherwise use unified icon
+            let effective_icon_path = windows_icon_path.or(icon_path);
+
+            let window_icon_data = if let Some(ref path) = effective_icon_path {
+                match crate::icon::load_icon(path) {
+                    Ok(icon_data) => {
                         tracing::info!(
-                            "Loaded window icon: {} ({} bytes)",
+                            "Loaded icon: {} (format: {:?})",
                             path.display(),
-                            data.len()
+                            icon_data.original_format
                         );
-                        Some(data)
+
+                        // Save converted ICO to temp file for Windows resource editor
+                        let temp_ico_path = std::env::temp_dir()
+                            .join(format!("auroraview-icon-{}.ico", std::process::id()));
+                        if let Err(e) = crate::icon::save_ico(&icon_data.ico_data, &temp_ico_path) {
+                            tracing::warn!("Failed to save temp ICO: {}", e);
+                        } else {
+                            win_config.icon = Some(temp_ico_path);
+                            tracing::info!(
+                                "Auto-generated multi-resolution ICO ({} bytes)",
+                                icon_data.ico_data.len()
+                            );
+                        }
+
+                        Some(icon_data.png_data)
                     }
                     Err(e) => {
-                        tracing::warn!("Failed to read window icon {}: {}", path.display(), e);
+                        tracing::warn!("Failed to load icon {}: {}", path.display(), e);
                         None
                     }
                 }
             } else {
                 None
-            }
+            };
+
+            (win_config, window_icon_data)
         };
 
         Ok(Self {

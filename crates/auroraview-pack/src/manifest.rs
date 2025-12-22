@@ -300,15 +300,17 @@ impl StartPosition {
 /// Bundle configuration for platform-specific packaging
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BundleConfig {
-    /// Default icon path (PNG format, will be converted)
+    /// Application icon path (PNG, JPG, or ICO format)
+    ///
+    /// This single icon is used for:
+    /// - Windows executable icon (auto-converted to multi-resolution ICO)
+    /// - Window title bar and taskbar icon (auto-converted to PNG)
+    /// - macOS/Linux application icon
+    ///
+    /// Supported formats: PNG, JPG, ICO
+    /// Recommended: PNG with 256x256 or larger for best quality
     #[serde(default)]
     pub icon: Option<PathBuf>,
-
-    /// Window icon path (PNG format, used for window title bar icon at runtime)
-    /// This is displayed in the window title bar and taskbar
-    /// If not specified, falls back to the default AuroraView icon
-    #[serde(default)]
-    pub window_icon: Option<PathBuf>,
 
     /// Application identifier (e.g., "com.example.myapp")
     #[serde(default)]
