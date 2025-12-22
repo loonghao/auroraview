@@ -548,7 +548,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -606,7 +606,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -643,7 +643,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -674,7 +674,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "aurora-protect",
  "base64 0.22.1",
@@ -702,7 +702,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -3218,9 +3218,9 @@ dependencies = [
 
 [[package]]
 name = "ico"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3804960be0bb5e4edb1e1ad67afd321a9ecfd875c3e65c099468fd2717d7cae"
+checksum = "3e795dff5605e0f04bff85ca41b51a96b83e80b281e96231bcaaf1ac35103371"
 dependencies = [
  "byteorder",
  "png 0.17.16",
