@@ -245,7 +245,7 @@ pub enum BackendType {
 
 impl BackendType {
     /// Parse from string
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "python" => BackendType::Python,
             "go" | "golang" => BackendType::Go,
@@ -400,7 +400,7 @@ impl BackendPythonConfig {
             include_paths: self.include_paths.iter().map(resolve_path).collect(),
             packages: self.packages.clone(),
             requirements: self.requirements.as_ref().map(resolve_path),
-            strategy: BundleStrategy::from_str(&self.strategy),
+            strategy: BundleStrategy::parse(&self.strategy),
             version: self.version.clone(),
             optimize: self.optimize,
             exclude: self.exclude.clone(),
