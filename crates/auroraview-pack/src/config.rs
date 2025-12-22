@@ -571,6 +571,11 @@ pub struct PackConfig {
     /// Icon path (for resource injection)
     #[serde(skip)]
     pub icon_path: Option<PathBuf>,
+    /// Window icon PNG data (embedded at pack time, used for window title bar icon)
+    /// This is separate from icon_path which is for Windows .exe resource icon (.ico)
+    #[serde(default)]
+    #[serde(with = "serde_bytes_base64")]
+    pub window_icon: Option<Vec<u8>>,
     /// Environment variables to inject at runtime
     #[serde(default)]
     pub env: HashMap<String, String>,
@@ -590,6 +595,36 @@ pub struct PackConfig {
     /// Windows-specific resource configuration
     #[serde(skip)]
     pub windows_resource: WindowsResourceConfig,
+}
+
+/// Serde helper module for serializing Option<Vec<u8>> as base64
+mod serde_bytes_base64 {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(data: &Option<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match data {
+            Some(bytes) => serializer.serialize_some(&STANDARD.encode(bytes)),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let opt: Option<String> = Option::deserialize(deserializer)?;
+        match opt {
+            Some(s) => STANDARD
+                .decode(&s)
+                .map(Some)
+                .map_err(serde::de::Error::custom),
+            None => Ok(None),
+        }
+    }
 }
 
 /// Windows executable resource configuration
@@ -647,6 +682,7 @@ impl PackConfig {
             inject_js: None,
             inject_css: None,
             icon_path: None,
+            window_icon: None,
             env: HashMap::new(),
             license: None,
             hooks: None,
@@ -676,6 +712,7 @@ impl PackConfig {
             inject_js: None,
             inject_css: None,
             icon_path: None,
+            window_icon: None,
             env: HashMap::new(),
             license: None,
             hooks: None,
@@ -711,6 +748,7 @@ impl PackConfig {
             inject_js: None,
             inject_css: None,
             icon_path: None,
+            window_icon: None,
             env: HashMap::new(),
             license: None,
             hooks: None,
@@ -746,6 +784,7 @@ impl PackConfig {
             inject_js: None,
             inject_css: None,
             icon_path: None,
+            window_icon: None,
             env: HashMap::new(),
             license: None,
             hooks: None,
