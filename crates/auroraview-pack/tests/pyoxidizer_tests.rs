@@ -1,6 +1,6 @@
 //! Tests for auroraview-pack pyoxidizer module
 
-use auroraview_pack::{DistributionFlavor, PyOxidizerBuilder, PyOxidizerConfig};
+use auroraview_pack::{DistributionFlavor, PyOxidizerBuilder, PyOxidizerBuilderConfig};
 
 #[test]
 fn test_distribution_flavor() {
@@ -14,7 +14,7 @@ fn test_distribution_flavor() {
 
 #[test]
 fn test_default_config() {
-    let config = PyOxidizerConfig::default();
+    let config = PyOxidizerBuilderConfig::default();
     assert_eq!(config.executable, "pyoxidizer");
     assert_eq!(config.python_version, "3.10");
     assert!(config.release);
@@ -23,7 +23,7 @@ fn test_default_config() {
 
 #[test]
 fn test_generate_config() {
-    let builder = PyOxidizerBuilder::new(PyOxidizerConfig::default(), "/tmp/test", "myapp")
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp/test", "myapp")
         .entry_point("myapp.main:run")
         .packages(vec!["requests".to_string(), "pyyaml".to_string()]);
 
@@ -36,7 +36,7 @@ fn test_generate_config() {
 
 #[test]
 fn test_get_run_module() {
-    let builder = PyOxidizerBuilder::new(PyOxidizerConfig::default(), "/tmp", "app")
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
         .entry_point("myapp.main:run_server");
 
     let config = builder.generate_config().unwrap();
@@ -46,7 +46,7 @@ fn test_get_run_module() {
 
 #[test]
 fn test_config_with_options() {
-    let config = PyOxidizerConfig {
+    let config = PyOxidizerBuilderConfig {
         python_version: "3.12".to_string(),
         optimize: 2,
         include_pip: true,
