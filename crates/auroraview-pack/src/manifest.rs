@@ -88,14 +88,14 @@ use std::path::{Path, PathBuf};
 use crate::common::{
     default_module_search_paths, default_optimize, default_python_version, BundleStrategy,
     CollectPattern, DebugConfig, HooksConfig, IsolationConfig, LicenseConfig, LinuxPlatformConfig,
-    MacOSPlatformConfig, ProcessConfig, ProtectionConfig, PyOxidizerConfig, RuntimeConfig,
-    WindowConfig, WindowStartPosition, WindowsPlatformConfig,
+    MacOSPlatformConfig, ProcessConfig, PyOxidizerConfig, RuntimeConfig, WindowConfig,
+    WindowStartPosition, WindowsPlatformConfig,
 };
 use crate::config::PythonBundleConfig;
 use crate::error::{PackError, PackResult};
 
 // Re-export common types for convenience
-pub use crate::common::{InjectConfig, WindowsResourceConfig};
+pub use crate::common::InjectConfig;
 
 // ============================================================================
 // Root Manifest Structure

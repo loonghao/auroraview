@@ -108,8 +108,9 @@ pub use bundle::{AssetBundle, BundleBuilder};
 pub use common::{
     BundleStrategy, CollectPattern, DebugConfig, HooksConfig, IsolationConfig, LicenseConfig,
     LinuxPlatformConfig, MacOSPlatformConfig, NotarizationConfig, PlatformConfig, ProcessConfig,
-    ProtectionConfig as CommonProtectionConfig, PyOxidizerConfig, RuntimeConfig, TargetPlatform,
-    WindowConfig, WindowStartPosition, WindowsPlatformConfig, WindowsResourceConfig,
+    ProtectionConfig as CommonProtectionConfig, PyOxidizerConfig as CommonPyOxidizerConfig,
+    RuntimeConfig, TargetPlatform, WindowConfig, WindowStartPosition, WindowsPlatformConfig,
+    WindowsResourceConfig,
 };
 
 // Re-export config types (runtime configuration)
@@ -144,7 +145,7 @@ pub use protection::{
 };
 pub use pyoxidizer::{
     check_pyoxidizer, installation_instructions, DistributionFlavor, ExternalBinary,
-    PyOxidizerBuilder, PyOxidizerConfig, ResourceFile,
+    PyOxidizerBuilder, PyOxidizerConfig as PyOxidizerBuilderConfig, ResourceFile,
 };
 pub use python_standalone::{
     extract_runtime, get_runtime_cache_dir, PythonRuntimeMeta, PythonStandalone,

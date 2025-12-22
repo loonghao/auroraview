@@ -3,10 +3,7 @@
 //! This module provides runtime configuration types for the packer.
 //! Common types are re-exported from the `common` module for consistency.
 
-use crate::common::{
-    default_module_search_paths, default_optimize, default_python_version, CollectPattern,
-    HooksConfig,
-};
+use crate::common::{default_module_search_paths, default_optimize, default_python_version, HooksConfig};
 use crate::protection::ProtectionConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -15,7 +12,7 @@ use std::path::PathBuf;
 // Re-export common types
 pub use crate::common::{
     BundleStrategy, DebugConfig, IsolationConfig, LicenseConfig, TargetPlatform, WindowConfig,
-    WindowsPlatformConfig, WindowsResourceConfig,
+    WindowsPlatformConfig,
 };
 
 // ============================================================================
