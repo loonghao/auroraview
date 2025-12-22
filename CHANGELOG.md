@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.21](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.20...auroraview-v0.3.21) (2025-12-22)
+
+
+### Features
+
+* **pack:** add custom window icon support for title bar and taskbar ([70b8e57](https://github.com/loonghao/auroraview/commit/70b8e572f6821d9c8770800ce19765b55a574ba6))
+* **pack:** add Windows resource editor for icon and subsystem modification - Add resource_editor.rs with rcedit integration for icon/version info - Implement native PE header modification for subsystem (GUI/Console) - Fix rcedit argument order and add file size validation - Move resource modifications before overlay write (rcedit compatibility) - Update packer flow: resources -&gt; subsystem -&gt; overlay - Add EventLoopProxy import fix in desktop.rs - Update gallery pack config with correct icon paths ([f136bfb](https://github.com/loonghao/auroraview/commit/f136bfbd7b8cf5e4ea7f70bf05ca3d080dcf60e9))
+* **pack:** unified icon config with auto format conversion ([e63f27f](https://github.com/loonghao/auroraview/commit/e63f27fdf1c8466e21166615c7ff1cf10aebee0e))
+
+
+### Bug Fixes
+
+* add missing description field in CollectPattern test ([a8137aa](https://github.com/loonghao/auroraview/commit/a8137aae080bdcafd29d6858515c7adcd3488fe3))
+* **ci:** fix npm and PyPI publish failures ([0dbf1db](https://github.com/loonghao/auroraview/commit/0dbf1db03aaed3a002e5a2688ca9200478b2ccc2))
+* is_fullstack() now checks for specific backend configs (python/go/rust/node) ([03be590](https://github.com/loonghao/auroraview/commit/03be590eb38def1d8808e57f7fd2e6792f6c7b9e))
+* **pack:** execute before_build commands and fix output_dir path resolution - Add before_build command execution in CLI pack command - Run before_build commands in manifest directory (base_dir) - Fix output_dir to be resolved relative to base_dir - This fixes the issue where dist directory was not created because before_build was not executed ([35c3201](https://github.com/loonghao/auroraview/commit/35c32014fef9c6711002d47855f3f93497a4301b))
+* **pack:** fix icon_path variable shadowing in PackConfig::from_manifest ([417f5db](https://github.com/loonghao/auroraview/commit/417f5dbc08eb05fe0550b4d68a73e6a11f79cf90))
+* resolve clippy warnings in auroraview-pack ([42bdb09](https://github.com/loonghao/auroraview/commit/42bdb09983dfcdd0432d23b9c6c89acb8377240e))
+* resolve dead links in zh/guide/getting-started.md ([d4d5e84](https://github.com/loonghao/auroraview/commit/d4d5e84ad12cd16ab5582baa65c80235e2142ece))
+* resolve Rust import conflicts and fix docs workflow path ([d9cc907](https://github.com/loonghao/auroraview/commit/d9cc907a245d55fd7ce90fe0840a541961fbb9a1))
+* update field names to match IsolationConfig and BuildConfig structs ([3bfee13](https://github.com/loonghao/auroraview/commit/3bfee138550ff7a04e5a7e258feeaacc439effba))
+* update generator_tests to use new Manifest structure ([0e0f9b0](https://github.com/loonghao/auroraview/commit/0e0f9b0296e82db87c73199e25f7ede4f944f618))
+* update test to expect Python 3.11 as default version ([2d83a79](https://github.com/loonghao/auroraview/commit/2d83a79244e980c826d65be212e5730c901f93ea))
+* use PyOxidizerBuilderConfig instead of PyOxidizerConfig in tests ([5be9148](https://github.com/loonghao/auroraview/commit/5be914843e72895aead2c20fe80b88fc024d3346))
+
+
+### Documentation
+
+* add pack example with custom icon and console hiding features ([7081466](https://github.com/loonghao/auroraview/commit/7081466a4e1d7fed57a69ac434e7bebded65557e))
+* migrate to VitePress documentation site and add pack examples ([ed75901](https://github.com/loonghao/auroraview/commit/ed75901b5c3dc5bf87286604442aa3e5100367c7))
+
 ## [0.3.20](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.19...auroraview-v0.3.20) (2025-12-21)
 
 
