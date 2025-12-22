@@ -87,7 +87,7 @@ fn test_python_bundle_config_default() {
     assert!(config.packages.is_empty());
     assert!(config.requirements.is_none());
     assert_eq!(config.strategy, BundleStrategy::Standalone);
-    assert_eq!(config.version, "3.10");
+    assert_eq!(config.version, "3.11");
     assert_eq!(config.optimize, 1);
     assert!(!config.include_pip);
     assert!(!config.include_setuptools);
