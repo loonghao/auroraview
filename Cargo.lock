@@ -548,7 +548,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -606,7 +606,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -643,7 +643,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -674,7 +674,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "aurora-protect",
  "base64 0.22.1",
@@ -702,7 +702,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.3.20"
+version = "0.3.22"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -5941,9 +5941,9 @@ checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
 
 [[package]]
 name = "reqwest"
-version = "0.12.26"
+version = "0.12.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b4c14b2d9afca6a60277086b0cc6a6ae0b568f6f7916c943a8cdc79f8be240f"
+checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
 dependencies = [
  "base64 0.22.1",
  "bytes",
