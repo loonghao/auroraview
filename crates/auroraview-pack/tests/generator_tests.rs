@@ -279,15 +279,18 @@ fn test_manifest_parse_minimal() {
     let toml = r#"
 [package]
 name = "test-app"
-
-[app]
 title = "Test App"
+
+[frontend]
 url = "https://example.com"
 "#;
     let manifest = Manifest::parse(toml).unwrap();
     assert_eq!(manifest.package.name, "test-app");
-    assert_eq!(manifest.app.title, "Test App");
-    assert_eq!(manifest.app.url, Some("https://example.com".to_string()));
+    assert_eq!(manifest.package.title, Some("Test App".to_string()));
+    assert_eq!(
+        manifest.frontend.as_ref().and_then(|f| f.url.clone()),
+        Some("https://example.com".to_string())
+    );
 }
 
 #[test]
@@ -298,17 +301,16 @@ fn test_manifest_parse_fullstack() {
 [package]
 name = "my-app"
 version = "1.0.0"
-
-[app]
 title = "My Application"
-frontend_path = "./dist"
+
+[frontend]
+path = "./dist"
 
 [window]
 width = 1280
 height = 720
 
-[python]
-enabled = true
+[backend.python]
 version = "3.11"
 entry_point = "main:run"
 packages = ["pyyaml", "requests"]
@@ -320,10 +322,10 @@ devtools = true
     let manifest = Manifest::parse(toml).unwrap();
     assert_eq!(manifest.package.name, "my-app");
     assert!(manifest.is_fullstack());
-    assert!(manifest.python.is_some());
+    assert!(manifest.backend.is_some());
 
-    let python = manifest.python.unwrap();
-    assert!(python.enabled);
+    let backend = manifest.backend.as_ref().unwrap();
+    let python = backend.python.as_ref().unwrap();
     assert_eq!(python.version, "3.11");
     assert_eq!(python.entry_point, Some("main:run".to_string()));
     assert_eq!(python.packages, vec!["pyyaml", "requests"]);
@@ -333,26 +335,24 @@ devtools = true
 fn test_manifest_validate() {
     use auroraview_pack::Manifest;
 
-    // Missing both url and frontend_path
+    // Missing both url and frontend path
     let toml = r#"
 [package]
 name = "test"
-
-[app]
 title = "Test"
 "#;
     let manifest = Manifest::parse(toml).unwrap();
     assert!(manifest.validate().is_err());
 
-    // Both url and frontend_path specified
+    // Both url and frontend path specified
     let toml = r#"
 [package]
 name = "test"
-
-[app]
 title = "Test"
+
+[frontend]
 url = "https://example.com"
-frontend_path = "./dist"
+path = "./dist"
 "#;
     let manifest = Manifest::parse(toml).unwrap();
     assert!(manifest.validate().is_err());
@@ -527,17 +527,16 @@ fn test_manifest_parse_fullstack_standalone() {
 [package]
 name = "my-fullstack-app"
 version = "1.0.0"
-
-[app]
 title = "FullStack Application"
-frontend_path = "./dist"
+
+[frontend]
+path = "./dist"
 
 [window]
 width = 1200
 height = 800
 
-[python]
-enabled = true
+[backend.python]
 version = "3.11"
 entry_point = "main:run_gallery"
 packages = ["pyyaml"]
@@ -549,10 +548,10 @@ enabled = true
     let manifest = Manifest::parse(toml).unwrap();
     assert_eq!(manifest.package.name, "my-fullstack-app");
     assert!(manifest.is_fullstack());
-    assert!(manifest.python.is_some());
+    assert!(manifest.backend.is_some());
 
-    let python = manifest.python.unwrap();
-    assert!(python.enabled);
+    let backend = manifest.backend.as_ref().unwrap();
+    let python = backend.python.as_ref().unwrap();
     assert_eq!(python.version, "3.11");
     assert_eq!(python.entry_point, Some("main:run_gallery".to_string()));
     assert_eq!(python.strategy, "standalone");
@@ -565,20 +564,20 @@ fn test_manifest_parse_fullstack_embedded() {
     let toml = r#"
 [package]
 name = "embedded-app"
-
-[app]
 title = "Embedded App"
-frontend_path = "./dist"
 
-[python]
-enabled = true
+[frontend]
+path = "./dist"
+
+[backend.python]
 entry_point = "app:main"
 strategy = "embedded"
 "#;
     let manifest = Manifest::parse(toml).unwrap();
     assert!(manifest.is_fullstack());
 
-    let python = manifest.python.unwrap();
+    let backend = manifest.backend.as_ref().unwrap();
+    let python = backend.python.as_ref().unwrap();
     assert_eq!(python.strategy, "embedded");
 }
 
