@@ -509,8 +509,8 @@ pub fn start_python_backend_with_ipc(
     // Log isolation config values for debugging
     tracing::info!(
         "[Rust] Isolation config from overlay: isolate_path={}, isolate_pythonpath={}",
-        python_config.isolation.isolate_path,
-        python_config.isolation.isolate_pythonpath
+        python_config.isolation.path,
+        python_config.isolation.pythonpath
     );
 
     // Store isolation context in environment for child processes (ProcessPlugin.spawn_ipc)
@@ -532,12 +532,12 @@ pub fn start_python_backend_with_ipc(
     // Log isolation settings
     tracing::info!(
         "[Rust] Environment isolation: PATH={}, PYTHONPATH={}",
-        if python_config.isolation.isolate_path {
+        if python_config.isolation.path {
             "isolated"
         } else {
             "inherited"
         },
-        if python_config.isolation.isolate_pythonpath {
+        if python_config.isolation.pythonpath {
             "isolated"
         } else {
             "inherited"

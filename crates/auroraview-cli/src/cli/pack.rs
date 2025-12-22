@@ -184,12 +184,12 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
         }
     };
 
-    // Run before_build commands if manifest has them
+    // Run before commands if manifest has them
     if let (Some(ref manifest), Some(ref base_dir)) = (&manifest_opt, &base_dir_opt) {
-        if !manifest.build.before_build.is_empty() {
-            let build_spinner = progress.spinner("Running before_build commands...");
-            for cmd in &manifest.build.before_build {
-                tracing::info!("Running before_build: {}", cmd);
+        if !manifest.build.before.is_empty() {
+            let build_spinner = progress.spinner("Running before build commands...");
+            for cmd in &manifest.build.before {
+                tracing::info!("Running before build: {}", cmd);
 
                 // Run command in the base_dir (manifest directory)
                 let status = std::process::Command::new(if cfg!(windows) { "cmd" } else { "sh" })
@@ -200,7 +200,7 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
                     })
                     .current_dir(base_dir)
                     .status()
-                    .with_context(|| format!("Failed to run before_build command: {}", cmd))?;
+                    .with_context(|| format!("Failed to run before build command: {}", cmd))?;
 
                 if !status.success() {
                     build_spinner.finish_error(&format!("before_build command failed: {}", cmd));

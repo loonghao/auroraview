@@ -183,7 +183,7 @@ pub fn build_isolated_path(isolation: &IsolationConfig, context: &IsolationConte
         }
     }
 
-    if isolation.isolate_path {
+    if isolation.path {
         // Add system essential paths
         for system_path in &isolation.system_path {
             if Path::new(system_path).exists() {
@@ -237,7 +237,7 @@ pub fn build_isolated_pythonpath(
         }
     }
 
-    if !isolation.isolate_pythonpath {
+    if !isolation.pythonpath {
         // Inherit host PYTHONPATH
         if let Ok(host_pythonpath) = std::env::var("PYTHONPATH") {
             if !host_pythonpath.is_empty() {
@@ -270,7 +270,7 @@ pub fn apply_isolation_to_command(
     let isolated_pythonpath = build_isolated_pythonpath(isolation, context);
 
     // Clear environment if full isolation is needed
-    if isolation.isolate_path || isolation.isolate_pythonpath {
+    if isolation.path || isolation.pythonpath {
         // Start with a minimal environment
         // We need to selectively inherit only what's specified
         let inherited_vars: HashMap<String, String> = isolation
@@ -322,12 +322,8 @@ pub fn store_isolation_context_in_env(context: &IsolationContext, isolation: &Is
     std::env::set_var("AURORAVIEW_RESOURCES_DIR", &context.resources_dir);
 
     // Store isolation flags
-    let isolate_path_flag = if isolation.isolate_path { "1" } else { "0" };
-    let isolate_pythonpath_flag = if isolation.isolate_pythonpath {
-        "1"
-    } else {
-        "0"
-    };
+    let isolate_path_flag = if isolation.path { "1" } else { "0" };
+    let isolate_pythonpath_flag = if isolation.pythonpath { "1" } else { "0" };
 
     std::env::set_var("AURORAVIEW_ISOLATE_PATH", isolate_path_flag);
     std::env::set_var("AURORAVIEW_ISOLATE_PYTHONPATH", isolate_pythonpath_flag);
