@@ -192,19 +192,15 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
                 tracing::info!("Running before_build: {}", cmd);
 
                 // Run command in the base_dir (manifest directory)
-                let status = std::process::Command::new(if cfg!(windows) {
-                    "cmd"
-                } else {
-                    "sh"
-                })
-                .args(if cfg!(windows) {
-                    vec!["/C", cmd]
-                } else {
-                    vec!["-c", cmd]
-                })
-                .current_dir(base_dir)
-                .status()
-                .with_context(|| format!("Failed to run before_build command: {}", cmd))?;
+                let status = std::process::Command::new(if cfg!(windows) { "cmd" } else { "sh" })
+                    .args(if cfg!(windows) {
+                        vec!["/C", cmd]
+                    } else {
+                        vec!["-c", cmd]
+                    })
+                    .current_dir(base_dir)
+                    .status()
+                    .with_context(|| format!("Failed to run before_build command: {}", cmd))?;
 
                 if !status.success() {
                     build_spinner.finish_error(&format!("before_build command failed: {}", cmd));
