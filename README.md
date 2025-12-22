@@ -1447,22 +1447,47 @@ auroraview-cli pack --config auroraview.pack.toml
 **Configuration file example (`auroraview.pack.toml`):**
 
 ```toml
-[window]
+[package]
+name = "my-app"
+version = "1.0.0"
+
+[app]
 title = "My Application"
+frontend_path = "./dist"
+
+[window]
 width = 1200
 height = 800
 resizable = true
 
-[mode]
-type = "fullstack"
+# Windows-specific configuration
+[bundle.windows]
+# Custom icon for Windows executable (.ico format required)
+icon = "./assets/my-app-icon.ico"
+# Hide console window (no black command prompt window)
+# console = false (default) -> GUI application, no console
+# console = true -> Console application, shows black window
+console = false
 
-[mode.frontend]
-path = "./frontend/dist"
-
-[mode.python]
+[python]
 entry_point = "main:main"
-source = "./backend"
+include_paths = ["./backend"]
 strategy = "standalone"  # Embeds Python runtime for offline use
+```
+
+> **Note**: The custom icon and console hiding features were contributed by community feedback. See [examples/pack-example.toml](./examples/pack-example.toml) for a complete configuration example.
+
+**CLI Options for Icon and Console:**
+
+```bash
+# Specify custom icon via CLI
+auroraview pack --config app.toml --icon ./my-icon.ico --build
+
+# Force show console (for debugging)
+auroraview pack --config app.toml --console --build
+
+# Force hide console (override manifest)
+auroraview pack --config app.toml --no-console --build
 ```
 
 **Bundle Strategies:**
