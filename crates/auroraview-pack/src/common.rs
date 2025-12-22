@@ -987,10 +987,7 @@ mod tests {
             BundleStrategy::parse("PYOXIDIZER"),
             BundleStrategy::PyOxidizer
         );
-        assert_eq!(
-            BundleStrategy::parse("unknown"),
-            BundleStrategy::Standalone
-        );
+        assert_eq!(BundleStrategy::parse("unknown"), BundleStrategy::Standalone);
 
         assert!(BundleStrategy::Standalone.bundles_runtime());
         assert!(!BundleStrategy::System.bundles_runtime());
