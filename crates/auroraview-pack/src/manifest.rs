@@ -1315,7 +1315,13 @@ impl Manifest {
     /// Check if this is a fullstack (backend + frontend) configuration
     pub fn is_fullstack(&self) -> bool {
         if let Some(ref backend) = self.backend {
-            if backend.backend_type != BackendType::None {
+            // Check if any backend is configured (either by type or by specific config)
+            let has_backend = backend.backend_type != BackendType::None
+                || backend.python.is_some()
+                || backend.go.is_some()
+                || backend.rust.is_some()
+                || backend.node.is_some();
+            if has_backend {
                 return self.get_frontend_path().is_some();
             }
         }
