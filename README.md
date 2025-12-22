@@ -1468,7 +1468,9 @@ resizable = true
 icon = "./assets/my-app-icon.png"
 
 # Windows-specific configuration
-[bundle.windows]
+# Note: Use [bundle.platform.windows] NOT [bundle.windows]!
+# This clearly separates [window] (runtime behavior) from platform bundling
+[bundle.platform.windows]
 # Hide console window (no black command prompt window)
 # console = false (default) -> GUI application, no console
 # console = true -> Console application, shows black window

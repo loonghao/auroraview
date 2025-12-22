@@ -1,27 +1,103 @@
 # AuroraView Gallery - Pack Configuration
-# This manifest defines how to package the Gallery application
+# ============================================================================
 #
-# Bundle Strategy Options:
-# - "standalone": Bundle python-build-standalone runtime (default, fully offline)
-# - "pyoxidizer": Use PyOxidizer to embed Python runtime
-# - "embedded": Embed Python code as overlay (requires system Python to run)
-# - "portable": Create portable directory with Python runtime
-# - "system": Use system Python (smallest output, requires Python installed)
+# Configuration Hierarchy:
+#   [package]              - Package metadata & identity
+#   [frontend]             - Frontend configuration (path or url)
+#   [backend]              - Backend abstraction layer (optional)
+#   [backend.python]       - Python-specific settings
+#   [backend.go]           - Go-specific settings
+#   [backend.rust]         - Rust-specific settings
+#   [backend.node]         - Node.js-specific settings
+#   [backend.process]      - Common process settings
+#   [window]               - Runtime window behavior
+#   [bundle]               - General bundling settings
+#   [bundle.windows]       - Windows-specific
+#   [bundle.macos]         - macOS-specific
+#   [bundle.linux]         - Linux-specific
+#   [build]                - Build hooks
+#   [hooks]                - File collection
+#   [runtime]              - Runtime environment
+#   [debug]                - Debug settings
+#   [license]              - License validation
+#   [inject]               - JS/CSS injection
+#
+# Backend Types:
+#   - "python": Python backend (standalone, pyoxidizer, embedded, portable, system)
+#   - "go": Go backend (compiled binary)
+#   - "rust": Rust backend (compiled binary)
+#   - "node": Node.js backend (pkg, nexe, sea, portable)
+#   - "none": Frontend-only mode (default if [backend] omitted)
 
+# ============================================================================
+# Package Metadata & Identity
+# ============================================================================
 [package]
 name = "auroraview-gallery"
 version = "0.1.0"
+title = "AuroraView Gallery"
+identifier = "com.auroraview.gallery"
 description = "Interactive showcase of all AuroraView features and components"
 authors = ["AuroraView Team"]
 license = "MIT"
 homepage = "https://github.com/AuroraView/auroraview"
 repository = "https://github.com/AuroraView/auroraview"
-
-[app]
-title = "AuroraView Gallery"
-frontend_path = "./dist"
 allow_new_window = true
 
+# ============================================================================
+# Frontend Configuration
+# ============================================================================
+[frontend]
+path = "./dist"
+# url = "https://example.com"                   # OR remote URL (mutually exclusive)
+
+# ============================================================================
+# Backend Configuration (Multi-language abstraction)
+# ============================================================================
+[backend]
+type = "python"                                 # "python" | "go" | "rust" | "node" | "none"
+
+# Python-specific configuration
+[backend.python]
+version = "3.11"
+entry_point = "main:run_gallery"
+packages = ["pyyaml"]
+include_paths = [".", "../python"]
+exclude = ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"]
+optimize = 1
+strategy = "standalone"                         # "standalone" | "pyoxidizer" | "embedded" | "portable" | "system"
+
+# Python environment isolation
+[backend.python.isolation]
+pythonpath = true
+path = true
+extra_path = []
+extra_pythonpath = []
+
+# Python code protection
+[backend.python.protection]
+enabled = true
+optimization = 2
+keep_temp = false
+
+# Common process settings (applies to all backend types)
+[backend.process]
+console = false
+args = []
+env = { GALLERY_MODE = "production" }
+restart_on_crash = false
+max_restarts = 3
+
+# Health check (optional)
+# [backend.process.health_check]
+# url = "http://localhost:8080/health"
+# timeout = 30
+# interval = 5
+# retries = 3
+
+# ============================================================================
+# Window Configuration (runtime behavior)
+# ============================================================================
 [window]
 width = 1200
 height = 800
@@ -33,147 +109,46 @@ transparent = false
 always_on_top = false
 start_position = "center"
 
+# ============================================================================
+# Bundle Configuration
+# ============================================================================
 [bundle]
 icon = "../assets/icons/auroraview-256.png"
-identifier = "com.auroraview.gallery"
 copyright = "Copyright 2025 AuroraView Team"
 category = "Developer Tools"
 short_description = "AuroraView Feature Gallery"
 resources = ["../examples"]
 
+# Windows-specific
 [bundle.windows]
 icon = "../assets/icons/auroraview.ico"
-# Hide console window for GUI application (default: false)
-# Set to true if you need to see console output for debugging
 console = false
-# Optional: Windows version information
-# file_version = "1.0.0.0"
-# product_version = "1.0.0"
-# file_description = "AuroraView Gallery"
-# product_name = "AuroraView Gallery"
-# company_name = "AuroraView Team"
 
-# FullStack mode: Frontend + Python backend
-# This bundles the Gallery's Python backend (main.py) with all dependencies
-[python]
-enabled = true
-version = "3.11"
-entry_point = "main:run_gallery"
-packages = ["pyyaml"]  # Add any Python dependencies here
-# NOTE: When including "../python" (auroraview source code), the packer will
-# automatically merge the compiled _core.pyd/_core.so extension from the
-# installed auroraview wheel. This allows local development with source code
-# while ensuring the compiled Rust extension is included in the final package.
-include_paths = [".", "../python"]  # Include gallery directory and auroraview source
-exclude = ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"]
-optimize = 1
+# [bundle.macos]
+# icon = "../assets/icons/auroraview.icns"
 
-# Bundle strategy (default: "standalone" for fully offline distribution)
-# - "standalone": Single-file with embedded Python runtime (~50-80MB)
-#   Downloads python-build-standalone, embeds in overlay, extracts on first run
-# - "embedded": Overlay mode, requires system Python (~15MB)
-# - "portable": Directory with bundled Python runtime
-# - "system": Uses system Python, smallest output
-strategy = "standalone"
+# [bundle.linux]
+# icon = "../assets/icons/auroraview-256.png"
+# categories = ["Development", "Utility"]
 
-# Module search paths for Python imports at runtime
-# Special variables: $EXTRACT_DIR, $RESOURCES_DIR, $SITE_PACKAGES
-# These paths are added to PYTHONPATH when spawning Python processes
-module_search_paths = ["$EXTRACT_DIR", "$SITE_PACKAGES"]
-
-# Enable filesystem importer for dynamic imports
-filesystem_importer = true
-
-# Hide console window for Python process (Windows only)
-# Set to true for debugging purposes
-show_console = false
-
-# Include pip/setuptools in the bundle (for runtime package installation)
-include_pip = false
-include_setuptools = false
-
-# External binaries to bundle (e.g., ffmpeg, imagemagick)
-# These will be included in the final executable
-external_bin = []
-
-# Additional resource directories to bundle
-resources = []
-
-# PyOxidizer-specific configuration (only used when strategy = "pyoxidizer")
-[python.pyoxidizer]
-# Path to PyOxidizer executable (optional, uses PATH by default)
-# executable = "/path/to/pyoxidizer"
-
-# Target triple for cross-compilation (optional)
-# target = "x86_64-pc-windows-msvc"
-
-# Distribution flavor: "standalone" (default), "standalone_dynamic", or "system"
-flavor = "standalone"
-
-# Build in release mode
-release = true
-
-# Enable filesystem importer fallback (for dynamic imports)
-filesystem_importer = false
-
-[python.env]
-# Environment variables for Python runtime
-GALLERY_MODE = "production"
-
-# Environment isolation configuration (rez-style)
-# Controls how the packed application isolates its environment from the host system
-[python.isolation]
-# Isolate PYTHONPATH (default: true)
-# When true: Only bundled paths are used, host PYTHONPATH is NOT inherited
-# When false: Host PYTHONPATH is inherited and bundled paths are prepended
-isolate_pythonpath = true
-
-# Isolate PATH (default: true)
-# When true: Only system essential paths + bundled binaries are used
-# When false: Host PATH is inherited
-isolate_path = true
-
-# Additional paths to include in PATH (always included regardless of isolation)
-# Special variables: $EXTRACT_DIR, $RESOURCES_DIR, $PYTHON_HOME
-extra_path = []
-
-# Additional paths to include in PYTHONPATH
-extra_pythonpath = []
-
-# System essential PATH entries (only used when isolate_path = true)
-# Default Windows: ["C:\\Windows\\System32", "C:\\Windows", "C:\\Windows\\System32\\Wbem"]
-# Default Unix: ["/usr/local/bin", "/usr/bin", "/bin"]
-# system_path = ["C:\\Windows\\System32", "C:\\Windows"]
-
-# Environment variables to explicitly inherit from host (even when isolated)
-# Default includes: SYSTEMROOT, TEMP, TMP, USERPROFILE, HOME, USER, DISPLAY, etc.
-# inherit_env = ["SYSTEMROOT", "TEMP", "TMP", "USERPROFILE"]
-
-# Environment variables to explicitly clear/remove
-# clear_env = ["PYTHONSTARTUP", "VIRTUAL_ENV"]
-
+# ============================================================================
+# Build Configuration
+# ============================================================================
 [build]
-before_build = ["npm run build"]
-after_build = []
+before = ["npm run build"]
+after = []
 resources = ["./public"]
 exclude = ["*.map", "*.ts", "node_modules"]
 out_dir = "./pack-output"
 release = true
 
-# Runtime environment configuration
-[runtime]
-# Environment variables injected at application startup
-[runtime.env]
-AURORAVIEW_APP = "gallery"
-LOG_LEVEL = "info"
-
-# Hooks for collecting additional files
+# ============================================================================
+# Hooks Configuration (file collection)
+# ============================================================================
 [hooks]
 before_collect = []
 after_pack = []
 
-# Collect example files for the gallery
-# These will be extracted to AURORAVIEW_EXAMPLES_DIR at runtime
 [[hooks.collect]]
 source = "../examples/*.py"
 dest = "resources/examples"
@@ -186,24 +161,38 @@ dest = "resources/examples"
 preserve_structure = false
 description = "HTML example files"
 
-# License/authorization configuration (optional)
-# Uncomment to enable license validation
+# ============================================================================
+# Runtime Environment
+# ============================================================================
+[runtime]
+[runtime.env]
+AURORAVIEW_APP = "gallery"
+LOG_LEVEL = "info"
+
+# ============================================================================
+# Debug Configuration
+# ============================================================================
+[debug]
+enabled = true
+devtools = true
+verbose = false
+remote_debugging_port = 9222
+
+# ============================================================================
+# License Configuration (optional)
+# ============================================================================
 # [license]
 # enabled = true
 # expires_at = "2025-12-31"
 # require_token = false
 # grace_period_days = 7
-# expiration_message = "Your AuroraView Gallery license has expired. Please renew."
+# expiration_message = "Your AuroraView Gallery license has expired."
 
+# ============================================================================
+# Inject Configuration (optional)
+# ============================================================================
 [inject]
-# Optional: inject custom JS/CSS
 # js = "./inject.js"
 # css = "./inject.css"
-
-[debug]
-enabled = true
-devtools = true
-verbose = false
-# Remote debugging port for CDP (Chrome DevTools Protocol) connections
-# When set, Playwright/Puppeteer can connect via: browser.connect_over_cdp("http://localhost:9222")
-remote_debugging_port = 9222
+# js_code = "console.log('AuroraView Gallery loaded');"
+# css_code = "body { font-family: system-ui; }"

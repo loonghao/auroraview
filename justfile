@@ -711,3 +711,38 @@ pack-clean:
 # Full pack workflow: test, lint, then pack gallery
 pack-all: test-pack lint-pack gallery-pack
     @echo "[OK] Full pack workflow completed!"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Documentation Commands (VitePress)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Install documentation dependencies
+docs-install:
+    @echo "Installing documentation dependencies..."
+    cd website; npm install
+    @echo "[OK] Documentation dependencies installed!"
+
+# Start documentation dev server
+docs-dev: docs-install
+    @echo "Starting documentation dev server..."
+    cd website; npx vitepress dev
+
+# Alias for docs-dev
+docs-serve: docs-dev
+
+# Build documentation
+docs-build: docs-install
+    @echo "Building documentation..."
+    cd website; npx vitepress build
+    @echo "[OK] Documentation built in website/.vitepress/dist/"
+
+# Preview built documentation
+docs-preview: docs-build
+    @echo "Previewing documentation..."
+    cd website; npx vitepress preview
+
+# Clean documentation build artifacts
+docs-clean:
+    @echo "Cleaning documentation build artifacts..."
+    rm -rf website/.vitepress/dist website/.vitepress/cache website/node_modules
+    @echo "[OK] Documentation artifacts cleaned!"

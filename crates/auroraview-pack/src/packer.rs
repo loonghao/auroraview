@@ -1,13 +1,12 @@
 //! Main packer implementation
 
 use crate::bundle::BundleBuilder;
-use crate::config::{BundleStrategy, PythonBundleConfig};
+use crate::config::BundleStrategy;
 use crate::deps_collector::DepsCollector;
 use crate::overlay::{OverlayData, OverlayWriter};
-use crate::protection::ProtectionConfig;
 use crate::python_standalone::{PythonRuntimeMeta, PythonStandalone, PythonStandaloneConfig};
 use crate::resource_editor::{ResourceConfig, ResourceEditor};
-use crate::{Manifest, PackConfig, PackError, PackMode, PackResult};
+use crate::{Manifest, PackConfig, PackError, PackMode, PackResult, PythonBundleConfig};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -1218,7 +1217,7 @@ elif spec and spec.origin:
 
         let mut count = 0;
 
-        for pattern in &hooks.collect_files {
+        for pattern in &hooks.collect {
             // Expand glob pattern
             let entries = glob::glob(&pattern.source).map_err(|e| {
                 PackError::Config(format!("Invalid glob pattern '{}': {}", pattern.source, e))
@@ -1377,131 +1376,30 @@ fn calculate_dir_size(path: &Path) -> PackResult<u64> {
 
 impl PackConfig {
     /// Create PackConfig from a Manifest
+    ///
+    /// This method uses the unified configuration types from `common.rs` and
+    /// leverages the conversion methods defined in `manifest.rs` for cleaner code.
     pub fn from_manifest(manifest: &Manifest, base_dir: &Path) -> PackResult<Self> {
-        // Check if this is a fullstack configuration
-        let is_fullstack = manifest.is_fullstack();
-
-        let mode = if let Some(ref url) = manifest.app.url {
-            PackMode::Url { url: url.clone() }
-        } else if let Some(ref frontend_path) = manifest.app.frontend_path {
-            // Resolve path relative to manifest location
-            let resolved = if frontend_path.is_absolute() {
-                frontend_path.clone()
+        // Helper to resolve paths relative to base_dir
+        let resolve_path = |p: &PathBuf| -> PathBuf {
+            if p.is_absolute() {
+                p.clone()
             } else {
-                base_dir.join(frontend_path)
-            };
+                base_dir.join(p)
+            }
+        };
 
-            if is_fullstack {
-                // FullStack mode: frontend + Python
-                let python_config = manifest.python.as_ref().ok_or_else(|| {
+        // Determine pack mode
+        let mode = if let Some(ref url) = manifest.get_frontend_url() {
+            PackMode::Url { url: url.clone() }
+        } else if let Some(ref frontend_path) = manifest.get_frontend_path() {
+            let resolved = resolve_path(frontend_path);
+
+            if manifest.is_fullstack() {
+                // FullStack mode: get Python config from backend.python
+                let python = manifest.get_python_bundle_config(base_dir).ok_or_else(|| {
                     PackError::Config("Python config required for fullstack mode".to_string())
                 })?;
-
-                // Parse strategy from string
-                let strategy = match python_config.strategy.as_str() {
-                    "standalone" => BundleStrategy::Standalone,
-                    "pyoxidizer" => BundleStrategy::PyOxidizer,
-                    "embedded" => BundleStrategy::Embedded,
-                    "portable" => BundleStrategy::Portable,
-                    "system" => BundleStrategy::System,
-                    _ => BundleStrategy::Standalone, // Default to Standalone
-                };
-
-                let python = PythonBundleConfig {
-                    entry_point: python_config
-                        .entry_point
-                        .clone()
-                        .unwrap_or_else(|| "main:run".to_string()),
-                    include_paths: python_config
-                        .include_paths
-                        .iter()
-                        .map(|p| {
-                            if p.is_absolute() {
-                                p.clone()
-                            } else {
-                                base_dir.join(p)
-                            }
-                        })
-                        .collect(),
-                    packages: python_config.packages.clone(),
-                    requirements: python_config.requirements.as_ref().map(|p| {
-                        if p.is_absolute() {
-                            p.clone()
-                        } else {
-                            base_dir.join(p)
-                        }
-                    }),
-                    strategy,
-                    version: python_config.version.clone(),
-                    optimize: python_config.optimize,
-                    exclude: python_config.exclude.clone(),
-                    external_bin: python_config
-                        .external_bin
-                        .iter()
-                        .map(|p| {
-                            if p.is_absolute() {
-                                p.clone()
-                            } else {
-                                base_dir.join(p)
-                            }
-                        })
-                        .collect(),
-                    resources: python_config
-                        .resources
-                        .iter()
-                        .map(|p| {
-                            if p.is_absolute() {
-                                p.clone()
-                            } else {
-                                base_dir.join(p)
-                            }
-                        })
-                        .collect(),
-                    include_pip: python_config.include_pip,
-                    include_setuptools: python_config.include_setuptools,
-                    distribution_flavor: python_config
-                        .pyoxidizer
-                        .as_ref()
-                        .and_then(|p| p.flavor.clone()),
-                    pyoxidizer_path: python_config
-                        .pyoxidizer
-                        .as_ref()
-                        .and_then(|p| p.executable.clone()),
-                    module_search_paths: python_config.module_search_paths.clone(),
-                    filesystem_importer: python_config.filesystem_importer,
-                    show_console: python_config.show_console,
-                    isolation: python_config
-                        .isolation
-                        .as_ref()
-                        .map(|iso| crate::config::IsolationConfig {
-                            isolate_pythonpath: iso.isolate_pythonpath,
-                            isolate_path: iso.isolate_path,
-                            extra_path: iso.extra_path.clone(),
-                            extra_pythonpath: iso.extra_pythonpath.clone(),
-                            system_path: iso.system_path.clone().unwrap_or_else(
-                                crate::config::IsolationConfig::default_system_path,
-                            ),
-                            inherit_env: iso.inherit_env.clone().unwrap_or_else(
-                                crate::config::IsolationConfig::default_inherit_env,
-                            ),
-                            clear_env: iso.clear_env.clone(),
-                        })
-                        .unwrap_or_default(),
-                    protection: python_config
-                        .protection
-                        .as_ref()
-                        .map(|prot| ProtectionConfig {
-                            enabled: prot.enabled,
-                            python_path: prot.python_path.clone(),
-                            python_version: prot.python_version.clone(),
-                            optimization: prot.optimization,
-                            keep_temp: prot.keep_temp,
-                            exclude: prot.exclude.clone(),
-                            target_dcc: prot.target_dcc.clone(),
-                            packages: prot.packages.clone(),
-                        })
-                        .unwrap_or_default(),
-                };
 
                 PackMode::FullStack {
                     frontend_path: resolved,
@@ -1512,115 +1410,49 @@ impl PackConfig {
             }
         } else {
             return Err(PackError::Config(
-                "Either 'url' or 'frontend_path' must be specified".to_string(),
+                "Either 'url' or 'path' must be specified in [frontend]".to_string(),
             ));
         };
 
-        let window = crate::WindowConfig {
-            title: manifest.app.title.clone(),
-            width: manifest.window.width,
-            height: manifest.window.height,
-            min_width: manifest.window.min_width,
-            min_height: manifest.window.min_height,
-            start_position: match &manifest.window.start_position {
-                crate::StartPosition::Named(s) if s == "center" => {
-                    crate::WindowStartPosition::Center
-                }
-                crate::StartPosition::Named(_) => crate::WindowStartPosition::Center,
-                crate::StartPosition::Position { x, y } => {
-                    crate::WindowStartPosition::Position { x: *x, y: *y }
-                }
-            },
-            resizable: manifest.window.resizable,
-            frameless: manifest.window.frameless,
-            transparent: manifest.window.transparent,
-            always_on_top: manifest.window.always_on_top,
-        };
+        // Use the unified window config conversion
+        let window = manifest.get_window_config();
 
-        // Build environment variables from runtime config
+        // Build environment variables from runtime config and backend.python env
         let mut env = std::collections::HashMap::new();
         if let Some(ref runtime) = manifest.runtime {
             env.extend(runtime.env.clone());
         }
-        // Also include Python env if present
-        if let Some(ref python) = manifest.python {
-            env.extend(python.env.clone());
+        if let Some(ref backend) = manifest.backend {
+            if let Some(ref python) = backend.python {
+                env.extend(python.env.clone());
+            }
+            if let Some(ref process) = backend.process {
+                env.extend(process.env.clone());
+            }
         }
 
-        // Build license config
-        let license = manifest.license.as_ref().map(|l| crate::LicenseConfig {
-            enabled: l.enabled,
-            expires_at: l.expires_at.clone(),
-            require_token: l.require_token,
-            embedded_token: l.embedded_token.clone(),
-            validation_url: l.validation_url.clone(),
-            allowed_machines: l.allowed_machines.clone(),
-            grace_period_days: l.grace_period_days,
-            expiration_message: l.expiration_message.clone(),
-        });
+        // License config is already using the common type
+        let license = manifest.license.clone();
 
-        // Build hooks config from manifest
-        let hooks = manifest.hooks.as_ref().map(|h| crate::HooksConfig {
-            before_collect: h.before_collect.clone(),
-            collect_files: h
-                .collect
-                .iter()
-                .map(|c| crate::CollectPattern {
-                    source: if std::path::Path::new(&c.source).is_absolute() {
-                        c.source.clone()
-                    } else {
-                        base_dir.join(&c.source).to_string_lossy().to_string()
-                    },
-                    dest: c.dest.clone(),
-                    preserve_structure: c.preserve_structure,
-                })
-                .collect(),
-            after_pack: h.after_pack.clone(),
-        });
+        // Use the conversion method from HooksManifestConfig
+        let hooks = manifest.hooks.as_ref().map(|h| h.to_hooks_config(base_dir));
 
-        // Process icon using unified icon conversion
-        // This handles PNG/JPG/ICO and auto-converts to both formats
+        // Process icon and Windows resource config
         let (windows_resource, window_icon, icon_path) = {
-            let mut win_config = crate::WindowsResourceConfig::default();
+            // Start with Windows resource config from manifest
+            let mut win_config = manifest.get_windows_resource_config();
 
-            // Get Windows-specific settings (console, version info, etc.)
-            if let Some(ref windows) = manifest.bundle.windows {
-                win_config.console = windows.console;
-                win_config.file_version = windows.file_version.clone();
-                win_config.product_version = windows.product_version.clone();
-                win_config.file_description = windows.file_description.clone();
-                win_config.product_name = windows.product_name.clone();
-                win_config.company_name = windows.company_name.clone();
-            }
-
-            // Use copyright from bundle config
-            win_config.copyright = manifest.bundle.copyright.clone();
-
-            // Process unified icon (auto-convert PNG/JPG to ICO, extract PNG from ICO)
-            let bundle_icon_path = manifest.bundle.icon.as_ref().map(|p| {
-                if p.is_absolute() {
-                    p.clone()
-                } else {
-                    base_dir.join(p)
-                }
-            });
-
-            // Also check Windows-specific icon override
+            // Resolve icon paths
+            let bundle_icon_path = manifest.bundle.icon.as_ref().map(&resolve_path);
             let windows_icon_path = manifest
                 .bundle
                 .windows
                 .as_ref()
                 .and_then(|w| w.icon.as_ref())
-                .map(|p| {
-                    if p.is_absolute() {
-                        p.clone()
-                    } else {
-                        base_dir.join(p)
-                    }
-                });
+                .map(&resolve_path);
 
             // Use Windows-specific icon if provided, otherwise use unified icon
-            let effective_icon_path = windows_icon_path.or(bundle_icon_path.clone());
+            let effective_icon_path = windows_icon_path.or(bundle_icon_path);
 
             let window_icon_data = if let Some(ref path) = effective_icon_path {
                 match crate::icon::load_icon(path) {
@@ -1658,27 +1490,23 @@ impl PackConfig {
             (win_config, window_icon_data, effective_icon_path)
         };
 
+        // Resolve output directory
+        let output_dir = manifest
+            .build
+            .out_dir
+            .as_ref()
+            .map(&resolve_path)
+            .unwrap_or_else(|| base_dir.to_path_buf());
+
         Ok(Self {
             mode,
             output_name: manifest.package.name.clone(),
-            output_dir: {
-                let out_dir = manifest
-                    .build
-                    .out_dir
-                    .clone()
-                    .unwrap_or_else(|| PathBuf::from("."));
-                // Resolve output_dir relative to base_dir if it's not absolute
-                if out_dir.is_absolute() {
-                    out_dir
-                } else {
-                    base_dir.join(out_dir)
-                }
-            },
+            output_dir,
             window,
             target_platform: crate::TargetPlatform::Current,
             debug: manifest.debug.enabled,
-            allow_new_window: manifest.app.allow_new_window,
-            user_agent: manifest.app.user_agent.clone(),
+            allow_new_window: manifest.get_allow_new_window(),
+            user_agent: manifest.get_user_agent(),
             inject_js: manifest.inject.as_ref().and_then(|i| i.js_code.clone()),
             inject_css: manifest.inject.as_ref().and_then(|i| i.css_code.clone()),
             icon_path,

@@ -1,0 +1,124 @@
+# AuroraView Pack - Node.js Backend Example
+# ============================================================================
+#
+# This example demonstrates a fullstack application with:
+# - React/Vue frontend (built to ./dist)
+# - Node.js backend (Express/Fastify server)
+#
+# Bundle Strategy Options:
+#   - "pkg": Use pkg to create single executable
+#   - "nexe": Use nexe to create single executable
+#   - "sea": Use Node.js Single Executable Application (Node 20+)
+#   - "portable": Bundle Node.js runtime with source (default)
+
+# ============================================================================
+# Package Metadata
+# ============================================================================
+[package]
+name = "node-fullstack-app"
+version = "1.0.0"
+title = "Node.js Fullstack App"
+identifier = "com.example.node-app"
+description = "A fullstack application with Node.js backend"
+authors = ["Your Name <your@email.com>"]
+
+# ============================================================================
+# Frontend Configuration
+# ============================================================================
+[frontend]
+path = "./dist"
+
+# ============================================================================
+# Backend Configuration
+# ============================================================================
+[backend]
+type = "node"
+
+[backend.node]
+version = "20"
+entry_point = "./server/index.js"
+package_manager = "npm"
+bundle_strategy = "portable"
+packages = ["express", "cors"]
+package_json = "./server/package.json"
+
+# Common process settings
+[backend.process]
+console = false
+args = ["--port", "8080"]
+env = { NODE_ENV = "production" }
+working_dir = "$APP_DIR/server"
+restart_on_crash = true
+max_restarts = 3
+
+# Health check
+[backend.process.health_check]
+url = "http://localhost:8080/health"
+timeout = 15
+interval = 5
+retries = 3
+
+# ============================================================================
+# Window Configuration
+# ============================================================================
+[window]
+width = 1280
+height = 720
+min_width = 800
+min_height = 600
+resizable = true
+start_position = "center"
+
+# ============================================================================
+# Bundle Configuration
+# ============================================================================
+[bundle]
+icon = "./assets/icon.png"
+copyright = "Copyright 2025"
+resources = ["./config"]
+
+[bundle.windows]
+icon = "./assets/icon.ico"
+console = false
+
+[bundle.linux]
+categories = ["Development", "Utility"]
+
+# ============================================================================
+# Build Configuration
+# ============================================================================
+[build]
+before = [
+    "npm run build",
+    "cd server && npm install --production"
+]
+out_dir = "./pack-output"
+release = true
+
+# ============================================================================
+# Hooks Configuration
+# ============================================================================
+[hooks]
+[[hooks.collect]]
+source = "./server/**/*.js"
+dest = "server"
+preserve_structure = true
+description = "Node.js server files"
+
+[[hooks.collect]]
+source = "./server/package.json"
+dest = "server"
+description = "Server package.json"
+
+[[hooks.collect]]
+source = "./server/node_modules/**/*"
+dest = "server/node_modules"
+preserve_structure = true
+description = "Server dependencies"
+
+# ============================================================================
+# Debug Configuration
+# ============================================================================
+[debug]
+enabled = false
+devtools = false

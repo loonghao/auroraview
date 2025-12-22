@@ -1388,7 +1388,9 @@ resizable = true
 icon = "./assets/my-app-icon.png"
 
 # Windows 特定配置
-[bundle.windows]
+# 注意：使用 [bundle.platform.windows] 而非 [bundle.windows]！
+# 这样可以清楚区分 [window]（运行时行为）和平台打包配置
+[bundle.platform.windows]
 # 隐藏控制台窗口（不显示黑色命令行窗口）
 # console = false（默认）-> GUI 应用，无控制台
 # console = true -> 控制台应用，显示黑框
