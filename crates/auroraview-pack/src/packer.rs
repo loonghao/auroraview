@@ -5,7 +5,9 @@ use crate::config::BundleStrategy;
 use crate::deps_collector::DepsCollector;
 use crate::overlay::{OverlayData, OverlayWriter};
 use crate::python_standalone::{PythonRuntimeMeta, PythonStandalone, PythonStandaloneConfig};
-use crate::resource_editor::{ResourceConfig, ResourceEditor};
+use crate::resource_editor::ResourceConfig;
+#[cfg(target_os = "windows")]
+use crate::resource_editor::ResourceEditor;
 use crate::{Manifest, PackConfig, PackError, PackMode, PackResult, PythonBundleConfig};
 use std::fs;
 use std::path::{Path, PathBuf};
