@@ -1629,6 +1629,47 @@ impl PackConfig {
             config
         };
 
+        // Load window icon PNG data if specified
+        let window_icon = {
+            // Try window_icon first, then fall back to generic icon (if PNG)
+            let icon_path = manifest
+                .bundle
+                .window_icon
+                .as_ref()
+                .or(manifest.bundle.icon.as_ref())
+                .and_then(|p| {
+                    // Only use PNG files for window icon
+                    if p.extension().and_then(|e| e.to_str()) == Some("png") {
+                        Some(if p.is_absolute() {
+                            p.clone()
+                        } else {
+                            base_dir.join(p)
+                        })
+                    } else {
+                        None
+                    }
+                });
+
+            if let Some(ref path) = icon_path {
+                match std::fs::read(path) {
+                    Ok(data) => {
+                        tracing::info!(
+                            "Loaded window icon: {} ({} bytes)",
+                            path.display(),
+                            data.len()
+                        );
+                        Some(data)
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to read window icon {}: {}", path.display(), e);
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        };
+
         Ok(Self {
             mode,
             output_name: manifest.package.name.clone(),
@@ -1653,6 +1694,7 @@ impl PackConfig {
             inject_js: manifest.inject.as_ref().and_then(|i| i.js_code.clone()),
             inject_css: manifest.inject.as_ref().and_then(|i| i.css_code.clone()),
             icon_path,
+            window_icon,
             env,
             license,
             hooks,

@@ -13,14 +13,20 @@ pub use packed::{
     get_runtime_cache_dir_with_hash, get_webview_data_dir, inject_environment_variables,
 };
 
-/// Embedded window icon (32x32 PNG)
+/// Embedded window icon (32x32 PNG) - default fallback
 pub const ICON_PNG_BYTES: &[u8] = include_bytes!("../../../assets/icons/auroraview-32.png");
 
-/// Load window icon from embedded PNG bytes
+/// Load window icon from embedded PNG bytes (default icon)
 pub fn load_window_icon() -> Option<tao::window::Icon> {
+    load_window_icon_from_bytes(ICON_PNG_BYTES)
+}
+
+/// Load window icon from custom PNG bytes
+/// Used by packed applications to load custom window icons
+pub fn load_window_icon_from_bytes(png_bytes: &[u8]) -> Option<tao::window::Icon> {
     use ::image::GenericImageView;
 
-    let img = ::image::load_from_memory(ICON_PNG_BYTES).ok()?;
+    let img = ::image::load_from_memory(png_bytes).ok()?;
     let (width, height) = img.dimensions();
     let rgba = img.into_rgba8().into_raw();
 

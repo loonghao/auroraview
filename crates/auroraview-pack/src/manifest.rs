@@ -304,6 +304,12 @@ pub struct BundleConfig {
     #[serde(default)]
     pub icon: Option<PathBuf>,
 
+    /// Window icon path (PNG format, used for window title bar icon at runtime)
+    /// This is displayed in the window title bar and taskbar
+    /// If not specified, falls back to the default AuroraView icon
+    #[serde(default)]
+    pub window_icon: Option<PathBuf>,
+
     /// Application identifier (e.g., "com.example.myapp")
     #[serde(default)]
     pub identifier: Option<String>,

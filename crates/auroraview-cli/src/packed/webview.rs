@@ -16,7 +16,7 @@ use tao::platform::windows::EventLoopBuilderExtWindows;
 use wry::WebViewBuilderExtWindows;
 use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
 
-use crate::{load_window_icon, normalize_url};
+use crate::{load_window_icon, load_window_icon_from_bytes, normalize_url};
 
 use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
@@ -312,8 +312,15 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             window_builder.with_min_inner_size(tao::dpi::LogicalSize::new(min_w, min_h));
     }
 
-    // Set window icon
-    if let Some(icon) = load_window_icon() {
+    // Set window icon (custom from config or default)
+    let icon = if let Some(ref icon_data) = config.window_icon {
+        tracing::info!("Using custom window icon ({} bytes)", icon_data.len());
+        load_window_icon_from_bytes(icon_data)
+    } else {
+        tracing::info!("Using default window icon");
+        load_window_icon()
+    };
+    if let Some(icon) = icon {
         window_builder = window_builder.with_window_icon(Some(icon));
     }
 
