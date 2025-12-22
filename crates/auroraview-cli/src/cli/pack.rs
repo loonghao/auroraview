@@ -73,6 +73,20 @@ pub struct PackArgs {
     /// Clean up build directory after successful build (only with --build)
     #[arg(long)]
     pub clean: bool,
+
+    /// Path to custom icon file (.ico on Windows)
+    /// Overrides the icon specified in manifest
+    #[arg(long)]
+    pub icon: Option<PathBuf>,
+
+    /// Show console window when running the packed app (Windows only)
+    /// By default, console is hidden for GUI applications
+    #[arg(long)]
+    pub console: bool,
+
+    /// Hide console window (default behavior, can be used to override manifest)
+    #[arg(long, conflicts_with = "console")]
+    pub no_console: bool,
 }
 
 /// Run the pack command
@@ -184,6 +198,22 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
     }
     if let Some(output_dir) = args.output_dir {
         config.output_dir = output_dir;
+    }
+
+    // Apply Windows resource overrides from CLI
+    if let Some(icon) = args.icon {
+        let icon_path = if icon.is_absolute() {
+            icon
+        } else {
+            std::env::current_dir()?.join(icon)
+        };
+        config.windows_resource.icon = Some(icon_path);
+    }
+    if args.console {
+        config.windows_resource.console = true;
+    }
+    if args.no_console {
+        config.windows_resource.console = false;
     }
 
     let output_dir = config.output_dir.clone();

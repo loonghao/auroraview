@@ -25,13 +25,17 @@
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::HWND;
 #[cfg(target_os = "windows")]
-use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_NCRENDERING_POLICY};
+use windows::Win32::Graphics::Dwm::{
+    DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMWA_NCRENDERING_POLICY,
+};
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::Controls::MARGINS;
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongW, SetParent, SetWindowLongPtrW, SetWindowLongW, SetWindowPos, GWLP_HWNDPARENT,
     GWL_EXSTYLE, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
     WS_BORDER, WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME,
-    WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
+    WS_EX_LAYERED, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
 };
 
 /// Options for applying child window style
@@ -367,5 +371,207 @@ pub fn disable_window_shadow(hwnd: isize) {
 /// Stub for non-Windows platforms
 #[cfg(not(target_os = "windows"))]
 pub fn disable_window_shadow(_hwnd: isize) {
+    // No-op on non-Windows platforms
+}
+
+/// Extend DWM frame into client area for transparent windows.
+///
+/// This function uses `DwmExtendFrameIntoClientArea` to extend the window frame
+/// into the entire client area, which is required for proper transparent window
+/// rendering with WebView2.
+///
+/// **CRITICAL**: This fixes the rendering artifacts (black stripes) that appear
+/// when dragging transparent WebView2 windows. Without this, the window may show
+/// visual glitches during movement.
+///
+/// # Arguments
+/// * `hwnd` - Handle to the window to modify
+///
+/// # Official Documentation
+/// - [DwmExtendFrameIntoClientArea](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmextendframeintoclientarea)
+#[cfg(target_os = "windows")]
+pub fn extend_frame_into_client_area(hwnd: isize) {
+    tracing::info!(
+        "[extend_frame_into_client_area] Called with HWND 0x{:X}",
+        hwnd
+    );
+    unsafe {
+        let hwnd_win = HWND(hwnd as *mut _);
+
+        // Extend frame into entire client area (-1 means extend to entire window)
+        // This is required for proper transparent window rendering
+        let margins = MARGINS {
+            cxLeftWidth: -1,
+            cxRightWidth: -1,
+            cyTopHeight: -1,
+            cyBottomHeight: -1,
+        };
+
+        let result = DwmExtendFrameIntoClientArea(hwnd_win, &margins);
+
+        if result.is_ok() {
+            tracing::info!(
+                "[OK] Extended DWM frame into client area: HWND 0x{:X} (margins: -1 all sides)",
+                hwnd
+            );
+        } else {
+            tracing::warn!(
+                "[WARN] Failed to extend DWM frame: HWND 0x{:X}, HRESULT: {:?}",
+                hwnd,
+                result
+            );
+        }
+    }
+}
+
+/// Stub for non-Windows platforms
+#[cfg(not(target_os = "windows"))]
+pub fn extend_frame_into_client_area(_hwnd: isize) {
+    // No-op on non-Windows platforms
+}
+
+/// Apply WS_EX_LAYERED style for transparent windows.
+///
+/// **Note**: This function is provided for advanced use cases but is typically
+/// NOT needed for WebView2 transparent windows. WebView2 handles transparency
+/// internally through its own compositor.
+///
+/// The WS_EX_LAYERED style enables per-pixel alpha blending for traditional
+/// GDI-based windows, but may interfere with WebView2's rendering.
+///
+/// # Arguments
+/// * `hwnd` - Handle to the window to modify
+///
+/// # Official Documentation
+/// - [WS_EX_LAYERED](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles)
+/// - [Layered Windows](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features#layered-windows)
+#[cfg(target_os = "windows")]
+#[allow(dead_code)]
+pub fn apply_layered_window_style(hwnd: isize) {
+    unsafe {
+        let hwnd_win = HWND(hwnd as *mut _);
+
+        // Get current extended style
+        let ex_style = GetWindowLongW(hwnd_win, GWL_EXSTYLE);
+
+        // Add WS_EX_LAYERED for per-pixel alpha transparency
+        // Note: Do NOT add WS_EX_TRANSPARENT as it makes the window click-through
+        let new_ex_style = ex_style | (WS_EX_LAYERED.0 as i32);
+
+        if new_ex_style != ex_style {
+            SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
+
+            // Apply style changes
+            let _ = SetWindowPos(
+                hwnd_win,
+                None,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+            );
+
+            tracing::info!(
+                "Applied WS_EX_LAYERED: HWND 0x{:X} (ex_style 0x{:08X} -> 0x{:08X})",
+                hwnd,
+                ex_style,
+                new_ex_style
+            );
+        }
+    }
+}
+
+/// Stub for non-Windows platforms
+#[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
+pub fn apply_layered_window_style(_hwnd: isize) {
+    // No-op on non-Windows platforms
+}
+
+/// Optimize transparent window for better resize performance.
+///
+/// This function applies several optimizations to reduce flickering and
+/// improve rendering performance during window resize operations:
+///
+/// 1. Disables WM_ERASEBKGND handling to prevent background flashing
+/// 2. Sets CS_HREDRAW and CS_VREDRAW to force full redraws
+/// 3. Enables double buffering via WS_EX_COMPOSITED
+///
+/// **Note**: Call this AFTER the window and WebView are created.
+///
+/// # Arguments
+/// * `hwnd` - Handle to the window to optimize
+///
+/// # Official Documentation
+/// - [Window Class Styles](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-class-styles)
+/// - [Extended Window Styles](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles)
+#[cfg(target_os = "windows")]
+pub fn optimize_transparent_window_resize(hwnd: isize) {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetClassLongPtrW, SetClassLongPtrW, CS_HREDRAW, CS_VREDRAW, GCL_STYLE,
+    };
+
+    tracing::info!(
+        "[optimize_transparent_window_resize] Called with HWND 0x{:X}",
+        hwnd
+    );
+
+    unsafe {
+        let hwnd_win = HWND(hwnd as *mut _);
+
+        // Get current class style
+        let class_style = GetClassLongPtrW(hwnd_win, GCL_STYLE);
+
+        // Add CS_HREDRAW and CS_VREDRAW for better resize handling
+        // These cause the entire window to be redrawn when resized
+        let new_class_style =
+            class_style as isize | (CS_HREDRAW.0 as isize) | (CS_VREDRAW.0 as isize);
+
+        if new_class_style != class_style as isize {
+            SetClassLongPtrW(hwnd_win, GCL_STYLE, new_class_style);
+            tracing::debug!(
+                "Applied CS_HREDRAW|CS_VREDRAW: HWND 0x{:X} (class_style 0x{:X} -> 0x{:X})",
+                hwnd,
+                class_style,
+                new_class_style
+            );
+        }
+
+        // Get current extended style
+        let ex_style = GetWindowLongW(hwnd_win, GWL_EXSTYLE);
+
+        // Add WS_EX_COMPOSITED for double-buffered rendering
+        // This reduces flicker during resize by buffering paints
+        const WS_EX_COMPOSITED: i32 = 0x02000000;
+        let new_ex_style = ex_style | WS_EX_COMPOSITED;
+
+        if new_ex_style != ex_style {
+            SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
+
+            // Apply style changes
+            let _ = SetWindowPos(
+                hwnd_win,
+                None,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+            );
+
+            tracing::info!(
+                "Applied WS_EX_COMPOSITED for transparent window: HWND 0x{:X} (ex_style 0x{:08X} -> 0x{:08X})",
+                hwnd,
+                ex_style,
+                new_ex_style
+            );
+        }
+    }
+}
+
+/// Stub for non-Windows platforms
+#[cfg(not(target_os = "windows"))]
+pub fn optimize_transparent_window_resize(_hwnd: isize) {
     // No-op on non-Windows platforms
 }

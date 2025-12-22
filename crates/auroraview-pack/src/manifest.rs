@@ -35,6 +35,12 @@
 //!
 //! [bundle.windows]
 //! icon = "./assets/icon.ico"
+//! console = false  # Hide console window (default: false)
+//! file_version = "1.0.0.0"
+//! product_version = "1.0.0"
+//! file_description = "My Application"
+//! product_name = "My App"
+//! company_name = "My Company"
 //!
 //! [bundle.macos]
 //! icon = "./assets/icon.icns"
@@ -346,6 +352,12 @@ pub struct WindowsBundleConfig {
     #[serde(default)]
     pub icon: Option<PathBuf>,
 
+    /// Whether to show console window (default: false)
+    /// When false, the executable runs as a Windows GUI application (no console)
+    /// When true, the executable runs as a console application (shows black window)
+    #[serde(default)]
+    pub console: bool,
+
     /// Windows installer type: "msi", "nsis", or "wix"
     #[serde(default)]
     pub installer: Option<String>,
@@ -369,6 +381,18 @@ pub struct WindowsBundleConfig {
     /// Product version (for Windows resources)
     #[serde(default)]
     pub product_version: Option<String>,
+
+    /// File description (for Windows resources)
+    #[serde(default)]
+    pub file_description: Option<String>,
+
+    /// Product name (for Windows resources)
+    #[serde(default)]
+    pub product_name: Option<String>,
+
+    /// Company name (for Windows resources)
+    #[serde(default)]
+    pub company_name: Option<String>,
 }
 
 /// macOS-specific bundle configuration

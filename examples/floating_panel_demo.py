@@ -4,11 +4,10 @@ This example demonstrates how to create a floating panel that follows
 a parent application window, similar to AI assistant panels in Photoshop.
 
 Features demonstrated:
-- Frameless, transparent window
-- Owner mode for window following
+- Frameless, transparent window with NO shadow (truly transparent button)
+- Independent floating windows (like Qt's QDialog with no parent)
 - Tool window style (hide from taskbar/Alt+Tab)
 - Small trigger button + expandable panel
-- Position relative to parent window
 - Always on top support
 
 Use cases:
@@ -17,13 +16,13 @@ Use cases:
 - Floating property editors
 - Context-sensitive tool palettes
 
-Supported AuroraView Parameters:
+Key AuroraView Parameters for Transparent Floating Windows:
 - frame=False: Frameless window (no title bar, borders)
 - transparent=True: Transparent window background
+- undecorated_shadow=False: CRITICAL - Disable shadow for truly transparent windows
 - always_on_top=True: Keep window always on top
-- parent_hwnd: Parent window HWND for owner relationship
-- embed_mode="owner": Window follows parent minimize/restore
 - tool_window=True: Hide from taskbar and Alt+Tab (WS_EX_TOOLWINDOW)
+- embed_mode="none": Independent window (not attached to parent)
 
 Signed-off-by: Hal Long <hal.long@outlook.com>
 """
@@ -172,7 +171,7 @@ PANEL_HTML = """
 </head>
 <body>
     <div class="panel">
-        <div class="panel-header drag-handle">
+        <div class="panel-header drag-handle" onmousedown="startNativeDrag(event)">
             <span class="panel-title">AI Assistant</span>
             <button class="close-btn no-drag" onclick="closePanel()">&times;</button>
         </div>
@@ -191,6 +190,16 @@ PANEL_HTML = """
         function closePanel() {
             if (window.auroraview && window.auroraview.call) {
                 window.auroraview.call('close_panel');
+            }
+        }
+
+        // Use native drag for better responsiveness
+        function startNativeDrag(event) {
+            // Only trigger on left mouse button and not on buttons
+            if (event.button === 0 && event.target.tagName !== 'BUTTON') {
+                if (window.auroraview && window.auroraview.startDrag) {
+                    window.auroraview.startDrag();
+                }
             }
         }
 
@@ -216,7 +225,7 @@ PANEL_HTML = """
 </html>
 """
 
-# HTML for the small trigger button
+# HTML for the small trigger button - truly transparent circular button
 BUTTON_HTML = """
 <!DOCTYPE html>
 <html>
@@ -224,12 +233,15 @@ BUTTON_HTML = """
     <meta charset="UTF-8">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            background: transparent !important;
+            width: 100%;
+            height: 100%;
+        }
         body {
-            background: transparent;
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
         }
         .trigger-btn {
             width: 40px;
@@ -278,8 +290,8 @@ def run_floating_panel_demo():
     """Run the floating panel demo.
 
     This demo shows two approaches:
-    1. A small trigger button (24x24 or 40x40)
-    2. An expandable panel that appears when clicked
+    1. A small trigger button (truly transparent, no shadow)
+    2. An expandable panel that appears when clicked (independent window)
     """
     from auroraview import AuroraView
 
@@ -288,7 +300,15 @@ def run_floating_panel_demo():
     panel_webview = None
 
     class TriggerButton(AuroraView):
-        """Small trigger button that opens the floating panel."""
+        """Small trigger button that opens the floating panel.
+
+        Key configuration for truly transparent button:
+        - frame=False: No window decorations
+        - transparent=True: Transparent background
+        - undecorated_shadow=False: CRITICAL - removes the shadow that would
+          otherwise appear around the frameless window
+        - tool_window=True: Hide from taskbar/Alt+Tab
+        """
 
         def __init__(self):
             super().__init__(
@@ -297,6 +317,7 @@ def run_floating_panel_demo():
                 height=48,
                 frame=False,  # Frameless window
                 transparent=True,  # Transparent background
+                undecorated_shadow=False,  # CRITICAL: No shadow for truly transparent button
                 always_on_top=True,  # Keep on top of other windows
                 tool_window=True,  # Hide from taskbar and Alt+Tab
             )
@@ -311,24 +332,34 @@ def run_floating_panel_demo():
                 panel_webview = None
                 panel_visible = False
             else:
-                # Create and show the panel
-                panel_webview = FloatingPanel(parent_hwnd=self.get_hwnd())
+                # Create and show the panel as an independent window
+                # Note: embed_mode="none" creates an independent window (like Qt's QDialog)
+                # This is different from embed_mode="owner" which would follow parent
+                panel_webview = FloatingPanel()
                 panel_webview.show()
                 panel_visible = True
 
     class FloatingPanel(AuroraView):
-        """The expandable floating panel."""
+        """The expandable floating panel.
 
-        def __init__(self, parent_hwnd=None):
+        This is an independent window (not attached to any parent).
+        Key configuration:
+        - embed_mode="none": Independent window (default for AuroraView)
+        - frame=False: Frameless for custom styling
+        - transparent=True: Transparent background for rounded corners
+        - undecorated_shadow=False: Clean look without system shadow
+        """
+
+        def __init__(self):
             super().__init__(
                 html=PANEL_HTML,
                 width=350,
                 height=180,
                 frame=False,  # Frameless window
                 transparent=True,  # Transparent background
+                undecorated_shadow=False,  # No shadow for clean look
                 always_on_top=True,  # Keep on top of other windows
-                parent_hwnd=parent_hwnd,
-                embed_mode="owner",  # Follow parent window minimize/restore
+                embed_mode="none",  # Independent window (like Qt's QDialog)
                 tool_window=True,  # Hide from taskbar and Alt+Tab
             )
             self.bind_call("close_panel", self.close_panel)
@@ -349,7 +380,8 @@ def run_floating_panel_demo():
 
     # Create and show the trigger button
     print("Starting Floating Panel Demo...")
-    print("Click the button to toggle the AI assistant panel.")
+    print("Click the circular button to toggle the AI assistant panel.")
+    print("Both windows are independent and can be moved freely.")
     print("Press Ctrl+C to exit.")
 
     trigger = TriggerButton()
@@ -373,6 +405,7 @@ def run_simple_panel_demo():
                 height=180,
                 frame=False,  # Frameless window
                 transparent=True,  # Transparent background
+                undecorated_shadow=False,  # No shadow for clean look
                 always_on_top=True,  # Keep on top of other windows
                 tool_window=True,  # Hide from taskbar and Alt+Tab
             )

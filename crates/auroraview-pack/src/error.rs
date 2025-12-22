@@ -64,4 +64,8 @@ pub enum PackError {
     /// Download error
     #[error("Download error: {0}")]
     Download(String),
+
+    /// Resource editing error (icon, subsystem, etc.)
+    #[error("Resource edit error: {0}")]
+    ResourceEdit(String),
 }

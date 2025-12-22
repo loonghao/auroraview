@@ -65,7 +65,8 @@ pub use common_config::{get_background_color, log_background_color, DARK_BACKGRO
 pub use web_context::WebContextConfig;
 pub use window_style::{
     apply_child_window_style, apply_owner_window_style, apply_tool_window_style,
-    disable_window_shadow, ChildWindowStyleOptions, ChildWindowStyleResult, OwnerWindowStyleResult,
+    disable_window_shadow, extend_frame_into_client_area, optimize_transparent_window_resize,
+    ChildWindowStyleOptions, ChildWindowStyleResult, OwnerWindowStyleResult,
 };
 
 // Wry-specific exports

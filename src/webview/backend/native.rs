@@ -773,49 +773,76 @@ impl NativeBackend {
         #[cfg(not(target_os = "windows"))]
         let cached_hwnd: Option<isize> = None;
 
-        // Control window visibility based on embed mode and auto_show setting
+        // Save auto_show setting for later use
         let auto_show = config.auto_show;
-        match config.embed_mode {
-            EmbedMode::Child => {
-                // Child mode: window visibility is controlled by parent
-                // Show immediately since it's embedded in parent
-                if auto_show {
-                    window.set_visible(true);
-                    tracing::info!(
-                        "[OK] [NativeBackend] Child mode: window shown (embedded in parent)"
-                    );
-                } else {
-                    window.set_visible(false);
-                    tracing::info!(
-                        "[OK] [NativeBackend] Child mode: window hidden (auto_show=false)"
-                    );
+
+        // IMPORTANT: For transparent windows, keep window hidden until WebView is created
+        // This prevents black stripes/artifacts that appear when window is shown before
+        // WebView2 has fully initialized its transparent rendering
+        let show_before_webview = !config.transparent;
+
+        // Control window visibility based on embed mode and auto_show setting
+        // For transparent windows, we defer showing until after WebView creation
+        if show_before_webview {
+            match config.embed_mode {
+                EmbedMode::Child => {
+                    // Child mode: window visibility is controlled by parent
+                    // Show immediately since it's embedded in parent
+                    if auto_show {
+                        window.set_visible(true);
+                        tracing::info!(
+                            "[OK] [NativeBackend] Child mode: window shown (embedded in parent)"
+                        );
+                    } else {
+                        window.set_visible(false);
+                        tracing::info!(
+                            "[OK] [NativeBackend] Child mode: window hidden (auto_show=false)"
+                        );
+                    }
+                }
+                EmbedMode::Owner => {
+                    // Owner mode: floating window that follows owner
+                    if auto_show {
+                        window.set_visible(true);
+                        tracing::info!("[OK] [NativeBackend] Owner mode: window shown (floating)");
+                    } else {
+                        window.set_visible(false);
+                        tracing::info!(
+                            "[OK] [NativeBackend] Owner mode: window hidden (auto_show=false)"
+                        );
+                    }
+                }
+                EmbedMode::None => {
+                    if auto_show {
+                        window.set_visible(true);
+                        tracing::info!("[OK] [NativeBackend] Window auto-shown (auto_show=true)");
+                    } else {
+                        window.set_visible(false);
+                        tracing::info!(
+                            "[OK] [NativeBackend] Window stays hidden (auto_show=false)"
+                        );
+                    }
                 }
             }
-            EmbedMode::Owner => {
-                // Owner mode: floating window that follows owner
-                if auto_show {
-                    window.set_visible(true);
-                    tracing::info!("[OK] [NativeBackend] Owner mode: window shown (floating)");
-                } else {
-                    window.set_visible(false);
-                    tracing::info!(
-                        "[OK] [NativeBackend] Owner mode: window hidden (auto_show=false)"
-                    );
-                }
-            }
-            EmbedMode::None => {
-                if auto_show {
-                    window.set_visible(true);
-                    tracing::info!("[OK] [NativeBackend] Window auto-shown (auto_show=true)");
-                } else {
-                    window.set_visible(false);
-                    tracing::info!("[OK] [NativeBackend] Window stays hidden (auto_show=false)");
-                }
-            }
+        } else {
+            // Keep window hidden for transparent windows
+            window.set_visible(false);
+            tracing::info!(
+                "[OK] [NativeBackend] Transparent window: keeping hidden until WebView is ready"
+            );
         }
 
         // Create WebView with IPC handler
         let webview = Self::create_webview(&window, &config, ipc_handler)?;
+
+        // For transparent windows, show the window AFTER WebView is created
+        // This ensures WebView2 has initialized its transparent rendering
+        if !show_before_webview && auto_show {
+            window.set_visible(true);
+            tracing::info!(
+                "[OK] [NativeBackend] Transparent window: now showing after WebView creation"
+            );
+        }
 
         // Apply mode-specific window styles AFTER WebView2 creation
         // This is critical: applying WS_EX_TOOLWINDOW or owner styles before WebView2 creation
@@ -854,6 +881,14 @@ impl NativeBackend {
                 tracing::info!(
                     "[OK] [NativeBackend] Disabled window shadow (undecorated_shadow=false)"
                 );
+            }
+
+            // Extend DWM frame into client area for transparent windows
+            // This fixes rendering artifacts (black stripes) when dragging transparent windows
+            if config.transparent {
+                use auroraview_core::builder::extend_frame_into_client_area;
+                extend_frame_into_client_area(hwnd_value);
+                tracing::info!("[OK] [NativeBackend] Extended DWM frame for transparent window");
             }
         }
 

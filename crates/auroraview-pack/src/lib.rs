@@ -90,12 +90,14 @@ pub mod progress;
 mod protection;
 mod pyoxidizer;
 mod python_standalone;
+mod resource_editor;
 
 // Re-export public API
 pub use bundle::{AssetBundle, BundleBuilder};
 pub use config::{
     BundleStrategy, CollectPattern, HooksConfig, IsolationConfig, LicenseConfig, PackConfig,
     PackMode, PythonBundleConfig, TargetPlatform, WindowConfig, WindowStartPosition,
+    WindowsResourceConfig,
 };
 pub use deps_collector::{CollectedDeps, DepsCollector, FileHashCache};
 pub use error::{PackError, PackResult};
@@ -121,6 +123,7 @@ pub use python_standalone::{
     extract_runtime, get_runtime_cache_dir, PythonRuntimeMeta, PythonStandalone,
     PythonStandaloneConfig, PythonTarget,
 };
+pub use resource_editor::{ResourceConfig, ResourceEditor};
 
 /// Alias for backward compatibility with CLI
 pub type PackGenerator = Packer;
