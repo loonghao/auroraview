@@ -150,6 +150,7 @@ impl Packer {
     }
 
     /// Build ResourceConfig from PackConfig
+    #[allow(dead_code)]
     fn build_resource_config(&self) -> ResourceConfig {
         let win_res = &self.config.windows_resource;
 

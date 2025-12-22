@@ -452,7 +452,7 @@ pub enum BundleStrategy {
 
 impl BundleStrategy {
     /// Parse from string
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "standalone" => BundleStrategy::Standalone,
             "pyoxidizer" => BundleStrategy::PyOxidizer,
@@ -980,15 +980,15 @@ mod tests {
     #[test]
     fn test_bundle_strategy() {
         assert_eq!(
-            BundleStrategy::from_str("standalone"),
+            BundleStrategy::parse("standalone"),
             BundleStrategy::Standalone
         );
         assert_eq!(
-            BundleStrategy::from_str("PYOXIDIZER"),
+            BundleStrategy::parse("PYOXIDIZER"),
             BundleStrategy::PyOxidizer
         );
         assert_eq!(
-            BundleStrategy::from_str("unknown"),
+            BundleStrategy::parse("unknown"),
             BundleStrategy::Standalone
         );
 
