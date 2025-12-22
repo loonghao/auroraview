@@ -255,6 +255,7 @@ fn test_collect_pattern() {
         source: "../examples/*.py".to_string(),
         dest: Some("examples".to_string()),
         preserve_structure: true,
+        description: None,
     };
 
     let json = serde_json::to_string(&pattern).unwrap();
