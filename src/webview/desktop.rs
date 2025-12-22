@@ -481,7 +481,6 @@ pub fn create_desktop(
                                     }
                                 }
                             }
-                            return;
                         }
                     }
                 } else if msg_type == "event" {

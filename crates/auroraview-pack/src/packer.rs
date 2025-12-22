@@ -1632,11 +1632,19 @@ impl PackConfig {
         Ok(Self {
             mode,
             output_name: manifest.package.name.clone(),
-            output_dir: manifest
-                .build
-                .out_dir
-                .clone()
-                .unwrap_or_else(|| PathBuf::from(".")),
+            output_dir: {
+                let out_dir = manifest
+                    .build
+                    .out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("."));
+                // Resolve output_dir relative to base_dir if it's not absolute
+                if out_dir.is_absolute() {
+                    out_dir
+                } else {
+                    base_dir.join(out_dir)
+                }
+            },
             window,
             target_platform: crate::TargetPlatform::Current,
             debug: manifest.debug.enabled,

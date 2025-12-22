@@ -96,6 +96,10 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
     let progress = PackProgress::new();
     let spinner = progress.spinner("Loading configuration...");
 
+    // Track manifest and base_dir for running before_build commands
+    let mut manifest_opt: Option<Manifest> = None;
+    let mut base_dir_opt: Option<PathBuf> = None;
+
     // Create pack configuration - either from manifest or CLI args
     let mut config = if let Some(config_path) = &args.config {
         // Load from manifest file
@@ -120,13 +124,19 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
             .validate()
             .with_context(|| "Invalid manifest configuration")?;
 
-        let base_dir = manifest_path.parent().unwrap_or(Path::new("."));
+        let base_dir = manifest_path
+            .parent()
+            .unwrap_or(Path::new("."))
+            .to_path_buf();
         spinner.finish_success(&format!(
             "Loaded manifest from: {}",
             manifest_path.display()
         ));
 
-        PackConfig::from_manifest(&manifest, base_dir)?
+        let config = PackConfig::from_manifest(&manifest, &base_dir)?;
+        manifest_opt = Some(manifest);
+        base_dir_opt = Some(base_dir);
+        config
     } else if let Some(url) = args.url {
         spinner.finish_success(&format!("Packing URL: {}", url));
         PackConfig::url(url)
@@ -148,10 +158,16 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
                 .validate()
                 .with_context(|| "Invalid manifest configuration")?;
 
-            let base_dir = manifest_path.parent().unwrap_or(Path::new("."));
+            let base_dir = manifest_path
+                .parent()
+                .unwrap_or(Path::new("."))
+                .to_path_buf();
             spinner.finish_success(&format!("Found manifest at: {}", manifest_path.display()));
 
-            PackConfig::from_manifest(&manifest, base_dir)?
+            let config = PackConfig::from_manifest(&manifest, &base_dir)?;
+            manifest_opt = Some(manifest);
+            base_dir_opt = Some(base_dir);
+            config
         } else {
             spinner.finish_error("No configuration provided");
             anyhow::bail!(
@@ -167,6 +183,37 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
             );
         }
     };
+
+    // Run before_build commands if manifest has them
+    if let (Some(ref manifest), Some(ref base_dir)) = (&manifest_opt, &base_dir_opt) {
+        if !manifest.build.before_build.is_empty() {
+            let build_spinner = progress.spinner("Running before_build commands...");
+            for cmd in &manifest.build.before_build {
+                tracing::info!("Running before_build: {}", cmd);
+
+                // Run command in the base_dir (manifest directory)
+                let status = std::process::Command::new(if cfg!(windows) {
+                    "cmd"
+                } else {
+                    "sh"
+                })
+                .args(if cfg!(windows) {
+                    vec!["/C", cmd]
+                } else {
+                    vec!["-c", cmd]
+                })
+                .current_dir(base_dir)
+                .status()
+                .with_context(|| format!("Failed to run before_build command: {}", cmd))?;
+
+                if !status.success() {
+                    build_spinner.finish_error(&format!("before_build command failed: {}", cmd));
+                    anyhow::bail!("before_build command failed: {}", cmd);
+                }
+            }
+            build_spinner.finish_success("before_build commands completed");
+        }
+    }
 
     // Override with CLI arguments if provided
     if let Some(output) = args.output {
