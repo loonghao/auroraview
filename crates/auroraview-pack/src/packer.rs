@@ -6,6 +6,7 @@ use crate::deps_collector::DepsCollector;
 use crate::overlay::{OverlayData, OverlayWriter};
 use crate::protection::ProtectionConfig;
 use crate::python_standalone::{PythonRuntimeMeta, PythonStandalone, PythonStandaloneConfig};
+use crate::resource_editor::{ResourceConfig, ResourceEditor};
 use crate::{Manifest, PackConfig, PackError, PackMode, PackResult};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -101,7 +102,12 @@ impl Packer {
             0
         };
 
-        // Write overlay to executable
+        // Apply Windows resource modifications BEFORE writing overlay
+        // rcedit cannot handle executables with overlay data appended
+        #[cfg(target_os = "windows")]
+        self.apply_windows_resources(&output_path)?;
+
+        // Write overlay to executable (must be after rcedit modifications)
         OverlayWriter::write(&output_path, &overlay)?;
 
         // Get final size
@@ -120,6 +126,42 @@ impl Packer {
             python_file_count: 0,
             mode: self.config.mode.name().to_string(),
         })
+    }
+
+    /// Apply Windows resource modifications to the packed executable
+    #[cfg(target_os = "windows")]
+    fn apply_windows_resources(&self, exe_path: &Path) -> PackResult<()> {
+        let res_config = self.build_resource_config();
+
+        // Skip if no modifications needed
+        if !res_config.has_modifications() {
+            tracing::debug!("No Windows resource modifications needed");
+            return Ok(());
+        }
+
+        tracing::info!("Applying Windows resource modifications...");
+
+        let editor = ResourceEditor::new()?;
+        editor.apply_config(exe_path, &res_config)?;
+
+        tracing::info!("Windows resources updated successfully");
+        Ok(())
+    }
+
+    /// Build ResourceConfig from PackConfig
+    fn build_resource_config(&self) -> ResourceConfig {
+        let win_res = &self.config.windows_resource;
+
+        ResourceConfig {
+            icon: win_res.icon.clone(),
+            console: win_res.console,
+            file_version: win_res.file_version.clone(),
+            product_version: win_res.product_version.clone(),
+            file_description: win_res.file_description.clone(),
+            product_name: win_res.product_name.clone(),
+            company_name: win_res.company_name.clone(),
+            copyright: win_res.copyright.clone(),
+        }
     }
 
     /// Pack FullStack mode (frontend + Python backend)
@@ -219,7 +261,12 @@ impl Packer {
             tracing::info!("Collected {} resource files from hooks", resource_count);
         }
 
-        // Write overlay to executable
+        // Apply Windows resource modifications BEFORE writing overlay
+        // rcedit cannot handle executables with overlay data appended
+        #[cfg(target_os = "windows")]
+        self.apply_windows_resources(&output_path)?;
+
+        // Write overlay to executable (must be after rcedit modifications)
         OverlayWriter::write(&output_path, &overlay)?;
 
         let size = fs::metadata(&output_path)?.len();
@@ -417,6 +464,15 @@ impl Packer {
         // Write overlay to executable
         OverlayWriter::write(&output_path, &overlay)?;
 
+        // Small delay to ensure file handles are fully released on Windows
+        // before rcedit tries to modify the executable
+        #[cfg(target_os = "windows")]
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Apply Windows resource modifications (icon, subsystem, etc.)
+        #[cfg(target_os = "windows")]
+        self.apply_windows_resources(&output_path)?;
+
         let size = fs::metadata(&output_path)?.len();
 
         tracing::info!(
@@ -463,6 +519,10 @@ impl Packer {
         // Create overlay for launcher config
         let overlay = OverlayData::new(self.config.clone());
         OverlayWriter::write(&exe_path, &overlay)?;
+
+        // Apply Windows resource modifications (icon, subsystem, etc.)
+        #[cfg(target_os = "windows")]
+        self.apply_windows_resources(&exe_path)?;
 
         // Copy frontend assets
         let frontend_dir = output_dir.join("frontend");
@@ -529,6 +589,10 @@ impl Packer {
         // Create overlay for launcher config
         let overlay = OverlayData::new(self.config.clone());
         OverlayWriter::write(&exe_path, &overlay)?;
+
+        // Apply Windows resource modifications (icon, subsystem, etc.)
+        #[cfg(target_os = "windows")]
+        self.apply_windows_resources(&exe_path)?;
 
         // Copy frontend assets
         let frontend_dir = output_dir.join("frontend");
@@ -1522,6 +1586,49 @@ impl PackConfig {
             after_pack: h.after_pack.clone(),
         });
 
+        // Build Windows resource config
+        let windows_resource = {
+            let mut config = crate::WindowsResourceConfig::default();
+
+            // Get Windows-specific icon or fall back to generic icon
+            if let Some(ref windows) = manifest.bundle.windows {
+                if let Some(ref icon) = windows.icon {
+                    config.icon = Some(if icon.is_absolute() {
+                        icon.clone()
+                    } else {
+                        base_dir.join(icon)
+                    });
+                }
+                config.console = windows.console;
+                config.file_version = windows.file_version.clone();
+                config.product_version = windows.product_version.clone();
+                config.file_description = windows.file_description.clone();
+                config.product_name = windows.product_name.clone();
+                config.company_name = windows.company_name.clone();
+            }
+
+            // Fall back to generic icon if Windows-specific not set
+            if config.icon.is_none() {
+                if let Some(ref icon) = manifest.bundle.icon {
+                    // Only use if it's an .ico file
+                    if icon.extension().and_then(|e| e.to_str()) == Some("ico") {
+                        config.icon = Some(if icon.is_absolute() {
+                            icon.clone()
+                        } else {
+                            base_dir.join(icon)
+                        });
+                    }
+                }
+            }
+
+            // Use copyright from bundle config
+            if config.copyright.is_none() {
+                config.copyright = manifest.bundle.copyright.clone();
+            }
+
+            config
+        };
+
         Ok(Self {
             mode,
             output_name: manifest.package.name.clone(),
@@ -1542,6 +1649,7 @@ impl PackConfig {
             license,
             hooks,
             remote_debugging_port: manifest.debug.remote_debugging_port,
+            windows_resource,
         })
     }
 }

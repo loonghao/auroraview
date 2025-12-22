@@ -283,6 +283,22 @@
     },
 
     /**
+     * Start native window drag (for frameless windows)
+     * Call this on mousedown event in drag regions
+     */
+    startDrag: function (): void {
+      try {
+        const payload = {
+          type: '__internal',
+          action: 'drag_window',
+        };
+        window.ipc!.postMessage(JSON.stringify(payload));
+      } catch (e) {
+        console.warn('[AuroraView] Failed to start native drag:', e);
+      }
+    },
+
+    /**
      * Register API methods dynamically
      */
     _registerApiMethods: function (

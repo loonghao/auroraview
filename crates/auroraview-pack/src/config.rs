@@ -586,6 +586,40 @@ pub struct PackConfig {
     /// Playwright/Puppeteer can connect via: `browser.connect_over_cdp(f"http://localhost:{port}")`
     #[serde(default)]
     pub remote_debugging_port: Option<u16>,
+
+    /// Windows-specific resource configuration
+    #[serde(skip)]
+    pub windows_resource: WindowsResourceConfig,
+}
+
+/// Windows executable resource configuration
+#[derive(Debug, Clone, Default)]
+pub struct WindowsResourceConfig {
+    /// Path to the .ico icon file
+    pub icon: Option<PathBuf>,
+
+    /// Whether to show console window (default: false)
+    /// When false, the executable runs as a Windows GUI application (no console)
+    /// When true, the executable runs as a console application (shows black window)
+    pub console: bool,
+
+    /// File version (e.g., "1.0.0.0")
+    pub file_version: Option<String>,
+
+    /// Product version (e.g., "1.0.0")
+    pub product_version: Option<String>,
+
+    /// File description
+    pub file_description: Option<String>,
+
+    /// Product name
+    pub product_name: Option<String>,
+
+    /// Company name
+    pub company_name: Option<String>,
+
+    /// Copyright string
+    pub copyright: Option<String>,
 }
 
 impl PackConfig {
@@ -617,6 +651,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
+            windows_resource: WindowsResourceConfig::default(),
         }
     }
 
@@ -645,6 +680,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
+            windows_resource: WindowsResourceConfig::default(),
         }
     }
 
@@ -679,6 +715,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
+            windows_resource: WindowsResourceConfig::default(),
         }
     }
 
@@ -713,6 +750,7 @@ impl PackConfig {
             license: None,
             hooks: None,
             remote_debugging_port: None,
+            windows_resource: WindowsResourceConfig::default(),
         }
     }
 

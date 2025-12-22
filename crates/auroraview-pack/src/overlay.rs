@@ -185,6 +185,14 @@ impl OverlayWriter {
 
         writer.flush()?;
 
+        // Explicitly drop writer and sync to ensure file is fully written
+        // This is important on Windows before other tools (like rcedit) modify the file
+        let file = writer
+            .into_inner()
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+        file.sync_all()?;
+        drop(file);
+
         tracing::info!(
             "Overlay written: config={} bytes, assets={} bytes, hash={}",
             config_compressed.len(),

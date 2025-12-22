@@ -45,7 +45,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tao::event_loop::EventLoopBuilder;
+use tao::event_loop::{EventLoopBuilder, EventLoopProxy};
 use tao::platform::run_return::EventLoopExtRunReturn;
 use tao::window::WindowBuilder;
 use wry::WebViewBuilder as WryWebViewBuilder;
@@ -446,6 +446,12 @@ pub fn create_desktop(
     let ipc_handler_clone = ipc_handler.clone();
     let message_queue_clone = message_queue.clone();
 
+    // Create a shared event loop proxy holder for native window operations
+    // This will be set after event_loop.create_proxy() is called
+    let event_loop_proxy_holder: Arc<Mutex<Option<EventLoopProxy<UserEvent>>>> =
+        Arc::new(Mutex::new(None));
+    let event_loop_proxy_for_ipc = event_loop_proxy_holder.clone();
+
     // Create plugin router for handling plugin commands
     let plugin_router = Arc::new(std::sync::RwLock::new(
         auroraview_core::plugins::PluginRouter::with_scope(
@@ -463,7 +469,22 @@ pub fn create_desktop(
 
         if let Ok(message) = serde_json::from_str::<serde_json::Value>(body_str) {
             if let Some(msg_type) = message.get("type").and_then(|v| v.as_str()) {
-                if msg_type == "event" {
+                // Handle internal window operations first
+                if msg_type == "__internal" {
+                    if let Some(action) = message.get("action").and_then(|v| v.as_str()) {
+                        if action == "drag_window" {
+                            tracing::debug!("[IPC] Received drag_window request");
+                            if let Ok(proxy_guard) = event_loop_proxy_for_ipc.lock() {
+                                if let Some(proxy) = proxy_guard.as_ref() {
+                                    if let Err(e) = proxy.send_event(UserEvent::DragWindow) {
+                                        tracing::warn!("[IPC] Failed to send DragWindow event: {:?}", e);
+                                    }
+                                }
+                            }
+                            return;
+                        }
+                    }
+                } else if msg_type == "event" {
                     if let Some(event_name) = message.get("event").and_then(|v| v.as_str()) {
                         let detail = message
                             .get("detail")
@@ -661,6 +682,12 @@ pub fn create_desktop(
     message_queue.set_event_loop_proxy(event_loop_proxy.clone());
     tracing::info!("[standalone] Event loop proxy set in message queue for wake-up");
 
+    // Set event loop proxy in the holder for IPC handler to use (for native drag)
+    if let Ok(mut proxy_guard) = event_loop_proxy_holder.lock() {
+        *proxy_guard = Some(event_loop_proxy.clone());
+        tracing::info!("[standalone] Event loop proxy set in holder for native drag support");
+    }
+
     // Create lifecycle manager
     use crate::webview::lifecycle::LifecycleManager;
     let lifecycle = Arc::new(LifecycleManager::new());
@@ -701,6 +728,26 @@ pub fn create_desktop(
         if let Some(hwnd) = cached_hwnd {
             disable_window_shadow(hwnd as isize);
             tracing::info!("[standalone] Disabled window shadow (undecorated_shadow=false)");
+        }
+    }
+
+    // Extend DWM frame into client area for transparent windows
+    // This fixes rendering artifacts (black stripes) when dragging transparent windows
+    #[cfg(target_os = "windows")]
+    {
+        tracing::info!("[standalone] Checking transparent window optimizations: transparent={}, cached_hwnd={:?}", config.transparent, cached_hwnd);
+        if config.transparent {
+            use auroraview_core::builder::{
+                extend_frame_into_client_area, optimize_transparent_window_resize,
+            };
+            if let Some(hwnd) = cached_hwnd {
+                extend_frame_into_client_area(hwnd as isize);
+                tracing::info!("[standalone] Extended DWM frame for transparent window");
+
+                // Optimize resize performance for transparent windows
+                optimize_transparent_window_resize(hwnd as isize);
+                tracing::info!("[standalone] Applied transparent window resize optimization");
+            }
         }
     }
 

@@ -292,6 +292,9 @@ export interface AuroraViewBridge {
     options?: { allowRebind?: boolean }
   ): void;
 
+  /** Start native window drag (for frameless windows) */
+  startDrag?(): void;
+
   api?: Record<string, (params?: unknown) => Promise<unknown>>;
   state?: AuroraViewState;
   fs?: FileSystemAPI;

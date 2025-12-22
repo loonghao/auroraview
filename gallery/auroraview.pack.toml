@@ -34,7 +34,7 @@ always_on_top = false
 start_position = "center"
 
 [bundle]
-icon = "../assets/icon.png"
+icon = "../assets/icons/auroraview-256.png"
 identifier = "com.auroraview.gallery"
 copyright = "Copyright 2025 AuroraView Team"
 category = "Developer Tools"
@@ -42,7 +42,16 @@ short_description = "AuroraView Feature Gallery"
 resources = ["../examples"]
 
 [bundle.windows]
-icon = "../assets/icon.ico"
+icon = "../assets/icons/auroraview.ico"
+# Hide console window for GUI application (default: false)
+# Set to true if you need to see console output for debugging
+console = false
+# Optional: Windows version information
+# file_version = "1.0.0.0"
+# product_version = "1.0.0"
+# file_description = "AuroraView Gallery"
+# product_name = "AuroraView Gallery"
+# company_name = "AuroraView Team"
 
 # FullStack mode: Frontend + Python backend
 # This bundles the Gallery's Python backend (main.py) with all dependencies

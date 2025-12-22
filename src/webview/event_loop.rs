@@ -33,6 +33,8 @@ pub enum UserEvent {
     TrayIconClick,
     /// Tray icon double-clicked
     TrayIconDoubleClick,
+    /// Request to start native window drag
+    DragWindow,
 }
 
 /// Event loop state management
@@ -517,6 +519,18 @@ impl WebViewEventHandler {
                         tracing::info!("[OK] [EventLoop] Control flow set to Exit");
                     } else {
                         tracing::error!("[ERROR] [EventLoop] Failed to lock state for close");
+                    }
+                }
+                Event::UserEvent(UserEvent::DragWindow) => {
+                    tracing::debug!("[EventLoop] UserEvent::DragWindow received");
+                    if let Ok(state_guard) = state_clone.lock() {
+                        if let Some(window) = &state_guard.window {
+                            if let Err(e) = window.drag_window() {
+                                tracing::warn!("[EventLoop] Failed to start window drag: {:?}", e);
+                            } else {
+                                tracing::debug!("[EventLoop] Window drag started");
+                            }
+                        }
                     }
                 }
                 Event::WindowEvent { event, .. } => {

@@ -510,7 +510,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview"
-version = "0.3.19"
+version = "0.3.20"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -568,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.19"
+version = "0.3.20"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -605,7 +605,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.19"
+version = "0.3.20"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -636,7 +636,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.3.19"
+version = "0.3.20"
 dependencies = [
  "aurora-protect",
  "base64 0.22.1",
@@ -662,7 +662,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.3.19"
+version = "0.3.20"
 dependencies = [
  "arboard",
  "base64 0.22.1",
