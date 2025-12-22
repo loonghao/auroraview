@@ -1537,14 +1537,6 @@ impl PackConfig {
             always_on_top: manifest.window.always_on_top,
         };
 
-        let icon_path = manifest.get_icon_path().map(|p| {
-            if p.is_absolute() {
-                p.clone()
-            } else {
-                base_dir.join(p)
-            }
-        });
-
         // Build environment variables from runtime config
         let mut env = std::collections::HashMap::new();
         if let Some(ref runtime) = manifest.runtime {
@@ -1588,7 +1580,7 @@ impl PackConfig {
 
         // Process icon using unified icon conversion
         // This handles PNG/JPG/ICO and auto-converts to both formats
-        let (windows_resource, window_icon) = {
+        let (windows_resource, window_icon, icon_path) = {
             let mut win_config = crate::WindowsResourceConfig::default();
 
             // Get Windows-specific settings (console, version info, etc.)
@@ -1605,7 +1597,7 @@ impl PackConfig {
             win_config.copyright = manifest.bundle.copyright.clone();
 
             // Process unified icon (auto-convert PNG/JPG to ICO, extract PNG from ICO)
-            let icon_path = manifest.bundle.icon.as_ref().map(|p| {
+            let bundle_icon_path = manifest.bundle.icon.as_ref().map(|p| {
                 if p.is_absolute() {
                     p.clone()
                 } else {
@@ -1628,7 +1620,7 @@ impl PackConfig {
                 });
 
             // Use Windows-specific icon if provided, otherwise use unified icon
-            let effective_icon_path = windows_icon_path.or(icon_path);
+            let effective_icon_path = windows_icon_path.or(bundle_icon_path.clone());
 
             let window_icon_data = if let Some(ref path) = effective_icon_path {
                 match crate::icon::load_icon(path) {
@@ -1663,7 +1655,7 @@ impl PackConfig {
                 None
             };
 
-            (win_config, window_icon_data)
+            (win_config, window_icon_data, effective_icon_path)
         };
 
         Ok(Self {
