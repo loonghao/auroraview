@@ -101,7 +101,7 @@ AuroraView 提供三种主要集成模式：
 
 ## 下一步
 
-- [安装指南](/zh/guide/installation) - 详细安装说明
 - [架构概述](/zh/guide/architecture) - 了解 AuroraView 架构
-- [WebView 基础](/zh/guide/webview-basics) - 核心 WebView 概念
-- [DCC 集成](/zh/dcc/) - 与特定 DCC 软件集成
+- [Qt 集成](/zh/guide/qt-integration) - Qt WebView 集成指南
+- [JavaScript 通信](/zh/guide/communication) - 前后端通信
+- [打包指南](/zh/guide/packing) - 打包和分发应用
