@@ -1,6 +1,11 @@
 # Documentation deployment workflow
 # - Deploys to GitHub Pages on push to main
 # - Builds preview for PRs
+#
+# IMPORTANT: Before first deployment, you must enable GitHub Pages in repository settings:
+# 1. Go to Settings → Pages
+# 2. Under "Build and deployment", select "GitHub Actions" as the source
+# This is required because GITHUB_TOKEN doesn't have permission to create Pages sites.
 
 name: Documentation
 
@@ -83,8 +88,6 @@ jobs:
     steps:
       - name: Setup Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Deploy to GitHub Pages
         id: deployment
