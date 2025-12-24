@@ -98,7 +98,7 @@ fn test_scope_deny_many() {
 
 // Shell scope tests
 mod shell_scope {
-    use auroraview_plugins::scope::ShellScope;
+    use auroraview_plugins::ShellScope;
 
     #[test]
     fn test_shell_scope_new() {

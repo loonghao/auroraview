@@ -1,0 +1,29 @@
+[package]
+name = "auroraview-plugin-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AuroraView Plugin Core: Plugin system framework for WebView applications"
+keywords = ["webview", "plugins", "framework", "ipc"]
+categories = ["gui", "development-tools"]
+
+[lib]
+name = "auroraview_plugin_core"
+path = "src/lib.rs"
+
+[dependencies]
+# Logging
+tracing = "0.1"
+
+# File path handling
+dunce = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"

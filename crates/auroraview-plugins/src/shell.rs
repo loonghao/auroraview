@@ -35,7 +35,7 @@
 //! const home = await auroraview.invoke("plugin:shell|get_env", { name: "HOME" });
 //! ```
 
-use crate::{PluginError, PluginHandler, PluginResult, ScopeConfig};
+use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::process::{Command, Stdio};
