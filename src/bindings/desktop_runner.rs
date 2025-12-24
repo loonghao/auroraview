@@ -229,13 +229,14 @@ fn run_desktop(
     let ipc_handler = Arc::new(IpcHandler::new());
     let message_queue = Arc::new(MessageQueue::new());
 
-    // Run desktop - this will block until window closes and then exit the process
+    // Run desktop - this will block until window closes and then return normally
     tracing::info!("[run_desktop] Starting desktop event loop...");
     desktop::run_desktop(config, ipc_handler, message_queue)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
-    // This line will never be reached because run_desktop() calls std::process::exit()
-    unreachable!("run_desktop() should never return");
+    // Event loop exited normally (window was closed)
+    tracing::info!("[run_desktop] Event loop exited, window closed");
+    Ok(())
 }
 
 /// Legacy alias for `run_desktop` (backward compatibility)

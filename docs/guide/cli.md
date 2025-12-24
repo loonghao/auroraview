@@ -63,12 +63,16 @@ auroraview-cli pack --config auroraview.pack.toml
 | Option | Description | Default |
 |--------|-------------|---------|
 | `-u, --url <URL>` | URL to load in the WebView | - |
-| `-f, --html <HTML>` | Local HTML file to load | - |
+| `-f, --html <FILE>` | Local HTML file to load | - |
+| `--assets-root <DIR>` | Assets root directory for local HTML files | HTML file's directory |
 | `-t, --title <TITLE>` | Window title | "AuroraView" |
-| `--width <WIDTH>` | Window width in pixels | 800 |
-| `--height <HEIGHT>` | Window height in pixels | 600 |
+| `-w, --width <WIDTH>` | Window width in pixels (set to 0 to maximize) | 1024 |
+| `-H, --height <HEIGHT>` | Window height in pixels (set to 0 to maximize) | 768 |
+| `-d, --debug` | Enable debug logging (DevTools) | false |
+| `--allow-new-window` | Allow opening new windows (e.g., via window.open) | false |
+| `--allow-file-protocol` | Enable file:// protocol support | false |
+| `--always-on-top` | Keep window always on top | false |
 | `-h, --help` | Print help information | - |
-| `-V, --version` | Print version information | - |
 
 ## Rust CLI Commands
 
@@ -102,6 +106,12 @@ auroraview --url https://github.com
 
 # Preview with custom size
 auroraview --url https://github.com --width 1920 --height 1080
+
+# Preview with always-on-top window
+auroraview --url https://github.com --always-on-top
+
+# Enable DevTools for debugging
+auroraview --url https://github.com --debug
 ```
 
 ### Local Development (Python)
@@ -112,6 +122,12 @@ auroraview --html index.html
 
 # Preview with custom title
 auroraview --html dist/index.html --title "My App Preview"
+
+# Specify assets root directory
+auroraview --html dist/index.html --assets-root ./assets
+
+# Enable file:// protocol for local resources
+auroraview --html index.html --allow-file-protocol
 ```
 
 ### Using with uvx (No Installation Required)

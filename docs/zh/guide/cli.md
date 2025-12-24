@@ -63,12 +63,16 @@ auroraview-cli pack --config auroraview.pack.toml
 | 选项 | 描述 | 默认值 |
 |------|------|--------|
 | `-u, --url <URL>` | 在 WebView 中加载的 URL | - |
-| `-f, --html <HTML>` | 加载的本地 HTML 文件 | - |
+| `-f, --html <FILE>` | 加载的本地 HTML 文件 | - |
+| `--assets-root <DIR>` | 本地 HTML 文件的资源根目录 | HTML 文件所在目录 |
 | `-t, --title <TITLE>` | 窗口标题 | "AuroraView" |
-| `--width <WIDTH>` | 窗口宽度（像素） | 800 |
-| `--height <HEIGHT>` | 窗口高度（像素） | 600 |
+| `-w, --width <WIDTH>` | 窗口宽度（像素，设为 0 则最大化） | 1024 |
+| `-H, --height <HEIGHT>` | 窗口高度（像素，设为 0 则最大化） | 768 |
+| `-d, --debug` | 启用调试日志（开发者工具） | false |
+| `--allow-new-window` | 允许打开新窗口（如 window.open） | false |
+| `--allow-file-protocol` | 启用 file:// 协议支持 | false |
+| `--always-on-top` | 保持窗口置顶 | false |
 | `-h, --help` | 打印帮助信息 | - |
-| `-V, --version` | 打印版本信息 | - |
 
 ## Rust CLI 命令
 
@@ -102,6 +106,12 @@ auroraview --url https://github.com
 
 # 自定义大小预览
 auroraview --url https://github.com --width 1920 --height 1080
+
+# 窗口置顶预览
+auroraview --url https://github.com --always-on-top
+
+# 启用开发者工具调试
+auroraview --url https://github.com --debug
 ```
 
 ### 本地开发 (Python)
@@ -112,6 +122,12 @@ auroraview --html index.html
 
 # 自定义标题预览
 auroraview --html dist/index.html --title "我的应用预览"
+
+# 指定资源根目录
+auroraview --html dist/index.html --assets-root ./assets
+
+# 启用 file:// 协议加载本地资源
+auroraview --html index.html --allow-file-protocol
 ```
 
 ### 使用 uvx（无需安装）
