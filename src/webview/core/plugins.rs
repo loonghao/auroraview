@@ -59,6 +59,8 @@ impl PluginManager {
     ///     - process:stderr - { pid, data }
     ///     - process:exit - { pid, code }
     pub fn set_emit_callback(&self, py: Python<'_>, callback: Py<PyAny>) -> PyResult<()> {
+        tracing::debug!("[PluginManager] set_emit_callback called");
+
         // Store the Python callback to keep it alive
         {
             let mut py_cb = self.py_callback.write().map_err(|e| {
@@ -69,9 +71,9 @@ impl PluginManager {
 
         // Create a Rust callback that calls the Python callback
         let py_callback = callback;
-        #[allow(deprecated)]
         let rust_callback: PluginEventCallback = Arc::new(move |event_name: &str, data: Value| {
-            Python::with_gil(|py| {
+            tracing::debug!(event = %event_name, "[PluginManager] Event callback invoked");
+            Python::attach(|py| {
                 // Convert Value to Python dict
                 let py_data = match json_to_python(py, &data) {
                     Ok(d) => d,
@@ -82,8 +84,11 @@ impl PluginManager {
                 };
 
                 // Call the Python callback
+                tracing::debug!(event = %event_name, "[PluginManager] Calling Python callback");
                 if let Err(e) = py_callback.call1(py, (event_name, py_data)) {
                     tracing::error!("Plugin event callback error: {}", e);
+                } else {
+                    tracing::debug!(event = %event_name, "[PluginManager] Python callback completed");
                 }
             });
         });
@@ -93,6 +98,7 @@ impl PluginManager {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
         })?;
         router.set_event_callback(rust_callback);
+        tracing::debug!("[PluginManager] Event callback set on router");
 
         Ok(())
     }
@@ -213,12 +219,15 @@ impl PluginManager {
             Some(req) => req,
             None => {
                 let resp = PluginResponse::err("Invalid plugin command format", "INVALID_FORMAT");
-                return Ok(serde_json::to_string(&resp).unwrap());
+                return Ok(serde_json::to_string(&resp).unwrap_or_else(|_| {
+                    r#"{"success":false,"error":"Serialization failed"}"#.to_string()
+                }));
             }
         };
 
         let response = router.handle(request);
-        Ok(serde_json::to_string(&response).unwrap())
+        Ok(serde_json::to_string(&response)
+            .unwrap_or_else(|_| r#"{"success":false,"error":"Serialization failed"}"#.to_string()))
     }
 }
 

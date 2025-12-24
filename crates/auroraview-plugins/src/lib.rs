@@ -44,7 +44,7 @@ mod types;
 // Note: assets module is disabled until JS files are created
 // mod assets;
 
-pub use scope::{PathScope, ScopeConfig, ScopeError};
+pub use scope::{PathScope, ScopeConfig, ScopeError, ShellScope};
 pub use types::{PluginCommand, PluginError, PluginErrorCode, PluginResult};
 
 use serde::{Deserialize, Serialize};
@@ -215,8 +215,10 @@ impl PluginRouter {
     /// This callback will be invoked when plugins (like ProcessPlugin) need
     /// to send events to the frontend (e.g., process stdout/stderr output).
     pub fn set_event_callback(&self, callback: PluginEventCallback) {
+        tracing::info!("[PluginRouter] Setting event callback");
         let mut cb = self.event_callback.write().unwrap();
         *cb = Some(callback);
+        tracing::info!("[PluginRouter] Event callback set successfully");
     }
 
     /// Clear the event callback

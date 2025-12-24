@@ -62,10 +62,9 @@ impl EventEmitter {
     ///
     /// Note: data can be any Python object that can be converted to a dict.
     /// This is more flexible to support callbacks from PluginManager.
-    #[allow(deprecated)]
     fn emit(&self, event_name: &str, data: &Bound<'_, PyAny>) -> PyResult<()> {
         // Try to extract as PyDict first, then try to convert
-        let json_data = if let Ok(dict) = data.downcast::<PyDict>() {
+        let json_data = if let Ok(dict) = data.cast::<PyDict>() {
             py_dict_to_json(dict)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?
         } else {

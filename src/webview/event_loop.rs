@@ -35,6 +35,8 @@ pub enum UserEvent {
     TrayIconDoubleClick,
     /// Request to start native window drag
     DragWindow,
+    /// Plugin event to be forwarded to WebView
+    PluginEvent { event: String, data: String },
 }
 
 /// Event loop state management
@@ -532,6 +534,23 @@ impl WebViewEventHandler {
                             }
                         }
                     }
+                }
+                Event::UserEvent(UserEvent::PluginEvent { event, data }) => {
+                    tracing::debug!("[EventLoop] UserEvent::PluginEvent received: {}", event);
+                    if let Ok(state_guard) = state_clone.lock() {
+                        if let Some(webview_arc) = &state_guard.webview {
+                            if let Ok(webview) = webview_arc.lock() {
+                                let escaped_data = data.replace('\\', "\\\\").replace('\'', "\\'");
+                                let script = js_assets::build_emit_event_script(&event, &escaped_data);
+                                if let Err(e) = webview.evaluate_script(&script) {
+                                    tracing::error!("[EventLoop] Failed to emit plugin event '{}': {}", event, e);
+                                }
+                            }
+                        }
+                    }
+                }
+                Event::UserEvent(_) => {
+                    // Handle other user events (TrayMenuClick, TrayIconClick, etc.) - currently no-op
                 }
                 Event::WindowEvent { event, .. } => {
                     tracing::debug!("Window event: {:?}", event);
