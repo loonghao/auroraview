@@ -687,6 +687,34 @@ pub fn create_desktop(
         tracing::info!("[standalone] Event loop proxy set in holder for native drag support");
     }
 
+    // Set up plugin router event callback to forward events to WebView
+    // This enables ProcessPlugin to emit events like process:stdout, process:stderr, process:exit
+    {
+        let proxy_for_plugins = event_loop_proxy.clone();
+        let event_callback: auroraview_core::plugins::PluginEventCallback =
+            std::sync::Arc::new(move |event_name: &str, data: serde_json::Value| {
+                tracing::info!(
+                    "[Rust:PluginRouter] Event callback: {} with data: {}",
+                    event_name,
+                    data
+                );
+                let data_str = serde_json::to_string(&data).unwrap_or_default();
+                if let Err(e) = proxy_for_plugins.send_event(UserEvent::PluginEvent {
+                    event: event_name.to_string(),
+                    data: data_str,
+                }) {
+                    tracing::error!("Failed to send plugin event to event loop: {}", e);
+                }
+            });
+
+        if let Ok(router) = plugin_router.read() {
+            router.set_event_callback(event_callback);
+            tracing::info!(
+                "[standalone] Plugin router event callback set for ProcessPlugin events"
+            );
+        }
+    }
+
     // Create lifecycle manager
     use crate::webview::lifecycle::LifecycleManager;
     let lifecycle = Arc::new(LifecycleManager::new());

@@ -141,7 +141,8 @@ pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVER
 pub use packer::Packer;
 pub use progress::{progress_bar, spinner, PackProgress, ProgressExt, ProgressStyles};
 pub use protection::{
-    is_protection_available, protect_python_code, ProtectionConfig, ProtectionResult,
+    check_build_tools_available, is_protection_available, protect_python_code,
+    EncryptionConfigPack, ProtectionConfig, ProtectionMethodConfig, ProtectionResult,
 };
 pub use pyoxidizer::{
     check_pyoxidizer, installation_instructions, DistributionFlavor, ExternalBinary,

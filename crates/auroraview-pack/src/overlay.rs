@@ -194,10 +194,11 @@ impl OverlayWriter {
         drop(file);
 
         tracing::info!(
-            "Overlay written: config={} bytes, assets={} bytes, hash={}",
+            "Overlay written: config={} bytes, assets={} bytes, hash={}, title={}",
             config_compressed.len(),
             assets_compressed.len(),
-            content_hash
+            content_hash,
+            data.config.window.title
         );
 
         Ok(())

@@ -83,7 +83,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use crate::common::{
     default_module_search_paths, default_optimize, default_python_version, BundleStrategy,
@@ -96,6 +96,26 @@ use crate::error::{PackError, PackResult};
 
 // Re-export common types for convenience
 pub use crate::common::InjectConfig;
+
+/// Normalize a path by removing `.` and resolving `..` components
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut components = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {} // Skip `.`
+            Component::ParentDir => {
+                // Pop the last component if it's a normal component
+                if let Some(Component::Normal(_)) = components.last() {
+                    components.pop();
+                } else {
+                    components.push(component);
+                }
+            }
+            _ => components.push(component),
+        }
+    }
+    components.iter().collect()
+}
 
 // ============================================================================
 // Root Manifest Structure
@@ -385,11 +405,12 @@ impl BackendPythonConfig {
     /// Convert to PythonBundleConfig with path resolution
     pub fn to_bundle_config(&self, base_dir: &Path) -> PythonBundleConfig {
         let resolve_path = |p: &PathBuf| -> PathBuf {
-            if p.is_absolute() {
+            let joined = if p.is_absolute() {
                 p.clone()
             } else {
                 base_dir.join(p)
-            }
+            };
+            normalize_path(&joined)
         };
 
         PythonBundleConfig {
@@ -699,7 +720,7 @@ impl Default for ManifestWindowConfig {
 impl From<ManifestWindowConfig> for WindowConfig {
     fn from(manifest: ManifestWindowConfig) -> Self {
         Self {
-            title: String::new(), // Title comes from PackageConfig
+            title: "AuroraView App".to_string(), // Default title, will be overwritten by get_window_config()
             width: manifest.width,
             height: manifest.height,
             min_width: manifest.min_width,
@@ -976,7 +997,11 @@ pub struct ProtectionManifestConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
 
-    /// Optimization level for C compiler
+    /// Protection method: "bytecode" (fast) or "py2pyd" (slow)
+    #[serde(default)]
+    pub method: crate::protection::ProtectionMethodConfig,
+
+    /// Optimization level (0-2 for bytecode, 0-3 for py2pyd)
     #[serde(default = "default_optimization")]
     pub optimization: u8,
 
@@ -984,9 +1009,13 @@ pub struct ProtectionManifestConfig {
     #[serde(default)]
     pub keep_temp: bool,
 
-    /// Files/patterns to exclude from compilation
+    /// Files/patterns to exclude from protection
     #[serde(default)]
     pub exclude: Vec<String>,
+
+    /// Encryption settings (for bytecode method)
+    #[serde(default)]
+    pub encryption: crate::protection::EncryptionConfigPack,
 }
 
 fn default_optimization() -> u8 {
@@ -1001,9 +1030,11 @@ impl Default for ProtectionManifestConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+            method: crate::protection::ProtectionMethodConfig::Bytecode,
             optimization: default_optimization(),
             keep_temp: false,
             exclude: Vec::new(),
+            encryption: crate::protection::EncryptionConfigPack::default(),
         }
     }
 }
@@ -1013,6 +1044,7 @@ impl ProtectionManifestConfig {
     pub fn to_protection_config(&self) -> crate::protection::ProtectionConfig {
         crate::protection::ProtectionConfig {
             enabled: self.enabled,
+            method: self.method,
             python_path: None,
             python_version: None,
             optimization: self.optimization,
@@ -1020,6 +1052,7 @@ impl ProtectionManifestConfig {
             exclude: self.exclude.clone(),
             target_dcc: None,
             packages: Vec::new(),
+            encryption: self.encryption.clone(),
         }
     }
 }
@@ -1096,7 +1129,9 @@ impl HooksManifestConfig {
                     let source = if Path::new(&c.source).is_absolute() {
                         c.source.clone()
                     } else {
-                        base_dir.join(&c.source).to_string_lossy().to_string()
+                        normalize_path(&base_dir.join(&c.source))
+                            .to_string_lossy()
+                            .to_string()
                     };
                     CollectPattern {
                         source,

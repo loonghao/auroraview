@@ -65,15 +65,15 @@ struct Cli {
     assets_root: Option<PathBuf>,
 
     /// Window title
-    #[arg(short, long, default_value = "AuroraView", global = true)]
+    #[arg(short, long, default_value = "AuroraView")]
     title: String,
 
     /// Window width (set to 0 to maximize)
-    #[arg(long, default_value = "800", global = true)]
+    #[arg(long, default_value = "800")]
     width: u32,
 
     /// Window height (set to 0 to maximize)
-    #[arg(long, default_value = "600", global = true)]
+    #[arg(long, default_value = "600")]
     height: u32,
 
     /// Enable debug logging

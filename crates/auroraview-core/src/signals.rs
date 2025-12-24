@@ -1,10 +1,21 @@
 //! Signal-Slot System for AuroraView
 //!
-//! A Qt-inspired signal-slot pattern for event handling with:
-//! - Type-safe signals with generic payloads
+//! This module re-exports the unified `aurora-signals` crate which provides:
+//! - Type-safe signals with generic payloads (`Signal<T>`)
 //! - Multiple handlers per signal (multi-receiver support)
-//! - Automatic cleanup when ConnectionId is dropped
+//! - Automatic cleanup when ConnectionGuard is dropped (RAII)
 //! - Thread-safe operations using parking_lot
+//! - Dynamic signal registry (`SignalRegistry`)
+//! - Unified event bus with middleware support (`EventBus`)
+//!
+//! # Migration Guide
+//!
+//! The API is largely compatible with the previous implementation.
+//! Main differences:
+//! - `Signal::new()` -> `Signal::new()` (same)
+//! - `Signal::named("name")` for named signals (new)
+//! - `SignalRegistry` now has a `named()` constructor
+//! - New `EventBus` for middleware and bridge support
 //!
 //! # Example
 //!
@@ -25,306 +36,43 @@
 //! signal.disconnect(conn);
 //! ```
 
-use parking_lot::RwLock;
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+// Re-export core types from aurora-signals
+pub use aurora_signals::{
+    BridgeError,
+
+    CallbackBridge,
+    ChannelBridge,
+    ChannelMessage,
+    ConnectionGuard,
+
+    ConnectionId,
+    // Bridge types for cross-platform events
+    EventBridge,
+    // Event bus with middleware support
+    EventBus,
+
+    FilterMiddleware,
+    LogLevel,
+
+    LoggingMiddleware,
+    // Middleware types
+    Middleware,
+    MultiBridge,
+    // Core signal types
+    Signal,
+    // Error types
+    SignalError,
+    // Registry for dynamic signals
+    SignalRegistry,
+
+    TransformMiddleware,
+    // WebView bridge for forwarding events to frontend
+    WebViewBridge,
+    WebViewEventMessage,
+    WebViewSender,
+};
+
 use std::sync::Arc;
-
-/// Unique identifier for a signal connection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ConnectionId(u64);
-
-impl ConnectionId {
-    /// Get the raw ID value
-    pub fn id(&self) -> u64 {
-        self.0
-    }
-}
-
-/// Global counter for generating unique connection IDs
-static NEXT_CONNECTION_ID: AtomicU64 = AtomicU64::new(1);
-
-/// Generate a new unique connection ID
-fn next_connection_id() -> ConnectionId {
-    ConnectionId(NEXT_CONNECTION_ID.fetch_add(1, Ordering::SeqCst))
-}
-
-/// Handler function type
-type Handler<T> = Arc<dyn Fn(T) + Send + Sync + 'static>;
-
-/// A type-safe signal that can have multiple connected handlers
-///
-/// Signals emit values to all connected handlers when `emit()` is called.
-/// Handlers can be connected with `connect()` and disconnected with `disconnect()`.
-pub struct Signal<T: Clone + Send + 'static> {
-    handlers: RwLock<HashMap<ConnectionId, Handler<T>>>,
-}
-
-impl<T: Clone + Send + 'static> Default for Signal<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: Clone + Send + 'static> Signal<T> {
-    /// Create a new signal with no connected handlers
-    pub fn new() -> Self {
-        Self {
-            handlers: RwLock::new(HashMap::new()),
-        }
-    }
-
-    /// Connect a handler to this signal
-    ///
-    /// Returns a ConnectionId that can be used to disconnect the handler.
-    /// The handler will be called each time the signal is emitted.
-    pub fn connect<F>(&self, handler: F) -> ConnectionId
-    where
-        F: Fn(T) + Send + Sync + 'static,
-    {
-        let id = next_connection_id();
-        self.handlers.write().insert(id, Arc::new(handler));
-        id
-    }
-
-    /// Connect a handler that will only be called once
-    ///
-    /// After the first emission, the handler is automatically disconnected.
-    pub fn connect_once<F>(&self, handler: F) -> ConnectionId
-    where
-        F: FnOnce(T) + Send + Sync + 'static,
-    {
-        let id = next_connection_id();
-        let handler_cell = Arc::new(parking_lot::Mutex::new(Some(handler)));
-        let handler_clone = handler_cell.clone();
-
-        self.handlers.write().insert(
-            id,
-            Arc::new(move |value: T| {
-                if let Some(h) = handler_clone.lock().take() {
-                    h(value);
-                }
-            }),
-        );
-        id
-    }
-
-    /// Disconnect a handler by its ConnectionId
-    ///
-    /// Returns true if a handler was removed, false if the ID was not found.
-    pub fn disconnect(&self, id: ConnectionId) -> bool {
-        self.handlers.write().remove(&id).is_some()
-    }
-
-    /// Emit a value to all connected handlers
-    ///
-    /// Each handler receives a clone of the value.
-    pub fn emit(&self, value: T) {
-        let handlers = self.handlers.read();
-        for handler in handlers.values() {
-            handler(value.clone());
-        }
-    }
-
-    /// Get the number of connected handlers
-    pub fn handler_count(&self) -> usize {
-        self.handlers.read().len()
-    }
-
-    /// Check if any handlers are connected
-    pub fn is_connected(&self) -> bool {
-        !self.handlers.read().is_empty()
-    }
-
-    /// Disconnect all handlers
-    pub fn disconnect_all(&self) {
-        self.handlers.write().clear();
-    }
-}
-
-// ============================================================================
-// ConnectionGuard - RAII-style automatic disconnection
-// ============================================================================
-
-/// A guard that automatically disconnects a handler when dropped
-///
-/// This provides RAII-style cleanup for signal connections.
-/// When the guard goes out of scope, the handler is automatically disconnected.
-pub struct ConnectionGuard<T: Clone + Send + 'static> {
-    signal: Arc<Signal<T>>,
-    id: ConnectionId,
-    detached: bool,
-}
-
-impl<T: Clone + Send + 'static> ConnectionGuard<T> {
-    /// Create a new connection guard
-    pub fn new(signal: Arc<Signal<T>>, id: ConnectionId) -> Self {
-        Self {
-            signal,
-            id,
-            detached: false,
-        }
-    }
-
-    /// Get the connection ID
-    pub fn id(&self) -> ConnectionId {
-        self.id
-    }
-
-    /// Detach the guard, preventing automatic disconnection on drop
-    ///
-    /// After calling this, the handler will remain connected even after
-    /// the guard is dropped.
-    pub fn detach(mut self) {
-        self.detached = true;
-    }
-
-    /// Manually disconnect the handler
-    pub fn disconnect(mut self) -> bool {
-        self.detached = true; // Prevent double disconnect
-        self.signal.disconnect(self.id)
-    }
-}
-
-impl<T: Clone + Send + 'static> Drop for ConnectionGuard<T> {
-    fn drop(&mut self) {
-        if !self.detached {
-            self.signal.disconnect(self.id);
-        }
-    }
-}
-
-// ============================================================================
-// SignalRegistry - Dynamic signal management
-// ============================================================================
-
-/// A registry for dynamically named signals with JSON values
-///
-/// This allows creating and accessing signals by name at runtime,
-/// useful for event-driven systems where signal names are not known at compile time.
-///
-/// # Simple API
-///
-/// ```ignore
-/// let registry = SignalRegistry::new();
-///
-/// // Connect handler (creates signal if needed)
-/// let conn = registry.connect("my_event", |data| {
-///     println!("Received: {:?}", data);
-/// });
-///
-/// // Emit to signal
-/// registry.emit("my_event", json!({"key": "value"}));
-///
-/// // Disconnect
-/// registry.disconnect("my_event", conn);
-/// ```
-pub struct SignalRegistry {
-    /// Dynamic signals registry
-    signals: RwLock<HashMap<String, Arc<Signal<serde_json::Value>>>>,
-}
-
-impl Default for SignalRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SignalRegistry {
-    /// Create a new empty registry
-    pub fn new() -> Self {
-        Self {
-            signals: RwLock::new(HashMap::new()),
-        }
-    }
-
-    /// Get or create a signal by name
-    ///
-    /// If the signal doesn't exist, a new one is created.
-    pub fn get_or_create(&self, name: &str) -> Arc<Signal<serde_json::Value>> {
-        // Fast path: try to get existing signal with read lock
-        {
-            let signals = self.signals.read();
-            if let Some(signal) = signals.get(name) {
-                return signal.clone();
-            }
-        }
-
-        // Slow path: create new signal with write lock
-        let mut signals = self.signals.write();
-        signals
-            .entry(name.to_string())
-            .or_insert_with(|| Arc::new(Signal::new()))
-            .clone()
-    }
-
-    /// Get a signal by name, returns None if it doesn't exist
-    pub fn get(&self, name: &str) -> Option<Arc<Signal<serde_json::Value>>> {
-        self.signals.read().get(name).cloned()
-    }
-
-    /// Check if a signal exists
-    pub fn contains(&self, name: &str) -> bool {
-        self.signals.read().contains_key(name)
-    }
-
-    /// Remove a signal by name
-    ///
-    /// Returns true if the signal was removed.
-    pub fn remove(&self, name: &str) -> bool {
-        self.signals.write().remove(name).is_some()
-    }
-
-    /// Get all signal names
-    pub fn names(&self) -> Vec<String> {
-        self.signals.read().keys().cloned().collect()
-    }
-
-    /// Connect a handler to a named signal
-    ///
-    /// This is the recommended API - creates the signal if it doesn't exist.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let conn = registry.connect("my_event", |data| {
-    ///     println!("Received: {:?}", data);
-    /// });
-    /// ```
-    pub fn connect<F>(&self, name: &str, handler: F) -> ConnectionId
-    where
-        F: Fn(serde_json::Value) + Send + Sync + 'static,
-    {
-        self.get_or_create(name).connect(handler)
-    }
-
-    /// Connect a one-time handler to a named signal
-    ///
-    /// The handler will be automatically disconnected after first emission.
-    pub fn connect_once<F>(&self, name: &str, handler: F) -> ConnectionId
-    where
-        F: FnOnce(serde_json::Value) + Send + Sync + 'static,
-    {
-        self.get_or_create(name).connect_once(handler)
-    }
-
-    /// Emit a value to a named signal
-    ///
-    /// Does nothing if the signal doesn't exist.
-    pub fn emit(&self, name: &str, value: serde_json::Value) {
-        if let Some(signal) = self.get(name) {
-            signal.emit(value);
-        }
-    }
-
-    /// Disconnect a handler from a named signal
-    pub fn disconnect(&self, name: &str, id: ConnectionId) -> bool {
-        if let Some(signal) = self.get(name) {
-            signal.disconnect(id)
-        } else {
-            false
-        }
-    }
-}
 
 // ============================================================================
 // WebViewSignals - Pre-defined signals for WebView lifecycle

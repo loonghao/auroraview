@@ -547,12 +547,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "aurora-signals"
+version = "0.3.22"
+dependencies = [
+ "crossbeam-channel",
+ "once_cell",
+ "parking_lot",
+ "pyo3",
+ "regex",
+ "rstest 0.26.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "auroraview"
 version = "0.3.22"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
  "askama",
+ "aurora-signals",
  "auroraview-core",
  "criterion",
  "crossbeam-channel",
@@ -647,6 +665,7 @@ version = "0.3.22"
 dependencies = [
  "active-win-pos-rs",
  "askama",
+ "aurora-signals",
  "auroraview-plugins",
  "dunce",
  "http 1.4.0",

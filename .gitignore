@@ -87,6 +87,8 @@ htmlcov/
 # AI assistants
 .augment/
 .codebuddy/
+code-review.md
+
 
 # Additional build artifacts
 python/auroraview/_core.*
