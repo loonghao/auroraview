@@ -3,6 +3,12 @@ name: PR Checks
 # This workflow runs comprehensive checks on PRs to ensure quality before merging.
 # Optimized with path-based filtering to run only necessary checks based on changed files.
 #
+# Artifact Reuse Strategy:
+# - sdk-build: Builds SDK once, artifacts reused by gallery-e2e and gallery-pack
+# - cli-build: Builds CLI once, artifacts reused by gallery-pack
+# - pre-build: Builds wheels once, artifacts reused by python-tests, wheel-build, qt-tests, gallery-pack
+# - This eliminates duplicate builds and significantly reduces CI time
+#
 # Path Filter Categories:
 # - rust: Rust source code changes -> triggers Rust builds/tests
 # - python: Python source code changes -> triggers Python tests
@@ -620,6 +626,7 @@ jobs:
 
   # =============================================================================
   # CLI Build Test - Ensures CLI releases will work (parallel)
+  # Uploads artifacts for reuse by gallery-pack job
   # =============================================================================
   cli-build:
     name: CLI Build (${{ matrix.os }})
@@ -633,10 +640,16 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            artifact-name: cli-linux-x86_64
+            exe-name: auroraview-cli
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            artifact-name: cli-windows-x64
+            exe-name: auroraview-cli.exe
           - os: macos-latest
             target: aarch64-apple-darwin
+            artifact-name: cli-macos-arm64
+            exe-name: auroraview-cli
     steps:
       - uses: actions/checkout@v6
 
@@ -676,15 +689,27 @@ jobs:
             ./target/${{ matrix.target }}/release/auroraview-cli --version
           fi
 
+      # Upload CLI artifact for reuse by gallery-pack
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: target/${{ matrix.target }}/release/${{ matrix.exe-name }}
+          retention-days: 1
+
   # =============================================================================
-  # Gallery E2E Tests - Playwright tests (parallel when possible)
+  # Gallery E2E Tests - Playwright tests
+  # Reuses SDK build artifacts to avoid duplicate builds
   # =============================================================================
   gallery-e2e:
     name: Gallery E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [path-filter]
-    if: needs.path-filter.outputs.needs_gallery_tests == 'true'
+    needs: [path-filter, sdk-build]
+    if: |
+      always() &&
+      needs.path-filter.outputs.needs_gallery_tests == 'true' &&
+      (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
 
@@ -703,7 +728,17 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Build SDK first (Gallery depends on it)
+      # Download pre-built SDK package if available
+      - name: Download SDK package
+        if: needs.sdk-build.result == 'success'
+        uses: actions/download-artifact@v7
+        with:
+          name: pr-sdk-package
+          path: packages/auroraview-sdk/dist/
+
+      # Build SDK only if sdk-build was skipped (no SDK changes)
+      - name: Build SDK (fallback)
+        if: needs.sdk-build.result == 'skipped'
         shell: bash
         run: |
           cd packages/auroraview-sdk
@@ -816,12 +851,13 @@ jobs:
 
   # =============================================================================
   # Gallery Pack Build Test - Ensures gallery packaging works
+  # Reuses CLI and SDK build artifacts to avoid duplicate builds
   # =============================================================================
   gallery-pack:
     name: Gallery Pack Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
-    needs: [path-filter, cli-build, pre-build]
+    needs: [path-filter, cli-build, pre-build, sdk-build]
     if: |
       always() &&
       needs.path-filter.outputs.needs_gallery_tests == 'true' &&
@@ -834,22 +870,23 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             exe-ext: .exe
+            exe-name: auroraview-cli.exe
             wheel-artifact: wheels-windows-x64
+            cli-artifact: cli-windows-x64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             exe-ext: ''
+            exe-name: auroraview-cli
             wheel-artifact: wheels-linux-x86_64
+            cli-artifact: cli-linux-x86_64
           - os: macos-latest
             target: aarch64-apple-darwin
             exe-ext: ''
+            exe-name: auroraview-cli
             wheel-artifact: wheels-macos-universal2-apple-darwin
+            cli-artifact: cli-macos-arm64
     steps:
       - uses: actions/checkout@v6
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
-        with:
-          targets: ${{ matrix.target }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -878,13 +915,39 @@ jobs:
           pip install dist/*.whl
           python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
+      # Download pre-built CLI from cli-build job
+      - name: Download pre-built CLI
+        if: needs.cli-build.result == 'success'
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ matrix.cli-artifact }}
+          path: cli-bin/
+
+      - name: Setup pre-built CLI
+        if: needs.cli-build.result == 'success'
+        shell: bash
+        run: |
+          mkdir -p target/${{ matrix.target }}/release
+          cp cli-bin/${{ matrix.exe-name }} target/${{ matrix.target }}/release/
+          chmod +x target/${{ matrix.target }}/release/${{ matrix.exe-name }} || true
+          echo "Using pre-built CLI:"
+          ls -la target/${{ matrix.target }}/release/${{ matrix.exe-name }}
+
+      # Fallback: Build CLI only if cli-build was skipped
+      - name: Setup Rust (fallback)
+        if: needs.cli-build.result == 'skipped'
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies (fallback)
+        if: needs.cli-build.result == 'skipped' && runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
 
-      - name: Cache Rust
+      - name: Cache Rust (fallback)
+        if: needs.cli-build.result == 'skipped'
         uses: actions/cache@v5
         with:
           path: |
@@ -895,7 +958,21 @@ jobs:
           key: ${{ runner.os }}-cargo-gallery-pack-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-gallery-pack-
 
-      - name: Build SDK first (Gallery depends on it)
+      - name: Build CLI (fallback)
+        if: needs.cli-build.result == 'skipped'
+        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+
+      # Download pre-built SDK package if available
+      - name: Download SDK package
+        if: needs.sdk-build.result == 'success'
+        uses: actions/download-artifact@v7
+        with:
+          name: pr-sdk-package
+          path: packages/auroraview-sdk/dist/
+
+      # Build SDK only if sdk-build was skipped
+      - name: Build SDK (fallback)
+        if: needs.sdk-build.result == 'skipped'
         shell: bash
         run: |
           cd packages/auroraview-sdk
@@ -910,9 +987,6 @@ jobs:
           rm -rf node_modules package-lock.json
           npm install
           npm run build
-
-      - name: Build CLI
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
 
       - name: Pack Gallery (generate executable)
         shell: bash
