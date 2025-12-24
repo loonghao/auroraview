@@ -1,7 +1,16 @@
 name: PR Checks
 
 # This workflow runs comprehensive checks on PRs to ensure quality before merging.
-# Optimized for speed while maintaining release-quality validation.
+# Optimized with path-based filtering to run only necessary checks based on changed files.
+#
+# Path Filter Categories:
+# - rust: Rust source code changes -> triggers Rust builds/tests
+# - python: Python source code changes -> triggers Python tests
+# - sdk: TypeScript SDK changes -> triggers SDK builds
+# - gallery: Gallery app changes -> triggers Gallery tests
+# - docs: Documentation changes -> triggers docs build only
+# - ci: CI configuration changes -> triggers all checks
+# - tests: Test file changes -> triggers relevant tests
 
 on:
   pull_request:
@@ -24,14 +33,211 @@ env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
 jobs:
-  # Pre-build ABI3 wheels for all platforms (one wheel works for Python 3.8+)
-  # Uses the same build-wheel action as release workflow to ensure consistency
-  # Artifact names match release workflow for reuse
+  # =============================================================================
+  # Path Detection - Determines which jobs to run based on changed files
+  # =============================================================================
+  path-filter:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      python: ${{ steps.filter.outputs.python }}
+      sdk: ${{ steps.filter.outputs.sdk }}
+      gallery: ${{ steps.filter.outputs.gallery }}
+      docs: ${{ steps.filter.outputs.docs }}
+      ci: ${{ steps.filter.outputs.ci }}
+      tests: ${{ steps.filter.outputs.tests }}
+      # Composite flags for convenience
+      needs_wheel: ${{ steps.filter.outputs.rust == 'true' || steps.filter.outputs.python == 'true' || steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}
+      needs_rust_checks: ${{ steps.filter.outputs.rust == 'true' || steps.filter.outputs.ci == 'true' }}
+      needs_python_tests: ${{ steps.filter.outputs.python == 'true' || steps.filter.outputs.rust == 'true' || steps.filter.outputs.ci == 'true' }}
+      needs_sdk_build: ${{ steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}
+      needs_gallery_tests: ${{ steps.filter.outputs.gallery == 'true' || steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}
+      needs_docs_build: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Detect file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'src/**'
+              - 'crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '.cargo/**'
+              - 'benches/**'
+              - 'tests/rust/**'
+            python:
+              - 'python/**'
+              - 'pyproject.toml'
+              - 'tests/python/**'
+              - 'noxfile.py'
+            sdk:
+              - 'packages/**'
+            gallery:
+              - 'gallery/**'
+            docs:
+              - 'docs/**'
+              - '*.md'
+              - 'website/**'
+            ci:
+              - '.github/**'
+              - 'justfile'
+              - '.pre-commit-config.yaml'
+              - '.codecov.yml'
+            tests:
+              - 'tests/**'
+              - 'benches/**'
+
+      - name: Summary of detected changes
+        run: |
+          echo "## 🔍 Detected Changes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Category | Changed | Will Run |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|---------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Rust | ${{ steps.filter.outputs.rust }} | Rust checks, CLI build |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python | ${{ steps.filter.outputs.python }} | Python tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| SDK | ${{ steps.filter.outputs.sdk }} | SDK build |" >> $GITHUB_STEP_SUMMARY
+          echo "| Gallery | ${{ steps.filter.outputs.gallery }} | Gallery E2E |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docs | ${{ steps.filter.outputs.docs }} | Docs build |" >> $GITHUB_STEP_SUMMARY
+          echo "| CI | ${{ steps.filter.outputs.ci }} | All checks |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Composite Flags" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_wheel: ${{ steps.filter.outputs.rust == 'true' || steps.filter.outputs.python == 'true' || steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_rust_checks: ${{ steps.filter.outputs.rust == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_python_tests: ${{ steps.filter.outputs.python == 'true' || steps.filter.outputs.rust == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_sdk_build: ${{ steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_gallery_tests: ${{ steps.filter.outputs.gallery == 'true' || steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_docs_build: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
+
+  # =============================================================================
+  # Quick Checks - Always run for code quality (fast, < 5 min)
+  # =============================================================================
+  quick-checks:
+    name: Quick Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [path-filter]
+    if: needs.path-filter.outputs.needs_rust_checks == 'true' || needs.path-filter.outputs.python == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt,clippy
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Cache Rust
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-quick-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-quick-
+
+      - name: Check Rust formatting
+        if: needs.path-filter.outputs.needs_rust_checks == 'true'
+        run: cargo fmt --all -- --check
+
+      - name: Check Python formatting (ruff)
+        if: needs.path-filter.outputs.python == 'true' || needs.path-filter.outputs.ci == 'true'
+        run: |
+          uvx ruff check python/ tests/ --select=E,F,W --ignore=E501
+
+      - name: Cargo check (fast compile check)
+        if: needs.path-filter.outputs.needs_rust_checks == 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev pkg-config
+          cargo check --workspace --all-features
+
+  # =============================================================================
+  # Clippy - Rust linting (parallel with quick-checks)
+  # =============================================================================
+  clippy:
+    name: Clippy Lints
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [path-filter]
+    if: needs.path-filter.outputs.needs_rust_checks == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: clippy
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
+
+      - name: Cache Rust
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-clippy-
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  # =============================================================================
+  # SDK Build - TypeScript SDK (parallel, no dependencies)
+  # =============================================================================
+  sdk-build:
+    name: SDK CI
+    needs: [path-filter]
+    if: needs.path-filter.outputs.needs_sdk_build == 'true'
+    uses: ./.github/workflows/sdk-ci.yml
+    with:
+      artifact-prefix: 'pr-'
+    secrets: inherit
+
+  # =============================================================================
+  # Pre-build Wheels - Build ABI3 wheels for all platforms
+  # Only runs when code changes require wheel rebuild
+  # =============================================================================
   pre-build:
     name: Pre-build Wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
-    needs: [sdk-build]
+    needs: [path-filter, sdk-build]
+    if: |
+      always() &&
+      (needs.path-filter.outputs.needs_wheel == 'true') &&
+      (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +258,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download SDK assets
+        if: needs.sdk-build.result == 'success'
         uses: actions/download-artifact@v7
         with:
           name: pr-sdk-assets
@@ -66,13 +273,15 @@ jobs:
           test-wheel: 'true'
           artifact-name: ${{ matrix.artifact-name }}
 
-  # Python 3.7 separate build and test (non-abi3)
-  # Uses the same build-wheel action as release workflow to ensure consistency
-  # Artifact names match release workflow for reuse
+  # =============================================================================
+  # Python 3.7 Test - Separate build for Python 3.7 compatibility
+  # =============================================================================
   python37-test:
     name: Python 3.7 (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
+    needs: [path-filter]
+    if: needs.path-filter.outputs.needs_python_tests == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -116,11 +325,18 @@ jobs:
             --ignore=tests/python/unit/test_qt_signals.py \
             -k "not qt"
 
-  # Fast checks that run first (< 2 min)
-  quick-checks:
-    name: Quick Checks
+  # =============================================================================
+  # Rust Tests - With coverage reporting
+  # =============================================================================
+  rust-tests:
+    name: Rust Tests & Coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    needs: [path-filter, quick-checks]
+    if: |
+      always() &&
+      needs.path-filter.outputs.needs_rust_checks == 'true' &&
+      (needs.quick-checks.result == 'success' || needs.quick-checks.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
 
@@ -130,60 +346,10 @@ jobs:
           sudo docker image prune --all --force || true
           df -h
 
-      - name: Setup Rust
+      - name: Setup Rust with llvm-tools
         uses: dtolnay/rust-toolchain@1.90.0
         with:
-          components: rustfmt,clippy
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Cache Rust
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-quick-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-quick-
-
-      - name: Check Rust formatting
-        run: cargo fmt --all -- --check
-
-      - name: Check Python formatting (ruff)
-        run: |
-          uvx ruff check python/ tests/ --select=E,F,W --ignore=E501
-
-      - name: Cargo check (fast compile check)
-        run: |
-          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev pkg-config
-          cargo check --workspace --all-features
-
-  # Clippy runs in parallel with quick-checks
-  clippy:
-    name: Clippy Lints
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force || true
-          df -h
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
-        with:
-          components: clippy
+          components: llvm-tools-preview
 
       - name: Install system dependencies
         run: |
@@ -198,18 +364,47 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-clippy-
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-coverage-
 
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
 
-  # Python tests using pre-built ABI3 wheels (Python 3.8+)
+      - name: Run tests with coverage
+        run: |
+          cargo llvm-cov --workspace --lcov --output-path lcov.info \
+            --no-default-features --features "python-bindings,test-helpers,threaded-ipc" \
+            --exclude auroraview-cli \
+            -- --skip window_utils --skip webview::event_loop --skip webview::message_pump \
+               --skip webview::parent_monitor --skip service_discovery::python_bindings \
+               --skip ipc:: --skip tests::test_pymodule_init_registers_symbols
+
+      - name: Run doc tests
+        run: cargo test --doc
+
+      - name: Upload Rust coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          flags: rust
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # =============================================================================
+  # Python Tests - Using pre-built ABI3 wheels (Python 3.8+)
+  # =============================================================================
   python-tests:
     name: Python ${{ matrix.python-version }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
-    needs: [quick-checks, pre-build]
+    needs: [path-filter, quick-checks, pre-build]
+    if: |
+      always() &&
+      needs.path-filter.outputs.needs_python_tests == 'true' &&
+      (needs.quick-checks.result == 'success' || needs.quick-checks.result == 'skipped') &&
+      needs.pre-build.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -288,73 +483,19 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # Rust tests with coverage
-  rust-tests:
-    name: Rust Tests & Coverage
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [quick-checks]
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force || true
-          df -h
-
-      - name: Setup Rust with llvm-tools
-        uses: dtolnay/rust-toolchain@1.90.0
-        with:
-          components: llvm-tools-preview
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
-
-      - name: Cache Rust
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-coverage-
-
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-llvm-cov
-
-      - name: Run tests with coverage
-        run: |
-          cargo llvm-cov --workspace --lcov --output-path lcov.info \
-            --no-default-features --features "python-bindings,test-helpers,threaded-ipc" \
-            --exclude auroraview-cli \
-            -- --skip window_utils --skip webview::event_loop --skip webview::message_pump \
-               --skip webview::parent_monitor --skip service_discovery::python_bindings \
-               --skip ipc:: --skip tests::test_pymodule_init_registers_symbols
-
-      - name: Run doc tests
-        run: cargo test --doc
-
-      - name: Upload Rust coverage
-        uses: codecov/codecov-action@v5
-        with:
-          files: lcov.info
-          flags: rust
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-  # Wheel validation (test pre-built wheels)
+  # =============================================================================
+  # Wheel Validation - Test pre-built wheels
+  # =============================================================================
   wheel-build:
     name: Wheel Validation (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
-    needs: [quick-checks, pre-build]
+    needs: [path-filter, quick-checks, pre-build]
+    if: |
+      always() &&
+      needs.path-filter.outputs.needs_wheel == 'true' &&
+      (needs.quick-checks.result == 'success' || needs.quick-checks.result == 'skipped') &&
+      needs.pre-build.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -388,12 +529,19 @@ jobs:
           # Test CLI entry point
           auroraview --help || python -m auroraview --help || echo "CLI test skipped"
 
-  # Qt integration tests (Windows only - most critical platform)
+  # =============================================================================
+  # Qt Integration Tests - Windows only (most critical platform)
+  # =============================================================================
   qt-tests:
     name: Qt Tests (Windows)
     runs-on: windows-latest
     timeout-minutes: 15
-    needs: [quick-checks, pre-build]
+    needs: [path-filter, quick-checks, pre-build]
+    if: |
+      always() &&
+      needs.path-filter.outputs.needs_python_tests == 'true' &&
+      (needs.quick-checks.result == 'success' || needs.quick-checks.result == 'skipped') &&
+      needs.pre-build.result == 'success'
     steps:
       - uses: actions/checkout@v6
 
@@ -434,12 +582,15 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # Performance benchmark (detect regressions)
+  # =============================================================================
+  # Performance Benchmark - Detect regressions (parallel)
+  # =============================================================================
   benchmark:
     name: Performance Benchmark
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [quick-checks]
+    needs: [path-filter]
+    if: needs.path-filter.outputs.needs_rust_checks == 'true'
     steps:
       - uses: actions/checkout@v6
 
@@ -467,12 +618,15 @@ jobs:
           cargo bench --no-run 2>/dev/null || echo "No benchmarks defined yet"
           # TODO: Add criterion benchmarks and compare against baseline
 
-  # CLI build test (ensures CLI releases will work)
+  # =============================================================================
+  # CLI Build Test - Ensures CLI releases will work (parallel)
+  # =============================================================================
   cli-build:
     name: CLI Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
-    needs: [quick-checks]
+    needs: [path-filter]
+    if: needs.path-filter.outputs.needs_rust_checks == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -522,20 +676,15 @@ jobs:
             ./target/${{ matrix.target }}/release/auroraview-cli --version
           fi
 
-  # SDK build and test (calls reusable workflow)
-  sdk-build:
-    name: SDK CI
-    uses: ./.github/workflows/sdk-ci.yml
-    with:
-      artifact-prefix: 'pr-'
-    secrets: inherit
-
-  # Gallery E2E tests with Playwright
+  # =============================================================================
+  # Gallery E2E Tests - Playwright tests (parallel when possible)
+  # =============================================================================
   gallery-e2e:
     name: Gallery E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [quick-checks]
+    needs: [path-filter]
+    if: needs.path-filter.outputs.needs_gallery_tests == 'true'
     steps:
       - uses: actions/checkout@v6
 
@@ -665,13 +814,19 @@ jobs:
               });
             }
 
-  # Gallery pack build test (ensures gallery packaging works)
-  # Requires pre-built wheels for auroraview dependency collection
+  # =============================================================================
+  # Gallery Pack Build Test - Ensures gallery packaging works
+  # =============================================================================
   gallery-pack:
     name: Gallery Pack Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
-    needs: [quick-checks, cli-build, pre-build]
+    needs: [path-filter, cli-build, pre-build]
+    if: |
+      always() &&
+      needs.path-filter.outputs.needs_gallery_tests == 'true' &&
+      (needs.cli-build.result == 'success' || needs.cli-build.result == 'skipped') &&
+      (needs.pre-build.result == 'success' || needs.pre-build.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -709,12 +864,14 @@ jobs:
           python-version: '3.11'
 
       - name: Download pre-built auroraview wheel
+        if: needs.pre-build.result == 'success'
         uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.wheel-artifact }}
           path: dist/
 
       - name: Install auroraview wheel
+        if: needs.pre-build.result == 'success'
         shell: bash
         run: |
           python -m pip install --upgrade pip
@@ -870,19 +1027,67 @@ jobs:
           path: target/pack/auroraview-gallery${{ matrix.exe-ext }}
           retention-days: 3
 
-  # Final gate - all critical checks must pass
+  # =============================================================================
+  # Docs Build - Only for documentation changes
+  # =============================================================================
+  docs-build:
+    name: Docs Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [path-filter]
+    if: needs.path-filter.outputs.needs_docs_build == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: docs
+        run: npm install
+
+      - name: Build docs
+        working-directory: docs
+        run: npm run build
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: docs-build
+          path: docs/.vitepress/dist
+          retention-days: 3
+
+  # =============================================================================
+  # Final Gate - All critical checks must pass
+  # =============================================================================
   pr-ready:
     name: PR Ready
     runs-on: ubuntu-latest
-    needs: [pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build, gallery-e2e, gallery-pack, sdk-build]
+    needs: [path-filter, pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build, gallery-e2e, gallery-pack, sdk-build, benchmark, docs-build]
     if: always()
     steps:
       - name: Check results
         run: |
           echo "## PR Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Show what was detected
+          echo "### 🔍 Change Detection" >> $GITHUB_STEP_SUMMARY
+          echo "- Rust: ${{ needs.path-filter.outputs.rust }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Python: ${{ needs.path-filter.outputs.python }}" >> $GITHUB_STEP_SUMMARY
+          echo "- SDK: ${{ needs.path-filter.outputs.sdk }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Gallery: ${{ needs.path-filter.outputs.gallery }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Docs: ${{ needs.path-filter.outputs.docs }}" >> $GITHUB_STEP_SUMMARY
+          echo "- CI: ${{ needs.path-filter.outputs.ci }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Define required jobs
+          echo "### 📋 Job Results" >> $GITHUB_STEP_SUMMARY
+
+          # Define all jobs with their results
           declare -A jobs=(
+            ["path-filter"]="${{ needs.path-filter.result }}"
             ["pre-build"]="${{ needs.pre-build.result }}"
             ["python37-test"]="${{ needs.python37-test.result }}"
             ["quick-checks"]="${{ needs.quick-checks.result }}"
@@ -895,6 +1100,8 @@ jobs:
             ["gallery-e2e"]="${{ needs.gallery-e2e.result }}"
             ["gallery-pack"]="${{ needs.gallery-pack.result }}"
             ["sdk-build"]="${{ needs.sdk-build.result }}"
+            ["benchmark"]="${{ needs.benchmark.result }}"
+            ["docs-build"]="${{ needs.docs-build.result }}"
           )
 
           failed=0
@@ -903,10 +1110,15 @@ jobs:
             if [[ "$result" == "success" ]]; then
               echo "- ✅ $job" >> $GITHUB_STEP_SUMMARY
             elif [[ "$result" == "skipped" ]]; then
-              echo "- ⏭️ $job (skipped)" >> $GITHUB_STEP_SUMMARY
+              echo "- ⏭️ $job (skipped - not needed)" >> $GITHUB_STEP_SUMMARY
+            elif [[ "$result" == "cancelled" ]]; then
+              echo "- ⚪ $job (cancelled)" >> $GITHUB_STEP_SUMMARY
             else
               echo "- ❌ $job ($result)" >> $GITHUB_STEP_SUMMARY
-              failed=1
+              # Only fail if the job was supposed to run (not skipped)
+              if [[ "$result" != "skipped" ]]; then
+                failed=1
+              fi
             fi
           done
 
