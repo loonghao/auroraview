@@ -1,0 +1,52 @@
+[package]
+name = "aurora-signals"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Aurora Signals: A cross-language signal-slot system with middleware and event bus support"
+keywords = ["signals", "events", "pubsub", "middleware", "rust"]
+categories = ["development-tools", "asynchronous"]
+
+[lib]
+name = "aurora_signals"
+path = "src/lib.rs"
+
+[dependencies]
+# Thread-safe primitives
+parking_lot = "0.12"
+once_cell = "1.20"
+
+# Serialization for dynamic signals
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+
+# Error handling
+thiserror = "2.0"
+
+# Regex for middleware patterns
+regex = "1.11"
+
+# Cross-thread communication
+crossbeam-channel = "0.5"
+
+# Python bindings (optional)
+pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true }
+
+[features]
+default = []
+# Python bindings via PyO3
+python = ["pyo3"]
+# ABI3 stable ABI for Python 3.8+
+abi3-py38 = ["pyo3/abi3-py38"]
+# Extension module for Python wheels
+ext-module = ["pyo3/extension-module"]
+
+[dev-dependencies]
+rstest = "0.26"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

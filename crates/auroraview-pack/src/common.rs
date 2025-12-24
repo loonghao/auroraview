@@ -48,6 +48,10 @@ fn default_height() -> u32 {
     720
 }
 
+fn default_title() -> String {
+    "AuroraView App".to_string()
+}
+
 /// Default Python version
 pub fn default_python_version() -> String {
     "3.11".to_string()
@@ -149,7 +153,7 @@ impl WindowStartPosition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowConfig {
     /// Window title (usually from [app].title)
-    #[serde(default)]
+    #[serde(default = "default_title")]
     pub title: String,
 
     /// Window width

@@ -365,6 +365,12 @@ def run_gallery():
     print("[Python] Interactive showcase of all features and components", file=sys.stderr)
     print("[Python] " + "=" * 50, file=sys.stderr)
 
+    # Check if running in packed mode
+    from auroraview.core.packed import is_packed_mode
+
+    packed_mode = is_packed_mode()
+    print(f"[Python] Packed mode: {packed_mode}", file=sys.stderr)
+
     # Pre-load samples during startup to avoid delay when frontend requests them
     # This runs in parallel with WebView initialization
     import time
@@ -378,10 +384,7 @@ def run_gallery():
     # In packed mode, frontend is embedded in the executable
     index_html = DIST_DIR / "index.html"
     if not index_html.exists():
-        # In packed mode, the Rust CLI handles frontend loading
-        from auroraview.core.packed import is_packed_mode
-
-        if not is_packed_mode():
+        if not packed_mode:
             print(
                 "[Python] Error: Gallery not built. Run 'just gallery-build' first.",
                 file=sys.stderr,
@@ -405,12 +408,40 @@ def run_gallery():
     # Create plugin manager with permissive scope for demo
     plugins = PluginManager.permissive()
 
-    # Create a thread-safe event emitter for plugin callbacks
-    # ProcessPlugin runs in background threads, so we need a thread-safe emitter
-    emitter = view.create_emitter()
+    # Set up event callback for plugins
+    # In packed mode, events need to be sent via stdout to Rust CLI
+    # In development mode, events are sent via the WebView's message queue
+    if packed_mode:
+        # In packed mode, emit events via stdout as JSON messages
+        # The Rust CLI will forward these to the WebView
+        import json
+        import threading
 
-    # This enables ProcessPlugin to emit events directly to the frontend
-    plugins.set_emit_callback(emitter.emit)
+        # Thread-safe lock for stdout writes
+        _stdout_lock = threading.Lock()
+
+        def packed_emit_callback(event_name, data):
+            """Emit events to Rust CLI via stdout in packed mode."""
+            try:
+                # Format as event message for Rust CLI to forward
+                event_msg = json.dumps({
+                    "type": "event",
+                    "event": event_name,
+                    "data": data if isinstance(data, dict) else {"value": data}
+                })
+                with _stdout_lock:
+                    print(event_msg, flush=True)
+                print(f"[Python:emit] Sent event via stdout: {event_name}", file=sys.stderr)
+            except Exception as e:
+                print(f"[Python:emit] Error sending event: {e}", file=sys.stderr)
+
+        plugins.set_emit_callback(packed_emit_callback)
+        print("[Python] Using packed mode event callback (stdout)", file=sys.stderr)
+    else:
+        # In development mode, use the WebView's message queue
+        emitter = view.create_emitter()
+        plugins.set_emit_callback(emitter.emit)
+        print("[Python] Using development mode event callback (message queue)", file=sys.stderr)
 
     # API: Get source code
     @view.bind_call("api.get_source")
@@ -421,12 +452,89 @@ def run_gallery():
             return get_source_code(sample["source_file"])
         return f"# Sample not found: {sample_id}"
 
-    # API: Run sample with IPC support (using Rust ProcessPlugin)
+    # API: Prepare run sample - returns spawn arguments for JavaScript to call ProcessPlugin
+    # This ensures ProcessPlugin always runs in Rust CLI, not Python process
+    @view.bind_call("api.prepare_run_sample")
+    def prepare_run_sample(
+        sample_id: str = "", show_console: bool = False, use_channel: bool = False
+    ) -> dict:
+        """Prepare arguments for running a sample demo.
+
+        Returns spawn arguments that JavaScript should use to call ProcessPlugin directly.
+        This ensures ProcessPlugin runs in Rust CLI where events are properly forwarded.
+
+        Args:
+            sample_id: The ID of the sample to run
+            show_console: If True, show console window (for debugging)
+            use_channel: If True, use ipckit LocalSocket for IPC (more efficient)
+
+        Returns:
+            dict with:
+            - ok: True if preparation succeeded
+            - spawn_args: Arguments to pass to plugin:process|spawn_ipc
+            - ipc_command: The plugin command to use (spawn_ipc or spawn_ipc_channel)
+            - title: Sample title for display
+        """
+        print(
+            f"[Python:prepare_run_sample] sample_id={sample_id}, show_console={show_console}, use_channel={use_channel}",
+            file=sys.stderr,
+        )
+
+        sample = get_sample_by_id(sample_id)
+        if not sample:
+            error_msg = f"Sample not found: {sample_id}"
+            print(f"[Python:prepare_run_sample] ERROR: {error_msg}", file=sys.stderr)
+            return {"ok": False, "error": error_msg}
+
+        sample_path = EXAMPLES_DIR / sample["source_file"]
+        print(f"[Python:prepare_run_sample] sample_path={sample_path}", file=sys.stderr)
+
+        if not sample_path.exists():
+            error_msg = f"File not found: {sample['source_file']} (full path: {sample_path})"
+            print(f"[Python:prepare_run_sample] ERROR: {error_msg}", file=sys.stderr)
+            return {"ok": False, "error": error_msg}
+
+        # Get Python executable - in packed mode, prefer AURORAVIEW_PYTHON_EXE if set
+        python_exe = os.environ.get("AURORAVIEW_PYTHON_EXE", sys.executable)
+        print(f"[Python:prepare_run_sample] Python executable: {python_exe}", file=sys.stderr)
+        print(f"[Python:prepare_run_sample] Working directory: {EXAMPLES_DIR}", file=sys.stderr)
+
+        # Prepare spawn arguments
+        spawn_args = {
+            "command": python_exe,
+            "args": [str(sample_path)],
+            "cwd": str(EXAMPLES_DIR),
+            "showConsole": show_console,
+        }
+
+        # Choose IPC mode: channel (ipckit LocalSocket) or pipe (stdout/stderr)
+        ipc_command = (
+            "plugin:process|spawn_ipc_channel"
+            if use_channel
+            else "plugin:process|spawn_ipc"
+        )
+
+        print(f"[Python:prepare_run_sample] Prepared spawn_args: {spawn_args}", file=sys.stderr)
+        print(f"[Python:prepare_run_sample] IPC command: {ipc_command}", file=sys.stderr)
+
+        return {
+            "ok": True,
+            "spawn_args": spawn_args,
+            "ipc_command": ipc_command,
+            "title": sample["title"],
+        }
+
+    # API: Run sample with IPC support (legacy - calls ProcessPlugin in Python process)
+    # NOTE: In packed mode, prefer using prepare_run_sample + JavaScript plugin call
     @view.bind_call("api.run_sample")
     def run_sample(
         sample_id: str = "", show_console: bool = False, use_channel: bool = False
     ) -> dict:
         """Run a sample demo with IPC support.
+
+        NOTE: In packed mode, this runs ProcessPlugin in the Python process,
+        which requires event forwarding via stdout. For better performance,
+        use prepare_run_sample + JavaScript plugin call instead.
 
         Uses the Rust ProcessPlugin for efficient process management.
         The process output will be streamed via events:

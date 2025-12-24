@@ -74,11 +74,18 @@ path = true
 extra_path = []
 extra_pythonpath = []
 
-# Python code protection
+# Python code protection (bytecode encryption with ECC + AES-256-GCM)
+# This is FAST because it only compiles to .pyc and encrypts, no C compiler needed.
 [backend.python.protection]
-enabled = true
+enabled = false
+method = "bytecode"                              # "bytecode" (fast) | "py2pyd" (slow, needs C compiler)
 optimization = 2
 keep_temp = false
+
+# Encryption settings for bytecode protection
+[backend.python.protection.encryption]
+enabled = true
+algorithm = "x25519"                             # "x25519" (fast) | "p256" (FIPS compliant)
 
 # Common process settings (applies to all backend types)
 [backend.process]

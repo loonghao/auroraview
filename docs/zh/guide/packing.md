@@ -112,6 +112,17 @@ include_paths = [".", "src"]
 exclude = ["__pycache__", "*.pyc", "tests"]
 strategy = "standalone"          # standalone, pyoxidizer, embedded, portable, system
 
+# Python 代码保护（可选）
+[python.protection]
+enabled = true
+method = "bytecode"              # "bytecode"（快速）或 "py2pyd"（慢）
+optimization = 2
+
+# 加密设置（用于 bytecode 方法）
+[python.protection.encryption]
+enabled = true
+algorithm = "x25519"             # "x25519"（快速）或 "p256"（FIPS 兼容）
+
 # ============================================================================
 # 构建配置
 # ============================================================================
@@ -235,6 +246,111 @@ enabled = true
 verbose = true
 ```
 
+## 代码保护
+
+AuroraView 提供两种方法来保护你的 Python 源代码，防止逆向工程：
+
+### 保护方法
+
+| 方法 | 速度 | 依赖 | 保护级别 | 描述 |
+|------|------|------|----------|------|
+| `bytecode` | **快** | 仅 Python | 高 | 使用 ECC + AES-256-GCM 加密 Python 字节码 |
+| `py2pyd` | 慢 | C/C++ 编译器 | 最高 | 通过 Cython 编译为原生 `.pyd`/`.so` |
+
+### 字节码加密（推荐）
+
+`bytecode` 方法是默认且推荐的方式：
+
+1. **编译** `.py` 文件为 `.pyc` 字节码
+2. **加密** 字节码使用 AES-256-GCM（对称加密）
+3. **保护** AES 密钥使用 ECC（X25519 或 P-256）
+4. **解密** 运行时通过引导加载器解密
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        打包时（构建）                            │
+├─────────────────────────────────────────────────────────────────┤
+│  .py ──► py_compile ──► .pyc 字节码                             │
+│                              │                                  │
+│                              ▼                                  │
+│                    AES-256-GCM 加密                             │
+│                              │                                  │
+│                              ▼                                  │
+│                      加密的 .pyc.enc                            │
+│                                                                 │
+│  同时: AES 密钥 ──► ECC 公钥加密 ──► 加密的密钥                  │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                       运行时（用户机器）                         │
+├─────────────────────────────────────────────────────────────────┤
+│  1. 加密密钥 ──► 嵌入的私钥解密 ──► AES 密钥                    │
+│                                                                 │
+│  2. .pyc.enc ──► AES 解密 ──► .pyc 字节码（~GB/s）              │
+│                                                                 │
+│  3. marshal.loads() + exec() 执行                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**配置：**
+
+```toml
+[python.protection]
+enabled = true
+method = "bytecode"              # 快速，不需要 C 编译器
+optimization = 2                 # Python 字节码优化级别 (0-2)
+
+[python.protection.encryption]
+enabled = true
+algorithm = "x25519"             # "x25519"（快速）或 "p256"（FIPS 兼容）
+```
+
+**加密算法：**
+
+| 算法 | 速度 | 安全性 | 使用场景 |
+|------|------|--------|----------|
+| `x25519` | **快** | 现代，128位安全 | 默认，推荐 |
+| `p256` | 中等 | NIST/FIPS 兼容 | 政府/企业 |
+
+### py2pyd 编译（最高保护）
+
+`py2pyd` 方法将 Python 编译为原生机器码：
+
+1. **转换** `.py` 为 C 代码（通过 Cython）
+2. **编译** C 代码为原生 `.pyd`（Windows）或 `.so`（Linux/macOS）
+3. **替换** 原始 `.py` 文件为编译后的扩展
+
+**配置：**
+
+```toml
+[python.protection]
+enabled = true
+method = "py2pyd"                # 慢，需要 C 编译器
+optimization = 3                 # C 编译器优化级别 (0-3)
+keep_temp = false                # 保留临时文件用于调试
+```
+
+**依赖：**
+- C/C++ 编译器（Windows 上是 MSVC，Linux/macOS 上是 GCC/Clang）
+- Cython（通过 uv 自动安装）
+
+**注意：** 此方法明显较慢，因为它为每个被编译的文件创建一个新的虚拟环境。
+
+### 排除文件
+
+你可以排除特定文件或模式：
+
+```toml
+[python.protection]
+enabled = true
+method = "bytecode"
+exclude = [
+    "config.py",           # 保持配置可读
+    "**/tests/**",         # 跳过测试文件
+    "setup.py",            # 跳过安装文件
+]
+```
+
 ## 最佳实践
 
 1. **使用 `site-packages` 存放依赖**: 所有第三方包放到 `python/site-packages/`
@@ -248,3 +364,5 @@ verbose = true
 5. **使用环境变量**: 检查 `AURORAVIEW_PACKED` 来适配行为
 
 6. **日志输出到 stderr**: 打包模式下，stdout 用于 JSON-RPC，使用 stderr 记录日志
+
+7. **生产环境使用字节码保护**: 启用 `[python.protection]` 并设置 `method = "bytecode"` 以获得快速、安全的代码保护

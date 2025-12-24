@@ -3,6 +3,9 @@
  *
  * This file re-exports hooks from @auroraview/sdk and adds Gallery-specific
  * API wrappers for sample management.
+ * 
+ * Design: JavaScript always calls Python API (api.*), Python handles all modes
+ * uniformly through its PluginManager and Signal system.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -25,6 +28,8 @@ export interface ApiResult {
   ok: boolean;
   error?: string;
   pid?: number;
+  mode?: string;
+  message?: string;
 }
 
 export interface Sample {
@@ -63,6 +68,10 @@ export function useAuroraView() {
     return client.call<string>('api.get_source', { sample_id: sampleId });
   }, [client]);
 
+  /**
+   * Run a sample demo with IPC support.
+   * Calls Python API which handles all modes uniformly.
+   */
   const runSample = useCallback(async (sampleId: string, options?: RunOptions): Promise<ApiResult> => {
     if (!client) {
       throw new Error('AuroraView not ready');

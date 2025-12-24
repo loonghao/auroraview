@@ -205,7 +205,13 @@ path = true                      # Isolate PATH
 # Python code protection (optional)
 [python.protection]
 enabled = true
+method = "bytecode"              # "bytecode" (fast) or "py2pyd" (slow)
 optimization = 2
+
+# Encryption settings (for bytecode method)
+[python.protection.encryption]
+enabled = true
+algorithm = "x25519"             # "x25519" (fast) or "p256" (FIPS compliant)
 
 # ============================================================================
 # Build Configuration
@@ -372,6 +378,7 @@ In packed mode, Python communicates with Rust via JSON-RPC over stdin/stdout:
 
 Enable debug logging:
 
+
 ```bash
 RUST_LOG=debug ./my-app.exe
 ```
@@ -381,6 +388,111 @@ Or in config:
 [debug]
 enabled = true
 verbose = true
+```
+
+## Code Protection
+
+AuroraView provides two methods to protect your Python source code from reverse engineering:
+
+### Protection Methods
+
+| Method | Speed | Requirements | Protection Level | Description |
+|--------|-------|--------------|------------------|-------------|
+| `bytecode` | **Fast** | Python only | High | Encrypts Python bytecode with ECC + AES-256-GCM |
+| `py2pyd` | Slow | C/C++ compiler | Maximum | Compiles to native `.pyd`/`.so` via Cython |
+
+### Bytecode Encryption (Recommended)
+
+The `bytecode` method is the default and recommended approach:
+
+1. **Compiles** `.py` files to `.pyc` bytecode
+2. **Encrypts** bytecode with AES-256-GCM (symmetric encryption)
+3. **Protects** the AES key with ECC (X25519 or P-256)
+4. **Decrypts** at runtime via a bootstrap loader
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Pack Time (Build)                        │
+├─────────────────────────────────────────────────────────────────┤
+│  .py ──► py_compile ──► .pyc bytecode                          │
+│                              │                                  │
+│                              ▼                                  │
+│                    AES-256-GCM encrypt                          │
+│                              │                                  │
+│                              ▼                                  │
+│                      encrypted .pyc.enc                         │
+│                                                                 │
+│  Also: AES key ──► ECC public key encrypt ──► encrypted key    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                       Runtime (User Machine)                    │
+├─────────────────────────────────────────────────────────────────┤
+│  1. encrypted key ──► embedded private key decrypt ──► AES key │
+│                                                                 │
+│  2. .pyc.enc ──► AES decrypt ──► .pyc bytecode (~GB/s)         │
+│                                                                 │
+│  3. marshal.loads() + exec() to execute                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Configuration:**
+
+```toml
+[python.protection]
+enabled = true
+method = "bytecode"              # Fast, no C compiler needed
+optimization = 2                 # Python bytecode optimization (0-2)
+
+[python.protection.encryption]
+enabled = true
+algorithm = "x25519"             # "x25519" (fast) or "p256" (FIPS compliant)
+```
+
+**Encryption Algorithms:**
+
+| Algorithm | Speed | Security | Use Case |
+|-----------|-------|----------|----------|
+| `x25519` | **Fast** | Modern, 128-bit | Default, recommended |
+| `p256` | Moderate | NIST/FIPS compliant | Government/enterprise |
+
+### py2pyd Compilation (Maximum Protection)
+
+The `py2pyd` method compiles Python to native machine code:
+
+1. **Converts** `.py` to C code via Cython
+2. **Compiles** C code to native `.pyd` (Windows) or `.so` (Linux/macOS)
+3. **Replaces** original `.py` files with compiled extensions
+
+**Configuration:**
+
+```toml
+[python.protection]
+enabled = true
+method = "py2pyd"                # Slow, requires C compiler
+optimization = 3                 # C compiler optimization (0-3)
+keep_temp = false                # Keep temp files for debugging
+```
+
+**Requirements:**
+- C/C++ compiler (MSVC on Windows, GCC/Clang on Linux/macOS)
+- Cython (installed automatically via uv)
+
+**Note:** This method is significantly slower because it creates a new virtual environment for each file being compiled.
+
+### Excluding Files from Protection
+
+You can exclude specific files or patterns:
+
+```toml
+[python.protection]
+enabled = true
+method = "bytecode"
+exclude = [
+    "config.py",           # Keep config readable
+    "**/tests/**",         # Skip test files
+    "setup.py",            # Skip setup files
+]
 ```
 
 ## Best Practices
@@ -396,3 +508,5 @@ verbose = true
 5. **Use environment variables**: Check `AURORAVIEW_PACKED` to adapt behavior
 
 6. **Log to stderr**: In packed mode, stdout is for JSON-RPC, use stderr for logging
+
+7. **Use bytecode protection for production**: Enable `[python.protection]` with `method = "bytecode"` for fast, secure code protection

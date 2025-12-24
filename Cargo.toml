@@ -8,6 +8,7 @@ members = [
     "crates/auroraview-cli",
     "crates/auroraview-plugins",
     "crates/aurora-protect",
+    "crates/aurora-signals",
 ]
 resolver = "2"
 
@@ -41,6 +42,9 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # Core library (with wry-builder for shared WebView building logic)
 auroraview-core = { path = "crates/auroraview-core", features = ["wry-builder"] }
+
+# Signal system (Qt-style signals/slots with Python bindings)
+aurora-signals = { path = "crates/aurora-signals", features = ["python"] }
 
 # PyO3 for Python bindings (optional)
 # multiple-pymethods: Allow splitting #[pymethods] across multiple files

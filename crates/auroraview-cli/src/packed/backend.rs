@@ -744,7 +744,43 @@ pub fn start_python_backend_with_ipc(
                     let _guard = shutdown_state_for_thread.begin_operation();
 
                     tracing::debug!("Python response: {}", response);
-                    // Send response to event loop
+
+                    // Check if this is an event message from Python
+                    // Format: {"type": "event", "event": "...", "data": {...}}
+                    if let Ok(msg) = serde_json::from_str::<serde_json::Value>(&response) {
+                        if msg.get("type").and_then(|v| v.as_str()) == Some("event") {
+                            // This is an event from Python, forward it to WebView
+                            let event_name = msg
+                                .get("event")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown");
+                            let event_data =
+                                msg.get("data").cloned().unwrap_or(serde_json::json!({}));
+                            let data_str = serde_json::to_string(&event_data).unwrap_or_default();
+
+                            tracing::info!(
+                                "[Rust] Forwarding Python event to WebView: {}",
+                                event_name
+                            );
+
+                            if let Err(e) = proxy.send_event(UserEvent::PluginEvent {
+                                event: event_name.to_string(),
+                                data: data_str,
+                            }) {
+                                if shutdown_state_for_thread.is_shutdown() {
+                                    tracing::debug!(
+                                        "Event loop closed during shutdown, stopping reader"
+                                    );
+                                } else {
+                                    tracing::error!("Failed to send event to event loop: {}", e);
+                                }
+                                break;
+                            }
+                            continue;
+                        }
+                    }
+
+                    // Regular response (API call result)
                     if let Err(e) = proxy.send_event(UserEvent::PythonResponse(response)) {
                         // Check if this is an EventLoopClosed error
                         if shutdown_state_for_thread.is_shutdown() {

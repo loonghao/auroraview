@@ -10,7 +10,27 @@ use crate::resource_editor::ResourceConfig;
 use crate::resource_editor::ResourceEditor;
 use crate::{Manifest, PackConfig, PackError, PackMode, PackResult, PythonBundleConfig};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+
+/// Normalize a path by removing `.` and resolving `..` components
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut components = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {} // Skip `.`
+            Component::ParentDir => {
+                // Pop the last component if it's a normal component
+                if let Some(Component::Normal(_)) = components.last() {
+                    components.pop();
+                } else {
+                    components.push(component);
+                }
+            }
+            _ => components.push(component),
+        }
+    }
+    components.iter().collect()
+}
 
 /// Result of a pack operation
 #[derive(Debug)]
@@ -671,7 +691,7 @@ impl Packer {
 
         if protection_enabled {
             // Avoid failing halfway through bundling
-            crate::protection::check_build_tools_available()?;
+            crate::protection::check_build_tools_available(python.protection.method)?;
         }
 
         // If entry_point is a script (e.g. "main.py"), keep it as .py so runpy.run_path() works.
@@ -1092,7 +1112,7 @@ elif spec and spec.origin:
 
         let protection_enabled = python.protection.enabled && crate::is_protection_available();
         if protection_enabled {
-            crate::protection::check_build_tools_available()?;
+            crate::protection::check_build_tools_available(python.protection.method)?;
         }
 
         // If entry_point is a script (e.g. "main.py"), keep it as .py so runpy.run_path() works.
@@ -1383,13 +1403,15 @@ impl PackConfig {
     /// This method uses the unified configuration types from `common.rs` and
     /// leverages the conversion methods defined in `manifest.rs` for cleaner code.
     pub fn from_manifest(manifest: &Manifest, base_dir: &Path) -> PackResult<Self> {
-        // Helper to resolve paths relative to base_dir
+        // Helper to resolve paths relative to base_dir and normalize them
         let resolve_path = |p: &PathBuf| -> PathBuf {
-            if p.is_absolute() {
+            let joined = if p.is_absolute() {
                 p.clone()
             } else {
                 base_dir.join(p)
-            }
+            };
+            // Normalize the path by removing . and .. components
+            normalize_path(&joined)
         };
 
         // Determine pack mode
