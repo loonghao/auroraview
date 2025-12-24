@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.24](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.23...auroraview-v0.3.24) (2025-12-24)
+
+
+### Features
+
+* **cli:** improve CLI experience and update documentation ([c03c261](https://github.com/loonghao/auroraview/commit/c03c261da90f66a47fdc5abc6b48da74311942dd))
+
+
+### Bug Fixes
+
+* address P0/P1 security and stability issues from code review ([189d649](https://github.com/loonghao/auroraview/commit/189d64914e1f28ad861de01fc115322bfe9529fd))
+
 ## [0.3.23](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.22...auroraview-v0.3.23) (2025-12-23)
 
 
