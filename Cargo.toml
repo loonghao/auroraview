@@ -142,7 +142,7 @@ webview2 = { version = "0.1.4", optional = true }
 webview2-com = { version = "0.38", optional = true }
 
 [dev-dependencies]
-criterion = "0.7"
+criterion = "0.8"
 tempfile = "3.14"
 rstest = "0.26"
 test-case = "3.3"
