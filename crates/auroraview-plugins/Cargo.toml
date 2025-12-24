@@ -15,21 +15,21 @@ name = "auroraview_plugins"
 path = "src/lib.rs"
 
 [dependencies]
+# Core plugin framework
+auroraview-plugin-core = { path = "core" }
+
+# File system plugin
+auroraview-plugin-fs = { path = "fs" }
+
 # Logging
 tracing = "0.1"
 
-# File path handling
+# File path handling (for shell plugin show_in_folder)
 dunce = "1.0"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-
-# Binary encoding (for fs plugin)
-base64 = "0.22"
-
-# Error handling
-thiserror = "2.0"
 
 # Clipboard support
 # Note: Disable default image feature to avoid image 0.25+ which requires edition2024 via pxfm
@@ -46,16 +46,6 @@ rfd = "0.15"
 
 # Open URLs/files with default app
 open = "5.3"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.62", features = [
-    "Win32_Foundation",
-    "Win32_System_Com",
-    "Win32_UI_Shell",
-] }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.26"
 
 [dev-dependencies]
 tempfile = "3.15"

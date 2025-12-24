@@ -25,7 +25,7 @@ mod types;
 pub use operations::*;
 pub use types::*;
 
-use crate::{PluginError, PluginHandler, PluginResult, ScopeConfig};
+use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
 use serde_json::Value;
 
 /// File system plugin

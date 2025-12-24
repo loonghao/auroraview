@@ -453,8 +453,9 @@ pub fn create_desktop(
     let event_loop_proxy_for_ipc = event_loop_proxy_holder.clone();
 
     // Create plugin router for handling plugin commands
+    // Use create_router_with_scope to get all built-in plugins registered
     let plugin_router = Arc::new(std::sync::RwLock::new(
-        auroraview_core::plugins::PluginRouter::with_scope(
+        auroraview_core::plugins::create_router_with_scope(
             auroraview_core::plugins::ScopeConfig::permissive(),
         ),
     ));

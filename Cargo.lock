@@ -557,7 +557,7 @@ dependencies = [
 
 [[package]]
 name = "aurora-signals"
-version = "0.3.23"
+version = "0.3.24"
 dependencies = [
  "crossbeam-channel",
  "once_cell",
@@ -574,7 +574,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview"
-version = "0.3.23"
+version = "0.3.24"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -633,7 +633,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.23"
+version = "0.3.24"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -670,7 +670,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.23"
+version = "0.3.24"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -702,7 +702,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.3.23"
+version = "0.3.24"
 dependencies = [
  "aurora-protect",
  "base64 0.22.1",
@@ -729,12 +729,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "auroraview-plugin-core"
+version = "0.3.24"
+dependencies = [
+ "dunce",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tracing",
+]
+
+[[package]]
+name = "auroraview-plugin-fs"
+version = "0.3.24"
+dependencies = [
+ "auroraview-plugin-core",
+ "base64 0.22.1",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "auroraview-plugins"
-version = "0.3.23"
+version = "0.3.24"
 dependencies = [
  "arboard",
- "base64 0.22.1",
- "cocoa",
+ "auroraview-plugin-core",
+ "auroraview-plugin-fs",
  "dunce",
  "ipckit",
  "open",
@@ -743,10 +765,8 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 2.0.17",
  "tracing",
  "which 7.0.3",
- "windows 0.62.2",
 ]
 
 [[package]]
@@ -920,12 +940,6 @@ dependencies = [
  "cfg-if",
  "constant_time_eq",
 ]
-
-[[package]]
-name = "block"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
 
 [[package]]
 name = "block-buffer"
@@ -1247,35 +1261,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bde03770d3df201d4fb868f2c9c59e66a3e4e2bd06692a0fe701e7103c7e84d4"
 dependencies = [
  "error-code",
-]
-
-[[package]]
-name = "cocoa"
-version = "0.26.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad36507aeb7e16159dfe68db81ccc27571c3ccd4b76fb2fb72fc59e7a4b1b64c"
-dependencies = [
- "bitflags 2.10.0",
- "block",
- "cocoa-foundation",
- "core-foundation 0.10.1",
- "core-graphics 0.24.0",
- "foreign-types 0.5.0",
- "libc",
- "objc",
-]
-
-[[package]]
-name = "cocoa-foundation"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81411967c50ee9a1fc11365f8c585f863a22a9697c89239c452292c40ba79b0d"
-dependencies = [
- "bitflags 2.10.0",
- "block",
- "core-foundation 0.10.1",
- "core-graphics-types 0.2.0",
- "objc",
 ]
 
 [[package]]

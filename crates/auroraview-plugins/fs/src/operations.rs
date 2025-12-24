@@ -1,7 +1,7 @@
 //! File system operations implementation
 
 use super::types::{DirEntry, FileStat};
-use crate::{PathScope, PluginError, PluginResult};
+use auroraview_plugin_core::{PathScope, PluginError, PluginResult};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;

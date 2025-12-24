@@ -18,8 +18,8 @@
 //! await auroraview.invoke("plugin:clipboard|write_text", { text: "Hello!" });
 //! ```
 
-use crate::{PluginError, PluginHandler, PluginResult, ScopeConfig};
 use arboard::Clipboard;
+use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Mutex;

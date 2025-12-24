@@ -84,7 +84,9 @@
 //! });
 //! ```
 
-use crate::{PluginError, PluginEventCallback, PluginHandler, PluginResult, ScopeConfig};
+use auroraview_plugin_core::{
+    PluginError, PluginEventCallback, PluginHandler, PluginResult, ScopeConfig,
+};
 use ipckit::graceful::ShutdownState;
 use ipckit::local_socket::{LocalSocketListener, LocalSocketStream};
 use serde::{Deserialize, Serialize};

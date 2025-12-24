@@ -4,7 +4,8 @@
 //! allowing JavaScript to invoke plugin commands like file system operations.
 
 use auroraview_core::plugins::{
-    PathScope, PluginEventCallback, PluginRequest, PluginResponse, PluginRouter, ScopeConfig,
+    create_router, create_router_with_scope, PathScope, PluginEventCallback, PluginRequest,
+    PluginResponse, PluginRouter, ScopeConfig,
 };
 use pyo3::prelude::*;
 use serde_json::Value;
@@ -28,7 +29,7 @@ impl PluginManager {
     #[new]
     pub fn new() -> Self {
         Self {
-            router: Arc::new(RwLock::new(PluginRouter::new())),
+            router: Arc::new(RwLock::new(create_router())),
             py_callback: Arc::new(RwLock::new(None)),
         }
     }
@@ -37,7 +38,7 @@ impl PluginManager {
     #[staticmethod]
     pub fn permissive() -> Self {
         Self {
-            router: Arc::new(RwLock::new(PluginRouter::with_scope(
+            router: Arc::new(RwLock::new(create_router_with_scope(
                 ScopeConfig::permissive(),
             ))),
             py_callback: Arc::new(RwLock::new(None)),

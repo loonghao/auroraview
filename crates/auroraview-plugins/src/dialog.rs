@@ -32,7 +32,7 @@
 //! });
 //! ```
 
-use crate::{PluginError, PluginHandler, PluginResult, ScopeConfig};
+use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
 use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

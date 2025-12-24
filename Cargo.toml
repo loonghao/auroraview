@@ -7,6 +7,8 @@ members = [
     "crates/auroraview-pack",
     "crates/auroraview-cli",
     "crates/auroraview-plugins",
+    "crates/auroraview-plugins/core",
+    "crates/auroraview-plugins/fs",
     "crates/aurora-protect",
     "crates/aurora-signals",
 ]
