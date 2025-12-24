@@ -62,6 +62,14 @@ A lightweight WebView framework for DCC (Digital Content Creation) software, bui
 
 > **⚠️ Development Status**: This project is under active development. APIs may change before v1.0.0 release. The project has not been extensively tested on Linux and macOS platforms.
 
+## Quick Try
+
+Try AuroraView instantly without installation using `uvx`:
+
+```bash
+uvx auroraview --url baidu.com
+```
+
 ## Overview
 
 AuroraView provides a modern web-based UI solution for professional DCC applications like Maya, 3ds Max, Houdini, Blender, Photoshop, and Unreal Engine. Built on Rust's Wry library with PyO3 bindings, it offers native performance with minimal overhead.

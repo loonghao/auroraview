@@ -114,13 +114,21 @@ pub fn normalize_url(url: &str) -> String {
 }
 
 /// Initialize logging for the library
+///
+/// By default, logging is disabled (level = off) to avoid cluttering the console.
+/// Set RUST_LOG environment variable to enable logging:
+/// - RUST_LOG=info for normal logging
+/// - RUST_LOG=debug for debug logging
+/// - RUST_LOG=auroraview=debug for auroraview-specific debug logging
 #[allow(dead_code)] // Used by lib.rs when python-bindings feature is enabled
 pub fn init_logging() {
     // Only initialize once
     static INIT: std::sync::Once = std::sync::Once::new();
 
     INIT.call_once(|| {
-        let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+        // Default to "off" (no logging) unless RUST_LOG is explicitly set
+        // This keeps the console clean for end users using uvx auroraview
+        let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("off"));
 
         // Disable ANSI colors on Windows to avoid garbled output
         #[cfg(target_os = "windows")]
@@ -135,7 +143,8 @@ pub fn init_logging() {
             .with_line_number(true)
             .with_writer(std::io::stderr) // Write to stderr to avoid interfering with stdout
             .with_ansi(use_ansi)
-            .init();
+            .try_init()
+            .ok(); // Ignore error if already initialized
     });
 }
 

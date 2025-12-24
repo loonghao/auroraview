@@ -98,8 +98,8 @@ def main():
                 # Auto-derive from HTML file location
                 asset_root = str(html_file.parent)
 
-        # Run standalone WebView (blocking until window closes, then exits process)
-        # This uses the same event_loop.run() approach as the Rust CLI
+        # Run standalone WebView (blocking until window closes)
+        # This uses the same event_loop.run_return() approach as the Rust CLI
         run_standalone(
             title=args.title,
             width=args.width,
@@ -115,8 +115,8 @@ def main():
             rewrite_relative_paths=True,  # Automatically rewrite relative paths
         )
 
-        # This line will never be reached because run_standalone() exits the process
-        # when the window closes
+        # Window closed normally, exit with success
+        sys.exit(0)
 
     except ImportError as e:
         print(

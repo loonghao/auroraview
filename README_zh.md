@@ -62,6 +62,14 @@
 
 > **⚠️ 开发状态**: 本项目正在积极开发中。API 可能在 v1.0.0 发布前发生变化。项目尚未在 Linux 和 macOS 平台上进行广泛测试。
 
+## 快速体验
+
+使用 `uvx` 无需安装即可快速体验 AuroraView：
+
+```bash
+uvx auroraview --url baidu.com
+```
+
 ## 概述
 
 AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Photoshop和Unreal Engine）提供现代化的Web UI解决方案。基于Rust的Wry库和PyO3绑定构建，提供原生性能和最小开销。
