@@ -77,8 +77,7 @@ fn build_api_registration_script(handlers: &[String]) -> String {
         // Use serde_json for proper JS string escaping (handles quotes, backslashes, unicode, etc.)
         let namespace_json =
             serde_json::to_string(namespace).unwrap_or_else(|_| "\"\"".to_string());
-        let methods_json =
-            serde_json::to_string(&methods).unwrap_or_else(|_| "[]".to_string());
+        let methods_json = serde_json::to_string(&methods).unwrap_or_else(|_| "[]".to_string());
 
         script.push_str(&format!(
             "window.auroraview._registerApiMethods({}, {});\n",
@@ -153,7 +152,8 @@ fn handle_ipc_message(
                                     "message": "Plugin router unavailable"
                                 }
                             });
-                            let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
+                            let _ = proxy
+                                .send_event(UserEvent::PythonResponse(error_response.to_string()));
                             return;
                         }
                     };
