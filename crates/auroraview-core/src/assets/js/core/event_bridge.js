@@ -5,9 +5,21 @@
 
   // src/inject/event_bridge.ts
   (function() {
-    console.log("[AuroraView] Initializing event bridge...");
+    // Debug mode: controlled by window.__AURORAVIEW_DEBUG__ or injected by Rust
+    // Default to false for production to reduce console noise
+    const DEBUG = !!window.__AURORAVIEW_DEBUG__;
+
+    // Helper for debug logging (only logs when DEBUG is true)
+    function debugLog() {
+      if (DEBUG) {
+        console.log.apply(console, ['[AuroraView]'].concat(Array.prototype.slice.call(arguments)));
+      }
+    }
+
+    debugLog('Initializing event bridge...');
+
     if (window.auroraview && window.auroraview._ready) {
-      console.log("[AuroraView] Event bridge already initialized, skipping");
+      debugLog('Event bridge already initialized, skipping');
       return;
     }
     const pendingFromStub = window.auroraview && window.auroraview._pendingCalls ? window.auroraview._pendingCalls.slice() : [];
@@ -15,10 +27,60 @@
     const eventHandlers = /* @__PURE__ */ new Map();
     let auroraviewCallIdCounter = 0;
     const auroraviewPendingCalls = /* @__PURE__ */ new Map();
+
+    // Default timeout for pending calls (30 seconds)
+    const DEFAULT_CALL_TIMEOUT_MS = 30000;
+
     function auroraviewGenerateCallId() {
       auroraviewCallIdCounter += 1;
       return "av_call_" + Date.now() + "_" + auroraviewCallIdCounter;
     }
+
+    /**
+     * Register a pending call with optional timeout
+     */
+    function registerPendingCall(id, resolve, reject, timeoutMs) {
+      const timeout = timeoutMs !== undefined ? timeoutMs : DEFAULT_CALL_TIMEOUT_MS;
+      const timeoutId = setTimeout(function() {
+        const pending = auroraviewPendingCalls.get(id);
+        if (pending) {
+          auroraviewPendingCalls.delete(id);
+          const error = new Error("AuroraView call timed out after " + timeout + "ms");
+          error.name = "TimeoutError";
+          error.code = "TIMEOUT";
+          pending.reject(error);
+          console.warn("[AuroraView] Call timed out:", id);
+        }
+      }, timeout);
+
+      auroraviewPendingCalls.set(id, { resolve: resolve, reject: reject, timeoutId: timeoutId });
+    }
+
+    /**
+     * Clear all pending calls (e.g., on page unload)
+     */
+    function clearAllPendingCalls(reason) {
+      const count = auroraviewPendingCalls.size;
+      if (count > 0) {
+        debugLog('Clearing', count, 'pending calls:', reason);
+        auroraviewPendingCalls.forEach(function(pending, id) {
+          if (pending.timeoutId) {
+            clearTimeout(pending.timeoutId);
+          }
+          const error = new Error("AuroraView call cancelled: " + reason);
+          error.name = "CancelledError";
+          error.code = "CANCELLED";
+          pending.reject(error);
+        });
+        auroraviewPendingCalls.clear();
+      }
+    }
+
+    // Register cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+      clearAllPendingCalls('page unloading');
+    });
+
     function handleCallResult(detail) {
       try {
         const id = detail && detail.id;
@@ -30,6 +92,10 @@
         if (!pending) {
           console.warn("[AuroraView] No pending call for id:", id);
           return;
+        }
+        // Clear the timeout timer
+        if (pending.timeoutId) {
+          clearTimeout(pending.timeoutId);
         }
         auroraviewPendingCalls.delete(id);
         if (detail.ok) {
@@ -49,28 +115,34 @@
     window.auroraview = {
       /**
        * High-level call API (JS -> Python, Promise-based)
+       * @param method - The method to call
+       * @param params - Optional parameters
+       * @param options - Optional call options (e.g., { timeout: 5000 })
        */
-      call: function(method, params) {
-        console.log("[AuroraView] Calling Python method via auroraview.call:", method, params);
+      call: function(method, params, options) {
+        debugLog('Calling Python method via auroraview.call:', method, DEBUG ? params : '(params hidden)');
         return new Promise(function(resolve, reject) {
           const id = auroraviewGenerateCallId();
-          auroraviewPendingCalls.set(id, {
-            resolve,
-            reject
-          });
+          // Register with timeout support
+          registerPendingCall(id, resolve, reject, options && options.timeout);
           try {
             const payload = {
               type: "call",
-              id,
-              method
+              id: id,
+              method: method
             };
             if (typeof params !== "undefined") {
               payload.params = params;
             }
             window.ipc.postMessage(JSON.stringify(payload));
           } catch (e) {
-            console.error("[AuroraView] Failed to send call via IPC:", e);
+            // Clean up pending call on error
+            const pending = auroraviewPendingCalls.get(id);
+            if (pending && pending.timeoutId) {
+              clearTimeout(pending.timeoutId);
+            }
             auroraviewPendingCalls.delete(id);
+            console.error("[AuroraView] Failed to send call via IPC:", e);
             reject(e);
           }
         });
@@ -82,11 +154,11 @@
         try {
           const payload = {
             type: "event",
-            event,
+            event: event,
             detail: detail || {}
           };
           window.ipc.postMessage(JSON.stringify(payload));
-          console.log("[AuroraView] Event sent:", event, detail);
+          debugLog('Event sent:', event, DEBUG ? detail : '(detail hidden)');
         } catch (e) {
           console.error("[AuroraView] Failed to send event:", e);
         }
@@ -98,21 +170,20 @@
       on: function(event, handler) {
         if (typeof handler !== "function") {
           console.error("[AuroraView] Handler must be a function");
-          return () => {
-          };
+          return function() {};
         }
         if (!eventHandlers.has(event)) {
           eventHandlers.set(event, /* @__PURE__ */ new Set());
         }
         const handlers = eventHandlers.get(event);
         handlers.add(handler);
-        console.log("[AuroraView] Registered handler for event:", event);
-        return () => {
+        debugLog('Registered handler for event:', event);
+        return function() {
           handlers.delete(handler);
           if (handlers.size === 0) {
             eventHandlers.delete(event);
           }
-          console.log("[AuroraView] Unregistered handler for event:", event);
+          debugLog('Unregistered handler for event:', event);
         };
       },
       /**
@@ -152,26 +223,32 @@
       api: {},
       /**
        * Invoke a plugin command (JS -> Python, Promise-based)
+       * @param cmd - The plugin command to invoke
+       * @param args - Optional arguments
+       * @param options - Optional call options (e.g., { timeout: 5000 })
        */
-      invoke: function(cmd, args) {
-        console.log("[AuroraView] Invoking plugin command:", cmd, args);
+      invoke: function(cmd, args, options) {
+        debugLog('Invoking plugin command:', cmd, DEBUG ? args : '(args hidden)');
         return new Promise(function(resolve, reject) {
           const id = auroraviewGenerateCallId();
-          auroraviewPendingCalls.set(id, {
-            resolve,
-            reject
-          });
+          // Register with timeout support
+          registerPendingCall(id, resolve, reject, options && options.timeout);
           try {
             const payload = {
               type: "invoke",
-              id,
-              cmd,
+              id: id,
+              cmd: cmd,
               args: args || {}
             };
             window.ipc.postMessage(JSON.stringify(payload));
           } catch (e) {
-            console.error("[AuroraView] Failed to send invoke via IPC:", e);
+            // Clean up pending call on error
+            const pending = auroraviewPendingCalls.get(id);
+            if (pending && pending.timeoutId) {
+              clearTimeout(pending.timeoutId);
+            }
             auroraviewPendingCalls.delete(id);
+            console.error("[AuroraView] Failed to send invoke via IPC:", e);
             reject(e);
           }
         });
@@ -268,20 +345,16 @@
           registeredCount++;
         }
         if (registeredCount > 0) {
-          console.log(
-            "[AuroraView] Registered " + registeredCount + " methods in window.auroraview." + namespace
-          );
+          debugLog('Registered', registeredCount, 'methods in window.auroraview.' + namespace);
         }
         if (skippedCount > 0) {
-          console.log(
-            "[AuroraView] Skipped " + skippedCount + " already-bound methods in window.auroraview." + namespace
-          );
+          debugLog('Skipped', skippedCount, 'already-bound methods in window.auroraview.' + namespace);
         }
       }
     };
     window.auroraview._ready = true;
     if (pendingFromStub.length > 0) {
-      console.log("[AuroraView] Processing " + pendingFromStub.length + " pending calls from stub");
+      debugLog('Processing', pendingFromStub.length, 'pending calls from stub');
       pendingFromStub.forEach(function(pending) {
         try {
           if (pending.type === "event" && pending.event) {
@@ -301,7 +374,7 @@
       });
     }
     if (readyCallbacks.length > 0) {
-      console.log("[AuroraView] Notifying " + readyCallbacks.length + " ready callbacks");
+      debugLog('Notifying', readyCallbacks.length, 'ready callbacks');
       readyCallbacks.forEach(function(callback) {
         try {
           callback(window.auroraview);
@@ -311,16 +384,33 @@
       });
       readyCallbacks = [];
     }
-    console.log("[AuroraView] \u2713 Event bridge initialized");
-    console.log("[AuroraView] \u2713 API: window.auroraview.call() / .send_event() / .on() / .whenReady()");
+    debugLog('\u2713 Event bridge initialized');
+    debugLog('\u2713 API: window.auroraview.call() / .send_event() / .on() / .whenReady()');
     try {
       window.auroraview.send_event("__auroraview_ready", {
         timestamp: Date.now(),
         url: window.location.href
       });
-      console.log("[AuroraView] \u2713 Sent __auroraview_ready event to backend");
+      debugLog('\u2713 Sent __auroraview_ready event to backend');
     } catch (e) {
       console.warn("[AuroraView] Failed to send __auroraview_ready event:", e);
+    }
+    function dispatchReadyEvent() {
+      try {
+        window.dispatchEvent(
+          new CustomEvent("auroraviewready", {
+            detail: { timestamp: Date.now(), url: window.location.href }
+          })
+        );
+        debugLog('\u2713 Dispatched auroraviewready DOM event');
+      } catch (e) {
+        console.warn("[AuroraView] Failed to dispatch auroraviewready event:", e);
+      }
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", dispatchReadyEvent);
+    } else {
+      setTimeout(dispatchReadyEvent, 0);
     }
   })();
 

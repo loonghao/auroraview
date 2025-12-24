@@ -22,18 +22,34 @@ use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
 use super::utils::{escape_json_for_js, get_webview_data_dir};
 
+/// Regex pattern for valid handler names: alphanumeric, underscore, dot, colon, hyphen
+/// This prevents injection attacks via malicious handler names
+static VALID_HANDLER_PATTERN: std::sync::LazyLock<regex::Regex> =
+    std::sync::LazyLock::new(|| regex::Regex::new(r"^[A-Za-z0-9_\.:\-]+$").unwrap());
+
 /// Build JavaScript to register API methods in frontend
 ///
 /// Groups handlers by namespace (e.g., "api.get_samples" -> namespace "api", method "get_samples")
 /// and generates a script that calls `window.auroraview._registerApiMethods()` for each namespace.
+///
+/// Security: Uses serde_json for proper escaping and validates handler names against a whitelist pattern.
 fn build_api_registration_script(handlers: &[String]) -> String {
     if handlers.is_empty() {
         return String::new();
     }
 
-    // Group handlers by namespace
+    // Group handlers by namespace, validating each handler name
     let mut namespaces: HashMap<String, Vec<String>> = HashMap::new();
     for handler in handlers {
+        // Validate handler name against whitelist pattern
+        if !VALID_HANDLER_PATTERN.is_match(handler) {
+            tracing::warn!(
+                "[Rust] Skipping invalid handler name (must match [A-Za-z0-9_.:-]+): {}",
+                handler
+            );
+            continue;
+        }
+
         if let Some(dot_pos) = handler.find('.') {
             let namespace = &handler[..dot_pos];
             let method = &handler[dot_pos + 1..];
@@ -48,7 +64,7 @@ fn build_api_registration_script(handlers: &[String]) -> String {
         return String::new();
     }
 
-    // Generate registration script
+    // Generate registration script using serde_json for safe escaping
     let mut script = String::from(
         "(function() {\n\
         if (!window.auroraview || !window.auroraview._registerApiMethods) {\n\
@@ -58,13 +74,17 @@ fn build_api_registration_script(handlers: &[String]) -> String {
     );
 
     for (namespace, methods) in &namespaces {
-        let methods_json: Vec<String> = methods.iter().map(|m| format!("'{}'", m)).collect();
+        // Use serde_json for proper JS string escaping (handles quotes, backslashes, unicode, etc.)
+        let namespace_json =
+            serde_json::to_string(namespace).unwrap_or_else(|_| "\"\"".to_string());
+        let methods_json =
+            serde_json::to_string(&methods).unwrap_or_else(|_| "[]".to_string());
+
         script.push_str(&format!(
-            "window.auroraview._registerApiMethods('{}', [{}]);\n",
-            namespace,
-            methods_json.join(", ")
+            "window.auroraview._registerApiMethods({}, {});\n",
+            namespace_json, methods_json
         ));
-        tracing::info!(
+        tracing::debug!(
             "[Rust] Registering {} methods in namespace '{}'",
             methods.len(),
             namespace
@@ -119,8 +139,24 @@ fn handle_ipc_message(
             if method.starts_with("plugin:") {
                 // Handle via PluginRouter
                 if let Some(request) = PluginRequest::from_invoke(method, params) {
-                    let router = plugin_router.read().unwrap();
-                    let response = router.handle(request);
+                    // Use map_err to handle lock poisoning gracefully
+                    let response = match plugin_router.read() {
+                        Ok(router) => router.handle(request),
+                        Err(e) => {
+                            tracing::error!("Plugin router lock poisoned: {}", e);
+                            let error_response = serde_json::json!({
+                                "id": id,
+                                "ok": false,
+                                "result": null,
+                                "error": {
+                                    "name": "InternalError",
+                                    "message": "Plugin router unavailable"
+                                }
+                            });
+                            let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
+                            return;
+                        }
+                    };
 
                     // Send response back via event loop
                     let result = serde_json::json!({
@@ -184,8 +220,24 @@ fn handle_ipc_message(
             tracing::debug!("Plugin call: {}|{} (id: {})", plugin, command, id);
 
             let request = PluginRequest::new(plugin, command, args);
-            let router = plugin_router.read().unwrap();
-            let response = router.handle(request);
+            // Use map_err to handle lock poisoning gracefully
+            let response = match plugin_router.read() {
+                Ok(router) => router.handle(request),
+                Err(e) => {
+                    tracing::error!("Plugin router lock poisoned: {}", e);
+                    let error_response = serde_json::json!({
+                        "id": id,
+                        "ok": false,
+                        "result": null,
+                        "error": {
+                            "name": "InternalError",
+                            "message": "Plugin router unavailable"
+                        }
+                    });
+                    let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
+                    return;
+                }
+            };
 
             // Send response back via event loop
             let result = serde_json::json!({
@@ -251,24 +303,43 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
     let proxy = event_loop.create_proxy();
 
-    // Create PluginRouter for handling native plugin commands
-    let plugin_router = Arc::new(RwLock::new(PluginRouter::with_scope(
-        ScopeConfig::permissive(),
-    )));
+    // Create PluginRouter with secure default scope
+    // Instead of permissive(), use a restricted scope that only allows:
+    // - File system access within the application's working directory
+    // - Shell commands for opening URLs and files (but not arbitrary command execution)
+    // This follows the principle of least privilege for packed applications.
+    let default_scope = {
+        use auroraview_core::plugins::PathScope;
+        use auroraview_core::plugins::ShellScope;
+
+        // Get the current working directory as the base for file system access
+        let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+
+        // Create a restricted scope configuration
+        ScopeConfig::new()
+            .with_fs_scope(PathScope::new().allow(cwd))
+            .with_shell_scope(ShellScope::new()) // Allows open_url/open_file but not arbitrary commands
+    };
+
+    let plugin_router = Arc::new(RwLock::new(PluginRouter::with_scope(default_scope)));
 
     // Set up event callback for plugins to emit events to WebView
     let proxy_for_events = proxy.clone();
     {
-        let router = plugin_router.read().unwrap();
-        router.set_event_callback(Arc::new(
-            move |event_name: &str, data: serde_json::Value| {
-                let data_str = serde_json::to_string(&data).unwrap_or_default();
-                let _ = proxy_for_events.send_event(UserEvent::PluginEvent {
-                    event: event_name.to_string(),
-                    data: data_str,
-                });
-            },
-        ));
+        // Handle lock poisoning gracefully during initialization
+        if let Ok(router) = plugin_router.read() {
+            router.set_event_callback(Arc::new(
+                move |event_name: &str, data: serde_json::Value| {
+                    let data_str = serde_json::to_string(&data).unwrap_or_default();
+                    let _ = proxy_for_events.send_event(UserEvent::PluginEvent {
+                        event: event_name.to_string(),
+                        data: data_str,
+                    });
+                },
+            ));
+        } else {
+            tracing::error!("Failed to set event callback: plugin router lock poisoned");
+        }
     }
 
     // For FullStack mode, start Python backend BEFORE creating window
@@ -450,12 +521,24 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     // Use MemoryAssets to handle the request
                     let response = memory_assets.handle_request(path);
 
+                    // Security: Restrict CORS to same-origin only
+                    // Using the custom protocol origin prevents cross-origin access from external sites
+                    #[cfg(target_os = "windows")]
+                    let allowed_origin = "https://auroraview.localhost";
+                    #[cfg(not(target_os = "windows"))]
+                    let allowed_origin = "auroraview://localhost";
+
                     wry::http::Response::builder()
                         .status(response.status)
                         .header("Content-Type", &response.mime_type)
-                        .header("Access-Control-Allow-Origin", "*")
+                        .header("Access-Control-Allow-Origin", allowed_origin)
                         .body(response.data.into_owned().into())
-                        .unwrap()
+                        .unwrap_or_else(|_| {
+                            wry::http::Response::builder()
+                                .status(500)
+                                .body(Vec::new().into())
+                                .unwrap()
+                        })
                 })
                 .with_initialization_script(&init_script)
                 .with_ipc_handler(move |request| {
@@ -540,7 +623,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 *ready = true;
                             }
                             // If Python is already ready, send backend_ready event to frontend
-                            let is_python_ready = *python_ready.read().unwrap();
+                            let is_python_ready = python_ready.read().map(|r| *r).unwrap_or(false);
                             if is_python_ready {
                                 tracing::info!(
                                     "[Rust] Python already ready, sending backend_ready to frontend"
@@ -580,7 +663,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                             }
 
                             // If loading screen is ready, send backend_ready event to frontend
-                            let is_loading_ready = *loading_screen_ready.read().unwrap();
+                            let is_loading_ready = loading_screen_ready.read().map(|r| *r).unwrap_or(false);
                             if is_loading_ready {
                                 tracing::info!(
                                     "[Rust] Loading screen ready, sending backend_ready to frontend"
@@ -642,19 +725,27 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                         }
                         UserEvent::PluginEvent { event, data } => {
                             // Send plugin event to WebView
+                            tracing::info!(
+                                "[Rust:WebView] Received PluginEvent: event={}, data_len={}",
+                                event,
+                                data.len()
+                            );
                             let escaped = escape_json_for_js(&data);
                             let script = format!(
                                 r#"(function() {{
                                     if (window.auroraview && window.auroraview.trigger) {{
                                         try {{
                                             var data = JSON.parse("{}");
+                                            console.log('[AuroraView] Triggering event:', '{}', data);
                                             window.auroraview.trigger('{}', data);
                                         }} catch (e) {{
                                             console.error('[AuroraView] Failed to parse event data:', e);
                                         }}
+                                    }} else {{
+                                        console.warn('[AuroraView] Bridge not ready for event:', '{}');
                                     }}
                                 }})()"#,
-                                escaped, event
+                                escaped, event, event, event
                             );
                             let _ = wv.evaluate_script(&script);
                         }
