@@ -3,7 +3,9 @@
 //! Tests for FsPlugin commands and operations.
 
 use auroraview_plugins::fs::FsPlugin;
-use auroraview_plugins::{PathScope, PluginHandler, PluginRequest, PluginRouter, ScopeConfig};
+use auroraview_plugins::{
+    create_router_with_scope, PathScope, PluginHandler, PluginRequest, ScopeConfig,
+};
 use tempfile::tempdir;
 
 #[test]
@@ -39,7 +41,7 @@ fn test_fs_plugin_default() {
 fn test_write_and_read_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-    let router = PluginRouter::with_scope(scope);
+    let router = create_router_with_scope(scope);
 
     let file_path = temp.path().join("test.txt");
     let file_path_str = file_path.to_string_lossy().to_string();
@@ -71,7 +73,7 @@ fn test_write_and_read_file() {
 fn test_exists_command() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-    let router = PluginRouter::with_scope(scope);
+    let router = create_router_with_scope(scope);
 
     // Create a file
     let file_path = temp.path().join("exists_test.txt");
@@ -93,7 +95,7 @@ fn test_exists_command() {
 fn test_exists_nonexistent() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-    let router = PluginRouter::with_scope(scope);
+    let router = create_router_with_scope(scope);
 
     let file_path = temp.path().join("nonexistent.txt");
 
@@ -112,7 +114,7 @@ fn test_exists_nonexistent() {
 fn test_scope_violation() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-    let router = PluginRouter::with_scope(scope);
+    let router = create_router_with_scope(scope);
 
     // Try to read outside scope (should fail)
     let req = PluginRequest::new(
@@ -129,7 +131,7 @@ fn test_scope_violation() {
 fn test_create_and_read_dir() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-    let router = PluginRouter::with_scope(scope);
+    let router = create_router_with_scope(scope);
 
     // Create directory
     let dir_path = temp.path().join("new_dir");
@@ -162,7 +164,7 @@ fn test_create_and_read_dir() {
 fn test_stat_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-    let router = PluginRouter::with_scope(scope);
+    let router = create_router_with_scope(scope);
 
     // Create a file
     let file_path = temp.path().join("stat_test.txt");
@@ -186,7 +188,7 @@ fn test_stat_file() {
 fn test_copy_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-    let router = PluginRouter::with_scope(scope);
+    let router = create_router_with_scope(scope);
 
     // Create source file
     let src_path = temp.path().join("source.txt");
@@ -215,7 +217,7 @@ fn test_copy_file() {
 fn test_rename_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-    let router = PluginRouter::with_scope(scope);
+    let router = create_router_with_scope(scope);
 
     // Create source file
     let src_path = temp.path().join("old_name.txt");
@@ -245,7 +247,7 @@ fn test_rename_file() {
 fn test_remove_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
-    let router = PluginRouter::with_scope(scope);
+    let router = create_router_with_scope(scope);
 
     // Create file
     let file_path = temp.path().join("to_remove.txt");
