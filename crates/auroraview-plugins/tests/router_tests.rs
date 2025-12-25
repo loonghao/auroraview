@@ -2,7 +2,7 @@
 //!
 //! Tests for PluginRouter, PluginRequest, and PluginResponse.
 
-use auroraview_plugins::{PluginRequest, PluginResponse, PluginRouter};
+use auroraview_plugins::{create_router, PluginRequest, PluginResponse};
 
 #[test]
 fn test_plugin_request_parse() {
@@ -62,7 +62,7 @@ fn test_plugin_response_with_id() {
 
 #[test]
 fn test_router_has_default_plugins() {
-    let router = PluginRouter::new();
+    let router = create_router();
     assert!(router.has_plugin("fs"));
     assert!(router.has_plugin("clipboard"));
     assert!(router.has_plugin("shell"));
@@ -72,7 +72,7 @@ fn test_router_has_default_plugins() {
 
 #[test]
 fn test_router_plugin_names() {
-    let router = PluginRouter::new();
+    let router = create_router();
     let names = router.plugin_names();
     assert!(names.contains(&"fs"));
     assert!(names.contains(&"clipboard"));
@@ -83,7 +83,7 @@ fn test_router_plugin_names() {
 
 #[test]
 fn test_router_plugin_not_found() {
-    let mut router = PluginRouter::new();
+    let mut router = create_router();
     // Enable the plugin first so we can test the "not found" path
     router.scope_mut().enable_plugin("nonexistent");
     let req = PluginRequest::new("nonexistent", "command", serde_json::json!({}));
@@ -94,7 +94,7 @@ fn test_router_plugin_not_found() {
 
 #[test]
 fn test_router_plugin_disabled() {
-    let mut router = PluginRouter::new();
+    let mut router = create_router();
     router.scope_mut().disable_plugin("fs");
 
     let req = PluginRequest::new("fs", "read_file", serde_json::json!({}));
@@ -105,13 +105,15 @@ fn test_router_plugin_disabled() {
 
 #[test]
 fn test_router_scope() {
-    let router = PluginRouter::new();
+    let router = create_router();
     let scope = router.scope();
     assert!(scope.is_plugin_enabled("fs"));
 }
 
 #[test]
 fn test_router_default() {
-    let router = PluginRouter::default();
+    // Note: PluginRouter::default() creates an empty router without plugins
+    // Use create_router() to get a router with all built-in plugins
+    let router = create_router();
     assert!(router.has_plugin("fs"));
 }
