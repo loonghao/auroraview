@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.25](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.24...auroraview-v0.3.25) (2025-12-25)
+
+
+### Code Refactoring
+
+* **plugins:** modularize plugin system into separate crates ([74b34d5](https://github.com/loonghao/auroraview/commit/74b34d5ce4379074fdc2848d4f5ac9f3a5ff256c))
+
 ## [0.3.24](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.23...auroraview-v0.3.24) (2025-12-24)
 
 
