@@ -585,6 +585,12 @@ gallery-test-watch:
     @echo "Running Gallery test loop in watch mode..."
     uv run python scripts/test_gallery_loop.py --watch
 
+# Generate Gallery screenshots for documentation
+gallery-screenshots:
+    @echo "Generating Gallery screenshots for documentation..."
+    uv run python scripts/test_gallery_e2e.py --screenshots-only
+    @echo "[OK] Screenshots saved to docs/public/gallery/"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Packaging Commands
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -719,13 +725,13 @@ pack-all: test-pack lint-pack gallery-pack
 # Install documentation dependencies
 docs-install:
     @echo "Installing documentation dependencies..."
-    cd website; npm install
+    cd docs; npm install
     @echo "[OK] Documentation dependencies installed!"
 
 # Start documentation dev server
 docs-dev: docs-install
     @echo "Starting documentation dev server..."
-    cd website; npx vitepress dev
+    cd docs; npx vitepress dev
 
 # Alias for docs-dev
 docs-serve: docs-dev
@@ -733,16 +739,16 @@ docs-serve: docs-dev
 # Build documentation
 docs-build: docs-install
     @echo "Building documentation..."
-    cd website; npx vitepress build
-    @echo "[OK] Documentation built in website/.vitepress/dist/"
+    cd docs; npx vitepress build
+    @echo "[OK] Documentation built in docs/.vitepress/dist/"
 
 # Preview built documentation
 docs-preview: docs-build
     @echo "Previewing documentation..."
-    cd website; npx vitepress preview
+    cd docs; npx vitepress preview
 
 # Clean documentation build artifacts
 docs-clean:
     @echo "Cleaning documentation build artifacts..."
-    rm -rf website/.vitepress/dist website/.vitepress/cache website/node_modules
+    rm -rf docs/.vitepress/dist docs/.vitepress/cache docs/node_modules
     @echo "[OK] Documentation artifacts cleaned!"

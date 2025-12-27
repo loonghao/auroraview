@@ -4,19 +4,76 @@ AuroraView is designed specifically for integration with Digital Content Creatio
 
 ## Supported Software
 
-| DCC Software | Status | Python Version | Integration |
-|--------------|--------|----------------|-------------|
-| Maya | ✅ Supported | 3.7+ | QtWebView |
-| Houdini | ✅ Supported | 3.7+ | QtWebView |
-| 3ds Max | ✅ Supported | 3.7+ | QtWebView |
-| Blender | ✅ Supported | 3.7+ | Standalone |
-| Nuke | ✅ Supported | 3.7+ | QtWebView |
+| DCC Software | Status | Python Version | Integration Mode |
+|--------------|--------|----------------|------------------|
+| Maya | ✅ Supported | 3.7+ | Qt Mode |
+| Houdini | ✅ Supported | 3.7+ | Qt Mode |
+| 3ds Max | ✅ Supported | 3.7+ | Qt Mode |
+| Blender | ✅ Supported | 3.7+ | Desktop / Native Mode |
+| Nuke | ✅ Supported | 3.7+ | Qt Mode |
 | Photoshop | 🚧 Planned | 3.7+ | - |
-| Unreal Engine | 🚧 Planned | 3.7+ | HWND |
+| Unreal Engine | 🚧 Planned | 3.7+ | Native Mode (HWND) |
 
 ## Integration Modes
 
-### Qt Native Mode (QtWebView)
+AuroraView provides three integration modes for different scenarios:
+
+| Mode | Class | Description | Best For |
+|------|-------|-------------|----------|
+| **Desktop** | `WebView` + `show()` | Independent window with own event loop | Standalone tools, desktop apps |
+| **Native (HWND)** | `WebView` + `parent=hwnd` | Embedded via HWND, no Qt dependency | Blender, Unreal Engine, non-Qt apps |
+| **Qt** | `QtWebView` | Embedded as Qt widget child | Maya, Houdini, Nuke, 3ds Max |
+
+### Desktop Mode
+
+**Best for:** Standalone tools, development, Blender (floating windows)
+
+Creates an independent window with its own event loop.
+
+```python
+from auroraview import run_desktop
+
+run_desktop(
+    title="My Tool",
+    url="http://localhost:3000"
+)
+```
+
+**Key features:**
+- ✅ Full window effects support (click-through, blur, mica)
+- ✅ No DCC dependency
+- ✅ Owns event loop
+
+### Native Mode (HWND)
+
+**Best for:** Blender, Unreal Engine, non-Qt applications
+
+Embeds WebView via HWND without Qt dependency.
+
+```python
+from auroraview import WebView
+
+# Get parent HWND from non-Qt app
+parent_hwnd = get_app_window_handle()
+
+webview = WebView.create(
+    title="My Tool",
+    parent=parent_hwnd,
+    mode="owner",
+)
+webview.show()
+
+# Get HWND for external integration
+hwnd = webview.get_hwnd()
+```
+
+**Key features:**
+- ✅ Direct HWND access
+- ✅ Full window effects support
+- ✅ Works with any HWND-accepting application
+- ✅ No Qt dependency required
+
+### Qt Mode
 
 **Best for:** Maya, Houdini, Nuke, 3ds Max
 
@@ -39,38 +96,7 @@ webview.show()
 - ✅ Automatic lifecycle management
 - ✅ Native Qt event integration
 - ✅ Supports all Qt layout managers
-
-### HWND Mode (AuroraView)
-
-**Best for:** Unreal Engine, non-Qt applications
-
-```python
-from auroraview import AuroraView
-
-webview = AuroraView(url="http://localhost:3000")
-webview.show()
-
-# Get HWND for external integration
-hwnd = webview.get_hwnd()
-```
-
-**Key features:**
-- ✅ Direct HWND access
-- ✅ Works with any HWND-accepting application
-- ✅ No Qt dependency required
-
-### Standalone Mode
-
-**Best for:** Blender, standalone tools
-
-```python
-from auroraview import run_desktop
-
-run_desktop(
-    title="My Tool",
-    url="http://localhost:3000"
-)
-```
+- ⚠️ Limited window effects support
 
 ## Installation
 

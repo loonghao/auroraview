@@ -91,13 +91,13 @@ webview.show()
 
 ## Integration Modes
 
-AuroraView provides three main integration modes:
+AuroraView provides three integration modes:
 
-| Mode | Class | Best For | Docking Support |
-|------|-------|----------|-----------------|
-| **Qt Native** | `QtWebView` | Maya, Houdini, Nuke, 3ds Max | ✅ QDockWidget |
-| **HWND** | `AuroraView` | Unreal Engine, non-Qt apps | ✅ via HWND API |
-| **Standalone** | `run_standalone` | Desktop applications | N/A |
+| Mode | Class | Description | Best For |
+|------|-------|-------------|----------|
+| **Desktop** | `WebView` + `show()` | Independent window with own event loop | Standalone tools, desktop apps |
+| **Native (HWND)** | `WebView` + `parent=hwnd` | Embedded via HWND, no Qt dependency | Blender, Unreal Engine, non-Qt apps |
+| **Qt** | `QtWebView` | Embedded as Qt widget child | Maya, Houdini, Nuke, 3ds Max |
 
 ## Next Steps
 

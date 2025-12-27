@@ -2,20 +2,39 @@
 
 This section provides detailed API documentation for AuroraView.
 
+## Integration Modes
+
+AuroraView provides three integration modes:
+
+| Mode | Class | Description |
+|------|-------|-------------|
+| **Desktop** | `WebView` + `show()` | Independent window with own event loop |
+| **Native (HWND)** | `WebView` + `parent=hwnd` | Embedded via HWND, no Qt dependency |
+| **Qt** | `QtWebView` | Embedded as Qt widget child |
+
 ## Core Classes
 
 ### WebView
 
-The base WebView class for creating web-based UI.
+The base WebView class for creating web-based UI. Used in Desktop and Native modes.
 
 ```python
 from auroraview import WebView
 
+# Desktop Mode
 webview = WebView.create(
     title="My App",
     url="http://localhost:3000",
     width=1024,
     height=768
+)
+webview.show()  # Blocking, owns event loop
+
+# Native Mode (HWND)
+webview = WebView.create(
+    title="My Tool",
+    parent=parent_hwnd,  # HWND from non-Qt app
+    mode="owner",
 )
 ```
 
@@ -23,13 +42,14 @@ webview = WebView.create(
 
 ### QtWebView
 
-Qt widget wrapper for DCC integration.
+Qt widget wrapper for DCC integration. Used in Qt Mode.
 
 ```python
 from auroraview import QtWebView
 
+# Qt Mode
 webview = QtWebView(
-    parent=parent_widget,
+    parent=parent_widget,  # Qt widget
     url="http://localhost:3000"
 )
 ```
@@ -38,7 +58,7 @@ webview = QtWebView(
 
 ### AuroraView
 
-High-level wrapper with HWND access.
+High-level wrapper with HWND access and API binding.
 
 ```python
 from auroraview import AuroraView

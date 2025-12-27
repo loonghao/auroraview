@@ -97,8 +97,7 @@ impl AuroraView {
             .into_iter()
             .map(|r| InteractiveRegion::new(r.x, r.y, r.width, r.height))
             .collect();
-        update_interactive_regions(hwnd, regions)
-            .map_err(pyo3::exceptions::PyRuntimeError::new_err)
+        update_interactive_regions(hwnd, regions).map_err(pyo3::exceptions::PyRuntimeError::new_err)
     }
 
     /// Get current interactive regions.

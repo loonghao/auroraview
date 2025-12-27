@@ -77,11 +77,11 @@ webview.show()
 
 ## 支持的 DCC 软件
 
-| 软件 | 状态 | 集成方式 |
+| 软件 | 状态 | 集成模式 |
 |------|------|----------|
-| Maya | ✅ 已支持 | QtWebView |
-| Houdini | ✅ 已支持 | QtWebView |
-| 3ds Max | ✅ 已支持 | QtWebView |
-| Blender | ✅ 已支持 | 独立模式 |
+| Maya | ✅ 已支持 | Qt 模式 |
+| Houdini | ✅ 已支持 | Qt 模式 |
+| 3ds Max | ✅ 已支持 | Qt 模式 |
+| Blender | ✅ 已支持 | 桌面 / 原生模式 |
 | Photoshop | 🚧 计划中 | - |
-| Unreal Engine | 🚧 计划中 | HWND |
+| Unreal Engine | 🚧 计划中 | 原生模式 (HWND) |
