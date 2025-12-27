@@ -19,7 +19,7 @@ webview = WebView.create(
 )
 ```
 
-[完整 WebView API →](/zh/api/webview)
+[完整 WebView API →](/api/webview)
 
 ### QtWebView
 
@@ -34,7 +34,7 @@ webview = QtWebView(
 )
 ```
 
-[完整 QtWebView API →](/zh/api/qt-webview)
+[完整 QtWebView API →](/api/qt-webview)
 
 ### AuroraView
 
@@ -49,7 +49,7 @@ webview = AuroraView(
 )
 ```
 
-[完整 AuroraView API →](/zh/api/auroraview)
+[完整 AuroraView API →](/api/auroraview)
 
 ## 便捷函数
 
