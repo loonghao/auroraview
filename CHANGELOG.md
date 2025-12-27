@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.26](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.25...auroraview-v0.3.26) (2025-12-27)
+
+
+### Features
+
+* add Chrome Extension APIs support for AuroraView ([c482db2](https://github.com/loonghao/auroraview/commit/c482db24e724520300031b08602e387534e61f61))
+* **child-window:** add unified child window system for examples ([95cf437](https://github.com/loonghao/auroraview/commit/95cf437c7b8c7120fa27c137d23461fa68590b42))
+
+
+### Bug Fixes
+
+* **ci:** ensure webkit2gtk runtime libraries are available on Linux ([64ce0bf](https://github.com/loonghao/auroraview/commit/64ce0bf9e3625c239b32ee77da042f3d8e159927))
+* **ci:** install Linux runtime libs unconditionally in gallery-pack ([fa4f19e](https://github.com/loonghao/auroraview/commit/fa4f19ea973e6b2ab83d7ceadf2edaaefed74c0d))
+* code formatting and Linux webkit2gtk runtime library ([b81848b](https://github.com/loonghao/auroraview/commit/b81848bfbe97ab46001a24ffbdcf4f940caa29ac))
+* **docs:** resolve dead links and add child module tests ([e56a02d](https://github.com/loonghao/auroraview/commit/e56a02db3cc07761f49f917e3973c8931c83d07f))
+* make ClientInfo public and allow dead_code for emit_event ([1eb2290](https://github.com/loonghao/auroraview/commit/1eb229054f613d7199b7046bdb7135633ac22312))
+* remove unused imports and variables in test_child.py ([f501b5c](https://github.com/loonghao/auroraview/commit/f501b5c89c0d044b679058cff3e84015d098645f))
+* remove unused variable in browser-extension client ([e3e3822](https://github.com/loonghao/auroraview/commit/e3e38228e4955492f692e4be4379d4d5e5e56795))
+* rename plugin_error to from_plugin to avoid clippy self_named_constructors ([900a3ee](https://github.com/loonghao/auroraview/commit/900a3ee0a87e05905f7f7a6098f970e93d33d6cb))
+* resolve clippy warnings in auroraview-extensions ([d4a868a](https://github.com/loonghao/auroraview/commit/d4a868a8a5df11823491b7d105b346a57d4fb284))
+* resolve test failure and clippy warnings ([00626e5](https://github.com/loonghao/auroraview/commit/00626e5be9de37d82a6687a743f2e936ac7d1669))
+* restore Windows-only imports and suppress hwnd warning ([553a461](https://github.com/loonghao/auroraview/commit/553a4612f9d255e0bb5bc3d4b500e6676e1500a7))
+* use allow(unused_variables) instead of underscore prefix for platform-specific vars ([ecfa552](https://github.com/loonghao/auroraview/commit/ecfa55292fc999eeaf52e67b0c47294ef23ea92f))
+
 ## [0.3.25](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.24...auroraview-v0.3.25) (2025-12-25)
 
 
