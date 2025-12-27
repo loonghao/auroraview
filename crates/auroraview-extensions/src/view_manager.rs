@@ -261,7 +261,8 @@ impl ExtensionViewManager {
         };
 
         // Create WebView via callback
-        let _hwnd = {
+        #[allow(unused_variables)]
+        let hwnd = {
             let callback = self.create_webview_callback.read();
             if let Some(ref cb) = *callback {
                 let mut view_config = config.clone();
@@ -357,7 +358,8 @@ impl ExtensionViewManager {
         };
 
         // Open DevTools via callback
-        let _devtools_hwnd = {
+        #[allow(unused_variables)]
+        let devtools_hwnd = {
             let callback = self.open_devtools_callback.read();
             if let Some(ref cb) = *callback {
                 match cb(view_id, debug_port) {
