@@ -115,6 +115,7 @@ class WebView(
         tool_window: bool = False,
         undecorated_shadow: bool = True,
         allow_new_window: bool = False,
+        new_window_mode: Optional[str] = None,
         # Aliases for more intuitive API
         parent_hwnd: Optional[int] = None,
         embed_mode: Optional[str] = None,
@@ -275,6 +276,7 @@ class WebView(
             tool_window=tool_window,  # Tool window style (hide from taskbar/Alt+Tab)
             undecorated_shadow=undecorated_shadow,  # Show shadow for frameless windows
             allow_new_window=allow_new_window,  # Allow window.open() to create new windows
+            new_window_mode=new_window_mode,  # New window behavior: deny, system_browser, child_webview
         )
         self._event_handlers: Dict[str, List[Callable]] = {}
         self._title = title
@@ -291,6 +293,7 @@ class WebView(
         self._tool_window = tool_window
         self._undecorated_shadow = undecorated_shadow
         self._allow_new_window = allow_new_window
+        self._new_window_mode = new_window_mode
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
         self._auto_timer = None  # Will be set by create() factory method
@@ -336,6 +339,9 @@ class WebView(
 
         # Channel manager (lazy initialization)
         self._channels: Optional["ChannelManager"] = None
+
+        # Plugin manager for handling plugin:* invoke commands
+        self._plugin_manager: Optional[Any] = None
 
     @property
     def state(self) -> "State":
@@ -1101,6 +1107,85 @@ class WebView(
         """
         self._event_processor = processor
         logger.debug(f"Event processor set: {type(processor).__name__}")
+
+    def set_plugin_manager(self, plugin_manager: Any) -> None:
+        """Set plugin manager for handling plugin:* invoke commands.
+
+        This enables JavaScript to call Rust plugins via `window.auroraview.invoke()`.
+
+        Args:
+            plugin_manager: PluginManager instance from auroraview.PluginManager
+
+        Example:
+            >>> from auroraview import WebView, PluginManager
+            >>>
+            >>> view = WebView(title="Plugin Demo")
+            >>> plugins = PluginManager.permissive()
+            >>> view.set_plugin_manager(plugins)
+            >>>
+            >>> # Now JavaScript can call plugins:
+            >>> # await auroraview.invoke("plugin:fs|read_file", {path: "/tmp/test.txt"})
+        """
+        self._plugin_manager = plugin_manager
+        # Register handler for __plugin_invoke__ events from Rust IPC
+        self.register_callback("__plugin_invoke__", self._handle_plugin_invoke)
+        logger.info("Plugin manager set and __plugin_invoke__ handler registered")
+
+    def _handle_plugin_invoke(self, data: dict) -> None:
+        """Handle plugin invoke commands from JavaScript.
+
+        This is called when Rust IPC receives a `type: 'invoke'` message
+        and forwards it as `__plugin_invoke__` event.
+
+        Args:
+            data: Dict with 'cmd', 'args', and optional 'id' fields
+        """
+        if self._plugin_manager is None:
+            logger.warning("Plugin invoke received but no plugin manager set")
+            return
+
+        import json
+
+        cmd = data.get("cmd", "")
+        args = data.get("args", {})
+        call_id = data.get("id")
+
+        logger.info(f"[Plugin] Invoke: {cmd}, args: {args}, id: {call_id}")
+
+        try:
+            # Convert args to JSON string for PluginManager.handle_command()
+            args_json = json.dumps(args) if isinstance(args, dict) else "{}"
+            result_json = self._plugin_manager.handle_command(cmd, args_json)
+            result = json.loads(result_json)
+
+            # Send result back to JavaScript
+            payload = {
+                "id": call_id,
+                "ok": result.get("success", False),
+            }
+            if result.get("success"):
+                payload["result"] = result.get("data")
+            else:
+                payload["error"] = {
+                    "message": result.get("error", "Unknown error"),
+                    "code": result.get("code", "PLUGIN_ERROR"),
+                }
+
+            # Emit result via __invoke_result__ event
+            self.emit("__invoke_result__", payload)
+            logger.info(f"[Plugin] Result sent: {payload}")
+
+        except Exception as e:
+            logger.error(f"[Plugin] Error handling invoke: {e}")
+            error_payload = {
+                "id": call_id,
+                "ok": False,
+                "error": {
+                    "message": str(e),
+                    "code": "INTERNAL_ERROR",
+                },
+            }
+            self.emit("__invoke_result__", error_payload)
 
     def _auto_process_events(self) -> None:
         """Automatically process events after emit() or eval_js().

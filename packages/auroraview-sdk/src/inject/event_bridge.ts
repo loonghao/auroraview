@@ -266,6 +266,12 @@
         return;
       }
 
+      // Special handling for plugin invoke result events
+      if (event === '__invoke_result__') {
+        handleCallResult(detail as Parameters<typeof handleCallResult>[0]);
+        return;
+      }
+
       const handlers = eventHandlers.get(event);
       if (!handlers || handlers.size === 0) {
         console.warn('[AuroraView] No handlers for event:', event);

@@ -1,0 +1,14 @@
+[project]
+name = "browser-extension-integration-example"
+version = "0.1.0"
+description = "Example: AuroraView Browser Extension Integration"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+shotgrid = [
+    "shotgun-api3>=3.3.0",
+]

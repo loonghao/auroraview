@@ -12,9 +12,11 @@ mod webview_inner;
 
 // Core modules (always available)
 pub mod backend;
+pub(crate) mod child_window; // Child WebView window creation
 pub mod config; // Public for testing
 #[cfg(feature = "python-bindings")]
 pub(crate) mod desktop;
+pub mod devtools; // DevTools window management
 pub(crate) mod event_loop;
 pub mod js_assets; // JavaScript assets management
 #[cfg(feature = "templates")]
@@ -33,13 +35,16 @@ pub mod window_manager; // Multi-window support
 // Public exports
 #[allow(unused_imports)]
 pub use backend::{BackendType, WebViewBackend};
-pub use config::{TrayConfig, TrayMenuItem, TrayMenuItemType, WebViewBuilder, WebViewConfig};
+pub use config::{
+    NewWindowMode, TrayConfig, TrayMenuItem, TrayMenuItemType, WebViewBuilder, WebViewConfig,
+};
 #[cfg(feature = "python-bindings")]
 pub use core::AuroraView;
 #[cfg(feature = "python-bindings")]
 pub use core::EventEmitter;
 #[cfg(feature = "python-bindings")]
 pub use core::PluginManager;
+pub use devtools::{DevToolsManager, DevToolsWindowConfig, DevToolsWindowInfo};
 #[cfg(feature = "python-bindings")]
 pub use proxy::WebViewProxy;
 pub use window_manager::{WindowInfo, WindowManager};

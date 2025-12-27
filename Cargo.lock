@@ -479,6 +479,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-stream"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b5a71a6f37880a80d1d7f19efd781e4b5de42c88f0722cc13bcb6cc2cfe8476"
+dependencies = [
+ "async-stream-impl",
+ "futures-core",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7c24de15d275a1ecfd47a380fb4d5ec9bfe0933f309ed5e705b775596a3574d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.111",
+]
+
+[[package]]
 name = "async-task"
 version = "4.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -557,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "aurora-signals"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "crossbeam-channel",
  "once_cell",
@@ -574,7 +596,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -585,6 +607,7 @@ dependencies = [
  "crossbeam-channel",
  "ctrlc",
  "dashmap",
+ "dirs",
  "flume 0.12.0",
  "hyper 1.8.1",
  "hyper-util",
@@ -633,7 +656,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -670,7 +693,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -701,8 +724,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "auroraview-extensions"
+version = "0.3.25"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dashmap",
+ "dunce",
+ "glob",
+ "once_cell",
+ "parking_lot",
+ "regex",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "url",
+ "urlencoding",
+ "uuid",
+ "walkdir",
+]
+
+[[package]]
 name = "auroraview-pack"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "aurora-protect",
  "base64 0.22.1",
@@ -730,7 +779,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "dunce",
  "serde",
@@ -741,7 +790,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "auroraview-plugin-core",
  "base64 0.22.1",
@@ -752,14 +801,17 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "arboard",
+ "auroraview-extensions",
  "auroraview-plugin-core",
  "auroraview-plugin-fs",
+ "dirs",
  "dunce",
  "ipckit",
  "open",
+ "parking_lot",
  "rfd 0.15.4",
  "rstest 0.24.0",
  "serde",
@@ -1000,6 +1052,16 @@ checksum = "874bb8112abecc98cbd6d81ea4fa7e94fb9449648c93cc89aa40c81c24d7de03"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
+]
+
+[[package]]
+name = "bstr"
+version = "1.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63044e1ae8e69f3b5a92c736ca6269b8d12fa7efe39bf34ddb06d102cf0e2cab"
+dependencies = [
+ "memchr",
+ "serde",
 ]
 
 [[package]]
@@ -2702,6 +2764,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
+name = "globset"
+version = "0.4.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52dfc19153a48bde0cbd630453615c8151bce3a5adfac7a0aebfbf0a1e1f57e3"
+dependencies = [
+ "aho-corasick",
+ "bstr",
+ "log",
+ "regex-automata",
+ "regex-syntax",
+]
+
+[[package]]
 name = "gobject-sys"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3117,7 +3192,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -6147,6 +6222,7 @@ version = "8.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60b161f275cb337fe0a44d924a5f4df0ed69c2c39519858f931ce61c779d3475"
 dependencies = [
+ "globset",
  "sha2",
  "walkdir",
 ]
@@ -7194,6 +7270,30 @@ checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
 dependencies = [
  "rustls",
  "tokio",
+]
+
+[[package]]
+name = "tokio-stream"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eca58d7bba4a75707817a2c44174253f9236b2d5fbd055602e9d5c07c139a047"
+dependencies = [
+ "futures-core",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-test"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2468baabc3311435b55dd935f702f42cd1b8abb7e754fb7dfb16bd36aa88f9f7"
+dependencies = [
+ "async-stream",
+ "bytes",
+ "futures-core",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]

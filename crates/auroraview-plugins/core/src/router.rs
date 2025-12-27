@@ -82,8 +82,20 @@ impl PluginRouter {
 
     /// Handle a plugin command
     pub fn handle(&self, request: PluginRequest) -> PluginResponse {
+        tracing::debug!(
+            "[PluginRouter] Handling request for plugin '{}', command '{}'. Enabled plugins: {:?}",
+            request.plugin,
+            request.command,
+            self.scope.enabled_plugins
+        );
+
         // Check if plugin is enabled
         if !self.scope.is_plugin_enabled(&request.plugin) {
+            tracing::warn!(
+                "[PluginRouter] Plugin '{}' is disabled. Enabled: {:?}",
+                request.plugin,
+                self.scope.enabled_plugins
+            );
             return PluginResponse::err(
                 format!("Plugin '{}' is disabled", request.plugin),
                 "PLUGIN_DISABLED",

@@ -142,6 +142,11 @@ impl PluginError {
     pub fn dialog_cancelled() -> Self {
         Self::new(PluginErrorCode::DialogCancelled, "Dialog was cancelled")
     }
+
+    /// Create a generic plugin error (for plugin-specific errors)
+    pub fn plugin_error(_plugin_name: &str, msg: impl Into<String>) -> Self {
+        Self::new(PluginErrorCode::Unknown, msg)
+    }
 }
 
 impl fmt::Display for PluginError {

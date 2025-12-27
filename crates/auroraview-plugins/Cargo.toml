@@ -21,6 +21,12 @@ auroraview-plugin-core = { path = "core" }
 # File system plugin
 auroraview-plugin-fs = { path = "fs" }
 
+# Extensions support
+auroraview-extensions = { path = "../auroraview-extensions" }
+
+# Directory paths
+dirs = "6.0"
+
 # Logging
 tracing = "0.1"
 
@@ -46,6 +52,9 @@ rfd = "0.15"
 
 # Open URLs/files with default app
 open = "5.3"
+
+# Thread safety (for extensions plugin)
+parking_lot = "0.12"
 
 [dev-dependencies]
 tempfile = "3.15"

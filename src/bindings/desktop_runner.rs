@@ -106,7 +106,8 @@ use crate::webview::desktop;
     tray_show_on_click=true,
     tray_hide_on_close=true,
     tool_window=false,
-    undecorated_shadow=true
+    undecorated_shadow=true,
+    new_window_mode=None
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_desktop(
@@ -134,6 +135,7 @@ fn run_desktop(
     tray_hide_on_close: bool,
     #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] tool_window: bool,
     #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] undecorated_shadow: bool,
+    new_window_mode: Option<String>,
 ) -> PyResult<()> {
     tracing::info!("[run_desktop] Creating desktop WebView: {}", title);
 
@@ -186,6 +188,23 @@ fn run_desktop(
         custom_protocols: std::collections::HashMap::new(),
         api_methods: std::collections::HashMap::new(),
         allow_new_window,
+        new_window_mode: match new_window_mode.as_deref().map(|s| s.to_ascii_lowercase()) {
+            Some(ref m) if m == "deny" => crate::webview::config::NewWindowMode::Deny,
+            Some(ref m) if m == "system_browser" || m == "systembrowser" => {
+                crate::webview::config::NewWindowMode::SystemBrowser
+            }
+            Some(ref m) if m == "child_webview" || m == "childwebview" || m == "child" => {
+                crate::webview::config::NewWindowMode::ChildWebView
+            }
+            _ => {
+                // Default: use SystemBrowser if allow_new_window is true, otherwise Deny
+                if allow_new_window {
+                    crate::webview::config::NewWindowMode::SystemBrowser
+                } else {
+                    crate::webview::config::NewWindowMode::Deny
+                }
+            }
+        },
         allow_file_protocol,
         auto_show: !headless, // Don't auto-show in headless mode
         headless,
@@ -267,7 +286,8 @@ fn run_desktop(
     tray_show_on_click=true,
     tray_hide_on_close=true,
     tool_window=false,
-    undecorated_shadow=true
+    undecorated_shadow=true,
+    new_window_mode=None
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_standalone(
@@ -295,6 +315,7 @@ fn run_standalone(
     tray_hide_on_close: bool,
     #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] tool_window: bool,
     #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] undecorated_shadow: bool,
+    new_window_mode: Option<String>,
 ) -> PyResult<()> {
     run_desktop(
         title,
@@ -321,6 +342,7 @@ fn run_standalone(
         tray_hide_on_close,
         tool_window,
         undecorated_shadow,
+        new_window_mode,
     )
 }
 

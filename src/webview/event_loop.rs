@@ -37,6 +37,12 @@ pub enum UserEvent {
     DragWindow,
     /// Plugin event to be forwarded to WebView
     PluginEvent { event: String, data: String },
+    /// Request to create a new child WebView window
+    CreateChildWindow {
+        url: String,
+        width: u32,
+        height: u32,
+    },
 }
 
 /// Event loop state management
@@ -546,6 +552,24 @@ impl WebViewEventHandler {
                                     tracing::error!("[EventLoop] Failed to emit plugin event '{}': {}", event, e);
                                 }
                             }
+                        }
+                    }
+                }
+                Event::UserEvent(UserEvent::CreateChildWindow { url, width, height }) => {
+                    tracing::info!("[EventLoop] UserEvent::CreateChildWindow received: {}", url);
+                    #[cfg(target_os = "windows")]
+                    {
+                        // Create child window on the main thread
+                        if let Err(e) = super::child_window::create_child_webview_window(&url, width, height) {
+                            tracing::error!("[EventLoop] Failed to create child window: {}", e);
+                        }
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        // On non-Windows platforms, fall back to system browser
+                        tracing::warn!("[EventLoop] Child window not supported on this platform, opening in browser");
+                        if let Err(e) = open::that(&url) {
+                            tracing::error!("[EventLoop] Failed to open URL in browser: {}", e);
                         }
                     }
                 }

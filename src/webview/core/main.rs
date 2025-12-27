@@ -22,7 +22,7 @@ impl AuroraView {
     /// Create a new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None, tool_window=false, undecorated_shadow=true, allow_new_window=false))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None, tool_window=false, undecorated_shadow=true, allow_new_window=false, new_window_mode=None))]
     fn new(
         title: &str,
         width: u32,
@@ -49,6 +49,7 @@ impl AuroraView {
         #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] tool_window: bool,
         #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] undecorated_shadow: bool,
         allow_new_window: bool,
+        new_window_mode: Option<&str>,
     ) -> PyResult<Self> {
         tracing::info!(
             "AuroraView::new() called with title: {}, transparent={}, tool_window={}, decorations={}",
@@ -87,6 +88,23 @@ impl AuroraView {
             ipc_batch_size,
             icon: icon.map(std::path::PathBuf::from),
             allow_new_window,
+            new_window_mode: match new_window_mode.map(|s| s.to_ascii_lowercase()) {
+                Some(ref m) if m == "deny" => crate::webview::config::NewWindowMode::Deny,
+                Some(ref m) if m == "system_browser" || m == "systembrowser" => {
+                    crate::webview::config::NewWindowMode::SystemBrowser
+                }
+                Some(ref m) if m == "child_webview" || m == "childwebview" || m == "child" => {
+                    crate::webview::config::NewWindowMode::ChildWebView
+                }
+                _ => {
+                    // Default: use SystemBrowser if allow_new_window is true, otherwise Deny
+                    if allow_new_window {
+                        crate::webview::config::NewWindowMode::SystemBrowser
+                    } else {
+                        crate::webview::config::NewWindowMode::Deny
+                    }
+                }
+            },
             ..Default::default()
         };
 

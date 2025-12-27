@@ -18,7 +18,7 @@ use wry::WebViewBuilderExtWindows;
 
 use super::WebViewBackend;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
-use crate::webview::config::WebViewConfig;
+use crate::webview::config::{NewWindowMode, WebViewConfig};
 use crate::webview::event_loop::UserEvent;
 use crate::webview::js_assets;
 use crate::webview::message_pump;
@@ -1065,26 +1065,45 @@ impl NativeBackend {
             }
         }
 
-        // Configure new window handler
-        // On Windows WebView2, NewWindowResponse::Allow may not work reliably.
-        // Instead, we open external links in the system default browser.
-        if config.allow_new_window {
-            tracing::debug!("[NativeBackend] Allowing new windows (opens in system browser)");
-            builder = builder.with_new_window_req_handler(|url, _features| {
-                tracing::debug!("[NativeBackend] New window requested: {}", url);
-                // Open in system default browser instead of creating a new WebView window
-                if let Err(e) = open::that(&url) {
-                    tracing::error!("[NativeBackend] Failed to open URL in browser: {}", e);
-                }
-                // Deny creating a new WebView window since we opened in external browser
-                wry::NewWindowResponse::Deny
-            });
-        } else {
-            tracing::debug!("[NativeBackend] Blocking new windows");
-            builder = builder.with_new_window_req_handler(|url, _features| {
-                tracing::debug!("[NativeBackend] Blocked: {}", url);
-                wry::NewWindowResponse::Deny
-            });
+        // Configure new window handler based on new_window_mode
+        let new_window_mode = config.new_window_mode;
+        match new_window_mode {
+            NewWindowMode::Deny => {
+                tracing::debug!("[NativeBackend] Blocking new windows (Deny mode)");
+                builder = builder.with_new_window_req_handler(|url, _features| {
+                    tracing::debug!("[NativeBackend] Blocked: {}", url);
+                    wry::NewWindowResponse::Deny
+                });
+            }
+            NewWindowMode::SystemBrowser => {
+                tracing::debug!("[NativeBackend] New windows open in system browser");
+                builder = builder.with_new_window_req_handler(|url, _features| {
+                    tracing::debug!("[NativeBackend] Opening in system browser: {}", url);
+                    if let Err(e) = open::that(&url) {
+                        tracing::error!("[NativeBackend] Failed to open URL in browser: {}", e);
+                    }
+                    wry::NewWindowResponse::Deny
+                });
+            }
+            NewWindowMode::ChildWebView => {
+                tracing::info!("[NativeBackend] New windows create child WebView");
+                // Note: ChildWebView mode in NativeBackend (DCC embedded mode) is complex
+                // because we need to coordinate with the host application's window system.
+                // For now, we fall back to SystemBrowser mode with a warning.
+                tracing::warn!(
+                    "[NativeBackend] ChildWebView mode is not fully supported in embedded mode, falling back to SystemBrowser"
+                );
+                builder = builder.with_new_window_req_handler(|url, _features| {
+                    tracing::info!(
+                        "[NativeBackend] Opening in system browser (ChildWebView fallback): {}",
+                        url
+                    );
+                    if let Err(e) = open::that(&url) {
+                        tracing::error!("[NativeBackend] Failed to open URL in browser: {}", e);
+                    }
+                    wry::NewWindowResponse::Deny
+                });
+            }
         }
 
         // Build initialization script using js_assets module
@@ -1206,6 +1225,54 @@ impl NativeBackend {
                             if let Err(e) = ipc_handler_clone.handle_message(ipc_message) {
                                 tracing::error!(
                                     "[ERROR] [NativeBackend] Error handling call: {}",
+                                    e
+                                );
+                            }
+                        }
+                    } else if msg_type == "invoke" {
+                        // Handle plugin invoke commands
+                        // Forward to Python layer via IPC handler with special event name
+                        let cmd = message.get("cmd").and_then(|v| v.as_str());
+                        let args = message
+                            .get("args")
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+                        let id = message
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+
+                        if let Some(invoke_cmd) = cmd {
+                            tracing::info!(
+                                "[NativeBackend] Invoke: {} args: {:?} id: {:?}",
+                                invoke_cmd,
+                                args,
+                                id
+                            );
+
+                            let mut payload = serde_json::Map::new();
+                            payload.insert(
+                                "cmd".to_string(),
+                                serde_json::Value::String(invoke_cmd.to_string()),
+                            );
+                            payload.insert("args".to_string(), args);
+                            if let Some(ref call_id) = id {
+                                payload.insert(
+                                    "id".to_string(),
+                                    serde_json::Value::String(call_id.clone()),
+                                );
+                            }
+
+                            // Send as __plugin_invoke__ event for Python to handle
+                            let ipc_message = IpcMessage {
+                                event: "__plugin_invoke__".to_string(),
+                                data: serde_json::Value::Object(payload),
+                                id,
+                            };
+
+                            if let Err(e) = ipc_handler_clone.handle_message(ipc_message) {
+                                tracing::error!(
+                                    "[ERROR] [NativeBackend] Error handling invoke: {}",
                                     e
                                 );
                             }

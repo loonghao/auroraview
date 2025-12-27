@@ -2,7 +2,7 @@
 //!
 //! ## AuroraView Protocol URL Format
 //!
-//! The auroraview protocol supports two type prefixes for local file access:
+//! The auroraview protocol supports several path prefixes:
 //!
 //! - `type:file` - For file:// URL conversions
 //!   - `https://auroraview.localhost/type:file/C:/path/to/file.ext`
@@ -10,7 +10,11 @@
 //! - `type:local` - For local path conversions
 //!   - `https://auroraview.localhost/type:local/C:/path/to/file.ext`
 //!
-//! Both prefixes allow loading arbitrary local files through the custom protocol.
+//! - `extension/{extensionId}/` - For Chrome extension resources
+//!   - `https://auroraview.localhost/extension/my-extension/sidepanel.html`
+//!   - Maps to `%LOCALAPPDATA%/AuroraView/Extensions/{extensionId}/{path}`
+//!
+//! Both type prefixes allow loading arbitrary local files through the custom protocol.
 //! The type prefix helps distinguish the source of the path for debugging.
 
 use auroraview_core::assets::build_error_page;
@@ -123,6 +127,14 @@ pub fn handle_auroraview_protocol(
     if let Some(file_path) = path.strip_prefix(&type_local_prefix) {
         tracing::debug!("[Protocol] {} request: {}", PROTOCOL_TYPE_LOCAL, file_path);
         return handle_file_path_request(file_path);
+    }
+
+    // Check for extension/ prefix - serves Chrome extension resources
+    // Format: https://auroraview.localhost/extension/{extensionId}/{path}
+    // Maps to: %LOCALAPPDATA%/AuroraView/Extensions/{extensionId}/{path}
+    if let Some(ext_path) = path.strip_prefix("extension/") {
+        tracing::debug!("[Protocol] extension request: {}", ext_path);
+        return handle_extension_request(ext_path);
     }
 
     // Build full path
@@ -422,6 +434,129 @@ fn handle_file_path_request(file_path: &str) -> Response<Cow<'static, [u8]>> {
             Response::builder()
                 .status(404)
                 .body(Cow::Borrowed(b"Not Found" as &[u8]))
+                .unwrap()
+        }
+    }
+}
+
+/// Handle extension resource requests
+///
+/// Maps URLs like `https://auroraview.localhost/extension/{extensionId}/{path}`
+/// to local files in `%LOCALAPPDATA%/AuroraView/Extensions/{extensionId}/{path}`
+///
+/// This allows Chrome extensions to load their resources through the custom protocol,
+/// avoiding the "Not allowed to load local resource" error for file:// URLs.
+fn handle_extension_request(ext_path: &str) -> Response<Cow<'static, [u8]>> {
+    tracing::debug!("[Protocol] extension request: {}", ext_path);
+
+    // Parse extension ID and resource path
+    // Format: {extensionId}/{path/to/resource}
+    let parts: Vec<&str> = ext_path.splitn(2, '/').collect();
+    if parts.is_empty() {
+        tracing::warn!("[Protocol] Invalid extension path: {}", ext_path);
+        return Response::builder()
+            .status(400)
+            .body(Cow::Borrowed(
+                b"Bad Request: Invalid extension path" as &[u8],
+            ))
+            .unwrap();
+    }
+
+    let extension_id = parts[0];
+    let resource_path = if parts.len() > 1 {
+        parts[1]
+    } else {
+        "index.html"
+    };
+
+    // Get the extensions directory
+    // On Windows: %LOCALAPPDATA%/AuroraView/Extensions
+    // On macOS: ~/Library/Application Support/AuroraView/Extensions
+    // On Linux: ~/.local/share/AuroraView/Extensions
+    let extensions_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("AuroraView")
+        .join("Extensions");
+
+    // Build full path to the resource
+    let full_path = extensions_dir.join(extension_id).join(resource_path);
+
+    tracing::debug!(
+        "[Protocol] Extension resource: {} -> {:?}",
+        ext_path,
+        full_path
+    );
+
+    // Security check: ensure the path is within the extension directory
+    let canonical_ext_dir = match extensions_dir.join(extension_id).canonicalize() {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(
+                "[Protocol] Extension directory not found: {} ({})",
+                extension_id,
+                e
+            );
+            return Response::builder()
+                .status(404)
+                .body(Cow::Borrowed(b"Extension not found" as &[u8]))
+                .unwrap();
+        }
+    };
+
+    let canonical_full_path = match full_path.canonicalize() {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(
+                "[Protocol] Extension resource not found: {:?} ({})",
+                full_path,
+                e
+            );
+            return Response::builder()
+                .status(404)
+                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
+                .unwrap();
+        }
+    };
+
+    // Verify the resource is within the extension directory (prevent directory traversal)
+    if !canonical_full_path.starts_with(&canonical_ext_dir) {
+        tracing::warn!(
+            "[Protocol] Directory traversal attempt in extension: {:?}",
+            full_path
+        );
+        return Response::builder()
+            .status(403)
+            .body(Cow::Borrowed(b"Forbidden: Directory traversal" as &[u8]))
+            .unwrap();
+    }
+
+    // Read and serve the file
+    match fs::read(&full_path) {
+        Ok(data) => {
+            let mime_type = guess_mime_type(&full_path);
+            tracing::debug!(
+                "[Protocol] Loaded extension resource: {} ({} bytes, {})",
+                ext_path,
+                data.len(),
+                mime_type
+            );
+
+            Response::builder()
+                .status(200)
+                .header("Content-Type", mime_type.as_str())
+                .header("Access-Control-Allow-Origin", "*")
+                .body(Cow::Owned(data))
+                .unwrap()
+        }
+        Err(e) => {
+            tracing::warn!(
+                "[Protocol] Failed to read extension resource: {:?} ({})",
+                full_path,
+                e
+            );
+            Response::builder()
+                .status(404)
+                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
                 .unwrap()
         }
     }

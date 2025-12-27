@@ -25,7 +25,7 @@ IPC_MODE = os.environ.get("AURORAVIEW_IPC_MODE")
 
 
 def main():
-    print(f"[IPC Demo] Starting...")
+    print("[IPC Demo] Starting...")
     print(f"[IPC Demo] IPC_CHANNEL: {IPC_CHANNEL}")
     print(f"[IPC Demo] IPC_MODE: {IPC_MODE}")
 

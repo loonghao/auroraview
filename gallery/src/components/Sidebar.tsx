@@ -8,6 +8,7 @@ interface SidebarProps {
   onSettingsClick: () => void;
   onOpenLink: (url: string, title?: string) => void;
   onConsoleClick?: () => void;
+  onExtensionsClick?: () => void;
   consoleOpen?: boolean;
 }
 
@@ -19,7 +20,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   box: Icons.Box,
 };
 
-export function Sidebar({ activeCategory, onCategoryClick, onSettingsClick, onOpenLink, onConsoleClick, consoleOpen }: SidebarProps) {
+export function Sidebar({ activeCategory, onCategoryClick, onSettingsClick, onOpenLink, onConsoleClick, onExtensionsClick, consoleOpen }: SidebarProps) {
   const samplesByCategory = getSamplesByCategory();
 
   const handleGitHubClick = () => {
@@ -89,6 +90,18 @@ export function Sidebar({ activeCategory, onCategoryClick, onSettingsClick, onOp
             title="Process Console"
           >
             <Icons.Terminal className="w-5 h-5" />
+          </button>
+        )}
+        {onExtensionsClick && (
+          <button
+            onClick={onExtensionsClick}
+            className={cn(
+              "w-10 h-10 rounded-lg flex items-center justify-center transition-all",
+              "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+            title="Extensions"
+          >
+            <Icons.Puzzle className="w-5 h-5" />
           </button>
         )}
         <button
