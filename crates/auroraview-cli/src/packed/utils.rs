@@ -109,6 +109,139 @@ pub fn get_webview_data_dir() -> PathBuf {
         .join("WebView2")
 }
 
+/// Get the browser extensions directory for WebView2
+///
+/// Returns a path like: `%LOCALAPPDATA%/AuroraView/Extensions`
+/// Extensions placed in this directory will be loaded when the WebView starts.
+///
+/// # WebView2 Extension Support
+///
+/// WebView2 supports loading unpacked Chrome extensions from a directory.
+/// Each subdirectory in the extensions folder should contain a valid Chrome extension
+/// (with manifest.json).
+///
+/// ## Directory Structure
+/// ```
+/// %LOCALAPPDATA%/AuroraView/Extensions/
+/// ├── my-extension-1/
+/// │   ├── manifest.json
+/// │   └── ...
+/// └── my-extension-2/
+///     ├── manifest.json
+///     └── ...
+/// ```
+pub fn get_extensions_dir() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("AuroraView")
+        .join("Extensions")
+}
+
+/// Check if the extensions directory exists and has any extensions
+pub fn has_extensions() -> bool {
+    let ext_dir = get_extensions_dir();
+    tracing::debug!(
+        "[Extensions] Checking extensions directory: {}",
+        ext_dir.display()
+    );
+
+    if !ext_dir.exists() {
+        tracing::debug!("[Extensions] Extensions directory does not exist");
+        return false;
+    }
+
+    // Check if there are any subdirectories with manifest.json
+    if let Ok(entries) = std::fs::read_dir(&ext_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let manifest_path = path.join("manifest.json");
+            tracing::debug!(
+                "[Extensions] Checking: {} (is_dir={}, manifest_exists={})",
+                path.display(),
+                path.is_dir(),
+                manifest_path.exists()
+            );
+            if path.is_dir() && manifest_path.exists() {
+                tracing::info!("[Extensions] Found extension at: {}", path.display());
+                return true;
+            }
+        }
+    }
+    tracing::debug!("[Extensions] No valid extensions found");
+    false
+}
+
+/// List installed extensions in the extensions directory
+pub fn list_extensions() -> Vec<ExtensionInfo> {
+    let ext_dir = get_extensions_dir();
+    let mut extensions = Vec::new();
+
+    if !ext_dir.exists() {
+        return extensions;
+    }
+
+    if let Ok(entries) = std::fs::read_dir(&ext_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let manifest_path = path.join("manifest.json");
+
+            if path.is_dir() && manifest_path.exists() {
+                // Read manifest to get extension info
+                if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path) {
+                    if let Ok(manifest) =
+                        serde_json::from_str::<serde_json::Value>(&manifest_content)
+                    {
+                        let name = manifest
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("Unknown")
+                            .to_string();
+                        let version = manifest
+                            .get("version")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("0.0.0")
+                            .to_string();
+                        let description = manifest
+                            .get("description")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+
+                        extensions.push(ExtensionInfo {
+                            id: path
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("unknown")
+                                .to_string(),
+                            name,
+                            version,
+                            description,
+                            path: path.to_string_lossy().to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    extensions
+}
+
+/// Information about an installed extension
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ExtensionInfo {
+    /// Extension folder name (used as ID)
+    pub id: String,
+    /// Extension name from manifest
+    pub name: String,
+    /// Extension version from manifest
+    pub version: String,
+    /// Extension description from manifest
+    pub description: String,
+    /// Full path to extension folder
+    pub path: String,
+}
+
 /// Inject environment variables from config
 pub fn inject_environment_variables(env: &std::collections::HashMap<String, String>) {
     for (key, value) in env {

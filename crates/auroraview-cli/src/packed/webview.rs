@@ -20,7 +20,7 @@ use crate::{load_window_icon, load_window_icon_from_bytes, normalize_url};
 
 use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
-use super::utils::{escape_json_for_js, get_webview_data_dir};
+use super::utils::{escape_json_for_js, get_extensions_dir, get_webview_data_dir, has_extensions};
 
 /// Regex pattern for valid handler names: alphanumeric, underscore, dot, colon, hyphen
 /// This prevents injection attacks via malicious handler names
@@ -501,6 +501,47 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             // This is required for custom protocols to work correctly
             #[cfg(target_os = "windows")]
             let builder = builder.with_https_scheme(true);
+
+            // Enable browser extensions if the extensions directory exists and has extensions
+            #[cfg(target_os = "windows")]
+            let builder = {
+                let ext_dir = get_extensions_dir();
+                tracing::info!("[packed] Extensions directory: {}", ext_dir.display());
+
+                // List all entries in extensions directory for debugging
+                if ext_dir.exists() {
+                    if let Ok(entries) = std::fs::read_dir(&ext_dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            let manifest_exists = path.join("manifest.json").exists();
+                            tracing::info!(
+                                "[packed] Extension entry: {} (is_dir={}, has_manifest={})",
+                                path.display(),
+                                path.is_dir(),
+                                manifest_exists
+                            );
+                        }
+                    }
+                }
+
+                if has_extensions() {
+                    tracing::info!(
+                        "[packed] Enabling browser extensions from: {}",
+                        ext_dir.display()
+                    );
+                    // Create extensions directory if needed
+                    let _ = std::fs::create_dir_all(&ext_dir);
+                    builder
+                        .with_browser_extensions_enabled(true)
+                        .with_extensions_path(ext_dir)
+                } else {
+                    tracing::warn!(
+                        "[packed] No valid extensions found in: {}",
+                        ext_dir.display()
+                    );
+                    builder
+                }
+            };
 
             // Set remote debugging port for CDP (Chrome DevTools Protocol) connections
             // This allows Playwright/Puppeteer to connect to WebView2

@@ -3,11 +3,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const assetsDir = path.resolve(__dirname, '../../crates/auroraview-core/src/assets/js');
+const coreAssetsDir = path.resolve(__dirname, '../../crates/auroraview-core/src/assets/js');
+const extensionsAssetsDir = path.resolve(__dirname, '../../crates/auroraview-extensions/src/assets/js');
 
 const commonOptions: Partial<Options> = {
   format: ['iife'],
-  outDir: assetsDir,
   clean: false,
   minify: false,
   sourcemap: false,
@@ -24,6 +24,7 @@ export default defineConfig([
   // Core bridge scripts (IIFE format for injection)
   {
     ...commonOptions,
+    outDir: coreAssetsDir,
     entry: {
       'core/event_bridge': 'src/inject/event_bridge.ts',
       'core/state_bridge': 'src/inject/state_bridge.ts',
@@ -33,11 +34,20 @@ export default defineConfig([
   // Plugin scripts (IIFE format for injection)
   {
     ...commonOptions,
+    outDir: coreAssetsDir,
     entry: {
       'plugins/fs': 'src/inject/plugins/fs.ts',
       'plugins/dialog': 'src/inject/plugins/dialog.ts',
       'plugins/clipboard': 'src/inject/plugins/clipboard.ts',
       'plugins/shell': 'src/inject/plugins/shell.ts',
+    },
+  },
+  // Chrome Extension polyfill (for auroraview-extensions crate)
+  {
+    ...commonOptions,
+    outDir: extensionsAssetsDir,
+    entry: {
+      'chrome_polyfill': 'src/inject/extensions/chrome_polyfill.ts',
     },
   },
 ]);

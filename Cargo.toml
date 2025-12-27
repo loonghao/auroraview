@@ -9,6 +9,7 @@ members = [
     "crates/auroraview-plugins",
     "crates/auroraview-plugins/core",
     "crates/auroraview-plugins/fs",
+    "crates/auroraview-extensions",
     "crates/aurora-protect",
     "crates/aurora-signals",
 ]
@@ -96,6 +97,9 @@ mime_guess = "2.0"
 parking_lot = "0.12"
 once_cell = "1.20"
 
+# Directory paths
+dirs = "6.0"
+
 # Resource cleanup
 scopeguard = "1.2"
 
@@ -138,7 +142,7 @@ urlencoding = { version = "2.1", optional = true }
 rust-embed = { version = "8.5", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader"] }
 winapi = "0.3.9"
 webview2 = { version = "0.1.4", optional = true }
 webview2-com = { version = "0.38", optional = true }

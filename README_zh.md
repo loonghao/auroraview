@@ -158,6 +158,18 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 - [OK] **Shell 插件**: 执行命令、打开 URL、在文件管理器中显示
 - [OK] **剪贴板插件**: 系统剪贴板读写访问
 
+### Chrome 扩展 API 兼容
+- [OK] **25+ Chrome API**: 完整的 Chrome Extension API polyfill 层
+- [OK] **Storage API**: `chrome.storage.local/sync/session` 持久化存储
+- [OK] **Bookmarks API**: 创建、搜索、更新、删除书签
+- [OK] **History API**: 搜索和管理浏览历史
+- [OK] **Downloads API**: 下载文件并跟踪进度
+- [OK] **Cookies API**: 获取、设置、删除 Cookie
+- [OK] **Notifications API**: 带操作的系统通知
+- [OK] **TTS API**: 文字转语音合成
+- [OK] **Idle/Power API**: 用户活动检测和电源管理
+- [OK] **WXT 框架**: 兼容现代扩展开发框架
+
 ### Gallery 应用
 - [OK] **交互式展示**: 基于 React 的 Gallery，展示所有功能
 - [OK] **示例运行器**: 运行任意示例，实时显示 stdout/stderr 输出

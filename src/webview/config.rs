@@ -267,6 +267,41 @@ pub enum EmbedMode {
     None,
 }
 
+/// New window handling mode for window.open() requests.
+///
+/// Controls how the WebView handles JavaScript `window.open()` calls.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum NewWindowMode {
+    /// Block all new window requests (default).
+    ///
+    /// This is the most secure option and prevents any popups.
+    #[default]
+    Deny,
+
+    /// Open new windows in the system's default browser.
+    ///
+    /// This is useful for external links that should open outside the application.
+    /// The URL is passed to the OS to handle.
+    SystemBrowser,
+
+    /// Create a new child WebView window (Windows only).
+    ///
+    /// This creates a new WebView instance that shares the same WebView2 environment
+    /// with the opener. The new window will have its own DevTools and can be
+    /// inspected independently.
+    ///
+    /// # Platform Support
+    /// - **Windows**: Creates a new WebView2 instance with shared environment
+    /// - **macOS**: Creates a new WKWebView with shared configuration
+    /// - **Linux**: Creates a new WebKitGTK view with related_view
+    ///
+    /// # Use Cases
+    /// - Browser extensions that need popup windows
+    /// - OAuth flows that open in a new window
+    /// - Multi-document interfaces
+    ChildWebView,
+}
+
 /// WebView configuration
 #[derive(Clone)]
 pub struct WebViewConfig {
@@ -388,7 +423,13 @@ pub struct WebViewConfig {
 
     /// Allow opening new windows (e.g., via window.open)
     /// Default: false (blocks new windows)
+    /// DEPRECATED: Use `new_window_mode` instead
     pub allow_new_window: bool,
+
+    /// New window handling mode for window.open() requests
+    /// Default: Deny (blocks all new windows)
+    /// This takes precedence over `allow_new_window` when set to non-Deny value
+    pub new_window_mode: NewWindowMode,
 
     /// Enable file:// protocol support
     /// Default: false (blocks file:// for security)
@@ -549,10 +590,11 @@ impl Default for WebViewConfig {
             data_directory: None,
             custom_protocols: HashMap::new(),
             api_methods: HashMap::new(),
-            allow_new_window: false,     // Block new windows by default
-            allow_file_protocol: false,  // Block file:// protocol by default for security
-            auto_show: true,             // Show window after loading screen is ready
-            headless: false,             // Show window by default
+            allow_new_window: false, // Block new windows by default (deprecated)
+            new_window_mode: NewWindowMode::Deny, // Block new windows by default
+            allow_file_protocol: false, // Block file:// protocol by default for security
+            auto_show: true,         // Show window after loading screen is ready
+            headless: false,         // Show window by default
             remote_debugging_port: None, // CDP debugging disabled by default
             // Security defaults
             content_security_policy: None,
@@ -685,8 +727,32 @@ impl WebViewBuilder {
     }
 
     /// Allow or block new windows (e.g., window.open)
+    /// DEPRECATED: Use `new_window_mode` instead
     pub fn allow_new_window(mut self, allow: bool) -> Self {
         self.config.allow_new_window = allow;
+        // Also update new_window_mode for consistency
+        if allow {
+            self.config.new_window_mode = NewWindowMode::SystemBrowser;
+        } else {
+            self.config.new_window_mode = NewWindowMode::Deny;
+        }
+        self
+    }
+
+    /// Set new window handling mode for window.open() requests
+    ///
+    /// # Examples
+    /// ```ignore
+    /// use auroraview::webview::config::{WebViewBuilder, NewWindowMode};
+    ///
+    /// let config = WebViewBuilder::new()
+    ///     .new_window_mode(NewWindowMode::ChildWebView)
+    ///     .build();
+    /// ```
+    pub fn new_window_mode(mut self, mode: NewWindowMode) -> Self {
+        self.config.new_window_mode = mode;
+        // Also update allow_new_window for backward compatibility
+        self.config.allow_new_window = mode != NewWindowMode::Deny;
         self
     }
 

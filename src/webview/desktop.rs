@@ -52,7 +52,7 @@ use wry::WebViewBuilder as WryWebViewBuilder;
 #[cfg(target_os = "windows")]
 use wry::WebViewBuilderExtWindows;
 
-use super::config::WebViewConfig;
+use super::config::{NewWindowMode, WebViewConfig};
 use super::event_loop::UserEvent;
 use super::js_assets;
 use super::tray::TrayManager;
@@ -386,22 +386,59 @@ pub fn create_desktop(
     }
 
     // Handle new window requests (window.open())
-    // On Windows WebView2, NewWindowResponse::Allow may not work reliably.
-    // Instead, we open external links in the system default browser.
-    if config.allow_new_window {
-        tracing::info!("[standalone] Allowing new windows (opens in system browser)");
-        webview_builder = webview_builder.with_new_window_req_handler(|url, _features| {
-            tracing::info!("[standalone] New window requested: {}", url);
-            // Open in system default browser instead of creating a new WebView window
-            // This is more reliable on WebView2 and matches user expectations
-            if let Err(e) = open::that(&url) {
-                tracing::error!("[standalone] Failed to open URL in browser: {}", e);
-            }
-            // Deny creating a new WebView window since we opened in external browser
-            wry::NewWindowResponse::Deny
-        });
-    } else {
-        tracing::debug!("[standalone] New windows blocked by default");
+    // The behavior depends on the new_window_mode configuration
+    let new_window_mode = config.new_window_mode;
+    eprintln!("[Rust] new_window_mode = {:?}", new_window_mode);
+    match new_window_mode {
+        NewWindowMode::Deny => {
+            eprintln!("[Rust] Setting up Deny mode handler");
+            tracing::debug!("[standalone] New windows blocked (Deny mode)");
+            webview_builder = webview_builder.with_new_window_req_handler(|url, _features| {
+                eprintln!("[Rust] Deny handler called for: {}", url);
+                tracing::debug!("[standalone] Blocked new window request: {}", url);
+                wry::NewWindowResponse::Deny
+            });
+        }
+        NewWindowMode::SystemBrowser => {
+            eprintln!("[Rust] Setting up SystemBrowser mode handler");
+            tracing::info!("[standalone] New windows open in system browser");
+            webview_builder = webview_builder.with_new_window_req_handler(|url, _features| {
+                eprintln!("[Rust] SystemBrowser handler called for: {}", url);
+                tracing::info!("[standalone] Opening in system browser: {}", url);
+                if let Err(e) = open::that(&url) {
+                    tracing::error!("[standalone] Failed to open URL in browser: {}", e);
+                }
+                wry::NewWindowResponse::Deny
+            });
+        }
+        NewWindowMode::ChildWebView => {
+            eprintln!("[Rust] Setting up ChildWebView mode handler");
+            tracing::info!("[standalone] New windows create child WebView");
+            // ChildWebView mode: Create a new independent WebView window in a separate thread
+            // This avoids WebView2's threading restrictions by creating a completely new
+            // WebView instance with its own event loop
+            webview_builder = webview_builder.with_new_window_req_handler(move |url, features| {
+                eprintln!("[Rust] ChildWebView handler called for: {}", url);
+                tracing::info!("[standalone] Creating child WebView window for: {}", url);
+
+                // Get window size from features or use defaults
+                let width = features.size.map(|s| s.width as u32).unwrap_or(1024);
+                let height = features.size.map(|s| s.height as u32).unwrap_or(768);
+
+                // Create child window in a new thread
+                // This is safe because we're creating a completely new WebView instance
+                if let Err(e) =
+                    super::child_window::create_child_webview_window(&url, width, height)
+                {
+                    eprintln!("[Rust] Failed to create child window: {}", e);
+                    tracing::error!("[standalone] Failed to create child window: {}", e);
+                }
+
+                // Return Deny since we're handling window creation ourselves
+                // The new window runs in its own thread with its own event loop
+                wry::NewWindowResponse::Deny
+            });
+        }
     }
 
     // Determine initial content to load
@@ -462,11 +499,11 @@ pub fn create_desktop(
     let plugin_router_clone = plugin_router.clone();
 
     webview_builder = webview_builder.with_ipc_handler(move |request| {
-        tracing::debug!("IPC message received");
+        tracing::warn!("[IPC] Message received from JavaScript");
 
         // The request body is a String
         let body_str = request.body();
-        tracing::debug!("IPC body: {}", body_str);
+        tracing::warn!("[IPC] Body: {}", body_str);
 
         if let Ok(message) = serde_json::from_str::<serde_json::Value>(body_str) {
             if let Some(msg_type) = message.get("type").and_then(|v| v.as_str()) {

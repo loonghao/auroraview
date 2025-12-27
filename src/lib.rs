@@ -21,7 +21,7 @@ pub mod window_utils;
 #[allow(unused_imports)]
 use webview::AuroraView;
 
-pub use webview::{WebViewBuilder, WebViewConfig};
+pub use webview::{NewWindowMode, WebViewBuilder, WebViewConfig};
 
 /// Python module initialization
 #[cfg(feature = "python-bindings")]

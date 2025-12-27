@@ -158,6 +158,18 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 - [OK] **Shell Plugin**: Execute commands, open URLs, reveal in file manager
 - [OK] **Clipboard Plugin**: System clipboard read/write access
 
+### Chrome Extension API Compatibility
+- [OK] **25+ Chrome APIs**: Full polyfill layer for Chrome Extension APIs
+- [OK] **Storage API**: `chrome.storage.local/sync/session` with persistent storage
+- [OK] **Bookmarks API**: Create, search, update, delete bookmarks
+- [OK] **History API**: Search and manage browsing history
+- [OK] **Downloads API**: Download files with progress tracking
+- [OK] **Cookies API**: Get, set, remove cookies
+- [OK] **Notifications API**: System notifications with actions
+- [OK] **TTS API**: Text-to-speech synthesis
+- [OK] **Idle/Power API**: User activity detection and power management
+- [OK] **WXT Framework**: Compatible with modern extension development
+
 ### Gallery Application
 - [OK] **Interactive Showcase**: React-based gallery demonstrating all features
 - [OK] **Example Runner**: Run any example with live stdout/stderr output

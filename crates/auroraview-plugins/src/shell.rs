@@ -358,6 +358,71 @@ impl PluginHandler for ShellPlugin {
                     "pid": child.id()
                 }))
             }
+            "restart_app" => {
+                // Restart the current application
+                // This spawns a new instance and exits the current one
+
+                // Check for AURORAVIEW_RESTART_CMD environment variable first
+                // This allows Python scripts to specify their restart command
+                let restart_cmd = std::env::var("AURORAVIEW_RESTART_CMD").ok();
+
+                let mut cmd = if let Some(cmd_str) = restart_cmd {
+                    // Use the provided restart command (e.g., "python gallery/main.py")
+                    #[cfg(windows)]
+                    let shell = "cmd";
+                    #[cfg(not(windows))]
+                    let shell = "sh";
+
+                    #[cfg(windows)]
+                    let shell_arg = "/C";
+                    #[cfg(not(windows))]
+                    let shell_arg = "-c";
+
+                    let mut command = Command::new(shell);
+                    command.arg(shell_arg).arg(&cmd_str);
+                    command
+                } else {
+                    // Default: restart the current executable with same args
+                    let exe_path = std::env::current_exe().map_err(|e| {
+                        PluginError::shell_error(format!("Failed to get current executable: {}", e))
+                    })?;
+
+                    let args: Vec<String> = std::env::args().skip(1).collect();
+
+                    let mut command = Command::new(&exe_path);
+                    command.args(&args);
+                    command
+                };
+
+                // Configure process
+                cmd.stdout(Stdio::null());
+                cmd.stderr(Stdio::null());
+                cmd.stdin(Stdio::null());
+
+                #[cfg(windows)]
+                {
+                    use std::os::windows::process::CommandExt;
+                    const DETACHED_PROCESS: u32 = 0x00000008;
+                    const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+                    cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+                }
+
+                cmd.spawn().map_err(|e| {
+                    PluginError::shell_error(format!("Failed to restart application: {}", e))
+                })?;
+
+                // Exit current instance after a short delay
+                // This gives time for the response to be sent
+                std::thread::spawn(|| {
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    std::process::exit(0);
+                });
+
+                Ok(serde_json::json!({
+                    "success": true,
+                    "message": "Application is restarting..."
+                }))
+            }
             _ => Err(PluginError::command_not_found(command)),
         }
     }
@@ -372,6 +437,7 @@ impl PluginHandler for ShellPlugin {
             "which",
             "get_env",
             "get_env_all",
+            "restart_app",
         ]
     }
 }

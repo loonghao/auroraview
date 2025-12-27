@@ -34,6 +34,7 @@
 //! - **shell**: Execute commands, open URLs/files
 //! - **dialog**: Native file/folder dialogs
 //! - **process**: Process spawning with IPC support
+//! - **browser_bridge**: Browser extension WebSocket bridge
 //!
 //! ## Command Format
 //!
@@ -51,8 +52,10 @@ pub use auroraview_plugin_core::{
 pub use auroraview_plugin_fs as fs;
 
 // Built-in plugins (still in this crate for now)
+pub mod browser_bridge;
 pub mod clipboard;
 pub mod dialog;
+pub mod extensions;
 pub mod process;
 pub mod shell;
 
@@ -70,8 +73,16 @@ pub fn create_router() -> PluginRouter {
     router.register("dialog", Arc::new(dialog::DialogPlugin::new()));
 
     // Create process plugin with shared event callback
-    let process_plugin = process::ProcessPlugin::with_event_callback(event_callback);
+    let process_plugin = process::ProcessPlugin::with_event_callback(Arc::clone(&event_callback));
     router.register("process", Arc::new(process_plugin));
+
+    // Create browser bridge plugin with shared event callback
+    let browser_bridge_plugin =
+        browser_bridge::BrowserBridgePlugin::with_event_callback(event_callback);
+    router.register("browser_bridge", Arc::new(browser_bridge_plugin));
+
+    // Register extensions plugin for Chrome Extension API compatibility
+    router.register("extensions", Arc::new(extensions::ExtensionsPlugin::new()));
 
     router
 }

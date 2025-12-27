@@ -364,9 +364,7 @@ class TestChildContext:
                 MockWebView.return_value = mock_webview
 
                 ctx = ChildContext()
-                ctx.create_webview(
-                    title="Test", width=800, height=600, html="<h1>Test</h1>"
-                )
+                ctx.create_webview(title="Test", width=800, height=600, html="<h1>Test</h1>")
 
                 MockWebView.assert_called_once()
                 call_kwargs = MockWebView.call_args[1]

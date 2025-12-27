@@ -179,6 +179,8 @@ impl ScopeConfig {
         config.enabled_plugins.insert("shell".to_string());
         config.enabled_plugins.insert("dialog".to_string());
         config.enabled_plugins.insert("process".to_string());
+        config.enabled_plugins.insert("browser_bridge".to_string());
+        config.enabled_plugins.insert("extensions".to_string());
         config
     }
 
