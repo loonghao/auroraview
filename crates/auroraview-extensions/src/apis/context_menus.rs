@@ -149,6 +149,9 @@ pub struct OnClickData {
     pub checked: Option<bool>,
 }
 
+/// Click handler type alias
+type ClickHandler = Box<dyn Fn(OnClickData) + Send + Sync>;
+
 /// Context menus manager
 pub struct ContextMenusManager {
     /// Menu items by extension
@@ -156,7 +159,8 @@ pub struct ContextMenusManager {
     /// Item ID counter
     next_id: RwLock<u64>,
     /// Click handlers (extension_id -> callback)
-    click_handlers: RwLock<HashMap<ExtensionId, Vec<Box<dyn Fn(OnClickData) + Send + Sync>>>>,
+    #[allow(dead_code)]
+    click_handlers: RwLock<HashMap<ExtensionId, Vec<ClickHandler>>>,
 }
 
 impl ContextMenusManager {

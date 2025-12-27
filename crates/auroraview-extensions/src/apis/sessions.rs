@@ -84,6 +84,7 @@ pub struct SessionsApi {
     /// Recently closed sessions
     sessions: Arc<RwLock<VecDeque<Session>>>,
     /// Next session ID
+    #[allow(dead_code)]
     next_id: Arc<RwLock<u64>>,
 }
 
@@ -103,6 +104,7 @@ impl SessionsApi {
     }
 
     /// Generate next session ID
+    #[allow(dead_code)]
     fn next_id(&self) -> String {
         let mut id = self.next_id.write().unwrap();
         let current = *id;

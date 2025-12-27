@@ -115,9 +115,11 @@ pub struct ScriptingManager {
     /// Registered content scripts per extension
     registered_scripts: RwLock<std::collections::HashMap<String, Vec<RegisteredContentScript>>>,
     /// Callback for script execution
+    #[allow(clippy::type_complexity)]
     on_execute:
         RwLock<Option<Box<dyn Fn(&str, &ScriptInjection) -> Vec<InjectionResult> + Send + Sync>>>,
     /// Callback for CSS injection
+    #[allow(clippy::type_complexity)]
     on_insert_css: RwLock<Option<Box<dyn Fn(&str, &CssInjection) + Send + Sync>>>,
 }
 

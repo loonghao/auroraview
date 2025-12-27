@@ -53,8 +53,10 @@ pub struct SidePanelManager {
     /// State per extension
     states: RwLock<std::collections::HashMap<ExtensionId, SidePanelState>>,
     /// Callback for when panel should open
+    #[allow(clippy::type_complexity)]
     on_open: RwLock<Option<Box<dyn Fn(&str) + Send + Sync>>>,
     /// Callback for when panel should close
+    #[allow(clippy::type_complexity)]
     on_close: RwLock<Option<Box<dyn Fn(&str) + Send + Sync>>>,
 }
 

@@ -142,6 +142,7 @@ pub struct ServiceWorkerManager {
     /// Message queue per extension
     message_queues: RwLock<HashMap<String, Vec<ServiceWorkerMessage>>>,
     /// Pending responses
+    #[allow(dead_code)]
     pending_responses: RwLock<HashMap<String, PendingResponse>>,
     /// Event listeners per extension
     event_listeners: RwLock<HashMap<String, HashMap<String, Vec<String>>>>,
