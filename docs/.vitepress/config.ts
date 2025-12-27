@@ -56,6 +56,13 @@ export default defineConfig({
                 { text: '系统托盘', link: '/zh/guide/system-tray' },
                 { text: '浮动面板', link: '/zh/guide/floating-panel' },
                 { text: '子窗口系统', link: '/zh/guide/child-windows' },
+                { text: '窗口特效', link: '/zh/guide/window-effects' },
+              ]
+            },
+            {
+              text: '展示',
+              items: [
+                { text: 'Gallery', link: '/zh/guide/gallery' },
               ]
             },
             {
@@ -143,6 +150,13 @@ export default defineConfig({
             { text: 'System Tray', link: '/guide/system-tray' },
             { text: 'Floating Panel', link: '/guide/floating-panel' },
             { text: 'Child Windows', link: '/guide/child-windows' },
+            { text: 'Window Effects', link: '/guide/window-effects' },
+          ]
+        },
+        {
+          text: 'Showcase',
+          items: [
+            { text: 'Gallery', link: '/guide/gallery' },
           ]
         },
         {

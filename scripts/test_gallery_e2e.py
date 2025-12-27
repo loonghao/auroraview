@@ -468,7 +468,7 @@ def take_screenshots(page, output_dir: Path, update_assets: bool = False) -> lis
             screenshot_path = output_dir / f"{name}.png"
             page.screenshot(path=str(screenshot_path))
             screenshots.append(str(screenshot_path))
-            print(f"  ✓ {description}: {screenshot_path.name}")
+            print(f"  [OK] {description}: {screenshot_path.name}")
 
             # Also copy to assets if requested
             if update_assets:
@@ -477,10 +477,10 @@ def take_screenshots(page, output_dir: Path, update_assets: bool = False) -> lis
                 import shutil
 
                 shutil.copy(screenshot_path, asset_path)
-                print(f"    → Updated: {asset_path.relative_to(PROJECT_ROOT)}")
+                print(f"    -> Updated: {asset_path.relative_to(PROJECT_ROOT)}")
 
         except Exception as e:
-            print(f"  ✗ {description}: {e}")
+            print(f"  [FAIL] {description}: {e}")
 
     return screenshots
 

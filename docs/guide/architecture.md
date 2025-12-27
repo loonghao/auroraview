@@ -147,15 +147,17 @@ The `QtBackend` integrates with Qt's widget system for seamless DCC integration.
 
 ## Integration Modes
 
-### 1. Standalone Mode
+AuroraView provides three integration modes for different scenarios:
 
-Creates an independent window with its own event loop.
+### 1. Desktop Mode
+
+Creates an independent window with its own event loop. Best for standalone applications.
 
 ```python
 from auroraview import WebView
 
 webview = WebView(title="My App", width=800, height=600)
-webview.show()  # Blocking call
+webview.show()  # Blocking call, owns event loop
 ```
 
 **Use Cases**:
@@ -163,34 +165,69 @@ webview.show()  # Blocking call
 - Desktop applications
 - Testing and development
 
-### 2. DCC Integration Mode
+### 2. Native Mode (HWND)
 
-Creates a WebView that integrates with DCC applications.
+Embeds WebView via HWND into non-Qt applications. Full effect support without Qt dependency.
 
 ```python
 from auroraview import WebView
-import hou  # or maya.OpenMayaUI, etc.
 
-# Get DCC main window HWND
-main_window = hou.qt.mainWindow()
-hwnd = int(main_window.winId())
+# Get parent window HWND from non-Qt app (Blender, Unreal, etc.)
+parent_hwnd = get_app_window_handle()
 
-# Create embedded WebView
 webview = WebView.create(
     title="My Tool",
     width=650,
     height=500,
-    parent=hwnd,
+    parent=parent_hwnd,
     mode="owner",
 )
-webview.load_html("<h1>Hello from Houdini!</h1>")
+webview.load_html("<h1>Hello from Native Mode!</h1>")
 webview.show()
 ```
 
+**Use Cases**:
+- Blender integration (non-Qt)
+- Unreal Engine integration
+- Other non-Qt DCC applications
+- Floating tool windows in any application
+
 **Key Features**:
-- ✅ Non-blocking - DCC UI remains fully responsive
-- ✅ Uses DCC's Qt message pump for event processing
-- ✅ No separate event loop (avoids conflicts)
+- ✅ Full window effects support (click-through, blur, mica)
+- ✅ Non-blocking - host app remains responsive
+- ✅ No Qt dependency
+
+### 3. Qt Mode
+
+Embeds WebView as a Qt widget child. Best for Qt-based DCC applications where docking is needed.
+
+```python
+from auroraview import QtWebView
+import hou  # or maya.OpenMayaUI, etc.
+
+# Get DCC main window
+main_window = hou.qt.mainWindow()
+
+# Create embedded WebView
+qt_webview = QtWebView(
+    parent=main_window,
+    width=650,
+    height=500,
+)
+qt_webview.load_html("<h1>Hello from Qt Mode!</h1>")
+qt_webview.show()
+```
+
+**Use Cases**:
+- Maya, Houdini, Nuke, 3ds Max integration
+- Dockable panels
+- Qt-based DCC applications
+
+**Key Features**:
+- ✅ Seamless Qt integration
+- ✅ QDockWidget support
+- ✅ Uses DCC's Qt message pump
+- ⚠️ Limited window effects support
 
 ### 3. Packed Mode
 
