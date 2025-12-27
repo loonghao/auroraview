@@ -130,6 +130,7 @@ pub fn get_webview_data_dir() -> PathBuf {
 ///     ├── manifest.json
 ///     └── ...
 /// ```
+#[allow(dead_code)]
 pub fn get_extensions_dir() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -138,6 +139,7 @@ pub fn get_extensions_dir() -> PathBuf {
 }
 
 /// Check if the extensions directory exists and has any extensions
+#[allow(dead_code)]
 pub fn has_extensions() -> bool {
     let ext_dir = get_extensions_dir();
     tracing::debug!(
@@ -172,6 +174,7 @@ pub fn has_extensions() -> bool {
 }
 
 /// List installed extensions in the extensions directory
+#[allow(dead_code)]
 pub fn list_extensions() -> Vec<ExtensionInfo> {
     let ext_dir = get_extensions_dir();
     let mut extensions = Vec::new();
@@ -229,6 +232,7 @@ pub fn list_extensions() -> Vec<ExtensionInfo> {
 
 /// Information about an installed extension
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 pub struct ExtensionInfo {
     /// Extension folder name (used as ID)
     pub id: String,

@@ -566,6 +566,8 @@ impl WebViewEventHandler {
                     }
                     #[cfg(not(target_os = "windows"))]
                     {
+                        // Suppress unused variable warnings on non-Windows platforms
+                        let _ = (width, height);
                         // On non-Windows platforms, fall back to system browser
                         tracing::warn!("[EventLoop] Child window not supported on this platform, opening in browser");
                         if let Err(e) = open::that(&url) {
