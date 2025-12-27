@@ -44,6 +44,8 @@ pub use core::AuroraView;
 pub use core::EventEmitter;
 #[cfg(feature = "python-bindings")]
 pub use core::PluginManager;
+#[cfg(feature = "python-bindings")]
+pub use core::PyRegion;
 pub use devtools::{DevToolsManager, DevToolsWindowConfig, DevToolsWindowInfo};
 #[cfg(feature = "python-bindings")]
 pub use proxy::WebViewProxy;

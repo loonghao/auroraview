@@ -48,6 +48,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register PluginManager class (for file system and other native operations)
     m.add_class::<webview::PluginManager>()?;
 
+    // Register PyRegion class (for click-through interactive regions)
+    m.add_class::<webview::PyRegion>()?;
+
     // Register window utilities
     window_utils::register_window_utils(m)?;
 

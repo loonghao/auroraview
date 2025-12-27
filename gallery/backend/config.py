@@ -80,6 +80,13 @@ ICON_MAPPING = {
     "style": "palette",
     "window": "layout",
     "monitor": "monitor",
+    "effect": "sparkles",
+    "vibrancy": "sparkles",
+    "blur": "sparkles",
+    "acrylic": "sparkles",
+    "mica": "sparkles",
+    "click": "mouse-pointer",
+    "transparent": "eye",
 }
 
 # Category mapping based on keywords
@@ -101,6 +108,13 @@ CATEGORY_MAPPING = {
     "menu": "window_features",
     "context": "window_features",
     "window": "window_features",
+    "effect": "window_features",
+    "vibrancy": "window_features",
+    "blur": "window_features",
+    "acrylic": "window_features",
+    "mica": "window_features",
+    "click-through": "window_features",
+    "transparent": "window_features",
     # Desktop Features
     "desktop": "desktop_features",
     "file": "desktop_features",
@@ -120,10 +134,11 @@ CATEGORY_MAPPING = {
 TAG_MAPPING = {
     "beginner": ["simple", "basic", "getting started", "quick"],
     "advanced": ["advanced", "complex", "plugin", "floating", "tray"],
-    "window": ["window", "panel", "frame", "transparent"],
+    "window": ["window", "panel", "frame", "transparent", "vibrancy", "blur", "mica"],
     "events": ["event", "callback", "lifecycle"],
     "qt": ["qt", "pyside", "maya", "houdini", "nuke"],
     "standalone": ["standalone", "desktop", "run_desktop"],
     "ui": ["ui", "style", "menu", "button", "panel"],
     "api": ["api", "decorator", "binding", "call"],
+    "effects": ["effect", "vibrancy", "blur", "acrylic", "mica", "click-through"],
 }
