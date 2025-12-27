@@ -1827,7 +1827,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 match view_manager.create_view(config) {
                     Ok(info) => Ok(serde_json::to_value(info).unwrap()),
-                    Err(e) => Err(PluginError::plugin_error("extensions", e)),
+                    Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
             "get_view" => {
@@ -1863,7 +1863,7 @@ impl PluginHandler for ExtensionsPlugin {
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.open_devtools(&req.view_id) {
                     Ok(()) => Ok(serde_json::json!({ "success": true })),
-                    Err(e) => Err(PluginError::plugin_error("extensions", e)),
+                    Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
             "close_devtools" => {
@@ -1873,7 +1873,7 @@ impl PluginHandler for ExtensionsPlugin {
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.close_devtools(&req.view_id) {
                     Ok(()) => Ok(serde_json::json!({ "success": true })),
-                    Err(e) => Err(PluginError::plugin_error("extensions", e)),
+                    Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
             "show_view" => {
@@ -1883,7 +1883,7 @@ impl PluginHandler for ExtensionsPlugin {
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.show_view(&req.view_id) {
                     Ok(()) => Ok(serde_json::json!({ "success": true })),
-                    Err(e) => Err(PluginError::plugin_error("extensions", e)),
+                    Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
             "hide_view" => {
@@ -1893,7 +1893,7 @@ impl PluginHandler for ExtensionsPlugin {
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.hide_view(&req.view_id) {
                     Ok(()) => Ok(serde_json::json!({ "success": true })),
-                    Err(e) => Err(PluginError::plugin_error("extensions", e)),
+                    Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
             "destroy_view" => {
@@ -1903,7 +1903,7 @@ impl PluginHandler for ExtensionsPlugin {
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.destroy_view(&req.view_id) {
                     Ok(()) => Ok(serde_json::json!({ "success": true })),
-                    Err(e) => Err(PluginError::plugin_error("extensions", e)),
+                    Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
             "get_cdp_info" => {
