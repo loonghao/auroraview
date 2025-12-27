@@ -2,20 +2,39 @@
 
 本节提供 AuroraView 的详细 API 文档。
 
+## 集成模式
+
+AuroraView 提供三种集成模式：
+
+| 模式 | 类 | 描述 |
+|------|-----|------|
+| **桌面模式** | `WebView` + `show()` | 独立窗口，拥有自己的事件循环 |
+| **原生模式 (HWND)** | `WebView` + `parent=hwnd` | 通过 HWND 嵌入，不依赖 Qt |
+| **Qt 模式** | `QtWebView` | 作为 Qt widget 子窗口嵌入 |
+
 ## 核心类
 
 ### WebView
 
-创建 Web UI 的基础 WebView 类。
+创建 Web UI 的基础 WebView 类。用于桌面模式和原生模式。
 
 ```python
 from auroraview import WebView
 
+# 桌面模式
 webview = WebView.create(
     title="我的应用",
     url="http://localhost:3000",
     width=1024,
     height=768
+)
+webview.show()  # 阻塞调用，拥有事件循环
+
+# 原生模式 (HWND)
+webview = WebView.create(
+    title="我的工具",
+    parent=parent_hwnd,  # 来自非 Qt 应用的 HWND
+    mode="owner",
 )
 ```
 
@@ -23,13 +42,14 @@ webview = WebView.create(
 
 ### QtWebView
 
-用于 DCC 集成的 Qt 组件包装器。
+用于 DCC 集成的 Qt 组件包装器。用于 Qt 模式。
 
 ```python
 from auroraview import QtWebView
 
+# Qt 模式
 webview = QtWebView(
-    parent=parent_widget,
+    parent=parent_widget,  # Qt widget
     url="http://localhost:3000"
 )
 ```
@@ -38,7 +58,7 @@ webview = QtWebView(
 
 ### AuroraView
 
-带有 HWND 访问的高级包装器。
+带有 HWND 访问和 API 绑定的高级包装器。
 
 ```python
 from auroraview import AuroraView

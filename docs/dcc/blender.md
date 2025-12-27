@@ -1,6 +1,13 @@
 # Blender Integration
 
-AuroraView integrates with Blender using standalone mode, as Blender uses its own UI framework.
+AuroraView integrates with Blender using **Desktop Mode** or **Native Mode (HWND)**, as Blender uses its own UI framework (not Qt).
+
+## Integration Modes for Blender
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **Desktop Mode** | Independent window with own event loop | Simple tools, quick prototypes |
+| **Native Mode (HWND)** | Floating window attached to Blender | Production tools, always-on-top panels |
 
 ## Installation
 
@@ -9,6 +16,8 @@ pip install auroraview
 ```
 
 ## Quick Start
+
+### Desktop Mode
 
 ```python
 from auroraview import run_desktop
@@ -19,6 +28,30 @@ run_desktop(
     width=800,
     height=600
 )
+```
+
+### Native Mode (HWND) with Window Effects
+
+```python
+from auroraview import WebView
+
+# Create floating panel with effects
+webview = WebView(
+    title="Blender Tool",
+    url="http://localhost:3000",
+    width=400,
+    height=600,
+    transparent=True,
+    decorations=False,
+    always_on_top=True,
+    tool_window=True,
+)
+
+# Apply window effects (Windows only)
+webview.apply_acrylic((30, 30, 30, 180))
+webview.enable_click_through()
+
+webview.show()
 ```
 
 ## API Binding Example

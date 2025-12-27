@@ -91,13 +91,13 @@ webview.show()
 
 ## 集成模式
 
-AuroraView 提供三种主要集成模式：
+AuroraView 提供三种集成模式：
 
-| 模式 | 类 | 适用场景 | 停靠支持 |
-|------|-----|----------|----------|
-| **Qt 原生** | `QtWebView` | Maya、Houdini、Nuke、3ds Max | ✅ QDockWidget |
-| **HWND** | `AuroraView` | Unreal Engine、非 Qt 应用 | ✅ 通过 HWND API |
-| **独立** | `run_standalone` | 桌面应用 | 不适用 |
+| 模式 | 类 | 描述 | 适用场景 |
+|------|-----|------|----------|
+| **桌面模式** | `WebView` + `show()` | 独立窗口，拥有自己的事件循环 | 独立工具、桌面应用 |
+| **原生模式 (HWND)** | `WebView` + `parent=hwnd` | 通过 HWND 嵌入，不依赖 Qt | Blender、Unreal Engine、非 Qt 应用 |
+| **Qt 模式** | `QtWebView` | 作为 Qt widget 子窗口嵌入 | Maya、Houdini、Nuke、3ds Max |
 
 ## 下一步
 

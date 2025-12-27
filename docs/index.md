@@ -77,11 +77,11 @@ webview.show()
 
 ## Supported DCC Software
 
-| Software | Status | Integration |
-|----------|--------|-------------|
-| Maya | ✅ Supported | QtWebView |
-| Houdini | ✅ Supported | QtWebView |
-| 3ds Max | ✅ Supported | QtWebView |
-| Blender | ✅ Supported | Standalone |
+| Software | Status | Integration Mode |
+|----------|--------|------------------|
+| Maya | ✅ Supported | Qt Mode |
+| Houdini | ✅ Supported | Qt Mode |
+| 3ds Max | ✅ Supported | Qt Mode |
+| Blender | ✅ Supported | Desktop / Native Mode |
 | Photoshop | 🚧 Planned | - |
-| Unreal Engine | 🚧 Planned | HWND |
+| Unreal Engine | 🚧 Planned | Native Mode (HWND) |

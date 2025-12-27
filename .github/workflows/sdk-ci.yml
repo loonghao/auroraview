@@ -12,10 +12,8 @@ on:
     paths:
       - 'packages/auroraview-sdk/**'
       - '.github/workflows/sdk-ci.yml'
-  pull_request:
-    paths:
-      - 'packages/auroraview-sdk/**'
-      - '.github/workflows/sdk-ci.yml'
+  # NOTE: pull_request trigger removed to avoid duplicate runs
+  # PR checks are handled by pr-checks.yml which calls this workflow via workflow_call
   workflow_dispatch:
   workflow_call:
     inputs:

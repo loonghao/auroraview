@@ -585,6 +585,32 @@ gallery-test-watch:
     @echo "Running Gallery test loop in watch mode..."
     uv run python scripts/test_gallery_loop.py --watch
 
+# Generate Gallery screenshots for documentation
+gallery-screenshots:
+    @echo "Generating Gallery screenshots for documentation..."
+    uv run python scripts/test_gallery_e2e.py --screenshots-only
+    @echo "[OK] Screenshots saved to docs/public/gallery/"
+
+# Generate example screenshots for documentation
+example-screenshots:
+    @echo "Generating example screenshots for documentation..."
+    uv run python scripts/screenshot_examples.py
+    @echo "[OK] Screenshots saved to docs/public/examples/"
+
+# Generate example screenshots (specific example)
+example-screenshot EXAMPLE:
+    @echo "Generating screenshot for: {{EXAMPLE}}..."
+    uv run python scripts/screenshot_examples.py --example {{EXAMPLE}}
+
+# List available examples for screenshots
+example-list:
+    @echo "Available examples:"
+    uv run python scripts/screenshot_examples.py --list
+
+# Generate all documentation screenshots (gallery + examples)
+docs-screenshots: gallery-screenshots example-screenshots
+    @echo "[OK] All documentation screenshots generated!"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Packaging Commands
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -719,30 +745,36 @@ pack-all: test-pack lint-pack gallery-pack
 # Install documentation dependencies
 docs-install:
     @echo "Installing documentation dependencies..."
-    cd website; npm install
+    cd docs; npm install
     @echo "[OK] Documentation dependencies installed!"
 
-# Start documentation dev server
-docs-dev: docs-install
+# Generate examples documentation from examples/ directory
+docs-generate-examples:
+    @echo "Generating examples documentation..."
+    cd docs; npx tsx .vitepress/hooks/generate-examples.ts
+    @echo "[OK] Examples documentation generated!"
+
+# Start documentation dev server (auto-generates examples docs)
+docs-dev: docs-install docs-generate-examples
     @echo "Starting documentation dev server..."
-    cd website; npx vitepress dev
+    cd docs; npx vitepress dev
 
 # Alias for docs-dev
 docs-serve: docs-dev
 
-# Build documentation
-docs-build: docs-install
+# Build documentation (auto-generates examples docs)
+docs-build: docs-install docs-generate-examples
     @echo "Building documentation..."
-    cd website; npx vitepress build
-    @echo "[OK] Documentation built in website/.vitepress/dist/"
+    cd docs; npx vitepress build
+    @echo "[OK] Documentation built in docs/.vitepress/dist/"
 
 # Preview built documentation
 docs-preview: docs-build
     @echo "Previewing documentation..."
-    cd website; npx vitepress preview
+    cd docs; npx vitepress preview
 
 # Clean documentation build artifacts
 docs-clean:
     @echo "Cleaning documentation build artifacts..."
-    rm -rf website/.vitepress/dist website/.vitepress/cache website/node_modules
+    rm -rf docs/.vitepress/dist docs/.vitepress/cache docs/node_modules
     @echo "[OK] Documentation artifacts cleaned!"

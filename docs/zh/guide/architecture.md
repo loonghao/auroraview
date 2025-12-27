@@ -135,15 +135,17 @@ pub trait WebViewBackend {
 
 ## 集成模式
 
-### 1. 独立模式
+AuroraView 提供三种集成模式适用于不同场景：
 
-创建独立窗口，拥有自己的事件循环。
+### 1. 桌面模式
+
+创建独立窗口，拥有自己的事件循环。最适合独立应用。
 
 ```python
 from auroraview import WebView
 
 webview = WebView(title="My App", width=800, height=600)
-webview.show()  # 阻塞调用
+webview.show()  # 阻塞调用，拥有事件循环
 ```
 
 **使用场景**:
@@ -151,34 +153,69 @@ webview.show()  # 阻塞调用
 - 桌面应用
 - 测试和开发
 
-### 2. DCC 集成模式
+### 2. 原生模式 (HWND)
 
-创建与 DCC 应用集成的 WebView。
+通过 HWND 将 WebView 嵌入非 Qt 应用。完全支持特效，不依赖 Qt。
 
 ```python
 from auroraview import WebView
-import hou  # 或 maya.OpenMayaUI 等
 
-# 获取 DCC 主窗口 HWND
-main_window = hou.qt.mainWindow()
-hwnd = int(main_window.winId())
+# 从非 Qt 应用获取父窗口 HWND（Blender、Unreal 等）
+parent_hwnd = get_app_window_handle()
 
-# 创建嵌入式 WebView
 webview = WebView.create(
     title="My Tool",
     width=650,
     height=500,
-    parent=hwnd,
+    parent=parent_hwnd,
     mode="owner",
 )
-webview.load_html("<h1>Hello from Houdini!</h1>")
+webview.load_html("<h1>Hello from Native Mode!</h1>")
 webview.show()
 ```
 
+**使用场景**:
+- Blender 集成（非 Qt）
+- Unreal Engine 集成
+- 其他非 Qt DCC 应用
+- 任何应用中的浮动工具窗口
+
 **主要特性**:
-- ✅ 非阻塞 - DCC UI 保持完全响应
-- ✅ 使用 DCC 的 Qt 消息泵处理事件
-- ✅ 无独立事件循环（避免冲突）
+- ✅ 完全支持窗口特效（点击穿透、模糊、Mica）
+- ✅ 非阻塞 - 宿主应用保持响应
+- ✅ 不依赖 Qt
+
+### 3. Qt 模式
+
+将 WebView 作为 Qt widget 子窗口嵌入。最适合需要停靠功能的 Qt DCC 应用。
+
+```python
+from auroraview import QtWebView
+import hou  # 或 maya.OpenMayaUI 等
+
+# 获取 DCC 主窗口
+main_window = hou.qt.mainWindow()
+
+# 创建嵌入式 WebView
+qt_webview = QtWebView(
+    parent=main_window,
+    width=650,
+    height=500,
+)
+qt_webview.load_html("<h1>Hello from Qt Mode!</h1>")
+qt_webview.show()
+```
+
+**使用场景**:
+- Maya、Houdini、Nuke、3ds Max 集成
+- 可停靠面板
+- 基于 Qt 的 DCC 应用
+
+**主要特性**:
+- ✅ 无缝 Qt 集成
+- ✅ QDockWidget 支持
+- ✅ 使用 DCC 的 Qt 消息泵
+- ⚠️ 窗口特效支持有限
 
 ### 3. 打包模式
 

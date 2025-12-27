@@ -33,7 +33,7 @@ export async function invokePlugin<T = unknown>(
  */
 export function attachPlugin(name: string, api: Record<string, unknown>): void {
   if (window.auroraview) {
-    (window.auroraview as Record<string, unknown>)[name] = api;
+    (window.auroraview as unknown as Record<string, unknown>)[name] = api;
     console.log(`[AuroraView] ${name.charAt(0).toUpperCase() + name.slice(1)} plugin initialized`);
   }
 }

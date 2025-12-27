@@ -44,8 +44,10 @@
 //! ```
 
 // Platform-independent modules
+mod click_through;
 mod com_init;
 mod common_config;
+mod vibrancy;
 mod web_context;
 mod window_style;
 
@@ -60,8 +62,18 @@ mod ipc;
 mod protocol;
 
 // Platform-independent exports
+pub use click_through::{
+    disable_click_through, enable_click_through, get_interactive_regions, is_click_through_enabled,
+    update_interactive_regions, ClickThroughConfig, ClickThroughResult, InteractiveRegion,
+};
 pub use com_init::{init_com_sta, ComInitResult};
 pub use common_config::{get_background_color, log_background_color, DARK_BACKGROUND};
+pub use vibrancy::{
+    apply_acrylic, apply_blur, apply_mica, apply_mica_alt, clear_acrylic, clear_blur, clear_mica,
+    clear_mica_alt, is_backdrop_type_supported, is_mica_supported, is_swca_supported,
+    VibrancyColor, VibrancyEffect, VibrancyResult,
+};
+// Note: VibrancyResult is exported for testing and external use
 pub use web_context::WebContextConfig;
 pub use window_style::{
     apply_child_window_style, apply_owner_window_style, apply_tool_window_style,

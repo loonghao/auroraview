@@ -579,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "aurora-signals"
-version = "0.3.25"
+version = "0.3.26"
 dependencies = [
  "crossbeam-channel",
  "once_cell",
@@ -596,7 +596,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview"
-version = "0.3.25"
+version = "0.3.26"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -656,7 +656,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.25"
+version = "0.3.26"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -693,7 +693,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.25"
+version = "0.3.26"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -725,7 +725,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.3.25"
+version = "0.3.26"
 dependencies = [
  "anyhow",
  "chrono",
@@ -751,7 +751,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.3.25"
+version = "0.3.26"
 dependencies = [
  "aurora-protect",
  "base64 0.22.1",
@@ -779,7 +779,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.3.25"
+version = "0.3.26"
 dependencies = [
  "dunce",
  "serde",
@@ -790,7 +790,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.3.25"
+version = "0.3.26"
 dependencies = [
  "auroraview-plugin-core",
  "base64 0.22.1",
@@ -801,7 +801,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.3.25"
+version = "0.3.26"
 dependencies = [
  "arboard",
  "auroraview-extensions",
