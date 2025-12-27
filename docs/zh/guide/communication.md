@@ -233,3 +233,52 @@ auroraview.on('event_name', (data) => {
     console.log(data);
 });
 ```
+
+## 父子窗口通信
+
+对于示例作为父应用程序（如 Gallery）子窗口运行的多窗口场景，AuroraView 提供了专用的 IPC 系统。
+
+### 子窗口到父窗口
+
+```python
+from auroraview import ChildContext
+
+with ChildContext() as ctx:
+    webview = ctx.create_webview(...)
+    
+    # 向父窗口发送事件
+    if ctx.is_child:
+        ctx.emit_to_parent("status_update", {
+            "progress": 50,
+            "message": "处理中..."
+        })
+```
+
+### 父窗口到子窗口
+
+```python
+from gallery.backend.child_manager import get_manager
+
+manager = get_manager()
+
+# 发送到特定子窗口
+manager.send_to_child(child_id, "parent:command", {"action": "refresh"})
+
+# 广播到所有子窗口
+manager.broadcast("parent:notification", {"message": "设置已更改"})
+```
+
+### 处理父窗口消息
+
+```python
+with ChildContext() as ctx:
+    webview = ctx.create_webview(...)
+    
+    @ctx.on_parent_message
+    def handle_parent_message(event: str, data: dict):
+        if event == "parent:command":
+            # 处理命令
+            pass
+```
+
+[完整子窗口指南 →](/zh/guide/child-windows)

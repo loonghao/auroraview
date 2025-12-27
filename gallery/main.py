@@ -7,6 +7,7 @@ It demonstrates the full capabilities of AuroraView including:
 - Rust-powered plugin system with IPC
 - Process management with stdout/stderr streaming
 - Native desktop integration
+- Browser extension bridge for Chrome/Firefox communication
 
 Usage:
     python gallery/main.py
@@ -18,340 +19,91 @@ Signed-off-by: Hal Long <hal.long@outlook.com>
 
 from __future__ import annotations
 
-import ast
+import atexit
+import json
 import os
+import signal
 import sys
-from pathlib import Path
-from typing import Optional
+import threading
+import time
 
-# Path setup - __file__ is correctly set by runpy.run_path() in packed mode
-PROJECT_ROOT = Path(__file__).parent.parent
-GALLERY_DIR = Path(__file__).parent
-DIST_DIR = GALLERY_DIR / "dist"
-
-# Determine examples directory
-# Priority: AURORAVIEW_EXAMPLES_DIR env > AURORAVIEW_RESOURCES_DIR/examples > project/examples
-_examples_env = os.environ.get("AURORAVIEW_EXAMPLES_DIR")
-_resources_env = os.environ.get("AURORAVIEW_RESOURCES_DIR")
-if _examples_env:
-    EXAMPLES_DIR = Path(_examples_env)
-elif _resources_env:
-    EXAMPLES_DIR = Path(_resources_env) / "examples"
-else:
-    EXAMPLES_DIR = PROJECT_ROOT / "examples"
+# Import backend modules
+from backend import (
+    CATEGORIES,
+    EXAMPLES_DIR,
+    GALLERY_DIR,
+    PROJECT_ROOT,
+    get_samples_list,
+)
+from backend.config import DIST_DIR
+from backend.child_api import register_child_apis
+from backend.child_manager import cleanup_manager as cleanup_child_manager
+from backend.extension_api import cleanup_extension_bridge, register_extension_apis
+from backend.process_api import register_process_apis
+from backend.webview_extension_api import register_webview_extension_apis
 
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "python"))
 
-from auroraview import PluginManager, WebView, json_dumps, json_loads
+from auroraview import PluginManager, WebView
 
-# Category definitions
-CATEGORIES = {
-    "getting_started": {
-        "title": "Getting Started",
-        "icon": "rocket",
-        "description": "Quick start examples and basic usage patterns",
-    },
-    "api_patterns": {
-        "title": "API Patterns",
-        "icon": "code",
-        "description": "Different ways to use the AuroraView API",
-    },
-    "window_features": {
-        "title": "Window Features",
-        "icon": "layout",
-        "description": "Window styles, events, and customization",
-    },
-    "desktop_features": {
-        "title": "Desktop Features",
-        "icon": "monitor",
-        "description": "File dialogs, shell commands, and system integration",
-    },
-    "dcc_integration": {
-        "title": "DCC Integration",
-        "icon": "box",
-        "description": "Maya, Houdini, Blender, and other DCC apps",
-    },
-}
+# Set restart command for shell plugin
+# This enables proper restart when running as Python script
+_main_script = os.path.abspath(__file__)
+os.environ["AURORAVIEW_RESTART_CMD"] = f'"{sys.executable}" "{_main_script}"'
 
-# Icon mapping based on keywords in filename or docstring
-ICON_MAPPING = {
-    "decorator": "wand-2",
-    "binding": "link",
-    "event": "bell",
-    "floating": "layers",
-    "panel": "layers",
-    "button": "circle",
-    "logo": "circle",
-    "tray": "inbox",
-    "menu": "menu",
-    "context": "menu",
-    "desktop": "folder",
-    "app": "folder",
-    "asset": "image",
-    "local": "image",
-    "dcc": "box",
-    "maya": "layers",
-    "qt": "palette",
-    "style": "palette",
-    "window": "layout",
-    "monitor": "monitor",
-}
-
-# Category mapping based on keywords
-CATEGORY_MAPPING = {
-    # Getting Started
-    "simple": "getting_started",
-    "decorator": "getting_started",
-    "binding": "getting_started",
-    "dynamic": "getting_started",
-    # API Patterns
-    "event": "api_patterns",
-    "callback": "api_patterns",
-    # Window Features
-    "floating": "window_features",
-    "panel": "window_features",
-    "button": "window_features",
-    "logo": "window_features",
-    "tray": "window_features",
-    "menu": "window_features",
-    "context": "window_features",
-    "window": "window_features",
-    # Desktop Features
-    "desktop": "desktop_features",
-    "file": "desktop_features",
-    "dialog": "desktop_features",
-    "asset": "desktop_features",
-    "local": "desktop_features",
-    # DCC Integration
-    "dcc": "dcc_integration",
-    "maya": "dcc_integration",
-    "houdini": "dcc_integration",
-    "blender": "dcc_integration",
-    "qt": "dcc_integration",
-    "integration": "dcc_integration",
-}
-
-# Tag mapping based on keywords
-TAG_MAPPING = {
-    "beginner": ["simple", "basic", "getting started", "quick"],
-    "advanced": ["advanced", "complex", "plugin", "floating", "tray"],
-    "window": ["window", "panel", "frame", "transparent"],
-    "events": ["event", "callback", "lifecycle"],
-    "qt": ["qt", "pyside", "maya", "houdini", "nuke"],
-    "standalone": ["standalone", "desktop", "run_desktop"],
-    "ui": ["ui", "style", "menu", "button", "panel"],
-    "api": ["api", "decorator", "binding", "call"],
-}
+# Global reference to PluginManager for cleanup
+_global_plugins: PluginManager | None = None
+_cleanup_done = False
 
 
-def extract_docstring(file_path: Path) -> Optional[str]:
-    """Extract module docstring from a Python file."""
+def _cleanup_all():
+    """Cleanup all processes and resources. Called on exit."""
+    global _cleanup_done
+    if _cleanup_done:
+        return
+    _cleanup_done = True
+    
+    print("[Gallery] Running cleanup...", file=sys.stderr)
+    
+    # Kill all managed processes
+    if _global_plugins is not None:
+        try:
+            result = _global_plugins.handle_command("plugin:process|kill_all", "{}")
+            print(f"[Gallery] kill_all result: {result}", file=sys.stderr)
+        except Exception as e:
+            print(f"[Gallery] Error killing processes: {e}", file=sys.stderr)
+    
+    # Cleanup extension bridge
     try:
-        source = file_path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        return ast.get_docstring(tree)
-    except (SyntaxError, UnicodeDecodeError):
-        return None
+        cleanup_extension_bridge()
+    except Exception as e:
+        print(f"[Gallery] Error cleaning up extension bridge: {e}", file=sys.stderr)
+    
+    # Cleanup child window manager
+    try:
+        cleanup_child_manager()
+    except Exception as e:
+        print(f"[Gallery] Error cleaning up child manager: {e}", file=sys.stderr)
+    
+    print("[Gallery] Cleanup complete", file=sys.stderr)
 
 
-def parse_docstring(docstring: str) -> dict:
-    """Parse docstring to extract title, description, and features."""
-    lines = docstring.strip().split("\n")
-    result = {
-        "title": "",
-        "description": "",
-        "features": [],
-        "use_cases": [],
-    }
-
-    if not lines:
-        return result
-
-    # First line is usually the title
-    first_line = lines[0].strip()
-    # Remove trailing " - " suffix if present
-    if " - " in first_line:
-        result["title"] = first_line.split(" - ")[0].strip()
-        # Rest of first line can be part of description
-        rest = first_line.split(" - ", 1)[1].strip()
-        if rest:
-            result["description"] = rest
-    else:
-        result["title"] = first_line.rstrip(".")
-
-    # Parse remaining content
-    current_section = "description"
-    description_lines = []
-
-    for line in lines[1:]:
-        stripped = line.strip()
-        lower = stripped.lower()
-
-        # Detect section headers
-        if lower.startswith("features") or lower.startswith("key features"):
-            current_section = "features"
-            continue
-        elif lower.startswith("use cases") or lower.startswith("use case"):
-            current_section = "use_cases"
-            continue
-        elif lower.startswith("usage:") or lower.startswith("note:"):
-            current_section = "skip"
-            continue
-        elif lower.startswith("recommended") or lower.startswith("supported"):
-            current_section = "skip"
-            continue
-
-        if current_section == "skip":
-            continue
-
-        # Handle list items
-        if stripped.startswith("- "):
-            item = stripped[2:].strip()
-            if current_section == "features":
-                result["features"].append(item)
-            elif current_section == "use_cases":
-                result["use_cases"].append(item)
-        elif stripped and current_section == "description":
-            description_lines.append(stripped)
-
-    # Build description if not already set
-    if description_lines and not result["description"]:
-        # Take first meaningful paragraph
-        result["description"] = " ".join(description_lines[:2])
-
-    return result
+def _signal_handler(signum, frame):
+    """Handle termination signals."""
+    print(f"[Gallery] Received signal {signum}, cleaning up...", file=sys.stderr)
+    _cleanup_all()
+    sys.exit(0)
 
 
-def infer_category(filename: str, docstring: str) -> str:
-    """Infer category based on filename and docstring content."""
-    text = (filename + " " + docstring).lower()
+# Register cleanup handlers
+atexit.register(_cleanup_all)
 
-    for keyword, category in CATEGORY_MAPPING.items():
-        if keyword in text:
-            return category
-
-    return "getting_started"  # Default
-
-
-def infer_icon(filename: str, docstring: str) -> str:
-    """Infer icon based on filename and docstring content."""
-    text = (filename + " " + docstring).lower()
-
-    for keyword, icon in ICON_MAPPING.items():
-        if keyword in text:
-            return icon
-
-    return "code"  # Default
-
-
-def infer_tags(filename: str, docstring: str) -> list:
-    """Infer tags based on filename and docstring content."""
-    text = (filename + " " + docstring).lower()
-    tags = set()
-
-    for tag, keywords in TAG_MAPPING.items():
-        for keyword in keywords:
-            if keyword in text:
-                tags.add(tag)
-                break
-
-    return sorted(tags)
-
-
-def filename_to_title(filename: str) -> str:
-    """Convert filename to a readable title."""
-    # Remove extension and common suffixes
-    name = filename.replace(".py", "")
-    for suffix in ["_demo", "_example", "_test"]:
-        name = name.replace(suffix, "")
-
-    # Convert to title case
-    words = name.replace("_", " ").split()
-    return " ".join(word.capitalize() for word in words)
-
-
-def filename_to_id(filename: str) -> str:
-    """Convert filename to a sample ID."""
-    name = filename.replace(".py", "")
-    for suffix in ["_demo", "_example", "_test"]:
-        name = name.replace(suffix, "")
-    return name
-
-
-# Lazy-loaded samples cache
-_SAMPLES_CACHE = None
-
-
-def get_samples_list() -> list:
-    """Get samples list with lazy loading."""
-    global _SAMPLES_CACHE
-    if _SAMPLES_CACHE is None:
-        _SAMPLES_CACHE = scan_examples_from(EXAMPLES_DIR)
-    return _SAMPLES_CACHE
-
-
-def scan_examples_from(examples_dir: Path) -> list:
-    """Scan examples from a specific directory."""
-    samples = []
-
-    if not examples_dir.exists():
-        return samples
-
-    for py_file in sorted(examples_dir.glob("*.py")):
-        # Skip __init__.py and non-demo files
-        if py_file.name.startswith("__"):
-            continue
-
-        docstring = extract_docstring(py_file)
-        if not docstring:
-            continue
-
-        # Parse docstring
-        parsed = parse_docstring(docstring)
-
-        # Build sample entry
-        sample_id = filename_to_id(py_file.name)
-        title = parsed["title"] or filename_to_title(py_file.name)
-        description = parsed["description"] or f"Demo: {title}"
-        category = infer_category(py_file.name, docstring)
-        icon = infer_icon(py_file.name, docstring)
-        tags = infer_tags(py_file.name, docstring)
-
-        # Truncate description if too long
-        if len(description) > 100:
-            description = description[:97] + "..."
-
-        samples.append(
-            {
-                "id": sample_id,
-                "title": title,
-                "category": category,
-                "description": description,
-                "icon": icon,
-                "source_file": py_file.name,
-                "tags": tags,
-            }
-        )
-
-    return samples
-
-
-def get_sample_by_id(sample_id: str):
-    # type: (str) -> dict | None
-    """Get a sample by its ID."""
-    for sample in get_samples_list():
-        if sample["id"] == sample_id:
-            return sample
-    return None
-
-
-def get_source_code(source_file: str) -> str:
-    """Read source code from a sample file."""
-    file_path = EXAMPLES_DIR / source_file
-    if file_path.exists():
-        return file_path.read_text(encoding="utf-8")
-    return f"# Source file not found: {source_file}"
+# Register signal handlers for graceful shutdown
+if sys.platform != "win32":
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGHUP, _signal_handler)
+# SIGINT (Ctrl+C) is handled by Python's default handler
 
 
 def run_gallery():
@@ -372,16 +124,12 @@ def run_gallery():
     print(f"[Python] Packed mode: {packed_mode}", file=sys.stderr)
 
     # Pre-load samples during startup to avoid delay when frontend requests them
-    # This runs in parallel with WebView initialization
-    import time
-
     start_time = time.time()
     samples = get_samples_list()
     elapsed = (time.time() - start_time) * 1000
     print(f"[Python] Pre-loaded {len(samples)} samples in {elapsed:.1f}ms", file=sys.stderr)
 
     # Check if dist exists (only needed in development mode)
-    # In packed mode, frontend is embedded in the executable
     index_html = DIST_DIR / "index.html"
     if not index_html.exists():
         if not packed_mode:
@@ -396,34 +144,32 @@ def run_gallery():
         url = str(index_html)
         print(f"[Python] Loading: {url}", file=sys.stderr)
 
+    print(f"[Python] Creating WebView with allow_new_window=True, new_window_mode='child_webview'", file=sys.stderr)
     view = WebView(
         title="AuroraView Gallery",
         url=url,
         width=1200,
         height=800,
         debug=True,
-        allow_new_window=True,  # Allow window.open() to create new browser windows
+        allow_new_window=True,
+        new_window_mode="child_webview",  # Open new windows as child WebViews
     )
+    print(f"[Python] WebView created successfully", file=sys.stderr)
 
     # Create plugin manager with permissive scope for demo
     plugins = PluginManager.permissive()
+    
+    # Store global reference for cleanup
+    global _global_plugins
+    _global_plugins = plugins
 
     # Set up event callback for plugins
-    # In packed mode, events need to be sent via stdout to Rust CLI
-    # In development mode, events are sent via the WebView's message queue
     if packed_mode:
-        # In packed mode, emit events via stdout as JSON messages
-        # The Rust CLI will forward these to the WebView
-        import json
-        import threading
-
-        # Thread-safe lock for stdout writes
         _stdout_lock = threading.Lock()
 
         def packed_emit_callback(event_name, data):
             """Emit events to Rust CLI via stdout in packed mode."""
             try:
-                # Format as event message for Rust CLI to forward
                 event_msg = json.dumps({
                     "type": "event",
                     "event": event_name,
@@ -438,320 +184,58 @@ def run_gallery():
         plugins.set_emit_callback(packed_emit_callback)
         print("[Python] Using packed mode event callback (stdout)", file=sys.stderr)
     else:
-        # In development mode, use the WebView's message queue
         emitter = view.create_emitter()
         plugins.set_emit_callback(emitter.emit)
         print("[Python] Using development mode event callback (message queue)", file=sys.stderr)
 
-    # API: Get source code
-    @view.bind_call("api.get_source")
-    def get_source(sample_id: str = "") -> str:
-        """Get source code for a sample."""
-        sample = get_sample_by_id(sample_id)
-        if sample:
-            return get_source_code(sample["source_file"])
-        return f"# Sample not found: {sample_id}"
+    # Connect plugin manager to WebView
+    view.set_plugin_manager(plugins)
+    print("[Python] Plugin manager connected to WebView", file=sys.stderr)
 
-    # API: Prepare run sample - returns spawn arguments for JavaScript to call ProcessPlugin
-    # This ensures ProcessPlugin always runs in Rust CLI, not Python process
-    @view.bind_call("api.prepare_run_sample")
-    def prepare_run_sample(
-        sample_id: str = "", show_console: bool = False, use_channel: bool = False
-    ) -> dict:
-        """Prepare arguments for running a sample demo.
+    # Register all API handlers from backend modules
+    api_refs = register_process_apis(view, plugins)
+    register_webview_extension_apis(view)
 
-        Returns spawn arguments that JavaScript should use to call ProcessPlugin directly.
-        This ensures ProcessPlugin runs in Rust CLI where events are properly forwarded.
+    # Get run_sample function reference for extension bridge
+    run_sample_func = api_refs.get("run_sample")
+    register_extension_apis(view, run_sample_func)
 
-        Args:
-            sample_id: The ID of the sample to run
-            show_console: If True, show console window (for debugging)
-            use_channel: If True, use ipckit LocalSocket for IPC (more efficient)
+    # Register child window APIs
+    register_child_apis(view)
 
-        Returns:
-            dict with:
-            - ok: True if preparation succeeded
-            - spawn_args: Arguments to pass to plugin:process|spawn_ipc
-            - ipc_command: The plugin command to use (spawn_ipc or spawn_ipc_channel)
-            - title: Sample title for display
-        """
-        print(
-            f"[Python:prepare_run_sample] sample_id={sample_id}, show_console={show_console}, use_channel={use_channel}",
-            file=sys.stderr,
-        )
-
-        sample = get_sample_by_id(sample_id)
-        if not sample:
-            error_msg = f"Sample not found: {sample_id}"
-            print(f"[Python:prepare_run_sample] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
-
-        sample_path = EXAMPLES_DIR / sample["source_file"]
-        print(f"[Python:prepare_run_sample] sample_path={sample_path}", file=sys.stderr)
-
-        if not sample_path.exists():
-            error_msg = f"File not found: {sample['source_file']} (full path: {sample_path})"
-            print(f"[Python:prepare_run_sample] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
-
-        # Get Python executable - in packed mode, prefer AURORAVIEW_PYTHON_EXE if set
-        python_exe = os.environ.get("AURORAVIEW_PYTHON_EXE", sys.executable)
-        print(f"[Python:prepare_run_sample] Python executable: {python_exe}", file=sys.stderr)
-        print(f"[Python:prepare_run_sample] Working directory: {EXAMPLES_DIR}", file=sys.stderr)
-
-        # Prepare spawn arguments
-        spawn_args = {
-            "command": python_exe,
-            "args": [str(sample_path)],
-            "cwd": str(EXAMPLES_DIR),
-            "showConsole": show_console,
-        }
-
-        # Choose IPC mode: channel (ipckit LocalSocket) or pipe (stdout/stderr)
-        ipc_command = (
-            "plugin:process|spawn_ipc_channel"
-            if use_channel
-            else "plugin:process|spawn_ipc"
-        )
-
-        print(f"[Python:prepare_run_sample] Prepared spawn_args: {spawn_args}", file=sys.stderr)
-        print(f"[Python:prepare_run_sample] IPC command: {ipc_command}", file=sys.stderr)
-
-        return {
-            "ok": True,
-            "spawn_args": spawn_args,
-            "ipc_command": ipc_command,
-            "title": sample["title"],
-        }
-
-    # API: Run sample with IPC support (legacy - calls ProcessPlugin in Python process)
-    # NOTE: In packed mode, prefer using prepare_run_sample + JavaScript plugin call
-    @view.bind_call("api.run_sample")
-    def run_sample(
-        sample_id: str = "", show_console: bool = False, use_channel: bool = False
-    ) -> dict:
-        """Run a sample demo with IPC support.
-
-        NOTE: In packed mode, this runs ProcessPlugin in the Python process,
-        which requires event forwarding via stdout. For better performance,
-        use prepare_run_sample + JavaScript plugin call instead.
-
-        Uses the Rust ProcessPlugin for efficient process management.
-        The process output will be streamed via events:
-        - process:stdout - { pid, data }
-        - process:stderr - { pid, data }
-        - process:exit - { pid, code }
-        - process:message - { pid, data } (only with use_channel=True)
-
-        Args:
-            sample_id: The ID of the sample to run
-            show_console: If True, show console window (for debugging)
-            use_channel: If True, use ipckit LocalSocket for IPC (more efficient)
-        """
-        print(
-            f"[Python:run_sample] sample_id={sample_id}, show_console={show_console}, use_channel={use_channel}",
-            file=sys.stderr,
-        )
-
-        sample = get_sample_by_id(sample_id)
-        if not sample:
-            error_msg = f"Sample not found: {sample_id}"
-            print(f"[Python:run_sample] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
-
-        sample_path = EXAMPLES_DIR / sample["source_file"]
-        print(f"[Python:run_sample] sample_path={sample_path}", file=sys.stderr)
-
-        if not sample_path.exists():
-            error_msg = f"File not found: {sample['source_file']} (full path: {sample_path})"
-            print(f"[Python:run_sample] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
-
-        # Log Python executable being used
-        # In packed mode, prefer AURORAVIEW_PYTHON_EXE if set
-        python_exe = os.environ.get("AURORAVIEW_PYTHON_EXE", sys.executable)
-        print(f"[Python:run_sample] Python executable: {python_exe}", file=sys.stderr)
-        print(f"[Python:run_sample] Working directory: {EXAMPLES_DIR}", file=sys.stderr)
-        print(
-            f"[Python:run_sample] AURORAVIEW_PYTHON_PATH: {os.environ.get('AURORAVIEW_PYTHON_PATH', 'not set')}",
-            file=sys.stderr,
-        )
-
-        try:
-            # Use Rust ProcessPlugin for IPC-enabled spawn
-            args_json = json_dumps(
-                {
-                    "command": python_exe,
-                    "args": [str(sample_path)],
-                    "cwd": str(EXAMPLES_DIR),
-                    "showConsole": show_console,
-                }
-            )
-            print(f"[Python:run_sample] Spawning with args: {args_json}", file=sys.stderr)
-
-            # Choose IPC mode: channel (ipckit LocalSocket) or pipe (stdout/stderr)
-            ipc_command = (
-                "plugin:process|spawn_ipc_channel"
-                if use_channel
-                else "plugin:process|spawn_ipc"
-            )
-            print(f"[Python:run_sample] Using IPC command: {ipc_command}", file=sys.stderr)
-
-            result_json = plugins.handle_command(ipc_command, args_json)
-            result = json_loads(result_json)
-            print(f"[Python:run_sample] Result: {result}", file=sys.stderr)
-
-            if result.get("success"):
-                # Extract data from PluginResponse structure
-                data = result.get("data", {})
-                mode = data.get("mode", "pipe")
-                pid = data.get("pid")
-                channel_name = data.get("channel")
-                print(
-                    f"[Python:run_sample] SUCCESS: Started with PID {pid}, mode={mode}",
-                    file=sys.stderr,
-                )
-                response = {
-                    "ok": True,
-                    "pid": pid,
-                    "mode": mode,
-                    "message": f"Started {sample['title']} (mode: {mode})",
-                }
-                if channel_name:
-                    response["channel"] = channel_name
-                return response
-            else:
-                error_msg = result.get("error", "Unknown error from ProcessPlugin")
-                print(f"[Python:run_sample] ERROR from plugin: {error_msg}", file=sys.stderr)
-                return {"ok": False, "error": error_msg}
-        except Exception as e:
-            error_msg = f"Exception while spawning: {e}"
-            print(f"[Python:run_sample] EXCEPTION: {error_msg}", file=sys.stderr)
-            import traceback
-
-            traceback.print_exc(file=sys.stderr)
-            return {"ok": False, "error": error_msg}
-
-    # API: Kill a running process
-    @view.bind_call("api.kill_process")
-    def kill_process(pid: int = 0) -> dict:
-        """Kill a running process by PID."""
-        if not pid:
-            return {"ok": False, "error": "No PID provided"}
-
-        args_json = json_dumps({"pid": pid})
-        result_json = plugins.handle_command("plugin:process|kill", args_json)
-        result = json_loads(result_json)
-
-        if result.get("success"):
-            return {"ok": True}
-        else:
-            return {"ok": False, "error": result.get("error", "Unknown error")}
-
-    # API: Send data to a process
-    @view.bind_call("api.send_to_process")
-    def send_to_process(pid: int = 0, data: str = "") -> dict:
-        """Send data to a process's stdin (pipe mode only)."""
-        if not pid:
-            return {"ok": False, "error": "No PID provided"}
-
-        args_json = json_dumps({"pid": pid, "data": data})
-        result_json = plugins.handle_command("plugin:process|send", args_json)
-        result = json_loads(result_json)
-
-        if result.get("success"):
-            return {"ok": True}
-        else:
-            return {"ok": False, "error": result.get("error", "Unknown error")}
-
-    # API: Send JSON to a process (channel mode only)
-    @view.bind_call("api.send_json_to_process")
-    def send_json_to_process(pid: int = 0, data: dict = None) -> dict:
-        """Send JSON data to a process via IPC channel.
-
-        This only works for processes spawned with use_channel=True.
-        For pipe mode processes, use send_to_process instead.
-
-        Args:
-            pid: Process ID
-            data: JSON-serializable data to send
-        """
-        if not pid:
-            return {"ok": False, "error": "No PID provided"}
-        if data is None:
-            data = {}
-
-        args_json = json_dumps({"pid": pid, "data": data})
-        result_json = plugins.handle_command("plugin:process|send_json", args_json)
-        result = json_loads(result_json)
-
-        if result.get("success"):
-            return {"ok": True}
-        else:
-            return {"ok": False, "error": result.get("error", "Unknown error")}
-
-    # API: List running processes
-    @view.bind_call("api.list_processes")
-    def list_processes() -> dict:
-        """List all running processes."""
-        result_json = plugins.handle_command("plugin:process|list", "{}")
-        result = json_loads(result_json)
-
-        if result.get("success"):
-            data = result.get("data", {})
-            return {"ok": True, "processes": data.get("processes", [])}
-        else:
-            return {"ok": False, "error": result.get("error", "Unknown error")}
-
-    # API: Open URL in default browser
-    @view.bind_call("api.open_url")
-    def open_url(url: str = "") -> dict:
-        """Open a URL in the default browser."""
-        print(f"[Python:open_url] url={url}", file=sys.stderr)
-
-        if not url:
-            error_msg = "No URL provided"
-            print(f"[Python:open_url] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
-
-        try:
-            args_json = json_dumps({"path": url})
-            result_json = plugins.handle_command("plugin:shell|open", args_json)
-            result = json_loads(result_json)
-            print(f"[Python:open_url] Result: {result}", file=sys.stderr)
-
-            if result.get("success"):
-                print(f"[Python:open_url] SUCCESS: Opened {url}", file=sys.stderr)
-                return {"ok": True}
-            else:
-                error_msg = result.get("error", "Failed to open URL")
-                print(f"[Python:open_url] ERROR: {error_msg}", file=sys.stderr)
-                return {"ok": False, "error": error_msg}
-        except Exception as e:
-            error_msg = f"Exception while opening URL: {e}"
-            print(f"[Python:open_url] EXCEPTION: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
-
-    # API: Get samples list
+    # Register simple API handlers
     @view.bind_call("api.get_samples")
     def get_samples() -> list:
         """Get all samples."""
         return get_samples_list()
 
-    # API: Get categories
     @view.bind_call("api.get_categories")
     def get_categories() -> dict:
         """Get all categories."""
         return CATEGORIES
 
-    # Cleanup on close - kill all managed processes
-    @view.on("close")
-    def on_close():
-        # Use kill_all to terminate all managed processes at once
-        plugins.handle_command("plugin:process|kill_all", "{}")
+    # Handle native file drop events
+    @view.on("file_drop")
+    def on_file_drop(data):
+        """Handle native file drop events from Wry/WebView."""
+        paths = data.get("paths", [])
+        position = data.get("position", {})
+        print(f"[Python:on_file_drop] Received file drop: paths={paths}, position={position}", file=sys.stderr)
+
+        if paths:
+            emitter = view.create_emitter()
+            emitter.emit("extension:file_drop", {
+                "paths": paths,
+                "position": position,
+            })
+            print("[Python:on_file_drop] Emitted extension:file_drop event to frontend", file=sys.stderr)
+
+    # Cleanup on close - use "closing" event (before window closes)
+    @view.on("closing")
+    def on_closing():
+        _cleanup_all()
 
     # Show the gallery
-    # In packed mode, this automatically switches to API server mode
     view.show()
 
 

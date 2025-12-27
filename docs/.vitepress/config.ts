@@ -55,6 +55,13 @@ export default defineConfig({
                 { text: 'Headless 测试', link: '/zh/guide/headless-testing' },
                 { text: '系统托盘', link: '/zh/guide/system-tray' },
                 { text: '浮动面板', link: '/zh/guide/floating-panel' },
+                { text: '子窗口系统', link: '/zh/guide/child-windows' },
+              ]
+            },
+            {
+              text: 'Chrome 扩展兼容',
+              items: [
+                { text: 'Chrome API 兼容性', link: '/zh/guide/chrome-extension-apis' },
               ]
             }
           ],
@@ -135,6 +142,13 @@ export default defineConfig({
             { text: 'Headless Testing', link: '/guide/headless-testing' },
             { text: 'System Tray', link: '/guide/system-tray' },
             { text: 'Floating Panel', link: '/guide/floating-panel' },
+            { text: 'Child Windows', link: '/guide/child-windows' },
+          ]
+        },
+        {
+          text: 'Chrome Extension',
+          items: [
+            { text: 'Chrome API Compatibility', link: '/guide/chrome-extension-apis' },
           ]
         }
       ],
