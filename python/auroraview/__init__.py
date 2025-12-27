@@ -302,6 +302,16 @@ from .utils import (
     register_timer_backend,
 )
 
+# Child window support
+from .child import (
+    ChildContext,
+    ChildInfo,
+    get_child_id,
+    get_parent_id,
+    is_child_mode,
+    run_example,
+)
+
 # Service Discovery (optional - requires Rust core)
 _SERVICE_DISCOVERY_IMPORT_ERROR = None
 try:
@@ -503,6 +513,15 @@ __all__ = [
     # Plugin system
     # ============================================================
     "PluginManager",
+    # ============================================================
+    # Child window support
+    # ============================================================
+    "is_child_mode",
+    "get_parent_id",
+    "get_child_id",
+    "ChildContext",
+    "ChildInfo",
+    "run_example",
     # ============================================================
     # Helpers
     # ============================================================

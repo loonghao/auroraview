@@ -303,3 +303,52 @@ auroraview.on('event_name', (data) => {
     console.log(data);
 });
 ```
+
+## Parent-Child Window Communication
+
+For multi-window scenarios where examples run as child windows of a parent application (like Gallery), AuroraView provides a dedicated IPC system.
+
+### Child to Parent
+
+```python
+from auroraview import ChildContext
+
+with ChildContext() as ctx:
+    webview = ctx.create_webview(...)
+    
+    # Send event to parent window
+    if ctx.is_child:
+        ctx.emit_to_parent("status_update", {
+            "progress": 50,
+            "message": "Processing..."
+        })
+```
+
+### Parent to Child
+
+```python
+from gallery.backend.child_manager import get_manager
+
+manager = get_manager()
+
+# Send to specific child
+manager.send_to_child(child_id, "parent:command", {"action": "refresh"})
+
+# Broadcast to all children
+manager.broadcast("parent:notification", {"message": "Settings changed"})
+```
+
+### Handling Parent Messages
+
+```python
+with ChildContext() as ctx:
+    webview = ctx.create_webview(...)
+    
+    @ctx.on_parent_message
+    def handle_parent_message(event: str, data: dict):
+        if event == "parent:command":
+            # Handle command
+            pass
+```
+
+[Full Child Window Guide →](/guide/child-windows)
