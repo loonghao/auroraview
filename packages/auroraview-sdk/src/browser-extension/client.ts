@@ -145,7 +145,7 @@ export class AuroraViewClient {
           this.emit("disconnected", { code: event.code, reason: event.reason });
 
           // Reject pending requests
-          for (const [id, request] of this.pendingRequests) {
+          for (const [, request] of this.pendingRequests) {
             clearTimeout(request.timeout);
             request.reject(new Error("Connection closed"));
           }
