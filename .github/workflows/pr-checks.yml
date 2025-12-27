@@ -933,6 +933,13 @@ jobs:
           echo "Using pre-built CLI:"
           ls -la target/${{ matrix.target }}/release/${{ matrix.exe-name }}
 
+      # Install runtime libraries for Linux (always needed to run CLI)
+      - name: Install Linux runtime dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-0 libgtk-3-0
+
       # Fallback: Build CLI only if cli-build was skipped
       - name: Setup Rust (fallback)
         if: needs.cli-build.result == 'skipped'
@@ -991,11 +998,9 @@ jobs:
 
       - name: Pack Gallery (generate executable)
         shell: bash
+        env:
+          LD_LIBRARY_PATH: /usr/lib/x86_64-linux-gnu:${{ env.LD_LIBRARY_PATH }}
         run: |
-          # Ensure system libraries are in LD_LIBRARY_PATH on Linux
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
-            export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
-          fi
           ./target/${{ matrix.target }}/release/auroraview-cli${{ matrix.exe-ext }} pack \
             --config gallery/auroraview.pack.toml \
             --output-dir target/pack
