@@ -61,6 +61,7 @@ pub struct VibrancyResult {
 }
 
 impl VibrancyResult {
+    #[allow(dead_code)]
     fn success(effect: VibrancyEffect) -> Self {
         Self {
             success: true,
@@ -69,6 +70,7 @@ impl VibrancyResult {
         }
     }
 
+    #[allow(dead_code)]
     fn error(effect: VibrancyEffect, msg: impl Into<String>) -> Self {
         Self {
             success: false,
