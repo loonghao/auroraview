@@ -16,7 +16,7 @@ import os
 import socket
 import threading
 import time
-from typing import Any, Dict, List
+from typing import List  # noqa: F401 - used for type hints
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -364,7 +364,7 @@ class TestChildContext:
                 MockWebView.return_value = mock_webview
 
                 ctx = ChildContext()
-                webview = ctx.create_webview(
+                ctx.create_webview(
                     title="Test", width=800, height=600, html="<h1>Test</h1>"
                 )
 
@@ -386,7 +386,7 @@ class TestChildContext:
                 MockWebView.return_value = mock_webview
 
                 ctx = ChildContext()
-                webview = ctx.create_webview(title="Original Title")
+                ctx.create_webview(title="Original Title")
 
                 call_kwargs = MockWebView.call_args[1]
                 assert call_kwargs["title"] == "MyDemo - Original Title"
