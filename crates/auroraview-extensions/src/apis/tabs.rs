@@ -88,6 +88,7 @@ pub struct TabState {
     /// Current tab info
     current_tab: RwLock<Tab>,
     /// Tab ID counter
+    #[allow(dead_code)]
     next_id: RwLock<i32>,
 }
 

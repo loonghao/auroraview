@@ -76,6 +76,7 @@ pub struct RuntimeManager {
     /// Message handlers per extension
     message_handlers: RwLock<std::collections::HashMap<ExtensionId, Vec<MessageHandler>>>,
     /// Pending messages (for extensions not yet loaded)
+    #[allow(dead_code)]
     pending_messages: RwLock<Vec<(ExtensionId, Value, MessageSender)>>,
 }
 

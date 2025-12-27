@@ -268,8 +268,8 @@ fn compile_url_pattern(pattern: &str) -> ExtensionResult<Regex> {
     }
 
     // Get the rest after scheme
-    let rest = if pattern.starts_with("*://") {
-        &pattern[4..]
+    let rest = if let Some(stripped) = pattern.strip_prefix("*://") {
+        stripped
     } else if let Some(idx) = pattern.find("://") {
         &pattern[idx + 3..]
     } else {

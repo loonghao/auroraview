@@ -46,6 +46,7 @@ pub struct ActionManager {
     tab_states:
         RwLock<std::collections::HashMap<ExtensionId, std::collections::HashMap<i32, ActionState>>>,
     /// Callback for action clicks
+    #[allow(clippy::type_complexity)]
     on_clicked: RwLock<Option<Box<dyn Fn(&str, i32) + Send + Sync>>>,
 }
 

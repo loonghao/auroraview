@@ -73,6 +73,7 @@ pub struct StorageBackend {
     /// In-memory cache for session storage
     session_cache: Arc<RwLock<HashMap<ExtensionId, HashMap<String, Value>>>>,
     /// In-memory cache for local/sync storage (write-through)
+    #[allow(dead_code)]
     local_cache: Arc<RwLock<HashMap<ExtensionId, HashMap<String, Value>>>>,
 }
 

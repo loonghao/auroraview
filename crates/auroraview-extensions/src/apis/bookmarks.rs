@@ -267,6 +267,7 @@ impl BookmarksApi {
     }
 
     /// Build tree structure recursively
+    #[allow(clippy::only_used_in_recursion)]
     fn build_tree(
         &self,
         node: &BookmarkTreeNode,
@@ -415,6 +416,7 @@ impl BookmarksApi {
     }
 
     /// Recursively collect child IDs
+    #[allow(clippy::only_used_in_recursion)]
     fn collect_children_ids(
         &self,
         parent_id: &str,
