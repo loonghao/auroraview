@@ -28,6 +28,7 @@ mod api; // API registration methods (uses Askama templates)
 mod bom;
 mod dialogs;
 mod dom; // DOM operation methods (high-performance)
+mod effects; // Window effects (click-through, vibrancy)
 mod events;
 mod js;
 mod main;
@@ -35,6 +36,7 @@ mod multiwindow;
 pub mod plugins;
 mod storage;
 
+pub use effects::PyRegion;
 pub use plugins::PluginManager;
 
 /// Thread-safe event emitter for cross-thread event emission
