@@ -160,6 +160,7 @@ struct ExtensionViewHandle {
     info: ExtensionViewInfo,
     /// Window handle (platform-specific)
     #[cfg(target_os = "windows")]
+    #[allow(dead_code)]
     hwnd: Option<u64>,
     /// DevTools window handle
     #[cfg(target_os = "windows")]

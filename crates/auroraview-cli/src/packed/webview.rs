@@ -20,6 +20,8 @@ use crate::{load_window_icon, load_window_icon_from_bytes, normalize_url};
 
 use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
+#[cfg(target_os = "windows")]
+use super::utils::{get_extensions_dir, has_extensions};
 use super::utils::{escape_json_for_js, get_webview_data_dir};
 
 /// Regex pattern for valid handler names: alphanumeric, underscore, dot, colon, hyphen
