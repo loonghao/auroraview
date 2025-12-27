@@ -1,4 +1,4 @@
-//! Browser Extension Bridge Plugin
+﻿//! Browser Extension Bridge Plugin
 //!
 //! Provides WebSocket + HTTP server for browser extension communication.
 //! This is a high-performance Rust implementation that enables Chrome/Firefox
@@ -312,7 +312,7 @@ impl BrowserBridgePlugin {
         {
             let state = self.state.read().unwrap();
             if state.is_running {
-                return Err(PluginError::plugin_error(
+                return Err(PluginError::from_plugin(
                     "browser_bridge",
                     "Bridge is already running",
                 ));
@@ -374,7 +374,7 @@ impl BrowserBridgePlugin {
         {
             let state = self.state.read().unwrap();
             if !state.is_running {
-                return Err(PluginError::plugin_error(
+                return Err(PluginError::from_plugin(
                     "browser_bridge",
                     "Bridge is not running",
                 ));
@@ -420,7 +420,7 @@ impl BrowserBridgePlugin {
         let state = self.state.read().unwrap();
 
         if !state.is_running {
-            return Err(PluginError::plugin_error(
+            return Err(PluginError::from_plugin(
                 "browser_bridge",
                 "Bridge is not running",
             ));
@@ -455,14 +455,14 @@ impl BrowserBridgePlugin {
         let state = self.state.read().unwrap();
 
         if !state.is_running {
-            return Err(PluginError::plugin_error(
+            return Err(PluginError::from_plugin(
                 "browser_bridge",
                 "Bridge is not running",
             ));
         }
 
         let stream = state.client_streams.get(&opts.client_id).ok_or_else(|| {
-            PluginError::plugin_error(
+            PluginError::from_plugin(
                 "browser_bridge",
                 format!("Client {} not found", opts.client_id),
             )
@@ -477,7 +477,7 @@ impl BrowserBridgePlugin {
 
         let mut stream = stream.lock().unwrap();
         send_websocket_message(&mut stream, &message_str).map_err(|e| {
-            PluginError::plugin_error("browser_bridge", format!("Send failed: {}", e))
+            PluginError::from_plugin("browser_bridge", format!("Send failed: {}", e))
         })?;
 
         Ok(serde_json::json!({
@@ -546,7 +546,7 @@ impl BrowserBridgePlugin {
         let path = std::path::Path::new(&opts.path);
 
         if !path.exists() {
-            return Err(PluginError::plugin_error(
+            return Err(PluginError::from_plugin(
                 "browser_bridge",
                 format!("Extension path not found: {}", opts.path),
             ));
@@ -598,7 +598,7 @@ impl BrowserBridgePlugin {
         };
 
         if ext != expected_ext {
-            return Err(PluginError::plugin_error(
+            return Err(PluginError::from_plugin(
                 "browser_bridge",
                 format!("Invalid extension file. Expected .{} for {}, or a folder for unpacked extension", expected_ext, opts.browser),
             ));
@@ -627,7 +627,7 @@ impl BrowserBridgePlugin {
         };
 
         result.map_err(|e| {
-            PluginError::plugin_error("browser_bridge", format!("Failed to open: {}", e))
+            PluginError::from_plugin("browser_bridge", format!("Failed to open: {}", e))
         })?;
 
         Ok(serde_json::json!({
@@ -697,7 +697,7 @@ impl BrowserBridgePlugin {
 
         // Validate source path exists
         if !source_path.exists() {
-            return Err(PluginError::plugin_error(
+            return Err(PluginError::from_plugin(
                 "browser_bridge",
                 format!("Extension path not found: {}", opts.path),
             ));
@@ -705,7 +705,7 @@ impl BrowserBridgePlugin {
 
         // Must be a directory
         if !source_path.is_dir() {
-            return Err(PluginError::plugin_error(
+            return Err(PluginError::from_plugin(
                 "browser_bridge",
                 "Extension path must be a directory (unpacked extension)",
             ));
@@ -714,7 +714,7 @@ impl BrowserBridgePlugin {
         // Must contain manifest.json
         let manifest_path = source_path.join("manifest.json");
         if !manifest_path.exists() {
-            return Err(PluginError::plugin_error(
+            return Err(PluginError::from_plugin(
                 "browser_bridge",
                 "Extension folder must contain manifest.json",
             ));
@@ -722,14 +722,14 @@ impl BrowserBridgePlugin {
 
         // Read manifest to get extension info
         let manifest_content = std::fs::read_to_string(&manifest_path).map_err(|e| {
-            PluginError::plugin_error(
+            PluginError::from_plugin(
                 "browser_bridge",
                 format!("Failed to read manifest.json: {}", e),
             )
         })?;
 
         let manifest: serde_json::Value = serde_json::from_str(&manifest_content).map_err(|e| {
-            PluginError::plugin_error("browser_bridge", format!("Invalid manifest.json: {}", e))
+            PluginError::from_plugin("browser_bridge", format!("Invalid manifest.json: {}", e))
         })?;
 
         let ext_name = manifest
@@ -755,7 +755,7 @@ impl BrowserBridgePlugin {
         // Create extensions directory if needed
         let extensions_dir = Self::get_webview_extensions_dir();
         std::fs::create_dir_all(&extensions_dir).map_err(|e| {
-            PluginError::plugin_error(
+            PluginError::from_plugin(
                 "browser_bridge",
                 format!("Failed to create extensions directory: {}", e),
             )
@@ -766,7 +766,7 @@ impl BrowserBridgePlugin {
         // Remove existing extension with same name if exists
         if target_path.exists() {
             std::fs::remove_dir_all(&target_path).map_err(|e| {
-                PluginError::plugin_error(
+                PluginError::from_plugin(
                     "browser_bridge",
                     format!("Failed to remove existing extension: {}", e),
                 )
@@ -775,7 +775,7 @@ impl BrowserBridgePlugin {
 
         // Copy extension folder recursively
         Self::copy_dir_recursive(source_path, &target_path).map_err(|e| {
-            PluginError::plugin_error("browser_bridge", format!("Failed to copy extension: {}", e))
+            PluginError::from_plugin("browser_bridge", format!("Failed to copy extension: {}", e))
         })?;
 
         Ok(serde_json::json!({
@@ -853,14 +853,14 @@ impl BrowserBridgePlugin {
         let extension_path = extensions_dir.join(id);
 
         if !extension_path.exists() {
-            return Err(PluginError::plugin_error(
+            return Err(PluginError::from_plugin(
                 "browser_bridge",
                 format!("Extension '{}' not found", id),
             ));
         }
 
         std::fs::remove_dir_all(&extension_path).map_err(|e| {
-            PluginError::plugin_error(
+            PluginError::from_plugin(
                 "browser_bridge",
                 format!("Failed to remove extension: {}", e),
             )
@@ -880,14 +880,14 @@ impl BrowserBridgePlugin {
 
         // Create directory if it doesn't exist
         std::fs::create_dir_all(&extensions_dir).map_err(|e| {
-            PluginError::plugin_error(
+            PluginError::from_plugin(
                 "browser_bridge",
                 format!("Failed to create extensions directory: {}", e),
             )
         })?;
 
         open::that(&extensions_dir).map_err(|e| {
-            PluginError::plugin_error("browser_bridge", format!("Failed to open directory: {}", e))
+            PluginError::from_plugin("browser_bridge", format!("Failed to open directory: {}", e))
         })?;
 
         Ok(serde_json::json!({

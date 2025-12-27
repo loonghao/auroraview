@@ -144,7 +144,7 @@ impl PluginError {
     }
 
     /// Create a generic plugin error (for plugin-specific errors)
-    pub fn plugin_error(_plugin_name: &str, msg: impl Into<String>) -> Self {
+    pub fn from_plugin(_plugin_name: &str, msg: impl Into<String>) -> Self {
         Self::new(PluginErrorCode::Unknown, msg)
     }
 }
