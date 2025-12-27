@@ -137,12 +137,8 @@ fn test_generate_polyfill_from_sdk_escapes_path() {
 #[test]
 fn test_generate_polyfill_from_sdk_escapes_quotes() {
     // Test with path containing single quotes
-    let polyfill = generate_polyfill_from_sdk(
-        &"quote-ext".to_string(),
-        "/path/with'quote",
-        None,
-        None,
-    );
+    let polyfill =
+        generate_polyfill_from_sdk(&"quote-ext".to_string(), "/path/with'quote", None, None);
 
     // Check quote is escaped
     assert!(polyfill.contains("/path/with\\'quote"));
@@ -150,8 +146,7 @@ fn test_generate_polyfill_from_sdk_escapes_quotes() {
 
 #[test]
 fn test_generate_polyfill_from_sdk_sets_auroraview_flag() {
-    let polyfill =
-        generate_polyfill_from_sdk(&"flag-ext".to_string(), "/ext/path", None, None);
+    let polyfill = generate_polyfill_from_sdk(&"flag-ext".to_string(), "/ext/path", None, None);
 
     // Check AuroraView flag is set
     assert!(polyfill.contains("__AURORAVIEW__"));
@@ -160,8 +155,7 @@ fn test_generate_polyfill_from_sdk_sets_auroraview_flag() {
 
 #[test]
 fn test_generate_polyfill_from_sdk_has_timestamp() {
-    let polyfill =
-        generate_polyfill_from_sdk(&"time-ext".to_string(), "/ext/path", None, None);
+    let polyfill = generate_polyfill_from_sdk(&"time-ext".to_string(), "/ext/path", None, None);
 
     // Check timestamp comment is present
     assert!(polyfill.contains("Generated at:"));
