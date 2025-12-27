@@ -126,7 +126,7 @@ struct BridgeState {
 
 /// Connected client info
 #[derive(Debug, Clone, Serialize)]
-struct ClientInfo {
+pub struct ClientInfo {
     id: u64,
     address: String,
     connected_at: u64,
@@ -299,6 +299,7 @@ impl BrowserBridgePlugin {
     }
 
     /// Emit event to frontend
+    #[allow(dead_code)]
     fn emit_event(&self, event: &str, data: Value) {
         if let Ok(cb) = self.event_callback.read() {
             if let Some(callback) = cb.as_ref() {
