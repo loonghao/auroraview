@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+
   title: 'AuroraView',
   description: 'A lightweight WebView framework for DCC software',
   
@@ -63,6 +64,7 @@ export default defineConfig({
               text: '展示',
               items: [
                 { text: 'Gallery', link: '/zh/guide/gallery' },
+                { text: '示例', link: '/zh/guide/examples' },
               ]
             },
             {
@@ -157,6 +159,7 @@ export default defineConfig({
           text: 'Showcase',
           items: [
             { text: 'Gallery', link: '/guide/gallery' },
+            { text: 'Examples', link: '/guide/examples' },
           ]
         },
         {

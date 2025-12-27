@@ -102,3 +102,6 @@ local-test.py
 # Gallery debug files
 gallery/debug_log.txt
 gallery/full_log.txt
+
+# VitePress cache (root level, if any)
+/.vitepress/

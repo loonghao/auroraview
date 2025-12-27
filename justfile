@@ -591,6 +591,26 @@ gallery-screenshots:
     uv run python scripts/test_gallery_e2e.py --screenshots-only
     @echo "[OK] Screenshots saved to docs/public/gallery/"
 
+# Generate example screenshots for documentation
+example-screenshots:
+    @echo "Generating example screenshots for documentation..."
+    uv run python scripts/screenshot_examples.py
+    @echo "[OK] Screenshots saved to docs/public/examples/"
+
+# Generate example screenshots (specific example)
+example-screenshot EXAMPLE:
+    @echo "Generating screenshot for: {{EXAMPLE}}..."
+    uv run python scripts/screenshot_examples.py --example {{EXAMPLE}}
+
+# List available examples for screenshots
+example-list:
+    @echo "Available examples:"
+    uv run python scripts/screenshot_examples.py --list
+
+# Generate all documentation screenshots (gallery + examples)
+docs-screenshots: gallery-screenshots example-screenshots
+    @echo "[OK] All documentation screenshots generated!"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Packaging Commands
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -728,16 +748,22 @@ docs-install:
     cd docs; npm install
     @echo "[OK] Documentation dependencies installed!"
 
-# Start documentation dev server
-docs-dev: docs-install
+# Generate examples documentation from examples/ directory
+docs-generate-examples:
+    @echo "Generating examples documentation..."
+    cd docs; npx tsx .vitepress/hooks/generate-examples.ts
+    @echo "[OK] Examples documentation generated!"
+
+# Start documentation dev server (auto-generates examples docs)
+docs-dev: docs-install docs-generate-examples
     @echo "Starting documentation dev server..."
     cd docs; npx vitepress dev
 
 # Alias for docs-dev
 docs-serve: docs-dev
 
-# Build documentation
-docs-build: docs-install
+# Build documentation (auto-generates examples docs)
+docs-build: docs-install docs-generate-examples
     @echo "Building documentation..."
     cd docs; npx vitepress build
     @echo "[OK] Documentation built in docs/.vitepress/dist/"
