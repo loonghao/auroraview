@@ -518,8 +518,9 @@ mod tests {
 
     #[test]
     fn test_url_pattern_matching() {
+        // *.example.com matches subdomains like sub.example.com, not example.com itself
         assert!(url_matches_pattern(
-            "https://example.com/page",
+            "https://sub.example.com/page",
             "*://*.example.com/*"
         ));
         assert!(url_matches_pattern(
@@ -527,5 +528,10 @@ mod tests {
             "http://localhost:*/*"
         ));
         assert!(url_matches_pattern("https://anything.com", "<all_urls>"));
+        // Test exact domain match
+        assert!(url_matches_pattern(
+            "https://example.com/page",
+            "*://example.com/*"
+        ));
     }
 }

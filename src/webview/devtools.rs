@@ -175,6 +175,7 @@ impl DevToolsManager {
         let window_id = self.generate_window_id();
 
         // Create DevTools window via callback
+        #[allow(unused_variables)]
         let hwnd = {
             let callback = self.create_callback.read();
             if let Some(ref cb) = *callback {
