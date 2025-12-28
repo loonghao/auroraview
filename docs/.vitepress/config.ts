@@ -34,6 +34,7 @@ export default defineConfig({
                 { text: '快速开始', link: '/zh/guide/getting-started' },
                 { text: '安装', link: '/zh/guide/installation' },
                 { text: '架构概述', link: '/zh/guide/architecture' },
+                { text: '设计思路', link: '/zh/guide/design-philosophy' },
               ]
             },
             {
@@ -42,11 +43,13 @@ export default defineConfig({
                 { text: 'WebView 基础', link: '/zh/guide/webview-basics' },
                 { text: '双向通信', link: '/zh/guide/communication' },
                 { text: '自定义协议', link: '/zh/guide/custom-protocol' },
+                { text: 'TypeScript SDK', link: '/zh/guide/typescript-sdk' },
               ]
             },
             {
               text: '高级功能',
               items: [
+                { text: '高级用法', link: '/zh/guide/advanced-usage' },
                 { text: '应用打包', link: '/zh/guide/packing' },
                 { text: 'CLI 参考', link: '/zh/guide/cli' },
                 { text: '性能优化', link: '/zh/guide/performance' },
@@ -71,6 +74,12 @@ export default defineConfig({
               text: 'Chrome 扩展兼容',
               items: [
                 { text: 'Chrome API 兼容性', link: '/zh/guide/chrome-extension-apis' },
+              ]
+            },
+            {
+              text: '贡献',
+              items: [
+                { text: '贡献指南', link: '/zh/guide/contributing' },
               ]
             }
           ],
@@ -129,6 +138,7 @@ export default defineConfig({
             { text: 'Quick Start', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
             { text: 'Architecture', link: '/guide/architecture' },
+            { text: 'Design Philosophy', link: '/guide/design-philosophy' },
           ]
         },
         {
@@ -137,11 +147,13 @@ export default defineConfig({
             { text: 'WebView Basics', link: '/guide/webview-basics' },
             { text: 'Communication', link: '/guide/communication' },
             { text: 'Custom Protocol', link: '/guide/custom-protocol' },
+            { text: 'TypeScript SDK', link: '/guide/typescript-sdk' },
           ]
         },
         {
           text: 'Advanced',
           items: [
+            { text: 'Advanced Usage', link: '/guide/advanced-usage' },
             { text: 'Packing', link: '/guide/packing' },
             { text: 'CLI Reference', link: '/guide/cli' },
             { text: 'Performance', link: '/guide/performance' },
@@ -166,6 +178,12 @@ export default defineConfig({
           text: 'Chrome Extension',
           items: [
             { text: 'Chrome API Compatibility', link: '/guide/chrome-extension-apis' },
+          ]
+        },
+        {
+          text: 'Contributing',
+          items: [
+            { text: 'Contributing Guide', link: '/guide/contributing' },
           ]
         }
       ],
