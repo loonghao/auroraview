@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Midscene.js Integration for AuroraView Testing.
 
