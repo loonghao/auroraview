@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Snapshot testing support for AuroraView.
 
 This module provides utilities for snapshot testing - comparing current output

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Test decorators for AuroraView testing framework.
 
 This module provides decorators to simplify test setup and conditional skipping

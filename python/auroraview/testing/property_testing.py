@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Property-based testing support for AuroraView.
 
 This module provides Hypothesis strategies and utilities for property-based
