@@ -669,7 +669,6 @@ class MidsceneAgent:
             text = node.get("text", "").lower()
             aria_label = node.get("ariaLabel", "").lower()
             placeholder = node.get("placeholder", "").lower()
-            tag = node.get("tag", "").lower()
 
             # Check for keyword matches
             keywords = description_lower.split()
