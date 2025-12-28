@@ -10,8 +10,10 @@
 //! - `service_discovery` - Service discovery and port allocation
 //! - `cli_utils` - CLI utility functions (URL normalization, HTML rewriting)
 //! - `desktop_runner` - Desktop WebView runner (uses event_loop.run())
+//! - `assets` - Static assets (JavaScript, HTML) for testing
 //! - `webview2` - Windows WebView2 embedded API (feature-gated)
 
+pub mod assets;
 pub mod cli_utils;
 pub mod desktop_runner;
 pub mod ipc;

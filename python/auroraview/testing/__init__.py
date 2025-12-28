@@ -78,6 +78,73 @@ from .headless_webview import (
 # Import auroratest submodule for Playwright-like API
 from . import auroratest
 
+# Import test decorators
+from .decorators import (
+    requires_qt,
+    requires_cdp,
+    requires_gallery,
+    requires_playwright,
+    requires_webview2,
+    requires_windows,
+    requires_linux,
+    requires_macos,
+    requires_env,
+    slow_test,
+    integration_test,
+    unit_test,
+    smoke_test,
+    flaky_test,
+    with_timeout,
+    parametrize_examples,
+    serial_test,
+    skip_if,
+    xfail_if,
+)
+
+# Import test data generators
+from .generators import (
+    random_string,
+    random_html,
+    random_html_page,
+    random_form_html,
+    random_js_value,
+    random_event_payload,
+    random_event_name,
+    random_api_method,
+    random_api_params,
+    random_selector,
+    random_xpath,
+    random_url,
+    random_file_url,
+    generate_test_dataset,
+)
+
+# Import snapshot testing
+from .snapshot import (
+    SnapshotTest,
+    ScreenshotSnapshot,
+    SnapshotMismatchError,
+    pytest_snapshot_fixture,
+    pytest_screenshot_fixture,
+    normalize_html,
+    normalize_json,
+)
+
+# Import property-based testing (lazy to avoid requiring hypothesis)
+from . import property_testing
+
+# Import Midscene.js AI-powered testing
+from .midscene import (
+    MidsceneConfig,
+    MidsceneAgent,
+    MidsceneActionResult,
+    MidsceneQueryResult,
+    MidscenePlaywrightFixture,
+    pytest_ai_fixture,
+    get_midscene_bridge_script,
+    inject_midscene_bridge,
+)
+
 
 # Qt testing utilities (lazy import to avoid requiring Qt)
 def __getattr__(name: str):
@@ -108,4 +175,58 @@ __all__ = [
     "qt",
     "QtWebViewTestHelper",
     "create_qt_webview",
+    # Test decorators
+    "requires_qt",
+    "requires_cdp",
+    "requires_gallery",
+    "requires_playwright",
+    "requires_webview2",
+    "requires_windows",
+    "requires_linux",
+    "requires_macos",
+    "requires_env",
+    "slow_test",
+    "integration_test",
+    "unit_test",
+    "smoke_test",
+    "flaky_test",
+    "with_timeout",
+    "parametrize_examples",
+    "serial_test",
+    "skip_if",
+    "xfail_if",
+    # Test data generators
+    "random_string",
+    "random_html",
+    "random_html_page",
+    "random_form_html",
+    "random_js_value",
+    "random_event_payload",
+    "random_event_name",
+    "random_api_method",
+    "random_api_params",
+    "random_selector",
+    "random_xpath",
+    "random_url",
+    "random_file_url",
+    "generate_test_dataset",
+    # Snapshot testing
+    "SnapshotTest",
+    "ScreenshotSnapshot",
+    "SnapshotMismatchError",
+    "pytest_snapshot_fixture",
+    "pytest_screenshot_fixture",
+    "normalize_html",
+    "normalize_json",
+    # Property-based testing (submodule)
+    "property_testing",
+    # Midscene.js AI-powered testing
+    "MidsceneConfig",
+    "MidsceneAgent",
+    "MidsceneActionResult",
+    "MidsceneQueryResult",
+    "MidscenePlaywrightFixture",
+    "pytest_ai_fixture",
+    "get_midscene_bridge_script",
+    "inject_midscene_bridge",
 ]

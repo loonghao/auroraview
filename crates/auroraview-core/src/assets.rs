@@ -277,6 +277,26 @@ pub fn get_file_drop_js() -> String {
 }
 
 // ========================================
+// Testing Scripts
+// ========================================
+
+/// Get the Midscene AI testing bridge JavaScript code
+///
+/// This script provides browser-side utilities for AI-powered UI testing:
+/// - DOM analysis and element location
+/// - Screenshot capture
+/// - Element interaction helpers
+/// - Page state inspection
+///
+/// The bridge is accessible via `window.__midscene_bridge__` or
+/// `window.auroraview.midscene` when the event bridge is loaded.
+pub fn get_midscene_bridge_js() -> String {
+    Assets::get("js/features/midscene_bridge.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+// ========================================
 // Core Bridge Scripts
 // ========================================
 

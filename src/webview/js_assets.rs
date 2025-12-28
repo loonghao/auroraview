@@ -40,10 +40,10 @@ pub use auroraview_core::assets::{
     get_clipboard_plugin_js, get_command_bridge_js, get_context_menu_js, get_dialog_plugin_js,
     get_dom_events_js, get_emit_event_js, get_event_bridge_js, get_event_utils_js,
     get_file_drop_js, get_fs_plugin_js, get_js_asset, get_load_url_js, get_loading_html,
-    get_loading_html as get_loading_html_string, get_navigation_api_js, get_navigation_tracker_js,
-    get_network_intercept_js, get_plugin_js, get_screenshot_js, get_shell_plugin_js,
-    get_state_bridge_js, get_test_callback_js, get_typescript_definitions, get_zoom_api_js,
-    plugin_names,
+    get_loading_html as get_loading_html_string, get_midscene_bridge_js, get_navigation_api_js,
+    get_navigation_tracker_js, get_network_intercept_js, get_plugin_js, get_screenshot_js,
+    get_shell_plugin_js, get_state_bridge_js, get_test_callback_js, get_typescript_definitions,
+    get_zoom_api_js, plugin_names,
 };
 
 /// Get JavaScript code by path
@@ -70,6 +70,30 @@ pub fn event_bridge() -> String {
 /// Get context menu disable JavaScript (lazy loaded from core)
 pub fn context_menu_disable() -> String {
     get_context_menu_js()
+}
+
+/// Get context menu JavaScript (alias for context_menu_disable)
+pub fn context_menu() -> String {
+    get_context_menu_js()
+}
+
+/// Get Midscene AI testing bridge JavaScript (lazy loaded from core)
+///
+/// This script provides browser-side utilities for AI-powered UI testing:
+/// - DOM analysis and element location
+/// - Screenshot capture
+/// - Element interaction helpers
+/// - Page state inspection
+pub fn midscene_bridge() -> String {
+    get_midscene_bridge_js()
+}
+
+/// Get test callback JavaScript (lazy loaded from core)
+///
+/// This script provides callback mechanism for AuroraTest framework
+/// to receive JavaScript evaluation results asynchronously.
+pub fn test_callback() -> String {
+    get_test_callback_js()
 }
 
 /// Build complete initialization script based on configuration

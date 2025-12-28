@@ -76,6 +76,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register window manager functions (multi-window support)
     bindings::window_manager::register_window_manager_functions(m)?;
 
+    // Register static assets functions (JavaScript, HTML for testing)
+    bindings::assets::register_assets_functions(m)?;
+
     // Register high-performance DOM batch operations
     dom::register_dom_module(m)?;
 
