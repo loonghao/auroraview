@@ -14,6 +14,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
@@ -631,7 +632,9 @@ class TestGeneratorsUrlGenerators:
 
         result = random_url()
         assert result.startswith("https://")
-        assert ".example.com" in result
+        parsed = urlparse(result)
+        assert parsed.hostname is not None
+        assert parsed.hostname.endswith(".example.com") or parsed.hostname == "example.com"
 
     def test_random_url_custom(self):
         """Test random_url with custom parameters."""
