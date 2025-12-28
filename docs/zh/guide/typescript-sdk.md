@@ -5,13 +5,17 @@ AuroraView 提供了一个功能完整的 TypeScript SDK，用于在前端与 Py
 ## 安装
 
 ```bash
-npm install @aspect-apps/auroraview-sdk
+npm install @auroraview/sdk
+# or
+yarn add @auroraview/sdk
+# or
+pnpm add @auroraview/sdk
 ```
 
 ## 快速开始
 
 ```typescript
-import { createAuroraView, getAuroraView } from '@aspect-apps/auroraview-sdk';
+import { createAuroraView, getAuroraView } from '@auroraview/sdk';
 
 // 创建实例
 const av = createAuroraView();
@@ -149,7 +153,7 @@ await av.shell.showItemInFolder('/path/to/file');
 ### React
 
 ```tsx
-import { useAuroraView, useAuroraViewEvent } from '@aspect-apps/auroraview-sdk/react';
+import { useAuroraView, useAuroraViewEvent } from '@auroraview/sdk/react';
 
 function MyComponent() {
   const av = useAuroraView();
@@ -172,7 +176,7 @@ function MyComponent() {
 
 ```vue
 <script setup lang="ts">
-import { useAuroraView, useAuroraViewEvent } from '@aspect-apps/auroraview-sdk/vue';
+import { useAuroraView, useAuroraViewEvent } from '@auroraview/sdk/vue';
 
 const av = useAuroraView();
 
@@ -201,7 +205,7 @@ import type {
   CallOptions,
   EventHandler,
   DialogOptions 
-} from '@aspect-apps/auroraview-sdk';
+} from '@auroraview/sdk';
 
 // 自定义 API 类型
 interface MyAPI {
@@ -217,7 +221,7 @@ const user = await av.api.get_user(1); // 类型推断为 User
 ## 错误处理
 
 ```typescript
-import { AuroraViewError } from '@aspect-apps/auroraview-sdk';
+import { AuroraViewError } from '@auroraview/sdk';
 
 try {
   await av.call('api.risky_operation');
@@ -255,7 +259,7 @@ const av = createAuroraView({
 
 ```typescript
 // aurora.ts
-import { createAuroraView } from '@aspect-apps/auroraview-sdk';
+import { createAuroraView } from '@auroraview/sdk';
 
 export const av = createAuroraView();
 ```
@@ -315,5 +319,5 @@ const av = createAuroraView({ debug: true });
 ## 下一步
 
 - [通信机制](./communication.md) - 深入了解 Python-JS 通信
-- [高级用法](./advanced-usage.md) - 探索更多高级功能
+- [高级用法](./advanced-usage) - 探索更多高级功能
 - [API 参考](/api/) - 完整的 API 文档
