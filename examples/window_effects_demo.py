@@ -537,17 +537,13 @@ class WindowEffectsApi:
         """Update interactive regions."""
         from auroraview._core import PyRegion
 
-        py_regions = [
-            PyRegion(r["x"], r["y"], r["width"], r["height"]) for r in regions
-        ]
+        py_regions = [PyRegion(r["x"], r["y"], r["width"], r["height"]) for r in regions]
         self._core.update_interactive_regions(py_regions)
 
     def get_interactive_regions(self) -> list:
         """Get current interactive regions."""
         regions = self._core.get_interactive_regions()
-        return [
-            {"x": r.x, "y": r.y, "width": r.width, "height": r.height} for r in regions
-        ]
+        return [{"x": r.x, "y": r.y, "width": r.width, "height": r.height} for r in regions]
 
     def apply_blur(self, color=None) -> bool:
         """Apply blur effect.

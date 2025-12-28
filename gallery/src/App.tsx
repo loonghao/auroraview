@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { Sidebar } from './components/Sidebar';
+import { AnimatedSidebar } from './components/AnimatedSidebar';
 import { CategorySection } from './components/CategorySection';
 import { QuickLinks } from './components/QuickLinks';
 import { SourceModal } from './components/SourceModal';
@@ -14,6 +14,9 @@ import { ExtensionPanel, type InstalledExtension } from './components/ExtensionP
 import { ExtensionToolbar } from './components/ExtensionToolbar';
 import { SplitLayout } from './components/SplitLayout';
 import { ExtensionContent } from './components/ExtensionContent';
+import { AnimatedHeader } from './components/AnimatedHeader';
+import { PageTransition, StaggeredList } from './components/PageTransition';
+import { AnimatedCard } from './components/AnimatedCard';
 import { type Tag } from './data/samples';
 import { useAuroraView, type Sample, type Category, type ExtensionInfo } from './hooks/useAuroraView';
 import * as Icons from 'lucide-react';
@@ -779,7 +782,7 @@ function App() {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar
+      <AnimatedSidebar
         activeCategory={activeCategory}
         onCategoryClick={handleCategoryClick}
         onSettingsClick={handleSettingsClick}
@@ -792,15 +795,10 @@ function App() {
       <SplitLayout sidePanel={sidePanelConfig}>
         <main className="flex-1 p-8 max-w-5xl ml-14">
         {/* Header */}
-        <header className="mb-8 flex items-start justify-between">
-          <div>
-            <h1 className="text-4xl font-bold mb-2 text-foreground">
-                AuroraView Gallery
-            </h1>
-            <p className="text-muted-foreground">
-                Explore all features and components with live demos and source code
-            </p>
-          </div>
+        <AnimatedHeader
+          title="AuroraView Gallery"
+          subtitle="Explore all features and components with live demos and source code"
+        >
           <ExtensionToolbar 
             extensions={displayExtensions}
             activeExtensionId={viewMode === 'extension-content' ? activeSidePanelExtension?.id ?? null : null}
@@ -808,7 +806,7 @@ function App() {
             onManageExtensions={() => setViewMode('extensions')}
             onOpenStore={handleOpenExtensionStore}
           />
-        </header>
+        </AnimatedHeader>
 
         {/* Quick Links */}
         {viewMode === 'gallery' && (
@@ -871,7 +869,7 @@ function App() {
 
         {/* Search and Filter */}
         {viewMode === 'gallery' && (
-            <>
+            <PageTransition transitionKey="gallery">
                 <SearchBar value={searchQuery} onChange={setSearchQuery} />
                 <TagFilter selectedTags={selectedTags} onTagToggle={handleTagToggle} onClear={handleClearTags} />
 
@@ -889,16 +887,17 @@ function App() {
                     </p>
                     </div>
                     {filteredSamples.length > 0 ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        {filteredSamples.map((sample: Sample) => (
-                        <SampleCard
-                            key={sample.id}
-                            sample={sample}
-                            onViewSource={handleViewSource}
-                            onRun={handleRun}
-                        />
+                    <StaggeredList className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        {filteredSamples.map((sample: Sample, index: number) => (
+                        <AnimatedCard key={sample.id} delay={index * 0.05}>
+                          <SampleCard
+                              sample={sample}
+                              onViewSource={handleViewSource}
+                              onRun={handleRun}
+                          />
+                        </AnimatedCard>
                         ))}
-                    </div>
+                    </StaggeredList>
                     ) : (
                     <div className="text-center py-12 text-muted-foreground">
                         No samples found matching your search.
@@ -924,7 +923,7 @@ function App() {
                     })}
                 </>
                 )}
-            </>
+            </PageTransition>
         )}
 
         <Footer />
