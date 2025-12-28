@@ -63,7 +63,7 @@ def get_html(ctx: ChildContext) -> str:
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, {colors['bg1']} 0%, {colors['bg2']} 100%);
+            background: linear-gradient(135deg, {colors["bg1"]} 0%, {colors["bg2"]} 100%);
             color: #e4e4e4;
             min-height: 100vh;
             padding: 24px;
@@ -76,13 +76,13 @@ def get_html(ctx: ChildContext) -> str:
         }}
         .header h1 {{
             font-size: 28px;
-            color: {colors['accent']};
+            color: {colors["accent"]};
             margin-bottom: 12px;
         }}
         .mode-badge {{
             display: inline-block;
-            background: {colors['badge_bg']};
-            color: {colors['badge_text']};
+            background: {colors["badge_bg"]};
+            color: {colors["badge_text"]};
             padding: 8px 20px;
             border-radius: 24px;
             font-size: 13px;
@@ -103,7 +103,7 @@ def get_html(ctx: ChildContext) -> str:
             border: 1px solid rgba(255, 255, 255, 0.08);
         }}
         .card h2 {{
-            color: {colors['accent']};
+            color: {colors["accent"]};
             font-size: 16px;
             margin-bottom: 16px;
             display: flex;
@@ -114,7 +114,7 @@ def get_html(ctx: ChildContext) -> str:
             content: '';
             width: 4px;
             height: 18px;
-            background: {colors['accent']};
+            background: {colors["accent"]};
             border-radius: 2px;
         }}
         
@@ -143,8 +143,8 @@ def get_html(ctx: ChildContext) -> str:
             margin-bottom: 16px;
         }}
         button {{
-            background: {colors['accent']};
-            color: {colors['bg2']};
+            background: {colors["accent"]};
+            color: {colors["bg2"]};
             border: none;
             padding: 12px 20px;
             border-radius: 10px;
@@ -214,7 +214,7 @@ def get_html(ctx: ChildContext) -> str:
         }}
         input:focus {{
             outline: none;
-            border-color: {colors['accent']};
+            border-color: {colors["accent"]};
         }}
         
         .hidden {{ display: none !important; }}
@@ -245,7 +245,7 @@ def get_html(ctx: ChildContext) -> str:
             </div>
         </div>
         
-        <div class="card {'hidden' if not ctx.is_child else ''}">
+        <div class="card {"hidden" if not ctx.is_child else ""}">
             <h2>Parent Communication</h2>
             <div class="btn-row">
                 <button onclick="sendPing()">Ping Parent</button>
@@ -346,7 +346,7 @@ def get_html(ctx: ChildContext) -> str:
         // Local actions
         function logContext() {{
             console.log('Child Window Context:', {{
-                isChild: {'true' if ctx.is_child else 'false'},
+                isChild: {"true" if ctx.is_child else "false"},
                 parentId: '{ctx.parent_id or "null"}',
                 childId: '{ctx.child_id or "null"}',
                 exampleName: '{ctx.example_name or "null"}'
@@ -446,6 +446,7 @@ def main():
 
         # Listen for parent events (if in child mode)
         if ctx.bridge:
+
             def on_parent_pong(data):
                 webview.emit("parent:pong", data)
 

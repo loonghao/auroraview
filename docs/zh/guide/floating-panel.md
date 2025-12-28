@@ -1,57 +1,57 @@
-# Floating Panels
+# 浮窗面板
 
-Create floating tool windows for AI assistants, tool palettes, or overlay interfaces.
+创建浮动工具窗口，用于 AI 助手、工具面板或覆盖层界面。
 
-## Basic Floating Panel
+## 基础浮窗面板
 
 ```python
 from auroraview import WebView
 
 webview = WebView.create(
-    title="AI Assistant",
+    title="AI 助手",
     html=panel_html,
     width=320,
     height=400,
-    frame=False,         # Frameless window
-    transparent=True,    # Transparent background
-    always_on_top=True,  # Keep on top
+    frame=False,         # 无边框窗口
+    transparent=True,    # 透明背景
+    always_on_top=True,  # 保持置顶
 )
 webview.show()
 ```
 
-## Tool Window Mode
+## 工具窗口模式
 
-Hide from taskbar and Alt+Tab:
+从任务栏和 Alt+Tab 中隐藏：
 
 ```python
 webview = WebView.create(
-    title="Tool Palette",
+    title="工具面板",
     html=palette_html,
     width=200,
     height=600,
     frame=False,
-    tool_window=True,    # Hide from taskbar/Alt+Tab (WS_EX_TOOLWINDOW)
+    tool_window=True,    # 从任务栏/Alt+Tab 隐藏 (WS_EX_TOOLWINDOW)
 )
 ```
 
-## Owner Mode
+## 所有者模式
 
-Window follows parent minimize/restore:
+窗口跟随父窗口最小化/还原：
 
 ```python
 webview = WebView.create(
-    title="Floating Tool",
+    title="浮动工具",
     html=tool_html,
-    parent=parent_hwnd,  # Parent window handle
-    mode="owner",        # Follow parent minimize/restore
+    parent=parent_hwnd,  # 父窗口句柄
+    mode="owner",        # 跟随父窗口最小化/还原
     frame=False,
     always_on_top=True,
 )
 ```
 
-## Transparent Floating Button
+## 透明浮动按钮
 
-Create a truly transparent circular button:
+创建真正透明的圆形按钮：
 
 ```python
 from auroraview import AuroraView
@@ -64,21 +64,21 @@ class TriggerButton(AuroraView):
             height=48,
             frame=False,
             transparent=True,
-            undecorated_shadow=False,  # CRITICAL: No shadow for truly transparent
+            undecorated_shadow=False,  # 关键：无阴影实现真正透明
             always_on_top=True,
             tool_window=True,
         )
 ```
 
-**Key Parameters for Transparent Windows:**
-- `frame=False` - Frameless window
-- `transparent=True` - Transparent background
-- `undecorated_shadow=False` - **Critical** - Removes shadow for truly transparent windows
-- `tool_window=True` - Hide from taskbar/Alt+Tab
+**透明窗口的关键参数：**
+- `frame=False` - 无边框窗口
+- `transparent=True` - 透明背景
+- `undecorated_shadow=False` - **关键** - 移除阴影实现真正透明
+- `tool_window=True` - 从任务栏/Alt+Tab 隐藏
 
-## Floating Toolbar with GSAP
+## 带 GSAP 动画的浮动工具栏
 
-Create an expandable toolbar with smooth animations:
+创建带平滑动画的可展开工具栏：
 
 ```python
 from auroraview import AuroraView
@@ -143,7 +143,7 @@ class FloatingToolbar(AuroraView):
         )
 ```
 
-## Complete Example
+## 完整示例
 
 ```python
 from auroraview import WebView
@@ -185,18 +185,18 @@ panel_html = """
 </head>
 <body>
     <div class="titlebar">
-        <span>AI Assistant</span>
+        <span>AI 助手</span>
         <button onclick="auroraview.send_event('close')">✕</button>
     </div>
     <div class="content">
-        <p>Ask me anything...</p>
+        <p>问我任何问题...</p>
     </div>
 </body>
 </html>
 """
 
 webview = WebView.create(
-    title="AI Assistant",
+    title="AI 助手",
     html=panel_html,
     width=320,
     height=400,
@@ -213,37 +213,37 @@ def handle_close(data):
 webview.show()
 ```
 
-## Configuration Options
+## 配置选项
 
-| Option | Description | Effect |
-|--------|-------------|--------|
-| `frame=False` | Remove window frame | Frameless window |
-| `transparent=True` | Enable transparency | See-through background |
-| `undecorated_shadow=False` | Disable shadow | Truly transparent window |
-| `always_on_top=True` | Keep above other windows | Always visible |
-| `tool_window=True` | Tool window style | Hidden from taskbar |
-| `mode="owner"` | Owner relationship | Follow parent window |
+| 选项 | 描述 | 效果 |
+|------|------|------|
+| `frame=False` | 移除窗口边框 | 无边框窗口 |
+| `transparent=True` | 启用透明 | 透明背景 |
+| `undecorated_shadow=False` | 禁用阴影 | 真正透明的窗口 |
+| `always_on_top=True` | 保持在其他窗口上方 | 始终可见 |
+| `tool_window=True` | 工具窗口样式 | 从任务栏隐藏 |
+| `mode="owner"` | 所有者关系 | 跟随父窗口 |
 
-## Custom Dragging
+## 自定义拖拽
 
-For frameless windows, use CSS `-webkit-app-region`:
+对于无边框窗口，使用 CSS `-webkit-app-region`：
 
 ```css
-/* Make element draggable */
+/* 使元素可拖拽 */
 .titlebar {
     -webkit-app-region: drag;
 }
 
-/* Exclude interactive elements */
+/* 排除交互元素 */
 .titlebar button {
     -webkit-app-region: no-drag;
 }
 ```
 
-## Related Examples
+## 相关示例
 
-- `examples/floating_panel_demo.py` - Basic floating panel
-- `examples/floating_toolbar_demo.py` - Expandable toolbar with GSAP
-- `examples/radial_menu_demo.py` - Circular menu
-- `examples/dock_launcher_demo.py` - macOS-style dock
-- `examples/logo_button_demo.py` - Logo button trigger
+- `examples/floating_panel_demo.py` - 基础浮窗面板
+- `examples/floating_toolbar_demo.py` - 带 GSAP 的可展开工具栏
+- `examples/radial_menu_demo.py` - 圆形菜单
+- `examples/dock_launcher_demo.py` - macOS 风格 Dock
+- `examples/logo_button_demo.py` - Logo 按钮触发器

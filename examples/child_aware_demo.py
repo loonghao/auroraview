@@ -316,11 +316,14 @@ def create_webview(ctx: ChildContext):
     def send_to_parent(type: str = "", timestamp: int = 0):
         """Send a message to parent (if in child mode)."""
         if ctx.is_child:
-            ctx.emit_to_parent("child:message", {
-                "type": type,
-                "timestamp": timestamp,
-                "from": ctx.child_id,
-            })
+            ctx.emit_to_parent(
+                "child:message",
+                {
+                    "type": type,
+                    "timestamp": timestamp,
+                    "from": ctx.child_id,
+                },
+            )
             print(f"[Demo] Sent to parent: {type}", file=sys.stderr)
         else:
             print(f"[Demo] Not in child mode, ignoring send: {type}", file=sys.stderr)
@@ -329,10 +332,13 @@ def create_webview(ctx: ChildContext):
     def request_from_parent(request: str = ""):
         """Request data from parent."""
         if ctx.is_child:
-            ctx.emit_to_parent("child:request", {
-                "request": request,
-                "from": ctx.child_id,
-            })
+            ctx.emit_to_parent(
+                "child:request",
+                {
+                    "request": request,
+                    "from": ctx.child_id,
+                },
+            )
             print(f"[Demo] Requested from parent: {request}", file=sys.stderr)
 
     @webview.bind_call("close")
@@ -342,9 +348,7 @@ def create_webview(ctx: ChildContext):
 
     # Listen for parent events (if in child mode)
     if ctx.bridge:
-        ctx.on_parent_event("parent:data", lambda data: (
-            webview.emit("parent:response", data)
-        ))
+        ctx.on_parent_event("parent:data", lambda data: (webview.emit("parent:response", data)))
 
     return webview
 
