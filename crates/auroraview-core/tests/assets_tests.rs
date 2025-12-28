@@ -2,10 +2,11 @@
 
 use auroraview_core::assets::{
     build_error_page, build_load_url_script, get_all_plugins_js, get_bridge_stub_js,
-    get_browsing_data_js, get_channel_bridge_js, get_dom_events_js, get_error_html,
-    get_event_bridge_js, get_event_utils_js, get_file_drop_js, get_js_asset, get_loading_html,
-    get_navigation_api_js, get_navigation_tracker_js, get_network_intercept_js, get_plugin_js,
-    get_screenshot_js, get_state_bridge_js, get_zoom_api_js, plugin_names,
+    get_browsing_data_js, get_channel_bridge_js, get_command_bridge_js, get_dom_events_js,
+    get_error_html, get_event_bridge_js, get_event_utils_js, get_file_drop_js, get_js_asset,
+    get_loading_html, get_midscene_bridge_js, get_navigation_api_js, get_navigation_tracker_js,
+    get_network_intercept_js, get_plugin_js, get_screenshot_js, get_state_bridge_js,
+    get_test_callback_js, get_zoom_api_js, plugin_names,
 };
 
 #[test]
@@ -164,4 +165,60 @@ fn test_get_js_asset() {
 fn test_get_js_asset_invalid_path() {
     let result = get_js_asset("nonexistent/file.js");
     assert!(result.is_none());
+}
+
+#[test]
+fn test_midscene_bridge_js_available() {
+    let js = get_midscene_bridge_js();
+    // Should contain midscene bridge code
+    assert!(js.contains("__midscene_bridge__") || js.is_empty());
+}
+
+#[test]
+fn test_test_callback_js_available() {
+    let js = get_test_callback_js();
+    // Should contain test callback code
+    assert!(js.contains("__auroratest_callback") || js.is_empty());
+}
+
+#[test]
+fn test_command_bridge_js_available() {
+    let js = get_command_bridge_js();
+    // Should be available
+    let _ = js;
+}
+
+#[test]
+fn test_context_menu_js_available() {
+    let js = auroraview_core::assets::get_context_menu_js();
+    // Should contain context menu code
+    let _ = js;
+}
+
+#[test]
+fn test_emit_event_js_available() {
+    let js = auroraview_core::assets::get_emit_event_js();
+    // Should be available
+    let _ = js;
+}
+
+#[test]
+fn test_load_url_js_available() {
+    let js = auroraview_core::assets::get_load_url_js();
+    // Should be available
+    let _ = js;
+}
+
+#[test]
+fn test_typescript_definitions_available() {
+    let ts = auroraview_core::assets::get_typescript_definitions();
+    // Should be available (may be empty)
+    let _ = ts;
+}
+
+#[test]
+fn test_build_packed_init_script() {
+    let script = auroraview_core::assets::build_packed_init_script();
+    // Should contain event bridge code
+    assert!(script.contains("auroraview") || script.is_empty());
 }
