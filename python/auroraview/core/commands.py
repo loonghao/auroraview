@@ -335,11 +335,11 @@ class CommandRegistry:
         """
         return name in self._commands
 
-    def invoke(self, name: str, **kwargs: Any) -> Any:
+    def invoke(self, command_name: str, **kwargs: Any) -> Any:
         """Invoke a command directly from Python.
 
         Args:
-            name: Command name
+            command_name: Command name to invoke
             **kwargs: Command arguments
 
         Returns:
@@ -348,9 +348,9 @@ class CommandRegistry:
         Raises:
             KeyError: If command not found
         """
-        if name not in self._commands:
-            raise KeyError(f"Unknown command: {name}")
-        return self._commands[name](**kwargs)
+        if command_name not in self._commands:
+            raise KeyError(f"Unknown command: {command_name}")
+        return self._commands[command_name](**kwargs)
 
     def __len__(self) -> int:
         """Return number of registered commands."""
