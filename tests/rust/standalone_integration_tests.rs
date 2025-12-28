@@ -472,7 +472,10 @@ fn test_js_assets_build_init_script_with_api_methods() {
     use std::collections::HashMap;
 
     let mut api_methods = HashMap::new();
-    api_methods.insert("api".to_string(), vec!["echo".to_string(), "greet".to_string()]);
+    api_methods.insert(
+        "api".to_string(),
+        vec!["echo".to_string(), "greet".to_string()],
+    );
 
     let config = WebViewConfig {
         api_methods,
