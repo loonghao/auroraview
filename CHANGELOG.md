@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.29](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.28...auroraview-v0.3.29) (2025-12-28)
+
+
+### Features
+
+* **testing:** add Midscene bridge JS injection via Rust assets ([eb41d93](https://github.com/loonghao/auroraview/commit/eb41d9327895d868cdbb7cb2875642b273bf2103))
+
+
+### Bug Fixes
+
+* format rust code and use urlparse for URL validation ([af3f2fb](https://github.com/loonghao/auroraview/commit/af3f2fbcb3f184b69f90195dc085a7036a7bba63))
+* remove unused os import ([a579302](https://github.com/loonghao/auroraview/commit/a579302e3234ff1510697ec242e8acbca17270f6))
+* **testing:** add missing testing modules and UTF-8 encoding ([8797ff4](https://github.com/loonghao/auroraview/commit/8797ff4f6f2386d8935230c9febfc9446dfef9ab))
+* **testing:** add UTF-8 encoding declaration to all testing modules ([6c71c89](https://github.com/loonghao/auroraview/commit/6c71c89baa23724e29626c070e8d4332c22834ae))
+* **testing:** remove unused variable tag in midscene.py ([94bf869](https://github.com/loonghao/auroraview/commit/94bf86977de67f38383fa9a8c87ec302b961c749))
+
+
+### Documentation
+
+* add browser automation and example demos sections to testing framework guide ([20ae94a](https://github.com/loonghao/auroraview/commit/20ae94aae53cb81322fcbc8ab2578d3ec80dd591))
+
 ## [0.3.28](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.27...auroraview-v0.3.28) (2025-12-28)
 
 
