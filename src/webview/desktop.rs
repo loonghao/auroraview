@@ -133,14 +133,22 @@ pub fn create_desktop(
         .with_always_on_top(config.always_on_top)
         .with_visible(false); // Start hidden to avoid white flash
 
-    // On Windows, apply platform-specific window styles
-    // NOTE: with_undecorated_shadow and with_skip_taskbar are NOT applied here
-    // because they cause WebView2 creation to fail with HRESULT 0x80070057.
-    // These styles are applied AFTER WebView2 creation via apply_tool_window_style().
+    // On Windows, apply platform-specific window styles for transparent windows
+    // CRITICAL: For transparent frameless windows to work correctly on Windows 11,
+    // we MUST disable undecorated_shadow at window creation time.
+    // See: https://github.com/tauri-apps/wry/issues/1026
     #[cfg(target_os = "windows")]
     {
-        // WindowBuilderExtWindows is imported but styles are applied post-creation
-        // to avoid WebView2 initialization issues.
+        use tao::platform::windows::WindowBuilderExtWindows;
+
+        // For transparent frameless windows, disable shadow at creation time
+        // This is required for transparency to work correctly on Windows 11
+        if config.transparent && !config.decorations && !config.undecorated_shadow {
+            window_builder = window_builder.with_undecorated_shadow(false);
+            tracing::info!(
+                "[standalone] Disabled undecorated shadow for transparent frameless window"
+            );
+        }
     }
 
     // Set window icon (custom or default)

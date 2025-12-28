@@ -702,6 +702,16 @@ impl NativeBackend {
             .with_transparent(config.transparent)
             .with_visible(start_visible);
 
+        // CRITICAL: For transparent frameless windows to work correctly on Windows 11,
+        // we MUST disable undecorated_shadow at window creation time.
+        // See: https://github.com/tauri-apps/wry/issues/1026
+        if config.transparent && !config.decorations && !config.undecorated_shadow {
+            window_builder = window_builder.with_undecorated_shadow(false);
+            tracing::info!(
+                "[OK] [NativeBackend] Disabled undecorated shadow for transparent frameless window"
+            );
+        }
+
         // Set parent window based on embed mode
         // Child mode is the official recommended approach by wry and WebView2
         match config.embed_mode {
