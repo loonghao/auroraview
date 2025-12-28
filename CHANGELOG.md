@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.27](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.26...auroraview-v0.3.27) (2025-12-28)
+
+
+### Features
+
+* add window effects APIs (click-through, vibrancy) ([b44dd31](https://github.com/loonghao/auroraview/commit/b44dd315bfc68a4d8018cb202da79437ded26736))
+* **docs:** auto-generate examples documentation from examples/ directory ([c33c259](https://github.com/loonghao/auroraview/commit/c33c259620e65b5ed91a9b6fb4b39364293b4e25))
+
+
+### Bug Fixes
+
+* **ci:** remove duplicate PR trigger from sdk-ci.yml ([446eb20](https://github.com/loonghao/auroraview/commit/446eb20fd28abf8a8727dd65239904966c7722ba))
+* **sdk:** fix TypeScript type conversion error in attachPlugin ([1c6b397](https://github.com/loonghao/auroraview/commit/1c6b397fce1114be07b661673321c455605ba4b8))
+* suppress dead_code warnings for platform-specific code ([9bd0235](https://github.com/loonghao/auroraview/commit/9bd0235f91f45ff03f3103da865faa8abccd1504))
+
+
+### Documentation
+
+* clarify three integration modes and add gallery screenshots ([5311cb2](https://github.com/loonghao/auroraview/commit/5311cb2a4746fd26feaedf66e19ecda857efc52a))
+
 ## [0.3.26](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.25...auroraview-v0.3.26) (2025-12-27)
 
 
