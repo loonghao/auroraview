@@ -478,6 +478,22 @@ class TestGeneratorsJsValueGenerators:
         result = random_js_value(value_type="object", max_depth=2)
         assert isinstance(result, dict)
 
+    def test_random_js_value_array_zero_depth(self):
+        """Test random_js_value with array type and zero depth."""
+        from auroraview.testing.generators import random_js_value
+
+        result = random_js_value(value_type="array", max_depth=0)
+        # When max_depth=0, array returns string
+        assert isinstance(result, str)
+
+    def test_random_js_value_object_zero_depth(self):
+        """Test random_js_value with object type and zero depth."""
+        from auroraview.testing.generators import random_js_value
+
+        result = random_js_value(value_type="object", max_depth=0)
+        # When max_depth=0, object returns string
+        assert isinstance(result, str)
+
     def test_random_event_payload(self):
         """Test random_event_payload."""
         from auroraview.testing.generators import random_event_payload
@@ -573,6 +589,15 @@ class TestGeneratorsApiGenerators:
         result = random_api_params(param_count=3, as_dict=False)
         assert isinstance(result, list)
         assert len(result) == 3
+
+    def test_random_api_params_default_count(self):
+        """Test random_api_params with default count (None)."""
+        from auroraview.testing.generators import random_api_params
+
+        result = random_api_params()
+        assert isinstance(result, dict)
+        # Count should be between 0 and 5
+        assert 0 <= len(result) <= 5
 
 
 class TestGeneratorsSelectorGenerators:
