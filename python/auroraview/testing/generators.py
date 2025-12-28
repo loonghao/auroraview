@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Test data generators for AuroraView testing framework.
 
 This module provides data generators for property-based testing and
