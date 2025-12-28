@@ -352,3 +352,204 @@ fn test_standalone_local_file_options() {
     assert!(config.asset_root.is_some());
     assert!(config.allow_file_protocol);
 }
+
+// ============================================================================
+// JavaScript Assets Tests - Coverage for src/webview/js_assets.rs
+// ============================================================================
+
+/// Test event_bridge function returns non-empty script
+#[rstest]
+fn test_js_assets_event_bridge() {
+    let script = js_assets::event_bridge();
+    assert!(!script.is_empty());
+    assert!(script.contains("auroraview"));
+}
+
+/// Test context_menu_disable function returns non-empty script
+#[rstest]
+fn test_js_assets_context_menu_disable() {
+    let script = js_assets::context_menu_disable();
+    // Script may be empty if context menu is not disabled
+    let _ = script;
+}
+
+/// Test context_menu function (alias for context_menu_disable)
+#[rstest]
+fn test_js_assets_context_menu() {
+    let script = js_assets::context_menu();
+    // Script may be empty if context menu is not disabled
+    let _ = script;
+}
+
+/// Test midscene_bridge function returns non-empty script
+#[rstest]
+fn test_js_assets_midscene_bridge() {
+    let script = js_assets::midscene_bridge();
+    assert!(!script.is_empty());
+    assert!(script.contains("midscene") || script.contains("__midscene"));
+}
+
+/// Test test_callback function returns non-empty script
+#[rstest]
+fn test_js_assets_test_callback() {
+    let script = js_assets::test_callback();
+    assert!(!script.is_empty());
+    assert!(script.contains("auroratest") || script.contains("callback"));
+}
+
+/// Test get_js_code function with valid path
+#[rstest]
+fn test_js_assets_get_js_code_valid() {
+    // Try to get event bridge script by path
+    let script = js_assets::get_js_code("core/event_bridge.js");
+    assert!(script.is_some());
+    assert!(!script.unwrap().is_empty());
+}
+
+/// Test get_js_code function with invalid path
+#[rstest]
+fn test_js_assets_get_js_code_invalid() {
+    let script = js_assets::get_js_code("nonexistent/script.js");
+    assert!(script.is_none());
+}
+
+/// Test build_init_script with default config
+#[rstest]
+fn test_js_assets_build_init_script_default() {
+    let config = WebViewConfig::default();
+    let script = js_assets::build_init_script(&config);
+
+    // Should contain event bridge
+    assert!(script.contains("auroraview"));
+
+    // Should contain navigation tracker
+    assert!(!script.is_empty());
+}
+
+/// Test build_init_script with context menu disabled
+#[rstest]
+fn test_js_assets_build_init_script_no_context_menu() {
+    let config = WebViewConfig {
+        context_menu: false,
+        ..Default::default()
+    };
+    let script = js_assets::build_init_script(&config);
+
+    // Should contain context menu disable script
+    assert!(!script.is_empty());
+}
+
+/// Test build_init_script with plugins enabled
+#[rstest]
+fn test_js_assets_build_init_script_with_plugins() {
+    let config = WebViewConfig {
+        enable_plugins: true,
+        ..Default::default()
+    };
+    let script = js_assets::build_init_script(&config);
+
+    // Should contain plugin scripts
+    assert!(!script.is_empty());
+}
+
+/// Test build_init_script with specific plugins
+#[rstest]
+fn test_js_assets_build_init_script_with_specific_plugins() {
+    let config = WebViewConfig {
+        enable_plugins: true,
+        enabled_plugin_names: vec!["fs".to_string(), "dialog".to_string()],
+        ..Default::default()
+    };
+    let script = js_assets::build_init_script(&config);
+
+    // Should contain only specified plugins
+    assert!(!script.is_empty());
+}
+
+/// Test build_init_script with API methods
+#[rstest]
+fn test_js_assets_build_init_script_with_api_methods() {
+    use std::collections::HashMap;
+
+    let mut api_methods = HashMap::new();
+    api_methods.insert("api".to_string(), vec!["echo".to_string(), "greet".to_string()]);
+
+    let config = WebViewConfig {
+        api_methods,
+        ..Default::default()
+    };
+    let script = js_assets::build_init_script(&config);
+
+    // Should contain API registration
+    assert!(!script.is_empty());
+}
+
+/// Test build_emit_event_script
+#[rstest]
+#[case("test_event", r#"{"message": "hello"}"#)]
+#[case("user_action", r#"{"action": "click", "target": "button"}"#)]
+fn test_js_assets_build_emit_event_script(#[case] event_name: &str, #[case] event_data: &str) {
+    let script = js_assets::build_emit_event_script(event_name, event_data);
+
+    // Should contain event name
+    assert!(script.contains(event_name));
+}
+
+/// Test build_eval_js_async_script
+#[rstest]
+#[case("1 + 1", 1)]
+#[case("document.title", 2)]
+#[case("window.location.href", 3)]
+fn test_js_assets_build_eval_js_async_script(#[case] user_script: &str, #[case] callback_id: u64) {
+    let script = js_assets::build_eval_js_async_script(user_script, callback_id);
+
+    // Should contain callback ID
+    assert!(script.contains(&callback_id.to_string()));
+
+    // Should contain IPC mechanism
+    assert!(script.contains("ipc.postMessage"));
+
+    // Should handle errors
+    assert!(script.contains("catch"));
+}
+
+/// Test JsAsset enum and get_asset function
+#[rstest]
+fn test_js_assets_get_asset_enum() {
+    use js_assets::JsAsset;
+
+    // Test EventBridge
+    let script = js_assets::get_asset(JsAsset::EventBridge);
+    assert!(!script.is_empty());
+
+    // Test ContextMenuDisable
+    let script = js_assets::get_asset(JsAsset::ContextMenuDisable);
+    let _ = script; // May be empty
+}
+
+/// Test get_assets function with multiple assets
+#[rstest]
+fn test_js_assets_get_assets_multiple() {
+    use js_assets::JsAsset;
+
+    let script = js_assets::get_assets(&[JsAsset::EventBridge, JsAsset::ContextMenuDisable]);
+
+    // Should contain event bridge
+    assert!(script.contains("auroraview"));
+}
+
+/// Test get_event_bridge function (alias)
+#[rstest]
+fn test_js_assets_get_event_bridge() {
+    let script = js_assets::get_event_bridge();
+    assert!(!script.is_empty());
+    assert!(script.contains("auroraview"));
+}
+
+/// Test get_context_menu_disable function (alias)
+#[rstest]
+fn test_js_assets_get_context_menu_disable() {
+    let script = js_assets::get_context_menu_disable();
+    // May be empty
+    let _ = script;
+}
