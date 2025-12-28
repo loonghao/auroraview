@@ -195,3 +195,97 @@ class TestTestingModuleExports:
 
         for name in expected:
             assert name in testing.__all__, f"{name} not in __all__"
+
+
+class TestRustCoreAssets:
+    """Tests for Rust core asset functions (src/bindings/assets.rs coverage)."""
+
+    def test_get_midscene_bridge_js(self):
+        """Test get_midscene_bridge_js returns non-empty string."""
+        try:
+            from auroraview._core import get_midscene_bridge_js
+
+            script = get_midscene_bridge_js()
+            assert isinstance(script, str)
+            assert len(script) > 0
+            assert "__midscene_bridge__" in script
+        except ImportError:
+            pytest.skip("Rust core not available")
+
+    def test_get_event_bridge_js(self):
+        """Test get_event_bridge_js returns non-empty string."""
+        try:
+            from auroraview._core import get_event_bridge_js
+
+            script = get_event_bridge_js()
+            assert isinstance(script, str)
+            assert len(script) > 0
+            assert "auroraview" in script
+        except ImportError:
+            pytest.skip("Rust core not available")
+
+    def test_get_test_callback_js(self):
+        """Test get_test_callback_js returns non-empty string."""
+        try:
+            from auroraview._core import get_test_callback_js
+
+            script = get_test_callback_js()
+            assert isinstance(script, str)
+            assert len(script) > 0
+        except ImportError:
+            pytest.skip("Rust core not available")
+
+    def test_get_context_menu_js(self):
+        """Test get_context_menu_js returns a string."""
+        try:
+            from auroraview._core import get_context_menu_js
+
+            script = get_context_menu_js()
+            assert isinstance(script, str)
+            # May be empty if context menu is not disabled
+        except ImportError:
+            pytest.skip("Rust core not available")
+
+    def test_all_rust_asset_functions_available(self):
+        """Test that all Rust asset functions are available."""
+        try:
+            from auroraview import _core
+
+            # Check all expected functions exist
+            expected_functions = [
+                "get_midscene_bridge_js",
+                "get_event_bridge_js",
+                "get_test_callback_js",
+                "get_context_menu_js",
+            ]
+
+            for func_name in expected_functions:
+                assert hasattr(_core, func_name), f"Missing function: {func_name}"
+                func = getattr(_core, func_name)
+                assert callable(func), f"{func_name} is not callable"
+        except ImportError:
+            pytest.skip("Rust core not available")
+
+    def test_rust_asset_functions_return_consistent_results(self):
+        """Test that Rust asset functions return consistent results on multiple calls."""
+        try:
+            from auroraview._core import (
+                get_midscene_bridge_js,
+                get_event_bridge_js,
+                get_test_callback_js,
+            )
+
+            # Call each function twice and compare
+            midscene1 = get_midscene_bridge_js()
+            midscene2 = get_midscene_bridge_js()
+            assert midscene1 == midscene2
+
+            event1 = get_event_bridge_js()
+            event2 = get_event_bridge_js()
+            assert event1 == event2
+
+            callback1 = get_test_callback_js()
+            callback2 = get_test_callback_js()
+            assert callback1 == callback2
+        except ImportError:
+            pytest.skip("Rust core not available")
