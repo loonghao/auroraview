@@ -48,14 +48,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install vx
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/loonghao/vx/main/install.sh | bash
-          echo "$HOME/.vx/bin" >> $GITHUB_PATH
+      - name: Setup vx
+        uses: loonghao/vx@main
+        with:
+          setup: 'true'
+          cache: 'true'
 
-      - name: Setup tools with vx
+      - name: Show installed tools
         run: |
-          vx setup
           echo "=== Installed Tools ==="
           vx python --version
           vx node --version
