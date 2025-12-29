@@ -30,30 +30,24 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install vx
-      shell: bash
-      run: |
-        curl -fsSL https://raw.githubusercontent.com/loonghao/vx/main/install.sh | bash
-        echo "$HOME/.vx/bin" >> $GITHUB_PATH
-
-    - name: Setup tools with vx
+    - name: Setup vx
       id: setup-vx
+      uses: loonghao/vx@main
+      with:
+        setup: 'true'
+        cache: 'true'
+
+    - name: Show installed tools
       shell: bash
       run: |
-        # Install all tools defined in vx.toml
-        vx setup
-
-        # Output versions for debugging
-        echo "python-version=$(vx python --version 2>&1 | head -1)" >> $GITHUB_OUTPUT
-        echo "rust-version=$(vx rustc --version 2>&1 | head -1)" >> $GITHUB_OUTPUT
-
-        # Show installed tools
         echo "=== Installed Tools ==="
         vx python --version
         vx rustc --version
         vx node --version
         vx uv --version
         vx just --version
+        echo "python-version=$(vx python --version 2>&1 | head -1)" >> $GITHUB_OUTPUT
+        echo "rust-version=$(vx rustc --version 2>&1 | head -1)" >> $GITHUB_OUTPUT
 
     - name: Install additional Rust components
       if: inputs.rust-components != ''
