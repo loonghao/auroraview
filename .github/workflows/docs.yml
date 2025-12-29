@@ -60,8 +60,10 @@ jobs:
           vx python --version
           vx node --version
 
-      - name: Install pdoc
-        run: vx pip install pdoc>=14.0.0
+      - name: Install pdoc and dependencies
+        run: |
+          # Install pdoc and qt dependencies for documentation generation
+          vx pip install "pdoc>=14.0.0" qtpy PySide6
 
       - name: Generate Python API docs
         run: |
