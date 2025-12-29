@@ -371,7 +371,8 @@ pub struct WebViewConfig {
     /// around the window. Set this to `false` to disable the shadow completely,
     /// which is required for truly transparent frameless windows.
     ///
-    /// Default: true (show shadow for undecorated windows)
+    /// Default: false (no shadow for undecorated windows)
+
     ///
     /// # When to disable
     /// - Transparent overlay windows (e.g., floating logo buttons)
@@ -585,7 +586,8 @@ impl Default for WebViewConfig {
             #[cfg(target_os = "windows")]
             tool_window: false,
             #[cfg(target_os = "windows")]
-            undecorated_shadow: true,
+            undecorated_shadow: false,
+
             asset_root: None,
             data_directory: None,
             custom_protocols: HashMap::new(),
@@ -1017,8 +1019,8 @@ mod tests {
     #[cfg(target_os = "windows")]
     fn test_undecorated_shadow_default(default_config: WebViewConfig) {
         assert!(
-            default_config.undecorated_shadow,
-            "undecorated_shadow should default to true"
+            !default_config.undecorated_shadow,
+            "undecorated_shadow should default to false"
         );
     }
 

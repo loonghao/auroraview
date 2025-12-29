@@ -26,8 +26,8 @@ fn test_config_serialization() {
 fn test_undecorated_shadow_default() {
     let config = CoreConfig::default();
     assert!(
-        config.undecorated_shadow,
-        "undecorated_shadow should default to true"
+        !config.undecorated_shadow,
+        "undecorated_shadow should default to false"
     );
 }
 

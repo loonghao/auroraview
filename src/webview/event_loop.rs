@@ -45,6 +45,22 @@ pub enum UserEvent {
     },
 }
 
+/// Hints for applying Win32 window styles at the correct time.
+///
+/// On Windows 11, tao/wry may adjust window styles when the window becomes visible.
+/// For frameless/transparent tool windows we keep a small set of hints so we can
+/// re-apply the desired styles right after `set_visible(true)`.
+#[derive(Debug, Clone, Copy)]
+pub struct WindowStyleHints {
+    pub decorations: bool,
+    #[cfg(target_os = "windows")]
+    pub tool_window: bool,
+    #[cfg(target_os = "windows")]
+    pub undecorated_shadow: bool,
+    #[cfg(target_os = "windows")]
+    pub transparent: bool,
+}
+
 /// Event loop state management
 pub struct EventLoopState {
     /// Whether the event loop should continue running
@@ -60,6 +76,8 @@ pub struct EventLoopState {
     /// IPC handler for Python callbacks (window events)
     #[cfg(feature = "python-bindings")]
     pub ipc_handler: Option<Arc<IpcHandler>>,
+    /// Optional window style hints for post-show re-application
+    pub window_style_hints: Option<WindowStyleHints>,
     /// Track window visibility state for event deduplication
     is_visible: bool,
     /// Track window focus state for event deduplication
@@ -79,6 +97,7 @@ impl EventLoopState {
             event_loop_proxy: None,
             #[cfg(feature = "python-bindings")]
             ipc_handler: None,
+            window_style_hints: None,
             is_visible: false,
             is_focused: false,
         }
@@ -94,6 +113,7 @@ impl EventLoopState {
             event_loop_proxy: None,
             #[cfg(feature = "python-bindings")]
             ipc_handler: None,
+            window_style_hints: None,
             is_visible: false,
             is_focused: false,
         }
@@ -107,6 +127,12 @@ impl EventLoopState {
     /// Set the event loop proxy
     pub fn set_event_loop_proxy(&mut self, proxy: EventLoopProxy<UserEvent>) {
         self.event_loop_proxy = Some(proxy);
+    }
+
+    /// Set window style hints for post-show re-application.
+    #[allow(dead_code)]
+    pub fn set_window_style_hints(&mut self, hints: Option<WindowStyleHints>) {
+        self.window_style_hints = hints;
     }
 
     /// Set the IPC handler for Python callbacks
@@ -347,7 +373,39 @@ impl WebViewEventHandler {
                     window.set_visible(true);
                     tracing::info!("[OK] [run_blocking] Window is now visible");
 
+                    // Re-apply Win32 window styles right after showing the window.
+                    // On Windows 11, tao/wry may adjust styles at show-time.
+                    #[cfg(target_os = "windows")]
+                    {
+                        if let (Some(hints), Some(hwnd)) =
+                            (state_guard.window_style_hints, state_guard.get_hwnd())
+                        {
+                            use auroraview_core::builder::{
+                                apply_frameless_popup_window_style, apply_tool_window_style,
+                                disable_window_shadow, extend_frame_into_client_area,
+                                optimize_transparent_window_resize, remove_clip_children_style,
+                            };
+
+                            if !hints.decorations {
+                                let _ = apply_frameless_popup_window_style(hwnd as isize);
+                            }
+
+                            if hints.tool_window {
+                                apply_tool_window_style(hwnd as isize);
+                            }
+                            if !hints.undecorated_shadow {
+                                disable_window_shadow(hwnd as isize);
+                            }
+                            if hints.transparent {
+                                remove_clip_children_style(hwnd as isize);
+                                extend_frame_into_client_area(hwnd as isize);
+                                optimize_transparent_window_resize(hwnd as isize);
+                            }
+                        }
+                    }
+
                     // CRITICAL FIX: Request a redraw to wake up the event loop
+
                     // Without this, run_return() may hang on Windows waiting for the first event
                     window.request_redraw();
                     tracing::info!(

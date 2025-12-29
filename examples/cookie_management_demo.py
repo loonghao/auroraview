@@ -416,7 +416,7 @@ HTML = """
                 const badges = [];
                 if (cookie.secure) badges.push('<span class="badge badge-secure">Secure</span>');
                 if (cookie.http_only) badges.push('<span class="badge badge-httponly">HttpOnly</span>');
-                badges.push(isSession 
+                badges.push(isSession
                     ? '<span class="badge badge-session">Session</span>'
                     : '<span class="badge badge-persistent">Persistent</span>'
                 );

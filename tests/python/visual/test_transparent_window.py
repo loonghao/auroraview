@@ -11,10 +11,7 @@ Run with:
 
 from __future__ import annotations
 
-import asyncio
-import os
 import sys
-import time
 from pathlib import Path
 
 # Add project root to path
@@ -237,8 +234,7 @@ def run_comparison_test():
     class Window3(AuroraView):
         def __init__(self):
             html = TRANSPARENT_TEST_HTML.replace("TEST", "W3").replace(
-                "background: transparent !important;",
-                "background: #1a1a2e !important;"
+                "background: transparent !important;", "background: #1a1a2e !important;"
             )
             super().__init__(
                 html=html,
@@ -275,9 +271,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Transparent window test")
     parser.add_argument(
-        "--compare",
-        action="store_true",
-        help="Run comparison test with multiple configurations"
+        "--compare", action="store_true", help="Run comparison test with multiple configurations"
     )
     args = parser.parse_args()
 

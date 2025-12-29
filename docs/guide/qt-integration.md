@@ -1,249 +1,120 @@
 # Qt Integration Best Practices
 
-This guide covers best practices for integrating AuroraView with Qt-based DCC applications (Maya, Houdini, Nuke, etc.).
+This guide covers best practices for integrating AuroraView with Qt-based DCC applications (Maya, Houdini, Nuke, 3ds Max, etc.).
 
 ## Quick Start
 
-### Recommended: Use QtWebView
+### Recommended: Use `QtWebView`
 
 ```python
 from auroraview import QtWebView
 
-# Create WebView as Qt widget
 webview = QtWebView(
     parent=maya_main_window(),  # Optional: any QWidget
     title="My Tool",
     width=800,
-    height=600
+    height=600,
 )
 
-# Load content
 webview.load_url("http://localhost:3000")
-
-# Show the widget
 webview.show()
-
-# That's it! Event processing is automatic.
 ```
 
-### Avoid: Manual Event Processing
+## Understanding Event Processing (Why `QtWebView` Matters)
 
-```python
-# DON'T DO THIS - it's unnecessary with QtWebView
-from auroraview import WebView
+AuroraView uses a message queue to safely marshal work to the correct UI thread.
+That includes:
 
-webview = WebView.create(...)
-webview.show()
+- `webview.eval_js(...)`
+- `webview.emit(...)`
+- returning results for `auroraview.call(...)`
 
-# Manual event processing (NOT NEEDED with QtWebView)
-def process_events():
-    webview.process_events()  # Unnecessary!
-
-cmds.scriptJob(event=["idle", process_events])
-```
-
-## Understanding Event Processing
-
-### The Problem
-
-AuroraView uses a message queue for JavaScript execution:
-
-1. Python calls `eval_js(script)` → Script pushed to queue
-2. Queue needs to be processed → Script executes
-3. Without processing → **Script never executes, Promises hang**
+If the queue is not processed, JS execution and RPC results can be delayed.
 
 ### The Solution
 
-`QtWebView` automatically processes events after every `eval_js()` call:
+`QtWebView` installs a Qt-aware event processor (`QtEventProcessor`) so that:
 
-```python
-# When you call:
-webview.eval_js("console.log('Hello')")
+- Qt events are pumped (`QCoreApplication.processEvents()`)
+- AuroraView messages are flushed (`WebView.process_events()`)
 
-# QtWebView automatically:
-# 1. Pushes script to queue
-# 2. Calls process_events()  ← Automatic!
-# 3. Script executes immediately
-```
+This happens automatically after `emit()` / `eval_js()` (unless you disable `auto_process`).
+
+### Avoid: Manual ScriptJobs / Idle Hooks
+
+You generally should not build your own “idle loop” in Maya/Houdini just to call `process_events()`.
+Prefer `QtWebView`, which wires the correct processing strategy for you.
 
 ## Common Patterns
 
-### Pattern 1: Python → JavaScript Communication
+### Pattern 1: Python → JavaScript (push events)
 
 ```python
 from auroraview import QtWebView
 
 webview = QtWebView(title="My Tool")
-
-# This works immediately - no manual event processing needed
-webview.eval_js("console.log('Hello from Python')")
 webview.emit("update_scene", {"objects": ["cube", "sphere"]})
 ```
 
-### Pattern 2: JavaScript → Python Communication
+### Pattern 2: JavaScript → Python (fire-and-forget)
 
 ```python
-# Python side
 @webview.on("get_scene_data")
 def handle_get_scene_data(data):
-    # Get scene data from DCC
     selection = cmds.ls(selection=True)
-    # Send back to JavaScript - automatic event processing!
     webview.emit("scene_data_response", {"selection": selection})
 ```
 
 ```javascript
-// JavaScript side
 window.auroraview.on("scene_data_response", (data) => {
-    console.log("Selection:", data.selection);
+  console.log("Selection:", data.selection);
 });
 
 window.auroraview.send_event("get_scene_data", {});
 ```
 
-### Pattern 3: Using auroraview.call() API
+### Pattern 3: JavaScript → Python (RPC with return value)
 
 ```python
-# Python side
-@webview.bind_call("get_scene_hierarchy")
-def get_scene_hierarchy(params):
-    # Return scene hierarchy
-    return {"nodes": [...]}
+@webview.bind_call("api.get_scene_hierarchy")
+def get_scene_hierarchy(root: str = "scene"):
+    return {"root": root, "nodes": []}
 ```
 
 ```javascript
-// JavaScript side - Promise resolves automatically!
-const result = await window.auroraview.call("get_scene_hierarchy");
-console.log("Hierarchy:", result);  // Works!
+const result = await window.auroraview.call("api.get_scene_hierarchy", { root: "scene" });
+console.log("Hierarchy:", result);
 ```
 
 ## Diagnostics
 
-### Check Event Processing
+### Check Event Processor State
 
 ```python
-# Get diagnostic information
 diag = webview.get_diagnostics()
-
-print(f"Events processed: {diag['event_process_count']}")
-print(f"Last process time: {diag['last_event_process_time']}")
-print(f"Hook installed: {diag['has_post_eval_hook']}")
-print(f"Hook correct: {diag['hook_is_correct']}")
+print(f"Processor: {diag['event_processor_type']}")
+print(f"Processed: {diag['event_process_count']}")
+print(f"Has processor: {diag['has_event_processor']}")
+print(f"Processor OK: {diag['processor_is_correct']}")
 ```
 
-### Troubleshooting
+### Troubleshooting: `auroraview.call()` timeouts
 
-If `auroraview.call()` Promises are hanging:
+If `auroraview.call()` is timing out:
 
-1. **Check hook installation**:
-   ```python
-   diag = webview.get_diagnostics()
-   assert diag['has_post_eval_hook'], "Hook not installed!"
-   assert diag['hook_is_correct'], "Hook is wrong!"
-   ```
-
-2. **Check event processing**:
-   ```python
-   # Should increase after each eval_js/emit call
-   before = webview.get_diagnostics()['event_process_count']
-   webview.eval_js("console.log('test')")
-   after = webview.get_diagnostics()['event_process_count']
-   assert after > before, "Events not being processed!"
-   ```
-
-3. **Enable debug logging**:
-   ```python
-   import logging
-   logging.basicConfig(level=logging.DEBUG)
-   ```
+- Ensure you are using `@webview.bind_call(...)` / `bind_api(...)` (not `@webview.on(...)`).
+- In Qt-based DCC, ensure you are using `QtWebView` (or that a Qt-aware event processor is installed).
 
 ## Performance Considerations
 
-### Event Processing Overhead
-
-- Each `eval_js()` call triggers event processing
-- Overhead: ~1-2ms per call
-- For high-frequency updates, batch your calls:
+### Batch High-Frequency JS Work
 
 ```python
-# Inefficient: 100 event processing cycles
+# Inefficient: many flushes
 for i in range(100):
     webview.eval_js(f"updateNode({i})")
 
-# Efficient: 1 event processing cycle
+# Efficient: one flush
 script = "\n".join(f"updateNode({i})" for i in range(100))
 webview.eval_js(script)
 ```
-
-## Qt Widget Integration
-
-### As Dockable Widget
-
-```python
-from auroraview import QtWebView
-from qtpy.QtWidgets import QDockWidget
-from qtpy.QtCore import Qt
-
-# Create dock widget
-dock = QDockWidget("My Tool", main_window)
-
-# Create WebView
-webview = QtWebView(parent=dock)
-webview.load_url("http://localhost:3000")
-
-# Set as dock widget content
-dock.setWidget(webview)
-main_window.addDockWidget(Qt.RightDockWidgetArea, dock)
-```
-
-### As Tab Widget
-
-```python
-from qtpy.QtWidgets import QTabWidget
-
-tab_widget = QTabWidget()
-
-webview1 = QtWebView(parent=tab_widget)
-webview1.load_url("http://localhost:3000/tool1")
-
-webview2 = QtWebView(parent=tab_widget)
-webview2.load_url("http://localhost:3000/tool2")
-
-tab_widget.addTab(webview1, "Tool 1")
-tab_widget.addTab(webview2, "Tool 2")
-```
-
-### Custom Widget Subclass
-
-```python
-from auroraview import QtWebView
-
-class MyToolWidget(QtWebView):
-    def __init__(self, parent=None):
-        super().__init__(parent=parent, width=400, height=300)
-        self.load_url("http://localhost:3000")
-        self._setup_handlers()
-    
-    def _setup_handlers(self):
-        @self.on("tool_action")
-        def handle_action(data):
-            self._process_action(data)
-    
-    def _process_action(self, data):
-        # Custom logic
-        pass
-```
-
-## Summary
-
-**DO**:
-- Use `QtWebView` for Qt-based DCCs
-- Trust automatic event processing
-- Use `get_diagnostics()` for troubleshooting
-- Batch high-frequency `eval_js()` calls
-
-**DON'T**:
-- Manually call `process_events()` with `QtWebView`
-- Use `WebView.create()` in Qt environments
-- Create scriptJobs for event processing
-- Make hundreds of individual `eval_js()` calls

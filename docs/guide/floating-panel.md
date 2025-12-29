@@ -64,7 +64,8 @@ class TriggerButton(AuroraView):
             height=48,
             frame=False,
             transparent=True,
-            undecorated_shadow=False,  # CRITICAL: No shadow for truly transparent
+            undecorated_shadow=False,  # Default: no shadow (set True to force-enable)
+
             always_on_top=True,
             tool_window=True,
         )
@@ -73,7 +74,8 @@ class TriggerButton(AuroraView):
 **Key Parameters for Transparent Windows:**
 - `frame=False` - Frameless window
 - `transparent=True` - Transparent background
-- `undecorated_shadow=False` - **Critical** - Removes shadow for truly transparent windows
+- `undecorated_shadow=False` - Default: **no shadow** for frameless windows; set to `True` to force-enable
+
 - `tool_window=True` - Hide from taskbar/Alt+Tab
 
 ## Floating Toolbar with GSAP

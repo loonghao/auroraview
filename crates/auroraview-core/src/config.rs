@@ -99,7 +99,8 @@ pub struct CoreConfig {
     /// around the window. Set this to `false` to disable the shadow completely,
     /// which is required for truly transparent frameless windows.
     ///
-    /// Default: true (show shadow for undecorated windows)
+    /// Default: false (no shadow for undecorated windows)
+
     ///
     /// # When to disable
     /// - Transparent overlay windows (e.g., floating logo buttons)
@@ -133,7 +134,7 @@ impl Default for CoreConfig {
             allow_new_window: false,
             allow_file_protocol: false,
             #[cfg(target_os = "windows")]
-            undecorated_shadow: true,
+            undecorated_shadow: false,
         }
     }
 }

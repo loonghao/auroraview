@@ -68,13 +68,24 @@ def create_demo_html() -> str:
                 document.getElementById('eventLog').innerHTML = '';
             }
 
-            function testResize() {
-                window.auroraview.call('resize', {width: 900, height: 700});
+            async function testResize() {
+                try {
+                    const result = await window.auroraview.call('resize', {width: 900, height: 700});
+                    addEvent('rpc', { method: 'resize', result });
+                } catch (err) {
+                    addEvent('rpc', { method: 'resize', error: String(err && err.message ? err.message : err) });
+                }
             }
 
-            function testMove() {
-                window.auroraview.call('move', {x: 100, y: 100});
+            async function testMove() {
+                try {
+                    const result = await window.auroraview.call('move', {x: 100, y: 100});
+                    addEvent('rpc', { method: 'move', result });
+                } catch (err) {
+                    addEvent('rpc', { method: 'move', error: String(err && err.message ? err.message : err) });
+                }
             }
+
 
             // Register event listeners
             window.auroraview.on('shown', (data) => addEvent('shown', data));
@@ -127,15 +138,15 @@ def main():
         print("[Python] Window is closing...")
         return True  # Allow close
 
-    # Register RPC handlers for window control
-    @webview.on("resize")
-    def handle_resize(data):
-        webview.resize(data.get("width", 800), data.get("height", 600))
+    # Register RPC handlers for window control (JS: auroraview.call)
+    @webview.bind_call("resize")
+    def handle_resize(width: int = 800, height: int = 600):
+        webview.resize(width, height)
         return {"success": True}
 
-    @webview.on("move")
-    def handle_move(data):
-        webview.move(data.get("x", 0), data.get("y", 0))
+    @webview.bind_call("move")
+    def handle_move(x: int = 0, y: int = 0):
+        webview.move(x, y)
         return {"success": True}
 
     # Load HTML and show

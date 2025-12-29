@@ -22,11 +22,9 @@ Use cases:
 Signed-off-by: Hal Long <hal.long@outlook.com>
 """
 
-import json
 import os
 import subprocess
 import sys
-from pathlib import Path
 
 # HTML for the floating toolbar with GSAP animations
 TOOLBAR_HTML = """
@@ -70,16 +68,20 @@ TOOLBAR_HTML = """
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
-            transition: box-shadow 0.3s;
+            box-shadow: none;
+            transition: none;
+
             position: relative;
             z-index: 100;
             flex-shrink: 0;
         }
 
+
+
         .trigger-btn:hover {
-            box-shadow: 0 6px 25px rgba(99, 102, 241, 0.6);
+            box-shadow: none;
         }
+
 
         .trigger-btn svg {
             width: 24px;
@@ -110,7 +112,8 @@ TOOLBAR_HTML = """
             border-radius: 28px;
             padding: 8px 16px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            box-shadow: none;
+
         }
 
         /* Tool item */
@@ -129,6 +132,8 @@ TOOLBAR_HTML = """
             opacity: 0;
             transform: scale(0.5);
         }
+
+
 
         .tool-item:hover {
             background: rgba(99, 102, 241, 0.2);
@@ -259,8 +264,81 @@ TOOLBAR_HTML = """
         // Initialize
         window.addEventListener('auroraviewready', () => {
             console.log('[FloatingToolbar] AuroraView ready');
+            installNativeDrag();
             loadTools();
         });
+
+        function installNativeDrag() {
+            try {
+                if (window.__floating_toolbar_native_drag_installed) return;
+                window.__floating_toolbar_native_drag_installed = true;
+
+                const DRAG_THRESHOLD_PX = 4;
+                let pending = null; // { x, y, pointerId }
+                let suppressClickUntil = 0;
+
+                function isDragSource(el) {
+                    // Allow dragging from the trigger button and tool icons.
+                    // Keep the add button clickable.
+                    if (el.closest('.add-tool')) return false;
+                    return !!el.closest('.trigger-btn, .tool-item, .toolbar-inner');
+                }
+
+                document.addEventListener('pointerdown', (e) => {
+                    try {
+                        if (e.button !== 0) return;
+                        const t = e.target;
+                        if (!t || !(t instanceof Element)) return;
+                        if (!isDragSource(t)) return;
+
+                        pending = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+                    } catch (err) {
+                        console.warn('[FloatingToolbar] installNativeDrag pointerdown error:', err);
+                    }
+                }, true);
+
+                document.addEventListener('pointermove', (e) => {
+                    try {
+                        if (!pending) return;
+                        if (e.pointerId !== pending.pointerId) return;
+                        const dx = e.clientX - pending.x;
+                        const dy = e.clientY - pending.y;
+                        if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return;
+                        pending = null;
+
+                        if (window.auroraview && typeof window.auroraview.startDrag === 'function') {
+                            suppressClickUntil = Date.now() + 800;
+                            window.auroraview.startDrag();
+                            e.preventDefault();
+                        }
+                    } catch (err) {
+                        console.warn('[FloatingToolbar] installNativeDrag pointermove error:', err);
+                    }
+                }, true);
+
+                function clearPending() {
+                    pending = null;
+                }
+
+                document.addEventListener('pointerup', clearPending, true);
+                document.addEventListener('pointercancel', clearPending, true);
+                window.addEventListener('blur', clearPending, true);
+
+                document.addEventListener('click', (e) => {
+                    try {
+                        if (Date.now() < suppressClickUntil) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
+                    } catch (_) {
+                        // ignore
+                    }
+                }, true);
+            } catch (e) {
+                console.warn('[FloatingToolbar] Failed to install native drag:', e);
+            }
+        }
+
 
         // Fallback for standalone testing
         setTimeout(() => {

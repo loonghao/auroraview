@@ -115,17 +115,28 @@ pub fn process_message(webview: &WryWebView, message: WebViewMessage, context: &
     }
 }
 
-/// Process all messages in a queue using the unified handler
+/// Process all messages in a queue using the unified handler.
 ///
-/// Returns the number of messages processed.
+/// Returns `(processed_count, close_requested)`.
+///
+/// Note: `WebViewMessage::Close` is a *control* message. We don't execute any JS
+/// here, but we do surface it to the caller so mode-specific code (event loop,
+/// embedded/Qt host, etc.) can perform the correct shutdown.
 pub fn process_message_queue(
     webview: &Arc<Mutex<WryWebView>>,
     message_queue: &crate::ipc::MessageQueue,
     context: &str,
-) -> usize {
+) -> (usize, bool) {
     if let Ok(webview_guard) = webview.lock() {
+        let mut close_requested = false;
+
         let count = message_queue.process_all(|message| {
             tracing::trace!("[{}] processing message: {:?}", context, message);
+
+            if matches!(&message, WebViewMessage::Close) {
+                close_requested = true;
+            }
+
             process_message(&webview_guard, message, context);
         });
 
@@ -135,9 +146,9 @@ pub fn process_message_queue(
             tracing::trace!("[{}] no messages in queue", context);
         }
 
-        count
+        (count, close_requested)
     } else {
         tracing::error!("[{}] failed to lock WebView", context);
-        0
+        (0, false)
     }
 }

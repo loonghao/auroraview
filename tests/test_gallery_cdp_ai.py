@@ -86,6 +86,82 @@ class AITestResult:
 class TestGalleryAICDP:
     """AI-enhanced CDP tests for Gallery."""
 
+    async def _find_gallery_page(self, browser):
+        """Find the correct Gallery page from all available pages.
+
+        WebView2 with CDP may expose multiple pages:
+        - about:blank (empty initial page)
+        - Loading screen page
+        - Main application page
+
+        This method finds the most appropriate page for testing.
+        """
+        all_pages = []
+        for context in browser.contexts:
+            for page in context.pages:
+                url = page.url
+                title = ""
+                try:
+                    title = await page.title()
+                except Exception:
+                    pass
+                all_pages.append(
+                    {
+                        "page": page,
+                        "url": url,
+                        "title": title,
+                    }
+                )
+
+        print(f"[CDP] Found {len(all_pages)} page(s):")
+        for i, p in enumerate(all_pages):
+            print(f"  [{i}] URL: {p['url']}, Title: {p['title']}")
+
+        if not all_pages:
+            return None
+
+        # Priority order for page selection:
+        # 1. Page with auroraview API ready
+        # 2. Page with loading screen (auroraLoading)
+        # 3. Page with non-blank URL (not about:blank)
+        # 4. First available page
+
+        # Check for auroraview ready
+        for p in all_pages:
+            try:
+                has_api = await p["page"].evaluate("""
+                    () => typeof window.auroraview !== 'undefined' &&
+                          typeof window.auroraview.api !== 'undefined'
+                """)
+                if has_api:
+                    print(f"[CDP] Selected page with auroraview API: {p['url']}")
+                    return p["page"]
+            except Exception:
+                pass
+
+        # Check for loading screen
+        for p in all_pages:
+            try:
+                has_loading = await p["page"].evaluate("""
+                    () => typeof window.auroraLoading !== 'undefined' ||
+                          document.querySelector('.loading-container') !== null
+                """)
+                if has_loading:
+                    print(f"[CDP] Selected page with loading screen: {p['url']}")
+                    return p["page"]
+            except Exception:
+                pass
+
+        # Skip about:blank pages
+        for p in all_pages:
+            if p["url"] and p["url"] != "about:blank":
+                print(f"[CDP] Selected non-blank page: {p['url']}")
+                return p["page"]
+
+        # Fallback to first page
+        print(f"[CDP] Fallback to first page: {all_pages[0]['url']}")
+        return all_pages[0]["page"]
+
     @pytest.fixture
     async def cdp_page_with_ai(self):
         """Connect to Gallery via CDP and create AI agent."""
@@ -94,11 +170,10 @@ class TestGalleryAICDP:
         async with async_playwright() as p:
             browser = await p.chromium.connect_over_cdp(CDP_URL)
 
-            # Get existing page
-            if browser.contexts and browser.contexts[0].pages:
-                page = browser.contexts[0].pages[0]
-            else:
-                raise RuntimeError("No page found in Gallery")
+            # Find the correct Gallery page (not about:blank)
+            page = await self._find_gallery_page(browser)
+            if not page:
+                raise RuntimeError("No valid Gallery page found")
 
             # Wait for Gallery to be ready
             await page.wait_for_function(

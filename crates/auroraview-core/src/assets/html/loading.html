@@ -430,6 +430,8 @@
             // This will update the UI and then trigger navigation
             window.addEventListener('auroraview:backend_ready', function(e) {
                 console.log('[Loading] Backend is ready!', e.detail);
+                clearTimeout(window.__loadingTimeout);
+                window.__backendReady = true;
                 
                 // Update loading UI to show ready state
                 setProgress(100);
@@ -445,6 +447,82 @@
                     }
                 }, 300);  // 300ms delay to show "Ready" state
             });
+
+            // Timeout and diagnostic mechanism for headless testing
+            // If backend_ready is not received within timeout, show diagnostic info
+            var LOADING_TIMEOUT_MS = 30000; // 30 seconds default
+            var DIAGNOSTIC_INTERVAL_MS = 5000; // Log diagnostics every 5 seconds
+            
+            window.__loadingStartTime = Date.now();
+            window.__backendReady = false;
+            window.__diagnosticCount = 0;
+            
+            // Diagnostic function to help debug stuck loading
+            function logDiagnostics() {
+                window.__diagnosticCount++;
+                var elapsed = Date.now() - window.__loadingStartTime;
+                var diagnostics = {
+                    elapsed_ms: elapsed,
+                    backend_ready: window.__backendReady,
+                    auroraview_available: !!window.auroraview,
+                    send_event_available: !!(window.auroraview && window.auroraview.send_event),
+                    trigger_available: !!(window.auroraview && window.auroraview.trigger),
+                    loading_state: window.auroraLoading ? window.auroraLoading.getState() : null,
+                    diagnostic_count: window.__diagnosticCount
+                };
+                console.log('[Loading:Diagnostic]', JSON.stringify(diagnostics, null, 2));
+                
+                // Emit diagnostic event for external monitoring (CDP/Playwright)
+                window.dispatchEvent(new CustomEvent('auroraview:loading_diagnostic', { 
+                    detail: diagnostics 
+                }));
+                
+                return diagnostics;
+            }
+            
+            // Periodic diagnostic logging
+            window.__diagnosticInterval = setInterval(function() {
+                if (!window.__backendReady) {
+                    logDiagnostics();
+                } else {
+                    clearInterval(window.__diagnosticInterval);
+                }
+            }, DIAGNOSTIC_INTERVAL_MS);
+            
+            // Timeout handler
+            window.__loadingTimeout = setTimeout(function() {
+                if (window.__backendReady) return;
+                
+                var diagnostics = logDiagnostics();
+                console.error('[Loading:Timeout] Backend not ready after ' + LOADING_TIMEOUT_MS + 'ms');
+                
+                // Update UI to show timeout state
+                setText('Loading timeout - Backend not responding');
+                setProgress(-1); // Back to indeterminate
+                
+                // Emit timeout event for external handling
+                window.dispatchEvent(new CustomEvent('auroraview:loading_timeout', { 
+                    detail: {
+                        timeout_ms: LOADING_TIMEOUT_MS,
+                        diagnostics: diagnostics
+                    }
+                }));
+                
+                // For headless testing: expose a function to force navigation
+                window.__forceNavigate = function() {
+                    console.log('[Loading] Force navigation triggered');
+                    if (window.auroraview && window.auroraview.send_event) {
+                        window.auroraview.send_event('navigate_to_app', {});
+                    }
+                };
+                
+                console.log('[Loading:Timeout] Call window.__forceNavigate() to force navigation');
+            }, LOADING_TIMEOUT_MS);
+            
+            // Expose diagnostic API for external tools
+            window.auroraLoading.getDiagnostics = logDiagnostics;
+            window.auroraLoading.isReady = function() { return window.__backendReady; };
+            window.auroraLoading.getElapsedTime = function() { return Date.now() - window.__loadingStartTime; };
         })();
     </script>
 </head>

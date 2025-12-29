@@ -98,6 +98,8 @@ target/wheels/
 
 # Local test files
 local-test.py
+scripts/cdp_*.py
+scripts/run_cdp_test.ps1
 
 # Gallery debug files
 gallery/debug_log.txt

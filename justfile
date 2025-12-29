@@ -59,37 +59,59 @@ build-all: sdk-build-all
     @echo "[OK] All crates built successfully!"
 
 # Run all tests
+[unix]
 test:
     @echo "Running workspace crate tests..."
     cargo test -p auroraview-core
     cargo test -p auroraview-pack
     cargo test -p auroraview-cli
     @echo "Running Rust integration tests (with rstest)..."
-    cargo test --test mdns_integration_tests --features "test-helpers"
-    cargo test --test parent_monitor_integration_tests --features "test-helpers"
-    cargo test --test protocol_handlers_integration_tests --features "test-helpers"
-    cargo test --test protocol_integration_tests --features "test-helpers"
-    cargo test --test timer_integration_tests --features "test-helpers"
-    cargo test --test ipc_message_queue_integration_tests --features "test-helpers"
-    cargo test --test http_discovery_integration_tests --features "test-helpers"
-    cargo test --test standalone_integration_tests --features "test-helpers"
+    # Note: names are aligned with Cargo.toml [[test]] targets.
+    cargo test --test mdns_integration --features "test-helpers"
+    cargo test --test protocol_handlers_integration --features "test-helpers"
+    cargo test --test protocol_integration --features "test-helpers"
+    cargo test --test timer_integration --features "test-helpers"
+    cargo test --test ipc_message_queue_integration --features "test-helpers"
+    cargo test --test http_discovery_integration --features "test-helpers"
+    cargo test --test standalone_integration --features "test-helpers"
+    cargo test --test config_integration --features "test-helpers"
+    cargo test --test ipc_json_integration --features "test-helpers"
+    cargo test --test file_protocol_integration --features "test-helpers"
+    cargo test --test port_allocator_integration --features "test-helpers"
+
     @echo "Running Rust doc tests..."
     cargo test --doc
     @echo "Running Python tests..."
-    pytest -q -rA tests/python/unit tests/python/integration
+    uv run pytest -q -rA tests/python/unit tests/python/integration
+
+
+[windows]
+test:
+    @echo "Running workspace crate tests..."
+    cargo test -p auroraview-core
+    cargo test -p auroraview-pack
+    cargo test -p auroraview-cli
     @echo ""
-    @echo "Note: Rust unit tests (cargo test --lib), window_utils_integration_tests, and ipc_batch_integration_tests are skipped on Windows due to PyO3 abi3 DLL linking issues."
+    @echo "Note: Rust integration tests are skipped on Windows due to STATUS_DLL_NOT_FOUND (abi3/PyO3 linking) on some machines."
     @echo "These tests run successfully in CI on Linux."
+    @echo "Running Rust doc tests..."
+    cargo test --doc
+    @echo "Running Python tests..."
+    uv run pytest -q -rA tests/python/unit tests/python/integration
+
+
 
 # Run tests with coverage
 test-cov:
     @echo "Running tests with coverage..."
-    pytest -v --cov=auroraview --cov-report=html --cov-report=term-missing tests/python/unit tests/python/integration
+    uv run pytest -v --cov=auroraview --cov-report=html --cov-report=term-missing tests/python/unit tests/python/integration
+
 
 # Run only fast tests (exclude slow tests)
 test-fast:
     @echo "Running fast tests..."
-    pytest tests/python/ -v -m "not slow"
+    uv run pytest tests/python/ -v -m "not slow"
+
 
 # Test with Python 3.7
 test-py37:
@@ -165,14 +187,16 @@ test-unit:
     cargo test -p auroraview-pack
     cargo test -p auroraview-cli
     @echo "Running Python unit tests..."
-    pytest tests/python/unit -v
+    uv run pytest tests/python/unit -v
+
 
 # Run only Rust integration tests
 test-integration:
     @echo "Running Rust integration tests (with rstest)..."
     cargo test --test '*' --features "test-helpers"
     @echo "Running Python integration tests..."
-    pytest tests/python/integration -v
+    uv run pytest tests/python/integration -v
+
 
 # Watch mode for continuous testing
 test-watch:
@@ -182,12 +206,14 @@ test-watch:
 # Run specific test file
 test-file FILE:
     @echo "Running tests in {{FILE}}..."
-    pytest {{FILE}} -v
+    uv run pytest {{FILE}} -v
+
 
 # Run tests with specific marker
 test-marker MARKER:
     @echo "Running tests with marker {{MARKER}}..."
-    pytest tests/ -v -m {{MARKER}}
+    uv run pytest tests/ -v -m {{MARKER}}
+
 
 # Format code
 format:

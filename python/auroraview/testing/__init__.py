@@ -145,6 +145,17 @@ from .midscene import (
     inject_midscene_bridge,
 )
 
+# Import AI automation helpers
+from .ai_automation import (
+    AITestConfig,
+    AITestHelper,
+    LoadingDiagnostics,
+    wait_for_auroraview_ready,
+    get_loading_status,
+    find_auroraview_page,
+    find_auroraview_page_sync,
+)
+
 
 # Qt testing utilities (lazy import to avoid requiring Qt)
 def __getattr__(name: str):
@@ -229,4 +240,12 @@ __all__ = [
     "pytest_ai_fixture",
     "get_midscene_bridge_script",
     "inject_midscene_bridge",
+    # AI automation helpers
+    "AITestConfig",
+    "AITestHelper",
+    "LoadingDiagnostics",
+    "wait_for_auroraview_ready",
+    "get_loading_status",
+    "find_auroraview_page",
+    "find_auroraview_page_sync",
 ]

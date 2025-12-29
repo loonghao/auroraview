@@ -5,19 +5,25 @@ use std::process::Command;
 
 /// Get the path to the compiled CLI binary
 fn cli_binary() -> PathBuf {
+    // Cargo sets this for integration tests (when the binary target exists).
+    // Keep a fallback path resolver for robustness.
+    if let Some(path) = std::env::var_os("CARGO_BIN_EXE_auroraview-cli") {
+        return PathBuf::from(path);
+    }
+
     // Get the path to the test executable, then navigate to the binary
     let mut path = std::env::current_exe().expect("Failed to get current exe path");
 
     // Navigate up from the test binary to the target directory
     // test binary is at: target/debug/deps/cli_tests-xxx
-    // we want: target/debug/auroraview.exe
+    // we want: target/debug/auroraview-cli.exe
     path.pop(); // Remove test binary name
     path.pop(); // Remove "deps"
 
     #[cfg(windows)]
-    path.push("auroraview.exe");
+    path.push("auroraview-cli.exe");
     #[cfg(not(windows))]
-    path.push("auroraview");
+    path.push("auroraview-cli");
 
     path
 }

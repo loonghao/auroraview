@@ -193,14 +193,20 @@ The IPC protocol follows a request/response pattern:
 ```
 
 **Response (Python → JS):**
+
+The backend resolves the Promise by triggering an internal event:
+
+- event name: `__auroraview_call_result`
+- payload:
+
 ```json
 {
-  "type": "call_result",
   "id": "unique-id",
   "ok": true,
   "result": {"data": "..."}
 }
 ```
+
 
 ## Security Considerations
 

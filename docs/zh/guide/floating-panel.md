@@ -64,7 +64,8 @@ class TriggerButton(AuroraView):
             height=48,
             frame=False,
             transparent=True,
-            undecorated_shadow=False,  # 关键：无阴影实现真正透明
+            undecorated_shadow=False,  # 默认：无阴影（如需阴影请设为 True）
+
             always_on_top=True,
             tool_window=True,
         )
@@ -73,7 +74,8 @@ class TriggerButton(AuroraView):
 **透明窗口的关键参数：**
 - `frame=False` - 无边框窗口
 - `transparent=True` - 透明背景
-- `undecorated_shadow=False` - **关键** - 移除阴影实现真正透明
+- `undecorated_shadow=False` - 默认：无边框窗口**无阴影**；如需阴影请显式设为 `True`
+
 - `tool_window=True` - 从任务栏/Alt+Tab 隐藏
 
 ## 带 GSAP 动画的浮动工具栏

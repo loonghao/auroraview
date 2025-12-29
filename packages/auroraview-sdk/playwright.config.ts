@@ -1,5 +1,22 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const projects = [
+  {
+    name: 'chromium',
+    use: { ...devices['Desktop Chrome'] },
+  },
+];
+
+// Optional: run the same suite against system Microsoft Edge on Windows.
+// Enable via: AURORAVIEW_PLAYWRIGHT_CHANNEL=msedge
+if (process.platform === 'win32' && process.env.AURORAVIEW_PLAYWRIGHT_CHANNEL === 'msedge') {
+  projects.push({
+    name: 'msedge',
+    // Reuse Chrome device profile, but run using Edge channel.
+    use: { ...devices['Desktop Chrome'], channel: 'msedge' },
+  });
+}
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -15,12 +32,7 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
+  projects,
   webServer: {
     command: 'npm run dev:test',
     url: 'http://localhost:5173',
@@ -28,3 +40,4 @@ export default defineConfig({
     timeout: 120 * 1000,
   },
 });
+

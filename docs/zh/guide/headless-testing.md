@@ -23,6 +23,24 @@ with HeadlessWebView.playwright() as webview:
     assert webview.text("#result") == "Success"
 ```
 
+#### 在 Windows 上使用系统 Edge 渠道（可选）
+
+这样可以在保持 **headless 静默** 的同时，更贴近 WebView2/Edge 的真实行为，提升兼容性覆盖。
+
+```powershell
+# 在 Windows 上优先使用系统 Edge 来跑 Playwright
+$env:AURORAVIEW_PLAYWRIGHT_CHANNEL = "msedge"
+```
+
+```python
+from auroraview.testing.headless_webview import HeadlessWebView
+
+with HeadlessWebView.playwright(channel="msedge") as webview:
+    webview.load_html("<h1>Hello Edge</h1>")
+    assert webview.text("h1") == "Hello Edge"
+```
+
+
 ### 自动检测模式
 
 ```python

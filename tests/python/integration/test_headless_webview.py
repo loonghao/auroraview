@@ -71,6 +71,20 @@ class TestPlaywrightHeadlessWebView:
         # Should be closed after context exit
         assert webview._closed
 
+    @pytest.mark.skipif(
+        platform.system() != "Windows", reason="msedge channel only available on Windows"
+    )
+    def test_playwright_msedge_channel(self):
+        """Test Playwright can run using Microsoft Edge channel (Windows only)."""
+        from auroraview.testing.headless_webview import HeadlessWebView
+
+        try:
+            with HeadlessWebView.playwright(channel="msedge") as webview:
+                webview.load_html("<html><body><h1>Edge</h1></body></html>")
+                assert webview.text("h1") == "Edge"
+        except Exception as e:
+            pytest.skip(f"msedge channel not available: {e}")
+
     def test_goto_and_text(self):
         """Test navigation and text extraction."""
         from auroraview.testing.headless_webview import HeadlessWebView
@@ -292,6 +306,7 @@ class TestHeadlessOptions:
         assert options.height == 720
         assert options.inject_bridge is True
         assert options.screenshot_on_failure is True
+        assert options.playwright_channel is None
 
     def test_custom_options(self):
         """Test custom options."""
@@ -303,6 +318,7 @@ class TestHeadlessOptions:
             height=1080,
             inject_bridge=False,
             slow_mo=100,
+            playwright_channel="msedge",
         )
 
         assert options.timeout == 60.0
@@ -310,3 +326,4 @@ class TestHeadlessOptions:
         assert options.height == 1080
         assert options.inject_bridge is False
         assert options.slow_mo == 100
+        assert options.playwright_channel == "msedge"

@@ -69,7 +69,7 @@ def get_html(ctx: ChildContext) -> str:
             padding: 24px;
         }}
         .container {{ max-width: 700px; margin: 0 auto; }}
-        
+
         .header {{
             text-align: center;
             margin-bottom: 32px;
@@ -94,7 +94,7 @@ def get_html(ctx: ChildContext) -> str:
             font-size: 14px;
             margin-top: 12px;
         }}
-        
+
         .card {{
             background: rgba(255, 255, 255, 0.03);
             border-radius: 16px;
@@ -117,7 +117,7 @@ def get_html(ctx: ChildContext) -> str:
             background: {colors["accent"]};
             border-radius: 2px;
         }}
-        
+
         .info-grid {{
             display: grid;
             grid-template-columns: 140px 1fr;
@@ -135,7 +135,7 @@ def get_html(ctx: ChildContext) -> str:
             padding: 4px 10px;
             border-radius: 6px;
         }}
-        
+
         .btn-row {{
             display: flex;
             gap: 10px;
@@ -167,7 +167,7 @@ def get_html(ctx: ChildContext) -> str:
             cursor: not-allowed;
             transform: none;
         }}
-        
+
         .log-area {{
             background: rgba(0, 0, 0, 0.3);
             border-radius: 10px;
@@ -197,7 +197,7 @@ def get_html(ctx: ChildContext) -> str:
         .log-type.info {{ background: #6366f1; color: white; }}
         .log-type.error {{ background: #ef4444; color: white; }}
         .log-msg {{ color: #ccc; flex: 1; }}
-        
+
         .input-row {{
             display: flex;
             gap: 10px;
@@ -216,7 +216,7 @@ def get_html(ctx: ChildContext) -> str:
             outline: none;
             border-color: {colors["accent"]};
         }}
-        
+
         .hidden {{ display: none !important; }}
     </style>
 </head>
@@ -227,24 +227,24 @@ def get_html(ctx: ChildContext) -> str:
             <div class="mode-badge">{mode_label}</div>
             <p class="mode-desc">{mode_desc}</p>
         </div>
-        
+
         <div class="card">
             <h2>Context Information</h2>
             <div class="info-grid">
                 <span class="info-label">Mode</span>
                 <span class="info-value">{"child" if ctx.is_child else "standalone"}</span>
-                
+
                 <span class="info-label">Parent ID</span>
                 <span class="info-value">{ctx.parent_id or "N/A"}</span>
-                
+
                 <span class="info-label">Child ID</span>
                 <span class="info-value">{ctx.child_id or "N/A"}</span>
-                
+
                 <span class="info-label">Example Name</span>
                 <span class="info-value">{ctx.example_name or "N/A"}</span>
             </div>
         </div>
-        
+
         <div class="card {"hidden" if not ctx.is_child else ""}">
             <h2>Parent Communication</h2>
             <div class="btn-row">
@@ -252,7 +252,7 @@ def get_html(ctx: ChildContext) -> str:
                 <button onclick="sendHello()">Say Hello</button>
                 <button onclick="requestState()" class="secondary">Request State</button>
             </div>
-            
+
             <div class="log-area" id="log">
                 <div class="log-entry">
                     <span class="log-time">--:--:--</span>
@@ -260,13 +260,13 @@ def get_html(ctx: ChildContext) -> str:
                     <span class="log-msg">Waiting for communication...</span>
                 </div>
             </div>
-            
+
             <div class="input-row">
                 <input type="text" id="customMsg" placeholder="Type a custom message...">
                 <button onclick="sendCustom()">Send</button>
             </div>
         </div>
-        
+
         <div class="card">
             <h2>Local Actions</h2>
             <div class="btn-row">
@@ -276,21 +276,21 @@ def get_html(ctx: ChildContext) -> str:
             </div>
         </div>
     </div>
-    
+
     <script>
         const logArea = document.getElementById('log');
         let logCount = 0;
-        
+
         function getTime() {{
             return new Date().toLocaleTimeString('en-US', {{ hour12: false }});
         }}
-        
+
         function addLog(type, msg) {{
             logCount++;
             if (logCount === 1) {{
                 logArea.innerHTML = '';
             }}
-            
+
             const entry = document.createElement('div');
             entry.className = 'log-entry';
             entry.innerHTML = `
@@ -301,7 +301,7 @@ def get_html(ctx: ChildContext) -> str:
             logArea.appendChild(entry);
             logArea.scrollTop = logArea.scrollHeight;
         }}
-        
+
         // Parent communication functions
         function sendPing() {{
             if (window.auroraview?.call) {{
@@ -309,40 +309,40 @@ def get_html(ctx: ChildContext) -> str:
                 addLog('send', 'Sent ping to parent');
             }}
         }}
-        
+
         function sendHello() {{
             if (window.auroraview?.call) {{
-                auroraview.call('emit_to_parent', {{ 
-                    event: 'hello', 
+                auroraview.call('emit_to_parent', {{
+                    event: 'hello',
                     data: {{ message: 'Hello from child!', timestamp: Date.now() }}
                 }});
                 addLog('send', 'Sent hello to parent');
             }}
         }}
-        
+
         function requestState() {{
             if (window.auroraview?.call) {{
-                auroraview.call('emit_to_parent', {{ 
-                    event: 'request_state', 
+                auroraview.call('emit_to_parent', {{
+                    event: 'request_state',
                     data: {{ from: '{ctx.child_id or "unknown"}' }}
                 }});
                 addLog('send', 'Requested state from parent');
             }}
         }}
-        
+
         function sendCustom() {{
             const input = document.getElementById('customMsg');
             const msg = input.value.trim();
             if (msg && window.auroraview?.call) {{
-                auroraview.call('emit_to_parent', {{ 
-                    event: 'custom_message', 
+                auroraview.call('emit_to_parent', {{
+                    event: 'custom_message',
                     data: {{ message: msg }}
                 }});
                 addLog('send', `Sent: ${{msg}}`);
                 input.value = '';
             }}
         }}
-        
+
         // Local actions
         function logContext() {{
             console.log('Child Window Context:', {{
@@ -353,39 +353,39 @@ def get_html(ctx: ChildContext) -> str:
             }});
             addLog('info', 'Context logged to console');
         }}
-        
+
         function showNotification() {{
             if (window.auroraview?.call) {{
-                auroraview.call('show_notification', {{ 
+                auroraview.call('show_notification', {{
                     title: 'Child Window Demo',
                     message: 'This is a notification from the child window!'
                 }});
             }}
         }}
-        
+
         function closeWindow() {{
             if (window.auroraview?.call) {{
                 auroraview.call('close_window');
             }}
         }}
-        
+
         // Listen for parent events
         window.addEventListener('auroraviewready', () => {{
             console.log('[ChildWindow] AuroraView ready');
-            
+
             auroraview.on('parent:message', (data) => {{
                 addLog('recv', `Parent message: ${{JSON.stringify(data)}}`);
             }});
-            
+
             auroraview.on('parent:pong', (data) => {{
                 addLog('recv', `Pong received! RTT: ${{Date.now() - data.originalTime}}ms`);
             }});
-            
+
             auroraview.on('parent:state', (data) => {{
                 addLog('recv', `State: ${{JSON.stringify(data)}}`);
             }});
         }});
-        
+
         // Enter to send custom message
         document.getElementById('customMsg')?.addEventListener('keypress', (e) => {{
             if (e.key === 'Enter') sendCustom();

@@ -53,7 +53,8 @@ use wry::WebViewBuilder as WryWebViewBuilder;
 use wry::WebViewBuilderExtWindows;
 
 use super::config::{NewWindowMode, WebViewConfig};
-use super::event_loop::UserEvent;
+use super::event_loop::{UserEvent, WindowStyleHints};
+
 use super::js_assets;
 use super::tray::TrayManager;
 use super::webview_inner::WebViewInner;
@@ -62,9 +63,11 @@ use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
 // Use shared builder utilities from auroraview-core
 #[cfg(target_os = "windows")]
 use auroraview_core::builder::{
-    apply_child_window_style, apply_owner_window_style, apply_tool_window_style,
-    disable_window_shadow, ChildWindowStyleOptions,
+    apply_child_window_style, apply_frameless_popup_window_style, apply_owner_window_style,
+    apply_tool_window_style, disable_window_shadow, remove_clip_children_style,
+    ChildWindowStyleOptions,
 };
+
 use auroraview_core::builder::{get_background_color, init_com_sta, log_background_color};
 
 /// Create desktop WebView with its own window
@@ -100,12 +103,25 @@ pub fn create_desktop(
     message_queue: Arc<MessageQueue>,
 ) -> Result<WebViewInner, Box<dyn std::error::Error>> {
     // Debug: Log config values
+    #[cfg(target_os = "windows")]
     tracing::info!(
-        "[standalone] create_desktop config: title='{}', width={}, height={}, decorations={}",
+        "[standalone] create_desktop config: title='{}', width={}, height={}, decorations={}, transparent={}, undecorated_shadow={}",
         config.title,
         config.width,
         config.height,
-        config.decorations
+        config.decorations,
+        config.transparent,
+        config.undecorated_shadow
+    );
+
+    #[cfg(not(target_os = "windows"))]
+    tracing::info!(
+        "[standalone] create_desktop config: title='{}', width={}, height={}, decorations={}, transparent={}",
+        config.title,
+        config.width,
+        config.height,
+        config.decorations,
+        config.transparent
     );
 
     // Initialize COM for WebView2 on Windows (using shared utility)
@@ -140,6 +156,17 @@ pub fn create_desktop(
     #[cfg(target_os = "windows")]
     {
         use tao::platform::windows::WindowBuilderExtWindows;
+
+        // If this window is intended to be a floating tool window, hide it from taskbar.
+        // (Still also apply Win32 WS_EX_TOOLWINDOW after WebView2 creation.)
+        if config.tool_window {
+            window_builder = window_builder.with_skip_taskbar(true);
+        }
+
+        tracing::info!(
+            "[standalone] Checking undecorated_shadow: transparent={}, decorations={}, undecorated_shadow={}",
+            config.transparent, config.decorations, config.undecorated_shadow
+        );
 
         // For transparent frameless windows, disable shadow at creation time
         // This is required for transparency to work correctly on Windows 11
@@ -785,6 +812,16 @@ pub fn create_desktop(
         }
     };
 
+    // Force-remove title bar/borders if decorations are disabled.
+    // This is a Win32 fallback for cases where tao/wry doesn't fully honor with_decorations(false)
+    // on Windows 11 (observed with transparent frameless windows).
+    #[cfg(target_os = "windows")]
+    if !config.decorations {
+        if let Some(hwnd) = cached_hwnd {
+            let _ = apply_frameless_popup_window_style(hwnd as isize);
+        }
+    }
+
     // Apply tool window style AFTER WebView2 is created
     // Doing this before WebView2 creation causes HRESULT 0x80070057 (E_INVALIDARG)
     #[cfg(target_os = "windows")]
@@ -814,6 +851,13 @@ pub fn create_desktop(
                 extend_frame_into_client_area, optimize_transparent_window_resize,
             };
             if let Some(hwnd) = cached_hwnd {
+                // CRITICAL: Remove WS_CLIPCHILDREN to fix transparency on Windows 11
+                // See: https://github.com/tauri-apps/wry/issues/1212
+                // tao/winit adds WS_CLIPCHILDREN by default, which prevents child windows
+                // (WebView2) from rendering transparent content correctly.
+                remove_clip_children_style(hwnd as isize);
+                tracing::info!("[standalone] Removed WS_CLIPCHILDREN for transparent window");
+
                 extend_frame_into_client_area(hwnd as isize);
                 tracing::info!("[standalone] Extended DWM frame for transparent window");
 
@@ -823,6 +867,16 @@ pub fn create_desktop(
             }
         }
     }
+
+    let window_style_hints = Some(WindowStyleHints {
+        decorations: config.decorations,
+        #[cfg(target_os = "windows")]
+        tool_window: config.tool_window,
+        #[cfg(target_os = "windows")]
+        undecorated_shadow: config.undecorated_shadow,
+        #[cfg(target_os = "windows")]
+        transparent: config.transparent,
+    });
 
     #[allow(clippy::arc_with_non_send_sync)]
     Ok(WebViewInner {
@@ -837,6 +891,7 @@ pub fn create_desktop(
         backend: None, // Only used in DCC mode
         #[cfg(target_os = "windows")]
         cached_hwnd,
+        window_style_hints,
     })
 }
 
@@ -907,9 +962,15 @@ pub fn run_desktop(
     let headless = config.headless;
     let tray_config = config.tray.clone();
     let window_icon = config.icon.clone();
+    #[cfg(target_os = "windows")]
+    let decorations = config.decorations;
 
     // Create the WebView
     let mut webview_inner = create_desktop(config, ipc_handler, message_queue)?;
+
+    // Cache HWND for post-show style enforcement (Windows only)
+    #[cfg(target_os = "windows")]
+    let cached_hwnd = webview_inner.cached_hwnd;
 
     // Take ownership of event loop and window using take()
     let mut event_loop = webview_inner
@@ -1004,8 +1065,17 @@ pub fn run_desktop(
                         if show_on_click && !window_visible {
                             tracing::debug!("[Standalone] Tray click - showing window");
                             window.set_visible(true);
+                            #[cfg(target_os = "windows")]
+                            {
+                                if !decorations {
+                                    if let Some(hwnd) = cached_hwnd {
+                                        let _ = apply_frameless_popup_window_style(hwnd as isize);
+                                    }
+                                }
+                            }
                             window.set_focus();
                             window_visible = true;
+
                         }
                     }
                     TrayIconEvent::DoubleClick {
@@ -1019,8 +1089,17 @@ pub fn run_desktop(
                                 window_visible = false;
                             } else {
                                 window.set_visible(true);
+                                #[cfg(target_os = "windows")]
+                                {
+                                    if !decorations {
+                                        if let Some(hwnd) = cached_hwnd {
+                                            let _ = apply_frameless_popup_window_style(hwnd as isize);
+                                        }
+                                    }
+                                }
                                 window.set_focus();
                                 window_visible = true;
+
                             }
                         }
                     }
@@ -1041,8 +1120,17 @@ pub fn run_desktop(
                         }
                         "show" => {
                             window.set_visible(true);
+                            #[cfg(target_os = "windows")]
+                            {
+                                if !decorations {
+                                    if let Some(hwnd) = cached_hwnd {
+                                        let _ = apply_frameless_popup_window_style(hwnd as isize);
+                                    }
+                                }
+                            }
                             window.set_focus();
                             window_visible = true;
+
                         }
                         "hide" => {
                             window.set_visible(false);
@@ -1086,9 +1174,18 @@ pub fn run_desktop(
         if !headless && auto_show && !window_shown && std::time::Instant::now() >= show_time {
             tracing::info!("[Standalone] Loading screen should be rendered, showing window now!");
             window.set_visible(true);
+            #[cfg(target_os = "windows")]
+            {
+                if !decorations {
+                    if let Some(hwnd) = cached_hwnd {
+                        let _ = apply_frameless_popup_window_style(hwnd as isize);
+                    }
+                }
+            }
             window.request_redraw();
             window_shown = true;
             window_visible = true;
+
         }
 
         if let tao::event::Event::WindowEvent {

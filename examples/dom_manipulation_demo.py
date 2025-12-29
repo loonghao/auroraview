@@ -407,9 +407,8 @@ class DomManipulationDemo:
 
     def toggle_items(self) -> None:
         """Toggle selection on all items."""
-        # Use ElementCollection for batch operations
-        items = self.view.dom("#item-list li")
         # Toggle class on each item
+
         for i in range(1, self.item_counter + 1):
             self.view.dom(f"#item-list li:nth-child({i})").toggle_class("selected")
         self.set_status("Toggled selection on all items")

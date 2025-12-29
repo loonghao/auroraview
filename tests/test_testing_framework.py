@@ -158,14 +158,14 @@ class TestTestingModuleExports:
     def test_midscene_exports(self):
         """Test that Midscene classes are exported from testing module."""
         from auroraview.testing import (
-            MidsceneConfig,
-            MidsceneAgent,
             MidsceneActionResult,
-            MidsceneQueryResult,
+            MidsceneAgent,
+            MidsceneConfig,
             MidscenePlaywrightFixture,
-            pytest_ai_fixture,
+            MidsceneQueryResult,
             get_midscene_bridge_script,
             inject_midscene_bridge,
+            pytest_ai_fixture,
         )
 
         # Just verify imports work
@@ -270,8 +270,8 @@ class TestRustCoreAssets:
         """Test that Rust asset functions return consistent results on multiple calls."""
         try:
             from auroraview._core import (
-                get_midscene_bridge_js,
                 get_event_bridge_js,
+                get_midscene_bridge_js,
                 get_test_callback_js,
             )
 

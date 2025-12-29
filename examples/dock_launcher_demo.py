@@ -23,12 +23,10 @@ Use cases:
 Signed-off-by: Hal Long <hal.long@outlook.com>
 """
 
-import base64
 import glob
 import os
 import subprocess
 import sys
-from pathlib import Path
 
 # HTML for the dock launcher with GSAP animations
 DOCK_HTML = """
@@ -48,8 +46,14 @@ DOCK_HTML = """
             width: 100%;
             height: 100%;
             background: transparent !important;
-            overflow: visible;
+            overflow: hidden; /* prevent Chromium scrollbars in frameless windows */
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        /* Hide scrollbars defensively (WebView2/Chromium) */
+        ::-webkit-scrollbar {
+            width: 0;
+            height: 0;
         }
 
         .container {
@@ -61,8 +65,18 @@ DOCK_HTML = """
             padding-bottom: 8px;
         }
 
+        /* Visual effects (shadow/reflection) are OFF by default.
+           Enable by opening the page with `?shadows=1`. */
+        .enable-shadows .container {
+            /* Leave room for the reflection pseudo-element */
+            padding-bottom: 28px;
+        }
+
+
+
         /* Dock bar */
         .dock {
+            position: relative; /* anchor ::after reflection */
             display: flex;
             align-items: flex-end;
             justify-content: center;
@@ -72,9 +86,15 @@ DOCK_HTML = """
             backdrop-filter: blur(20px);
             border-radius: 18px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            box-shadow: none; /* default: no obvious shadow */
             -webkit-app-region: drag;
         }
+
+        .enable-shadows .dock {
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+
 
         /* Dock item */
         .dock-item {
@@ -197,8 +217,12 @@ DOCK_HTML = """
             animation: bounce 0.5s ease;
         }
 
-        /* Reflection effect */
+        /* Reflection effect (OFF by default) */
         .dock::after {
+            content: none;
+        }
+
+        .enable-shadows .dock::after {
             content: '';
             position: absolute;
             left: 16px;
@@ -210,6 +234,7 @@ DOCK_HTML = """
             pointer-events: none;
             opacity: 0.5;
         }
+
     </style>
 </head>
 <body>
@@ -225,11 +250,18 @@ DOCK_HTML = """
         let items = [];
         let dockRect = null;
 
+        // Visual effects toggle (OFF by default)
+        const ENABLE_VISUAL_SHADOWS = (new URLSearchParams(window.location.search)).get('shadows') === '1';
+        if (ENABLE_VISUAL_SHADOWS) {
+            document.body.classList.add('enable-shadows');
+        }
+
         // Initialize
         window.addEventListener('auroraviewready', () => {
             console.log('[DockLauncher] AuroraView ready');
             loadItems();
         });
+
 
         // Fallback for standalone testing
         setTimeout(() => {
@@ -525,7 +557,9 @@ def run_dock_launcher_demo():
             {"id": "vscode", "name": "VS Code", "icon": None, "color": 7, "running": True},
         ]
 
-    print(f"[DockLauncher] Found {len([i for i in items if i.get('type') != 'separator'])} applications")
+    print(
+        f"[DockLauncher] Found {len([i for i in items if i.get('type') != 'separator'])} applications"
+    )
 
     class DockLauncher(AuroraView):
         """macOS-style dock launcher."""

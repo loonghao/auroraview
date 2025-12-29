@@ -1763,7 +1763,8 @@ def run_floating_panel_demo():
                 height=48,
                 frame=False,  # Frameless window
                 transparent=True,  # Transparent background
-                undecorated_shadow=False,  # CRITICAL: No shadow for truly transparent button
+                undecorated_shadow=False,  # Default: no shadow (set True to force-enable)
+
                 always_on_top=True,  # Keep on top of other windows
                 tool_window=True,  # Hide from taskbar and Alt+Tab
             )
