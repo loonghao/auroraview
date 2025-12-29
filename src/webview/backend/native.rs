@@ -183,6 +183,7 @@ impl WebViewBackend for NativeBackend {
         // First, handle SetVisible messages separately (needs window access)
         // We collect visibility changes and apply them after processing
         let mut visibility_changes: Vec<bool> = Vec::new();
+        let mut close_requested = false;
 
         // Process message queue with batch limit (always, regardless of skip_message_pump)
         // Use batch processing for DCCs with busy main threads (e.g., Houdini)
@@ -270,8 +271,10 @@ impl WebViewBackend for NativeBackend {
                                 }
                             }
                             WebViewMessage::Close => {
-                                // Close is handled at event loop level
+                                // Embedded/IPC-only modes do not have a dedicated event loop.
+                                // Treat this as a close request and let the caller stop polling.
                                 tracing::info!("[NativeBackend] Close message received");
+                                close_requested = true;
                             }
                         }
                     });
@@ -291,6 +294,32 @@ impl WebViewBackend for NativeBackend {
                 tracing::debug!("[NativeBackend] Setting visibility: {}", visible);
                 window.set_visible(visible);
             }
+        }
+
+        if close_requested {
+            if let Some(ref window) = self.window {
+                window.set_visible(false);
+
+                // Best-effort: ask the OS to close the native window.
+                #[cfg(target_os = "windows")]
+                {
+                    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+                    use std::ffi::c_void;
+                    use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+                    use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE};
+
+                    if let Ok(handle) = window.window_handle() {
+                        if let RawWindowHandle::Win32(h) = handle.as_raw() {
+                            let hwnd = HWND(h.hwnd.get() as *mut c_void);
+                            unsafe {
+                                let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+                            }
+                        }
+                    }
+                }
+            }
+
+            return true;
         }
 
         false
@@ -861,8 +890,25 @@ impl NativeBackend {
         if let Some(hwnd_value) = cached_hwnd {
             use crate::webview::config::EmbedMode;
             use auroraview_core::builder::{
+                apply_frameless_popup_window_style, apply_frameless_window_style,
                 apply_owner_window_style, apply_tool_window_style, disable_window_shadow,
+                remove_clip_children_style,
             };
+
+            // Force-remove title bar/borders if decorations are disabled.
+            // This is a Win32 fallback for cases where tao/wry doesn't fully honor with_decorations(false)
+            // on Windows 11 (observed with transparent frameless windows).
+            if !config.decorations {
+                match config.embed_mode {
+                    // Child windows can't be WS_POPUP.
+                    EmbedMode::Child => {
+                        let _ = apply_frameless_window_style(hwnd_value);
+                    }
+                    EmbedMode::Owner | EmbedMode::None => {
+                        let _ = apply_frameless_popup_window_style(hwnd_value);
+                    }
+                }
+            }
 
             match config.embed_mode {
                 EmbedMode::Child => {
@@ -897,6 +943,16 @@ impl NativeBackend {
             // This fixes rendering artifacts (black stripes) when dragging transparent windows
             if config.transparent {
                 use auroraview_core::builder::extend_frame_into_client_area;
+
+                // CRITICAL: Remove WS_CLIPCHILDREN to fix transparency on Windows 11
+                // See: https://github.com/tauri-apps/wry/issues/1212
+                // tao/winit adds WS_CLIPCHILDREN by default, which prevents child windows
+                // (WebView2) from rendering transparent content correctly.
+                remove_clip_children_style(hwnd_value);
+                tracing::info!(
+                    "[OK] [NativeBackend] Removed WS_CLIPCHILDREN for transparent window"
+                );
+
                 extend_frame_into_client_area(hwnd_value);
                 tracing::info!("[OK] [NativeBackend] Extended DWM frame for transparent window");
             }

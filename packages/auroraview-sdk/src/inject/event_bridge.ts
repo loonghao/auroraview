@@ -396,6 +396,123 @@
     },
 
     /**
+     * Enable automatic drag regions based on `-webkit-app-region` CSS.
+     *
+     * WebView2 doesn't implement Electron/Tauri's app-region behavior, so we emulate it:
+     * - If pointer goes down inside an element (or its ancestors) marked as `drag`, we arm dragging.
+     * - If the pointer moves more than a small threshold, we call `startDrag()`.
+     * - If any ancestor is marked as `no-drag`, dragging is suppressed.
+     */
+    _installAutoDragRegions: function (): void {
+      try {
+        const w = window as unknown as Record<string, unknown>;
+        if (w.__auroraview_auto_drag_regions_installed) return;
+        w.__auroraview_auto_drag_regions_installed = true;
+
+        const DRAG_THRESHOLD_PX = 4;
+        let pending: { x: number; y: number } | null = null;
+        let suppressClickUntil = 0;
+
+        function getAppRegion(el: Element): string {
+          try {
+            const v = getComputedStyle(el).getPropertyValue('-webkit-app-region');
+            return (v || '').trim();
+          } catch {
+            return '';
+          }
+        }
+
+        function isNoDrag(el: Element): boolean {
+          return (
+            (el as HTMLElement).classList?.contains('no-drag') ||
+            getAppRegion(el) === 'no-drag'
+          );
+        }
+
+        function isDrag(el: Element): boolean {
+          return (
+            (el as HTMLElement).classList?.contains('drag-handle') ||
+            getAppRegion(el) === 'drag'
+          );
+        }
+
+        function findDragRegion(startEl: Element): Element | null {
+          let el: Element | null = startEl;
+          let dragEl: Element | null = null;
+          while (el && el !== document.documentElement) {
+            if (isNoDrag(el)) return null;
+            if (!dragEl && isDrag(el)) dragEl = el;
+            el = el.parentElement;
+          }
+          return dragEl;
+        }
+
+        function clearPending(): void {
+          pending = null;
+        }
+
+        document.addEventListener(
+          'mousedown',
+          (e: MouseEvent) => {
+            try {
+              if (e.button !== 0) return;
+              const t = e.target;
+              if (!t || !(t instanceof Element)) return;
+              const dragEl = findDragRegion(t);
+              if (!dragEl) return;
+              pending = { x: e.clientX, y: e.clientY };
+            } catch (err) {
+              console.warn('[AuroraView] Auto drag region handler error:', err);
+            }
+          },
+          true
+        );
+
+        document.addEventListener(
+          'mousemove',
+          (e: MouseEvent) => {
+            try {
+              if (!pending) return;
+              const dx = e.clientX - pending.x;
+              const dy = e.clientY - pending.y;
+              if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return;
+              clearPending();
+
+              suppressClickUntil = Date.now() + 800;
+              window.auroraview!.startDrag();
+              e.preventDefault();
+            } catch (err) {
+              console.warn('[AuroraView] Auto drag region handler error:', err);
+            }
+          },
+          true
+        );
+
+        document.addEventListener('mouseup', clearPending, true);
+        window.addEventListener('blur', clearPending, true);
+
+        document.addEventListener(
+          'click',
+          (e: MouseEvent) => {
+            try {
+              if (Date.now() < suppressClickUntil) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            } catch {
+              // ignore
+            }
+          },
+          true
+        );
+      } catch (e) {
+        console.warn('[AuroraView] Failed to install auto drag regions:', e);
+      }
+    },
+
+
+
+    /**
      * Register API methods dynamically
      */
     _registerApiMethods: function (
@@ -457,6 +574,10 @@
 
   // Mark bridge as ready
   window.auroraview._ready = true;
+
+  // Auto drag regions (frameless windows)
+  window.auroraview._installAutoDragRegions();
+
 
   // Process any pending calls from stub
   if (pendingFromStub.length > 0) {

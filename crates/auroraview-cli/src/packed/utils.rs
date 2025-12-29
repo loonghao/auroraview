@@ -121,7 +121,7 @@ pub fn get_webview_data_dir() -> PathBuf {
 /// (with manifest.json).
 ///
 /// ## Directory Structure
-/// ```
+/// ```text
 /// %LOCALAPPDATA%/AuroraView/Extensions/
 /// ├── my-extension-1/
 /// │   ├── manifest.json

@@ -113,7 +113,7 @@ class WebView(
         ipc_batch_size: int = 0,
         icon: Optional[str] = None,
         tool_window: bool = False,
-        undecorated_shadow: bool = True,
+        undecorated_shadow: bool = False,
         allow_new_window: bool = False,
         new_window_mode: Optional[str] = None,
         # Aliases for more intuitive API
@@ -122,90 +122,92 @@ class WebView(
     ) -> None:
         r"""Initialize the WebView.
 
-        Args:
-            title: Window title
-            width: Window width in pixels
-            height: Window height in pixels
-            url: URL to load (optional)
-            html: HTML content to load (optional)
-            debug: Enable developer tools (default: True). Press F12 or right-click
-                > Inspect to open DevTools.
-            context_menu: Enable native context menu (default: True)
-            resizable: Make window resizable (default: True)
-            frame: Show window frame (title bar, borders) (default: True)
-            parent: Parent window handle for embedding (optional)
-            mode: Embedding mode - "child" or "owner" (optional)
-            bridge: Bridge instance for DCC integration
-                   - Bridge instance: Use provided bridge
-                   - True: Auto-create bridge with default settings
-                   - None: No bridge (default)
-            asset_root: Root directory for auroraview:// protocol.
-                When set, enables the auroraview:// custom protocol for secure
-                local resource loading. Files under this directory can be accessed
-                using URLs like ``auroraview://path/to/file``.
+               Args:
+                   title: Window title
+                   width: Window width in pixels
+                   height: Window height in pixels
+                   url: URL to load (optional)
+                   html: HTML content to load (optional)
+                   debug: Enable developer tools (default: True). Press F12 or right-click
+                       > Inspect to open DevTools.
+                   context_menu: Enable native context menu (default: True)
+                   resizable: Make window resizable (default: True)
+                   frame: Show window frame (title bar, borders). If None, uses sensible defaults.
+        (default: True)
+                   parent: Parent window handle for embedding (optional)
+                   mode: Embedding mode - "child" or "owner" (optional)
+                   bridge: Bridge instance for DCC integration
+                          - Bridge instance: Use provided bridge
+                          - True: Auto-create bridge with default settings
+                          - None: No bridge (default)
+                   asset_root: Root directory for auroraview:// protocol.
+                       When set, enables the auroraview:// custom protocol for secure
+                       local resource loading. Files under this directory can be accessed
+                       using URLs like ``auroraview://path/to/file``.
 
-                **Platform-specific URL format**:
+                       **Platform-specific URL format**:
 
-                - Windows: ``https://auroraview.localhost/path``
-                - macOS/Linux: ``auroraview://path``
+                       - Windows: ``https://auroraview.localhost/path``
+                       - macOS/Linux: ``auroraview://path``
 
-                **Security**: Uses ``.localhost`` TLD (IANA reserved, RFC 6761)
-                which cannot be registered and is treated as a local address.
-                Requests are intercepted before DNS resolution.
+                       **Security**: Uses ``.localhost`` TLD (IANA reserved, RFC 6761)
+                       which cannot be registered and is treated as a local address.
+                       Requests are intercepted before DNS resolution.
 
-                **Recommended** over ``allow_file_protocol=True`` because access
-                is restricted to the specified directory only.
+                       **Recommended** over ``allow_file_protocol=True`` because access
+                       is restricted to the specified directory only.
 
-            data_directory: User data directory for WebView (cookies, cache, localStorage).
-                If None, uses system default (usually %LOCALAPPDATA%\...\EBWebView on Windows).
-                Set this to isolate WebView data per application or user profile.
+                   data_directory: User data directory for WebView (cookies, cache, localStorage).
+                       If None, uses system default (usually %LOCALAPPDATA%\...\EBWebView on Windows).
+                       Set this to isolate WebView data per application or user profile.
 
-            allow_file_protocol: Enable file:// protocol support (default: False).
-                **WARNING**: Enabling this allows access to ANY file on the system
-                that the process can read. Only use with trusted content.
-                Prefer using ``asset_root`` for secure local resource loading.
+                   allow_file_protocol: Enable file:// protocol support (default: False).
+                       **WARNING**: Enabling this allows access to ANY file on the system
+                       that the process can read. Only use with trusted content.
+                       Prefer using ``asset_root`` for secure local resource loading.
 
-            always_on_top: Keep window always on top of other windows (default: False).
-                Useful for floating tool panels or overlay windows.
+                   always_on_top: Keep window always on top of other windows (default: False).
+                       Useful for floating tool panels or overlay windows.
 
-            tool_window: Apply tool window style (default: False, Windows only).
-                When enabled, the window:
-                - Does NOT appear in the taskbar
-                - Does NOT appear in Alt+Tab window switcher
-                - Has a smaller title bar (if decorations are enabled)
+                   tool_window: Apply tool window style (default: False, Windows only).
+                       When enabled, the window:
+                       - Does NOT appear in the taskbar
+                       - Does NOT appear in Alt+Tab window switcher
+                       - Has a smaller title bar (if decorations are enabled)
 
-                This is commonly used with ``embed_mode="owner"`` for floating tool windows.
+                       This is commonly used with ``embed_mode="owner"`` for floating tool windows.
 
-                See: https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles
+                       See: https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles
 
-            undecorated_shadow: Show shadow for frameless windows (default: True, Windows only).
-                When ``frame=False``, Windows can still show a subtle shadow around the window.
-                Set this to ``False`` to disable the shadow completely, which is required for
-                truly transparent frameless windows (e.g., floating logo buttons).
+                   undecorated_shadow: Show shadow for frameless windows (default: False, Windows only).
+                       When ``frame=False``, Windows can still show a subtle shadow around the window.
+                       Set this to ``True`` to explicitly enable the shadow.
 
-                Example::
+                       truly transparent frameless windows (e.g., floating logo buttons).
 
-                    # Transparent logo button with no shadow
-                    webview = WebView(
-                        html=LOGO_HTML,
-                        width=64,
-                        height=64,
-                        frame=False,
-                        transparent=True,
-                        undecorated_shadow=False,
-                        tool_window=True,
-                    )
+                       Example::
 
-            parent_hwnd: Alias for ``parent`` parameter (for backward compatibility).
-            embed_mode: Alias for ``mode`` parameter. Values: "child", "owner".
+                           # Transparent logo button with no shadow
+                           webview = WebView(
+                               html=LOGO_HTML,
+                               width=64,
+                               height=64,
+                               frame=False,
+                               transparent=True,
+                               undecorated_shadow=False,
+                               tool_window=True,
+                           )
 
-                - **child**: Embed WebView inside a Qt widget (WS_CHILD).
-                  Window is clipped to parent bounds, cannot be moved independently.
+                   parent_hwnd: Alias for ``parent`` parameter (for backward compatibility).
+                   embed_mode: Alias for ``mode`` parameter. Values: "child", "owner".
 
-                - **owner**: Create floating tool window (GWLP_HWNDPARENT).
-                  Window stays above owner in Z-order, hidden when owner minimizes.
+                       - **child**: Embed WebView inside a Qt widget (WS_CHILD).
+                         Window is clipped to parent bounds, cannot be moved independently.
 
-                See: https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features
+                       - **owner**: Create floating tool window (GWLP_HWNDPARENT).
+                         Window stays above owner in Z-order, hidden when owner minimizes.
+
+                       See: https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features
         """
         if _CoreWebView is None:
             import sys
@@ -240,8 +242,17 @@ class WebView(
             frame = decorations
         if debug is None:
             debug = True
+
+        # Default decorations strategy
+        #
+        # - Keep explicit overrides: `frame=` / `decorations=` take precedence.
+        # - For typical app windows, keep decorations on.
+        # - For tool/overlay style windows (tool_window/transparent), default to frameless.
         if frame is None:
-            frame = True
+            if tool_window or transparent:
+                frame = False
+            else:
+                frame = True
 
         # Handle parameter aliases for more intuitive API
         # parent_hwnd is alias for parent
@@ -306,6 +317,9 @@ class WebView(
         self._async_core_lock = threading.Lock()
         # Track if running in blocking event loop (for HWND mode)
         self._in_blocking_event_loop = False
+
+        # Close requested flag (used to coordinate background-thread WebView lifecycle)
+        self._close_requested = False
 
         # Event processor (strategy pattern for UI framework integration)
         self._event_processor: Optional[Any] = None
@@ -457,7 +471,7 @@ class WebView(
         width: int = 800,
         height: int = 600,
         resizable: bool = True,
-        frame: bool = True,
+        frame: Optional[bool] = None,
         always_on_top: bool = False,
         transparent: bool = False,
         background_color: Optional[str] = None,
@@ -492,7 +506,8 @@ class WebView(
             width: Window width in pixels
             height: Window height in pixels
             resizable: Make window resizable
-            frame: Show window frame (title bar, borders)
+            frame: Show window frame (title bar, borders). If None, uses sensible defaults.
+
             always_on_top: Keep window always on top of other windows (default: False)
             parent: Parent window handle for DCC embedding
             mode: Embedding mode
@@ -637,7 +652,7 @@ class WebView(
         width: int = 800,
         height: int = 600,
         resizable: bool = True,
-        frame: bool = True,
+        frame: Optional[bool] = None,
         parent: Optional[int] = None,
         mode: Literal["auto", "owner", "child"] = "owner",
         bridge: Union["Bridge", bool, None] = None,  # type: ignore
@@ -753,7 +768,9 @@ class WebView(
         instance._show_thread = None
         instance._async_core = None
         instance._async_core_lock = threading.Lock()
+        instance._close_requested = False
         instance._event_processor = None
+
         instance._post_eval_js_hook = None
         instance._config = {
             "title": title,
@@ -944,7 +961,16 @@ class WebView(
                 with self._async_core_lock:
                     self._async_core = core
 
+                # If close was requested before the background core became ready,
+                # exit early without entering the event loop.
+                if getattr(self, "_close_requested", False):
+                    logger.info(
+                        "Background thread: close already requested; skipping show() and exiting"
+                    )
+                    return
+
                 # Re-register all event handlers in the background thread
+
                 logger.info(
                     f"Background thread: Re-registering {len(self._event_handlers)} event handlers"
                 )
@@ -1358,12 +1384,37 @@ class WebView(
         """Close the WebView window and remove from singleton registry."""
         logger.info("Closing WebView")
 
+        # Mark close intent early so background thread can bail out if it hasn't
+        # entered the event loop yet.
+        self._close_requested = True
+
+        # Prefer closing the background-thread core (if present). Fall back to
+        # the main-thread core as a best-effort.
+        cores = []
         try:
-            # Close the core WebView
-            self._core.close()
-            logger.info("Core WebView closed")
-        except Exception as e:
-            logger.warning(f"Error closing core WebView: {e}")
+            with self._async_core_lock:
+                if self._async_core is not None:
+                    cores.append(self._async_core)
+        except Exception:
+            # Lock acquisition should never fail, but keep close best-effort.
+            pass
+
+        cores.append(getattr(self, "_core", None))
+
+        seen = set()
+        for core in cores:
+            if core is None:
+                continue
+            core_id = id(core)
+            if core_id in seen:
+                continue
+            seen.add(core_id)
+
+            try:
+                core.close()
+                logger.info("Core WebView close requested")
+            except Exception as e:
+                logger.warning(f"Error requesting core close: {e}")
 
         # Wait for background thread if running
         if self._show_thread is not None and self._show_thread.is_alive():

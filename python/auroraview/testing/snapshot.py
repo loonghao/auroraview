@@ -328,14 +328,14 @@ class ScreenshotSnapshot(SnapshotTest):
                     actual=f"{diff_count} different pixels",
                 )
 
-        except ImportError:
+        except ImportError as e:
             # PIL not available, fall back to byte comparison
             raise SnapshotMismatchError(
                 f"Screenshot mismatch for '{name}' (byte comparison). "
                 f"Install Pillow for pixel-level comparison.",
                 expected="<binary>",
                 actual="<binary>",
-            )
+            ) from e
 
 
 # ─────────────────────────────────────────────────────────────────────────────

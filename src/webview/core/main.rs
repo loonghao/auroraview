@@ -370,9 +370,14 @@ impl AuroraView {
     /// Close the WebView window
     fn close(&self) -> PyResult<()> {
         use super::super::event_loop::UserEvent;
+        use crate::ipc::WebViewMessage;
 
         if let Some(ref proxy) = *self.event_loop_proxy.borrow() {
             let _ = proxy.send_event(UserEvent::CloseWindow);
+        } else {
+            // Embedded / IPC-only modes may not have an event loop proxy.
+            // Fall back to message-queue driven close so host-driven pumps can honor it.
+            self.message_queue.push(WebViewMessage::Close);
         }
         Ok(())
     }

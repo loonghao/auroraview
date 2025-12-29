@@ -56,6 +56,7 @@ GALLERY_EXE = PROJECT_ROOT / "gallery" / "pack-output" / "auroraview-gallery.exe
 STARTUP_TIMEOUT = 60  # Gallery startup timeout
 API_TIMEOUT = 30  # API call timeout (increased for slow operations)
 EXAMPLE_RUN_TIMEOUT = 2  # Example run duration (reduced for faster tests)
+LOADING_TIMEOUT = 45  # Loading screen timeout
 
 
 @dataclass
@@ -174,32 +175,164 @@ class GalleryTestClient:
         self._playwright = sync_playwright().start()
         self._browser = self._playwright.chromium.connect_over_cdp(self.cdp_url)
 
-        # Get the existing page
-        if self._browser.contexts and self._browser.contexts[0].pages:
-            self._page = self._browser.contexts[0].pages[0]
-        else:
-            raise RuntimeError("No page found in gallery")
+        # Find the correct page (not about:blank)
+        self._page = self._find_gallery_page()
+        if not self._page:
+            raise RuntimeError("No valid Gallery page found")
 
         # Wait for gallery to be ready
         self._wait_for_ready()
 
-    def _wait_for_ready(self, timeout: int = 30):
-        """Wait for gallery to be fully loaded."""
-        start = time.time()
-        while time.time() - start < timeout:
+    def _find_gallery_page(self):
+        """Find the correct Gallery page from all available pages.
+
+        WebView2 with CDP may expose multiple pages:
+        - about:blank (empty initial page)
+        - Loading screen page
+        - Main application page
+
+        This method finds the most appropriate page for testing.
+        """
+        all_pages = []
+        for context in self._browser.contexts:
+            for page in context.pages:
+                url = page.url
+                title = ""
+                try:
+                    title = page.title()
+                except Exception:
+                    pass
+                all_pages.append(
+                    {
+                        "page": page,
+                        "url": url,
+                        "title": title,
+                    }
+                )
+
+        print(f"[CDP] Found {len(all_pages)} page(s):")
+        for i, p in enumerate(all_pages):
+            print(f"  [{i}] URL: {p['url']}, Title: {p['title']}")
+
+        if not all_pages:
+            return None
+
+        # Priority order for page selection:
+        # 1. Page with auroraview API ready
+        # 2. Page with loading screen (auroraLoading)
+        # 3. Page with non-blank URL (not about:blank)
+        # 4. First available page
+
+        # Check for auroraview ready
+        for p in all_pages:
             try:
-                # Check that auroraview and auroraview.api are both available
-                result = self._page.evaluate("""
-                    typeof auroraview !== 'undefined' &&
-                    typeof auroraview.api !== 'undefined' &&
-                    typeof auroraview.api.get_samples === 'function'
+                has_api = p["page"].evaluate("""
+                    () => typeof window.auroraview !== 'undefined' &&
+                          typeof window.auroraview.api !== 'undefined'
                 """)
-                if result:
-                    return
+                if has_api:
+                    print(f"[CDP] Selected page with auroraview API: {p['url']}")
+                    return p["page"]
             except Exception:
                 pass
+
+        # Check for loading screen
+        for p in all_pages:
+            try:
+                has_loading = p["page"].evaluate("""
+                    () => typeof window.auroraLoading !== 'undefined' ||
+                          document.querySelector('.loading-container') !== null
+                """)
+                if has_loading:
+                    print(f"[CDP] Selected page with loading screen: {p['url']}")
+                    return p["page"]
+            except Exception:
+                pass
+
+        # Skip about:blank pages
+        for p in all_pages:
+            if p["url"] and p["url"] != "about:blank":
+                print(f"[CDP] Selected non-blank page: {p['url']}")
+                return p["page"]
+
+        # Fallback to first page
+        print(f"[CDP] Fallback to first page: {all_pages[0]['url']}")
+        return all_pages[0]["page"]
+
+    def _wait_for_ready(self, timeout: int = 30):
+        """Wait for gallery to be fully loaded.
+
+        This method handles both the loading screen and the main app.
+        It uses the AI automation helper for smart waiting.
+        """
+        start = time.time()
+
+        # First, check if we're on loading screen
+        while time.time() - start < timeout:
+            try:
+                # Check loading screen status
+                loading_status = self._page.evaluate("""
+                    () => {
+                        const result = {
+                            is_loading: !!(window.auroraLoading || document.querySelector('.loading-container')),
+                            backend_ready: window.__backendReady || false,
+                            auroraview_ready: typeof window.auroraview !== 'undefined' &&
+                                             typeof window.auroraview.api !== 'undefined' &&
+                                             typeof window.auroraview.api.get_samples === 'function'
+                        };
+                        
+                        // Get diagnostics if available
+                        if (window.auroraLoading && window.auroraLoading.getDiagnostics) {
+                            result.diagnostics = window.auroraLoading.getDiagnostics();
+                        }
+                        
+                        return result;
+                    }
+                """)
+
+                # If auroraview is ready, we're good
+                if loading_status.get("auroraview_ready"):
+                    print("Gallery is ready!")
+                    return
+
+                # If on loading screen and timed out, try force navigation
+                if loading_status.get("is_loading"):
+                    elapsed = time.time() - start
+                    if elapsed > LOADING_TIMEOUT:
+                        print(f"Loading timeout after {elapsed:.1f}s, forcing navigation...")
+                        self._force_navigate()
+                        time.sleep(2)
+                        continue
+
+                    # Log diagnostics periodically
+                    if int(elapsed) % 5 == 0 and elapsed > 0:
+                        diag = loading_status.get("diagnostics", {})
+                        print(
+                            f"Loading... elapsed={diag.get('elapsed_ms', 0)}ms, "
+                            f"backend_ready={loading_status.get('backend_ready')}"
+                        )
+
+            except Exception as e:
+                print(f"Error checking status: {e}")
+
             time.sleep(0.5)
+
         raise TimeoutError("Gallery not ready within timeout")
+
+    def _force_navigate(self):
+        """Force navigation from loading screen."""
+        try:
+            self._page.evaluate("""
+                () => {
+                    if (window.__forceNavigate) {
+                        window.__forceNavigate();
+                    } else if (window.auroraview && window.auroraview.send_event) {
+                        window.auroraview.send_event('navigate_to_app', {});
+                    }
+                }
+            """)
+        except Exception as e:
+            print(f"Force navigate failed: {e}")
 
     def disconnect(self):
         """Disconnect from CDP."""

@@ -173,7 +173,7 @@ def create_demo_html():
 <body>
     <div class="container">
         <h1>AuroraView Desktop App Demo</h1>
-        
+
         <div class="grid-2">
             <!-- File Dialogs Section -->
             <div class="section">
@@ -186,7 +186,7 @@ def create_demo_html():
                 </div>
                 <div id="dialogOutput" class="output">Click a button to open a dialog...</div>
             </div>
-            
+
             <!-- File Operations Section -->
             <div class="section">
                 <h2>File Operations</h2>
@@ -202,7 +202,7 @@ def create_demo_html():
                 <div id="fileOutput" class="output">File operation results will appear here...</div>
             </div>
         </div>
-        
+
         <!-- Write File Section -->
         <div class="section">
             <h2>Write File</h2>
@@ -214,7 +214,7 @@ def create_demo_html():
             <textarea id="writeContent" placeholder="Content to write..."></textarea>
             <div id="writeOutput" class="output" style="margin-top: 10px;">Write results will appear here...</div>
         </div>
-        
+
         <!-- Shell Commands Section -->
         <div class="section">
             <h2>Shell Commands & Scripts</h2>
@@ -230,7 +230,7 @@ def create_demo_html():
             </div>
             <div id="shellOutput" class="output">Shell command results will appear here...</div>
         </div>
-        
+
         <!-- Environment Variables Section -->
         <div class="grid-2">
             <div class="section">
@@ -242,7 +242,7 @@ def create_demo_html():
                 </div>
                 <div id="envOutput" class="output">Environment variable results...</div>
             </div>
-            
+
             <div class="section">
                 <h2>Open & Reveal</h2>
                 <div class="input-group">
@@ -256,7 +256,7 @@ def create_demo_html():
                 <div id="openOutput" class="output">Open results...</div>
             </div>
         </div>
-        
+
         <!-- Message Dialogs Section -->
         <div class="section">
             <h2>Message Dialogs</h2>
@@ -270,19 +270,19 @@ def create_demo_html():
             <div id="messageOutput" class="output">Message dialog results...</div>
         </div>
     </div>
-    
+
     <script>
         // Wait for AuroraView to be ready
         window.addEventListener('auroraviewready', function() {
             console.log('[Demo] AuroraView ready');
         });
-        
+
         function log(elementId, message, isError = false) {
             const el = document.getElementById(elementId);
             el.textContent = typeof message === 'object' ? JSON.stringify(message, null, 2) : message;
             el.className = 'output' + (isError ? ' error' : ' success');
         }
-        
+
         // File Dialogs
         async function openFile() {
             try {
@@ -299,7 +299,7 @@ def create_demo_html():
                 log('dialogOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function openFiles() {
             try {
                 const result = await auroraview.dialog.openFiles({
@@ -310,7 +310,7 @@ def create_demo_html():
                 log('dialogOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function openFolder() {
             try {
                 const result = await auroraview.dialog.openFolder({
@@ -321,7 +321,7 @@ def create_demo_html():
                 log('dialogOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function saveFile() {
             try {
                 const result = await auroraview.dialog.saveFile({
@@ -337,7 +337,7 @@ def create_demo_html():
                 log('dialogOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // File Operations
         async function readFile() {
             const path = document.getElementById('filePath').value;
@@ -352,7 +352,7 @@ def create_demo_html():
                 log('fileOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function checkExists() {
             const path = document.getElementById('filePath').value;
             if (!path) {
@@ -366,7 +366,7 @@ def create_demo_html():
                 log('fileOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function listDir() {
             const path = document.getElementById('dirPath').value;
             if (!path) {
@@ -380,7 +380,7 @@ def create_demo_html():
                 log('fileOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Write File
         async function writeFile() {
             const path = document.getElementById('writeFilePath').value;
@@ -396,7 +396,7 @@ def create_demo_html():
                 log('writeOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function appendFile() {
             const path = document.getElementById('writeFilePath').value;
             const content = document.getElementById('writeContent').value;
@@ -411,13 +411,13 @@ def create_demo_html():
                 log('writeOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Shell Commands
         async function executeCommand() {
             const command = document.getElementById('command').value;
             const argsStr = document.getElementById('args').value;
             const args = argsStr ? argsStr.split(',').map(s => s.trim()) : [];
-            
+
             if (!command) {
                 log('shellOutput', 'Please enter a command', true);
                 return;
@@ -429,7 +429,7 @@ def create_demo_html():
                 log('shellOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function runPythonScript() {
             try {
                 const result = await auroraview.shell.execute('python', ['-c', 'print("Hello from Python!")']);
@@ -438,7 +438,7 @@ def create_demo_html():
                 log('shellOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function getSystemInfo() {
             try {
                 let result;
@@ -454,7 +454,7 @@ def create_demo_html():
                 log('shellOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function whichCommand() {
             const command = document.getElementById('command').value || 'python';
             try {
@@ -464,7 +464,7 @@ def create_demo_html():
                 log('shellOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Environment Variables
         async function getEnvVar() {
             const name = document.getElementById('envName').value || 'PATH';
@@ -475,7 +475,7 @@ def create_demo_html():
                 log('envOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function getAllEnv() {
             try {
                 const env = await auroraview.shell.getEnvAll();
@@ -484,7 +484,7 @@ def create_demo_html():
                 log('envOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Open & Reveal
         async function openUrl() {
             const path = document.getElementById('openPath').value || 'https://github.com';
@@ -495,7 +495,7 @@ def create_demo_html():
                 log('openOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function openFilePath() {
             const path = document.getElementById('openPath').value;
             if (!path) {
@@ -509,7 +509,7 @@ def create_demo_html():
                 log('openOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function showInFolder() {
             const path = document.getElementById('openPath').value;
             if (!path) {
@@ -523,7 +523,7 @@ def create_demo_html():
                 log('openOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Message Dialogs
         async function showInfo() {
             try {
@@ -533,7 +533,7 @@ def create_demo_html():
                 log('messageOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function showWarning() {
             try {
                 const result = await auroraview.dialog.warning('This is a warning message.', 'Warning');
@@ -542,7 +542,7 @@ def create_demo_html():
                 log('messageOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function showError() {
             try {
                 const result = await auroraview.dialog.error('This is an error message.', 'Error');
@@ -551,7 +551,7 @@ def create_demo_html():
                 log('messageOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function showConfirm() {
             try {
                 const result = await auroraview.dialog.confirm({
@@ -563,7 +563,7 @@ def create_demo_html():
                 log('messageOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function askQuestion() {
             try {
                 const confirmed = await auroraview.dialog.ask('Do you want to save changes?', 'Save Changes');

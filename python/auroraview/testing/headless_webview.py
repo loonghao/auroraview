@@ -105,6 +105,12 @@ class HeadlessOptions:
     devtools: bool = False
     """Open DevTools (if supported)."""
 
+    playwright_channel: Optional[str] = None
+    """Playwright browser channel (e.g. ``"msedge"`` on Windows).
+
+    If not set, Playwright will use its bundled Chromium.
+    """
+
 
 class HeadlessWebViewBase(ABC):
     """Base class for headless WebView implementations."""
@@ -204,11 +210,16 @@ class PlaywrightHeadlessWebView(HeadlessWebViewBase):
         logger.info("Starting Playwright headless browser")
 
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(
-            headless=True,
-            devtools=self._options.devtools,
-            slow_mo=self._options.slow_mo,
-        )
+
+        launch_kwargs = {
+            "headless": True,
+            "devtools": self._options.devtools,
+            "slow_mo": self._options.slow_mo,
+        }
+        if self._options.playwright_channel:
+            launch_kwargs["channel"] = self._options.playwright_channel
+
+        self._browser = self._playwright.chromium.launch(**launch_kwargs)
 
         self._context = self._browser.new_context(
             viewport={"width": self._options.width, "height": self._options.height},
@@ -672,6 +683,7 @@ class HeadlessWebView:
         width: int = 1280,
         height: int = 720,
         inject_bridge: bool = True,
+        channel: Optional[str] = None,
         **kwargs,
     ) -> PlaywrightHeadlessWebView:
         """Create a Playwright-based headless WebView.
@@ -688,11 +700,15 @@ class HeadlessWebView:
         Returns:
             PlaywrightHeadlessWebView instance.
         """
+        if channel is None:
+            channel = os.environ.get("AURORAVIEW_PLAYWRIGHT_CHANNEL") or None
+
         options = HeadlessOptions(
             timeout=timeout,
             width=width,
             height=height,
             inject_bridge=inject_bridge,
+            playwright_channel=channel,
             **kwargs,
         )
         return PlaywrightHeadlessWebView(options)

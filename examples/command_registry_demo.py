@@ -121,13 +121,13 @@ def main():
         <div class="card">
             <h1>Command Registry Demo</h1>
             <p>Demonstrates the Tauri-inspired command system for Python-JavaScript communication.</p>
-            
+
             <h3>Greet Command</h3>
             <div class="input-group">
                 <input type="text" id="greetName" placeholder="Enter name" value="World">
                 <button onclick="invokeGreet()">Greet</button>
             </div>
-            
+
             <h3>Calculator Command</h3>
             <div class="input-group">
                 <input type="number" id="calcA" placeholder="A" value="10" style="width: 80px">
@@ -140,7 +140,7 @@ def main():
                 <input type="number" id="calcB" placeholder="B" value="5" style="width: 80px">
                 <button onclick="invokeCalculate()">Calculate</button>
             </div>
-            
+
             <h3>Data Operations</h3>
             <div class="input-group">
                 <button onclick="invokeGetUsers()">Get Users</button>
@@ -148,23 +148,23 @@ def main():
                 <button onclick="invokeValidateEmail()">Validate Email</button>
                 <button onclick="invokeErrorDemo()">Error Demo</button>
             </div>
-            
+
             <h3>Command Introspection</h3>
             <div class="input-group">
                 <button onclick="listCommands()">List All Commands</button>
             </div>
         </div>
-        
+
         <div class="card">
             <h3>Output</h3>
             <div id="output">Ready to invoke commands...</div>
         </div>
-        
+
         <div class="card">
             <h3>Registered Commands</h3>
             <div id="commandList" class="command-list">Loading...</div>
         </div>
-        
+
         <script>
             function log(msg, type = 'info') {
                 const output = document.getElementById('output');
@@ -172,7 +172,7 @@ def main():
                 const formatted = typeof msg === 'object' ? JSON.stringify(msg, null, 2) : msg;
                 output.innerHTML = `<span class="${type}">[${timestamp}] ${formatted}</span>`;
             }
-            
+
             async function invokeGreet() {
                 const name = document.getElementById('greetName').value;
                 try {
@@ -183,7 +183,7 @@ def main():
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             async function invokeCalculate() {
                 const a = parseFloat(document.getElementById('calcA').value);
                 const b = parseFloat(document.getElementById('calcB').value);
@@ -195,7 +195,7 @@ def main():
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             async function invokeGetUsers() {
                 try {
                     const result = await auroraview.api.get_users();
@@ -204,7 +204,7 @@ def main():
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             async function invokeAddUser() {
                 try {
                     const result = await auroraview.api.add_user({
@@ -216,7 +216,7 @@ def main():
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             async function invokeValidateEmail() {
                 const email = prompt("Enter email to validate:", "test@example.com");
                 if (!email) return;
@@ -227,7 +227,7 @@ def main():
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             async function invokeErrorDemo() {
                 try {
                     await auroraview.api.error_demo();
@@ -235,12 +235,12 @@ def main():
                     log(`Caught error: ${JSON.stringify(e)}`, 'error');
                 }
             }
-            
+
             async function listCommands() {
                 try {
                     const result = await auroraview.api.list_commands();
                     log(result, 'info');
-                    
+
                     // Update command list display
                     const listEl = document.getElementById('commandList');
                     listEl.innerHTML = result.commands.map(cmd => `
@@ -252,7 +252,7 @@ def main():
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             // Load commands on startup
             setTimeout(listCommands, 500);
         </script>

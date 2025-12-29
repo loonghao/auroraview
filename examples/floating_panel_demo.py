@@ -19,7 +19,8 @@ Use cases:
 Key AuroraView Parameters for Transparent Floating Windows:
 - frame=False: Frameless window (no title bar, borders)
 - transparent=True: Transparent window background
-- undecorated_shadow=False: CRITICAL - Disable shadow for truly transparent windows
+- undecorated_shadow=False: Default (recommended) - No native shadow for frameless windows
+
 - always_on_top=True: Keep window always on top
 - tool_window=True: Hide from taskbar and Alt+Tab (WS_EX_TOOLWINDOW)
 - embed_mode="none": Independent window (not attached to parent)

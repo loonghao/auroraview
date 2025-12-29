@@ -37,6 +37,7 @@ Example (WebView2 mode - for integration tests):
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional
 
@@ -126,6 +127,12 @@ class PlaywrightBrowserOptions:
     devtools: bool = False
     """Open DevTools automatically."""
 
+    channel: Optional[str] = None
+    """Playwright browser channel (e.g. ``"msedge"`` on Windows).
+
+    If not set, Playwright will use its bundled Chromium.
+    """
+
     slow_mo: float = 0
     """Slow down operations by specified milliseconds."""
 
@@ -184,6 +191,7 @@ class PlaywrightBrowser:
         timeout: float = 30000,
         viewport: Optional[Dict[str, int]] = None,
         inject_bridge: bool = True,
+        channel: Optional[str] = None,
         **kwargs,
     ) -> "PlaywrightBrowser":
         """
@@ -207,9 +215,13 @@ class PlaywrightBrowser:
             page.goto("https://example.com")
             ```
         """
+        if channel is None:
+            channel = os.environ.get("AURORAVIEW_PLAYWRIGHT_CHANNEL") or None
+
         options = PlaywrightBrowserOptions(
             headless=headless,
             devtools=devtools,
+            channel=channel,
             slow_mo=slow_mo,
             timeout=timeout,
             viewport=viewport or {"width": 1280, "height": 720},
@@ -268,12 +280,16 @@ class PlaywrightBrowser:
 
             self._playwright = sync_playwright().start()
 
-            # Launch Chromium
-            self._pw_browser = self._playwright.chromium.launch(
-                headless=self._options.headless,
-                devtools=self._options.devtools,
-                slow_mo=self._options.slow_mo,
-            )
+            launch_kwargs = {
+                "headless": self._options.headless,
+                "devtools": self._options.devtools,
+                "slow_mo": self._options.slow_mo,
+            }
+            if self._options.channel:
+                launch_kwargs["channel"] = self._options.channel
+
+            # Launch Chromium (optionally via channel, e.g. msedge)
+            self._pw_browser = self._playwright.chromium.launch(**launch_kwargs)
 
             # Create context with viewport
             viewport = self._options.viewport or {"width": 1280, "height": 720}

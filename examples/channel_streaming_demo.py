@@ -132,18 +132,18 @@ def main():
         <div class="card">
             <h1>Channel Streaming Demo</h1>
             <p>Demonstrates streaming data transfer between Python and JavaScript.</p>
-            
+
             <div>
                 <button onclick="startFileStream()" id="btnFile">Stream File Data</button>
                 <button onclick="startProgressStream()" id="btnProgress">Progress Updates</button>
                 <button onclick="startMultiChannel()" id="btnMulti">Multi-Channel</button>
             </div>
-            
+
             <div class="progress-container">
                 <div class="progress-bar" id="progressBar"></div>
             </div>
             <div class="progress-text" id="progressText">Ready to stream...</div>
-            
+
             <div class="stats">
                 <div class="stat-box">
                     <div class="stat-value" id="chunksReceived">0</div>
@@ -159,17 +159,17 @@ def main():
                 </div>
             </div>
         </div>
-        
+
         <div class="card">
             <h3>Channel Log</h3>
             <div id="log"></div>
         </div>
-        
+
         <script>
             let chunksReceived = 0;
             let bytesReceived = 0;
             let activeChannels = new Set();
-            
+
             function log(msg, type = 'message') {
                 const logEl = document.getElementById('log');
                 const entry = document.createElement('div');
@@ -178,30 +178,30 @@ def main():
                 logEl.appendChild(entry);
                 logEl.scrollTop = logEl.scrollHeight;
             }
-            
+
             function updateStats() {
                 document.getElementById('chunksReceived').textContent = chunksReceived;
-                document.getElementById('bytesReceived').textContent = 
+                document.getElementById('bytesReceived').textContent =
                     bytesReceived > 1024 ? `${(bytesReceived/1024).toFixed(1)}KB` : bytesReceived;
                 document.getElementById('activeChannels').textContent = activeChannels.size;
             }
-            
+
             function updateProgress(percent, text) {
                 document.getElementById('progressBar').style.width = `${percent}%`;
                 document.getElementById('progressText').textContent = text;
             }
-            
+
             // Listen for channel events
             auroraview.on("__channel_open__", (data) => {
                 log(`Channel opened: ${data.channel_id}`, 'open');
                 activeChannels.add(data.channel_id);
                 updateStats();
             });
-            
+
             auroraview.on("__channel_message__", (data) => {
                 chunksReceived++;
                 const payload = data.data;
-                
+
                 if (typeof payload === 'object') {
                     if (payload.type === 'progress') {
                         updateProgress(payload.percent, payload.message);
@@ -217,51 +217,51 @@ def main():
                 }
                 updateStats();
             });
-            
+
             auroraview.on("__channel_close__", (data) => {
                 log(`Channel closed: ${data.channel_id}`, 'close');
                 activeChannels.delete(data.channel_id);
                 updateStats();
             });
-            
+
             async function startFileStream() {
                 chunksReceived = 0;
                 bytesReceived = 0;
                 updateProgress(0, 'Starting file stream...');
                 document.getElementById('btnFile').disabled = true;
-                
+
                 try {
                     await auroraview.api.stream_file_data();
                 } catch (e) {
                     log(`Error: ${e.message}`, 'close');
                 }
-                
+
                 document.getElementById('btnFile').disabled = false;
             }
-            
+
             async function startProgressStream() {
                 updateProgress(0, 'Starting progress updates...');
                 document.getElementById('btnProgress').disabled = true;
-                
+
                 try {
                     await auroraview.api.stream_progress();
                 } catch (e) {
                     log(`Error: ${e.message}`, 'close');
                 }
-                
+
                 document.getElementById('btnProgress').disabled = false;
             }
-            
+
             async function startMultiChannel() {
                 chunksReceived = 0;
                 document.getElementById('btnMulti').disabled = true;
-                
+
                 try {
                     await auroraview.api.multi_channel_demo();
                 } catch (e) {
                     log(`Error: ${e.message}`, 'close');
                 }
-                
+
                 document.getElementById('btnMulti').disabled = false;
             }
         </script>

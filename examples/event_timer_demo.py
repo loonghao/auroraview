@@ -127,9 +127,9 @@ def main():
         <div class="card">
             <h1>Event Timer Demo</h1>
             <p>Demonstrates timer-based event processing for embedded WebView scenarios.</p>
-            
+
             <div class="timer-display" id="timerDisplay">00:00:00</div>
-            
+
             <div class="stats-grid">
                 <div class="stat-box">
                     <div class="stat-value" id="tickCount">0</div>
@@ -151,9 +151,9 @@ def main():
                     <div class="stat-label">Timer Status</div>
                 </div>
             </div>
-            
+
             <h3>Timer Interval</h3>
-            <input type="range" class="interval-slider" id="intervalSlider" 
+            <input type="range" class="interval-slider" id="intervalSlider"
                    min="8" max="100" value="16" oninput="updateInterval(this.value)">
             <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
                 <span>8ms (120 FPS)</span>
@@ -161,7 +161,7 @@ def main():
                 <span>33ms (30 FPS)</span>
                 <span>100ms (10 FPS)</span>
             </div>
-            
+
             <h3>Actions</h3>
             <div>
                 <button onclick="requestTimerStatus()">Get Timer Status</button>
@@ -169,17 +169,17 @@ def main():
                 <button onclick="resetStats()">Reset Stats</button>
             </div>
         </div>
-        
+
         <div class="card">
             <h3>Event Log</h3>
             <div id="log">Timer events will appear here...</div>
         </div>
-        
+
         <script>
             let tickCount = 0;
             let lastTickTime = Date.now();
             let fpsHistory = [];
-            
+
             function log(msg) {
                 const logEl = document.getElementById('log');
                 const timestamp = new Date().toLocaleTimeString();
@@ -188,7 +188,7 @@ def main():
                     logEl.textContent = logEl.textContent.slice(0, 5000);
                 }
             }
-            
+
             function updateTimerDisplay() {
                 const now = new Date();
                 const hours = String(now.getHours()).padStart(2, '0');
@@ -196,16 +196,16 @@ def main():
                 const seconds = String(now.getSeconds()).padStart(2, '0');
                 document.getElementById('timerDisplay').textContent = `${hours}:${minutes}:${seconds}`;
             }
-            
+
             function updateStats(data) {
                 tickCount = data.tick_count || tickCount;
                 document.getElementById('tickCount').textContent = tickCount;
-                
+
                 // Calculate FPS
                 const now = Date.now();
                 const delta = now - lastTickTime;
                 lastTickTime = now;
-                
+
                 if (delta > 0) {
                     const fps = Math.round(1000 / delta);
                     fpsHistory.push(fps);
@@ -214,20 +214,20 @@ def main():
                     document.getElementById('fps').textContent = avgFps;
                 }
             }
-            
+
             function updateInterval(value) {
                 document.getElementById('interval').textContent = value;
                 auroraview.api.set_interval({interval_ms: parseInt(value)});
             }
-            
+
             async function requestTimerStatus() {
                 try {
                     const status = await auroraview.api.get_timer_status();
                     log(`Timer status: ${JSON.stringify(status)}`);
-                    
+
                     const indicator = document.getElementById('statusIndicator');
                     const statusText = document.getElementById('statusText');
-                    
+
                     if (status.is_running) {
                         indicator.className = 'status-indicator status-running';
                         statusText.textContent = 'Running';
@@ -239,7 +239,7 @@ def main():
                     log(`Error: ${e.message}`);
                 }
             }
-            
+
             async function triggerTickCallback() {
                 try {
                     await auroraview.api.trigger_tick();
@@ -248,7 +248,7 @@ def main():
                     log(`Error: ${e.message}`);
                 }
             }
-            
+
             function resetStats() {
                 tickCount = 0;
                 fpsHistory = [];
@@ -256,19 +256,19 @@ def main():
                 document.getElementById('fps').textContent = '0';
                 log('Stats reset');
             }
-            
+
             // Listen for tick events from Python
             auroraview.on("timer_tick", (data) => {
                 updateTimerDisplay();
                 updateStats(data);
             });
-            
+
             auroraview.on("timer_close", (data) => {
                 log('Timer close event received');
                 document.getElementById('statusIndicator').className = 'status-indicator status-stopped';
                 document.getElementById('statusText').textContent = 'Stopped';
             });
-            
+
             // Initial display update
             updateTimerDisplay();
             setInterval(updateTimerDisplay, 1000);

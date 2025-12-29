@@ -129,7 +129,7 @@ class TestProcessPluginSpawnKill:
 
         # Spawn multiple processes
         pids = []
-        for i in range(3):
+        for _i in range(3):
             spawn_args = json_dumps(
                 {
                     "command": sys.executable,

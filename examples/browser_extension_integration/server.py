@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # Import AuroraView browser extension bridge
 try:
-    from auroraview.integration import BrowserExtensionBridge, create_browser_bridge
+    from auroraview.integration import BrowserExtensionBridge
 except ImportError:
     # Fallback for development
     import sys

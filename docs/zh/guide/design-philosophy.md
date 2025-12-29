@@ -193,14 +193,20 @@ IPC 协议遵循请求/响应模式：
 ```
 
 **响应（Python → JS）：**
+
+后端通过触发内部事件来解析 Promise：
+
+- 事件名：`__auroraview_call_result`
+- 负载：
+
 ```json
 {
-  "type": "call_result",
   "id": "unique-id",
   "ok": true,
   "result": {"data": "..."}
 }
 ```
+
 
 ## 安全考虑
 

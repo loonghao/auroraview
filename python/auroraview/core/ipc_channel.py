@@ -164,9 +164,9 @@ class IpcChannel:
             raise IpcChannelError(
                 f"IPC channel not found: {self.channel_name}. "
                 f"Ensure parent process created the channel. Error: {e}"
-            )
+            ) from e
         except Exception as e:
-            raise IpcChannelError(f"Failed to connect to IPC channel: {e}")
+            raise IpcChannelError(f"Failed to connect to IPC channel: {e}") from e
 
     def send(self, data: Dict[str, Any]) -> bool:
         """Send a JSON message to the parent process.
@@ -200,7 +200,7 @@ class IpcChannel:
 
         except Exception as e:
             logger.error(f"[IpcChannel] Send error: {e}")
-            raise IpcChannelError(f"Failed to send message: {e}")
+            raise IpcChannelError(f"Failed to send message: {e}") from e
 
     def receive(self, timeout: Optional[float] = None) -> Optional[Dict[str, Any]]:
         """Receive a JSON message from the parent process.
@@ -249,7 +249,7 @@ class IpcChannel:
             return None
         except Exception as e:
             logger.error(f"[IpcChannel] Receive error: {e}")
-            raise IpcChannelError(f"Failed to receive message: {e}")
+            raise IpcChannelError(f"Failed to receive message: {e}") from e
 
     def on_message(self, handler: Callable[[Dict[str, Any]], None]) -> None:
         """Register a handler for incoming messages.

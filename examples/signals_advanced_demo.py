@@ -132,7 +132,7 @@ HTML = """
         .log-entry.once { border-left: 3px solid #9b59b6; }
         .log-entry.guard { border-left: 3px solid #3498db; }
         .log-entry .time { color: #7f8c8d; }
-        .log-entry .type { 
+        .log-entry .type {
             display: inline-block;
             padding: 1px 6px;
             border-radius: 3px;

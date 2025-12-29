@@ -76,9 +76,11 @@ pub use vibrancy::{
 // Note: VibrancyResult is exported for testing and external use
 pub use web_context::WebContextConfig;
 pub use window_style::{
-    apply_child_window_style, apply_owner_window_style, apply_tool_window_style,
-    disable_window_shadow, extend_frame_into_client_area, optimize_transparent_window_resize,
-    ChildWindowStyleOptions, ChildWindowStyleResult, OwnerWindowStyleResult,
+    apply_child_window_style, apply_frameless_popup_window_style, apply_frameless_window_style,
+    apply_owner_window_style, apply_tool_window_style, compute_frameless_popup_window_styles,
+    compute_frameless_window_styles, disable_window_shadow, extend_frame_into_client_area,
+    optimize_transparent_window_resize, remove_clip_children_style, ChildWindowStyleOptions,
+    ChildWindowStyleResult, FramelessWindowStyleResult, OwnerWindowStyleResult,
 };
 
 // Wry-specific exports

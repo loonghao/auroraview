@@ -155,7 +155,7 @@ def main():
         <div class="card">
             <h1>Automation Demo</h1>
             <p>Unified browser automation interface for local WebView and remote Steel Browser.</p>
-            
+
             <div class="backend-info">
                 <div class="backend-card active">
                     <div class="backend-name">LocalWebViewBackend</div>
@@ -167,14 +167,14 @@ def main():
                 </div>
             </div>
         </div>
-        
+
         <div class="card">
             <h3>DOM Automation Targets</h3>
             <div class="automation-target">
                 <div class="target-element" id="clickTarget">
                     Click Target - Click me via automation!
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-field">
                         <label for="autoInput1">Input Field 1</label>
@@ -185,7 +185,7 @@ def main():
                         <input type="text" id="autoInput2" placeholder="Type via automation">
                     </div>
                 </div>
-                
+
                 <div class="target-element" id="scrapeTarget">
                     <strong>Scrape Target</strong>
                     <p>This content can be scraped by the automation layer.</p>
@@ -196,7 +196,7 @@ def main():
                     </ul>
                 </div>
             </div>
-            
+
             <div>
                 <button onclick="requestAutoClick()">Auto Click</button>
                 <button onclick="requestAutoType()">Auto Type</button>
@@ -205,19 +205,19 @@ def main():
                 <button onclick="requestReset()">Reset</button>
             </div>
         </div>
-        
+
         <div class="card">
             <h3>Scrape Result</h3>
             <div id="scrapeResult">Scrape results will appear here...</div>
         </div>
-        
+
         <div class="card">
             <h3>Action Log</h3>
             <div class="action-log" id="actionLog">
                 <div class="log-entry">Ready for automation actions...</div>
             </div>
         </div>
-        
+
         <script>
             function log(msg, type = 'info') {
                 const logEl = document.getElementById('actionLog');
@@ -225,13 +225,13 @@ def main():
                 entry.className = `log-entry ${type}`;
                 entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
                 logEl.insertBefore(entry, logEl.firstChild);
-                
+
                 // Keep only last 10 entries
                 while (logEl.children.length > 10) {
                     logEl.removeChild(logEl.lastChild);
                 }
             }
-            
+
             async function requestAutoClick() {
                 try {
                     const result = await auroraview.api.auto_click({selector: '#clickTarget'});
@@ -240,7 +240,7 @@ def main():
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             async function requestAutoType() {
                 try {
                     const result = await auroraview.api.auto_type({
@@ -252,18 +252,18 @@ def main():
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             async function requestAutoScrape() {
                 try {
                     const result = await auroraview.api.auto_scrape({selector: '#scrapeTarget'});
-                    document.getElementById('scrapeResult').textContent = 
+                    document.getElementById('scrapeResult').textContent =
                         JSON.stringify(result, null, 2);
                     log('Scrape: Content extracted', 'success');
                 } catch (e) {
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             async function requestAutoFill() {
                 try {
                     const result = await auroraview.api.auto_fill_form();
@@ -272,11 +272,11 @@ def main():
                     log(`Error: ${e.message}`, 'error');
                 }
             }
-            
+
             async function requestReset() {
                 try {
                     await auroraview.api.reset_automation();
-                    document.getElementById('scrapeResult').textContent = 
+                    document.getElementById('scrapeResult').textContent =
                         'Scrape results will appear here...';
                     log('Reset: All targets reset', 'success');
                 } catch (e) {

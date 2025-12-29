@@ -23,6 +23,24 @@ with HeadlessWebView.playwright() as webview:
     assert webview.text("#result") == "Success"
 ```
 
+#### Use Microsoft Edge channel on Windows (optional)
+
+This improves compatibility coverage with WebView2/Edge behavior while still staying fully headless.
+
+```powershell
+# Prefer system Edge for Playwright on Windows
+$env:AURORAVIEW_PLAYWRIGHT_CHANNEL = "msedge"
+```
+
+```python
+from auroraview.testing.headless_webview import HeadlessWebView
+
+with HeadlessWebView.playwright(channel="msedge") as webview:
+    webview.load_html("<h1>Hello Edge</h1>")
+    assert webview.text("h1") == "Hello Edge"
+```
+
+
 ### Auto-Detection Mode
 
 ```python

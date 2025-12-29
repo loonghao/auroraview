@@ -22,11 +22,6 @@ Use cases:
 Signed-off-by: Hal Long <hal.long@outlook.com>
 """
 
-import math
-import os
-import subprocess
-import sys
-
 # HTML for the radial menu with GSAP animations
 RADIAL_MENU_HTML = """
 <!DOCTYPE html>

@@ -9,7 +9,7 @@ use wry::WebView as WryWebView;
 #[cfg(target_os = "windows")]
 use super::backend::WebViewBackend;
 use super::config::WebViewConfig;
-use super::event_loop::{EventLoopState, UserEvent, WebViewEventHandler};
+use super::event_loop::{EventLoopState, UserEvent, WebViewEventHandler, WindowStyleHints};
 use super::js_assets;
 use super::lifecycle::LifecycleManager;
 use super::message_pump;
@@ -41,6 +41,9 @@ pub struct WebViewInner {
     /// This is cached because the window may be moved during event loop execution
     #[cfg(target_os = "windows")]
     pub(crate) cached_hwnd: Option<u64>,
+
+    /// Hints used to re-apply Win32 window styles right after showing the window.
+    pub(crate) window_style_hints: Option<WindowStyleHints>,
 }
 
 impl Drop for WebViewInner {
@@ -201,6 +204,16 @@ impl WebViewInner {
             "[OK] [create_embedded] process_events() will delegate to backend.process_events()"
         );
 
+        let window_style_hints = Some(WindowStyleHints {
+            decorations: config.decorations,
+            #[cfg(target_os = "windows")]
+            tool_window: config.tool_window,
+            #[cfg(target_os = "windows")]
+            undecorated_shadow: config.undecorated_shadow,
+            #[cfg(target_os = "windows")]
+            transparent: config.transparent,
+        });
+
         Ok(Self {
             webview,
             window: None,     // Window is owned by backend
@@ -211,6 +224,7 @@ impl WebViewInner {
             auto_show: true, // Embedded mode: visibility controlled by host
             backend: Some(Box::new(backend)), // CRITICAL: Keep backend alive!
             cached_hwnd,
+            window_style_hints,
         })
     }
 
@@ -514,9 +528,10 @@ impl WebViewInner {
             self.message_queue.clone(),
         )));
 
-        // Store webview reference in state after creation
+        // Store webview reference + style hints in state after creation
         if let Ok(mut state_guard) = state.lock() {
             state_guard.set_webview(self.webview.clone());
+            state_guard.set_window_style_hints(self.window_style_hints);
         }
 
         // Run the improved event loop
@@ -814,11 +829,35 @@ impl WebViewInner {
 
         // Process message queue using unified message processor
         tracing::trace!("[process_events] processing queue");
-        super::message_processor::process_message_queue(
+        let (_count, close_requested) = super::message_processor::process_message_queue(
             &self.webview,
             &self.message_queue,
             "process_events",
         );
+
+        if close_requested {
+            tracing::info!("[process_events] Close message received, requesting close");
+            let _ = self
+                .lifecycle
+                .request_close(crate::webview::lifecycle::CloseReason::AppRequest);
+
+            // Best-effort: post WM_CLOSE so the host/native pump can destroy the window.
+            #[cfg(target_os = "windows")]
+            {
+                use std::ffi::c_void;
+                use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+                use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE};
+
+                if let Some(hwnd_value) = self.get_hwnd() {
+                    let hwnd = HWND(hwnd_value as *mut c_void);
+                    unsafe {
+                        let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+                    }
+                }
+            }
+
+            return true;
+        }
 
         tracing::trace!("[process_events] end");
 
@@ -832,7 +871,7 @@ impl WebViewInner {
     /// where the parent application owns the Win32/OS event loop and is
     /// responsible for pumping window messages. We only:
     ///   * honor lifecycle close requests, and
-    ///   * drain the WebView message queue (JS   Python IPC).
+    ///   * drain the WebView message queue (JS <-> Python IPC).
     ///
     /// Returns true if the window should be closed, false otherwise.
     pub fn process_ipc_only(&self) -> bool {
@@ -868,11 +907,36 @@ impl WebViewInner {
         // Process message queue using unified message processor
         // (same semantics as process_events but without driving any native message pump)
         tracing::trace!("[process_ipc_only] processing queue");
-        super::message_processor::process_message_queue(
+        let (_count, close_requested) = super::message_processor::process_message_queue(
             &self.webview,
             &self.message_queue,
             "process_ipc_only",
         );
+
+        if close_requested {
+            tracing::info!("[process_ipc_only] Close message received, requesting close");
+            let _ = self
+                .lifecycle
+                .request_close(crate::webview::lifecycle::CloseReason::AppRequest);
+
+            // In IPC-only mode we do not own the message pump, but posting WM_CLOSE
+            // allows the host (Qt/DCC) to process the close on its own loop.
+            #[cfg(target_os = "windows")]
+            {
+                use std::ffi::c_void;
+                use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+                use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE};
+
+                if let Some(hwnd_value) = self.get_hwnd() {
+                    let hwnd = HWND(hwnd_value as *mut c_void);
+                    unsafe {
+                        let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+                    }
+                }
+            }
+
+            return true;
+        }
 
         tracing::trace!("[process_ipc_only] end");
 
