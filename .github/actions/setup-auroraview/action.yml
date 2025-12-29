@@ -1,11 +1,11 @@
 name: 'Setup AuroraView Development Environment'
-description: 'Sets up Python, Rust, uv, and just for AuroraView development'
+description: 'Sets up development environment using vx tool manager'
 
 inputs:
   python-version:
-    description: 'Python version to use'
-    required: true
-    default: '3.11'
+    description: 'Python version to use (overrides vx.toml)'
+    required: false
+    default: ''
   rust-components:
     description: 'Additional Rust components to install'
     required: false
@@ -22,41 +22,51 @@ inputs:
 outputs:
   python-version:
     description: 'The Python version that was installed'
-    value: ${{ steps.setup-python.outputs.python-version }}
+    value: ${{ steps.setup-vx.outputs.python-version }}
   rust-version:
     description: 'The Rust version that was installed'
-    value: ${{ steps.setup-rust.outputs.rustc-version }}
+    value: ${{ steps.setup-vx.outputs.rust-version }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Setup Python
-      id: setup-python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ inputs.python-version }}
+    - name: Install vx
+      shell: bash
+      run: |
+        curl -fsSL https://raw.githubusercontent.com/loonghao/vx/main/install.sh | bash
+        echo "$HOME/.vx/bin" >> $GITHUB_PATH
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        python-version: ${{ inputs.python-version }}
-        enable-cache: false
+    - name: Setup tools with vx
+      id: setup-vx
+      shell: bash
+      run: |
+        # Install all tools defined in vx.toml
+        vx setup
 
-    - name: Setup Rust
-      id: setup-rust
-      uses: dtolnay/rust-toolchain@1.90.0
-      with:
-        components: ${{ inputs.rust-components }}
+        # Output versions for debugging
+        echo "python-version=$(vx python --version 2>&1 | head -1)" >> $GITHUB_OUTPUT
+        echo "rust-version=$(vx rustc --version 2>&1 | head -1)" >> $GITHUB_OUTPUT
+
+        # Show installed tools
+        echo "=== Installed Tools ==="
+        vx python --version
+        vx rustc --version
+        vx node --version
+        vx uv --version
+        vx just --version
+
+    - name: Install additional Rust components
+      if: inputs.rust-components != ''
+      shell: bash
+      run: |
+        vx rustup component add ${{ inputs.rust-components }}
 
     - name: Setup Advanced Caching
       uses: ./.github/actions/cache-setup
       with:
         cache-type: 'build'
         cache-key-suffix: ${{ inputs.cache-key-suffix }}
-        python-version: ${{ inputs.python-version }}
-
-    - name: Setup just
-      uses: extractions/setup-just@v3
+        python-version: ${{ inputs.python-version || '3.11' }}
 
     - name: Install system dependencies (Ubuntu)
       if: runner.os == 'Linux'
@@ -89,9 +99,7 @@ runs:
           libxkbcommon0 \
           libdbus-1-3
 
-
     - name: Install dependencies
       if: inputs.install-dependencies == 'true'
       shell: bash
-      run: just ci-install
-
+      run: vx just ci-install

@@ -58,7 +58,7 @@ runs:
         n=0
         until [ "$n" -ge 3 ]; do
           echo "[TRY $((n+1))/3] cargo fetch...";
-          CARGO_HTTP_TIMEOUT=600 CARGO_NET_RETRY=10 cargo fetch --locked --verbose && break;
+          CARGO_HTTP_TIMEOUT=600 CARGO_NET_RETRY=10 vx cargo fetch --locked --verbose && break;
           n=$((n+1));
           echo "[WARN] cargo fetch failed, retrying in 5s..."; sleep 5;
         done
@@ -68,7 +68,7 @@ runs:
       shell: bash
       run: |
         # Use just command for consistent builds across local and CI
-        just ci-build
+        vx just ci-build
       env:
         RUST_BACKTRACE: 1
         CARGO_HTTP_TIMEOUT: '600'
@@ -81,7 +81,7 @@ runs:
       run: |
         if ! command -v cargo-llvm-cov &> /dev/null; then
           echo "Installing cargo-llvm-cov..."
-          cargo install cargo-llvm-cov --locked
+          vx cargo install cargo-llvm-cov --locked
         fi
 
     - name: Install xvfb for headless UI tests (Linux)
@@ -96,9 +96,9 @@ runs:
       run: |
         # Install playwright and browsers for cross-platform UI testing
         # This allows PlaywrightBrowser tests to run on all platforms
-        if uv pip show playwright > /dev/null 2>&1; then
+        if vx uv pip show playwright > /dev/null 2>&1; then
           echo "Installing Playwright Chromium browser..."
-          uv run playwright install chromium --with-deps
+          vx uv run playwright install chromium --with-deps
         else
           echo "Playwright not installed, skipping browser installation"
         fi
@@ -117,13 +117,13 @@ runs:
         case "${{ inputs.test-type }}" in
           "basic")
             echo "Running basic import tests..."
-            just ci-test-basic
+            vx just ci-test-basic
             ;;
           "rust")
             echo "Running Rust tests with coverage..."
             echo "  -> Rust integration tests with coverage..."
             # Exclude ipc_batch_integration which requires Python bindings
-            cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
+            vx cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
               --test config_integration \
               --test file_protocol_integration \
               --test http_discovery_integration \
@@ -137,17 +137,17 @@ runs:
               --test standalone_integration \
               --test timer_integration
             echo "  -> Rust doc tests..."
-            cargo test --doc
+            vx cargo test --doc
             ;;
           "python")
             echo "Running Python unit tests..."
-            eval "$XVFB_PREFIX just ci-test-python"
+            eval "$XVFB_PREFIX vx just ci-test-python"
             ;;
           "full")
             echo "Running comprehensive test suite..."
             echo "  -> Rust integration tests with coverage..."
             # Exclude ipc_batch_integration which requires Python bindings
-            cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
+            vx cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
               --test config_integration \
               --test file_protocol_integration \
               --test http_discovery_integration \
@@ -161,11 +161,11 @@ runs:
               --test standalone_integration \
               --test timer_integration
             echo "  -> Rust doc tests..."
-            cargo test --doc
+            vx cargo test --doc
             echo "  -> Python unit tests..."
-            eval "$XVFB_PREFIX just ci-test-python"
+            eval "$XVFB_PREFIX vx just ci-test-python"
             echo "  -> Basic functionality tests..."
-            just ci-test-basic
+            vx just ci-test-basic
             echo "[OK] All tests completed"
             ;;
           *)

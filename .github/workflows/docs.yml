@@ -1,6 +1,7 @@
 # Documentation deployment workflow
 # - Deploys to GitHub Pages on push to main
 # - Builds preview for PRs
+# - Auto-generates Python API docs with pdoc
 #
 # IMPORTANT: Before first deployment, you must enable GitHub Pages in repository settings:
 # 1. Go to Settings → Pages
@@ -15,12 +16,14 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'python/**'
       - '.github/workflows/docs.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'docs/**'
+      - 'python/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -45,14 +48,48 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Install vx
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/loonghao/vx/main/install.sh | bash
+          echo "$HOME/.vx/bin" >> $GITHUB_PATH
+
+      - name: Setup tools with vx
+        run: |
+          vx setup
+          echo "=== Installed Tools ==="
+          vx python --version
+          vx node --version
+
+      - name: Install pdoc
+        run: vx pip install pdoc>=14.0.0
+
+      - name: Generate Python API docs
+        run: |
+          # Generate markdown docs for auroraview package
+          vx pdoc --output-dir docs/api/python-gen \
+               --docformat google \
+               python/auroraview \
+               --no-show-source
+          
+          # Create index file for generated docs
+          cat > docs/api/python-gen/index.md << 'EOF'
+          # Python API Reference
+          
+          Auto-generated API documentation for the AuroraView Python package.
+          
+          ## Modules
+          
+          - [auroraview](./auroraview.md) - Main package
+          - [auroraview.core](./auroraview/core.md) - Core functionality
+          - [auroraview.utils](./auroraview/utils.md) - Utility functions
+          - [auroraview.testing](./auroraview/testing.md) - Testing framework
+          - [auroraview.ui](./auroraview/ui.md) - UI components
+          - [auroraview.integration](./auroraview/integration.md) - DCC integration
+          EOF
 
       - name: Install dependencies
         working-directory: docs
-        run: npm install
+        run: vx npm install
 
       - name: Copy logo
         run: |
@@ -61,7 +98,7 @@ jobs:
 
       - name: Build documentation
         working-directory: docs
-        run: npm run build
+        run: vx npm run build
 
       - name: Upload artifact for deployment
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
