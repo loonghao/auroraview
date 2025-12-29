@@ -60,6 +60,11 @@ jobs:
           vx python --version
           vx node --version
 
+      - name: Install Qt6 system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libdbus-1-3
+
       - name: Install pdoc and dependencies
         run: |
           # Install pdoc and qt dependencies for documentation generation
