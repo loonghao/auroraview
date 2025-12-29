@@ -60,39 +60,12 @@ jobs:
           vx python --version
           vx node --version
 
-      - name: Install Qt6 system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libegl1 libxkbcommon0 libdbus-1-3
-
-      - name: Install pdoc and dependencies
-        run: |
-          # Install pdoc and qt dependencies for documentation generation
-          vx pip install "pdoc>=14.0.0" qtpy PySide6
-
       - name: Generate Python API docs
         run: |
-          # Generate markdown docs for auroraview package
-          vx pdoc --output-dir docs/api/python-gen \
-               --docformat google \
-               python/auroraview \
-               --no-show-source
-          
-          # Create index file for generated docs
-          cat > docs/api/python-gen/index.md << 'EOF'
-          # Python API Reference
-          
-          Auto-generated API documentation for the AuroraView Python package.
-          
-          ## Modules
-          
-          - [auroraview](./auroraview.md) - Main package
-          - [auroraview.core](./auroraview/core.md) - Core functionality
-          - [auroraview.utils](./auroraview/utils.md) - Utility functions
-          - [auroraview.testing](./auroraview/testing.md) - Testing framework
-          - [auroraview.ui](./auroraview/ui.md) - UI components
-          - [auroraview.integration](./auroraview/integration.md) - DCC integration
-          EOF
+          # Generate HTML docs for auroraview package (pdoc generates HTML by default)
+          # We skip this step for now as pdoc output format doesn't match vitepress well
+          # The manual API docs in docs/api/ are sufficient
+          echo "Skipping pdoc generation - using manual API docs"
 
       - name: Install dependencies
         working-directory: docs
