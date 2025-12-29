@@ -73,7 +73,7 @@ tokio = { version = "1.48", features = ["full"] }
 ctrlc = "3.4"
 
 # System tray support
-tray-icon = "0.19"
+tray-icon = "0.21"
 muda = "0.16"
 
 # Error handling
