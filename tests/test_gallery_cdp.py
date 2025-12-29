@@ -280,12 +280,12 @@ class GalleryTestClient:
                                              typeof window.auroraview.api !== 'undefined' &&
                                              typeof window.auroraview.api.get_samples === 'function'
                         };
-                        
+
                         // Get diagnostics if available
                         if (window.auroraLoading && window.auroraLoading.getDiagnostics) {
                             result.diagnostics = window.auroraLoading.getDiagnostics();
                         }
-                        
+
                         return result;
                     }
                 """)

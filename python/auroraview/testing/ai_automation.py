@@ -585,12 +585,12 @@ async def get_loading_status(page: Any) -> Dict[str, Any]:
                     auroraview_available: typeof window.auroraview !== 'undefined',
                     api_available: typeof window.auroraview?.api !== 'undefined',
                 };
-                
+
                 if (window.auroraLoading) {
                     result.loading_state = window.auroraLoading.getState();
                     result.elapsed_ms = window.auroraLoading.getElapsedTime?.() || 0;
                 }
-                
+
                 return result;
             }
         """)
