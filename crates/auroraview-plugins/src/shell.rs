@@ -242,10 +242,9 @@ impl PluginHandler for ShellPlugin {
                 }
 
                 // Get parent directory and reveal
-                let path = std::path::Path::new(&opts.path);
-
                 #[cfg(target_os = "windows")]
                 {
+                    let path = std::path::Path::new(&opts.path);
                     // Use explorer.exe /select to highlight the file
                     let path_str = dunce::canonicalize(path)
                         .unwrap_or_else(|_| path.to_path_buf())
@@ -272,6 +271,7 @@ impl PluginHandler for ShellPlugin {
 
                 #[cfg(target_os = "linux")]
                 {
+                    let path = std::path::Path::new(&opts.path);
                     // Try common file managers
                     let parent = path.parent().unwrap_or(path);
                     if Command::new("xdg-open").arg(parent).spawn().is_err() {

@@ -26,6 +26,11 @@
           "type": "json",
           "path": "packages/auroraview-sdk/package.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "toml",
+          "path": "packages/auroraview-mcp/pyproject.toml",
+          "jsonpath": "$.project.version"
         }
       ]
     }
