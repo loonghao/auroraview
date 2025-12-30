@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from auroraview_mcp.server import get_connection_manager, mcp
@@ -35,10 +36,8 @@ async def get_console_logs(level: str | None = None, limit: int = 100) -> list[d
     conn = await manager.get_page_connection()
 
     # Enable console if not already enabled
-    try:
+    with contextlib.suppress(Exception):
         await conn.send("Console.enable")
-    except Exception:
-        pass
 
     # Get logs via JavaScript
     script = f"""

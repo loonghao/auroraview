@@ -316,18 +316,17 @@ class TestHelperFunctions:
         )
 
         # Test with environment variables
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.dict(
-                os.environ,
-                {
-                    "AURORAVIEW_PROJECT_ROOT": tmpdir,
-                    "AURORAVIEW_GALLERY_DIR": tmpdir,
-                    "AURORAVIEW_EXAMPLES_DIR": tmpdir,
-                },
-            ):
-                assert get_project_root() == Path(tmpdir)
-                assert get_gallery_dir() == Path(tmpdir)
-                assert get_examples_dir() == Path(tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
+            os.environ,
+            {
+                "AURORAVIEW_PROJECT_ROOT": tmpdir,
+                "AURORAVIEW_GALLERY_DIR": tmpdir,
+                "AURORAVIEW_EXAMPLES_DIR": tmpdir,
+            },
+        ):
+            assert get_project_root() == Path(tmpdir)
+            assert get_gallery_dir() == Path(tmpdir)
+            assert get_examples_dir() == Path(tmpdir)
 
     def test_scan_samples_function(self) -> None:
         """Test scan_samples function."""
