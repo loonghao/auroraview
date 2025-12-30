@@ -430,9 +430,7 @@ async def get_samples(
         samples = [s for s in samples if s.get("category") == category]
 
     if tags:
-        samples = [
-            s for s in samples if any(t in s.get("tags", []) for t in tags)
-        ]
+        samples = [s for s in samples if any(t in s.get("tags", []) for t in tags)]
 
     return samples
 
@@ -640,13 +638,15 @@ async def list_processes() -> list[dict[str, Any]]:
     processes = []
     for info in _process_manager.list_all():
         status = "running" if info.process.poll() is None else "terminated"
-        processes.append({
-            "pid": info.pid,
-            "name": info.name,
-            "status": status,
-            "port": info.port,
-            "is_gallery": info.is_gallery,
-        })
+        processes.append(
+            {
+                "pid": info.pid,
+                "name": info.name,
+                "status": status,
+                "port": info.port,
+                "is_gallery": info.is_gallery,
+            }
+        )
 
     return processes
 

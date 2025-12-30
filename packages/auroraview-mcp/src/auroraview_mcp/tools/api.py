@@ -175,7 +175,9 @@ async def emit_event(event: str, data: dict[str, Any] | None = None) -> dict[str
     result = await conn.evaluate(script)
 
     if not isinstance(result, dict) or not result.get("ok"):
-        error = result.get("error", "Unknown error") if isinstance(result, dict) else "Unknown error"
+        error = (
+            result.get("error", "Unknown error") if isinstance(result, dict) else "Unknown error"
+        )
         raise RuntimeError(error)
 
     return {

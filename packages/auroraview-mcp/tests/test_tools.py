@@ -110,9 +110,7 @@ class TestGetSampleInfo:
             sample_dir.mkdir()
 
             main_file = sample_dir / "main.py"
-            main_file.write_text(
-                '"""Test Sample\n\nThis is a test.\n"""\nprint("hello")'
-            )
+            main_file.write_text('"""Test Sample\n\nThis is a test.\n"""\nprint("hello")')
 
             info = get_sample_info(sample_dir)
 
@@ -316,13 +314,16 @@ class TestHelperFunctions:
         )
 
         # Test with environment variables
-        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
-            os.environ,
-            {
-                "AURORAVIEW_PROJECT_ROOT": tmpdir,
-                "AURORAVIEW_GALLERY_DIR": tmpdir,
-                "AURORAVIEW_EXAMPLES_DIR": tmpdir,
-            },
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            patch.dict(
+                os.environ,
+                {
+                    "AURORAVIEW_PROJECT_ROOT": tmpdir,
+                    "AURORAVIEW_GALLERY_DIR": tmpdir,
+                    "AURORAVIEW_EXAMPLES_DIR": tmpdir,
+                },
+            ),
         ):
             assert get_project_root() == Path(tmpdir)
             assert get_gallery_dir() == Path(tmpdir)

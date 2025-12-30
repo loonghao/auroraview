@@ -30,9 +30,7 @@ async def list_pages() -> list[dict[str, Any]]:
 
 
 @mcp.tool()
-async def select_page(
-    page_id: str | None = None, url_pattern: str | None = None
-) -> dict[str, Any]:
+async def select_page(page_id: str | None = None, url_pattern: str | None = None) -> dict[str, Any]:
     """Select a page to operate on.
 
     Selects a specific page for subsequent operations. You can select
