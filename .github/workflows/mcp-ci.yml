@@ -219,30 +219,32 @@ jobs:
           name: ${{ inputs.artifact-prefix }}mcp-package
           path: dist/
 
-      - name: Install package from wheel (Unix)
+      - name: Create test environment and install (Unix)
         if: runner.os != 'Windows'
         run: |
-          vx uv pip install --python ${{ matrix.python-version }} dist/*.whl
+          vx uv venv --python ${{ matrix.python-version }} .test-venv
+          vx uv pip install --python .test-venv/bin/python dist/*.whl
 
-      - name: Install package from wheel (Windows)
+      - name: Create test environment and install (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          vx uv venv --python ${{ matrix.python-version }} .test-venv
           $wheel = Get-ChildItem dist/*.whl | Select-Object -First 1
-          vx uv pip install --python ${{ matrix.python-version }} $wheel.FullName
+          vx uv pip install --python .test-venv\Scripts\python.exe $wheel.FullName
 
       - name: Verify installation (Unix)
         if: runner.os != 'Windows'
         run: |
-          vx uv run --python ${{ matrix.python-version }} python -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
-          vx uv run --python ${{ matrix.python-version }} python -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
+          .test-venv/bin/python -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
+          .test-venv/bin/python -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
 
       - name: Verify installation (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          vx uv run --python ${{ matrix.python-version }} python -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
-          vx uv run --python ${{ matrix.python-version }} python -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
+          .test-venv\Scripts\python.exe -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
+          .test-venv\Scripts\python.exe -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
 
       - name: Test CLI entry point
         run: |
