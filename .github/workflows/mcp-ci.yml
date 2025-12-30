@@ -43,10 +43,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "latest"
+      - name: Install vx
+        uses: loonghao/setup-vx@v1
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -56,17 +54,17 @@ jobs:
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          uv sync
+          vx uv sync
 
       - name: Run ruff check
         run: |
           cd packages/auroraview-mcp
-          uv run ruff check src/ tests/
+          vx uv run ruff check src/ tests/
 
       - name: Run ruff format check
         run: |
           cd packages/auroraview-mcp
-          uv run ruff format --check src/ tests/
+          vx uv run ruff format --check src/ tests/
 
   # Unit tests with coverage
   unit-tests:
@@ -80,10 +78,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "latest"
+      - name: Install vx
+        uses: loonghao/setup-vx@v1
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -93,12 +89,12 @@ jobs:
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          uv sync
+          vx uv sync
 
       - name: Run tests
         run: |
           cd packages/auroraview-mcp
-          uv run pytest tests/ -v --tb=short
+          vx uv run pytest tests/ -v --tb=short
 
   # Coverage report (only on Python 3.11)
   coverage:
@@ -108,10 +104,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "latest"
+      - name: Install vx
+        uses: loonghao/setup-vx@v1
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -121,12 +115,12 @@ jobs:
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          uv sync
+          vx uv sync
 
       - name: Run tests with coverage
         run: |
           cd packages/auroraview-mcp
-          uv run pytest tests/ --cov=auroraview_mcp --cov-report=xml --cov-report=html
+          vx uv run pytest tests/ --cov=auroraview_mcp --cov-report=xml --cov-report=html
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -156,10 +150,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "latest"
+      - name: Install vx
+        uses: loonghao/setup-vx@v1
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -169,7 +161,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          uv sync
+          vx uv sync
 
       - name: Update version if specified
         if: inputs.version != ''
@@ -183,7 +175,7 @@ jobs:
       - name: Build package
         run: |
           cd packages/auroraview-mcp
-          uv build
+          vx uv build
 
       - name: Verify build outputs
         run: |

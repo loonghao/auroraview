@@ -373,10 +373,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "latest"
+      - name: Install vx
+        uses: loonghao/setup-vx@v1
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -398,7 +396,7 @@ jobs:
           grep version pyproject.toml
           
           # Build package with correct version
-          uv build
+          vx uv build
           
           echo "Built packages:"
           ls -la dist/
