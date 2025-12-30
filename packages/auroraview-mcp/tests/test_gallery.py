@@ -247,24 +247,27 @@ class TestPathFunctions:
 
     def test_get_examples_dir_from_env(self) -> None:
         """Test get_examples_dir with environment variable."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.dict(os.environ, {"AURORAVIEW_EXAMPLES_DIR": tmpdir}):
-                result = get_examples_dir()
-                assert result == Path(tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
+            os.environ, {"AURORAVIEW_EXAMPLES_DIR": tmpdir}
+        ):
+            result = get_examples_dir()
+            assert result == Path(tmpdir)
 
     def test_get_gallery_dir_from_env(self) -> None:
         """Test get_gallery_dir with environment variable."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.dict(os.environ, {"AURORAVIEW_GALLERY_DIR": tmpdir}):
-                result = get_gallery_dir()
-                assert result == Path(tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
+            os.environ, {"AURORAVIEW_GALLERY_DIR": tmpdir}
+        ):
+            result = get_gallery_dir()
+            assert result == Path(tmpdir)
 
     def test_get_project_root_from_env(self) -> None:
         """Test get_project_root with environment variable."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.dict(os.environ, {"AURORAVIEW_PROJECT_ROOT": tmpdir}):
-                result = get_project_root()
-                assert result == Path(tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
+            os.environ, {"AURORAVIEW_PROJECT_ROOT": tmpdir}
+        ):
+            result = get_project_root()
+            assert result == Path(tmpdir)
 
 
 class TestGalleryToolsInternal:
