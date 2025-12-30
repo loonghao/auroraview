@@ -1367,11 +1367,39 @@ Gallery 提供：
 - 运行时配置的设置面板
 - 跨所有示例的搜索功能
 
+### 安装 CLI
+
+使用安装脚本安装 `auroraview-cli`：
+
+**Linux/macOS (bash):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/loonghao/auroraview/main/scripts/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/loonghao/auroraview/main/scripts/install.ps1 | iex
+```
+
+**手动下载：**
+
+从 [GitHub Releases](https://github.com/loonghao/auroraview/releases) 下载预编译二进制文件。
+
+| 平台 | 下载文件 |
+|------|----------|
+| Windows x64 | `auroraview-cli-{version}-x86_64-pc-windows-msvc.zip` |
+| Linux x64 | `auroraview-cli-{version}-x86_64-unknown-linux-gnu.tar.gz` |
+| macOS x64 | `auroraview-cli-{version}-x86_64-apple-darwin.tar.gz` |
+| macOS ARM64 | `auroraview-cli-{version}-aarch64-apple-darwin.tar.gz` |
+
+**从源码构建：**
+```bash
+cargo build -p auroraview-cli --release
+```
+
 ### 应用打包
 
 AuroraView 提供强大的打包系统，可创建独立可执行文件。使用 `auroraview-cli`（Rust CLI）进行打包：
-
-> **注意**：`auroraview-cli` 是用于打包的 Rust CLI。从 [GitHub Releases](https://github.com/AuroraView/auroraview/releases) 下载或使用 `cargo build -p auroraview-cli --release` 构建。
 
 ```bash
 # 打包基于 URL 的应用

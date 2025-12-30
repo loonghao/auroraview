@@ -1447,11 +1447,39 @@ The Gallery provides:
 - Settings panel for runtime configuration
 - Search functionality across all examples
 
+### Install CLI
+
+Install `auroraview-cli` using the install script:
+
+**Linux/macOS (bash):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/loonghao/auroraview/main/scripts/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/loonghao/auroraview/main/scripts/install.ps1 | iex
+```
+
+**Manual Download:**
+
+Download pre-built binaries from [GitHub Releases](https://github.com/loonghao/auroraview/releases).
+
+| Platform | Download |
+|----------|----------|
+| Windows x64 | `auroraview-cli-{version}-x86_64-pc-windows-msvc.zip` |
+| Linux x64 | `auroraview-cli-{version}-x86_64-unknown-linux-gnu.tar.gz` |
+| macOS x64 | `auroraview-cli-{version}-x86_64-apple-darwin.tar.gz` |
+| macOS ARM64 | `auroraview-cli-{version}-aarch64-apple-darwin.tar.gz` |
+
+**Build from source:**
+```bash
+cargo build -p auroraview-cli --release
+```
+
 ### Application Packaging
 
 AuroraView provides a powerful packaging system to create standalone executables. Use `auroraview-cli` (Rust CLI) for packaging:
-
-> **Note**: `auroraview-cli` is the Rust-based CLI for packaging. Download from [GitHub Releases](https://github.com/AuroraView/auroraview/releases) or build with `cargo build -p auroraview-cli --release`.
 
 ```bash
 # Pack a URL-based application
