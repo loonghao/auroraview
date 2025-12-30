@@ -10,7 +10,7 @@ use serde::Deserialize;
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Self-update command arguments
 #[derive(Args, Debug)]
@@ -120,7 +120,7 @@ pub fn run_self_update(args: SelfUpdateArgs) -> Result<()> {
     );
 
     // Download and install
-    download_and_install(&asset, args.token.as_deref())?;
+    download_and_install(asset, args.token.as_deref())?;
 
     println!(
         "{} Successfully updated to version {}!",
@@ -317,7 +317,7 @@ fn download_and_install(asset: &Asset, token: Option<&str>) -> Result<()> {
 }
 
 /// Download a file with progress bar
-fn download_file(url: &str, path: &PathBuf, size: u64, token: Option<&str>) -> Result<()> {
+fn download_file(url: &str, path: &Path, size: u64, token: Option<&str>) -> Result<()> {
     let client = reqwest::blocking::Client::new();
     let mut request = client.get(url).header(
         "User-Agent",
@@ -406,7 +406,7 @@ fn extract_binary(archive_path: &PathBuf) -> Result<PathBuf> {
 }
 
 /// Extract ZIP archive
-fn extract_zip(archive: &PathBuf, dest: &PathBuf) -> Result<()> {
+fn extract_zip(archive: &Path, dest: &Path) -> Result<()> {
     let file = File::open(archive)?;
     let mut archive = zip::ZipArchive::new(file)?;
 
@@ -431,7 +431,7 @@ fn extract_zip(archive: &PathBuf, dest: &PathBuf) -> Result<()> {
 }
 
 /// Extract tar.gz archive
-fn extract_tar_gz(archive: &PathBuf, dest: &PathBuf) -> Result<()> {
+fn extract_tar_gz(archive: &Path, dest: &Path) -> Result<()> {
     let file = File::open(archive)?;
     let decoder = flate2::read::GzDecoder::new(file);
     let mut archive = tar::Archive::new(decoder);
