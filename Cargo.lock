@@ -579,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "aurora-signals"
-version = "0.3.29"
+version = "0.3.32"
 dependencies = [
  "crossbeam-channel",
  "once_cell",
@@ -596,7 +596,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview"
-version = "0.3.29"
+version = "0.3.32"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -656,7 +656,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.29"
+version = "0.3.32"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -674,8 +674,10 @@ dependencies = [
  "path-clean",
  "rayon",
  "regex",
+ "reqwest",
  "rstest 0.24.0",
  "rust-embed",
+ "self-replace",
  "serde",
  "serde_json",
  "tao",
@@ -689,11 +691,12 @@ dependencies = [
  "windows 0.61.3",
  "winresource",
  "wry",
+ "zip 2.4.2",
 ]
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.29"
+version = "0.3.32"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -725,7 +728,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.3.29"
+version = "0.3.32"
 dependencies = [
  "anyhow",
  "chrono",
@@ -751,7 +754,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.3.29"
+version = "0.3.32"
 dependencies = [
  "aurora-protect",
  "base64 0.22.1",
@@ -779,7 +782,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.3.29"
+version = "0.3.32"
 dependencies = [
  "dunce",
  "serde",
@@ -790,7 +793,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.3.29"
+version = "0.3.32"
 dependencies = [
  "auroraview-plugin-core",
  "base64 0.22.1",
@@ -801,7 +804,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.3.29"
+version = "0.3.32"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -5556,7 +5559,7 @@ dependencies = [
  "uuid",
  "walkdir",
  "which 8.0.0",
- "zip",
+ "zip 4.6.1",
 ]
 
 [[package]]
@@ -6009,6 +6012,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2 0.4.12",
@@ -6488,6 +6492,17 @@ dependencies = [
  "precomputed-hash",
  "servo_arc",
  "smallvec",
+]
+
+[[package]]
+name = "self-replace"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03ec815b5eab420ab893f63393878d89c90fdd94c0bcc44c07abb8ad95552fb7"
+dependencies = [
+ "fastrand",
+ "tempfile",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -9230,6 +9245,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.111",
+]
+
+[[package]]
+name = "zip"
+version = "2.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fabe6324e908f85a1c52063ce7aa26b68dcb7eb6dbc83a2d148403c9bc3eba50"
+dependencies = [
+ "arbitrary",
+ "crc32fast",
+ "crossbeam-utils",
+ "displaydoc",
+ "flate2",
+ "indexmap",
+ "memchr",
+ "thiserror 2.0.17",
+ "zopfli",
 ]
 
 [[package]]

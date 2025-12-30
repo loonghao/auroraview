@@ -34,7 +34,10 @@ use auroraview_pack::is_packed;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-use auroraview_cli::cli::{run_icon, run_info, run_pack, run_webview, IconArgs, PackArgs, RunArgs};
+use auroraview_cli::cli::{
+    run_icon, run_info, run_pack, run_self_update, run_webview, IconArgs, PackArgs, RunArgs,
+    SelfUpdateArgs,
+};
 use auroraview_cli::packed;
 
 /// AuroraView - Standalone WebView launcher and packager
@@ -106,6 +109,10 @@ enum Commands {
 
     /// Show version and environment information
     Info,
+
+    /// Self-update to the latest version
+    #[command(name = "self-update")]
+    SelfUpdate(SelfUpdateArgs),
 }
 
 fn main() -> Result<()> {
@@ -125,6 +132,7 @@ fn main() -> Result<()> {
         Some(Commands::Pack(args)) => run_pack(args),
         Some(Commands::Icon(args)) => run_icon(args),
         Some(Commands::Info) => run_info(),
+        Some(Commands::SelfUpdate(args)) => run_self_update(args),
         None => {
             // Legacy mode: use top-level args
             let args = RunArgs {
