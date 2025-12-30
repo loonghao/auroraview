@@ -361,7 +361,7 @@ fn download_file(url: &str, path: &Path, size: u64, token: Option<&str>) -> Resu
 }
 
 /// Extract binary from archive
-fn extract_binary(archive_path: &PathBuf) -> Result<PathBuf> {
+fn extract_binary(archive_path: &Path) -> Result<PathBuf> {
     let temp_dir = env::temp_dir().join("auroraview-update");
     if temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).ok();
