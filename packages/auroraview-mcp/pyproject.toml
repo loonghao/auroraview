@@ -1,0 +1,61 @@
+[project]
+name = "auroraview-mcp"
+version = "0.1.0"
+description = "MCP Server for AuroraView - AI-powered interaction with WebView applications"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "AuroraView Team", email = "hal.long@outlook.com" }]
+keywords = ["mcp", "auroraview", "webview", "ai", "automation", "dcc"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "mcp>=1.2.0",
+    "httpx>=0.25.0",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+auroraview-mcp = "auroraview_mcp.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/loonghao/auroraview"
+Documentation = "https://loonghao.github.io/auroraview/"
+Repository = "https://github.com/loonghao/auroraview"
+Issues = "https://github.com/loonghao/auroraview/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/auroraview_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]

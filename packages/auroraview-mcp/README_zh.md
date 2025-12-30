@@ -1,0 +1,268 @@
+# AuroraView MCP Server
+
+[![PyPI version](https://badge.fury.io/py/auroraview-mcp.svg)](https://badge.fury.io/py/auroraview-mcp)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+AuroraView 的 MCP (Model Context Protocol) 服务器 - 使 AI 助手能够与独立模式和 DCC 环境（Maya、Blender、Houdini 等）中的 WebView 应用进行交互。
+
+## 功能特性
+
+- **实例发现**：自动发现运行中的 AuroraView 实例
+- **CDP 连接**：通过 Chrome DevTools Protocol 连接到 WebView2 实例
+- **API 桥接**：通过 JS 桥接调用 Python 后端 API
+- **UI 自动化**：点击、填充、截图等操作
+- **Gallery 集成**：运行和管理 AuroraView 示例
+- **DCC 支持**：连接 Maya、Blender、Houdini、Nuke、Unreal 中的 AuroraView 面板
+
+## 安装
+
+```bash
+# 使用 pip
+pip install auroraview-mcp
+
+# 使用 uv
+uv pip install auroraview-mcp
+
+# 从源码安装
+cd packages/auroraview-mcp
+uv pip install -e ".[dev]"
+```
+
+## 快速开始
+
+### 配置 Claude Desktop / CodeBuddy
+
+添加到 MCP 配置：
+
+```json
+{
+  "mcpServers": {
+    "auroraview": {
+      "command": "uvx",
+      "args": ["auroraview-mcp"],
+      "env": {
+        "AURORAVIEW_DEFAULT_PORT": "9222"
+      }
+    }
+  }
+}
+```
+
+### 开发模式
+
+```json
+{
+  "mcpServers": {
+    "auroraview": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/dcc_webview/packages/auroraview-mcp",
+        "run",
+        "auroraview-mcp"
+      ]
+    }
+  }
+}
+```
+
+## 可用工具
+
+### 发现工具
+
+| 工具 | 描述 |
+|------|------|
+| `discover_instances` | 发现所有运行中的 AuroraView 实例 |
+| `connect` | 连接到 AuroraView 实例 |
+| `disconnect` | 断开当前连接 |
+| `list_dcc_instances` | 发现 DCC 环境中的实例 |
+
+### 页面工具
+
+| 工具 | 描述 |
+|------|------|
+| `list_pages` | 列出已连接实例中的所有页面 |
+| `select_page` | 通过 ID 或 URL 模式选择页面 |
+| `get_page_info` | 获取详细的页面信息 |
+| `reload_page` | 重新加载当前页面 |
+
+### API 工具
+
+| 工具 | 描述 |
+|------|------|
+| `call_api` | 调用 AuroraView Python API 方法 |
+| `list_api_methods` | 列出可用的 API 方法 |
+| `emit_event` | 向前端触发事件 |
+
+### UI 工具
+
+| 工具 | 描述 |
+|------|------|
+| `take_screenshot` | 截取页面或元素截图 |
+| `get_snapshot` | 获取可访问性树快照 |
+| `click` | 点击元素 |
+| `fill` | 填充输入框 |
+| `evaluate` | 执行 JavaScript 代码 |
+| `hover` | 悬停在元素上 |
+
+### Gallery 工具
+
+| 工具 | 描述 |
+|------|------|
+| `get_samples` | 列出可用示例 |
+| `run_sample` | 运行示例应用 |
+| `stop_sample` | 停止运行中的示例 |
+| `get_sample_source` | 获取示例源代码 |
+| `list_processes` | 列出运行中的示例进程 |
+
+### 调试工具
+
+| 工具 | 描述 |
+|------|------|
+| `get_console_logs` | 获取控制台日志消息 |
+| `get_network_requests` | 获取网络请求历史 |
+| `get_backend_status` | 获取 Python 后端状态 |
+| `get_memory_info` | 获取内存使用信息 |
+| `clear_console` | 清除控制台日志 |
+
+## 使用示例
+
+### 基本工作流
+
+```
+用户：帮我测试 Gallery 的搜索功能
+
+AI：我来连接 Gallery 并测试搜索。
+
+[调用 discover_instances]
+→ 发现 1 个实例在端口 9222
+
+[调用 connect(port=9222)]
+→ 已连接到 AuroraView Gallery
+
+[调用 get_snapshot]
+→ 获取页面结构，找到搜索框
+
+[调用 fill(selector="input[placeholder*='Search']", value="cookie")]
+→ 已输入搜索词
+
+[调用 take_screenshot]
+→ 截图显示搜索结果
+
+搜索功能正常工作。
+```
+
+### 运行示例
+
+```
+用户：运行 hello_world 示例
+
+AI：[调用 run_sample(name="hello_world")]
+→ 示例已启动，PID: 12345
+
+[调用 list_processes]
+→ 显示运行中的进程
+
+示例已成功启动。
+```
+
+### DCC 环境
+
+```
+用户：在 Maya 中测试资产浏览器面板
+
+AI：我来连接 Maya 的 AuroraView 面板。
+
+[调用 list_dcc_instances]
+→ 发现 Maya 2025 实例，端口 9223，面板: "Asset Browser"
+
+[调用 connect(port=9223)]
+→ 已连接到 Maya Asset Browser
+
+[调用 get_page_info]
+→ AuroraView 就绪，API 方法可用
+
+面板在 Maya 中正常工作。
+```
+
+## 资源
+
+服务器还提供 MCP 资源：
+
+| 资源 | 描述 |
+|------|------|
+| `auroraview://instances` | 运行中的实例列表 |
+| `auroraview://page/{id}` | 页面详情 |
+| `auroraview://samples` | 可用示例 |
+| `auroraview://sample/{name}/source` | 示例源代码 |
+| `auroraview://logs` | 控制台日志 |
+
+## 环境变量
+
+| 变量 | 描述 | 默认值 |
+|------|------|--------|
+| `AURORAVIEW_DEFAULT_PORT` | 默认 CDP 端口 | `9222` |
+| `AURORAVIEW_SCAN_PORTS` | 扫描端口（逗号分隔） | `9222,9223,9224,9225` |
+| `AURORAVIEW_EXAMPLES_DIR` | 示例目录路径 | 自动检测 |
+| `AURORAVIEW_DCC_MODE` | DCC 模式（maya、blender 等） | 无 |
+
+## 开发
+
+```bash
+# 安装开发依赖
+cd packages/auroraview-mcp
+uv pip install -e ".[dev]"
+
+# 运行测试
+pytest
+
+# 运行覆盖率测试
+pytest --cov=auroraview_mcp
+
+# 类型检查
+mypy src/auroraview_mcp
+```
+
+## 架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      AI 助手                                 │
+│                 (Claude, GPT 等)                            │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              │ MCP 协议 (stdio)
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  AuroraView MCP 服务器                       │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐   │
+│  │  发现模块   │ │  工具模块   │ │     资源模块        │   │
+│  └─────────────┘ └─────────────┘ └─────────────────────┘   │
+│         │               │                   │               │
+│         └───────────────┼───────────────────┘               │
+│                         │                                    │
+│              ┌──────────┴──────────┐                        │
+│              │     连接池          │                        │
+│              └──────────┬──────────┘                        │
+└─────────────────────────┼───────────────────────────────────┘
+                          │
+          ┌───────────────┼───────────────┐
+          │               │               │
+          ▼               ▼               ▼
+    ┌──────────┐   ┌──────────┐   ┌──────────┐
+    │ WebView  │   │ WebView  │   │ WebView  │
+    │   实例   │   │   实例   │   │   实例   │
+    │  (CDP)   │   │  (CDP)   │   │  (CDP)   │
+    └──────────┘   └──────────┘   └──────────┘
+```
+
+## 相关链接
+
+- [AuroraView](https://github.com/loonghao/auroraview) - 主项目
+- [MCP 协议](https://modelcontextprotocol.io/) - Model Context Protocol
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) - 官方 Python SDK
+
+## 许可证
+
+MIT 许可证 - 详见 [LICENSE](../../LICENSE)。

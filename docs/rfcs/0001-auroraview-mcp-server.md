@@ -1,6 +1,6 @@
 # RFC 0001: AuroraView MCP Server
 
-> **状态**: Draft
+> **状态**: Implementing (Phase 1)
 > **作者**: AuroraView Team
 > **创建日期**: 2024-12-30
 > **更新日期**: 2024-12-30
@@ -1166,13 +1166,13 @@ midscene = [
 
 ### Phase 1: Python SDK 核心功能 (v0.3.0) - 2 周
 
-- [ ] 项目结构搭建
-- [ ] 实例发现 (`discover_instances`)
-- [ ] 连接管理 (`connect`, `disconnect`)
-- [ ] 页面操作 (`list_pages`, `select_page`, `get_page_info`)
-- [ ] 基本 API 调用 (`call_api`, `list_api_methods`)
-- [ ] 截图 (`take_screenshot`)
-- [ ] 基本测试和文档
+- [x] 项目结构搭建
+- [x] 实例发现 (`discover_instances`)
+- [x] 连接管理 (`connect`, `disconnect`)
+- [x] 页面操作 (`list_pages`, `select_page`, `get_page_info`)
+- [x] 基本 API 调用 (`call_api`, `list_api_methods`)
+- [x] 截图 (`take_screenshot`)
+- [x] 基本测试和文档
 
 ### Phase 2: Gallery 集成 (v0.3.1) - 1 周
 
@@ -1356,3 +1356,4 @@ mcp-publish:
 | 2024-12-30 | Draft | 初始草案 |
 | 2024-12-30 | Draft v2 | 添加 DCC 集成、Node.js SDK、Midscene 集成分析 |
 | 2024-12-30 | Draft v3 | 添加项目组织策略（混合策略） |
+| 2024-12-30 | Implementing | Phase 1 实现完成 - Python SDK 核心功能 |
