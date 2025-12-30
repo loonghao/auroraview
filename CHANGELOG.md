@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.32](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.31...auroraview-v0.3.32) (2025-12-30)
+
+
+### Bug Fixes
+
+* **ci:** preserve release-please changelog and add version to artifact names ([a6a338e](https://github.com/loonghao/auroraview/commit/a6a338ef5fc1271ffae068f9512b0203c9ea060e))
+
 ## [0.3.31](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.30...auroraview-v0.3.31) (2025-12-30)
 
 
