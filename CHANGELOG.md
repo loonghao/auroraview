@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.34](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.33...auroraview-v0.3.34) (2025-12-30)
+
+
+### Features
+
+* **mcp:** implement Phase 2 Gallery integration tools ([5ae7cc8](https://github.com/loonghao/auroraview/commit/5ae7cc850bf0eaedbe6cf0fee0fc863b59333c52))
+
+
+### Bug Fixes
+
+* **ci:** update vx to v0.6.3 ([703bb9e](https://github.com/loonghao/auroraview/commit/703bb9ec46863793d685ad7f85da6044e5f4320e))
+* **ci:** use correct vx action path loonghao/vx@vx-v0.5.15 ([c3ec938](https://github.com/loonghao/auroraview/commit/c3ec9388dc4384b97bda2439d5104e720f44ec14))
+* **deps:** upgrade askama to 0.15 to resolve version conflict with warp ([53a2aeb](https://github.com/loonghao/auroraview/commit/53a2aebba86cf027adc3d2d57300cc16cd19e46b))
+
+
+### Code Refactoring
+
+* **ci:** use vx uvx instead of vx uv run ([72bd133](https://github.com/loonghao/auroraview/commit/72bd133edeb4a0ea8dca67cdb85096557dcd0b0e))
+
 ## [0.3.33](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.32...auroraview-v0.3.33) (2025-12-30)
 
 
