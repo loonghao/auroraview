@@ -1,10 +1,10 @@
 # RFC 0001: AuroraView MCP Server
 
-> **状态**: Implementing (Phase 2 Complete)
+> **状态**: Implementing (Phase 3 Complete)
 > **作者**: AuroraView Team
 > **创建日期**: 2024-12-30
-> **更新日期**: 2024-12-30
-> **目标版本**: v0.3.0
+> **更新日期**: 2024-12-31
+> **目标版本**: v0.4.0
 
 ## 摘要
 
@@ -1185,11 +1185,14 @@ midscene = [
 
 ### Phase 3: DCC 支持 (v0.4.0) - 2 周
 
-- [ ] DCC 实例发现 (`list_dcc_instances`)
-- [ ] DCC 上下文 (`get_dcc_context`)
-- [ ] DCC 命令执行 (`execute_dcc_command`)
-- [ ] 选择同步 (`sync_selection`)
-- [ ] Maya/Blender/Houdini 适配测试
+- [x] DCC 实例发现 (`list_dcc_instances`)
+- [x] DCC 上下文 (`get_dcc_context`)
+- [x] DCC 命令执行 (`execute_dcc_command`)
+- [x] 选择同步 (`sync_selection`, `set_dcc_selection`)
+- [x] 场景信息 (`get_dcc_scene_info`)
+- [x] 时间线控制 (`get_dcc_timeline`, `set_dcc_frame`)
+- [x] Maya/Blender/Houdini/Nuke/Unreal/3ds Max 类型检测
+- [x] 单元测试
 
 ### Phase 4: Node.js SDK (v0.4.1) - 2 周
 
@@ -1360,3 +1363,4 @@ mcp-publish:
 | 2024-12-30 | Draft v3 | 添加项目组织策略（混合策略） |
 | 2024-12-30 | Implementing | Phase 1 实现完成 - Python SDK 核心功能 |
 | 2024-12-30 | Implementing | Phase 2 实现完成 - Gallery 集成工具 |
+| 2024-12-31 | Implementing | Phase 3 实现完成 - DCC 支持（get_dcc_context, execute_dcc_command, sync_selection, set_dcc_selection, get_dcc_scene_info, get_dcc_timeline, set_dcc_frame） |

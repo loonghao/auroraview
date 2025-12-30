@@ -228,6 +228,18 @@ vx uv run auroraview-mcp
 | `get_memory_info` | 获取内存使用信息 |
 | `clear_console` | 清除控制台日志 |
 
+### DCC 工具
+
+| 工具 | 描述 |
+|------|------|
+| `get_dcc_context` | 获取当前 DCC 环境上下文（场景、选择、帧） |
+| `execute_dcc_command` | 执行 DCC 原生命令（Maya cmds、Blender bpy 等） |
+| `sync_selection` | 同步 DCC 和 WebView 之间的选择状态 |
+| `set_dcc_selection` | 在 DCC 应用中设置选择 |
+| `get_dcc_scene_info` | 获取详细的场景信息 |
+| `get_dcc_timeline` | 获取时间线/动画信息 |
+| `set_dcc_frame` | 在 DCC 应用中设置当前帧 |
+
 ## 使用示例
 
 ### 启动并调试 Gallery
@@ -301,10 +313,35 @@ AI：我来连接 Maya 的 AuroraView 面板。
 [调用 connect(port=9223)]
 → 已连接到 Maya Asset Browser
 
-[调用 get_page_info]
-→ AuroraView 就绪，API 方法可用
+[调用 get_dcc_context]
+→ DCC: Maya 2025.1，场景: /projects/scene.ma，选择: ["pCube1"]
+
+[调用 execute_dcc_command(command="maya.cmds.ls", kwargs={"selection": True})]
+→ 返回: ["pCube1", "pSphere1"]
+
+[调用 sync_selection]
+→ DCC 和 WebView 选择已同步
 
 面板在 Maya 中正常工作。
+```
+
+### DCC 时间线控制
+
+```
+用户：在 Maya 中跳转到第 50 帧
+
+AI：我来设置当前帧。
+
+[调用 get_dcc_timeline]
+→ 当前: 1，范围: 1-120，FPS: 24
+
+[调用 set_dcc_frame(frame=50)]
+→ 帧已设置为 50
+
+[调用 get_dcc_scene_info]
+→ 场景信息，当前帧为 50
+
+帧已设置为 50。
 ```
 
 ## 资源

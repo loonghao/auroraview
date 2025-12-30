@@ -4,9 +4,9 @@
 
 | Phase | 状态 | 完成度 | 目标版本 | 预计时间 |
 |-------|------|--------|----------|----------|
-| Phase 1: Python SDK 核心 | 待开始 | 0% | v0.3.0 | 2 周 |
-| Phase 2: Gallery 集成 | 待开始 | 0% | v0.3.1 | 1 周 |
-| Phase 3: DCC 支持 | 待开始 | 0% | v0.4.0 | 2 周 |
+| Phase 1: Python SDK 核心 | 完成 | 100% | v0.3.0 | 2 周 |
+| Phase 2: Gallery 集成 | 完成 | 100% | v0.3.1 | 1 周 |
+| Phase 3: DCC 支持 | 完成 | 100% | v0.4.0 | 2 周 |
 | Phase 4: Node.js SDK | 待开始 | 0% | v0.4.1 | 2 周 |
 | Phase 5: Midscene 集成 | 待开始 | 0% | v0.5.0 | 2 周 |
 | Phase 6: 高级功能 | 待开始 | 0% | v0.6.0 | 2 周 |
@@ -16,86 +16,102 @@
 ### Phase 1: Python SDK 核心功能
 
 #### 项目结构搭建
-- [ ] 创建 `packages/auroraview-mcp/` 目录
-- [ ] 配置 `pyproject.toml`
-- [ ] 设置开发环境
-- [ ] 添加到 monorepo 工作区
+- [x] 创建 `packages/auroraview-mcp/` 目录
+- [x] 配置 `pyproject.toml`
+- [x] 设置开发环境
+- [x] 添加到 monorepo 工作区
 
 #### 实例发现 (`discover_instances`)
-- [ ] 设计
-- [ ] 实现端口扫描
-- [ ] 实现 AuroraView 特征检测
-- [ ] 测试
-- [ ] 文档
+- [x] 设计
+- [x] 实现端口扫描
+- [x] 实现 AuroraView 特征检测
+- [x] 测试
+- [x] 文档
 
 #### 连接管理 (`connect`, `disconnect`)
-- [ ] 设计
-- [ ] 实现 CDP WebSocket 连接
-- [ ] 实现连接池
-- [ ] 测试
-- [ ] 文档
+- [x] 设计
+- [x] 实现 CDP WebSocket 连接
+- [x] 实现连接池
+- [x] 测试
+- [x] 文档
 
 #### 页面操作 (`list_pages`, `select_page`, `get_page_info`)
-- [ ] 设计
-- [ ] 实现页面列表
-- [ ] 实现页面选择（过滤 about:blank）
-- [ ] 实现页面信息获取
-- [ ] 测试
-- [ ] 文档
+- [x] 设计
+- [x] 实现页面列表
+- [x] 实现页面选择（过滤 about:blank）
+- [x] 实现页面信息获取
+- [x] 测试
+- [x] 文档
 
 #### 基本 API 调用 (`call_api`, `list_api_methods`)
-- [ ] 设计
-- [ ] 实现 JS 执行桥接
-- [ ] 实现异步调用支持
-- [ ] 测试
-- [ ] 文档
+- [x] 设计
+- [x] 实现 JS 执行桥接
+- [x] 实现异步调用支持
+- [x] 测试
+- [x] 文档
 
 #### 截图 (`take_screenshot`)
-- [ ] 设计
-- [ ] 实现 CDP 截图
-- [ ] 支持元素截图
-- [ ] 支持全页面截图
-- [ ] 测试
-- [ ] 文档
+- [x] 设计
+- [x] 实现 CDP 截图
+- [x] 支持元素截图
+- [x] 支持全页面截图
+- [x] 测试
+- [x] 文档
 
 ### Phase 2: Gallery 集成
 
 #### Gallery 工具
-- [ ] `get_samples` - 获取示例列表
-- [ ] `run_sample` - 运行示例
-- [ ] `stop_sample` - 停止示例
-- [ ] `get_sample_source` - 获取源码
-- [ ] `list_processes` - 列出进程
+- [x] `run_gallery` - 启动 Gallery 应用
+- [x] `stop_gallery` - 停止 Gallery
+- [x] `get_gallery_status` - 获取 Gallery 状态
+- [x] `get_samples` - 获取示例列表
+- [x] `run_sample` - 运行示例
+- [x] `stop_sample` - 停止示例
+- [x] `get_sample_source` - 获取源码
+- [x] `list_processes` - 列出进程
+- [x] `stop_all_samples` - 停止所有示例
+- [x] `get_project_info` - 获取项目信息
 
 #### 资源提供者
-- [ ] `auroraview://instances`
-- [ ] `auroraview://page/{id}`
-- [ ] `auroraview://samples`
-- [ ] `auroraview://sample/{name}/source`
+- [x] `auroraview://instances`
+- [x] `auroraview://page/{id}`
+- [x] `auroraview://samples`
+- [x] `auroraview://sample/{name}/source`
+- [x] `auroraview://gallery`
+- [x] `auroraview://project`
+- [x] `auroraview://processes`
 
 ### Phase 3: DCC 支持
 
 #### DCC 实例发现
-- [ ] `list_dcc_instances` - 发现 DCC 实例
-- [ ] Maya 适配
-- [ ] Blender 适配
-- [ ] Houdini 适配
-- [ ] Unreal 适配（预留）
+- [x] `list_dcc_instances` - 发现 DCC 实例
+- [x] DCC 类型检测（Maya、Blender、Houdini、Nuke、Unreal、3ds Max）
+- [x] 页面标题/URL 检测
+- [x] 测试
 
 #### DCC 上下文
-- [ ] `get_dcc_context` - 获取 DCC 上下文
-- [ ] 场景信息
-- [ ] 选择状态
-- [ ] 当前帧
+- [x] `get_dcc_context` - 获取 DCC 上下文
+- [x] 场景信息
+- [x] 选择状态
+- [x] 当前帧
+- [x] 测试
 
 #### DCC 命令
-- [ ] `execute_dcc_command` - 执行 DCC 命令
-- [ ] Maya cmds 支持
-- [ ] Blender bpy 支持
-- [ ] Houdini hou 支持
+- [x] `execute_dcc_command` - 执行 DCC 命令
+- [x] 支持 args 和 kwargs 参数
+- [x] 错误处理
+- [x] 测试
 
 #### 选择同步
-- [ ] `sync_selection` - 同步选择状态
+- [x] `sync_selection` - 同步选择状态
+- [x] `set_dcc_selection` - 设置 DCC 选择
+- [x] 测试
+
+#### 场景和时间线
+- [x] `get_dcc_scene_info` - 获取场景信息
+- [x] `get_dcc_timeline` - 获取时间线信息
+- [x] `set_dcc_frame` - 设置当前帧
+- [x] 测试
 
 ### Phase 4: Node.js SDK
 
@@ -167,11 +183,11 @@
 ## 测试计划
 
 ### 单元测试
-- [ ] `test_discovery.py` - 实例发现测试
-- [ ] `test_connection.py` - 连接管理测试
-- [ ] `test_api_bridge.py` - API 桥接测试
-- [ ] `test_tools.py` - 工具函数测试
-- [ ] `test_dcc.py` - DCC 工具测试
+- [x] `test_discovery.py` - 实例发现测试
+- [x] `test_connection.py` - 连接管理测试
+- [x] `test_tools.py` - 工具函数测试
+- [x] `test_gallery.py` - Gallery 工具测试
+- [x] `test_dcc.py` - DCC 工具测试
 
 ### 集成测试
 - [ ] 与 Gallery 集成测试
@@ -190,11 +206,12 @@
 ## 文档更新
 
 ### Python SDK
-- [ ] README.md
-- [ ] 安装指南
-- [ ] 配置指南
+- [x] README.md
+- [x] README_zh.md
+- [x] 安装指南
+- [x] 配置指南
+- [x] 使用示例
 - [ ] API 参考
-- [ ] 使用示例
 - [ ] 故障排除
 
 ### Node.js SDK
@@ -205,6 +222,7 @@
 - [ ] TypeScript 类型文档
 
 ### DCC 集成
+- [x] DCC 工具文档（README.md）
 - [ ] Maya 集成指南
 - [ ] Blender 集成指南
 - [ ] Houdini 集成指南
@@ -214,9 +232,9 @@
 
 | 里程碑 | 目标日期 | 状态 |
 |--------|----------|------|
-| Python SDK Alpha | TBD | 待开始 |
-| Gallery 集成完成 | TBD | 待开始 |
-| DCC 支持 Beta | TBD | 待开始 |
+| Python SDK Alpha | 2024-12-30 | 完成 |
+| Gallery 集成完成 | 2024-12-30 | 完成 |
+| DCC 支持 Beta | 2024-12-31 | 完成 |
 | Node.js SDK Alpha | TBD | 待开始 |
 | Midscene 集成完成 | TBD | 待开始 |
 | v1.0 稳定版 | TBD | 待开始 |
@@ -227,3 +245,6 @@
 |------|------|
 | 2024-12-30 | 创建跟踪文档 |
 | 2024-12-30 | 添加 DCC、Node.js、Midscene 阶段 |
+| 2024-12-30 | Phase 1 完成 - Python SDK 核心功能 |
+| 2024-12-30 | Phase 2 完成 - Gallery 集成 |
+| 2024-12-31 | Phase 3 完成 - DCC 支持（get_dcc_context, execute_dcc_command, sync_selection, set_dcc_selection, get_dcc_scene_info, get_dcc_timeline, set_dcc_frame） |

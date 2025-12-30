@@ -228,6 +228,18 @@ vx uv run auroraview-mcp
 | `get_memory_info` | Get memory usage info |
 | `clear_console` | Clear console logs |
 
+### DCC Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_dcc_context` | Get current DCC environment context (scene, selection, frame) |
+| `execute_dcc_command` | Execute DCC native commands (Maya cmds, Blender bpy, etc.) |
+| `sync_selection` | Synchronize selection between DCC and WebView |
+| `set_dcc_selection` | Set selection in DCC application |
+| `get_dcc_scene_info` | Get detailed scene information |
+| `get_dcc_timeline` | Get timeline/animation information |
+| `set_dcc_frame` | Set current frame in DCC application |
+
 ## Usage Examples
 
 ### Start and Debug Gallery
@@ -301,10 +313,35 @@ AI: I'll connect to Maya's AuroraView panel.
 [Call connect(port=9223)]
 → Connected to Maya Asset Browser
 
-[Call get_page_info]
-→ AuroraView ready, API methods available
+[Call get_dcc_context]
+→ DCC: Maya 2025.1, Scene: /projects/scene.ma, Selection: ["pCube1"]
+
+[Call execute_dcc_command(command="maya.cmds.ls", kwargs={"selection": True})]
+→ Returns: ["pCube1", "pSphere1"]
+
+[Call sync_selection]
+→ DCC and WebView selections are in sync
 
 Panel is working correctly in Maya.
+```
+
+### DCC Timeline Control
+
+```
+User: Go to frame 50 in Maya
+
+AI: I'll set the current frame.
+
+[Call get_dcc_timeline]
+→ Current: 1, Range: 1-120, FPS: 24
+
+[Call set_dcc_frame(frame=50)]
+→ Frame set to 50
+
+[Call get_dcc_scene_info]
+→ Scene info with current frame at 50
+
+Frame has been set to 50.
 ```
 
 ## Resources
