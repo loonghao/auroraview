@@ -207,11 +207,16 @@ vx uv run auroraview-mcp
 
 | Tool | Description |
 |------|-------------|
+| `run_gallery` | Start the Gallery application |
+| `stop_gallery` | Stop the running Gallery |
+| `get_gallery_status` | Get Gallery running status |
 | `get_samples` | List available samples |
 | `run_sample` | Run a sample application |
 | `stop_sample` | Stop a running sample |
 | `get_sample_source` | Get sample source code |
 | `list_processes` | List running sample processes |
+| `stop_all_samples` | Stop all running samples |
+| `get_project_info` | Get AuroraView project info |
 
 ### Debug Tools
 
@@ -224,6 +229,25 @@ vx uv run auroraview-mcp
 | `clear_console` | Clear console logs |
 
 ## Usage Examples
+
+### Start and Debug Gallery
+
+```
+User: Start the Gallery for debugging
+
+AI: I'll start the Gallery application.
+
+[Call run_gallery(port=9222)]
+→ Gallery started, PID: 12345, port: 9222
+
+[Call connect(port=9222)]
+→ Connected to AuroraView Gallery
+
+[Call get_page_info]
+→ Gallery is ready with API methods available
+
+Gallery is running and ready for debugging.
+```
 
 ### Basic Workflow
 
@@ -294,6 +318,9 @@ The server also provides MCP resources:
 | `auroraview://samples` | Available samples |
 | `auroraview://sample/{name}/source` | Sample source code |
 | `auroraview://logs` | Console logs |
+| `auroraview://gallery` | Gallery status and info |
+| `auroraview://project` | Project information |
+| `auroraview://processes` | Running sample processes |
 
 ## Environment Variables
 
@@ -302,6 +329,8 @@ The server also provides MCP resources:
 | `AURORAVIEW_DEFAULT_PORT` | Default CDP port | `9222` |
 | `AURORAVIEW_SCAN_PORTS` | Ports to scan (comma-separated) | `9222,9223,9224,9225` |
 | `AURORAVIEW_EXAMPLES_DIR` | Path to examples directory | Auto-detected |
+| `AURORAVIEW_GALLERY_DIR` | Path to Gallery directory | Auto-detected |
+| `AURORAVIEW_PROJECT_ROOT` | Path to project root | Auto-detected |
 | `AURORAVIEW_DCC_MODE` | DCC mode (maya, blender, etc.) | None |
 
 ## Development

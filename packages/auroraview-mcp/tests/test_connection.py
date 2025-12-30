@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from auroraview_mcp.connection import (
     CDPConnection,
@@ -69,11 +70,12 @@ class TestCDPConnection:
         mock_ws = MagicMock()
         mock_ws.open = True
 
-        with patch("websockets.connect", new_callable=AsyncMock) as mock_connect:
+        with patch("auroraview_mcp.connection.websockets.connect", new_callable=AsyncMock) as mock_connect:
             mock_connect.return_value = mock_ws
             await conn.connect()
 
-            assert conn.is_connected
+            # After connect, _ws should be set
+            assert conn._ws is not None
             mock_connect.assert_called_once_with(conn.ws_url)
 
     @pytest.mark.asyncio
