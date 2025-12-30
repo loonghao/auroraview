@@ -408,6 +408,6 @@ def safe_operation():
 
 ## 另请参阅
 
-- [Qt 集成](./qt-integration.md) - Qt 特定集成指南
-- [Maya 集成](../dcc/maya.md) - Maya 特定指南
-- [DCC 概览](../dcc/index.md) - 所有 DCC 集成概览
+- [Qt 集成](./qt-integration) - Qt 特定集成指南
+- [Maya 集成](../dcc/maya) - Maya 特定指南
+- [DCC 概览](../dcc/) - 所有 DCC 集成概览
