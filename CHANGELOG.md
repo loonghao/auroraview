@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.30](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.29...auroraview-v0.3.30) (2025-12-30)
+
+
+### Features
+
+* floating toolbar and MCP RFC ([4236e40](https://github.com/loonghao/auroraview/commit/4236e405730dc318269a5fa152e2396c3e49d7d5))
+* **gallery:** add GSAP animations and floating toolbar examples ([2ccea7d](https://github.com/loonghao/auroraview/commit/2ccea7d2328be72d52d3fc3bc48ba55e5f793bbf))
+
+
+### Bug Fixes
+
+* add cfg(windows) to WindowStyleHints.decorations field ([5388db0](https://github.com/loonghao/auroraview/commit/5388db03f1fc5ade0d3732eaa19cf680bdfefeaf))
+* **docs:** install Qt6 system dependencies for PySide6 ([715c725](https://github.com/loonghao/auroraview/commit/715c7250807991a9047312d93af7c52d479f51d5))
+* **docs:** install qtpy and PySide6 for pdoc generation ([7314b17](https://github.com/loonghao/auroraview/commit/7314b17895da1ec52028e9df6548848d8a72b8e6))
+* **docs:** skip pdoc generation, use manual API docs ([01cef3e](https://github.com/loonghao/auroraview/commit/01cef3e521b1b36339e41a278a7e244f2b52d639))
+
+
+### Code Refactoring
+
+* use official vx GitHub Action instead of manual install ([1b1a40b](https://github.com/loonghao/auroraview/commit/1b1a40b768a1495f085d1801116f30d9cdc5d843))
+
 ## [0.3.29](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.28...auroraview-v0.3.29) (2025-12-28)
 
 
