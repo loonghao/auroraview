@@ -114,7 +114,7 @@ test-cov:
 # Run only fast tests (exclude slow tests)
 test-fast:
     @echo "Running fast tests..."
-    vx uv run pytest tests/python/ -v -m "not slow"
+    vx uvx pytest tests/python/ -v -m "not slow"
 
 
 # Test with Python 3.7
@@ -191,7 +191,7 @@ test-unit:
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli
     @echo "Running Python unit tests..."
-    vx uv run pytest tests/python/unit -v
+    vx uvx pytest tests/python/unit -v
 
 
 # Run only Rust integration tests
@@ -199,7 +199,7 @@ test-integration:
     @echo "Running Rust integration tests (with rstest)..."
     vx cargo test --test '*' --features "test-helpers"
     @echo "Running Python integration tests..."
-    vx uv run pytest tests/python/integration -v
+    vx uvx pytest tests/python/integration -v
 
 
 # Watch mode for continuous testing
@@ -216,7 +216,7 @@ test-file FILE:
 # Run tests with specific marker
 test-marker MARKER:
     @echo "Running tests with marker {{MARKER}}..."
-    vx uv run pytest tests/ -v -m {{MARKER}}
+    vx uvx pytest tests/ -v -m {{MARKER}}
 
 
 # Format code
@@ -271,7 +271,7 @@ ci-test-rust:
 
 ci-test-python:
     @echo "Running Python unit tests with coverage..."
-    vx uv run pytest tests/ -v --tb=short -m "not slow" \
+    vx uvx pytest tests/ -v --tb=short -m "not slow" \
         --cov=auroraview \
         --cov-report=term-missing \
         --cov-report=html \
@@ -594,7 +594,7 @@ gallery-dev:
 # Run Gallery E2E tests
 gallery-test:
     @echo "Running Gallery E2E tests..."
-    vx uv run pytest tests/python/integration/test_gallery_e2e.py tests/python/integration/test_gallery_contract.py tests/python/integration/test_gallery_plugin_api.py -v --tb=short
+    vx uvx pytest tests/python/integration/test_gallery_e2e.py tests/python/integration/test_gallery_contract.py tests/python/integration/test_gallery_plugin_api.py -v --tb=short
 
 # Run Gallery Playwright E2E tests (frontend only, with mock API)
 gallery-test-playwright:
@@ -604,7 +604,7 @@ gallery-test-playwright:
 # Run Gallery real E2E tests (requires gallery-build first)
 gallery-test-real: gallery-build
     @echo "Running Gallery real E2E tests..."
-    vx uv run pytest tests/python/integration/test_gallery_real_e2e.py -v --tb=short
+    vx uvx pytest tests/python/integration/test_gallery_real_e2e.py -v --tb=short
 
 # Run Gallery test loop (continuous testing)
 gallery-test-loop:
@@ -671,7 +671,7 @@ gallery-cdp: gallery-pack
     @powershell -File scripts/gallery_cdp_wait.ps1
     @echo ""
     @echo "[3/4] Running CDP tests..."
-    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
+    -vx uvx pytest tests/test_gallery_cdp.py -v --tb=short
     @echo ""
     @echo "[4/4] Cleaning up..."
     @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
@@ -693,7 +693,7 @@ gallery-cdp-only:
     @powershell -File scripts/gallery_cdp_wait.ps1
     @echo ""
     @echo "[3/3] Running CDP tests..."
-    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
+    -vx uvx pytest tests/test_gallery_cdp.py -v --tb=short
     @echo ""
     @echo "Cleaning up..."
     @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
