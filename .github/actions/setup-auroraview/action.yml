@@ -30,12 +30,16 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Install vx
+      uses: loonghao/vx@vx-v0.6.4
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        cache: false
+
     - name: Setup vx
       id: setup-vx
-      uses: loonghao/vx@main
-      with:
-        setup: 'true'
-        cache: 'true'
+      shell: bash
+      run: vx setup --ci
 
     - name: Show installed tools
       shell: bash
