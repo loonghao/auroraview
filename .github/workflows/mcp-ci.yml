@@ -47,11 +47,7 @@ jobs:
         uses: loonghao/vx@vx-v0.6.4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
+          cache: false
 
       - name: Install dependencies
         run: |
@@ -84,16 +80,12 @@ jobs:
         uses: loonghao/vx@vx-v0.6.4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
+          cache: false
 
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          vx uv sync
+          vx uv sync --python ${{ matrix.python-version }}
 
       - name: Run tests
         run: |
@@ -112,16 +104,12 @@ jobs:
         uses: loonghao/vx@vx-v0.6.4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
+          cache: false
 
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          vx uv sync
+          vx uv sync --python 3.11
 
       - name: Run tests with coverage
         run: |
@@ -160,16 +148,12 @@ jobs:
         uses: loonghao/vx@vx-v0.6.4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
+          cache: false
 
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          vx uv sync
+          vx uv sync --python 3.11
 
       - name: Update version if specified
         if: inputs.version != ''
@@ -223,10 +207,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Install vx
+        uses: loonghao/vx@vx-v0.6.4
         with:
-          python-version: ${{ matrix.python-version }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: false
 
       - name: Download MCP package
         uses: actions/download-artifact@v7
@@ -234,14 +219,30 @@ jobs:
           name: ${{ inputs.artifact-prefix }}mcp-package
           path: dist/
 
-      - name: Install package from wheel
+      - name: Install package from wheel (Unix)
+        if: runner.os != 'Windows'
         run: |
-          pip install dist/*.whl
+          vx uv pip install --python ${{ matrix.python-version }} dist/*.whl
 
-      - name: Verify installation
+      - name: Install package from wheel (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          python -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
-          python -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
+          $wheel = Get-ChildItem dist/*.whl | Select-Object -First 1
+          vx uv pip install --python ${{ matrix.python-version }} $wheel.FullName
+
+      - name: Verify installation (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          vx uv run --python ${{ matrix.python-version }} python -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
+          vx uv run --python ${{ matrix.python-version }} python -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
+
+      - name: Verify installation (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          vx uv run --python ${{ matrix.python-version }} python -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
+          vx uv run --python ${{ matrix.python-version }} python -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
 
       - name: Test CLI entry point
         run: |
