@@ -82,7 +82,35 @@ webview.load_url("http://localhost:3000")
 webview.show()
 ```
 
-## Thread Dispatcher
+## Threading Model
+
+### Understanding Unreal's Threading
+
+Unreal Engine has strict threading requirements:
+
+| Thread Type | Description | Safe Operations |
+|-------------|-------------|-----------------|
+| **Game Thread** | Main thread for gameplay logic | All Unreal API calls |
+| **Render Thread** | GPU operations | Rendering only |
+| **Background Threads** | Async tasks | Non-Unreal operations |
+
+**Critical**: Most Unreal Python API calls must be made from the **Game Thread**.
+
+### ❌ WRONG: Calling Unreal API from Background Thread
+
+```python
+import threading
+import unreal
+
+def background_task():
+    # DON'T DO THIS - Will crash or cause undefined behavior!
+    actors = unreal.EditorLevelLibrary.get_selected_level_actors()
+    
+thread = threading.Thread(target=background_task)
+thread.start()
+```
+
+### ✅ CORRECT: Using Thread Dispatcher
 
 AuroraView provides a thread dispatcher backend for Unreal Engine:
 
@@ -92,12 +120,37 @@ from auroraview.utils import run_on_main_thread, ensure_main_thread
 @ensure_main_thread
 def update_actor_transform(actor_name, location):
     """This function always runs on the game thread."""
+    import unreal
     actor = unreal.EditorLevelLibrary.get_actor_reference(actor_name)
     if actor:
         actor.set_actor_location(location, False, False)
 
 # Safe to call from any thread
 update_actor_transform("MyActor", unreal.Vector(100, 200, 300))
+```
+
+### Fire-and-Forget vs Blocking
+
+```python
+from auroraview.utils import run_on_main_thread, run_on_main_thread_sync
+
+# Fire-and-forget (non-blocking)
+def create_actor():
+    import unreal
+    unreal.EditorLevelLibrary.spawn_actor_from_class(
+        unreal.StaticMeshActor,
+        unreal.Vector(0, 0, 0)
+    )
+
+run_on_main_thread(create_actor)  # Returns immediately
+
+# Blocking with return value
+def get_selection():
+    import unreal
+    return unreal.EditorLevelLibrary.get_selected_level_actors()
+
+actors = run_on_main_thread_sync(get_selection)  # Waits for result
+print(f"Selected {len(actors)} actors")
 ```
 
 ### Unreal Backend Implementation
@@ -160,48 +213,6 @@ class UnrealDispatcherBackend(ThreadDispatcherBackend):
 register_dispatcher_backend(UnrealDispatcherBackend, priority=150)
 ```
 
-## Editor Utility Widget
-
-Create a custom Editor Utility Widget to host AuroraView:
-
-### Blueprint Setup
-
-1. Create new **Editor Utility Widget**
-2. Add a **Named Slot** widget
-3. Name it "WebViewContainer"
-
-### Python Integration
-
-```python
-import unreal
-from auroraview import WebView
-
-@unreal.uclass()
-class AuroraViewWidget(unreal.EditorUtilityWidget):
-    
-    webview = None
-    
-    @unreal.ufunction(override=True)
-    def construct(self):
-        # Get the container widget's HWND
-        container = self.get_widget_from_name("WebViewContainer")
-        if container:
-            hwnd = self._get_widget_hwnd(container)
-            
-            self.webview = WebView.create(
-                parent=hwnd,
-                mode="child",
-            )
-            self.webview.load_url("http://localhost:3000")
-            self.webview.show()
-    
-    @unreal.ufunction(override=True)
-    def destruct(self):
-        if self.webview:
-            self.webview.close()
-            self.webview = None
-```
-
 ## API Communication
 
 ### Python to JavaScript
@@ -243,6 +254,32 @@ const name = await auroraview.api.spawn_actor(
 );
 ```
 
+### Thread-Safe Event Handlers
+
+When handling events from JavaScript, ensure thread safety:
+
+```python
+from auroraview import WebView
+from auroraview.utils import ensure_main_thread
+
+webview = WebView.create(api=UnrealAPI())
+
+@webview.on("transform_actor")
+@ensure_main_thread
+def handle_transform(data):
+    """Handle transform event - always runs on game thread."""
+    import unreal
+    actor_name = data['actor']
+    location = data['location']
+    
+    actor = unreal.EditorLevelLibrary.get_actor_reference(actor_name)
+    if actor:
+        actor.set_actor_location(
+            unreal.Vector(location['x'], location['y'], location['z']),
+            False, False
+        )
+```
+
 ## Troubleshooting
 
 ### WebView not displaying
@@ -262,11 +299,42 @@ print(sys.executable)  # Check which Python Unreal uses
 # Install to that specific Python
 ```
 
-### Main thread errors
+### Main thread errors / Crashes
 
 **Cause**: Calling Unreal API from background thread.
 
 **Solution**: Use `@ensure_main_thread` decorator or `run_on_main_thread()`.
+
+```python
+# Check if you're on the game thread
+import unreal
+if unreal.is_in_game_thread():
+    # Safe to call Unreal API
+    do_unreal_operation()
+else:
+    # Must dispatch to game thread
+    run_on_main_thread(do_unreal_operation)
+```
+
+### Deadlock when using `run_on_main_thread_sync`
+
+**Cause**: Calling `run_on_main_thread_sync` from the game thread while it's blocked.
+
+**Solution**: Check thread before calling:
+
+```python
+from auroraview.utils import is_main_thread, run_on_main_thread_sync
+
+def safe_get_selection():
+    def _get():
+        import unreal
+        return unreal.EditorLevelLibrary.get_selected_level_actors()
+    
+    if is_main_thread():
+        return _get()
+    else:
+        return run_on_main_thread_sync(_get)
+```
 
 ## Development Status
 
@@ -283,3 +351,8 @@ print(sys.executable)  # Check which Python Unreal uses
 - [Unreal Python API](https://docs.unrealengine.com/5.0/en-US/PythonAPI/)
 - [Slate UI Framework](https://docs.unrealengine.com/5.0/en-US/slate-ui-framework-in-unreal-engine/)
 - [Editor Scripting](https://docs.unrealengine.com/5.0/en-US/scripting-the-unreal-editor-using-python/)
+
+## See Also
+
+- [Thread Dispatcher](../guide/thread-dispatcher) - Unified thread dispatch API
+- [DCC Overview](./index) - Overview of all DCC integrations
