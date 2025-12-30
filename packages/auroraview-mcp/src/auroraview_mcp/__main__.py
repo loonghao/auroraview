@@ -1,6 +1,5 @@
 """Entry point for auroraview-mcp CLI."""
 
-import asyncio
 import sys
 
 
@@ -8,7 +7,7 @@ def main() -> int:
     """Run the AuroraView MCP Server."""
     from auroraview_mcp.server import mcp
 
-    asyncio.run(mcp.run())
+    mcp.run()
     return 0
 
 
