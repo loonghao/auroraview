@@ -16,7 +16,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.3.32" # x-release-please-version
+version = "0.3.33" # x-release-please-version
 edition = "2021"
 # home 0.5.12+ requires Rust 1.88+, using 1.90 (current stable)
 rust-version = "1.90"
@@ -132,7 +132,7 @@ hyper = { version = "1.8", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 
 # Template engine for JS code generation
-askama = { version = "0.15", optional = true }
+askama = { version = "0.14", optional = true }
 
 # Regex for URL handling
 regex = { version = "1.11", optional = true }

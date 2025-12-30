@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.33](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.32...auroraview-v0.3.33) (2025-12-30)
+
+
+### Features
+
+* **cli:** add install scripts for auroraview-cli ([cba8def](https://github.com/loonghao/auroraview/commit/cba8def363a83e7eb09d679341ca107d82e602c2))
+* **cli:** add self-update command ([b5a26e4](https://github.com/loonghao/auroraview/commit/b5a26e4f736a35c2177ae0f6a290920b48fb0e08))
+* **mcp:** implement AuroraView MCP Server (RFC-0001 Phase 1) ([43078eb](https://github.com/loonghao/auroraview/commit/43078eb5a05f1fddba934710d8ca58c8e0a0087f))
+
+
+### Bug Fixes
+
+* **cli:** resolve clippy warnings in self_update ([e2af1bb](https://github.com/loonghao/auroraview/commit/e2af1bb2f1783f63ff026836fda7a12030e1ebf2))
+* **cli:** use Path instead of PathBuf in extract_binary ([b87b1ac](https://github.com/loonghao/auroraview/commit/b87b1ac18dbb472f5d57b419d3d4ba05c23ec3eb))
+
 ## [0.3.32](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.31...auroraview-v0.3.32) (2025-12-30)
 
 
