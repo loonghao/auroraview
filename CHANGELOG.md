@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.31](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.30...auroraview-v0.3.31) (2025-12-30)
+
+
+### Features
+
+* **utils:** add thread dispatcher for DCC main thread execution ([796a592](https://github.com/loonghao/auroraview/commit/796a592ca9aac92f248af182914f8da6e42340c1))
+
+
+### Bug Fixes
+
+* **docs:** remove .md extension from internal links for VitePress ([a181e96](https://github.com/loonghao/auroraview/commit/a181e967f11554bb83f07f1bb3b1c347e7c3c057))
+* remove unused variable and use vx in pr-checks ([e874b96](https://github.com/loonghao/auroraview/commit/e874b96ef3cbdb335dfb0f32f523ca8e2495045c))
+
+
+### Documentation
+
+* add Chinese DCC documentation ([24c9fa2](https://github.com/loonghao/auroraview/commit/24c9fa27045ee32fdf74b358f6143501693eba80))
+
 ## [0.3.30](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.29...auroraview-v0.3.30) (2025-12-30)
 
 
