@@ -93,6 +93,7 @@ export default defineConfig({
                 { text: '3ds Max', link: '/zh/dcc/3dsmax' },
                 { text: 'Blender', link: '/zh/dcc/blender' },
                 { text: 'Photoshop', link: '/zh/dcc/photoshop' },
+                { text: 'Unreal Engine', link: '/zh/dcc/unreal' },
               ]
             }
           ],
@@ -197,6 +198,7 @@ export default defineConfig({
             { text: '3ds Max', link: '/dcc/3dsmax' },
             { text: 'Blender', link: '/dcc/blender' },
             { text: 'Photoshop', link: '/dcc/photoshop' },
+            { text: 'Unreal Engine', link: '/dcc/unreal' },
           ]
         }
       ],
