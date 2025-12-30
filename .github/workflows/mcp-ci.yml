@@ -61,12 +61,12 @@ jobs:
       - name: Run ruff check
         run: |
           cd packages/auroraview-mcp
-          vx uv run ruff check src/ tests/
+          vx uvx ruff check src/ tests/
 
       - name: Run ruff format check
         run: |
           cd packages/auroraview-mcp
-          vx uv run ruff format --check src/ tests/
+          vx uvx ruff format --check src/ tests/
 
   # Unit tests with coverage
   unit-tests:
@@ -98,7 +98,7 @@ jobs:
       - name: Run tests
         run: |
           cd packages/auroraview-mcp
-          vx uv run pytest tests/ -v --tb=short
+          vx uvx pytest tests/ -v --tb=short
 
   # Coverage report (only on Python 3.11)
   coverage:
@@ -126,7 +126,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           cd packages/auroraview-mcp
-          vx uv run pytest tests/ --cov=auroraview_mcp --cov-report=xml --cov-report=html
+          vx uvx pytest tests/ --cov=auroraview_mcp --cov-report=xml --cov-report=html
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
