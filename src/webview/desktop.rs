@@ -869,6 +869,7 @@ pub fn create_desktop(
     }
 
     let window_style_hints = Some(WindowStyleHints {
+        #[cfg(target_os = "windows")]
         decorations: config.decorations,
         #[cfg(target_os = "windows")]
         tool_window: config.tool_window,

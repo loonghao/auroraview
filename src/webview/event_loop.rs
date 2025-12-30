@@ -52,6 +52,7 @@ pub enum UserEvent {
 /// re-apply the desired styles right after `set_visible(true)`.
 #[derive(Debug, Clone, Copy)]
 pub struct WindowStyleHints {
+    #[cfg(target_os = "windows")]
     pub decorations: bool,
     #[cfg(target_os = "windows")]
     pub tool_window: bool,
