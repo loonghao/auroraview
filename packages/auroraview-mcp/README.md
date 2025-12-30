@@ -21,12 +21,15 @@ MCP (Model Context Protocol) Server for AuroraView - enabling AI assistants to i
 # Using pip
 pip install auroraview-mcp
 
-# Using uv
+# Using uv (recommended)
 uv pip install auroraview-mcp
 
-# From source
+# Using vx (auto-installs uv if needed)
+vx uv pip install auroraview-mcp
+
+# From source (development)
 cd packages/auroraview-mcp
-uv pip install -e ".[dev]"
+vx uv sync
 ```
 
 ## Quick Start
@@ -66,6 +69,100 @@ Add to your MCP configuration:
   }
 }
 ```
+
+## Local Debugging
+
+AuroraView MCP Server provides multiple ways to debug locally during development.
+
+### Method 1: FastMCP Built-in Client (Recommended for Unit Testing)
+
+FastMCP 2.x includes a built-in `Client` that can test MCP servers without starting a separate process:
+
+```bash
+# Run all debug tests
+just mcp-debug
+
+# Interactive debug mode
+just mcp-debug-interactive
+```
+
+Or run directly:
+
+```bash
+cd packages/auroraview-mcp
+vx uv run python scripts/debug_client.py
+
+# Test specific functionality
+vx uv run python scripts/debug_client.py --test discover
+vx uv run python scripts/debug_client.py --test connect --port 9222
+vx uv run python scripts/debug_client.py --test interactive
+```
+
+Example debug script usage:
+
+```python
+from fastmcp import Client
+from auroraview_mcp.server import mcp
+
+async def test():
+    async with Client(mcp) as client:
+        # List all available tools
+        tools = await client.list_tools()
+        print(tools)
+        
+        # Call a tool
+        result = await client.call_tool("discover_instances", {})
+        print(result)
+
+import asyncio
+asyncio.run(test())
+```
+
+### Method 2: MCP Inspector (Recommended for Visual Debugging)
+
+[MCP Inspector](https://github.com/modelcontextprotocol/inspector) provides a web-based UI for testing MCP servers:
+
+```bash
+# Start MCP Inspector
+just mcp-inspector
+
+# Or run directly
+vx npx @modelcontextprotocol/inspector vx uv --directory packages/auroraview-mcp run auroraview-mcp
+```
+
+Then open http://localhost:5173 in your browser to:
+- View all available tools and resources
+- Call tools with custom parameters
+- Inspect responses in real-time
+- Debug connection issues
+
+### Method 3: Direct Server Execution
+
+Run the MCP server directly for stdio-based debugging:
+
+```bash
+# Start server in development mode
+just mcp-dev
+
+# Or run directly
+cd packages/auroraview-mcp
+vx uv run auroraview-mcp
+```
+
+### justfile Commands
+
+| Command | Description |
+|---------|-------------|
+| `just mcp-dev` | Start MCP server in development mode |
+| `just mcp-debug` | Run built-in debug client tests |
+| `just mcp-debug-interactive` | Start interactive debug mode |
+| `just mcp-inspector` | Launch MCP Inspector web UI |
+| `just mcp-test` | Run unit tests |
+| `just mcp-test-cov` | Run tests with coverage |
+| `just mcp-lint` | Lint code with ruff |
+| `just mcp-format` | Format code with ruff |
+| `just mcp-build` | Build package |
+| `just mcp-ci` | Run full CI check |
 
 ## Available Tools
 
@@ -212,16 +309,20 @@ The server also provides MCP resources:
 ```bash
 # Install dev dependencies
 cd packages/auroraview-mcp
-uv pip install -e ".[dev]"
+vx uv sync
 
 # Run tests
-pytest
+just mcp-test
 
 # Run with coverage
-pytest --cov=auroraview_mcp
+just mcp-test-cov
 
-# Type checking
-mypy src/auroraview_mcp
+# Lint and format
+just mcp-lint
+just mcp-format
+
+# Full CI check
+just mcp-ci
 ```
 
 ## Architecture
@@ -262,7 +363,8 @@ mypy src/auroraview_mcp
 
 - [AuroraView](https://github.com/loonghao/auroraview) - Main project
 - [MCP Protocol](https://modelcontextprotocol.io/) - Model Context Protocol
-- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) - Official Python SDK
+- [FastMCP](https://github.com/jlowin/fastmcp) - Fast, Pythonic MCP framework
+- [MCP Inspector](https://github.com/modelcontextprotocol/inspector) - MCP debugging tool
 
 ## License
 

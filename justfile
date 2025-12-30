@@ -833,6 +833,22 @@ mcp-dev:
     @echo "Starting MCP server in development mode..."
     cd packages/auroraview-mcp; vx uv run auroraview-mcp
 
+# Debug MCP server with built-in client
+mcp-debug:
+    @echo "Running MCP debug client..."
+    cd packages/auroraview-mcp; vx uv run python scripts/debug_client.py
+
+# Debug MCP server interactively
+mcp-debug-interactive:
+    @echo "Starting MCP interactive debug mode..."
+    cd packages/auroraview-mcp; vx uv run python scripts/debug_client.py --test interactive
+
+# Debug MCP server with MCP Inspector (requires Node.js)
+mcp-inspector:
+    @echo "Starting MCP Inspector..."
+    @echo "Open http://localhost:5173 in your browser"
+    vx npx @modelcontextprotocol/inspector vx uv --directory packages/auroraview-mcp run auroraview-mcp
+
 # Run MCP server tests
 mcp-test:
     @echo "Running MCP server tests..."

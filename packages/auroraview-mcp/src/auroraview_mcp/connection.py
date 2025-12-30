@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 import websockets
-from websockets.client import WebSocketClientProtocol
+from websockets import ClientConnection
 
 
 @dataclass
@@ -38,7 +38,7 @@ class CDPConnection:
 
     port: int
     ws_url: str
-    _ws: WebSocketClientProtocol | None = field(default=None, repr=False)
+    _ws: ClientConnection | None = field(default=None, repr=False)
     _message_id: int = field(default=0, repr=False)
 
     async def connect(self) -> None:
@@ -85,7 +85,7 @@ class CDPConnection:
     @property
     def is_connected(self) -> bool:
         """Check if connection is active."""
-        return self._ws is not None and self._ws.open
+        return self._ws is not None and self._ws.state.name == "OPEN"
 
 
 class CDPError(Exception):
@@ -102,7 +102,7 @@ class PageConnection:
     """Connection to a specific CDP page."""
 
     page: Page
-    _ws: WebSocketClientProtocol | None = field(default=None, repr=False)
+    _ws: ClientConnection | None = field(default=None, repr=False)
     _message_id: int = field(default=0, repr=False)
 
     async def connect(self) -> None:
@@ -172,7 +172,7 @@ class PageConnection:
     @property
     def is_connected(self) -> bool:
         """Check if connection is active."""
-        return self._ws is not None and self._ws.open
+        return self._ws is not None and self._ws.state.name == "OPEN"
 
 
 class JavaScriptError(Exception):

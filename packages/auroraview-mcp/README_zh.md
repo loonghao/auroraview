@@ -21,12 +21,15 @@ AuroraView 的 MCP (Model Context Protocol) 服务器 - 使 AI 助手能够与�
 # 使用 pip
 pip install auroraview-mcp
 
-# 使用 uv
+# 使用 uv（推荐）
 uv pip install auroraview-mcp
 
-# 从源码安装
+# 使用 vx（自动安装 uv）
+vx uv pip install auroraview-mcp
+
+# 从源码安装（开发）
 cd packages/auroraview-mcp
-uv pip install -e ".[dev]"
+vx uv sync
 ```
 
 ## 快速开始
@@ -66,6 +69,100 @@ uv pip install -e ".[dev]"
   }
 }
 ```
+
+## 本地调试
+
+AuroraView MCP Server 提供多种本地调试方式。
+
+### 方法 1：FastMCP 内置 Client（推荐用于单元测试）
+
+FastMCP 2.x 包含内置的 `Client`，可以在不启动单独进程的情况下测试 MCP 服务器：
+
+```bash
+# 运行所有调试测试
+just mcp-debug
+
+# 交互式调试模式
+just mcp-debug-interactive
+```
+
+或直接运行：
+
+```bash
+cd packages/auroraview-mcp
+vx uv run python scripts/debug_client.py
+
+# 测试特定功能
+vx uv run python scripts/debug_client.py --test discover
+vx uv run python scripts/debug_client.py --test connect --port 9222
+vx uv run python scripts/debug_client.py --test interactive
+```
+
+调试脚本使用示例：
+
+```python
+from fastmcp import Client
+from auroraview_mcp.server import mcp
+
+async def test():
+    async with Client(mcp) as client:
+        # 列出所有可用工具
+        tools = await client.list_tools()
+        print(tools)
+        
+        # 调用工具
+        result = await client.call_tool("discover_instances", {})
+        print(result)
+
+import asyncio
+asyncio.run(test())
+```
+
+### 方法 2：MCP Inspector（推荐用于可视化调试）
+
+[MCP Inspector](https://github.com/modelcontextprotocol/inspector) 提供基于 Web 的 UI 来测试 MCP 服务器：
+
+```bash
+# 启动 MCP Inspector
+just mcp-inspector
+
+# 或直接运行
+vx npx @modelcontextprotocol/inspector vx uv --directory packages/auroraview-mcp run auroraview-mcp
+```
+
+然后在浏览器中打开 http://localhost:5173：
+- 查看所有可用的工具和资源
+- 使用自定义参数调用工具
+- 实时检查响应
+- 调试连接问题
+
+### 方法 3：直接执行服务器
+
+直接运行 MCP 服务器进行 stdio 调试：
+
+```bash
+# 以开发模式启动服务器
+just mcp-dev
+
+# 或直接运行
+cd packages/auroraview-mcp
+vx uv run auroraview-mcp
+```
+
+### justfile 命令
+
+| 命令 | 描述 |
+|------|------|
+| `just mcp-dev` | 以开发模式启动 MCP 服务器 |
+| `just mcp-debug` | 运行内置调试客户端测试 |
+| `just mcp-debug-interactive` | 启动交互式调试模式 |
+| `just mcp-inspector` | 启动 MCP Inspector Web UI |
+| `just mcp-test` | 运行单元测试 |
+| `just mcp-test-cov` | 运行带覆盖率的测试 |
+| `just mcp-lint` | 使用 ruff 检查代码 |
+| `just mcp-format` | 使用 ruff 格式化代码 |
+| `just mcp-build` | 构建包 |
+| `just mcp-ci` | 运行完整 CI 检查 |
 
 ## 可用工具
 
@@ -212,16 +309,20 @@ AI：我来连接 Maya 的 AuroraView 面板。
 ```bash
 # 安装开发依赖
 cd packages/auroraview-mcp
-uv pip install -e ".[dev]"
+vx uv sync
 
 # 运行测试
-pytest
+just mcp-test
 
 # 运行覆盖率测试
-pytest --cov=auroraview_mcp
+just mcp-test-cov
 
-# 类型检查
-mypy src/auroraview_mcp
+# 检查和格式化代码
+just mcp-lint
+just mcp-format
+
+# 完整 CI 检查
+just mcp-ci
 ```
 
 ## 架构
@@ -261,7 +362,8 @@ mypy src/auroraview_mcp
 
 - [AuroraView](https://github.com/loonghao/auroraview) - 主项目
 - [MCP 协议](https://modelcontextprotocol.io/) - Model Context Protocol
-- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) - 官方 Python SDK
+- [FastMCP](https://github.com/jlowin/fastmcp) - 快速、Pythonic 的 MCP 框架
+- [MCP Inspector](https://github.com/modelcontextprotocol/inspector) - MCP 调试工具
 
 ## 许可证
 
