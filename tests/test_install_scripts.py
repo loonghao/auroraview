@@ -3,7 +3,6 @@
 This module tests the install scripts for auroraview-cli.
 """
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -43,26 +42,27 @@ class TestInstallScriptSyntax:
         """Test that install.ps1 has ErrorActionPreference."""
         script_path = PROJECT_ROOT / "scripts" / "install.ps1"
         content = script_path.read_text(encoding="utf-8")
-        assert '$ErrorActionPreference = "Stop"' in content, \
+        assert '$ErrorActionPreference = "Stop"' in content, (
             "install.ps1 should have ErrorActionPreference = Stop"
+        )
 
     def test_bash_script_has_repo_config(self):
         """Test that install.sh has correct repo configuration."""
         script_path = PROJECT_ROOT / "scripts" / "install.sh"
         content = script_path.read_text(encoding="utf-8")
-        assert 'REPO="loonghao/auroraview"' in content, \
-            "install.sh should have correct repo"
-        assert 'BINARY_NAME="auroraview-cli"' in content, \
+        assert 'REPO="loonghao/auroraview"' in content, "install.sh should have correct repo"
+        assert 'BINARY_NAME="auroraview-cli"' in content, (
             "install.sh should have correct binary name"
+        )
 
     def test_powershell_script_has_repo_config(self):
         """Test that install.ps1 has correct repo configuration."""
         script_path = PROJECT_ROOT / "scripts" / "install.ps1"
         content = script_path.read_text(encoding="utf-8")
-        assert '$Repo = "loonghao/auroraview"' in content, \
-            "install.ps1 should have correct repo"
-        assert '$BinaryName = "auroraview-cli"' in content, \
+        assert '$Repo = "loonghao/auroraview"' in content, "install.ps1 should have correct repo"
+        assert '$BinaryName = "auroraview-cli"' in content, (
             "install.ps1 should have correct binary name"
+        )
 
 
 class TestInstallScriptPlatformDetection:
@@ -72,25 +72,25 @@ class TestInstallScriptPlatformDetection:
         """Test that bash script can detect Linux."""
         script_path = PROJECT_ROOT / "scripts" / "install.sh"
         content = script_path.read_text(encoding="utf-8")
-        assert 'Linux*)' in content and 'os="linux"' in content
+        assert "Linux*)" in content and 'os="linux"' in content
 
     def test_bash_detects_macos(self):
         """Test that bash script can detect macOS."""
         script_path = PROJECT_ROOT / "scripts" / "install.sh"
         content = script_path.read_text(encoding="utf-8")
-        assert 'Darwin*)' in content and 'os="macos"' in content
+        assert "Darwin*)" in content and 'os="macos"' in content
 
     def test_bash_detects_x64(self):
         """Test that bash script can detect x86_64 architecture."""
         script_path = PROJECT_ROOT / "scripts" / "install.sh"
         content = script_path.read_text(encoding="utf-8")
-        assert 'x86_64|amd64)' in content and 'arch="x64"' in content
+        assert "x86_64|amd64)" in content and 'arch="x64"' in content
 
     def test_bash_detects_arm64(self):
         """Test that bash script can detect ARM64 architecture."""
         script_path = PROJECT_ROOT / "scripts" / "install.sh"
         content = script_path.read_text(encoding="utf-8")
-        assert 'arm64|aarch64)' in content and 'arch="arm64"' in content
+        assert "arm64|aarch64)" in content and 'arch="arm64"' in content
 
 
 class TestInstallScriptTargetTriples:
@@ -199,19 +199,19 @@ class TestPowerShellScriptExecution:
     def test_powershell_syntax_check(self):
         """Test that PowerShell script has valid syntax."""
         script_path = PROJECT_ROOT / "scripts" / "install.ps1"
-        
+
         # Use PowerShell to check syntax without executing
         result = subprocess.run(
             [
                 "powershell",
                 "-NoProfile",
                 "-Command",
-                f"$null = [System.Management.Automation.Language.Parser]::ParseFile('{script_path}', [ref]$null, [ref]$errors); $errors.Count"
+                f"$null = [System.Management.Automation.Language.Parser]::ParseFile('{script_path}', [ref]$null, [ref]$errors); $errors.Count",
             ],
             capture_output=True,
             text=True,
         )
-        
+
         # If there are no syntax errors, the output should be "0"
         assert result.returncode == 0, f"PowerShell syntax check failed: {result.stderr}"
         error_count = result.stdout.strip()
@@ -225,12 +225,12 @@ class TestBashScriptExecution:
     def test_bash_syntax_check(self):
         """Test that bash script has valid syntax."""
         script_path = PROJECT_ROOT / "scripts" / "install.sh"
-        
+
         # Use bash -n to check syntax without executing
         result = subprocess.run(
             ["bash", "-n", str(script_path)],
             capture_output=True,
             text=True,
         )
-        
+
         assert result.returncode == 0, f"Bash syntax check failed: {result.stderr}"
