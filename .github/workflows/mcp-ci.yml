@@ -1,0 +1,291 @@
+name: MCP CI
+
+# CI for AuroraView MCP Server package
+# Includes unit tests, linting, and package build
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'packages/auroraview-mcp/**'
+      - '.github/workflows/mcp-ci.yml'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      artifact-prefix:
+        description: "Prefix for artifact names to avoid conflicts"
+        required: false
+        type: string
+        default: ''
+      version:
+        description: "Version to use for the package (if not set, uses pyproject.toml version)"
+        required: false
+        type: string
+        default: ''
+    outputs:
+      mcp-package-artifact:
+        description: "Name of the MCP package artifact"
+        value: ${{ jobs.build-package.outputs.artifact-name }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Lint and format check
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd packages/auroraview-mcp
+          uv sync
+
+      - name: Run ruff check
+        run: |
+          cd packages/auroraview-mcp
+          uv run ruff check src/ tests/
+
+      - name: Run ruff format check
+        run: |
+          cd packages/auroraview-mcp
+          uv run ruff format --check src/ tests/
+
+  # Unit tests with coverage
+  unit-tests:
+    name: Unit Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          cd packages/auroraview-mcp
+          uv sync
+
+      - name: Run tests
+        run: |
+          cd packages/auroraview-mcp
+          uv run pytest tests/ -v --tb=short
+
+  # Coverage report (only on Python 3.11)
+  coverage:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd packages/auroraview-mcp
+          uv sync
+
+      - name: Run tests with coverage
+        run: |
+          cd packages/auroraview-mcp
+          uv run pytest tests/ --cov=auroraview_mcp --cov-report=xml --cov-report=html
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: packages/auroraview-mcp/coverage.xml
+          flags: mcp,python
+          name: mcp-coverage
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.artifact-prefix }}mcp-coverage-report
+          path: packages/auroraview-mcp/htmlcov/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Build package
+  build-package:
+    name: Build Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint]
+    outputs:
+      artifact-name: ${{ steps.upload.outputs.artifact-name }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd packages/auroraview-mcp
+          uv sync
+
+      - name: Update version if specified
+        if: inputs.version != ''
+        run: |
+          cd packages/auroraview-mcp
+          echo "Updating version to: ${{ inputs.version }}"
+          # Update version in pyproject.toml using sed
+          sed -i 's/^version = ".*"/version = "${{ inputs.version }}"/' pyproject.toml
+          cat pyproject.toml | grep version
+
+      - name: Build package
+        run: |
+          cd packages/auroraview-mcp
+          uv build
+
+      - name: Verify build outputs
+        run: |
+          echo "Checking MCP dist..."
+          ls -la packages/auroraview-mcp/dist/
+          
+          # Verify wheel exists
+          test -f packages/auroraview-mcp/dist/*.whl || (echo "Missing wheel file" && exit 1)
+          
+          # Verify sdist exists
+          test -f packages/auroraview-mcp/dist/*.tar.gz || (echo "Missing sdist file" && exit 1)
+          
+          echo "All MCP package outputs verified!"
+
+      - name: Upload MCP package artifact
+        id: upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.artifact-prefix }}mcp-package
+          path: packages/auroraview-mcp/dist/
+          retention-days: 7
+
+      - name: Set artifact name output
+        run: echo "artifact-name=${{ inputs.artifact-prefix }}mcp-package" >> $GITHUB_OUTPUT
+
+  # Test package installation
+  test-install:
+    name: Test Install
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    needs: [build-package]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download MCP package
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}mcp-package
+          path: dist/
+
+      - name: Install package from wheel
+        run: |
+          pip install dist/*.whl
+
+      - name: Verify installation
+        run: |
+          python -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
+          python -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
+
+      - name: Test CLI entry point
+        run: |
+          auroraview-mcp --help || echo "CLI help not available (expected for stdio server)"
+
+  # Final gate
+  mcp-ready:
+    name: MCP Ready
+    runs-on: ubuntu-latest
+    needs: [lint, unit-tests, coverage, build-package, test-install]
+    if: always() && !cancelled()
+    steps:
+      - name: Check results
+        run: |
+          echo "## MCP CI Results" >> $GITHUB_STEP_SUMMARY
+          
+          declare -A jobs=(
+            ["lint"]="${{ needs.lint.result }}"
+            ["unit-tests"]="${{ needs.unit-tests.result }}"
+            ["coverage"]="${{ needs.coverage.result }}"
+            ["build-package"]="${{ needs.build-package.result }}"
+            ["test-install"]="${{ needs.test-install.result }}"
+          )
+          
+          failed=0
+          for job in "${!jobs[@]}"; do
+            result="${jobs[$job]}"
+            if [[ "$result" == "success" ]]; then
+              echo "- ✅ $job" >> $GITHUB_STEP_SUMMARY
+            elif [[ "$result" == "skipped" ]]; then
+              echo "- ⏭️ $job (skipped)" >> $GITHUB_STEP_SUMMARY
+            elif [[ "$result" == "cancelled" ]]; then
+              echo "- ⚠️ $job (cancelled)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ $job ($result)" >> $GITHUB_STEP_SUMMARY
+              failed=1
+            fi
+          done
+          
+          if [[ $failed -eq 1 ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **MCP CI failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **MCP CI passed!**" >> $GITHUB_STEP_SUMMARY
