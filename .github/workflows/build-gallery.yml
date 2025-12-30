@@ -8,6 +8,11 @@ on:
   workflow_dispatch:
   workflow_call:
 
+# Cancel in-progress runs for the same workflow/ref combination
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   actions: write
