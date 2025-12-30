@@ -1,6 +1,6 @@
 {
   "name": "@auroraview/sdk",
-  "version": "0.3.29",
+  "version": "0.3.30",
   "description": "Framework-agnostic SDK for AuroraView WebView bridge",
   "type": "module",
   "main": "./dist/index.cjs",
