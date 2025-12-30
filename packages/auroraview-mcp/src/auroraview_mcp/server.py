@@ -39,7 +39,7 @@ def get_connection_manager() -> ConnectionManager:
 
 
 # Import tools to register them with the MCP server
-from auroraview_mcp.tools import api, debug, discovery, gallery, page, ui  # noqa: E402, F401
+from auroraview_mcp.tools import api, dcc, debug, discovery, gallery, page, ui  # noqa: E402, F401
 
 
 def create_server() -> FastMCP:
