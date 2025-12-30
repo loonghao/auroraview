@@ -817,3 +817,49 @@ docs-clean:
     @echo "Cleaning documentation build artifacts..."
     rm -rf docs/.vitepress/dist docs/.vitepress/cache docs/node_modules docs/api/python-gen
     @echo "[OK] Documentation artifacts cleaned!"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MCP Server Commands
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Install MCP server dependencies
+mcp-install:
+    @echo "Installing MCP server dependencies..."
+    cd packages/auroraview-mcp; vx uv pip install -e ".[dev]"
+    @echo "[OK] MCP server dependencies installed!"
+
+# Run MCP server in development mode
+mcp-dev:
+    @echo "Starting MCP server in development mode..."
+    cd packages/auroraview-mcp; vx uv run auroraview-mcp
+
+# Run MCP server tests
+mcp-test:
+    @echo "Running MCP server tests..."
+    cd packages/auroraview-mcp; vx uv run pytest -v
+
+# Run MCP server tests with coverage
+mcp-test-cov:
+    @echo "Running MCP server tests with coverage..."
+    cd packages/auroraview-mcp; vx uv run pytest --cov=auroraview_mcp --cov-report=html --cov-report=term-missing
+
+# Lint MCP server code
+mcp-lint:
+    @echo "Linting MCP server code..."
+    cd packages/auroraview-mcp; vx uvx ruff check src/ tests/
+    cd packages/auroraview-mcp; vx uvx ruff format --check src/ tests/
+
+# Format MCP server code
+mcp-format:
+    @echo "Formatting MCP server code..."
+    cd packages/auroraview-mcp; vx uvx ruff format src/ tests/
+
+# Build MCP server package
+mcp-build:
+    @echo "Building MCP server package..."
+    cd packages/auroraview-mcp; vx uv build
+    @echo "[OK] MCP server package built!"
+
+# Full MCP CI check
+mcp-ci: mcp-install mcp-lint mcp-test
+    @echo "[OK] MCP CI check passed!"
