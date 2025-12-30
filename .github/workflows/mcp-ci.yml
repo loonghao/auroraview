@@ -52,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          vx uv sync
+          vx uv sync --extra dev
 
       - name: Run ruff check
         run: |
@@ -85,7 +85,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          vx uv sync --python ${{ matrix.python-version }}
+          vx uv sync --python ${{ matrix.python-version }} --extra dev
 
       - name: Run tests
         run: |
@@ -109,7 +109,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd packages/auroraview-mcp
-          vx uv sync --python 3.11
+          vx uv sync --python 3.11 --extra dev
 
       - name: Run tests with coverage
         run: |
