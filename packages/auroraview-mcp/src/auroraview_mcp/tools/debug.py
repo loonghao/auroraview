@@ -44,7 +44,7 @@ async def get_console_logs(level: str | None = None, limit: int = 100) -> list[d
     (() => {{
         // Access stored console logs if available
         const logs = window.__auroraview_console_logs || [];
-        const level = "{level or ''}";
+        const level = "{level or ""}";
         const limit = {limit};
 
         let filtered = logs;

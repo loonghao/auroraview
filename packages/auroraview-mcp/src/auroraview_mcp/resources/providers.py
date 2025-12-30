@@ -105,6 +105,7 @@ async def get_sample_source_resource(name: str) -> str:
             info = get_sample_info(sample_dir)
             if info:
                 from pathlib import Path
+
                 main_file = Path(info["main_file"])
 
     if not main_file or not main_file.exists():
@@ -156,27 +157,35 @@ async def get_gallery_resource() -> str:
         gallery_dir = get_gallery_dir()
         dist_exists = (gallery_dir / "dist" / "index.html").exists()
     except FileNotFoundError:
-        return json.dumps({
-            "running": False,
-            "error": "Gallery directory not found",
-        })
+        return json.dumps(
+            {
+                "running": False,
+                "error": "Gallery directory not found",
+            }
+        )
 
     proc_info = _process_manager.get_gallery()
 
     if proc_info and proc_info.process.poll() is None:
-        return json.dumps({
-            "running": True,
-            "pid": proc_info.pid,
-            "port": proc_info.port,
+        return json.dumps(
+            {
+                "running": True,
+                "pid": proc_info.pid,
+                "port": proc_info.port,
+                "gallery_dir": str(gallery_dir),
+                "dist_exists": dist_exists,
+            },
+            indent=2,
+        )
+
+    return json.dumps(
+        {
+            "running": False,
             "gallery_dir": str(gallery_dir),
             "dist_exists": dist_exists,
-        }, indent=2)
-
-    return json.dumps({
-        "running": False,
-        "gallery_dir": str(gallery_dir),
-        "dist_exists": dist_exists,
-    }, indent=2)
+        },
+        indent=2,
+    )
 
 
 @mcp.resource("auroraview://project")
@@ -201,13 +210,16 @@ async def get_project_resource() -> str:
     gallery_built = (gallery_dir / "dist" / "index.html").exists()
     samples = scan_samples(examples_dir)
 
-    return json.dumps({
-        "project_root": str(project_root),
-        "gallery_dir": str(gallery_dir),
-        "examples_dir": str(examples_dir),
-        "gallery_built": gallery_built,
-        "sample_count": len(samples),
-    }, indent=2)
+    return json.dumps(
+        {
+            "project_root": str(project_root),
+            "gallery_dir": str(gallery_dir),
+            "examples_dir": str(examples_dir),
+            "gallery_built": gallery_built,
+            "sample_count": len(samples),
+        },
+        indent=2,
+    )
 
 
 @mcp.resource("auroraview://processes")
@@ -222,12 +234,14 @@ async def get_processes_resource() -> str:
     processes = []
     for info in _process_manager.list_all():
         status = "running" if info.process.poll() is None else "terminated"
-        processes.append({
-            "pid": info.pid,
-            "name": info.name,
-            "status": status,
-            "port": info.port,
-            "is_gallery": info.is_gallery,
-        })
+        processes.append(
+            {
+                "pid": info.pid,
+                "name": info.name,
+                "status": status,
+                "port": info.port,
+                "is_gallery": info.is_gallery,
+            }
+        )
 
     return json.dumps(processes, indent=2)

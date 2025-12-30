@@ -70,7 +70,9 @@ class TestCDPConnection:
         mock_ws = MagicMock()
         mock_ws.open = True
 
-        with patch("auroraview_mcp.connection.websockets.connect", new_callable=AsyncMock) as mock_connect:
+        with patch(
+            "auroraview_mcp.connection.websockets.connect", new_callable=AsyncMock
+        ) as mock_connect:
             mock_connect.return_value = mock_ws
             await conn.connect()
 
@@ -123,10 +125,12 @@ class TestJavaScriptError:
 
     def test_javascript_error(self) -> None:
         """Test JavaScriptError creation."""
-        error = JavaScriptError({
-            "text": "ReferenceError",
-            "exception": {"description": "foo is not defined"},
-        })
+        error = JavaScriptError(
+            {
+                "text": "ReferenceError",
+                "exception": {"description": "foo is not defined"},
+            }
+        )
         assert "foo is not defined" in str(error)
 
 

@@ -169,7 +169,9 @@ async def click(selector: str | None = None, uid: str | None = None) -> dict[str
         result = await conn.evaluate(script)
 
         if not isinstance(result, dict) or not result.get("ok"):
-            error = result.get("error", "Click failed") if isinstance(result, dict) else "Click failed"
+            error = (
+                result.get("error", "Click failed") if isinstance(result, dict) else "Click failed"
+            )
             raise RuntimeError(error)
 
         return {"status": "clicked", "selector": selector}

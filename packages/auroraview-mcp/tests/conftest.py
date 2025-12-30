@@ -8,6 +8,7 @@ import pytest
 @pytest.fixture
 def mock_cdp_response():
     """Create a mock CDP response factory."""
+
     def _create(result=None, error=None):
         response = {"id": 1}
         if result is not None:
@@ -15,4 +16,5 @@ def mock_cdp_response():
         if error is not None:
             response["error"] = error
         return response
+
     return _create

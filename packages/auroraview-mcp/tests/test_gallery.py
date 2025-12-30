@@ -69,9 +69,7 @@ class TestProcessManager:
         manager.add(sample_info)
 
         # Gallery process
-        gallery_info = ProcessInfo(
-            pid=5678, name="gallery", process=mock_process, is_gallery=True
-        )
+        gallery_info = ProcessInfo(pid=5678, name="gallery", process=mock_process, is_gallery=True)
         manager.add(gallery_info)
 
         found = manager.get_gallery()
@@ -142,9 +140,7 @@ class TestGetSampleInfo:
             sample_dir.mkdir()
 
             main_file = sample_dir / "main.py"
-            main_file.write_text(
-                '"""Test Sample\n\nThis is a test.\n"""\nprint("hello")'
-            )
+            main_file.write_text('"""Test Sample\n\nThis is a test.\n"""\nprint("hello")')
 
             info = get_sample_info(sample_dir)
 
@@ -247,24 +243,27 @@ class TestPathFunctions:
 
     def test_get_examples_dir_from_env(self) -> None:
         """Test get_examples_dir with environment variable."""
-        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
-            os.environ, {"AURORAVIEW_EXAMPLES_DIR": tmpdir}
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            patch.dict(os.environ, {"AURORAVIEW_EXAMPLES_DIR": tmpdir}),
         ):
             result = get_examples_dir()
             assert result == Path(tmpdir)
 
     def test_get_gallery_dir_from_env(self) -> None:
         """Test get_gallery_dir with environment variable."""
-        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
-            os.environ, {"AURORAVIEW_GALLERY_DIR": tmpdir}
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            patch.dict(os.environ, {"AURORAVIEW_GALLERY_DIR": tmpdir}),
         ):
             result = get_gallery_dir()
             assert result == Path(tmpdir)
 
     def test_get_project_root_from_env(self) -> None:
         """Test get_project_root with environment variable."""
-        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
-            os.environ, {"AURORAVIEW_PROJECT_ROOT": tmpdir}
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            patch.dict(os.environ, {"AURORAVIEW_PROJECT_ROOT": tmpdir}),
         ):
             result = get_project_root()
             assert result == Path(tmpdir)
@@ -290,8 +289,7 @@ class TestGalleryToolsInternal:
 
             # Create a realistic sample structure
             (examples_dir / "hello_demo.py").write_text(
-                '"""Hello World Demo\n\nSimple hello world example.\n"""\n'
-                'print("Hello, World!")'
+                '"""Hello World Demo\n\nSimple hello world example.\n"""\nprint("Hello, World!")'
             )
 
             (examples_dir / "advanced_demo.py").write_text(
@@ -305,9 +303,9 @@ class TestGalleryToolsInternal:
             subdir.mkdir()
             (subdir / "main.py").write_text(
                 '"""Multi-file Sample\n\nSample with multiple files.\n"""\n'
-                'from helper import do_something'
+                "from helper import do_something"
             )
-            (subdir / "helper.py").write_text('def do_something(): pass')
+            (subdir / "helper.py").write_text("def do_something(): pass")
 
             samples = scan_samples(examples_dir)
 
@@ -355,7 +353,9 @@ print("Complex demo")
             assert info is not None
             assert info["title"] == "Complex Demo"
             # Description should be extracted from content lines
-            assert "showcases" in info["description"].lower() or "demo" in info["description"].lower()
+            assert (
+                "showcases" in info["description"].lower() or "demo" in info["description"].lower()
+            )
 
     def test_process_info_dataclass(self) -> None:
         """Test ProcessInfo dataclass."""
