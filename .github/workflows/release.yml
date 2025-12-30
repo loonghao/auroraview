@@ -415,9 +415,10 @@ jobs:
           print-hash: true
           skip-existing: true  # Skip files that already exist on PyPI
 
-  # Create GitHub Release
-  github-release:
-    name: Create GitHub Release
+  # Upload Release Assets - Preserves release-please changelog, only adds artifacts
+  # Uses softprops/action-gh-release which preserves existing release body when only uploading files
+  upload-release-assets:
+    name: Upload Release Assets
     runs-on: ubuntu-latest
     needs: [release-please, check-tag, check-pr-artifacts, pypi-publish, build-cli, build-gallery, reuse-pr-wheels, build-wheels]
     if: |
@@ -428,44 +429,22 @@ jobs:
     permissions:
       contents: write
       actions: read
-      attestations: write
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
-      - name: Determine tag name
+      - name: Determine tag and version
         id: tag
         run: |
           if [ "${{ needs.release-please.outputs.tag_name }}" != "" ]; then
-            echo "TAG_NAME=${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_OUTPUT
+            TAG_NAME="${{ needs.release-please.outputs.tag_name }}"
           else
-            echo "TAG_NAME=${{ needs.check-tag.outputs.tag_name }}" >> $GITHUB_OUTPUT
+            TAG_NAME="${{ needs.check-tag.outputs.tag_name }}"
           fi
-
-      - name: Generate changelog
-        id: changelog
-        uses: jaywcjlove/changelog-generator@main
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          filter-author: (loonghao|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
-          filter: ''
-          template: |
-            ## Bugs
-            {{fix}}
-
-            ## Feature
-            {{feat}}
-
-            ## Improve
-            {{refactor,perf,clean}}
-
-            ## Misc
-            {{chore,style,ci,build||🔧 Nothing changed}}
-
-            ## Unknown
-            {{__unknown__}}
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          # Extract version from tag (auroraview-v0.3.8 -> 0.3.8)
+          VERSION=$(echo "$TAG_NAME" | sed 's/auroraview-v//')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download wheel artifacts
         uses: actions/download-artifact@v7
@@ -478,49 +457,93 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: cli-all-platforms
-          path: release-artifacts
+          path: cli-artifacts
 
       - name: Download Gallery artifacts
         uses: actions/download-artifact@v7
         with:
           name: gallery-all-platforms
-          path: release-artifacts
+          path: gallery-artifacts
         continue-on-error: true
 
-      - name: List release artifacts
+      - name: Rename artifacts with version
         run: |
-          echo "Release artifacts:"
+          VERSION="${{ steps.tag.outputs.VERSION }}"
+          echo "Renaming artifacts with version: $VERSION"
+          
+          # Rename CLI artifacts to include version
+          # Format: auroraview-cli-windows-x64.zip -> auroraview-cli-0.3.8-x86_64-pc-windows-msvc.zip
+          if [ -d "cli-artifacts" ]; then
+            for file in cli-artifacts/*; do
+              if [ -f "$file" ]; then
+                basename=$(basename "$file")
+                # Map friendly names to Rust target triples for consistency
+                case "$basename" in
+                  auroraview-cli-windows-x64.zip)
+                    newname="auroraview-cli-${VERSION}-x86_64-pc-windows-msvc.zip"
+                    ;;
+                  auroraview-cli-linux-x64.tar.gz)
+                    newname="auroraview-cli-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+                    ;;
+                  auroraview-cli-macos-arm64.tar.gz)
+                    newname="auroraview-cli-${VERSION}-aarch64-apple-darwin.tar.gz"
+                    ;;
+                  auroraview-cli-macos-x64.tar.gz)
+                    newname="auroraview-cli-${VERSION}-x86_64-apple-darwin.tar.gz"
+                    ;;
+                  *)
+                    # Fallback: just insert version
+                    newname=$(echo "$basename" | sed "s/auroraview-cli-/auroraview-cli-${VERSION}-/")
+                    ;;
+                esac
+                mv "$file" "release-artifacts/$newname"
+                echo "Renamed: $basename -> $newname"
+              fi
+            done
+          fi
+          
+          # Rename Gallery artifacts to include version
+          # Format: auroraview-gallery-windows-x64.zip -> auroraview-gallery-0.3.8-x86_64-pc-windows-msvc.zip
+          if [ -d "gallery-artifacts" ]; then
+            for file in gallery-artifacts/*; do
+              if [ -f "$file" ]; then
+                basename=$(basename "$file")
+                # Map friendly names to Rust target triples for consistency
+                case "$basename" in
+                  auroraview-gallery-windows-x64.zip)
+                    newname="auroraview-gallery-${VERSION}-x86_64-pc-windows-msvc.zip"
+                    ;;
+                  auroraview-gallery-linux-x64.tar.gz)
+                    newname="auroraview-gallery-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+                    ;;
+                  auroraview-gallery-macos-arm64.tar.gz)
+                    newname="auroraview-gallery-${VERSION}-aarch64-apple-darwin.tar.gz"
+                    ;;
+                  auroraview-gallery-macos-x64.tar.gz)
+                    newname="auroraview-gallery-${VERSION}-x86_64-apple-darwin.tar.gz"
+                    ;;
+                  *)
+                    # Fallback: just insert version
+                    newname=$(echo "$basename" | sed "s/auroraview-gallery-/auroraview-gallery-${VERSION}-/")
+                    ;;
+                esac
+                mv "$file" "release-artifacts/$newname"
+                echo "Renamed: $basename -> $newname"
+              fi
+            done
+          fi
+          
+          echo "Final release artifacts:"
           ls -la release-artifacts/
 
-      - name: Document artifact source
-        id: artifact-source
-        run: |
-          if [ "${{ needs.check-pr-artifacts.outputs.artifacts-available }}" == "true" ]; then
-            echo "ARTIFACT_SOURCE=✅ **Reused from PR workflow** (Run: [${{ needs.check-pr-artifacts.outputs.pr-run-id }}](https://github.com/${{ github.repository }}/actions/runs/${{ needs.check-pr-artifacts.outputs.pr-run-id }}), SHA: \`${{ needs.check-pr-artifacts.outputs.source-sha }}\`)" >> $GITHUB_OUTPUT
-          else
-            echo "ARTIFACT_SOURCE=🔨 **Built fresh in release workflow** (SHA: \`${{ github.sha }}\`)" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
+      # Upload assets to existing release created by release-please
+      # softprops/action-gh-release preserves existing body when only uploading files
+      - name: Upload assets to existing release
+        uses: softprops/action-gh-release@v2
         with:
-          artifacts: "release-artifacts/*"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.tag.outputs.TAG_NAME }}
-          name: ${{ steps.tag.outputs.TAG_NAME }}
-          body: |
-            Comparing Changes: ${{ steps.changelog.outputs.compareurl }}
-
-            ${{ steps.changelog.outputs.changelog }}
-
-            ---
-
-            ### Build Artifacts Source
-            ${{ steps.artifact-source.outputs.ARTIFACT_SOURCE }}
-          draft: false
-          prerelease: false
-          allowUpdates: true
-          skipIfReleaseExists: false
-          updateOnlyUnreleased: false
-          makeLatest: true
+          tag_name: ${{ steps.tag.outputs.TAG_NAME }}
+          files: release-artifacts/*
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
