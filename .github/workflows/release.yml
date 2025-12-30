@@ -27,6 +27,13 @@ on:
         type: boolean
         default: false
 
+# Cancel in-progress runs for the same ref, but never cancel tag releases
+# For main branch pushes: cancel previous runs to avoid duplicate release-please runs
+# For tag pushes: do not cancel (each tag release must complete)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 permissions:
   contents: write # Required for creating releases and uploading artifacts
   pull-requests: write # Required for release-please

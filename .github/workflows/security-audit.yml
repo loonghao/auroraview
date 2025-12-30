@@ -6,6 +6,11 @@ on:
     - cron: '0 2 * * 1'  # Weekly
   workflow_dispatch:
 
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

@@ -307,6 +307,26 @@ Your PR must pass:
 - TypeScript tests and eslint
 - Documentation build
 
+#### CI Concurrency Control
+
+All CI workflows are configured with concurrency control to automatically cancel redundant runs:
+
+- When you push new commits to a PR, any in-progress CI runs for that PR are automatically cancelled
+- This saves CI resources and provides faster feedback on your latest changes
+- The concurrency is scoped by workflow and PR number, so different PRs run independently
+
+```yaml
+# Example concurrency configuration used in all workflows
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+```
+
+This means:
+- You don't need to wait for old CI runs to complete before pushing new commits
+- The CI will always test your latest code
+- Release workflows (tag pushes) are never cancelled to ensure releases complete
+
 ### 6. Review
 
 - Address review comments
