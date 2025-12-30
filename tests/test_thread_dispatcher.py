@@ -241,9 +241,6 @@ class TestBackendRegistration:
 
     def test_clear_dispatcher_backends(self):
         """Test clearing all backends."""
-        # Get initial count
-        initial_backends = list_dispatcher_backends()
-
         # Clear all
         clear_dispatcher_backends()
 
