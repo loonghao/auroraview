@@ -143,13 +143,11 @@ jobs:
         with:
           components: rustfmt,clippy
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Setup vx
+        uses: loonghao/vx@main
         with:
-          python-version: '3.11'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+          setup: 'true'
+          cache: 'true'
 
       - name: Cache Rust
         uses: actions/cache@v5
@@ -169,7 +167,7 @@ jobs:
       - name: Check Python formatting (ruff)
         if: needs.path-filter.outputs.python == 'true' || needs.path-filter.outputs.ci == 'true'
         run: |
-          uvx ruff check python/ tests/ --select=E,F,W --ignore=E501
+          vx uvx ruff check python/ tests/ --select=E,F,W --ignore=E501
 
       - name: Cargo check (fast compile check)
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
