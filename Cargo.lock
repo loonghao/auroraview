@@ -289,6 +289,19 @@ dependencies = [
 
 [[package]]
 name = "askama"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f75363874b771be265f4ffe307ca705ef6f3baa19011c149da8674a87f1b75c4"
+dependencies = [
+ "askama_derive 0.14.0",
+ "itoa",
+ "percent-encoding",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "askama"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb7125972258312e79827b60c9eb93938334100245081cf701a2dee981b17427"
@@ -302,11 +315,28 @@ dependencies = [
 
 [[package]]
 name = "askama_derive"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "129397200fe83088e8a68407a8e2b1f826cf0086b21ccdb866a722c8bcd3a94f"
+dependencies = [
+ "askama_parser 0.14.0",
+ "basic-toml",
+ "memchr",
+ "proc-macro2",
+ "quote",
+ "rustc-hash 2.1.1",
+ "serde",
+ "serde_derive",
+ "syn 2.0.111",
+]
+
+[[package]]
+name = "askama_derive"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ba5e7259a1580c61571e3116ebaaa01e3c001b2132b17c4cc5c70780ca3e994"
 dependencies = [
- "askama_parser",
+ "askama_parser 0.15.1",
  "basic-toml",
  "memchr",
  "proc-macro2",
@@ -323,7 +353,19 @@ version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "236ce20b77cb13506eaf5024899f4af6e12e8825f390bd943c4c37fd8f322e46"
 dependencies = [
- "askama_derive",
+ "askama_derive 0.15.1",
+]
+
+[[package]]
+name = "askama_parser"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6ab5630b3d5eaf232620167977f95eb51f3432fc76852328774afbd242d4358"
+dependencies = [
+ "memchr",
+ "serde",
+ "serde_derive",
+ "winnow 0.7.14",
 ]
 
 [[package]]
@@ -589,7 +631,7 @@ dependencies = [
 
 [[package]]
 name = "aurora-signals"
-version = "0.3.32"
+version = "0.3.33"
 dependencies = [
  "crossbeam-channel",
  "once_cell",
@@ -606,11 +648,11 @@ dependencies = [
 
 [[package]]
 name = "auroraview"
-version = "0.3.32"
+version = "0.3.33"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
- "askama",
+ "askama 0.14.0",
  "aurora-signals",
  "auroraview-core",
  "criterion",
@@ -666,7 +708,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.3.32"
+version = "0.3.33"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -706,10 +748,10 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.3.32"
+version = "0.3.33"
 dependencies = [
  "active-win-pos-rs",
- "askama",
+ "askama 0.15.1",
  "aurora-signals",
  "auroraview-plugins",
  "dunce",
@@ -738,7 +780,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.3.32"
+version = "0.3.33"
 dependencies = [
  "anyhow",
  "chrono",
@@ -764,7 +806,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.3.32"
+version = "0.3.33"
 dependencies = [
  "aurora-protect",
  "base64 0.22.1",
@@ -792,7 +834,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.3.32"
+version = "0.3.33"
 dependencies = [
  "dunce",
  "serde",
@@ -803,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.3.32"
+version = "0.3.33"
 dependencies = [
  "auroraview-plugin-core",
  "base64 0.22.1",
@@ -814,7 +856,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.3.32"
+version = "0.3.33"
 dependencies = [
  "arboard",
  "auroraview-extensions",

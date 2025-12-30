@@ -207,11 +207,16 @@ vx uv run auroraview-mcp
 
 | 工具 | 描述 |
 |------|------|
+| `run_gallery` | 启动 Gallery 应用 |
+| `stop_gallery` | 停止运行中的 Gallery |
+| `get_gallery_status` | 获取 Gallery 运行状态 |
 | `get_samples` | 列出可用示例 |
 | `run_sample` | 运行示例应用 |
 | `stop_sample` | 停止运行中的示例 |
 | `get_sample_source` | 获取示例源代码 |
 | `list_processes` | 列出运行中的示例进程 |
+| `stop_all_samples` | 停止所有运行中的示例 |
+| `get_project_info` | 获取 AuroraView 项目信息 |
 
 ### 调试工具
 
@@ -224,6 +229,25 @@ vx uv run auroraview-mcp
 | `clear_console` | 清除控制台日志 |
 
 ## 使用示例
+
+### 启动并调试 Gallery
+
+```
+用户：启动 Gallery 进行调试
+
+AI：我来启动 Gallery 应用。
+
+[调用 run_gallery(port=9222)]
+→ Gallery 已启动，PID: 12345，端口: 9222
+
+[调用 connect(port=9222)]
+→ 已连接到 AuroraView Gallery
+
+[调用 get_page_info]
+→ Gallery 已就绪，API 方法可用
+
+Gallery 正在运行，可以开始调试。
+```
 
 ### 基本工作流
 
@@ -294,6 +318,9 @@ AI：我来连接 Maya 的 AuroraView 面板。
 | `auroraview://samples` | 可用示例 |
 | `auroraview://sample/{name}/source` | 示例源代码 |
 | `auroraview://logs` | 控制台日志 |
+| `auroraview://gallery` | Gallery 状态和信息 |
+| `auroraview://project` | 项目信息 |
+| `auroraview://processes` | 运行中的示例进程 |
 
 ## 环境变量
 
@@ -302,6 +329,8 @@ AI：我来连接 Maya 的 AuroraView 面板。
 | `AURORAVIEW_DEFAULT_PORT` | 默认 CDP 端口 | `9222` |
 | `AURORAVIEW_SCAN_PORTS` | 扫描端口（逗号分隔） | `9222,9223,9224,9225` |
 | `AURORAVIEW_EXAMPLES_DIR` | 示例目录路径 | 自动检测 |
+| `AURORAVIEW_GALLERY_DIR` | Gallery 目录路径 | 自动检测 |
+| `AURORAVIEW_PROJECT_ROOT` | 项目根目录路径 | 自动检测 |
 | `AURORAVIEW_DCC_MODE` | DCC 模式（maya、blender 等） | 无 |
 
 ## 开发
