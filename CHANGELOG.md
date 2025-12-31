@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.35](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.34...auroraview-v0.3.35) (2025-12-31)
+
+
+### Features
+
+* **mcp:** implement Phase 3 DCC support tools ([a6691dd](https://github.com/loonghao/auroraview/commit/a6691dd71f20fcf90c1525a8a0201452f066610d))
+
 ## [0.3.34](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.33...auroraview-v0.3.34) (2025-12-30)
 
 
