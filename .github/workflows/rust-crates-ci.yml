@@ -1,0 +1,498 @@
+name: Rust Crates CI
+
+# Isolated CI for individual Rust crates
+# Only builds and tests crates that have changes or depend on changed crates
+#
+# Dependency Graph:
+#   aurora-signals (standalone)
+#   aurora-protect (standalone)
+#   auroraview-plugin-core (standalone)
+#   auroraview-extensions (standalone)
+#   auroraview-plugin-fs -> auroraview-plugin-core
+#   auroraview-plugins -> auroraview-plugin-core, auroraview-plugin-fs, auroraview-extensions
+#   auroraview-core -> aurora-signals, auroraview-plugins
+#   auroraview-pack -> aurora-protect (optional)
+#   auroraview-cli -> auroraview-core, auroraview-pack
+#   auroraview (root) -> auroraview-core, aurora-signals
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'crates/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/rust-crates-ci.yml'
+  workflow_dispatch:
+    inputs:
+      crate:
+        description: 'Specific crate to test (leave empty for all changed)'
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      artifact-prefix:
+        description: "Prefix for artifact names"
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-crates-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Detect which crates have changes
+  detect-changes:
+    name: Detect Crate Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      # Individual crate flags
+      aurora-signals: ${{ steps.filter.outputs.aurora-signals }}
+      aurora-protect: ${{ steps.filter.outputs.aurora-protect }}
+      plugin-core: ${{ steps.filter.outputs.plugin-core }}
+      plugin-fs: ${{ steps.filter.outputs.plugin-fs }}
+      extensions: ${{ steps.filter.outputs.extensions }}
+      plugins: ${{ steps.filter.outputs.plugins }}
+      core: ${{ steps.filter.outputs.core }}
+      pack: ${{ steps.filter.outputs.pack }}
+      cli: ${{ steps.filter.outputs.cli }}
+      root: ${{ steps.filter.outputs.root }}
+      # Computed dependency flags (includes transitive deps)
+      needs-signals: ${{ steps.deps.outputs.needs-signals }}
+      needs-protect: ${{ steps.deps.outputs.needs-protect }}
+      needs-plugin-core: ${{ steps.deps.outputs.needs-plugin-core }}
+      needs-plugin-fs: ${{ steps.deps.outputs.needs-plugin-fs }}
+      needs-extensions: ${{ steps.deps.outputs.needs-extensions }}
+      needs-plugins: ${{ steps.deps.outputs.needs-plugins }}
+      needs-core: ${{ steps.deps.outputs.needs-core }}
+      needs-pack: ${{ steps.deps.outputs.needs-pack }}
+      needs-cli: ${{ steps.deps.outputs.needs-cli }}
+      needs-root: ${{ steps.deps.outputs.needs-root }}
+      any-changes: ${{ steps.deps.outputs.any-changes }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Detect file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            aurora-signals:
+              - 'crates/aurora-signals/**'
+            aurora-protect:
+              - 'crates/aurora-protect/**'
+            plugin-core:
+              - 'crates/auroraview-plugins/core/**'
+            plugin-fs:
+              - 'crates/auroraview-plugins/fs/**'
+            extensions:
+              - 'crates/auroraview-extensions/**'
+            plugins:
+              - 'crates/auroraview-plugins/Cargo.toml'
+              - 'crates/auroraview-plugins/src/**'
+            core:
+              - 'crates/auroraview-core/**'
+            pack:
+              - 'crates/auroraview-pack/**'
+            cli:
+              - 'crates/auroraview-cli/**'
+            root:
+              - 'src/**'
+              - 'Cargo.toml'
+
+      - name: Compute dependency chain
+        id: deps
+        run: |
+          # Direct changes
+          signals="${{ steps.filter.outputs.aurora-signals }}"
+          protect="${{ steps.filter.outputs.aurora-protect }}"
+          plugin_core="${{ steps.filter.outputs.plugin-core }}"
+          plugin_fs="${{ steps.filter.outputs.plugin-fs }}"
+          extensions="${{ steps.filter.outputs.extensions }}"
+          plugins="${{ steps.filter.outputs.plugins }}"
+          core="${{ steps.filter.outputs.core }}"
+          pack="${{ steps.filter.outputs.pack }}"
+          cli="${{ steps.filter.outputs.cli }}"
+          root="${{ steps.filter.outputs.root }}"
+
+          # Compute transitive dependencies
+          # aurora-signals: standalone
+          needs_signals="$signals"
+
+          # aurora-protect: standalone
+          needs_protect="$protect"
+
+          # auroraview-plugin-core: standalone
+          needs_plugin_core="$plugin_core"
+
+          # auroraview-extensions: standalone
+          needs_extensions="$extensions"
+
+          # auroraview-plugin-fs: depends on plugin-core
+          if [[ "$plugin_fs" == "true" || "$plugin_core" == "true" ]]; then
+            needs_plugin_fs="true"
+          else
+            needs_plugin_fs="false"
+          fi
+
+          # auroraview-plugins: depends on plugin-core, plugin-fs, extensions
+          if [[ "$plugins" == "true" || "$plugin_core" == "true" || "$plugin_fs" == "true" || "$extensions" == "true" ]]; then
+            needs_plugins="true"
+          else
+            needs_plugins="false"
+          fi
+
+          # auroraview-core: depends on signals, plugins
+          if [[ "$core" == "true" || "$signals" == "true" || "$needs_plugins" == "true" ]]; then
+            needs_core="true"
+          else
+            needs_core="false"
+          fi
+
+          # auroraview-pack: depends on protect (optional)
+          if [[ "$pack" == "true" || "$protect" == "true" ]]; then
+            needs_pack="true"
+          else
+            needs_pack="false"
+          fi
+
+          # auroraview-cli: depends on core, pack
+          if [[ "$cli" == "true" || "$needs_core" == "true" || "$needs_pack" == "true" ]]; then
+            needs_cli="true"
+          else
+            needs_cli="false"
+          fi
+
+          # auroraview (root): depends on core, signals
+          if [[ "$root" == "true" || "$needs_core" == "true" || "$signals" == "true" ]]; then
+            needs_root="true"
+          else
+            needs_root="false"
+          fi
+
+          # Any changes at all
+          if [[ "$needs_signals" == "true" || "$needs_protect" == "true" || \
+                "$needs_plugin_core" == "true" || "$needs_plugin_fs" == "true" || \
+                "$needs_extensions" == "true" || "$needs_plugins" == "true" || \
+                "$needs_core" == "true" || "$needs_pack" == "true" || \
+                "$needs_cli" == "true" || "$needs_root" == "true" ]]; then
+            any_changes="true"
+          else
+            any_changes="false"
+          fi
+
+          # Output results
+          echo "needs-signals=$needs_signals" >> $GITHUB_OUTPUT
+          echo "needs-protect=$needs_protect" >> $GITHUB_OUTPUT
+          echo "needs-plugin-core=$needs_plugin_core" >> $GITHUB_OUTPUT
+          echo "needs-plugin-fs=$needs_plugin_fs" >> $GITHUB_OUTPUT
+          echo "needs-extensions=$needs_extensions" >> $GITHUB_OUTPUT
+          echo "needs-plugins=$needs_plugins" >> $GITHUB_OUTPUT
+          echo "needs-core=$needs_core" >> $GITHUB_OUTPUT
+          echo "needs-pack=$needs_pack" >> $GITHUB_OUTPUT
+          echo "needs-cli=$needs_cli" >> $GITHUB_OUTPUT
+          echo "needs-root=$needs_root" >> $GITHUB_OUTPUT
+          echo "any-changes=$any_changes" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: |
+          echo "## 🔍 Rust Crate Changes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Crate | Direct Change | Will Test |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|---------------|-----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| aurora-signals | ${{ steps.filter.outputs.aurora-signals }} | ${{ steps.deps.outputs.needs-signals }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| aurora-protect | ${{ steps.filter.outputs.aurora-protect }} | ${{ steps.deps.outputs.needs-protect }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-plugin-core | ${{ steps.filter.outputs.plugin-core }} | ${{ steps.deps.outputs.needs-plugin-core }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-plugin-fs | ${{ steps.filter.outputs.plugin-fs }} | ${{ steps.deps.outputs.needs-plugin-fs }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-extensions | ${{ steps.filter.outputs.extensions }} | ${{ steps.deps.outputs.needs-extensions }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-plugins | ${{ steps.filter.outputs.plugins }} | ${{ steps.deps.outputs.needs-plugins }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-core | ${{ steps.filter.outputs.core }} | ${{ steps.deps.outputs.needs-core }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-pack | ${{ steps.filter.outputs.pack }} | ${{ steps.deps.outputs.needs-pack }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-cli | ${{ steps.filter.outputs.cli }} | ${{ steps.deps.outputs.needs-cli }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview (root) | ${{ steps.filter.outputs.root }} | ${{ steps.deps.outputs.needs-root }} |" >> $GITHUB_STEP_SUMMARY
+
+  # Standalone crates (no internal dependencies)
+  test-standalone:
+    name: Test Standalone Crates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.needs-signals == 'true' ||
+      needs.detect-changes.outputs.needs-protect == 'true' ||
+      needs.detect-changes.outputs.needs-plugin-core == 'true' ||
+      needs.detect-changes.outputs.needs-extensions == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: clippy
+
+      - name: Cache Rust
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-standalone-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-standalone-
+
+      - name: Test aurora-signals
+        if: needs.detect-changes.outputs.needs-signals == 'true'
+        run: |
+          echo "Testing aurora-signals..."
+          cargo test -p aurora-signals
+          cargo clippy -p aurora-signals -- -D warnings
+
+      - name: Test aurora-protect
+        if: needs.detect-changes.outputs.needs-protect == 'true'
+        run: |
+          echo "Testing aurora-protect..."
+          cargo test -p aurora-protect
+          cargo clippy -p aurora-protect -- -D warnings
+
+      - name: Test auroraview-plugin-core
+        if: needs.detect-changes.outputs.needs-plugin-core == 'true'
+        run: |
+          echo "Testing auroraview-plugin-core..."
+          cargo test -p auroraview-plugin-core
+          cargo clippy -p auroraview-plugin-core -- -D warnings
+
+      - name: Test auroraview-extensions
+        if: needs.detect-changes.outputs.needs-extensions == 'true'
+        run: |
+          echo "Testing auroraview-extensions..."
+          cargo test -p auroraview-extensions
+          cargo clippy -p auroraview-extensions -- -D warnings
+
+  # Plugin crates (depend on standalone)
+  test-plugins:
+    name: Test Plugin Crates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [detect-changes, test-standalone]
+    if: |
+      always() &&
+      (needs.test-standalone.result == 'success' || needs.test-standalone.result == 'skipped') &&
+      (needs.detect-changes.outputs.needs-plugin-fs == 'true' ||
+       needs.detect-changes.outputs.needs-plugins == 'true')
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: clippy
+
+      - name: Cache Rust
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-plugins-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-plugins-
+
+      - name: Test auroraview-plugin-fs
+        if: needs.detect-changes.outputs.needs-plugin-fs == 'true'
+        run: |
+          echo "Testing auroraview-plugin-fs..."
+          cargo test -p auroraview-plugin-fs
+          cargo clippy -p auroraview-plugin-fs -- -D warnings
+
+      - name: Test auroraview-plugins
+        if: needs.detect-changes.outputs.needs-plugins == 'true'
+        run: |
+          echo "Testing auroraview-plugins..."
+          cargo test -p auroraview-plugins
+          cargo clippy -p auroraview-plugins -- -D warnings
+
+  # Core crate (depends on plugins and signals)
+  test-core:
+    name: Test Core Crate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [detect-changes, test-standalone, test-plugins]
+    if: |
+      always() &&
+      (needs.test-standalone.result == 'success' || needs.test-standalone.result == 'skipped') &&
+      (needs.test-plugins.result == 'success' || needs.test-plugins.result == 'skipped') &&
+      needs.detect-changes.outputs.needs-core == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: clippy
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
+
+      - name: Cache Rust
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-core-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-core-
+
+      - name: Test auroraview-core
+        run: |
+          echo "Testing auroraview-core..."
+          cargo test -p auroraview-core
+          cargo clippy -p auroraview-core -- -D warnings
+
+  # Pack crate (depends on protect)
+  test-pack:
+    name: Test Pack Crate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [detect-changes, test-standalone]
+    if: |
+      always() &&
+      (needs.test-standalone.result == 'success' || needs.test-standalone.result == 'skipped') &&
+      needs.detect-changes.outputs.needs-pack == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: clippy
+
+      - name: Cache Rust
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-pack-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-pack-
+
+      - name: Test auroraview-pack
+        run: |
+          echo "Testing auroraview-pack..."
+          cargo test -p auroraview-pack
+          cargo clippy -p auroraview-pack -- -D warnings
+
+  # CLI crate (depends on core and pack)
+  test-cli:
+    name: Test CLI Crate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [detect-changes, test-core, test-pack]
+    if: |
+      always() &&
+      (needs.test-core.result == 'success' || needs.test-core.result == 'skipped') &&
+      (needs.test-pack.result == 'success' || needs.test-pack.result == 'skipped') &&
+      needs.detect-changes.outputs.needs-cli == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: clippy
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
+
+      - name: Cache Rust
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-cli-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-cli-
+
+      - name: Test auroraview-cli
+        run: |
+          echo "Testing auroraview-cli..."
+          cargo test -p auroraview-cli
+          cargo clippy -p auroraview-cli -- -D warnings
+
+      - name: Build CLI binary
+        run: cargo build -p auroraview-cli --release
+
+      - name: Test CLI binary
+        run: |
+          ./target/release/auroraview-cli --help
+          ./target/release/auroraview-cli --version
+
+  # Final gate
+  rust-crates-ready:
+    name: Rust Crates Ready
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-standalone, test-plugins, test-core, test-pack, test-cli]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "## Rust Crates CI Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check if any changes were detected
+          if [[ "${{ needs.detect-changes.outputs.any-changes }}" != "true" ]]; then
+            echo "⏭️ No Rust crate changes detected - all checks skipped" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          declare -A jobs=(
+            ["test-standalone"]="${{ needs.test-standalone.result }}"
+            ["test-plugins"]="${{ needs.test-plugins.result }}"
+            ["test-core"]="${{ needs.test-core.result }}"
+            ["test-pack"]="${{ needs.test-pack.result }}"
+            ["test-cli"]="${{ needs.test-cli.result }}"
+          )
+
+          failed=0
+          for job in "${!jobs[@]}"; do
+            result="${jobs[$job]}"
+            if [[ "$result" == "success" ]]; then
+              echo "- ✅ $job" >> $GITHUB_STEP_SUMMARY
+            elif [[ "$result" == "skipped" ]]; then
+              echo "- ⏭️ $job (skipped - no changes)" >> $GITHUB_STEP_SUMMARY
+            elif [[ "$result" == "cancelled" ]]; then
+              echo "- ⚠️ $job (cancelled)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ $job ($result)" >> $GITHUB_STEP_SUMMARY
+              failed=1
+            fi
+          done
+
+          if [[ $failed -eq 1 ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Rust Crates CI failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Rust Crates CI passed!**" >> $GITHUB_STEP_SUMMARY

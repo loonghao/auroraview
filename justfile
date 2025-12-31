@@ -178,10 +178,98 @@ nox-qt:
     @echo "Running nox session: pytest-qt (multi-Python with Qt)"
     vx uvx nox -s pytest-qt
 
+
 nox-all:
     @echo "Running nox session: pytest-all (full suite)"
     vx uvx nox -s pytest-all
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Package-Level Test Commands (for isolated CI)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Test aurora-signals crate (standalone, no deps)
+test-signals:
+    @echo "Testing aurora-signals..."
+    vx cargo test -p aurora-signals
+    vx cargo clippy -p aurora-signals -- -D warnings
+
+# Test aurora-protect crate (standalone, no deps)
+test-protect:
+    @echo "Testing aurora-protect..."
+    vx cargo test -p aurora-protect
+    vx cargo clippy -p aurora-protect -- -D warnings
+
+# Test auroraview-plugin-core crate (standalone, no deps)
+test-plugin-core:
+    @echo "Testing auroraview-plugin-core..."
+    vx cargo test -p auroraview-plugin-core
+    vx cargo clippy -p auroraview-plugin-core -- -D warnings
+
+# Test auroraview-plugin-fs crate (depends on plugin-core)
+test-plugin-fs:
+    @echo "Testing auroraview-plugin-fs..."
+    vx cargo test -p auroraview-plugin-fs
+    vx cargo clippy -p auroraview-plugin-fs -- -D warnings
+
+# Test auroraview-extensions crate (standalone, no deps)
+test-extensions:
+    @echo "Testing auroraview-extensions..."
+    vx cargo test -p auroraview-extensions
+    vx cargo clippy -p auroraview-extensions -- -D warnings
+
+# Test auroraview-plugins crate (depends on plugin-core, plugin-fs, extensions)
+test-plugins:
+    @echo "Testing auroraview-plugins..."
+    vx cargo test -p auroraview-plugins
+    vx cargo clippy -p auroraview-plugins -- -D warnings
+
+# Test auroraview-core crate (depends on signals, plugins)
+test-core:
+    @echo "Testing auroraview-core..."
+    vx cargo test -p auroraview-core
+    vx cargo clippy -p auroraview-core -- -D warnings
+
+# Test auroraview-pack crate (depends on protect)
+test-pack:
+    @echo "Testing auroraview-pack..."
+    vx cargo test -p auroraview-pack
+    vx cargo clippy -p auroraview-pack -- -D warnings
+
+# Test auroraview-cli crate (depends on core, pack)
+test-cli:
+    @echo "Testing auroraview-cli..."
+    vx cargo test -p auroraview-cli
+    vx cargo clippy -p auroraview-cli -- -D warnings
+
+# Test all standalone crates (no internal dependencies)
+test-standalone:
+    @echo "Testing standalone crates..."
+    just test-signals
+    just test-protect
+    just test-plugin-core
+    just test-extensions
+
+# Test Python package only (no Rust rebuild)
+test-python:
+    @echo "Running Python tests..."
+    vx uvx pytest tests/python/unit tests/python/integration -v --tb=short
+
+# Test Python unit tests only
+test-python-unit:
+    @echo "Running Python unit tests..."
+    vx uvx pytest tests/python/unit -v --tb=short
+
+# Test Python integration tests only
+test-python-integration:
+    @echo "Running Python integration tests..."
+    vx uvx pytest tests/python/integration -v --tb=short \
+        --ignore=tests/python/integration/test_gallery_e2e.py \
+        --ignore=tests/python/integration/test_gallery_real_e2e.py
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Legacy Test Commands (for backward compatibility)
+# ═══════════════════════════════════════════════════════════════════════════════
 
 # Run only Rust unit tests
 test-unit:
