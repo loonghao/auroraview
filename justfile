@@ -781,11 +781,19 @@ docs-install:
 
 # Generate Python API documentation with pdoc
 # Note: pdoc requires Python 3.9+, installed separately from project deps
-# Excludes qt module which requires qtpy/PySide dependencies
+# Excludes qt module which requires qtpy/PySide dependencies (not available in CI)
 docs-python-api:
     @echo "Generating Python API documentation with pdoc..."
     vx pip install pdoc>=14.0.0 --quiet
-    vx python -m pdoc --output-dir docs/api/python-gen --docformat google python/auroraview --no-show-source --exclude auroraview.integration.qt
+    vx python -m pdoc --output-dir docs/api/python-gen --docformat google \
+        python/auroraview/core \
+        python/auroraview/ui \
+        python/auroraview/utils \
+        python/auroraview/testing \
+        python/auroraview/integration/bridge.py \
+        python/auroraview/integration/browser_extension.py \
+        python/auroraview/integration/framework.py \
+        --no-show-source
     @echo "[OK] Python API docs generated in docs/api/python-gen/"
 
 # Generate examples documentation from examples/ directory
