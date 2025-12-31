@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.36](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.35...auroraview-v0.3.36) (2025-12-31)
+
+
+### Bug Fixes
+
+* add remote_debugging_port to Python WebView and fix CI vx action ([7004c55](https://github.com/loonghao/auroraview/commit/7004c55dcefc338085534a22a50f45e64eefa6de))
+* exclude qt module from pdoc generation in CI ([43c2698](https://github.com/loonghao/auroraview/commit/43c26983e648890f80a3a5070d7ea9219b65e407))
+* exclude qt module from pdoc generation in CI ([a5a47dc](https://github.com/loonghao/auroraview/commit/a5a47dceb1f84e8d67d93cee92f1e5890aceca34))
+* only include core modules without third-party deps for pdoc ([1fb640b](https://github.com/loonghao/auroraview/commit/1fb640bcff0e14187c683b5ceb8d77fdf2b42830))
+* rename unused loop variables to satisfy ruff B007 ([27afe25](https://github.com/loonghao/auroraview/commit/27afe251d4c4d243ddba0f3b696a476b50462e92))
+* separate Python lint from ci-lint, add system deps earlier ([ca913da](https://github.com/loonghao/auroraview/commit/ca913dafe6017a8d4bfe535e11cc52e379584597))
+* specify modules explicitly for pdoc to exclude qt ([bfe41dc](https://github.com/loonghao/auroraview/commit/bfe41dca9cb3ef57edd2a6ba41ab579590b6342d))
+* use 'vx uv run pytest' instead of 'vx pytest' ([bc8157d](https://github.com/loonghao/auroraview/commit/bc8157d736c6b25b6f2b86ab820cca0b18c43bb9))
+* use vx pytest instead of vx uv run pytest ([0070a2c](https://github.com/loonghao/auroraview/commit/0070a2c63306e486ede62be55e78baa2cea40d98))
+
 ## [0.3.35](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.34...auroraview-v0.3.35) (2025-12-31)
 
 
