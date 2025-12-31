@@ -800,12 +800,6 @@ gallery-pack-project: gallery-build
 # Pack Commands (Application Packaging)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Test auroraview-pack crate
-test-pack:
-    @echo "Testing auroraview-pack crate..."
-    vx cargo test -p auroraview-pack --lib
-    @echo "[OK] Pack tests passed!"
-
 # Test auroraview-pack with verbose output
 test-pack-verbose:
     @echo "Testing auroraview-pack crate (verbose)..."
