@@ -188,7 +188,7 @@ class TestBackendRegistration:
 
         backends = list_dispatcher_backends()
         found = False
-        for priority, name, available in backends:
+        for priority, name, _available in backends:
             if name == "CustomName":
                 found = True
                 assert priority == 999
@@ -304,7 +304,7 @@ class TestBackendRegistration:
         # Should be in the list but not available
         backends = list_dispatcher_backends()
         found = False
-        for priority, name, available in backends:
+        for _priority, name, available in backends:
             if name == "Invalid":
                 found = True
                 assert available is False
