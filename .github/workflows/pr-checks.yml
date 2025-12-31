@@ -3,6 +3,12 @@ name: PR Checks
 # This workflow runs comprehensive checks on PRs to ensure quality before merging.
 # Optimized with path-based filtering to run only necessary checks based on changed files.
 #
+# Package Isolation Strategy (2025-12):
+# - Each package (Rust crates, SDK, MCP, Gallery, Docs) has its own CI workflow
+# - PR checks call these workflows based on detected changes
+# - Only affected packages are built and tested
+# - Dependency chains are respected (e.g., core changes trigger CLI tests)
+#
 # Artifact Reuse Strategy:
 # - sdk-build: Builds SDK once, artifacts reused by gallery-e2e and gallery-pack
 # - cli-build: Builds CLI once, artifacts reused by gallery-pack
@@ -10,7 +16,7 @@ name: PR Checks
 # - This eliminates duplicate builds and significantly reduces CI time
 #
 # Path Filter Categories:
-# - rust: Rust source code changes -> triggers Rust builds/tests
+# - rust-*: Fine-grained Rust crate changes (signals, core, pack, cli, etc.)
 # - python: Python source code changes -> triggers Python tests
 # - sdk: TypeScript SDK changes -> triggers SDK builds
 # - gallery: Gallery app changes -> triggers Gallery tests
@@ -47,6 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      # High-level category flags
       rust: ${{ steps.filter.outputs.rust }}
       python: ${{ steps.filter.outputs.python }}
       sdk: ${{ steps.filter.outputs.sdk }}
@@ -55,14 +62,29 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       ci: ${{ steps.filter.outputs.ci }}
       tests: ${{ steps.filter.outputs.tests }}
+      # Fine-grained Rust crate flags
+      rust-signals: ${{ steps.filter.outputs.rust-signals }}
+      rust-protect: ${{ steps.filter.outputs.rust-protect }}
+      rust-plugin-core: ${{ steps.filter.outputs.rust-plugin-core }}
+      rust-plugin-fs: ${{ steps.filter.outputs.rust-plugin-fs }}
+      rust-extensions: ${{ steps.filter.outputs.rust-extensions }}
+      rust-plugins: ${{ steps.filter.outputs.rust-plugins }}
+      rust-core: ${{ steps.filter.outputs.rust-core }}
+      rust-pack: ${{ steps.filter.outputs.rust-pack }}
+      rust-cli: ${{ steps.filter.outputs.rust-cli }}
+      rust-root: ${{ steps.filter.outputs.rust-root }}
       # Composite flags for convenience
-      needs_wheel: ${{ steps.filter.outputs.rust == 'true' || steps.filter.outputs.python == 'true' || steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}
-      needs_rust_checks: ${{ steps.filter.outputs.rust == 'true' || steps.filter.outputs.ci == 'true' }}
-      needs_python_tests: ${{ steps.filter.outputs.python == 'true' || steps.filter.outputs.rust == 'true' || steps.filter.outputs.ci == 'true' }}
-      needs_sdk_build: ${{ steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}
-      needs_mcp_build: ${{ steps.filter.outputs.mcp == 'true' || steps.filter.outputs.ci == 'true' }}
-      needs_gallery_tests: ${{ steps.filter.outputs.gallery == 'true' || steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}
-      needs_docs_build: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}
+      needs_wheel: ${{ steps.composite.outputs.needs_wheel }}
+      needs_rust_checks: ${{ steps.composite.outputs.needs_rust_checks }}
+      needs_python_tests: ${{ steps.composite.outputs.needs_python_tests }}
+      needs_sdk_build: ${{ steps.composite.outputs.needs_sdk_build }}
+      needs_mcp_build: ${{ steps.composite.outputs.needs_mcp_build }}
+      needs_gallery_tests: ${{ steps.composite.outputs.needs_gallery_tests }}
+      needs_docs_build: ${{ steps.composite.outputs.needs_docs_build }}
+      # Rust crate dependency flags (includes transitive deps)
+      needs_rust_core: ${{ steps.rust-deps.outputs.needs_core }}
+      needs_rust_cli: ${{ steps.rust-deps.outputs.needs_cli }}
+      needs_rust_pack: ${{ steps.rust-deps.outputs.needs_pack }}
     steps:
       - uses: actions/checkout@v6
 
@@ -79,6 +101,28 @@ jobs:
               - '.cargo/**'
               - 'benches/**'
               - 'tests/rust/**'
+            rust-signals:
+              - 'crates/aurora-signals/**'
+            rust-protect:
+              - 'crates/aurora-protect/**'
+            rust-plugin-core:
+              - 'crates/auroraview-plugins/core/**'
+            rust-plugin-fs:
+              - 'crates/auroraview-plugins/fs/**'
+            rust-extensions:
+              - 'crates/auroraview-extensions/**'
+            rust-plugins:
+              - 'crates/auroraview-plugins/Cargo.toml'
+              - 'crates/auroraview-plugins/src/**'
+            rust-core:
+              - 'crates/auroraview-core/**'
+            rust-pack:
+              - 'crates/auroraview-pack/**'
+            rust-cli:
+              - 'crates/auroraview-cli/**'
+            rust-root:
+              - 'src/**'
+              - 'Cargo.toml'
             python:
               - 'python/**'
               - 'pyproject.toml'
@@ -103,10 +147,120 @@ jobs:
               - 'tests/**'
               - 'benches/**'
 
+      - name: Compute Rust dependency chain
+        id: rust-deps
+        run: |
+          # Direct changes
+          signals="${{ steps.filter.outputs.rust-signals }}"
+          protect="${{ steps.filter.outputs.rust-protect }}"
+          plugin_core="${{ steps.filter.outputs.rust-plugin-core }}"
+          plugin_fs="${{ steps.filter.outputs.rust-plugin-fs }}"
+          extensions="${{ steps.filter.outputs.rust-extensions }}"
+          plugins="${{ steps.filter.outputs.rust-plugins }}"
+          core="${{ steps.filter.outputs.rust-core }}"
+          pack="${{ steps.filter.outputs.rust-pack }}"
+          cli="${{ steps.filter.outputs.rust-cli }}"
+          root="${{ steps.filter.outputs.rust-root }}"
+          ci="${{ steps.filter.outputs.ci }}"
+
+          # Compute transitive dependencies
+          # auroraview-plugins: depends on plugin-core, plugin-fs, extensions
+          if [[ "$plugins" == "true" || "$plugin_core" == "true" || "$plugin_fs" == "true" || "$extensions" == "true" ]]; then
+            needs_plugins="true"
+          else
+            needs_plugins="false"
+          fi
+
+          # auroraview-core: depends on signals, plugins
+          if [[ "$core" == "true" || "$signals" == "true" || "$needs_plugins" == "true" || "$ci" == "true" ]]; then
+            needs_core="true"
+          else
+            needs_core="false"
+          fi
+
+          # auroraview-pack: depends on protect (optional)
+          if [[ "$pack" == "true" || "$protect" == "true" || "$ci" == "true" ]]; then
+            needs_pack="true"
+          else
+            needs_pack="false"
+          fi
+
+          # auroraview-cli: depends on core, pack
+          if [[ "$cli" == "true" || "$needs_core" == "true" || "$needs_pack" == "true" || "$ci" == "true" ]]; then
+            needs_cli="true"
+          else
+            needs_cli="false"
+          fi
+
+          echo "needs_core=$needs_core" >> $GITHUB_OUTPUT
+          echo "needs_pack=$needs_pack" >> $GITHUB_OUTPUT
+          echo "needs_cli=$needs_cli" >> $GITHUB_OUTPUT
+
+      - name: Compute composite flags
+        id: composite
+        run: |
+          rust="${{ steps.filter.outputs.rust }}"
+          python="${{ steps.filter.outputs.python }}"
+          sdk="${{ steps.filter.outputs.sdk }}"
+          mcp="${{ steps.filter.outputs.mcp }}"
+          gallery="${{ steps.filter.outputs.gallery }}"
+          docs="${{ steps.filter.outputs.docs }}"
+          ci="${{ steps.filter.outputs.ci }}"
+
+          # needs_wheel: when Rust, Python, or SDK changes (need to rebuild wheel)
+          if [[ "$rust" == "true" || "$python" == "true" || "$sdk" == "true" || "$ci" == "true" ]]; then
+            echo "needs_wheel=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_wheel=false" >> $GITHUB_OUTPUT
+          fi
+
+          # needs_rust_checks: when Rust code changes
+          if [[ "$rust" == "true" || "$ci" == "true" ]]; then
+            echo "needs_rust_checks=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_rust_checks=false" >> $GITHUB_OUTPUT
+          fi
+
+          # needs_python_tests: when Python or Rust changes (Rust changes may affect Python bindings)
+          if [[ "$python" == "true" || "$rust" == "true" || "$ci" == "true" ]]; then
+            echo "needs_python_tests=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_python_tests=false" >> $GITHUB_OUTPUT
+          fi
+
+          # needs_sdk_build: when SDK changes
+          if [[ "$sdk" == "true" || "$ci" == "true" ]]; then
+            echo "needs_sdk_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_sdk_build=false" >> $GITHUB_OUTPUT
+          fi
+
+          # needs_mcp_build: when MCP changes
+          if [[ "$mcp" == "true" || "$ci" == "true" ]]; then
+            echo "needs_mcp_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_mcp_build=false" >> $GITHUB_OUTPUT
+          fi
+
+          # needs_gallery_tests: when Gallery or SDK changes (Gallery depends on SDK)
+          if [[ "$gallery" == "true" || "$sdk" == "true" || "$ci" == "true" ]]; then
+            echo "needs_gallery_tests=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_gallery_tests=false" >> $GITHUB_OUTPUT
+          fi
+
+          # needs_docs_build: when docs change
+          if [[ "$docs" == "true" || "$ci" == "true" ]]; then
+            echo "needs_docs_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_docs_build=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Summary of detected changes
         run: |
           echo "## 🔍 Detected Changes" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### High-Level Categories" >> $GITHUB_STEP_SUMMARY
           echo "| Category | Changed | Will Run |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|---------|----------|" >> $GITHUB_STEP_SUMMARY
           echo "| Rust | ${{ steps.filter.outputs.rust }} | Rust checks, CLI build |" >> $GITHUB_STEP_SUMMARY
@@ -117,14 +271,23 @@ jobs:
           echo "| Docs | ${{ steps.filter.outputs.docs }} | Docs build |" >> $GITHUB_STEP_SUMMARY
           echo "| CI | ${{ steps.filter.outputs.ci }} | All checks |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Rust Crate Changes" >> $GITHUB_STEP_SUMMARY
+          echo "| Crate | Direct Change | Will Test |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|---------------|-----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| aurora-signals | ${{ steps.filter.outputs.rust-signals }} | ${{ steps.filter.outputs.rust-signals }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| aurora-protect | ${{ steps.filter.outputs.rust-protect }} | ${{ steps.filter.outputs.rust-protect }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-core | ${{ steps.filter.outputs.rust-core }} | ${{ steps.rust-deps.outputs.needs_core }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-pack | ${{ steps.filter.outputs.rust-pack }} | ${{ steps.rust-deps.outputs.needs_pack }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-cli | ${{ steps.filter.outputs.rust-cli }} | ${{ steps.rust-deps.outputs.needs_cli }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Composite Flags" >> $GITHUB_STEP_SUMMARY
-          echo "- needs_wheel: ${{ steps.filter.outputs.rust == 'true' || steps.filter.outputs.python == 'true' || steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- needs_rust_checks: ${{ steps.filter.outputs.rust == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- needs_python_tests: ${{ steps.filter.outputs.python == 'true' || steps.filter.outputs.rust == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- needs_sdk_build: ${{ steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- needs_mcp_build: ${{ steps.filter.outputs.mcp == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- needs_gallery_tests: ${{ steps.filter.outputs.gallery == 'true' || steps.filter.outputs.sdk == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- needs_docs_build: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_wheel: ${{ steps.composite.outputs.needs_wheel }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_rust_checks: ${{ steps.composite.outputs.needs_rust_checks }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_python_tests: ${{ steps.composite.outputs.needs_python_tests }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_sdk_build: ${{ steps.composite.outputs.needs_sdk_build }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_mcp_build: ${{ steps.composite.outputs.needs_mcp_build }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_gallery_tests: ${{ steps.composite.outputs.needs_gallery_tests }}" >> $GITHUB_STEP_SUMMARY
+          echo "- needs_docs_build: ${{ steps.composite.outputs.needs_docs_build }}" >> $GITHUB_STEP_SUMMARY
 
   # =============================================================================
   # Quick Checks - Always run for code quality (fast, < 5 min)
