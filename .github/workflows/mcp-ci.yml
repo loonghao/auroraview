@@ -44,25 +44,12 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install vx
-        uses: loonghao/vx@vx-v0.6.4
+        uses: loonghao/vx@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache: false
 
-      - name: Install dependencies
-        run: |
-          cd packages/auroraview-mcp
-          vx uv sync --extra dev
-
-      - name: Run ruff check
-        run: |
-          cd packages/auroraview-mcp
-          vx uvx ruff check src/ tests/
-
-      - name: Run ruff format check
-        run: |
-          cd packages/auroraview-mcp
-          vx uvx ruff format --check src/ tests/
+      - name: Run lint
+        run: vx just mcp-lint
 
   # Unit tests with coverage
   unit-tests:
@@ -76,21 +63,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
       - name: Install vx
-        uses: loonghao/vx@vx-v0.6.4
+        uses: loonghao/vx@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache: false
-
-      - name: Install dependencies
-        run: |
-          cd packages/auroraview-mcp
-          vx uv sync --python ${{ matrix.python-version }} --extra dev
 
       - name: Run tests
-        run: |
-          cd packages/auroraview-mcp
-          vx uv run pytest tests/ -v --tb=short
+        run: vx just mcp-test
 
   # Coverage report (only on Python 3.11)
   coverage:
@@ -100,21 +84,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
       - name: Install vx
-        uses: loonghao/vx@vx-v0.6.4
+        uses: loonghao/vx@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache: false
-
-      - name: Install dependencies
-        run: |
-          cd packages/auroraview-mcp
-          vx uv sync --python 3.11 --extra dev
 
       - name: Run tests with coverage
-        run: |
-          cd packages/auroraview-mcp
-          vx uv run pytest tests/ --cov=auroraview_mcp --cov-report=xml --cov-report=html
+        run: vx just mcp-test-cov
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -144,16 +125,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
       - name: Install vx
-        uses: loonghao/vx@vx-v0.6.4
+        uses: loonghao/vx@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache: false
-
-      - name: Install dependencies
-        run: |
-          cd packages/auroraview-mcp
-          vx uv sync --python 3.11
 
       - name: Update version if specified
         if: inputs.version != ''
@@ -165,9 +145,7 @@ jobs:
           cat pyproject.toml | grep version
 
       - name: Build package
-        run: |
-          cd packages/auroraview-mcp
-          vx uv build
+        run: vx just mcp-build
 
       - name: Verify build outputs
         run: |
@@ -207,11 +185,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
       - name: Install vx
-        uses: loonghao/vx@vx-v0.6.4
+        uses: loonghao/vx@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache: false
 
       - name: Download MCP package
         uses: actions/download-artifact@v7
