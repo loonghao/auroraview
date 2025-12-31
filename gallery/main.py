@@ -145,6 +145,13 @@ def run_gallery():
         print(f"[Python] Loading: {url}", file=sys.stderr)
 
     print(f"[Python] Creating WebView with allow_new_window=True, new_window_mode='child_webview'", file=sys.stderr)
+    
+    # Check for CDP port from environment (for MCP testing)
+    cdp_port = os.environ.get("AURORAVIEW_CDP_PORT")
+    if cdp_port:
+        cdp_port = int(cdp_port)
+        print(f"[Python] CDP remote debugging enabled on port {cdp_port}", file=sys.stderr)
+    
     view = WebView(
         title="AuroraView Gallery",
         url=url,
@@ -153,6 +160,7 @@ def run_gallery():
         debug=True,
         allow_new_window=True,
         new_window_mode="child_webview",  # Open new windows as child WebViews
+        remote_debugging_port=cdp_port,  # Enable CDP if port specified
     )
     print(f"[Python] WebView created successfully", file=sys.stderr)
 

@@ -381,7 +381,9 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install vx
-        uses: loonghao/setup-vx@v1
+        uses: loonghao/vx@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v6

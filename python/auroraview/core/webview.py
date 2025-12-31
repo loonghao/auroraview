@@ -116,6 +116,7 @@ class WebView(
         undecorated_shadow: bool = False,
         allow_new_window: bool = False,
         new_window_mode: Optional[str] = None,
+        remote_debugging_port: Optional[int] = None,
         # Aliases for more intuitive API
         parent_hwnd: Optional[int] = None,
         embed_mode: Optional[str] = None,
@@ -197,6 +198,20 @@ class WebView(
                                undecorated_shadow=False,
                                tool_window=True,
                            )
+
+                   remote_debugging_port: Enable Chrome DevTools Protocol (CDP) remote debugging.
+                       When set, the WebView will listen on the specified port for CDP connections.
+                       This allows tools like MCP servers, Playwright, or Chrome DevTools to connect
+                       and control the WebView remotely.
+
+                       Example::
+
+                           # Enable CDP on port 9222
+                           webview = WebView(
+                               title="Debug Me",
+                               remote_debugging_port=9222,
+                           )
+                           # Connect with: chrome://inspect or ws://localhost:9222
 
                    parent_hwnd: Alias for ``parent`` parameter (for backward compatibility).
                    embed_mode: Alias for ``mode`` parameter. Values: "child", "owner".
@@ -288,6 +303,7 @@ class WebView(
             undecorated_shadow=undecorated_shadow,  # Show shadow for frameless windows
             allow_new_window=allow_new_window,  # Allow window.open() to create new windows
             new_window_mode=new_window_mode,  # New window behavior: deny, system_browser, child_webview
+            remote_debugging_port=remote_debugging_port,  # CDP remote debugging port
         )
         self._event_handlers: Dict[str, List[Callable]] = {}
         self._title = title
@@ -305,6 +321,7 @@ class WebView(
         self._undecorated_shadow = undecorated_shadow
         self._allow_new_window = allow_new_window
         self._new_window_mode = new_window_mode
+        self._remote_debugging_port = remote_debugging_port
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
         self._auto_timer = None  # Will be set by create() factory method
@@ -955,6 +972,7 @@ class WebView(
                     tool_window=self._tool_window,  # Tool window style
                     undecorated_shadow=self._undecorated_shadow,  # Shadow for frameless
                     allow_new_window=self._allow_new_window,  # Allow window.open()
+                    remote_debugging_port=self._remote_debugging_port,  # CDP port
                 )
 
                 # Store the core instance for use by emit() and other methods
