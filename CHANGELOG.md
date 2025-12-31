@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.37](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.36...auroraview-v0.3.37) (2025-12-31)
+
+
+### Documentation
+
+* add project vision and motivation to homepage ([c550bc0](https://github.com/loonghao/auroraview/commit/c550bc005809497f15bb26c223ab673535629b96))
+
 ## [0.3.36](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.35...auroraview-v0.3.36) (2025-12-31)
 
 
