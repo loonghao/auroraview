@@ -152,8 +152,10 @@ jobs:
       - name: Setup vx
         uses: loonghao/vx@main
         with:
-          setup: 'true'
-          cache: 'true'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install just
+        run: vx cargo install just
 
       - name: Cache Rust
         uses: actions/cache@v5
@@ -172,8 +174,7 @@ jobs:
 
       - name: Check Python formatting (ruff)
         if: needs.path-filter.outputs.python == 'true' || needs.path-filter.outputs.ci == 'true'
-        run: |
-          vx uvx ruff check python/ tests/ --select=E,F,W --ignore=E501
+        run: vx just ci-lint
 
       - name: Cargo check (fast compile check)
         if: needs.path-filter.outputs.needs_rust_checks == 'true'

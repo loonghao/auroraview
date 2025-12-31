@@ -51,8 +51,10 @@ jobs:
       - name: Setup vx
         uses: loonghao/vx@main
         with:
-          setup: 'true'
-          cache: 'true'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install just
+        run: vx cargo install just
 
       - name: Show installed tools
         run: |
@@ -67,18 +69,8 @@ jobs:
           # The manual API docs in docs/api/ are sufficient
           echo "Skipping pdoc generation - using manual API docs"
 
-      - name: Install dependencies
-        working-directory: docs
-        run: vx npm install
-
-      - name: Copy logo
-        run: |
-          mkdir -p docs/public
-          cp assets/icons/auroraview-logo-text.png docs/public/logo.png || echo "Logo not found, using placeholder"
-
       - name: Build documentation
-        working-directory: docs
-        run: vx npm run build
+        run: vx just docs-build
 
       - name: Upload artifact for deployment
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

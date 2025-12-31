@@ -804,6 +804,8 @@ docs-serve: docs-dev
 # Build documentation (auto-generates examples docs + Python API)
 docs-build: docs-install docs-generate-examples docs-python-api
     @echo "Building documentation..."
+    mkdir -p docs/public
+    cp assets/icons/auroraview-logo-text.png docs/public/logo.png || echo "Logo not found, using placeholder"
     cd docs; vx npx vitepress build
     @echo "[OK] Documentation built in docs/.vitepress/dist/"
 
