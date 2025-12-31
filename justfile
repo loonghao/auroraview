@@ -854,12 +854,12 @@ mcp-inspector:
 # Run MCP server tests
 mcp-test:
     @echo "Running MCP server tests..."
-    cd packages/auroraview-mcp; vx uv run pytest -v
+    cd packages/auroraview-mcp; vx uv sync --extra dev; vx pytest -v
 
 # Run MCP server tests with coverage
 mcp-test-cov:
     @echo "Running MCP server tests with coverage..."
-    cd packages/auroraview-mcp; vx uv run pytest --cov=auroraview_mcp --cov-report=html --cov-report=term-missing
+    cd packages/auroraview-mcp; vx uv sync --extra dev; vx pytest --cov=auroraview_mcp --cov-report=html --cov-report=term-missing
 
 # Lint MCP server code
 mcp-lint:
