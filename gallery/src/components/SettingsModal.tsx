@@ -1,9 +1,13 @@
 import { cn } from '../lib/utils';
 import * as Icons from 'lucide-react';
 import { useState, useCallback, useEffect, type DragEvent } from 'react';
+import type { McpInfo } from '../hooks/useAuroraView';
 
 export type RunMode = 'external' | 'console';
 export type LinkMode = 'browser' | 'webview';
+
+// Re-export McpInfo for backward compatibility
+export type { McpInfo } from '../hooks/useAuroraView';
 
 export interface BrowserExtensionStatus {
   enabled: boolean;
@@ -11,6 +15,143 @@ export interface BrowserExtensionStatus {
   httpPort: number;
   connectedClients: number;
   isRunning: boolean;
+}
+
+type McpConfigTab = 'claude' | 'cursor' | 'codebuddy' | 'vscode';
+
+function McpServerSection({ mcpInfo }: { mcpInfo: McpInfo }) {
+  const [activeTab, setActiveTab] = useState<McpConfigTab>('claude');
+  const [copied, setCopied] = useState(false);
+
+  const mcpUrl = mcpInfo.mcp_url || '';
+  const serverName = mcpInfo.name || 'gallery-mcp';
+
+  const configs: Record<McpConfigTab, { label: string; config: string; hint: string }> = {
+    claude: {
+      label: 'Claude Desktop',
+      config: JSON.stringify({
+        mcpServers: {
+          [serverName]: {
+            url: mcpUrl,
+            transportType: 'streamable-http'
+          }
+        }
+      }, null, 2),
+      hint: 'Add to claude_desktop_config.json'
+    },
+    cursor: {
+      label: 'Cursor',
+      config: JSON.stringify({
+        mcpServers: {
+          [serverName]: {
+            url: mcpUrl,
+            transportType: 'streamable-http'
+          }
+        }
+      }, null, 2),
+      hint: 'Add to .cursor/mcp.json'
+    },
+    codebuddy: {
+      label: 'CodeBuddy',
+      config: JSON.stringify({
+        mcpServers: {
+          [serverName]: {
+            url: mcpUrl,
+            transportType: 'streamable-http'
+          }
+        }
+      }, null, 2),
+      hint: 'Add to ~/.codebuddy/mcp.json'
+    },
+    vscode: {
+      label: 'VS Code',
+      config: JSON.stringify({
+        servers: {
+          [serverName]: {
+            type: 'http',
+            url: mcpUrl
+          }
+        }
+      }, null, 2),
+      hint: 'Add to .vscode/mcp.json'
+    }
+  };
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(configs[activeTab].config);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, [activeTab, configs]);
+
+  return (
+    <div>
+      <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+        <Icons.Cpu className="w-4 h-4" />
+        MCP 端点
+      </h3>
+      <p className="text-xs text-muted-foreground mb-3">
+        复制到 IDE/Agent 的 MCP 配置即可体验
+      </p>
+
+      {/* MCP URL Display */}
+      <div className="p-3 bg-muted/50 rounded-lg mb-3">
+        <code className="text-sm font-mono">{mcpUrl}</code>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-border mb-3">
+        {(Object.keys(configs) as McpConfigTab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors",
+              activeTab === tab
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {configs[tab].label}
+          </button>
+        ))}
+      </div>
+
+      {/* Config Display */}
+      <div className="relative">
+        <pre className="text-xs bg-muted/50 p-3 rounded-lg border border-border overflow-x-auto">
+          {configs[activeTab].config}
+        </pre>
+        <button
+          onClick={handleCopy}
+          className={cn(
+            "absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-md transition-colors flex items-center gap-1",
+            copied
+              ? "bg-green-500/20 text-green-600"
+              : "bg-primary text-primary-foreground hover:bg-primary/90"
+          )}
+        >
+          {copied ? (
+            <>
+              <Icons.Check className="w-3 h-3" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Icons.Copy className="w-3 h-3" />
+              复制配置
+            </>
+          )}
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground mt-2">
+        {configs[activeTab].hint}
+      </p>
+    </div>
+  );
 }
 
 export interface Settings {
@@ -27,6 +168,7 @@ interface SettingsModalProps {
   isOpen: boolean;
   settings: Settings;
   extensionStatus?: BrowserExtensionStatus;
+  mcpInfo?: McpInfo;
   onClose: () => void;
   onSave: (settings: Settings) => void;
   onToggleExtension?: (enabled: boolean) => Promise<void>;
@@ -37,11 +179,12 @@ interface SettingsModalProps {
   onRestartApp?: () => Promise<void>;
 }
 
-export function SettingsModal({ 
-  isOpen, 
-  settings, 
+export function SettingsModal({
+  isOpen,
+  settings,
   extensionStatus,
-  onClose, 
+  mcpInfo,
+  onClose,
   onSave,
   onToggleExtension,
   onOpenExtensionStore,
@@ -715,6 +858,11 @@ export function SettingsModal({
               </div>
             )}
           </div>
+
+          {/* MCP Server Section */}
+          {mcpInfo && mcpInfo.ok && (
+            <McpServerSection mcpInfo={mcpInfo} />
+          )}
 
           {/* Info */}
           <div className="p-3 bg-muted/50 rounded-lg">

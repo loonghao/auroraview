@@ -38,6 +38,9 @@ pub struct NativeBackend {
     window: Option<tao::window::Window>,
     event_loop: Option<tao::event_loop::EventLoop<UserEvent>>,
     message_queue: Arc<MessageQueue>,
+    /// IPC handler for Python callbacks (needed for deferred callback execution)
+    #[cfg(feature = "python-bindings")]
+    ipc_handler: Arc<IpcHandler>,
     /// When true, skip native message pump in process_events().
     /// This is used in Qt/DCC mode where the host application owns the message loop.
     skip_message_pump: bool,
@@ -184,6 +187,9 @@ impl WebViewBackend for NativeBackend {
         // We collect visibility changes and apply them after processing
         let mut visibility_changes: Vec<bool> = Vec::new();
         let mut close_requested = false;
+        // Collect deferred Python callbacks to execute outside the WebView lock
+        #[cfg(feature = "python-bindings")]
+        let mut deferred_callbacks: Vec<(u64, String, serde_json::Value)> = Vec::new();
 
         // Process message queue with batch limit (always, regardless of skip_message_pump)
         // Use batch processing for DCCs with busy main threads (e.g., Houdini)
@@ -276,6 +282,31 @@ impl WebViewBackend for NativeBackend {
                                 tracing::info!("[NativeBackend] Close message received");
                                 close_requested = true;
                             }
+                            #[cfg(feature = "python-bindings")]
+                            WebViewMessage::PythonCallbackDeferred {
+                                callback_id,
+                                event_name,
+                                data,
+                            } => {
+                                // Collect for execution outside the WebView lock
+                                deferred_callbacks.push((callback_id, event_name, data));
+                            }
+                            #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+                            WebViewMessage::McpToolCall {
+                                tool_name,
+                                args,
+                                handler,
+                                response_tx,
+                            } => {
+                                // Execute MCP tool on main thread
+                                crate::webview::message_processor::execute_mcp_tool(
+                                    &tool_name,
+                                    args,
+                                    handler,
+                                    response_tx,
+                                    "NativeBackend",
+                                );
+                            }
                         }
                     });
 
@@ -293,6 +324,26 @@ impl WebViewBackend for NativeBackend {
             if let Some(ref window) = self.window {
                 tracing::debug!("[NativeBackend] Setting visibility: {}", visible);
                 window.set_visible(visible);
+            }
+        }
+
+        // Execute deferred Python callbacks outside the WebView lock
+        #[cfg(feature = "python-bindings")]
+        for (callback_id, event_name, data) in deferred_callbacks {
+            tracing::debug!(
+                "[NativeBackend] Executing deferred Python callback {} for event: {}",
+                callback_id,
+                event_name
+            );
+            if let Err(e) =
+                self.ipc_handler
+                    .execute_deferred_callback(callback_id, &event_name, data)
+            {
+                tracing::error!(
+                    "[NativeBackend] Failed to execute deferred callback {}: {}",
+                    callback_id,
+                    e
+                );
             }
         }
 
@@ -656,8 +707,11 @@ impl NativeBackend {
         // Delegate to desktop module for now
         // We need to use the existing desktop implementation
         // and convert it to NativeBackend structure
-        let mut inner =
-            crate::webview::desktop::create_desktop(config, ipc_handler, message_queue.clone())?;
+        let mut inner = crate::webview::desktop::create_desktop(
+            config,
+            ipc_handler.clone(),
+            message_queue.clone(),
+        )?;
 
         // Extract fields from WebViewInner
         // We can safely take these because we own the WebViewInner
@@ -670,6 +724,7 @@ impl NativeBackend {
             window,
             event_loop,
             message_queue,
+            ipc_handler,
             // In desktop mode, we own the message pump
             skip_message_pump: false,
             auto_show, // Use config value (false in headless mode)
@@ -872,7 +927,7 @@ impl NativeBackend {
         }
 
         // Create WebView with IPC handler
-        let webview = Self::create_webview(&window, &config, ipc_handler)?;
+        let webview = Self::create_webview(&window, &config, ipc_handler.clone())?;
 
         // For transparent windows, show the window AFTER WebView is created
         // This ensures WebView2 has initialized its transparent rendering
@@ -987,6 +1042,8 @@ impl NativeBackend {
             window: Some(window),
             event_loop: Some(event_loop),
             message_queue,
+            #[cfg(feature = "python-bindings")]
+            ipc_handler,
             // In embedded/DCC mode, skip message pump - Qt/DCC owns the message loop
             skip_message_pump: true,
             auto_show,

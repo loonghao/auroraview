@@ -1,0 +1,42 @@
+# AuroraView MCP Server - Standalone Python Module
+# This builds _mcp.pyd for MCP (Model Context Protocol) Server support
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "auroraview-mcp"
+version = "0.3.37"
+description = "AuroraView Embedded MCP Server for AI assistant integration"
+authors = [
+    {name = "Hal Long", email = "hal.long@outlook.com"}
+]
+readme = "../../README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+keywords = ["mcp", "webview", "ai", "streamable-http", "json-rpc"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+]
+
+[tool.maturin]
+# Output module name: auroraview.mcp._mcp (placed in mcp subpackage)
+module-name = "auroraview.mcp._mcp"
+# Features for building standalone Python extension
+features = ["python", "ext-module", "abi3-py38"]
+bindings = "pyo3"
+# Strip symbols for smaller binary
+strip = true
+# Python source directory (relative to this pyproject.toml)
+python-source = "../../python"
+

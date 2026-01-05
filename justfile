@@ -35,17 +35,88 @@ build-release:
     @echo "Building release version..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
-# Build Python library (PyO3 bindings)
-rebuild-pylib:
-    @echo "Building Python library with maturin..."
+# ═══════════════════════════════════════════════════════════════════════════════
+# Modular Python Library Build Commands
+# ═══════════════════════════════════════════════════════════════════════════════
+# The Python library is now split into multiple modules for faster incremental builds:
+#   - _core.pyd   : Core WebView, IPC, DOM, utilities (~5-6 MB)
+#   - _signals.pyd: Qt-style signal-slot system (~1-2 MB)  [OPTIONAL]
+#   - _mcp.pyd    : MCP Server for AI integration (~3-4 MB) [OPTIONAL]
+#
+# Use `rebuild-<module>` for incremental builds, `rebuild-all` for full rebuild.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Show available Python build commands
+build-help:
+    @echo "═══════════════════════════════════════════════════════════════════════════════"
+    @echo "AuroraView Python Build Commands"
+    @echo "═══════════════════════════════════════════════════════════════════════════════"
+    @echo ""
+    @echo "MODULAR BUILD (recommended for development):"
+    @echo "  just rebuild-core     Build _core.pyd (WebView, IPC, DOM)"
+    @echo "  just rebuild-signals  Build _signals.pyd (Qt-style signals) [optional]"
+    @echo "  just rebuild-mcp      Build _mcp.pyd (MCP Server) [optional]"
+    @echo "  just rebuild-all      Build all modules"
+    @echo ""
+    @echo "MONOLITHIC BUILD (legacy, includes everything in _core.pyd):"
+    @echo "  just rebuild-pylib-with-mcp  Build _core.pyd with MCP included"
+    @echo ""
+    @echo "NOTES:"
+    @echo "  - _core.pyd is required, _signals.pyd and _mcp.pyd are optional"
+    @echo "  - Signals are also included in _core.pyd by default"
+    @echo "  - Use modular build for faster incremental compilation"
+    @echo "═══════════════════════════════════════════════════════════════════════════════"
+
+# Build core Python library (_core.pyd) - WebView, IPC, DOM, utilities
+rebuild-core:
+    @echo "Building _core.pyd (WebView, IPC, DOM, utilities)..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
-    @echo "[OK] Python library rebuilt and installed successfully!"
+    @echo "[OK] _core.pyd rebuilt successfully!"
+
+# Build signals module (_signals.pyd) - Qt-style signal-slot system
+rebuild-signals:
+    @echo "Building _signals.pyd (Signal, EventBus, Registry)..."
+    Push-Location crates/aurora-signals; try { vx uv run maturin develop --release } finally { Pop-Location }
+    @echo "[OK] _signals.pyd rebuilt successfully!"
+
+# Build MCP module (_mcp.pyd) - MCP Server for AI integration
+rebuild-mcp:
+    @echo "Building _mcp.pyd (MCP Server)..."
+    Push-Location crates/auroraview-mcp; try { vx uv run maturin develop --release } finally { Pop-Location }
+    @echo "[OK] _mcp.pyd rebuilt successfully!"
+
+# Build all Python modules (full rebuild)
+rebuild-all:
+    @echo "Building all Python modules..."
+    @echo ""
+    @echo "[1/3] Building _core.pyd..."
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo ""
+    @echo "[2/3] Building _signals.pyd..."
+    Push-Location crates/aurora-signals; try { vx uv run maturin develop --release } finally { Pop-Location }
+    @echo ""
+    @echo "[3/3] Building _mcp.pyd..."
+    Push-Location crates/auroraview-mcp; try { vx uv run maturin develop --release } finally { Pop-Location }
+    @echo ""
+    @echo "[OK] All Python modules rebuilt successfully!"
+
+# Legacy alias for backward compatibility
+rebuild-pylib: rebuild-core
+    @echo "[INFO] rebuild-pylib is now an alias for rebuild-core"
+    @echo "       Use rebuild-all to build all modules, or rebuild-<module> for specific modules"
 
 # Build Python library with verbose output
 rebuild-pylib-verbose:
     @echo "Building Python library with maturin (verbose)..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
     @echo "[OK] Python library rebuilt and installed successfully!"
+
+# Build core with MCP included (legacy single-pyd mode)
+rebuild-pylib-with-mcp:
+    @echo "Building Python library with MCP included in _core.pyd..."
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2,mcp-server"
+    @echo "[OK] Python library rebuilt with MCP!"
+
 
 # Build CLI binary
 build-cli:
@@ -729,6 +800,35 @@ example-list:
 # Generate all documentation screenshots (gallery + examples)
 docs-screenshots: gallery-screenshots example-screenshots
     @echo "[OK] All documentation screenshots generated!"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Gallery MCP Commands
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Test Gallery MCP Server (requires running Gallery)
+gallery-mcp-test PORT="27168":
+    @echo "Testing Gallery MCP Server on port {{PORT}}..."
+    vx uv run python scripts/test_gallery_mcp.py --port {{PORT}} --all
+
+# Check Gallery MCP health
+gallery-mcp-health PORT="27168":
+    @echo "Checking Gallery MCP health on port {{PORT}}..."
+    vx uv run python scripts/test_gallery_mcp.py --port {{PORT}} --health
+
+# List Gallery MCP tools
+gallery-mcp-list PORT="27168":
+    @echo "Listing Gallery MCP tools on port {{PORT}}..."
+    vx uv run python scripts/test_gallery_mcp.py --port {{PORT}} --list
+
+# Call specific Gallery MCP tool
+gallery-mcp-call PORT="27168" TOOL="" ARGS="{}":
+    @echo "Calling Gallery MCP tool: {{TOOL}}..."
+    vx uv run python scripts/test_gallery_mcp.py --port {{PORT}} --tool {{TOOL}} --args '{{ARGS}}'
+
+# Start Gallery with fixed MCP port (for development)
+gallery-mcp PORT="27168": gallery-build
+    @echo "Starting Gallery with MCP on port {{PORT}}..."
+    $env:AURORAVIEW_MCP_PORT="{{PORT}}"; vx uv run python gallery/main.py
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Packaging Commands

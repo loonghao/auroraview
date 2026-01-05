@@ -10,6 +10,7 @@ members = [
     "crates/auroraview-plugins/core",
     "crates/auroraview-plugins/fs",
     "crates/auroraview-extensions",
+    "crates/auroraview-mcp",
     "crates/aurora-protect",
     "crates/aurora-signals",
 ]
@@ -53,6 +54,7 @@ aurora-signals = { path = "crates/aurora-signals", features = ["python"] }
 # multiple-pymethods: Allow splitting #[pymethods] across multiple files
 # Note: abi3 feature is controlled separately via features section
 pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true }
+pythonize = { version = "0.27", optional = true }
 
 # Wry for WebView
 wry = "0.53.5"
@@ -131,6 +133,9 @@ warp = { version = "0.4", features = ["server"] }
 hyper = { version = "1.8", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 
+# MCP Server (embedded)
+auroraview-mcp = { path = "crates/auroraview-mcp", optional = true }
+
 # Template engine for JS code generation
 askama = { version = "0.15", optional = true }
 
@@ -171,7 +176,7 @@ opt-level = 0
 default = ["threaded-ipc", "wry-backend", "templates", "url-utils"]
 
 # Python bindings (for Python wheel)
-python-bindings = ["pyo3", "url-utils"]
+python-bindings = ["pyo3", "pythonize", "url-utils"]
 
 # ABI3 stable ABI for Python 3.8+ (single wheel for all Python 3.8+ versions)
 # For Python 3.7, use python-bindings without this feature
@@ -199,6 +204,9 @@ url-utils = ["regex", "urlencoding"]
 
 # Embed static assets
 embed-assets = ["rust-embed"]
+
+# MCP (Model Context Protocol) Server support
+mcp-server = ["auroraview-mcp", "auroraview-mcp/python"]
 
 # Performance features
 performance-monitoring = []

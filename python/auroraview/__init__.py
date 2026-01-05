@@ -355,6 +355,7 @@ def on_event(event_name: str):
 
     return decorator
 
+
 __all__ = [
     # ============================================================
     # Submodules (organized access)

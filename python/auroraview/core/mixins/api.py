@@ -7,10 +7,22 @@ This module provides API binding methods for the WebView class.
 
 from __future__ import annotations
 
-import json
 import logging
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set
+
+from ..response import normalize
+
+# Use Rust's high-performance JSON serialization (2-3x faster than json.dumps)
+try:
+    from ..._core import json_dumps
+except ImportError:
+    # Fallback to Python's json for development without compiled extension
+    import json
+
+    def json_dumps(obj: Any) -> str:  # type: ignore[misc]
+        """Fallback JSON serialization."""
+        return json.dumps(obj)
 
 if TYPE_CHECKING:
     pass
@@ -148,7 +160,8 @@ class WebViewApiMixin:
         Uses window.auroraview.trigger() for consistent event handling.
         """
         try:
-            json_str = json.dumps(payload)
+            # Use Rust's high-performance JSON serialization
+            json_str = json_dumps(payload)
         except Exception as exc:  # pragma: no cover
             logger.error("Failed to JSON-encode __auroraview_call_result payload: %s", exc)
             print(
@@ -181,6 +194,8 @@ class WebViewApiMixin:
         func: Optional[Callable[..., Any]] = None,
         *,
         allow_rebind: bool = True,
+        mcp: bool = True,
+        mcp_name: Optional[str] = None,
     ):
         """Bind a Python callable as an ``auroraview.call`` target.
 
@@ -191,6 +206,36 @@ class WebViewApiMixin:
         This helper unwraps the ``params`` payload, calls ``func`` and then
         emits a ``__auroraview_call_result`` event back to JavaScript so that
         the Promise returned by ``auroraview.call`` can resolve or reject.
+
+        **Auto-normalization**: Return values are automatically wrapped into
+        the standard response format ``{ok: bool, data: any, error?: string}``.
+        Developers can return values in any of these ways:
+
+        1. **Simple return** (recommended): Just return the data directly.
+           The framework wraps it as ``{ok: True, data: <return_value>}``::
+
+               @webview.bind_call("api.get_user")
+               def get_user(id: int):
+                   return {"name": "Alice", "id": id}  # Auto-wrapped
+
+        2. **Explicit response**: Return a dict with ``ok`` field for full control::
+
+               @webview.bind_call("api.delete_user")
+               def delete_user(id: int):
+                   if not user_exists(id):
+                       return {"ok": False, "error": "User not found"}
+                   delete(id)
+                   return {"ok": True, "data": {"deleted": id}}
+
+        3. **Using helpers**: Use ``ok()``/``err()`` for cleaner code::
+
+               from auroraview import ok, err
+
+               @webview.bind_call("api.create_user")
+               def create_user(name: str):
+                   if not name:
+                       return err("Name is required")
+                   return ok({"id": 123, "name": name})
 
         Usage::
 
@@ -210,11 +255,21 @@ class WebViewApiMixin:
             func: Python callable to bind
             allow_rebind: If True (default), allows rebinding an already bound method.
                          If False, skips binding if method is already bound.
+            mcp: If True (default), exposes this method as an MCP tool.
+                 If False, this method will NOT be exposed to MCP clients.
+            mcp_name: Optional custom name for MCP tool. If provided, this name
+                      will be used instead of the method name for MCP registration.
+                      Useful for providing more user-friendly tool names.
 
         Returns:
             The original function (for decorator usage)
 
         NOTE: Currently only synchronous callables are supported.
+
+        MCP Integration:
+            When auto_expose_api is enabled, methods with mcp=True are automatically
+            registered as MCP tools. Use mcp=False to hide internal methods, and
+            mcp_name to customize the tool name for AI assistants.
         """
         self._ensure_api_registry()
 
@@ -222,7 +277,7 @@ class WebViewApiMixin:
         if func is None:
 
             def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
-                self.bind_call(method, fn, allow_rebind=allow_rebind)
+                self.bind_call(method, fn, allow_rebind=allow_rebind, mcp=mcp, mcp_name=mcp_name)
                 return fn
 
             return decorator
@@ -239,6 +294,20 @@ class WebViewApiMixin:
 
             # Store the function reference
             self._bound_functions[method] = func
+
+            # Store MCP metadata
+            if not hasattr(self, "_mcp_metadata"):
+                self._mcp_metadata = {}
+            self._mcp_metadata[method] = {
+                "mcp": mcp,
+                "mcp_name": mcp_name,
+            }
+            logger.debug(
+                "MCP metadata for '%s': exposed=%s, custom_name=%s",
+                method,
+                mcp,
+                mcp_name,
+            )
 
         def _handler(raw: Dict[str, Any]) -> None:
             print(f"[AuroraView DEBUG] _handler invoked for method={method} with raw={raw}")
@@ -259,11 +328,26 @@ class WebViewApiMixin:
                     result = current_func(*params)
                 else:
                     result = current_func(params)
-                ok = True
-                error_info: Optional[Dict[str, Any]] = None
+
+                # Auto-normalize: wrap any return value into standard response format
+                # If result is already {ok, data/error}, pass through unchanged
+                # Otherwise wrap as {ok: True, data: result}
+                normalized = normalize(result)
+                call_ok = normalized.get("ok", True)
+                if call_ok:
+                    call_result = normalized.get("data")
+                    error_info = None
+                else:
+                    call_result = None
+                    # Extract error info from normalized response
+                    error_msg = normalized.get("error", "Unknown error")
+                    error_info = {"name": "Error", "message": error_msg}
+                    if "code" in normalized:
+                        error_info["code"] = normalized["code"]
+
             except Exception as exc:  # pragma: no cover
-                ok = False
-                result = None
+                call_ok = False
+                call_result = None
                 error_info = {
                     "name": exc.__class__.__name__,
                     "message": str(exc),
@@ -273,14 +357,14 @@ class WebViewApiMixin:
             if not call_id:
                 return
 
-            payload: Dict[str, Any] = {"id": call_id, "ok": ok}
-            if ok:
-                payload["result"] = result
+            payload: Dict[str, Any] = {"id": call_id, "ok": call_ok}
+            if call_ok:
+                payload["result"] = call_result
             else:
                 payload["error"] = error_info
 
             print(
-                f"[AuroraView DEBUG] bind_call sending result: method={method}, id={call_id}, ok={ok}"
+                f"[AuroraView DEBUG] bind_call sending result: method={method}, id={call_id}, ok={call_ok}"
             )
 
             try:
@@ -293,7 +377,8 @@ class WebViewApiMixin:
                     "[AuroraView DEBUG] WebView.emit for __auroraview_call_result raised; "
                     "falling back to eval_js"
                 )
-            self._emit_call_result_js(payload)
+                # Only use eval_js fallback if emit failed
+                self._emit_call_result_js(payload)
 
         # Register wrapper with core IPC handler
         self._core.on(method, _handler)
@@ -497,11 +582,23 @@ class WebViewApiMixin:
                     result = current_func(*params)
                 else:
                     result = current_func(params)
-                ok = True
-                error_info: Optional[Dict[str, Any]] = None
+
+                # Auto-normalize: wrap any return value into standard response format
+                normalized = normalize(result)
+                call_ok = normalized.get("ok", True)
+                if call_ok:
+                    call_result = normalized.get("data")
+                    error_info = None
+                else:
+                    call_result = None
+                    error_msg = normalized.get("error", "Unknown error")
+                    error_info = {"name": "Error", "message": error_msg}
+                    if "code" in normalized:
+                        error_info["code"] = normalized["code"]
+
             except Exception as exc:  # pragma: no cover
-                ok = False
-                result = None
+                call_ok = False
+                call_result = None
                 error_info = {
                     "name": exc.__class__.__name__,
                     "message": str(exc),
@@ -511,9 +608,9 @@ class WebViewApiMixin:
             if not call_id:
                 return
 
-            payload: Dict[str, Any] = {"id": call_id, "ok": ok}
-            if ok:
-                payload["result"] = result
+            payload: Dict[str, Any] = {"id": call_id, "ok": call_ok}
+            if call_ok:
+                payload["result"] = call_result
             else:
                 payload["error"] = error_info
 
@@ -523,7 +620,8 @@ class WebViewApiMixin:
                 logger.debug(
                     "WebView.emit for __auroraview_call_result raised; falling back to eval_js"
                 )
-            self._emit_call_result_js(payload)
+                # Only use eval_js fallback if emit failed
+                self._emit_call_result_js(payload)
 
         return _handler
 

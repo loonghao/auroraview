@@ -44,6 +44,10 @@ pub struct WebViewInner {
 
     /// Hints used to re-apply Win32 window styles right after showing the window.
     pub(crate) window_style_hints: Option<WindowStyleHints>,
+
+    /// IPC handler for Python callbacks (window events like closing, closed)
+    #[cfg(feature = "python-bindings")]
+    pub(crate) ipc_handler: Option<Arc<IpcHandler>>,
 }
 
 impl Drop for WebViewInner {
@@ -182,6 +186,10 @@ impl WebViewInner {
         use super::backend::native::NativeBackend;
         use super::backend::WebViewBackend;
 
+        // Clone ipc_handler for later use
+        #[cfg(feature = "python-bindings")]
+        let ipc_handler_for_inner = ipc_handler.clone();
+
         // Create backend using embedded mode
         let backend = NativeBackend::create_embedded(
             parent_hwnd,
@@ -226,6 +234,8 @@ impl WebViewInner {
             backend: Some(Box::new(backend)), // CRITICAL: Keep backend alive!
             cached_hwnd,
             window_style_hints,
+            #[cfg(feature = "python-bindings")]
+            ipc_handler: Some(ipc_handler_for_inner),
         })
     }
 
@@ -347,6 +357,17 @@ impl WebViewInner {
                                     WebViewMessage::Close => {
                                         // Close is handled at event loop level
                                         tracing::info!("[WebViewInner] Close message received");
+                                    }
+                                    #[cfg(feature = "python-bindings")]
+                                    WebViewMessage::PythonCallbackDeferred { .. } => {
+                                        // PythonCallbackDeferred is handled at event loop level
+                                        // WebViewInner doesn't have access to IpcHandler
+                                        tracing::debug!("[WebViewInner] PythonCallbackDeferred message (handled elsewhere)");
+                                    }
+                                    #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+                                    WebViewMessage::McpToolCall { .. } => {
+                                        // McpToolCall is handled by message_processor
+                                        tracing::debug!("[WebViewInner] McpToolCall message (handled by message_processor)");
                                     }
                                 }
                             });
@@ -533,6 +554,11 @@ impl WebViewInner {
         if let Ok(mut state_guard) = state.lock() {
             state_guard.set_webview(self.webview.clone());
             state_guard.set_window_style_hints(self.window_style_hints);
+            // Set IPC handler for Python callbacks (closing, closed events)
+            #[cfg(feature = "python-bindings")]
+            if let Some(ref handler) = self.ipc_handler {
+                state_guard.set_ipc_handler(handler.clone());
+            }
         }
 
         // Run the improved event loop

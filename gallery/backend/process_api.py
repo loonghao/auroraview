@@ -13,7 +13,7 @@ import os
 import sys
 from typing import TYPE_CHECKING
 
-from auroraview import json_dumps, json_loads
+from auroraview import json_dumps, json_loads, ok, err
 
 from .config import EXAMPLES_DIR
 from .samples import get_sample_by_id
@@ -36,19 +36,47 @@ def register_process_apis(view: WebView, plugins: PluginManager):
     api_refs = {}
 
     @view.bind_call("api.get_source")
-    def get_source(sample_id: str = "") -> str:
+    def get_source(sample_id: str = "") -> dict:
         """Get source code for a sample."""
         from .samples import get_source_code
 
         sample = get_sample_by_id(sample_id)
         if sample:
-            return get_source_code(sample["source_file"])
-        return f"# Sample not found: {sample_id}"
+            code = get_source_code(sample["source_file"])
+            return ok(code)
+        return err(f"Sample not found: {sample_id}")
+
+    @view.bind_call("api.get_mcp_info")
+    def get_mcp_info() -> dict:
+        """Return MCP endpoint info for IDE/agent configuration."""
+        config = getattr(view, "_mcp_config", None)
+        enabled = getattr(view, "_mcp_enabled", False)
+        port = getattr(view, "mcp_port", None)
+
+        if not enabled or not config:
+            return err("MCP is disabled in this session")
+
+        if not port:
+            return err("MCP server not started yet")
+
+        host = getattr(config, "host", "127.0.0.1")
+        name = getattr(config, "name", "auroraview-mcp")
+        mcp_url = f"http://{host}:{port}/mcp"
+
+        return ok({
+            "name": name,
+            "host": host,
+            "port": port,
+            "mcp_url": mcp_url,
+            "tools_url": f"http://{host}:{port}/tools",
+            "health_url": f"http://{host}:{port}/health",
+        })
 
     @view.bind_call("api.prepare_run_sample")
     def prepare_run_sample(
         sample_id: str = "", show_console: bool = False, use_channel: bool = False
     ) -> dict:
+
         """Prepare arguments for running a sample demo.
 
         Returns spawn arguments that JavaScript should use to call ProcessPlugin directly.
@@ -75,7 +103,7 @@ def register_process_apis(view: WebView, plugins: PluginManager):
         if not sample:
             error_msg = f"Sample not found: {sample_id}"
             print(f"[Python:prepare_run_sample] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
         sample_path = EXAMPLES_DIR / sample["source_file"]
         print(f"[Python:prepare_run_sample] sample_path={sample_path}", file=sys.stderr)
@@ -83,7 +111,7 @@ def register_process_apis(view: WebView, plugins: PluginManager):
         if not sample_path.exists():
             error_msg = f"File not found: {sample['source_file']} (full path: {sample_path})"
             print(f"[Python:prepare_run_sample] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
         # Get Python executable - in packed mode, prefer AURORAVIEW_PYTHON_EXE if set
         python_exe = os.environ.get("AURORAVIEW_PYTHON_EXE", sys.executable)
@@ -106,12 +134,11 @@ def register_process_apis(view: WebView, plugins: PluginManager):
         print(f"[Python:prepare_run_sample] Prepared spawn_args: {spawn_args}", file=sys.stderr)
         print(f"[Python:prepare_run_sample] IPC command: {ipc_command}", file=sys.stderr)
 
-        return {
-            "ok": True,
+        return ok({
             "spawn_args": spawn_args,
             "ipc_command": ipc_command,
             "title": sample["title"],
-        }
+        })
 
     @view.bind_call("api.run_sample")
     def run_sample(
@@ -144,7 +171,7 @@ def register_process_apis(view: WebView, plugins: PluginManager):
         if not sample:
             error_msg = f"Sample not found: {sample_id}"
             print(f"[Python:run_sample] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
         sample_path = EXAMPLES_DIR / sample["source_file"]
         print(f"[Python:run_sample] sample_path={sample_path}", file=sys.stderr)
@@ -152,7 +179,7 @@ def register_process_apis(view: WebView, plugins: PluginManager):
         if not sample_path.exists():
             error_msg = f"File not found: {sample['source_file']} (full path: {sample_path})"
             print(f"[Python:run_sample] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
         # Log Python executable being used
         # In packed mode, prefer AURORAVIEW_PYTHON_EXE if set
@@ -196,56 +223,55 @@ def register_process_apis(view: WebView, plugins: PluginManager):
                     f"[Python:run_sample] SUCCESS: Started with PID {pid}, mode={mode}",
                     file=sys.stderr,
                 )
-                response = {
-                    "ok": True,
+                data_response = {
                     "pid": pid,
                     "mode": mode,
                     "message": f"Started {sample['title']} (mode: {mode})",
                 }
                 if channel_name:
-                    response["channel"] = channel_name
-                return response
+                    data_response["channel"] = channel_name
+                return ok(data_response)
             else:
                 error_msg = result.get("error", "Unknown error from ProcessPlugin")
                 print(f"[Python:run_sample] ERROR from plugin: {error_msg}", file=sys.stderr)
-                return {"ok": False, "error": error_msg}
+                return err(error_msg)
         except Exception as e:
             error_msg = f"Exception while spawning: {e}"
             print(f"[Python:run_sample] EXCEPTION: {error_msg}", file=sys.stderr)
             import traceback
 
             traceback.print_exc(file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
     @view.bind_call("api.kill_process")
     def kill_process(pid: int = 0) -> dict:
         """Kill a running process by PID."""
         if not pid:
-            return {"ok": False, "error": "No PID provided"}
+            return err("No PID provided")
 
         args_json = json_dumps({"pid": pid})
         result_json = plugins.handle_command("plugin:process|kill", args_json)
         result = json_loads(result_json)
 
         if result.get("success"):
-            return {"ok": True}
+            return ok()
         else:
-            return {"ok": False, "error": result.get("error", "Unknown error")}
+            return err(result.get("error", "Unknown error"))
 
     @view.bind_call("api.send_to_process")
     def send_to_process(pid: int = 0, data: str = "") -> dict:
         """Send data to a process's stdin (pipe mode only)."""
         if not pid:
-            return {"ok": False, "error": "No PID provided"}
+            return err("No PID provided")
 
         args_json = json_dumps({"pid": pid, "data": data})
         result_json = plugins.handle_command("plugin:process|send", args_json)
         result = json_loads(result_json)
 
         if result.get("success"):
-            return {"ok": True}
+            return ok()
         else:
-            return {"ok": False, "error": result.get("error", "Unknown error")}
+            return err(result.get("error", "Unknown error"))
 
     @view.bind_call("api.send_json_to_process")
     def send_json_to_process(pid: int = 0, data: dict = None) -> dict:
@@ -259,7 +285,7 @@ def register_process_apis(view: WebView, plugins: PluginManager):
             data: JSON-serializable data to send
         """
         if not pid:
-            return {"ok": False, "error": "No PID provided"}
+            return err("No PID provided")
         if data is None:
             data = {}
 
@@ -268,9 +294,9 @@ def register_process_apis(view: WebView, plugins: PluginManager):
         result = json_loads(result_json)
 
         if result.get("success"):
-            return {"ok": True}
+            return ok()
         else:
-            return {"ok": False, "error": result.get("error", "Unknown error")}
+            return err(result.get("error", "Unknown error"))
 
     @view.bind_call("api.list_processes")
     def list_processes() -> dict:
@@ -280,9 +306,9 @@ def register_process_apis(view: WebView, plugins: PluginManager):
 
         if result.get("success"):
             data = result.get("data", {})
-            return {"ok": True, "processes": data.get("processes", [])}
+            return ok(data.get("processes", []))
         else:
-            return {"ok": False, "error": result.get("error", "Unknown error")}
+            return err(result.get("error", "Unknown error"))
 
     @view.bind_call("api.open_url")
     def open_url(url: str = "") -> dict:
@@ -292,7 +318,7 @@ def register_process_apis(view: WebView, plugins: PluginManager):
         if not url:
             error_msg = "No URL provided"
             print(f"[Python:open_url] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
         try:
             args_json = json_dumps({"path": url})
@@ -302,15 +328,15 @@ def register_process_apis(view: WebView, plugins: PluginManager):
 
             if result.get("success"):
                 print(f"[Python:open_url] SUCCESS: Opened {url}", file=sys.stderr)
-                return {"ok": True}
+                return ok()
             else:
                 error_msg = result.get("error", "Failed to open URL")
                 print(f"[Python:open_url] ERROR: {error_msg}", file=sys.stderr)
-                return {"ok": False, "error": error_msg}
+                return err(error_msg)
         except Exception as e:
             error_msg = f"Exception while opening URL: {e}"
             print(f"[Python:open_url] EXCEPTION: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
     # Store run_sample reference for extension bridge
     api_refs["run_sample"] = run_sample

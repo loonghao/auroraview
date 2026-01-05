@@ -27,6 +27,8 @@ pub mod batch;
 pub mod handler;
 pub mod js_callback;
 pub mod json;
+#[cfg(feature = "mcp-server")]
+pub mod mcp_dispatcher;
 pub mod message_queue;
 pub mod threaded;
 
@@ -55,6 +57,10 @@ pub use async_handler::{AsyncIpcConfig, AsyncIpcHandler, AsyncIpcMessage};
 
 // Re-export JS callback manager
 pub use js_callback::{JsCallbackManager, JsCallbackResult};
+
+// Re-export MCP dispatcher
+#[cfg(feature = "mcp-server")]
+pub use mcp_dispatcher::MessageQueueDispatcher;
 
 // Re-export JSON conversion functions
 #[cfg(feature = "python-bindings")]

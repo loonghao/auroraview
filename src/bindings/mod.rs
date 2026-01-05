@@ -12,6 +12,7 @@
 //! - `desktop_runner` - Desktop WebView runner (uses event_loop.run())
 //! - `assets` - Static assets (JavaScript, HTML) for testing
 //! - `webview2` - Windows WebView2 embedded API (feature-gated)
+//! - `mcp` - MCP (Model Context Protocol) Server bindings (feature-gated)
 
 pub mod assets;
 pub mod cli_utils;
@@ -26,3 +27,6 @@ pub mod window_manager;
 
 #[cfg(all(target_os = "windows", feature = "win-webview2"))]
 pub mod webview2;
+
+#[cfg(feature = "mcp-server")]
+pub mod mcp;

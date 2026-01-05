@@ -230,19 +230,19 @@ impl AuroraView {
     // === Lifecycle Methods ===
 
     /// Show WebView window (standalone mode or embedded mode)
-    fn show(&self) -> PyResult<()> {
+    fn show(&self, py: Python<'_>) -> PyResult<()> {
         use crate::webview::config::EmbedMode;
         let embed_mode = self.config.borrow().embed_mode;
 
         match embed_mode {
-            EmbedMode::None => self.show_window(),
+            EmbedMode::None => self.show_window(py),
             #[cfg(target_os = "windows")]
             EmbedMode::Child | EmbedMode::Owner => self.show_embedded(),
         }
     }
 
     /// Create WebView for standalone mode (creates its own window)
-    fn show_window(&self) -> PyResult<()> {
+    fn show_window(&self, _py: Python<'_>) -> PyResult<()> {
         let title = self.config.borrow().title.clone();
         tracing::info!("Showing WebView (standalone mode): {}", title);
 
@@ -278,11 +278,26 @@ impl AuroraView {
 
         drop(inner);
 
-        if let Some(webview_inner) = self.inner.borrow_mut().as_mut() {
+        // Run the event loop on the main thread.
+        //
+        // Note: We cannot use py.allow_threads() here because WebViewInner contains
+        // non-Send types (EventLoop, WebView) that cannot satisfy the Ungil bound.
+        // This is acceptable because:
+        // 1. The event loop MUST run on the main thread (platform requirement)
+        // 2. Python callbacks registered via IPC are executed through the deferred
+        //    callback mechanism, which processes them on the main thread during
+        //    event loop iterations (via PythonCallbackDeferred messages)
+        // 3. For background Python work, users should use threading or asyncio
+        //
+        // The event loop will periodically process messages, including deferred
+        // Python callbacks, allowing Python code to execute during the loop.
+        let mut webview_inner_opt = self.inner.borrow_mut().take();
+        if let Some(ref mut webview_inner) = webview_inner_opt {
             webview_inner.run_event_loop_blocking();
         }
+        // WebViewInner is dropped here, no need to restore it
+        drop(webview_inner_opt);
 
-        *self.inner.borrow_mut() = None;
         Ok(())
     }
 
@@ -716,5 +731,53 @@ impl AuroraView {
 
         tracing::info!("[AuroraView::reset] WebView state reset complete");
         Ok(())
+    }
+
+    /// Create an MCP Server with optional dispatcher for this WebView
+    ///
+    /// By default (direct_execution=true), tool handlers execute directly in the
+    /// tokio runtime thread using Python's GIL. This is simple and works for most cases.
+    ///
+    /// When direct_execution=false, tool calls are routed through the WebView's
+    /// message queue to execute on the main/event-loop thread. Only use this for
+    /// tools that need direct WebView UI interaction.
+    ///
+    /// Example:
+    ///     >>> server = webview.create_mcp_server(config)
+    ///     >>> server.register_tool("my_tool", handler)
+    ///     >>> port = server.start()
+    #[cfg(feature = "mcp-server")]
+    fn create_mcp_server(&self, config: Option<auroraview_mcp::PyMcpConfig>) -> PyResult<auroraview_mcp::PyMcpServer> {
+        use crate::ipc::mcp_dispatcher::MessageQueueDispatcher;
+
+        // Check if direct execution is enabled (default: true)
+        let direct_execution = config
+            .as_ref()
+            .map(|c| c.inner.direct_execution)
+            .unwrap_or(true);
+
+        tracing::info!(
+            "[AuroraView::create_mcp_server] Creating MCP server (direct_execution={})",
+            direct_execution
+        );
+
+        // Create the MCP server using the public Rust constructor
+        let server = auroraview_mcp::PyMcpServer::new_from_rust(config)?;
+
+        // Only set dispatcher if direct_execution is disabled
+        if !direct_execution {
+            let dispatcher = MessageQueueDispatcher::new(Arc::clone(&self.message_queue));
+            let shared_dispatcher: auroraview_mcp::SharedPythonDispatcher = Arc::new(dispatcher);
+            server.set_dispatcher(shared_dispatcher);
+            tracing::info!(
+                "[AuroraView::create_mcp_server] MCP server created with main-thread dispatcher"
+            );
+        } else {
+            tracing::info!(
+                "[AuroraView::create_mcp_server] MCP server created with direct execution mode"
+            );
+        }
+
+        Ok(server)
     }
 }

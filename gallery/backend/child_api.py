@@ -9,7 +9,9 @@ Signed-off-by: Hal Long <hal.long@outlook.com>
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from auroraview import ok, err
 
 from .child_manager import init_manager
 from .config import EXAMPLES_DIR
@@ -31,7 +33,7 @@ def register_child_apis(view: "WebView") -> Dict[str, Any]:
     # Initialize child manager
     manager = init_manager(view)
 
-    @view.bind_call("api.launch_example_as_child")
+    @view.bind_call("api.launch_example_as_child", mcp_name="launch_example")
     def launch_example_as_child(
         sample_id: str,
         *,
@@ -48,11 +50,11 @@ def register_child_apis(view: "WebView") -> Dict[str, Any]:
         """
         sample = get_sample_by_id(sample_id)
         if not sample:
-            return {"error": f"Sample not found: {sample_id}"}
+            return err(f"Sample not found: {sample_id}")
 
         example_path = EXAMPLES_DIR / sample["filename"]
         if not example_path.exists():
-            return {"error": f"Example file not found: {example_path}"}
+            return err(f"Example file not found: {example_path}")
 
         try:
             child_id = manager.launch_example(
@@ -60,15 +62,14 @@ def register_child_apis(view: "WebView") -> Dict[str, Any]:
                 sample["title"],
                 extra_env=extra_env,
             )
-            return {
-                "success": True,
+            return ok({
                 "child_id": child_id,
                 "example_name": sample["title"],
-            }
+            })
         except Exception as e:
-            return {"error": str(e)}
+            return err(str(e))
 
-    @view.bind_call("api.close_child")
+    @view.bind_call("api.close_child", mcp_name="close_window")
     def close_child(child_id: str) -> Dict:
         """Close a child window.
 
@@ -79,18 +80,21 @@ def register_child_apis(view: "WebView") -> Dict[str, Any]:
             Dict with status.
         """
         success = manager.close_child(child_id)
-        return {"success": success}
+        if success:
+            return ok()
+        return err("Failed to close child")
 
-    @view.bind_call("api.get_children")
-    def get_children() -> List[Dict]:
+    @view.bind_call("api.get_children", mcp_name="list_windows")
+    def get_children() -> Dict:
         """Get list of all child windows.
 
         Returns:
             List of child window info.
         """
-        return manager.get_children()
+        children = manager.get_children()
+        return ok(children)
 
-    @view.bind_call("api.send_to_child")
+    @view.bind_call("api.send_to_child", mcp_name="send_event")
     def send_to_child(child_id: str, event: str, data: Any = None) -> Dict:
         """Send an event to a child window.
 
@@ -103,9 +107,11 @@ def register_child_apis(view: "WebView") -> Dict[str, Any]:
             Dict with status.
         """
         success = manager.send_to_child(child_id, event, data)
-        return {"success": success}
+        if success:
+            return ok()
+        return err("Failed to send to child")
 
-    @view.bind_call("api.broadcast_to_children")
+    @view.bind_call("api.broadcast_to_children", mcp_name="broadcast_event")
     def broadcast_to_children(event: str, data: Any = None) -> Dict:
         """Broadcast an event to all children.
 
@@ -117,7 +123,7 @@ def register_child_apis(view: "WebView") -> Dict[str, Any]:
             Dict with count of children that received the event.
         """
         count = manager.broadcast_to_children(event, data)
-        return {"success": True, "count": count}
+        return ok({"count": count})
 
     print("[ChildAPI] Registered child window APIs", file=sys.stderr)
 

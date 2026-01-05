@@ -73,6 +73,32 @@ pub enum WebViewMessage {
 
     /// Close the WebView window
     Close,
+
+    /// Deferred Python callback execution on main thread
+    /// This is used to safely execute Python callbacks from IPC threads
+    #[cfg(feature = "python-bindings")]
+    PythonCallbackDeferred {
+        /// The callback ID (index in the callback registry)
+        callback_id: u64,
+        /// The event name for logging/debugging
+        event_name: String,
+        /// The JSON data to pass to the callback
+        data: serde_json::Value,
+    },
+
+    /// MCP tool call from sidecar thread
+    /// This is used to execute MCP tools on the main thread
+    #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+    McpToolCall {
+        /// Tool name to execute
+        tool_name: String,
+        /// Tool arguments as JSON
+        args: serde_json::Value,
+        /// Python handler to execute
+        handler: pyo3::Py<pyo3::PyAny>,
+        /// Response channel (wrapped in Arc<Mutex<Option>> because Sender is not Clone)
+        response_tx: std::sync::Arc<std::sync::Mutex<Option<tokio::sync::oneshot::Sender<Result<serde_json::Value, String>>>>>,
+    },
 }
 
 impl Clone for WebViewMessage {
@@ -100,6 +126,28 @@ impl Clone for WebViewMessage {
                 data: data.clone(),
             },
             Self::Close => Self::Close,
+            #[cfg(feature = "python-bindings")]
+            Self::PythonCallbackDeferred {
+                callback_id,
+                event_name,
+                data,
+            } => Self::PythonCallbackDeferred {
+                callback_id: *callback_id,
+                event_name: event_name.clone(),
+                data: data.clone(),
+            },
+            #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+            Self::McpToolCall {
+                tool_name,
+                args,
+                handler,
+                response_tx,
+            } => Self::McpToolCall {
+                tool_name: tool_name.clone(),
+                args: args.clone(),
+                handler: pyo3::Python::attach(|py| handler.clone_ref(py)),
+                response_tx: std::sync::Arc::clone(response_tx),
+            },
         }
     }
 }
@@ -132,6 +180,27 @@ impl std::fmt::Debug for WebViewMessage {
                 .field("data", data)
                 .finish(),
             Self::Close => f.debug_tuple("Close").finish(),
+            #[cfg(feature = "python-bindings")]
+            Self::PythonCallbackDeferred {
+                callback_id,
+                event_name,
+                data,
+            } => f
+                .debug_struct("PythonCallbackDeferred")
+                .field("callback_id", callback_id)
+                .field("event_name", event_name)
+                .field("data", data)
+                .finish(),
+            #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+            Self::McpToolCall {
+                tool_name,
+                args,
+                ..
+            } => f
+                .debug_struct("McpToolCall")
+                .field("tool_name", tool_name)
+                .field("args", args)
+                .finish(),
         }
     }
 }
@@ -370,6 +439,10 @@ impl MessageQueue {
             WebViewMessage::StopLoading => "StopLoading",
             WebViewMessage::WindowEvent { event_type, .. } => event_type.as_str(),
             WebViewMessage::Close => "Close",
+            #[cfg(feature = "python-bindings")]
+            WebViewMessage::PythonCallbackDeferred { event_name, .. } => event_name,
+            #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+            WebViewMessage::McpToolCall { tool_name, .. } => tool_name,
         };
 
         if matches!(&message, WebViewMessage::Close) {

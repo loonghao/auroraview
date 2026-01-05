@@ -14,6 +14,88 @@ use crate::webview::js_assets;
 use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
 
+/// Execute an MCP tool call on the main thread
+///
+/// This function is called from various message processing locations to handle
+/// MCP tool calls. It executes the Python handler and sends the result back
+/// through the response channel.
+#[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+pub fn execute_mcp_tool(
+    tool_name: &str,
+    args: serde_json::Value,
+    handler: pyo3::Py<pyo3::types::PyAny>,
+    response_tx: std::sync::Arc<
+        std::sync::Mutex<
+            Option<tokio::sync::oneshot::Sender<Result<serde_json::Value, String>>>,
+        >,
+    >,
+    context: &str,
+) {
+    tracing::info!(
+        "[{}] Executing MCP tool: {} with args: {}",
+        context,
+        tool_name,
+        args
+    );
+
+    let result = pyo3::Python::attach(|py| {
+        // Check if args is empty - if so, call without arguments
+        let call_result = match &args {
+            serde_json::Value::Object(map) if map.is_empty() => {
+                // No arguments - call function without parameters
+                handler.call0(py)
+            }
+            serde_json::Value::Null => {
+                // Null args - call function without parameters
+                handler.call0(py)
+            }
+            _ => {
+                // Has arguments - convert and pass as kwargs
+                let py_args = match pythonize::pythonize(py, &args) {
+                    Ok(obj) => obj,
+                    Err(e) => {
+                        return Err(format!("Failed to convert args to Python: {}", e));
+                    }
+                };
+                // Use call with kwargs - Python functions expect keyword arguments
+                let kwargs_dict = match py_args.downcast_bound::<pyo3::types::PyDict>(py) {
+                    Ok(dict) => dict,
+                    Err(_) => {
+                        return Err("Arguments must be a JSON object".to_string());
+                    }
+                };
+                handler.call_bound(py, (), Some(kwargs_dict))
+            }
+        };
+
+        // Handle the result
+        match call_result {
+            Ok(result) => {
+                // Convert result back to JSON
+                match pythonize::depythonize::<serde_json::Value>(result.bind(py)) {
+                    Ok(json) => Ok(json),
+                    Err(e) => Err(format!("Failed to convert result to JSON: {}", e)),
+                }
+            }
+            Err(e) => Err(format!("Python handler error: {}", e)),
+        }
+    });
+
+    // Send the result back through the response channel
+    if let Ok(mut guard) = response_tx.lock() {
+        if let Some(tx) = guard.take() {
+            if let Err(e) = tx.send(result) {
+                tracing::error!(
+                    "[{}] Failed to send MCP tool result for {}: {:?}",
+                    context,
+                    tool_name,
+                    e
+                );
+            }
+        }
+    }
+}
+
 /// Process a single WebView message
 ///
 /// This is the unified message handler used by both `process_events()` and
@@ -111,6 +193,25 @@ pub fn process_message(webview: &WryWebView, message: WebViewMessage, context: &
                 "[{}] Close message received (handled at event loop level)",
                 context
             );
+        }
+        #[cfg(feature = "python-bindings")]
+        WebViewMessage::PythonCallbackDeferred { .. } => {
+            // PythonCallbackDeferred is handled at event loop level, not in message processing
+            // This is because it needs access to the IpcHandler which is not available here
+            tracing::debug!(
+                "[{}] PythonCallbackDeferred message received (handled at event loop level)",
+                context
+            );
+        }
+        #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+        WebViewMessage::McpToolCall {
+            tool_name,
+            args,
+            handler,
+            response_tx,
+        } => {
+            // Use the dedicated function to execute MCP tool
+            execute_mcp_tool(&tool_name, args, handler, response_tx, context);
         }
     }
 }

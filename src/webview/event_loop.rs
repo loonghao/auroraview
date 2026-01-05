@@ -460,6 +460,10 @@ impl WebViewEventHandler {
                                     WebViewMessage::StopLoading => "StopLoading",
                                     WebViewMessage::WindowEvent { event_type, .. } => event_type.as_str(),
                                     WebViewMessage::Close => "Close",
+                                    #[cfg(feature = "python-bindings")]
+                                    WebViewMessage::PythonCallbackDeferred { event_name, .. } => event_name.as_str(),
+                                    #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+                                    WebViewMessage::McpToolCall { tool_name, .. } => tool_name.as_str(),
                                 }
                             );
 
@@ -537,6 +541,15 @@ impl WebViewEventHandler {
                                         WebViewMessage::Close => {
                                             // Close is handled above, this branch should not be reached
                                         }
+                                        #[cfg(feature = "python-bindings")]
+                                        WebViewMessage::PythonCallbackDeferred { .. } => {
+                                            // Handled outside the WebView lock below
+                                        }
+                                        #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+                                        WebViewMessage::McpToolCall { .. } => {
+                                            // MCP tool calls are handled outside the WebView lock below
+                                            // This prevents deadlocks when Python handlers need to interact with WebView
+                                        }
                                     }
                                 } else {
                                     tracing::error!("[EventLoop] Failed to lock WebView");
@@ -551,6 +564,53 @@ impl WebViewEventHandler {
                                     tracing::debug!("[EventLoop] Setting window visibility: {}", visible);
                                     window.set_visible(*visible);
                                 }
+                            }
+
+                            // Handle PythonCallbackDeferred outside the WebView lock (it doesn't need WebView)
+                            #[cfg(feature = "python-bindings")]
+                            if let WebViewMessage::PythonCallbackDeferred { callback_id, event_name, data } = &message {
+                                if let Some(ref handler) = state_guard.ipc_handler {
+                                    tracing::debug!(
+                                        "[EventLoop] Executing deferred Python callback {} for event: {}",
+                                        callback_id,
+                                        event_name
+                                    );
+                                    if let Err(e) = handler.execute_deferred_callback(*callback_id, event_name, data.clone()) {
+                                        tracing::error!(
+                                            "[EventLoop] Failed to execute deferred callback {}: {}",
+                                            callback_id,
+                                            e
+                                        );
+                                    }
+                                } else {
+                                    tracing::warn!(
+                                        "[EventLoop] No IPC handler available for deferred callback {}",
+                                        callback_id
+                                    );
+                                }
+                            }
+
+                            // Handle McpToolCall outside the WebView lock to prevent deadlocks
+                            // Python handlers may need to emit events or interact with WebView
+                            #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+                            if let WebViewMessage::McpToolCall {
+                                tool_name,
+                                args,
+                                handler,
+                                response_tx,
+                            } = &message
+                            {
+                                tracing::info!(
+                                    "[EventLoop:UserEvent] Executing MCP tool: {}",
+                                    tool_name
+                                );
+                                crate::webview::message_processor::execute_mcp_tool(
+                                    tool_name,
+                                    args.clone(),
+                                    pyo3::Python::attach(|py| handler.clone_ref(py)),
+                                    std::sync::Arc::clone(response_tx),
+                                    "EventLoop:UserEvent",
+                                );
                             }
                         });
 
@@ -774,6 +834,15 @@ impl WebViewEventHandler {
                                         WebViewMessage::Close => {
                                             // Close is handled above, this branch should not be reached
                                         }
+                                        #[cfg(feature = "python-bindings")]
+                                        WebViewMessage::PythonCallbackDeferred { .. } => {
+                                            // Handled outside the WebView lock below
+                                        }
+                                        #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+                                        WebViewMessage::McpToolCall { .. } => {
+                                            // MCP tool calls are handled outside the WebView lock below
+                                            // This prevents deadlocks when Python handlers need to interact with WebView
+                                        }
                                     }
                                 }
 
@@ -783,6 +852,48 @@ impl WebViewEventHandler {
                                         tracing::info!("[EventLoop] Setting window visibility: {}", visible);
                                         window.set_visible(*visible);
                                     }
+                                }
+
+                                // Handle PythonCallbackDeferred outside the WebView lock (it doesn't need WebView)
+                                #[cfg(feature = "python-bindings")]
+                                if let WebViewMessage::PythonCallbackDeferred { callback_id, event_name, data } = &message {
+                                    if let Some(ref handler) = state_guard.ipc_handler {
+                                        tracing::debug!(
+                                            "[EventLoop] Executing deferred Python callback {} for event: {}",
+                                            callback_id,
+                                            event_name
+                                        );
+                                        if let Err(e) = handler.execute_deferred_callback(*callback_id, event_name, data.clone()) {
+                                            tracing::error!(
+                                                "[EventLoop] Failed to execute deferred callback {}: {}",
+                                                callback_id,
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
+
+                                // Handle McpToolCall outside the WebView lock to prevent deadlocks
+                                // Python handlers may need to emit events or interact with WebView
+                                #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+                                if let WebViewMessage::McpToolCall {
+                                    tool_name,
+                                    args,
+                                    handler,
+                                    response_tx,
+                                } = &message
+                                {
+                                    tracing::info!(
+                                        "[EventLoop:MainEventsCleared] Executing MCP tool: {}",
+                                        tool_name
+                                    );
+                                    crate::webview::message_processor::execute_mcp_tool(
+                                        tool_name,
+                                        args.clone(),
+                                        pyo3::Python::attach(|py| handler.clone_ref(py)),
+                                        std::sync::Arc::clone(response_tx),
+                                        "EventLoop:MainEventsCleared",
+                                    );
                                 }
                             }
                         });
@@ -932,6 +1043,26 @@ impl WebViewEventHandler {
                                         WebViewMessage::Close => {
                                             // Close is handled above, this branch should not be reached
                                         }
+                                        #[cfg(feature = "python-bindings")]
+                                        WebViewMessage::PythonCallbackDeferred { .. } => {
+                                            // Handled outside the WebView lock below
+                                        }
+                                        #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+                                        WebViewMessage::McpToolCall {
+                                            ref tool_name,
+                                            ref args,
+                                            ref handler,
+                                            ref response_tx,
+                                        } => {
+                                            // Execute MCP tool on main thread
+                                            crate::webview::message_processor::execute_mcp_tool(
+                                                tool_name,
+                                                args.clone(),
+                                                pyo3::Python::attach(|py| handler.clone_ref(py)),
+                                                std::sync::Arc::clone(response_tx),
+                                                "EventLoop:poll_events_once",
+                                            );
+                                        }
                                     }
                                 }
                             }
@@ -941,6 +1072,25 @@ impl WebViewEventHandler {
                                 if let Some(ref window) = state_guard.window {
                                     tracing::info!("[EventLoop] Setting window visibility: {}", visible);
                                     window.set_visible(*visible);
+                                }
+                            }
+
+                            // Handle PythonCallbackDeferred outside the WebView lock (it doesn't need WebView)
+                            #[cfg(feature = "python-bindings")]
+                            if let WebViewMessage::PythonCallbackDeferred { callback_id, event_name, data } = &message {
+                                if let Some(ref handler) = state_guard.ipc_handler {
+                                    tracing::debug!(
+                                        "[EventLoop] Executing deferred Python callback {} for event: {}",
+                                        callback_id,
+                                        event_name
+                                    );
+                                    if let Err(e) = handler.execute_deferred_callback(*callback_id, event_name, data.clone()) {
+                                        tracing::error!(
+                                            "[EventLoop] Failed to execute deferred callback {}: {}",
+                                            callback_id,
+                                            e
+                                        );
+                                    }
                                 }
                             }
                         });

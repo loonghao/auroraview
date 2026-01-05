@@ -89,6 +89,10 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]
     bindings::webview2::register_webview2_api(m)?;
 
+    // Register MCP Server module (feature-gated)
+    #[cfg(feature = "mcp-server")]
+    bindings::mcp::register_mcp_functions(m)?;
+
     // Add module metadata
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("__author__", "Hal Long <hal.long@outlook.com>")?;

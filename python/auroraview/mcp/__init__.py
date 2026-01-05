@@ -21,6 +21,7 @@ from importlib import import_module
 try:
     # Modular build: _mcp.pyd in auroraview/mcp/
     from ._mcp import McpConfig, McpServer
+
     _USE_RUST_MCP = True
 except ImportError:
     try:
@@ -42,9 +43,11 @@ def __getattr__(name: str):
     """Lazy import for default_tools to avoid circular imports."""
     if name == "register_default_tools":
         from .default_tools import register_default_tools
+
         return register_default_tools
     if name == "setup_log_capture":
         from .default_tools import setup_log_capture
+
         return setup_log_capture
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -56,4 +59,3 @@ __all__ = [
     "setup_log_capture",
     "_USE_RUST_MCP",
 ]
-

@@ -22,8 +22,10 @@
 //! └─────────────────────────────────────────────────────────────┘
 //! ```
 
+mod mcp_dispatcher;
 mod message;
 mod metrics;
 
+pub use mcp_dispatcher::{McpToolDispatcher, McpToolFuture, McpToolResult, NoOpDispatcher, SharedDispatcher};
 pub use message::{IpcMessage, IpcMode};
 pub use metrics::{IpcMetrics, IpcMetricsSnapshot};
