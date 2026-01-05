@@ -35,7 +35,7 @@ from typing import Any, Callable, Dict, Optional
 
 # Use Rust-powered JSON for better performance
 try:
-    from auroraview._core import json_dumps, json_loads
+    from ._core import json_dumps, json_loads
 except ImportError:
     # Fallback to Python json if Rust core not available
     import json

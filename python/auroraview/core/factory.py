@@ -253,7 +253,7 @@ class WebViewFactory:
         Returns:
             WebView: A configured WebView instance ready to use
         """
-        from auroraview._core import WebView as _CoreWebView
+        from ._core import WebView as _CoreWebView
 
         logger.info(f"[create_embedded] Creating WebView for parent HWND: {parent_hwnd}")
 

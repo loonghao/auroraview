@@ -93,117 +93,10 @@ Note: Direct use of ``WebView`` is not recommended for most use cases.
 Use ``QtWebView`` for Qt-based DCC apps or ``AuroraView`` for HWND-based apps.
 """
 
-_CORE_IMPORT_ERROR = None
-
-# Add DLL search paths for Windows (required for DCC applications like Substance Painter)
-# This must be done BEFORE importing _core to ensure all required DLLs can be found.
-#
-# Background: Windows DLL search behavior changed in Python 3.8+
-# - PATH environment variable is no longer sufficient for DLL discovery
-# - Must explicitly call os.add_dll_directory() for each DLL search path
-#
-# Required DLLs:
-# - python3.dll: Located in sys.prefix (e.g., DCC's pythonsdk directory)
-# - WebView2Loader.dll: Located in auroraview package directory
+# Note: Rust bindings (_core.pyd) are now in auroraview.core module
+# DLL search paths are set up in core/__init__.py before importing _core
 import os as _os
 import sys as _sys
-from pathlib import Path as _Path
-
-if _sys.platform == "win32" and hasattr(_os, "add_dll_directory"):
-    # List of directories to add for DLL search
-    _dll_dirs = [
-        _Path(__file__).parent,  # auroraview package dir (for WebView2Loader.dll)
-        _Path(_sys.prefix),  # Python install dir (for python3.dll in DCC apps)
-    ]
-
-    for _dll_dir in _dll_dirs:
-        if _dll_dir.exists():
-            try:
-                _os.add_dll_directory(str(_dll_dir))
-            except OSError:
-                pass  # Directory may already be added or not a valid DLL directory
-
-try:
-    from ._core import (
-        # High-performance DOM batch operations (Rust-powered)
-        DomBatch,
-        # Window utilities
-        WindowInfo,
-        __author__,
-        __version__,
-        close_window_by_hwnd,
-        destroy_window_by_hwnd,
-        find_window_by_exact_title,
-        find_windows_by_title,
-        get_all_windows,
-        get_foreground_window,
-        fix_webview2_child_windows,  # Qt6 compatibility
-        # CLI utilities
-        normalize_url,
-        rewrite_html_for_custom_protocol,
-        # Desktop runner (new name)
-        run_desktop,
-        # Standalone runner (legacy alias)
-        run_standalone,
-        # WebView2 warmup (Windows performance optimization)
-        start_warmup,
-        warmup_sync,
-        is_warmup_complete,
-        get_warmup_progress,
-        get_warmup_stage,
-        get_warmup_status,
-        get_shared_user_data_folder,
-        # Plugin system for native desktop operations
-        PluginManager,
-        # Thread-safe event emitter for cross-thread operations
-        EventEmitter,
-        # High-performance JSON functions (orjson-equivalent, no Python deps)
-        json_loads,
-        json_dumps,
-        json_dumps_bytes,
-    )
-except ImportError as e:
-    # Capture the import error for diagnostics
-    _CORE_IMPORT_ERROR = str(e)
-    # Fallback for development without compiled extension
-    __version__ = "0.1.0.dev"
-    __author__ = "Hal Long <hal.long@outlook.com>"
-
-    # Placeholder for window utilities
-    WindowInfo = None  # type: ignore
-    get_foreground_window = None  # type: ignore
-    find_windows_by_title = None  # type: ignore
-    find_window_by_exact_title = None  # type: ignore
-    get_all_windows = None  # type: ignore
-    close_window_by_hwnd = None  # type: ignore
-    destroy_window_by_hwnd = None  # type: ignore
-    fix_webview2_child_windows = None  # type: ignore
-
-    # Placeholder for CLI utilities
-    normalize_url = None  # type: ignore
-    rewrite_html_for_custom_protocol = None  # type: ignore
-    run_desktop = None  # type: ignore
-    run_standalone = None  # type: ignore
-
-    # Placeholder for DOM batch
-    DomBatch = None  # type: ignore
-
-    # Placeholder for warmup functions
-    start_warmup = None  # type: ignore
-    warmup_sync = None  # type: ignore
-    is_warmup_complete = None  # type: ignore
-    get_warmup_progress = None  # type: ignore
-    get_warmup_stage = None  # type: ignore
-    get_warmup_status = None  # type: ignore
-    get_shared_user_data_folder = None  # type: ignore
-
-    # Placeholder for plugin system
-    PluginManager = None  # type: ignore
-
-    # Placeholder for JSON functions
-    json_loads = None  # type: ignore
-    json_dumps = None  # type: ignore
-    json_dumps_bytes = None  # type: ignore
 
 
 def diagnose_core_library() -> dict:
@@ -219,23 +112,28 @@ def diagnose_core_library() -> dict:
     import sys
     from pathlib import Path
 
+    # Import _CORE_IMPORT_ERROR from core module
+    from .core import _CORE_IMPORT_ERROR as core_import_error
+
     result = {
         "python_version": sys.version,
         "python_executable": sys.executable,
         "platform": sys.platform,
-        "core_import_error": _CORE_IMPORT_ERROR,
-        "core_loaded": _CORE_IMPORT_ERROR is None,
+        "core_import_error": core_import_error,
+        "core_loaded": core_import_error is None,
     }
 
-    # Check for _core.pyd location
+    # Check for _core.pyd location (now in core/ subdirectory)
     try:
         import auroraview
 
         pkg_dir = Path(auroraview.__file__).parent
-        pyd_path = pkg_dir / "_core.pyd"
-        so_path = pkg_dir / "_core.so"
+        core_dir = pkg_dir / "core"
+        pyd_path = core_dir / "_core.pyd"
+        so_path = core_dir / "_core.so"
 
         result["package_dir"] = str(pkg_dir)
+        result["core_dir"] = str(core_dir)
         result["pyd_exists"] = pyd_path.exists()
         result["so_exists"] = so_path.exists()
 
@@ -254,8 +152,39 @@ def diagnose_core_library() -> dict:
     return result
 
 
-# Import from submodules
+# Import from core submodule (includes Rust bindings from _core.pyd)
 from .core import (
+    # Metadata (from _core.pyd)
+    __version__,
+    __author__,
+    _CORE_IMPORT_ERROR,
+    # Rust bindings (from _core.pyd)
+    DomBatch,
+    WindowInfo,
+    close_window_by_hwnd,
+    destroy_window_by_hwnd,
+    find_window_by_exact_title,
+    find_windows_by_title,
+    get_all_windows,
+    get_foreground_window,
+    fix_webview2_child_windows,
+    normalize_url,
+    rewrite_html_for_custom_protocol,
+    run_desktop,
+    run_standalone,
+    start_warmup,
+    warmup_sync,
+    is_warmup_complete,
+    get_warmup_progress,
+    get_warmup_stage,
+    get_warmup_status,
+    get_shared_user_data_folder,
+    PluginManager,
+    RustEventEmitter,
+    json_loads,
+    json_dumps,
+    json_dumps_bytes,
+    # Python implementations
     DEFAULT_SETTINGS,
     BackendType,
     ConnectionGuard,
@@ -278,6 +207,16 @@ from .core import (
     get_default_backend,
     is_backend_available,
     set_backend_type,
+    # Response utilities
+    ApiResponse,
+    Response,
+    err,
+    failure,
+    is_response,
+    normalize,
+    ok,
+    success,
+    wrap_response,
 )
 
 # Note: WebView is exported for backward compatibility, but for new code:
@@ -315,14 +254,14 @@ from .child import (
 # Service Discovery (optional - requires Rust core)
 _SERVICE_DISCOVERY_IMPORT_ERROR = None
 try:
-    from ._core import ServiceDiscovery, ServiceInfo
+    from .core._core import ServiceDiscovery, ServiceInfo
 except ImportError as e:
     _SERVICE_DISCOVERY_IMPORT_ERROR = str(e)
 
     class ServiceDiscovery:  # type: ignore
         """ServiceDiscovery placeholder - Rust core not available."""
 
-        def __init__(self, *_args, **_kwargs):
+        def __init__(self, *args, **kwargs):  # noqa: ARG002
             raise ImportError(
                 "ServiceDiscovery requires Rust core module. "
                 "Rebuild the package with: pip install -e .\n"
@@ -335,6 +274,42 @@ except ImportError as e:
         pass
 
 
+# MCP Server support (modular - can be from mcp._mcp.pyd or core._core.pyd with mcp-server feature)
+# Priority: 1. Standalone _mcp module in mcp subpackage, 2. core._core with mcp-server feature
+_MCP_IMPORT_ERROR = None
+try:
+    # Try standalone _mcp module first (modular build in mcp subpackage)
+    from .mcp._mcp import McpConfig, McpServer
+except ImportError:
+    try:
+        # Fallback to core._core with mcp-server feature (monolithic build)
+        from .core._core import McpConfig, McpServer
+    except ImportError as e:
+        _MCP_IMPORT_ERROR = str(e)
+
+        class McpConfig:  # type: ignore
+            """McpConfig placeholder - Rust MCP module not available."""
+
+            def __init__(self, *args, **kwargs):  # noqa: ARG002
+                raise ImportError(
+                    "McpConfig requires either:\n"
+                    "  1. Standalone _mcp module: just rebuild-mcp\n"
+                    "  2. Core with MCP feature: just rebuild-pylib-with-mcp\n"
+                    f"Original error: {_MCP_IMPORT_ERROR}"
+                )
+
+        class McpServer:  # type: ignore
+            """McpServer placeholder - Rust MCP module not available."""
+
+            def __init__(self, *args, **kwargs):  # noqa: ARG002
+                raise ImportError(
+                    "McpServer requires either:\n"
+                    "  1. Standalone _mcp module: just rebuild-mcp\n"
+                    "  2. Core with MCP feature: just rebuild-pylib-with-mcp\n"
+                    f"Original error: {_MCP_IMPORT_ERROR}"
+                )
+
+
 # Qt availability flag for tests
 _QT_IMPORT_ERROR = None
 try:
@@ -345,8 +320,11 @@ except ImportError as e:
     _HAS_QT = False
     _QT_IMPORT_ERROR = str(e)
 
-# Import submodules for backward-compatibility aliases
-from . import core, integration, ui, utils
+# Import submodules for backward-compatibility aliases and organized access
+from . import core  # auroraview.core - WebView, Backend, Settings, Cookies
+from . import integration  # auroraview.integration - AuroraView, Bridge, Qt
+from . import ui  # auroraview.ui - DOM, Menu
+from . import utils  # auroraview.utils - EventTimer, FileProtocol, Automation
 
 # Backward-compatibility aliases for old import paths
 # These allow: from auroraview.webview import WebView
@@ -376,13 +354,6 @@ def on_event(event_name: str):
         return func
 
     return decorator
-
-
-# Submodule imports for organized access
-from . import core  # auroraview.core - WebView, Backend, Settings, Cookies
-from . import integration  # auroraview.integration - AuroraView, Bridge, Qt
-from . import ui  # auroraview.ui - DOM, Menu
-from . import utils  # auroraview.utils - EventTimer, FileProtocol, Automation
 
 __all__ = [
     # ============================================================
@@ -439,6 +410,16 @@ __all__ = [
     "ConnectionId",
     "ConnectionGuard",
     "WebViewSignals",
+    # Response utilities
+    "Response",
+    "ApiResponse",
+    "ok",
+    "err",
+    "success",
+    "failure",
+    "is_response",
+    "normalize",
+    "wrap_response",
     # ============================================================
     # UI (auroraview.ui)
     # ============================================================
@@ -457,6 +438,11 @@ __all__ = [
     # ============================================================
     "ServiceDiscovery",
     "ServiceInfo",
+    # ============================================================
+    # MCP Server (Rust-powered AI assistant integration)
+    # ============================================================
+    "McpConfig",
+    "McpServer",
     # ============================================================
     # Utils (auroraview.utils)
     # ============================================================
@@ -513,6 +499,10 @@ __all__ = [
     # Plugin system
     # ============================================================
     "PluginManager",
+    # ============================================================
+    # Rust EventEmitter (thread-safe, cross-thread operations)
+    # ============================================================
+    "RustEventEmitter",
     # ============================================================
     # Child window support
     # ============================================================

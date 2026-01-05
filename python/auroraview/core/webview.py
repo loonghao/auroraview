@@ -24,6 +24,8 @@ from auroraview.core.mixins import (
 )
 
 if TYPE_CHECKING:
+    from auroraview.mcp import McpConfig
+
     from .bridge import Bridge
     from .channel import Channel, ChannelManager
     from .commands import CommandRegistry
@@ -31,7 +33,7 @@ if TYPE_CHECKING:
 
 _CORE_IMPORT_ERROR = None
 try:
-    from auroraview._core import WebView as _CoreWebView
+    from ._core import WebView as _CoreWebView
 except ImportError as e:
     _CoreWebView = None
     _CORE_IMPORT_ERROR = str(e)
@@ -117,6 +119,10 @@ class WebView(
         allow_new_window: bool = False,
         new_window_mode: Optional[str] = None,
         remote_debugging_port: Optional[int] = None,
+        # MCP Server integration
+        mcp: Union[bool, Dict[str, Any], "McpConfig", None] = None,  # type: ignore
+        mcp_port: Optional[int] = None,
+        mcp_name: Optional[str] = None,
         # Aliases for more intuitive API
         parent_hwnd: Optional[int] = None,
         embed_mode: Optional[str] = None,
@@ -223,6 +229,28 @@ class WebView(
                          Window stays above owner in Z-order, hidden when owner minimizes.
 
                        See: https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features
+
+                   mcp: Enable embedded MCP Server for AI assistant integration (Rust-only).
+                       - None/False: Disabled (default)
+                       - True: Enable with default settings
+                       - dict: Enable with custom configuration (fields of `McpConfig`)
+                       - McpConfig: Use provided config instance
+
+                       When enabled, starts an SSE-based MCP server that exposes all
+                       ``bind_call()`` registered methods as MCP tools, allowing AI
+
+                       assistants to interact with and control the application.
+
+                       Example::
+
+                           # Enable MCP with defaults
+                           webview = WebView(title="My Tool", mcp=True)
+
+                           # Enable with custom port
+                           webview = WebView(title="My Tool", mcp={"port": 8765})
+
+                   mcp_port: Shortcut for MCP server port (equivalent to mcp={"port": N}).
+                   mcp_name: Shortcut for MCP server name (equivalent to mcp={"name": "..."}).
         """
         if _CoreWebView is None:
             import sys
@@ -233,19 +261,17 @@ class WebView(
                 f"Python version: {sys.version}",
                 f"Platform: {sys.platform}",
             ]
-            # Check if _core.pyd exists in expected locations
+            # Check if _core.pyd exists in expected locations (now in core/ subdirectory)
             try:
-                import auroraview
-
-                pkg_dir = Path(auroraview.__file__).parent
-                pyd_path = pkg_dir / "_core.pyd"
-                so_path = pkg_dir / "_core.so"
+                core_dir = Path(__file__).parent
+                pyd_path = core_dir / "_core.pyd"
+                so_path = core_dir / "_core.so"
                 if pyd_path.exists():
                     error_details.append(f"Found: {pyd_path}")
                 elif so_path.exists():
                     error_details.append(f"Found: {so_path}")
                 else:
-                    error_details.append(f"_core.pyd not found in: {pkg_dir}")
+                    error_details.append(f"_core.pyd not found in: {core_dir}")
             except Exception:
                 pass
             raise RuntimeError("\n".join(error_details))
@@ -374,7 +400,53 @@ class WebView(
         # Plugin manager for handling plugin:* invoke commands
         self._plugin_manager: Optional[Any] = None
 
+        # MCP Server integration (lazy initialization)
+        self._mcp_server: Optional[Any] = None
+        self._mcp_config: Optional[Any] = None
+        self._mcp_enabled: bool = False
+
+        # Process MCP configuration (Rust-only)
+        if mcp is not None or mcp_port is not None or mcp_name is not None:
+            from auroraview.mcp import McpConfig
+
+            # Build config from parameters
+            if isinstance(mcp, McpConfig):
+                config = mcp
+            else:
+                config = McpConfig()
+                if isinstance(mcp, dict):
+                    for key, value in mcp.items():
+                        if hasattr(config, key):
+                            setattr(config, key, value)
+                if mcp_port is not None:
+                    config.port = mcp_port
+                if mcp_name is not None:
+                    config.name = mcp_name
+
+            self._mcp_config = config
+            self._mcp_enabled = True
+            logger.info("MCP Server enabled (will start on show())")
+
     @property
+    def mcp_server(self) -> Optional[Any]:
+        """Get the embedded MCP Server instance (None if not enabled).
+
+        Returns:
+            EmbeddedMCPServer instance or None
+        """
+        return self._mcp_server
+
+    @property
+    def mcp_port(self) -> Optional[int]:
+        """Get the MCP Server port (None if not running).
+
+        Returns:
+            Port number or None
+        """
+        if self._mcp_server:
+            return self._mcp_server.port
+        return None
+
     def state(self) -> "State":
         """Get the shared state container for Python ↔ JavaScript sync.
 
@@ -763,7 +835,7 @@ class WebView(
             >>> timer.timeout.connect(webview.process_events_ipc_only)
             >>> timer.start(16)  # 60 FPS
         """
-        from auroraview._core import WebView as _CoreWebView
+        from ._core import WebView as _CoreWebView
 
         logger.info(f"[create_embedded] Creating WebView for parent HWND: {parent_hwnd}")
 
@@ -906,6 +978,10 @@ class WebView(
             logger.info("Starting Bridge in background...")
             self._bridge.start_background()
 
+        # Start MCP Server if enabled
+        if self._mcp_config and self._mcp_enabled and not self._mcp_server:
+            self._start_mcp_server()
+
         if is_embedded:
             # Embedded mode: non-blocking + auto timer
             logger.info("Embedded mode: non-blocking with auto timer")
@@ -955,7 +1031,7 @@ class WebView(
                 logger.info("Background thread: Creating WebView instance")
                 # Create a new WebView instance in this thread
                 # This is necessary because the Rust core is not Send/Sync
-                from auroraview._core import WebView as _CoreWebView
+                from ._core import WebView as _CoreWebView
 
                 core = _CoreWebView(
                     title=self._title,
@@ -1406,6 +1482,15 @@ class WebView(
         # entered the event loop yet.
         self._close_requested = True
 
+        # Stop MCP Server if running
+        if self._mcp_server:
+            try:
+                self._mcp_server.stop()
+                logger.info("MCP Server stopped")
+            except Exception as e:
+                logger.warning(f"Error stopping MCP server: {e}")
+            self._mcp_server = None
+
         # Prefer closing the background-thread core (if present). Fall back to
         # the main-thread core as a best-effort.
         cores = []
@@ -1531,6 +1616,81 @@ class WebView(
             return {"status": "sent"}
 
         logger.info("Bridge <-> WebView integration complete")
+
+    # MCP Server integration methods
+
+    def _start_mcp_server(self) -> None:
+        """Start the embedded MCP Server.
+
+        This is called automatically during show() if MCP is enabled.
+        The server uses a dispatcher that routes tool calls through the
+        WebView's message queue to ensure all handlers execute on the main thread.
+        """
+        if self._mcp_server:
+            logger.warning("MCP Server already running")
+            return
+
+        if not self._mcp_config or not self._mcp_enabled:
+            return
+
+        from auroraview.mcp import register_default_tools
+
+        # Create MCP server through the Rust core with dispatcher configured
+        # This ensures tool calls are routed through the message queue to the main thread
+        # and prevents deadlocks when handlers need to interact with the event loop
+        server = self._core.create_mcp_server(self._mcp_config)
+
+        # Register default MCP tools (screenshot, logs, etc.)
+        try:
+            register_default_tools(self, server)
+            logger.debug("Registered default MCP tools")
+        except Exception as exc:
+            logger.warning("Failed to register default MCP tools: %s", exc)
+
+        # Auto-expose bind_call registered handlers as MCP tools
+        auto_expose = getattr(self._mcp_config, "auto_expose_api", False)
+        has_bound = hasattr(self, "_bound_functions")
+        logger.debug(f"MCP auto_expose_api={auto_expose}, has_bound_functions={has_bound}")
+
+        if auto_expose and has_bound:
+            handlers = getattr(self, "_bound_functions", {})
+            metadata = getattr(self, "_mcp_metadata", {})
+            logger.debug(f"Found {len(handlers)} bound functions: {list(handlers.keys())}")
+
+            for name, handler in handlers.items():
+                # Check MCP metadata for this method
+                meta = metadata.get(name, {})
+                mcp_exposed = meta.get("mcp", True)  # Default: expose to MCP
+                mcp_custom_name = meta.get("mcp_name")
+
+                # Skip if not exposed to MCP
+                if not mcp_exposed:
+                    logger.debug(f"Skipping {name}: mcp=False (hidden from MCP)")
+                    continue
+
+                # Use custom name if provided, otherwise use original name
+                tool_name = mcp_custom_name if mcp_custom_name else name
+
+                # Skip internal methods
+                if name.startswith("_"):
+                    logger.debug(f"Skipping {name}: internal method (starts with _)")
+                    continue
+
+                description = getattr(handler, "__doc__", None) or f"Tool: {name}"
+                try:
+                    server.register_tool(tool_name, handler, description)
+                    if mcp_custom_name:
+                        logger.debug(f"Registered tool: {name} -> {tool_name} (custom MCP name)")
+                    else:
+                        logger.debug(f"Registered tool: {name}")
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.warning("Failed to register MCP tool %s: %s", name, exc)
+
+        port = server.start()
+        self._mcp_server = server
+
+        logger.info(f"Embedded MCP Server started on port {port}")
+        logger.info(f"Connect AI assistant to: http://{self._mcp_config.host}:{port}/mcp")
 
     @property
     def bridge(self) -> Optional["Bridge"]:  # type: ignore
