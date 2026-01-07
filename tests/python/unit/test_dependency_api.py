@@ -32,7 +32,7 @@ class DummyView:
 
 
 class DummyInstaller:
-    def install_missing(self, missing, on_progress):
+    def install_missing(self, missing, on_progress, cancel_event=None):
         on_progress(
             {
                 "type": "start",
@@ -50,6 +50,7 @@ class DummyInstaller:
             }
         )
         return {"success": True, "installed": missing}
+
 
 
 def test_install_dependencies_creates_emitter_on_main_thread(monkeypatch, tmp_path):
