@@ -99,6 +99,108 @@ webview = WebView.create("My Tool", parent=maya_hwnd, mode="owner")
 webview.show()
 ```
 
+## Thread Safety
+
+AuroraView provides automatic thread safety for Maya integration. When event handlers are called from the WebView thread, they need to be marshaled to Maya's main thread to safely call `maya.cmds` or `maya.api`.
+
+### Automatic Thread Safety with `dcc_mode`
+
+The simplest approach - enable `dcc_mode` and all callbacks are automatically thread-safe:
+
+```python
+from auroraview import WebView
+import maya.OpenMayaUI as omui
+
+maya_hwnd = int(omui.MQtUtil.mainWindow())
+
+# All callbacks automatically run on Maya main thread
+webview = WebView.create(
+    "My Tool",
+    parent=maya_hwnd,
+    mode="owner",
+    dcc_mode=True,  # Enable automatic thread safety
+)
+
+@webview.on("create_cube")
+def handle_create(data):
+    # No decorator needed - automatically runs on Maya main thread!
+    import maya.cmds as cmds
+    name = data.get("name", "myCube")
+    result = cmds.polyCube(name=name)
+    return {"ok": True, "name": result[0]}
+
+@webview.on("get_selection")
+def handle_selection(data):
+    import maya.cmds as cmds
+    sel = cmds.ls(selection=True)
+    return {"selection": sel, "count": len(sel)}
+```
+
+### Manual Thread Safety with Decorators
+
+For more control, use the `@dcc_thread_safe` decorator:
+
+```python
+from auroraview import WebView
+from auroraview.utils import dcc_thread_safe, dcc_thread_safe_async
+
+webview = WebView.create("My Tool", parent=maya_hwnd, mode="owner")
+
+@webview.on("export_scene")
+@dcc_thread_safe  # Blocks until complete, returns result
+def handle_export(data):
+    import maya.cmds as cmds
+    path = data.get("path", "/tmp/scene.ma")
+    cmds.file(rename=path)
+    cmds.file(save=True, type="mayaAscii")
+    return {"ok": True, "path": path}
+
+@webview.on("refresh_viewport")
+@dcc_thread_safe_async  # Fire-and-forget, returns immediately
+def handle_refresh(data):
+    import maya.cmds as cmds
+    cmds.refresh()
+```
+
+### Thread-Safe Wrapper for Background Threads
+
+When calling WebView methods from Maya scripts or background threads:
+
+```python
+webview = WebView.create("My Tool", parent=maya_hwnd, mode="owner")
+
+# Get thread-safe wrapper
+safe = webview.thread_safe()
+
+# These can be called from any thread safely:
+def update_ui_from_script():
+    safe.eval_js("updateProgress(50)")
+    safe.emit("status_changed", {"status": "processing"})
+```
+
+### Using `run_on_main_thread` Directly
+
+For one-off operations:
+
+```python
+from auroraview.utils import run_on_main_thread, run_on_main_thread_sync
+
+# Fire-and-forget (non-blocking)
+def create_sphere():
+    import maya.cmds as cmds
+    cmds.polySphere()
+
+run_on_main_thread(create_sphere)
+
+# Blocking with return value
+def get_scene_path():
+    import maya.cmds as cmds
+    return cmds.file(q=True, sceneName=True)
+
+scene = run_on_main_thread_sync(get_scene_path)
+print(f"Current scene: {scene}")
+```
+
 ## Threading Model
 
 ### ❌ WRONG: Using `show_async()`

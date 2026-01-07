@@ -120,6 +120,98 @@ await auroraview.api.create_box({ name: 'myBox', size: 20.0 });
 await auroraview.api.set_position({ name: 'myBox', x: 10, y: 0, z: 5 });
 ```
 
+## Thread Safety
+
+AuroraView provides automatic thread safety for 3ds Max integration. 3ds Max requires all `pymxs` operations to run on the main thread.
+
+### Automatic Thread Safety with `dcc_mode`
+
+Enable `dcc_mode` for automatic thread-safe callbacks:
+
+```python
+from auroraview import QtWebView
+from pymxs import runtime as rt
+from qtpy import QtWidgets
+
+def max_main_window():
+    hwnd = rt.windows.getMAXHWND()
+    return QtWidgets.QWidget.find(hwnd)
+
+# All callbacks automatically run on 3ds Max main thread
+webview = QtWebView(
+    parent=max_main_window(),
+    url="http://localhost:3000",
+    dcc_mode=True,  # Enable automatic thread safety
+)
+
+@webview.on("create_primitive")
+def handle_create(data):
+    # Automatically runs on 3ds Max main thread!
+    prim_type = data.get("type", "box")
+    name = data.get("name", "Object001")
+    size = data.get("size", 10.0)
+
+    if prim_type == "box":
+        obj = rt.Box(name=name, length=size, width=size, height=size)
+    elif prim_type == "sphere":
+        obj = rt.Sphere(name=name, radius=size)
+    else:
+        return {"ok": False, "error": f"Unknown type: {prim_type}"}
+
+    return {"ok": True, "name": str(obj.name)}
+
+@webview.on("get_selection")
+def handle_selection(data):
+    sel = list(rt.selection)
+    return {"selection": [str(obj.name) for obj in sel], "count": len(sel)}
+
+webview.show()
+```
+
+### Manual Thread Safety with Decorators
+
+```python
+from auroraview import QtWebView
+from auroraview.utils import dcc_thread_safe, dcc_thread_safe_async
+from pymxs import runtime as rt
+
+webview = QtWebView(parent=max_main_window(), url="http://localhost:3000")
+
+@webview.on("render_scene")
+@dcc_thread_safe  # Blocks until render complete
+def handle_render(data):
+    output_path = data.get("path", "C:/temp/render.png")
+    rt.render(outputFile=output_path)
+    return {"ok": True, "path": output_path}
+
+@webview.on("refresh_viewport")
+@dcc_thread_safe_async  # Fire-and-forget
+def handle_refresh(data):
+    rt.redrawViews()
+
+webview.show()
+```
+
+### Using `run_on_main_thread` Directly
+
+```python
+from auroraview.utils import run_on_main_thread, run_on_main_thread_sync
+from pymxs import runtime as rt
+
+# Fire-and-forget
+def clear_selection():
+    rt.clearSelection()
+
+run_on_main_thread(clear_selection)
+
+# Blocking with return value
+def get_max_file_path():
+    return rt.maxFilePath + rt.maxFileName
+
+file_path = run_on_main_thread_sync(get_max_file_path)
+print(f"Current file: {file_path}")
+```
+
 ## Dockable Panel
 
 ```python

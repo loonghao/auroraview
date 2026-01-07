@@ -204,6 +204,83 @@ def unregister():
     operators.unregister()
 ```
 
+## Thread Safety
+
+AuroraView provides automatic thread safety for Blender integration. Blender requires all `bpy` operations to run on the main thread.
+
+### Automatic Thread Safety with `dcc_mode`
+
+Enable `dcc_mode` for automatic thread-safe callbacks:
+
+```python
+from auroraview import WebView
+import bpy
+
+# All callbacks automatically run on Blender main thread
+webview = WebView(
+    title="Blender Tool",
+    url="http://localhost:3000",
+    dcc_mode=True,  # Enable automatic thread safety
+)
+
+@webview.on("create_mesh")
+def handle_create(data):
+    # Automatically runs on Blender main thread!
+    mesh_type = data.get("type", "cube")
+    if mesh_type == "cube":
+        bpy.ops.mesh.primitive_cube_add()
+    elif mesh_type == "sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add()
+    return {"ok": True, "object": bpy.context.active_object.name}
+
+@webview.on("get_selection")
+def handle_selection(data):
+    selected = [obj.name for obj in bpy.context.selected_objects]
+    return {"selection": selected, "count": len(selected)}
+```
+
+### Manual Thread Safety with Decorators
+
+```python
+from auroraview import WebView
+from auroraview.utils import dcc_thread_safe, dcc_thread_safe_async
+
+webview = WebView(title="Blender Tool", url="http://localhost:3000")
+
+@webview.on("render_frame")
+@dcc_thread_safe  # Blocks until render complete
+def handle_render(data):
+    filepath = data.get("filepath", "/tmp/render.png")
+    bpy.context.scene.render.filepath = filepath
+    bpy.ops.render.render(write_still=True)
+    return {"ok": True, "filepath": filepath}
+
+@webview.on("refresh_view")
+@dcc_thread_safe_async  # Fire-and-forget
+def handle_refresh(data):
+    for area in bpy.context.screen.areas:
+        area.tag_redraw()
+```
+
+### Using `run_on_main_thread` Directly
+
+```python
+from auroraview.utils import run_on_main_thread, run_on_main_thread_sync
+
+# Fire-and-forget
+def deselect_all():
+    bpy.ops.object.select_all(action='DESELECT')
+
+run_on_main_thread(deselect_all)
+
+# Blocking with return value
+def get_scene_objects():
+    return [obj.name for obj in bpy.data.objects]
+
+objects = run_on_main_thread_sync(get_scene_objects)
+print(f"Scene objects: {objects}")
+```
+
 ## Timer-based Updates
 
 For real-time sync with Blender:

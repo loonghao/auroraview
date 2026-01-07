@@ -67,17 +67,83 @@ webview = QtWebView(
 )
 ```
 
-## 线程调度器
+## 线程安全
+
+AuroraView 为 Houdini 集成提供自动线程安全。Houdini 要求所有 `hou` 操作在主线程运行。
+
+### 使用 `dcc_mode` 自动线程安全
 
 ```python
-from auroraview.utils import ensure_main_thread
+from auroraview import QtWebView
+import hou
 
-@ensure_main_thread
-def safe_cook_node(node_path):
-    """在主线程上烹饪节点"""
-    import hou
+# 所有回调自动在 Houdini 主线程运行
+webview = QtWebView(
+    parent=hou.qt.mainWindow(),
+    url="http://localhost:3000",
+    dcc_mode=True,  # 启用自动线程安全
+)
+
+@webview.on("create_node")
+def handle_create(data):
+    # 自动在 Houdini 主线程运行！
+    parent_path = data.get("parent", "/obj")
+    node_type = data.get("type", "geo")
+
+    parent = hou.node(parent_path)
+    new_node = parent.createNode(node_type)
+    return {"ok": True, "path": new_node.path()}
+
+webview.show()
+```
+
+### 使用装饰器手动线程安全
+
+```python
+from auroraview import QtWebView
+from auroraview.utils import dcc_thread_safe, dcc_thread_safe_async
+import hou
+
+webview = QtWebView(parent=hou.qt.mainWindow(), url="http://localhost:3000")
+
+@webview.on("cook_node")
+@dcc_thread_safe  # 阻塞直到烹饪完成
+def handle_cook(data):
+    node_path = data.get("path")
     node = hou.node(node_path)
-    node.cook(force=True)
+    if node:
+        node.cook(force=True)
+        return {"ok": True}
+    return {"ok": False, "error": "节点未找到"}
+
+@webview.on("update_display")
+@dcc_thread_safe_async  # 即发即忘
+def handle_update(data):
+    hou.ui.triggerUpdate()
+
+webview.show()
+```
+
+### 直接使用 `run_on_main_thread`
+
+```python
+from auroraview.utils import run_on_main_thread, run_on_main_thread_sync
+import hou
+
+# 即发即忘
+def select_node(path):
+    node = hou.node(path)
+    if node:
+        node.setSelected(True, clear_all_selected=True)
+
+run_on_main_thread(select_node, "/obj/geo1")
+
+# 阻塞并返回值
+def get_hip_path():
+    return hou.hipFile.path()
+
+hip_path = run_on_main_thread_sync(get_hip_path)
+print(f"当前 HIP 文件: {hip_path}")
 ```
 
 ## 另请参阅

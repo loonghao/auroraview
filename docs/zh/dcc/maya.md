@@ -106,21 +106,90 @@ const cube = await auroraview.api.create_cube('myCube', 2.0);
 await auroraview.api.set_transform(cube, 5, 0, 0);
 ```
 
-## 线程调度器
+## 线程安全
 
-Maya 要求某些操作必须在主线程执行：
+AuroraView 为 Maya 集成提供自动线程安全。当事件处理器从 WebView 线程调用时，需要将它们调度到 Maya 主线程才能安全调用 `maya.cmds` 或 `maya.api`。
+
+### 使用 `dcc_mode` 自动线程安全
+
+最简单的方法 - 启用 `dcc_mode`，所有回调自动线程安全：
 
 ```python
-from auroraview.utils import run_on_main_thread, ensure_main_thread
+from auroraview import WebView
+import maya.OpenMayaUI as omui
 
-@ensure_main_thread
-def safe_create_node(node_type):
-    """此函数始终在主线程运行"""
+maya_hwnd = int(omui.MQtUtil.mainWindow())
+
+# 所有回调自动在 Maya 主线程运行
+webview = WebView.create(
+    "我的工具",
+    parent=maya_hwnd,
+    mode="owner",
+    dcc_mode=True,  # 启用自动线程安全
+)
+
+@webview.on("create_cube")
+def handle_create(data):
+    # 无需装饰器 - 自动在 Maya 主线程运行！
     import maya.cmds as cmds
-    return cmds.createNode(node_type)
+    name = data.get("name", "myCube")
+    result = cmds.polyCube(name=name)
+    return {"ok": True, "name": result[0]}
 
-# 可以从任何线程安全调用
-node = safe_create_node("transform")
+@webview.on("get_selection")
+def handle_selection(data):
+    import maya.cmds as cmds
+    sel = cmds.ls(selection=True)
+    return {"selection": sel, "count": len(sel)}
+```
+
+### 使用装饰器手动线程安全
+
+如需更多控制，使用 `@dcc_thread_safe` 装饰器：
+
+```python
+from auroraview import WebView
+from auroraview.utils import dcc_thread_safe, dcc_thread_safe_async
+
+webview = WebView.create("我的工具", parent=maya_hwnd, mode="owner")
+
+@webview.on("export_scene")
+@dcc_thread_safe  # 阻塞直到完成，返回结果
+def handle_export(data):
+    import maya.cmds as cmds
+    path = data.get("path", "/tmp/scene.ma")
+    cmds.file(rename=path)
+    cmds.file(save=True, type="mayaAscii")
+    return {"ok": True, "path": path}
+
+@webview.on("refresh_viewport")
+@dcc_thread_safe_async  # 即发即忘，立即返回
+def handle_refresh(data):
+    import maya.cmds as cmds
+    cmds.refresh()
+```
+
+### 直接使用 `run_on_main_thread`
+
+用于一次性操作：
+
+```python
+from auroraview.utils import run_on_main_thread, run_on_main_thread_sync
+
+# 即发即忘（非阻塞）
+def create_sphere():
+    import maya.cmds as cmds
+    cmds.polySphere()
+
+run_on_main_thread(create_sphere)
+
+# 阻塞并返回值
+def get_scene_path():
+    import maya.cmds as cmds
+    return cmds.file(q=True, sceneName=True)
+
+scene = run_on_main_thread_sync(get_scene_path)
+print(f"当前场景: {scene}")
 ```
 
 ## 故障排除

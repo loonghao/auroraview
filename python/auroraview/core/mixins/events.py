@@ -236,6 +236,7 @@ class WebViewEventMixin:
         # Auto-wrap callback for DCC thread safety if dcc_mode is enabled
         if getattr(self, "_dcc_mode", False):
             from auroraview.utils.thread_dispatcher import wrap_callback_for_dcc
+
             callback = wrap_callback_for_dcc(callback)
             logger.debug(f"Wrapped callback for DCC thread safety: {event_str}")
 

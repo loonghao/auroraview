@@ -1182,17 +1182,13 @@ class WindowEffectsApi:
         """Update interactive regions."""
         from auroraview._core import PyRegion
 
-        py_regions = [
-            PyRegion(r["x"], r["y"], r["width"], r["height"]) for r in regions
-        ]
+        py_regions = [PyRegion(r["x"], r["y"], r["width"], r["height"]) for r in regions]
         self._core.update_interactive_regions(py_regions)
 
     def get_interactive_regions(self) -> list:
         """Get current interactive regions."""
         regions = self._core.get_interactive_regions()
-        return [
-            {"x": r.x, "y": r.y, "width": r.width, "height": r.height} for r in regions
-        ]
+        return [{"x": r.x, "y": r.y, "width": r.width, "height": r.height} for r in regions]
 
     def apply_blur(self, color=None) -> bool:
         """Apply blur effect.
@@ -1352,13 +1348,24 @@ def create_demo_html() -> str:
                 document.getElementById('eventLog').innerHTML = '';
             }
 
-            function testResize() {
-                window.auroraview.call('resize', {width: 900, height: 700});
+            async function testResize() {
+                try {
+                    const result = await window.auroraview.call('resize', {width: 900, height: 700});
+                    addEvent('rpc', { method: 'resize', result });
+                } catch (err) {
+                    addEvent('rpc', { method: 'resize', error: String(err && err.message ? err.message : err) });
+                }
             }
 
-            function testMove() {
-                window.auroraview.call('move', {x: 100, y: 100});
+            async function testMove() {
+                try {
+                    const result = await window.auroraview.call('move', {x: 100, y: 100});
+                    addEvent('rpc', { method: 'move', result });
+                } catch (err) {
+                    addEvent('rpc', { method: 'move', error: String(err && err.message ? err.message : err) });
+                }
             }
+
 
             // Register event listeners
             window.auroraview.on('shown', (data) => addEvent('shown', data));
@@ -1411,15 +1418,15 @@ def main():
         print("[Python] Window is closing...")
         return True  # Allow close
 
-    # Register RPC handlers for window control
-    @webview.on("resize")
-    def handle_resize(data):
-        webview.resize(data.get("width", 800), data.get("height", 600))
+    # Register RPC handlers for window control (JS: auroraview.call)
+    @webview.bind_call("resize")
+    def handle_resize(width: int = 800, height: int = 600):
+        webview.resize(width, height)
         return {"success": True}
 
-    @webview.on("move")
-    def handle_move(data):
-        webview.move(data.get("x", 0), data.get("y", 0))
+    @webview.bind_call("move")
+    def handle_move(x: int = 0, y: int = 0):
+        webview.move(x, y)
         return {"success": True}
 
     # Load HTML and show
@@ -1465,7 +1472,8 @@ Use cases:
 Key AuroraView Parameters for Transparent Floating Windows:
 - frame=False: Frameless window (no title bar, borders)
 - transparent=True: Transparent window background
-- undecorated_shadow=False: CRITICAL - Disable shadow for truly transparent windows
+- undecorated_shadow=False: Default (recommended) - No native shadow for frameless windows
+
 - always_on_top=True: Keep window always on top
 - tool_window=True: Hide from taskbar and Alt+Tab (WS_EX_TOOLWINDOW)
 - embed_mode="none": Independent window (not attached to parent)
@@ -1763,8 +1771,7 @@ def run_floating_panel_demo():
                 height=48,
                 frame=False,  # Frameless window
                 transparent=True,  # Transparent background
-                undecorated_shadow=False,  # Default: no shadow (set True to force-enable)
-
+                undecorated_shadow=False,  # CRITICAL: No shadow for truly transparent button
                 always_on_top=True,  # Keep on top of other windows
                 tool_window=True,  # Hide from taskbar and Alt+Tab
             )
@@ -1893,7 +1900,7 @@ if __name__ == "__main__":
 - Context-sensitive tool palettes
 - frame=False: Frameless window (no title bar, borders)
 - transparent=True: Transparent window background
-- undecorated_shadow=False: CRITICAL - Disable shadow for truly transparent windows
+- undecorated_shadow=False: Default (recommended) - No native shadow for frameless windows
 - always_on_top=True: Keep window always on top
 - tool_window=True: Hide from taskbar and Alt+Tab (WS_EX_TOOLWINDOW)
 - embed_mode="none": Independent window (not attached to parent)
@@ -2645,26 +2652,26 @@ def get_html(ctx: ChildContext) -> str:
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, {colors['bg1']} 0%, {colors['bg2']} 100%);
+            background: linear-gradient(135deg, {colors["bg1"]} 0%, {colors["bg2"]} 100%);
             color: #e4e4e4;
             min-height: 100vh;
             padding: 24px;
         }}
         .container {{ max-width: 700px; margin: 0 auto; }}
-        
+
         .header {{
             text-align: center;
             margin-bottom: 32px;
         }}
         .header h1 {{
             font-size: 28px;
-            color: {colors['accent']};
+            color: {colors["accent"]};
             margin-bottom: 12px;
         }}
         .mode-badge {{
             display: inline-block;
-            background: {colors['badge_bg']};
-            color: {colors['badge_text']};
+            background: {colors["badge_bg"]};
+            color: {colors["badge_text"]};
             padding: 8px 20px;
             border-radius: 24px;
             font-size: 13px;
@@ -2676,7 +2683,7 @@ def get_html(ctx: ChildContext) -> str:
             font-size: 14px;
             margin-top: 12px;
         }}
-        
+
         .card {{
             background: rgba(255, 255, 255, 0.03);
             border-radius: 16px;
@@ -2685,7 +2692,7 @@ def get_html(ctx: ChildContext) -> str:
             border: 1px solid rgba(255, 255, 255, 0.08);
         }}
         .card h2 {{
-            color: {colors['accent']};
+            color: {colors["accent"]};
             font-size: 16px;
             margin-bottom: 16px;
             display: flex;
@@ -2696,10 +2703,10 @@ def get_html(ctx: ChildContext) -> str:
             content: '';
             width: 4px;
             height: 18px;
-            background: {colors['accent']};
+            background: {colors["accent"]};
             border-radius: 2px;
         }}
-        
+
         .info-grid {{
             display: grid;
             grid-template-columns: 140px 1fr;
@@ -2717,7 +2724,7 @@ def get_html(ctx: ChildContext) -> str:
             padding: 4px 10px;
             border-radius: 6px;
         }}
-        
+
         .btn-row {{
             display: flex;
             gap: 10px;
@@ -2725,8 +2732,8 @@ def get_html(ctx: ChildContext) -> str:
             margin-bottom: 16px;
         }}
         button {{
-            background: {colors['accent']};
-            color: {colors['bg2']};
+            background: {colors["accent"]};
+            color: {colors["bg2"]};
             border: none;
             padding: 12px 20px;
             border-radius: 10px;
@@ -2749,7 +2756,7 @@ def get_html(ctx: ChildContext) -> str:
             cursor: not-allowed;
             transform: none;
         }}
-        
+
         .log-area {{
             background: rgba(0, 0, 0, 0.3);
             border-radius: 10px;
@@ -2779,7 +2786,7 @@ def get_html(ctx: ChildContext) -> str:
         .log-type.info {{ background: #6366f1; color: white; }}
         .log-type.error {{ background: #ef4444; color: white; }}
         .log-msg {{ color: #ccc; flex: 1; }}
-        
+
         .input-row {{
             display: flex;
             gap: 10px;
@@ -2796,9 +2803,9 @@ def get_html(ctx: ChildContext) -> str:
         }}
         input:focus {{
             outline: none;
-            border-color: {colors['accent']};
+            border-color: {colors["accent"]};
         }}
-        
+
         .hidden {{ display: none !important; }}
     </style>
 </head>
@@ -2809,32 +2816,32 @@ def get_html(ctx: ChildContext) -> str:
             <div class="mode-badge">{mode_label}</div>
             <p class="mode-desc">{mode_desc}</p>
         </div>
-        
+
         <div class="card">
             <h2>Context Information</h2>
             <div class="info-grid">
                 <span class="info-label">Mode</span>
                 <span class="info-value">{"child" if ctx.is_child else "standalone"}</span>
-                
+
                 <span class="info-label">Parent ID</span>
                 <span class="info-value">{ctx.parent_id or "N/A"}</span>
-                
+
                 <span class="info-label">Child ID</span>
                 <span class="info-value">{ctx.child_id or "N/A"}</span>
-                
+
                 <span class="info-label">Example Name</span>
                 <span class="info-value">{ctx.example_name or "N/A"}</span>
             </div>
         </div>
-        
-        <div class="card {'hidden' if not ctx.is_child else ''}">
+
+        <div class="card {"hidden" if not ctx.is_child else ""}">
             <h2>Parent Communication</h2>
             <div class="btn-row">
                 <button onclick="sendPing()">Ping Parent</button>
                 <button onclick="sendHello()">Say Hello</button>
                 <button onclick="requestState()" class="secondary">Request State</button>
             </div>
-            
+
             <div class="log-area" id="log">
                 <div class="log-entry">
                     <span class="log-time">--:--:--</span>
@@ -2842,13 +2849,13 @@ def get_html(ctx: ChildContext) -> str:
                     <span class="log-msg">Waiting for communication...</span>
                 </div>
             </div>
-            
+
             <div class="input-row">
                 <input type="text" id="customMsg" placeholder="Type a custom message...">
                 <button onclick="sendCustom()">Send</button>
             </div>
         </div>
-        
+
         <div class="card">
             <h2>Local Actions</h2>
             <div class="btn-row">
@@ -2858,21 +2865,21 @@ def get_html(ctx: ChildContext) -> str:
             </div>
         </div>
     </div>
-    
+
     <script>
         const logArea = document.getElementById('log');
         let logCount = 0;
-        
+
         function getTime() {{
             return new Date().toLocaleTimeString('en-US', {{ hour12: false }});
         }}
-        
+
         function addLog(type, msg) {{
             logCount++;
             if (logCount === 1) {{
                 logArea.innerHTML = '';
             }}
-            
+
             const entry = document.createElement('div');
             entry.className = 'log-entry';
             entry.innerHTML = `
@@ -2883,7 +2890,7 @@ def get_html(ctx: ChildContext) -> str:
             logArea.appendChild(entry);
             logArea.scrollTop = logArea.scrollHeight;
         }}
-        
+
         // Parent communication functions
         function sendPing() {{
             if (window.auroraview?.call) {{
@@ -2891,83 +2898,83 @@ def get_html(ctx: ChildContext) -> str:
                 addLog('send', 'Sent ping to parent');
             }}
         }}
-        
+
         function sendHello() {{
             if (window.auroraview?.call) {{
-                auroraview.call('emit_to_parent', {{ 
-                    event: 'hello', 
+                auroraview.call('emit_to_parent', {{
+                    event: 'hello',
                     data: {{ message: 'Hello from child!', timestamp: Date.now() }}
                 }});
                 addLog('send', 'Sent hello to parent');
             }}
         }}
-        
+
         function requestState() {{
             if (window.auroraview?.call) {{
-                auroraview.call('emit_to_parent', {{ 
-                    event: 'request_state', 
+                auroraview.call('emit_to_parent', {{
+                    event: 'request_state',
                     data: {{ from: '{ctx.child_id or "unknown"}' }}
                 }});
                 addLog('send', 'Requested state from parent');
             }}
         }}
-        
+
         function sendCustom() {{
             const input = document.getElementById('customMsg');
             const msg = input.value.trim();
             if (msg && window.auroraview?.call) {{
-                auroraview.call('emit_to_parent', {{ 
-                    event: 'custom_message', 
+                auroraview.call('emit_to_parent', {{
+                    event: 'custom_message',
                     data: {{ message: msg }}
                 }});
                 addLog('send', `Sent: ${{msg}}`);
                 input.value = '';
             }}
         }}
-        
+
         // Local actions
         function logContext() {{
             console.log('Child Window Context:', {{
-                isChild: {'true' if ctx.is_child else 'false'},
+                isChild: {"true" if ctx.is_child else "false"},
                 parentId: '{ctx.parent_id or "null"}',
                 childId: '{ctx.child_id or "null"}',
                 exampleName: '{ctx.example_name or "null"}'
             }});
             addLog('info', 'Context logged to console');
         }}
-        
+
         function showNotification() {{
             if (window.auroraview?.call) {{
-                auroraview.call('show_notification', {{ 
+                auroraview.call('show_notification', {{
                     title: 'Child Window Demo',
                     message: 'This is a notification from the child window!'
                 }});
             }}
         }}
-        
+
         function closeWindow() {{
             if (window.auroraview?.call) {{
                 auroraview.call('close_window');
             }}
         }}
-        
+
         // Listen for parent events
         window.addEventListener('auroraviewready', () => {{
             console.log('[ChildWindow] AuroraView ready');
-            
+
             auroraview.on('parent:message', (data) => {{
                 addLog('recv', `Parent message: ${{JSON.stringify(data)}}`);
             }});
-            
+
             auroraview.on('parent:pong', (data) => {{
                 addLog('recv', `Pong received! RTT: ${{Date.now() - data.originalTime}}ms`);
             }});
-            
+
             auroraview.on('parent:state', (data) => {{
                 addLog('recv', `State: ${{JSON.stringify(data)}}`);
             }});
         }});
-        
+
         // Enter to send custom message
         document.getElementById('customMsg')?.addEventListener('keypress', (e) => {{
             if (e.key === 'Enter') sendCustom();
@@ -3028,6 +3035,7 @@ def main():
 
         # Listen for parent events (if in child mode)
         if ctx.bridge:
+
             def on_parent_pong(data):
                 webview.emit("parent:pong", data)
 
@@ -3380,11 +3388,14 @@ def create_webview(ctx: ChildContext):
     def send_to_parent(type: str = "", timestamp: int = 0):
         """Send a message to parent (if in child mode)."""
         if ctx.is_child:
-            ctx.emit_to_parent("child:message", {
-                "type": type,
-                "timestamp": timestamp,
-                "from": ctx.child_id,
-            })
+            ctx.emit_to_parent(
+                "child:message",
+                {
+                    "type": type,
+                    "timestamp": timestamp,
+                    "from": ctx.child_id,
+                },
+            )
             print(f"[Demo] Sent to parent: {type}", file=sys.stderr)
         else:
             print(f"[Demo] Not in child mode, ignoring send: {type}", file=sys.stderr)
@@ -3393,10 +3404,13 @@ def create_webview(ctx: ChildContext):
     def request_from_parent(request: str = ""):
         """Request data from parent."""
         if ctx.is_child:
-            ctx.emit_to_parent("child:request", {
-                "request": request,
-                "from": ctx.child_id,
-            })
+            ctx.emit_to_parent(
+                "child:request",
+                {
+                    "request": request,
+                    "from": ctx.child_id,
+                },
+            )
             print(f"[Demo] Requested from parent: {request}", file=sys.stderr)
 
     @webview.bind_call("close")
@@ -3406,9 +3420,7 @@ def create_webview(ctx: ChildContext):
 
     # Listen for parent events (if in child mode)
     if ctx.bridge:
-        ctx.on_parent_event("parent:data", lambda data: (
-            webview.emit("parent:response", data)
-        ))
+        ctx.on_parent_event("parent:data", lambda data: (webview.emit("parent:response", data)))
 
     return webview
 
@@ -5100,7 +5112,7 @@ def create_demo_html():
 <body>
     <div class="container">
         <h1>AuroraView Desktop App Demo</h1>
-        
+
         <div class="grid-2">
             <!-- File Dialogs Section -->
             <div class="section">
@@ -5113,7 +5125,7 @@ def create_demo_html():
                 </div>
                 <div id="dialogOutput" class="output">Click a button to open a dialog...</div>
             </div>
-            
+
             <!-- File Operations Section -->
             <div class="section">
                 <h2>File Operations</h2>
@@ -5129,7 +5141,7 @@ def create_demo_html():
                 <div id="fileOutput" class="output">File operation results will appear here...</div>
             </div>
         </div>
-        
+
         <!-- Write File Section -->
         <div class="section">
             <h2>Write File</h2>
@@ -5141,7 +5153,7 @@ def create_demo_html():
             <textarea id="writeContent" placeholder="Content to write..."></textarea>
             <div id="writeOutput" class="output" style="margin-top: 10px;">Write results will appear here...</div>
         </div>
-        
+
         <!-- Shell Commands Section -->
         <div class="section">
             <h2>Shell Commands & Scripts</h2>
@@ -5157,7 +5169,7 @@ def create_demo_html():
             </div>
             <div id="shellOutput" class="output">Shell command results will appear here...</div>
         </div>
-        
+
         <!-- Environment Variables Section -->
         <div class="grid-2">
             <div class="section">
@@ -5169,7 +5181,7 @@ def create_demo_html():
                 </div>
                 <div id="envOutput" class="output">Environment variable results...</div>
             </div>
-            
+
             <div class="section">
                 <h2>Open & Reveal</h2>
                 <div class="input-group">
@@ -5183,7 +5195,7 @@ def create_demo_html():
                 <div id="openOutput" class="output">Open results...</div>
             </div>
         </div>
-        
+
         <!-- Message Dialogs Section -->
         <div class="section">
             <h2>Message Dialogs</h2>
@@ -5197,19 +5209,19 @@ def create_demo_html():
             <div id="messageOutput" class="output">Message dialog results...</div>
         </div>
     </div>
-    
+
     <script>
         // Wait for AuroraView to be ready
         window.addEventListener('auroraviewready', function() {
             console.log('[Demo] AuroraView ready');
         });
-        
+
         function log(elementId, message, isError = false) {
             const el = document.getElementById(elementId);
             el.textContent = typeof message === 'object' ? JSON.stringify(message, null, 2) : message;
             el.className = 'output' + (isError ? ' error' : ' success');
         }
-        
+
         // File Dialogs
         async function openFile() {
             try {
@@ -5226,7 +5238,7 @@ def create_demo_html():
                 log('dialogOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function openFiles() {
             try {
                 const result = await auroraview.dialog.openFiles({
@@ -5237,7 +5249,7 @@ def create_demo_html():
                 log('dialogOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function openFolder() {
             try {
                 const result = await auroraview.dialog.openFolder({
@@ -5248,7 +5260,7 @@ def create_demo_html():
                 log('dialogOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function saveFile() {
             try {
                 const result = await auroraview.dialog.saveFile({
@@ -5264,7 +5276,7 @@ def create_demo_html():
                 log('dialogOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // File Operations
         async function readFile() {
             const path = document.getElementById('filePath').value;
@@ -5279,7 +5291,7 @@ def create_demo_html():
                 log('fileOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function checkExists() {
             const path = document.getElementById('filePath').value;
             if (!path) {
@@ -5293,7 +5305,7 @@ def create_demo_html():
                 log('fileOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function listDir() {
             const path = document.getElementById('dirPath').value;
             if (!path) {
@@ -5307,7 +5319,7 @@ def create_demo_html():
                 log('fileOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Write File
         async function writeFile() {
             const path = document.getElementById('writeFilePath').value;
@@ -5323,7 +5335,7 @@ def create_demo_html():
                 log('writeOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function appendFile() {
             const path = document.getElementById('writeFilePath').value;
             const content = document.getElementById('writeContent').value;
@@ -5338,13 +5350,13 @@ def create_demo_html():
                 log('writeOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Shell Commands
         async function executeCommand() {
             const command = document.getElementById('command').value;
             const argsStr = document.getElementById('args').value;
             const args = argsStr ? argsStr.split(',').map(s => s.trim()) : [];
-            
+
             if (!command) {
                 log('shellOutput', 'Please enter a command', true);
                 return;
@@ -5356,7 +5368,7 @@ def create_demo_html():
                 log('shellOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function runPythonScript() {
             try {
                 const result = await auroraview.shell.execute('python', ['-c', 'print("Hello from Python!")']);
@@ -5365,7 +5377,7 @@ def create_demo_html():
                 log('shellOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function getSystemInfo() {
             try {
                 let result;
@@ -5381,7 +5393,7 @@ def create_demo_html():
                 log('shellOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function whichCommand() {
             const command = document.getElementById('command').value || 'python';
             try {
@@ -5391,7 +5403,7 @@ def create_demo_html():
                 log('shellOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Environment Variables
         async function getEnvVar() {
             const name = document.getElementById('envName').value || 'PATH';
@@ -5402,7 +5414,7 @@ def create_demo_html():
                 log('envOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function getAllEnv() {
             try {
                 const env = await auroraview.shell.getEnvAll();
@@ -5411,7 +5423,7 @@ def create_demo_html():
                 log('envOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Open & Reveal
         async function openUrl() {
             const path = document.getElementById('openPath').value || 'https://github.com';
@@ -5422,7 +5434,7 @@ def create_demo_html():
                 log('openOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function openFilePath() {
             const path = document.getElementById('openPath').value;
             if (!path) {
@@ -5436,7 +5448,7 @@ def create_demo_html():
                 log('openOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function showInFolder() {
             const path = document.getElementById('openPath').value;
             if (!path) {
@@ -5450,7 +5462,7 @@ def create_demo_html():
                 log('openOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         // Message Dialogs
         async function showInfo() {
             try {
@@ -5460,7 +5472,7 @@ def create_demo_html():
                 log('messageOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function showWarning() {
             try {
                 const result = await auroraview.dialog.warning('This is a warning message.', 'Warning');
@@ -5469,7 +5481,7 @@ def create_demo_html():
                 log('messageOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function showError() {
             try {
                 const result = await auroraview.dialog.error('This is an error message.', 'Error');
@@ -5478,7 +5490,7 @@ def create_demo_html():
                 log('messageOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function showConfirm() {
             try {
                 const result = await auroraview.dialog.confirm({
@@ -5490,7 +5502,7 @@ def create_demo_html():
                 log('messageOutput', 'Error: ' + e.message, true);
             }
         }
-        
+
         async function askQuestion() {
             try {
                 const confirmed = await auroraview.dialog.ask('Do you want to save changes?', 'Save Changes');
@@ -5954,7 +5966,7 @@ HTML = """
         .log-entry.once { border-left: 3px solid #9b59b6; }
         .log-entry.guard { border-left: 3px solid #3498db; }
         .log-entry .time { color: #7f8c8d; }
-        .log-entry .type { 
+        .log-entry .type {
             display: inline-block;
             padding: 1px 6px;
             border-radius: 3px;
@@ -6970,7 +6982,7 @@ HTML = """
                 const badges = [];
                 if (cookie.secure) badges.push('<span class="badge badge-secure">Secure</span>');
                 if (cookie.http_only) badges.push('<span class="badge badge-httponly">HttpOnly</span>');
-                badges.push(isSession 
+                badges.push(isSession
                     ? '<span class="badge badge-session">Session</span>'
                     : '<span class="badge badge-persistent">Persistent</span>'
                 );
@@ -7624,9 +7636,8 @@ class DomManipulationDemo:
 
     def toggle_items(self) -> None:
         """Toggle selection on all items."""
-        # Use ElementCollection for batch operations
-        items = self.view.dom("#item-list li")
         # Toggle class on each item
+
         for i in range(1, self.item_counter + 1):
             self.view.dom(f"#item-list li:nth-child({i})").toggle_class("selected")
         self.set_status("Toggled selection on all items")
@@ -9089,6 +9100,4591 @@ if __name__ == "__main__":
 :::
 
 **Run:** `python examples/dcc_integration_example.py`
+
+---
+
+## Other
+
+### Automation Demo
+
+This example demonstrates the Automation abstraction layer that provides a unified interface for browser automation, compatible with both local
+
+::: details View Source Code
+```python
+"""Automation Demo - AuroraView Browser Automation Abstraction.
+
+This example demonstrates the Automation abstraction layer that provides
+a unified interface for browser automation, compatible with both local
+AuroraView WebViews and remote Steel Browser instances.
+
+Usage:
+    python examples/automation_demo.py
+
+Features demonstrated:
+    - Automation class for unified browser control
+    - LocalWebViewBackend for embedded WebView automation
+    - DOM manipulation via automation API
+    - Page scraping capabilities
+    - Backend protocol abstraction
+
+Note: Steel Browser backend is a placeholder for future integration.
+This demo focuses on the local WebView automation capabilities.
+"""
+
+from __future__ import annotations
+
+from auroraview import WebView
+from auroraview.utils.automation import Automation
+
+
+def main():
+    """Run the automation demo."""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Automation Demo</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 900px;
+                margin: 50px auto;
+                padding: 20px;
+                background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+                min-height: 100vh;
+            }
+            .card {
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                margin-bottom: 20px;
+            }
+            h1 { color: #333; margin-top: 0; }
+            h3 { color: #666; margin-bottom: 10px; }
+            button {
+                background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                margin: 5px;
+                transition: transform 0.1s;
+            }
+            button:hover { transform: translateY(-2px); }
+            button:active { transform: translateY(0); }
+            .automation-target {
+                background: #f5f5f5;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 15px 0;
+            }
+            .target-element {
+                padding: 15px;
+                margin: 10px 0;
+                background: white;
+                border-radius: 6px;
+                border: 2px solid #e0e0e0;
+                transition: all 0.3s;
+            }
+            .target-element.clicked { border-color: #4caf50; background: #e8f5e9; }
+            .target-element.typed { border-color: #2196f3; background: #e3f2fd; }
+            .target-element.scraped { border-color: #ff9800; background: #fff3e0; }
+            .form-row {
+                display: flex;
+                gap: 15px;
+                margin: 15px 0;
+            }
+            .form-field {
+                flex: 1;
+            }
+            .form-field label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 500;
+            }
+            .form-field input {
+                width: 100%;
+                padding: 10px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                box-sizing: border-box;
+            }
+            .form-field input:focus {
+                outline: none;
+                border-color: #3f5efb;
+            }
+            #scrapeResult {
+                background: #1e1e1e;
+                color: #0f0;
+                border-radius: 8px;
+                padding: 16px;
+                font-family: 'Consolas', monospace;
+                font-size: 12px;
+                max-height: 200px;
+                overflow-y: auto;
+                white-space: pre-wrap;
+            }
+            .action-log {
+                background: #f5f5f5;
+                border-radius: 8px;
+                padding: 15px;
+                margin-top: 15px;
+            }
+            .log-entry {
+                padding: 8px;
+                margin: 5px 0;
+                background: white;
+                border-radius: 4px;
+                font-size: 13px;
+                border-left: 3px solid #3f5efb;
+            }
+            .log-entry.success { border-left-color: #4caf50; }
+            .log-entry.error { border-left-color: #f44336; }
+            .backend-info {
+                display: flex;
+                gap: 20px;
+                padding: 15px;
+                background: #f5f5f5;
+                border-radius: 8px;
+                margin: 15px 0;
+            }
+            .backend-card {
+                flex: 1;
+                padding: 15px;
+                background: white;
+                border-radius: 8px;
+                text-align: center;
+            }
+            .backend-card.active { border: 2px solid #4caf50; }
+            .backend-name { font-weight: bold; color: #333; }
+            .backend-status { font-size: 12px; color: #666; margin-top: 5px; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>Automation Demo</h1>
+            <p>Unified browser automation interface for local WebView and remote Steel Browser.</p>
+
+            <div class="backend-info">
+                <div class="backend-card active">
+                    <div class="backend-name">LocalWebViewBackend</div>
+                    <div class="backend-status">Active - Using embedded WebView</div>
+                </div>
+                <div class="backend-card">
+                    <div class="backend-name">SteelBrowserBackend</div>
+                    <div class="backend-status">Available - Remote automation</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>DOM Automation Targets</h3>
+            <div class="automation-target">
+                <div class="target-element" id="clickTarget">
+                    Click Target - Click me via automation!
+                </div>
+
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="autoInput1">Input Field 1</label>
+                        <input type="text" id="autoInput1" placeholder="Type via automation">
+                    </div>
+                    <div class="form-field">
+                        <label for="autoInput2">Input Field 2</label>
+                        <input type="text" id="autoInput2" placeholder="Type via automation">
+                    </div>
+                </div>
+
+                <div class="target-element" id="scrapeTarget">
+                    <strong>Scrape Target</strong>
+                    <p>This content can be scraped by the automation layer.</p>
+                    <ul>
+                        <li>Item 1: Data point A</li>
+                        <li>Item 2: Data point B</li>
+                        <li>Item 3: Data point C</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div>
+                <button onclick="requestAutoClick()">Auto Click</button>
+                <button onclick="requestAutoType()">Auto Type</button>
+                <button onclick="requestAutoScrape()">Auto Scrape</button>
+                <button onclick="requestAutoFill()">Auto Fill Form</button>
+                <button onclick="requestReset()">Reset</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Scrape Result</h3>
+            <div id="scrapeResult">Scrape results will appear here...</div>
+        </div>
+
+        <div class="card">
+            <h3>Action Log</h3>
+            <div class="action-log" id="actionLog">
+                <div class="log-entry">Ready for automation actions...</div>
+            </div>
+        </div>
+
+        <script>
+            function log(msg, type = 'info') {
+                const logEl = document.getElementById('actionLog');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                logEl.insertBefore(entry, logEl.firstChild);
+
+                // Keep only last 10 entries
+                while (logEl.children.length > 10) {
+                    logEl.removeChild(logEl.lastChild);
+                }
+            }
+
+            async function requestAutoClick() {
+                try {
+                    const result = await auroraview.api.auto_click({selector: '#clickTarget'});
+                    log(`Click: ${result.message}`, 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            async function requestAutoType() {
+                try {
+                    const result = await auroraview.api.auto_type({
+                        selector: '#autoInput1',
+                        text: 'Hello from automation!'
+                    });
+                    log(`Type: ${result.message}`, 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            async function requestAutoScrape() {
+                try {
+                    const result = await auroraview.api.auto_scrape({selector: '#scrapeTarget'});
+                    document.getElementById('scrapeResult').textContent =
+                        JSON.stringify(result, null, 2);
+                    log('Scrape: Content extracted', 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            async function requestAutoFill() {
+                try {
+                    const result = await auroraview.api.auto_fill_form();
+                    log(`Fill: ${result.message}`, 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            async function requestReset() {
+                try {
+                    await auroraview.api.reset_automation();
+                    document.getElementById('scrapeResult').textContent =
+                        'Scrape results will appear here...';
+                    log('Reset: All targets reset', 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+        </script>
+    </body>
+    </html>
+    """
+
+    view = WebView(title="Automation Demo", html=html_content, width=950, height=900)
+
+    # Create automation instance with local backend
+    auto = Automation.local(view)
+
+    @view.bind_call("api.auto_click")
+    def auto_click(selector: str) -> dict:
+        """Click an element via automation."""
+        element = auto.dom(selector)
+        element.click()
+        element.add_class("clicked")
+        return {"ok": True, "message": f"Clicked element: {selector}"}
+
+    @view.bind_call("api.auto_type")
+    def auto_type(selector: str, text: str) -> dict:
+        """Type text into an element via automation."""
+        element = auto.dom(selector)
+        element.type_text(text, clear_first=True)
+        element.add_class("typed")
+        return {"ok": True, "message": f"Typed '{text}' into {selector}"}
+
+    @view.bind_call("api.auto_scrape")
+    def auto_scrape(selector: str) -> dict:
+        """Scrape content from an element."""
+        element = auto.dom(selector)
+        element.add_class("scraped")
+
+        # Use the scrape method from automation
+        # Note: Full scraping requires JS evaluation
+        scrape_result = auto.scrape()
+
+        return {
+            "ok": True,
+            "selector": selector,
+            "scrape_status": scrape_result.get("status", "unknown"),
+            "message": "Content marked for scraping. Full scraping requires JS bridge.",
+        }
+
+    @view.bind_call("api.auto_fill_form")
+    def auto_fill_form() -> dict:
+        """Fill multiple form fields via automation."""
+        auto.dom("#autoInput1").type_text("Automated Input 1", clear_first=True)
+        auto.dom("#autoInput2").type_text("Automated Input 2", clear_first=True)
+
+        # Add visual feedback
+        auto.dom("#autoInput1").add_class("typed")
+        auto.dom("#autoInput2").add_class("typed")
+
+        return {"ok": True, "message": "Form fields filled via automation"}
+
+    @view.bind_call("api.reset_automation")
+    def reset_automation() -> dict:
+        """Reset all automation targets."""
+        for selector in ["#clickTarget", "#autoInput1", "#autoInput2", "#scrapeTarget"]:
+            el = auto.dom(selector)
+            el.remove_class("clicked", "typed", "scraped")
+
+        auto.dom("#autoInput1").clear()
+        auto.dom("#autoInput2").clear()
+
+        return {"ok": True}
+
+    @view.bind_call("api.get_backend_info")
+    def get_backend_info() -> dict:
+        """Get information about the current automation backend."""
+        return {
+            "backend_type": "LocalWebViewBackend",
+            "description": "Using embedded AuroraView WebView for automation",
+            "capabilities": ["dom", "dom_all", "scrape"],
+            "limitations": ["screenshot", "pdf"],
+        }
+
+    print("=" * 60)
+    print("Automation Demo - Unified Browser Automation")
+    print("=" * 60)
+    print()
+    print("The Automation class provides a unified interface for:")
+    print("  - Local WebView automation (current demo)")
+    print("  - Remote Steel Browser automation (future)")
+    print()
+    print("Usage patterns:")
+    print()
+    print("  # Local automation")
+    print("  auto = Automation.local(webview)")
+    print("  auto.dom('#button').click()")
+    print("  auto.dom('#input').type_text('Hello')")
+    print()
+    print("  # Remote automation (Steel Browser)")
+    print("  auto = Automation.steel('http://steel.example.com:3000')")
+    print("  result = auto.scrape('https://example.com')")
+    print()
+    print("=" * 60)
+
+    view.show()
+
+
+if __name__ == "__main__":
+    main()
+```
+:::
+
+**Run:** `python examples/automation_demo.py`
+
+**Features:**
+- Automation class for unified browser control
+- LocalWebViewBackend for embedded WebView automation
+- DOM manipulation via automation API
+- Page scraping capabilities
+- Backend protocol abstraction
+
+---
+
+### Channel Streaming Demo
+
+This example demonstrates the Channel system for streaming data between Python and JavaScript. Useful for large file transfers, real-time data,
+
+::: details View Source Code
+```python
+"""Channel Streaming Demo - AuroraView Streaming Data Transfer.
+
+This example demonstrates the Channel system for streaming data between
+Python and JavaScript. Useful for large file transfers, real-time data,
+or progress updates.
+
+Usage:
+    python examples/channel_streaming_demo.py
+
+Features demonstrated:
+    - Channel creation and management
+    - Streaming data chunks to JavaScript
+    - Progress reporting
+    - Channel lifecycle (open, message, close)
+    - ChannelManager for multiple channels
+
+JavaScript side:
+    // Receive streaming data
+    auroraview.on("__channel_message__", (data) => {
+        console.log("Received chunk:", data.channel_id, data.data);
+    });
+
+    auroraview.on("__channel_close__", (data) => {
+        console.log("Channel closed:", data.channel_id);
+    });
+"""
+
+from __future__ import annotations
+
+import time
+from typing import List
+
+from auroraview import WebView
+from auroraview.core.channel import Channel, ChannelManager
+
+
+def main():
+    """Run the channel streaming demo."""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Channel Streaming Demo</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 800px;
+                margin: 50px auto;
+                padding: 20px;
+                background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+                min-height: 100vh;
+            }
+            .card {
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                margin-bottom: 20px;
+            }
+            h1 { color: #333; margin-top: 0; }
+            h3 { color: #666; margin-bottom: 10px; }
+            button {
+                background: #11998e;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                margin: 5px;
+                transition: transform 0.1s;
+            }
+            button:hover { transform: translateY(-2px); }
+            button:active { transform: translateY(0); }
+            button:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+                transform: none;
+            }
+            .progress-container {
+                background: #e0e0e0;
+                border-radius: 10px;
+                height: 20px;
+                margin: 15px 0;
+                overflow: hidden;
+            }
+            .progress-bar {
+                background: linear-gradient(90deg, #11998e, #38ef7d);
+                height: 100%;
+                width: 0%;
+                transition: width 0.3s ease;
+                border-radius: 10px;
+            }
+            .progress-text {
+                text-align: center;
+                font-size: 14px;
+                color: #666;
+                margin-top: 5px;
+            }
+            #log {
+                background: #1e1e1e;
+                color: #0f0;
+                border-radius: 8px;
+                padding: 16px;
+                font-family: 'Consolas', monospace;
+                font-size: 12px;
+                max-height: 300px;
+                overflow-y: auto;
+                white-space: pre-wrap;
+            }
+            .log-entry { margin: 2px 0; }
+            .log-open { color: #4fc3f7; }
+            .log-message { color: #81c784; }
+            .log-close { color: #ffb74d; }
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 15px;
+                margin-top: 15px;
+            }
+            .stat-box {
+                background: #f5f5f5;
+                padding: 15px;
+                border-radius: 8px;
+                text-align: center;
+            }
+            .stat-value { font-size: 24px; font-weight: bold; color: #11998e; }
+            .stat-label { font-size: 12px; color: #666; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>Channel Streaming Demo</h1>
+            <p>Demonstrates streaming data transfer between Python and JavaScript.</p>
+
+            <div>
+                <button onclick="startFileStream()" id="btnFile">Stream File Data</button>
+                <button onclick="startProgressStream()" id="btnProgress">Progress Updates</button>
+                <button onclick="startMultiChannel()" id="btnMulti">Multi-Channel</button>
+            </div>
+
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="progress-text" id="progressText">Ready to stream...</div>
+
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-value" id="chunksReceived">0</div>
+                    <div class="stat-label">Chunks Received</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="bytesReceived">0</div>
+                    <div class="stat-label">Bytes Received</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="activeChannels">0</div>
+                    <div class="stat-label">Active Channels</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Channel Log</h3>
+            <div id="log"></div>
+        </div>
+
+        <script>
+            let chunksReceived = 0;
+            let bytesReceived = 0;
+            let activeChannels = new Set();
+
+            function log(msg, type = 'message') {
+                const logEl = document.getElementById('log');
+                const entry = document.createElement('div');
+                entry.className = `log-entry log-${type}`;
+                entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                logEl.appendChild(entry);
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+
+            function updateStats() {
+                document.getElementById('chunksReceived').textContent = chunksReceived;
+                document.getElementById('bytesReceived').textContent =
+                    bytesReceived > 1024 ? `${(bytesReceived/1024).toFixed(1)}KB` : bytesReceived;
+                document.getElementById('activeChannels').textContent = activeChannels.size;
+            }
+
+            function updateProgress(percent, text) {
+                document.getElementById('progressBar').style.width = `${percent}%`;
+                document.getElementById('progressText').textContent = text;
+            }
+
+            // Listen for channel events
+            auroraview.on("__channel_open__", (data) => {
+                log(`Channel opened: ${data.channel_id}`, 'open');
+                activeChannels.add(data.channel_id);
+                updateStats();
+            });
+
+            auroraview.on("__channel_message__", (data) => {
+                chunksReceived++;
+                const payload = data.data;
+
+                if (typeof payload === 'object') {
+                    if (payload.type === 'progress') {
+                        updateProgress(payload.percent, payload.message);
+                    } else if (payload.type === 'chunk') {
+                        bytesReceived += payload.size || 0;
+                        log(`Chunk ${payload.index}: ${payload.size} bytes`, 'message');
+                    } else if (payload.type === 'data') {
+                        log(`Data: ${JSON.stringify(payload.content).slice(0, 50)}...`, 'message');
+                    }
+                } else {
+                    bytesReceived += String(payload).length;
+                    log(`Data: ${String(payload).slice(0, 50)}...`, 'message');
+                }
+                updateStats();
+            });
+
+            auroraview.on("__channel_close__", (data) => {
+                log(`Channel closed: ${data.channel_id}`, 'close');
+                activeChannels.delete(data.channel_id);
+                updateStats();
+            });
+
+            async function startFileStream() {
+                chunksReceived = 0;
+                bytesReceived = 0;
+                updateProgress(0, 'Starting file stream...');
+                document.getElementById('btnFile').disabled = true;
+
+                try {
+                    await auroraview.api.stream_file_data();
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'close');
+                }
+
+                document.getElementById('btnFile').disabled = false;
+            }
+
+            async function startProgressStream() {
+                updateProgress(0, 'Starting progress updates...');
+                document.getElementById('btnProgress').disabled = true;
+
+                try {
+                    await auroraview.api.stream_progress();
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'close');
+                }
+
+                document.getElementById('btnProgress').disabled = false;
+            }
+
+            async function startMultiChannel() {
+                chunksReceived = 0;
+                document.getElementById('btnMulti').disabled = true;
+
+                try {
+                    await auroraview.api.multi_channel_demo();
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'close');
+                }
+
+                document.getElementById('btnMulti').disabled = false;
+            }
+        </script>
+    </body>
+    </html>
+    """
+
+    view = WebView(title="Channel Streaming Demo", html=html_content, width=900, height=800)
+
+    # Create a channel manager for this webview
+    channel_manager = ChannelManager()
+
+    @view.bind_call("api.stream_file_data")
+    def stream_file_data() -> dict:
+        """Simulate streaming file data in chunks."""
+        # Create a channel for this stream
+        channel = channel_manager.create()
+        channel._attach_webview(view)
+
+        # Simulate file data (in real use, read from actual file)
+        total_chunks = 10
+        chunk_size = 1024
+
+        for i in range(total_chunks):
+            # Simulate chunk data
+            chunk_data = {
+                "type": "chunk",
+                "index": i + 1,
+                "total": total_chunks,
+                "size": chunk_size,
+                "data": f"chunk_{i}_" + "x" * 100,  # Simulated data
+            }
+            channel.send(chunk_data)
+
+            # Also send progress
+            progress = {
+                "type": "progress",
+                "percent": int((i + 1) / total_chunks * 100),
+                "message": f"Streaming chunk {i + 1}/{total_chunks}...",
+            }
+            channel.send(progress)
+
+            # Small delay to simulate network/disk I/O
+            time.sleep(0.2)
+
+        # Close the channel when done
+        channel.close()
+
+        return {"ok": True, "chunks_sent": total_chunks}
+
+    @view.bind_call("api.stream_progress")
+    def stream_progress() -> dict:
+        """Stream progress updates for a long-running task."""
+        channel = channel_manager.create("progress_channel")
+        channel._attach_webview(view)
+
+        steps = [
+            "Initializing...",
+            "Loading data...",
+            "Processing...",
+            "Validating...",
+            "Finalizing...",
+        ]
+
+        for i, step in enumerate(steps):
+            progress = {
+                "type": "progress",
+                "percent": int((i + 1) / len(steps) * 100),
+                "message": step,
+            }
+            channel.send(progress)
+            time.sleep(0.5)
+
+        channel.close()
+        return {"ok": True, "steps_completed": len(steps)}
+
+    @view.bind_call("api.multi_channel_demo")
+    def multi_channel_demo() -> dict:
+        """Demonstrate multiple concurrent channels."""
+        channels: List[Channel] = []
+
+        # Create 3 channels
+        for i in range(3):
+            ch = channel_manager.create(f"multi_ch_{i}")
+            ch._attach_webview(view)
+            channels.append(ch)
+
+        # Send data to each channel
+        for round_num in range(5):
+            for i, ch in enumerate(channels):
+                ch.send(
+                    {
+                        "type": "data",
+                        "channel": i,
+                        "round": round_num,
+                        "content": f"Data from channel {i}, round {round_num}",
+                    }
+                )
+            time.sleep(0.3)
+
+        # Close all channels
+        for ch in channels:
+            ch.close()
+
+        return {"ok": True, "channels_used": len(channels)}
+
+    # Show channel manager status
+    @view.bind_call("api.get_channel_status")
+    def get_channel_status() -> dict:
+        """Get current channel manager status."""
+        return {"active_channels": channel_manager.active_count, "manager": repr(channel_manager)}
+
+    print("Starting Channel Streaming Demo...")
+    print("Features: File streaming, Progress updates, Multi-channel")
+    view.show()
+
+
+if __name__ == "__main__":
+    main()
+```
+:::
+
+**Run:** `python examples/channel_streaming_demo.py`
+
+**Features:**
+- Channel creation and management
+- Streaming data chunks to JavaScript
+- Progress reporting
+- Channel lifecycle (open, message, close)
+- ChannelManager for multiple channels
+
+---
+
+### Command Registry Demo
+
+This example demonstrates the CommandRegistry system for defining Python functions callable from JavaScript, inspired by Tauri's #[command] macro.
+
+::: details View Source Code
+```python
+"""Command Registry Demo - AuroraView Command System.
+
+This example demonstrates the CommandRegistry system for defining
+Python functions callable from JavaScript, inspired by Tauri's #[command] macro.
+
+Usage:
+    python examples/command_registry_demo.py
+
+Features demonstrated:
+    - CommandRegistry for centralized command management
+    - @commands.register decorator patterns
+    - Command error handling with CommandError
+    - Async command support
+    - Command listing and introspection
+    - Direct Python invocation of commands
+
+JavaScript side:
+    // Invoke commands
+    const result = await auroraview.invoke("greet", {name: "Alice"});
+    const sum = await auroraview.invoke("calculate", {a: 5, b: 3, op: "add"});
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+from auroraview import WebView
+from auroraview.core.commands import CommandError, CommandErrorCode, CommandRegistry
+
+
+def main():
+    """Run the command registry demo."""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Command Registry Demo</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 900px;
+                margin: 50px auto;
+                padding: 20px;
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                min-height: 100vh;
+            }
+            .card {
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                margin-bottom: 20px;
+            }
+            h1 { color: #333; margin-top: 0; }
+            h3 { color: #666; margin-bottom: 10px; }
+            button {
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                margin: 5px;
+                transition: transform 0.1s, box-shadow 0.1s;
+            }
+            button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+            }
+            button:active { transform: translateY(0); }
+            .input-group {
+                display: flex;
+                gap: 10px;
+                margin: 10px 0;
+                flex-wrap: wrap;
+            }
+            input, select {
+                padding: 10px 15px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+                transition: border-color 0.2s;
+            }
+            input:focus, select:focus {
+                outline: none;
+                border-color: #f093fb;
+            }
+            #output {
+                background: #1e1e1e;
+                color: #f8f8f2;
+                border-radius: 8px;
+                padding: 16px;
+                font-family: 'Consolas', monospace;
+                font-size: 13px;
+                max-height: 300px;
+                overflow-y: auto;
+                white-space: pre-wrap;
+            }
+            .success { color: #50fa7b; }
+            .error { color: #ff5555; }
+            .info { color: #8be9fd; }
+            .command-list {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 10px;
+                margin-top: 15px;
+            }
+            .command-item {
+                background: #f5f5f5;
+                padding: 12px;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 13px;
+            }
+            .command-name { font-weight: bold; color: #f5576c; }
+            .command-params { color: #666; font-size: 11px; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>Command Registry Demo</h1>
+            <p>Demonstrates the Tauri-inspired command system for Python-JavaScript communication.</p>
+
+            <h3>Greet Command</h3>
+            <div class="input-group">
+                <input type="text" id="greetName" placeholder="Enter name" value="World">
+                <button onclick="invokeGreet()">Greet</button>
+            </div>
+
+            <h3>Calculator Command</h3>
+            <div class="input-group">
+                <input type="number" id="calcA" placeholder="A" value="10" style="width: 80px">
+                <select id="calcOp">
+                    <option value="add">+</option>
+                    <option value="subtract">-</option>
+                    <option value="multiply">*</option>
+                    <option value="divide">/</option>
+                </select>
+                <input type="number" id="calcB" placeholder="B" value="5" style="width: 80px">
+                <button onclick="invokeCalculate()">Calculate</button>
+            </div>
+
+            <h3>Data Operations</h3>
+            <div class="input-group">
+                <button onclick="invokeGetUsers()">Get Users</button>
+                <button onclick="invokeAddUser()">Add User</button>
+                <button onclick="invokeValidateEmail()">Validate Email</button>
+                <button onclick="invokeErrorDemo()">Error Demo</button>
+            </div>
+
+            <h3>Command Introspection</h3>
+            <div class="input-group">
+                <button onclick="listCommands()">List All Commands</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Output</h3>
+            <div id="output">Ready to invoke commands...</div>
+        </div>
+
+        <div class="card">
+            <h3>Registered Commands</h3>
+            <div id="commandList" class="command-list">Loading...</div>
+        </div>
+
+        <script>
+            function log(msg, type = 'info') {
+                const output = document.getElementById('output');
+                const timestamp = new Date().toLocaleTimeString();
+                const formatted = typeof msg === 'object' ? JSON.stringify(msg, null, 2) : msg;
+                output.innerHTML = `<span class="${type}">[${timestamp}] ${formatted}</span>`;
+            }
+
+            async function invokeGreet() {
+                const name = document.getElementById('greetName').value;
+                try {
+                    // Using the invoke pattern (Tauri-style)
+                    const result = await auroraview.api.greet({name});
+                    log(result, 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            async function invokeCalculate() {
+                const a = parseFloat(document.getElementById('calcA').value);
+                const b = parseFloat(document.getElementById('calcB').value);
+                const op = document.getElementById('calcOp').value;
+                try {
+                    const result = await auroraview.api.calculate({a, b, op});
+                    log(`Result: ${a} ${op} ${b} = ${result}`, 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            async function invokeGetUsers() {
+                try {
+                    const result = await auroraview.api.get_users();
+                    log(result, 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            async function invokeAddUser() {
+                try {
+                    const result = await auroraview.api.add_user({
+                        name: "New User",
+                        email: "new@example.com"
+                    });
+                    log(result, 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            async function invokeValidateEmail() {
+                const email = prompt("Enter email to validate:", "test@example.com");
+                if (!email) return;
+                try {
+                    const result = await auroraview.api.validate_email({email});
+                    log(result, result.valid ? 'success' : 'error');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            async function invokeErrorDemo() {
+                try {
+                    await auroraview.api.error_demo();
+                } catch (e) {
+                    log(`Caught error: ${JSON.stringify(e)}`, 'error');
+                }
+            }
+
+            async function listCommands() {
+                try {
+                    const result = await auroraview.api.list_commands();
+                    log(result, 'info');
+
+                    // Update command list display
+                    const listEl = document.getElementById('commandList');
+                    listEl.innerHTML = result.commands.map(cmd => `
+                        <div class="command-item">
+                            <div class="command-name">${cmd}</div>
+                        </div>
+                    `).join('');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                }
+            }
+
+            // Load commands on startup
+            setTimeout(listCommands, 500);
+        </script>
+    </body>
+    </html>
+    """
+
+    view = WebView(title="Command Registry Demo", html=html_content, width=950, height=850)
+
+    # Create a CommandRegistry instance
+    commands = CommandRegistry()
+
+    # In-memory data store for demo
+    users_db: List[Dict[str, Any]] = [
+        {"id": 1, "name": "Alice", "email": "alice@example.com"},
+        {"id": 2, "name": "Bob", "email": "bob@example.com"},
+    ]
+
+    # ─────────────────────────────────────────────────────────────────
+    # Register commands using different patterns
+    # ─────────────────────────────────────────────────────────────────
+
+    # Pattern 1: Simple decorator
+    @commands.register
+    def greet(name: str = "World") -> str:
+        """Greet someone by name."""
+        return f"Hello, {name}! Welcome to AuroraView."
+
+    # Pattern 2: Decorator with custom name
+    @commands.register("calculate")
+    def do_calculation(a: float, b: float, op: str = "add") -> float:
+        """Perform a calculation."""
+        operations = {
+            "add": lambda x, y: x + y,
+            "subtract": lambda x, y: x - y,
+            "multiply": lambda x, y: x * y,
+            "divide": lambda x, y: x / y if y != 0 else float("inf"),
+        }
+        if op not in operations:
+            raise CommandError(
+                CommandErrorCode.INVALID_ARGUMENTS,
+                f"Unknown operation: {op}",
+                {"valid_operations": list(operations.keys())},
+            )
+        return operations[op](a, b)
+
+    # Pattern 3: Data access commands
+    @commands.register
+    def get_users() -> Dict[str, Any]:
+        """Get all users from the database."""
+        return {"users": users_db, "count": len(users_db)}
+
+    @commands.register
+    def add_user(name: str, email: str) -> Dict[str, Any]:
+        """Add a new user to the database."""
+        new_id = max(u["id"] for u in users_db) + 1 if users_db else 1
+        new_user = {"id": new_id, "name": name, "email": email}
+        users_db.append(new_user)
+        return {"ok": True, "user": new_user, "message": f"User {name} added successfully"}
+
+    # Pattern 4: Validation command with error handling
+    @commands.register
+    def validate_email(email: str) -> Dict[str, Any]:
+        """Validate an email address."""
+        import re
+
+        pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        is_valid = bool(re.match(pattern, email))
+        return {
+            "email": email,
+            "valid": is_valid,
+            "message": "Valid email" if is_valid else "Invalid email format",
+        }
+
+    # Pattern 5: Command that raises errors
+    @commands.register
+    def error_demo() -> None:
+        """Demonstrate error handling."""
+        raise CommandError(
+            CommandErrorCode.PERMISSION_DENIED,
+            "This is a demo error to show error handling",
+            {"demo": True, "hint": "This error was intentionally raised"},
+        )
+
+    # Pattern 6: Introspection command
+    @commands.register
+    def list_commands() -> Dict[str, Any]:
+        """List all registered commands."""
+        return {"commands": commands.list_commands(), "count": len(commands)}
+
+    # ─────────────────────────────────────────────────────────────────
+    # Bind commands to WebView using bind_call
+    # ─────────────────────────────────────────────────────────────────
+
+    # Expose all registered commands via the API
+    for cmd_name in commands.list_commands():
+
+        def make_handler(name):
+            def handler(**kwargs):
+                return commands.invoke(name, **kwargs)
+
+            return handler
+
+        view.bind_call(f"api.{cmd_name}", make_handler(cmd_name))
+
+    print("Starting Command Registry Demo...")
+    print(f"Registered commands: {commands.list_commands()}")
+    print(f"Total commands: {len(commands)}")
+
+    # Demonstrate direct Python invocation
+    print("\nDirect Python invocation test:")
+    print(f"  greet('Test') = {commands.invoke('greet', name='Test')}")
+    print(f"  calculate(10, 5, 'add') = {commands.invoke('calculate', a=10, b=5, op='add')}")
+
+    view.show()
+
+
+if __name__ == "__main__":
+    main()
+```
+:::
+
+**Run:** `python examples/command_registry_demo.py`
+
+**Features:**
+- CommandRegistry for centralized command management
+- @commands.register decorator patterns
+- Command error handling with CommandError
+- Async command support
+- Command listing and introspection
+- Direct Python invocation of commands
+
+---
+
+### Dock Launcher Demo
+
+This example demonstrates how to create a dock-style launcher that displays local application shortcuts with magnification and smooth animations.
+
+::: details View Source Code
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Dock Launcher Demo - macOS-style dock with GSAP animations.
+
+This example demonstrates how to create a dock-style launcher that displays
+local application shortcuts with magnification and smooth animations.
+
+Features demonstrated:
+- Transparent, frameless dock window
+- macOS-style magnification on hover
+- GSAP-powered animations
+- Dynamic tool discovery from system
+- Drag to reposition
+- Auto-hide behavior
+- Running indicator dots
+
+Use cases:
+- Application launcher dock
+- Quick access toolbar
+- Favorite tools palette
+- DCC application switcher
+
+Signed-off-by: Hal Long <hal.long@outlook.com>
+"""
+
+import glob
+import os
+import subprocess
+import sys
+
+# HTML for the dock launcher with GSAP animations
+DOCK_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: transparent !important;
+            overflow: hidden; /* prevent Chromium scrollbars in frameless windows */
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        /* Hide scrollbars defensively (WebView2/Chromium) */
+        ::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 8px;
+        }
+
+        /* Visual effects (shadow/reflection) are OFF by default.
+           Enable by opening the page with `?shadows=1`. */
+        .enable-shadows .container {
+            /* Leave room for the reflection pseudo-element */
+            padding-bottom: 28px;
+        }
+
+
+
+        /* Dock bar */
+        .dock {
+            position: relative; /* anchor ::after reflection */
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 4px;
+            padding: 8px 16px;
+            background: rgba(30, 30, 46, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: none; /* default: no obvious shadow */
+            -webkit-app-region: drag;
+        }
+
+        .enable-shadows .dock {
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+
+
+        /* Dock item */
+        .dock-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            -webkit-app-region: no-drag;
+            position: relative;
+        }
+
+        .dock-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dock-icon::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%);
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .dock-item:hover .dock-icon::before {
+            opacity: 1;
+        }
+
+        .dock-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 10px;
+        }
+
+        .dock-icon .icon-placeholder {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            margin-bottom: 8px;
+            transition: opacity 0.15s;
+        }
+
+        .dock-item:hover .tooltip {
+            opacity: 1;
+        }
+
+        /* Running indicator */
+        .running-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.8);
+            margin-top: 4px;
+            opacity: 0;
+        }
+
+        .dock-item.running .running-dot {
+            opacity: 1;
+        }
+
+        /* Separator */
+        .dock-separator {
+            width: 1px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.15);
+            margin: 0 8px;
+            align-self: center;
+        }
+
+        /* Color palette */
+        .color-1 { background: linear-gradient(135deg, #f43f5e, #ec4899); }
+        .color-2 { background: linear-gradient(135deg, #f97316, #f59e0b); }
+        .color-3 { background: linear-gradient(135deg, #22c55e, #10b981); }
+        .color-4 { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+        .color-5 { background: linear-gradient(135deg, #8b5cf6, #a855f7); }
+        .color-6 { background: linear-gradient(135deg, #06b6d4, #0ea5e9); }
+        .color-7 { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .color-8 { background: linear-gradient(135deg, #84cc16, #65a30d); }
+
+        /* Bounce animation for click */
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .dock-item.bouncing .dock-icon {
+            animation: bounce 0.5s ease;
+        }
+
+        /* Reflection effect (OFF by default) */
+        .dock::after {
+            content: none;
+        }
+
+        .enable-shadows .dock::after {
+            content: '';
+            position: absolute;
+            left: 16px;
+            right: 16px;
+            bottom: -20px;
+            height: 20px;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent);
+            border-radius: 0 0 18px 18px;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="dock" id="dock">
+            <!-- Items will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        const MAGNIFICATION = 1.5;
+        const MAGNIFICATION_RANGE = 100; // pixels
+        let items = [];
+        let dockRect = null;
+
+        // Visual effects toggle (OFF by default)
+        const ENABLE_VISUAL_SHADOWS = (new URLSearchParams(window.location.search)).get('shadows') === '1';
+        if (ENABLE_VISUAL_SHADOWS) {
+            document.body.classList.add('enable-shadows');
+        }
+
+        // Initialize
+        window.addEventListener('auroraviewready', () => {
+            console.log('[DockLauncher] AuroraView ready');
+            loadItems();
+        });
+
+
+        // Fallback for standalone testing
+        setTimeout(() => {
+            if (items.length === 0) {
+                setItems(getDefaultItems());
+            }
+        }, 1000);
+
+        function getDefaultItems() {
+            return [
+                { id: 'maya', name: 'Maya', icon: null, color: 1, running: false },
+                { id: 'max', name: '3ds Max', icon: null, color: 2, running: false },
+                { id: 'houdini', name: 'Houdini', icon: null, color: 3, running: true },
+                { id: 'blender', name: 'Blender', icon: null, color: 4, running: false },
+                { id: 'separator', type: 'separator' },
+                { id: 'photoshop', name: 'Photoshop', icon: null, color: 5, running: true },
+                { id: 'substance', name: 'Substance', icon: null, color: 6, running: false },
+                { id: 'separator2', type: 'separator' },
+                { id: 'vscode', name: 'VS Code', icon: null, color: 7, running: true },
+                { id: 'terminal', name: 'Terminal', icon: null, color: 8, running: false },
+            ];
+        }
+
+        async function loadItems() {
+            try {
+                if (window.auroraview && window.auroraview.call) {
+                    const result = await window.auroraview.call('get_items');
+                    if (result && result.items) {
+                        setItems(result.items);
+                    }
+                }
+            } catch (e) {
+                console.error('[DockLauncher] Failed to load items:', e);
+                setItems(getDefaultItems());
+            }
+        }
+
+        function setItems(newItems) {
+            items = newItems;
+            renderDock();
+        }
+
+        function renderDock() {
+            const dock = document.getElementById('dock');
+            dock.innerHTML = '';
+
+            items.forEach((item, index) => {
+                if (item.type === 'separator') {
+                    const sep = document.createElement('div');
+                    sep.className = 'dock-separator';
+                    dock.appendChild(sep);
+                    return;
+                }
+
+                const element = document.createElement('div');
+                element.className = `dock-item${item.running ? ' running' : ''}`;
+                element.setAttribute('data-index', index);
+
+                const iconDiv = document.createElement('div');
+                iconDiv.className = 'dock-icon';
+
+                if (item.icon) {
+                    const img = document.createElement('img');
+                    img.src = item.icon;
+                    img.alt = item.name;
+                    iconDiv.appendChild(img);
+                } else {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = `icon-placeholder color-${item.color || ((index % 8) + 1)}`;
+                    placeholder.textContent = item.name.substring(0, 2).toUpperCase();
+                    iconDiv.appendChild(placeholder);
+                }
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                tooltip.textContent = item.name;
+
+                const dot = document.createElement('div');
+                dot.className = 'running-dot';
+
+                element.appendChild(tooltip);
+                element.appendChild(iconDiv);
+                element.appendChild(dot);
+
+                element.onclick = () => handleClick(item, element);
+
+                dock.appendChild(element);
+            });
+
+            // Update dock rect for magnification
+            dockRect = dock.getBoundingClientRect();
+        }
+
+        // Magnification effect
+        document.addEventListener('mousemove', (e) => {
+            const dock = document.getElementById('dock');
+            if (!dock) return;
+
+            const dockItems = dock.querySelectorAll('.dock-item');
+            const dockRect = dock.getBoundingClientRect();
+
+            // Check if mouse is near the dock
+            const mouseY = e.clientY;
+            const dockTop = dockRect.top;
+            const dockBottom = dockRect.bottom;
+
+            if (mouseY < dockTop - MAGNIFICATION_RANGE || mouseY > dockBottom + 20) {
+                // Reset all items
+                dockItems.forEach(item => {
+                    const icon = item.querySelector('.dock-icon');
+                    gsap.to(icon, {
+                        scale: 1,
+                        y: 0,
+                        duration: 0.2,
+                        ease: 'power2.out'
+                    });
+                });
+                return;
+            }
+
+            dockItems.forEach(item => {
+                const icon = item.querySelector('.dock-icon');
+                const itemRect = item.getBoundingClientRect();
+                const itemCenterX = itemRect.left + itemRect.width / 2;
+
+                const distance = Math.abs(e.clientX - itemCenterX);
+                const scale = Math.max(1, MAGNIFICATION - (distance / MAGNIFICATION_RANGE) * (MAGNIFICATION - 1));
+                const yOffset = (scale - 1) * -20;
+
+                gsap.to(icon, {
+                    scale: scale,
+                    y: yOffset,
+                    duration: 0.1,
+                    ease: 'power2.out'
+                });
+            });
+        });
+
+        async function handleClick(item, element) {
+            console.log('[DockLauncher] Clicked:', item.name);
+
+            // Bounce animation
+            element.classList.add('bouncing');
+            setTimeout(() => element.classList.remove('bouncing'), 500);
+
+            try {
+                if (window.auroraview && window.auroraview.call) {
+                    await window.auroraview.call('launch_item', { id: item.id, name: item.name });
+                }
+            } catch (e) {
+                console.error('[DockLauncher] Error:', e);
+            }
+        }
+
+        // Initial render
+        renderDock();
+
+        // Listen for updates
+        if (window.auroraview && window.auroraview.on) {
+            window.auroraview.on('items_updated', (data) => {
+                if (data && data.items) {
+                    setItems(data.items);
+                }
+            });
+
+            window.auroraview.on('item_running', (data) => {
+                const item = items.find(i => i.id === data.id);
+                if (item) {
+                    item.running = data.running;
+                    renderDock();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+"""
+
+
+def discover_applications():
+    """Discover installed applications from common locations.
+
+    Returns:
+        list: List of application dictionaries.
+    """
+    apps = []
+    color_index = 0
+
+    # Common application paths on Windows
+    app_definitions = [
+        {"name": "Maya", "patterns": [r"C:\Program Files\Autodesk\Maya*\bin\maya.exe"]},
+        {"name": "3ds Max", "patterns": [r"C:\Program Files\Autodesk\3ds Max*\3dsmax.exe"]},
+        {
+            "name": "Houdini",
+            "patterns": [r"C:\Program Files\Side Effects Software\Houdini*\bin\houdini.exe"],
+        },
+        {
+            "name": "Blender",
+            "patterns": [
+                r"C:\Program Files\Blender Foundation\Blender*\blender.exe",
+                r"C:\Program Files\Blender\blender.exe",
+            ],
+        },
+        {
+            "name": "Photoshop",
+            "patterns": [r"C:\Program Files\Adobe\Adobe Photoshop*\Photoshop.exe"],
+        },
+        {
+            "name": "Substance Painter",
+            "patterns": [
+                r"C:\Program Files\Adobe\Adobe Substance 3D Painter\Adobe Substance 3D Painter.exe"
+            ],
+        },
+        {"name": "Nuke", "patterns": [r"C:\Program Files\Nuke*\Nuke*.exe"]},
+        {
+            "name": "VS Code",
+            "patterns": [
+                r"C:\Users\*\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+                r"C:\Program Files\Microsoft VS Code\Code.exe",
+            ],
+        },
+        {
+            "name": "Terminal",
+            "patterns": [
+                r"C:\Users\*\AppData\Local\Microsoft\WindowsApps\wt.exe",
+                r"C:\Windows\System32\cmd.exe",
+            ],
+        },
+    ]
+
+    for app_def in app_definitions:
+        for pattern in app_def["patterns"]:
+            matches = glob.glob(pattern)
+            if matches:
+                path = matches[-1]
+                apps.append(
+                    {
+                        "id": app_def["name"].lower().replace(" ", "_"),
+                        "name": app_def["name"],
+                        "path": path,
+                        "icon": None,
+                        "color": (color_index % 8) + 1,
+                        "running": False,
+                    }
+                )
+                color_index += 1
+                break
+
+    return apps
+
+
+def run_dock_launcher_demo():
+    """Run the dock launcher demo."""
+    from auroraview import AuroraView
+
+    # Discover installed applications
+    discovered_apps = discover_applications()
+
+    # Add separators
+    items = []
+    dcc_apps = ["maya", "3ds_max", "houdini", "blender", "nuke"]
+    adobe_apps = ["photoshop", "substance_painter"]
+    dev_apps = ["vs_code", "terminal"]
+
+    for app in discovered_apps:
+        if app["id"] in dcc_apps:
+            items.append(app)
+
+    if items:
+        items.append({"id": "sep1", "type": "separator"})
+
+    for app in discovered_apps:
+        if app["id"] in adobe_apps:
+            items.append(app)
+
+    if any(app["id"] in adobe_apps for app in discovered_apps):
+        items.append({"id": "sep2", "type": "separator"})
+
+    for app in discovered_apps:
+        if app["id"] in dev_apps:
+            items.append(app)
+
+    # Fallback if no apps found
+    if not items:
+        items = [
+            {"id": "maya", "name": "Maya", "icon": None, "color": 1, "running": False},
+            {"id": "max", "name": "3ds Max", "icon": None, "color": 2, "running": False},
+            {"id": "houdini", "name": "Houdini", "icon": None, "color": 3, "running": True},
+            {"id": "blender", "name": "Blender", "icon": None, "color": 4, "running": False},
+            {"id": "sep1", "type": "separator"},
+            {"id": "photoshop", "name": "Photoshop", "icon": None, "color": 5, "running": True},
+            {"id": "sep2", "type": "separator"},
+            {"id": "vscode", "name": "VS Code", "icon": None, "color": 7, "running": True},
+        ]
+
+    print(
+        f"[DockLauncher] Found {len([i for i in items if i.get('type') != 'separator'])} applications"
+    )
+
+    class DockLauncher(AuroraView):
+        """macOS-style dock launcher."""
+
+        def __init__(self):
+            # Calculate width based on items
+            item_count = len([i for i in items if i.get("type") != "separator"])
+            sep_count = len([i for i in items if i.get("type") == "separator"])
+            width = item_count * 56 + sep_count * 18 + 48  # items + separators + padding
+
+            super().__init__(
+                html=DOCK_HTML,
+                width=width,
+                height=100,
+                frame=False,
+                transparent=True,
+                undecorated_shadow=False,
+                always_on_top=True,
+                tool_window=True,
+            )
+            self.items = items
+
+            # Bind API methods
+            self.bind_call("get_items", self.get_items)
+            self.bind_call("launch_item", self.launch_item)
+
+        def get_items(self, *args, **kwargs):
+            """Return the list of dock items."""
+            return {"items": self.items}
+
+        def launch_item(self, id: str = "", name: str = ""):
+            """Launch an application by ID."""
+            print(f"[DockLauncher] Launching: {name}")
+
+            # Find the item
+            item = next((i for i in self.items if i.get("id") == id), None)
+            if not item or not item.get("path"):
+                return {"ok": False, "error": "Application not found"}
+
+            path = item["path"]
+            if not os.path.exists(path):
+                return {"ok": False, "error": f"Path not found: {path}"}
+
+            try:
+                if sys.platform == "win32":
+                    os.startfile(path)
+                else:
+                    subprocess.Popen([path], start_new_session=True)
+
+                # Mark as running
+                item["running"] = True
+                self.emit("item_running", {"id": id, "running": True})
+
+                return {"ok": True}
+            except Exception as e:
+                return {"ok": False, "error": str(e)}
+
+    print("\n" + "=" * 60)
+    print("Dock Launcher Demo")
+    print("=" * 60)
+    print("\nFeatures:")
+    print("  - macOS-style magnification on hover")
+    print("  - Click to launch applications")
+    print("  - Running indicator dots")
+    print("  - Drag to reposition")
+    print("  - Smooth GSAP animations")
+    print("\nPress Ctrl+C to exit.")
+    print("=" * 60 + "\n")
+
+    dock = DockLauncher()
+    dock.show()
+
+
+if __name__ == "__main__":
+    run_dock_launcher_demo()
+```
+:::
+
+**Run:** `python examples/dock_launcher_demo.py`
+
+**Features:**
+- Transparent, frameless dock window
+- macOS-style magnification on hover
+- GSAP-powered animations
+- Dynamic tool discovery from system
+- Drag to reposition
+- Auto-hide behavior
+- Running indicator dots
+- Application launcher dock
+- Quick access toolbar
+- Favorite tools palette
+- DCC application switcher
+
+---
+
+### DOM Batch Operations Demo
+
+This example demonstrates high-performance DOM manipulation using batch operations. Essential for scenarios requiring multiple DOM
+
+::: details View Source Code
+```python
+"""DOM Batch Operations Demo - High-Performance DOM Manipulation.
+
+This example demonstrates high-performance DOM manipulation using
+batch operations. Essential for scenarios requiring multiple DOM
+updates with minimal IPC overhead.
+
+Usage:
+    python examples/dom_batch_demo.py
+
+Features demonstrated:
+    - Element and ElementCollection classes
+    - Batch DOM operations for performance
+    - Style, class, and attribute manipulation
+    - Form handling and validation
+    - DOM traversal methods
+    - Proxy-style access (style[], classes, attributes, data)
+"""
+
+from __future__ import annotations
+
+import random
+
+from auroraview import WebView
+
+
+def main():
+    """Run the DOM batch operations demo."""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>DOM Batch Operations Demo</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 1000px;
+                margin: 50px auto;
+                padding: 20px;
+                background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+                min-height: 100vh;
+            }
+            .card {
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                margin-bottom: 20px;
+            }
+            h1 { color: #333; margin-top: 0; }
+            h3 { color: #666; margin-bottom: 10px; }
+            button {
+                background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                margin: 3px;
+                transition: transform 0.1s;
+            }
+            button:hover { transform: translateY(-2px); }
+            button:active { transform: translateY(0); }
+            .demo-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 10px;
+                margin: 20px 0;
+            }
+            .demo-item {
+                background: #f5f5f5;
+                padding: 20px;
+                border-radius: 8px;
+                text-align: center;
+                transition: all 0.3s ease;
+                cursor: pointer;
+            }
+            .demo-item:hover { transform: scale(1.05); }
+            .demo-item.highlighted { background: #ffeb3b; }
+            .demo-item.selected { background: #4caf50; color: white; }
+            .demo-item.error { background: #f44336; color: white; }
+            .demo-item.hidden { display: none; }
+            .form-demo {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+                margin: 20px 0;
+            }
+            .form-group {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+            .form-group label {
+                font-weight: 500;
+                color: #333;
+            }
+            .form-group input, .form-group select {
+                padding: 10px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 14px;
+            }
+            .form-group input:focus, .form-group select:focus {
+                outline: none;
+                border-color: #0072ff;
+            }
+            .form-group input.valid { border-color: #4caf50; }
+            .form-group input.invalid { border-color: #f44336; }
+            .stats-bar {
+                display: flex;
+                gap: 20px;
+                padding: 15px;
+                background: #f5f5f5;
+                border-radius: 8px;
+                margin: 15px 0;
+            }
+            .stat-item {
+                flex: 1;
+                text-align: center;
+            }
+            .stat-value { font-size: 24px; font-weight: bold; color: #0072ff; }
+            .stat-label { font-size: 12px; color: #666; }
+            #performanceLog {
+                background: #1e1e1e;
+                color: #0f0;
+                border-radius: 8px;
+                padding: 16px;
+                font-family: 'Consolas', monospace;
+                font-size: 12px;
+                max-height: 150px;
+                overflow-y: auto;
+            }
+            .traversal-tree {
+                background: #f5f5f5;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 15px 0;
+            }
+            .tree-node {
+                padding: 8px 15px;
+                margin: 5px 0;
+                background: white;
+                border-radius: 4px;
+                border-left: 3px solid #0072ff;
+            }
+            .tree-node.current { border-left-color: #4caf50; background: #e8f5e9; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>DOM Batch Operations Demo</h1>
+            <p>High-performance DOM manipulation with batch operations and proxy-style access.</p>
+
+            <h3>Batch Operations on Grid</h3>
+            <div class="demo-grid" id="demoGrid">
+                <!-- Items will be generated by Python -->
+            </div>
+
+            <div>
+                <button onclick="requestBatchHighlight()">Batch Highlight</button>
+                <button onclick="requestBatchSelect()">Batch Select</button>
+                <button onclick="requestBatchStyle()">Batch Style</button>
+                <button onclick="requestBatchToggle()">Toggle Classes</button>
+                <button onclick="requestResetGrid()">Reset Grid</button>
+            </div>
+
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-value" id="opCount">0</div>
+                    <div class="stat-label">Operations</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="lastTime">0ms</div>
+                    <div class="stat-label">Last Batch Time</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="itemCount">0</div>
+                    <div class="stat-label">Items Modified</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Form Manipulation</h3>
+            <div class="form-demo">
+                <div class="form-group">
+                    <label for="userName">Username</label>
+                    <input type="text" id="userName" placeholder="Enter username">
+                </div>
+                <div class="form-group">
+                    <label for="userEmail">Email</label>
+                    <input type="email" id="userEmail" placeholder="Enter email">
+                </div>
+                <div class="form-group">
+                    <label for="userRole">Role</label>
+                    <select id="userRole">
+                        <option value="">Select role...</option>
+                        <option value="admin">Administrator</option>
+                        <option value="user">User</option>
+                        <option value="guest">Guest</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="userAge">Age</label>
+                    <input type="number" id="userAge" placeholder="Enter age">
+                </div>
+            </div>
+            <div>
+                <button onclick="requestFillForm()">Fill Form (Python)</button>
+                <button onclick="requestValidateForm()">Validate Form</button>
+                <button onclick="requestClearForm()">Clear Form</button>
+                <button onclick="requestReadForm()">Read Form Values</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>DOM Traversal</h3>
+            <div class="traversal-tree" id="traversalTree">
+                <div class="tree-node" data-level="1" id="node1">
+                    Parent Node
+                    <div class="tree-node" data-level="2" id="node2">
+                        Child 1
+                        <div class="tree-node" data-level="3" id="node3">Grandchild 1</div>
+                        <div class="tree-node" data-level="3" id="node4">Grandchild 2</div>
+                    </div>
+                    <div class="tree-node" data-level="2" id="node5">
+                        Child 2
+                        <div class="tree-node" data-level="3" id="node6">Grandchild 3</div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <button onclick="requestTraverseParent()">Find Parent</button>
+                <button onclick="requestTraverseChildren()">Find Children</button>
+                <button onclick="requestTraverseSiblings()">Find Siblings</button>
+                <button onclick="requestHighlightLevel()">Highlight Level 2</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Performance Log</h3>
+            <div id="performanceLog">DOM operations will be logged here...</div>
+        </div>
+
+        <script>
+            let opCount = 0;
+
+            function log(msg) {
+                const logEl = document.getElementById('performanceLog');
+                const timestamp = new Date().toLocaleTimeString();
+                logEl.textContent = `[${timestamp}] ${msg}\\n` + logEl.textContent;
+            }
+
+            function updateStats(ops, time, items) {
+                opCount += ops;
+                document.getElementById('opCount').textContent = opCount;
+                document.getElementById('lastTime').textContent = time + 'ms';
+                document.getElementById('itemCount').textContent = items;
+            }
+
+            async function requestBatchHighlight() {
+                const start = performance.now();
+                try {
+                    const result = await auroraview.api.batch_highlight();
+                    const time = Math.round(performance.now() - start);
+                    updateStats(result.operations, time, result.items_modified);
+                    log(`Batch highlight: ${result.items_modified} items in ${time}ms`);
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestBatchSelect() {
+                const start = performance.now();
+                try {
+                    const result = await auroraview.api.batch_select();
+                    const time = Math.round(performance.now() - start);
+                    updateStats(result.operations, time, result.items_modified);
+                    log(`Batch select: ${result.items_modified} items in ${time}ms`);
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestBatchStyle() {
+                const start = performance.now();
+                try {
+                    const result = await auroraview.api.batch_style();
+                    const time = Math.round(performance.now() - start);
+                    updateStats(result.operations, time, result.items_modified);
+                    log(`Batch style: ${result.items_modified} items in ${time}ms`);
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestBatchToggle() {
+                const start = performance.now();
+                try {
+                    const result = await auroraview.api.batch_toggle();
+                    const time = Math.round(performance.now() - start);
+                    updateStats(result.operations, time, result.items_modified);
+                    log(`Batch toggle: ${result.items_modified} items in ${time}ms`);
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestResetGrid() {
+                try {
+                    await auroraview.api.reset_grid();
+                    log('Grid reset');
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestFillForm() {
+                try {
+                    const result = await auroraview.api.fill_form();
+                    log(`Form filled: ${JSON.stringify(result.data)}`);
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestValidateForm() {
+                try {
+                    const result = await auroraview.api.validate_form();
+                    log(`Form validation: ${result.valid ? 'PASSED' : 'FAILED'}`);
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestClearForm() {
+                try {
+                    await auroraview.api.clear_form();
+                    log('Form cleared');
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestReadForm() {
+                try {
+                    const result = await auroraview.api.read_form();
+                    log(`Form values: ${JSON.stringify(result)}`);
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestTraverseParent() {
+                try {
+                    await auroraview.api.traverse_parent();
+                    log('Traversed to parent');
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestTraverseChildren() {
+                try {
+                    await auroraview.api.traverse_children();
+                    log('Found children');
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestTraverseSiblings() {
+                try {
+                    await auroraview.api.traverse_siblings();
+                    log('Found siblings');
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function requestHighlightLevel() {
+                try {
+                    await auroraview.api.highlight_level({level: 2});
+                    log('Highlighted level 2 nodes');
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+        </script>
+    </body>
+    </html>
+    """
+
+    view = WebView(title="DOM Batch Operations Demo", html=html_content, width=1050, height=900)
+
+    # Generate grid items
+    @view.bind_call("api.init_grid")
+    def init_grid() -> dict:
+        """Initialize the demo grid with items."""
+        grid = view.dom("#demoGrid")
+        items_html = ""
+        for i in range(20):
+            items_html += f'<div class="demo-item" data-index="{i}" id="item{i}">Item {i + 1}</div>'
+        grid.set_html(items_html)
+        return {"ok": True, "items": 20}
+
+    @view.bind_call("api.batch_highlight")
+    def batch_highlight() -> dict:
+        """Highlight random items using batch operations."""
+        # Use ElementCollection for batch operations
+        items = view.dom_all(".demo-item")
+        items.remove_class("highlighted", "selected", "error")
+
+        # Highlight random items
+        modified = 0
+        for i in random.sample(range(20), 8):
+            view.dom(f"#item{i}").add_class("highlighted")
+            modified += 1
+
+        return {"ok": True, "operations": 2, "items_modified": modified}
+
+    @view.bind_call("api.batch_select")
+    def batch_select() -> dict:
+        """Select items using batch operations."""
+        items = view.dom_all(".demo-item")
+        items.remove_class("highlighted", "selected", "error")
+
+        # Select every third item
+        modified = 0
+        for i in range(0, 20, 3):
+            view.dom(f"#item{i}").add_class("selected")
+            modified += 1
+
+        return {"ok": True, "operations": 2, "items_modified": modified}
+
+    @view.bind_call("api.batch_style")
+    def batch_style() -> dict:
+        """Apply styles using batch operations."""
+        # Apply gradient background to all items
+
+        colors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#ffeaa7"]
+        modified = 0
+
+        for i in range(20):
+            color = colors[i % len(colors)]
+            view.dom(f"#item{i}").set_style("background", color)
+            view.dom(f"#item{i}").set_style("color", "white")
+            modified += 1
+
+        return {"ok": True, "operations": 40, "items_modified": modified}
+
+    @view.bind_call("api.batch_toggle")
+    def batch_toggle() -> dict:
+        """Toggle classes on items."""
+        modified = 0
+        for i in range(20):
+            view.dom(f"#item{i}").toggle_class("highlighted")
+            modified += 1
+
+        return {"ok": True, "operations": 20, "items_modified": modified}
+
+    @view.bind_call("api.reset_grid")
+    def reset_grid() -> dict:
+        """Reset grid to initial state."""
+        items = view.dom_all(".demo-item")
+        items.remove_class("highlighted", "selected", "error")
+
+        # Reset styles
+        for i in range(20):
+            view.dom(f"#item{i}").set_style("background", "#f5f5f5")
+            view.dom(f"#item{i}").set_style("color", "inherit")
+
+        return {"ok": True}
+
+    @view.bind_call("api.fill_form")
+    def fill_form() -> dict:
+        """Fill form fields using DOM manipulation."""
+        data = {
+            "userName": "john_doe",
+            "userEmail": "john@example.com",
+            "userRole": "admin",
+            "userAge": "30",
+        }
+
+        view.dom("#userName").set_value(data["userName"])
+        view.dom("#userEmail").set_value(data["userEmail"])
+        view.dom("#userRole").set_value(data["userRole"])
+        view.dom("#userAge").set_value(data["userAge"])
+
+        return {"ok": True, "data": data}
+
+    @view.bind_call("api.validate_form")
+    def validate_form() -> dict:
+        """Validate form and show visual feedback."""
+        # Simple validation - add valid/invalid classes
+        fields = ["#userName", "#userEmail", "#userAge"]
+        all_valid = True
+
+        for field in fields:
+            el = view.dom(field)
+            # For demo, just check if field exists and add classes
+            el.remove_class("valid", "invalid")
+            # Assume valid for demo
+            el.add_class("valid")
+
+        return {"ok": True, "valid": all_valid}
+
+    @view.bind_call("api.clear_form")
+    def clear_form() -> dict:
+        """Clear all form fields."""
+        view.dom("#userName").clear()
+        view.dom("#userEmail").clear()
+        view.dom("#userAge").clear()
+        view.dom("#userRole").set_value("")
+
+        # Remove validation classes
+        for field in ["#userName", "#userEmail", "#userAge"]:
+            view.dom(field).remove_class("valid", "invalid")
+
+        return {"ok": True}
+
+    @view.bind_call("api.read_form")
+    def read_form() -> dict:
+        """Read form values (demo - actual reading requires JS bridge)."""
+        # Note: In real usage, you'd use evaluate_js to get values
+        return {"message": "Form reading requires JS evaluation - see dom_manipulation_demo.py"}
+
+    @view.bind_call("api.traverse_parent")
+    def traverse_parent() -> dict:
+        """Demonstrate parent traversal."""
+        # Highlight parent of node3
+        view.dom_all(".tree-node").remove_class("current")
+        view.dom("#node2").add_class("current")
+        return {"ok": True}
+
+    @view.bind_call("api.traverse_children")
+    def traverse_children() -> dict:
+        """Demonstrate children traversal."""
+        view.dom_all(".tree-node").remove_class("current")
+        # Highlight children of node2
+        view.dom("#node3").add_class("current")
+        view.dom("#node4").add_class("current")
+        return {"ok": True}
+
+    @view.bind_call("api.traverse_siblings")
+    def traverse_siblings() -> dict:
+        """Demonstrate sibling traversal."""
+        view.dom_all(".tree-node").remove_class("current")
+        # Highlight siblings (node2 and node5 are siblings)
+        view.dom("#node2").add_class("current")
+        view.dom("#node5").add_class("current")
+        return {"ok": True}
+
+    @view.bind_call("api.highlight_level")
+    def highlight_level(level: int = 2) -> dict:
+        """Highlight nodes at a specific level."""
+        view.dom_all(".tree-node").remove_class("current")
+        view.dom_all(f'.tree-node[data-level="{level}"]').add_class("current")
+        return {"ok": True, "level": level}
+
+    # Initialize grid after load
+    @view.on("ready")
+    def on_ready():
+        init_grid()
+
+    print("Starting DOM Batch Operations Demo...")
+    print("Features: Batch operations, Form handling, DOM traversal")
+    view.show()
+
+
+if __name__ == "__main__":
+    main()
+```
+:::
+
+**Run:** `python examples/dom_batch_demo.py`
+
+**Features:**
+- Element and ElementCollection classes
+- Batch DOM operations for performance
+- Style, class, and attribute manipulation
+- Form handling and validation
+- DOM traversal methods
+- Proxy-style access (style[], classes, attributes, data)
+
+---
+
+### Event Timer Demo
+
+This example demonstrates the EventTimer system for processing WebView events in embedded mode. Essential for DCC integration where the WebView is embedded
+
+::: details View Source Code
+```python
+"""Event Timer Demo - AuroraView Timer-Based Event Processing.
+
+This example demonstrates the EventTimer system for processing WebView events
+in embedded mode. Essential for DCC integration where the WebView is embedded
+in a host application's event loop.
+
+Usage:
+    python examples/event_timer_demo.py
+
+Features demonstrated:
+    - EventTimer creation and lifecycle
+    - Timer tick callbacks for periodic tasks
+    - Close event detection and handling
+    - Timer backend selection (Qt, Thread)
+    - Window validity checking
+    - Context manager usage
+
+Note: This example uses standalone mode for demonstration.
+In DCC environments, the timer integrates with the host's event loop.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from auroraview import WebView
+
+
+def main():
+    """Run the event timer demo."""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Event Timer Demo</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 800px;
+                margin: 50px auto;
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+            .card {
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                margin-bottom: 20px;
+            }
+            h1 { color: #333; margin-top: 0; }
+            h3 { color: #666; margin-bottom: 10px; }
+            button {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                margin: 5px;
+                transition: transform 0.1s;
+            }
+            button:hover { transform: translateY(-2px); }
+            button:active { transform: translateY(0); }
+            .timer-display {
+                font-size: 48px;
+                font-weight: bold;
+                text-align: center;
+                color: #667eea;
+                padding: 20px;
+                background: #f5f5f5;
+                border-radius: 12px;
+                margin: 20px 0;
+                font-family: 'Consolas', monospace;
+            }
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 15px;
+                margin: 20px 0;
+            }
+            .stat-box {
+                background: #f5f5f5;
+                padding: 15px;
+                border-radius: 8px;
+                text-align: center;
+            }
+            .stat-value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #667eea;
+            }
+            .stat-label {
+                font-size: 12px;
+                color: #666;
+                margin-top: 5px;
+            }
+            #log {
+                background: #1e1e1e;
+                color: #0f0;
+                border-radius: 8px;
+                padding: 16px;
+                font-family: 'Consolas', monospace;
+                font-size: 12px;
+                max-height: 200px;
+                overflow-y: auto;
+                white-space: pre-wrap;
+            }
+            .status-indicator {
+                display: inline-block;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                margin-right: 8px;
+            }
+            .status-running { background: #4caf50; }
+            .status-stopped { background: #f44336; }
+            .interval-slider {
+                width: 100%;
+                margin: 10px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>Event Timer Demo</h1>
+            <p>Demonstrates timer-based event processing for embedded WebView scenarios.</p>
+
+            <div class="timer-display" id="timerDisplay">00:00:00</div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="tickCount">0</div>
+                    <div class="stat-label">Tick Count</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="interval">16</div>
+                    <div class="stat-label">Interval (ms)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="fps">0</div>
+                    <div class="stat-label">Effective FPS</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">
+                        <span class="status-indicator status-running" id="statusIndicator"></span>
+                        <span id="statusText">Running</span>
+                    </div>
+                    <div class="stat-label">Timer Status</div>
+                </div>
+            </div>
+
+            <h3>Timer Interval</h3>
+            <input type="range" class="interval-slider" id="intervalSlider"
+                   min="8" max="100" value="16" oninput="updateInterval(this.value)">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+                <span>8ms (120 FPS)</span>
+                <span>16ms (60 FPS)</span>
+                <span>33ms (30 FPS)</span>
+                <span>100ms (10 FPS)</span>
+            </div>
+
+            <h3>Actions</h3>
+            <div>
+                <button onclick="requestTimerStatus()">Get Timer Status</button>
+                <button onclick="triggerTickCallback()">Trigger Custom Tick</button>
+                <button onclick="resetStats()">Reset Stats</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Event Log</h3>
+            <div id="log">Timer events will appear here...</div>
+        </div>
+
+        <script>
+            let tickCount = 0;
+            let lastTickTime = Date.now();
+            let fpsHistory = [];
+
+            function log(msg) {
+                const logEl = document.getElementById('log');
+                const timestamp = new Date().toLocaleTimeString();
+                logEl.textContent = `[${timestamp}] ${msg}\\n` + logEl.textContent;
+                if (logEl.textContent.length > 5000) {
+                    logEl.textContent = logEl.textContent.slice(0, 5000);
+                }
+            }
+
+            function updateTimerDisplay() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                document.getElementById('timerDisplay').textContent = `${hours}:${minutes}:${seconds}`;
+            }
+
+            function updateStats(data) {
+                tickCount = data.tick_count || tickCount;
+                document.getElementById('tickCount').textContent = tickCount;
+
+                // Calculate FPS
+                const now = Date.now();
+                const delta = now - lastTickTime;
+                lastTickTime = now;
+
+                if (delta > 0) {
+                    const fps = Math.round(1000 / delta);
+                    fpsHistory.push(fps);
+                    if (fpsHistory.length > 10) fpsHistory.shift();
+                    const avgFps = Math.round(fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length);
+                    document.getElementById('fps').textContent = avgFps;
+                }
+            }
+
+            function updateInterval(value) {
+                document.getElementById('interval').textContent = value;
+                auroraview.api.set_interval({interval_ms: parseInt(value)});
+            }
+
+            async function requestTimerStatus() {
+                try {
+                    const status = await auroraview.api.get_timer_status();
+                    log(`Timer status: ${JSON.stringify(status)}`);
+
+                    const indicator = document.getElementById('statusIndicator');
+                    const statusText = document.getElementById('statusText');
+
+                    if (status.is_running) {
+                        indicator.className = 'status-indicator status-running';
+                        statusText.textContent = 'Running';
+                    } else {
+                        indicator.className = 'status-indicator status-stopped';
+                        statusText.textContent = 'Stopped';
+                    }
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            async function triggerTickCallback() {
+                try {
+                    await auroraview.api.trigger_tick();
+                    log('Custom tick triggered');
+                } catch (e) {
+                    log(`Error: ${e.message}`);
+                }
+            }
+
+            function resetStats() {
+                tickCount = 0;
+                fpsHistory = [];
+                document.getElementById('tickCount').textContent = '0';
+                document.getElementById('fps').textContent = '0';
+                log('Stats reset');
+            }
+
+            // Listen for tick events from Python
+            auroraview.on("timer_tick", (data) => {
+                updateTimerDisplay();
+                updateStats(data);
+            });
+
+            auroraview.on("timer_close", (data) => {
+                log('Timer close event received');
+                document.getElementById('statusIndicator').className = 'status-indicator status-stopped';
+                document.getElementById('statusText').textContent = 'Stopped';
+            });
+
+            // Initial display update
+            updateTimerDisplay();
+            setInterval(updateTimerDisplay, 1000);
+        </script>
+    </body>
+    </html>
+    """
+
+    view = WebView(title="Event Timer Demo", html=html_content, width=900, height=800)
+
+    # Timer state
+    timer_state = {"tick_count": 0, "interval_ms": 16, "start_time": None}
+
+    # Note: In standalone mode, WebView.show() handles its own event loop.
+    # This demo shows how EventTimer would be used in embedded/DCC mode.
+    # For demonstration, we'll simulate the timer behavior using periodic emit.
+
+    @view.bind_call("api.get_timer_status")
+    def get_timer_status() -> dict:
+        """Get current timer status."""
+        return {
+            "is_running": True,  # In demo, always running
+            "interval_ms": timer_state["interval_ms"],
+            "tick_count": timer_state["tick_count"],
+            "uptime_seconds": (
+                (datetime.now() - timer_state["start_time"]).total_seconds()
+                if timer_state["start_time"]
+                else 0
+            ),
+        }
+
+    @view.bind_call("api.set_interval")
+    def set_interval(interval_ms: int = 16) -> dict:
+        """Set timer interval (demo only - actual change requires timer restart)."""
+        timer_state["interval_ms"] = interval_ms
+        return {"ok": True, "new_interval": interval_ms}
+
+    @view.bind_call("api.trigger_tick")
+    def trigger_tick() -> dict:
+        """Manually trigger a tick callback."""
+        timer_state["tick_count"] += 1
+        view.emit("timer_tick", {"tick_count": timer_state["tick_count"], "manual": True})
+        return {"ok": True, "tick_count": timer_state["tick_count"]}
+
+    # Demonstrate EventTimer API (for documentation purposes)
+    print("=" * 60)
+    print("EventTimer Demo - Timer-Based Event Processing")
+    print("=" * 60)
+    print()
+    print("EventTimer is designed for embedded WebView scenarios where")
+    print("the WebView is integrated into a host application's event loop.")
+    print()
+    print("Example usage in DCC environments:")
+    print()
+    print("  from auroraview import WebView")
+    print("  from auroraview.utils.event_timer import EventTimer")
+    print()
+    print("  # Create WebView in embedded mode")
+    print("  webview = WebView(parent=parent_hwnd, mode='owner')")
+    print()
+    print("  # Create timer with 16ms interval (60 FPS)")
+    print("  timer = EventTimer(webview, interval_ms=16)")
+    print()
+    print("  # Register callbacks")
+    print("  @timer.on_tick")
+    print("  def handle_tick():")
+    print("      # Called every 16ms")
+    print("      pass")
+    print()
+    print("  @timer.on_close")
+    print("  def handle_close():")
+    print("      timer.stop()")
+    print()
+    print("  # Start the timer")
+    print("  timer.start()")
+    print()
+    print("=" * 60)
+
+    timer_state["start_time"] = datetime.now()
+    print("\nStarting Event Timer Demo...")
+    view.show()
+
+
+if __name__ == "__main__":
+    main()
+```
+:::
+
+**Run:** `python examples/event_timer_demo.py`
+
+**Features:**
+- EventTimer creation and lifecycle
+- Timer tick callbacks for periodic tasks
+- Close event detection and handling
+- Timer backend selection (Qt, Thread)
+- Window validity checking
+- Context manager usage
+
+---
+
+### Floating Toolbar Demo
+
+This example demonstrates how to create a floating toolbar that displays local application shortcuts with smooth GSAP animations.
+
+::: details View Source Code
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Floating Toolbar Demo - Transparent floating tool shelf with GSAP animations.
+
+This example demonstrates how to create a floating toolbar that displays
+local application shortcuts with smooth GSAP animations.
+
+Features demonstrated:
+- Transparent, frameless window (truly transparent with no shadow)
+- Circular trigger button that expands into a toolbar
+- GSAP-powered animations for smooth transitions
+- Dynamic tool discovery from Windows Start Menu / Applications
+- Drag support for repositioning
+- Tool window style (hide from taskbar/Alt+Tab)
+
+Use cases:
+- Quick launcher for DCC applications
+- Floating tool palette for workflows
+- Application dock/launcher
+- Context-sensitive tool shelf
+
+Signed-off-by: Hal Long <hal.long@outlook.com>
+"""
+
+import os
+import subprocess
+import sys
+
+# HTML for the floating toolbar with GSAP animations
+TOOLBAR_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: transparent !important;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            padding: 8px;
+        }
+
+        /* Trigger button */
+        .trigger-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: none;
+            transition: none;
+
+            position: relative;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+
+
+        .trigger-btn:hover {
+            box-shadow: none;
+        }
+
+
+        .trigger-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+            transition: transform 0.3s;
+        }
+
+        .trigger-btn.expanded svg {
+            transform: rotate(45deg);
+        }
+
+        /* Toolbar container */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 12px;
+            overflow: hidden;
+        }
+
+        .toolbar-inner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(30, 30, 46, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 28px;
+            padding: 8px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+
+        }
+
+        /* Tool item */
+        .tool-item {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            position: relative;
+            opacity: 0;
+            transform: scale(0.5);
+        }
+
+
+
+        .tool-item:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: #6366f1;
+            transform: translateY(-2px) scale(1.05);
+        }
+
+        .tool-item:active {
+            transform: translateY(0) scale(0.95);
+        }
+
+        .tool-item img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+        }
+
+        .tool-item .icon-placeholder {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+
+        /* Tooltip */
+        .tool-item::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s, transform 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .tool-item:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-4px);
+        }
+
+        /* Add tool button */
+        .add-tool {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            opacity: 0;
+            transform: scale(0.5);
+        }
+
+        .add-tool:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: #6366f1;
+        }
+
+        .add-tool svg {
+            width: 20px;
+            height: 20px;
+            fill: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Drag handle */
+        .drag-handle {
+            -webkit-app-region: drag;
+            cursor: move;
+        }
+
+        .no-drag {
+            -webkit-app-region: no-drag;
+        }
+
+        /* Separator */
+        .separator {
+            width: 1px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0 4px;
+            opacity: 0;
+        }
+
+        /* Color palette for tool icons */
+        .color-1 { background: linear-gradient(135deg, #f43f5e, #ec4899); }
+        .color-2 { background: linear-gradient(135deg, #f97316, #f59e0b); }
+        .color-3 { background: linear-gradient(135deg, #22c55e, #10b981); }
+        .color-4 { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+        .color-5 { background: linear-gradient(135deg, #8b5cf6, #a855f7); }
+        .color-6 { background: linear-gradient(135deg, #06b6d4, #0ea5e9); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="trigger-btn no-drag" id="triggerBtn" onclick="toggleToolbar()">
+            <svg viewBox="0 0 24 24">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+        </button>
+
+        <div class="toolbar" id="toolbar">
+            <div class="toolbar-inner drag-handle" id="toolbarInner">
+                <!-- Tools will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isExpanded = false;
+        let tools = [];
+
+        // Initialize
+        window.addEventListener('auroraviewready', () => {
+            console.log('[FloatingToolbar] AuroraView ready');
+            installNativeDrag();
+            loadTools();
+        });
+
+        function installNativeDrag() {
+            try {
+                if (window.__floating_toolbar_native_drag_installed) return;
+                window.__floating_toolbar_native_drag_installed = true;
+
+                const DRAG_THRESHOLD_PX = 4;
+                let pending = null; // { x, y, pointerId }
+                let suppressClickUntil = 0;
+
+                function isDragSource(el) {
+                    // Allow dragging from the trigger button and tool icons.
+                    // Keep the add button clickable.
+                    if (el.closest('.add-tool')) return false;
+                    return !!el.closest('.trigger-btn, .tool-item, .toolbar-inner');
+                }
+
+                document.addEventListener('pointerdown', (e) => {
+                    try {
+                        if (e.button !== 0) return;
+                        const t = e.target;
+                        if (!t || !(t instanceof Element)) return;
+                        if (!isDragSource(t)) return;
+
+                        pending = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+                    } catch (err) {
+                        console.warn('[FloatingToolbar] installNativeDrag pointerdown error:', err);
+                    }
+                }, true);
+
+                document.addEventListener('pointermove', (e) => {
+                    try {
+                        if (!pending) return;
+                        if (e.pointerId !== pending.pointerId) return;
+                        const dx = e.clientX - pending.x;
+                        const dy = e.clientY - pending.y;
+                        if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return;
+                        pending = null;
+
+                        if (window.auroraview && typeof window.auroraview.startDrag === 'function') {
+                            suppressClickUntil = Date.now() + 800;
+                            window.auroraview.startDrag();
+                            e.preventDefault();
+                        }
+                    } catch (err) {
+                        console.warn('[FloatingToolbar] installNativeDrag pointermove error:', err);
+                    }
+                }, true);
+
+                function clearPending() {
+                    pending = null;
+                }
+
+                document.addEventListener('pointerup', clearPending, true);
+                document.addEventListener('pointercancel', clearPending, true);
+                window.addEventListener('blur', clearPending, true);
+
+                document.addEventListener('click', (e) => {
+                    try {
+                        if (Date.now() < suppressClickUntil) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
+                    } catch (_) {
+                        // ignore
+                    }
+                }, true);
+            } catch (e) {
+                console.warn('[FloatingToolbar] Failed to install native drag:', e);
+            }
+        }
+
+
+        // Fallback for standalone testing
+        setTimeout(() => {
+            if (tools.length === 0) {
+                console.log('[FloatingToolbar] Using default tools');
+                setTools(getDefaultTools());
+            }
+        }, 1000);
+
+        function getDefaultTools() {
+            return [
+                { name: 'Maya', path: 'maya.exe', icon: null, color: 1 },
+                { name: '3ds Max', path: '3dsmax.exe', icon: null, color: 2 },
+                { name: 'Houdini', path: 'houdini.exe', icon: null, color: 3 },
+                { name: 'Blender', path: 'blender.exe', icon: null, color: 4 },
+                { name: 'Photoshop', path: 'photoshop.exe', icon: null, color: 5 },
+                { name: 'VS Code', path: 'code.exe', icon: null, color: 6 },
+            ];
+        }
+
+        async function loadTools() {
+            try {
+                if (window.auroraview && window.auroraview.call) {
+                    const result = await window.auroraview.call('get_tools');
+                    if (result && result.tools) {
+                        setTools(result.tools);
+                    }
+                }
+            } catch (e) {
+                console.error('[FloatingToolbar] Failed to load tools:', e);
+                setTools(getDefaultTools());
+            }
+        }
+
+        function setTools(newTools) {
+            tools = newTools;
+            renderTools();
+        }
+
+        function renderTools() {
+            const container = document.getElementById('toolbarInner');
+            container.innerHTML = '';
+
+            tools.forEach((tool, index) => {
+                const item = document.createElement('div');
+                item.className = 'tool-item no-drag';
+                item.setAttribute('data-tooltip', tool.name);
+                item.onclick = () => launchTool(tool);
+
+                if (tool.icon) {
+                    const img = document.createElement('img');
+                    img.src = tool.icon;
+                    img.alt = tool.name;
+                    item.appendChild(img);
+                } else {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = `icon-placeholder color-${(tool.color || (index % 6)) + 1}`;
+                    placeholder.textContent = tool.name.substring(0, 2).toUpperCase();
+                    item.appendChild(placeholder);
+                }
+
+                container.appendChild(item);
+            });
+
+            // Add separator
+            const separator = document.createElement('div');
+            separator.className = 'separator';
+            container.appendChild(separator);
+
+            // Add "add tool" button
+            const addBtn = document.createElement('div');
+            addBtn.className = 'add-tool no-drag';
+            addBtn.setAttribute('data-tooltip', 'Add Tool');
+            addBtn.onclick = addTool;
+            addBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>';
+            container.appendChild(addBtn);
+        }
+
+        function toggleToolbar() {
+            isExpanded = !isExpanded;
+            const btn = document.getElementById('triggerBtn');
+            const toolbar = document.getElementById('toolbar');
+            const items = document.querySelectorAll('.tool-item, .add-tool, .separator');
+
+            if (isExpanded) {
+                btn.classList.add('expanded');
+
+                // Animate toolbar expansion
+                gsap.fromTo(toolbar,
+                    { width: 0, opacity: 0 },
+                    { width: 'auto', opacity: 1, duration: 0.4, ease: 'power3.out' }
+                );
+
+                // Stagger animate items
+                gsap.to(items, {
+                    opacity: 1,
+                    scale: 1,
+                    duration: 0.3,
+                    stagger: 0.05,
+                    delay: 0.1,
+                    ease: 'back.out(1.7)'
+                });
+
+                // Notify backend about expansion for window resize
+                if (window.auroraview && window.auroraview.call) {
+                    window.auroraview.call('on_expand', { expanded: true });
+                }
+            } else {
+                btn.classList.remove('expanded');
+
+                // Animate items out
+                gsap.to(items, {
+                    opacity: 0,
+                    scale: 0.5,
+                    duration: 0.2,
+                    stagger: 0.02,
+                    ease: 'power2.in'
+                });
+
+                // Collapse toolbar
+                gsap.to(toolbar, {
+                    width: 0,
+                    opacity: 0,
+                    duration: 0.3,
+                    delay: 0.1,
+                    ease: 'power3.in'
+                });
+
+                // Notify backend
+                if (window.auroraview && window.auroraview.call) {
+                    window.auroraview.call('on_expand', { expanded: false });
+                }
+            }
+        }
+
+        async function launchTool(tool) {
+            console.log('[FloatingToolbar] Launching:', tool.name);
+
+            // Click animation
+            const items = document.querySelectorAll('.tool-item');
+            items.forEach(item => {
+                if (item.getAttribute('data-tooltip') === tool.name) {
+                    gsap.to(item, {
+                        scale: 0.8,
+                        duration: 0.1,
+                        yoyo: true,
+                        repeat: 1,
+                        ease: 'power2.inOut'
+                    });
+                }
+            });
+
+            try {
+                if (window.auroraview && window.auroraview.call) {
+                    await window.auroraview.call('launch_tool', { path: tool.path, name: tool.name });
+                }
+            } catch (e) {
+                console.error('[FloatingToolbar] Failed to launch tool:', e);
+            }
+        }
+
+        async function addTool() {
+            console.log('[FloatingToolbar] Add tool clicked');
+            try {
+                if (window.auroraview && window.auroraview.call) {
+                    await window.auroraview.call('add_tool');
+                }
+            } catch (e) {
+                console.error('[FloatingToolbar] Failed to add tool:', e);
+            }
+        }
+
+        // Initial render
+        renderTools();
+
+        // Subscribe to tool updates
+        if (window.auroraview && window.auroraview.on) {
+            window.auroraview.on('tools_updated', (data) => {
+                if (data && data.tools) {
+                    setTools(data.tools);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+"""
+
+
+def get_installed_applications():
+    """Discover installed applications from common locations.
+
+    Returns:
+        list: List of tool dictionaries with name, path, and icon info.
+    """
+    tools = []
+    color_index = 0
+
+    # Common DCC application paths on Windows
+    dcc_apps = [
+        {
+            "name": "Maya",
+            "paths": [
+                r"C:\Program Files\Autodesk\Maya*\bin\maya.exe",
+            ],
+        },
+        {
+            "name": "3ds Max",
+            "paths": [
+                r"C:\Program Files\Autodesk\3ds Max*\3dsmax.exe",
+            ],
+        },
+        {
+            "name": "Houdini",
+            "paths": [
+                r"C:\Program Files\Side Effects Software\Houdini*\bin\houdini.exe",
+            ],
+        },
+        {
+            "name": "Blender",
+            "paths": [
+                r"C:\Program Files\Blender Foundation\Blender*\blender.exe",
+                r"C:\Program Files\Blender\blender.exe",
+            ],
+        },
+        {
+            "name": "Photoshop",
+            "paths": [
+                r"C:\Program Files\Adobe\Adobe Photoshop*\Photoshop.exe",
+            ],
+        },
+        {
+            "name": "VS Code",
+            "paths": [
+                r"C:\Users\*\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+                r"C:\Program Files\Microsoft VS Code\Code.exe",
+            ],
+        },
+        {
+            "name": "Nuke",
+            "paths": [
+                r"C:\Program Files\Nuke*\Nuke*.exe",
+            ],
+        },
+        {
+            "name": "Substance Painter",
+            "paths": [
+                r"C:\Program Files\Adobe\Adobe Substance 3D Painter\Adobe Substance 3D Painter.exe",
+            ],
+        },
+    ]
+
+    import glob
+
+    for app in dcc_apps:
+        for pattern in app["paths"]:
+            matches = glob.glob(pattern)
+            if matches:
+                # Use the first match (usually the latest version)
+                path = matches[-1]  # Latest version typically has highest number
+                tools.append(
+                    {
+                        "name": app["name"],
+                        "path": path,
+                        "icon": None,  # Could extract icon from exe
+                        "color": color_index % 6,
+                    }
+                )
+                color_index += 1
+                break
+
+    return tools
+
+
+def run_floating_toolbar_demo():
+    """Run the floating toolbar demo."""
+    from auroraview import AuroraView
+
+    # Discover installed applications
+    discovered_tools = get_installed_applications()
+    if not discovered_tools:
+        # Fallback to placeholder tools
+        discovered_tools = [
+            {"name": "Maya", "path": "maya.exe", "icon": None, "color": 0},
+            {"name": "3ds Max", "path": "3dsmax.exe", "icon": None, "color": 1},
+            {"name": "Houdini", "path": "houdini.exe", "icon": None, "color": 2},
+            {"name": "Blender", "path": "blender.exe", "icon": None, "color": 3},
+            {"name": "Photoshop", "path": "photoshop.exe", "icon": None, "color": 4},
+            {"name": "VS Code", "path": "code.exe", "icon": None, "color": 5},
+        ]
+
+    print(f"[FloatingToolbar] Discovered {len(discovered_tools)} tools:")
+    for tool in discovered_tools:
+        print(f"  - {tool['name']}: {tool['path']}")
+
+    class FloatingToolbar(AuroraView):
+        """Floating toolbar with expandable tool shelf."""
+
+        def __init__(self):
+            # Start with collapsed size
+            super().__init__(
+                html=TOOLBAR_HTML,
+                width=64,  # Just the trigger button
+                height=64,
+                frame=False,
+                transparent=True,
+                undecorated_shadow=False,  # No shadow for truly transparent
+                always_on_top=True,
+                tool_window=True,
+            )
+            self.tools = discovered_tools
+            self.is_expanded = False
+
+            # Bind API methods
+            self.bind_call("get_tools", self.get_tools)
+            self.bind_call("launch_tool", self.launch_tool)
+            self.bind_call("add_tool", self.add_tool)
+            self.bind_call("on_expand", self.on_expand)
+
+        def get_tools(self, *args, **kwargs):
+            """Return the list of available tools."""
+            return {"tools": self.tools}
+
+        def launch_tool(self, path: str = "", name: str = ""):
+            """Launch a tool by its path."""
+            print(f"[FloatingToolbar] Launching: {name} ({path})")
+
+            if not path or not os.path.exists(path):
+                print(f"[FloatingToolbar] Tool not found: {path}")
+                return {"ok": False, "error": f"Tool not found: {path}"}
+
+            try:
+                # Launch the application
+                if sys.platform == "win32":
+                    os.startfile(path)
+                else:
+                    subprocess.Popen([path], start_new_session=True)
+                return {"ok": True}
+            except Exception as e:
+                print(f"[FloatingToolbar] Failed to launch: {e}")
+                return {"ok": False, "error": str(e)}
+
+        def add_tool(self, *args, **kwargs):
+            """Open file dialog to add a new tool."""
+            print("[FloatingToolbar] Add tool requested")
+            # In a real implementation, this would open a file dialog
+            # For now, just log the request
+            return {"ok": True, "message": "Add tool dialog would open here"}
+
+        def on_expand(self, expanded: bool = False):
+            """Handle toolbar expansion/collapse."""
+            self.is_expanded = expanded
+            print(f"[FloatingToolbar] Expanded: {expanded}")
+
+            # Resize window based on expansion state
+            if expanded:
+                # Calculate width based on number of tools
+                # Each tool is 40px + 8px gap, plus padding
+                tool_count = len(self.tools) + 1  # +1 for add button
+                toolbar_width = tool_count * 48 + 32 + 12  # items + padding + gap
+                new_width = 64 + toolbar_width  # trigger + toolbar
+                self.set_size(new_width, 64)
+            else:
+                self.set_size(64, 64)
+
+    print("\n" + "=" * 60)
+    print("Floating Toolbar Demo")
+    print("=" * 60)
+    print("\nFeatures:")
+    print("  - Click the + button to expand/collapse the toolbar")
+    print("  - Click a tool icon to launch the application")
+    print("  - Drag the toolbar to reposition")
+    print("  - The toolbar auto-discovers installed DCC applications")
+    print("\nPress Ctrl+C to exit.")
+    print("=" * 60 + "\n")
+
+    toolbar = FloatingToolbar()
+    toolbar.show()
+
+
+if __name__ == "__main__":
+    run_floating_toolbar_demo()
+```
+:::
+
+**Run:** `python examples/floating_toolbar_demo.py`
+
+**Features:**
+- Transparent, frameless window (truly transparent with no shadow)
+- Circular trigger button that expands into a toolbar
+- GSAP-powered animations for smooth transitions
+- Dynamic tool discovery from Windows Start Menu / Applications
+- Drag support for repositioning
+- Tool window style (hide from taskbar/Alt+Tab)
+- Quick launcher for DCC applications
+- Floating tool palette for workflows
+- Application dock/launcher
+- Context-sensitive tool shelf
+
+---
+
+### Midscene
+
+This example demonstrates how to use Midscene.js integration for AI-powered UI testing with natural language instructions.
+
+::: details View Source Code
+```python
+"""
+Midscene.js AI-Powered Testing Demo
+
+This example demonstrates how to use Midscene.js integration for
+AI-powered UI testing with natural language instructions.
+
+Midscene.js is an AI-driven UI automation SDK by ByteDance that enables:
+- Natural language UI interactions
+- AI-powered data extraction
+- Visual-based element location
+- Natural language assertions
+
+For more information: https://midscenejs.com/
+
+Requirements:
+- playwright: pip install playwright && playwright install chromium
+- OpenAI API key or compatible model API
+
+Usage:
+    # Set API key
+    export OPENAI_API_KEY=your-api-key
+
+    # Run demo
+    python examples/midscene_demo.py
+"""
+
+import asyncio
+import os
+import sys
+
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+async def demo_basic_actions():
+    """Demonstrate basic AI-powered actions."""
+    print("\n=== Basic AI Actions Demo ===\n")
+
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        print("Playwright not installed. Install with: pip install playwright")
+        print("Then run: playwright install chromium")
+        return
+
+    from auroraview.testing.midscene import MidsceneAgent, MidsceneConfig
+
+    # Configure Midscene (uses OpenAI by default)
+    config = MidsceneConfig(
+        model_name="gpt-4o",
+        debug=True,
+    )
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        page = await browser.new_page()
+
+        # Navigate to a test page
+        await page.goto("https://www.bing.com")
+
+        # Create Midscene agent
+        async with MidsceneAgent(page, config) as agent:
+            print("1. Executing AI action: type in search box")
+            result = await agent.ai_act('type "AuroraView WebView" in the search box')
+            print(f"   Result: {result}")
+
+            print("\n2. Executing AI action: press Enter")
+            result = await agent.ai_act("press Enter")
+            print(f"   Result: {result}")
+
+            # Wait for results
+            await page.wait_for_timeout(2000)
+
+            print("\n3. AI assertion: check for search results")
+            try:
+                await agent.ai_assert("there are search results on the page")
+                print("   Assertion passed!")
+            except AssertionError as e:
+                print(f"   Assertion failed: {e}")
+
+            print("\n4. AI query: extract page title")
+            title = await agent.ai_query("string, the page title")
+            print(f"   Page title: {title}")
+
+        await browser.close()
+
+
+async def demo_form_interaction():
+    """Demonstrate AI-powered form interaction."""
+    print("\n=== Form Interaction Demo ===\n")
+
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        print("Playwright not installed.")
+        return
+
+    from auroraview.testing.midscene import MidsceneAgent
+
+    # Create a simple test form
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Test Form</title>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .form-group { margin: 10px 0; }
+            label { display: block; margin-bottom: 5px; }
+            input, select { padding: 8px; width: 200px; }
+            button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+            button:hover { background: #0056b3; }
+            .result { margin-top: 20px; padding: 10px; background: #e9ecef; display: none; }
+        </style>
+    </head>
+    <body>
+        <h1>Contact Form</h1>
+        <form id="contactForm">
+            <div class="form-group">
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" placeholder="Enter your name">
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email">
+            </div>
+            <div class="form-group">
+                <label for="subject">Subject:</label>
+                <select id="subject" name="subject">
+                    <option value="">Select a subject</option>
+                    <option value="general">General Inquiry</option>
+                    <option value="support">Technical Support</option>
+                    <option value="feedback">Feedback</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="message">Message:</label>
+                <textarea id="message" name="message" rows="4" style="width: 200px;" placeholder="Enter your message"></textarea>
+            </div>
+            <button type="submit">Submit</button>
+        </form>
+        <div class="result" id="result">
+            <h3>Form Submitted!</h3>
+            <p>Thank you for your message.</p>
+        </div>
+        <script>
+            document.getElementById('contactForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                document.getElementById('result').style.display = 'block';
+            });
+        </script>
+    </body>
+    </html>
+    """
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        page = await browser.new_page()
+
+        # Load the test form
+        await page.set_content(html)
+
+        async with MidsceneAgent(page) as agent:
+            print("1. Fill in the name field")
+            await agent.ai_act('type "John Doe" in the name field')
+
+            print("2. Fill in the email field")
+            await agent.ai_act('type "john@example.com" in the email field')
+
+            print("3. Select a subject")
+            await page.select_option("#subject", "support")
+
+            print("4. Fill in the message")
+            await agent.ai_act('type "Hello, I need help with AuroraView" in the message field')
+
+            print("5. Click submit button")
+            await agent.ai_act("click the submit button")
+
+            # Wait for result
+            await page.wait_for_timeout(500)
+
+            print("6. Verify submission")
+            await agent.ai_assert("the form was submitted successfully")
+            print("   Form submitted successfully!")
+
+        await browser.close()
+
+
+async def demo_data_extraction():
+    """Demonstrate AI-powered data extraction."""
+    print("\n=== Data Extraction Demo ===\n")
+
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        print("Playwright not installed.")
+        return
+
+    from auroraview.testing.midscene import MidsceneAgent
+
+    # Create a test page with data
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Product List</title>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .product { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+            .product h3 { margin: 0 0 10px 0; }
+            .price { color: #28a745; font-weight: bold; font-size: 1.2em; }
+            .stock { color: #6c757d; }
+        </style>
+    </head>
+    <body>
+        <h1>Featured Products</h1>
+        <div class="product">
+            <h3>AuroraView Pro License</h3>
+            <p class="price">$99.00</p>
+            <p class="stock">In Stock</p>
+        </div>
+        <div class="product">
+            <h3>AuroraView Enterprise</h3>
+            <p class="price">$299.00</p>
+            <p class="stock">In Stock</p>
+        </div>
+        <div class="product">
+            <h3>AuroraView Team Bundle</h3>
+            <p class="price">$499.00</p>
+            <p class="stock">Limited Availability</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+
+        await page.set_content(html)
+
+        async with MidsceneAgent(page) as agent:
+            print("1. Extract page title")
+            title = await page.title()
+            print(f"   Title: {title}")
+
+            print("\n2. Extract product names (AI query)")
+            products = await agent.ai_query("string[], list of product names on the page")
+            print(f"   Products: {products}")
+
+            print("\n3. Verify product count")
+            await agent.ai_assert("there are at least 3 products on the page")
+            print("   Verified: at least 3 products found")
+
+        await browser.close()
+
+
+async def demo_counter_app():
+    """Demonstrate AI testing with a counter application."""
+    print("\n=== Counter App AI Testing Demo ===\n")
+
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        print("Playwright not installed.")
+        return
+
+    from auroraview.testing.midscene import MidsceneAgent
+
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>AuroraView + Midscene Demo</title>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+            button { padding: 15px 30px; font-size: 18px; margin: 10px; cursor: pointer; }
+            #counter { font-size: 48px; margin: 20px; }
+        </style>
+    </head>
+    <body>
+        <h1>Counter App</h1>
+        <div id="counter">0</div>
+        <button id="increment">+</button>
+        <button id="decrement">-</button>
+        <button id="reset">Reset</button>
+        <script>
+            let count = 0;
+            const counter = document.getElementById('counter');
+            document.getElementById('increment').onclick = () => counter.textContent = ++count;
+            document.getElementById('decrement').onclick = () => counter.textContent = --count;
+            document.getElementById('reset').onclick = () => counter.textContent = count = 0;
+        </script>
+    </body>
+    </html>
+    """
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+
+        await page.set_content(html)
+
+        async with MidsceneAgent(page) as agent:
+            print("1. Verify initial state")
+            await agent.ai_assert("the counter shows 0")
+            print("   Counter is at 0")
+
+            print("\n2. Click increment button 3 times")
+            await agent.ai_act('click the "+" button')
+            await agent.ai_act('click the "+" button')
+            await agent.ai_act('click the "+" button')
+
+            print("\n3. Verify counter increased")
+            await agent.ai_assert("the counter shows 3")
+            print("   Counter is at 3")
+
+            print("\n4. Click decrement button")
+            await agent.ai_act('click the "-" button')
+
+            print("\n5. Verify counter decreased")
+            await agent.ai_assert("the counter shows 2")
+            print("   Counter is at 2")
+
+            print("\n6. Click reset button")
+            await agent.ai_act('click the "Reset" button')
+
+            print("\n7. Verify counter reset")
+            await agent.ai_assert("the counter shows 0")
+            print("   Counter reset to 0")
+
+            print("\n8. Extract counter value")
+            value = await agent.ai_query("number, the current counter value")
+            print(f"   Extracted value: {value}")
+
+        await browser.close()
+
+
+async def demo_gallery_testing():
+    """Demonstrate AI testing with AuroraView Gallery."""
+    print("\n=== Gallery AI Testing Demo ===\n")
+
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        print("Playwright not installed.")
+        return
+
+    from pathlib import Path
+
+    from auroraview.testing.midscene import MidsceneAgent
+
+    # Check if Gallery is built
+    project_root = Path(__file__).parent.parent
+    gallery_dist = project_root / "gallery" / "dist" / "index.html"
+
+    if not gallery_dist.exists():
+        print("Gallery not built. Run 'just gallery-build' first.")
+        print("Skipping Gallery demo.")
+        return
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page(viewport={"width": 1200, "height": 800})
+
+        # Inject mock AuroraView bridge
+        await page.add_init_script("""
+            window._apiCalls = [];
+            window._mockResponses = {
+                'api.get_samples': [
+                    { id: 'simple_decorator', title: 'Simple Decorator', category: 'getting_started',
+                      description: 'Basic WebView example', icon: 'wand-2', tags: ['beginner'] },
+                    { id: 'window_events', title: 'Window Events', category: 'window_management',
+                      description: 'Handle window events', icon: 'layout', tags: ['events'] }
+                ],
+                'api.get_categories': {
+                    'getting_started': { title: 'Getting Started', icon: 'rocket' },
+                    'window_management': { title: 'Window Management', icon: 'layout' }
+                },
+                'api.get_source': '# Sample code\\nfrom auroraview import WebView'
+            };
+            window.auroraview = {
+                call: function(method, params) {
+                    window._apiCalls.push({ method, params });
+                    return Promise.resolve(window._mockResponses[method]);
+                },
+                on: function() { return () => {}; },
+                trigger: function() {},
+                api: new Proxy({}, {
+                    get: (t, p) => (...args) => window.auroraview.call('api.' + p, args)
+                })
+            };
+            window.dispatchEvent(new CustomEvent('auroraviewready'));
+        """)
+
+        await page.goto(f"file://{gallery_dist}")
+        await page.wait_for_timeout(1500)
+
+        async with MidsceneAgent(page) as agent:
+            print("1. Verify Gallery loaded")
+            await agent.ai_assert("the page has loaded and shows content")
+            print("   Gallery loaded successfully")
+
+            print("\n2. Check for navigation")
+            await agent.ai_assert("there is a sidebar or navigation area")
+            print("   Navigation found")
+
+            print("\n3. Look for sample items")
+            await agent.ai_assert("there are sample items or cards visible")
+            print("   Sample items found")
+
+            print("\n4. Extract page structure")
+            structure = await agent.ai_query("string, describe the main layout areas of the page")
+            print(f"   Layout: {structure}")
+
+        await browser.close()
+        print("\nGallery AI testing completed!")
+
+
+def main():
+    """Run all demos."""
+    print("=" * 60)
+    print("Midscene.js AI-Powered Testing Demo for AuroraView")
+    print("=" * 60)
+
+    # Check for API key
+    if not os.environ.get("OPENAI_API_KEY") and not os.environ.get("MIDSCENE_MODEL_API_KEY"):
+        print("\nNote: No API key found. Some features may not work.")
+        print("Set OPENAI_API_KEY or MIDSCENE_MODEL_API_KEY environment variable.")
+
+    # Run headless demos
+    print("\nRunning headless demos...")
+    asyncio.run(demo_data_extraction())
+    asyncio.run(demo_counter_app())
+    asyncio.run(demo_gallery_testing())
+
+    print("\n" + "=" * 60)
+    print("Demo completed!")
+    print("=" * 60)
+    print("\nTo run interactive demos (requires display):")
+    print("  - demo_basic_actions(): Search on Bing")
+    print("  - demo_form_interaction(): Fill and submit a form")
+    print("\nFor more information about Midscene.js:")
+    print("  https://midscenejs.com/")
+
+
+if __name__ == "__main__":
+    main()
+```
+:::
+
+**Run:** `python examples/midscene_demo.py`
+
+---
+
+### Radial Menu Demo
+
+This example demonstrates how to create a radial/pie menu that expands from a central button with smooth GSAP animations.
+
+::: details View Source Code
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Radial Menu Demo - Circular floating menu with GSAP animations.
+
+This example demonstrates how to create a radial/pie menu that expands
+from a central button with smooth GSAP animations.
+
+Features demonstrated:
+- Transparent, frameless circular window
+- Radial menu layout with items arranged in a circle
+- GSAP-powered animations (elastic, spring effects)
+- Hover effects with magnetic cursor
+- Sub-menu support
+- Tool window style (hide from taskbar/Alt+Tab)
+
+Use cases:
+- Quick action menu in DCC applications
+- Context menu replacement
+- Tool palette with categories
+- Marking menu style interface
+
+Signed-off-by: Hal Long <hal.long@outlook.com>
+"""
+
+# HTML for the radial menu with GSAP animations
+RADIAL_MENU_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: transparent !important;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Center button */
+        .center-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+            position: relative;
+            z-index: 100;
+            transition: transform 0.2s;
+        }
+
+        .center-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .center-btn:active {
+            transform: scale(0.95);
+        }
+
+        .center-btn svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+            transition: transform 0.3s ease;
+        }
+
+        .center-btn.expanded svg {
+            transform: rotate(45deg);
+        }
+
+        /* Radial menu items */
+        .menu-item {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(30, 30, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: scale(0);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .menu-item:hover {
+            background: rgba(99, 102, 241, 0.3);
+            border-color: #6366f1;
+        }
+
+        .menu-item svg {
+            width: 22px;
+            height: 22px;
+            fill: white;
+        }
+
+        .menu-item .icon-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+        }
+
+        /* Tooltip */
+        .menu-item::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            white-space: nowrap;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 1000;
+        }
+
+        /* Position tooltips based on item position */
+        .menu-item.top::after { bottom: 100%; margin-bottom: 8px; left: 50%; transform: translateX(-50%); }
+        .menu-item.bottom::after { top: 100%; margin-top: 8px; left: 50%; transform: translateX(-50%); }
+        .menu-item.left::after { right: 100%; margin-right: 8px; top: 50%; transform: translateY(-50%); }
+        .menu-item.right::after { left: 100%; margin-left: 8px; top: 50%; transform: translateY(-50%); }
+
+        .menu-item:hover::after {
+            opacity: 1;
+        }
+
+        /* Ring decoration */
+        .ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .ring-1 { width: 120px; height: 120px; }
+        .ring-2 { width: 180px; height: 180px; }
+        .ring-3 { width: 240px; height: 240px; }
+
+        /* Particle effects */
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: rgba(99, 102, 241, 0.6);
+            pointer-events: none;
+        }
+
+        /* Color variants for menu items */
+        .menu-item.color-1 { background: linear-gradient(135deg, rgba(244, 63, 94, 0.2), rgba(236, 72, 153, 0.2)); }
+        .menu-item.color-2 { background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(245, 158, 11, 0.2)); }
+        .menu-item.color-3 { background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(16, 185, 129, 0.2)); }
+        .menu-item.color-4 { background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.2)); }
+        .menu-item.color-5 { background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(168, 85, 247, 0.2)); }
+        .menu-item.color-6 { background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(14, 165, 233, 0.2)); }
+
+        .menu-item.color-1:hover { background: linear-gradient(135deg, rgba(244, 63, 94, 0.4), rgba(236, 72, 153, 0.4)); border-color: #f43f5e; }
+        .menu-item.color-2:hover { background: linear-gradient(135deg, rgba(249, 115, 22, 0.4), rgba(245, 158, 11, 0.4)); border-color: #f97316; }
+        .menu-item.color-3:hover { background: linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(16, 185, 129, 0.4)); border-color: #22c55e; }
+        .menu-item.color-4:hover { background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(99, 102, 241, 0.4)); border-color: #3b82f6; }
+        .menu-item.color-5:hover { background: linear-gradient(135deg, rgba(139, 92, 246, 0.4), rgba(168, 85, 247, 0.4)); border-color: #8b5cf6; }
+        .menu-item.color-6:hover { background: linear-gradient(135deg, rgba(6, 182, 212, 0.4), rgba(14, 165, 233, 0.4)); border-color: #06b6d4; }
+
+        /* Drag handle for frameless window */
+        .drag-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            -webkit-app-region: drag;
+        }
+
+        .no-drag {
+            -webkit-app-region: no-drag;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="drag-area"></div>
+
+        <!-- Decorative rings -->
+        <div class="ring ring-1"></div>
+        <div class="ring ring-2"></div>
+        <div class="ring ring-3"></div>
+
+        <!-- Menu items container -->
+        <div id="menuItems"></div>
+
+        <!-- Center button -->
+        <button class="center-btn no-drag" id="centerBtn" onclick="toggleMenu()">
+            <svg viewBox="0 0 24 24">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        let isExpanded = false;
+        const RADIUS = 85; // Distance from center to menu items
+        const menuItems = [
+            { id: 'maya', name: 'Maya', icon: 'M', color: 1 },
+            { id: 'max', name: '3ds Max', icon: '3D', color: 2 },
+            { id: 'houdini', name: 'Houdini', icon: 'H', color: 3 },
+            { id: 'blender', name: 'Blender', icon: 'B', color: 4 },
+            { id: 'photoshop', name: 'Photoshop', icon: 'Ps', color: 5 },
+            { id: 'vscode', name: 'VS Code', icon: '<>', color: 6 },
+        ];
+
+        // Create menu items
+        function createMenuItems() {
+            const container = document.getElementById('menuItems');
+            container.innerHTML = '';
+
+            const itemCount = menuItems.length;
+            const angleStep = (2 * Math.PI) / itemCount;
+            const startAngle = -Math.PI / 2; // Start from top
+
+            menuItems.forEach((item, index) => {
+                const angle = startAngle + index * angleStep;
+                const x = Math.cos(angle) * RADIUS;
+                const y = Math.sin(angle) * RADIUS;
+
+                const element = document.createElement('div');
+                element.className = `menu-item no-drag color-${item.color}`;
+                element.setAttribute('data-tooltip', item.name);
+                element.setAttribute('data-id', item.id);
+
+                // Add position class for tooltip
+                if (y < -20) element.classList.add('top');
+                else if (y > 20) element.classList.add('bottom');
+                else if (x < 0) element.classList.add('left');
+                else element.classList.add('right');
+
+                element.innerHTML = `<span class="icon-text">${item.icon}</span>`;
+                element.style.left = `calc(50% + ${x}px - 24px)`;
+                element.style.top = `calc(50% + ${y}px - 24px)`;
+
+                element.onclick = () => handleItemClick(item);
+
+                // Add hover effect with GSAP
+                element.onmouseenter = () => {
+                    gsap.to(element, {
+                        scale: 1.2,
+                        duration: 0.3,
+                        ease: 'back.out(1.7)'
+                    });
+                };
+
+                element.onmouseleave = () => {
+                    gsap.to(element, {
+                        scale: 1,
+                        duration: 0.3,
+                        ease: 'power2.out'
+                    });
+                };
+
+                container.appendChild(element);
+            });
+        }
+
+        function toggleMenu() {
+            isExpanded = !isExpanded;
+            const btn = document.getElementById('centerBtn');
+            const items = document.querySelectorAll('.menu-item');
+            const rings = document.querySelectorAll('.ring');
+
+            if (isExpanded) {
+                btn.classList.add('expanded');
+
+                // Animate rings
+                rings.forEach((ring, i) => {
+                    gsap.to(ring, {
+                        opacity: 1,
+                        scale: 1,
+                        duration: 0.5,
+                        delay: i * 0.1,
+                        ease: 'power2.out'
+                    });
+                });
+
+                // Animate menu items with stagger
+                const itemCount = items.length;
+                items.forEach((item, index) => {
+                    const angle = -Math.PI / 2 + index * (2 * Math.PI / itemCount);
+                    const x = Math.cos(angle) * RADIUS;
+                    const y = Math.sin(angle) * RADIUS;
+
+                    // Start from center
+                    gsap.fromTo(item,
+                        {
+                            opacity: 0,
+                            scale: 0,
+                            x: -x,
+                            y: -y
+                        },
+                        {
+                            opacity: 1,
+                            scale: 1,
+                            x: 0,
+                            y: 0,
+                            duration: 0.5,
+                            delay: index * 0.05,
+                            ease: 'elastic.out(1, 0.5)'
+                        }
+                    );
+                });
+
+                // Create particle burst
+                createParticleBurst();
+
+                // Notify backend
+                if (window.auroraview && window.auroraview.call) {
+                    window.auroraview.call('on_expand', { expanded: true });
+                }
+            } else {
+                btn.classList.remove('expanded');
+
+                // Animate rings out
+                rings.forEach((ring, i) => {
+                    gsap.to(ring, {
+                        opacity: 0,
+                        scale: 0.8,
+                        duration: 0.3,
+                        delay: (rings.length - i - 1) * 0.05,
+                        ease: 'power2.in'
+                    });
+                });
+
+                // Animate menu items back to center
+                const itemCount = items.length;
+                items.forEach((item, index) => {
+                    const angle = -Math.PI / 2 + index * (2 * Math.PI / itemCount);
+                    const x = Math.cos(angle) * RADIUS;
+                    const y = Math.sin(angle) * RADIUS;
+
+                    gsap.to(item, {
+                        opacity: 0,
+                        scale: 0,
+                        x: -x,
+                        y: -y,
+                        duration: 0.3,
+                        delay: (items.length - index - 1) * 0.03,
+                        ease: 'power2.in'
+                    });
+                });
+
+                // Notify backend
+                if (window.auroraview && window.auroraview.call) {
+                    window.auroraview.call('on_expand', { expanded: false });
+                }
+            }
+        }
+
+        function createParticleBurst() {
+            const container = document.querySelector('.container');
+            const particleCount = 12;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = '50%';
+                particle.style.top = '50%';
+                container.appendChild(particle);
+
+                const angle = (i / particleCount) * Math.PI * 2;
+                const distance = 80 + Math.random() * 40;
+
+                gsap.to(particle, {
+                    x: Math.cos(angle) * distance,
+                    y: Math.sin(angle) * distance,
+                    opacity: 0,
+                    duration: 0.8,
+                    ease: 'power2.out',
+                    onComplete: () => particle.remove()
+                });
+            }
+        }
+
+        async function handleItemClick(item) {
+            console.log('[RadialMenu] Clicked:', item.name);
+
+            // Click animation
+            const element = document.querySelector(`[data-id="${item.id}"]`);
+            if (element) {
+                gsap.to(element, {
+                    scale: 0.8,
+                    duration: 0.1,
+                    yoyo: true,
+                    repeat: 1,
+                    ease: 'power2.inOut'
+                });
+            }
+
+            try {
+                if (window.auroraview && window.auroraview.call) {
+                    await window.auroraview.call('on_item_click', { id: item.id, name: item.name });
+                }
+            } catch (e) {
+                console.error('[RadialMenu] Error:', e);
+            }
+        }
+
+        // Initialize
+        createMenuItems();
+
+        // Listen for tool updates
+        window.addEventListener('auroraviewready', () => {
+            console.log('[RadialMenu] AuroraView ready');
+            if (window.auroraview && window.auroraview.on) {
+                window.auroraview.on('update_items', (data) => {
+                    if (data && data.items) {
+                        menuItems.length = 0;
+                        menuItems.push(...data.items);
+                        createMenuItems();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
+"""
+
+
+def run_radial_menu_demo():
+    """Run the radial menu demo."""
+    from auroraview import AuroraView
+
+    class RadialMenu(AuroraView):
+        """Radial menu with circular tool layout."""
+
+        def __init__(self):
+            # Size to accommodate the expanded menu
+            super().__init__(
+                html=RADIAL_MENU_HTML,
+                width=280,
+                height=280,
+                frame=False,
+                transparent=True,
+                undecorated_shadow=False,
+                always_on_top=True,
+                tool_window=True,
+            )
+            self.is_expanded = False
+
+            # Bind API methods
+            self.bind_call("on_expand", self.on_expand)
+            self.bind_call("on_item_click", self.on_item_click)
+
+        def on_expand(self, expanded: bool = False):
+            """Handle menu expansion/collapse."""
+            self.is_expanded = expanded
+            print(f"[RadialMenu] Expanded: {expanded}")
+
+        def on_item_click(self, id: str = "", name: str = ""):
+            """Handle menu item click."""
+            print(f"[RadialMenu] Item clicked: {name} (id: {id})")
+
+            # Here you would launch the corresponding application
+            # For demo purposes, just log the action
+            return {"ok": True, "message": f"Clicked: {name}"}
+
+    print("\n" + "=" * 60)
+    print("Radial Menu Demo")
+    print("=" * 60)
+    print("\nFeatures:")
+    print("  - Click the center button to expand/collapse")
+    print("  - Hover over items for tooltips")
+    print("  - Click items to trigger actions")
+    print("  - Smooth GSAP animations with elastic effects")
+    print("\nPress Ctrl+C to exit.")
+    print("=" * 60 + "\n")
+
+    menu = RadialMenu()
+    menu.show()
+
+
+if __name__ == "__main__":
+    run_radial_menu_demo()
+```
+:::
+
+**Run:** `python examples/radial_menu_demo.py`
+
+**Features:**
+- Transparent, frameless circular window
+- Radial menu layout with items arranged in a circle
+- GSAP-powered animations (elastic, spring effects)
+- Hover effects with magnetic cursor
+- Sub-menu support
+- Tool window style (hide from taskbar/Alt+Tab)
+- Quick action menu in DCC applications
+- Context menu replacement
+- Tool palette with categories
+- Marking menu style interface
 
 ---
 
