@@ -56,6 +56,7 @@ class WebViewEventMixin:
     _post_eval_js_hook: Optional[Callable[[], None]]
     _auto_process_events: Callable[[], None]
     _signals: Optional[WebViewSignals]
+    _dcc_mode: bool  # DCC thread safety mode flag
 
     def _init_signals(self) -> None:
         """Initialize the signal system. Called during WebView initialization."""
@@ -219,6 +220,9 @@ class WebViewEventMixin:
     def register_callback(self, event_name: str, callback: Callable) -> ConnectionId:
         """Register a callback for an event.
 
+        If dcc_mode is enabled on the WebView, the callback is automatically
+        wrapped to run on the DCC main thread for thread safety.
+
         Args:
             event_name: Name of the event (can be a string or WindowEvent enum)
             callback: Function to call when event occurs
@@ -228,6 +232,12 @@ class WebViewEventMixin:
         """
         # Convert WindowEvent enum to string if needed
         event_str = str(event_name)
+
+        # Auto-wrap callback for DCC thread safety if dcc_mode is enabled
+        if getattr(self, "_dcc_mode", False):
+            from auroraview.utils.thread_dispatcher import wrap_callback_for_dcc
+            callback = wrap_callback_for_dcc(callback)
+            logger.debug(f"Wrapped callback for DCC thread safety: {event_str}")
 
         # Register with legacy event handlers dict (for backward compatibility)
         if event_str not in self._event_handlers:

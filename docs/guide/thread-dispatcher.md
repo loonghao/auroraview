@@ -411,3 +411,80 @@ def safe_operation():
 - [Qt Integration](./qt-integration) - Qt-specific integration guide
 - [Maya Integration](../dcc/maya) - Maya-specific guide
 - [DCC Overview](../dcc/) - Overview of all DCC integrations
+
+## DCC Thread Safety for WebView
+
+When integrating AuroraView WebView into DCC applications, you need to handle thread safety between the WebView thread and the DCC main thread. AuroraView provides specialized utilities for this purpose.
+
+### The Challenge
+
+- **WebView Thread**: WebView2 runs on its own STA thread
+- **DCC Main Thread**: DCC APIs (Maya cmds, Blender bpy, etc.) must be called from the main thread
+- **Event Handlers**: `@webview.on()` handlers may be called from the WebView thread
+
+### Using `@dcc_thread_safe` Decorator
+
+The `@dcc_thread_safe` decorator automatically marshals function execution to the DCC main thread:
+
+```python
+from auroraview import WebView
+from auroraview.utils import dcc_thread_safe
+
+webview = WebView(parent=dcc_hwnd)
+
+@webview.on("create_object")
+@dcc_thread_safe  # Ensures this runs on DCC main thread
+def handle_create(data):
+    import maya.cmds as cmds
+    return cmds.polyCube()[0]
+```
+
+### Using `dcc_mode`
+
+Enable `dcc_mode` on WebView to automatically wrap all callbacks:
+
+```python
+# All callbacks automatically run on DCC main thread
+webview = WebView(parent=dcc_hwnd, dcc_mode=True)
+
+@webview.on("create_object")
+def handle_create(data):  # No decorator needed!
+    import maya.cmds as cmds
+    return cmds.polyCube()[0]
+```
+
+### Thread-Safe Wrapper
+
+Use `thread_safe()` for cross-thread WebView operations:
+
+```python
+webview = WebView(parent=dcc_hwnd)
+
+# Get thread-safe wrapper
+safe = webview.thread_safe()
+
+# Can be called from any thread:
+safe.eval_js("updateStatus('ready')")
+safe.emit("data_loaded", {"count": 100})
+safe.load_url("https://example.com")
+```
+
+### Fire-and-Forget with `@dcc_thread_safe_async`
+
+For operations that don't need a return value:
+
+```python
+from auroraview.utils import dcc_thread_safe_async
+
+@dcc_thread_safe_async
+def update_viewport():
+    import maya.cmds as cmds
+    cmds.refresh()
+
+# Returns immediately, executes on main thread later
+update_viewport()
+```
+
+### See Also
+
+- [RFC 0002: DCC Thread Safety](/rfcs/0002-dcc-thread-safety) - Detailed design document
