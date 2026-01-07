@@ -17,6 +17,8 @@ import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from auroraview import ok, err
+
 if TYPE_CHECKING:
     from auroraview import WebView
 
@@ -52,7 +54,7 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
 
         with _extension_bridge_lock:
             if _extension_bridge is not None:
-                return {"ok": False, "error": "Extension bridge is already running"}
+                return err("Extension bridge is already running")
 
             try:
                 from auroraview.integration import BrowserExtensionBridge
@@ -96,23 +98,22 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
                     f"[Python:start_extension_bridge] SUCCESS: Bridge started on ws:{ws_port}, http:{http_port}",
                     file=sys.stderr,
                 )
-                return {
-                    "ok": True,
+                return ok({
                     "ws_port": ws_port,
                     "http_port": http_port,
                     "message": f"Extension bridge started on ws://127.0.0.1:{ws_port}",
-                }
+                })
             except ImportError as e:
                 error_msg = f"BrowserExtensionBridge not available: {e}"
                 print(f"[Python:start_extension_bridge] ERROR: {error_msg}", file=sys.stderr)
-                return {"ok": False, "error": error_msg}
+                return err(error_msg)
             except Exception as e:
                 error_msg = f"Failed to start extension bridge: {e}"
                 print(f"[Python:start_extension_bridge] ERROR: {error_msg}", file=sys.stderr)
                 import traceback
 
                 traceback.print_exc(file=sys.stderr)
-                return {"ok": False, "error": error_msg}
+                return err(error_msg)
 
     @view.bind_call("api.stop_extension_bridge")
     def stop_extension_bridge() -> dict:
@@ -122,7 +123,7 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
 
         with _extension_bridge_lock:
             if _extension_bridge is None:
-                return {"ok": False, "error": "Extension bridge is not running"}
+                return err("Extension bridge is not running")
 
             try:
                 _extension_bridge.stop()
@@ -131,11 +132,11 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
                     "[Python:stop_extension_bridge] SUCCESS: Bridge stopped",
                     file=sys.stderr,
                 )
-                return {"ok": True, "message": "Extension bridge stopped"}
+                return ok({"message": "Extension bridge stopped"})
             except Exception as e:
                 error_msg = f"Failed to stop extension bridge: {e}"
                 print(f"[Python:stop_extension_bridge] ERROR: {error_msg}", file=sys.stderr)
-                return {"ok": False, "error": error_msg}
+                return err(error_msg)
 
     @view.bind_call("api.get_extension_status")
     def get_extension_status() -> dict:
@@ -144,32 +145,32 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
 
         with _extension_bridge_lock:
             if _extension_bridge is None:
-                return {
+                return ok({
                     "enabled": False,
                     "wsPort": 49152,
                     "httpPort": 49153,
                     "connectedClients": 0,
                     "isRunning": False,
-                }
+                })
 
             try:
                 status = _extension_bridge.get_status()
-                return {
+                return ok({
                     "enabled": True,
                     "wsPort": status.get("ws_port", 49152),
                     "httpPort": status.get("http_port", 49153),
                     "connectedClients": status.get("connected_clients", 0),
                     "isRunning": status.get("is_running", False),
-                }
+                })
             except Exception as e:
                 print(f"[Python:get_extension_status] ERROR: {e}", file=sys.stderr)
-                return {
+                return ok({
                     "enabled": False,
                     "wsPort": 49152,
                     "httpPort": 49153,
                     "connectedClients": 0,
                     "isRunning": False,
-                }
+                })
 
     @view.bind_call("api.broadcast_to_extensions")
     def broadcast_to_extensions(event: str = "", data: dict = None) -> dict:
@@ -179,18 +180,18 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
 
         with _extension_bridge_lock:
             if _extension_bridge is None:
-                return {"ok": False, "error": "Extension bridge is not running"}
+                return err("Extension bridge is not running")
 
             try:
                 _extension_bridge.broadcast(event, data or {})
-                return {"ok": True}
+                return ok()
             except Exception as e:
                 error_msg = f"Failed to broadcast: {e}"
                 print(
                     f"[Python:broadcast_to_extensions] ERROR: {error_msg}",
                     file=sys.stderr,
                 )
-                return {"ok": False, "error": error_msg}
+                return err(error_msg)
 
     @view.bind_call("api.install_extension")
     def install_extension(path: str = "", browser: str = "chrome") -> dict:
@@ -209,13 +210,13 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
         )
 
         if not path:
-            return {"ok": False, "error": "No path provided"}
+            return err("No path provided")
 
         ext_path = Path(path)
         if not ext_path.exists():
             error_msg = f"Extension path not found: {path}"
             print(f"[Python:install_extension] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
         # Get absolute path
         abs_path = str(ext_path.resolve())
@@ -257,14 +258,13 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
                     f"[Python:install_extension] SUCCESS (folder): {message}",
                     file=sys.stderr,
                 )
-                return {
-                    "ok": True,
+                return ok({
                     "success": True,
                     "path": abs_path,
                     "browser": browser,
                     "isFolder": True,
                     "message": message,
-                }
+                })
             else:
                 # Packaged extension file
                 ext = ext_path.suffix.lower()
@@ -275,7 +275,7 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
                         f"Invalid extension file. Expected {expected_ext} for {browser}, got {ext}"
                     )
                     print(f"[Python:install_extension] ERROR: {error_msg}", file=sys.stderr)
-                    return {"ok": False, "error": error_msg}
+                    return err(error_msg)
 
                 if browser == "firefox":
                     # Firefox: Open the XPI file directly
@@ -299,21 +299,20 @@ def register_extension_apis(view: WebView, run_sample_func) -> None:
                     f"[Python:install_extension] SUCCESS (file): {message}",
                     file=sys.stderr,
                 )
-                return {
-                    "ok": True,
+                return ok({
                     "success": True,
                     "path": abs_path,
                     "browser": browser,
                     "isFolder": False,
                     "message": message,
-                }
+                })
         except Exception as e:
             error_msg = f"Failed to install extension: {e}"
             print(f"[Python:install_extension] EXCEPTION: {error_msg}", file=sys.stderr)
             import traceback
 
             traceback.print_exc(file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
 
 def cleanup_extension_bridge() -> None:

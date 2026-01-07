@@ -100,3 +100,27 @@ pub mod prelude {
 
 // Re-export at crate root for convenience
 pub use prelude::*;
+
+// ============================================================================
+// Standalone Python Module Entry Point
+// ============================================================================
+// When built with `standalone-pymodule` feature, this creates _signals.pyd
+// that can be imported directly as `from auroraview import _signals`
+
+#[cfg(all(feature = "python", feature = "ext-module"))]
+use pyo3::prelude::*;
+
+/// Standalone Python module for aurora-signals
+/// This is the entry point when building _signals.pyd separately
+#[cfg(all(feature = "python", feature = "ext-module"))]
+#[pymodule]
+fn _signals(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Register all signal classes
+    python::register_module(m)?;
+
+    // Add module metadata
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add("__doc__", "Aurora Signals: Qt-style signal-slot system")?;
+
+    Ok(())
+}

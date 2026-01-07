@@ -24,6 +24,8 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from auroraview import ok, err
+
 if TYPE_CHECKING:
     from auroraview import WebView
 
@@ -59,24 +61,18 @@ def register_webview_extension_apis(view: WebView) -> None:
         print(f"[Python:install_to_webview] path={path}, name={name}", file=sys.stderr)
 
         if not path:
-            return {"ok": False, "error": "No path provided"}
+            return err("No path provided")
 
         source_path = Path(path)
         if not source_path.exists():
-            return {"ok": False, "error": f"Extension path not found: {path}"}
+            return err(f"Extension path not found: {path}")
 
         if not source_path.is_dir():
-            return {
-                "ok": False,
-                "error": "Extension path must be a directory (unpacked extension)",
-            }
+            return err("Extension path must be a directory (unpacked extension)")
 
         manifest_path = source_path / "manifest.json"
         if not manifest_path.exists():
-            return {
-                "ok": False,
-                "error": "Extension folder must contain manifest.json",
-            }
+            return err("Extension folder must contain manifest.json")
 
         try:
             # Read manifest to get extension info
@@ -107,8 +103,7 @@ def register_webview_extension_apis(view: WebView) -> None:
                 file=sys.stderr,
             )
 
-            return {
-                "ok": True,
+            return ok({
                 "success": True,
                 "id": folder_name,
                 "name": ext_name,
@@ -117,14 +112,14 @@ def register_webview_extension_apis(view: WebView) -> None:
                 "extensionsDir": str(extensions_dir),
                 "message": f"Extension '{ext_name}' v{ext_version} installed. Restart the application to load it.",
                 "requiresRestart": True,
-            }
+            })
         except Exception as e:
             error_msg = f"Failed to install extension: {e}"
             print(f"[Python:install_to_webview] ERROR: {error_msg}", file=sys.stderr)
             import traceback
 
             traceback.print_exc(file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
     @view.bind_call("api.list_webview_extensions")
     def list_webview_extensions() -> dict:
@@ -247,12 +242,11 @@ def register_webview_extension_apis(view: WebView) -> None:
             file=sys.stderr,
         )
 
-        return {
-            "ok": True,
+        return ok({
             "extensions": extensions,
             "extensionsDir": str(extensions_dir),
             "count": len(extensions),
-        }
+        })
 
     @view.bind_call("api.remove_webview_extension")
     def remove_webview_extension(id: str = "") -> dict:
@@ -264,13 +258,13 @@ def register_webview_extension_apis(view: WebView) -> None:
         print(f"[Python:remove_webview_extension] id={id}", file=sys.stderr)
 
         if not id:
-            return {"ok": False, "error": "No extension ID provided"}
+            return err("No extension ID provided")
 
         extensions_dir = get_webview_extensions_dir()
         extension_path = extensions_dir / id
 
         if not extension_path.exists():
-            return {"ok": False, "error": f"Extension '{id}' not found"}
+            return err(f"Extension '{id}' not found")
 
         try:
             shutil.rmtree(extension_path)
@@ -279,17 +273,16 @@ def register_webview_extension_apis(view: WebView) -> None:
                 file=sys.stderr,
             )
 
-            return {
-                "ok": True,
+            return ok({
                 "success": True,
                 "id": id,
                 "message": f"Extension '{id}' removed. Restart the application to apply changes.",
                 "requiresRestart": True,
-            }
+            })
         except Exception as e:
             error_msg = f"Failed to remove extension: {e}"
             print(f"[Python:remove_webview_extension] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
     @view.bind_call("api.open_extensions_dir")
     def open_extensions_dir() -> dict:
@@ -307,11 +300,11 @@ def register_webview_extension_apis(view: WebView) -> None:
             else:
                 subprocess.run(["xdg-open", str(extensions_dir)], check=True)
 
-            return {"ok": True, "success": True, "path": str(extensions_dir)}
+            return ok({"success": True, "path": str(extensions_dir)})
         except Exception as e:
             error_msg = f"Failed to open directory: {e}"
             print(f"[Python:open_extensions_dir] ERROR: {error_msg}", file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
 
     @view.bind_call("api.install_extension_from_url")
     def install_extension_from_url(url: str = "") -> dict:
@@ -325,7 +318,7 @@ def register_webview_extension_apis(view: WebView) -> None:
         print(f"[Python:install_extension_from_url] url={url}", file=sys.stderr)
 
         if not url:
-            return {"ok": False, "error": "No URL provided"}
+            return err("No URL provided")
 
         # Parse Chrome Web Store URL (support both old and new formats)
         # Old: https://chrome.google.com/webstore/detail/name/id
@@ -351,10 +344,7 @@ def register_webview_extension_apis(view: WebView) -> None:
             extension_id = edge_match.group(1)
             source = "edge"
         else:
-            return {
-                "ok": False,
-                "error": "Invalid URL. Please use a Chrome Web Store or Edge Add-ons URL.",
-            }
+            return err("Invalid URL. Please use a Chrome Web Store or Edge Add-ons URL.")
 
         print(
             f"[Python:install_extension_from_url] Detected {source} extension: {extension_id}",
@@ -391,10 +381,7 @@ def register_webview_extension_apis(view: WebView) -> None:
                                 f.write(response.read())
                     except urllib.error.HTTPError as e:
                         if e.code == 204:
-                            return {
-                                "ok": False,
-                                "error": "Extension not found or not available for download. Try downloading manually from the Web Store.",
-                            }
+                            return err("Extension not found or not available for download. Try downloading manually from the Web Store.")
                         raise
 
                     print(
@@ -410,7 +397,7 @@ def register_webview_extension_apis(view: WebView) -> None:
                     with open(crx_path, "rb") as f:
                         magic = f.read(4)
                         if magic != b"Cr24":
-                            return {"ok": False, "error": "Invalid CRX file format"}
+                            return err("Invalid CRX file format")
 
                         version = int.from_bytes(f.read(4), "little")
                         print(
@@ -428,10 +415,7 @@ def register_webview_extension_apis(view: WebView) -> None:
                             sig_len = int.from_bytes(f.read(4), "little")
                             f.seek(16 + pub_key_len + sig_len)
                         else:
-                            return {
-                                "ok": False,
-                                "error": f"Unsupported CRX version: {version}",
-                            }
+                            return err(f"Unsupported CRX version: {version}")
 
                         # Read ZIP content
                         zip_content = f.read()
@@ -446,18 +430,12 @@ def register_webview_extension_apis(view: WebView) -> None:
 
                 else:  # edge
                     # Edge Add-ons doesn't have a direct download API
-                    return {
-                        "ok": False,
-                        "error": "Edge Add-ons direct download is not supported. Please download the extension manually and use 'Load unpacked'.",
-                    }
+                    return err("Edge Add-ons direct download is not supported. Please download the extension manually and use 'Load unpacked'.")
 
                 # Read manifest to get extension info
                 manifest_path = extract_path / "manifest.json"
                 if not manifest_path.exists():
-                    return {
-                        "ok": False,
-                        "error": "Invalid extension: manifest.json not found",
-                    }
+                    return err("Invalid extension: manifest.json not found")
 
                 with open(manifest_path, "r", encoding="utf-8") as f:
                     manifest = json_module.load(f)
@@ -482,8 +460,7 @@ def register_webview_extension_apis(view: WebView) -> None:
                     file=sys.stderr,
                 )
 
-                return {
-                    "ok": True,
+                return ok({
                     "success": True,
                     "id": extension_id,
                     "name": ext_name,
@@ -492,7 +469,7 @@ def register_webview_extension_apis(view: WebView) -> None:
                     "extensionsDir": str(extensions_dir),
                     "message": f"Extension '{ext_name}' v{ext_version} installed. Restart the application to load it.",
                     "requiresRestart": True,
-                }
+                })
 
         except urllib.error.URLError as e:
             error_msg = f"Network error: {e.reason}"
@@ -500,7 +477,7 @@ def register_webview_extension_apis(view: WebView) -> None:
                 f"[Python:install_extension_from_url] ERROR: {error_msg}",
                 file=sys.stderr,
             )
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)
         except Exception as e:
             error_msg = f"Failed to install extension: {e}"
             print(
@@ -510,4 +487,4 @@ def register_webview_extension_apis(view: WebView) -> None:
             import traceback
 
             traceback.print_exc(file=sys.stderr)
-            return {"ok": False, "error": error_msg}
+            return err(error_msg)

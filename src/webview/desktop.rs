@@ -893,6 +893,8 @@ pub fn create_desktop(
         #[cfg(target_os = "windows")]
         cached_hwnd,
         window_style_hints,
+        #[cfg(feature = "python-bindings")]
+        ipc_handler: Some(ipc_handler),
     })
 }
 

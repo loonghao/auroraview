@@ -170,7 +170,7 @@ class Browser:
     def _run_webview_thread(self):
         """Run WebView in background thread (Playwright-style architecture)."""
         try:
-            from auroraview._core import WebView as CoreWebView
+            from auroraview.core._core import WebView as CoreWebView
 
             logger.info(
                 "[Browser Thread] Creating WebView instance (headless=%s)", self._options.headless

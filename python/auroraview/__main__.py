@@ -69,8 +69,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        from auroraview import normalize_url
-        from auroraview._core import run_standalone
+        from auroraview import normalize_url, run_standalone
 
         # Prepare the URL or HTML content
         if args.url:

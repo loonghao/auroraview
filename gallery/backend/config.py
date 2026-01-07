@@ -56,6 +56,11 @@ CATEGORIES = {
         "icon": "box",
         "description": "Maya, Houdini, Blender, and other DCC apps",
     },
+    "mcp_integration": {
+        "title": "MCP Integration",
+        "icon": "bot",
+        "description": "Model Context Protocol for AI agent integration",
+    },
 }
 
 # Icon mapping based on keywords in filename or docstring
@@ -87,10 +92,18 @@ ICON_MAPPING = {
     "mica": "sparkles",
     "click": "mouse-pointer",
     "transparent": "eye",
+    "mcp": "bot",
+    "sidecar": "bot",
+    "ai": "brain",
+    "agent": "brain",
 }
 
 # Category mapping based on keywords
 CATEGORY_MAPPING = {
+    # MCP Integration (check first for higher priority)
+    "mcp": "mcp_integration",
+    "sidecar": "mcp_integration",
+    "ai agent": "mcp_integration",
     # Getting Started
     "simple": "getting_started",
     "decorator": "getting_started",
@@ -141,4 +154,5 @@ TAG_MAPPING = {
     "ui": ["ui", "style", "menu", "button", "panel"],
     "api": ["api", "decorator", "binding", "call"],
     "effects": ["effect", "vibrancy", "blur", "acrylic", "mica", "click-through"],
+    "mcp": ["mcp", "sidecar", "ai agent", "tool", "protocol"],
 }

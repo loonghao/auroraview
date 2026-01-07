@@ -278,13 +278,20 @@ class EventTimer:
             # Process WebView events (only if WebView is initialized)
             should_close = False
             try:
-                # Check if WebView is initialized (for non-blocking mode)
-                if hasattr(self._webview, "_async_core"):
-                    # Non-blocking mode: check if core is ready
-                    with self._webview._async_core_lock:
-                        if self._webview._async_core is None:
-                            # WebView not yet initialized, skip this tick
-                            return
+                # If WebView is running in background-thread mode (standalone wait=False),
+                # `_async_core` holds the thread-local core instance.
+                # Only gate on `_async_core` readiness when the background show thread is alive.
+                show_thread = getattr(self._webview, "_show_thread", None)
+                if show_thread is not None:
+                    try:
+                        if show_thread.is_alive():
+                            with self._webview._async_core_lock:
+                                if self._webview._async_core is None:
+                                    # WebView not yet initialized, skip this tick
+                                    return
+                    except Exception:
+                        # Best-effort: if thread state can't be queried, continue.
+                        pass
 
                 # Choose event-processing strategy based on timer backend.
                 # Qt backend uses IPC-only mode if available, others use full process_events
@@ -309,12 +316,17 @@ class EventTimer:
             # Check window validity (Windows only, and only if WebView is initialized)
             if self._check_validity and hasattr(self._webview, "_core"):
                 try:
-                    # Check if WebView is initialized (for non-blocking mode)
-                    if hasattr(self._webview, "_async_core"):
-                        with self._webview._async_core_lock:
-                            if self._webview._async_core is None:
-                                # WebView not yet initialized, skip validity check
-                                return
+                    # Only gate on `_async_core` readiness when the background show thread is alive.
+                    show_thread = getattr(self._webview, "_show_thread", None)
+                    if show_thread is not None:
+                        try:
+                            if show_thread.is_alive():
+                                with self._webview._async_core_lock:
+                                    if self._webview._async_core is None:
+                                        # WebView not yet initialized, skip validity check
+                                        return
+                        except Exception:
+                            pass
 
                     is_valid = self._check_window_valid()
                     if self._last_valid and not is_valid:

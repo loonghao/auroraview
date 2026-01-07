@@ -192,7 +192,23 @@
         }
         const handlers = eventHandlers.get(event);
         if (!handlers || handlers.size === 0) {
-          console.warn("[AuroraView] No handlers for event:", event);
+          // Window lifecycle events are optional and shouldn't produce warnings
+          const silentEvents = [
+            "focused",
+            "blurred",
+            "moved",
+            "resized",
+            "shown",
+            "hidden",
+            "minimized",
+            "maximized",
+            "restored",
+            "closing",
+            "closed"
+          ];
+          if (!silentEvents.includes(event)) {
+            console.warn("[AuroraView] No handlers for event:", event);
+          }
           return;
         }
         handlers.forEach(function(handler) {

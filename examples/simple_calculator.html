@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .calculator {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            width: 100%;
+            max-width: 350px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 24px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .operations {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        button {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+        }
+
+        .add { background: #4CAF50; }
+        .add:hover { background: #45a049; }
+
+        .subtract { background: #2196F3; }
+        .subtract:hover { background: #1976D2; }
+
+        .multiply { background: #FF9800; }
+        .multiply:hover { background: #F57C00; }
+
+        .divide { background: #9C27B0; }
+        .divide:hover { background: #7B1FA2; }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .result {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .result-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            color: #333;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <h1>🧮 Simple Calculator</h1>
+        
+        <div class="input-group">
+            <label for="num1">First Number</label>
+            <input type="number" id="num1" placeholder="Enter first number" step="any">
+        </div>
+        
+        <div class="input-group">
+            <label for="num2">Second Number</label>
+            <input type="number" id="num2" placeholder="Enter second number" step="any">
+        </div>
+        
+        <div class="operations">
+            <button class="add" onclick="calculate('add')">➕ Add</button>
+            <button class="subtract" onclick="calculate('subtract')">➖ Subtract</button>
+            <button class="multiply" onclick="calculate('multiply')">✖️ Multiply</button>
+            <button class="divide" onclick="calculate('divide')">➗ Divide</button>
+        </div>
+        
+        <div class="result">
+            <div class="result-label">Result</div>
+            <div class="result-value" id="result">-</div>
+        </div>
+    </div>
+
+    <script>
+        async function calculate(operation) {
+            const num1 = parseFloat(document.getElementById('num1').value);
+            const num2 = parseFloat(document.getElementById('num2').value);
+            const resultDiv = document.getElementById('result');
+
+            // Validate inputs
+            if (isNaN(num1) || isNaN(num2)) {
+                resultDiv.textContent = 'Please enter valid numbers';
+                resultDiv.classList.add('error');
+                return;
+            }
+
+            resultDiv.classList.remove('error');
+            resultDiv.textContent = 'Calculating...';
+
+            try {
+                // Call the Python backend through the AuroraView bridge
+                const result = await window.auroraview.rpc.call(operation, num1, num2);
+
+                if (result === null && operation === 'divide') {
+                    resultDiv.textContent = 'Cannot divide by zero';
+                    resultDiv.classList.add('error');
+                } else {
+                    // Format result
+                    const formatted = Number.isInteger(result) ? result : result.toFixed(2);
+                    resultDiv.textContent = formatted;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.textContent = 'Error occurred';
+                resultDiv.classList.add('error');
+            }
+        }
+
+        // Allow Enter key to trigger add operation
+        document.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                const num1 = document.getElementById('num1').value;
+                const num2 = document.getElementById('num2').value;
+                if (num1 && num2) {
+                    calculate('add');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

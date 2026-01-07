@@ -38,6 +38,9 @@ pub struct NativeBackend {
     window: Option<tao::window::Window>,
     event_loop: Option<tao::event_loop::EventLoop<UserEvent>>,
     message_queue: Arc<MessageQueue>,
+    /// IPC handler for Python callbacks (needed for deferred callback execution)
+    #[cfg(feature = "python-bindings")]
+    ipc_handler: Arc<IpcHandler>,
     /// When true, skip native message pump in process_events().
     /// This is used in Qt/DCC mode where the host application owns the message loop.
     skip_message_pump: bool,
@@ -186,106 +189,203 @@ impl WebViewBackend for NativeBackend {
         let mut close_requested = false;
 
         // Process message queue with batch limit (always, regardless of skip_message_pump)
-        // Use batch processing for DCCs with busy main threads (e.g., Houdini)
-        if let Ok(webview) = self.webview.lock() {
-            let (count, remaining) =
-                self.message_queue
-                    .process_batch(self.max_messages_per_tick, |message| {
-                        use crate::ipc::WebViewMessage;
-                        match message {
-                            WebViewMessage::EvalJs(script) => {
-                                if let Err(e) = webview.evaluate_script(&script) {
-                                    tracing::error!("Failed to execute JavaScript: {}", e);
-                                }
-                            }
-                            WebViewMessage::EmitEvent { event_name, data } => {
-                                let json_str = data.to_string();
-                                let escaped_json =
-                                    json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                let script =
-                                    js_assets::build_emit_event_script(&event_name, &escaped_json);
-                                tracing::debug!(
-                                    "[CLOSE] [NativeBackend] Generated script: {}",
-                                    script
-                                );
-                                if let Err(e) = webview.evaluate_script(&script) {
-                                    tracing::error!("Failed to emit event: {}", e);
-                                }
-                            }
-                            WebViewMessage::LoadUrl(url) => {
-                                // Use native WebView2 navigation instead of JavaScript
-                                tracing::debug!("[NativeBackend] Loading URL: {}", url);
-                                if let Err(e) = webview.load_url(&url) {
-                                    tracing::error!("Failed to load URL: {}", e);
-                                }
-                            }
-                            WebViewMessage::LoadHtml(html) => {
-                                if let Err(e) = webview.load_html(&html) {
-                                    tracing::error!("Failed to load HTML: {}", e);
-                                }
-                            }
-                            WebViewMessage::WindowEvent { event_type, data } => {
-                                // Window events are handled by emitting to JavaScript
-                                let event_name = event_type.as_str();
-                                let json_str = data.to_string();
-                                let escaped_json =
-                                    json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                let script =
-                                    js_assets::build_emit_event_script(event_name, &escaped_json);
-                                tracing::debug!(
-                                    "[WINDOW_EVENT] [NativeBackend] Emitting window event: {}",
-                                    event_name
-                                );
-                                if let Err(e) = webview.evaluate_script(&script) {
-                                    tracing::error!("Failed to emit window event: {}", e);
-                                }
-                            }
-                            WebViewMessage::SetVisible(visible) => {
-                                // Collect visibility change to apply after closure
-                                tracing::debug!("[NativeBackend] SetVisible({})", visible);
-                                visibility_changes.push(visible);
-                            }
-                            WebViewMessage::EvalJsAsync {
-                                script,
-                                callback_id,
-                            } => {
-                                // Execute JavaScript and send result back via IPC
-                                let async_script =
-                                    js_assets::build_eval_js_async_script(&script, callback_id);
-                                if let Err(e) = webview.evaluate_script(&async_script) {
-                                    tracing::error!(
-                                        "Failed to execute async JavaScript (id={}): {}",
-                                        callback_id,
-                                        e
-                                    );
-                                }
-                            }
-                            WebViewMessage::Reload => {
-                                if let Err(e) = webview.evaluate_script("location.reload()") {
-                                    tracing::error!("Failed to reload: {}", e);
-                                }
-                            }
-                            WebViewMessage::StopLoading => {
-                                if let Err(e) = webview.evaluate_script("window.stop()") {
-                                    tracing::error!("Failed to stop loading: {}", e);
-                                }
-                            }
-                            WebViewMessage::Close => {
-                                // Embedded/IPC-only modes do not have a dedicated event loop.
-                                // Treat this as a close request and let the caller stop polling.
-                                tracing::info!("[NativeBackend] Close message received");
-                                close_requested = true;
-                            }
-                        }
-                    });
+        // NOTE: We must NOT execute Python handlers while holding the WebView lock.
+        // In DCC environments, Python handlers often call back into WebView (emit/eval_js/process_events),
+        // which can re-enter this code and deadlock if the lock is held.
+        //
+        // To preserve message order and avoid re-entrancy deadlocks:
+        // - Hold the WebView lock for WebView-only operations
+        // - Temporarily release the lock for McpToolCall execution
+        // - Re-acquire and continue processing
 
-            if count > 0 {
-                tracing::debug!(
-                    "[OK] [NativeBackend::process_events] Processed {} messages ({} remaining)",
-                    count,
-                    remaining
-                );
+        let mut processed = 0usize;
+        let limit = self.max_messages_per_tick;
+
+        let mut webview_guard = match self.webview.lock() {
+            Ok(g) => Some(g),
+            Err(e) => {
+                tracing::error!("[NativeBackend::process_events] Failed to lock WebView: {:?}", e);
+                None
             }
+        };
+
+        while limit == 0 || processed < limit {
+            let Some(message) = self.message_queue.pop() else {
+                break;
+            };
+
+            processed += 1;
+
+            use crate::ipc::WebViewMessage;
+            match message {
+                WebViewMessage::EvalJs(script) => {
+                    if let Some(ref webview) = webview_guard {
+                        if let Err(e) = webview.evaluate_script(&script) {
+                            tracing::error!("Failed to execute JavaScript: {}", e);
+                        }
+                    } else {
+                        tracing::error!("[NativeBackend] WebView lock unavailable for EvalJs");
+                    }
+                }
+                WebViewMessage::EmitEvent { event_name, data } => {
+                    if let Some(ref webview) = webview_guard {
+                        let json_str = data.to_string();
+                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
+                        let script = js_assets::build_emit_event_script(&event_name, &escaped_json);
+                        if let Err(e) = webview.evaluate_script(&script) {
+                            tracing::error!("Failed to emit event: {}", e);
+                        }
+                    } else {
+                        tracing::error!("[NativeBackend] WebView lock unavailable for EmitEvent");
+                    }
+                }
+                WebViewMessage::LoadUrl(url) => {
+                    if let Some(ref webview) = webview_guard {
+                        tracing::debug!("[NativeBackend] Loading URL: {}", url);
+                        if let Err(e) = webview.load_url(&url) {
+                            tracing::error!("Failed to load URL: {}", e);
+                        }
+                    } else {
+                        tracing::error!("[NativeBackend] WebView lock unavailable for LoadUrl");
+                    }
+                }
+                WebViewMessage::LoadHtml(html) => {
+                    if let Some(ref webview) = webview_guard {
+                        if let Err(e) = webview.load_html(&html) {
+                            tracing::error!("Failed to load HTML: {}", e);
+                        }
+                    } else {
+                        tracing::error!("[NativeBackend] WebView lock unavailable for LoadHtml");
+                    }
+                }
+                WebViewMessage::WindowEvent { event_type, data } => {
+                    if let Some(ref webview) = webview_guard {
+                        let event_name = event_type.as_str();
+                        let json_str = data.to_string();
+                        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
+                        let script = js_assets::build_emit_event_script(event_name, &escaped_json);
+                        tracing::debug!(
+                            "[WINDOW_EVENT] [NativeBackend] Emitting window event: {}",
+                            event_name
+                        );
+                        if let Err(e) = webview.evaluate_script(&script) {
+                            tracing::error!("Failed to emit window event: {}", e);
+                        }
+                    } else {
+                        tracing::error!("[NativeBackend] WebView lock unavailable for WindowEvent");
+                    }
+                }
+                WebViewMessage::SetVisible(visible) => {
+                    tracing::debug!("[NativeBackend] SetVisible({})", visible);
+                    visibility_changes.push(visible);
+                }
+                WebViewMessage::EvalJsAsync { script, callback_id } => {
+                    if let Some(ref webview) = webview_guard {
+                        let async_script = js_assets::build_eval_js_async_script(&script, callback_id);
+                        if let Err(e) = webview.evaluate_script(&async_script) {
+                            tracing::error!(
+                                "Failed to execute async JavaScript (id={}): {}",
+                                callback_id,
+                                e
+                            );
+                        }
+                    } else {
+                        tracing::error!("[NativeBackend] WebView lock unavailable for EvalJsAsync");
+                    }
+                }
+                WebViewMessage::Reload => {
+                    if let Some(ref webview) = webview_guard {
+                        if let Err(e) = webview.evaluate_script("location.reload()") {
+                            tracing::error!("Failed to reload: {}", e);
+                        }
+                    } else {
+                        tracing::error!("[NativeBackend] WebView lock unavailable for Reload");
+                    }
+                }
+                WebViewMessage::StopLoading => {
+                    if let Some(ref webview) = webview_guard {
+                        if let Err(e) = webview.evaluate_script("window.stop()") {
+                            tracing::error!("Failed to stop loading: {}", e);
+                        }
+                    } else {
+                        tracing::error!("[NativeBackend] WebView lock unavailable for StopLoading");
+                    }
+                }
+                WebViewMessage::Close => {
+                    tracing::info!("[NativeBackend] Close message received");
+                    close_requested = true;
+                }
+                #[cfg(feature = "python-bindings")]
+                WebViewMessage::PythonCallbackDeferred {
+                    callback_id,
+                    event_name,
+                    data,
+                } => {
+                    // IMPORTANT: release WebView lock before executing Python callback.
+                    // Python callbacks often call back into WebView (emit/eval_js/process_events),
+                    // which can re-enter this code and deadlock if the lock is held.
+                    drop(webview_guard.take());
+
+                    crate::webview::message_processor::execute_python_callback(
+                        callback_id,
+                        &event_name,
+                        data,
+                        &self.ipc_handler,
+                        "NativeBackend",
+                    );
+
+                    // Re-acquire WebView lock for subsequent WebView operations.
+                    webview_guard = match self.webview.lock() {
+                        Ok(g) => Some(g),
+                        Err(e) => {
+                            tracing::error!(
+                                "[NativeBackend::process_events] Failed to re-lock WebView after PythonCallbackDeferred: {:?}",
+                                e
+                            );
+                            None
+                        }
+                    };
+                }
+                #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+                WebViewMessage::McpToolCall {
+                    tool_name,
+                    args,
+                    handler,
+                    response_tx,
+                } => {
+                    // IMPORTANT: release WebView lock before executing Python.
+                    drop(webview_guard.take());
+
+                    crate::webview::message_processor::execute_mcp_tool(
+                        &tool_name,
+                        args,
+                        handler,
+                        response_tx,
+                        "NativeBackend",
+                    );
+
+                    // Re-acquire WebView lock for subsequent WebView operations.
+                    webview_guard = match self.webview.lock() {
+                        Ok(g) => Some(g),
+                        Err(e) => {
+                            tracing::error!(
+                                "[NativeBackend::process_events] Failed to re-lock WebView after McpToolCall: {:?}",
+                                e
+                            );
+                            None
+                        }
+                    };
+                }
+            }
+        }
+
+        let remaining = self.message_queue.len();
+        if processed > 0 {
+            tracing::debug!(
+                "[OK] [NativeBackend::process_events] Processed {} messages ({} remaining)",
+                processed,
+                remaining
+            );
         }
 
         // Apply visibility changes outside the closure
@@ -656,8 +756,11 @@ impl NativeBackend {
         // Delegate to desktop module for now
         // We need to use the existing desktop implementation
         // and convert it to NativeBackend structure
-        let mut inner =
-            crate::webview::desktop::create_desktop(config, ipc_handler, message_queue.clone())?;
+        let mut inner = crate::webview::desktop::create_desktop(
+            config,
+            ipc_handler.clone(),
+            message_queue.clone(),
+        )?;
 
         // Extract fields from WebViewInner
         // We can safely take these because we own the WebViewInner
@@ -670,6 +773,7 @@ impl NativeBackend {
             window,
             event_loop,
             message_queue,
+            ipc_handler,
             // In desktop mode, we own the message pump
             skip_message_pump: false,
             auto_show, // Use config value (false in headless mode)
@@ -872,7 +976,7 @@ impl NativeBackend {
         }
 
         // Create WebView with IPC handler
-        let webview = Self::create_webview(&window, &config, ipc_handler)?;
+        let webview = Self::create_webview(&window, &config, ipc_handler.clone())?;
 
         // For transparent windows, show the window AFTER WebView is created
         // This ensures WebView2 has initialized its transparent rendering
@@ -987,6 +1091,8 @@ impl NativeBackend {
             window: Some(window),
             event_loop: Some(event_loop),
             message_queue,
+            #[cfg(feature = "python-bindings")]
+            ipc_handler,
             // In embedded/DCC mode, skip message pump - Qt/DCC owns the message loop
             skip_message_pump: true,
             auto_show,

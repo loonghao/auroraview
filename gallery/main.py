@@ -23,9 +23,11 @@ import atexit
 import json
 import os
 import signal
+import socket
 import sys
 import threading
 import time
+
 
 # Import backend modules
 from backend import (
@@ -103,10 +105,25 @@ atexit.register(_cleanup_all)
 if sys.platform != "win32":
     signal.signal(signal.SIGTERM, _signal_handler)
     signal.signal(signal.SIGHUP, _signal_handler)
-# SIGINT (Ctrl+C) is handled by Python's default handler
+
+# SIGINT (Ctrl+C) handler for all platforms
+try:
+    signal.signal(signal.SIGINT, _signal_handler)
+except (AttributeError, ValueError, OSError):
+    # May not be available on some platforms or in certain contexts
+    pass
+
+
+def _find_free_port() -> int:
+    """Find an available TCP port on localhost."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        s.listen(1)
+        return s.getsockname()[1]
 
 
 def run_gallery():
+
     """Run the AuroraView Gallery application.
 
     In packed mode, WebView.show() automatically switches to API server mode.
@@ -151,7 +168,30 @@ def run_gallery():
     if cdp_port:
         cdp_port = int(cdp_port)
         print(f"[Python] CDP remote debugging enabled on port {cdp_port}", file=sys.stderr)
-    
+
+    # MCP port selection for Gallery (env override or auto-free port)
+    mcp_port_env = os.environ.get("AURORAVIEW_MCP_PORT")
+    if mcp_port_env:
+        mcp_port = int(mcp_port_env)
+        print(f"[Python] MCP will bind to port {mcp_port} (from AURORAVIEW_MCP_PORT)", file=sys.stderr)
+    else:
+        mcp_port = _find_free_port()
+        print(f"[Python] MCP auto-selected free port {mcp_port}", file=sys.stderr)
+
+    # MCP mode selection (sidecar is preferred for process isolation)
+    # Set AURORAVIEW_MCP_MODE=embedded to force embedded mode
+    mcp_mode = os.environ.get("AURORAVIEW_MCP_MODE", "auto")
+    print(f"[Python] MCP mode: {mcp_mode}", file=sys.stderr)
+
+    # Import McpConfig for advanced configuration
+    from auroraview.mcp import McpConfig
+
+    mcp_config = McpConfig(
+        name="gallery-mcp",
+        port=mcp_port,
+        auto_expose_api=True,
+    )
+
     view = WebView(
         title="AuroraView Gallery",
         url=url,
@@ -161,8 +201,18 @@ def run_gallery():
         allow_new_window=True,
         new_window_mode="child_webview",  # Open new windows as child WebViews
         remote_debugging_port=cdp_port,  # Enable CDP if port specified
+        mcp=mcp_config,
     )
+
+    # Set MCP mode after creation (before show)
+    view._mcp_mode = mcp_mode
+
     print(f"[Python] WebView created successfully", file=sys.stderr)
+    print(f"[Python] MCP config: {view._mcp_config}", file=sys.stderr)
+    print(f"[Python] MCP enabled: {view._mcp_enabled}", file=sys.stderr)
+    print(f"[Python] MCP mode: {view._mcp_mode}", file=sys.stderr)
+    print(f"[Python] MCP mode set to: {mcp_mode}", file=sys.stderr)
+
 
     # Create plugin manager with permissive scope for demo
     plugins = PluginManager.permissive()
@@ -212,15 +262,15 @@ def run_gallery():
     register_child_apis(view)
 
     # Register simple API handlers
-    @view.bind_call("api.get_samples")
-    def get_samples() -> list:
+    @view.bind_call(method="api.get_samples")
+    def get_samples() -> dict:
         """Get all samples."""
-        return get_samples_list()
+        return {"ok": True, "data": get_samples_list()}
 
     @view.bind_call("api.get_categories")
     def get_categories() -> dict:
         """Get all categories."""
-        return CATEGORIES
+        return {"ok": True, "data": CATEGORIES}
 
     # Handle native file drop events
     @view.on("file_drop")
@@ -241,9 +291,27 @@ def run_gallery():
     # Cleanup on close - use "closing" event (before window closes)
     @view.on("closing")
     def on_closing():
+        print("[Gallery] Received 'closing' event, running cleanup...", file=sys.stderr)
         _cleanup_all()
+    
+    @view.on("closed")
+    def on_closed():
+        print("[Gallery] Received 'closed' event", file=sys.stderr)
 
-    # Show the gallery
+    # Print MCP status when window is ready
+    @view.on("ready")
+    def on_ready():
+        actual_mode = view.mcp_mode
+        actual_port = view.mcp_port
+        print(f"[Python] " + "=" * 50, file=sys.stderr)
+        print(f"[Python] MCP Status:", file=sys.stderr)
+        print(f"[Python]   Mode: {actual_mode}", file=sys.stderr)
+        print(f"[Python]   Port: {actual_port}", file=sys.stderr)
+        # Always use /mcp endpoint (Streamable HTTP transport)
+        print(f"[Python]   Connect via: http://127.0.0.1:{actual_port}/mcp", file=sys.stderr)
+        print(f"[Python] " + "=" * 50, file=sys.stderr)
+
+    # Show the gallery (blocking until window closes)
     view.show()
 
 

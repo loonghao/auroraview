@@ -55,7 +55,27 @@ export interface ProcessInfo {
   startTime: number;
 }
 
+export interface McpInfo {
+  ok: boolean;
+  name?: string;
+  host?: string;
+  port?: number;
+  mcp_url?: string;
+  tools_url?: string;
+  health_url?: string;
+  config?: Record<string, unknown>;
+  error?: string;
+}
+
+// Envelope for API responses
+interface Envelope<T = unknown> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+}
+
 // Extension types - aligned with Rust ExtensionInfo
+
 export interface ExtensionInfo {
   id: string;
   name: string;
@@ -137,39 +157,67 @@ export function useAuroraView() {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<string>('api.get_source', { sample_id: sampleId });
+    const result = await client.call<{ ok: boolean; data?: string; error?: string }>('api.get_source', { sample_id: sampleId });
+    if (result.ok && result.data !== undefined) {
+      return result.data;
+    }
+    throw new Error(result.error || `Failed to get source for ${sampleId}`);
   }, [client]);
 
   const runSample = useCallback(async (sampleId: string, options?: RunOptions): Promise<ApiResult> => {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<ApiResult>('api.run_sample', {
+    const result = await client.call<Envelope<Omit<ApiResult, 'ok' | 'error'>>>('api.run_sample', {
       sample_id: sampleId,
       show_console: options?.showConsole ?? false,
     });
+    
+    if (result.ok && result.data) {
+        return { ok: true, ...result.data };
+    }
+    return { ok: false, error: result.error || 'Unknown error' };
   }, [client]);
 
   const getSamples = useCallback(async (): Promise<Sample[]> => {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<Sample[]>('api.get_samples');
+    // Python returns {ok, data} but bind_call extracts data and returns it directly
+    // So result is already Sample[] (the data field), not Envelope<Sample[]>
+    const result = await client.call<Sample[]>('api.get_samples');
+    console.log('[useAuroraView] getSamples raw result:', result);
+    return result || [];
   }, [client]);
 
   const getCategories = useCallback(async (): Promise<Record<string, Category>> => {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<Record<string, Category>>('api.get_categories');
+    // Python returns {ok, data} but bind_call extracts data and returns it directly
+    const result = await client.call<Record<string, Category>>('api.get_categories');
+    return result || {};
+  }, [client]);
+
+  const getMcpInfo = useCallback(async (): Promise<McpInfo> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    const result = await client.call<Envelope<Omit<McpInfo, 'ok' | 'error'>>>('api.get_mcp_info');
+    if (result.ok && result.data) {
+        return { ok: true, ...result.data };
+    }
+    return { ok: false, error: result.error || 'Unknown error' };
   }, [client]);
 
   const openUrl = useCallback(async (url: string): Promise<ApiResult> => {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<ApiResult>('api.open_url', { url });
+    const result = await client.call<Envelope>('api.open_url', { url });
+    return { ok: result.ok, error: result.error };
   }, [client]);
+
 
   const openInWebView = useCallback((url: string, title?: string) => {
     const windowName = title ?? 'AuroraView';
@@ -181,21 +229,23 @@ export function useAuroraView() {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<ApiResult>('api.kill_process', { pid });
+    const result = await client.call<Envelope>('api.kill_process', { pid });
+    return { ok: result.ok, error: result.error };
   }, [client]);
 
   const sendToProcess = useCallback(async (pid: number, data: string) => {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call('api.send_to_process', { pid, data });
+    return client.call<Envelope>('api.send_to_process', { pid, data });
   }, [client]);
 
   const listProcesses = useCallback(async () => {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call('api.list_processes');
+    const result = await client.call<Envelope<any[]>>('api.list_processes');
+    return { ok: result.ok, processes: result.data || [], error: result.error };
   }, [client]);
 
   // ============================================
@@ -489,8 +539,7 @@ export function useAuroraView() {
       throw new Error('AuroraView not ready');
     }
     try {
-      const result = await client.call<{
-        ok: boolean;
+      const result = await client.call<Envelope<{
         success?: boolean;
         id?: string;
         name?: string;
@@ -498,16 +547,15 @@ export function useAuroraView() {
         path?: string;
         extensionsDir?: string;
         message?: string;
-        error?: string;
         requiresRestart?: boolean;
-      }>('api.install_to_webview', { path, name });
+      }>>('api.install_to_webview', { path, name });
       
       return {
-        ok: result.ok || result.success || false,
-        message: result.message,
+        ok: result.ok,
+        message: result.data?.message,
         error: result.error,
-        requiresRestart: result.requiresRestart,
-        extensionsDir: result.extensionsDir,
+        requiresRestart: result.data?.requiresRestart,
+        extensionsDir: result.data?.extensionsDir,
       };
     } catch (e) {
       return {
@@ -530,12 +578,18 @@ export function useAuroraView() {
       throw new Error('AuroraView not ready');
     }
     try {
-      return await client.call<{
-        ok: boolean;
+      const result = await client.call<Envelope<{
         extensions: InstalledExtension[];
         extensionsDir: string;
         count: number;
-      }>('api.list_webview_extensions', {});
+      }>>('api.list_webview_extensions', {});
+
+      return {
+        ok: result.ok,
+        extensions: result.data?.extensions || [],
+        extensionsDir: result.data?.extensionsDir || '',
+        count: result.data?.count || 0,
+      };
     } catch {
       return { ok: false, extensions: [], extensionsDir: '', count: 0 };
     }
@@ -549,20 +603,18 @@ export function useAuroraView() {
       throw new Error('AuroraView not ready');
     }
     try {
-      const result = await client.call<{
-        ok: boolean;
+      const result = await client.call<Envelope<{
         success?: boolean;
         id?: string;
         message?: string;
-        error?: string;
         requiresRestart?: boolean;
-      }>('api.remove_webview_extension', { id });
+      }>>('api.remove_webview_extension', { id });
       
       return {
-        ok: result.ok || result.success || false,
-        message: result.message,
+        ok: result.ok,
+        message: result.data?.message,
         error: result.error,
-        requiresRestart: result.requiresRestart,
+        requiresRestart: result.data?.requiresRestart,
       };
     } catch (e) {
       return {
@@ -580,16 +632,14 @@ export function useAuroraView() {
       throw new Error('AuroraView not ready');
     }
     try {
-      const result = await client.call<{
-        ok: boolean;
+      const result = await client.call<Envelope<{
         success?: boolean;
         path?: string;
-        error?: string;
-      }>('api.open_extensions_dir', {});
+      }>>('api.open_extensions_dir', {});
       
       return {
-        ok: result.ok || result.success || false,
-        message: result.path ? `Opened: ${result.path}` : undefined,
+        ok: result.ok,
+        message: result.data?.path ? `Opened: ${result.data.path}` : undefined,
         error: result.error,
       };
     } catch (e) {
@@ -637,28 +687,38 @@ export function useAuroraView() {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<ApiResult>('api.start_extension_bridge', { ws_port: wsPort, http_port: httpPort });
+    const result = await client.call<Envelope<{message: string}>>('api.start_extension_bridge', { ws_port: wsPort, http_port: httpPort });
+    return { ok: result.ok, message: result.data?.message, error: result.error };
   }, [client]);
 
   const stopExtensionBridge = useCallback(async (): Promise<ApiResult> => {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<ApiResult>('api.stop_extension_bridge');
+    const result = await client.call<Envelope>('api.stop_extension_bridge');
+    return { ok: result.ok, error: result.error };
   }, [client]);
 
   const getExtensionStatus = useCallback(async (): Promise<BrowserExtensionStatus> => {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<BrowserExtensionStatus>('api.get_extension_status');
+    const result = await client.call<Envelope<BrowserExtensionStatus>>('api.get_extension_status');
+    return result.data || {
+        enabled: false,
+        wsPort: 49152,
+        httpPort: 49153,
+        connectedClients: 0,
+        isRunning: false,
+    };
   }, [client]);
 
   const broadcastToExtensions = useCallback(async (action: string, data: unknown): Promise<ApiResult> => {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<ApiResult>('api.broadcast_to_extensions', { event: action, data });
+    const result = await client.call<Envelope>('api.broadcast_to_extensions', { event: action, data });
+    return { ok: result.ok, error: result.error };
   }, [client]);
 
   const installExtension = useCallback(async (path: string, browser: 'chrome' | 'firefox' = 'chrome'): Promise<ApiResult> => {
@@ -666,14 +726,20 @@ export function useAuroraView() {
       throw new Error('AuroraView not ready');
     }
     try {
-      const result = await client.call<{ ok: boolean; success?: boolean; path?: string; browser?: string; message?: string; error?: string; isFolder?: boolean }>(
+      const result = await client.call<Envelope<{
+        success?: boolean;
+        path?: string;
+        browser?: string;
+        message?: string;
+        isFolder?: boolean;
+      }>>(
         'api.install_extension',
         { path, browser }
       );
       
       return {
-        ok: result.ok || result.success || false,
-        message: result.message,
+        ok: result.ok,
+        message: result.data?.message,
         error: result.error,
       };
     } catch (e) {
@@ -708,10 +774,12 @@ export function useAuroraView() {
     runSample,
     getSamples,
     getCategories,
+    getMcpInfo,
     openUrl,
     openInWebView,
     killProcess,
     sendToProcess,
+
     listProcesses,
     // Extension Management (Rust native)
     listExtensions,

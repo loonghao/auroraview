@@ -73,6 +73,36 @@ pub enum WebViewMessage {
 
     /// Close the WebView window
     Close,
+
+    /// Deferred Python callback execution on main thread
+    /// This is used to safely execute Python callbacks from IPC threads
+    #[cfg(feature = "python-bindings")]
+    PythonCallbackDeferred {
+        /// The callback ID (index in the callback registry)
+        callback_id: u64,
+        /// The event name for logging/debugging
+        event_name: String,
+        /// The JSON data to pass to the callback
+        data: serde_json::Value,
+    },
+
+    /// MCP tool call from sidecar thread
+    /// This is used to execute MCP tools on the main thread
+    #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+    McpToolCall {
+        /// Tool name to execute
+        tool_name: String,
+        /// Tool arguments as JSON
+        args: serde_json::Value,
+        /// Python handler to execute
+        handler: pyo3::Py<pyo3::PyAny>,
+        /// Response channel (wrapped in Arc<Mutex<Option>> because Sender is not Clone)
+        response_tx: std::sync::Arc<
+            std::sync::Mutex<
+                Option<tokio::sync::oneshot::Sender<Result<serde_json::Value, String>>>,
+            >,
+        >,
+    },
 }
 
 impl Clone for WebViewMessage {
@@ -100,6 +130,28 @@ impl Clone for WebViewMessage {
                 data: data.clone(),
             },
             Self::Close => Self::Close,
+            #[cfg(feature = "python-bindings")]
+            Self::PythonCallbackDeferred {
+                callback_id,
+                event_name,
+                data,
+            } => Self::PythonCallbackDeferred {
+                callback_id: *callback_id,
+                event_name: event_name.clone(),
+                data: data.clone(),
+            },
+            #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+            Self::McpToolCall {
+                tool_name,
+                args,
+                handler,
+                response_tx,
+            } => Self::McpToolCall {
+                tool_name: tool_name.clone(),
+                args: args.clone(),
+                handler: pyo3::Python::attach(|py| handler.clone_ref(py)),
+                response_tx: std::sync::Arc::clone(response_tx),
+            },
         }
     }
 }
@@ -132,6 +184,25 @@ impl std::fmt::Debug for WebViewMessage {
                 .field("data", data)
                 .finish(),
             Self::Close => f.debug_tuple("Close").finish(),
+            #[cfg(feature = "python-bindings")]
+            Self::PythonCallbackDeferred {
+                callback_id,
+                event_name,
+                data,
+            } => f
+                .debug_struct("PythonCallbackDeferred")
+                .field("callback_id", callback_id)
+                .field("event_name", event_name)
+                .field("data", data)
+                .finish(),
+            #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+            Self::McpToolCall {
+                tool_name, args, ..
+            } => f
+                .debug_struct("McpToolCall")
+                .field("tool_name", tool_name)
+                .field("args", args)
+                .finish(),
         }
     }
 }
@@ -370,6 +441,10 @@ impl MessageQueue {
             WebViewMessage::StopLoading => "StopLoading",
             WebViewMessage::WindowEvent { event_type, .. } => event_type.as_str(),
             WebViewMessage::Close => "Close",
+            #[cfg(feature = "python-bindings")]
+            WebViewMessage::PythonCallbackDeferred { event_name, .. } => event_name,
+            #[cfg(all(feature = "mcp-server", feature = "python-bindings"))]
+            WebViewMessage::McpToolCall { tool_name, .. } => tool_name,
         };
 
         if matches!(&message, WebViewMessage::Close) {
@@ -538,14 +613,18 @@ impl MessageQueue {
         // Perform the actual wake-up
         if let Ok(proxy_guard) = self.event_loop_proxy.lock() {
             if let Some(proxy) = proxy_guard.as_ref() {
-                tracing::info!("[WAKE] [MessageQueue] Sending wake-up event to event loop...");
+                tracing::info!(
+                    "[WAKE] [MessageQueue] Sending UserEvent::ProcessMessages to event loop..."
+                );
                 match proxy.send_event(UserEvent::ProcessMessages) {
                     Ok(_) => {
-                        tracing::info!("[OK] [MessageQueue] Event loop woken up successfully!");
+                        tracing::info!(
+                            "[OK] [MessageQueue] UserEvent::ProcessMessages sent successfully!"
+                        );
                     }
                     Err(e) => {
                         tracing::error!(
-                            "[ERROR] [MessageQueue] Failed to wake up event loop: {:?}",
+                            "[ERROR] [MessageQueue] Failed to send UserEvent::ProcessMessages: {:?}",
                             e
                         );
                     }
@@ -553,11 +632,14 @@ impl MessageQueue {
             } else {
                 // This is expected during initialization before the event loop starts.
                 // Messages are still queued and will be processed when the event loop runs.
-                // Only log at debug level to reduce noise.
-                tracing::debug!(
-                    "[MessageQueue] Event loop proxy not yet set - message queued, will be processed when event loop starts"
+                // Use info level for MCP tool calls to help debug timing issues.
+                tracing::warn!(
+                    "[MessageQueue] Event loop proxy NOT SET - message queued but cannot wake event loop! \
+                     Call set_event_loop_proxy() after creating MessageQueue."
                 );
             }
+        } else {
+            tracing::error!("[MessageQueue] Failed to acquire event_loop_proxy lock!");
         }
     }
 

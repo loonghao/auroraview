@@ -1,0 +1,79 @@
+[package]
+name = "auroraview-mcp"
+version = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Embedded MCP (Model Context Protocol) Server for AuroraView"
+keywords = ["mcp", "webview", "ai", "streamable-http", "json-rpc"]
+categories = ["web-programming", "api-bindings"]
+
+[lib]
+name = "auroraview_mcp"
+path = "src/lib.rs"
+# Support both rlib (for linking into _core.pyd) and cdylib (for standalone _mcp.pyd)
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "time", "macros"] }
+
+# RMCP - Official Rust MCP SDK with Streamable HTTP support
+rmcp = { version = "0.12", features = ["server", "transport-streamable-http-server", "macros", "axum"] }
+
+# HTTP Server
+axum = { version = "0.8", features = ["macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
+http-body-util = "0.1"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+
+# UUID for request IDs
+uuid = { version = "1.11", features = ["v4"] }
+
+# Async utilities
+futures = "0.3"
+tokio-stream = "0.1"
+tokio-util = "0.7"
+
+# Thread safety
+parking_lot = "0.12"
+
+# JSON Schema generation for tool parameters
+schemars = "0.8"
+
+# Core types for dispatcher interface
+auroraview-core = { path = "../auroraview-core" }
+
+[dev-dependencies]
+rstest = "0.26"
+tokio-test = "0.4"
+reqwest = { version = "0.12", features = ["json"] }
+
+[features]
+default = []
+# Python bindings via PyO3
+python = ["dep:pyo3"]
+python-bindings = ["python"]
+abi3-py38 = ["pyo3/abi3-py38"]
+# Extension module for Python wheels (required for standalone _mcp.pyd)
+ext-module = ["pyo3/extension-module"]
+# Build as standalone Python module (creates _mcp.pyd entry point)
+standalone-pymodule = ["python", "ext-module"]
+
+[dependencies.pyo3]
+version = "0.27.2"
+optional = true
+features = ["multiple-pymethods"]

@@ -116,7 +116,7 @@ class Bridge:
         self._service_discovery = None
         if service_discovery:
             try:
-                from ._core import ServiceDiscovery
+                from ..core._core import ServiceDiscovery
 
                 self._service_discovery = ServiceDiscovery(
                     bridge_port=port,

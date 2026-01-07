@@ -18,8 +18,9 @@ import { AnimatedHeader } from './components/AnimatedHeader';
 import { PageTransition, StaggeredList } from './components/PageTransition';
 import { AnimatedCard } from './components/AnimatedCard';
 import { type Tag } from './data/samples';
-import { useAuroraView, type Sample, type Category, type ExtensionInfo } from './hooks/useAuroraView';
+import { useAuroraView, type Sample, type Category, type ExtensionInfo, type McpInfo } from './hooks/useAuroraView';
 import * as Icons from 'lucide-react';
+
 
 const SETTINGS_KEY = 'auroraview-gallery-settings';
 
@@ -89,6 +90,7 @@ function App() {
   const [samples, setSamples] = useState<Sample[]>([]);
   const [categories, setCategories] = useState<Record<string, Category>>({});
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [mcpInfo, setMcpInfo] = useState<McpInfo | null>(null);
 
   const { 
     isReady, 
@@ -96,8 +98,10 @@ function App() {
     runSample, 
     getSamples, 
     getCategories, 
+    getMcpInfo, 
     openUrl, 
     killProcess,
+
     // Legacy browser extension bridge APIs
     startExtensionBridge,
     stopExtensionBridge,
@@ -160,6 +164,32 @@ function App() {
     }
   }, [enabledExtensions]);
 
+  const mcpConfigText = useMemo(() => {
+    if (!mcpInfo?.ok || !mcpInfo.mcp_url) return '';
+    return JSON.stringify(
+      {
+        server: {
+          transportType: 'streamable-http',
+          url: mcpInfo.mcp_url,
+          name: mcpInfo.name || 'auroraview-mcp',
+        },
+      },
+      null,
+      2
+    );
+  }, [mcpInfo]);
+
+  const handleCopyMcpConfig = useCallback(async () => {
+    if (!mcpConfigText) return;
+    try {
+      await navigator.clipboard.writeText(mcpConfigText);
+      setToast({ visible: true, message: 'MCP 配置已复制', type: 'success' });
+    } catch (err) {
+      console.error('Failed to copy MCP config', err);
+      setToast({ visible: true, message: '复制失败，请手动复制', type: 'error' });
+    }
+  }, [mcpConfigText]);
+
   // Merge installed extensions with enabled state for display
   const displayExtensions = useMemo((): InstalledExtension[] => {
     return installedExtensions.map(ext => ({
@@ -168,6 +198,7 @@ function App() {
       enabled: enabledExtensions.size === 0 ? true : enabledExtensions.has(ext.id),
     }));
   }, [installedExtensions, enabledExtensions]);
+
 
   // Side Panel state
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
@@ -178,6 +209,8 @@ function App() {
     if (isReady && !dataLoaded) {
       Promise.all([getSamples(), getCategories()])
         .then(([samplesData, categoriesData]) => {
+          console.log('[App] getSamples returned:', samplesData);
+          console.log('[App] getCategories returned:', categoriesData);
           setSamples(samplesData);
           setCategories(categoriesData);
           setDataLoaded(true);
@@ -187,6 +220,17 @@ function App() {
         });
     }
   }, [isReady, dataLoaded, getSamples, getCategories]);
+
+  useEffect(() => {
+    if (!isReady) return;
+    getMcpInfo()
+      .then(setMcpInfo)
+      .catch((err) => {
+        console.warn('Failed to load MCP info', err);
+        setMcpInfo({ ok: false, error: String(err) });
+      });
+  }, [isReady, getMcpInfo]);
+
 
   // Load installed WebView extensions
   const refreshExtensions = useCallback(async () => {
@@ -813,7 +857,37 @@ function App() {
              <QuickLinks onCategoryClick={handleCategoryClick} onOpenLink={handleOpenLink} />
         )}
 
+        {/* MCP endpoint & config for IDE/agents */}
+        {viewMode === 'gallery' && mcpInfo?.ok && mcpConfigText && (
+          <div className="mt-6">
+            <AnimatedCard className="p-4 md:p-6" enableRipple={false} enableMagnetic>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold">MCP 端点</div>
+                    <div className="text-xs text-muted-foreground">复制到 IDE/Agent 的 MCP 配置即可体验</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyMcpConfig}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground shadow-sm hover:brightness-110"
+                  >
+                    <Icons.Clipboard className="h-4 w-4" />
+                    复制配置
+                  </button>
+                </div>
+                <div className="font-mono text-sm bg-muted/40 rounded-md p-3 break-all border border-border/50">
+                  {mcpInfo.mcp_url}
+                </div>
+                <pre className="bg-muted/60 rounded-md p-3 text-xs leading-5 overflow-x-auto whitespace-pre-wrap border border-border/50">{mcpConfigText}</pre>
+
+              </div>
+            </AnimatedCard>
+          </div>
+        )}
+
         {/* Extension Panel (Management) */}
+
         {viewMode === 'extensions' && (
             <ExtensionPanel
             extensions={displayExtensions}
@@ -943,6 +1017,7 @@ function App() {
         isOpen={settingsOpen}
         settings={settings}
         extensionStatus={extensionStatus}
+        mcpInfo={mcpInfo || undefined}
         onClose={() => setSettingsOpen(false)}
         onSave={handleSettingsSave}
         onToggleExtension={handleToggleExtension}

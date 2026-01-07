@@ -13,6 +13,8 @@ categories = ["development-tools", "asynchronous"]
 [lib]
 name = "aurora_signals"
 path = "src/lib.rs"
+# Support both rlib (for linking into _core.pyd) and cdylib (for standalone _signals.pyd)
+crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 # Thread-safe primitives
@@ -44,8 +46,10 @@ default = []
 python = ["pyo3"]
 # ABI3 stable ABI for Python 3.8+
 abi3-py38 = ["pyo3/abi3-py38"]
-# Extension module for Python wheels
+# Extension module for Python wheels (required for standalone _signals.pyd)
 ext-module = ["pyo3/extension-module"]
+# Build as standalone Python module (creates _signals.pyd entry point)
+standalone-pymodule = ["python", "ext-module"]
 
 [dev-dependencies]
 rstest = "0.26"

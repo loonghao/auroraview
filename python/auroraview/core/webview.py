@@ -24,6 +24,8 @@ from auroraview.core.mixins import (
 )
 
 if TYPE_CHECKING:
+    from auroraview.mcp import McpConfig
+
     from .bridge import Bridge
     from .channel import Channel, ChannelManager
     from .commands import CommandRegistry
@@ -31,7 +33,7 @@ if TYPE_CHECKING:
 
 _CORE_IMPORT_ERROR = None
 try:
-    from auroraview._core import WebView as _CoreWebView
+    from ._core import WebView as _CoreWebView
 except ImportError as e:
     _CoreWebView = None
     _CORE_IMPORT_ERROR = str(e)
@@ -117,6 +119,10 @@ class WebView(
         allow_new_window: bool = False,
         new_window_mode: Optional[str] = None,
         remote_debugging_port: Optional[int] = None,
+        # MCP Server integration
+        mcp: Union[bool, Dict[str, Any], "McpConfig", None] = None,  # type: ignore
+        mcp_port: Optional[int] = None,
+        mcp_name: Optional[str] = None,
         # Aliases for more intuitive API
         parent_hwnd: Optional[int] = None,
         embed_mode: Optional[str] = None,
@@ -223,6 +229,28 @@ class WebView(
                          Window stays above owner in Z-order, hidden when owner minimizes.
 
                        See: https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features
+
+                   mcp: Enable embedded MCP Server for AI assistant integration (Rust-only).
+                       - None/False: Disabled (default)
+                       - True: Enable with default settings
+                       - dict: Enable with custom configuration (fields of `McpConfig`)
+                       - McpConfig: Use provided config instance
+
+                       When enabled, starts an SSE-based MCP server that exposes all
+                       ``bind_call()`` registered methods as MCP tools, allowing AI
+
+                       assistants to interact with and control the application.
+
+                       Example::
+
+                           # Enable MCP with defaults
+                           webview = WebView(title="My Tool", mcp=True)
+
+                           # Enable with custom port
+                           webview = WebView(title="My Tool", mcp={"port": 8765})
+
+                   mcp_port: Shortcut for MCP server port (equivalent to mcp={"port": N}).
+                   mcp_name: Shortcut for MCP server name (equivalent to mcp={"name": "..."}).
         """
         if _CoreWebView is None:
             import sys
@@ -233,19 +261,17 @@ class WebView(
                 f"Python version: {sys.version}",
                 f"Platform: {sys.platform}",
             ]
-            # Check if _core.pyd exists in expected locations
+            # Check if _core.pyd exists in expected locations (now in core/ subdirectory)
             try:
-                import auroraview
-
-                pkg_dir = Path(auroraview.__file__).parent
-                pyd_path = pkg_dir / "_core.pyd"
-                so_path = pkg_dir / "_core.so"
+                core_dir = Path(__file__).parent
+                pyd_path = core_dir / "_core.pyd"
+                so_path = core_dir / "_core.so"
                 if pyd_path.exists():
                     error_details.append(f"Found: {pyd_path}")
                 elif so_path.exists():
                     error_details.append(f"Found: {so_path}")
                 else:
-                    error_details.append(f"_core.pyd not found in: {pkg_dir}")
+                    error_details.append(f"_core.pyd not found in: {core_dir}")
             except Exception:
                 pass
             raise RuntimeError("\n".join(error_details))
@@ -374,7 +400,77 @@ class WebView(
         # Plugin manager for handling plugin:* invoke commands
         self._plugin_manager: Optional[Any] = None
 
+        # MCP Server integration (lazy initialization)
+        self._mcp_server: Optional[Any] = None
+        self._mcp_sidecar: Optional[Any] = None  # McpSidecar instance (Sidecar mode)
+        self._mcp_config: Optional[Any] = None
+        self._mcp_enabled: bool = False
+        self._mcp_mode: str = "auto"  # "auto", "embedded", or "sidecar"
+
+        # Process MCP configuration (Rust-only)
+        if mcp is not None or mcp_port is not None or mcp_name is not None:
+            from auroraview.mcp import McpConfig
+
+            # Build config from parameters
+            if isinstance(mcp, McpConfig):
+                config = mcp
+            else:
+                config = McpConfig()
+                if isinstance(mcp, dict):
+                    for key, value in mcp.items():
+                        if hasattr(config, key):
+                            setattr(config, key, value)
+                if mcp_port is not None:
+                    config.port = mcp_port
+                if mcp_name is not None:
+                    config.name = mcp_name
+
+            self._mcp_config = config
+            self._mcp_enabled = True
+            logger.info("MCP Server enabled (will start on show())")
+
     @property
+    def mcp_server(self) -> Optional[Any]:
+        """Get the embedded MCP Server instance (None if not enabled).
+
+        Returns:
+            EmbeddedMCPServer instance or None
+        """
+        return self._mcp_server
+
+    @property
+    def mcp_port(self) -> Optional[int]:
+        """Get the MCP Server port (None if not running).
+
+        Returns:
+            Port number or None
+        """
+        if self._mcp_sidecar:
+            return self._mcp_sidecar.port
+        if self._mcp_server:
+            return self._mcp_server.port
+        return None
+
+    @property
+    def mcp_mode(self) -> str:
+        """Get the MCP mode being used.
+
+        Returns:
+            "sidecar" if using sidecar process,
+            "embedded" if using embedded server,
+            "auto" if not yet started (will auto-detect on start)
+        """
+        return self._mcp_mode
+
+    @property
+    def mcp_sidecar(self) -> Optional[Any]:
+        """Get the McpSidecar instance (None if not using sidecar mode).
+
+        Returns:
+            McpSidecar instance or None
+        """
+        return self._mcp_sidecar
+
     def state(self) -> "State":
         """Get the shared state container for Python ↔ JavaScript sync.
 
@@ -763,7 +859,7 @@ class WebView(
             >>> timer.timeout.connect(webview.process_events_ipc_only)
             >>> timer.start(16)  # 60 FPS
         """
-        from auroraview._core import WebView as _CoreWebView
+        from ._core import WebView as _CoreWebView
 
         logger.info(f"[create_embedded] Creating WebView for parent HWND: {parent_hwnd}")
 
@@ -907,14 +1003,50 @@ class WebView(
             self._bridge.start_background()
 
         if is_embedded:
-            # Embedded mode: non-blocking + auto timer
-            logger.info("Embedded mode: non-blocking with auto timer")
-            self._show_non_blocking()
-            # Start timer immediately - it will wait for WebView to be ready
-            if self._auto_timer is not None:
+            # Embedded mode: Rust-side show() is non-blocking (creates the embedded WebView and returns).
+            # Do NOT spawn a background thread here.
+            #
+            # Rationale: MessageQueue-dispatched features (like embedded MCP tool calls) require
+            # periodic draining of the internal IPC queue. The previous background-thread path
+            # would exit immediately (because Rust embedded show() returns), leaving `_async_core`
+            # as None and causing `EventTimer` to permanently skip ticks.
+            logger.info("Embedded mode: creating embedded WebView on main thread")
+            self._core.show()
+
+            # Ensure we have an event timer to drain AuroraView's internal IPC queue.
+            # This is required for MessageQueue-dispatched MCP tool calls to complete.
+            if self._auto_timer is None:
+                try:
+                    from auroraview.utils.event_timer import EventTimer
+
+                    self._auto_timer = EventTimer(self, interval_ms=16)
+                    self._auto_timer.on_close(lambda: self._auto_timer.stop())
+                    logger.info("Auto timer created for embedded mode (on-demand)")
+                except Exception as e:
+                    logger.warning("Failed to create EventTimer: %s", e)
+
+            if self._auto_timer is not None and not self._auto_timer.is_running:
                 self._auto_timer.start()
-                logger.info("Auto timer started (will wait for WebView initialization)")
+                logger.info("Auto timer started for embedded mode")
+
+            # Start MCP Server after the WebView + timer are ready (prevents initial deadlock).
+            if (
+                self._mcp_config
+                and self._mcp_enabled
+                and not self._mcp_server
+                and not self._mcp_sidecar
+            ):
+                self._start_mcp_server()
         else:
+            # Start MCP Server if enabled
+            if (
+                self._mcp_config
+                and self._mcp_enabled
+                and not self._mcp_server
+                and not self._mcp_sidecar
+            ):
+                self._start_mcp_server()
+
             # Standalone mode
             if wait:
                 # Blocking
@@ -955,7 +1087,7 @@ class WebView(
                 logger.info("Background thread: Creating WebView instance")
                 # Create a new WebView instance in this thread
                 # This is necessary because the Rust core is not Send/Sync
-                from auroraview._core import WebView as _CoreWebView
+                from ._core import WebView as _CoreWebView
 
                 core = _CoreWebView(
                     title=self._title,
@@ -1406,6 +1538,23 @@ class WebView(
         # entered the event loop yet.
         self._close_requested = True
 
+        # Stop MCP Server/Sidecar if running
+        if self._mcp_sidecar:
+            try:
+                self._mcp_sidecar.stop()
+                logger.info("MCP Sidecar stopped")
+            except Exception as e:
+                logger.warning(f"Error stopping MCP sidecar: {e}")
+            self._mcp_sidecar = None
+
+        if self._mcp_server:
+            try:
+                self._mcp_server.stop()
+                logger.info("MCP Server stopped")
+            except Exception as e:
+                logger.warning(f"Error stopping MCP server: {e}")
+            self._mcp_server = None
+
         # Prefer closing the background-thread core (if present). Fall back to
         # the main-thread core as a best-effort.
         cores = []
@@ -1531,6 +1680,271 @@ class WebView(
             return {"status": "sent"}
 
         logger.info("Bridge <-> WebView integration complete")
+
+    # MCP Server integration methods
+
+    def _start_mcp_server(self) -> None:
+        """Start the MCP Server (embedded or sidecar mode).
+
+        This is called automatically during show() if MCP is enabled.
+
+        Mode selection:
+        - "auto" (default): Try sidecar mode first, fallback to embedded
+        - "sidecar": Use sidecar mode only (fail if unavailable)
+        - "embedded": Use embedded mode only
+
+        Sidecar mode benefits:
+        - Process isolation (MCP server crash doesn't affect main app)
+        - No event loop dependencies
+        - Better debugging experience
+
+        Embedded mode benefits:
+        - Simpler deployment (no separate binary)
+        - Lower latency (no IPC overhead)
+        """
+        import sys
+
+        print(f"[MCP] Starting MCP server (mode={self._mcp_mode})", file=sys.stderr)
+        logger.info(f"[MCP] Starting MCP server (mode={self._mcp_mode})")
+
+        if self._mcp_server or self._mcp_sidecar:
+            print("[MCP] Server already running", file=sys.stderr)
+            logger.warning("MCP Server already running")
+            return
+
+        if not self._mcp_config or not self._mcp_enabled:
+            print(
+                f"[MCP] Not enabled: config={self._mcp_config}, enabled={self._mcp_enabled}",
+                file=sys.stderr,
+            )
+            return
+
+        mode = self._mcp_mode
+
+        # Try sidecar mode first (if mode is "auto" or "sidecar")
+        if mode in ("auto", "sidecar"):
+            if self._try_start_sidecar():
+                return
+            elif mode == "sidecar":
+                # Explicit sidecar mode requested but failed
+                raise RuntimeError(
+                    "MCP sidecar mode requested but failed to start. "
+                    "Ensure auroraview is built with mcp-sidecar feature and "
+                    "auroraview-mcp-server binary is available."
+                )
+            # mode == "auto", fallback to embedded
+
+        # Start embedded MCP server
+        self._start_embedded_mcp_server()
+
+    def _try_start_sidecar(self) -> bool:
+        """Try to start MCP in sidecar mode.
+
+        Returns:
+            True if sidecar started successfully, False otherwise.
+        """
+        import sys
+
+        print("[MCP] Attempting sidecar mode...", file=sys.stderr)
+        logger.info("[MCP] Attempting sidecar mode...")
+
+        try:
+            from auroraview.mcp import McpSidecar
+        except ImportError:
+            print("[MCP] McpSidecar not available, falling back to embedded", file=sys.stderr)
+            return False
+
+        # Check if SidecarBridge is available (requires mcp-sidecar feature)
+        try:
+            from auroraview.core import SidecarBridge
+
+            if SidecarBridge is None:
+                print(
+                    "[MCP] SidecarBridge not available (mcp-sidecar feature not enabled)",
+                    file=sys.stderr,
+                )
+                return False
+        except ImportError:
+            print("[MCP] SidecarBridge import failed", file=sys.stderr)
+            return False
+
+        # Check if sidecar binary exists
+        binary_path = McpSidecar.get_binary_path()
+        if not binary_path:
+            print("[MCP] Sidecar binary not found, falling back to embedded", file=sys.stderr)
+            return False
+
+        print(f"[MCP] Sidecar binary found: {binary_path}", file=sys.stderr)
+
+        # Create and configure sidecar
+        try:
+            port = getattr(self._mcp_config, "port", 0)
+            print(f"[MCP] Creating McpSidecar with port={port}", file=sys.stderr)
+            sidecar = McpSidecar(port=port, log_level="info")
+            print("[MCP] McpSidecar created", file=sys.stderr)
+        except Exception as exc:
+            print(f"[MCP] Failed to create McpSidecar: {exc}", file=sys.stderr)
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+        # Register bound functions as tools
+        try:
+            self._register_tools_to_sidecar(sidecar)
+            print("[MCP] Tools registered to sidecar", file=sys.stderr)
+        except Exception as exc:
+            print(f"[MCP] Failed to register tools: {exc}", file=sys.stderr)
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+        # Start sidecar
+        try:
+            print("[MCP] Starting sidecar...", file=sys.stderr)
+            actual_port = sidecar.start()
+            self._mcp_sidecar = sidecar
+            self._mcp_mode = "sidecar"  # Record actual mode used
+            print(f"[MCP] Sidecar started on port {actual_port}", file=sys.stderr)
+            logger.info(f"MCP Sidecar started on port {actual_port}")
+            logger.info(f"Connect AI assistant to: http://127.0.0.1:{actual_port}/sse")
+            return True
+        except Exception as exc:
+            print(f"[MCP] Failed to start sidecar: {exc}", file=sys.stderr)
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def _register_tools_to_sidecar(self, sidecar: Any) -> None:
+        """Register bound functions as tools on the sidecar.
+
+        Args:
+            sidecar: McpSidecar instance.
+        """
+        auto_expose = getattr(self._mcp_config, "auto_expose_api", False)
+        if not auto_expose:
+            return
+
+        handlers = getattr(self, "_bound_functions", {})
+        metadata = getattr(self, "_mcp_metadata", {})
+
+        for name, handler in handlers.items():
+            # Check MCP metadata for this method
+            meta = metadata.get(name, {})
+            mcp_exposed = meta.get("mcp", True)  # Default: expose to MCP
+            mcp_custom_name = meta.get("mcp_name")
+
+            # Skip if not exposed to MCP
+            if not mcp_exposed:
+                continue
+
+            # Skip internal methods
+            if name.startswith("_"):
+                continue
+
+            # Use custom name if provided
+            tool_name = mcp_custom_name if mcp_custom_name else name
+            description = getattr(handler, "__doc__", None) or f"Tool: {name}"
+
+            try:
+                sidecar.register_tool(tool_name, description, handler)
+                logger.debug(f"Registered sidecar tool: {tool_name}")
+            except Exception as exc:
+                logger.warning(f"Failed to register sidecar tool {tool_name}: {exc}")
+
+    def _start_embedded_mcp_server(self) -> None:
+        """Start the embedded MCP Server.
+
+        The server uses a dispatcher that routes tool calls through the
+        WebView's message queue to ensure all handlers execute on the main thread.
+        """
+        import sys
+
+        print("[MCP] Starting embedded MCP server...", file=sys.stderr)
+
+        from auroraview.mcp import register_default_tools
+
+        # CRITICAL: Use the Rust WebView's create_mcp_server method to ensure
+        # the dispatcher is properly connected to the MessageQueue.
+        try:
+            server = self._core.create_mcp_server(self._mcp_config)
+            print("[MCP] Server created via Rust core", file=sys.stderr)
+            logger.debug(
+                f"MCP server created via Rust (direct_execution="
+                f"{getattr(self._mcp_config, 'direct_execution', True)})"
+            )
+        except AttributeError as e:
+            print(f"[MCP] create_mcp_server not available: {e}", file=sys.stderr)
+            # Fallback for older Rust bindings that don't have create_mcp_server
+            from auroraview.mcp import McpServer
+
+            logger.warning(
+                "create_mcp_server not available, using direct McpServer creation. "
+                "Tool calls may block the main thread."
+            )
+            server = McpServer(self._mcp_config)
+
+        # Register default MCP tools (screenshot, logs, etc.)
+        try:
+            register_default_tools(self, server)
+            logger.debug("Registered default MCP tools")
+        except Exception as exc:
+            logger.warning("Failed to register default MCP tools: %s", exc)
+
+        # Auto-expose bind_call registered handlers as MCP tools
+        auto_expose = getattr(self._mcp_config, "auto_expose_api", False)
+        has_bound = hasattr(self, "_bound_functions")
+        logger.debug(f"MCP auto_expose_api={auto_expose}, has_bound_functions={has_bound}")
+
+        if auto_expose and has_bound:
+            handlers = getattr(self, "_bound_functions", {})
+            metadata = getattr(self, "_mcp_metadata", {})
+            logger.debug(f"Found {len(handlers)} bound functions: {list(handlers.keys())}")
+
+            for name, handler in handlers.items():
+                # Check MCP metadata for this method
+                meta = metadata.get(name, {})
+                mcp_exposed = meta.get("mcp", True)  # Default: expose to MCP
+                mcp_custom_name = meta.get("mcp_name")
+
+                # Skip if not exposed to MCP
+                if not mcp_exposed:
+                    logger.debug(f"Skipping {name}: mcp=False (hidden from MCP)")
+                    continue
+
+                # Use custom name if provided, otherwise use original name
+                tool_name = mcp_custom_name if mcp_custom_name else name
+
+                # Skip internal methods
+                if name.startswith("_"):
+                    logger.debug(f"Skipping {name}: internal method (starts with _)")
+                    continue
+
+                description = getattr(handler, "__doc__", None) or f"Tool: {name}"
+                try:
+                    server.register_tool(tool_name, handler, description)
+                    if mcp_custom_name:
+                        logger.debug(f"Registered tool: {name} -> {tool_name} (custom MCP name)")
+                    else:
+                        logger.debug(f"Registered tool: {name}")
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.warning("Failed to register MCP tool %s: %s", name, exc)
+
+        try:
+            port = server.start()
+            self._mcp_server = server
+            self._mcp_mode = "embedded"  # Record actual mode used
+
+            print(f"[MCP] Embedded MCP Server started on port {port}", file=sys.stderr)
+            logger.info(f"Embedded MCP Server started on port {port}")
+            logger.info(f"Connect AI assistant to: http://{self._mcp_config.host}:{port}/mcp")
+        except Exception as exc:
+            print(f"[MCP] Failed to start embedded server: {exc}", file=sys.stderr)
+            import traceback
+
+            traceback.print_exc()
 
     @property
     def bridge(self) -> Optional["Bridge"]:  # type: ignore

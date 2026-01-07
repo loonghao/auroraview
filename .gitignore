@@ -91,7 +91,17 @@ code-review.md
 
 
 # Additional build artifacts
-python/auroraview/_core.*
+# Python extension modules (.pyd files) - these are build artifacts
+python/auroraview/_core.pyd
+python/auroraview/_core.pyi
+python/auroraview/_signals.pyd
+python/auroraview/_signals.pyi
+python/auroraview/mcp/_mcp.pyd
+python/auroraview/mcp/_mcp.pyi
+# Wrong location (should not exist, but ignore if accidentally created)
+python/auroraview/_mcp.pyd
+python/auroraview/_mcp.pyi
+
 target/llvm-cov/
 target/wheels/
 .qt/
