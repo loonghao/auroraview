@@ -206,7 +206,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          vx uv venv --python ${{ matrix.python-version }} .test-venv
+          PYEXEC=$(python -c "import sys; print(sys.executable)")
+          vx uv venv --python "$PYEXEC" .test-venv
           vx uv pip install --python .test-venv/bin/python dist/*.whl
 
       - name: Create test environment and install (Windows)
@@ -215,9 +216,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          vx uv venv --python ${{ matrix.python-version }} .test-venv
+          $py = python -c "import sys; print(sys.executable)"
+          vx uv venv --python "$py" .test-venv
           $wheel = Get-ChildItem dist/*.whl | Select-Object -First 1
           vx uv pip install --python .test-venv\Scripts\python.exe $wheel.FullName
+
 
       - name: Verify installation (Unix)
         if: runner.os != 'Windows'
