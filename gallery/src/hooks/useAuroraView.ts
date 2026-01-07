@@ -42,6 +42,50 @@ export interface Sample {
   tags?: string[];
 }
 
+export interface DependencyInfo {
+  requirements: string[];
+  missing: string[];
+  needs_install: boolean;
+}
+
+export interface DependencyCheckResult extends ApiResult {
+  sample_id?: string;
+  requirements?: string[];
+  missing?: string[];
+  needs_install?: boolean;
+}
+
+export interface DependencyInstallResult extends ApiResult {
+  packages?: string[];
+  already_installed?: boolean;
+}
+
+export interface DependencyProgress {
+  sample_id: string;
+  package?: string;
+  index?: number;
+  total?: number;
+  message?: string;
+  line?: string;
+  phase?: 'starting' | 'installing' | 'complete';
+  success?: boolean;
+}
+
+export interface DependencyComplete {
+  sample_id: string;
+  installed: string[];
+  message: string;
+}
+
+export interface DependencyError {
+  sample_id: string;
+  package?: string;
+  failed?: string[];
+  error: string;
+  cancelled?: boolean;
+}
+
+
 export interface Category {
   title: string;
   icon: string;
@@ -196,6 +240,55 @@ export function useAuroraView() {
       throw new Error('AuroraView not ready');
     }
     return client.call('api.list_processes');
+  }, [client]);
+
+  // ============================================
+  // Dependency Management APIs
+  // ============================================
+
+  /**
+   * Check if a sample has missing dependencies
+   */
+  const checkDependencies = useCallback(async (sampleId: string): Promise<DependencyCheckResult> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call<DependencyCheckResult>('api.check_dependencies', { sample_id: sampleId });
+  }, [client]);
+
+  /**
+   * Install missing dependencies for a sample.
+   * Progress will be reported via events: dep:start, dep:progress, dep:complete, dep:error
+   */
+  const installDependencies = useCallback(async (sampleId: string): Promise<DependencyInstallResult> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call<DependencyInstallResult>('api.install_dependencies', { sample_id: sampleId });
+  }, [client]);
+
+  /**
+   * Cancel ongoing dependency installation
+   */
+  const cancelInstallation = useCallback(async (): Promise<ApiResult> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call<ApiResult>('api.cancel_installation');
+  }, [client]);
+
+  /**
+   * Get dependency info for all samples that have requirements
+   */
+
+  const getAllSampleDependencies = useCallback(async (): Promise<{
+    ok: boolean;
+    samples: Record<string, DependencyInfo>;
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call<{ ok: boolean; samples: Record<string, DependencyInfo> }>('api.get_all_sample_dependencies');
   }, [client]);
 
   // ============================================
@@ -713,6 +806,12 @@ export function useAuroraView() {
     killProcess,
     sendToProcess,
     listProcesses,
+    // Dependency Management
+    checkDependencies,
+    installDependencies,
+    cancelInstallation,
+    getAllSampleDependencies,
+
     // Extension Management (Rust native)
     listExtensions,
     getExtension,

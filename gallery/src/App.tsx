@@ -17,6 +17,7 @@ import { ExtensionContent } from './components/ExtensionContent';
 import { AnimatedHeader } from './components/AnimatedHeader';
 import { PageTransition, StaggeredList } from './components/PageTransition';
 import { AnimatedCard } from './components/AnimatedCard';
+import { DependencyModal } from './components/DependencyModal';
 import { type Tag } from './data/samples';
 import { useAuroraView, type Sample, type Category, type ExtensionInfo } from './hooks/useAuroraView';
 import * as Icons from 'lucide-react';
@@ -98,7 +99,12 @@ function App() {
     getCategories, 
     openUrl, 
     killProcess,
+    // Dependency management APIs
+    checkDependencies,
+    installDependencies,
+    cancelInstallation,
     // Legacy browser extension bridge APIs
+
     startExtensionBridge,
     stopExtensionBridge,
     getExtensionStatus,
@@ -172,6 +178,12 @@ function App() {
   // Side Panel state
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [activeSidePanelExtension, setActiveSidePanelExtension] = useState<InstalledExtension | null>(null);
+
+  // Dependency modal state
+  const [depModalOpen, setDepModalOpen] = useState(false);
+  const [depModalSampleId, setDepModalSampleId] = useState('');
+  const [depModalSampleTitle, setDepModalSampleTitle] = useState('');
+  const [depModalMissing, setDepModalMissing] = useState<string[]>([]);
 
   // Load samples and categories from Python backend
   useEffect(() => {
@@ -350,6 +362,19 @@ function App() {
   const handleRun = useCallback(async (sampleId: string) => {
     if (isReady) {
       try {
+        // Check dependencies first
+        const depCheck = await checkDependencies(sampleId);
+        if (depCheck.ok && depCheck.needs_install && depCheck.missing && depCheck.missing.length > 0) {
+          // Show dependency modal
+          const sample = getSampleById(sampleId);
+          setDepModalSampleId(sampleId);
+          setDepModalSampleTitle(sample?.title || sampleId);
+          setDepModalMissing(depCheck.missing);
+          setDepModalOpen(true);
+          return;
+        }
+
+        // Run the sample
         const showConsole = settings.runMode === 'console';
         const result = await runSample(sampleId, { showConsole });
         if (result.ok) {
@@ -368,7 +393,36 @@ function App() {
     } else {
       showToast('AuroraView bridge not available', 'error');
     }
-  }, [isReady, runSample, settings.runMode, showToast]);
+  }, [isReady, runSample, settings.runMode, showToast, checkDependencies, getSampleById]);
+
+  // Handle dependency installation
+  const handleInstallDependencies = useCallback(async (sampleId: string) => {
+    if (!isReady) return;
+    try {
+      await installDependencies(sampleId);
+    } catch (err) {
+      console.error('Failed to install dependencies:', err);
+    }
+  }, [isReady, installDependencies]);
+
+  // Handle dependency modal completion - run the sample
+  const handleDepModalComplete = useCallback(async () => {
+    setDepModalOpen(false);
+    if (depModalSampleId) {
+      // Run the sample after installation
+      const showConsole = settings.runMode === 'console';
+      const result = await runSample(depModalSampleId, { showConsole });
+      if (result.ok) {
+        const modeText = showConsole ? ' (with console)' : '';
+        showToast(`Demo started${modeText}`);
+        if (!showConsole) {
+          setConsoleOpen(true);
+        }
+      } else {
+        showToast(result.error || 'Failed to run demo', 'error');
+      }
+    }
+  }, [depModalSampleId, settings.runMode, runSample, showToast]);
 
   const handleKillProcess = useCallback(async (pid: number) => {
     if (isReady) {
@@ -781,7 +835,7 @@ function App() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-white">
       <AnimatedSidebar
         activeCategory={activeCategory}
         onCategoryClick={handleCategoryClick}
@@ -965,6 +1019,18 @@ function App() {
         onClose={() => setConsoleOpen(false)}
         onKillProcess={handleKillProcess}
       />
+
+      <DependencyModal
+        isOpen={depModalOpen}
+        sampleId={depModalSampleId}
+        sampleTitle={depModalSampleTitle}
+        missing={depModalMissing}
+        onInstall={handleInstallDependencies}
+        onCancel={() => setDepModalOpen(false)}
+        onCancelInstall={cancelInstallation}
+        onComplete={handleDepModalComplete}
+      />
+
     </div>
   );
 }
