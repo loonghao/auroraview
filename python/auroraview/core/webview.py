@@ -1455,6 +1455,7 @@ class WebView(
             to the WebView thread. Most operations are non-blocking.
         """
         from auroraview.utils.thread_dispatcher import DCCThreadSafeWrapper
+
         return DCCThreadSafeWrapper(self)
 
     @property

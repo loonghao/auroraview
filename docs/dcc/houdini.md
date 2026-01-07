@@ -123,6 +123,93 @@ await auroraview.api.set_parm_value({
 });
 ```
 
+## Thread Safety
+
+AuroraView provides automatic thread safety for Houdini integration. Houdini requires all `hou` operations to run on the main thread.
+
+### Automatic Thread Safety with `dcc_mode`
+
+Enable `dcc_mode` for automatic thread-safe callbacks:
+
+```python
+from auroraview import QtWebView
+import hou
+
+# All callbacks automatically run on Houdini main thread
+webview = QtWebView(
+    parent=hou.qt.mainWindow(),
+    url="http://localhost:3000",
+    dcc_mode=True,  # Enable automatic thread safety
+)
+
+@webview.on("create_node")
+def handle_create(data):
+    # Automatically runs on Houdini main thread!
+    parent_path = data.get("parent", "/obj")
+    node_type = data.get("type", "geo")
+    name = data.get("name")
+
+    parent = hou.node(parent_path)
+    new_node = parent.createNode(node_type, name)
+    return {"ok": True, "path": new_node.path()}
+
+@webview.on("get_selected_nodes")
+def handle_selection(data):
+    nodes = hou.selectedNodes()
+    return {"nodes": [n.path() for n in nodes], "count": len(nodes)}
+
+webview.show()
+```
+
+### Manual Thread Safety with Decorators
+
+```python
+from auroraview import QtWebView
+from auroraview.utils import dcc_thread_safe, dcc_thread_safe_async
+import hou
+
+webview = QtWebView(parent=hou.qt.mainWindow(), url="http://localhost:3000")
+
+@webview.on("cook_node")
+@dcc_thread_safe  # Blocks until cook complete
+def handle_cook(data):
+    node_path = data.get("path")
+    node = hou.node(node_path)
+    if node:
+        node.cook(force=True)
+        return {"ok": True, "cooked": node_path}
+    return {"ok": False, "error": "Node not found"}
+
+@webview.on("update_display")
+@dcc_thread_safe_async  # Fire-and-forget
+def handle_update(data):
+    hou.ui.triggerUpdate()
+
+webview.show()
+```
+
+### Using `run_on_main_thread` Directly
+
+```python
+from auroraview.utils import run_on_main_thread, run_on_main_thread_sync
+import hou
+
+# Fire-and-forget
+def select_node(path):
+    node = hou.node(path)
+    if node:
+        node.setSelected(True, clear_all_selected=True)
+
+run_on_main_thread(select_node, "/obj/geo1")
+
+# Blocking with return value
+def get_hip_path():
+    return hou.hipFile.path()
+
+hip_path = run_on_main_thread_sync(get_hip_path)
+print(f"Current HIP: {hip_path}")
+```
+
 ## Node Selection Sync
 
 ```python

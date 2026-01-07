@@ -1143,9 +1143,7 @@ def dcc_thread_safe_async(func: Callable[..., None]) -> Callable[..., None]:
         if is_main_thread():
             func(*args, **kwargs)
         else:
-            logger.debug(
-                f"[dcc_thread_safe_async] Queueing {func.__name__} for main thread"
-            )
+            logger.debug(f"[dcc_thread_safe_async] Queueing {func.__name__} for main thread")
             run_on_main_thread(func, *args, **kwargs)
 
     return wrapper

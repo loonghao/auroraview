@@ -6,13 +6,14 @@ AuroraView is designed specifically for integration with Digital Content Creatio
 
 | DCC Software | Status | Python Version | Integration Mode |
 |--------------|--------|----------------|------------------|
-| Maya | ✅ Supported | 3.7+ | Qt Mode |
-| Houdini | ✅ Supported | 3.7+ | Qt Mode |
-| 3ds Max | ✅ Supported | 3.7+ | Qt Mode |
-| Blender | ✅ Supported | 3.7+ | Desktop / Native Mode |
+| [Maya](./maya) | ✅ Supported | 3.7+ | Qt Mode |
+| [Houdini](./houdini) | ✅ Supported | 3.7+ | Qt Mode |
+| [3ds Max](./3dsmax) | ✅ Supported | 3.7+ | Qt Mode |
+| [Blender](./blender) | ✅ Supported | 3.7+ | Desktop / Native Mode |
 | Nuke | ✅ Supported | 3.7+ | Qt Mode |
-| Photoshop | 🚧 Planned | 3.7+ | - |
-| Unreal Engine | 🚧 Planned | 3.7+ | Native Mode (HWND) |
+| [Substance Painter](./substance-painter) | 🚧 In Progress | 3.9+ | Qt Mode |
+| [Unreal Engine](./unreal) | 🚧 In Progress | 3.9+ | Native Mode (HWND) |
+| [Photoshop](./photoshop) | 🚧 Planned | 3.9+ | WebSocket |
 
 ## Integration Modes
 
