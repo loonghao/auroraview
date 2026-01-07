@@ -69,19 +69,25 @@ webview = QtWebView(
 
 ## 线程安全
 
-AuroraView 为 Houdini 集成提供自动线程安全。Houdini 要求所有 `hou` 操作在主线程运行。
+AuroraView 为 Houdini 集成提供**自动**线程安全。Houdini 要求所有 `hou` 操作在主线程运行，AuroraView 通过 `hdefereval` 处理。
 
-### 使用 `dcc_mode` 自动线程安全
+::: tip 零配置
+由于 `dcc_mode="auto"` 是默认值，AuroraView 会自动检测 Houdini 并启用线程安全。无需任何配置！
+:::
+
+### 自动线程安全（默认）
+
+正常使用 AuroraView 即可 - 线程安全是自动的：
 
 ```python
 from auroraview import QtWebView
 import hou
 
-# 所有回调自动在 Houdini 主线程运行
+# 检测到 Houdini 时自动启用线程安全
 webview = QtWebView(
     parent=hou.qt.mainWindow(),
     url="http://localhost:3000",
-    dcc_mode=True,  # 启用自动线程安全
+    # dcc_mode="auto" 是默认值 - 无需指定！
 )
 
 @webview.on("create_node")

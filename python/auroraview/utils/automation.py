@@ -38,8 +38,8 @@ else:
     from typing_extensions import Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from .dom import Element, ElementCollection
-    from .webview import WebView
+    from ..ui.dom import Element, ElementCollection
+    from ..core.webview import WebView
 
 logger = logging.getLogger(__name__)
 

@@ -38,6 +38,7 @@ from backend import (
 from backend.config import DIST_DIR
 from backend.child_api import register_child_apis
 from backend.child_manager import cleanup_manager as cleanup_child_manager
+from backend.dependency_api import register_dependency_apis
 from backend.extension_api import cleanup_extension_bridge, register_extension_apis
 from backend.process_api import register_process_apis
 from backend.webview_extension_api import register_webview_extension_apis
@@ -210,6 +211,9 @@ def run_gallery():
 
     # Register child window APIs
     register_child_apis(view)
+
+    # Register dependency installation APIs
+    register_dependency_apis(view)
 
     # Register simple API handlers
     @view.bind_call("api.get_samples")

@@ -75,21 +75,25 @@ webview = WebView.create(api=BlenderAPI())
 
 ## 线程安全
 
-AuroraView 为 Blender 集成提供自动线程安全。Blender 要求所有 `bpy` 操作在主线程运行。
+AuroraView 为 Blender 集成提供**自动**线程安全。Blender 要求所有 `bpy` 操作在主线程运行，AuroraView 通过 `bpy.app.timers` 处理。
 
-### 使用 `dcc_mode` 自动线程安全
+::: tip 零配置
+由于 `dcc_mode="auto"` 是默认值，AuroraView 会自动检测 Blender 并启用线程安全。无需任何配置！
+:::
 
-启用 `dcc_mode` 实现自动线程安全回调：
+### 自动线程安全（默认）
+
+正常使用 AuroraView 即可 - 线程安全是自动的：
 
 ```python
 from auroraview import WebView
 import bpy
 
-# 所有回调自动在 Blender 主线程运行
+# 检测到 Blender 时自动启用线程安全
 webview = WebView(
     title="Blender 工具",
     url="http://localhost:3000",
-    dcc_mode=True,  # 启用自动线程安全
+    # dcc_mode="auto" 是默认值 - 无需指定！
 )
 
 @webview.on("create_mesh")

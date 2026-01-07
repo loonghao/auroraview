@@ -2,6 +2,18 @@
 
 AuroraView integrates with Autodesk 3ds Max through QtWebView.
 
+::: info 3ds Max 2020+
+MaxPlus is deprecated since 3ds Max 2020. This guide uses `pymxs` which is the recommended API for 3ds Max 2020 and later versions.
+:::
+
+## Requirements
+
+| Component | Minimum Version | Recommended |
+|-----------|-----------------|-------------|
+| 3ds Max | 2020 | 2024+ |
+| Python | 3.9 | 3.11+ |
+| Qt | PySide2/Qt5 | PySide2/Qt5 |
+
 ## Installation
 
 ```bash
@@ -13,11 +25,14 @@ pip install auroraview[qt]
 ```python
 from auroraview import QtWebView
 from qtpy import QtWidgets
-import MaxPlus
+from pymxs import runtime as rt
 
 def max_main_window():
-    return QtWidgets.QWidget.find(MaxPlus.GetQMaxMainWindow())
+    """Get 3ds Max main window as QWidget."""
+    hwnd = rt.windows.getMAXHWND()
+    return QtWidgets.QWidget.find(hwnd)
 
+# AuroraView auto-detects 3ds Max and enables thread safety
 webview = QtWebView(
     parent=max_main_window(),
     url="http://localhost:3000",
@@ -27,25 +42,9 @@ webview = QtWebView(
 webview.show()
 ```
 
-## Alternative: pymxs
-
-```python
-from auroraview import QtWebView
-from qtpy import QtWidgets
-from pymxs import runtime as rt
-
-def max_main_window():
-    # Get 3ds Max main window using pymxs
-    import ctypes
-    hwnd = rt.windows.getMAXHWND()
-    return QtWidgets.QWidget.find(hwnd)
-
-webview = QtWebView(
-    parent=max_main_window(),
-    url="http://localhost:3000"
-)
-webview.show()
-```
+::: tip Automatic Thread Safety
+When running inside 3ds Max, AuroraView automatically enables thread safety (`dcc_mode="auto"`). No additional configuration needed!
+:::
 
 ## API Binding Example
 
@@ -122,11 +121,15 @@ await auroraview.api.set_position({ name: 'myBox', x: 10, y: 0, z: 5 });
 
 ## Thread Safety
 
-AuroraView provides automatic thread safety for 3ds Max integration. 3ds Max requires all `pymxs` operations to run on the main thread.
+AuroraView provides **automatic** thread safety for 3ds Max integration. Since 3ds Max uses Qt internally, AuroraView leverages Qt's event loop (`QTimer.singleShot`) to schedule callbacks on the main thread.
 
-### Automatic Thread Safety with `dcc_mode`
+::: info Implementation Note
+3ds Max's thread dispatcher uses Qt's `QTimer.singleShot()` since 3ds Max 2020+ runs a Qt event loop. This is more reliable than the deprecated MaxPlus API.
+:::
 
-Enable `dcc_mode` for automatic thread-safe callbacks:
+### Automatic Thread Safety (Default)
+
+**No configuration needed!** AuroraView auto-detects 3ds Max and enables thread safety:
 
 ```python
 from auroraview import QtWebView
@@ -137,11 +140,11 @@ def max_main_window():
     hwnd = rt.windows.getMAXHWND()
     return QtWidgets.QWidget.find(hwnd)
 
-# All callbacks automatically run on 3ds Max main thread
+# Thread safety is automatically enabled when 3ds Max is detected
 webview = QtWebView(
     parent=max_main_window(),
     url="http://localhost:3000",
-    dcc_mode=True,  # Enable automatic thread safety
+    # dcc_mode="auto" is the default - no need to specify!
 )
 
 @webview.on("create_primitive")

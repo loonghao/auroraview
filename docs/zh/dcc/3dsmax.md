@@ -2,23 +2,31 @@
 
 AuroraView 通过 Qt 与 3ds Max 集成。
 
+::: info 3ds Max 2020+
+MaxPlus 从 3ds Max 2020 开始已弃用。本指南使用 `pymxs`，这是 3ds Max 2020 及更高版本推荐的 API。
+:::
+
 ## 要求
 
 | 组件 | 最低版本 | 推荐版本 |
 |------|----------|----------|
 | 3ds Max | 2020 | 2024+ |
-| Python | 3.7 | 3.10+ |
+| Python | 3.9 | 3.11+ |
+| Qt | PySide2/Qt5 | PySide2/Qt5 |
 
 ## 快速开始
 
 ```python
 from auroraview import QtWebView
 from qtpy import QtWidgets
-import MaxPlus
+from pymxs import runtime as rt
 
 def max_main_window():
-    return QtWidgets.QWidget.find(MaxPlus.GetQMaxMainWindow())
+    """获取 3ds Max 主窗口作为 QWidget"""
+    hwnd = rt.windows.getMAXHWND()
+    return QtWidgets.QWidget.find(hwnd)
 
+# AuroraView 自动检测 3ds Max 并启用线程安全
 webview = QtWebView(
     parent=max_main_window(),
     url="http://localhost:3000"
@@ -26,34 +34,43 @@ webview = QtWebView(
 webview.show()
 ```
 
+::: tip 自动线程安全
+在 3ds Max 中运行时，AuroraView 自动启用线程安全（`dcc_mode="auto"`）。无需额外配置！
+:::
+
 ## API 通信
 
 ```python
 from auroraview import QtWebView
-import MaxPlus
+from pymxs import runtime as rt
 
 class MaxAPI:
     def get_selection(self):
         """获取选中的对象"""
-        return [n.Name for n in MaxPlus.SelectionManager.Nodes]
-    
-    def create_box(self, name, length=10, width=10, height=10):
+        sel = list(rt.selection)
+        return [str(obj.name) for obj in sel]
+
+    def create_box(self, name="Box001", size=10.0):
         """创建一个盒子"""
-        box = MaxPlus.Factory.CreateGeomObject(MaxPlus.ClassIds.Box)
-        node = MaxPlus.Factory.CreateNode(box, name)
-        return node.Name
+        box = rt.Box(name=name, length=size, width=size, height=size)
+        return str(box.name)
 
 webview = QtWebView(
     parent=max_main_window(),
-    api=MaxAPI()
+    url="http://localhost:3000"
 )
+webview.bind_api(MaxAPI())
 ```
 
 ## 线程安全
 
-AuroraView 为 3ds Max 集成提供自动线程安全。3ds Max 要求所有 `pymxs` 操作在主线程运行。
+AuroraView 为 3ds Max 集成提供**自动**线程安全。由于 3ds Max 内部使用 Qt，AuroraView 利用 Qt 的事件循环（`QTimer.singleShot`）在主线程调度回调。
 
-### 使用 `dcc_mode` 自动线程安全
+::: tip 零配置
+由于 `dcc_mode="auto"` 是默认值，AuroraView 会自动检测 3ds Max 并启用线程安全。无需任何配置！
+:::
+
+### 自动线程安全（默认）
 
 ```python
 from auroraview import QtWebView

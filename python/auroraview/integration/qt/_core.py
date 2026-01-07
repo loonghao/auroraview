@@ -506,6 +506,11 @@ class QtWebView(FileDialogMixin, QWidget):
         self._webview_container = None
         self._webview_qwindow = None
 
+        # Track initialization state - WebView is initialized on first show
+        # This allows automatic initialization when parent widget is shown,
+        # following standard Qt widget semantics
+        self._webview_initialized = False
+
         # Install event filter on parent window to track:
         # 1. Window moves (for owner mode positioning)
         # 2. Window close (to close WebView when parent closes)
@@ -1628,29 +1633,56 @@ class QtWebView(FileDialogMixin, QWidget):
 
         return super().eventFilter(watched, event)
 
+    def showEvent(self, event) -> None:  # type: ignore[override]
+        """Handle Qt show event - automatically initializes WebView.
+
+        This follows standard Qt widget semantics: when the widget becomes
+        visible (either directly via show() or indirectly when a parent is
+        shown), the WebView is automatically initialized.
+
+        This means you can embed QtWebView in a layout and it will initialize
+        when the parent window is shown, without needing to call show() on
+        the QtWebView directly.
+        """
+        super().showEvent(event)
+
+        # Initialize WebView on first show
+        if not self._webview_initialized:
+            self._webview_initialized = True
+            self._initialize_webview()
+
     def show(self) -> None:  # type: ignore[override]
-        """Show the Qt host widget and start the embedded WebView.
+        """Show the Qt widget.
+
+        This follows standard Qt widget semantics. The WebView is automatically
+        initialized when the widget becomes visible (via showEvent).
+
+        When QtWebView is embedded in a parent widget (e.g., QDockWidget),
+        you don't need to call show() on QtWebView directly - showing the
+        parent will automatically trigger initialization.
+        """
+        super().show()
+
+    def _initialize_webview(self) -> None:
+        """Initialize the WebView and load initial content.
+
+        This is called automatically on first show. It handles:
+        1. Anti-flicker hiding (on Windows)
+        2. WebView creation and container setup
+        3. Loading initial URL or HTML
+        4. Starting the event timer
 
         Due to Rust WebView limitations (!Send), we must create and run
         the WebView on the main thread. We use progressive initialization
         with QApplication.processEvents() to keep the UI responsive.
-
-        Anti-flicker strategy:
-        1. Hide the Qt widget using WS_EX_LAYERED with zero alpha
-        2. Show the widget (now invisible)
-        3. Initialize WebView and create container
-        4. Switch QStackedWidget from loading page to webview page
-        5. Restore visibility after everything is ready
-
-        This prevents the white flash and visible embedding process.
         """
         from qtpy.QtWidgets import QApplication
 
         self._show_start_time = time.time()
         if _VERBOSE_LOGGING:
-            logger.debug("[QtWebView] show() started with anti-flicker")
+            logger.debug("[QtWebView] _initialize_webview() started with anti-flicker")
 
-        # Step 1: Hide the window before showing (anti-flicker)
+        # Step 1: Hide the window before initialization (anti-flicker)
         # This makes the window completely invisible during initialization
         self._pre_show_hidden = False
         if sys.platform == "win32":
@@ -1665,13 +1697,10 @@ class QtWebView(FileDialogMixin, QWidget):
         # Ensure QStackedWidget shows loading page
         self._stack.setCurrentIndex(0)
 
-        # Step 2: Show the Qt widget (invisible due to zero alpha)
-        super().show()
-
         # Process events to ensure the widget geometry is established
         QApplication.processEvents()
 
-        # Step 3: Initialize WebView with progressive event processing
+        # Step 2: Initialize WebView with progressive event processing
         self._init_webview_progressive()
 
     def _init_webview_progressive(self) -> None:

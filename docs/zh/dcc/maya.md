@@ -108,11 +108,15 @@ await auroraview.api.set_transform(cube, 5, 0, 0);
 
 ## 线程安全
 
-AuroraView 为 Maya 集成提供自动线程安全。当事件处理器从 WebView 线程调用时，需要将它们调度到 Maya 主线程才能安全调用 `maya.cmds` 或 `maya.api`。
+AuroraView 为 Maya 集成提供**自动**线程安全。当事件处理器从 WebView 线程调用时，会自动调度到 Maya 主线程。
 
-### 使用 `dcc_mode` 自动线程安全
+::: tip 零配置
+由于 `dcc_mode="auto"` 是默认值，AuroraView 会自动检测 Maya 并启用线程安全。无需任何配置！
+:::
 
-最简单的方法 - 启用 `dcc_mode`，所有回调自动线程安全：
+### 自动线程安全（默认）
+
+正常使用 AuroraView 即可 - 线程安全是自动的：
 
 ```python
 from auroraview import WebView
@@ -120,17 +124,17 @@ import maya.OpenMayaUI as omui
 
 maya_hwnd = int(omui.MQtUtil.mainWindow())
 
-# 所有回调自动在 Maya 主线程运行
+# 检测到 Maya 时自动启用线程安全
 webview = WebView.create(
     "我的工具",
     parent=maya_hwnd,
     mode="owner",
-    dcc_mode=True,  # 启用自动线程安全
+    # dcc_mode="auto" 是默认值 - 无需指定！
 )
 
 @webview.on("create_cube")
 def handle_create(data):
-    # 无需装饰器 - 自动在 Maya 主线程运行！
+    # 自动在 Maya 主线程运行！
     import maya.cmds as cmds
     name = data.get("name", "myCube")
     result = cmds.polyCube(name=name)

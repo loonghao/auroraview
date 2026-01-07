@@ -82,11 +82,15 @@ webview.show()
 
 ## Thread Safety
 
-AuroraView provides automatic thread safety for Substance Painter integration.
+AuroraView provides **automatic** thread safety for Substance Painter integration.
 
-### Automatic Thread Safety with `dcc_mode`
+::: tip Zero Configuration
+Since `dcc_mode="auto"` is the default, AuroraView automatically detects Substance Painter and enables thread safety. No configuration needed!
+:::
 
-Enable `dcc_mode` for automatic thread-safe callbacks:
+### Automatic Thread Safety (Default)
+
+Just use AuroraView normally - thread safety is automatic:
 
 ```python
 from auroraview import QtWebView
@@ -96,11 +100,11 @@ import substance_painter.textureset as textureset
 
 main_window = ui.get_main_window()
 
-# All callbacks automatically run on Substance Painter main thread
+# Thread safety is automatically enabled when Substance Painter is detected
 webview = QtWebView(
     parent=main_window,
     url="http://localhost:3000",
-    dcc_mode=True,  # Enable automatic thread safety
+    # dcc_mode="auto" is the default - no need to specify!
 )
 
 @webview.on("get_project_info")

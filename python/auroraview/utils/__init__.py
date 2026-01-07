@@ -56,7 +56,9 @@ from .thread_dispatcher import (
     dcc_thread_safe_async,
     defer_to_main_thread,
     ensure_main_thread,
+    get_current_dcc_name,
     get_dispatcher_backend,
+    is_dcc_environment,
     is_main_thread,
     list_dispatcher_backends,
     register_dispatcher_backend,
@@ -110,6 +112,9 @@ __all__ = [
     "is_main_thread",
     "ensure_main_thread",
     "defer_to_main_thread",
+    # DCC Environment Detection
+    "is_dcc_environment",
+    "get_current_dcc_name",
     # DCC Thread Safety (from thread_dispatcher)
     "dcc_thread_safe",
     "dcc_thread_safe_async",

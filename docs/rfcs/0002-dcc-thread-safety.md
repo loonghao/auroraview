@@ -422,9 +422,9 @@ def handle_export(data):
 ## References
 
 - [Thread Dispatcher Documentation](../guide/thread-dispatcher.md)
-- [WebView Proxy Implementation](../../src/webview/proxy.rs)
-- [Message Queue Implementation](../../src/ipc/message_queue.rs)
-- [COM Initialization](../../crates/auroraview-core/src/builder/com_init.rs)
+- WebView Proxy Implementation: `src/webview/proxy.rs`
+- Message Queue Implementation: `src/ipc/message_queue.rs`
+- COM Initialization: `crates/auroraview-core/src/builder/com_init.rs`
 
 ## Changelog
 

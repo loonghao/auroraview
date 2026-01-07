@@ -30,7 +30,17 @@ if sys.platform == "win32":
 
 # Add project paths
 PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "python"))
+
+
+def _add_sys_path(path: Path) -> None:
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
+
+
+_add_sys_path(PROJECT_ROOT / "python")
+_add_sys_path(PROJECT_ROOT)
+_add_sys_path(PROJECT_ROOT / "gallery")
 
 
 @pytest.fixture(scope="session", autouse=True)

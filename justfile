@@ -471,7 +471,7 @@ example EXAMPLE:
 info:
     @echo "Project Information:"
     @echo "  Rust version: $(vx rustc --version)"
-    @echo "  Python version: $(vx python --version)"
+    @echo "  Python version: $(vx uv run python --version)"
     @echo "  UV version: $(vx uv --version)"
     @echo "  Node version: $(vx node --version)"
 
@@ -866,8 +866,8 @@ docs-install:
 # Excludes: integration/qt (requires qtpy), testing (requires pytest)
 docs-python-api:
     @echo "Generating Python API documentation with pdoc..."
-    vx pip install pdoc>=14.0.0 --quiet
-    vx python -m pdoc --output-dir docs/api/python-gen --docformat google \
+    vx uv pip install pdoc>=14.0.0 --quiet
+    vx uv run python -m pdoc --output-dir docs/api/python-gen --docformat google \
         python/auroraview/core \
         python/auroraview/ui \
         python/auroraview/utils \
