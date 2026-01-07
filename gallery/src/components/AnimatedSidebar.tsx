@@ -158,16 +158,18 @@ function SidebarButton({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={cn(
-          'w-10 h-10 rounded-lg flex items-center justify-center transition-colors relative',
-          'text-muted-foreground hover:bg-accent hover:text-foreground',
-          isActive && 'bg-primary/10 text-primary'
+          'w-10 h-10 rounded-xl flex items-center justify-center transition-all relative',
+          'text-muted-foreground hover:text-foreground',
+          isActive 
+            ? 'bg-primary/20 text-primary shadow-lg shadow-primary/10' 
+            : 'hover:bg-accent/50'
         )}
         title={title}
       >
         {/* Active indicator */}
         <div
           ref={indicatorRef}
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-primary rounded-r origin-center"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-gradient-to-b from-primary to-purple-500 rounded-r origin-center"
           style={{ opacity: 0, transform: 'scaleY(0) translateY(-50%)' }}
         />
 
@@ -178,7 +180,7 @@ function SidebarButton({
 
         {/* Badge */}
         {badge !== undefined && badge > 0 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-[10px] text-primary-foreground rounded-full flex items-center justify-center font-medium">
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-primary to-purple-600 text-[10px] text-white rounded-full flex items-center justify-center font-medium shadow-lg shadow-primary/30">
             {badge > 9 ? '9+' : badge}
           </span>
         )}
@@ -188,7 +190,12 @@ function SidebarButton({
       {showTooltip && (
         <div
           ref={tooltipRef}
-          className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg whitespace-nowrap"
+          className={cn(
+            "absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50",
+            "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap",
+            "bg-popover/95 backdrop-blur-sm text-popover-foreground",
+            "border border-border/50 shadow-xl"
+          )}
         >
           {title}
         </div>
@@ -258,7 +265,11 @@ export function AnimatedSidebar({
   return (
     <aside
       ref={sidebarRef}
-      className="w-14 bg-card border-r border-border fixed h-screen flex flex-col items-center py-4"
+      className={cn(
+        "w-14 fixed h-screen flex flex-col items-center py-4",
+        "bg-white border-r border-border",
+        "shadow-lg shadow-slate-200/50"
+      )}
     >
       {/* Logo */}
       <div
@@ -271,7 +282,7 @@ export function AnimatedSidebar({
         <img
           src="./auroraview-logo.png"
           alt="AuroraView"
-          className="w-9 h-9 rounded-lg object-contain"
+          className="w-9 h-9 rounded-xl object-contain shadow-lg"
         />
       </div>
 
