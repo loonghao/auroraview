@@ -866,13 +866,14 @@ docs-install:
 # Excludes: integration/qt (requires qtpy), testing (requires pytest)
 docs-python-api:
     @echo "Generating Python API documentation with pdoc..."
-    vx uv pip install pdoc>=14.0.0 --quiet
-    vx uv run python -m pdoc --output-dir docs/api/python-gen --docformat google \
+    vx uv pip install --system pdoc>=14.0.0 --quiet
+    vx uv run --system python -m pdoc --output-dir docs/api/python-gen --docformat google \
         python/auroraview/core \
         python/auroraview/ui \
         python/auroraview/utils \
         --no-show-source
     @echo "[OK] Python API docs generated in docs/api/python-gen/"
+
 
 # Generate examples documentation from examples/ directory
 docs-generate-examples:
