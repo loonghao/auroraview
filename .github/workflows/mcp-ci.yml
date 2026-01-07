@@ -216,10 +216,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $py = python -c "import sys; print(sys.executable)"
-          vx uv venv --python "$py" .test-venv
+          $py = (python -c "import sys; print(sys.executable)")
+          vx uv venv --python $py .test-venv
           $wheel = Get-ChildItem dist/*.whl | Select-Object -First 1
           vx uv pip install --python .test-venv\Scripts\python.exe $wheel.FullName
+
 
 
       - name: Verify installation (Unix)
