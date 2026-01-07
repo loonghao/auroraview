@@ -864,15 +864,30 @@ docs-install:
 # Generate Python API documentation with pdoc
 # Note: Only includes core modules that don't require third-party dependencies
 # Excludes: integration/qt (requires qtpy), testing (requires pytest)
+[unix]
 docs-python-api:
     @echo "Generating Python API documentation with pdoc..."
-    vx uv pip install --system pdoc>=14.0.0 --quiet
-    vx uv run --system python -m pdoc --output-dir docs/api/python-gen --docformat google \
+    vx uv venv .docs-venv
+    vx uv pip install --python .docs-venv/bin/python pdoc>=14.0.0 --quiet
+    .docs-venv/bin/python -m pdoc --output-dir docs/api/python-gen --docformat google \
         python/auroraview/core \
         python/auroraview/ui \
         python/auroraview/utils \
         --no-show-source
     @echo "[OK] Python API docs generated in docs/api/python-gen/"
+
+[windows]
+docs-python-api:
+    @echo "Generating Python API documentation with pdoc..."
+    vx uv venv .docs-venv
+    vx uv pip install --python .docs-venv\Scripts\python.exe pdoc>=14.0.0 --quiet
+    .docs-venv\Scripts\python.exe -m pdoc --output-dir docs/api/python-gen --docformat google \
+        python/auroraview/core \
+        python/auroraview/ui \
+        python/auroraview/utils \
+        --no-show-source
+    @echo "[OK] Python API docs generated in docs/api/python-gen/"
+
 
 
 # Generate examples documentation from examples/ directory
@@ -905,8 +920,9 @@ docs-preview: docs-build
 # Clean documentation build artifacts
 docs-clean:
     @echo "Cleaning documentation build artifacts..."
-    rm -rf docs/.vitepress/dist docs/.vitepress/cache docs/node_modules docs/api/python-gen
+    rm -rf docs/.vitepress/dist docs/.vitepress/cache docs/node_modules docs/api/python-gen .docs-venv
     @echo "[OK] Documentation artifacts cleaned!"
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MCP Server Commands
