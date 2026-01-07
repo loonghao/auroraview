@@ -8,15 +8,32 @@ This module contains utility functions and classes:
 - FileProtocol: File URL and local asset utilities
 - Automation: Browser automation utilities
 - Logging: Configurable logging for DCC environments
+- ThreadDispatcher: Thread safety utilities for DCC integration
 
 Example:
     >>> from auroraview.utils import EventTimer, path_to_file_url
     >>> timer = EventTimer(webview, interval=100)
     >>> url = path_to_file_url("/path/to/file.html")
+
+    >>> # DCC thread safety
+    >>> from auroraview.utils import dcc_thread_safe
+    >>> @dcc_thread_safe
+    >>> def safe_dcc_call():
+    ...     import maya.cmds as cmds
+    ...     return cmds.ls(selection=True)
 """
 
 from __future__ import annotations
 
+# Import submodules first (for attribute access)
+from . import automation as automation
+from . import event_timer as event_timer
+from . import file_protocol as file_protocol
+from . import logging as logging
+from . import thread_dispatcher as thread_dispatcher
+from . import timer_backends as timer_backends
+
+# Then import specific names from modules
 from .automation import (
     Automation,
     BrowserBackend,
@@ -33,7 +50,10 @@ from .file_protocol import (
 )
 from .logging import configure_logging, get_logger, is_verbose_enabled
 from .thread_dispatcher import (
+    DCCThreadSafeWrapper,
     ThreadDispatcherBackend,
+    dcc_thread_safe,
+    dcc_thread_safe_async,
     defer_to_main_thread,
     ensure_main_thread,
     get_dispatcher_backend,
@@ -43,6 +63,7 @@ from .thread_dispatcher import (
     run_on_main_thread,
     run_on_main_thread_sync,
     unregister_dispatcher_backend,
+    wrap_callback_for_dcc,
 )
 from .timer_backends import (
     QtTimerBackend,
@@ -52,14 +73,6 @@ from .timer_backends import (
     list_registered_backends,
     register_timer_backend,
 )
-
-# Import submodules for attribute access
-from . import automation as automation
-from . import event_timer as event_timer
-from . import file_protocol as file_protocol
-from . import logging as logging
-from . import thread_dispatcher as thread_dispatcher
-from . import timer_backends as timer_backends
 
 __all__ = [
     # Event Timer
@@ -97,6 +110,11 @@ __all__ = [
     "is_main_thread",
     "ensure_main_thread",
     "defer_to_main_thread",
+    # DCC Thread Safety (from thread_dispatcher)
+    "dcc_thread_safe",
+    "dcc_thread_safe_async",
+    "DCCThreadSafeWrapper",
+    "wrap_callback_for_dcc",
     # Submodules
     "automation",
     "event_timer",

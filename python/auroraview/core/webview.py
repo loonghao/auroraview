@@ -120,6 +120,8 @@ class WebView(
         # Aliases for more intuitive API
         parent_hwnd: Optional[int] = None,
         embed_mode: Optional[str] = None,
+        # DCC thread safety
+        dcc_mode: bool = False,
     ) -> None:
         r"""Initialize the WebView.
 
@@ -223,6 +225,21 @@ class WebView(
                          Window stays above owner in Z-order, hidden when owner minimizes.
 
                        See: https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features
+
+                   dcc_mode: Enable DCC thread safety mode (default: False).
+                       When enabled, all event handlers registered via ``@webview.on()``
+                       are automatically wrapped to run on the DCC main thread.
+                       This is useful when integrating with Maya, Blender, Houdini, etc.
+
+                       Example::
+
+                           webview = WebView(parent=maya_hwnd, dcc_mode=True)
+
+                           @webview.on("create_object")
+                           def handle_create(data):
+                               # Automatically runs on Maya main thread!
+                               import maya.cmds as cmds
+                               return cmds.polyCube()[0]
         """
         if _CoreWebView is None:
             import sys
@@ -322,6 +339,7 @@ class WebView(
         self._allow_new_window = allow_new_window
         self._new_window_mode = new_window_mode
         self._remote_debugging_port = remote_debugging_port
+        self._dcc_mode = dcc_mode
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
         self._auto_timer = None  # Will be set by create() factory method
@@ -1397,6 +1415,56 @@ class WebView(
             >>> # - process:exit - { pid, code }
         """
         return self._core.create_emitter()
+
+    def thread_safe(self) -> Any:
+        """Get a thread-safe wrapper for cross-thread operations.
+
+        Returns a DCCThreadSafeWrapper that provides thread-safe methods
+        for common WebView operations. Use this when you need to call
+        WebView methods from a different thread than the one that created it.
+
+        This is particularly useful in DCC environments where:
+        - WebView runs in a background thread (HWND mode)
+        - You need to call methods from the DCC main thread
+        - You want simpler API than using get_proxy() directly
+
+        Returns:
+            DCCThreadSafeWrapper: A wrapper with thread-safe methods including:
+                - eval_js(script): Execute JavaScript (fire-and-forget)
+                - eval_js_sync(script, timeout): Execute JavaScript (blocking)
+                - emit(event_name, data): Emit events to JavaScript
+                - load_url(url): Load a URL
+                - load_html(html): Load HTML content
+                - reload(): Reload the current page
+                - close(): Close the WebView
+
+        Example:
+            >>> webview = WebView(parent=dcc_hwnd)
+            >>> webview.show()  # Runs in background thread
+            >>>
+            >>> # From any thread:
+            >>> safe = webview.thread_safe()
+            >>> safe.eval_js("updateStatus('ready')")
+            >>> safe.emit("data_loaded", {"count": 100})
+            >>>
+            >>> # Synchronous JavaScript execution
+            >>> title = safe.eval_js_sync("document.title")
+
+        Note:
+            The wrapper uses the internal message queue to deliver operations
+            to the WebView thread. Most operations are non-blocking.
+        """
+        from auroraview.utils.thread_dispatcher import DCCThreadSafeWrapper
+        return DCCThreadSafeWrapper(self)
+
+    @property
+    def dcc_mode(self) -> bool:
+        """Check if DCC thread safety mode is enabled.
+
+        Returns:
+            bool: True if dcc_mode is enabled, False otherwise.
+        """
+        return self._dcc_mode
 
     def close(self) -> None:
         """Close the WebView window and remove from singleton registry."""

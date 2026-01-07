@@ -411,3 +411,80 @@ def safe_operation():
 - [Qt 集成](./qt-integration) - Qt 特定集成指南
 - [Maya 集成](../dcc/maya) - Maya 特定指南
 - [DCC 概览](../dcc/) - 所有 DCC 集成概览
+
+## WebView 的 DCC 线程安全
+
+当将 AuroraView WebView 集成到 DCC 应用程序时，您需要处理 WebView 线程和 DCC 主线程之间的线程安全。AuroraView 为此提供了专门的工具。
+
+### 挑战
+
+- **WebView 线程**：WebView2 在其自己的 STA 线程上运行
+- **DCC 主线程**：DCC API（Maya cmds、Blender bpy 等）必须从主线程调用
+- **事件处理器**：`@webview.on()` 处理器可能从 WebView 线程调用
+
+### 使用 `@dcc_thread_safe` 装饰器
+
+`@dcc_thread_safe` 装饰器自动将函数执行调度到 DCC 主线程：
+
+```python
+from auroraview import WebView
+from auroraview.utils import dcc_thread_safe
+
+webview = WebView(parent=dcc_hwnd)
+
+@webview.on("create_object")
+@dcc_thread_safe  # 确保在 DCC 主线程上运行
+def handle_create(data):
+    import maya.cmds as cmds
+    return cmds.polyCube()[0]
+```
+
+### 使用 `dcc_mode`
+
+在 WebView 上启用 `dcc_mode` 以自动包装所有回调：
+
+```python
+# 所有回调自动在 DCC 主线程上运行
+webview = WebView(parent=dcc_hwnd, dcc_mode=True)
+
+@webview.on("create_object")
+def handle_create(data):  # 不需要装饰器！
+    import maya.cmds as cmds
+    return cmds.polyCube()[0]
+```
+
+### 线程安全包装器
+
+使用 `thread_safe()` 进行跨线程 WebView 操作：
+
+```python
+webview = WebView(parent=dcc_hwnd)
+
+# 获取线程安全包装器
+safe = webview.thread_safe()
+
+# 可以从任何线程调用：
+safe.eval_js("updateStatus('ready')")
+safe.emit("data_loaded", {"count": 100})
+safe.load_url("https://example.com")
+```
+
+### 使用 `@dcc_thread_safe_async` 进行即发即忘
+
+对于不需要返回值的操作：
+
+```python
+from auroraview.utils import dcc_thread_safe_async
+
+@dcc_thread_safe_async
+def update_viewport():
+    import maya.cmds as cmds
+    cmds.refresh()
+
+# 立即返回，稍后在主线程上执行
+update_viewport()
+```
+
+### 另请参阅
+
+- [RFC 0002: DCC 线程安全](/rfcs/0002-dcc-thread-safety) - 详细设计文档

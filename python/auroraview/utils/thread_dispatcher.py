@@ -1045,3 +1045,297 @@ def defer_to_main_thread(func: Callable[..., T]) -> Callable[..., None]:
         run_on_main_thread(func, *args, **kwargs)
 
     return wrapper
+
+
+# =============================================================================
+# DCC Thread Safety Utilities for WebView Integration
+# =============================================================================
+#
+# The following utilities provide thread-safe integration between WebView
+# and DCC applications. They are aliases/wrappers around the core dispatcher
+# functions with DCC-specific naming and documentation.
+# =============================================================================
+
+
+def dcc_thread_safe(func: Callable[..., T]) -> Callable[..., T]:
+    """Decorator to ensure function runs on DCC main thread.
+
+    When called from a background thread (e.g., WebView event handler),
+    the function execution is marshaled to the DCC main thread and the
+    call blocks until completion.
+
+    When called from the main thread, the function executes directly
+    without any overhead.
+
+    This is an alias for `ensure_main_thread` with DCC-specific naming
+    and documentation for WebView integration.
+
+    Args:
+        func: Function to wrap
+
+    Returns:
+        Wrapped function that always runs on main thread
+
+    Example:
+        >>> from auroraview import WebView
+        >>> from auroraview.utils import dcc_thread_safe
+        >>>
+        >>> webview = WebView(parent=dcc_hwnd)
+        >>>
+        >>> @webview.on("export")
+        >>> @dcc_thread_safe
+        >>> def handle_export(data):
+        ...     import maya.cmds as cmds
+        ...     cmds.file(exportSelected=True, type='mayaAscii')
+        ...     return {"exported": True}
+
+    Note:
+        This decorator is blocking - it waits for the function to complete.
+        Use @dcc_thread_safe_async for fire-and-forget execution.
+    """
+    import functools
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> T:
+        if is_main_thread():
+            return func(*args, **kwargs)
+        logger.debug(f"[dcc_thread_safe] Marshaling {func.__name__} to main thread")
+        return run_on_main_thread_sync(func, *args, **kwargs)
+
+    return wrapper
+
+
+def dcc_thread_safe_async(func: Callable[..., None]) -> Callable[..., None]:
+    """Decorator for fire-and-forget execution on DCC main thread.
+
+    The decorated function will be queued for execution on the main thread
+    and returns immediately without waiting. Use this when you don't need
+    the return value.
+
+    This is an alias for `defer_to_main_thread` with DCC-specific naming
+    and documentation for WebView integration.
+
+    Args:
+        func: Function to wrap (should return None)
+
+    Returns:
+        Wrapped function that queues execution on main thread
+
+    Example:
+        >>> from auroraview.utils import dcc_thread_safe_async
+        >>>
+        >>> @dcc_thread_safe_async
+        >>> def update_viewport():
+        ...     import maya.cmds as cmds
+        ...     cmds.refresh()
+        >>>
+        >>> update_viewport()  # Returns immediately
+
+    Warning:
+        - The return value of the function is discarded
+        - Exceptions are logged but not raised to the caller
+        - Order of execution is not guaranteed for multiple calls
+    """
+    import functools
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> None:
+        if is_main_thread():
+            func(*args, **kwargs)
+        else:
+            logger.debug(
+                f"[dcc_thread_safe_async] Queueing {func.__name__} for main thread"
+            )
+            run_on_main_thread(func, *args, **kwargs)
+
+    return wrapper
+
+
+class DCCThreadSafeWrapper:
+    """Thread-safe wrapper for WebView operations in DCC environments.
+
+    This wrapper provides thread-safe versions of common WebView methods
+    that can be safely called from any thread. It uses the internal
+    WebViewProxy and message queue for cross-thread communication.
+
+    All methods are designed to be non-blocking where possible, using
+    the message queue to deliver operations to the WebView thread.
+
+    Example:
+        >>> webview = WebView(parent=dcc_hwnd)
+        >>> safe = webview.thread_safe()
+        >>>
+        >>> # These can be called from any thread:
+        >>> safe.eval_js("updateUI()")
+        >>> safe.emit("status", {"ready": True})
+        >>> safe.load_url("https://example.com")
+
+    Attributes:
+        _webview: Reference to the original WebView instance
+        _proxy: Thread-safe WebViewProxy for cross-thread operations
+    """
+
+    def __init__(self, webview: Any) -> None:
+        """Initialize the thread-safe wrapper.
+
+        Args:
+            webview: The WebView instance to wrap
+        """
+        self._webview = webview
+        self._proxy = webview.get_proxy()
+        logger.debug(f"[DCCThreadSafeWrapper] Created wrapper for {webview}")
+
+    def eval_js(self, script: str) -> None:
+        """Execute JavaScript code (thread-safe, fire-and-forget).
+
+        The script is queued for execution on the WebView thread.
+        This method returns immediately without waiting for the result.
+
+        Args:
+            script: JavaScript code to execute
+
+        Example:
+            >>> safe.eval_js("console.log('Hello from Python!')")
+            >>> safe.eval_js("document.title = 'New Title'")
+        """
+        self._proxy.eval_js(script)
+
+    def eval_js_sync(
+        self,
+        script: str,
+        timeout_ms: int = 5000,
+    ) -> Any:
+        """Execute JavaScript and wait for result (blocking, thread-safe).
+
+        This method blocks until the JavaScript execution completes or
+        times out. Use with caution as it can block the calling thread.
+
+        Args:
+            script: JavaScript code to execute
+            timeout_ms: Timeout in milliseconds (default: 5000)
+
+        Returns:
+            The result of the JavaScript execution (JSON-compatible value)
+
+        Raises:
+            RuntimeError: If JavaScript execution fails or times out
+            TimeoutError: If the operation times out
+
+        Example:
+            >>> result = safe.eval_js_sync("document.title")
+            >>> print(f"Title: {result}")
+            >>>
+            >>> data = safe.eval_js_sync("JSON.stringify(appState)")
+        """
+
+        result_holder: list = [None]
+        error_holder: list = [None]
+        event = threading.Event()
+
+        def callback(res: Any, err: Optional[str]) -> None:
+            result_holder[0] = res
+            error_holder[0] = err
+            event.set()
+
+        self._proxy.eval_js_async(script, callback, timeout_ms)
+
+        # Wait with a bit of extra time for the callback
+        timeout_sec = timeout_ms / 1000.0 + 1.0
+        if not event.wait(timeout=timeout_sec):
+            raise TimeoutError(f"JavaScript execution timed out after {timeout_ms}ms")
+
+        if error_holder[0]:
+            raise RuntimeError(f"JavaScript error: {error_holder[0]}")
+
+        return result_holder[0]
+
+    def emit(self, event_name: str, data: Optional[dict] = None) -> None:
+        """Emit an event to JavaScript (thread-safe).
+
+        Events are delivered asynchronously to the JavaScript side.
+        The event will be received by handlers registered via
+        `window.auroraview.on(event_name, handler)`.
+
+        Args:
+            event_name: Name of the event to emit
+            data: Optional dictionary of data to send with the event
+
+        Example:
+            >>> safe.emit("dataLoaded", {"count": 100})
+            >>> safe.emit("error", {"message": "Something went wrong"})
+        """
+        self._proxy.emit(event_name, data or {})
+
+    def load_url(self, url: str) -> None:
+        """Load a URL in the WebView (thread-safe).
+
+        Args:
+            url: URL to load (http://, https://, or file://)
+
+        Example:
+            >>> safe.load_url("https://example.com")
+            >>> safe.load_url("file:///C:/path/to/index.html")
+        """
+        self._proxy.load_url(url)
+
+    def load_html(self, html: str) -> None:
+        """Load HTML content in the WebView (thread-safe).
+
+        Args:
+            html: HTML content to load
+
+        Example:
+            >>> safe.load_html("<h1>Hello World</h1>")
+        """
+        self._proxy.load_html(html)
+
+    def reload(self) -> None:
+        """Reload the current page (thread-safe).
+
+        Example:
+            >>> safe.reload()
+        """
+        self._proxy.reload()
+
+    def close(self) -> None:
+        """Close the WebView window (thread-safe).
+
+        This sends a close request to the WebView. The actual closing
+        may happen asynchronously.
+
+        Example:
+            >>> safe.close()
+        """
+        self._proxy.close()
+
+    def __repr__(self) -> str:
+        """String representation of the wrapper."""
+        return f"DCCThreadSafeWrapper(webview={self._webview})"
+
+
+def wrap_callback_for_dcc(
+    callback: Callable[..., T],
+    async_mode: bool = False,
+) -> Callable[..., T]:
+    """Wrap a callback function for safe execution in DCC environments.
+
+    This is a utility function used internally to wrap event handlers
+    when dcc_mode is enabled on a WebView.
+
+    Args:
+        callback: The callback function to wrap
+        async_mode: If True, use fire-and-forget mode (default: False)
+
+    Returns:
+        Wrapped callback that runs on DCC main thread
+
+    Example:
+        >>> def my_handler(data):
+        ...     import maya.cmds as cmds
+        ...     return cmds.ls(selection=True)
+        >>>
+        >>> safe_handler = wrap_callback_for_dcc(my_handler)
+    """
+    if async_mode:
+        return dcc_thread_safe_async(callback)  # type: ignore
+    return dcc_thread_safe(callback)
