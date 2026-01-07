@@ -357,10 +357,14 @@ class NukeDispatcherBackend(ThreadDispatcherBackend):
 class MaxDispatcherBackend(ThreadDispatcherBackend):
     """3ds Max thread dispatcher backend.
 
-    Uses MaxPlus.Core.EvalOnMainThread() for main thread execution.
+    Uses Qt's event loop for main thread execution since 3ds Max uses Qt internally.
+    MaxPlus is deprecated since 3ds Max 2020, so we use Qt-based scheduling.
+
+    For 3ds Max 2020+, the recommended approach is to use Qt's QTimer.singleShot()
+    since 3ds Max's main thread runs a Qt event loop.
 
     Reference:
-        https://help.autodesk.com/view/MAXDEV/2024/ENU/?guid=MAXDEV_Python_python_maxplus_html
+        https://help.autodesk.com/view/MAXDEV/2024/ENU/?guid=MAXDEV_Python_python_pymxs_html
     """
 
     def is_available(self) -> bool:
@@ -370,49 +374,82 @@ class MaxDispatcherBackend(ThreadDispatcherBackend):
 
             return True
         except ImportError:
-            pass
-
-        try:
-            import MaxPlus  # noqa: F401
-
-            return True
-        except ImportError:
             return False
 
     def run_deferred(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> None:
-        """Execute function on main thread (fire-and-forget)."""
+        """Execute function on main thread (fire-and-forget).
+
+        Uses Qt's QTimer.singleShot() since 3ds Max runs a Qt event loop.
+        """
+        if self.is_main_thread():
+            func(*args, **kwargs)
+            return
+
         try:
-            import MaxPlus
+            # 3ds Max uses Qt internally, so we can use QTimer for deferred execution
+            from qtpy.QtCore import QTimer
 
-            MaxPlus.Core.EvalOnMainThread(lambda: func(*args, **kwargs))
+            QTimer.singleShot(0, lambda: func(*args, **kwargs))
         except ImportError:
-            # Fallback for newer 3ds Max versions using pymxs
-            import pymxs
-
-            pymxs.runtime.execute("python.Execute")
+            # If Qt is not available, log warning and execute directly
+            logger.warning(
+                "Qt not available in 3ds Max - executing function directly. "
+                "This may cause thread safety issues."
+            )
+            func(*args, **kwargs)
 
     def run_sync(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
-        """Execute function on main thread and wait for result."""
-        try:
-            import MaxPlus
+        """Execute function on main thread and wait for result.
 
-            result_holder = [None]
-            exception_holder = [None]
+        Uses Qt's event loop with a blocking wait mechanism.
+        """
+        if self.is_main_thread():
+            return func(*args, **kwargs)
+
+        try:
+            from qtpy.QtCore import QEventLoop, QTimer
+
+            result_holder: list = [None]
+
+            exception_holder: list = [None]
+            event_loop = QEventLoop()
 
             def wrapper():
                 try:
                     result_holder[0] = func(*args, **kwargs)
                 except Exception as e:
                     exception_holder[0] = e
+                finally:
+                    event_loop.quit()
 
-            MaxPlus.Core.EvalOnMainThread(wrapper)
+            QTimer.singleShot(0, wrapper)
+
+            # Process events until wrapper completes
+            event_loop.exec_()
 
             if exception_holder[0] is not None:
                 raise exception_holder[0]
             return result_holder[0]
         except ImportError:
-            # For newer versions, pymxs operations are already on main thread
+            # If Qt is not available, execute directly with warning
+            logger.warning(
+                "Qt not available in 3ds Max - executing function directly. "
+                "This may cause thread safety issues."
+            )
             return func(*args, **kwargs)
+
+    def is_main_thread(self) -> bool:
+        """Check if current thread is the main thread."""
+        try:
+            from qtpy.QtCore import QCoreApplication, QThread
+
+            app = QCoreApplication.instance()
+            if app is not None:
+                return QThread.currentThread() == app.thread()
+        except ImportError:
+            pass
+
+        return threading.current_thread() is threading.main_thread()
 
 
 class UnrealDispatcherBackend(ThreadDispatcherBackend):
@@ -911,6 +948,92 @@ def list_dispatcher_backends() -> List[Tuple[int, str, bool]]:
         result.append((priority, display_name, available))
 
     return result
+
+
+# DCC detection priority threshold - backends with priority >= this are DCC-specific
+_DCC_PRIORITY_THRESHOLD = 150  # Unreal is 150, Qt is 100, Fallback is 0
+
+
+def is_dcc_environment() -> bool:
+    """Check if we're running inside a DCC application.
+
+    This function detects whether AuroraView is running inside a DCC
+    (Digital Content Creation) application like Maya, Houdini, Blender, etc.
+
+    Returns:
+        True if a DCC-specific backend is available (priority >= 150),
+        False if only generic backends (Qt, Fallback) are available.
+
+    Example:
+        >>> from auroraview.utils.thread_dispatcher import is_dcc_environment
+        >>>
+        >>> if is_dcc_environment():
+        ...     print("Running inside a DCC application")
+        ... else:
+        ...     print("Running standalone")
+
+    Note:
+        This checks for DCC-specific backends with priority >= 150:
+        - Maya (200), Houdini (190), Nuke (180), Blender (170),
+          3ds Max (160), Unreal (150)
+
+        Generic backends are excluded:
+        - Qt (100), Fallback (0)
+    """
+    _register_builtin_backends()
+
+    for priority, spec, _ in _DISPATCHER_BACKENDS:
+        # Skip non-DCC backends (Qt, Fallback)
+        if priority < _DCC_PRIORITY_THRESHOLD:
+            continue
+
+        backend_class = _load_backend_class(spec)
+        if backend_class is None:
+            continue
+
+        try:
+            backend = backend_class()
+            if backend.is_available():
+                logger.debug(f"DCC environment detected: {backend.get_name()}")
+                return True
+        except Exception:
+            continue
+
+    return False
+
+
+def get_current_dcc_name() -> Optional[str]:
+    """Get the name of the current DCC application.
+
+    Returns:
+        Name of the DCC application (e.g., "Maya", "Blender", "Houdini"),
+        or None if not running inside a DCC.
+
+    Example:
+        >>> from auroraview.utils.thread_dispatcher import get_current_dcc_name
+        >>>
+        >>> dcc = get_current_dcc_name()
+        >>> if dcc:
+        ...     print(f"Running in {dcc}")
+    """
+    _register_builtin_backends()
+
+    for priority, spec, _ in _DISPATCHER_BACKENDS:
+        if priority < _DCC_PRIORITY_THRESHOLD:
+            continue
+
+        backend_class = _load_backend_class(spec)
+        if backend_class is None:
+            continue
+
+        try:
+            backend = backend_class()
+            if backend.is_available():
+                return backend.get_name()
+        except Exception:
+            continue
+
+    return None
 
 
 def run_on_main_thread(func: Callable[..., T], *args: Any, **kwargs: Any) -> None:

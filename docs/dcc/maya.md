@@ -101,11 +101,15 @@ webview.show()
 
 ## Thread Safety
 
-AuroraView provides automatic thread safety for Maya integration. When event handlers are called from the WebView thread, they need to be marshaled to Maya's main thread to safely call `maya.cmds` or `maya.api`.
+AuroraView provides **automatic** thread safety for Maya integration. When event handlers are called from the WebView thread, they are automatically marshaled to Maya's main thread.
 
-### Automatic Thread Safety with `dcc_mode`
+::: tip Zero Configuration
+Since `dcc_mode="auto"` is the default, AuroraView automatically detects Maya and enables thread safety. No configuration needed!
+:::
 
-The simplest approach - enable `dcc_mode` and all callbacks are automatically thread-safe:
+### Automatic Thread Safety (Default)
+
+Just use AuroraView normally - thread safety is automatic:
 
 ```python
 from auroraview import WebView
@@ -113,17 +117,17 @@ import maya.OpenMayaUI as omui
 
 maya_hwnd = int(omui.MQtUtil.mainWindow())
 
-# All callbacks automatically run on Maya main thread
+# Thread safety is automatically enabled when Maya is detected
 webview = WebView.create(
     "My Tool",
     parent=maya_hwnd,
     mode="owner",
-    dcc_mode=True,  # Enable automatic thread safety
+    # dcc_mode="auto" is the default - no need to specify!
 )
 
 @webview.on("create_cube")
 def handle_create(data):
-    # No decorator needed - automatically runs on Maya main thread!
+    # Automatically runs on Maya main thread!
     import maya.cmds as cmds
     name = data.get("name", "myCube")
     result = cmds.polyCube(name=name)

@@ -103,17 +103,21 @@ export function AnimatedHeader({ title, subtitle, children }: AnimatedHeaderProp
     if (!container) return;
 
     const particles: HTMLDivElement[] = [];
-    const particleCount = 20;
+    const particleCount = 25;
 
     for (let i = 0; i < particleCount; i++) {
       const particle = document.createElement('div');
       particle.className = 'absolute rounded-full pointer-events-none';
+      // Use primary color (violet/purple) for particles
+      const hue = 270 + Math.random() * 30; // Purple range
       particle.style.cssText = `
         width: ${Math.random() * 4 + 2}px;
         height: ${Math.random() * 4 + 2}px;
-        background: rgba(0, 212, 255, ${Math.random() * 0.3 + 0.1});
+        background: hsl(${hue}, 70%, ${50 + Math.random() * 20}%);
+        opacity: ${Math.random() * 0.4 + 0.1};
         left: ${Math.random() * 100}%;
         top: ${Math.random() * 100}%;
+        filter: blur(${Math.random() * 1}px);
       `;
       container.appendChild(particle);
       particles.push(particle);
@@ -136,7 +140,7 @@ export function AnimatedHeader({ title, subtitle, children }: AnimatedHeaderProp
   }, []);
 
   return (
-    <header ref={headerRef} className="mb-8 flex items-start justify-between relative">
+    <header ref={headerRef} className="mb-10 flex items-start justify-between relative">
       {/* Particle container */}
       <div
         ref={particlesRef}
@@ -147,13 +151,13 @@ export function AnimatedHeader({ title, subtitle, children }: AnimatedHeaderProp
       <div className="relative z-[1]">
         <h1
           ref={titleRef}
-          className="text-4xl font-bold mb-2 text-foreground"
+          className="text-4xl font-bold mb-3 bg-gradient-to-r from-foreground via-primary to-purple-400 bg-clip-text text-transparent"
           style={{ perspective: '1000px' }}
         >
           {title}
         </h1>
         {subtitle && (
-          <p ref={subtitleRef} className="text-muted-foreground">
+          <p ref={subtitleRef} className="text-muted-foreground text-lg">
             {subtitle}
           </p>
         )}
@@ -228,7 +232,7 @@ interface GlowingTextProps {
 export function GlowingText({
   children,
   className,
-  glowColor = 'rgba(0, 212, 255, 0.5)',
+  glowColor = 'rgba(167, 139, 250, 0.5)',
 }: GlowingTextProps) {
   const textRef = useRef<HTMLSpanElement>(null);
 

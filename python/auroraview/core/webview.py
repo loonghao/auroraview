@@ -121,7 +121,7 @@ class WebView(
         parent_hwnd: Optional[int] = None,
         embed_mode: Optional[str] = None,
         # DCC thread safety
-        dcc_mode: bool = False,
+        dcc_mode: Union[bool, str] = "auto",
     ) -> None:
         r"""Initialize the WebView.
 
@@ -226,14 +226,21 @@ class WebView(
 
                        See: https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features
 
-                   dcc_mode: Enable DCC thread safety mode (default: False).
-                       When enabled, all event handlers registered via ``@webview.on()``
-                       are automatically wrapped to run on the DCC main thread.
-                       This is useful when integrating with Maya, Blender, Houdini, etc.
+                   dcc_mode: DCC thread safety mode (default: "auto").
+                       Controls whether event handlers are automatically wrapped to run
+                       on the DCC main thread. This is essential for Maya, Blender, etc.
 
-                       Example::
+                       Values:
+                           - ``"auto"``: Automatically detect DCC environment (default).
+                             Thread safety is enabled only when running inside a DCC
+                             application (Maya, Blender, Houdini, 3ds Max, Nuke, Unreal).
+                           - ``True``: Always enable thread safety.
+                           - ``False``: Never enable thread safety (for standalone apps).
 
-                           webview = WebView(parent=maya_hwnd, dcc_mode=True)
+                       With ``"auto"`` (default), you don't need to specify anything:
+
+                           # In Maya - automatically thread-safe
+                           webview = WebView(parent=maya_hwnd)
 
                            @webview.on("create_object")
                            def handle_create(data):
@@ -339,7 +346,19 @@ class WebView(
         self._allow_new_window = allow_new_window
         self._new_window_mode = new_window_mode
         self._remote_debugging_port = remote_debugging_port
-        self._dcc_mode = dcc_mode
+
+        # Resolve dcc_mode: "auto" → detect DCC environment
+        if dcc_mode == "auto":
+            from auroraview.utils.thread_dispatcher import is_dcc_environment
+
+            self._dcc_mode = is_dcc_environment()
+            if self._dcc_mode:
+                from auroraview.utils.thread_dispatcher import get_current_dcc_name
+
+                dcc_name = get_current_dcc_name()
+                logger.info(f"DCC mode auto-enabled: {dcc_name} detected")
+        else:
+            self._dcc_mode = bool(dcc_mode)
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
         self._auto_timer = None  # Will be set by create() factory method

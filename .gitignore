@@ -58,10 +58,12 @@ ENV/
 docs/_build/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+docs/api/python-gen/
 site/
 
 # Temporary files
 *.tmp
+
 *.bak
 *.log
 launch_maya_temp.bat

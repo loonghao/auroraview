@@ -9105,6 +9105,715 @@ if __name__ == "__main__":
 
 ## Other
 
+### AI Chat Assistant Demo
+
+This example demonstrates a hybrid application combining:
+
+::: details View Source Code
+```python
+"""AI Chat Assistant Demo - Qt Window with DeepSeek WebView Integration.
+
+This example demonstrates a hybrid application combining:
+- Qt-based main window for tool/parameter controls
+- WebView panel for AI chat interface (DeepSeek)
+- Two-way communication between Qt and WebView
+
+Features demonstrated:
+- Qt + WebView hybrid layout
+- API key configuration via environment
+- Streaming chat responses
+- Bidirectional Python ↔ WebView communication
+
+Requirements:
+    - PySide6>=6.5.0
+    - openai>=1.0.0
+
+Use cases:
+- AI-assisted DCC tools
+- Interactive parameter editors with AI suggestions
+- Smart content generation pipelines
+
+Signed-off-by: Hal Long <hal.long@outlook.com>
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+# Check for Qt framework
+try:
+    from PySide6.QtCore import Qt, Signal, Slot, QThread
+    from PySide6.QtWidgets import (
+        QApplication,
+        QMainWindow,
+        QWidget,
+        QVBoxLayout,
+        QHBoxLayout,
+        QSplitter,
+        QLabel,
+        QLineEdit,
+        QPushButton,
+        QTextEdit,
+        QGroupBox,
+        QFormLayout,
+        QSpinBox,
+        QDoubleSpinBox,
+        QComboBox,
+        QMessageBox,
+    )
+    from PySide6.QtGui import QFont, QPalette, QColor
+
+    HAS_QT = True
+except ImportError:
+    HAS_QT = False
+    print("PySide6 is required for this demo.")
+    print("Please run: pip install PySide6>=6.5.0")
+
+# Check for OpenAI client (DeepSeek compatible)
+try:
+    from openai import OpenAI
+
+    HAS_OPENAI = True
+except ImportError:
+    HAS_OPENAI = False
+    print("OpenAI client is required for this demo.")
+    print("Please run: pip install openai>=1.0.0")
+
+
+# Chat HTML template for WebView
+CHAT_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Assistant</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e4e4e4;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header .icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .header .title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+        
+        .header .status {
+            margin-left: auto;
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .header .status.connected { color: #00cc66; }
+        .header .status.error { color: #ff6b6b; }
+        
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
+            color: white;
+        }
+        
+        .message.assistant {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .message.system {
+            align-self: center;
+            background: rgba(255, 193, 7, 0.15);
+            color: #ffc107;
+            font-size: 13px;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+        
+        .message.error {
+            align-self: center;
+            background: rgba(255, 107, 107, 0.15);
+            color: #ff6b6b;
+            font-size: 13px;
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+        
+        .message pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 8px 0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+        }
+        
+        .typing {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px;
+        }
+        
+        .typing span {
+            width: 8px;
+            height: 8px;
+            background: #00d4ff;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        
+        .input-area {
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            gap: 12px;
+        }
+        
+        .input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #e4e4e4;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        
+        .input-area input:focus {
+            border-color: #00d4ff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        
+        .input-area input::placeholder { color: #666; }
+        
+        .input-area button {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 22px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .input-area button:hover { transform: scale(1.05); }
+        .input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="icon">🤖</div>
+        <span class="title">DeepSeek Assistant</span>
+        <span class="status" id="status">Connecting...</span>
+    </div>
+    
+    <div class="messages" id="messages">
+        <div class="message system">
+            Welcome! I'm your AI assistant powered by DeepSeek.
+            Configure your API key in the left panel to start chatting.
+        </div>
+    </div>
+    
+    <div class="input-area">
+        <input type="text" id="input" placeholder="Type your message..." 
+               onkeypress="if(event.key==='Enter')sendMessage()">
+        <button onclick="sendMessage()" id="sendBtn">→</button>
+    </div>
+    
+    <script>
+        const messagesEl = document.getElementById('messages');
+        const inputEl = document.getElementById('input');
+        const statusEl = document.getElementById('status');
+        const sendBtn = document.getElementById('sendBtn');
+        
+        let isProcessing = false;
+        
+        // Initialize AuroraView connection
+        if (window.auroraview) {
+            window.auroraview.whenReady().then(() => {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status connected';
+            });
+            
+            // Listen for responses from Python
+            window.auroraview.on('chat:response', (data) => {
+                removeTypingIndicator();
+                addMessage(data.content, 'assistant');
+                isProcessing = false;
+                updateUI();
+            });
+            
+            window.auroraview.on('chat:error', (data) => {
+                removeTypingIndicator();
+                addMessage(data.error, 'error');
+                isProcessing = false;
+                updateUI();
+            });
+            
+            window.auroraview.on('chat:status', (data) => {
+                statusEl.textContent = data.status;
+                statusEl.className = 'status ' + (data.ok ? 'connected' : 'error');
+            });
+        }
+        
+        function addMessage(content, type) {
+            const div = document.createElement('div');
+            div.className = 'message ' + type;
+            
+            // Handle code blocks
+            content = content.replace(/```(\\w*)\\n([\\s\\S]*?)```/g, 
+                '<pre><code>$2</code></pre>');
+            content = content.replace(/`([^`]+)`/g, '<code>$1</code>');
+            content = content.replace(/\\n/g, '<br>');
+            
+            div.innerHTML = content;
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+        
+        function addTypingIndicator() {
+            const div = document.createElement('div');
+            div.className = 'message assistant typing';
+            div.id = 'typing';
+            div.innerHTML = '<span></span><span></span><span></span>';
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+        
+        function removeTypingIndicator() {
+            const typing = document.getElementById('typing');
+            if (typing) typing.remove();
+        }
+        
+        function updateUI() {
+            inputEl.disabled = isProcessing;
+            sendBtn.disabled = isProcessing;
+        }
+        
+        function sendMessage() {
+            const message = inputEl.value.trim();
+            if (!message || isProcessing) return;
+            
+            addMessage(message, 'user');
+            inputEl.value = '';
+            isProcessing = true;
+            updateUI();
+            addTypingIndicator();
+            
+            // Send to Python backend
+            if (window.auroraview) {
+                window.auroraview.call('chat.send', { message });
+            }
+        }
+    </script>
+</body>
+</html>
+"""
+
+
+class ChatWorker(QThread):
+    """Worker thread for handling DeepSeek API calls."""
+
+    response_ready = Signal(str)
+    error_occurred = Signal(str)
+
+    def __init__(self, api_key: str, base_url: str, model: str, message: str):
+        super().__init__()
+        self.api_key = api_key
+        self.base_url = base_url
+        self.model = model
+        self.message = message
+        self.messages_history: list[dict] = []
+
+    def set_history(self, history: list[dict]):
+        """Set conversation history."""
+        self.messages_history = history.copy()
+
+    def run(self):
+        """Execute the API call in background thread."""
+        try:
+            client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+
+            messages = self.messages_history + [{"role": "user", "content": self.message}]
+
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=False,
+            )
+
+            content = response.choices[0].message.content
+            self.response_ready.emit(content)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class AIChatWindow(QMainWindow):
+    """Main window with Qt controls and WebView chat panel."""
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("AI Chat Assistant - Qt + WebView Demo")
+        self.setMinimumSize(1200, 700)
+
+        # Chat state
+        self.messages_history: list[dict] = []
+        self.worker: ChatWorker | None = None
+        self.webview = None
+
+        self._setup_ui()
+        self._setup_webview()
+        self._apply_dark_theme()
+
+    def _setup_ui(self):
+        """Setup the main UI layout."""
+        central = QWidget()
+        self.setCentralWidget(central)
+
+        # Main horizontal splitter
+        splitter = QSplitter(Qt.Horizontal)
+
+        # Left panel - Qt controls
+        left_panel = self._create_left_panel()
+        splitter.addWidget(left_panel)
+
+        # Right panel - WebView placeholder (will be replaced)
+        self.webview_container = QWidget()
+        self.webview_layout = QVBoxLayout(self.webview_container)
+        self.webview_layout.setContentsMargins(0, 0, 0, 0)
+
+        placeholder = QLabel("Loading AI Chat...")
+        placeholder.setAlignment(Qt.AlignCenter)
+        placeholder.setStyleSheet("color: #666; font-size: 16px;")
+        self.webview_layout.addWidget(placeholder)
+
+        splitter.addWidget(self.webview_container)
+        splitter.setSizes([350, 850])
+
+        layout = QHBoxLayout(central)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(splitter)
+
+    def _create_left_panel(self) -> QWidget:
+        """Create the left control panel."""
+        panel = QWidget()
+        panel.setMaximumWidth(400)
+        layout = QVBoxLayout(panel)
+        layout.setSpacing(16)
+
+        # API Configuration group
+        api_group = QGroupBox("DeepSeek API Configuration")
+        api_layout = QFormLayout(api_group)
+
+        self.api_key_input = QLineEdit()
+        self.api_key_input.setEchoMode(QLineEdit.Password)
+        self.api_key_input.setPlaceholderText("sk-...")
+        self.api_key_input.setText(os.environ.get("DEEPSEEK_API_KEY", ""))
+        api_layout.addRow("API Key:", self.api_key_input)
+
+        self.base_url_input = QLineEdit()
+        self.base_url_input.setText("https://api.deepseek.com/v1")
+        api_layout.addRow("Base URL:", self.base_url_input)
+
+        self.model_combo = QComboBox()
+        self.model_combo.addItems(["deepseek-chat", "deepseek-coder", "deepseek-reasoner"])
+        api_layout.addRow("Model:", self.model_combo)
+
+        layout.addWidget(api_group)
+
+        # Parameters group
+        params_group = QGroupBox("Generation Parameters")
+        params_layout = QFormLayout(params_group)
+
+        self.temp_spin = QDoubleSpinBox()
+        self.temp_spin.setRange(0.0, 2.0)
+        self.temp_spin.setValue(0.7)
+        self.temp_spin.setSingleStep(0.1)
+        params_layout.addRow("Temperature:", self.temp_spin)
+
+        self.max_tokens_spin = QSpinBox()
+        self.max_tokens_spin.setRange(100, 8000)
+        self.max_tokens_spin.setValue(2000)
+        self.max_tokens_spin.setSingleStep(100)
+        params_layout.addRow("Max Tokens:", self.max_tokens_spin)
+
+        layout.addWidget(params_group)
+
+        # Actions group
+        actions_group = QGroupBox("Actions")
+        actions_layout = QVBoxLayout(actions_group)
+
+        self.connect_btn = QPushButton("🔌 Test Connection")
+        self.connect_btn.clicked.connect(self._test_connection)
+        actions_layout.addWidget(self.connect_btn)
+
+        self.clear_btn = QPushButton("🗑️ Clear Chat History")
+        self.clear_btn.clicked.connect(self._clear_history)
+        actions_layout.addWidget(self.clear_btn)
+
+        layout.addWidget(actions_group)
+
+        # Status
+        self.status_label = QLabel("Status: Not connected")
+        self.status_label.setStyleSheet("color: #888; padding: 8px;")
+        layout.addWidget(self.status_label)
+
+        layout.addStretch()
+        return panel
+
+    def _setup_webview(self):
+        """Setup the AuroraView WebView panel."""
+        try:
+            from auroraview import AuroraView
+
+            # Create WebView
+            self.webview = AuroraView(
+                html=CHAT_HTML,
+                title="AI Chat",
+                width=850,
+                height=700,
+                parent=self.webview_container,
+                embed_mode="child",
+            )
+
+            # Bind chat API
+            @self.webview.bind_call("chat.send")
+            def handle_chat_send(message: str = ""):
+                self._handle_user_message(message)
+
+            # Replace placeholder with WebView
+            for i in reversed(range(self.webview_layout.count())):
+                self.webview_layout.itemAt(i).widget().setParent(None)
+
+            self.webview_layout.addWidget(self.webview)
+            self.webview.show()
+
+            # Update status
+            self._update_status("WebView loaded", ok=True)
+
+        except ImportError as e:
+            self._update_status(f"AuroraView not available: {e}", ok=False)
+
+    def _apply_dark_theme(self):
+        """Apply dark theme to Qt widgets."""
+        palette = QPalette()
+        palette.setColor(QPalette.Window, QColor(26, 26, 46))
+        palette.setColor(QPalette.WindowText, QColor(228, 228, 228))
+        palette.setColor(QPalette.Base, QColor(22, 33, 62))
+        palette.setColor(QPalette.AlternateBase, QColor(26, 26, 46))
+        palette.setColor(QPalette.ToolTipBase, QColor(228, 228, 228))
+        palette.setColor(QPalette.ToolTipText, QColor(228, 228, 228))
+        palette.setColor(QPalette.Text, QColor(228, 228, 228))
+        palette.setColor(QPalette.Button, QColor(22, 33, 62))
+        palette.setColor(QPalette.ButtonText, QColor(228, 228, 228))
+        palette.setColor(QPalette.BrightText, QColor(0, 212, 255))
+        palette.setColor(QPalette.Link, QColor(0, 153, 255))
+        palette.setColor(QPalette.Highlight, QColor(0, 153, 255))
+        palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
+        self.setPalette(palette)
+
+    def _update_status(self, message: str, ok: bool = True):
+        """Update status label and WebView status."""
+        color = "#00cc66" if ok else "#ff6b6b"
+        self.status_label.setText(f"Status: {message}")
+        self.status_label.setStyleSheet(f"color: {color}; padding: 8px;")
+
+        if self.webview:
+            self.webview.emit("chat:status", {"status": message, "ok": ok})
+
+    def _handle_user_message(self, message: str):
+        """Handle incoming user message from WebView."""
+        api_key = self.api_key_input.text().strip()
+        if not api_key:
+            if self.webview:
+                self.webview.emit("chat:error", {"error": "Please configure API key first"})
+            return
+
+        # Create worker thread for API call
+        self.worker = ChatWorker(
+            api_key=api_key,
+            base_url=self.base_url_input.text().strip(),
+            model=self.model_combo.currentText(),
+            message=message,
+        )
+        self.worker.set_history(self.messages_history)
+        self.worker.response_ready.connect(self._on_response)
+        self.worker.error_occurred.connect(self._on_error)
+        self.worker.start()
+
+        # Add to history
+        self.messages_history.append({"role": "user", "content": message})
+
+    @Slot(str)
+    def _on_response(self, content: str):
+        """Handle API response."""
+        self.messages_history.append({"role": "assistant", "content": content})
+        if self.webview:
+            self.webview.emit("chat:response", {"content": content})
+
+    @Slot(str)
+    def _on_error(self, error: str):
+        """Handle API error."""
+        if self.webview:
+            self.webview.emit("chat:error", {"error": error})
+        self._update_status(f"Error: {error}", ok=False)
+
+    def _test_connection(self):
+        """Test API connection."""
+        api_key = self.api_key_input.text().strip()
+        if not api_key:
+            QMessageBox.warning(self, "Error", "Please enter an API key")
+            return
+
+        self._update_status("Testing connection...")
+        try:
+            client = OpenAI(
+                api_key=api_key,
+                base_url=self.base_url_input.text().strip(),
+            )
+            # Simple test call
+            response = client.chat.completions.create(
+                model=self.model_combo.currentText(),
+                messages=[{"role": "user", "content": "Hi"}],
+                max_tokens=10,
+            )
+            self._update_status("Connection successful!", ok=True)
+            QMessageBox.information(self, "Success", "API connection successful!")
+        except Exception as e:
+            self._update_status(f"Connection failed: {e}", ok=False)
+            QMessageBox.critical(self, "Error", f"Connection failed:\n{e}")
+
+    def _clear_history(self):
+        """Clear chat history."""
+        self.messages_history.clear()
+        if self.webview:
+            self.webview.eval_js("""
+                document.getElementById('messages').innerHTML =
+                    '<div class="message system">Chat history cleared.</div>';
+            """)
+        self._update_status("History cleared", ok=True)
+
+
+def main():
+    """Run the AI Chat Demo."""
+    if not HAS_QT:
+        print("\n" + "=" * 60)
+        print("ERROR: PySide6 is required for this demo")
+        print("Please install it with: pip install PySide6>=6.5.0")
+        print("=" * 60)
+        sys.exit(1)
+
+    if not HAS_OPENAI:
+        print("\n" + "=" * 60)
+        print("ERROR: OpenAI client is required for this demo")
+        print("Please install it with: pip install openai>=1.0.0")
+        print("=" * 60)
+        sys.exit(1)
+
+    print("\n" + "=" * 60)
+    print("AI Chat Assistant Demo")
+    print("=" * 60)
+    print("\nThis demo shows Qt + WebView hybrid application with:")
+    print("  - Left panel: Qt controls for API configuration")
+    print("  - Right panel: WebView chat interface (DeepSeek)")
+    print("\nTo use the chat:")
+    print("  1. Enter your DeepSeek API key in the left panel")
+    print("  2. Click 'Test Connection' to verify")
+    print("  3. Type messages in the chat panel")
+    print("\nEnvironment variable: Set DEEPSEEK_API_KEY to pre-fill the key")
+    print("=" * 60 + "\n")
+
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+
+    window = AIChatWindow()
+    window.show()
+
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
+```
+:::
+
+**Run:** `python examples/ai_chat_demo.py`
+
+**Features:**
+- Qt + WebView hybrid layout
+- API key configuration via environment
+- Streaming chat responses
+- Bidirectional Python ↔ WebView communication
+- PySide6>=6.5.0
+- openai>=1.0.0
+- AI-assisted DCC tools
+- Interactive parameter editors with AI suggestions
+- Smart content generation pipelines
+
+---
+
 ### Automation Demo
 
 This example demonstrates the Automation abstraction layer that provides a unified interface for browser automation, compatible with both local

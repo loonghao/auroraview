@@ -125,21 +125,25 @@ await auroraview.api.set_parm_value({
 
 ## Thread Safety
 
-AuroraView provides automatic thread safety for Houdini integration. Houdini requires all `hou` operations to run on the main thread.
+AuroraView provides **automatic** thread safety for Houdini integration. Houdini requires all `hou` operations to run on the main thread, which AuroraView handles via `hdefereval`.
 
-### Automatic Thread Safety with `dcc_mode`
+::: tip Zero Configuration
+Since `dcc_mode="auto"` is the default, AuroraView automatically detects Houdini and enables thread safety. No configuration needed!
+:::
 
-Enable `dcc_mode` for automatic thread-safe callbacks:
+### Automatic Thread Safety (Default)
+
+Just use AuroraView normally - thread safety is automatic:
 
 ```python
 from auroraview import QtWebView
 import hou
 
-# All callbacks automatically run on Houdini main thread
+# Thread safety is automatically enabled when Houdini is detected
 webview = QtWebView(
     parent=hou.qt.mainWindow(),
     url="http://localhost:3000",
-    dcc_mode=True,  # Enable automatic thread safety
+    # dcc_mode="auto" is the default - no need to specify!
 )
 
 @webview.on("create_node")

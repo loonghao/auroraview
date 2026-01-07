@@ -300,6 +300,98 @@
         }
       },
       /**
+       * Enable automatic drag regions based on `-webkit-app-region` CSS.
+       *
+       * WebView2 doesn't implement Electron/Tauri's app-region behavior, so we emulate it:
+       * - If pointer goes down inside an element (or its ancestors) marked as `drag`, we arm dragging.
+       * - If the pointer moves more than a small threshold, we call `startDrag()`.
+       * - If any ancestor is marked as `no-drag`, dragging is suppressed.
+       */
+      _installAutoDragRegions: function() {
+        try {
+          let getAppRegion = function(el) {
+            try {
+              const v = getComputedStyle(el).getPropertyValue("-webkit-app-region");
+              return (v || "").trim();
+            } catch {
+              return "";
+            }
+          }, isNoDrag = function(el) {
+            return el.classList?.contains("no-drag") || getAppRegion(el) === "no-drag";
+          }, isDrag = function(el) {
+            return el.classList?.contains("drag-handle") || getAppRegion(el) === "drag";
+          }, findDragRegion = function(startEl) {
+            let el = startEl;
+            let dragEl = null;
+            while (el && el !== document.documentElement) {
+              if (isNoDrag(el)) return null;
+              if (!dragEl && isDrag(el)) dragEl = el;
+              el = el.parentElement;
+            }
+            return dragEl;
+          }, clearPending = function() {
+            pending = null;
+          };
+          const w = window;
+          if (w.__auroraview_auto_drag_regions_installed) return;
+          w.__auroraview_auto_drag_regions_installed = true;
+          const DRAG_THRESHOLD_PX = 4;
+          let pending = null;
+          let suppressClickUntil = 0;
+          document.addEventListener(
+            "mousedown",
+            (e) => {
+              try {
+                if (e.button !== 0) return;
+                const t = e.target;
+                if (!t || !(t instanceof Element)) return;
+                const dragEl = findDragRegion(t);
+                if (!dragEl) return;
+                pending = { x: e.clientX, y: e.clientY };
+              } catch (err) {
+                console.warn("[AuroraView] Auto drag region handler error:", err);
+              }
+            },
+            true
+          );
+          document.addEventListener(
+            "mousemove",
+            (e) => {
+              try {
+                if (!pending) return;
+                const dx = e.clientX - pending.x;
+                const dy = e.clientY - pending.y;
+                if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return;
+                clearPending();
+                suppressClickUntil = Date.now() + 800;
+                window.auroraview.startDrag();
+                e.preventDefault();
+              } catch (err) {
+                console.warn("[AuroraView] Auto drag region handler error:", err);
+              }
+            },
+            true
+          );
+          document.addEventListener("mouseup", clearPending, true);
+          window.addEventListener("blur", clearPending, true);
+          document.addEventListener(
+            "click",
+            (e) => {
+              try {
+                if (Date.now() < suppressClickUntil) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
+              } catch {
+              }
+            },
+            true
+          );
+        } catch (e) {
+          console.warn("[AuroraView] Failed to install auto drag regions:", e);
+        }
+      },
+      /**
        * Register API methods dynamically
        */
       _registerApiMethods: function(namespace, methods, options) {
@@ -342,6 +434,7 @@
       }
     };
     window.auroraview._ready = true;
+    window.auroraview._installAutoDragRegions();
     if (pendingFromStub.length > 0) {
       debugLog("Processing", pendingFromStub.length, "pending calls from stub");
       pendingFromStub.forEach(function(pending) {
@@ -384,114 +477,6 @@
     } catch (e) {
       console.warn("[AuroraView] Failed to send __auroraview_ready event:", e);
     }
-
-    // Auto native-drag regions for frameless windows.
-    // WebView2 does NOT implement Electron's -webkit-app-region behavior.
-    // We emulate it by translating a small mouse drag on "drag regions" into a native drag request.
-    (function installAutoDragRegions() {
-      try {
-        if (window.__auroraview_auto_drag_regions_installed) return;
-        window.__auroraview_auto_drag_regions_installed = true;
-
-        const DRAG_THRESHOLD_PX = 4;
-        let pending = null; // { x, y }
-        let suppressClickUntil = 0;
-
-        function getAppRegion(el) {
-          try {
-            const v = getComputedStyle(el).getPropertyValue("-webkit-app-region");
-            return (v || "").trim();
-          } catch (_) {
-            return "";
-          }
-        }
-
-        function isNoDrag(el) {
-          return (el.classList && el.classList.contains("no-drag")) || getAppRegion(el) === "no-drag";
-        }
-
-        function isDrag(el) {
-          return (el.classList && el.classList.contains("drag-handle")) || getAppRegion(el) === "drag";
-        }
-
-        function findDragRegion(startEl) {
-          let el = startEl;
-          let dragEl = null;
-          while (el && el !== document.documentElement) {
-            if (isNoDrag(el)) return null;
-            if (!dragEl && isDrag(el)) dragEl = el;
-            el = el.parentElement;
-          }
-          return dragEl;
-        }
-
-        function clearPending() {
-          pending = null;
-        }
-
-        document.addEventListener(
-          "mousedown",
-          function(e) {
-            try {
-              if (e.button !== 0) return;
-              const t = e.target;
-              if (!t || !(t instanceof Element)) return;
-              const dragEl = findDragRegion(t);
-              if (!dragEl) return;
-              pending = { x: e.clientX, y: e.clientY };
-            } catch (err) {
-              console.warn("[AuroraView] Auto drag region handler error:", err);
-            }
-          },
-          true
-        );
-
-        document.addEventListener(
-          "mousemove",
-          function(e) {
-            try {
-              if (!pending) return;
-              const dx = e.clientX - pending.x;
-              const dy = e.clientY - pending.y;
-              if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return;
-              clearPending();
-
-              if (window.auroraview && typeof window.auroraview.startDrag === "function") {
-                suppressClickUntil = Date.now() + 800;
-                window.auroraview.startDrag();
-                e.preventDefault();
-              }
-            } catch (err) {
-              console.warn("[AuroraView] Auto drag region handler error:", err);
-            }
-          },
-          true
-        );
-
-        document.addEventListener("mouseup", clearPending, true);
-        window.addEventListener("blur", clearPending, true);
-
-        // Prevent accidental click after a native drag begins.
-        document.addEventListener(
-          "click",
-          function(e) {
-            try {
-              if (Date.now() < suppressClickUntil) {
-                e.preventDefault();
-                e.stopPropagation();
-              }
-            } catch (_) {
-              // ignore
-            }
-          },
-          true
-        );
-      } catch (e) {
-        console.warn("[AuroraView] Failed to install auto drag regions:", e);
-      }
-    })();
-
-
     function dispatchReadyEvent() {
       try {
         window.dispatchEvent(

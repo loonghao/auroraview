@@ -206,21 +206,25 @@ def unregister():
 
 ## Thread Safety
 
-AuroraView provides automatic thread safety for Blender integration. Blender requires all `bpy` operations to run on the main thread.
+AuroraView provides **automatic** thread safety for Blender integration. Blender requires all `bpy` operations to run on the main thread, which AuroraView handles via `bpy.app.timers`.
 
-### Automatic Thread Safety with `dcc_mode`
+::: tip Zero Configuration
+Since `dcc_mode="auto"` is the default, AuroraView automatically detects Blender and enables thread safety. No configuration needed!
+:::
 
-Enable `dcc_mode` for automatic thread-safe callbacks:
+### Automatic Thread Safety (Default)
+
+Just use AuroraView normally - thread safety is automatic:
 
 ```python
 from auroraview import WebView
 import bpy
 
-# All callbacks automatically run on Blender main thread
+# Thread safety is automatically enabled when Blender is detected
 webview = WebView(
     title="Blender Tool",
     url="http://localhost:3000",
-    dcc_mode=True,  # Enable automatic thread safety
+    # dcc_mode="auto" is the default - no need to specify!
 )
 
 @webview.on("create_mesh")
