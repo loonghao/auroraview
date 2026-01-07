@@ -37,7 +37,7 @@ def main() -> None:
 
     # Print MCP connection info for IDEs/agents
     if webview.mcp_port:
-        print(f"[MCP] Connect your IDE/agent to: http://127.0.0.1:{webview.mcp_port}/sse")
+        print(f"[MCP] Connect your IDE/agent to: http://127.0.0.1:{webview.mcp_port}/mcp")
 
 
 if __name__ == "__main__":

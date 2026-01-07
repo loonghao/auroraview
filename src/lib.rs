@@ -93,6 +93,10 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     #[cfg(feature = "mcp-server")]
     bindings::mcp::register_mcp_functions(m)?;
 
+    // Register Sidecar Bridge module (feature-gated)
+    #[cfg(feature = "mcp-sidecar")]
+    bindings::sidecar::register_sidecar_functions(m)?;
+
     // Add module metadata
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("__author__", "Hal Long <hal.long@outlook.com>")?;

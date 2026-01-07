@@ -47,15 +47,19 @@ pub struct McpConfig {
     /// Request timeout in seconds
     pub timeout: u64,
 
-    /// Execute tool handlers directly in tokio thread (default: true)
+    /// Execute tool handlers directly in tokio thread (default: false)
     ///
-    /// When true (default), tool handlers are executed directly in the tokio
-    /// runtime thread using Python's GIL. This is simpler and works well for
-    /// most use cases.
+    /// When true, tool handlers are executed directly in the tokio runtime thread
+    /// using Python's GIL. This can cause blocking issues if the tool accesses
+    /// UI elements or performs long-running operations.
     ///
-    /// When false, tool calls are routed through the WebView's message queue
-    /// to execute on the main/event-loop thread. This is only needed for tools
-    /// that must interact with the WebView UI directly.
+    /// When false (default), tool calls are routed through the WebView's message
+    /// queue to execute on the main/event-loop thread. This ensures:
+    /// - Thread safety for DCC applications (Maya, Blender, etc.)
+    /// - Non-blocking MCP responses
+    /// - Python callbacks execute on the correct thread
+    ///
+    /// For best compatibility with DCC apps, keep this as false (default).
     pub direct_execution: bool,
 }
 
@@ -76,7 +80,7 @@ impl Default for McpConfig {
             max_connections: 10,
             heartbeat_interval: 15,
             timeout: 30,
-            direct_execution: true, // Default: execute directly in tokio thread
+            direct_execution: false, // Default: route through MessageQueue for thread safety
         }
     }
 }

@@ -137,6 +137,12 @@ except ImportError as e:
     json_dumps = None  # type: ignore
     json_dumps_bytes = None  # type: ignore
 
+# SidecarBridge is optional (mcp-sidecar feature)
+try:
+    from ._core import SidecarBridge
+except ImportError:
+    SidecarBridge = None  # type: ignore
+
 from .backend import (
     BackendType,
     get_available_backends,
@@ -235,6 +241,8 @@ __all__ = [
     "json_loads",
     "json_dumps",
     "json_dumps_bytes",
+    # MCP Sidecar Bridge (optional, requires mcp-sidecar feature)
+    "SidecarBridge",
     # Core import error (for diagnostics)
     "_CORE_IMPORT_ERROR",
     # ============================================================

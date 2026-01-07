@@ -7,9 +7,9 @@ use auroraview_core::ipc::{McpToolDispatcher, McpToolFuture, McpToolResult};
 #[cfg(feature = "python-bindings")]
 use auroraview_mcp::PythonMcpDispatcher;
 #[cfg(feature = "python-bindings")]
-use pyo3::Py;
-#[cfg(feature = "python-bindings")]
 use pyo3::types::PyAny;
+#[cfg(feature = "python-bindings")]
+use pyo3::Py;
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Duration;
@@ -151,4 +151,3 @@ mod tests {
         assert!(!dispatcher.is_connected() || dispatcher.is_connected());
     }
 }
-

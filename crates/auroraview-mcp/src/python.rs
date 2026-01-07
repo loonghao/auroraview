@@ -212,13 +212,37 @@ pub struct PyMcpServer {
 #[pymethods]
 impl PyMcpServer {
     /// Create a new MCP Server
+    ///
+    /// NOTE: When created directly from Python, dispatcher is not set.
+    /// Use WebView.create_mcp_server() for proper thread-safe initialization.
     #[new]
     #[pyo3(signature = (config = None))]
     fn new(config: Option<PyMcpConfig>) -> PyResult<Self> {
         let config = config.map(|c| c.inner).unwrap_or_default();
 
+        tracing::info!(
+            "[MCP:Python] Creating McpServer (direct_execution={}, port={})",
+            config.direct_execution,
+            if config.port == 0 {
+                "auto".to_string()
+            } else {
+                config.port.to_string()
+            }
+        );
+
         let runtime = Runtime::new()
             .map_err(|e| PyRuntimeError::new_err(format!("Failed to create runtime: {}", e)))?;
+
+        tracing::debug!("[MCP:Python] Tokio runtime created for MCP server");
+
+        // NOTE: Dispatcher is not set when created directly from Python
+        // This means tool calls will execute directly in the Tokio thread
+        // For thread-safe operation, use WebView.create_mcp_server() instead
+        tracing::warn!(
+            "[MCP:Python] McpServer created without dispatcher. \
+             Tool calls will execute directly in Tokio thread. \
+             For DCC apps, use WebView.create_mcp_server() instead."
+        );
 
         Ok(Self {
             server: Arc::new(McpServer::new(config)),
@@ -317,6 +341,12 @@ impl PyMcpServer {
 
         // Check if we have a dispatcher for main thread routing
         let has_dispatcher = self.dispatcher.read().is_some();
+
+        tracing::info!(
+            "[MCP:Python] Tool {} registration - dispatcher present: {}",
+            name,
+            has_dispatcher
+        );
 
         if has_dispatcher {
             // Use async handler that routes through dispatcher to main thread
@@ -442,24 +472,28 @@ impl PyMcpServer {
                             // Has arguments - convert and pass as kwargs
                             let py_kwargs = json_to_py(py_gil_ref, &args)?;
                             // Use call with kwargs - Python functions expect keyword arguments
-                            let kwargs_dict = py_kwargs.downcast_bound::<pyo3::types::PyDict>(py_gil_ref)
-                                .map_err(|_| {
-                                    crate::error::McpError::ToolExecutionFailed {
-                                        tool: tool_name.clone(),
-                                        reason: "Arguments must be a JSON object".to_string(),
-                                        suggestion: "Ensure MCP tool arguments are passed as an object".to_string(),
-                                    }
+                            let kwargs_dict = py_kwargs
+                                .downcast_bound::<pyo3::types::PyDict>(py_gil_ref)
+                                .map_err(|_| crate::error::McpError::ToolExecutionFailed {
+                                    tool: tool_name.clone(),
+                                    reason: "Arguments must be a JSON object".to_string(),
+                                    suggestion: "Ensure MCP tool arguments are passed as an object"
+                                        .to_string(),
                                 })?;
                             // PyO3 0.27: Use bind().call() and unbind() to get Py<PyAny>
-                            handler.bind(py_gil_ref).call((), Some(kwargs_dict)).map_err(|e| {
-                                tracing::error!("[MCP:Python] Tool {} error: {}", tool_name, e);
-                                crate::error::McpError::ToolExecutionFailed {
-                                    tool: tool_name.clone(),
-                                    reason: format!("Python execution error: {}", e),
-                                    suggestion: "Check the Python function implementation"
-                                        .to_string(),
-                                }
-                            })?.unbind()
+                            handler
+                                .bind(py_gil_ref)
+                                .call((), Some(kwargs_dict))
+                                .map_err(|e| {
+                                    tracing::error!("[MCP:Python] Tool {} error: {}", tool_name, e);
+                                    crate::error::McpError::ToolExecutionFailed {
+                                        tool: tool_name.clone(),
+                                        reason: format!("Python execution error: {}", e),
+                                        suggestion: "Check the Python function implementation"
+                                            .to_string(),
+                                    }
+                                })?
+                                .unbind()
                         }
                     };
 
@@ -744,14 +778,28 @@ impl PyMcpServer {
     }
 
     /// Create a new MCP Server from Rust code
-    /// This is the public constructor for use from other Rust crates
+    ///
+    /// This is the public constructor for use from other Rust crates.
+    /// After calling this, use `set_dispatcher()` to enable main-thread routing.
     pub fn new_from_rust(config: Option<PyMcpConfig>) -> pyo3::PyResult<Self> {
         use pyo3::exceptions::PyRuntimeError;
 
         let config = config.map(|c| c.inner).unwrap_or_default();
 
+        tracing::info!(
+            "[MCP:Python] Creating McpServer from Rust (direct_execution={}, port={})",
+            config.direct_execution,
+            if config.port == 0 {
+                "auto".to_string()
+            } else {
+                config.port.to_string()
+            }
+        );
+
         let runtime = Runtime::new()
             .map_err(|e| PyRuntimeError::new_err(format!("Failed to create runtime: {}", e)))?;
+
+        tracing::debug!("[MCP:Python] Tokio runtime created for MCP server (from Rust)");
 
         Ok(Self {
             server: Arc::new(McpServer::new(config)),

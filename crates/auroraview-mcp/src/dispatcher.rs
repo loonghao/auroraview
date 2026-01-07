@@ -4,8 +4,8 @@
 //! functionality for passing handlers to the main thread.
 
 use auroraview_core::ipc::{McpToolDispatcher, McpToolFuture};
-use pyo3::Py;
 use pyo3::types::PyAny;
+use pyo3::Py;
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -33,4 +33,3 @@ pub trait PythonMcpDispatcher: McpToolDispatcher {
 
 /// Shared Python dispatcher reference
 pub type SharedPythonDispatcher = Arc<dyn PythonMcpDispatcher>;
-

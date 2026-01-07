@@ -86,4 +86,3 @@ impl McpToolDispatcher for NoOpDispatcher {
 
 /// Shared dispatcher reference
 pub type SharedDispatcher = Arc<dyn McpToolDispatcher>;
-

@@ -532,6 +532,11 @@ impl PromptRegistry {
         self.prompts.len()
     }
 
+    /// Check if the prompt registry is empty
+    pub fn is_empty(&self) -> bool {
+        self.prompts.is_empty()
+    }
+
     /// Check if a prompt exists
     pub fn contains(&self, name: &str) -> bool {
         self.prompts.contains_key(name)

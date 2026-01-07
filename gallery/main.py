@@ -177,9 +177,22 @@ def run_gallery():
     else:
         mcp_port = _find_free_port()
         print(f"[Python] MCP auto-selected free port {mcp_port}", file=sys.stderr)
-    
-    view = WebView(
 
+    # MCP mode selection (sidecar is preferred for process isolation)
+    # Set AURORAVIEW_MCP_MODE=embedded to force embedded mode
+    mcp_mode = os.environ.get("AURORAVIEW_MCP_MODE", "auto")
+    print(f"[Python] MCP mode: {mcp_mode}", file=sys.stderr)
+
+    # Import McpConfig for advanced configuration
+    from auroraview.mcp import McpConfig
+
+    mcp_config = McpConfig(
+        name="gallery-mcp",
+        port=mcp_port,
+        auto_expose_api=True,
+    )
+
+    view = WebView(
         title="AuroraView Gallery",
         url=url,
         width=1200,
@@ -188,11 +201,17 @@ def run_gallery():
         allow_new_window=True,
         new_window_mode="child_webview",  # Open new windows as child WebViews
         remote_debugging_port=cdp_port,  # Enable CDP if port specified
-        mcp=True,
-        mcp_port=mcp_port,
-        mcp_name="gallery-mcp",
+        mcp=mcp_config,
     )
+
+    # Set MCP mode after creation (before show)
+    view._mcp_mode = mcp_mode
+
     print(f"[Python] WebView created successfully", file=sys.stderr)
+    print(f"[Python] MCP config: {view._mcp_config}", file=sys.stderr)
+    print(f"[Python] MCP enabled: {view._mcp_enabled}", file=sys.stderr)
+    print(f"[Python] MCP mode: {view._mcp_mode}", file=sys.stderr)
+    print(f"[Python] MCP mode set to: {mcp_mode}", file=sys.stderr)
 
 
     # Create plugin manager with permissive scope for demo
@@ -279,7 +298,20 @@ def run_gallery():
     def on_closed():
         print("[Gallery] Received 'closed' event", file=sys.stderr)
 
-    # Show the gallery
+    # Print MCP status when window is ready
+    @view.on("ready")
+    def on_ready():
+        actual_mode = view.mcp_mode
+        actual_port = view.mcp_port
+        print(f"[Python] " + "=" * 50, file=sys.stderr)
+        print(f"[Python] MCP Status:", file=sys.stderr)
+        print(f"[Python]   Mode: {actual_mode}", file=sys.stderr)
+        print(f"[Python]   Port: {actual_port}", file=sys.stderr)
+        # Always use /mcp endpoint (Streamable HTTP transport)
+        print(f"[Python]   Connect via: http://127.0.0.1:{actual_port}/mcp", file=sys.stderr)
+        print(f"[Python] " + "=" * 50, file=sys.stderr)
+
+    # Show the gallery (blocking until window closes)
     view.show()
 
 

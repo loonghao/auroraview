@@ -67,10 +67,10 @@ build-help:
     @echo "  - Use modular build for faster incremental compilation"
     @echo "═══════════════════════════════════════════════════════════════════════════════"
 
-# Build core Python library (_core.pyd) - WebView, IPC, DOM, utilities
+# Build core Python library (_core.pyd) - WebView, IPC, DOM, MCP integration
 rebuild-core:
-    @echo "Building _core.pyd (WebView, IPC, DOM, utilities)..."
-    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "Building _core.pyd (WebView, IPC, DOM, MCP integration, Sidecar)..."
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2,mcp-server,mcp-sidecar"
     @echo "[OK] _core.pyd rebuilt successfully!"
 
 # Build signals module (_signals.pyd) - Qt-style signal-slot system
@@ -89,8 +89,8 @@ rebuild-mcp:
 rebuild-all:
     @echo "Building all Python modules..."
     @echo ""
-    @echo "[1/3] Building _core.pyd..."
-    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "[1/3] Building _core.pyd (with MCP + Sidecar integration)..."
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2,mcp-server,mcp-sidecar"
     @echo ""
     @echo "[2/3] Building _signals.pyd..."
     Push-Location crates/aurora-signals; try { vx uv run maturin develop --release } finally { Pop-Location }
@@ -108,14 +108,14 @@ rebuild-pylib: rebuild-core
 # Build Python library with verbose output
 rebuild-pylib-verbose:
     @echo "Building Python library with maturin (verbose)..."
-    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2,mcp-server,mcp-sidecar" --verbose
     @echo "[OK] Python library rebuilt and installed successfully!"
 
-# Build core with MCP included (legacy single-pyd mode)
-rebuild-pylib-with-mcp:
-    @echo "Building Python library with MCP included in _core.pyd..."
-    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2,mcp-server"
-    @echo "[OK] Python library rebuilt with MCP!"
+# Build core WITHOUT MCP (minimal build for faster iteration)
+rebuild-core-minimal:
+    @echo "Building _core.pyd (minimal, no MCP)..."
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "[OK] _core.pyd rebuilt (minimal)!"
 
 
 # Build CLI binary
@@ -829,6 +829,21 @@ gallery-mcp-call PORT="27168" TOOL="" ARGS="{}":
 gallery-mcp PORT="27168": gallery-build
     @echo "Starting Gallery with MCP on port {{PORT}}..."
     $env:AURORAVIEW_MCP_PORT="{{PORT}}"; vx uv run python gallery/main.py
+
+# Start Gallery with MCP debugging enabled (detailed Rust logs)
+gallery-mcp-debug PORT="27168": gallery-build
+    @echo "Starting Gallery with MCP debugging on port {{PORT}}..."
+    @echo "═══════════════════════════════════════════════════════════════════════════════"
+    @echo "MCP Debug Mode Enabled"
+    @echo "═══════════════════════════════════════════════════════════════════════════════"
+    @echo ""
+    @echo "Log levels:"
+    @echo "  - MCP Server: DEBUG"
+    @echo "  - Message Queue: DEBUG"
+    @echo "  - IPC Handler: DEBUG"
+    @echo "  - Event Loop: INFO"
+    @echo ""
+    $env:RUST_LOG="auroraview_mcp=debug,auroraview_core::ipc=debug,auroraview::ipc=debug,auroraview::webview::message_processor=debug,auroraview::webview::event_loop=info"; $env:AURORAVIEW_MCP_PORT="{{PORT}}"; vx uv run python gallery/main.py
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Packaging Commands

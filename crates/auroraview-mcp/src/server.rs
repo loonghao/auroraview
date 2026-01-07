@@ -65,7 +65,7 @@ impl AuroraViewService {
 impl ServerHandler for AuroraViewService {
     fn get_info(&self) -> InitializeResult {
         let prompts = self.prompts.read();
-        let _has_prompts = prompts.len() > 0;
+        let _has_prompts = !prompts.is_empty();
 
         InitializeResult {
             protocol_version: ProtocolVersion::LATEST,
@@ -303,7 +303,7 @@ impl McpServer {
     }
 
     /// Create with default config
-    pub fn default() -> Self {
+    pub fn with_default_config() -> Self {
         Self::new(McpConfig::default())
     }
 
@@ -465,13 +465,15 @@ impl McpServer {
         // Cancel all sessions
         self.cancellation_token.cancel();
 
-        // Send shutdown signal
-        if let Some(tx) = self.shutdown_tx.write().take() {
+        // Send shutdown signal - take the sender first to release the lock
+        let shutdown_tx = self.shutdown_tx.write().take();
+        if let Some(tx) = shutdown_tx {
             let _ = tx.send(()).await;
         }
 
-        // Wait for server task to complete with timeout
-        if let Some(task) = self.server_task.write().take() {
+        // Wait for server task to complete with timeout - take the task first to release the lock
+        let server_task = self.server_task.write().take();
+        if let Some(task) = server_task {
             match tokio::time::timeout(Duration::from_secs(5), task).await {
                 Ok(Ok(())) => {
                     debug!("MCP Server task completed gracefully");

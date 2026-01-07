@@ -58,6 +58,11 @@ export const CATEGORIES: Record<string, Category> = {
     icon: "box",
     description: "Maya, Houdini, Blender, and other DCC apps",
   },
+  mcp_integration: {
+    title: "MCP Integration",
+    icon: "bot",
+    description: "Model Context Protocol for AI agent integration",
+  },
 };
 
 // Empty samples array - data is loaded dynamically

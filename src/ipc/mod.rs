@@ -30,6 +30,8 @@ pub mod json;
 #[cfg(feature = "mcp-server")]
 pub mod mcp_dispatcher;
 pub mod message_queue;
+#[cfg(feature = "mcp-sidecar")]
+pub mod sidecar_bridge;
 pub mod threaded;
 
 // Re-export core IPC types
@@ -61,6 +63,10 @@ pub use js_callback::{JsCallbackManager, JsCallbackResult};
 // Re-export MCP dispatcher
 #[cfg(feature = "mcp-server")]
 pub use mcp_dispatcher::MessageQueueDispatcher;
+
+// Re-export Sidecar Bridge
+#[cfg(feature = "mcp-sidecar")]
+pub use sidecar_bridge::{SidecarBridge, SidecarBridgeConfig};
 
 // Re-export JSON conversion functions
 #[cfg(feature = "python-bindings")]

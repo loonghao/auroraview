@@ -74,7 +74,9 @@ python-source = "python"
 # _core.pyd is now placed in auroraview/core/ subdirectory
 module-name = "auroraview.core._core"
 # Note: abi3-py38 for Python 3.8+, Python 3.7 requires separate non-abi3 build
-features = ["python-bindings", "pyo3/extension-module", "abi3-py38"]
+# mcp-server: Enable embedded MCP server with main-thread dispatcher routing
+# mcp-sidecar: Enable sidecar mode with IPC Server for non-blocking tool calls
+features = ["python-bindings", "pyo3/extension-module", "abi3-py38", "mcp-server", "mcp-sidecar"]
 bindings = "pyo3"
 
 # Ruff configuration

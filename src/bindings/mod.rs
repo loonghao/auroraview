@@ -30,3 +30,6 @@ pub mod webview2;
 
 #[cfg(feature = "mcp-server")]
 pub mod mcp;
+
+#[cfg(feature = "mcp-sidecar")]
+pub mod sidecar;

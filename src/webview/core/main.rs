@@ -747,14 +747,18 @@ impl AuroraView {
     ///     >>> server.register_tool("my_tool", handler)
     ///     >>> port = server.start()
     #[cfg(feature = "mcp-server")]
-    fn create_mcp_server(&self, config: Option<auroraview_mcp::PyMcpConfig>) -> PyResult<auroraview_mcp::PyMcpServer> {
+    fn create_mcp_server(
+        &self,
+        config: Option<auroraview_mcp::PyMcpConfig>,
+    ) -> PyResult<auroraview_mcp::PyMcpServer> {
         use crate::ipc::mcp_dispatcher::MessageQueueDispatcher;
 
-        // Check if direct execution is enabled (default: true)
+        // Check if direct execution is enabled (default: false for thread safety)
+        // When false, tool calls are routed through MessageQueue to the main thread
         let direct_execution = config
             .as_ref()
             .map(|c| c.inner.direct_execution)
-            .unwrap_or(true);
+            .unwrap_or(false);
 
         tracing::info!(
             "[AuroraView::create_mcp_server] Creating MCP server (direct_execution={})",

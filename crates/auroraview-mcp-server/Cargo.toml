@@ -1,0 +1,83 @@
+[package]
+name = "auroraview-mcp-server"
+version = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "MCP Sidecar Server for AuroraView - standalone process for MCP protocol handling"
+keywords = ["mcp", "sidecar", "ipc", "json-rpc", "webview"]
+categories = ["command-line-utilities", "web-programming"]
+
+[lib]
+name = "auroraview_mcp_server"
+
+[[bin]]
+name = "auroraview-mcp-server"
+path = "src/main.rs"
+
+[dependencies]
+# Core MCP functionality
+auroraview-mcp = { path = "../auroraview-mcp" }
+
+# RMCP - Official Rust MCP SDK with Streamable HTTP support
+rmcp = { version = "0.12", features = ["server", "transport-streamable-http-server", "macros", "axum"] }
+
+# IPC communication (cross-platform LocalSocket)
+ipckit = "0.1"
+
+# Async runtime
+tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "time", "macros", "signal"] }
+tokio-util = "0.7"
+
+# HTTP Server for MCP
+axum = { version = "0.8", features = ["macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
+
+# CLI framework
+clap = { version = "4", features = ["derive"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# UUID for request IDs and nonce
+uuid = { version = "1.11", features = ["v4"] }
+
+# Async utilities
+futures = "0.3"
+
+# Thread safety
+parking_lot = "0.12"
+
+# Signal handling (Ctrl+C)
+ctrlc = "3.4"
+
+[dev-dependencies]
+rstest = "0.26"
+tempfile = "3.14"
+tokio-test = "0.4"
+reqwest = { version = "0.12", features = ["json"] }
+
+[target.'cfg(unix)'.dependencies]
+# Unix-specific: for checking parent process
+nix = { version = "0.30", features = ["signal"] }
+
+[target.'cfg(windows)'.dependencies]
+# Windows-specific: for process handling
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+    "Win32_System_Diagnostics_ToolHelp"
+] }
+

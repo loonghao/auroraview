@@ -11,6 +11,7 @@
 
 use crate::ipc::WebViewMessage;
 use crate::webview::js_assets;
+use pyo3::types::PyAnyMethods;
 use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
 
@@ -25,9 +26,7 @@ pub fn execute_mcp_tool(
     args: serde_json::Value,
     handler: pyo3::Py<pyo3::types::PyAny>,
     response_tx: std::sync::Arc<
-        std::sync::Mutex<
-            Option<tokio::sync::oneshot::Sender<Result<serde_json::Value, String>>>,
-        >,
+        std::sync::Mutex<Option<tokio::sync::oneshot::Sender<Result<serde_json::Value, String>>>>,
     >,
     context: &str,
 ) {
@@ -58,13 +57,13 @@ pub fn execute_mcp_tool(
                     }
                 };
                 // Use call with kwargs - Python functions expect keyword arguments
-                let kwargs_dict = match py_args.downcast_bound::<pyo3::types::PyDict>(py) {
+                let kwargs_dict = match py_args.downcast::<pyo3::types::PyDict>() {
                     Ok(dict) => dict,
                     Err(_) => {
                         return Err("Arguments must be a JSON object".to_string());
                     }
                 };
-                handler.call_bound(py, (), Some(kwargs_dict))
+                handler.call(py, (), Some(&kwargs_dict))
             }
         };
 
@@ -93,6 +92,36 @@ pub fn execute_mcp_tool(
                 );
             }
         }
+    }
+}
+
+/// Execute a Python callback on the main thread
+///
+/// This function is called from various message processing locations to handle
+/// deferred Python callbacks. It executes the Python callback and handles any errors.
+#[cfg(feature = "python-bindings")]
+pub fn execute_python_callback(
+    callback_id: u64,
+    event_name: &str,
+    data: serde_json::Value,
+    ipc_handler: &crate::ipc::IpcHandler,
+    context: &str,
+) {
+    tracing::info!(
+        "[{}] Executing Python callback: id={}, event={}, data={}",
+        context,
+        callback_id,
+        event_name,
+        data
+    );
+
+    if let Err(e) = ipc_handler.execute_deferred_callback(callback_id, event_name, data) {
+        tracing::error!(
+            "[{}] Failed to execute deferred callback {}: {}",
+            context,
+            callback_id,
+            e
+        );
     }
 }
 

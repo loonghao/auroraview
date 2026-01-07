@@ -142,7 +142,7 @@ async fn test_server_health_endpoint() {
 
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["status"], "ok");
-    assert_eq!(body["name"], "health-test");
+    assert_eq!(body["transport"], "streamable-http");
 
     server.stop().await;
 }
@@ -167,9 +167,72 @@ async fn test_server_tools_endpoint() {
     assert!(resp.status().is_success());
 
     let body: serde_json::Value = resp.json().await.unwrap();
-    let tools = body["tools"].as_array().unwrap();
+    assert_eq!(body["ok"], true);
+    let tools = body["data"].as_array().unwrap();
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0]["name"], "test_tool");
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn test_mcp_endpoint_initialize() {
+    let config = McpConfig::new("mcp-test");
+    let server = McpServer::new(config);
+
+    server.register_tool(Tool::new("test_tool", "A test tool"));
+
+    let port = server.start().await.unwrap();
+
+    // Test MCP initialize endpoint using JSON-RPC
+    let client = reqwest::Client::new();
+
+    // Send initialize request
+    let init_request = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "test-client",
+                "version": "1.0.0"
+            }
+        }
+    });
+
+    let resp = client
+        .post(format!("http://127.0.0.1:{}/mcp", port))
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json, text/event-stream")
+        .json(&init_request)
+        .send()
+        .await
+        .unwrap();
+
+    let status = resp.status();
+    let body_text = resp.text().await.unwrap();
+    println!("Status: {}", status);
+    println!("Body: {}", body_text);
+
+    assert!(status.is_success(), "Expected success, got {} with body: {}", status, body_text);
+
+    // Parse SSE response - format is "data: {...}\n\n"
+    let json_str = body_text
+        .lines()
+        .find(|line| line.starts_with("data: "))
+        .map(|line| line.strip_prefix("data: ").unwrap())
+        .expect("Expected SSE data line");
+
+    let body: serde_json::Value = serde_json::from_str(json_str).unwrap();
+    assert_eq!(body["jsonrpc"], "2.0");
+    assert_eq!(body["id"], 1);
+    assert!(body["result"].is_object());
+    assert!(body["result"]["protocolVersion"].is_string());
+    assert!(body["result"]["capabilities"].is_object());
+    assert!(body["result"]["serverInfo"].is_object());
+    assert_eq!(body["result"]["serverInfo"]["name"], "mcp-test");
 
     server.stop().await;
 }

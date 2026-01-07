@@ -717,6 +717,13 @@ impl WebViewEventHandler {
                     }
                 }
                 Event::MainEventsCleared => {
+                    // Log that MainEventsCleared was triggered (for debugging MCP timing issues)
+                    static MAIN_EVENTS_CLEARED_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+                    let count = MAIN_EVENTS_CLEARED_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if count < 10 || count % 1000 == 0 {
+                        tracing::debug!("[EventLoop] MainEventsCleared triggered (count={})", count);
+                    }
+
                     // CRITICAL: Explicitly pump Windows messages for WebView2
                     // tao's run_return() may not process all Windows messages that
                     // WebView2 needs for proper rendering and COM message handling.

@@ -49,12 +49,17 @@ def __getattr__(name: str):
         from .default_tools import setup_log_capture
 
         return setup_log_capture
+    if name == "McpSidecar":
+        from .sidecar import McpSidecar
+
+        return McpSidecar
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [
     "McpConfig",
     "McpServer",
+    "McpSidecar",
     "register_default_tools",
     "setup_log_capture",
     "_USE_RUST_MCP",
