@@ -47,7 +47,7 @@ runs:
   using: 'composite'
   steps:
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ inputs.python-version }}
         # Allow pre-release versions for older Python (3.7)
@@ -85,7 +85,7 @@ runs:
 
     - name: Cache Rust build
       if: runner.os != 'macOS' # Work around actions/runner hashFiles bug on macOS
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~/.cargo/registry/index/
@@ -146,7 +146,19 @@ runs:
       shell: bash
       run: |
         # Create a clean virtual environment for testing
-        python -m venv test-wheel-env
+        # Use uv for Python 3.8+ (when available), fallback to python -m venv for 3.7
+        if [ "${{ inputs.python-version }}" = "3.7" ]; then
+          echo "Using python -m venv for Python 3.7 compatibility"
+          python -m venv test-wheel-env
+        else
+          echo "Using uv venv for Python ${{ inputs.python-version }}"
+          # Use uv if available, fallback to python -m venv
+          if command -v uv >/dev/null 2>&1; then
+            uv venv test-wheel-env --python python
+          else
+            python -m venv test-wheel-env
+          fi
+        fi
 
         # Activate environment and install wheel
         if [ "${{ runner.os }}" = "Windows" ]; then
@@ -261,7 +273,7 @@ runs:
 
     - name: Upload wheel
       if: inputs.upload-wheel == 'true'
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ inputs.artifact-name }}
         path: dist/

@@ -25,7 +25,7 @@ runs:
     - name: Setup Rust cache
       if: inputs.cache-type == 'rust' || inputs.cache-type == 'build'
       id: rust-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~/.cargo/bin/
@@ -41,7 +41,7 @@ runs:
     - name: Setup Python cache
       if: inputs.cache-type == 'python' || inputs.cache-type == 'build'
       id: python-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~/.cache/uv
@@ -54,7 +54,7 @@ runs:
     - name: Setup build cache
       if: inputs.cache-type == 'build'
       id: build-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           target/release/
@@ -70,7 +70,7 @@ runs:
     - name: Setup test cache
       if: inputs.cache-type == 'test'
       id: test-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           .pytest_cache/
