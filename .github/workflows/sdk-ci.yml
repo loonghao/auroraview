@@ -312,7 +312,7 @@ jobs:
           node-version: '20'
 
       - name: Download SDK package
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v6
         with:
           name: ${{ inputs.artifact-prefix }}sdk-package
           path: packages/auroraview-sdk/dist/
