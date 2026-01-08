@@ -154,7 +154,10 @@ runs:
           echo "Using uv venv for Python ${{ inputs.python-version }}"
           # Use uv if available, fallback to python -m venv
           if command -v uv >/dev/null 2>&1; then
-            uv venv test-wheel-env --python python
+            # Get the current Python executable path
+            PYTHON_EXE=$(python -c "import sys; print(sys.executable)")
+            echo "Using Python executable: $PYTHON_EXE"
+            uv venv test-wheel-env --python "$PYTHON_EXE"
           else
             python -m venv test-wheel-env
           fi
