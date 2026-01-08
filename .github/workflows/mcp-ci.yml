@@ -49,7 +49,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run lint
-        run: vx just mcp-lint
+        run: |
+          echo "Running MCP lint checks..."
+          vx just mcp-lint
+          echo "Lint checks completed successfully"
 
   # Unit tests with coverage
   unit-tests:
@@ -74,7 +77,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests
-        run: vx just mcp-test
+        run: |
+          echo "Running MCP unit tests (Python ${{ matrix.python-version }})..."
+          vx just mcp-test
+          echo "Unit tests completed successfully"
 
   # Coverage report (only on Python 3.11)
   coverage:
@@ -95,7 +101,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests with coverage
-        run: vx just mcp-test-cov
+        run: |
+          echo "Running MCP tests with coverage..."
+          vx just mcp-test-cov
+          echo "Coverage tests completed successfully"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -145,18 +154,30 @@ jobs:
           cat pyproject.toml | grep version
 
       - name: Build package
-        run: vx just mcp-build
+        run: |
+          echo "Building MCP package..."
+          vx just mcp-build
+          echo "Package build completed successfully"
 
       - name: Verify build outputs
         run: |
+          set -e
           echo "Checking MCP dist..."
           ls -la packages/auroraview-mcp/dist/
           
           # Verify wheel exists
-          test -f packages/auroraview-mcp/dist/*.whl || (echo "Missing wheel file" && exit 1)
+          if ! ls packages/auroraview-mcp/dist/*.whl 1> /dev/null 2>&1; then
+            echo "Error: Missing wheel file"
+            exit 1
+          fi
+          echo "✓ Wheel file found"
           
           # Verify sdist exists
-          test -f packages/auroraview-mcp/dist/*.tar.gz || (echo "Missing sdist file" && exit 1)
+          if ! ls packages/auroraview-mcp/dist/*.tar.gz 1> /dev/null 2>&1; then
+            echo "Error: Missing sdist file"
+            exit 1
+          fi
+          echo "✓ Sdist file found"
           
           echo "All MCP package outputs verified!"
 
@@ -206,9 +227,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -e  # Exit on any error
+          
           PYEXEC=$(python -c "import sys; print(sys.executable)")
+          echo "Python executable: $PYEXEC"
+          
+          # Create virtual environment
+          echo "Creating virtual environment..."
           vx uv venv --python "$PYEXEC" .test-venv
-          vx uv pip install --python .test-venv/bin/python dist/*.whl
+          
+          # Verify virtual environment
+          PYTHON_BIN=".test-venv/bin/python"
+          if [ ! -f "$PYTHON_BIN" ]; then
+            echo "Error: Python executable not found at $PYTHON_BIN"
+            exit 1
+          fi
+          echo "Virtual environment created successfully"
+          
+          # Check for wheel files
+          WHEEL_COUNT=$(ls dist/*.whl 2>/dev/null | wc -l)
+          if [ "$WHEEL_COUNT" -eq 0 ]; then
+            echo "Error: No wheel file found in dist/"
+            exit 1
+          fi
+          echo "Found $WHEEL_COUNT wheel file(s)"
+          
+          # Install package
+          echo "Installing wheel..."
+          vx uv pip install --python "$PYTHON_BIN" dist/*.whl
+          echo "Package installed successfully"
 
       - name: Create test environment and install (Windows)
         if: runner.os == 'Windows'
@@ -216,27 +263,80 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $ErrorActionPreference = "Stop"
+          
           $py = (python -c "import sys; print(sys.executable)")
+          Write-Host "Python executable: $py"
+          
+          # Create virtual environment
+          Write-Host "Creating virtual environment..."
           vx uv venv --python $py .test-venv
+          
+          # Verify virtual environment
+          $pythonExe = ".test-venv\Scripts\python.exe"
+          if (-not (Test-Path $pythonExe)) {
+            Write-Error "Python executable not found at $pythonExe"
+            exit 1
+          }
+          Write-Host "Virtual environment created successfully"
+          
+          # Get wheel file
           $wheel = Get-ChildItem dist/*.whl | Select-Object -First 1
-          vx uv pip install --python .test-venv\Scripts\python.exe $wheel.FullName
+          if (-not $wheel) {
+            Write-Error "No wheel file found in dist/"
+            exit 1
+          }
+          Write-Host "Installing wheel: $($wheel.FullName)"
+          
+          # Install package
+          vx uv pip install --python $pythonExe $wheel.FullName
+          Write-Host "Package installed successfully"
 
 
 
       - name: Verify installation (Unix)
         if: runner.os != 'Windows'
         run: |
-          .test-venv/bin/python -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
-          .test-venv/bin/python -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
-          .test-venv/bin/auroraview-mcp --help || echo "CLI help not available (expected for stdio server)"
+          set -e
+          echo "Verifying MCP server installation..."
+          
+          # Test MCP server import
+          .test-venv/bin/python -c "from auroraview_mcp.server import mcp; print('✓ MCP server imported successfully')"
+          
+          # Test FastMCP Client import
+          .test-venv/bin/python -c "from fastmcp import Client; print('✓ FastMCP Client imported successfully')"
+          
+          # Test CLI (may not be available for stdio server)
+          if .test-venv/bin/auroraview-mcp --help > /dev/null 2>&1; then
+            echo "✓ CLI help available"
+          else
+            echo "ℹ CLI help not available (expected for stdio server)"
+          fi
+          
+          echo "Installation verification completed successfully"
 
       - name: Verify installation (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          .test-venv\Scripts\python.exe -c "from auroraview_mcp.server import mcp; print('MCP server imported successfully')"
-          .test-venv\Scripts\python.exe -c "from fastmcp import Client; print('FastMCP Client imported successfully')"
-          .test-venv\Scripts\auroraview-mcp.exe --help || echo "CLI help not available (expected for stdio server)"
+          $ErrorActionPreference = "Stop"
+          Write-Host "Verifying MCP server installation..."
+          
+          # Test MCP server import
+          .test-venv\Scripts\python.exe -c "from auroraview_mcp.server import mcp; print('✓ MCP server imported successfully')"
+          
+          # Test FastMCP Client import
+          .test-venv\Scripts\python.exe -c "from fastmcp import Client; print('✓ FastMCP Client imported successfully')"
+          
+          # Test CLI (may not be available for stdio server)
+          try {
+            .test-venv\Scripts\auroraview-mcp.exe --help | Out-Null
+            Write-Host "✓ CLI help available"
+          } catch {
+            Write-Host "ℹ CLI help not available (expected for stdio server)"
+          }
+          
+          Write-Host "Installation verification completed successfully"
 
   # Final gate
   mcp-ready:
