@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.38](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.37...auroraview-v0.3.38) (2026-01-08)
+
+
+### Features
+
+* **gallery:** dependency installer with white theme ([5852ad0](https://github.com/loonghao/auroraview/commit/5852ad059f0f82d2560875d6ccdb3ff62ebd2b55))
+* **thread-safety:** add DCC thread-safe utilities and WebView dcc_mode support ([1b2e3c3](https://github.com/loonghao/auroraview/commit/1b2e3c3ecda68257bcb4dff4ba3307f9f7de8dbd))
+
+
+### Bug Fixes
+
+* **ci:** resolve Python 3.7 test failures and unify GitHub Actions versions ([849f44b](https://github.com/loonghao/auroraview/commit/849f44b1d8c4febc16b3ad5bad840d653d98ab6c))
+* **ci:** use correct Python executable path for uv venv ([8359367](https://github.com/loonghao/auroraview/commit/835936708a844179e75716a90d73cfefaddbef98))
+
+
+### Documentation
+
+* **dcc:** add thread safety sections and Substance Painter integration ([c34ba1f](https://github.com/loonghao/auroraview/commit/c34ba1fbae2e07184328057bdc364b3138c2a5d3))
+
 ## [0.3.37](https://github.com/loonghao/auroraview/compare/auroraview-v0.3.36...auroraview-v0.3.37) (2025-12-31)
 
 
