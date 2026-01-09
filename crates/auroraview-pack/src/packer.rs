@@ -1563,7 +1563,8 @@ elif spec and spec.origin:
                     Ok(())
                 } else {
                     Err(PackError::VxEnsureFailed(
-                        "vx tool required but not found. Install vx or configure vx.runtime_url".to_string()
+                        "vx tool required but not found. Install vx or configure vx.runtime_url"
+                            .to_string(),
                     ))
                 }
             }
@@ -1607,7 +1608,7 @@ elif spec and spec.origin:
                 Ok(())
             }
             _ => Err(PackError::VxEnsureFailed(
-                "node tool required but not found. Install from https://nodejs.org/".to_string()
+                "node tool required but not found. Install from https://nodejs.org/".to_string(),
             )),
         }
     }
@@ -1630,7 +1631,7 @@ elif spec and spec.origin:
                 Ok(())
             }
             _ => Err(PackError::VxEnsureFailed(
-                "go tool required but not found. Install from https://golang.org/dl/".to_string()
+                "go tool required but not found. Install from https://golang.org/dl/".to_string(),
             )),
         }
     }
@@ -1656,7 +1657,7 @@ elif spec and spec.origin:
                 Ok(())
             }
             _ => Err(PackError::VxEnsureFailed(
-                "python tool required but not found. Install from https://python.org/".to_string()
+                "python tool required but not found. Install from https://python.org/".to_string(),
             )),
         }
     }
