@@ -1575,7 +1575,7 @@ elif spec and spec.origin:
             Ok(output) if output.status.success() => {
                 let version_str = String::from_utf8_lossy(&output.stdout);
                 tracing::debug!("Found uv: {}", version_str.trim());
-                
+
                 if let Some(required) = version_req {
                     if !version_str.contains(required) {
                         tracing::warn!("uv version mismatch: found {}, required {}", version_str.trim(), required);
