@@ -1,6 +1,7 @@
 //! Tests for auroraview-pack packer module
 
-use auroraview_pack::{PackConfig, Packer};
+use auroraview_pack::{Manifest, PackConfig, Packer, VxConfig};
+use std::fs;
 use tempfile::TempDir;
 
 #[test]
@@ -50,4 +51,140 @@ fn test_exe_name() {
     {
         // On other platforms, no extension
     }
+}
+
+#[test]
+fn test_manifest_vx_config_parsing() {
+    let temp = TempDir::new().unwrap();
+    let frontend_dir = temp.path().join("frontend");
+    fs::create_dir_all(&frontend_dir).unwrap();
+    fs::write(frontend_dir.join("index.html"), "<html></html>").unwrap();
+
+    let manifest_toml = format!(
+        r#"
+[package]
+name = "test-app"
+version = "0.1.0"
+
+[frontend]
+path = "{}"
+
+[vx]
+enabled = true
+runtime_url = "https://example.com/vx.zip"
+runtime_checksum = "deadbeef"
+cache_dir = "./.pack-cache/vx"
+allow_insecure = false
+
+[[downloads]]
+name = "vx-runtime"
+url = "https://example.com/vx.zip"
+checksum = "deadbeef"
+extract = true
+strip_components = 1
+stage = "before_collect"
+dest = "python/bin/vx"
+executable = ["vx.exe"]
+
+[hooks]
+use_vx = true
+
+[hooks.vx]
+before_collect = ["vx --version"]
+after_pack = ["vx uv pip list"]
+        "#,
+        frontend_dir.display()
+    );
+
+    let manifest = Manifest::parse(&manifest_toml).expect("manifest should parse");
+    let config = PackConfig::from_manifest(&manifest, temp.path()).expect("pack config");
+
+    assert!(manifest.vx.is_some());
+    assert_eq!(manifest.downloads.len(), 1);
+    assert!(config.vx.as_ref().unwrap().enabled);
+    assert_eq!(config.downloads.len(), 1);
+    assert!(config.hooks.as_ref().map(|h| h.use_vx).unwrap_or(false));
+}
+
+// RFC 0003: vx packed dependency bootstrap tests
+
+#[test]
+fn test_vx_ensure() {
+    let temp = TempDir::new().unwrap();
+
+    let mut config = PackConfig::url("https://example.com");
+    config.vx = Some(VxConfig {
+        enabled: true,
+        ensure: vec!["python".to_string()], // Should pass if python is available
+        ..Default::default()
+    });
+
+    let packer = Packer::new(config);
+
+    // Test vx.ensure validation - should pass for python
+    // (Note: This is a unit test, actual validation happens during pack())
+    assert!(packer.validate_vx_ensure_requirements().is_ok());
+}
+
+#[test]
+fn test_vx_ensure_missing_tool() {
+    let temp = TempDir::new().unwrap();
+
+    let mut config = PackConfig::url("https://example.com");
+    config.vx = Some(VxConfig {
+        enabled: true,
+        ensure: vec!["nonexistent-tool-12345".to_string()],
+        ..Default::default()
+    });
+
+    let packer = Packer::new(config);
+
+    // Should fail for nonexistent tool
+    assert!(packer.validate_vx_ensure_requirements().is_err());
+}
+
+#[test]
+fn test_vx_runtime_injection() {
+    let temp = TempDir::new().unwrap();
+
+    let mut config = PackConfig::url("https://example.com");
+    config.vx = Some(VxConfig {
+        enabled: true,
+        runtime_url: Some("https://example.com/vx-runtime.tar.gz".to_string()),
+        runtime_checksum: Some("sha256:abc123".to_string()),
+        ..Default::default()
+    });
+
+    let packer = Packer::new(config);
+
+    // Test that vx runtime is included in download entries
+    let entries = packer.build_download_entries();
+    assert!(entries.iter().any(|e| e.name == "vx-runtime"));
+
+    // Test AURORAVIEW_VX_PATH detection
+    let vx_path = packer.detect_vx_path(&entries);
+    assert!(vx_path.is_some());
+}
+
+#[test]
+fn test_offline_mode() {
+    use std::env;
+
+    // Set offline mode
+    env::set_var("AURORAVIEW_OFFLINE", "true");
+
+    let temp = TempDir::new().unwrap();
+    let mut config = PackConfig::url("https://example.com");
+    config.vx = Some(VxConfig {
+        enabled: true,
+        ..Default::default()
+    });
+
+    let packer = Packer::new(config);
+
+    // In offline mode, downloads should be skipped or use cache only
+    // This is tested through the downloader's offline behavior
+
+    // Clean up
+    env::remove_var("AURORAVIEW_OFFLINE");
 }

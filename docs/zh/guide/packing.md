@@ -163,7 +163,47 @@ cargo run -p auroraview-cli --release -- pack --config auroraview.pack.toml
 cargo run -p auroraview-cli --release -- pack --config auroraview.pack.toml --build
 ```
 
+## Vx 依赖引导
+
+AuroraView Pack 可以在打包阶段下载/内嵌 vx runtime 以及其他资源，提供统一的工具链并支持离线安装。
+
+```toml
+[vx]
+enabled = true
+runtime_url = "https://github.com/loonghao/vx/releases/download/vx-v0.6.10/vx-0.6.10-x86_64-pc-windows-msvc.zip"
+runtime_checksum = "<sha256>"
+cache_dir = "./.pack-cache/vx"
+ensure = ["uv", "node@20", "go@1.22", "rust@stable"]
+allow_insecure = false
+allowed_domains = ["github.com", "objects.githubusercontent.com"]
+block_unknown_domains = false
+require_checksum = false
+
+[[downloads]]
+name = "vx-runtime"
+url = "https://github.com/loonghao/vx/releases/download/vx-v0.6.10/vx-0.6.10-x86_64-pc-windows-msvc.zip"
+checksum = "<sha256>"
+extract = true
+strip_components = 1
+stage = "before_collect"
+dest = "python/bin/vx"
+executable = ["vx.exe"]
+
+[hooks]
+use_vx = true
+
+[hooks.vx]
+before_collect = ["vx --version"]
+after_pack = ["vx uv pip list"]
+```
+
+- `downloads.stage` 支持 `before_collect`、`before_pack`、`after_pack`。
+- `hooks.use_vx` 会用 `vx` 包装原有 hooks，`hooks.vx.*` 始终通过 vx 执行。
+- 设定 `AURORAVIEW_OFFLINE=1` 时仅使用缓存制品。
+- 运行时安装器在检测到 `AURORAVIEW_VX_PATH` 或 PATH 中存在 `vx` 时优先使用 `vx uv pip`。
+
 ## 运行时行为
+
 
 ### 环境变量
 

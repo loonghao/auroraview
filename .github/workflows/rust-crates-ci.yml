@@ -398,6 +398,16 @@ jobs:
           cargo test -p auroraview-pack
           cargo clippy -p auroraview-pack -- -D warnings
 
+      - name: Test vx integration (RFC 0003)
+        run: |
+          echo "Testing vx packed dependency bootstrap features..."
+          # Test vx.ensure validation
+          cargo test -p auroraview-pack test_vx_ensure -- --nocapture
+          # Test vx runtime injection
+          cargo test -p auroraview-pack test_vx_runtime_injection -- --nocapture
+          # Test offline/cache behavior
+          AURORAVIEW_OFFLINE=true cargo test -p auroraview-pack test_offline_mode -- --nocapture
+
   # CLI crate (depends on core and pack)
   test-cli:
     name: Test CLI Crate

@@ -63,40 +63,87 @@ export function DependencyModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    console.log(`[DependencyModal] Setting up event listeners for sample_id=${sampleId}`);
+
+    const handleStart: EventHandler<unknown> = (data: unknown) => {
+      const startData = data as { sample_id: string; packages: string[]; total: number };
+      console.log(`[DependencyModal] dep:start event received:`, startData);
+      
+      if (startData.sample_id !== sampleId) {
+        console.log(`[DependencyModal] Ignoring dep:start for different sample: ${startData.sample_id} !== ${sampleId}`);
+        return;
+      }
+      
+      console.log(`[DependencyModal] Processing dep:start for ${sampleId}`);
+      setPhase('installing');
+      setProgress(0);
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] 🚀 Starting installation of ${startData.total} package(s)...`]);
+    };
+
     const handleProgress: EventHandler<unknown> = (data: unknown) => {
       const progressData = data as DependencyProgress;
-      if (progressData.sample_id !== sampleId) return;
+      console.log(`[DependencyModal] dep:progress event received:`, progressData);
+      
+      if (progressData.sample_id !== sampleId) {
+        console.log(`[DependencyModal] Ignoring dep:progress for different sample: ${progressData.sample_id} !== ${sampleId}`);
+        return;
+      }
 
+      console.log(`[DependencyModal] Processing dep:progress for ${sampleId}, phase=${progressData.phase}`);
+      
       if (phase !== 'cancelled') {
         setPhase('installing');
       }
       
-      if (progressData.package) setCurrentPackage(progressData.package);
+      if (progressData.package) {
+        console.log(`[DependencyModal] Setting current package: ${progressData.package}`);
+        setCurrentPackage(progressData.package);
+      }
       if (progressData.index !== undefined && progressData.total) {
-        setProgress(((progressData.index + 1) / progressData.total) * 100);
+        const newProgress = ((progressData.index + 1) / progressData.total) * 100;
+        console.log(`[DependencyModal] Setting progress: ${newProgress}% (${progressData.index + 1}/${progressData.total})`);
+        setProgress(newProgress);
       }
       if (progressData.line) {
+        console.log(`[DependencyModal] Adding log line: ${progressData.line}`);
         setLogs(prev => [...prev, progressData.line!].slice(-100));
       }
       if (progressData.message) {
+        console.log(`[DependencyModal] Adding log message: ${progressData.message}`);
         setLogs(prev => [...prev, progressData.message!].slice(-100));
       }
     };
 
     const handleComplete: EventHandler<unknown> = (data: unknown) => {
       const completeData = data as DependencyComplete;
-      if (completeData.sample_id !== sampleId) return;
+      console.log(`[DependencyModal] dep:complete event received:`, completeData);
       
+      if (completeData.sample_id !== sampleId) {
+        console.log(`[DependencyModal] Ignoring dep:complete for different sample: ${completeData.sample_id} !== ${sampleId}`);
+        return;
+      }
+      
+      console.log(`[DependencyModal] Processing dep:complete for ${sampleId}`);
       setPhase('complete');
       setProgress(100);
       setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ✅ ${completeData.message}`]);
       // Auto-close after success
-      setTimeout(onComplete, 1500);
+      setTimeout(() => {
+        console.log(`[DependencyModal] Auto-closing modal after success`);
+        onComplete();
+      }, 1500);
     };
 
     const handleError: EventHandler<unknown> = (data: unknown) => {
       const errorData = data as (DependencyError & { cancelled?: boolean });
-      if (errorData.sample_id !== sampleId) return;
+      console.log(`[DependencyModal] dep:error event received:`, errorData);
+      
+      if (errorData.sample_id !== sampleId) {
+        console.log(`[DependencyModal] Ignoring dep:error for different sample: ${errorData.sample_id} !== ${sampleId}`);
+        return;
+      }
+      
+      console.log(`[DependencyModal] Processing dep:error for ${sampleId}, cancelled=${errorData.cancelled}`);
       
       if (errorData.cancelled) {
         setPhase('cancelled');
@@ -109,17 +156,23 @@ export function DependencyModal({
 
     // Subscribe to events
     if (window.auroraview?.on) {
+      console.log(`[DependencyModal] Subscribing to events`);
+      window.auroraview.on('dep:start', handleStart);
       window.auroraview.on('dep:progress', handleProgress);
       window.auroraview.on('dep:complete', handleComplete);
       window.auroraview.on('dep:error', handleError);
 
       return () => {
+        console.log(`[DependencyModal] Unsubscribing from events`);
         if (window.auroraview?.off) {
+          window.auroraview.off('dep:start', handleStart);
           window.auroraview.off('dep:progress', handleProgress);
           window.auroraview.off('dep:complete', handleComplete);
           window.auroraview.off('dep:error', handleError);
         }
       };
+    } else {
+      console.error(`[DependencyModal] window.auroraview.on is not available!`);
     }
   }, [isOpen, sampleId, onComplete, phase]);
 
@@ -131,15 +184,33 @@ export function DependencyModal({
   }, [logs]);
 
   const handleInstall = async () => {
+    console.log(`[DependencyModal] Starting installation for sample_id=${sampleId}`);
     setPhase('installing');
     setLogs([`[${new Date().toLocaleTimeString()}] Starting installation...`]);
-    await onInstall(sampleId);
+    
+    try {
+      console.log(`[DependencyModal] Calling onInstall(${sampleId})`);
+      await onInstall(sampleId);
+      console.log(`[DependencyModal] onInstall completed successfully`);
+    } catch (error) {
+      console.error(`[DependencyModal] onInstall failed:`, error);
+      setPhase('error');
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ❌ Failed to start installation: ${error}`]);
+    }
   };
 
   const handleCancelInstallation = async () => {
+    console.log(`[DependencyModal] Cancelling installation`);
     if (onCancelInstall) {
-      await onCancelInstall();
-      // Phase will be set to 'cancelled' via event
+      try {
+        console.log(`[DependencyModal] Calling onCancelInstall()`);
+        await onCancelInstall();
+        console.log(`[DependencyModal] onCancelInstall completed`);
+        // Phase will be set to 'cancelled' via event
+      } catch (error) {
+        console.error(`[DependencyModal] onCancelInstall failed:`, error);
+        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ❌ Failed to cancel: ${error}`]);
+      }
     }
   };
 

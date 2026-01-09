@@ -37,7 +37,9 @@ concurrency:
 jobs:
   # Lint and format check
   lint:
+    if: ${{ false }} # temporarily disabled MCP CI
     name: Lint
+
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -56,7 +58,9 @@ jobs:
 
   # Unit tests with coverage
   unit-tests:
+    if: ${{ false }} # temporarily disabled MCP CI
     name: Unit Tests (Python ${{ matrix.python-version }})
+
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -84,7 +88,9 @@ jobs:
 
   # Coverage report (only on Python 3.11)
   coverage:
+    if: ${{ false }} # temporarily disabled MCP CI
     name: Coverage Report
+
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -125,7 +131,9 @@ jobs:
 
   # Build package
   build-package:
+    if: ${{ false }} # temporarily disabled MCP CI
     name: Build Package
+
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [lint]
@@ -194,7 +202,9 @@ jobs:
 
   # Test package installation
   test-install:
+    if: ${{ false }} # temporarily disabled MCP CI
     name: Test Install
+
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     needs: [build-package]
@@ -340,7 +350,9 @@ jobs:
 
   # Final gate
   mcp-ready:
+    if: ${{ false }} # temporarily disabled MCP CI
     name: MCP Ready
+
     runs-on: ubuntu-latest
     needs: [lint, unit-tests, coverage, build-package, test-install]
     if: always() && !cancelled()

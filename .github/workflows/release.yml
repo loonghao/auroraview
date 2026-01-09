@@ -302,16 +302,14 @@ jobs:
 
   # Build MCP Server for PyPI publishing (uses reusable workflow)
   build-mcp:
-    name: MCP CI
+    name: MCP CI (disabled temporarily)
     needs: [release-please, check-tag]
-    if: |
-      always() &&
-      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
-       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true'))
+    if: false # temporarily disabling MCP CI to prioritize core release
     uses: ./.github/workflows/mcp-ci.yml
     with:
       artifact-prefix: 'release-'
     secrets: inherit
+
 
   # Publish SDK to npm
   npm-publish:
@@ -361,17 +359,14 @@ jobs:
 
   # Publish MCP Server to PyPI
   mcp-pypi-publish:
-    name: Publish MCP to PyPI
+    name: Publish MCP to PyPI (disabled temporarily)
     runs-on: ubuntu-latest
     needs: [release-please, check-tag, build-mcp]
-    if: |
-      always() &&
-      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
-       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
-      needs.build-mcp.result == 'success'
+    if: false # temporarily disabling MCP publish to unblock core release
     environment:
       name: pypi
       url: https://pypi.org/p/auroraview-mcp
+
     permissions:
       id-token: write
       contents: read

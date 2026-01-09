@@ -88,6 +88,7 @@ mod bundle;
 pub mod common;
 mod config;
 mod deps_collector;
+mod downloader;
 mod error;
 pub mod icon;
 mod license;
@@ -109,14 +110,15 @@ pub use common::{
     BundleStrategy, CollectPattern, DebugConfig, HooksConfig, IsolationConfig, LicenseConfig,
     LinuxPlatformConfig, MacOSPlatformConfig, NotarizationConfig, PlatformConfig, ProcessConfig,
     ProtectionConfig as CommonProtectionConfig, PyOxidizerConfig as CommonPyOxidizerConfig,
-    RuntimeConfig, TargetPlatform, WindowConfig, WindowStartPosition, WindowsPlatformConfig,
-    WindowsResourceConfig,
+    RuntimeConfig, TargetPlatform, VxHooksConfig, WindowConfig, WindowStartPosition,
+    WindowsPlatformConfig, WindowsResourceConfig,
 };
 
 // Re-export config types (runtime configuration)
 pub use config::{PackConfig, PackMode, PythonBundleConfig};
 
 pub use deps_collector::{CollectedDeps, DepsCollector, FileHashCache};
+pub use downloader::Downloader;
 pub use error::{PackError, PackResult};
 pub use icon::{convert_icon_data, load_icon, IconData, IconFormat};
 pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator};
@@ -124,10 +126,10 @@ pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator
 // Re-export manifest types (TOML parsing)
 pub use manifest::{
     BackendConfig, BackendGoConfig, BackendNodeConfig, BackendProcessConfig, BackendPythonConfig,
-    BackendRustConfig, BackendType, BuildConfig, BundleConfig, CollectEntry, FrontendConfig,
-    HealthCheckConfig, HooksManifestConfig, IsolationManifestConfig, Manifest,
-    ManifestWindowConfig, PackageConfig, ProcessManifestConfig, ProtectionManifestConfig,
-    PyOxidizerManifestConfig, StartPosition,
+    BackendRustConfig, BackendType, BuildConfig, BundleConfig, CollectEntry, DownloadEntry,
+    DownloadStage, FrontendConfig, HealthCheckConfig, HooksManifestConfig, IsolationManifestConfig,
+    Manifest, ManifestWindowConfig, PackageConfig, ProcessManifestConfig, ProtectionManifestConfig,
+    PyOxidizerManifestConfig, StartPosition, VxConfig,
 };
 
 // Backward compatibility aliases for manifest platform types

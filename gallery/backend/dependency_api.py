@@ -132,16 +132,23 @@ def register_dependency_apis(view: WebView):
         def run_installation():
             """Run installation in background thread."""
             try:
+                import sys
+                print(f"[DependencyAPI] Starting installation thread for sample_id={sample_id}", file=sys.stderr)
+                print(f"[DependencyAPI] Missing packages: {missing}", file=sys.stderr)
+                
                 # Emit start event
                 emitter.emit("dep:start", {
                     "sample_id": sample_id,
                     "packages": missing,
                     "total": len(missing),
                 })
+                print(f"[DependencyAPI] Emitted dep:start event", file=sys.stderr)
 
                 def on_progress(progress: dict):
                     """Handle progress updates."""
                     event_type = progress.get("type", "")
+                    print(f"[DependencyAPI] Progress update: type={event_type}, package={progress.get('package')}", file=sys.stderr)
+                    
                     if event_type == "start":
                         emitter.emit("dep:progress", {
                             "sample_id": sample_id,
@@ -167,34 +174,49 @@ def register_dependency_apis(view: WebView):
                             "phase": "complete",
                         })
                     elif event_type == "error":
+                        print(f"[DependencyAPI] Error in progress: {progress}", file=sys.stderr)
                         emitter.emit("dep:error", {
                             "sample_id": sample_id,
                             "package": progress.get("package"),
                             "error": progress.get("message", "Installation failed"),
                         })
 
+                print(f"[DependencyAPI] Starting installer.install_missing()", file=sys.stderr)
                 # Run installation
                 result = installer.install_missing(missing, on_progress, cancel_event=_cancel_event)
+                print(f"[DependencyAPI] Installation result: {result}", file=sys.stderr)
 
                 if result.get("cancelled"):
+                    print(f"[DependencyAPI] Installation was cancelled", file=sys.stderr)
                     emitter.emit("dep:error", {
                         "sample_id": sample_id,
                         "error": "Installation cancelled by user",
                         "cancelled": True,
                     })
                 elif result.get("success"):
+                    print(f"[DependencyAPI] Installation succeeded", file=sys.stderr)
                     emitter.emit("dep:complete", {
                         "sample_id": sample_id,
                         "installed": result.get("installed", []),
                         "message": "All dependencies installed successfully",
                     })
                 else:
+                    print(f"[DependencyAPI] Installation failed: {result.get('failed', [])}", file=sys.stderr)
                     emitter.emit("dep:error", {
                         "sample_id": sample_id,
                         "failed": result.get("failed", []),
                         "error": result.get("error", "Some dependencies failed to install"),
                     })
+            except Exception as e:
+                print(f"[DependencyAPI] Exception in installation thread: {e}", file=sys.stderr)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
+                emitter.emit("dep:error", {
+                    "sample_id": sample_id,
+                    "error": f"Installation thread exception: {e}",
+                })
             finally:
+                print(f"[DependencyAPI] Installation thread finished, releasing lock", file=sys.stderr)
                 _install_lock.release()
 
         # Start installation in background

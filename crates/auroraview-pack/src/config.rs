@@ -312,6 +312,14 @@ pub struct PackConfig {
     /// Windows-specific resource configuration
     #[serde(skip)]
     pub windows_resource: WindowsPlatformConfig,
+
+    /// Vx configuration for dependency bootstrap
+    #[serde(default)]
+    pub vx: Option<crate::manifest::VxConfig>,
+
+    /// Downloads configuration for embedding external dependencies
+    #[serde(default)]
+    pub downloads: Vec<crate::manifest::DownloadEntry>,
 }
 
 /// Serde helper module for serializing Option<Vec<u8>> as base64
@@ -375,6 +383,8 @@ impl PackConfig {
             hooks: None,
             remote_debugging_port: None,
             windows_resource: WindowsPlatformConfig::default(),
+            vx: None,
+            downloads: vec![],
         }
     }
 
@@ -405,6 +415,8 @@ impl PackConfig {
             hooks: None,
             remote_debugging_port: None,
             windows_resource: WindowsPlatformConfig::default(),
+            vx: None,
+            downloads: vec![],
         }
     }
 
@@ -438,6 +450,8 @@ impl PackConfig {
             hooks: None,
             remote_debugging_port: None,
             windows_resource: WindowsPlatformConfig::default(),
+            vx: None,
+            downloads: vec![],
         }
     }
 
@@ -474,6 +488,8 @@ impl PackConfig {
             hooks: None,
             remote_debugging_port: None,
             windows_resource: WindowsPlatformConfig::default(),
+            vx: None,
+            downloads: vec![],
         }
     }
 
