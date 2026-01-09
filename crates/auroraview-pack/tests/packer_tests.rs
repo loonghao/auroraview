@@ -110,7 +110,7 @@ after_pack = ["vx uv pip list"]
 
 #[test]
 fn test_vx_ensure() {
-    let temp = TempDir::new().unwrap();
+    let _temp = TempDir::new().unwrap();
 
     let mut config = PackConfig::url("https://example.com");
     config.vx = Some(VxConfig {
@@ -128,7 +128,7 @@ fn test_vx_ensure() {
 
 #[test]
 fn test_vx_ensure_missing_tool() {
-    let temp = TempDir::new().unwrap();
+    let _temp = TempDir::new().unwrap();
 
     let mut config = PackConfig::url("https://example.com");
     config.vx = Some(VxConfig {
@@ -145,7 +145,7 @@ fn test_vx_ensure_missing_tool() {
 
 #[test]
 fn test_vx_runtime_injection() {
-    let temp = TempDir::new().unwrap();
+    let _temp = TempDir::new().unwrap();
 
     let mut config = PackConfig::url("https://example.com");
     config.vx = Some(VxConfig {
@@ -173,14 +173,14 @@ fn test_offline_mode() {
     // Set offline mode
     env::set_var("AURORAVIEW_OFFLINE", "true");
 
-    let temp = TempDir::new().unwrap();
+    let _temp = TempDir::new().unwrap();
     let mut config = PackConfig::url("https://example.com");
     config.vx = Some(VxConfig {
         enabled: true,
         ..Default::default()
     });
 
-    let packer = Packer::new(config);
+    let _packer = Packer::new(config);
 
     // In offline mode, downloads should be skipped or use cache only
     // This is tested through the downloader's offline behavior
