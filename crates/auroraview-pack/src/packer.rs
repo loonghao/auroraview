@@ -1583,9 +1583,9 @@ elif spec and spec.origin:
                 }
                 Ok(())
             }
-            _ => Err(PackError::VxEnsureFailed(format!(
-                "uv tool required but not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
-            )))
+            _ => Err(PackError::VxEnsureFailed(
+                "uv tool required but not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh".to_string()
+            ))
         }
     }
 
@@ -1606,9 +1606,9 @@ elif spec and spec.origin:
                 }
                 Ok(())
             }
-            _ => Err(PackError::VxEnsureFailed(format!(
-                "node tool required but not found. Install from https://nodejs.org/"
-            ))),
+            _ => Err(PackError::VxEnsureFailed(
+                "node tool required but not found. Install from https://nodejs.org/".to_string()
+            )),
         }
     }
 
@@ -1629,9 +1629,9 @@ elif spec and spec.origin:
                 }
                 Ok(())
             }
-            _ => Err(PackError::VxEnsureFailed(format!(
-                "go tool required but not found. Install from https://golang.org/dl/"
-            ))),
+            _ => Err(PackError::VxEnsureFailed(
+                "go tool required but not found. Install from https://golang.org/dl/".to_string()
+            )),
         }
     }
 
@@ -1655,9 +1655,9 @@ elif spec and spec.origin:
                 }
                 Ok(())
             }
-            _ => Err(PackError::VxEnsureFailed(format!(
-                "python tool required but not found. Install from https://python.org/"
-            ))),
+            _ => Err(PackError::VxEnsureFailed(
+                "python tool required but not found. Install from https://python.org/".to_string()
+            )),
         }
     }
 
@@ -1694,7 +1694,7 @@ elif spec and spec.origin:
         entries: &[crate::DownloadEntry],
     ) -> PackConfig {
         let mut config = base_config.clone();
-        if config.env.get("AURORAVIEW_VX_PATH").is_none() {
+        if !config.env.contains_key("AURORAVIEW_VX_PATH") {
             if let Some(path) = self.detect_vx_path(entries) {
                 config.env.insert("AURORAVIEW_VX_PATH".to_string(), path);
             }
