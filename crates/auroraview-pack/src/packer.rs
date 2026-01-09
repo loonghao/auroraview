@@ -1557,14 +1557,14 @@ elif spec and spec.origin:
                     .config
                     .vx
                     .as_ref()
-                    .map_or(false, |vx| vx.runtime_url.is_some())
+                    .is_some_and(|vx| vx.runtime_url.is_some())
                 {
                     tracing::info!("vx not found in PATH, but vx runtime will be downloaded");
                     Ok(())
                 } else {
-                    Err(PackError::VxEnsureFailed(format!(
-                        "vx tool required but not found. Install vx or configure vx.runtime_url"
-                    )))
+                    Err(PackError::VxEnsureFailed(
+                        "vx tool required but not found. Install vx or configure vx.runtime_url".to_string()
+                    ))
                 }
             }
         }
