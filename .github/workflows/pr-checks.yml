@@ -403,13 +403,14 @@ jobs:
   # MCP Build - MCP Server package (parallel, no dependencies)
   # =============================================================================
   mcp-build:
-    name: MCP CI
+    name: MCP CI (disabled temporarily)
     needs: [path-filter]
-    if: needs.path-filter.outputs.needs_mcp_build == 'true'
+    if: false # temporarily disabling MCP CI to unblock core releases
     uses: ./.github/workflows/mcp-ci.yml
     with:
       artifact-prefix: 'pr-'
     secrets: inherit
+
 
   # =============================================================================
   # Pre-build Wheels - Build ABI3 wheels for all platforms

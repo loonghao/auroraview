@@ -17,6 +17,12 @@ from auroraview import json_dumps, json_loads
 
 from .config import EXAMPLES_DIR
 from .samples import get_sample_by_id
+from .dependency_installer import (
+    parse_requirements_from_docstring,
+    get_missing_requirements,
+    install_requirements,
+)
+from .samples import extract_docstring
 
 if TYPE_CHECKING:
     from auroraview import PluginManager, WebView
@@ -153,6 +159,37 @@ def register_process_apis(view: WebView, plugins: PluginManager):
             error_msg = f"File not found: {sample['source_file']} (full path: {sample_path})"
             print(f"[Python:run_sample] ERROR: {error_msg}", file=sys.stderr)
             return {"ok": False, "error": error_msg}
+
+        # Check and install dependencies before running
+        docstring = extract_docstring(sample_path) or ""
+        requirements = parse_requirements_from_docstring(docstring)
+        
+        if requirements:
+            print(f"[Python:run_sample] Found {len(requirements)} requirement(s)", file=sys.stderr)
+            missing = get_missing_requirements(requirements)
+            
+            if missing:
+                print(f"[Python:run_sample] Missing {len(missing)} package(s): {missing}", file=sys.stderr)
+                print(f"[Python:run_sample] Installing dependencies...", file=sys.stderr)
+                
+                def on_progress(progress: dict):
+                    msg = progress.get("message") or progress.get("line") or str(progress)
+                    print(f"[Python:run_sample] {msg}", file=sys.stderr)
+                
+                install_result = install_requirements(missing, on_progress=on_progress)
+                
+                if not install_result.get("success"):
+                    error_msg = f"Failed to install dependencies: {install_result.get('output', 'Unknown error')}"
+                    print(f"[Python:run_sample] ERROR: {error_msg}", file=sys.stderr)
+                    return {
+                        "ok": False,
+                        "error": error_msg,
+                        "failed_packages": install_result.get("failed", []),
+                    }
+                
+                print(f"[Python:run_sample] Dependencies installed successfully", file=sys.stderr)
+            else:
+                print(f"[Python:run_sample] All dependencies satisfied", file=sys.stderr)
 
         # Log Python executable being used
         # In packed mode, prefer AURORAVIEW_PYTHON_EXE if set

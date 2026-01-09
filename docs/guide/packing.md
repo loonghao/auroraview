@@ -291,7 +291,47 @@ cargo run -p auroraview-cli --release -- pack --config auroraview.pack.toml
 cargo run -p auroraview-cli --release -- pack --config auroraview.pack.toml --build
 ```
 
+## Vx dependency bootstrap
+
+AuroraView Pack can download/embed vx runtime and other assets during packing to provide a unified toolchain for offline installs.
+
+```toml
+[vx]
+enabled = true
+runtime_url = "https://github.com/loonghao/vx/releases/download/vx-v0.6.10/vx-0.6.10-x86_64-pc-windows-msvc.zip"
+runtime_checksum = "<sha256>"
+cache_dir = "./.pack-cache/vx"
+ensure = ["uv", "node@20", "go@1.22", "rust@stable"]
+allow_insecure = false
+allowed_domains = ["github.com", "objects.githubusercontent.com"]
+block_unknown_domains = false
+require_checksum = false
+
+[[downloads]]
+name = "vx-runtime"
+url = "https://github.com/loonghao/vx/releases/download/vx-v0.6.10/vx-0.6.10-x86_64-pc-windows-msvc.zip"
+checksum = "<sha256>"
+extract = true
+strip_components = 1
+stage = "before_collect"
+dest = "python/bin/vx"
+executable = ["vx.exe"]
+
+[hooks]
+use_vx = true
+
+[hooks.vx]
+before_collect = ["vx --version"]
+after_pack = ["vx uv pip list"]
+```
+
+- `downloads.stage` supports `before_collect`, `before_pack`, `after_pack`.
+- `hooks.use_vx` wraps legacy hooks with `vx`; `hooks.vx.*` always run via vx.
+- `AURORAVIEW_OFFLINE=1` uses cached artifacts only.
+- Runtime installer prefers `vx uv pip` when `AURORAVIEW_VX_PATH` or PATH provides `vx`.
+
 ## Runtime Behavior
+
 
 ### Environment Variables
 

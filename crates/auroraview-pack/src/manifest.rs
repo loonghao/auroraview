@@ -88,8 +88,8 @@ use std::path::{Component, Path, PathBuf};
 use crate::common::{
     default_module_search_paths, default_optimize, default_python_version, BundleStrategy,
     CollectPattern, DebugConfig, HooksConfig, IsolationConfig, LicenseConfig, LinuxPlatformConfig,
-    MacOSPlatformConfig, ProcessConfig, PyOxidizerConfig, RuntimeConfig, WindowConfig,
-    WindowStartPosition, WindowsPlatformConfig,
+    MacOSPlatformConfig, ProcessConfig, PyOxidizerConfig, RuntimeConfig, VxHooksConfig,
+    WindowConfig, WindowStartPosition, WindowsPlatformConfig,
 };
 use crate::config::PythonBundleConfig;
 use crate::error::{PackError, PackResult};
@@ -166,6 +166,14 @@ pub struct Manifest {
     /// JavaScript/CSS injection
     #[serde(default)]
     pub inject: Option<InjectConfig>,
+
+    /// Vx configuration for dependency bootstrap
+    #[serde(default)]
+    pub vx: Option<VxConfig>,
+
+    /// Downloads configuration for embedding external dependencies
+    #[serde(default)]
+    pub downloads: Vec<DownloadEntry>,
 }
 
 // ============================================================================
@@ -1115,6 +1123,14 @@ pub struct HooksManifestConfig {
     /// Commands to run after packing
     #[serde(default)]
     pub after_pack: Vec<String>,
+
+    /// Whether to run hooks via vx automatically
+    #[serde(default)]
+    pub use_vx: bool,
+
+    /// Vx-specific hook commands
+    #[serde(default)]
+    pub vx: VxHooksConfig,
 }
 
 impl HooksManifestConfig {
@@ -1142,6 +1158,8 @@ impl HooksManifestConfig {
                 })
                 .collect(),
             after_pack: self.after_pack.clone(),
+            use_vx: self.use_vx,
+            vx: self.vx.clone(),
         }
     }
 }
@@ -1152,6 +1170,8 @@ impl From<HooksConfig> for HooksManifestConfig {
             before_collect: config.before_collect,
             collect: config.collect.into_iter().map(CollectEntry::from).collect(),
             after_pack: config.after_pack,
+            use_vx: config.use_vx,
+            vx: config.vx,
         }
     }
 }
@@ -1458,6 +1478,122 @@ impl Manifest {
             }
         })
     }
+}
+
+// ============================================================================
+// Vx Configuration (Dependency Bootstrap)
+// ============================================================================
+
+/// Vx configuration for unified dependency management
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VxConfig {
+    /// Enable vx as the unified tool entry point
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// URL to vx runtime binary (e.g., vx release zip)
+    #[serde(default)]
+    pub runtime_url: Option<String>,
+
+    /// SHA256 checksum for runtime verification
+    #[serde(default)]
+    pub runtime_checksum: Option<String>,
+
+    /// Local cache directory for downloaded artifacts
+    #[serde(default = "default_vx_cache_dir")]
+    pub cache_dir: PathBuf,
+
+    /// Tools to ensure are available (e.g., ["uv", "node@20", "go@1.22"])
+    #[serde(default)]
+    pub ensure: Vec<String>,
+
+    /// Security: allow insecure (HTTP) downloads
+    #[serde(default)]
+    pub allow_insecure: bool,
+
+    /// Security: allowed domains for downloads
+    #[serde(default)]
+    pub allowed_domains: Vec<String>,
+
+    /// Security: block unknown domains
+    #[serde(default)]
+    pub block_unknown_domains: bool,
+
+    /// Security: require checksum for all downloads
+    #[serde(default)]
+    pub require_checksum: bool,
+}
+
+impl Default for VxConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            runtime_url: None,
+            runtime_checksum: None,
+            cache_dir: default_vx_cache_dir(),
+            ensure: vec![],
+            allow_insecure: false,
+            allowed_domains: vec![],
+            block_unknown_domains: false,
+            require_checksum: false,
+        }
+    }
+}
+
+fn default_vx_cache_dir() -> PathBuf {
+    PathBuf::from("./.pack-cache/vx")
+}
+
+/// Download entry for embedding external dependencies
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DownloadEntry {
+    /// Name/identifier for this download
+    pub name: String,
+
+    /// URL to download from
+    pub url: String,
+
+    /// Optional checksum for verification (sha256 or sha512)
+    #[serde(default)]
+    pub checksum: Option<String>,
+
+    /// Number of directory levels to strip when extracting
+    #[serde(default)]
+    pub strip_components: usize,
+
+    /// Whether to extract (unzip/tar) the download
+    #[serde(default = "default_true")]
+    pub extract: bool,
+
+    /// Stage to download at: before_collect | before_pack | after_pack
+    #[serde(default = "default_download_stage")]
+    pub stage: DownloadStage,
+
+    /// Destination path relative to overlay
+    pub dest: String,
+
+    /// Files to mark as executable (platform-dependent)
+    #[serde(default)]
+    pub executable: Vec<String>,
+}
+
+/// Download stage enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DownloadStage {
+    BeforeCollect,
+    BeforePack,
+    AfterPack,
+}
+
+impl Default for DownloadStage {
+    fn default() -> Self {
+        Self::BeforeCollect
+    }
+}
+
+fn default_download_stage() -> DownloadStage {
+    DownloadStage::BeforeCollect
 }
 
 // Type aliases for convenience

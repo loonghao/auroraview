@@ -264,7 +264,15 @@ export function useAuroraView() {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<DependencyInstallResult>('api.install_dependencies', { sample_id: sampleId });
+    console.log(`[useAuroraView] Starting dependency installation for sample_id=${sampleId}`);
+    try {
+      const result = await client.call<DependencyInstallResult>('api.install_dependencies', { sample_id: sampleId });
+      console.log(`[useAuroraView] Dependency installation API call result:`, result);
+      return result;
+    } catch (error) {
+      console.error(`[useAuroraView] Dependency installation API call failed:`, error);
+      throw error;
+    }
   }, [client]);
 
   /**
@@ -274,7 +282,15 @@ export function useAuroraView() {
     if (!client) {
       throw new Error('AuroraView not ready');
     }
-    return client.call<ApiResult>('api.cancel_installation');
+    console.log(`[useAuroraView] Cancelling dependency installation`);
+    try {
+      const result = await client.call<ApiResult>('api.cancel_installation');
+      console.log(`[useAuroraView] Cancel installation API call result:`, result);
+      return result;
+    } catch (error) {
+      console.error(`[useAuroraView] Cancel installation API call failed:`, error);
+      throw error;
+    }
   }, [client]);
 
   /**

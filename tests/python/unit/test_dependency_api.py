@@ -52,7 +52,6 @@ class DummyInstaller:
         return {"success": True, "installed": missing}
 
 
-
 def test_install_dependencies_creates_emitter_on_main_thread(monkeypatch, tmp_path):
     main_thread = threading.get_ident()
     events = []

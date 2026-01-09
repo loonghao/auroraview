@@ -11,6 +11,7 @@ use crate::resource_editor::ResourceEditor;
 use crate::{Manifest, PackConfig, PackError, PackMode, PackResult, PythonBundleConfig};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::process::Command;
 
 /// Normalize a path by removing `.` and resolving `..` components
 fn normalize_path(path: &Path) -> PathBuf {
@@ -83,13 +84,182 @@ impl Packer {
         // Ensure output directory exists
         fs::create_dir_all(&self.config.output_dir)?;
 
-        match &self.config.mode {
+        // Run before_collect hooks (vx-aware)
+        self.run_hooks(crate::DownloadStage::BeforeCollect)?;
+
+        // Process downloads if vx is enabled
+        if let Some(ref vx_config) = self.config.vx {
+            if vx_config.enabled {
+                // Validate vx.ensure requirements before proceeding
+                self.validate_vx_ensure_requirements()?;
+
+                self.process_downloads_for_stage(vx_config, crate::DownloadStage::BeforeCollect)?;
+                self.process_downloads_for_stage(vx_config, crate::DownloadStage::BeforePack)?;
+            }
+        }
+
+        let result = match &self.config.mode {
             PackMode::Url { .. } | PackMode::Frontend { .. } => self.pack_simple(),
             PackMode::FullStack {
                 frontend_path,
                 python,
             } => self.pack_fullstack(frontend_path, python),
+        }?;
+
+        // After pack stage downloads and hooks
+        if let Some(ref vx_config) = self.config.vx {
+            if vx_config.enabled {
+                self.process_downloads_for_stage(vx_config, crate::DownloadStage::AfterPack)?;
+            }
         }
+
+        // Run after_pack hooks (vx-aware)
+        self.run_hooks(crate::DownloadStage::AfterPack)?;
+
+        Ok(result)
+    }
+
+    /// Process downloads for a specific stage
+    fn process_downloads_for_stage(
+        &self,
+        vx_config: &crate::VxConfig,
+        stage: crate::DownloadStage,
+    ) -> PackResult<()> {
+        use crate::Downloader;
+
+        let entries = self.build_download_entries();
+        if entries.is_empty() {
+            tracing::debug!("No downloads configured");
+            return Ok(());
+        }
+
+        let downloader = Downloader::new(&vx_config.cache_dir)
+            .allow_insecure(vx_config.allow_insecure)
+            .allowed_domains(vx_config.allowed_domains.clone())
+            .block_unknown_domains(vx_config.block_unknown_domains)
+            .require_checksum(vx_config.require_checksum);
+
+        for entry in entries.iter().filter(|d| d.stage == stage) {
+            self.process_download_entry(&downloader, entry)?;
+        }
+
+        Ok(())
+    }
+
+    /// Process a single download entry
+    fn process_download_entry(
+        &self,
+        downloader: &crate::Downloader,
+        entry: &crate::DownloadEntry,
+    ) -> PackResult<()> {
+        tracing::info!("Downloading: {} from {}", entry.name, entry.url);
+
+        // Download the file
+        let downloaded_path =
+            downloader.download(&entry.name, &entry.url, entry.checksum.as_deref())?;
+
+        // Extract if needed
+        if entry.extract {
+            let dest_path = self.config.output_dir.join(&entry.dest);
+            tracing::info!(
+                "Extracting {} to {} (strip: {})",
+                entry.name,
+                dest_path.display(),
+                entry.strip_components
+            );
+            downloader.extract(&downloaded_path, &dest_path, entry.strip_components)?;
+
+            // Mark files as executable if specified
+            #[cfg(unix)]
+            if !entry.executable.is_empty() {
+                use std::os::unix::fs::PermissionsExt;
+                for exe_file in &entry.executable {
+                    let exe_path = dest_path.join(exe_file);
+                    if exe_path.exists() {
+                        let mut perms = fs::metadata(&exe_path)?.permissions();
+                        perms.set_mode(0o755);
+                        fs::set_permissions(&exe_path, perms)?;
+                        tracing::info!("Set executable: {}", exe_path.display());
+                    }
+                }
+            }
+        } else {
+            // Copy to destination without extraction
+            let dest_path = self.config.output_dir.join(&entry.dest);
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(&downloaded_path, &dest_path)?;
+            tracing::info!("Copied to: {}", dest_path.display());
+        }
+
+        Ok(())
+    }
+
+    /// Run hook commands for a given stage
+    fn run_hooks(&self, stage: crate::DownloadStage) -> PackResult<()> {
+        let hooks = match &self.config.hooks {
+            Some(h) => h,
+            None => return Ok(()),
+        };
+
+        let mut commands: Vec<String> = match stage {
+            crate::DownloadStage::BeforeCollect => hooks.before_collect.clone(),
+            crate::DownloadStage::AfterPack => hooks.after_pack.clone(),
+            crate::DownloadStage::BeforePack => Vec::new(),
+        };
+
+        let vx_stage_cmds: Vec<String> = match stage {
+            crate::DownloadStage::BeforeCollect => hooks.vx.before_collect.clone(),
+            crate::DownloadStage::AfterPack => hooks.vx.after_pack.clone(),
+            crate::DownloadStage::BeforePack => Vec::new(),
+        };
+
+        let use_vx = hooks.use_vx || !vx_stage_cmds.is_empty();
+
+        if use_vx {
+            commands = commands.into_iter().map(|c| format!("vx {}", c)).collect();
+        }
+
+        for cmd in vx_stage_cmds {
+            commands.push(format!("vx {}", cmd));
+        }
+
+        if commands.is_empty() {
+            return Ok(());
+        }
+
+        tracing::info!(
+            "Running {} hook command(s) for stage {:?}",
+            commands.len(),
+            stage
+        );
+
+        for cmd in commands {
+            self.run_shell_command(&cmd)?;
+        }
+
+        Ok(())
+    }
+
+    /// Run a shell command with platform-specific shell
+    fn run_shell_command(&self, cmd: &str) -> PackResult<()> {
+        let status = if cfg!(windows) {
+            Command::new("cmd").args(["/C", cmd]).status()
+        } else {
+            Command::new("sh").args(["-c", cmd]).status()
+        }
+        .map_err(|e| PackError::Config(format!("Failed to run hook command '{}': {}", cmd, e)))?;
+
+        if !status.success() {
+            return Err(PackError::Config(format!(
+                "Hook command failed (exit code {:?}): {}",
+                status.code(),
+                cmd
+            )));
+        }
+
+        Ok(())
     }
 
     /// Pack URL or Frontend mode (simple overlay approach)
@@ -106,8 +276,12 @@ impl Packer {
         // Copy executable to output
         fs::copy(&current_exe, &output_path)?;
 
+        // Build download entries (includes synthetic vx runtime if configured)
+        let download_entries = self.build_download_entries();
+        let overlay_config = self.overlay_config_with_vx_env(&self.config, &download_entries);
+
         // Create overlay data
-        let mut overlay = OverlayData::new(self.config.clone());
+        let mut overlay = OverlayData::new(overlay_config);
 
         // Bundle assets if in frontend mode
         let asset_count = if let PackMode::Frontend { ref path } = self.config.mode {
@@ -123,7 +297,11 @@ impl Packer {
             0
         };
 
+        // Embed downloaded artifacts into overlay
+        self.embed_downloads_into_overlay(&mut overlay, &download_entries)?;
+
         // Apply Windows resource modifications BEFORE writing overlay
+
         // rcedit cannot handle executables with overlay data appended
         #[cfg(target_os = "windows")]
         self.apply_windows_resources(&output_path)?;
@@ -257,10 +435,15 @@ impl Packer {
         let current_exe = std::env::current_exe()?;
         fs::copy(&current_exe, &output_path)?;
 
+        // Build download entries (includes synthetic vx runtime if configured)
+        let download_entries = self.build_download_entries();
+        let overlay_config = self.overlay_config_with_vx_env(&self.config, &download_entries);
+
         // Create overlay data
-        let mut overlay = OverlayData::new(self.config.clone());
+        let mut overlay = OverlayData::new(overlay_config);
 
         // Add Python runtime metadata
+
         let meta_json = serde_json::to_vec(&python_meta)?;
         overlay.add_asset("python_runtime.json".to_string(), meta_json);
 
@@ -283,7 +466,11 @@ impl Packer {
             tracing::info!("Collected {} resource files from hooks", resource_count);
         }
 
+        // Embed downloaded artifacts into overlay
+        self.embed_downloads_into_overlay(&mut overlay, &download_entries)?;
+
         // Apply Windows resource modifications BEFORE writing overlay
+
         // rcedit cannot handle executables with overlay data appended
         #[cfg(target_os = "windows")]
         self.apply_windows_resources(&output_path)?;
@@ -470,10 +657,15 @@ impl Packer {
         let current_exe = std::env::current_exe()?;
         fs::copy(&current_exe, &output_path)?;
 
+        // Build download entries (includes synthetic vx runtime if configured)
+        let download_entries = self.build_download_entries();
+        let overlay_config = self.overlay_config_with_vx_env(&self.config, &download_entries);
+
         // Create overlay data
-        let mut overlay = OverlayData::new(self.config.clone());
+        let mut overlay = OverlayData::new(overlay_config);
 
         // Bundle frontend assets
+
         let frontend_bundle = BundleBuilder::new(frontend_path).build()?;
         let asset_count = frontend_bundle.len();
         for (path, content) in frontend_bundle.into_assets() {
@@ -482,6 +674,9 @@ impl Packer {
 
         // Bundle Python code
         let python_file_count = self.bundle_python_code(&mut overlay, python)?;
+
+        // Embed downloaded artifacts into overlay
+        self.embed_downloads_into_overlay(&mut overlay, &download_entries)?;
 
         // Write overlay to executable
         OverlayWriter::write(&output_path, &overlay)?;
@@ -1232,6 +1427,281 @@ elif spec and spec.origin:
     ///
     /// This processes the `hooks.collect` entries from the manifest,
     /// expanding glob patterns and adding matched files to the overlay.
+    fn embed_downloads_into_overlay(
+        &self,
+        overlay: &mut OverlayData,
+        entries: &[crate::DownloadEntry],
+    ) -> PackResult<()> {
+        for entry in entries {
+            let dest_root = self.config.output_dir.join(&entry.dest);
+            if dest_root.is_dir() {
+                for file in walkdir::WalkDir::new(&dest_root)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.file_type().is_file())
+                {
+                    let rel = file
+                        .path()
+                        .strip_prefix(&self.config.output_dir)
+                        .unwrap_or(file.path());
+                    let rel_str = rel.to_string_lossy().replace('\\', "/");
+                    let content = fs::read(file.path())?;
+                    overlay.add_asset(rel_str, content);
+                }
+            } else if dest_root.is_file() {
+                let rel = dest_root
+                    .strip_prefix(&self.config.output_dir)
+                    .unwrap_or(&dest_root)
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                let content = fs::read(&dest_root)?;
+                overlay.add_asset(rel, content);
+            } else {
+                tracing::warn!(
+                    "Download destination missing, skip embedding: {}",
+                    dest_root.display()
+                );
+            }
+        }
+        Ok(())
+    }
+
+    pub fn build_download_entries(&self) -> Vec<crate::DownloadEntry> {
+        let mut entries = self.config.downloads.clone();
+        if let Some(vx) = &self.config.vx {
+            if vx.enabled {
+                if let Some(url) = &vx.runtime_url {
+                    let runtime_entry = crate::DownloadEntry {
+                        name: "vx-runtime".to_string(),
+                        url: url.clone(),
+                        checksum: vx.runtime_checksum.clone(),
+                        strip_components: 1,
+                        extract: true,
+                        stage: crate::DownloadStage::BeforeCollect,
+                        dest: "python/bin/vx".to_string(),
+                        executable: vec!["vx".to_string(), "vx.exe".to_string()],
+                    };
+                    entries.push(runtime_entry);
+                }
+            }
+        }
+        entries
+    }
+
+    pub fn validate_vx_ensure_requirements(&self) -> PackResult<()> {
+        if let Some(vx) = &self.config.vx {
+            if vx.enabled && !vx.ensure.is_empty() {
+                tracing::info!("Validating vx.ensure requirements: {:?}", vx.ensure);
+
+                for tool_spec in &vx.ensure {
+                    self.validate_tool_requirement(tool_spec)?;
+                }
+
+                tracing::info!("All vx.ensure requirements validated successfully");
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_tool_requirement(&self, tool_spec: &str) -> PackResult<()> {
+        // Parse tool specification: "tool@version" or just "tool"
+        let (tool_name, version_req) = if let Some(pos) = tool_spec.find('@') {
+            (&tool_spec[..pos], Some(&tool_spec[pos + 1..]))
+        } else {
+            (tool_spec, None)
+        };
+
+        match tool_name {
+            "vx" => self.validate_vx_tool(version_req),
+            "uv" => self.validate_uv_tool(version_req),
+            "node" => self.validate_node_tool(version_req),
+            "go" => self.validate_go_tool(version_req),
+            "python" => self.validate_python_tool(version_req),
+            _ => {
+                tracing::warn!(
+                    "Unknown tool in vx.ensure: {}, skipping validation",
+                    tool_name
+                );
+                Ok(())
+            }
+        }
+    }
+
+    fn validate_vx_tool(&self, version_req: Option<&str>) -> PackResult<()> {
+        // Check if vx is available via PATH or packed runtime
+        let vx_cmd = if cfg!(target_os = "windows") {
+            "vx.exe"
+        } else {
+            "vx"
+        };
+
+        match std::process::Command::new(vx_cmd).arg("--version").output() {
+            Ok(output) if output.status.success() => {
+                let version_str = String::from_utf8_lossy(&output.stdout);
+                tracing::debug!("Found vx: {}", version_str.trim());
+
+                if let Some(required) = version_req {
+                    // Simple version check - could be enhanced with semver parsing
+                    if !version_str.contains(required) {
+                        tracing::warn!(
+                            "vx version mismatch: found {}, required {}",
+                            version_str.trim(),
+                            required
+                        );
+                    }
+                }
+                Ok(())
+            }
+            _ => {
+                if self
+                    .config
+                    .vx
+                    .as_ref()
+                    .map_or(false, |vx| vx.runtime_url.is_some())
+                {
+                    tracing::info!("vx not found in PATH, but vx runtime will be downloaded");
+                    Ok(())
+                } else {
+                    Err(PackError::VxEnsureFailed(format!(
+                        "vx tool required but not found. Install vx or configure vx.runtime_url"
+                    )))
+                }
+            }
+        }
+    }
+
+    fn validate_uv_tool(&self, version_req: Option<&str>) -> PackResult<()> {
+        match std::process::Command::new("uv").arg("--version").output() {
+            Ok(output) if output.status.success() => {
+                let version_str = String::from_utf8_lossy(&output.stdout);
+                tracing::debug!("Found uv: {}", version_str.trim());
+                
+                if let Some(required) = version_req {
+                    if !version_str.contains(required) {
+                        tracing::warn!("uv version mismatch: found {}, required {}", version_str.trim(), required);
+                    }
+                }
+                Ok(())
+            }
+            _ => Err(PackError::VxEnsureFailed(format!(
+                "uv tool required but not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
+            )))
+        }
+    }
+
+    fn validate_node_tool(&self, version_req: Option<&str>) -> PackResult<()> {
+        match std::process::Command::new("node").arg("--version").output() {
+            Ok(output) if output.status.success() => {
+                let version_str = String::from_utf8_lossy(&output.stdout);
+                tracing::debug!("Found node: {}", version_str.trim());
+
+                if let Some(required) = version_req {
+                    let version_num = version_str.trim().trim_start_matches('v');
+                    if !version_num.starts_with(required) {
+                        return Err(PackError::VxEnsureFailed(format!(
+                            "node version mismatch: found {}, required {}",
+                            version_num, required
+                        )));
+                    }
+                }
+                Ok(())
+            }
+            _ => Err(PackError::VxEnsureFailed(format!(
+                "node tool required but not found. Install from https://nodejs.org/"
+            ))),
+        }
+    }
+
+    fn validate_go_tool(&self, version_req: Option<&str>) -> PackResult<()> {
+        match std::process::Command::new("go").arg("version").output() {
+            Ok(output) if output.status.success() => {
+                let version_str = String::from_utf8_lossy(&output.stdout);
+                tracing::debug!("Found go: {}", version_str.trim());
+
+                if let Some(required) = version_req {
+                    if !version_str.contains(&format!("go{}", required)) {
+                        return Err(PackError::VxEnsureFailed(format!(
+                            "go version mismatch: found {}, required {}",
+                            version_str.trim(),
+                            required
+                        )));
+                    }
+                }
+                Ok(())
+            }
+            _ => Err(PackError::VxEnsureFailed(format!(
+                "go tool required but not found. Install from https://golang.org/dl/"
+            ))),
+        }
+    }
+
+    fn validate_python_tool(&self, version_req: Option<&str>) -> PackResult<()> {
+        match std::process::Command::new("python")
+            .arg("--version")
+            .output()
+        {
+            Ok(output) if output.status.success() => {
+                let version_str = String::from_utf8_lossy(&output.stdout);
+                tracing::debug!("Found python: {}", version_str.trim());
+
+                if let Some(required) = version_req {
+                    if !version_str.contains(required) {
+                        tracing::warn!(
+                            "python version mismatch: found {}, required {}",
+                            version_str.trim(),
+                            required
+                        );
+                    }
+                }
+                Ok(())
+            }
+            _ => Err(PackError::VxEnsureFailed(format!(
+                "python tool required but not found. Install from https://python.org/"
+            ))),
+        }
+    }
+
+    pub fn detect_vx_path(&self, entries: &[crate::DownloadEntry]) -> Option<String> {
+        for entry in entries {
+            let root = self.config.output_dir.join(&entry.dest);
+            if root.is_file() {
+                let fname = root.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if fname.eq_ignore_ascii_case("vx") || fname.eq_ignore_ascii_case("vx.exe") {
+                    return root
+                        .strip_prefix(&self.config.output_dir)
+                        .ok()
+                        .map(|p| p.to_string_lossy().replace('\\', "/"));
+                }
+            }
+            if root.is_dir() {
+                for candidate in ["vx.exe", "vx"] {
+                    let cand_path = root.join(candidate);
+                    if cand_path.exists() {
+                        return cand_path
+                            .strip_prefix(&self.config.output_dir)
+                            .ok()
+                            .map(|p| p.to_string_lossy().replace('\\', "/"));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn overlay_config_with_vx_env(
+        &self,
+        base_config: &PackConfig,
+        entries: &[crate::DownloadEntry],
+    ) -> PackConfig {
+        let mut config = base_config.clone();
+        if config.env.get("AURORAVIEW_VX_PATH").is_none() {
+            if let Some(path) = self.detect_vx_path(entries) {
+                config.env.insert("AURORAVIEW_VX_PATH".to_string(), path);
+            }
+        }
+        config
+    }
+
     fn collect_hook_resources(&self, overlay: &mut OverlayData) -> PackResult<usize> {
         let hooks = match &self.config.hooks {
             Some(h) => h,
@@ -1541,6 +2011,8 @@ impl PackConfig {
             hooks,
             remote_debugging_port: manifest.debug.remote_debugging_port,
             windows_resource,
+            vx: manifest.vx.clone(),
+            downloads: manifest.downloads.clone(),
         })
     }
 }

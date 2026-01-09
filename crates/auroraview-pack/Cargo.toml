@@ -41,6 +41,19 @@ flate2 = "1.0"
 # Archive format
 tar = "0.4"
 
+# Zip archive
+zip = { version = "4", default-features = false, features = ["deflate"] }
+
+
+# HTTP client for downloads
+ureq = "2.10"
+
+# URL parsing
+url = "2.5"
+
+# SHA hashing for checksums
+sha2 = "0.10"
+
 # System directories
 dirs = "6.0"
 

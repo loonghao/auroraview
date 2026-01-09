@@ -68,4 +68,8 @@ pub enum PackError {
     /// Resource editing error (icon, subsystem, etc.)
     #[error("Resource edit error: {0}")]
     ResourceEdit(String),
+
+    /// vx.ensure validation failed
+    #[error("vx.ensure validation failed: {0}")]
+    VxEnsureFailed(String),
 }

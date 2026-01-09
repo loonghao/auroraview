@@ -684,6 +684,26 @@ pub struct HooksConfig {
     /// Commands to run after packing
     #[serde(default)]
     pub after_pack: Vec<String>,
+
+    /// Whether to run hooks via vx automatically
+    #[serde(default)]
+    pub use_vx: bool,
+
+    /// Vx-specific hook commands
+    #[serde(default)]
+    pub vx: VxHooksConfig,
+}
+
+/// Vx-specific hook configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct VxHooksConfig {
+    /// Commands to run before collecting files using vx
+    #[serde(default)]
+    pub before_collect: Vec<String>,
+
+    /// Commands to run after packing using vx
+    #[serde(default)]
+    pub after_pack: Vec<String>,
 }
 
 /// Pattern for collecting additional files

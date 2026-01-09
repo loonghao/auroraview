@@ -397,11 +397,16 @@ function App() {
 
   // Handle dependency installation
   const handleInstallDependencies = useCallback(async (sampleId: string) => {
-    if (!isReady) return;
+    if (!isReady) {
+      console.warn(`[App] Cannot install dependencies: AuroraView not ready`);
+      return;
+    }
+    console.log(`[App] Starting dependency installation for sample_id=${sampleId}`);
     try {
-      await installDependencies(sampleId);
+      const result = await installDependencies(sampleId);
+      console.log(`[App] Dependency installation completed:`, result);
     } catch (err) {
-      console.error('Failed to install dependencies:', err);
+      console.error(`[App] Failed to install dependencies for ${sampleId}:`, err);
     }
   }, [isReady, installDependencies]);
 
