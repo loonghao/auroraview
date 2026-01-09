@@ -180,7 +180,8 @@ def _is_offline_mode() -> bool:
 
 def _get_cache_dir() -> Optional[Path]:
     """Get cache directory for vx/uv operations."""
-    if cache_dir := os.environ.get("AURORAVIEW_CACHE_DIR"):
+    cache_dir = os.environ.get("AURORAVIEW_CACHE_DIR")
+    if cache_dir:
         return Path(cache_dir)
     
     # In packed mode, use a cache relative to executable
@@ -274,7 +275,8 @@ def install_requirements(
                             "line": f"[{start_time}] Running in offline mode",
                         })
                     
-                if cache_dir := _get_cache_dir():
+                cache_dir = _get_cache_dir()
+                if cache_dir:
                     cmd.extend(["--cache-dir", str(cache_dir)])
                     if on_progress:
                         on_progress({
@@ -287,7 +289,8 @@ def install_requirements(
                 cmd = [python_exe, "-m", "pip", "install", req, "--verbose"]
                 
                 # Add cache options for pip if available
-                if cache_dir := _get_cache_dir():
+                cache_dir = _get_cache_dir()
+                if cache_dir:
                     cmd.extend(["--cache-dir", str(cache_dir)])
 
             # Log the command being executed
