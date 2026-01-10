@@ -11,8 +11,11 @@ on:
 permissions:
   contents: read
 
+# Cancel in-progress runs for the same workflow/ref combination
+# Use workflow file name instead of github.workflow to avoid conflicts when called from other workflows
+# When called via workflow_call, github.workflow becomes the parent workflow name
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 env:

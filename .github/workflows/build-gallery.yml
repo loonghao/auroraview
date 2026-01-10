@@ -9,8 +9,10 @@ on:
   workflow_call:
 
 # Cancel in-progress runs for the same workflow/ref combination
+# Use workflow file name instead of github.workflow to avoid conflicts when called from release.yml
+# When called via workflow_call, github.workflow becomes the parent workflow name (e.g., "Release")
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: build-gallery-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
