@@ -41,8 +41,10 @@ on:
 permissions:
   contents: read
 
+# Cancel in-progress runs for the same workflow/ref combination
+# Use workflow file name instead of github.workflow to avoid conflicts when called from other workflows
 concurrency:
-  group: rust-crates-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: rust-crates-ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:

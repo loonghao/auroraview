@@ -32,8 +32,9 @@ permissions:
 
 # Only apply concurrency when triggered directly (not via workflow_call)
 # When called via workflow_call, the parent workflow manages concurrency
+# Use workflow file name instead of github.workflow to avoid conflicts
 concurrency:
-  group: sdk-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: sdk-ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
