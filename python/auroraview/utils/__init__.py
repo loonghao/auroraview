@@ -51,7 +51,11 @@ from .file_protocol import (
 from .logging import configure_logging, get_logger, is_verbose_enabled
 from .thread_dispatcher import (
     DCCThreadSafeWrapper,
+    DeadlockDetectedError,
+    ShutdownInProgressError,
     ThreadDispatcherBackend,
+    ThreadDispatchTimeoutError,
+    ThreadSafetyError,
     dcc_thread_safe,
     dcc_thread_safe_async,
     defer_to_main_thread,
@@ -64,6 +68,7 @@ from .thread_dispatcher import (
     register_dispatcher_backend,
     run_on_main_thread,
     run_on_main_thread_sync,
+    run_on_main_thread_sync_with_timeout,
     unregister_dispatcher_backend,
     wrap_callback_for_dcc,
 )
@@ -109,6 +114,7 @@ __all__ = [
     "list_dispatcher_backends",
     "run_on_main_thread",
     "run_on_main_thread_sync",
+    "run_on_main_thread_sync_with_timeout",
     "is_main_thread",
     "ensure_main_thread",
     "defer_to_main_thread",
@@ -120,6 +126,11 @@ __all__ = [
     "dcc_thread_safe_async",
     "DCCThreadSafeWrapper",
     "wrap_callback_for_dcc",
+    # Thread Safety Exceptions
+    "ThreadSafetyError",
+    "ThreadDispatchTimeoutError",
+    "DeadlockDetectedError",
+    "ShutdownInProgressError",
     # Submodules
     "automation",
     "event_timer",

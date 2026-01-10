@@ -485,6 +485,106 @@ def update_viewport():
 update_viewport()
 ```
 
+## Timeout Protection
+
+### Using `run_on_main_thread_sync_with_timeout`
+
+For operations that might hang or take too long, use the timeout-protected version:
+
+```python
+from auroraview.utils import (
+    run_on_main_thread_sync_with_timeout,
+    ThreadDispatchTimeoutError
+)
+
+def slow_operation():
+    import maya.cmds as cmds
+    return cmds.ls(dag=True)  # Might be slow for large scenes
+
+try:
+    # Will raise ThreadDispatchTimeoutError if it takes > 10 seconds
+    result = run_on_main_thread_sync_with_timeout(
+        slow_operation,
+        timeout=10.0
+    )
+except ThreadDispatchTimeoutError as e:
+    print(f"Operation timed out: {e}")
+    # Handle timeout gracefully
+```
+
+### Thread Safety Exceptions
+
+AuroraView provides specialized exceptions for thread safety issues:
+
+```python
+from auroraview.utils import (
+    ThreadSafetyError,          # Base class for all thread safety errors
+    ThreadDispatchTimeoutError, # Main thread dispatch timed out
+    DeadlockDetectedError,      # Potential deadlock detected
+    ShutdownInProgressError,    # Operation during shutdown
+)
+
+try:
+    result = run_on_main_thread_sync_with_timeout(operation, timeout=5.0)
+except ThreadDispatchTimeoutError:
+    # Handle timeout - might indicate deadlock or slow operation
+    pass
+except ThreadSafetyError as e:
+    # Catch any thread safety related error
+    logger.error(f"Thread safety error: {e}")
+```
+
+## Deadlock Prevention
+
+### Common Deadlock Patterns
+
+#### Pattern 1: Cross-Thread Synchronous Calls
+
+```python
+# BAD: This can deadlock!
+@webview.on("get_data")
+def handle_get_data(data):
+    # WebView thread waiting for main thread
+    result = run_on_main_thread_sync(get_scene_data)
+    # Meanwhile, main thread might be waiting for WebView...
+    return result
+
+# GOOD: Use timeout protection
+@webview.on("get_data")
+def handle_get_data(data):
+    try:
+        result = run_on_main_thread_sync_with_timeout(
+            get_scene_data,
+            timeout=5.0
+        )
+        return result
+    except ThreadDispatchTimeoutError:
+        return {"error": "timeout"}
+```
+
+#### Pattern 2: Nested Callbacks
+
+```python
+# BAD: Callback under lock can deadlock
+def process_data():
+    with data_lock:
+        user_callback()  # If callback needs data_lock -> DEADLOCK
+
+# GOOD: Release lock before callback
+def process_data():
+    with data_lock:
+        result = compute_result()
+    user_callback(result)  # Called outside lock
+```
+
+### Best Practices for Deadlock Prevention
+
+1. **Always use timeouts** for synchronous cross-thread calls
+2. **Avoid nested locks** - acquire locks in a consistent order
+3. **Don't call user code under locks** - release locks first
+4. **Use fire-and-forget** (`run_on_main_thread`) when possible
+5. **Check thread before dispatching** to avoid unnecessary cross-thread calls
+
 ### See Also
 
 - [RFC 0002: DCC Thread Safety](/rfcs/0002-dcc-thread-safety) - Detailed design document

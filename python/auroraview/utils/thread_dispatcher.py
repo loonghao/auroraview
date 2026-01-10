@@ -109,6 +109,49 @@ T = TypeVar("T")
 ENV_DISPATCHER_BACKEND = "AURORAVIEW_DISPATCHER"
 
 
+# =============================================================================
+# Thread Safety Exceptions
+# =============================================================================
+
+
+class ThreadSafetyError(Exception):
+    """Base exception for thread safety errors."""
+
+    pass
+
+
+class ThreadDispatchTimeoutError(ThreadSafetyError):
+    """Raised when main thread dispatch times out.
+
+    This typically indicates a potential deadlock or an operation that
+    is taking too long to complete on the main thread.
+    """
+
+    pass
+
+
+class DeadlockDetectedError(ThreadSafetyError):
+    """Raised when a potential deadlock is detected.
+
+    This can occur when:
+    - Lock order violations are detected
+    - Circular wait conditions are identified
+    - Cross-thread synchronous calls create a deadlock
+    """
+
+    pass
+
+
+class ShutdownInProgressError(ThreadSafetyError):
+    """Raised when an operation is attempted during shutdown.
+
+    This occurs when trying to dispatch work to a thread or queue
+    that is in the process of shutting down.
+    """
+
+    pass
+
+
 class ThreadDispatcherBackend(ABC):
     """Abstract base class for thread dispatcher backends.
 
@@ -1086,6 +1129,70 @@ def run_on_main_thread_sync(func: Callable[..., T], *args: Any, **kwargs: Any) -
     """
     backend = get_dispatcher_backend()
     return backend.run_sync(func, *args, **kwargs)
+
+
+def run_on_main_thread_sync_with_timeout(
+    func: Callable[..., T],
+    *args: Any,
+    timeout: float = 30.0,
+    **kwargs: Any,
+) -> T:
+    """Execute a function on the main thread with timeout protection.
+
+    This is similar to run_on_main_thread_sync but adds timeout protection
+    to prevent indefinite blocking in case of deadlocks or hung operations.
+
+    Args:
+        func: Function to execute on the main thread
+        *args: Positional arguments to pass to the function
+        timeout: Maximum wait time in seconds (default: 30.0)
+        **kwargs: Keyword arguments to pass to the function
+
+    Returns:
+        The return value of the function
+
+    Raises:
+        ThreadDispatchTimeoutError: If execution doesn't complete within timeout
+        Exception: Re-raises any exception that occurred in the function
+
+    Example:
+        >>> def slow_operation():
+        ...     import maya.cmds as cmds
+        ...     return cmds.ls(selection=True)
+        >>>
+        >>> try:
+        ...     result = run_on_main_thread_sync_with_timeout(
+        ...         slow_operation, timeout=5.0
+        ...     )
+        ... except ThreadDispatchTimeoutError:
+        ...     print("Operation timed out!")
+    """
+    if is_main_thread():
+        return func(*args, **kwargs)
+
+    result_holder: list = [None]
+    error_holder: list = [None]
+    event = threading.Event()
+
+    def wrapper():
+        try:
+            result_holder[0] = func(*args, **kwargs)
+        except Exception as e:
+            error_holder[0] = e
+        finally:
+            event.set()
+
+    run_on_main_thread(wrapper)
+
+    if not event.wait(timeout=timeout):
+        raise ThreadDispatchTimeoutError(
+            f"Main thread execution timed out after {timeout}s. Function: {func.__name__}"
+        )
+
+    if error_holder[0]:
+        raise error_holder[0]
+
+    return result_holder[0]
 
 
 def is_main_thread() -> bool:

@@ -485,6 +485,106 @@ def update_viewport():
 update_viewport()
 ```
 
+## 超时保护
+
+### 使用 `run_on_main_thread_sync_with_timeout`
+
+对于可能挂起或耗时过长的操作，使用带超时保护的版本：
+
+```python
+from auroraview.utils import (
+    run_on_main_thread_sync_with_timeout,
+    ThreadDispatchTimeoutError
+)
+
+def slow_operation():
+    import maya.cmds as cmds
+    return cmds.ls(dag=True)  # 大型场景可能很慢
+
+try:
+    # 如果超过 10 秒将抛出 ThreadDispatchTimeoutError
+    result = run_on_main_thread_sync_with_timeout(
+        slow_operation,
+        timeout=10.0
+    )
+except ThreadDispatchTimeoutError as e:
+    print(f"操作超时: {e}")
+    # 优雅地处理超时
+```
+
+### 线程安全异常
+
+AuroraView 为线程安全问题提供了专门的异常类：
+
+```python
+from auroraview.utils import (
+    ThreadSafetyError,          # 所有线程安全错误的基类
+    ThreadDispatchTimeoutError, # 主线程调度超时
+    DeadlockDetectedError,      # 检测到潜在死锁
+    ShutdownInProgressError,    # 关闭期间的操作
+)
+
+try:
+    result = run_on_main_thread_sync_with_timeout(operation, timeout=5.0)
+except ThreadDispatchTimeoutError:
+    # 处理超时 - 可能表示死锁或操作过慢
+    pass
+except ThreadSafetyError as e:
+    # 捕获任何线程安全相关错误
+    logger.error(f"线程安全错误: {e}")
+```
+
+## 死锁预防
+
+### 常见死锁模式
+
+#### 模式 1：跨线程同步调用
+
+```python
+# 错误：这可能导致死锁！
+@webview.on("get_data")
+def handle_get_data(data):
+    # WebView 线程等待主线程
+    result = run_on_main_thread_sync(get_scene_data)
+    # 同时，主线程可能在等待 WebView...
+    return result
+
+# 正确：使用超时保护
+@webview.on("get_data")
+def handle_get_data(data):
+    try:
+        result = run_on_main_thread_sync_with_timeout(
+            get_scene_data,
+            timeout=5.0
+        )
+        return result
+    except ThreadDispatchTimeoutError:
+        return {"error": "timeout"}
+```
+
+#### 模式 2：嵌套回调
+
+```python
+# 错误：在锁内调用回调可能导致死锁
+def process_data():
+    with data_lock:
+        user_callback()  # 如果回调需要 data_lock -> 死锁
+
+# 正确：在回调前释放锁
+def process_data():
+    with data_lock:
+        result = compute_result()
+    user_callback(result)  # 在锁外调用
+```
+
+### 死锁预防最佳实践
+
+1. **始终使用超时** - 对同步跨线程调用使用超时保护
+2. **避免嵌套锁** - 按一致的顺序获取锁
+3. **不要在锁内调用用户代码** - 先释放锁
+4. **尽可能使用即发即忘** - 使用 `run_on_main_thread`
+5. **调度前检查线程** - 避免不必要的跨线程调用
+
 ### 另请参阅
 
 - [RFC 0002: DCC 线程安全](/rfcs/0002-dcc-thread-safety) - 详细设计文档
