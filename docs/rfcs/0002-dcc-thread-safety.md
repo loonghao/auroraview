@@ -1,14 +1,20 @@
 # RFC 0002: DCC Thread Safety
 
-> **Status**: Implementing (Phase 1 Complete)
+> **Status**: Implementing (Phase 2 In Progress)
 > **Author**: AuroraView Team
 > **Created**: 2025-01-07
-> **Updated**: 2025-01-07
+> **Updated**: 2025-01-10
 > **Target Version**: v0.5.0
 
 ## Summary
 
 This RFC proposes a comprehensive thread safety solution for AuroraView when integrated with DCC (Digital Content Creation) applications like Maya, Houdini, Blender, Nuke, 3ds Max, and Unreal Engine. The solution addresses the fundamental challenge that both WebView2 and DCC applications have strict threading requirements that must be respected.
+
+**Key Additions in v2:**
+- Deadlock prevention strategies and lock ordering specification
+- Timeout protection mechanisms for all synchronous operations
+- Debug-mode lock order verification
+- Enhanced error handling for thread-related failures
 
 ## Motivation
 
@@ -404,11 +410,19 @@ def handle_export(data):
 - [x] Add `dcc_mode` parameter to WebView
 - [x] Implement `thread_safe()` method
 - [x] Auto-wrap callbacks when dcc_mode=True
-- [ ] Update documentation
+- [x] Update documentation
 
-### Phase 3: Testing & Documentation (Week 2)
+### Phase 3: Deadlock Prevention (Week 2)
+- [x] Document lock ordering specification
+- [x] Add timeout protection to synchronous operations
+- [ ] Implement debug-mode lock order verification
+- [ ] Add graceful shutdown coordination
+
+### Phase 4: Testing & Documentation (Week 2-3)
 - [ ] Unit tests for all new functionality
 - [ ] Integration tests with Maya/Blender/Houdini
+- [ ] Deadlock detection tests
+- [ ] Timeout behavior tests
 - [ ] Update DCC integration guides
 - [ ] Add examples
 
@@ -419,15 +433,399 @@ def handle_export(data):
 - `dcc_mode=False` by default maintains current behavior
 - Thread dispatcher remains available for manual control
 
+## Deadlock Prevention
+
+### Lock Ordering Specification
+
+To prevent deadlocks, all code must acquire locks in a consistent order. The following hierarchy defines the canonical lock acquisition order (lower numbers must be acquired first):
+
+| Level | Lock Type | Examples | Notes |
+|-------|-----------|----------|-------|
+| 1 | Global/Static | `CLICK_THROUGH_DATA` | Rarely needed, acquire first |
+| 2 | Registry/Collection | `ProcessRegistry`, `ChannelRegistry` | Outer container locks |
+| 3 | Individual Resource | `ManagedProcess`, `IpcChannelHandle` | Inner resource locks |
+| 4 | State | `BridgeState`, `ExtensionsState` | Component state |
+| 5 | Callback | `event_callback` | Always acquire last |
+
+**Example - Correct Lock Order:**
+
+```rust
+// Good: Acquire registry lock first, then individual resource lock
+fn kill_process(&self, pid: u32) -> Result<()> {
+    // Level 2: Registry lock
+    let processes = self.processes.read().unwrap();
+    
+    if let Some(proc) = processes.get(&pid) {
+        // Level 3: Individual resource lock
+        let mut managed = proc.lock().unwrap();
+        managed.child.kill()?;
+    }
+    Ok(())
+}
+```
+
+**Example - Incorrect Lock Order (Deadlock Risk):**
+
+```rust
+// Bad: Holding inner lock while trying to acquire outer lock
+fn bad_example(&self, pid: u32) {
+    let proc = some_process.lock().unwrap();  // Level 3 first - WRONG!
+    let processes = self.processes.write().unwrap();  // Level 2 - DEADLOCK RISK!
+}
+```
+
+### Nested Lock Guidelines
+
+1. **Minimize Lock Scope**: Release locks as soon as possible
+2. **Avoid Callbacks Under Lock**: Never call user callbacks while holding locks
+3. **Clone Before Lock**: Clone data if needed outside lock scope
+4. **Use Try-Lock for Optional Operations**: Use `try_lock()` when operation can be skipped
+
+```rust
+// Good: Release lock before callback
+fn emit_event(&self, event: &str, data: Value) {
+    // Clone callback outside of lock scope
+    let callback = {
+        let guard = self.event_callback.read().unwrap();
+        guard.clone()
+    };
+    
+    // Call callback without holding lock
+    if let Some(cb) = callback {
+        cb(event, data);
+    }
+}
+```
+
+### Critical Deadlock Patterns to Avoid
+
+#### Pattern 1: Lock Inversion
+
+```rust
+// Thread A                          // Thread B
+lock(A);                             lock(B);
+lock(B);  // waits for B             lock(A);  // waits for A -> DEADLOCK
+```
+
+**Solution**: Always acquire locks in the same order.
+
+#### Pattern 2: Callback Under Lock
+
+```rust
+// Bad: User callback might try to acquire same lock
+let guard = self.state.write().unwrap();
+user_callback();  // If callback calls our API -> DEADLOCK
+```
+
+**Solution**: Release lock before calling user code.
+
+#### Pattern 3: Cross-Thread Synchronous Call
+
+```rust
+// Main thread                       // WebView thread
+run_on_main_thread_sync(|| {         process_messages(|| {
+    webview.eval_js_sync(...);       //   run_on_main_thread_sync(...)
+});                                  // });
+// Both threads waiting for each other -> DEADLOCK
+```
+
+**Solution**: Use async patterns or timeouts.
+
+### Debug-Mode Lock Order Verification
+
+In debug builds, enable lock order verification:
+
+```rust
+#[cfg(debug_assertions)]
+mod lock_order {
+    use std::cell::RefCell;
+    use std::collections::HashSet;
+    
+    thread_local! {
+        static HELD_LOCKS: RefCell<Vec<LockLevel>> = RefCell::new(Vec::new());
+    }
+    
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub enum LockLevel {
+        Global = 1,
+        Registry = 2,
+        Resource = 3,
+        State = 4,
+        Callback = 5,
+    }
+    
+    pub fn acquire(level: LockLevel) {
+        HELD_LOCKS.with(|locks| {
+            let locks = locks.borrow();
+            if let Some(&last) = locks.last() {
+                assert!(
+                    level > last,
+                    "Lock order violation: attempting to acquire {:?} while holding {:?}",
+                    level, last
+                );
+            }
+        });
+        HELD_LOCKS.with(|locks| locks.borrow_mut().push(level));
+    }
+    
+    pub fn release(level: LockLevel) {
+        HELD_LOCKS.with(|locks| {
+            let mut locks = locks.borrow_mut();
+            assert_eq!(locks.pop(), Some(level), "Lock release mismatch");
+        });
+    }
+}
+```
+
+## Timeout Protection
+
+### Synchronous Operations
+
+All synchronous cross-thread operations must have timeout protection:
+
+```python
+class DCCThreadSafeWrapper:
+    def eval_js_sync(
+        self,
+        script: str,
+        timeout_ms: int = 5000,
+    ) -> Any:
+        """Execute JavaScript and wait for result with timeout protection."""
+        result_holder: list = [None]
+        error_holder: list = [None]
+        event = threading.Event()
+
+        def callback(res: Any, err: Optional[str]) -> None:
+            result_holder[0] = res
+            error_holder[0] = err
+            event.set()
+
+        self._proxy.eval_js_async(script, callback, timeout_ms)
+
+        # Wait with timeout
+        timeout_sec = timeout_ms / 1000.0 + 1.0
+        if not event.wait(timeout=timeout_sec):
+            raise TimeoutError(
+                f"JavaScript execution timed out after {timeout_ms}ms. "
+                f"Script: {script[:100]}..."
+            )
+
+        if error_holder[0]:
+            raise RuntimeError(f"JavaScript error: {error_holder[0]}")
+
+        return result_holder[0]
+```
+
+### Main Thread Dispatch Timeout
+
+```python
+def run_on_main_thread_sync(
+    func: Callable[..., T],
+    *args: Any,
+    timeout: float = 30.0,
+    **kwargs: Any,
+) -> T:
+    """Execute function on main thread with timeout protection.
+    
+    Args:
+        func: Function to execute
+        *args: Positional arguments
+        timeout: Maximum wait time in seconds (default: 30.0)
+        **kwargs: Keyword arguments
+        
+    Returns:
+        Function return value
+        
+    Raises:
+        TimeoutError: If execution doesn't complete within timeout
+        RuntimeError: If execution fails
+    """
+    if is_main_thread():
+        return func(*args, **kwargs)
+    
+    result_holder: list = [None]
+    error_holder: list = [None]
+    event = threading.Event()
+    
+    def wrapper():
+        try:
+            result_holder[0] = func(*args, **kwargs)
+        except Exception as e:
+            error_holder[0] = e
+        finally:
+            event.set()
+    
+    run_on_main_thread(wrapper)
+    
+    if not event.wait(timeout=timeout):
+        raise TimeoutError(
+            f"Main thread execution timed out after {timeout}s. "
+            f"Function: {func.__name__}"
+        )
+    
+    if error_holder[0]:
+        raise error_holder[0]
+    
+    return result_holder[0]
+```
+
+### Rust-Side Timeout Configuration
+
+```rust
+/// Configuration for thread-safe operations
+#[derive(Debug, Clone)]
+pub struct ThreadSafetyConfig {
+    /// Default timeout for synchronous JavaScript execution (ms)
+    pub js_eval_timeout_ms: u64,
+    
+    /// Default timeout for main thread dispatch (ms)
+    pub main_thread_timeout_ms: u64,
+    
+    /// Maximum retry attempts for failed operations
+    pub max_retries: u32,
+    
+    /// Delay between retry attempts (ms)
+    pub retry_delay_ms: u64,
+    
+    /// Enable lock order verification in debug builds
+    pub debug_lock_order: bool,
+}
+
+impl Default for ThreadSafetyConfig {
+    fn default() -> Self {
+        Self {
+            js_eval_timeout_ms: 5000,
+            main_thread_timeout_ms: 30000,
+            max_retries: 3,
+            retry_delay_ms: 100,
+            debug_lock_order: cfg!(debug_assertions),
+        }
+    }
+}
+```
+
+## Graceful Shutdown
+
+### Shutdown Coordination (powered by ipckit)
+
+The `ShutdownState` from ipckit provides coordinated shutdown across all threads:
+
+```rust
+use ipckit::graceful::ShutdownState;
+
+pub struct MessageQueue {
+    // ... other fields ...
+    shutdown_state: Arc<ShutdownState>,
+}
+
+impl MessageQueue {
+    /// Signal shutdown - no more messages will be accepted
+    pub fn shutdown(&self) {
+        self.shutdown_state.shutdown();
+        tracing::info!("[MessageQueue] Shutdown signaled");
+    }
+    
+    /// Wait for all in-flight operations to complete
+    pub fn wait_for_drain(&self, timeout: Option<Duration>) -> Result<(), DrainError> {
+        self.shutdown_state.wait_for_drain(timeout)
+    }
+    
+    /// Push message with shutdown check
+    pub fn push(&self, message: WebViewMessage) {
+        // Check shutdown flag first
+        if self.shutdown_state.is_shutdown() {
+            tracing::debug!("[MessageQueue] Dropping message - shutdown in progress");
+            return;
+        }
+        
+        // Use operation guard to track in-flight operations
+        let _guard = self.shutdown_state.begin_operation();
+        
+        // ... send message ...
+    }
+}
+```
+
+### Python-Side Shutdown Handling
+
+```python
+class WebView:
+    def close(self) -> None:
+        """Close the WebView with graceful shutdown."""
+        # Signal shutdown to prevent new operations
+        self._shutting_down = True
+        
+        # Wait for pending operations with timeout
+        try:
+            self._drain_pending_operations(timeout=5.0)
+        except TimeoutError:
+            logger.warning("Timeout waiting for pending operations during shutdown")
+        
+        # Close the underlying WebView
+        self._proxy.close()
+    
+    def _drain_pending_operations(self, timeout: float) -> None:
+        """Wait for pending operations to complete."""
+        start = time.time()
+        while self._pending_operations > 0:
+            if time.time() - start > timeout:
+                raise TimeoutError(f"Drain timeout: {self._pending_operations} operations pending")
+            time.sleep(0.01)
+```
+
+## Error Handling
+
+### Thread-Related Error Types
+
+```python
+class ThreadSafetyError(Exception):
+    """Base exception for thread safety errors."""
+    pass
+
+class DeadlockDetectedError(ThreadSafetyError):
+    """Raised when a potential deadlock is detected."""
+    pass
+
+class ThreadDispatchTimeoutError(ThreadSafetyError):
+    """Raised when main thread dispatch times out."""
+    pass
+
+class ShutdownInProgressError(ThreadSafetyError):
+    """Raised when operation is attempted during shutdown."""
+    pass
+```
+
+### Error Recovery Strategies
+
+```python
+@dcc_thread_safe
+def safe_dcc_operation(data: dict) -> dict:
+    """Example of robust error handling in DCC operations."""
+    try:
+        result = perform_dcc_operation(data)
+        return {"success": True, "result": result}
+    except TimeoutError as e:
+        logger.error(f"Operation timed out: {e}")
+        return {"success": False, "error": "timeout", "message": str(e)}
+    except ThreadSafetyError as e:
+        logger.error(f"Thread safety error: {e}")
+        return {"success": False, "error": "thread_safety", "message": str(e)}
+    except Exception as e:
+        logger.exception(f"Unexpected error in DCC operation")
+        return {"success": False, "error": "unknown", "message": str(e)}
+```
+
 ## References
 
 - [Thread Dispatcher Documentation](../guide/thread-dispatcher.md)
 - WebView Proxy Implementation: `src/webview/proxy.rs`
 - Message Queue Implementation: `src/ipc/message_queue.rs`
 - COM Initialization: `crates/auroraview-core/src/builder/com_init.rs`
+- ipckit ShutdownState: External crate for graceful shutdown coordination
 
 ## Changelog
 
 | Date | Version | Changes |
 |------|---------|---------|
 | 2025-01-07 | Draft | Initial RFC |
+| 2025-01-10 | v2 | Added deadlock prevention, lock ordering, timeout protection |

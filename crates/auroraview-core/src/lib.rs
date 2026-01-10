@@ -15,6 +15,7 @@
 //! - **Backend abstraction layer** (unified WebView interface)
 //! - **Builder extensions** (shared WebView building logic)
 //! - **Plugin system** (native desktop capabilities)
+//! - **Thread safety utilities** (lock ordering, deadlock prevention)
 //!
 //! Used by:
 //! - `auroraview-cli` (Command-line interface)
@@ -38,6 +39,7 @@ pub mod protocol;
 pub mod service_discovery; // Service discovery (port allocation, service info)
 pub mod signals; // Qt-inspired signal-slot event system
 pub mod templates; // JavaScript templates (Askama)
+pub mod thread_safety; // Thread safety utilities (lock ordering, deadlock prevention)
 pub mod utils;
 pub mod window; // Window information structures
 
