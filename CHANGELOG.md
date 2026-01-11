@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 * **backend:** implement WebViewBackend trait abstraction ([bced235](https://github.com/loonghao/auroraview/commit/bced2359771525d0063c058736dd9dea22f73a80))
+* **thread-safety:** add deadlock prevention and timeout protection ([bee00ae](https://github.com/loonghao/auroraview/commit/bee00ae561d0cc2aef4fa98705a728bdde065877))
 
 
 ### Bug Fixes
