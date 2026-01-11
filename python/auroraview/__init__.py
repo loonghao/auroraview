@@ -4,64 +4,51 @@
 This package provides a modern web-based UI solution for professional DCC applications
 like Maya, 3ds Max, Houdini, Blender, Nuke, and Unreal Engine.
 
-## Quick Start
+## Quick Start (Recommended)
 
-Choose the right API for your use case:
+Use ``create_webview()`` - it automatically selects the right implementation::
+
+    from auroraview import create_webview
+
+    # 1. Standalone window (no parent)
+    webview = create_webview(url="http://localhost:3000")
+    webview.show()
+
+    # 2. Qt integration (pass QWidget parent)
+    webview = create_webview(parent=maya_main_window(), url="http://localhost:3000")
+    webview.show()
+
+    # 3. HWND integration (pass int HWND)
+    webview = create_webview(parent=unreal_hwnd, url="http://localhost:3000")
+    webview.show()
+
+## API Reference
 
 | Use Case | API | Description |
 |----------|-----|-------------|
+| **Any** (recommended) | ``create_webview()`` | Auto-selects based on parent type |
 | Maya/Houdini/Nuke | ``QtWebView`` | Qt widget with docking support |
 | Unreal Engine | ``AuroraView`` | HWND-based for non-Qt apps |
-| Desktop App | ``run_desktop()`` | One-liner for standalone apps |
-| Advanced | ``auroraview.core.WebView`` | Low-level API (not recommended) |
+| Desktop App | ``run_app()`` | Convenience for standalone apps |
+| Advanced | ``auroraview.core.WebView`` | Low-level API |
 
-## Integration Modes
+## Unified Parameters
 
-### 1. Qt Native Mode (QtWebView) - For Qt-based DCC
+All WebView types share these common parameters:
 
-Best for Maya, Houdini, Nuke, 3ds Max, and other Qt-based applications.
-Supports QDockWidget docking and native Qt widget integration::
-
-    from auroraview import QtWebView
-
-    # Create WebView as Qt widget (dockable!)
-    webview = QtWebView(
-        parent=maya_main_window(),
-        url="http://localhost:3000",
-        width=800,
-        height=600
-    )
-    webview.show()
-
-### 2. HWND Mode (AuroraView) - For Unreal Engine & Other Apps
-
-Best for Unreal Engine or any application that needs HWND access::
-
-    from auroraview import AuroraView
-
-    # Create standalone WebView
-    webview = AuroraView(url="http://localhost:3000")
-    webview.show()
-
-    # Get HWND for Unreal Engine embedding
-    hwnd = webview.get_hwnd()
-    if hwnd:
-        import unreal
-        unreal.parent_external_window_to_slate(hwnd)
-
-### 3. Desktop Mode - For Desktop Apps
-
-Best for standalone desktop applications::
-
-    from auroraview import run_desktop
-
-    # Quick one-liner for desktop apps
-    run_desktop(
-        title="My App",
-        url="https://example.com",
-        width=1024,
-        height=768
-    )
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| parent | QWidget/int/None | None | Parent widget or HWND |
+| title | str | "AuroraView" | Window title |
+| width | int | 800 | Window width |
+| height | int | 600 | Window height |
+| url | str | None | URL to load |
+| html | str | None | HTML content to load |
+| debug | bool | True | Enable DevTools (F12) |
+| context_menu | bool | True | Enable right-click menu |
+| frame | bool | True | Show window frame |
+| transparent | bool | False | Transparent background |
+| mode | str | "auto" | Embedding mode |
 
 ## Bidirectional Communication
 
@@ -75,22 +62,20 @@ JavaScript -> Python::
     def handle_export(data):
         print(f"Exporting to: {data['path']}")
 
-## Advanced Usage
+## Legacy APIs (still supported)
 
-For advanced users who need low-level control, use ``auroraview.core.WebView``::
+### Qt Mode (QtWebView)::
 
-    from auroraview.core import WebView
-
-    webview = WebView.create(
-        title="Advanced Tool",
-        url="http://localhost:3000",
-        parent=parent_hwnd,
-        mode="owner"
-    )
+    from auroraview import QtWebView
+    webview = QtWebView(parent=maya_main_window(), url="http://localhost:3000")
     webview.show()
 
-Note: Direct use of ``WebView`` is not recommended for most use cases.
-Use ``QtWebView`` for Qt-based DCC apps or ``AuroraView`` for HWND-based apps.
+### HWND Mode (AuroraView)::
+
+    from auroraview import AuroraView
+    webview = AuroraView(url="http://localhost:3000")
+    webview.show()
+    hwnd = webview.get_hwnd()  # For Unreal Engine embedding
 """
 
 _CORE_IMPORT_ERROR = None
@@ -280,7 +265,13 @@ from .core import (
     set_backend_type,
 )
 
+# Unified API (recommended for new code)
+# - create_webview() auto-selects the right implementation based on parent type
+# - run_app() is a convenience function for standalone apps
+from .api import create_webview, run_app
+
 # Note: WebView is exported for backward compatibility, but for new code:
+# - Use create_webview() for automatic mode selection (recommended)
 # - Use QtWebView for Qt-based DCC apps (Maya, Houdini, Nuke)
 # - Use AuroraView for HWND-based apps (Unreal Engine)
 # - Use run_desktop() for standalone desktop applications
@@ -393,7 +384,14 @@ __all__ = [
     "integration",  # auroraview.integration - AuroraView, Bridge, Qt
     "utils",  # auroraview.utils - EventTimer, FileProtocol, Automation
     # ============================================================
-    # Primary APIs (recommended)
+    # Unified API (recommended for new code)
+    # ============================================================
+    # Auto-selects WebView/QtWebView based on parent type
+    "create_webview",
+    # Convenience function for standalone apps
+    "run_app",
+    # ============================================================
+    # Primary APIs (legacy - still supported)
     # ============================================================
     # Qt-based DCC integration (Maya, Houdini, Nuke, 3ds Max)
     "QtWebView",
@@ -407,7 +405,7 @@ __all__ = [
     # ============================================================
     # Core WebView (backward compatibility)
     # ============================================================
-    # Note: Prefer QtWebView/AuroraView/run_desktop for new code
+    # Note: Prefer create_webview() for new code
     "WebView",
     # ============================================================
     # Core utilities (auroraview.core)
