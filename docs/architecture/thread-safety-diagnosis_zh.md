@@ -13,7 +13,7 @@
 - P0：事件循环状态管理中的锁顺序问题
 - P0：消息队列唤醒批处理可能导致 UI 延迟
 - P1：DCC 嵌入模式下的双重消息泵冲突
-- P1：`Arc<Mutex<WryWebView>>` 造成不必要的竞争
+- P1：`Arc&lt;Mutex&lt;WryWebView&gt;&gt;` 造成不必要的竞争
 - P2：不同模式下事件处理策略不一致
 
 ---
@@ -211,13 +211,13 @@ else:
 - Qt 事件循环干扰
 - 影响：Maya, Houdini, Nuke, 3ds Max
 
-### 3.4 P1：Arc<Mutex<WryWebView>> 造成不必要的竞争
+### 3.4 P1：Arc&lt;Mutex&lt;WryWebView&gt;&gt; 造成不必要的竞争
 
 **证据**: `src/webview/webview_inner.rs:21`
 
 ```rust
 pub struct WebViewInner {
-    pub(crate) webview: Arc<Mutex<WryWebView>>,
+    pub(crate) webview: Arc&lt;Mutex&lt;WryWebView&gt;&gt;,
     // ...
 }
 ```
@@ -253,7 +253,7 @@ if let Some(webview_arc) = &state_guard.webview {
 drop(webview_guard);
 
 // 临时修复：创建不带 webview 的状态
-// TODO: 重构 EventLoopState 以接受 Arc<Mutex<WryWebView>>
+// TODO: 重构 EventLoopState 以接受 Arc&lt;Mutex&lt;WryWebView&gt;&gt;
 tracing::warn!("Creating EventLoopState without webview - this needs architectural fix");
 ```
 
