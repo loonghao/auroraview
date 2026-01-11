@@ -124,7 +124,7 @@ impl PyBindingsBackend for NativeBackend {
 
     fn process_events(&self) -> ProcessResult {
         // Check lifecycle state first
-        if self.lifecycle.is_close_requested() {
+        if self.lifecycle.is_closing() {
             return ProcessResult::CloseRequested;
         }
 
@@ -206,7 +206,7 @@ impl PyBindingsBackend for NativeBackend {
 
     fn process_ipc_only(&self) -> ProcessResult {
         // Check lifecycle state first
-        if self.lifecycle.is_close_requested() {
+        if self.lifecycle.is_closing() {
             return ProcessResult::CloseRequested;
         }
 
@@ -673,7 +673,7 @@ impl NativeBackend {
     /// `true` if the window should be closed, `false` otherwise
     #[allow(dead_code)]
     pub fn process_messages(&self) -> bool {
-        self.process_events()
+        matches!(self.process_events(), ProcessResult::CloseRequested)
     }
 
     /// Create WebView for DCC integration (no event loop)

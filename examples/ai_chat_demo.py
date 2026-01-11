@@ -684,9 +684,13 @@ class AIChatWindow(QMainWindow):
 
         # Refresh dependency status before checking
         self._refresh_dependency_status()
-        
+
         # Check if installation is in progress
-        if hasattr(self, '_install_thread') and self._install_thread and self._install_thread.is_alive():
+        if (
+            hasattr(self, "_install_thread")
+            and self._install_thread
+            and self._install_thread.is_alive()
+        ):
             if self.webview:
                 self.webview.emit(
                     "chat:error",
@@ -696,9 +700,13 @@ class AIChatWindow(QMainWindow):
                 )
             self._update_status("Installation in progress...", ok=False)
             return
-        
+
         if OpenAI is None:
-            missing_deps = ", ".join(self._missing_requirements) if self._missing_requirements else "openai>=1.0.0"
+            missing_deps = (
+                ", ".join(self._missing_requirements)
+                if self._missing_requirements
+                else "openai>=1.0.0"
+            )
             if self.webview:
                 self.webview.emit(
                     "chat:error",
@@ -707,11 +715,12 @@ class AIChatWindow(QMainWindow):
                     },
                 )
             self._update_status(f"Missing dependency: {missing_deps}", ok=False)
-            
+
             # Highlight the install button
             self.install_deps_btn.setStyleSheet("background-color: #ff6b6b; color: white;")
             # Reset style after 3 seconds
             from PySide6.QtCore import QTimer
+
             QTimer.singleShot(3000, lambda: self.install_deps_btn.setStyleSheet(""))
             return
 
@@ -844,31 +853,28 @@ class AIChatWindow(QMainWindow):
         def on_progress(p: dict):
             # Ensure UI updates happen in main thread
             from PySide6.QtCore import QMetaObject, Qt, Q_ARG
-            
+
             msg = p.get("message") or p.get("line") or str(p)
             # Use signal-slot mechanism to update UI safely
             QMetaObject.invokeMethod(
-                self,
-                "_append_dep_log",
-                Qt.ConnectionType.QueuedConnection,
-                Q_ARG(str, msg)
+                self, "_append_dep_log", Qt.ConnectionType.QueuedConnection, Q_ARG(str, msg)
             )
 
         def install_worker():
             """Run installation in background thread to avoid blocking UI."""
             try:
                 result = install_requirements(
-                    self._missing_requirements, 
+                    self._missing_requirements,
                     on_progress=on_progress,
-                    cancel_event=self._install_cancel_event
+                    cancel_event=self._install_cancel_event,
                 )
-                
+
                 # Schedule UI update in main thread
                 QMetaObject.invokeMethod(
                     self,
                     "_finalize_installation",
                     Qt.ConnectionType.QueuedConnection,
-                    Q_ARG(dict, result)
+                    Q_ARG(dict, result),
                 )
             except Exception as e:
                 # Handle unexpected errors
@@ -877,17 +883,18 @@ class AIChatWindow(QMainWindow):
                     self,
                     "_append_dep_log",
                     Qt.ConnectionType.QueuedConnection,
-                    Q_ARG(str, f"\n❌ {error_msg}")
+                    Q_ARG(str, f"\n❌ {error_msg}"),
                 )
                 QMetaObject.invokeMethod(
                     self,
                     "_finalize_installation",
                     Qt.ConnectionType.QueuedConnection,
-                    Q_ARG(dict, {"success": False, "output": error_msg, "cancelled": False})
+                    Q_ARG(dict, {"success": False, "output": error_msg, "cancelled": False}),
                 )
 
         # Start installation in background thread
         from threading import Thread
+
         self._install_thread = Thread(target=install_worker, daemon=True)
         self._install_thread.start()
 
@@ -896,7 +903,7 @@ class AIChatWindow(QMainWindow):
         """Finalize installation process in main thread."""
         # Finalize installation
         self.install_deps_btn.setText("⬇️ Install Missing Dependencies")
-        
+
         if result.get("success"):
             self.deps_log.append("\n✅ All dependencies installed successfully.")
             # Import openai after install
@@ -917,11 +924,13 @@ class AIChatWindow(QMainWindow):
                 self._update_status("Installation cancelled", ok=False)
             else:
                 self._update_status("Installation failed", ok=False)
-            
+
             # Re-enable button for retry
             self.install_deps_btn.setEnabled(True)
-            QMessageBox.critical(self, "Error", "Some dependencies failed to install. See log below.")
-        
+            QMessageBox.critical(
+                self, "Error", "Some dependencies failed to install. See log below."
+            )
+
         # Clean up
         self._install_cancel_event = None
         self._install_thread = None
@@ -954,7 +963,6 @@ def main():
         print("Please install it with: pip install PySide6>=6.5.0")
         print("=" * 60)
         sys.exit(1)
-
 
     print("\n" + "=" * 60)
     print("AI Chat Assistant Demo")
