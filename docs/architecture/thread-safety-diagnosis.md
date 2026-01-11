@@ -390,7 +390,7 @@ pub trait WebViewBackend: Send + Sync {
 
 **Acceptance Criteria**:
 - No deadlocks in stress tests
-- UI latency < 10ms for button clicks
+- UI latency &lt; 10ms for button clicks
 - Qt event loop not interfered with
 
 ### Phase 2: Unified Message Processor (2-3 weeks)
