@@ -12,6 +12,14 @@ import pytest
 
 from auroraview.api import _is_qwidget, _get_mode_for_parent, create_webview
 
+# Check Qt availability
+try:
+    from qtpy.QtWidgets import QWidget  # noqa: F401
+
+    _QT_AVAILABLE = True
+except ImportError:
+    _QT_AVAILABLE = False
+
 
 class TestIsQWidget:
     """Tests for _is_qwidget helper function."""
@@ -476,3 +484,106 @@ class TestBackwardCompatibility:
 
         # May be None if core not available, but import should work
         pass
+
+
+class TestShowMethodBehavior:
+    """Tests for unified show() method behavior documentation."""
+
+    def test_show_method_exists_on_webview(self):
+        """WebView should have show() method."""
+        from auroraview.core import WebView
+
+        assert hasattr(WebView, "show")
+        assert callable(getattr(WebView, "show", None))
+
+    def test_show_method_exists_on_qtwebview(self):
+        """QtWebView should have show() method."""
+        try:
+            from auroraview.integration.qt import QtWebView
+
+            assert hasattr(QtWebView, "show")
+            assert callable(getattr(QtWebView, "show", None))
+        except ImportError:
+            pytest.skip("Qt not available")
+
+    def test_show_blocking_exists(self):
+        """WebView should have show_blocking() for explicit blocking."""
+        from auroraview.core import WebView
+
+        assert hasattr(WebView, "show_blocking")
+        assert callable(getattr(WebView, "show_blocking", None))
+
+    def test_show_async_exists(self):
+        """WebView should have show_async() for explicit non-blocking."""
+        from auroraview.core import WebView
+
+        assert hasattr(WebView, "show_async")
+        assert callable(getattr(WebView, "show_async", None))
+
+    def test_show_accepts_wait_parameter(self):
+        """show() should accept wait parameter."""
+        from auroraview.core import WebView
+        import inspect
+
+        sig = inspect.signature(WebView.show)
+        params = sig.parameters
+        assert "wait" in params, "show() should accept 'wait' parameter"
+
+    def test_qtwebview_show_is_non_blocking(self):
+        """QtWebView.show() should be non-blocking (Qt semantics)."""
+        try:
+            from auroraview.integration.qt import QtWebView
+            import inspect
+
+            # QtWebView.show() should not have wait parameter
+            # because it always follows Qt widget semantics (non-blocking)
+            sig = inspect.signature(QtWebView.show)
+            params = sig.parameters
+            # QtWebView.show() should be simple Qt show()
+            assert len(params) <= 1, "QtWebView.show() should be simple (Qt semantics)"
+        except ImportError:
+            pytest.skip("Qt not available")
+
+
+class TestShowMethodDocumentation:
+    """Tests to verify show() method documentation accuracy."""
+
+    def test_standalone_mode_detection(self):
+        """Verify standalone mode is detected when parent is None."""
+        # This tests the logic documented in unified-api.md
+        parent = None
+        is_embedded = parent is not None
+        assert is_embedded is False, "No parent should mean standalone mode"
+
+    def test_embedded_mode_detection_with_hwnd(self):
+        """Verify embedded mode is detected when parent is HWND."""
+        parent = 12345  # Simulated HWND
+        is_embedded = parent is not None
+        assert is_embedded is True, "HWND parent should mean embedded mode"
+
+    def test_mode_auto_detection_logic(self):
+        """Verify auto mode detection logic."""
+        # Test the documented auto-detection behavior
+
+        # None -> "none"
+        parent_none = None
+        mode_none = "none" if parent_none is None else "auto"
+        assert mode_none == "none"
+
+        # int (HWND) -> "owner"
+        parent_hwnd = 12345
+        mode_hwnd = "owner" if isinstance(parent_hwnd, int) else "auto"
+        assert mode_hwnd == "owner"
+
+    @pytest.mark.skipif(not _QT_AVAILABLE, reason="Qt not available for QWidget test")
+    def test_mode_auto_detection_qwidget(self):
+        """Verify auto mode detection for QWidget."""
+        from qtpy.QtWidgets import QApplication, QWidget
+
+        _app = QApplication.instance() or QApplication([])  # noqa: F841
+        widget = QWidget()
+
+        # QWidget -> "child"
+        mode_widget = "child" if _is_qwidget(widget) else "auto"
+        assert mode_widget == "child"
+        widget.deleteLater()

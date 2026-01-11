@@ -70,6 +70,212 @@ webview.show()
 
 ---
 
+## 窗口显示 (show)
+
+AuroraView 提供了一个**统一的 `show()` 方法**，适用于所有场景。您无需记住不同用例的不同方法。
+
+### 基本用法
+
+```python
+from auroraview import create_webview
+
+# 所有场景都使用相同的 show() 方法
+webview = create_webview(url="http://localhost:3000")
+webview.show()  # 就这么简单！
+```
+
+### show() 的工作原理
+
+`show()` 方法会自动检测您的环境并采取适当的行为：
+
+| 场景 | 行为 | 是否阻塞？ |
+|------|------|-----------|
+| 独立模式（无父窗口）| 打开窗口，运行事件循环 | 是（阻塞直到关闭）|
+| Qt Widget 父窗口 | 显示控件，启动事件计时器 | 否（立即返回）|
+| HWND 父窗口 | 打开嵌入窗口 | 否（立即返回）|
+| 打包模式（.exe）| 作为 API 服务器运行 | 是（阻塞等待请求）|
+
+### 独立模式
+
+对于独立桌面应用，`show()` 会阻塞直到窗口关闭：
+
+```python
+from auroraview import create_webview
+
+webview = create_webview(
+    url="http://localhost:3000",
+    title="我的桌面应用",
+    width=1024,
+    height=768
+)
+
+# 在此阻塞，直到用户关闭窗口
+webview.show()
+
+print("窗口已关闭！")  # 窗口关闭后执行
+```
+
+**强制非阻塞**（高级用法）：
+
+```python
+webview.show(wait=False)  # 立即返回
+# 警告：脚本退出时窗口会关闭！
+# 保持脚本运行：
+input("按回车键退出...")
+```
+
+### Qt 集成模式
+
+使用 Qt 父窗口时，`show()` 立即返回并与 Qt 事件循环集成：
+
+```python
+from auroraview import create_webview
+from PySide2.QtWidgets import QMainWindow, QDockWidget
+
+class MyDCCTool(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        # 使用 Qt 父窗口创建 WebView
+        self.webview = create_webview(
+            parent=self,  # 传入 Qt 控件作为父窗口
+            url="http://localhost:3000",
+            title="我的工具"
+        )
+
+        # 添加到停靠面板
+        dock = QDockWidget("Web 面板", self)
+        dock.setWidget(self.webview)
+        self.addDockWidget(Qt.RightDockWidgetArea, dock)
+
+        # show() 立即返回 - Qt 管理生命周期
+        self.webview.show()
+```
+
+**Qt 集成要点：**
+
+1. **不阻塞** - `show()` 立即返回
+2. **Qt 管理生命周期** - WebView 遵循 Qt 控件生命周期
+3. **自动初始化** - WebView 在控件可见时初始化
+4. **事件计时器** - AuroraView 启动计时器处理 WebView 事件
+
+### 嵌入 Qt 布局
+
+将 WebView 嵌入 Qt 布局时，有两种方式：
+
+**方式 1：直接嵌入（推荐）**
+
+```python
+from auroraview import create_webview
+from PySide2.QtWidgets import QWidget, QVBoxLayout
+
+class MyPanel(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        layout = QVBoxLayout(self)
+
+        # 创建 WebView 作为子控件
+        self.webview = create_webview(
+            parent=self,
+            url="http://localhost:3000"
+        )
+        layout.addWidget(self.webview)
+
+        # 无需调用 show() - 父窗口显示时自动触发
+```
+
+**方式 2：显式调用 show**
+
+```python
+# 如果需要控制 WebView 初始化时机：
+self.webview = create_webview(parent=self, url="http://localhost:3000")
+layout.addWidget(self.webview)
+self.webview.show()  # 显式初始化
+```
+
+### DCC 特定集成
+
+#### Maya
+
+```python
+from auroraview import create_webview
+import maya.OpenMayaUI as omui
+from shiboken2 import wrapInstance
+from PySide2.QtWidgets import QWidget
+
+def get_maya_window():
+    ptr = omui.MQtUtil.mainWindow()
+    return wrapInstance(int(ptr), QWidget)
+
+# 创建为 Maya 主窗口的子窗口
+webview = create_webview(
+    parent=get_maya_window(),
+    url="http://localhost:3000",
+    title="Maya 工具"
+)
+webview.show()  # 非阻塞，与 Maya 集成
+```
+
+#### Houdini
+
+```python
+from auroraview import create_webview
+import hou
+
+webview = create_webview(
+    parent=hou.qt.mainWindow(),
+    url="http://localhost:3000",
+    title="Houdini 工具"
+)
+webview.show()  # 非阻塞
+```
+
+#### Blender（浮动窗口）
+
+```python
+from auroraview import create_webview
+
+# Blender 不使用 Qt，所以我们创建浮动窗口
+webview = create_webview(
+    url="http://localhost:3000",
+    title="Blender 工具",
+    always_on_top=True  # 保持在 Blender 之上
+)
+webview.show(wait=False)  # 非阻塞以便与 Blender 集成
+```
+
+#### Unreal Engine
+
+```python
+from auroraview import create_webview
+import unreal
+
+hwnd = unreal.get_editor_window_hwnd()
+
+webview = create_webview(
+    parent=hwnd,  # 直接传入 HWND
+    url="http://localhost:3000",
+    mode="owner"  # 使用 owner 模式确保跨线程安全
+)
+webview.show()  # 非阻塞
+```
+
+### 总结：一个方法，所有场景
+
+| 用例 | 代码 | 说明 |
+|------|------|------|
+| 桌面应用 | `webview.show()` | 阻塞直到关闭 |
+| Qt 停靠面板 | `webview.show()` | 非阻塞，Qt 生命周期 |
+| Qt 布局子控件 | 添加到布局，父窗口显示 | 自动初始化 |
+| Maya/Houdini | `webview.show()` | 非阻塞 |
+| Blender | `webview.show(wait=False)` | 浮动窗口 |
+| Unreal | `webview.show()` | 非阻塞，HWND 嵌入 |
+
+**记住：** 只需使用 `show()` - AuroraView 会处理其余的一切！
+
+---
+
 ## API 绑定
 
 AuroraView 提供两种方式将 Python 函数暴露给 JavaScript：
