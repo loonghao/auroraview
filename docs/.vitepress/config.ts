@@ -33,6 +33,7 @@ export default defineConfig({
               items: [
                 { text: '快速开始', link: '/zh/guide/getting-started' },
                 { text: '安装', link: '/zh/guide/installation' },
+                { text: '统一 API', link: '/zh/guide/unified-api' },
                 { text: '架构概述', link: '/zh/guide/architecture' },
                 { text: '设计思路', link: '/zh/guide/design-philosophy' },
               ]
@@ -138,6 +139,7 @@ export default defineConfig({
           items: [
             { text: 'Quick Start', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
+            { text: 'Unified API', link: '/guide/unified-api' },
             { text: 'Architecture', link: '/guide/architecture' },
             { text: 'Design Philosophy', link: '/guide/design-philosophy' },
           ]
