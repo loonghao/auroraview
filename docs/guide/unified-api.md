@@ -70,6 +70,212 @@ When `mode="auto"` (default):
 
 ---
 
+## Window Display (show)
+
+AuroraView provides a **unified `show()` method** that works across all scenarios. You don't need to remember different methods for different use cases.
+
+### Basic Usage
+
+```python
+from auroraview import create_webview
+
+# All scenarios use the same show() method
+webview = create_webview(url="http://localhost:3000")
+webview.show()  # That's it!
+```
+
+### How show() Works
+
+The `show()` method automatically detects your environment and behaves appropriately:
+
+| Scenario | Behavior | Blocking? |
+|----------|----------|-----------|
+| Standalone (no parent) | Opens window, runs event loop | Yes (blocks until closed) |
+| Qt Widget parent | Shows widget, starts event timer | No (returns immediately) |
+| HWND parent | Opens embedded window | No (returns immediately) |
+| Packed mode (.exe) | Runs as API server | Yes (blocks for requests) |
+
+### Standalone Mode
+
+For standalone desktop applications, `show()` blocks until the window is closed:
+
+```python
+from auroraview import create_webview
+
+webview = create_webview(
+    url="http://localhost:3000",
+    title="My Desktop App",
+    width=1024,
+    height=768
+)
+
+# Blocks here until user closes the window
+webview.show()
+
+print("Window closed!")  # Runs after window closes
+```
+
+**Force non-blocking** (advanced):
+
+```python
+webview.show(wait=False)  # Returns immediately
+# WARNING: Window closes when script exits!
+# Keep script alive:
+input("Press Enter to exit...")
+```
+
+### Qt Integration Mode
+
+When using a Qt parent, `show()` returns immediately and integrates with Qt's event loop:
+
+```python
+from auroraview import create_webview
+from PySide2.QtWidgets import QMainWindow, QDockWidget
+
+class MyDCCTool(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        # Create WebView with Qt parent
+        self.webview = create_webview(
+            parent=self,  # Pass Qt widget as parent
+            url="http://localhost:3000",
+            title="My Tool"
+        )
+
+        # Add to dock
+        dock = QDockWidget("Web Panel", self)
+        dock.setWidget(self.webview)
+        self.addDockWidget(Qt.RightDockWidgetArea, dock)
+
+        # show() returns immediately - Qt manages the lifecycle
+        self.webview.show()
+```
+
+**Key points for Qt integration:**
+
+1. **No blocking** - `show()` returns immediately
+2. **Qt manages lifecycle** - WebView follows Qt widget lifecycle
+3. **Auto-initialization** - WebView initializes when widget becomes visible
+4. **Event timer** - AuroraView starts a timer to process WebView events
+
+### Embedding in Qt Layouts
+
+When embedding WebView in Qt layouts, you have two options:
+
+**Option 1: Direct embedding (recommended)**
+
+```python
+from auroraview import create_webview
+from PySide2.QtWidgets import QWidget, QVBoxLayout
+
+class MyPanel(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        layout = QVBoxLayout(self)
+
+        # Create WebView as child widget
+        self.webview = create_webview(
+            parent=self,
+            url="http://localhost:3000"
+        )
+        layout.addWidget(self.webview)
+
+        # No need to call show() - it happens when parent is shown
+```
+
+**Option 2: Explicit show**
+
+```python
+# If you need to control when WebView initializes:
+self.webview = create_webview(parent=self, url="http://localhost:3000")
+layout.addWidget(self.webview)
+self.webview.show()  # Explicitly initialize
+```
+
+### DCC-Specific Integration
+
+#### Maya
+
+```python
+from auroraview import create_webview
+import maya.OpenMayaUI as omui
+from shiboken2 import wrapInstance
+from PySide2.QtWidgets import QWidget
+
+def get_maya_window():
+    ptr = omui.MQtUtil.mainWindow()
+    return wrapInstance(int(ptr), QWidget)
+
+# Create as child of Maya main window
+webview = create_webview(
+    parent=get_maya_window(),
+    url="http://localhost:3000",
+    title="Maya Tool"
+)
+webview.show()  # Non-blocking, integrates with Maya
+```
+
+#### Houdini
+
+```python
+from auroraview import create_webview
+import hou
+
+webview = create_webview(
+    parent=hou.qt.mainWindow(),
+    url="http://localhost:3000",
+    title="Houdini Tool"
+)
+webview.show()  # Non-blocking
+```
+
+#### Blender (Floating Window)
+
+```python
+from auroraview import create_webview
+
+# Blender doesn't use Qt, so we create a floating window
+webview = create_webview(
+    url="http://localhost:3000",
+    title="Blender Tool",
+    always_on_top=True  # Keep above Blender
+)
+webview.show(wait=False)  # Non-blocking for Blender integration
+```
+
+#### Unreal Engine
+
+```python
+from auroraview import create_webview
+import unreal
+
+hwnd = unreal.get_editor_window_hwnd()
+
+webview = create_webview(
+    parent=hwnd,  # Pass HWND directly
+    url="http://localhost:3000",
+    mode="owner"  # Use owner mode for cross-thread safety
+)
+webview.show()  # Non-blocking
+```
+
+### Summary: One Method, All Scenarios
+
+| Use Case | Code | Notes |
+|----------|------|-------|
+| Desktop app | `webview.show()` | Blocks until closed |
+| Qt dock panel | `webview.show()` | Non-blocking, Qt lifecycle |
+| Qt layout child | Add to layout, parent shows | Auto-initializes |
+| Maya/Houdini | `webview.show()` | Non-blocking |
+| Blender | `webview.show(wait=False)` | Floating window |
+| Unreal | `webview.show()` | Non-blocking, HWND embed |
+
+**Remember:** Just use `show()` - AuroraView handles the rest!
+
+---
+
 ## API Binding
 
 AuroraView provides two methods for exposing Python functions to JavaScript:
