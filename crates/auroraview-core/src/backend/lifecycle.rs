@@ -368,8 +368,8 @@ mod tests {
         // Activate first
         lifecycle.activate();
 
-        // Can't activate again
-        assert_eq!(lifecycle.activate(), TransitionResult::InvalidState);
+        // Can't activate again (already in Active state)
+        assert_eq!(lifecycle.activate(), TransitionResult::AlreadyInState);
 
         // Can't begin destroy without requesting close
         assert_eq!(lifecycle.begin_destroy(), TransitionResult::InvalidState);

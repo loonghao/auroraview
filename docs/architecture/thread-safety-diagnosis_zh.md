@@ -390,7 +390,7 @@ pub trait WebViewBackend: Send + Sync {
 
 **验收标准**:
 - 压力测试中无死锁
-- 按钮点击 UI 延迟 < 10ms
+- 按钮点击 UI 延迟 &lt; 10ms
 - Qt 事件循环不受干扰
 
 ### 阶段 2：统一消息处理器（2-3 周）
