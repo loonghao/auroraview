@@ -36,21 +36,16 @@ impl ProcessResult {
 }
 
 /// Processing mode determines how messages are handled
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ProcessingMode {
     /// Full processing - handle all messages and window events
+    #[default]
     Full,
     /// IPC only - only process IPC messages, skip window events
     /// Used when host application owns the message pump (Qt/DCC)
     IpcOnly,
     /// Batch processing with limit
     Batch { max_messages: usize },
-}
-
-impl Default for ProcessingMode {
-    fn default() -> Self {
-        Self::Full
-    }
 }
 
 /// Configuration for message processing
@@ -111,22 +106,17 @@ impl ProcessorConfig {
 }
 
 /// Message priority for wake-up decisions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum MessagePriority {
     /// Low priority - can be batched
     Low = 0,
     /// Normal priority - default
+    #[default]
     Normal = 1,
     /// High priority - immediate wake
     High = 2,
     /// Critical - bypass all batching
     Critical = 3,
-}
-
-impl Default for MessagePriority {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 /// Statistics for message processing
@@ -270,11 +260,10 @@ impl WakeController {
     /// Check if a wake-up should be triggered
     pub fn should_wake(&self, priority: MessagePriority) -> bool {
         // High priority always wakes immediately
-        if priority >= MessagePriority::High {
-            if self.immediate_wake_enabled.load(Ordering::Relaxed) {
-                self.stats.record_batch_skip();
-                return true;
-            }
+        if priority >= MessagePriority::High && self.immediate_wake_enabled.load(Ordering::Relaxed)
+        {
+            self.stats.record_batch_skip();
+            return true;
         }
 
         // No batching configured

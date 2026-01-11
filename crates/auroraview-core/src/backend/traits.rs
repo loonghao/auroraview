@@ -50,21 +50,12 @@ pub struct NavigationEvent {
 }
 
 /// Load progress information
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct LoadProgress {
     /// Progress percentage (0-100)
     pub percent: u8,
     /// Whether loading is complete
     pub is_complete: bool,
-}
-
-impl Default for LoadProgress {
-    fn default() -> Self {
-        Self {
-            percent: 0,
-            is_complete: false,
-        }
-    }
 }
 
 /// Cookie information
