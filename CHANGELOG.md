@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.1...auroraview-v0.4.2) (2026-01-11)
+
+
+### Features
+
+* **backend:** implement WebViewBackend trait abstraction ([bced235](https://github.com/loonghao/auroraview/commit/bced2359771525d0063c058736dd9dea22f73a80))
+
+
+### Bug Fixes
+
+* escape all Arc&lt;Mutex&lt;WryWebView&gt;&gt; in docs to prevent HTML parsing errors ([117d865](https://github.com/loonghao/auroraview/commit/117d8654dc1367126c9e9bb8409b6940e590b2a7))
+* resolve CI build errors in NativeBackend migration ([c711578](https://github.com/loonghao/auroraview/commit/c7115783b3621a02160f11cc77863df0daef8140))
+* resolve CI test failure and docs build error ([f3ee3de](https://github.com/loonghao/auroraview/commit/f3ee3de64492f5547871813930dcb7db79b9e2ee))
+
+
+### Code Refactoring
+
+* **backend:** migrate NativeBackend to PyBindingsBackend trait ([2bdd9a1](https://github.com/loonghao/auroraview/commit/2bdd9a181cd990c242368eb4bcf1bc337622ece3))
+
 ## [0.4.1](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.0...auroraview-v0.4.1) (2026-01-10)
 
 
