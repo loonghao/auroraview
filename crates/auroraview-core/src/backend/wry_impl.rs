@@ -2,28 +2,45 @@
 //!
 //! Implements the WebViewBackend trait for the Wry library.
 //! This provides a unified interface for platform-specific WebView implementations.
+//!
+//! ## Architecture
+//!
+//! This implementation uses:
+//! - `AtomicLifecycle` for lock-free state management
+//! - `RwLock` for URL/title tracking (read-heavy workload)
+//! - `AtomicBool` for simple boolean flags
+//!
+//! The actual WebView operations are delegated to the main WebView instance.
+//! This backend primarily tracks state for the trait interface.
 
 use super::error::{WebViewError, WebViewResult};
+use super::lifecycle::{AtomicLifecycle, LifecycleState};
 use super::settings::{WebViewSettings, WebViewSettingsImpl};
 use super::traits::{CookieInfo, JavaScriptCallback, LoadProgress, WebViewBackend};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::RwLock;
 
 /// Wry backend implementation
 ///
 /// Wraps the wry WebView to provide a unified interface.
 /// This implementation is designed to work with the existing wry-based code.
+///
+/// ## Thread Safety
+///
+/// This struct is `Send + Sync` and uses lock-free atomics where possible.
+/// The lifecycle state machine (`AtomicLifecycle`) ensures safe state transitions
+/// without the risk of deadlocks.
 pub struct WryBackend {
+    /// Lifecycle state machine (lock-free)
+    lifecycle: AtomicLifecycle,
     /// Current URL (tracked locally since wry doesn't provide direct access)
     current_url: RwLock<Option<String>>,
     /// Current title (tracked locally)
     current_title: RwLock<Option<String>>,
     /// Whether the WebView is loading
     is_loading: AtomicBool,
-    /// Load progress percentage
-    load_progress: RwLock<u8>,
-    /// Whether the WebView is closed
-    is_closed: AtomicBool,
+    /// Load progress percentage (0-100)
+    load_progress: AtomicU8,
     /// Settings (using Box for stable address)
     settings: Box<WebViewSettingsImpl>,
     /// User agent string
@@ -37,17 +54,35 @@ impl Default for WryBackend {
 }
 
 impl WryBackend {
-    /// Create a new Wry backend
+    /// Create a new Wry backend in Active state
     pub fn new() -> Self {
         Self {
+            lifecycle: AtomicLifecycle::new_active(),
             current_url: RwLock::new(None),
             current_title: RwLock::new(None),
             is_loading: AtomicBool::new(false),
-            load_progress: RwLock::new(0),
-            is_closed: AtomicBool::new(false),
+            load_progress: AtomicU8::new(0),
             settings: Box::new(WebViewSettingsImpl::default()),
             user_agent: format!("AuroraView/{}", env!("CARGO_PKG_VERSION")),
         }
+    }
+
+    /// Create a new Wry backend in Creating state
+    pub fn new_creating() -> Self {
+        Self {
+            lifecycle: AtomicLifecycle::new(),
+            current_url: RwLock::new(None),
+            current_title: RwLock::new(None),
+            is_loading: AtomicBool::new(false),
+            load_progress: AtomicU8::new(0),
+            settings: Box::new(WebViewSettingsImpl::default()),
+            user_agent: format!("AuroraView/{}", env!("CARGO_PKG_VERSION")),
+        }
+    }
+
+    /// Activate the backend (transition from Creating to Active)
+    pub fn activate(&self) -> bool {
+        self.lifecycle.activate().is_success()
     }
 
     /// Update current URL (called by navigation event handlers)
@@ -66,19 +101,37 @@ impl WryBackend {
 
     /// Set loading state
     pub fn set_loading(&self, loading: bool) {
-        self.is_loading.store(loading, Ordering::SeqCst);
+        self.is_loading.store(loading, Ordering::Release);
+        if !loading {
+            self.load_progress.store(100, Ordering::Release);
+        }
     }
 
     /// Set load progress
     pub fn set_load_progress(&self, progress: u8) {
-        if let Ok(mut p) = self.load_progress.write() {
-            *p = progress.min(100);
-        }
+        self.load_progress
+            .store(progress.min(100), Ordering::Release);
     }
 
     /// Apply settings from a WebViewSettingsImpl
     pub fn apply_settings(&mut self, settings: WebViewSettingsImpl) {
         *self.settings = settings;
+    }
+
+    /// Get the lifecycle state machine
+    pub fn lifecycle(&self) -> &AtomicLifecycle {
+        &self.lifecycle
+    }
+
+    /// Mark navigation as complete
+    pub fn navigation_complete(&self) {
+        self.set_loading(false);
+        self.set_load_progress(100);
+    }
+
+    /// Mark navigation as failed
+    pub fn navigation_failed(&self) {
+        self.set_loading(false);
     }
 }
 
@@ -86,6 +139,9 @@ impl WebViewBackend for WryBackend {
     // ========== Navigation ==========
 
     fn navigate(&self, url: &str) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         // Note: Actual navigation is handled by the main WebView
         // This is a state-tracking implementation
         self.set_current_url(Some(url.to_string()));
@@ -109,14 +165,23 @@ impl WebViewBackend for WryBackend {
     }
 
     fn go_back(&self) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         Err(WebViewError::Unsupported("go_back".to_string()))
     }
 
     fn go_forward(&self) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         Err(WebViewError::Unsupported("go_forward".to_string()))
     }
 
     fn reload(&self) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         self.set_loading(true);
         self.set_load_progress(0);
         Ok(())
@@ -130,6 +195,9 @@ impl WebViewBackend for WryBackend {
     // ========== Content Loading ==========
 
     fn load_html(&self, _html: &str) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         self.set_loading(true);
         self.set_load_progress(0);
         Ok(())
@@ -140,20 +208,22 @@ impl WebViewBackend for WryBackend {
     }
 
     fn load_progress(&self) -> LoadProgress {
-        let percent = self.load_progress.read().map(|p| *p).unwrap_or(0);
         LoadProgress {
-            percent,
-            is_complete: !self.is_loading.load(Ordering::SeqCst),
+            percent: self.load_progress.load(Ordering::Acquire),
+            is_complete: !self.is_loading.load(Ordering::Acquire),
         }
     }
 
     fn is_loading(&self) -> bool {
-        self.is_loading.load(Ordering::SeqCst)
+        self.is_loading.load(Ordering::Acquire)
     }
 
     // ========== JavaScript ==========
 
     fn eval_js(&self, _script: &str) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         // Note: Actual JS execution is handled by the main WebView
         Ok(())
     }
@@ -163,6 +233,9 @@ impl WebViewBackend for WryBackend {
         _script: &str,
         callback: JavaScriptCallback,
     ) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         // Note: Wry doesn't support async JS execution with callbacks directly
         // This would need to be implemented via IPC
         callback(Ok(serde_json::Value::Null));
@@ -204,27 +277,88 @@ impl WebViewBackend for WryBackend {
 
     // ========== Lifecycle ==========
 
-    fn close(&self) -> WebViewResult<()> {
-        self.is_closed.store(true, Ordering::SeqCst);
-        Ok(())
+    fn lifecycle_state(&self) -> LifecycleState {
+        self.lifecycle.state()
     }
 
-    fn is_closed(&self) -> bool {
-        self.is_closed.load(Ordering::SeqCst)
+    fn close(&self) -> WebViewResult<()> {
+        // Request close through the state machine
+        let _ = self.lifecycle.request_close();
+        let _ = self.lifecycle.begin_destroy();
+        let _ = self.lifecycle.finish_destroy();
+        Ok(())
     }
 
     // ========== Window Control ==========
 
     fn set_bounds(&self, _x: i32, _y: i32, _width: u32, _height: u32) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         // Note: Window bounds are managed by the main window
         Ok(())
     }
 
     fn set_visible(&self, _visible: bool) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         Ok(())
     }
 
     fn focus(&self) -> WebViewResult<()> {
+        if self.lifecycle.is_closing() {
+            return Err(WebViewError::Closed);
+        }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wry_backend_creation() {
+        let backend = WryBackend::new();
+        assert!(backend.lifecycle.is_active());
+        assert!(!backend.is_loading());
+        assert!(backend.url().is_none());
+    }
+
+    #[test]
+    fn test_wry_backend_navigation() {
+        let backend = WryBackend::new();
+
+        backend.navigate("https://example.com").unwrap();
+        assert_eq!(backend.url(), Some("https://example.com".to_string()));
+        assert!(backend.is_loading());
+
+        backend.navigation_complete();
+        assert!(!backend.is_loading());
+        assert_eq!(backend.load_progress().percent, 100);
+    }
+
+    #[test]
+    fn test_wry_backend_lifecycle() {
+        let backend = WryBackend::new_creating();
+        assert_eq!(backend.lifecycle_state(), LifecycleState::Creating);
+
+        backend.activate();
+        assert_eq!(backend.lifecycle_state(), LifecycleState::Active);
+
+        backend.close().unwrap();
+        assert!(backend.is_closed());
+    }
+
+    #[test]
+    fn test_wry_backend_closed_operations() {
+        let backend = WryBackend::new();
+        backend.close().unwrap();
+
+        // Operations should fail when closed
+        assert!(backend.navigate("https://example.com").is_err());
+        assert!(backend.eval_js("console.log('test')").is_err());
+        assert!(backend.set_visible(true).is_err());
     }
 }

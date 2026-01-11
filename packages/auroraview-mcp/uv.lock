@@ -45,7 +45,7 @@ wheels = [
 
 [[package]]
 name = "auroraview-mcp"
-version = "0.3.37"
+version = "0.4.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
