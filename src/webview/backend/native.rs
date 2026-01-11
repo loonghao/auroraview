@@ -16,8 +16,8 @@ use wry::WebViewBuilder as WryWebViewBuilder;
 #[cfg(target_os = "windows")]
 use wry::WebViewBuilderExtWindows;
 
-use super::WebViewBackend;
-use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
+use super::{AtomicLifecycle, LifecycleState, ProcessResult, PyBindingsBackend};
+use crate::ipc::{IpcHandler, IpcMessage, MessageQueue, WebViewMessage};
 use crate::webview::config::{NewWindowMode, WebViewConfig};
 use crate::webview::event_loop::UserEvent;
 use crate::webview::js_assets;
@@ -38,6 +38,8 @@ pub struct NativeBackend {
     window: Option<tao::window::Window>,
     event_loop: Option<tao::event_loop::EventLoop<UserEvent>>,
     message_queue: Arc<MessageQueue>,
+    /// Lock-free lifecycle state machine
+    lifecycle: AtomicLifecycle,
     /// When true, skip native message pump in process_events().
     /// This is used in Qt/DCC mode where the host application owns the message loop.
     skip_message_pump: bool,
@@ -56,13 +58,20 @@ impl std::fmt::Debug for NativeBackend {
             .field("window", &self.window.is_some())
             .field("event_loop", &self.event_loop.is_some())
             .field("message_queue", &"Arc<MessageQueue>")
+            .field("lifecycle", &self.lifecycle.state())
             .finish()
     }
 }
 
 impl Drop for NativeBackend {
     fn drop(&mut self) {
-        tracing::warn!("[DROP] NativeBackend is being dropped!");
+        tracing::warn!(
+            "[DROP] NativeBackend is being dropped! State: {}",
+            self.lifecycle.state()
+        );
+        // Transition to Destroyed state
+        let _ = self.lifecycle.begin_destroy();
+        let _ = self.lifecycle.finish_destroy();
         if self.window.is_some() {
             tracing::warn!("[DROP] Window will be destroyed");
         }
@@ -72,7 +81,7 @@ impl Drop for NativeBackend {
     }
 }
 
-impl WebViewBackend for NativeBackend {
+impl PyBindingsBackend for NativeBackend {
     fn create(
         config: WebViewConfig,
         ipc_handler: Arc<IpcHandler>,
@@ -105,11 +114,20 @@ impl WebViewBackend for NativeBackend {
         self.window.as_ref()
     }
 
-    fn event_loop(&mut self) -> Option<tao::event_loop::EventLoop<UserEvent>> {
+    fn lifecycle_state(&self) -> LifecycleState {
+        self.lifecycle.state()
+    }
+
+    fn take_event_loop(&mut self) -> Option<tao::event_loop::EventLoop<UserEvent>> {
         self.event_loop.take()
     }
 
-    fn process_events(&self) -> bool {
+    fn process_events(&self) -> ProcessResult {
+        // Check lifecycle state first
+        if self.lifecycle.is_close_requested() {
+            return ProcessResult::CloseRequested;
+        }
+
         // Check if window handle is still valid (for embedded mode)
         #[cfg(target_os = "windows")]
         {
@@ -129,7 +147,8 @@ impl WebViewBackend for NativeBackend {
 
                         if !is_valid {
                             tracing::info!("[CLOSE] [NativeBackend::process_events] Window handle invalid - user closed window");
-                            return true;
+                            let _ = self.lifecycle.request_close();
+                            return ProcessResult::CloseRequested;
                         }
                     }
                 }
@@ -176,10 +195,97 @@ impl WebViewBackend for NativeBackend {
                 tracing::info!(
                     "[CLOSE] [NativeBackend::process_events] Window close signal detected"
                 );
-                return true;
+                let _ = self.lifecycle.request_close();
+                return ProcessResult::CloseRequested;
             }
         }
 
+        // Process IPC messages
+        self.process_ipc_messages()
+    }
+
+    fn process_ipc_only(&self) -> ProcessResult {
+        // Check lifecycle state first
+        if self.lifecycle.is_close_requested() {
+            return ProcessResult::CloseRequested;
+        }
+
+        // Only process IPC messages, skip native message pump
+        self.process_ipc_messages()
+    }
+
+    fn run_blocking(&mut self) {
+        use crate::webview::event_loop::{EventLoopState, WebViewEventHandler};
+
+        tracing::info!("[OK] [NativeBackend::run_blocking] Starting event loop");
+
+        if self.window.is_none() || self.event_loop.is_none() {
+            tracing::error!("Window or event loop is None!");
+            return;
+        }
+
+        let event_loop = match self.event_loop.take() {
+            Some(el) => el,
+            None => {
+                tracing::error!("Failed to take event loop");
+                return;
+            }
+        };
+
+        let window = match self.window.take() {
+            Some(w) => w,
+            None => {
+                tracing::error!("Failed to take window");
+                return;
+            }
+        };
+
+        #[allow(clippy::arc_with_non_send_sync)]
+        let state = Arc::new(Mutex::new(EventLoopState::new_without_webview(
+            window,
+            self.message_queue.clone(),
+        )));
+
+        if let Ok(mut state_guard) = state.lock() {
+            state_guard.set_webview(self.webview.clone());
+        }
+
+        // Always show window when run_blocking is called
+        // The auto_show config controls whether show() is called automatically after create()
+        // But when show() is explicitly called, the window should always be visible
+        WebViewEventHandler::run_blocking(event_loop, state, true);
+        tracing::info!("Event loop exited");
+    }
+
+    fn set_visible(&self, visible: bool) -> Result<(), Box<dyn std::error::Error>> {
+        // Use tao::Window if available (works for both desktop and embedded modes)
+        if let Some(window) = &self.window {
+            window.set_visible(visible);
+            tracing::debug!("[NativeBackend] set_visible({}) via tao::Window", visible);
+            Ok(())
+        } else {
+            Err("Window not available for set_visible".into())
+        }
+    }
+
+    fn request_close(&self) -> Result<(), Box<dyn std::error::Error>> {
+        tracing::info!("[NativeBackend] Close requested");
+        let result = self.lifecycle.request_close();
+        if result.is_success() {
+            // Send close message to the message queue
+            self.message_queue.push(WebViewMessage::Close);
+            Ok(())
+        } else {
+            Err(format!("Failed to request close: {:?}", result).into())
+        }
+    }
+}
+
+impl NativeBackend {
+    /// Process IPC messages from the message queue
+    ///
+    /// Returns `ProcessResult` indicating whether to continue or close.
+    fn process_ipc_messages(&self) -> ProcessResult {
         // First, handle SetVisible messages separately (needs window access)
         // We collect visibility changes and apply them after processing
         let mut visibility_changes: Vec<bool> = Vec::new();
@@ -191,7 +297,6 @@ impl WebViewBackend for NativeBackend {
             let (count, remaining) =
                 self.message_queue
                     .process_batch(self.max_messages_per_tick, |message| {
-                        use crate::ipc::WebViewMessage;
                         match message {
                             WebViewMessage::EvalJs(script) => {
                                 if let Err(e) = webview.evaluate_script(&script) {
@@ -281,7 +386,7 @@ impl WebViewBackend for NativeBackend {
 
             if count > 0 {
                 tracing::debug!(
-                    "[OK] [NativeBackend::process_events] Processed {} messages ({} remaining)",
+                    "[OK] [NativeBackend::process_ipc_messages] Processed {} messages ({} remaining)",
                     count,
                     remaining
                 );
@@ -319,68 +424,13 @@ impl WebViewBackend for NativeBackend {
                 }
             }
 
-            return true;
+            let _ = self.lifecycle.request_close();
+            return ProcessResult::CloseRequested;
         }
 
-        false
+        ProcessResult::Continue
     }
 
-    fn run_event_loop_blocking(&mut self) {
-        use crate::webview::event_loop::{EventLoopState, WebViewEventHandler};
-
-        tracing::info!("[OK] [NativeBackend::run_event_loop_blocking] Starting event loop");
-
-        if self.window.is_none() || self.event_loop.is_none() {
-            tracing::error!("Window or event loop is None!");
-            return;
-        }
-
-        let event_loop = match self.event_loop.take() {
-            Some(el) => el,
-            None => {
-                tracing::error!("Failed to take event loop");
-                return;
-            }
-        };
-
-        let window = match self.window.take() {
-            Some(w) => w,
-            None => {
-                tracing::error!("Failed to take window");
-                return;
-            }
-        };
-
-        #[allow(clippy::arc_with_non_send_sync)]
-        let state = Arc::new(Mutex::new(EventLoopState::new_without_webview(
-            window,
-            self.message_queue.clone(),
-        )));
-
-        if let Ok(mut state_guard) = state.lock() {
-            state_guard.set_webview(self.webview.clone());
-        }
-
-        // Always show window when run_event_loop_blocking is called
-        // The auto_show config controls whether show() is called automatically after create()
-        // But when show() is explicitly called, the window should always be visible
-        WebViewEventHandler::run_blocking(event_loop, state, true);
-        tracing::info!("Event loop exited");
-    }
-
-    fn set_visible(&self, visible: bool) -> Result<(), Box<dyn std::error::Error>> {
-        // Use tao::Window if available (works for both desktop and embedded modes)
-        if let Some(window) = &self.window {
-            window.set_visible(visible);
-            tracing::debug!("[NativeBackend] set_visible({}) via tao::Window", visible);
-            Ok(())
-        } else {
-            Err("Window not available for set_visible".into())
-        }
-    }
-}
-
-impl NativeBackend {
     /// Fix all WebView2 child windows to prevent dragging (Qt6 compatibility)
     ///
     /// WebView2 creates multiple child windows (Chrome_WidgetWin_0, Intermediate D3D Window, etc.)
@@ -665,11 +715,16 @@ impl NativeBackend {
         let window = inner.window.take();
         let event_loop = inner.event_loop.take();
 
+        // Create lifecycle and transition to Active state
+        let lifecycle = AtomicLifecycle::new();
+        lifecycle.activate();
+
         Ok(Self {
             webview,
             window,
             event_loop,
             message_queue,
+            lifecycle,
             // In desktop mode, we own the message pump
             skip_message_pump: false,
             auto_show, // Use config value (false in headless mode)
@@ -981,12 +1036,17 @@ impl NativeBackend {
             }
         }
 
+        // Create lifecycle and transition to Active state
+        let lifecycle = AtomicLifecycle::new();
+        lifecycle.activate();
+
         #[allow(clippy::arc_with_non_send_sync)]
         Ok(Self {
             webview: Arc::new(Mutex::new(webview)),
             window: Some(window),
             event_loop: Some(event_loop),
             message_queue,
+            lifecycle,
             // In embedded/DCC mode, skip message pump - Qt/DCC owns the message loop
             skip_message_pump: true,
             auto_show,
@@ -1493,11 +1553,25 @@ mod tests {
     }
 
     #[test]
-    fn test_webview_backend_trait_methods() {
-        // Test that NativeBackend implements WebViewBackend trait methods
+    fn test_pybindings_backend_trait_methods() {
+        // Test that NativeBackend implements PyBindingsBackend trait methods
         // This is a compile-time test - if it compiles, the trait is implemented correctly
 
-        fn assert_implements_webview_backend<T: WebViewBackend>() {}
-        assert_implements_webview_backend::<NativeBackend>();
+        fn assert_implements_pybindings_backend<T: PyBindingsBackend>() {}
+        assert_implements_pybindings_backend::<NativeBackend>();
+    }
+
+    #[test]
+    fn test_lifecycle_state_transitions() {
+        // Test lifecycle state machine
+        let lifecycle = AtomicLifecycle::new();
+        assert_eq!(lifecycle.state(), LifecycleState::Creating);
+
+        lifecycle.activate();
+        assert_eq!(lifecycle.state(), LifecycleState::Active);
+
+        let result = lifecycle.request_close();
+        assert!(result.is_success());
+        assert_eq!(lifecycle.state(), LifecycleState::CloseRequested);
     }
 }
