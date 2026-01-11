@@ -13,7 +13,7 @@ This document provides a comprehensive architectural diagnosis of AuroraView's t
 - P0: Lock ordering issues in event loop state management
 - P0: Message queue wake-up batching can cause UI latency
 - P1: Dual message pump conflict in DCC embedded mode
-- P1: `Arc<Mutex<WryWebView>>` creates unnecessary contention
+- P1: `Arc&lt;Mutex&lt;WryWebView&gt;&gt;` creates unnecessary contention
 - P2: Inconsistent event processing strategies across modes
 
 ---
@@ -211,13 +211,13 @@ else:
 - Qt event loop interference
 - Affects: Maya, Houdini, Nuke, 3ds Max
 
-### 3.4 P1: Arc<Mutex<WryWebView>> Creates Unnecessary Contention
+### 3.4 P1: Arc&lt;Mutex&lt;WryWebView&gt;&gt; Creates Unnecessary Contention
 
 **Evidence**: `src/webview/webview_inner.rs:21`
 
 ```rust
 pub struct WebViewInner {
-    pub(crate) webview: Arc<Mutex<WryWebView>>,
+    pub(crate) webview: Arc&lt;Mutex&lt;WryWebView&gt;&gt;,
     // ...
 }
 ```
@@ -253,7 +253,7 @@ if let Some(webview_arc) = &state_guard.webview {
 drop(webview_guard);
 
 // TEMPORARY FIX: Create state without webview
-// TODO: Refactor EventLoopState to accept Arc<Mutex<WryWebView>>
+// TODO: Refactor EventLoopState to accept Arc&lt;Mutex&lt;WryWebView&gt;&gt;
 tracing::warn!("Creating EventLoopState without webview - this needs architectural fix");
 ```
 
