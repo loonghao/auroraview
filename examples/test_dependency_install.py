@@ -22,14 +22,15 @@ sys.path.insert(0, str(project_root / "python"))
 try:
     import requests
     import bs4
+
     print("✅ All dependencies are installed!")
     print(f"requests version: {requests.__version__}")
     print(f"beautifulsoup4 version: {bs4.__version__}")
-    
+
     # Test a simple HTTP request
     response = requests.get("https://httpbin.org/json", timeout=5)
     print(f"✅ HTTP test successful: {response.status_code}")
-    
+
 except ImportError as e:
     print(f"❌ Missing dependency: {e}")
     sys.exit(1)

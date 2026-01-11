@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use wry::WebView as WryWebView;
 
 #[cfg(target_os = "windows")]
-use super::backend::WebViewBackend;
+use super::backend::PyBindingsBackend;
 use super::config::WebViewConfig;
 use super::event_loop::{EventLoopState, UserEvent, WebViewEventHandler, WindowStyleHints};
 use super::js_assets;
@@ -180,7 +180,7 @@ impl WebViewInner {
         on_created: Option<Box<dyn Fn(u64) + Send + Sync>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         use super::backend::native::NativeBackend;
-        use super::backend::WebViewBackend;
+        use super::backend::PyBindingsBackend;
 
         // Create backend using embedded mode
         let backend = NativeBackend::create_embedded(
@@ -195,7 +195,7 @@ impl WebViewInner {
         let webview = backend.webview();
 
         // Cache HWND from backend
-        let cached_hwnd = backend.get_hwnd();
+        let cached_hwnd = backend.native_handle();
 
         tracing::info!(
             "[OK] [create_embedded] Keeping backend alive to prevent window destruction"
@@ -777,8 +777,9 @@ impl WebViewInner {
         // This ensures Windows messages are processed even when self.window is None
         #[cfg(target_os = "windows")]
         if let Some(backend) = &self.backend {
+            use super::backend::ProcessResult;
             tracing::trace!("[process_events] Delegating to backend.process_events()");
-            return backend.process_events();
+            return matches!(backend.process_events(), ProcessResult::CloseRequested);
         }
 
         // Get the window HWND for targeted message processing
