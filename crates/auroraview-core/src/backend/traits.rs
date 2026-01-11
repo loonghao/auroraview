@@ -2,8 +2,27 @@
 //!
 //! Core trait defining the unified interface for WebView backends,
 //! inspired by Qt WebView's `QWebViewPrivate` abstract class.
+//!
+//! ## Architecture
+//!
+//! This module provides a layered trait system:
+//!
+//! - `WebViewBackend`: Core WebView operations (navigation, JS, cookies)
+//! - `EmbeddableBackend`: Extended trait for DCC/Qt embedding scenarios
+//! - `EventLoopBackend`: Trait for backends that own their event loop
+//!
+//! ## Thread Safety
+//!
+//! The `WebViewBackend` trait requires `Send + Sync` for the base operations.
+//! However, actual WebView instances (like WryWebView) are typically `!Send`.
+//!
+//! The pattern is:
+//! - State tracking (URLs, loading status) is thread-safe via atomics/RwLock
+//! - Actual WebView operations are marshalled to the UI thread via message queue
 
 use super::error::WebViewResult;
+use super::lifecycle::LifecycleState;
+use super::message_processor::ProcessResult;
 use super::settings::WebViewSettings;
 
 /// Navigation state
@@ -39,6 +58,15 @@ pub struct LoadProgress {
     pub is_complete: bool,
 }
 
+impl Default for LoadProgress {
+    fn default() -> Self {
+        Self {
+            percent: 0,
+            is_complete: false,
+        }
+    }
+}
+
 /// Cookie information
 #[derive(Debug, Clone)]
 pub struct CookieInfo {
@@ -58,6 +86,25 @@ pub struct CookieInfo {
     pub secure: bool,
 }
 
+impl CookieInfo {
+    /// Create a simple session cookie
+    pub fn session(
+        domain: impl Into<String>,
+        name: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        Self {
+            domain: domain.into(),
+            name: name.into(),
+            value: value.into(),
+            path: Some("/".to_string()),
+            expires: None,
+            http_only: false,
+            secure: false,
+        }
+    }
+}
+
 /// JavaScript execution callback type
 pub type JavaScriptCallback = Box<dyn FnOnce(WebViewResult<serde_json::Value>) + Send + 'static>;
 
@@ -71,6 +118,14 @@ pub type JavaScriptCallback = Box<dyn FnOnce(WebViewResult<serde_json::Value>) +
 /// - All methods return `WebViewResult` for consistent error handling
 /// - Async operations use callbacks instead of futures for compatibility
 /// - Settings are accessed through a separate trait for clean separation
+/// - Lifecycle management uses lock-free atomics (see `AtomicLifecycle`)
+///
+/// ## Implementation Notes
+///
+/// Implementors should:
+/// 1. Use `AtomicLifecycle` for state management to avoid deadlocks
+/// 2. Marshal UI operations to the appropriate thread
+/// 3. Track state (URL, title, loading) separately from the actual WebView
 pub trait WebViewBackend: Send + Sync {
     // ========== Navigation ==========
 
@@ -151,11 +206,24 @@ pub trait WebViewBackend: Send + Sync {
 
     // ========== Lifecycle ==========
 
+    /// Get current lifecycle state
+    fn lifecycle_state(&self) -> LifecycleState;
+
     /// Close the WebView
     fn close(&self) -> WebViewResult<()>;
 
     /// Check if WebView is closed
-    fn is_closed(&self) -> bool;
+    fn is_closed(&self) -> bool {
+        self.lifecycle_state() == LifecycleState::Destroyed
+    }
+
+    /// Check if close has been requested
+    fn is_closing(&self) -> bool {
+        matches!(
+            self.lifecycle_state(),
+            LifecycleState::CloseRequested | LifecycleState::Destroying | LifecycleState::Destroyed
+        )
+    }
 
     // ========== Window Control ==========
 
@@ -167,4 +235,64 @@ pub trait WebViewBackend: Send + Sync {
 
     /// Focus the WebView
     fn focus(&self) -> WebViewResult<()>;
+}
+
+/// Extended backend trait for embeddable WebViews
+///
+/// This trait extends `WebViewBackend` with functionality needed for
+/// embedding WebViews into DCC applications (Maya, Houdini, etc.) or Qt hosts.
+///
+/// ## Design Rationale
+///
+/// DCC/Qt embedding requires:
+/// - Platform-specific window handle access (HWND on Windows)
+/// - Message processing that cooperates with the host's event loop
+/// - Control over whether to pump messages or let the host do it
+pub trait EmbeddableBackend: WebViewBackend {
+    /// Get the native window handle (HWND on Windows, NSView on macOS)
+    fn native_handle(&self) -> Option<u64>;
+
+    /// Process pending events/messages
+    ///
+    /// This is the unified entry point for message processing.
+    /// The behavior depends on the processing mode configured.
+    ///
+    /// Returns `ProcessResult::CloseRequested` if the window should close.
+    fn process_events(&self) -> ProcessResult;
+
+    /// Process only IPC messages, skip native message pump
+    ///
+    /// Use this in Qt/DCC mode where the host owns the message loop.
+    /// This only processes the internal message queue.
+    fn process_ipc_only(&self) -> ProcessResult;
+
+    /// Emit an event to JavaScript
+    ///
+    /// This is a convenience method that builds and executes the
+    /// appropriate JavaScript to trigger an event.
+    fn emit_event(&self, event_name: &str, data: serde_json::Value) -> WebViewResult<()>;
+}
+
+/// Backend trait for standalone mode with owned event loop
+///
+/// This trait is for backends that own and manage their own event loop,
+/// typically used in standalone/desktop mode.
+pub trait EventLoopBackend: WebViewBackend {
+    /// Run the event loop (blocking)
+    ///
+    /// This takes ownership of the current thread and runs until
+    /// the window is closed.
+    fn run_blocking(&mut self) -> WebViewResult<()>;
+
+    /// Poll the event loop once (non-blocking)
+    ///
+    /// Processes any pending events and returns immediately.
+    /// Returns `ProcessResult::CloseRequested` if the window should close.
+    fn poll_once(&mut self) -> ProcessResult;
+
+    /// Check if the event loop is running
+    fn is_running(&self) -> bool;
+
+    /// Request the event loop to exit
+    fn request_exit(&self);
 }
