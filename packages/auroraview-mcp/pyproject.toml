@@ -1,6 +1,6 @@
 [project]
 name = "auroraview-mcp"
-version = "0.4.1"
+version = "0.4.2"
 description = "MCP Server for AuroraView - AI-powered interaction with WebView applications"
 readme = "README.md"
 license = { text = "MIT" }
