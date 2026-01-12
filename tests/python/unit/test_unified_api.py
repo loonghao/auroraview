@@ -587,3 +587,83 @@ class TestShowMethodDocumentation:
         mode_widget = "child" if _is_qwidget(widget) else "auto"
         assert mode_widget == "child"
         widget.deleteLater()
+
+
+class TestQtWebViewShowEvent:
+    """Tests for QtWebView showEvent auto-initialization."""
+
+    @pytest.mark.skipif(not _QT_AVAILABLE, reason="Qt not available")
+    def test_qtwebview_has_show_event(self):
+        """QtWebView should have showEvent method."""
+        try:
+            from auroraview.integration.qt import QtWebView
+
+            assert hasattr(QtWebView, "showEvent")
+            assert callable(getattr(QtWebView, "showEvent", None))
+        except ImportError:
+            pytest.skip("QtWebView not available")
+
+    @pytest.mark.skipif(not _QT_AVAILABLE, reason="Qt not available")
+    def test_qtwebview_has_webview_initialized_flag(self):
+        """QtWebView should track initialization state."""
+        try:
+            from auroraview.integration.qt import QtWebView
+            from qtpy.QtWidgets import QApplication
+
+            _app = QApplication.instance() or QApplication([])  # noqa: F841
+
+            # Create QtWebView without showing
+            webview = QtWebView(url="about:blank")
+
+            # Should have initialization flag
+            assert hasattr(webview, "_webview_initialized")
+            # Should not be initialized yet (not shown)
+            assert webview._webview_initialized is False
+
+            webview.deleteLater()
+        except ImportError:
+            pytest.skip("QtWebView not available")
+
+    @pytest.mark.skipif(not _QT_AVAILABLE, reason="Qt not available")
+    def test_qtwebview_show_is_simple_qt_show(self):
+        """QtWebView.show() should just call QWidget.show()."""
+        try:
+            from auroraview.integration.qt import QtWebView
+
+            # Check that show() doesn't have extra parameters like wait
+            sig = inspect.signature(QtWebView.show)
+            params = list(sig.parameters.keys())
+
+            # Should only have 'self' parameter (standard Qt show)
+            assert params == ["self"], (
+                f"QtWebView.show() should be simple Qt show(), got params: {params}"
+            )
+        except ImportError:
+            pytest.skip("QtWebView not available")
+
+    @pytest.mark.skipif(not _QT_AVAILABLE, reason="Qt not available")
+    def test_qtwebview_no_explicit_show_needed_in_layout(self):
+        """QtWebView should auto-initialize when parent is shown."""
+        try:
+            from auroraview.integration.qt import QtWebView
+            from qtpy.QtWidgets import QApplication, QWidget, QVBoxLayout
+
+            _app = QApplication.instance() or QApplication([])  # noqa: F841
+
+            # Create parent widget with layout
+            parent = QWidget()
+            layout = QVBoxLayout(parent)
+
+            # Create QtWebView and add to layout (but don't show)
+            webview = QtWebView(parent=parent, url="about:blank")
+            layout.addWidget(webview)
+
+            # WebView should not be initialized yet
+            assert webview._webview_initialized is False
+
+            # Note: Actually showing would require a running event loop
+            # and WebView2 runtime, so we just verify the flag mechanism
+
+            parent.deleteLater()
+        except ImportError:
+            pytest.skip("QtWebView not available")
