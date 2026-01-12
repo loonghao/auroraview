@@ -14,10 +14,13 @@ import pytest
 # Mark all tests as Qt tests
 pytestmark = [pytest.mark.qt]
 
-# Check if we're in CI environment - skip WebView tests that require native window
+# Check if we're in CI environment
 _IN_CI = os.environ.get("CI", "").lower() == "true"
-# Skip WebView instantiation tests in CI - they crash even with xvfb due to WebView2/native issues
-_SKIP_WEBVIEW_TESTS = _IN_CI
+# Check if we're on Windows
+_IS_WINDOWS = sys.platform == "win32"
+# Skip WebView instantiation tests in CI on non-Windows platforms
+# Windows CI can run these tests with offscreen Qt and WebView2
+_SKIP_WEBVIEW_TESTS = _IN_CI and not _IS_WINDOWS
 
 
 class TestQtBackendAvailability:
@@ -158,6 +161,43 @@ class TestQtWebViewFunctionality:
         size = webview.size()
         assert size.width() == 800
         assert size.height() == 600
+
+    def test_showevent_auto_initialization(self, qapp):
+        """Test that showEvent automatically initializes WebView.
+
+        This verifies the standard Qt semantics: when a QtWebView is embedded
+        in a parent widget and the parent is shown, the WebView should
+        auto-initialize via showEvent without needing explicit show() call.
+        """
+        from qtpy.QtCore import Qt
+        from qtpy.QtWidgets import QDockWidget, QMainWindow
+
+        from auroraview import QtWebView
+
+        # Create main window with dock
+        main_window = QMainWindow()
+        webview = QtWebView(html="<h1>Auto Init Test</h1>")
+
+        # Embed in dock - don't call show() on webview
+        dock = QDockWidget("Test Panel", main_window)
+        dock.setWidget(webview)
+        main_window.addDockWidget(Qt.RightDockWidgetArea, dock)
+
+        # Verify webview is not initialized yet
+        assert not webview._webview_initialized
+
+        # Show main window - this should trigger showEvent on webview
+        main_window.show()
+        qapp.processEvents()
+
+        # Now webview should be initialized via showEvent
+        assert webview._webview_initialized
+
+        # Cleanup
+        main_window.close()
+        webview.close()
+        webview.deleteLater()
+        main_window.deleteLater()
 
 
 class TestQtIntegrationModule:
