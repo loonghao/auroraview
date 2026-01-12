@@ -11,6 +11,14 @@ import sys
 
 import pytest
 
+# Check if _core module is available (needed for WebView instantiation)
+try:
+    import auroraview._core  # noqa: F401
+
+    _CORE_AVAILABLE = True
+except ImportError:
+    _CORE_AVAILABLE = False
+
 # Mark all tests as Qt tests
 pytestmark = [pytest.mark.qt]
 
@@ -20,7 +28,12 @@ _IN_CI = os.environ.get("CI", "").lower() == "true"
 _IS_WINDOWS = sys.platform == "win32"
 # Skip WebView instantiation tests in CI on non-Windows platforms
 # Windows CI can run these tests with offscreen Qt and WebView2
+<<<<<<< HEAD
 _SKIP_WEBVIEW_TESTS = _IN_CI and not _IS_WINDOWS
+=======
+# Also skip if Rust core is not available
+_SKIP_WEBVIEW_TESTS = (_IN_CI and not _IS_WINDOWS) or not _CORE_AVAILABLE
+>>>>>>> b876eb1 (fix: enable Qt tests on Windows CI)
 
 
 class TestQtBackendAvailability:
@@ -50,7 +63,7 @@ class TestQtWebViewInstantiation:
     """Test QtWebView instantiation and basic properties."""
 
     @pytest.mark.skipif(
-        _SKIP_WEBVIEW_TESTS, reason="WebView instantiation requires display in CI environment"
+        _SKIP_WEBVIEW_TESTS, reason="WebView instantiation requires display in CI or Rust core not available"
     )
     def test_qtwebview_can_instantiate(self):
         """Test that QtWebView can be instantiated."""
@@ -97,7 +110,7 @@ class TestQtWebViewInstantiation:
         assert issubclass(QtWebView, QWidget)
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI environment")
+@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
 class TestQtWebViewFunctionality:
     """Test QtWebView functionality with actual Qt."""
 
@@ -224,7 +237,7 @@ class TestQtIntegrationModule:
         assert QtWebView is not None
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI environment")
+@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
 class TestQtBackendWithEvents:
     """Test Qt backend event handling."""
 
@@ -277,7 +290,7 @@ class TestQtBackendWithEvents:
         # Verify no exception was raised
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI environment")
+@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
 class TestQtBackendErrorHandling:
     """Test Qt backend error handling."""
 

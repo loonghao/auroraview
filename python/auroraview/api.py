@@ -244,9 +244,16 @@ def create_webview(
             transparent=transparent,
             background_color=background_color,
             asset_root=asset_root,
+            data_directory=data_directory,
             allow_file_protocol=allow_file_protocol,
+            always_on_top=always_on_top,
             embed_mode=resolved_mode,
             ipc_batch_size=ipc_batch_size,
+            icon=icon,
+            tool_window=tool_window,
+            allow_new_window=allow_new_window,
+            new_window_mode=new_window_mode,
+            remote_debugging_port=remote_debugging_port,
             **kwargs,
         )
     else:

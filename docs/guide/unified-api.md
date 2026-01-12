@@ -148,15 +148,15 @@ class MyDCCTool(QMainWindow):
         dock.setWidget(self.webview)
         self.addDockWidget(Qt.RightDockWidgetArea, dock)
 
-        # show() returns immediately - Qt manages the lifecycle
-        self.webview.show()
+        # No need to call show() - WebView auto-initializes via showEvent
+        # when parent window becomes visible
 ```
 
 **Key points for Qt integration:**
 
-1. **No blocking** - `show()` returns immediately
-2. **Qt manages lifecycle** - WebView follows Qt widget lifecycle
-3. **Auto-initialization** - WebView initializes when widget becomes visible
+1. **Auto-initialization via `showEvent`** - WebView initializes automatically when the Qt widget becomes visible (standard Qt semantics)
+2. **No explicit `show()` needed** - When embedded in a layout/dock, showing the parent triggers `showEvent`
+3. **Qt manages lifecycle** - WebView follows Qt widget lifecycle
 4. **Event timer** - AuroraView starts a timer to process WebView events
 
 ### Embedding in Qt Layouts
@@ -185,13 +185,13 @@ class MyPanel(QWidget):
         # No need to call show() - it happens when parent is shown
 ```
 
-**Option 2: Explicit show**
+**Option 2: Explicit show (rarely needed)**
 
 ```python
-# If you need to control when WebView initializes:
+# Only if you need to force initialization before parent is shown:
 self.webview = create_webview(parent=self, url="http://localhost:3000")
 layout.addWidget(self.webview)
-self.webview.show()  # Explicitly initialize
+self.webview.show()  # Force immediate initialization (usually not needed)
 ```
 
 ### DCC-Specific Integration
@@ -214,7 +214,7 @@ webview = create_webview(
     url="http://localhost:3000",
     title="Maya Tool"
 )
-webview.show()  # Non-blocking, integrates with Maya
+# No explicit show() needed - initializes when Maya window layout updates
 ```
 
 #### Houdini

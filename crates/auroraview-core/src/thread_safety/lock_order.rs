@@ -136,6 +136,8 @@ pub struct LockOrderGuard {
     level: LockLevel,
     #[allow(dead_code)]
     name: String,
+    /// Whether this guard was tracked (pushed to the lock stack)
+    tracked: bool,
 }
 
 impl LockOrderGuard {
@@ -151,13 +153,18 @@ impl LockOrderGuard {
     /// Panics in debug builds if acquiring this lock would violate lock ordering.
     pub fn new(level: LockLevel, name: impl Into<String>) -> Self {
         let name = name.into();
+        let tracked = is_verification_enabled();
 
-        if is_verification_enabled() {
+        if tracked {
             verify_lock_order(level, &name);
             push_lock(level, name.clone());
         }
 
-        Self { level, name }
+        Self {
+            level,
+            name,
+            tracked,
+        }
     }
 
     /// Create a guard without verification (for special cases)
@@ -168,6 +175,7 @@ impl LockOrderGuard {
         Self {
             level,
             name: name.into(),
+            tracked: false, // Never track unchecked guards
         }
     }
 
@@ -179,7 +187,7 @@ impl LockOrderGuard {
 
 impl Drop for LockOrderGuard {
     fn drop(&mut self) {
-        if is_verification_enabled() {
+        if self.tracked {
             pop_lock(self.level);
         }
     }

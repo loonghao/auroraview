@@ -9138,9 +9138,16 @@ Signed-off-by: Hal Long <hal.long@outlook.com>
 
 from __future__ import annotations
 
+import importlib
 import os
 import sys
 from pathlib import Path
+from threading import Event, Thread
+
+# Add project root to path so demos can reuse Gallery utilities (dependency installer, etc.)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 # Check for Qt framework
 try:
@@ -9171,15 +9178,9 @@ except ImportError:
     print("PySide6 is required for this demo.")
     print("Please run: pip install PySide6>=6.5.0")
 
-# Check for OpenAI client (DeepSeek compatible)
-try:
-    from openai import OpenAI
-
-    HAS_OPENAI = True
-except ImportError:
-    HAS_OPENAI = False
-    print("OpenAI client is required for this demo.")
-    print("Please run: pip install openai>=1.0.0")
+# OpenAI client (DeepSeek compatible)
+# NOTE: do NOT hard-fail at import time; we support auto-install via docstring requirements.
+OpenAI = None
 
 
 # Chat HTML template for WebView
@@ -9398,15 +9399,61 @@ CHAT_HTML = """
             });
             
             // Listen for responses from Python
+            let streamingEl = null;
+            let streamingText = '';
+
+            function formatMessageHtml(content) {
+                // Handle code blocks
+                content = content.replace(/```(\w*)\n([\s\S]*?)```/g,
+                    '<pre><code>$2</code></pre>');
+                content = content.replace(/`([^`]+)`/g, '<code>$1</code>');
+                content = content.replace(/\n/g, '<br>');
+                return content;
+            }
+
+            function ensureStreamingMessage() {
+                if (streamingEl) return;
+                streamingEl = document.createElement('div');
+                streamingEl.className = 'message assistant';
+                streamingEl.id = 'streaming';
+                streamingEl.innerHTML = '';
+                messagesEl.appendChild(streamingEl);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+                streamingText = '';
+            }
+
+            window.auroraview.on('chat:delta', (data) => {
+                const delta = (data && data.delta) ? data.delta : '';
+                if (!delta) return;
+                removeTypingIndicator();
+                ensureStreamingMessage();
+                streamingText += delta;
+                streamingEl.innerHTML = formatMessageHtml(streamingText);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            });
+
             window.auroraview.on('chat:response', (data) => {
                 removeTypingIndicator();
-                addMessage(data.content, 'assistant');
+                const content = (data && data.content) ? data.content : '';
+                if (streamingEl) {
+                    streamingEl.innerHTML = formatMessageHtml(content);
+                    streamingEl.removeAttribute('id');
+                    streamingEl = null;
+                    streamingText = '';
+                } else {
+                    addMessage(content, 'assistant');
+                }
                 isProcessing = false;
                 updateUI();
             });
             
             window.auroraview.on('chat:error', (data) => {
                 removeTypingIndicator();
+                if (streamingEl) {
+                    streamingEl.remove();
+                    streamingEl = null;
+                    streamingText = '';
+                }
                 addMessage(data.error, 'error');
                 isProcessing = false;
                 updateUI();
@@ -9431,6 +9478,7 @@ CHAT_HTML = """
             div.innerHTML = content;
             messagesEl.appendChild(div);
             messagesEl.scrollTop = messagesEl.scrollHeight;
+            return div;
         }
         
         function addTypingIndicator() {
@@ -9462,9 +9510,16 @@ CHAT_HTML = """
             updateUI();
             addTypingIndicator();
             
-            // Send to Python backend
+            // Send to Python backend - chat.send is fire-and-forget for now
             if (window.auroraview) {
-                window.auroraview.call('chat.send', { message });
+                // Note: We don't await because chat.send is designed as fire-and-forget
+                // The Python side will emit events back (chat:delta, chat:response, chat:error)
+                window.auroraview.call('chat.send', { message }).catch(err => {
+                    console.error('Failed to send message to Python:', err);
+                    addMessage('Error: Failed to communicate with backend', 'error');
+                    isProcessing = false;
+                    updateUI();
+                });
             }
         }
     </script>
@@ -9476,15 +9531,27 @@ CHAT_HTML = """
 class ChatWorker(QThread):
     """Worker thread for handling DeepSeek API calls."""
 
+    delta_ready = Signal(str)
     response_ready = Signal(str)
     error_occurred = Signal(str)
 
-    def __init__(self, api_key: str, base_url: str, model: str, message: str):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str,
+        model: str,
+        message: str,
+        *,
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+    ):
         super().__init__()
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
         self.message = message
+        self.temperature = temperature
+        self.max_tokens = max_tokens
         self.messages_history: list[dict] = []
 
     def set_history(self, history: list[dict]):
@@ -9494,17 +9561,34 @@ class ChatWorker(QThread):
     def run(self):
         """Execute the API call in background thread."""
         try:
+            if OpenAI is None:
+                raise RuntimeError("OpenAI client not available. Please install 'openai>=1.0.0'.")
+
             client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 
             messages = self.messages_history + [{"role": "user", "content": self.message}]
 
-            response = client.chat.completions.create(
+            stream = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                stream=False,
+                stream=True,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
             )
 
-            content = response.choices[0].message.content
+            chunks = []
+            for event in stream:
+                # openai>=1 returns ChatCompletionChunk events
+                try:
+                    delta = event.choices[0].delta.content
+                except Exception:
+                    delta = None
+
+                if delta:
+                    chunks.append(delta)
+                    self.delta_ready.emit(delta)
+
+            content = "".join(chunks).strip()
             self.response_ready.emit(content)
         except Exception as e:
             self.error_occurred.emit(str(e))
@@ -9523,9 +9607,17 @@ class AIChatWindow(QMainWindow):
         self.worker: ChatWorker | None = None
         self.webview = None
 
+        # Dependency state
+        self._missing_requirements: list[str] = []
+        self._install_cancel_event: Optional[Event] = None
+        self._install_thread: Optional[Thread] = None
+
         self._setup_ui()
         self._setup_webview()
         self._apply_dark_theme()
+
+        # Soft-check dependencies (do not exit; allow installing from UI)
+        self._refresh_dependency_status()
 
     def _setup_ui(self):
         """Setup the main UI layout."""
@@ -9609,9 +9701,19 @@ class AIChatWindow(QMainWindow):
         self.connect_btn.clicked.connect(self._test_connection)
         actions_layout.addWidget(self.connect_btn)
 
+        self.install_deps_btn = QPushButton("⬇️ Install Missing Dependencies")
+        self.install_deps_btn.clicked.connect(self._install_missing_dependencies)
+        actions_layout.addWidget(self.install_deps_btn)
+
         self.clear_btn = QPushButton("🗑️ Clear Chat History")
         self.clear_btn.clicked.connect(self._clear_history)
         actions_layout.addWidget(self.clear_btn)
+
+        self.deps_log = QTextEdit()
+        self.deps_log.setReadOnly(True)
+        self.deps_log.setPlaceholderText("Dependency install logs will appear here...")
+        self.deps_log.setMaximumHeight(160)
+        actions_layout.addWidget(self.deps_log)
 
         layout.addWidget(actions_group)
 
@@ -9645,7 +9747,9 @@ class AIChatWindow(QMainWindow):
 
             # Replace placeholder with WebView
             for i in reversed(range(self.webview_layout.count())):
-                self.webview_layout.itemAt(i).widget().setParent(None)
+                w = self.webview_layout.itemAt(i).widget()
+                if w:
+                    w.setParent(None)
 
             self.webview_layout.addWidget(self.webview)
             self.webview.show()
@@ -9691,20 +9795,71 @@ class AIChatWindow(QMainWindow):
                 self.webview.emit("chat:error", {"error": "Please configure API key first"})
             return
 
+        # Refresh dependency status before checking
+        self._refresh_dependency_status()
+
+        # Check if installation is in progress
+        if (
+            hasattr(self, "_install_thread")
+            and self._install_thread
+            and self._install_thread.is_alive()
+        ):
+            if self.webview:
+                self.webview.emit(
+                    "chat:error",
+                    {
+                        "error": "Dependency installation is in progress. Please wait for it to complete.",
+                    },
+                )
+            self._update_status("Installation in progress...", ok=False)
+            return
+
+        if OpenAI is None:
+            missing_deps = (
+                ", ".join(self._missing_requirements)
+                if self._missing_requirements
+                else "openai>=1.0.0"
+            )
+            if self.webview:
+                self.webview.emit(
+                    "chat:error",
+                    {
+                        "error": f"Missing dependency: {missing_deps}. Please click 'Install Missing Dependencies' button on the left panel.",
+                    },
+                )
+            self._update_status(f"Missing dependency: {missing_deps}", ok=False)
+
+            # Highlight the install button
+            self.install_deps_btn.setStyleSheet("background-color: #ff6b6b; color: white;")
+            # Reset style after 3 seconds
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(3000, lambda: self.install_deps_btn.setStyleSheet(""))
+            return
+
         # Create worker thread for API call
         self.worker = ChatWorker(
             api_key=api_key,
             base_url=self.base_url_input.text().strip(),
             model=self.model_combo.currentText(),
             message=message,
+            temperature=float(self.temp_spin.value()),
+            max_tokens=int(self.max_tokens_spin.value()),
         )
         self.worker.set_history(self.messages_history)
+        self.worker.delta_ready.connect(self._on_delta)
         self.worker.response_ready.connect(self._on_response)
         self.worker.error_occurred.connect(self._on_error)
         self.worker.start()
 
         # Add to history
         self.messages_history.append({"role": "user", "content": message})
+
+    @Slot(str)
+    def _on_delta(self, delta: str):
+        """Handle streaming delta chunks."""
+        if self.webview:
+            self.webview.emit("chat:delta", {"delta": delta})
 
     @Slot(str)
     def _on_response(self, content: str):
@@ -9727,6 +9882,14 @@ class AIChatWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Please enter an API key")
             return
 
+        if OpenAI is None:
+            QMessageBox.warning(
+                self,
+                "Missing dependency",
+                "The OpenAI client is not installed. Click 'Install Missing Dependencies' first.",
+            )
+            return
+
         self._update_status("Testing connection...")
         try:
             client = OpenAI(
@@ -9734,16 +9897,165 @@ class AIChatWindow(QMainWindow):
                 base_url=self.base_url_input.text().strip(),
             )
             # Simple test call
-            response = client.chat.completions.create(
+            _ = client.chat.completions.create(
                 model=self.model_combo.currentText(),
                 messages=[{"role": "user", "content": "Hi"}],
                 max_tokens=10,
+                temperature=float(self.temp_spin.value()),
+                stream=False,
             )
             self._update_status("Connection successful!", ok=True)
             QMessageBox.information(self, "Success", "API connection successful!")
         except Exception as e:
             self._update_status(f"Connection failed: {e}", ok=False)
             QMessageBox.critical(self, "Error", f"Connection failed:\n{e}")
+
+    def _refresh_dependency_status(self) -> None:
+        """Refresh missing dependency list from the demo docstring Requirements."""
+        try:
+            from gallery.backend.dependency_installer import (
+                get_missing_requirements,
+                parse_requirements_from_docstring,
+            )
+        except Exception as e:
+            # If gallery isn't available, just leave as-is.
+            print(f"Warning: Could not check dependencies: {e}")
+            return
+
+        docstring = __doc__ or ""
+        reqs = parse_requirements_from_docstring(docstring)
+        missing = get_missing_requirements(reqs)
+        self._missing_requirements = missing
+
+        # Update button state based on missing requirements
+        if missing:
+            self.install_deps_btn.setEnabled(True)
+            self.install_deps_btn.setText("⬇️ Install Missing Dependencies")
+            if len(missing) == 1:
+                self._update_status(f"Missing dependency: {missing[0]}", ok=False)
+            else:
+                self._update_status(f"Missing dependencies: {len(missing)} packages", ok=False)
+        else:
+            self.install_deps_btn.setEnabled(False)
+            self.install_deps_btn.setText("✓ Dependencies Ready")
+            self._update_status("All dependencies satisfied", ok=True)
+
+    def _install_missing_dependencies(self):
+        """Install missing dependencies defined in the demo docstring asynchronously."""
+        try:
+            from gallery.backend.dependency_installer import install_requirements
+            from threading import Event
+        except Exception as exc:
+            QMessageBox.critical(self, "Error", f"Dependency installer not available: {exc}")
+            return
+
+        # Always refresh before installing
+        self._refresh_dependency_status()
+        if not self._missing_requirements:
+            QMessageBox.information(self, "OK", "No missing dependencies.")
+            return
+
+        self.install_deps_btn.setEnabled(False)
+        self.install_deps_btn.setText("⏳ Installing...")
+        self.deps_log.clear()
+        self._update_status("Installing dependencies...", ok=True)
+
+        # Create cancel event for the installation
+        self._install_cancel_event = Event()
+
+        def on_progress(p: dict):
+            # Ensure UI updates happen in main thread
+            from PySide6.QtCore import QMetaObject, Qt, Q_ARG
+
+            msg = p.get("message") or p.get("line") or str(p)
+            # Use signal-slot mechanism to update UI safely
+            QMetaObject.invokeMethod(
+                self, "_append_dep_log", Qt.ConnectionType.QueuedConnection, Q_ARG(str, msg)
+            )
+
+        def install_worker():
+            """Run installation in background thread to avoid blocking UI."""
+            try:
+                result = install_requirements(
+                    self._missing_requirements,
+                    on_progress=on_progress,
+                    cancel_event=self._install_cancel_event,
+                )
+
+                # Schedule UI update in main thread
+                QMetaObject.invokeMethod(
+                    self,
+                    "_finalize_installation",
+                    Qt.ConnectionType.QueuedConnection,
+                    Q_ARG(dict, result),
+                )
+            except Exception as e:
+                # Handle unexpected errors
+                error_msg = f"Installation error: {str(e)}"
+                QMetaObject.invokeMethod(
+                    self,
+                    "_append_dep_log",
+                    Qt.ConnectionType.QueuedConnection,
+                    Q_ARG(str, f"\n❌ {error_msg}"),
+                )
+                QMetaObject.invokeMethod(
+                    self,
+                    "_finalize_installation",
+                    Qt.ConnectionType.QueuedConnection,
+                    Q_ARG(dict, {"success": False, "output": error_msg, "cancelled": False}),
+                )
+
+        # Start installation in background thread
+        from threading import Thread
+
+        self._install_thread = Thread(target=install_worker, daemon=True)
+        self._install_thread.start()
+
+    @Slot(dict)
+    def _finalize_installation(self, result: dict):
+        """Finalize installation process in main thread."""
+        # Finalize installation
+        self.install_deps_btn.setText("⬇️ Install Missing Dependencies")
+
+        if result.get("success"):
+            self.deps_log.append("\n✅ All dependencies installed successfully.")
+            # Import openai after install
+            try:
+                global OpenAI
+                OpenAI = importlib.import_module("openai").OpenAI
+            except Exception as e:
+                self.deps_log.append(f"\n⚠️ Warning: Could not import openai after install: {e}")
+
+            self._refresh_dependency_status()
+            QMessageBox.information(self, "Success", "Dependencies installed successfully!")
+            self._update_status("Dependencies ready", ok=True)
+        else:
+            err = result.get("output") or "Installation failed"
+            self.deps_log.append("\n❌ " + err)
+            if result.get("cancelled"):
+                self.deps_log.append("\n⏹️ Installation was cancelled.")
+                self._update_status("Installation cancelled", ok=False)
+            else:
+                self._update_status("Installation failed", ok=False)
+
+            # Re-enable button for retry
+            self.install_deps_btn.setEnabled(True)
+            QMessageBox.critical(
+                self, "Error", "Some dependencies failed to install. See log below."
+            )
+
+        # Clean up
+        self._install_cancel_event = None
+        self._install_thread = None
+
+    @Slot(str)
+    def _append_dep_log(self, msg: str):
+        """Append message to dependency log (thread-safe UI update)."""
+        self.deps_log.append(msg)
+        # Auto-scroll to bottom
+        cursor = self.deps_log.textCursor()
+        cursor.movePosition(cursor.End)
+        self.deps_log.setTextCursor(cursor)
 
     def _clear_history(self):
         """Clear chat history."""
@@ -9765,13 +10077,6 @@ def main():
         print("=" * 60)
         sys.exit(1)
 
-    if not HAS_OPENAI:
-        print("\n" + "=" * 60)
-        print("ERROR: OpenAI client is required for this demo")
-        print("Please install it with: pip install openai>=1.0.0")
-        print("=" * 60)
-        sys.exit(1)
-
     print("\n" + "=" * 60)
     print("AI Chat Assistant Demo")
     print("=" * 60)
@@ -9789,6 +10094,14 @@ def main():
     app.setStyle("Fusion")
 
     window = AIChatWindow()
+
+    # Try importing OpenAI after UI created; if missing, user can install via UI.
+    try:
+        global OpenAI
+        OpenAI = importlib.import_module("openai").OpenAI
+    except Exception:
+        OpenAI = None
+
     window.show()
 
     sys.exit(app.exec())
@@ -14394,6 +14707,435 @@ if __name__ == "__main__":
 - Context menu replacement
 - Tool palette with categories
 - Marking menu style interface
+
+---
+
+### Test script to verify the cancel button fix
+
+This simulates the installation and cancellation process.
+
+::: details 查看源代码
+```python
+#!/usr/bin/env python3
+"""
+Test script to verify the cancel button fix.
+This simulates the installation and cancellation process.
+"""
+
+import time
+import threading
+from threading import Event
+
+
+def simulate_installation_with_cancel():
+    """Simulate installation process with cancel capability."""
+
+    class MockWebView:
+        def __init__(self):
+            self.events = []
+
+        def emit(self, event_name, data):
+            timestamp = time.strftime("%H:%M:%S")
+            print(f"[{timestamp}] EVENT: {event_name} -> {data}")
+            self.events.append((event_name, data))
+
+    class MockInstaller:
+        def __init__(self, webview):
+            self.webview = webview
+            self._install_cancel_event = None
+
+        def install_dependencies(self):
+            """Start installation process."""
+            self._install_cancel_event = Event()
+
+            # Start installation
+            self.webview.emit(
+                "dependency:install_start",
+                {
+                    "total": 3,
+                    "packages": ["openai", "requests", "pyside6"],
+                    "message": "Starting installation of 3 packages...",
+                },
+            )
+
+            def install_worker():
+                packages = ["openai", "requests", "pyside6"]
+
+                for i, package in enumerate(packages):
+                    if self._install_cancel_event.is_set():
+                        print(f"Installation cancelled during {package}")
+                        self.webview.emit(
+                            "dependency:install_done",
+                            {
+                                "success": False,
+                                "cancelled": True,
+                                "installed": packages[:i],
+                                "failed": packages[i:],
+                            },
+                        )
+                        return
+
+                    # Start package installation
+                    self.webview.emit(
+                        "dependency:install_progress",
+                        {"type": "start", "package": package, "total": len(packages), "index": i},
+                    )
+
+                    # Simulate installation progress
+                    for progress in [25, 50, 75, 100]:
+                        if self._install_cancel_event.is_set():
+                            print(f"Installation cancelled during {package} at {progress}%")
+                            self.webview.emit(
+                                "dependency:install_done",
+                                {
+                                    "success": False,
+                                    "cancelled": True,
+                                    "installed": packages[:i],
+                                    "failed": packages[i:],
+                                },
+                            )
+                            return
+
+                        self.webview.emit(
+                            "dependency:install_progress",
+                            {
+                                "type": "output",
+                                "line": f"Downloading {package}... {progress}%",
+                                "package": package,
+                            },
+                        )
+                        time.sleep(0.5)  # Simulate download time
+
+                    # Complete package
+                    self.webview.emit(
+                        "dependency:install_progress",
+                        {
+                            "type": "complete",
+                            "package": package,
+                            "total": len(packages),
+                            "index": i,
+                        },
+                    )
+
+                # All packages completed
+                self.webview.emit(
+                    "dependency:install_done",
+                    {"success": True, "installed": packages, "failed": [], "cancelled": False},
+                )
+
+            thread = threading.Thread(target=install_worker, daemon=True)
+            thread.start()
+            return {"started": True}
+
+        def cancel_installation(self):
+            """Cancel ongoing installation."""
+            if self._install_cancel_event is None:
+                return {"success": False, "error": "No installation in progress"}
+
+            try:
+                # Send cancel progress events
+                self.webview.emit(
+                    "dependency:cancel_progress",
+                    {"type": "cancelling", "message": "Requesting cancellation..."},
+                )
+
+                # Set cancel event
+                self._install_cancel_event.set()
+
+                # Send cancel confirmation
+                self.webview.emit(
+                    "dependency:cancel_progress",
+                    {"type": "cancelled", "message": "Cancellation signal sent"},
+                )
+
+                return {"success": True, "message": "Cancellation requested"}
+            except Exception as e:
+                return {"success": False, "error": f"Failed to cancel: {str(e)}"}
+
+    # Test scenario
+    print("🧪 Testing Cancel Button Fix")
+    print("=" * 50)
+
+    webview = MockWebView()
+    installer = MockInstaller(webview)
+
+    print("\n1. Starting installation...")
+    installer.install_dependencies()
+
+    # Let it run for a bit
+    time.sleep(2)
+
+    print("\n2. User clicks cancel button...")
+    result = installer.cancel_installation()
+    print(f"Cancel result: {result}")
+
+    # Wait for cancellation to complete
+    time.sleep(1)
+
+    print("\n3. Final events summary:")
+    for event_name, data in webview.events[-5:]:  # Show last 5 events
+        print(f"   {event_name}: {data}")
+
+    print("\n✅ Test completed!")
+    print("\nExpected behavior:")
+    print("- Progress bar should remain visible during cancellation")
+    print("- Cancel button should be disabled after clicking")
+    print("- Progress text should show 'Cancelling installation...'")
+    print("- Final event should be 'dependency:install_done' with cancelled=True")
+
+
+if __name__ == "__main__":
+    simulate_installation_with_cancel()
+```
+:::
+
+**运行:** `python examples/test_cancel_fix.py`
+
+---
+
+### Test Dependency Installation
+
+This script tests the automatic dependency installation feature. Requirements:
+
+::: details 查看源代码
+```python
+#!/usr/bin/env python3
+"""
+Test Dependency Installation
+
+This script tests the automatic dependency installation feature.
+
+Requirements:
+- requests>=2.25.0
+- beautifulsoup4>=4.9.0
+
+Usage:
+    python test_dependency_install.py
+"""
+
+import sys
+from pathlib import Path
+
+# Add the project root to the path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root / "python"))
+
+try:
+    import requests
+    import bs4
+
+    print("✅ All dependencies are installed!")
+    print(f"requests version: {requests.__version__}")
+    print(f"beautifulsoup4 version: {bs4.__version__}")
+
+    # Test a simple HTTP request
+    response = requests.get("https://httpbin.org/json", timeout=5)
+    print(f"✅ HTTP test successful: {response.status_code}")
+
+except ImportError as e:
+    print(f"❌ Missing dependency: {e}")
+    sys.exit(1)
+except Exception as e:
+    print(f"❌ Error: {e}")
+    sys.exit(1)
+
+print("🎉 Test completed successfully!")
+```
+:::
+
+**运行:** `python examples/test_dependency_install.py`
+
+---
+
+### Test script for enhanced dependency installation progress
+
+This script simulates the enhanced progress reporting functionality to verify that all events and progress updates work correctly.
+
+::: details 查看源代码
+```python
+#!/usr/bin/env python3
+"""Test script for enhanced dependency installation progress.
+
+This script simulates the enhanced progress reporting functionality
+to verify that all events and progress updates work correctly.
+"""
+
+import time
+import threading
+from pathlib import Path
+import sys
+
+# Add project root to path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
+def simulate_progress_events():
+    """Simulate the progress events that would be emitted during installation."""
+
+    # Mock WebView for testing
+    class MockWebView:
+        def __init__(self):
+            self.events = []
+
+        def emit(self, event_name, data):
+            timestamp = time.strftime("%H:%M:%S")
+            print(f"[{timestamp}] EVENT: {event_name}")
+            print(f"  Data: {data}")
+            print("-" * 50)
+            self.events.append((event_name, data))
+
+    webview = MockWebView()
+
+    # Simulate installation start
+    webview.emit(
+        "dependency:install_start",
+        {
+            "total": 2,
+            "packages": ["openai>=1.0.0", "requests>=2.0.0"],
+            "message": "Starting installation of 2 packages...",
+        },
+    )
+
+    time.sleep(0.5)
+
+    # Simulate first package installation
+    webview.emit(
+        "dependency:install_progress",
+        {
+            "type": "start",
+            "package": "openai",
+            "index": 0,
+            "total": 2,
+            "message": "[09:21:40] Installing openai...",
+        },
+    )
+
+    time.sleep(0.3)
+
+    # Simulate download progress
+    for progress in [10, 25, 50, 75, 90, 100]:
+        webview.emit(
+            "dependency:install_progress",
+            {
+                "type": "output",
+                "package": "openai",
+                "line": f"[09:21:41] Downloading openai... {progress}%",
+            },
+        )
+        time.sleep(0.2)
+
+    # Simulate completion of first package
+    webview.emit(
+        "dependency:install_progress",
+        {
+            "type": "complete",
+            "package": "openai",
+            "success": True,
+            "message": "[09:21:43] Successfully installed openai",
+        },
+    )
+
+    time.sleep(0.5)
+
+    # Simulate second package with error
+    webview.emit(
+        "dependency:install_progress",
+        {
+            "type": "start",
+            "package": "requests",
+            "index": 1,
+            "total": 2,
+            "message": "[09:21:44] Installing requests...",
+        },
+    )
+
+    time.sleep(0.3)
+
+    # Simulate error
+    webview.emit(
+        "dependency:install_progress",
+        {
+            "type": "error",
+            "package": "requests",
+            "success": False,
+            "message": "[09:21:45] Failed to install requests (exit 1)",
+            "output": "ERROR: Could not find a version that satisfies the requirement requests>=999.0.0\nERROR: No matching distribution found for requests>=999.0.0",
+        },
+    )
+
+    time.sleep(0.5)
+
+    # Simulate installation completion with mixed results
+    webview.emit(
+        "dependency:install_done",
+        {
+            "success": False,
+            "installed": ["openai>=1.0.0"],
+            "failed": ["requests>=2.0.0"],
+            "output": "Installation completed with errors. See details above.",
+            "cancelled": False,
+        },
+    )
+
+    print(f"\nSimulation completed. Total events emitted: {len(webview.events)}")
+    return webview.events
+
+
+def test_progress_parsing():
+    """Test progress percentage parsing from pip output."""
+    test_lines = [
+        "Downloading openai-1.3.5-py3-none-any.whl (234 kB) 25%",
+        "Installing collected packages: openai 50%",
+        "Successfully installed openai-1.3.5 100%",
+        "ERROR: Could not find a version",
+        "Collecting requests>=2.0.0",
+    ]
+
+    print("Testing progress parsing:")
+    print("-" * 30)
+
+    for line in test_lines:
+        import re
+
+        progress_match = re.search(r"(\d+)%", line)
+        if progress_match:
+            percent = int(progress_match.group(1))
+            print(f"Line: {line}")
+            print(f"  -> Progress: {percent}%")
+        else:
+            print(f"Line: {line}")
+            print(f"  -> No progress found")
+        print()
+
+
+def main():
+    """Run the test simulation."""
+    print("=" * 60)
+    print("Enhanced Dependency Installation Progress Test")
+    print("=" * 60)
+    print()
+
+    print("1. Testing progress event simulation...")
+    events = simulate_progress_events()
+
+    print("\n" + "=" * 60)
+    print("2. Testing progress parsing...")
+    test_progress_parsing()
+
+    print("\n" + "=" * 60)
+    print("Test completed successfully!")
+    print(f"Total events simulated: {len(events)}")
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
+```
+:::
+
+**运行:** `python examples/test_enhanced_progress.py`
 
 ---
 

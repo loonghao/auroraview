@@ -13,6 +13,14 @@ import sys
 
 import pytest
 
+# Check if _core module is available (needed for WebView instantiation)
+try:
+    import auroraview._core  # noqa: F401
+
+    _CORE_AVAILABLE = True
+except ImportError:
+    _CORE_AVAILABLE = False
+
 # Mark all tests as Qt tests
 pytestmark = [pytest.mark.qt]
 
@@ -22,10 +30,17 @@ _IN_CI = os.environ.get("CI", "").lower() == "true"
 _IS_WINDOWS = sys.platform == "win32"
 # Skip WebView instantiation tests in CI on non-Windows platforms
 # Windows CI can run these tests with offscreen Qt and WebView2
+<<<<<<< HEAD
 _SKIP_WEBVIEW_TESTS = _IN_CI and not _IS_WINDOWS
+=======
+# Also skip if Rust core is not available
+_SKIP_WEBVIEW_TESTS = (_IN_CI and not _IS_WINDOWS) or not _CORE_AVAILABLE
+>>>>>>> b876eb1 (fix: enable Qt tests on Windows CI)
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI environment")
+
+
+@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
 class TestQtWebViewLifecycle:
     """Test QtWebView lifecycle management for the new WebView2-based backend."""
 
@@ -75,7 +90,7 @@ class TestQtWebViewLifecycle:
     def test_qtwebview_embeds_webview_core(self, qapp):
         """QtWebView should create an internal WebView backend instance."""
         from auroraview import QtWebView
-        from auroraview.webview import WebView
+        from auroraview.core.webview import WebView
 
         webview = QtWebView()
         assert hasattr(webview, "_webview")
@@ -101,7 +116,7 @@ class TestQtWebViewLifecycle:
         webview.deleteLater()
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI environment")
+@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
 class TestQtWebViewEventProcessing:
     """Test event processing and UI updates."""
 
@@ -189,7 +204,7 @@ class TestQtWebViewEventProcessing:
     def test_qtwebview_auto_installs_event_processor(self, qapp):
         """Test that QtWebView automatically installs QtEventProcessor."""
         from auroraview import QtWebView
-        from auroraview.qt_integration import QtEventProcessor
+        from auroraview.integration.qt import QtEventProcessor
 
         webview = QtWebView()
 
@@ -203,7 +218,7 @@ class TestQtWebViewEventProcessing:
         webview.deleteLater()
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI environment")
+@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
 class TestQtWebViewAppIntegration:
     """Lightweight tests around Qt-specific integration flags."""
 
