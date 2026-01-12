@@ -10,7 +10,7 @@ import threading
 
 import pytest
 
-from auroraview.api import _is_qwidget, _get_mode_for_parent, create_webview
+from auroraview.api import _get_mode_for_parent, _is_qwidget, create_webview
 
 # Check Qt availability
 try:
@@ -240,14 +240,14 @@ class TestApiBindingMixin:
         from auroraview.core.mixins.api import WebViewApiMixin
 
         assert hasattr(WebViewApiMixin, "bind_call")
-        assert callable(getattr(WebViewApiMixin, "bind_call"))
+        assert callable(WebViewApiMixin.bind_call)
 
     def test_api_mixin_has_bind_api(self):
         """WebViewApiMixin should provide bind_api method."""
         from auroraview.core.mixins.api import WebViewApiMixin
 
         assert hasattr(WebViewApiMixin, "bind_api")
-        assert callable(getattr(WebViewApiMixin, "bind_api"))
+        assert callable(WebViewApiMixin.bind_api)
 
     def test_api_mixin_has_is_method_bound(self):
         """WebViewApiMixin should provide is_method_bound method."""
@@ -274,13 +274,13 @@ class TestThreadDispatcher:
     def test_thread_dispatcher_imports(self):
         """Thread dispatcher utilities should be importable."""
         from auroraview.utils.thread_dispatcher import (
-            run_on_main_thread,
-            run_on_main_thread_sync,
-            is_main_thread,
             dcc_thread_safe,
             dcc_thread_safe_async,
-            is_dcc_environment,
             get_current_dcc_name,
+            is_dcc_environment,
+            is_main_thread,
+            run_on_main_thread,
+            run_on_main_thread_sync,
         )
 
         assert callable(run_on_main_thread)
@@ -443,17 +443,16 @@ class TestWebViewMixinIntegration:
 
     def test_webview_has_api_mixin_methods(self):
         """WebView class should have API mixin methods."""
-        from auroraview.core.webview import WebView
-
         # Check that WebView inherits from WebViewApiMixin
         from auroraview.core.mixins.api import WebViewApiMixin
+        from auroraview.core.webview import WebView
 
         assert issubclass(WebView, WebViewApiMixin)
 
     def test_webview_has_event_mixin_methods(self):
         """WebView class should have event mixin methods."""
-        from auroraview.core.webview import WebView
         from auroraview.core.mixins.events import WebViewEventMixin
+        from auroraview.core.webview import WebView
 
         assert issubclass(WebView, WebViewEventMixin)
 
@@ -522,8 +521,9 @@ class TestShowMethodBehavior:
 
     def test_show_accepts_wait_parameter(self):
         """show() should accept wait parameter."""
-        from auroraview.core import WebView
         import inspect
+
+        from auroraview.core import WebView
 
         sig = inspect.signature(WebView.show)
         params = sig.parameters
@@ -532,8 +532,9 @@ class TestShowMethodBehavior:
     def test_qtwebview_show_is_non_blocking(self):
         """QtWebView.show() should be non-blocking (Qt semantics)."""
         try:
-            from auroraview.integration.qt import QtWebView
             import inspect
+
+            from auroraview.integration.qt import QtWebView
 
             # QtWebView.show() should not have wait parameter
             # because it always follows Qt widget semantics (non-blocking)
@@ -607,8 +608,9 @@ class TestQtWebViewShowEvent:
     def test_qtwebview_has_webview_initialized_flag(self):
         """QtWebView should track initialization state."""
         try:
-            from auroraview.integration.qt import QtWebView
             from qtpy.QtWidgets import QApplication
+
+            from auroraview.integration.qt import QtWebView
 
             _app = QApplication.instance() or QApplication([])  # noqa: F841
 
@@ -645,8 +647,9 @@ class TestQtWebViewShowEvent:
     def test_qtwebview_no_explicit_show_needed_in_layout(self):
         """QtWebView should auto-initialize when parent is shown."""
         try:
+            from qtpy.QtWidgets import QApplication, QVBoxLayout, QWidget
+
             from auroraview.integration.qt import QtWebView
-            from qtpy.QtWidgets import QApplication, QWidget, QVBoxLayout
 
             _app = QApplication.instance() or QApplication([])  # noqa: F841
 
