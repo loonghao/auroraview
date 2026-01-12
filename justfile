@@ -861,32 +861,32 @@ docs-install:
     cd docs; vx npm install
     @echo "[OK] Documentation dependencies installed!"
 
-# Generate Python API documentation with pdoc
+# Generate Python API documentation with pdoc (optional, may fail due to network)
 # Note: Only includes core modules that don't require third-party dependencies
 # Excludes: integration/qt (requires qtpy), testing (requires pytest)
 [unix]
 docs-python-api:
     @echo "Generating Python API documentation with pdoc..."
-    vx uv venv .docs-venv
-    vx uv pip install --python .docs-venv/bin/python pdoc>=14.0.0 --quiet
-    .docs-venv/bin/python -m pdoc --output-dir docs/api/python-gen --docformat google \
+    -vx uv venv .docs-venv --clear
+    -vx uv pip install --python .docs-venv/bin/python pdoc>=14.0.0 --quiet
+    -.docs-venv/bin/python -m pdoc --output-dir docs/api/python-gen --docformat google \
         python/auroraview/core \
         python/auroraview/ui \
         python/auroraview/utils \
         --no-show-source
-    @echo "[OK] Python API docs generated in docs/api/python-gen/"
+    @echo "[OK] Python API docs generation completed (may have skipped due to network issues)"
 
 [windows]
 docs-python-api:
     @echo "Generating Python API documentation with pdoc..."
-    vx uv venv .docs-venv
-    vx uv pip install --python .docs-venv\Scripts\python.exe pdoc>=14.0.0 --quiet
-    .docs-venv\Scripts\python.exe -m pdoc --output-dir docs/api/python-gen --docformat google \
+    -vx uv venv .docs-venv --clear
+    -vx uv pip install --python .docs-venv\Scripts\python.exe pdoc>=14.0.0 --quiet
+    -.docs-venv\Scripts\python.exe -m pdoc --output-dir docs/api/python-gen --docformat google \
         python/auroraview/core \
         python/auroraview/ui \
         python/auroraview/utils \
         --no-show-source
-    @echo "[OK] Python API docs generated in docs/api/python-gen/"
+    @echo "[OK] Python API docs generation completed (may have skipped due to network issues)"
 
 
 
