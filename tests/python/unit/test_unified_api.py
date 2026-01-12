@@ -453,7 +453,7 @@ class TestWebViewMixinIntegration:
     def test_webview_has_event_mixin_methods(self):
         """WebView class should have event mixin methods."""
         from auroraview.core.webview import WebView
-        from auroraview.core.mixins.event import WebViewEventMixin
+        from auroraview.core.mixins.events import WebViewEventMixin
 
         assert issubclass(WebView, WebViewEventMixin)
 
