@@ -148,15 +148,15 @@ class MyDCCTool(QMainWindow):
         dock.setWidget(self.webview)
         self.addDockWidget(Qt.RightDockWidgetArea, dock)
 
-        # show() 立即返回 - Qt 管理生命周期
-        self.webview.show()
+        # 无需调用 show() - WebView 通过 showEvent 自动初始化
+        # 当父窗口显示时自动触发
 ```
 
 **Qt 集成要点：**
 
-1. **不阻塞** - `show()` 立即返回
-2. **Qt 管理生命周期** - WebView 遵循 Qt 控件生命周期
-3. **自动初始化** - WebView 在控件可见时初始化
+1. **通过 `showEvent` 自动初始化** - WebView 在 Qt 控件变为可见时自动初始化（标准 Qt 语义）
+2. **无需显式调用 `show()`** - 嵌入布局/停靠面板时，显示父窗口会触发 `showEvent`
+3. **Qt 管理生命周期** - WebView 遵循 Qt 控件生命周期
 4. **事件计时器** - AuroraView 启动计时器处理 WebView 事件
 
 ### 嵌入 Qt 布局
@@ -185,13 +185,13 @@ class MyPanel(QWidget):
         # 无需调用 show() - 父窗口显示时自动触发
 ```
 
-**方式 2：显式调用 show**
+**方式 2：显式调用 show（很少需要）**
 
 ```python
-# 如果需要控制 WebView 初始化时机：
+# 仅当需要在父窗口显示前强制初始化时：
 self.webview = create_webview(parent=self, url="http://localhost:3000")
 layout.addWidget(self.webview)
-self.webview.show()  # 显式初始化
+self.webview.show()  # 强制立即初始化（通常不需要）
 ```
 
 ### DCC 特定集成
@@ -214,7 +214,7 @@ webview = create_webview(
     url="http://localhost:3000",
     title="Maya 工具"
 )
-webview.show()  # 非阻塞，与 Maya 集成
+# 无需显式调用 show() - 当 Maya 窗口布局更新时自动初始化
 ```
 
 #### Houdini

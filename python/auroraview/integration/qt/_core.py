@@ -266,13 +266,20 @@ class QtWebView(FileDialogMixin, QWidget):
         dev_tools: bool = True,
         context_menu: bool = True,
         asset_root: Optional[str] = None,
+        data_directory: Optional[str] = None,
         allow_file_protocol: bool = False,
+        always_on_top: bool = False,
         frameless: bool = False,
         transparent: bool = False,
         background_color: Optional[str] = None,
         embed_mode: str = "child",
         ipc_batch_size: int = 0,
+        icon: Optional[str] = None,
+        tool_window: bool = False,
         auto_prewarm: bool = True,
+        allow_new_window: bool = False,
+        new_window_mode: Optional[str] = None,
+        remote_debugging_port: Optional[int] = None,
     ) -> None:
         """Initialize QtWebView.
 
@@ -304,10 +311,17 @@ class QtWebView(FileDialogMixin, QWidget):
                 **Recommended** over ``allow_file_protocol=True`` because access
                 is restricted to the specified directory only.
 
+            data_directory: User data directory for WebView (cookies, cache, localStorage).
+                If None, uses system default. Set this to isolate WebView data
+                per application or user profile.
+
             allow_file_protocol: Enable file:// protocol support (default: False).
                 **WARNING**: Enabling this allows access to ANY file on the system
                 that the process can read. Only use with trusted content.
                 Prefer using ``asset_root`` for secure local resource loading.
+
+            always_on_top: Keep window always on top of other windows (default: False).
+                Useful for floating tool panels or overlay windows.
 
             frameless: Enable frameless window mode (default: False).
                 When True, the window will have no title bar or borders.
@@ -360,6 +374,12 @@ class QtWebView(FileDialogMixin, QWidget):
                 - 5: Houdini (slow main thread)
                 - 10: Nuke, 3ds Max
 
+            icon: Window icon path (optional). Path to an image file (.ico, .png)
+                to use as the window icon.
+
+            tool_window: Apply tool window style (default: False, Windows only).
+                When enabled, the window does NOT appear in the taskbar or Alt+Tab.
+
             auto_prewarm: Automatically trigger WebView2 pre-warming on first
                 instantiation (default: True). This provides ~50% faster WebView
                 creation by initializing the WebView2 Runtime in advance.
@@ -370,6 +390,22 @@ class QtWebView(FileDialogMixin, QWidget):
                 - One-time: Only triggers on first QtWebView creation
 
                 Set to False if you want explicit control via WebViewPool.prewarm().
+
+            allow_new_window: Allow opening new windows from links (default: False).
+                When True, links with target="_blank" or window.open() calls can
+                open new windows. The behavior depends on ``new_window_mode``.
+
+            new_window_mode: How to handle new window requests (default: None).
+                Options:
+
+                - None: Use default behavior (deny if allow_new_window=False,
+                  system_browser if allow_new_window=True)
+                - "deny": Block all new window requests
+                - "system_browser": Open links in the system default browser
+                - "child_webview": Open links in a new child WebView window
+
+            remote_debugging_port: Chrome DevTools Protocol debugging port (optional).
+                When set, enables remote debugging on the specified port.
         """
         # Auto-prewarm on first instantiation (if enabled and not already done)
         if auto_prewarm and not QtWebView._auto_prewarm_triggered:
@@ -462,12 +498,19 @@ class QtWebView(FileDialogMixin, QWidget):
             debug=dev_tools,
             context_menu=context_menu,
             asset_root=asset_root,
+            data_directory=data_directory,
             allow_file_protocol=allow_file_protocol,
+            always_on_top=always_on_top,
             auto_show=False,  # Don't auto-show, we control visibility
             auto_timer=True,
             transparent=transparent,
             background_color=background_color,
             ipc_batch_size=ipc_batch_size,  # Max messages per tick (0=unlimited)
+            icon=icon,
+            tool_window=tool_window,
+            allow_new_window=allow_new_window,
+            new_window_mode=new_window_mode,
+            remote_debugging_port=remote_debugging_port,
         )
 
         # Track cleanup state so we can make close idempotent.

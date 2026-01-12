@@ -13,12 +13,28 @@ from pathlib import Path
 
 import pytest
 
+
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 GALLERY_DIR = PROJECT_ROOT / "gallery"
 DIST_DIR = GALLERY_DIR / "dist"
 
-sys.path.insert(0, str(PROJECT_ROOT / "python"))
+
+def _is_package_installed() -> bool:
+    """Check if auroraview is installed as a package (with _core module)."""
+    try:
+        import importlib.util
+
+        spec = importlib.util.find_spec("auroraview._core")
+        return spec is not None
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+
+# Only add source paths if the package is not installed
+# This allows CI to use the installed wheel while local dev uses source
+if not _is_package_installed():
+    sys.path.insert(0, str(PROJECT_ROOT / "python"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

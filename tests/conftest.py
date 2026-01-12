@@ -29,6 +29,8 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 # Add project paths
+# In CI, the wheel is installed to site-packages, so we should use that.
+# Only add source paths for local development when the package is not installed.
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
@@ -38,8 +40,25 @@ def _add_sys_path(path: Path) -> None:
         sys.path.insert(0, path_str)
 
 
-_add_sys_path(PROJECT_ROOT / "python")
-_add_sys_path(PROJECT_ROOT)
+def _is_package_installed() -> bool:
+    """Check if auroraview is installed as a package (with _core module)."""
+    try:
+        # Try to import from site-packages first
+        import importlib.util
+
+        spec = importlib.util.find_spec("auroraview._core")
+        return spec is not None
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+
+# Only add source paths if the package is not installed
+# This allows CI to use the installed wheel while local dev uses source
+if not _is_package_installed():
+    _add_sys_path(PROJECT_ROOT / "python")
+    _add_sys_path(PROJECT_ROOT)
+
+# Always add gallery path for gallery-related tests
 _add_sys_path(PROJECT_ROOT / "gallery")
 
 
