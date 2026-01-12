@@ -1,6 +1,16 @@
 import threading
 
-from gallery.backend import dependency_api
+import pytest
+
+try:
+    from gallery.backend import dependency_api
+
+    HAS_GALLERY = True
+except ImportError:
+    HAS_GALLERY = False
+    dependency_api = None
+
+pytestmark = pytest.mark.skipif(not HAS_GALLERY, reason="gallery module not available")
 
 
 class DummyEmitter:
