@@ -28,12 +28,8 @@ _IN_CI = os.environ.get("CI", "").lower() == "true"
 _IS_WINDOWS = sys.platform == "win32"
 # Skip WebView instantiation tests in CI on non-Windows platforms
 # Windows CI can run these tests with offscreen Qt and WebView2
-<<<<<<< HEAD
-_SKIP_WEBVIEW_TESTS = _IN_CI and not _IS_WINDOWS
-=======
 # Also skip if Rust core is not available
 _SKIP_WEBVIEW_TESTS = (_IN_CI and not _IS_WINDOWS) or not _CORE_AVAILABLE
->>>>>>> b876eb1 (fix: enable Qt tests on Windows CI)
 
 
 class TestQtBackendAvailability:
