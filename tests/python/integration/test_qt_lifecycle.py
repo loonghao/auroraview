@@ -16,10 +16,13 @@ import pytest
 # Mark all tests as Qt tests
 pytestmark = [pytest.mark.qt]
 
-# Check if we're in CI environment - skip WebView tests that require native window
+# Check if we're in CI environment
 _IN_CI = os.environ.get("CI", "").lower() == "true"
-# Skip WebView instantiation tests in CI - they crash even with xvfb due to WebView2/native issues
-_SKIP_WEBVIEW_TESTS = _IN_CI
+# Check if we're on Windows
+_IS_WINDOWS = sys.platform == "win32"
+# Skip WebView instantiation tests in CI on non-Windows platforms
+# Windows CI can run these tests with offscreen Qt and WebView2
+_SKIP_WEBVIEW_TESTS = _IN_CI and not _IS_WINDOWS
 
 
 @pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI environment")
