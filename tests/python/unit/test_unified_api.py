@@ -20,6 +20,14 @@ try:
 except ImportError:
     _QT_AVAILABLE = False
 
+# Check if _core module is available (needed for WebView instantiation)
+try:
+    import auroraview._core  # noqa: F401
+
+    _CORE_AVAILABLE = True
+except ImportError:
+    _CORE_AVAILABLE = False
+
 
 class TestIsQWidget:
     """Tests for _is_qwidget helper function."""
@@ -604,7 +612,10 @@ class TestQtWebViewShowEvent:
         except ImportError:
             pytest.skip("QtWebView not available")
 
-    @pytest.mark.skipif(not _QT_AVAILABLE, reason="Qt not available")
+    @pytest.mark.skipif(
+        not _QT_AVAILABLE or not _CORE_AVAILABLE,
+        reason="Qt or _core not available",
+    )
     def test_qtwebview_has_webview_initialized_flag(self):
         """QtWebView should track initialization state."""
         try:
@@ -643,7 +654,10 @@ class TestQtWebViewShowEvent:
         except ImportError:
             pytest.skip("QtWebView not available")
 
-    @pytest.mark.skipif(not _QT_AVAILABLE, reason="Qt not available")
+    @pytest.mark.skipif(
+        not _QT_AVAILABLE or not _CORE_AVAILABLE,
+        reason="Qt or _core not available",
+    )
     def test_qtwebview_no_explicit_show_needed_in_layout(self):
         """QtWebView should auto-initialize when parent is shown."""
         try:
