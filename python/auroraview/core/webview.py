@@ -550,6 +550,14 @@ class WebView(
         ipc_batch_size: int = 0,
         # Custom icon
         icon: Optional[str] = None,
+        # Window style
+        tool_window: bool = False,
+        undecorated_shadow: bool = False,
+        # New window handling
+        allow_new_window: bool = False,
+        new_window_mode: Optional[str] = None,
+        # Remote debugging
+        remote_debugging_port: Optional[int] = None,
     ) -> "WebView":
         """Create WebView instance (recommended way).
 
@@ -669,6 +677,11 @@ class WebView(
             auto_show=rust_auto_show,  # Pass to Rust layer
             ipc_batch_size=ipc_batch_size,  # Max messages per tick (0=unlimited)
             icon=icon,  # Custom window icon path
+            tool_window=tool_window,  # Tool window style
+            undecorated_shadow=undecorated_shadow,  # Shadow for frameless windows
+            allow_new_window=allow_new_window,  # Allow window.open()
+            new_window_mode=new_window_mode,  # New window behavior
+            remote_debugging_port=remote_debugging_port,  # CDP debugging port
         )
 
         # Auto timer (embedded mode)

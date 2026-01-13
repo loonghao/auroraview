@@ -71,6 +71,16 @@ class WebViewFactory:
         singleton: Optional[str] = None,
         # IPC performance tuning
         ipc_batch_size: int = 0,
+        # Custom icon
+        icon: Optional[str] = None,
+        # Window style
+        tool_window: bool = False,
+        undecorated_shadow: bool = False,
+        # New window handling
+        allow_new_window: bool = False,
+        new_window_mode: Optional[str] = None,
+        # Remote debugging
+        remote_debugging_port: Optional[int] = None,
     ) -> "WebView":
         """Create WebView instance (recommended way).
 
@@ -146,6 +156,12 @@ class WebViewFactory:
             allow_file_protocol=allow_file_protocol,
             auto_show=rust_auto_show,
             ipc_batch_size=ipc_batch_size,
+            icon=icon,
+            tool_window=tool_window,
+            undecorated_shadow=undecorated_shadow,
+            allow_new_window=allow_new_window,
+            new_window_mode=new_window_mode,
+            remote_debugging_port=remote_debugging_port,
         )
 
         # Auto timer (embedded mode)
