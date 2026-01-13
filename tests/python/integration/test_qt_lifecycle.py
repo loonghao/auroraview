@@ -34,9 +34,9 @@ _IS_WINDOWS = sys.platform == "win32"
 _SKIP_WEBVIEW_TESTS = (_IN_CI and not _IS_WINDOWS) or not _CORE_AVAILABLE
 
 
-
-
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
+@pytest.mark.skipif(
+    _SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available"
+)
 class TestQtWebViewLifecycle:
     """Test QtWebView lifecycle management for the new WebView2-based backend."""
 
@@ -112,7 +112,9 @@ class TestQtWebViewLifecycle:
         webview.deleteLater()
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
+@pytest.mark.skipif(
+    _SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available"
+)
 class TestQtWebViewEventProcessing:
     """Test event processing and UI updates."""
 
@@ -214,7 +216,9 @@ class TestQtWebViewEventProcessing:
         webview.deleteLater()
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
+@pytest.mark.skipif(
+    _SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available"
+)
 class TestQtWebViewAppIntegration:
     """Lightweight tests around Qt-specific integration flags."""
 
