@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.2...auroraview-v0.4.3) (2026-01-13)
+
+
+### Features
+
+* **api:** add unified WebView API with comprehensive documentation ([2efc72c](https://github.com/loonghao/auroraview/commit/2efc72cd49d5edcd000872f479408ee75e863863))
+
+
+### Bug Fixes
+
+* add missing parameters to WebView.create() and WebViewFactory.create() ([8c4260d](https://github.com/loonghao/auroraview/commit/8c4260da8aead8e2e3b816f0b1d62576fc8fc51f))
+* correct mixin import path in test_unified_api.py ([efe80f9](https://github.com/loonghao/auroraview/commit/efe80f9724516223133ad7383071f796ecd50e9e))
+* enable Qt tests on Windows CI ([a067af1](https://github.com/loonghao/auroraview/commit/a067af196292e100e8f1d2dc612fa5c246a8f599))
+* enable Qt tests on Windows CI ([22221ad](https://github.com/loonghao/auroraview/commit/22221ad5bd2a7923b69deb9e19dc53f472aae05d))
+* make pdoc generation optional and non-interactive ([15fb941](https://github.com/loonghao/auroraview/commit/15fb9414d4b76601b44b816ea716acb03296e03e))
+* resolve merge conflicts in Qt test files ([eb1ddbd](https://github.com/loonghao/auroraview/commit/eb1ddbd70058799cce7b9e13f701478a2f1710ca))
+* skip QtWebView instantiation tests when _core not available ([a9b056d](https://github.com/loonghao/auroraview/commit/a9b056ddd2389f9f2e9031507e4c4b8bf29eb491))
+
+
+### Documentation
+
+* add unified show method documentation ([b365e08](https://github.com/loonghao/auroraview/commit/b365e08629a3f9aa29051df9dfe7cf3f1c80d308))
+* move Chinese unified-api to correct location ([23a958c](https://github.com/loonghao/auroraview/commit/23a958c95074ae7210fbd8abe519318ed1179b6c))
+
 ## [0.4.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.1...auroraview-v0.4.2) (2026-01-11)
 
 
