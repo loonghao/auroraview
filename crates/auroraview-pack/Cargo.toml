@@ -46,7 +46,7 @@ zip = { version = "4", default-features = false, features = ["deflate"] }
 
 
 # HTTP client for downloads
-ureq = "2.10"
+ureq = "3.1"
 
 # URL parsing
 url = "2.5"
