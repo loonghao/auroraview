@@ -59,7 +59,8 @@ class TestQtWebViewInstantiation:
     """Test QtWebView instantiation and basic properties."""
 
     @pytest.mark.skipif(
-        _SKIP_WEBVIEW_TESTS, reason="WebView instantiation requires display in CI or Rust core not available"
+        _SKIP_WEBVIEW_TESTS,
+        reason="WebView instantiation requires display in CI or Rust core not available",
     )
     def test_qtwebview_can_instantiate(self):
         """Test that QtWebView can be instantiated."""
@@ -106,7 +107,9 @@ class TestQtWebViewInstantiation:
         assert issubclass(QtWebView, QWidget)
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
+@pytest.mark.skipif(
+    _SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available"
+)
 class TestQtWebViewFunctionality:
     """Test QtWebView functionality with actual Qt."""
 
@@ -233,7 +236,9 @@ class TestQtIntegrationModule:
         assert QtWebView is not None
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
+@pytest.mark.skipif(
+    _SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available"
+)
 class TestQtBackendWithEvents:
     """Test Qt backend event handling."""
 
@@ -286,7 +291,9 @@ class TestQtBackendWithEvents:
         # Verify no exception was raised
 
 
-@pytest.mark.skipif(_SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available")
+@pytest.mark.skipif(
+    _SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available"
+)
 class TestQtBackendErrorHandling:
     """Test Qt backend error handling."""
 
