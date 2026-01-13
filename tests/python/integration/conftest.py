@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 GALLERY_DIR = PROJECT_ROOT / "gallery"
