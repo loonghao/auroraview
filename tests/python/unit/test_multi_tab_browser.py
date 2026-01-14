@@ -1,12 +1,12 @@
-"""Unit tests for multi-tab browser demo.
+"""Unit tests for Agent Browser tab management.
 
 Tests the tab management functionality without requiring a GUI.
+These tests verify the TabManager and Tab classes used in examples/agent_browser/.
 """
 
 from __future__ import annotations
 
 import threading
-import uuid
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -249,7 +249,6 @@ class TestBrowserState:
 
     def test_thread_safety(self, state):
         """Test that operations are thread-safe."""
-        results = []
         errors = []
 
         def add_tabs():
@@ -260,9 +259,7 @@ class TestBrowserState:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=add_tabs, name=f"T{i}") for i in range(5)
-        ]
+        threads = [threading.Thread(target=add_tabs, name=f"T{i}") for i in range(5)]
 
         for t in threads:
             t.start()
@@ -317,9 +314,13 @@ class TestUrlParsing:
         from urllib.parse import urlparse
 
         def get_domain_title(url: str) -> str:
+            if not url:
+                return "New Tab"
             try:
                 parsed = urlparse(url)
                 domain = parsed.netloc or parsed.path
+                if not domain:
+                    return "New Tab"
                 if domain.startswith("www."):
                     domain = domain[4:]
                 return domain.split(".")[0].capitalize()
