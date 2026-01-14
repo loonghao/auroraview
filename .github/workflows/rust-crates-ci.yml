@@ -4,22 +4,23 @@ name: Rust Crates CI
 # Only builds and tests crates that have changes or depend on changed crates
 #
 # Dependency Graph:
-#   aurora-signals (standalone)
-#   aurora-protect (standalone)
+#   auroraview-signals (submodule, standalone)
+#   auroraview-protect (submodule, standalone)
+#   auroraview-extensions (submodule, standalone)
 #   auroraview-plugin-core (standalone)
-#   auroraview-extensions (standalone)
 #   auroraview-plugin-fs -> auroraview-plugin-core
 #   auroraview-plugins -> auroraview-plugin-core, auroraview-plugin-fs, auroraview-extensions
-#   auroraview-core -> aurora-signals, auroraview-plugins
-#   auroraview-pack -> aurora-protect (optional)
+#   auroraview-core -> auroraview-signals, auroraview-plugins
+#   auroraview-pack (submodule) -> auroraview-protect (optional)
 #   auroraview-cli -> auroraview-core, auroraview-pack
-#   auroraview (root) -> auroraview-core, aurora-signals
+#   auroraview (root) -> auroraview-core, auroraview-signals
 
 on:
   push:
     branches: [develop]
     paths:
       - 'crates/**'
+      - 'submodules/**'
       - 'src/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -82,6 +83,8 @@ jobs:
       any-changes: ${{ steps.deps.outputs.any-changes }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Detect file changes
         uses: dorny/paths-filter@v3
@@ -89,22 +92,22 @@ jobs:
         with:
           filters: |
             aurora-signals:
-              - 'crates/aurora-signals/**'
+              - 'submodules/auroraview-signals/**'
             aurora-protect:
-              - 'crates/aurora-protect/**'
+              - 'submodules/auroraview-protect/**'
             plugin-core:
               - 'crates/auroraview-plugins/core/**'
             plugin-fs:
               - 'crates/auroraview-plugins/fs/**'
             extensions:
-              - 'crates/auroraview-extensions/**'
+              - 'submodules/auroraview-extensions/**'
             plugins:
               - 'crates/auroraview-plugins/Cargo.toml'
               - 'crates/auroraview-plugins/src/**'
             core:
               - 'crates/auroraview-core/**'
             pack:
-              - 'crates/auroraview-pack/**'
+              - 'submodules/auroraview-pack/**'
             cli:
               - 'crates/auroraview-cli/**'
             root:
@@ -235,6 +238,8 @@ jobs:
       needs.detect-changes.outputs.needs-extensions == 'true'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -252,19 +257,19 @@ jobs:
           key: ${{ runner.os }}-cargo-standalone-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-standalone-
 
-      - name: Test aurora-signals
+      - name: Test auroraview-signals
         if: needs.detect-changes.outputs.needs-signals == 'true'
         run: |
-          echo "Testing aurora-signals..."
-          cargo test -p aurora-signals
-          cargo clippy -p aurora-signals -- -D warnings
+          echo "Testing auroraview-signals..."
+          cargo test -p auroraview-signals
+          cargo clippy -p auroraview-signals -- -D warnings
 
-      - name: Test aurora-protect
+      - name: Test auroraview-protect
         if: needs.detect-changes.outputs.needs-protect == 'true'
         run: |
-          echo "Testing aurora-protect..."
-          cargo test -p aurora-protect
-          cargo clippy -p aurora-protect -- -D warnings
+          echo "Testing auroraview-protect..."
+          cargo test -p auroraview-protect
+          cargo clippy -p auroraview-protect -- -D warnings
 
       - name: Test auroraview-plugin-core
         if: needs.detect-changes.outputs.needs-plugin-core == 'true'
@@ -293,6 +298,8 @@ jobs:
        needs.detect-changes.outputs.needs-plugins == 'true')
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -337,6 +344,8 @@ jobs:
       needs.detect-changes.outputs.needs-core == 'true'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -377,6 +386,8 @@ jobs:
       needs.detect-changes.outputs.needs-pack == 'true'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -423,6 +434,8 @@ jobs:
       needs.detect-changes.outputs.needs-cli == 'true'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0

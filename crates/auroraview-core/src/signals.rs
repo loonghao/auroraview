@@ -1,6 +1,6 @@
 //! Signal-Slot System for AuroraView
 //!
-//! This module re-exports the unified `aurora-signals` crate which provides:
+//! This module re-exports the unified `auroraview-signals` crate which provides:
 //! - Type-safe signals with generic payloads (`Signal<T>`)
 //! - Multiple handlers per signal (multi-receiver support)
 //! - Automatic cleanup when ConnectionGuard is dropped (RAII)
@@ -36,8 +36,8 @@
 //! signal.disconnect(conn);
 //! ```
 
-// Re-export core types from aurora-signals
-pub use aurora_signals::{
+// Re-export core types from auroraview-signals
+pub use auroraview_signals::{
     BridgeError,
 
     CallbackBridge,
