@@ -49,6 +49,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup vx
         uses: loonghao/vx@main
@@ -80,6 +82,8 @@ jobs:
             python-version: '3.8'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -147,6 +151,8 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -204,6 +210,8 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Python 3.7
         uses: actions/setup-python@v6

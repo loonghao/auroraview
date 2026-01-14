@@ -18,8 +18,8 @@ path = "src/lib.rs"
 # Plugin system
 auroraview-plugins = { path = "../auroraview-plugins" }
 
-# Signal system (Qt-style signals/slots)
-aurora-signals = { path = "../aurora-signals" }
+# Signal system (Qt-style signals/slots) - via submodule
+auroraview-signals = { path = "../../submodules/auroraview-signals" }
 
 # Logging
 tracing = "0.1"

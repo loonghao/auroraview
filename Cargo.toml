@@ -4,14 +4,15 @@
 [workspace]
 members = [
     "crates/auroraview-core",
-    "crates/auroraview-pack",
     "crates/auroraview-cli",
     "crates/auroraview-plugins",
     "crates/auroraview-plugins/core",
     "crates/auroraview-plugins/fs",
-    "crates/auroraview-extensions",
-    "crates/aurora-protect",
-    "crates/aurora-signals",
+    # Submodules
+    "submodules/auroraview-extensions",
+    "submodules/auroraview-signals",
+    "submodules/auroraview-protect",
+    "submodules/auroraview-pack",
 ]
 resolver = "2"
 
@@ -46,8 +47,9 @@ crate-type = ["cdylib", "rlib"]
 # Core library (with wry-builder for shared WebView building logic)
 auroraview-core = { path = "crates/auroraview-core", features = ["wry-builder"] }
 
-# Signal system (Qt-style signals/slots with Python bindings)
-aurora-signals = { path = "crates/aurora-signals", features = ["python"] }
+# Signal system (Qt-style signals/slots) - via submodule
+# Python bindings enabled via python-bindings feature
+auroraview-signals = { path = "submodules/auroraview-signals" }
 
 # PyO3 for Python bindings (optional)
 # multiple-pymethods: Allow splitting #[pymethods] across multiple files
@@ -171,7 +173,7 @@ opt-level = 0
 default = ["threaded-ipc", "wry-backend", "templates", "url-utils"]
 
 # Python bindings (for Python wheel)
-python-bindings = ["pyo3", "url-utils"]
+python-bindings = ["pyo3", "url-utils", "auroraview-signals/python"]
 
 # ABI3 stable ABI for Python 3.8+ (single wheel for all Python 3.8+ versions)
 # For Python 3.7, use python-bindings without this feature

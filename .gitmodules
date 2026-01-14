@@ -1,0 +1,12 @@
+[submodule "submodules/auroraview-protect"]
+	path = submodules/auroraview-protect
+	url = https://github.com/loonghao/auroraview-protect.git
+[submodule "submodules/auroraview-pack"]
+	path = submodules/auroraview-pack
+	url = https://github.com/loonghao/auroraview-pack.git
+[submodule "submodules/auroraview-signals"]
+	path = submodules/auroraview-signals
+	url = https://github.com/loonghao/auroraview-signals.git
+[submodule "submodules/auroraview-extensions"]
+	path = submodules/auroraview-extensions
+	url = https://github.com/loonghao/auroraview-extensions.git

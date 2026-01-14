@@ -544,53 +544,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
-name = "aurora-protect"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "anyhow",
- "base64 0.22.1",
- "blake3",
- "chacha20poly1305",
- "p256",
- "py2pyd",
- "rand 0.8.5",
- "regex",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.17",
- "tracing",
- "walkdir",
- "x25519-dalek",
-]
-
-[[package]]
-name = "aurora-signals"
-version = "0.4.2"
-dependencies = [
- "crossbeam-channel",
- "once_cell",
- "parking_lot",
- "pyo3",
- "regex",
- "rstest 0.26.1",
- "serde",
- "serde_json",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "auroraview"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
  "askama",
- "aurora-signals",
  "auroraview-core",
+ "auroraview-signals",
  "criterion",
  "crossbeam-channel",
  "ctrlc",
@@ -644,7 +605,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -684,12 +645,12 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "active-win-pos-rs",
  "askama",
- "aurora-signals",
  "auroraview-plugins",
+ "auroraview-signals",
  "dunce",
  "http 1.4.0",
  "image 0.24.9",
@@ -716,7 +677,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -726,6 +687,7 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "regex",
+ "rstest 0.24.0",
  "rust-embed",
  "serde",
  "serde_json",
@@ -742,9 +704,9 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.4.2"
+version = "0.1.0"
 dependencies = [
- "aurora-protect",
+ "auroraview-protect",
  "base64 0.22.1",
  "blake3",
  "console",
@@ -774,7 +736,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "dunce",
  "serde",
@@ -785,7 +747,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "auroraview-plugin-core",
  "base64 0.22.1",
@@ -796,7 +758,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -814,6 +776,45 @@ dependencies = [
  "tempfile",
  "tracing",
  "which 7.0.3",
+]
+
+[[package]]
+name = "auroraview-protect"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "anyhow",
+ "base64 0.22.1",
+ "blake3",
+ "chacha20poly1305",
+ "p256",
+ "py2pyd",
+ "rand 0.8.5",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tracing",
+ "walkdir",
+ "x25519-dalek",
+]
+
+[[package]]
+name = "auroraview-signals"
+version = "0.4.3"
+dependencies = [
+ "crossbeam-channel",
+ "once_cell",
+ "parking_lot",
+ "pyo3",
+ "regex",
+ "rstest 0.26.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

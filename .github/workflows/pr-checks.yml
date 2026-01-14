@@ -87,6 +87,8 @@ jobs:
       needs_rust_pack: ${{ steps.rust-deps.outputs.needs_pack }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Detect file changes
         uses: dorny/paths-filter@v3
@@ -96,28 +98,29 @@ jobs:
             rust:
               - 'src/**'
               - 'crates/**'
+              - 'submodules/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.cargo/**'
               - 'benches/**'
               - 'tests/rust/**'
             rust-signals:
-              - 'crates/aurora-signals/**'
+              - 'submodules/auroraview-signals/**'
             rust-protect:
-              - 'crates/aurora-protect/**'
+              - 'submodules/auroraview-protect/**'
             rust-plugin-core:
               - 'crates/auroraview-plugins/core/**'
             rust-plugin-fs:
               - 'crates/auroraview-plugins/fs/**'
             rust-extensions:
-              - 'crates/auroraview-extensions/**'
+              - 'submodules/auroraview-extensions/**'
             rust-plugins:
               - 'crates/auroraview-plugins/Cargo.toml'
               - 'crates/auroraview-plugins/src/**'
             rust-core:
               - 'crates/auroraview-core/**'
             rust-pack:
-              - 'crates/auroraview-pack/**'
+              - 'submodules/auroraview-pack/**'
             rust-cli:
               - 'crates/auroraview-cli/**'
             rust-root:
@@ -300,6 +303,8 @@ jobs:
     if: needs.path-filter.outputs.needs_rust_checks == 'true' || needs.path-filter.outputs.python == 'true'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Free disk space
         run: |
@@ -356,6 +361,8 @@ jobs:
     if: needs.path-filter.outputs.needs_rust_checks == 'true'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Free disk space
         run: |
@@ -443,6 +450,8 @@ jobs:
             maturin-args: '--release --out dist --sdist --find-interpreter --features python-bindings,ext-module,abi3-py38'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Download SDK assets
         if: needs.sdk-build.result == 'success'
@@ -483,6 +492,8 @@ jobs:
             maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Build Python 3.7 Wheel
         uses: ./.github/actions/build-wheel
@@ -526,6 +537,8 @@ jobs:
       (needs.quick-checks.result == 'success' || needs.quick-checks.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Free disk space
         run: |
@@ -616,6 +629,8 @@ jobs:
             artifact-name: wheels-macos-universal2-apple-darwin
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -695,6 +710,8 @@ jobs:
             artifact-name: wheels-macos-universal2-apple-darwin
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -731,6 +748,8 @@ jobs:
       needs.pre-build.result == 'success'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -780,6 +799,8 @@ jobs:
     if: needs.path-filter.outputs.needs_rust_checks == 'true'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -833,6 +854,8 @@ jobs:
             exe-name: auroraview-cli
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -893,6 +916,8 @@ jobs:
       (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -1068,6 +1093,8 @@ jobs:
             cli-artifact: cli-macos-arm64
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -1303,6 +1330,8 @@ jobs:
     if: needs.path-filter.outputs.needs_docs_build == 'true'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

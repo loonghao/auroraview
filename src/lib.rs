@@ -83,7 +83,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dom::register_dom_module(m)?;
 
     // Register signals module (Qt-style signal-slot event system)
-    aurora_signals::python::register_module(m)?;
+    auroraview_signals::python::register_module(m)?;
 
     // Windows-only: register minimal WebView2 embedded API (feature-gated)
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]

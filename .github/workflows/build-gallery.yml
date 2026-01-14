@@ -31,6 +31,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -82,6 +84,8 @@ jobs:
             maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Download SDK assets
         uses: actions/download-artifact@v6
@@ -133,6 +137,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
