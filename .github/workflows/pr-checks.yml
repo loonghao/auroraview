@@ -313,7 +313,7 @@ jobs:
           df -h
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
         with:
           components: rustfmt,clippy
 
@@ -371,7 +371,7 @@ jobs:
           df -h
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
         with:
           components: clippy
 
@@ -547,7 +547,7 @@ jobs:
           df -h
 
       - name: Setup Rust with llvm-tools
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
         with:
           components: llvm-tools-preview
 
@@ -803,7 +803,7 @@ jobs:
           submodules: recursive
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
 
       - name: Install system dependencies
         run: |
@@ -858,7 +858,7 @@ jobs:
           submodules: recursive
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
         with:
           targets: ${{ matrix.target }}
 
@@ -1151,7 +1151,7 @@ jobs:
       # Fallback: Build CLI only if cli-build was skipped
       - name: Setup Rust (fallback)
         if: needs.cli-build.result == 'skipped'
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
         with:
           targets: ${{ matrix.target }}
 

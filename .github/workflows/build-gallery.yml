@@ -166,7 +166,7 @@ jobs:
           python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
         with:
           targets: ${{ matrix.target }}
 
