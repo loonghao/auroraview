@@ -88,7 +88,7 @@ jobs:
           submodules: recursive
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: gallery-sdk-assets-${{ github.run_id }}
           path: crates/auroraview-core/src/assets/js/
@@ -153,7 +153,7 @@ jobs:
           python-version: '3.11'
 
       - name: Download pre-built auroraview wheel
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.wheel-artifact }}
           path: dist/
@@ -266,7 +266,7 @@ jobs:
     if: always() && !cancelled()
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: gallery-*
           path: artifacts
