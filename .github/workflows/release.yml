@@ -167,7 +167,7 @@ jobs:
           - wheels-windows-x64-py37
     steps:
       - name: Download artifact from PR workflow
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: dist/
@@ -338,7 +338,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download SDK artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: release-sdk-package
           path: packages/auroraview-sdk/dist/
@@ -445,7 +445,7 @@ jobs:
 
     steps:
       - name: Download wheel artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           # Download wheel artifacts only
           # Artifact names: wheels-linux-x86_64, wheels-windows-x64, wheels-macos-universal2-apple-darwin, etc.
@@ -535,20 +535,20 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download wheel artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: wheels-*
           path: release-artifacts
           merge-multiple: true
 
       - name: Download CLI artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: cli-all-platforms
           path: cli-artifacts
 
       - name: Download Gallery artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: gallery-all-platforms
           path: gallery-artifacts

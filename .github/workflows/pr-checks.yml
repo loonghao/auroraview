@@ -455,7 +455,7 @@ jobs:
 
       - name: Download SDK assets
         if: needs.sdk-build.result == 'success'
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: pr-sdk-assets
           path: crates/auroraview-core/src/assets/js/
@@ -638,7 +638,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Download pre-built wheel
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.os == 'ubuntu-latest' && 'wheels-linux-x86_64' || matrix.os == 'windows-latest' && 'wheels-windows-x64' || 'wheels-macos-universal2-apple-darwin' }}
           path: dist/
@@ -719,7 +719,7 @@ jobs:
           python-version: '3.11'
 
       - name: Download pre-built wheel
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.artifact-name }}
           path: dist/
@@ -757,7 +757,7 @@ jobs:
           python-version: '3.11'
 
       - name: Download pre-built wheel
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: wheels-windows-x64
           path: dist/
@@ -937,7 +937,7 @@ jobs:
       # Download pre-built SDK package if available
       - name: Download SDK package
         if: needs.sdk-build.result == 'success'
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: pr-sdk-package
           path: packages/auroraview-sdk/dist/
@@ -1110,7 +1110,7 @@ jobs:
 
       - name: Download pre-built auroraview wheel
         if: needs.pre-build.result == 'success'
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.wheel-artifact }}
           path: dist/
@@ -1126,7 +1126,7 @@ jobs:
       # Download pre-built CLI from cli-build job
       - name: Download pre-built CLI
         if: needs.cli-build.result == 'success'
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.cli-artifact }}
           path: cli-bin/
@@ -1181,7 +1181,7 @@ jobs:
       # Download pre-built SDK package if available
       - name: Download SDK package
         if: needs.sdk-build.result == 'success'
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: pr-sdk-package
           path: packages/auroraview-sdk/dist/

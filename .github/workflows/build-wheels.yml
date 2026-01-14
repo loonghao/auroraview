@@ -110,7 +110,7 @@ jobs:
           submodules: recursive
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
@@ -137,7 +137,7 @@ jobs:
           submodules: recursive
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
@@ -168,7 +168,7 @@ jobs:
           submodules: recursive
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
@@ -201,7 +201,7 @@ jobs:
           submodules: recursive
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
@@ -234,7 +234,7 @@ jobs:
           submodules: recursive
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: build-sdk-assets
           path: crates/auroraview-core/src/assets/js/
