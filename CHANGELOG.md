@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.3...auroraview-v0.4.4) (2026-01-14)
+
+
+### Bug Fixes
+
+* improve Qt test cleanup to avoid access violations in CI ([eb741b4](https://github.com/loonghao/auroraview/commit/eb741b4b7c6685abaccab6031d990fe66054c7e3))
+* resolve CI failures ([dd47a76](https://github.com/loonghao/auroraview/commit/dd47a761efede486ecadb8f70d63ce685e4750e7))
+
 ## [0.4.3](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.2...auroraview-v0.4.3) (2026-01-13)
 
 
