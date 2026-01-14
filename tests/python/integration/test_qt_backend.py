@@ -80,9 +80,11 @@ class TestQtWebViewInstantiation:
             webview = QtWebView()
             assert webview is not None
 
-            # Clean up
+            # Clean up - proper order to avoid access violations
+            webview.hide()
             webview.close()
             webview.deleteLater()
+            app.processEvents()
 
         except Exception as e:
             pytest.skip(f"Cannot test QtWebView instantiation: {e}")
@@ -131,8 +133,12 @@ class TestQtWebViewFunctionality:
 
         view = QtWebView()
         yield view
+        # Proper cleanup to avoid access violations in CI
+        view.hide()
         view.close()
         view.deleteLater()
+        # Process events to ensure cleanup completes
+        qapp.processEvents()
 
     def test_load_url(self, webview):
         """Test loading a URL."""
@@ -205,11 +211,14 @@ class TestQtWebViewFunctionality:
         # Now webview should be initialized via showEvent
         assert webview._webview_initialized
 
-        # Cleanup
+        # Cleanup - proper order to avoid access violations
+        main_window.hide()
+        webview.hide()
         main_window.close()
         webview.close()
         webview.deleteLater()
         main_window.deleteLater()
+        qapp.processEvents()
 
 
 class TestQtIntegrationModule:
@@ -259,8 +268,12 @@ class TestQtBackendWithEvents:
 
         view = QtWebView()
         yield view
+        # Proper cleanup to avoid access violations in CI
+        view.hide()
         view.close()
         view.deleteLater()
+        # Process events to ensure cleanup completes
+        qapp.processEvents()
 
     def test_event_decorator_available(self, webview):
         """Test that @webview.on() decorator is available."""
