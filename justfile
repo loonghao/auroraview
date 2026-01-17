@@ -20,6 +20,76 @@ set shell := ["sh", "-c"]
 default:
     @just --list
 
+# ============================================================================
+# Submodule Migration Tasks
+# ============================================================================
+
+# Set up independent repositories (Step 1)
+migrate-setup-repos:
+    @echo "Setting up independent repositories..."
+    @pwsh -File scripts/setup_independent_repos.ps1
+
+# Migrate to submodules (Step 2)
+migrate-to-submodules:
+    @echo "Migrating to submodules..."
+    @pwsh -File scripts/migrate_to_submodules.ps1
+
+# Update workspace configuration for submodules (Step 3)
+migrate-update-workspace:
+    @echo "Please manually update:"
+    @echo "1. Cargo.toml - add submodules to workspace.members"
+    @echo "2. crates/auroraview-cli/Cargo.toml - update auroraview-pack path"
+    @echo ""
+    @echo "See temp_migration/QUICK_START.md for details"
+
+# Verify submodule setup
+migrate-verify:
+    @echo "Verifying submodule setup..."
+    @git submodule status
+    @echo ""
+    @echo "Building with submodules..."
+    cargo build
+    @echo ""
+    @echo "Running tests..."
+    cargo test
+    @echo ""
+    @echo "Verifying CLI..."
+    cargo run -p auroraview-cli -- --version
+
+# Complete migration workflow
+migrate-all: migrate-setup-repos migrate-to-submodules
+    @echo ""
+    @echo "========================================"
+    @echo "Migration Phase 1 & 2 Complete!"
+    @echo "========================================"
+    @echo ""
+    @echo "Next steps:"
+    @echo "1. Run: just migrate-update-workspace"
+    @echo "2. Manually update Cargo.toml files (see output above)"
+    @echo "3. Run: just migrate-verify"
+    @echo "4. Commit changes: git add . && git commit -m 'chore: migrate to submodules'"
+
+# Initialize submodules for fresh clone
+submodule-init:
+    @echo "Initializing submodules..."
+    git submodule init
+    git submodule update --recursive
+
+# Update submodules to latest
+submodule-update:
+    @echo "Updating submodules to latest..."
+    git submodule update --remote
+
+# Update specific submodule
+submodule-update-protect:
+    @echo "Updating auroraview-protect submodule..."
+    git submodule update --remote submodules/auroraview-protect
+
+# Update specific submodule
+submodule-update-pack:
+    @echo "Updating auroraview-pack submodule..."
+    git submodule update --remote submodules/auroraview-pack
+
 # Install dependencies
 install:
     @echo "Installing dependencies..."
@@ -684,6 +754,11 @@ gallery-test:
     @echo "Running Gallery E2E tests..."
     vx uvx pytest tests/python/integration/test_gallery_e2e.py tests/python/integration/test_gallery_contract.py tests/python/integration/test_gallery_plugin_api.py -v --tb=short
 
+# Run Gallery Inspector tests (uses Inspector API, auto-starts Gallery)
+gallery-test-inspector: gallery-build
+    @echo "Running Gallery Inspector tests (auto-starts Gallery)..."
+    vx uvx pytest tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
+
 # Run Gallery Playwright E2E tests (frontend only, with mock API)
 gallery-test-playwright:
     @echo "Running Gallery Playwright E2E tests..."
@@ -745,6 +820,20 @@ gallery-pack: gallery-build
     @echo "Packing Gallery into standalone executable..."
     vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --build
     @echo "[OK] Gallery packed successfully!"
+    @echo ""
+    @echo "Output: gallery/pack-output/auroraview-gallery.exe"
+    @echo "Run with: just gallery-run-packed"
+
+# Run the packed Gallery executable
+[windows]
+gallery-run-packed:
+    @echo "Running packed Gallery..."
+    @if (Test-Path "gallery/pack-output/auroraview-gallery.exe") { Start-Process -FilePath "gallery/pack-output/auroraview-gallery.exe" -WorkingDirectory "gallery/pack-output" } else { Write-Host "[ERROR] Packed Gallery not found. Run 'just gallery-pack' first." -ForegroundColor Red }
+
+[unix]
+gallery-run-packed:
+    @echo "Running packed Gallery..."
+    @if [ -f "gallery/pack-output/auroraview-gallery" ]; then cd gallery/pack-output && ./auroraview-gallery; else echo "[ERROR] Packed Gallery not found. Run 'just gallery-pack' first."; fi
 
 # Run Gallery CDP tests (build, start, test, cleanup)
 gallery-cdp: gallery-pack
@@ -758,8 +847,8 @@ gallery-cdp: gallery-pack
     @echo "[2/4] Waiting for CDP port (9222)..."
     @powershell -File scripts/gallery_cdp_wait.ps1
     @echo ""
-    @echo "[3/4] Running CDP tests..."
-    -vx uvx pytest tests/test_gallery_cdp.py -v --tb=short
+    @echo "[3/4] Running CDP tests (Inspector API + legacy)..."
+    -vx uvx pytest tests/test_gallery_cdp.py tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
     @echo ""
     @echo "[4/4] Cleaning up..."
     @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
