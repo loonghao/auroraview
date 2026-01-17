@@ -27,6 +27,7 @@ def test_close_prefers_async_core_when_present():
     webview._async_core_lock = threading.Lock()
     webview._show_thread = None
     webview._close_requested = False
+    webview._window_id = None
 
     # Ensure singleton cleanup doesn't affect other tests.
     old_registry = WebView._singleton_registry
