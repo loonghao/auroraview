@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from .bridge import Bridge
     from .channel import Channel, ChannelManager
     from .commands import CommandRegistry
+    from .ready_events import ReadyEvents
     from .state import State
 
 _CORE_IMPORT_ERROR = None
@@ -117,6 +118,12 @@ class WebView(
         allow_new_window: bool = False,
         new_window_mode: Optional[str] = None,
         remote_debugging_port: Optional[int] = None,
+        splash_overlay: bool = False,
+        allow_downloads: bool = True,
+        download_prompt: bool = False,
+        download_directory: Optional[str] = None,
+        proxy_url: Optional[str] = None,
+        user_agent: Optional[str] = None,
         # Aliases for more intuitive API
         parent_hwnd: Optional[int] = None,
         embed_mode: Optional[str] = None,
@@ -214,6 +221,53 @@ class WebView(
                                remote_debugging_port=9222,
                            )
                            # Connect with: chrome://inspect or ws://localhost:9222
+
+                   splash_overlay: Show splash overlay while loading URL (default: False).
+                       When enabled, displays an animated Aurora-themed loading overlay
+                       that automatically fades out when the page is fully loaded.
+                       Useful for slow network loads or branded loading experience.
+
+                       Example::
+
+                           # Show splash while loading external URL
+                           webview = WebView(
+                               url="https://example.com",
+                               splash_overlay=True,
+                           )
+
+                  allow_downloads: Enable file downloads (default: True).
+                      AuroraView enables downloads by default for better user experience.
+                      When enabled, allows file downloads from the WebView.
+
+                  download_prompt: Show "Save As" dialog for downloads (default: False).
+                      When True, prompts user to choose save location like a browser.
+                      When False, downloads go directly to download_directory.
+
+                  download_directory: Default download directory (optional).
+                      When set, downloaded files are saved to this directory.
+                      Uses system default Downloads folder (e.g., ~/Downloads) if not set.
+                      Ignored when download_prompt is True.
+
+                   proxy_url: Proxy server URL (optional).
+                       Format: "http://host:port" or "socks5://host:port"
+                       When set, all WebView network requests go through this proxy.
+
+                       Example::
+
+                           # Use HTTP proxy
+                           webview = WebView(
+                               url="https://example.com",
+                               proxy_url="http://127.0.0.1:8080",
+                           )
+
+                           # Use SOCKS5 proxy
+                           webview = WebView(
+                               url="https://example.com",
+                               proxy_url="socks5://127.0.0.1:1080",
+                           )
+
+                   user_agent: Custom User-Agent string (optional).
+                       When set, overrides the default browser User-Agent.
 
                    parent_hwnd: Alias for ``parent`` parameter (for backward compatibility).
                    embed_mode: Alias for ``mode`` parameter. Values: "child", "owner".
@@ -328,6 +382,12 @@ class WebView(
             allow_new_window=allow_new_window,  # Allow window.open() to create new windows
             new_window_mode=new_window_mode,  # New window behavior: deny, system_browser, child_webview
             remote_debugging_port=remote_debugging_port,  # CDP remote debugging port
+            splash_overlay=splash_overlay,  # Show splash overlay while loading
+            allow_downloads=allow_downloads,  # Enable file downloads
+            download_prompt=download_prompt,  # Show "Save As" dialog for downloads
+            download_directory=download_directory,  # Default download directory
+            proxy_url=proxy_url,  # Proxy server URL
+            user_agent=user_agent,  # Custom User-Agent string
         )
         self._event_handlers: Dict[str, List[Callable]] = {}
         self._title = title
@@ -346,6 +406,7 @@ class WebView(
         self._allow_new_window = allow_new_window
         self._new_window_mode = new_window_mode
         self._remote_debugging_port = remote_debugging_port
+        self._splash_overlay = splash_overlay
 
         # Resolve dcc_mode: "auto" → detect DCC environment
         if dcc_mode == "auto":
@@ -363,14 +424,17 @@ class WebView(
         self._is_running = False
         self._auto_timer = None  # Will be set by create() factory method
         self._auto_show = auto_show  # Store auto_show setting
-        # Store content for async mode
-        self._stored_url: Optional[str] = None
-        self._stored_html: Optional[str] = None
+        # Store content for async mode (use passed-in values)
+        self._stored_url: Optional[str] = url
+        self._stored_html: Optional[str] = html
         # Store the background thread's core instance
         self._async_core: Optional[Any] = None
         self._async_core_lock = threading.Lock()
         # Track if running in blocking event loop (for HWND mode)
         self._in_blocking_event_loop = False
+        # Thread-safe HWND cache (for cross-thread access in non-blocking mode)
+        self._cached_hwnd: Optional[int] = None
+        self._cached_hwnd_lock = threading.Lock()
 
         # Close requested flag (used to coordinate background-thread WebView lifecycle)
         self._close_requested = False
@@ -410,6 +474,24 @@ class WebView(
 
         # Plugin manager for handling plugin:* invoke commands
         self._plugin_manager: Optional[Any] = None
+
+        # WindowManager integration - register this window globally
+        from .ready_events import ReadyEvents
+        from .window_manager import get_window_manager
+
+        self._window_id: Optional[str] = None
+        self._ready_events = ReadyEvents(self)
+
+        # Register with WindowManager
+        wm = get_window_manager()
+        self._window_id = wm.register(self)
+        logger.debug(f"WebView registered with WindowManager: {self._window_id}")
+
+        # Mark as created
+        self._ready_events.set_created()
+
+        # Setup lifecycle event handlers
+        self._setup_lifecycle_events()
 
     @property
     def state(self) -> "State":
@@ -960,6 +1042,9 @@ class WebView(
             # Embedded mode: non-blocking + auto timer
             logger.info("Embedded mode: non-blocking with auto timer")
             self._show_non_blocking()
+            # Mark as shown
+            if hasattr(self, "_ready_events") and self._ready_events:
+                self._ready_events.set_shown()
             # Start timer immediately - it will wait for WebView to be ready
             if self._auto_timer is not None:
                 self._auto_timer.start()
@@ -969,6 +1054,9 @@ class WebView(
             if wait:
                 # Blocking
                 logger.info("Standalone mode: blocking until window closes")
+                # Mark as shown before blocking
+                if hasattr(self, "_ready_events") and self._ready_events:
+                    self._ready_events.set_shown()
                 self.show_blocking()
             else:
                 # Non-blocking (background thread)
@@ -976,6 +1064,9 @@ class WebView(
                 logger.warning("⚠️  Window will close when script exits!")
                 logger.warning("⚠️  Use wait=True or keep script running with input()")
                 self._show_non_blocking()
+                # Mark as shown
+                if hasattr(self, "_ready_events") and self._ready_events:
+                    self._ready_events.set_shown()
 
     def show_async(self) -> None:
         """Show the WebView window in non-blocking mode (compatibility helper).
@@ -1025,6 +1116,15 @@ class WebView(
                     remote_debugging_port=self._remote_debugging_port,  # CDP port
                 )
 
+                # Set up HWND callback to cache HWND for cross-thread access
+                def on_hwnd_created(hwnd: int) -> None:
+                    with self._cached_hwnd_lock:
+                        self._cached_hwnd = hwnd
+                    logger.info(f"Background thread: Cached HWND 0x{hwnd:X}")
+
+                if hasattr(core, "set_on_hwnd_created"):
+                    core.set_on_hwnd_created(on_hwnd_created)
+
                 # Store the core instance for use by emit() and other methods
                 with self._async_core_lock:
                     self._async_core = core
@@ -1047,6 +1147,8 @@ class WebView(
                         logger.debug(f"Background thread: Registering handler for '{event_name}'")
                         core.on(event_name, handler)
 
+
+
                 # Load the same content that was loaded in the main thread
                 if self._stored_html:
                     logger.info("Background thread: Loading stored HTML")
@@ -1059,6 +1161,8 @@ class WebView(
 
                 logger.info("Background thread: Starting WebView event loop")
                 core.show()
+                # Note: show() is blocking - the HWND callback is invoked before
+                # entering the event loop, so _cached_hwnd is already set
                 logger.info("Background thread: WebView event loop exited")
             except Exception as e:
                 logger.error(f"Error in background WebView: {e}", exc_info=True)
@@ -1377,7 +1481,25 @@ class WebView(
             ...     # Use with Unreal Engine
             ...     # unreal.parent_external_window_to_slate(hwnd)
         """
-        return self._core.get_hwnd()
+        # First check Python-side cached HWND (thread-safe, works in non-blocking mode)
+        with self._cached_hwnd_lock:
+            if self._cached_hwnd is not None:
+                return self._cached_hwnd
+
+        # In non-blocking mode (show_thread exists), avoid calling Rust core
+        # as it may cause GIL contention and blocking
+        if self._show_thread is not None:
+            # Background thread mode - only use Python-side cache
+            # The cache is set by the on_hwnd_created callback in the background thread
+            return None
+
+        # Fall back to Rust core (only works if called from the same thread)
+        # This is for blocking mode or when called from the background thread
+        try:
+            return self._core.get_hwnd()
+        except Exception:
+            # In non-blocking mode, _core.get_hwnd() may fail due to thread safety
+            return None
 
     def get_proxy(self) -> Any:
         """Get a thread-safe proxy for cross-thread operations.
@@ -1500,7 +1622,7 @@ class WebView(
         return self._dcc_mode
 
     def close(self) -> None:
-        """Close the WebView window and remove from singleton registry."""
+        """Close the WebView window and remove from registries."""
         logger.info("Closing WebView")
 
         # Mark close intent early so background thread can bail out if it hasn't
@@ -1551,7 +1673,52 @@ class WebView(
                 logger.info(f"Removed from singleton registry: '{key}'")
                 break
 
+        # Remove from WindowManager
+        if self._window_id:
+            from .window_manager import get_window_manager
+
+            wm = get_window_manager()
+            wm.unregister(self._window_id)
+            logger.debug(f"WebView unregistered from WindowManager: {self._window_id}")
+
         logger.info("WebView closed successfully")
+
+    def _setup_lifecycle_events(self) -> None:
+        """Setup internal event handlers for lifecycle tracking."""
+
+        # Track page load completion
+        @self.on("page:load_finish")
+        def _on_load_finish(data: Any) -> None:
+            if hasattr(self, "_ready_events") and self._ready_events:
+                self._ready_events.set_loaded()
+
+        # Track bridge ready
+        @self.on("auroraviewready")
+        def _on_bridge_ready(data: Any) -> None:
+            if hasattr(self, "_ready_events") and self._ready_events:
+                self._ready_events.set_bridge_ready()
+
+    @property
+    def window_id(self) -> Optional[str]:
+        """Get the unique window ID in WindowManager.
+
+        Returns:
+            The window's unique ID, or None if not registered
+        """
+        return self._window_id
+
+    @property
+    def ready_events(self) -> "ReadyEvents":
+        """Get the ReadyEvents container for lifecycle waiting.
+
+        Returns:
+            ReadyEvents instance for this WebView
+
+        Example:
+            >>> webview.ready_events.wait_loaded(timeout=10)
+            >>> webview.ready_events.wait_bridge_ready()
+        """
+        return self._ready_events
 
     @property
     def title(self) -> str:

@@ -47,6 +47,21 @@ from .settings import DEFAULT_SETTINGS, WebViewSettings
 from .signals import ConnectionGuard, ConnectionId, Signal, SignalRegistry, WebViewSignals
 from .state import State
 from .webview import WebView
+from .window_manager import (
+    WindowManager,
+    broadcast_event,
+    get_active_window,
+    get_window_manager,
+    get_windows,
+)
+from .ready_events import (
+    ReadyEvents,
+    require_bridge_ready,
+    require_created,
+    require_loaded,
+    require_ready,
+    require_shown,
+)
 
 # Import submodules for attribute access
 from . import backend as backend
@@ -59,6 +74,8 @@ from . import ipc_channel as ipc_channel
 from . import settings as settings
 from . import state as state
 from . import webview as webview
+from . import window_manager as window_manager
+from . import ready_events as ready_events
 
 __all__ = [
     # WebView
@@ -117,4 +134,19 @@ __all__ = [
     "settings",
     "state",
     "webview",
+    "window_manager",
+    "ready_events",
+    # WindowManager
+    "WindowManager",
+    "get_window_manager",
+    "get_windows",
+    "get_active_window",
+    "broadcast_event",
+    # ReadyEvents
+    "ReadyEvents",
+    "require_created",
+    "require_shown",
+    "require_loaded",
+    "require_bridge_ready",
+    "require_ready",
 ]

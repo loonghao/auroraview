@@ -129,7 +129,9 @@ class TestGallerySearch:
         snap_before = inspector.snapshot()
 
         # Find search input
-        textboxes = [r for r in snap_before.refs.values() if r.role.lower() in ("textbox", "searchbox")]
+        textboxes = [
+            r for r in snap_before.refs.values() if r.role.lower() in ("textbox", "searchbox")
+        ]
         if not textboxes:
             pytest.skip("No search input found")
 
@@ -250,8 +252,7 @@ class TestGalleryAccessibility:
         # Allow some unnamed elements but not too many
         unnamed_ratio = len(unnamed) / max(len(snap.refs), 1)
         assert unnamed_ratio < 0.5, (
-            f"Too many unnamed elements: {len(unnamed)}/{len(snap.refs)} "
-            f"({unnamed_ratio:.0%})"
+            f"Too many unnamed elements: {len(unnamed)}/{len(snap.refs)} ({unnamed_ratio:.0%})"
         )
 
     def test_buttons_have_names(self, inspector: "Inspector"):
@@ -303,7 +304,9 @@ class TestGalleryPerformance:
 
         # Ref count should be similar (allow some variance for dynamic content)
         diff = abs(snap1.ref_count() - snap2.ref_count())
-        assert diff < 10, f"Ref count changed significantly: {snap1.ref_count()} -> {snap2.ref_count()}"
+        assert diff < 10, (
+            f"Ref count changed significantly: {snap1.ref_count()} -> {snap2.ref_count()}"
+        )
 
 
 class TestGalleryErrorHandling:

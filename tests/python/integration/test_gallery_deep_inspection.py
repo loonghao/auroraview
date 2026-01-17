@@ -220,7 +220,11 @@ class TestGalleryStateManagement:
             })()
         """)
         # At least one indicator should show samples
-        total = result.get("dataAttributes", 0) + result.get("sampleCards", 0) + result.get("anyCards", 0)
+        total = (
+            result.get("dataAttributes", 0)
+            + result.get("sampleCards", 0)
+            + result.get("anyCards", 0)
+        )
         assert total > 0, f"No sample cards found: {result}"
 
 
@@ -231,7 +235,9 @@ class TestGalleryDOMStructure:
         """Test Gallery page has no duplicate element IDs."""
         # Skip if not on Gallery page
         url = inspector.url
-        if not ("gallery" in url.lower() or "index.html" in url.lower() or "localhost" in url.lower()):
+        if not (
+            "gallery" in url.lower() or "index.html" in url.lower() or "localhost" in url.lower()
+        ):
             pytest.skip(f"Not on Gallery page: {url}")
 
         result = inspector.eval("""

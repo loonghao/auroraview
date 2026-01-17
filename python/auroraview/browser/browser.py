@@ -355,10 +355,13 @@ class Browser:
 
         try:
             emitter = self._webview.create_emitter()
-            emitter.emit("browser:tabs_changed", {
-                "tabs": self._tabs,
-                "activeTabId": self._active_tab_id,
-            })
+            emitter.emit(
+                "browser:tabs_changed",
+                {
+                    "tabs": self._tabs,
+                    "activeTabId": self._active_tab_id,
+                },
+            )
         except Exception as e:
             logger.debug(f"Failed to sync tabs to UI: {e}")
 
@@ -371,6 +374,3 @@ class Browser:
         import auroraview._core as core
 
         return core.get_browser_controller_html()
-
-
-

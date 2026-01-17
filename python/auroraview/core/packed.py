@@ -16,7 +16,7 @@ import json
 import os
 import signal
 import sys
-from typing import TYPE_CHECKING, Any, Callable, Dict
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 if TYPE_CHECKING:
     from .webview import WebView
@@ -28,6 +28,66 @@ PACKED_MODE = os.environ.get("AURORAVIEW_PACKED", "0") == "1"
 def is_packed_mode() -> bool:
     """Check if running in packed mode."""
     return PACKED_MODE
+
+
+def send_command(command: Dict[str, Any]) -> None:
+    """Send a command to the Rust backend via stdout.
+
+    This is used for fire-and-forget commands like set_html that don't
+    expect a response in the JSON-RPC request/response cycle.
+
+    Args:
+        command: The command dictionary to send (will be JSON serialized)
+    """
+    if not is_packed_mode():
+        return
+
+    print(json.dumps(command), flush=True)
+
+
+def send_set_html(html: str, title: Optional[str] = None) -> None:
+    """Send HTML content to the Rust WebView for dynamic loading.
+
+    This allows Python components like Browser to dynamically set HTML
+    content in packed mode, where Rust controls the WebView.
+
+    Args:
+        html: The HTML content to load
+        title: Optional window title to set
+    """
+    command: Dict[str, Any] = {
+        "type": "set_html",
+        "html": html,
+    }
+    if title is not None:
+        command["title"] = title
+
+    print(f"[AuroraView] Sending set_html command (html_len: {len(html)})", file=sys.stderr)
+    send_command(command)
+
+
+def send_event(event: str, data: Optional[Dict[str, Any]] = None) -> None:
+    """Send an event to the Rust WebView in packed mode.
+
+    This is used by WebView.emit() to forward events to the Rust CLI,
+    which then triggers them in the WebView via JavaScript.
+
+    The Rust CLI reads this from Python's stdout and forwards it to
+    the WebView using `window.auroraview.trigger()`.
+
+    Args:
+        event: Event name
+        data: Event data (will be JSON serialized)
+    """
+    if not is_packed_mode():
+        return
+
+    message: Dict[str, Any] = {
+        "type": "event",
+        "event": event,
+        "data": data or {},
+    }
+    print(json.dumps(message), flush=True)
 
 
 def run_api_server(webview: "WebView") -> None:
