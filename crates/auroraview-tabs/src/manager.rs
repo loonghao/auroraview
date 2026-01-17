@@ -26,6 +26,7 @@ pub struct TabManager {
     /// Counter for generating unique tab IDs
     tab_counter: AtomicU32,
     /// Event handlers
+    #[allow(clippy::type_complexity)]
     event_handlers: RwLock<Vec<Box<dyn Fn(&TabEvent) + Send + Sync>>>,
 }
 
@@ -426,8 +427,7 @@ impl TabManager {
         let group_id = {
             let mut tabs = self.tabs.write();
             if let Some(tab) = tabs.get_mut(tab_id) {
-                let gid = tab.group_id.take();
-                gid
+                tab.group_id.take()
             } else {
                 return Err(TabError::NotFound(tab_id.clone()));
             }

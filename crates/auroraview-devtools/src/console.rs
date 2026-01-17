@@ -3,20 +3,15 @@
 use serde::{Deserialize, Serialize};
 
 /// Console message type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ConsoleMessageType {
+    #[default]
     Log,
     Debug,
     Info,
     Warning,
     Error,
-}
-
-impl Default for ConsoleMessageType {
-    fn default() -> Self {
-        Self::Log
-    }
 }
 
 /// Console message from DevTools
