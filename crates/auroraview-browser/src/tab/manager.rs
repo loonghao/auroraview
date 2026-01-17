@@ -109,7 +109,9 @@ impl TabManager {
 
         // Calculate content area bounds
         let size = window.inner_size();
+        #[cfg(target_os = "windows")]
         let content_y = header_height as i32;
+        #[cfg(target_os = "windows")]
         let content_height = size.height.saturating_sub(header_height);
 
         // Build WebView
@@ -307,23 +309,23 @@ impl TabManager {
     }
 
     /// Resize all tab WebViews
+    #[cfg(target_os = "windows")]
     pub fn resize_tabs(&self, x: i32, y: i32, width: u32, height: u32) {
         let tabs = self.tabs.read();
         for tab in tabs.values() {
-            #[cfg(target_os = "windows")]
-            {
-                let _ = tab.webview.set_bounds(wry::Rect {
-                    position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(
-                        x as f64, y as f64,
-                    )),
-                    size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(width, height)),
-                });
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                let _ = (x, y, width, height); // Suppress unused warnings
-            }
+            let _ = tab.webview.set_bounds(wry::Rect {
+                position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(
+                    x as f64, y as f64,
+                )),
+                size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(width, height)),
+            });
         }
+    }
+
+    /// Resize all tab WebViews
+    #[cfg(not(target_os = "windows"))]
+    pub fn resize_tabs(&self, _x: i32, _y: i32, _width: u32, _height: u32) {
+        // WebView bounds adjustment is Windows-specific
     }
 
     /// Update tab title

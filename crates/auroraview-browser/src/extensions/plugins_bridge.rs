@@ -7,9 +7,7 @@
 //! Requires the `plugins` feature to be enabled.
 
 #[cfg(feature = "plugins")]
-use auroraview_plugins::extensions::{ExtensionInfo, ExtensionsPlugin, ExtensionsState};
-#[cfg(feature = "plugins")]
-use parking_lot::RwLock;
+use auroraview_plugins::extensions::ExtensionsPlugin;
 #[cfg(feature = "plugins")]
 use std::sync::Arc;
 
@@ -77,7 +75,7 @@ impl ChromeExtensionBridge {
     }
 
     /// Get extension info
-    pub fn get_extension(&self, id: &str) -> Option<ChromeExtensionInfo> {
+    pub fn get_extension(&self, _id: &str) -> Option<ChromeExtensionInfo> {
         // Would return info from the plugin state
         None
     }
