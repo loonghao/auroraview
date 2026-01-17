@@ -383,14 +383,20 @@ impl Browser {
 
     /// Run the browser (blocking)
     pub fn run(&mut self) {
+        #[cfg(target_os = "windows")]
         use tao::platform::windows::EventLoopBuilderExtWindows;
+        #[cfg(target_os = "linux")]
+        use tao::platform::unix::EventLoopBuilderExtUnix;
 
         tracing::info!("[Browser] Starting with config: {:?}", self.config.title);
 
         // Create event loop
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         let event_loop: EventLoop<TabEvent> = EventLoopBuilder::with_user_event()
             .with_any_thread(true)
             .build();
+        #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+        let event_loop: EventLoop<TabEvent> = EventLoopBuilder::with_user_event().build();
 
         self.tabs.set_event_proxy(event_loop.create_proxy());
 
