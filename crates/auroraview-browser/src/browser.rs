@@ -383,10 +383,10 @@ impl Browser {
 
     /// Run the browser (blocking)
     pub fn run(&mut self) {
-        #[cfg(target_os = "windows")]
-        use tao::platform::windows::EventLoopBuilderExtWindows;
         #[cfg(target_os = "linux")]
         use tao::platform::unix::EventLoopBuilderExtUnix;
+        #[cfg(target_os = "windows")]
+        use tao::platform::windows::EventLoopBuilderExtWindows;
 
         tracing::info!("[Browser] Starting with config: {:?}", self.config.title);
 
