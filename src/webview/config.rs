@@ -469,19 +469,19 @@ pub struct WebViewConfig {
     pub cors_allowed_origins: Vec<String>,
 
     /// Enable clipboard access from JavaScript
-    /// Default: false (blocks navigator.clipboard API)
+    /// Default: true (AuroraView enables all permissions by default)
     pub allow_clipboard: bool,
 
     /// Enable geolocation access from JavaScript
-    /// Default: false (blocks navigator.geolocation API)
+    /// Default: true (AuroraView enables all permissions by default)
     pub allow_geolocation: bool,
 
     /// Enable notification access from JavaScript
-    /// Default: false (blocks Notification API)
+    /// Default: true (AuroraView enables all permissions by default)
     pub allow_notifications: bool,
 
     /// Enable microphone/camera access from JavaScript
-    /// Default: false (blocks MediaDevices API)
+    /// Default: true (AuroraView enables all permissions by default)
     pub allow_media_devices: bool,
 
     /// Block external navigation (http/https URLs not in allowed list)
@@ -508,6 +508,50 @@ pub struct WebViewConfig {
     /// Default: all plugins ["fs", "dialog", "clipboard", "shell"]
     /// Empty list means all plugins are enabled when enable_plugins is true
     pub enabled_plugin_names: Vec<String>,
+
+    // ============================================================
+    // Loading Experience Configuration
+    // ============================================================
+    /// Show splash overlay while loading URL
+    /// Default: false (no splash overlay)
+    /// When enabled, displays an animated Aurora-themed loading overlay
+    /// that automatically fades out when the page is fully loaded.
+    /// Useful for slow network loads or branded loading experience.
+    pub splash_overlay: bool,
+
+    // ============================================================
+    // Download Configuration
+    // ============================================================
+    /// Enable file downloads
+    /// Default: true (AuroraView enables downloads by default)
+    /// When enabled, allows file downloads from the WebView
+    pub allow_downloads: bool,
+
+    /// Show "Save As" dialog for downloads
+    /// Default: false (downloads go directly to download_directory)
+    /// When true, prompts user to choose save location like a browser
+    pub download_prompt: bool,
+
+    /// Default download directory
+    /// Default: None (uses system default Downloads folder via dirs::download_dir())
+    /// When set, downloaded files are saved to this directory
+    /// Ignored when download_prompt is true
+    pub download_directory: Option<PathBuf>,
+
+    // ============================================================
+    // Proxy Configuration
+    // ============================================================
+    /// Proxy server configuration
+    /// Default: None (use system proxy settings)
+    /// Format: "http://host:port" or "socks5://host:port"
+    pub proxy_url: Option<String>,
+
+    // ============================================================
+    // User Agent Configuration
+    // ============================================================
+    /// Custom User-Agent string
+    /// Default: None (uses browser default)
+    pub user_agent: Option<String>,
 
     // ============================================================
     // System Tray Configuration
@@ -598,18 +642,24 @@ impl Default for WebViewConfig {
             auto_show: true,         // Show window after loading screen is ready
             headless: false,         // Show window by default
             remote_debugging_port: None, // CDP debugging disabled by default
-            // Security defaults
+            // Security defaults - AuroraView enables all permissions by default
             content_security_policy: None,
             cors_allowed_origins: Vec::new(),
-            allow_clipboard: false,
-            allow_geolocation: false,
-            allow_notifications: false,
-            allow_media_devices: false,
+            allow_clipboard: true,
+            allow_geolocation: true,
+            allow_notifications: true,
+            allow_media_devices: true,
             block_external_navigation: false,
             allowed_navigation_domains: Vec::new(),
             icon: None,                       // Use default AuroraView icon
             enable_plugins: true,             // Enable plugin APIs by default
             enabled_plugin_names: Vec::new(), // Empty = all plugins enabled
+            splash_overlay: false,            // No splash overlay by default
+            allow_downloads: true,            // Downloads enabled by default
+            download_prompt: false,           // No "Save As" dialog by default
+            download_directory: None,         // Use system default Downloads folder
+            proxy_url: None,                  // Use system proxy settings
+            user_agent: None,                 // Use browser default User-Agent
             tray: None,                       // No system tray by default
         }
     }
@@ -878,6 +928,13 @@ mod tests {
         // Test new fields default values
         assert!(!default_config.allow_new_window);
         assert!(!default_config.allow_file_protocol);
+        // AuroraView enables all permissions by default
+        assert!(default_config.allow_clipboard);
+        assert!(default_config.allow_geolocation);
+        assert!(default_config.allow_notifications);
+        assert!(default_config.allow_media_devices);
+        assert!(default_config.allow_downloads);
+        assert!(default_config.download_directory.is_none()); // Uses system default
     }
 
     #[rstest]

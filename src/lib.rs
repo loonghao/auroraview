@@ -76,6 +76,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register window manager functions (multi-window support)
     bindings::window_manager::register_window_manager_functions(m)?;
 
+    // Register multi-tab browser (Microsoft WebView2Browser architecture)
+    bindings::tab_browser::register_tab_browser(m)?;
+
     // Register static assets functions (JavaScript, HTML for testing)
     bindings::assets::register_assets_functions(m)?;
 
@@ -84,6 +87,10 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Register signals module (Qt-style signal-slot event system)
     auroraview_signals::python::register_module(m)?;
+
+    // Register testing module (AI-friendly CDP-based testing)
+    #[cfg(feature = "testing-python")]
+    auroraview_testing::python::register_module(m)?;
 
     // Windows-only: register minimal WebView2 embedded API (feature-gated)
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]

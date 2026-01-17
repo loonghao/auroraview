@@ -16,9 +16,15 @@ opt-level = 0
 
 [profile.release]
 opt-level = 3
-lto = true
-codegen-units = 1
+lto = "thin"      # thin LTO: much faster, ~95% of full LTO performance
+codegen-units = 16 # parallel compilation, significantly faster linking
 strip = true
+
+# Distribution profile (CI only, maximum optimization)
+[profile.release-dist]
+inherits = "release"
+lto = true
+codegen-units = 1  # maximum optimization, but slow
 
 # Build settings
 # Note: [build] section is above with rustc-wrapper

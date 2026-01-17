@@ -8,7 +8,19 @@ members = [
     "crates/auroraview-plugins",
     "crates/auroraview-plugins/core",
     "crates/auroraview-plugins/fs",
-    # Submodules
+    "crates/auroraview-browser",
+    # Independent feature crates
+    "crates/auroraview-tabs",
+    "crates/auroraview-bookmarks",
+    "crates/auroraview-history",
+    "crates/auroraview-devtools",
+    # Testing framework
+    "crates/auroraview-testing",
+    # Optional feature crates
+    "crates/auroraview-downloads",
+    "crates/auroraview-settings",
+    "crates/auroraview-notifications",
+    # Submodules (extensions is a full implementation)
     "submodules/auroraview-extensions",
     "submodules/auroraview-signals",
     "submodules/auroraview-protect",
@@ -50,6 +62,10 @@ auroraview-core = { path = "crates/auroraview-core", features = ["wry-builder"] 
 # Signal system (Qt-style signals/slots) - via submodule
 # Python bindings enabled via python-bindings feature
 auroraview-signals = { path = "submodules/auroraview-signals" }
+
+# Testing framework (AI-friendly CDP-based testing)
+# Python bindings enabled via testing-python feature
+auroraview-testing = { path = "crates/auroraview-testing", optional = true }
 
 # PyO3 for Python bindings (optional)
 # multiple-pymethods: Allow splitting #[pymethods] across multiple files
@@ -174,6 +190,9 @@ default = ["threaded-ipc", "wry-backend", "templates", "url-utils"]
 
 # Python bindings (for Python wheel)
 python-bindings = ["pyo3", "url-utils", "auroraview-signals/python"]
+
+# Testing framework Python bindings
+testing-python = ["dep:auroraview-testing", "auroraview-testing/python"]
 
 # ABI3 stable ABI for Python 3.8+ (single wheel for all Python 3.8+ versions)
 # For Python 3.7, use python-bindings without this feature

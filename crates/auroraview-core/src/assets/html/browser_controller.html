@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Controller</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; }
+
+        /* CSS Variables for theming */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f3f3;
+            --bg-tertiary: #f9f9f9;
+            --bg-hover: rgba(0,0,0,0.04);
+            --bg-active: rgba(0,0,0,0.08);
+            --text-primary: #1a1a1a;
+            --text-secondary: #444444;
+            --text-disabled: #888888;
+            --border-color: #e5e5e5;
+            --accent-color: #0078d4;
+            --accent-hover: #106ebe;
+            --error-color: #d13438;
+            --success-color: #107c10;
+            --warning-color: #ffb900;
+            --window-control-hover: rgba(0,0,0,0.08);
+            --window-close-hover: #c42b1c;
+        }
+
+        /* Dark theme */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #202020;
+                --bg-secondary: #2d2d2d;
+                --bg-tertiary: #383838;
+                --bg-hover: rgba(255,255,255,0.08);
+                --bg-active: rgba(255,255,255,0.12);
+                --text-primary: #ffffff;
+                --text-secondary: #b0b0b0;
+                --text-disabled: #666666;
+                --border-color: #3d3d3d;
+                --accent-color: #60cdff;
+                --accent-hover: #4cc2ff;
+                --window-control-hover: rgba(255,255,255,0.1);
+                --window-close-hover: #c42b1c;
+            }
+        }
+
+        body {
+            font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            user-select: none;
+        }
+
+        /* === Tab Bar (also serves as drag region for frameless) === */
+        .tab-bar {
+            display: flex;
+            align-items: flex-end;
+            background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            padding: 6px 8px 0;
+            height: 38px;
+            flex-shrink: 0;
+            gap: 2px;
+            -webkit-app-region: drag; /* Make tab bar draggable */
+        }
+
+        /* Individual tab - Edge-like rounded shape */
+        .tab {
+            display: flex;
+            align-items: center;
+            padding: 0 8px 0 10px;
+            height: 32px;
+            background: transparent;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            min-width: 80px;
+            max-width: 220px;
+            position: relative;
+            transition: background 0.1s ease;
+            flex-shrink: 0;
+            -webkit-app-region: no-drag; /* Tabs should not drag the window */
+        }
+
+        .tab:hover:not(.active) {
+            background: var(--bg-hover);
+        }
+
+        /* Active tab */
+        .tab.active {
+            background: var(--bg-primary);
+            box-shadow: 0 -1px 4px rgba(0,0,0,0.08);
+        }
+
+        /* Pinned tab */
+        .tab.pinned {
+            min-width: 40px;
+            max-width: 40px;
+            justify-content: center;
+        }
+
+        .tab.pinned .tab-title,
+        .tab.pinned .tab-close {
+            display: none;
+        }
+
+        /* Tab favicon */
+        .tab-favicon {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border-radius: 2px;
+            background: var(--bg-hover);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tab.pinned .tab-favicon {
+            margin-right: 0;
+        }
+
+        .tab-favicon img {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+        }
+
+        .tab-favicon svg {
+            width: 12px;
+            height: 12px;
+            fill: var(--text-secondary);
+        }
+
+        .tab-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 32px;
+        }
+
+        .tab.active .tab-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* Close button */
+        .tab-close {
+            margin-left: 4px;
+            opacity: 0;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            color: var(--text-secondary);
+            transition: all 0.1s;
+            flex-shrink: 0;
+        }
+
+        .tab:hover .tab-close { opacity: 1; }
+        .tab.active .tab-close { opacity: 0.6; }
+        .tab.active:hover .tab-close { opacity: 1; }
+
+        .tab-close:hover {
+            background: var(--bg-active);
+            color: var(--text-primary);
+        }
+
+        .tab-close svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Audio indicator */
+        .tab-audio {
+            margin-left: 4px;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-color);
+            cursor: pointer;
+        }
+
+        .tab-audio svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        .tab-audio.muted svg {
+            color: var(--text-disabled);
+        }
+
+        /* New tab button */
+        .new-tab-btn {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            border-radius: 6px;
+            margin-left: 2px;
+            margin-bottom: 4px;
+            transition: all 0.1s;
+            -webkit-app-region: no-drag; /* Button should not drag */
+        }
+
+        .new-tab-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .new-tab-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* === Window Controls (for frameless) === */
+        .window-controls {
+            display: flex;
+            align-items: center;
+            height: 38px;
+            margin-left: auto;
+            -webkit-app-region: no-drag;
+        }
+
+        .window-btn {
+            width: 46px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .window-btn:hover {
+            background: var(--window-control-hover);
+            color: var(--text-primary);
+        }
+
+        .window-btn.close:hover {
+            background: var(--window-close-hover);
+            color: #ffffff;
+        }
+
+        .window-btn svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* === Toolbar === */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            padding: 6px 10px;
+            gap: 2px;
+            background: var(--bg-primary);
+            height: 50px;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Navigation buttons */
+        .nav-btn {
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .nav-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-btn:active {
+            background: var(--bg-active);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .nav-btn:disabled:hover {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .nav-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* URL bar - Edge omnibox style */
+        .url-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: var(--bg-secondary);
+            border: 1px solid transparent;
+            border-radius: 22px;
+            padding: 0 14px;
+            margin: 0 8px;
+            height: 36px;
+            transition: all 0.15s;
+        }
+
+        .url-container:hover {
+            background: var(--bg-hover);
+        }
+
+        .url-container:focus-within {
+            background: var(--bg-primary);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 1px var(--accent-color);
+        }
+
+        .url-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .url-icon.secure {
+            color: var(--success-color);
+        }
+
+        .url-icon.insecure {
+            color: var(--error-color);
+        }
+
+        .url-bar {
+            flex: 1;
+            padding: 0;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .url-bar::placeholder {
+            color: var(--text-disabled);
+        }
+
+        /* Bookmark star */
+        .bookmark-btn {
+            margin-left: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: color 0.15s;
+        }
+
+        .bookmark-btn:hover {
+            color: var(--accent-color);
+        }
+
+        .bookmark-btn.bookmarked {
+            color: var(--accent-color);
+        }
+
+        .bookmark-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Right side toolbar buttons */
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            margin-left: 4px;
+        }
+
+        /* === Bookmarks Bar === */
+        .bookmarks-bar {
+            display: none;
+            align-items: center;
+            padding: 4px 10px;
+            gap: 4px;
+            background: var(--bg-primary);
+            height: 32px;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .bookmarks-bar.visible {
+            display: flex;
+        }
+
+        .bookmark-item {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            white-space: nowrap;
+            transition: all 0.1s;
+        }
+
+        .bookmark-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .bookmark-item-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+            flex-shrink: 0;
+        }
+
+        /* Loading animation */
+        .tab.loading .tab-favicon {
+            animation: loading-spin 1s linear infinite;
+        }
+
+        @keyframes loading-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .tab.loading .tab-title {
+            color: var(--accent-color);
+        }
+
+        /* Context menu */
+        .context-menu {
+            position: fixed;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            padding: 4px 0;
+            min-width: 180px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .context-menu.visible {
+            display: block;
+        }
+
+        .context-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .context-menu-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .context-menu-item svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 12px;
+            fill: var(--text-secondary);
+        }
+
+        .context-menu-separator {
+            height: 1px;
+            background: var(--border-color);
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="tab-bar" id="tabBar">
+        <div class="new-tab-btn" onclick="newTab()" title="New Tab (Ctrl+T)">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        </div>
+        <!-- Window controls for frameless mode -->
+        <div class="window-controls" id="windowControls">
+            <button class="window-btn minimize" onclick="minimizeWindow()" title="Minimize">
+                <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+            </button>
+            <button class="window-btn maximize" onclick="toggleMaximize()" title="Maximize" id="maximizeBtn">
+                <svg viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+            </button>
+            <button class="window-btn close" onclick="closeWindow()" title="Close">
+                <svg viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <button class="nav-btn" id="backBtn" onclick="goBack()" title="Back (Alt+Left)" disabled>
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        </button>
+        <button class="nav-btn" id="forwardBtn" onclick="goForward()" title="Forward (Alt+Right)" disabled>
+            <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+        </button>
+        <button class="nav-btn" id="reloadBtn" onclick="reloadPage()" title="Refresh (F5)">
+            <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+
+        <div class="url-container">
+            <svg class="url-icon" id="urlIcon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <input class="url-bar" id="urlBar" placeholder="Search or enter web address"
+                   onkeypress="if(event.key==='Enter')navigate()" onfocus="this.select()">
+            <div class="bookmark-btn" id="bookmarkBtn" onclick="toggleBookmark()" title="Bookmark this page">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z"/>
+                </svg>
+            </div>
+        </div>
+
+        <div class="toolbar-right">
+            <button class="nav-btn" id="homeBtn" onclick="goHome()" title="Home">
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            </button>
+            <button class="nav-btn" id="menuBtn" onclick="showMenu()" title="Menu">
+                <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="bookmarks-bar" id="bookmarksBar"></div>
+
+    <!-- Tab context menu -->
+    <div class="context-menu" id="tabContextMenu">
+        <div class="context-menu-item" onclick="contextNewTab()">
+            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            New tab
+        </div>
+        <div class="context-menu-item" onclick="contextReloadTab()">
+            <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            Reload
+        </div>
+        <div class="context-menu-item" onclick="contextDuplicateTab()">
+            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+            Duplicate
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="contextPinTab()">
+            <svg viewBox="0 0 24 24"><path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z"/></svg>
+            <span id="pinLabel">Pin tab</span>
+        </div>
+        <div class="context-menu-item" onclick="contextMuteTab()">
+            <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <span id="muteLabel">Mute tab</span>
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="contextCloseTab()">
+            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            Close
+        </div>
+        <div class="context-menu-item" onclick="contextCloseOtherTabs()">
+            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            Close other tabs
+        </div>
+    </div>
+
+    <script>
+        // State
+        var tabs = [];
+        var activeTabId = null;
+        var bookmarks = [];
+        var contextMenuTabId = null;
+
+        // Icons
+        var ICONS = {
+            globe: '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>',
+            loading: '<svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>',
+            close: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
+            speaker: '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>',
+            muted: '<svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>'
+        };
+
+        // Initialize
+        window.addEventListener('auroraviewready', function() {
+            console.log('[Controller] AuroraView ready');
+            auroraview.on('tabs:update', updateTabs);
+            auroraview.on('bookmarks:update', updateBookmarks);
+        });
+
+        // Hide context menu on click outside
+        document.addEventListener('click', function(e) {
+            var menu = document.getElementById('tabContextMenu');
+            if (!menu.contains(e.target)) {
+                menu.classList.remove('visible');
+            }
+        });
+
+        function updateTabs(data) {
+            tabs = data.tabs || [];
+            activeTabId = data.activeTabId;
+            renderTabs();
+            updateToolbar();
+        }
+
+        function updateBookmarks(data) {
+            bookmarks = data.bookmarks || [];
+            renderBookmarks();
+        }
+
+        function renderTabs() {
+            var tabsHtml = tabs.map(function(t) {
+                var classes = 'tab';
+                if (t.id === activeTabId) classes += ' active';
+                if (t.isLoading) classes += ' loading';
+                if (t.pinned) classes += ' pinned';
+
+                var favicon = t.favicon
+                    ? '<img src="' + escapeHtml(t.favicon) + '" onerror="this.outerHTML=\'' + ICONS.globe + '\'">'
+                    : (t.isLoading ? ICONS.loading : ICONS.globe);
+
+                var audioBtn = '';
+                if (t.audible || t.muted) {
+                    audioBtn = '<span class="tab-audio' + (t.muted ? ' muted' : '') + '" onclick="event.stopPropagation();toggleMute(\'' + t.id + '\')">' +
+                        (t.muted ? ICONS.muted : ICONS.speaker) + '</span>';
+                }
+
+                return '<div class="' + classes + '" onclick="activateTab(\'' + t.id + '\')" oncontextmenu="showTabContextMenu(event, \'' + t.id + '\')" data-id="' + t.id + '">' +
+                    '<span class="tab-favicon">' + favicon + '</span>' +
+                    '<span class="tab-title">' + escapeHtml(t.title || 'New Tab') + '</span>' +
+                    audioBtn +
+                    '<span class="tab-close" onclick="event.stopPropagation();closeTab(\'' + t.id + '\')" title="Close tab">' + ICONS.close + '</span>' +
+                '</div>';
+            }).join('');
+
+            document.getElementById('tabBar').innerHTML = tabsHtml +
+                '<div class="new-tab-btn" onclick="newTab()" title="New Tab (Ctrl+T)">' +
+                    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>' +
+                '</div>' +
+                '<div class="window-controls" id="windowControls">' +
+                    '<button class="window-btn minimize" onclick="minimizeWindow()" title="Minimize">' +
+                        '<svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' +
+                    '</button>' +
+                    '<button class="window-btn maximize" onclick="toggleMaximize()" title="Maximize" id="maximizeBtn">' +
+                        '<svg viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' +
+                    '</button>' +
+                    '<button class="window-btn close" onclick="closeWindow()" title="Close">' +
+                        '<svg viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' +
+                    '</button>' +
+                '</div>';
+        }
+
+        function updateToolbar() {
+            var active = tabs.find(function(t) { return t.id === activeTabId; });
+            if (active) {
+                document.getElementById('urlBar').value = active.url || '';
+                document.getElementById('backBtn').disabled = !active.canGoBack;
+                document.getElementById('forwardBtn').disabled = !active.canGoForward;
+
+                // Update security icon
+                var icon = document.getElementById('urlIcon');
+                icon.classList.remove('secure', 'insecure');
+                if (active.url && active.url.startsWith('https://')) {
+                    icon.classList.add('secure');
+                    icon.innerHTML = '<path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>';
+                } else if (active.url && active.url.startsWith('http://')) {
+                    icon.classList.add('insecure');
+                    icon.innerHTML = '<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v2h-2V7zm0 4h2v6h-2v-6z"/>';
+                } else {
+                    icon.innerHTML = '<path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>';
+                }
+
+                // Update bookmark button
+                var bookmarkBtn = document.getElementById('bookmarkBtn');
+                var isBookmarked = bookmarks.some(function(b) { return b.url === active.url; });
+                bookmarkBtn.classList.toggle('bookmarked', isBookmarked);
+                if (isBookmarked) {
+                    bookmarkBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
+                } else {
+                    bookmarkBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z"/></svg>';
+                }
+            }
+        }
+
+        function renderBookmarks() {
+            var bar = document.getElementById('bookmarksBar');
+            if (bookmarks.length === 0) {
+                bar.classList.remove('visible');
+                return;
+            }
+
+            bar.classList.add('visible');
+            bar.innerHTML = bookmarks.slice(0, 10).map(function(b) {
+                return '<a class="bookmark-item" href="' + escapeHtml(b.url) + '" onclick="event.preventDefault();navigate(\'' + escapeHtml(b.url) + '\')">' +
+                    '<span class="bookmark-item-icon">' + ICONS.globe + '</span>' +
+                    escapeHtml(b.title || b.url) +
+                '</a>';
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Tab actions
+        function newTab() { auroraview.call('browser.new_tab', {}); }
+        function closeTab(id) { auroraview.call('browser.close_tab', { tabId: id }); }
+        function activateTab(id) { auroraview.call('browser.activate_tab', { tabId: id }); }
+        function toggleMute(id) { auroraview.call('browser.toggle_mute', { tabId: id }); }
+
+        // Navigation
+        function navigate(url) {
+            url = url || document.getElementById('urlBar').value.trim();
+            if (url) { auroraview.call('browser.navigate', { url: url }); }
+        }
+        function goBack() { auroraview.call('browser.go_back'); }
+        function goForward() { auroraview.call('browser.go_forward'); }
+        function reloadPage() { auroraview.call('browser.reload'); }
+        function goHome() { auroraview.call('browser.home'); }
+
+        // Bookmarks
+        function toggleBookmark() {
+            var active = tabs.find(function(t) { return t.id === activeTabId; });
+            if (active) {
+                auroraview.call('browser.toggle_bookmark', { url: active.url, title: active.title });
+            }
+        }
+
+        // Context menu
+        function showTabContextMenu(event, tabId) {
+            event.preventDefault();
+            contextMenuTabId = tabId;
+
+            var tab = tabs.find(function(t) { return t.id === tabId; });
+            document.getElementById('pinLabel').textContent = tab && tab.pinned ? 'Unpin tab' : 'Pin tab';
+            document.getElementById('muteLabel').textContent = tab && tab.muted ? 'Unmute tab' : 'Mute tab';
+
+            var menu = document.getElementById('tabContextMenu');
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            menu.classList.add('visible');
+        }
+
+        function contextNewTab() {
+            newTab();
+            document.getElementById('tabContextMenu').classList.remove('visible');
+        }
+
+        function contextReloadTab() {
+            auroraview.call('browser.reload_tab', { tabId: contextMenuTabId });
+            document.getElementById('tabContextMenu').classList.remove('visible');
+        }
+
+        function contextDuplicateTab() {
+            auroraview.call('browser.duplicate_tab', { tabId: contextMenuTabId });
+            document.getElementById('tabContextMenu').classList.remove('visible');
+        }
+
+        function contextPinTab() {
+            auroraview.call('browser.toggle_pin', { tabId: contextMenuTabId });
+            document.getElementById('tabContextMenu').classList.remove('visible');
+        }
+
+        function contextMuteTab() {
+            auroraview.call('browser.toggle_mute', { tabId: contextMenuTabId });
+            document.getElementById('tabContextMenu').classList.remove('visible');
+        }
+
+        function contextCloseTab() {
+            closeTab(contextMenuTabId);
+            document.getElementById('tabContextMenu').classList.remove('visible');
+        }
+
+        function contextCloseOtherTabs() {
+            auroraview.call('browser.close_other_tabs', { tabId: contextMenuTabId });
+            document.getElementById('tabContextMenu').classList.remove('visible');
+        }
+
+        function showMenu() {
+            auroraview.call('browser.show_menu');
+        }
+
+        // Window control functions (for frameless mode)
+        function minimizeWindow() {
+            auroraview.call('browser.minimize');
+        }
+
+        function toggleMaximize() {
+            auroraview.call('browser.toggle_maximize');
+        }
+
+        function closeWindow() {
+            auroraview.call('browser.close_window');
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 't') { e.preventDefault(); newTab(); }
+            else if (e.ctrlKey && e.key === 'w') { e.preventDefault(); if (activeTabId) closeTab(activeTabId); }
+            else if (e.ctrlKey && e.key === 'l') { e.preventDefault(); document.getElementById('urlBar').select(); }
+            else if (e.key === 'F5') { e.preventDefault(); reloadPage(); }
+            else if (e.ctrlKey && e.key === 'r') { e.preventDefault(); reloadPage(); }
+            else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goBack(); }
+            else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goForward(); }
+            else if (e.ctrlKey && e.key === 'd') { e.preventDefault(); toggleBookmark(); }
+        });
+    </script>
+</body>
+</html>

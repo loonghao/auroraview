@@ -71,11 +71,22 @@ pub fn get_context_menu_js() -> String {
     js_assets::context_menu()
 }
 
+/// Get the browser controller HTML page content.
+///
+/// Returns:
+///     HTML code as a string.
+#[pyfunction]
+pub fn get_browser_controller_html() -> String {
+    auroraview_core::assets::get_browser_controller_html()
+}
+
 /// Register asset functions to the Python module.
 pub fn register_assets_functions(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_midscene_bridge_js, m)?)?;
     m.add_function(wrap_pyfunction!(get_event_bridge_js, m)?)?;
     m.add_function(wrap_pyfunction!(get_test_callback_js, m)?)?;
     m.add_function(wrap_pyfunction!(get_context_menu_js, m)?)?;
+    m.add_function(wrap_pyfunction!(get_browser_controller_html, m)?)?;
     Ok(())
 }
+

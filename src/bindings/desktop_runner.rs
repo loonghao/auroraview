@@ -56,6 +56,19 @@ use crate::webview::desktop;
 ///     tool_window (bool, optional): Tool window style - hide from taskbar/Alt+Tab (default: False).
 ///     undecorated_shadow (bool, optional): Show shadow for frameless windows (default: True).
 ///         Set to False for transparent overlay windows.
+///     splash_overlay (bool, optional): Show splash overlay while loading URL (default: False).
+///         When enabled, displays an animated Aurora-themed loading overlay
+///         that automatically fades out when the page is fully loaded.
+///     allow_downloads (bool, optional): Enable file downloads (default: True).
+///         AuroraView enables downloads by default for better user experience.
+///     download_prompt (bool, optional): Show "Save As" dialog for downloads (default: False).
+///         When True, prompts user to choose save location like a browser.
+///         When False, downloads go directly to download_directory.
+///     download_directory (str, optional): Default download directory.
+///         Uses system default Downloads folder (e.g., ~/Downloads) if not set.
+///         Ignored when download_prompt is True.
+///     proxy_url (str, optional): Proxy server URL (e.g., "http://host:port" or "socks5://host:port").
+///     user_agent (str, optional): Custom User-Agent string.
 ///
 /// Example:
 ///     >>> from auroraview._core import run_desktop
@@ -107,7 +120,13 @@ use crate::webview::desktop;
     tray_hide_on_close=true,
     tool_window=false,
     undecorated_shadow=true,
-    new_window_mode=None
+    new_window_mode=None,
+    splash_overlay=false,
+    allow_downloads=true,
+    download_prompt=false,
+    download_directory=None,
+    proxy_url=None,
+    user_agent=None
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_desktop(
@@ -136,6 +155,12 @@ fn run_desktop(
     #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] tool_window: bool,
     #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] undecorated_shadow: bool,
     new_window_mode: Option<String>,
+    splash_overlay: bool,
+    allow_downloads: bool,
+    download_prompt: bool,
+    download_directory: Option<String>,
+    proxy_url: Option<String>,
+    user_agent: Option<String>,
 ) -> PyResult<()> {
     tracing::info!("[run_desktop] Creating desktop WebView: {}", title);
 
@@ -221,6 +246,12 @@ fn run_desktop(
         icon: None,                       // Use default AuroraView icon
         enable_plugins: true,             // Enable plugin APIs
         enabled_plugin_names: Vec::new(), // All plugins
+        splash_overlay,                   // Show splash overlay while loading
+        allow_downloads,                  // Enable file downloads
+        download_prompt,                  // Show "Save As" dialog for downloads
+        download_directory: download_directory.map(PathBuf::from),
+        proxy_url,                        // Proxy server URL
+        user_agent,                       // Custom User-Agent
         #[cfg(target_os = "windows")]
         tool_window,
         #[cfg(target_os = "windows")]
@@ -287,7 +318,13 @@ fn run_desktop(
     tray_hide_on_close=true,
     tool_window=false,
     undecorated_shadow=true,
-    new_window_mode=None
+    new_window_mode=None,
+    splash_overlay=false,
+    allow_downloads=true,
+    download_prompt=false,
+    download_directory=None,
+    proxy_url=None,
+    user_agent=None
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_standalone(
@@ -316,6 +353,12 @@ fn run_standalone(
     #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] tool_window: bool,
     #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] undecorated_shadow: bool,
     new_window_mode: Option<String>,
+    splash_overlay: bool,
+    allow_downloads: bool,
+    download_prompt: bool,
+    download_directory: Option<String>,
+    proxy_url: Option<String>,
+    user_agent: Option<String>,
 ) -> PyResult<()> {
     run_desktop(
         title,
@@ -343,6 +386,12 @@ fn run_standalone(
         tool_window,
         undecorated_shadow,
         new_window_mode,
+        splash_overlay,
+        allow_downloads,
+        download_prompt,
+        download_directory,
+        proxy_url,
+        user_agent,
     )
 }
 

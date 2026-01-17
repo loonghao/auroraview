@@ -318,6 +318,16 @@ impl ProcessPlugin {
             }
         }
 
+        // Pass AURORAVIEW_RESOURCES_DIR to child processes
+        // This allows spawned examples to find their resources (templates, data files, etc.)
+        if let Ok(resources_dir) = std::env::var("AURORAVIEW_RESOURCES_DIR") {
+            tracing::debug!(
+                "[Rust:ProcessPlugin] Setting AURORAVIEW_RESOURCES_DIR={}",
+                resources_dir
+            );
+            cmd.env("AURORAVIEW_RESOURCES_DIR", resources_dir);
+        }
+
         // Windows: control console window visibility
         // Note: CREATE_NO_WINDOW prevents ALL windows including GUI windows,
         // so we use DETACHED_PROCESS instead which only hides the console.

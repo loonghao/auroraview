@@ -115,6 +115,42 @@ pub fn get_error_html() -> String {
         })
 }
 
+/// Get the browser controller HTML page content
+///
+/// Returns an Edge-style browser controller UI with:
+/// - Tab bar with rounded tabs, favicons, and close buttons
+/// - Navigation toolbar (back, forward, reload, home)
+/// - URL/search bar with modern styling
+///
+/// This HTML is used by TabManager for the browser controller WebView.
+pub fn get_browser_controller_html() -> String {
+    Assets::get("html/browser_controller.html")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_else(|| {
+            // Fallback minimal controller
+            r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; padding: 8px; font-family: system-ui; background: #f3f3f3; }
+        .toolbar { display: flex; gap: 8px; align-items: center; }
+        button { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; }
+        input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button onclick="auroraview.call('browser.go_back')">Back</button>
+        <button onclick="auroraview.call('browser.go_forward')">Forward</button>
+        <input id="urlBar" placeholder="Enter URL" onkeypress="if(event.key==='Enter')auroraview.call('browser.navigate',{url:this.value})">
+    </div>
+</body>
+</html>"#
+                .to_string()
+        })
+}
+
 /// Build an error page HTML with specific error information
 ///
 /// This function generates a complete error page by injecting error details
@@ -395,6 +431,22 @@ pub fn get_network_intercept_js() -> String {
 /// to receive JavaScript evaluation results asynchronously.
 pub fn get_test_callback_js() -> String {
     Assets::get("js/features/test_callback.js")
+        .map(|f| String::from_utf8_lossy(&f.data).to_string())
+        .unwrap_or_default()
+}
+
+/// Get the splash overlay JavaScript code
+///
+/// This script injects a loading overlay that displays while the page loads.
+/// The overlay automatically fades out when the page is fully loaded.
+/// Useful for showing a branded loading experience during slow network loads.
+///
+/// Features:
+/// - Aurora-themed animated loading screen
+/// - Automatically removes itself on page load
+/// - Exposes `window.__auroraview_splash.show()` and `.hide()` for manual control
+pub fn get_splash_overlay_js() -> String {
+    Assets::get("js/features/splash_overlay.js")
         .map(|f| String::from_utf8_lossy(&f.data).to_string())
         .unwrap_or_default()
 }
