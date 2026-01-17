@@ -538,7 +538,6 @@ impl Browser {
 
         #[cfg(target_os = "windows")]
         let window_size = window_ref.inner_size();
-        #[cfg(target_os = "windows")]
         let header_height = self.header_height();
 
         let controller_builder = WebViewBuilder::new()

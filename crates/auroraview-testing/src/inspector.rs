@@ -427,7 +427,7 @@ impl Inspector {
     /// * `timeout` - Optional timeout (default: 30s)
     pub async fn wait(&self, condition: &str, timeout: Option<Duration>) -> Result<bool> {
         let timeout = timeout.unwrap_or(self.config.timeout);
-        let condition = WaitCondition::parse(condition).map_err(|e| InspectorError::Parse(e))?;
+        let condition = WaitCondition::parse(condition).map_err(InspectorError::Parse)?;
 
         self.wait_for(condition, timeout).await
     }

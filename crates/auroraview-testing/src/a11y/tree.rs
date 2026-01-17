@@ -190,6 +190,7 @@ fn build_tree(
 }
 
 /// Alternative: Process from DOM tree with accessibility info
+#[allow(dead_code)]
 pub fn process_dom_tree_with_a11y(
     dom_root: Value,
     a11y_map: &HashMap<i64, A11yNode>,
