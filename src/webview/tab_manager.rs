@@ -638,18 +638,22 @@ impl TabManager {
     }
 
     /// Resize all tab WebViews to match content area
+    #[cfg(target_os = "windows")]
     fn resize_tabs(&mut self, x: i32, y: i32, width: u32, height: u32) {
         for tab in self.tabs.values() {
-            #[cfg(target_os = "windows")]
-            {
-                let _ = tab.webview.set_bounds(wry::Rect {
-                    position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(
-                        x as f64, y as f64,
-                    )),
-                    size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(width, height)),
-                });
-            }
+            let _ = tab.webview.set_bounds(wry::Rect {
+                position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(
+                    x as f64, y as f64,
+                )),
+                size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(width, height)),
+            });
         }
+    }
+
+    /// Resize all tab WebViews to match content area (non-Windows placeholder)
+    #[cfg(not(target_os = "windows"))]
+    fn resize_tabs(&mut self, _x: i32, _y: i32, _width: u32, _height: u32) {
+        // TODO: Implement for other platforms
     }
 
     /// Get current tab states in display order
@@ -829,7 +833,10 @@ impl TabManager {
     ///
     /// Reference: <https://github.com/MicrosoftEdge/WebView2Browser>
     pub fn run(&mut self) {
+        #[cfg(target_os = "windows")]
         use tao::platform::windows::EventLoopBuilderExtWindows;
+        #[cfg(target_os = "linux")]
+        use tao::platform::unix::EventLoopBuilderExtUnix;
 
         tracing::info!(
             "[TabManager] Starting browser with config: {:?}",
@@ -838,9 +845,12 @@ impl TabManager {
 
         // Step 1: Create event loop on UI thread
         // Reference: BrowserWindow uses single UI thread for all operations
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         let event_loop: EventLoop<TabManagerEvent> = EventLoopBuilder::with_user_event()
             .with_any_thread(true)
             .build();
+        #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+        let event_loop: EventLoop<TabManagerEvent> = EventLoopBuilder::with_user_event().build();
         self.event_loop_proxy = Some(event_loop.create_proxy());
 
         // Step 2: Create main window
