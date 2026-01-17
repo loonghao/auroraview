@@ -624,7 +624,7 @@ pub fn create_desktop(
                 // Try to set file filter based on extension
                 if let Some(ext) = path.extension() {
                     let ext_str = ext.to_string_lossy().to_string();
-                    dialog = dialog.add_filter(&ext_str.to_uppercase(), &[&ext_str]);
+                    dialog = dialog.add_filter(ext_str.to_uppercase(), &[&ext_str]);
                 }
                 dialog = dialog.add_filter("All Files", &["*"]);
 
