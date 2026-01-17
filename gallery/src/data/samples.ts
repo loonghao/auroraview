@@ -26,6 +26,8 @@ export const TAGS = [
   'standalone',
   'ui',
   'api',
+  'effects',
+  'browser',
 ] as const;
 
 export type Tag = typeof TAGS[number];
@@ -43,10 +45,15 @@ export const CATEGORIES: Record<string, Category> = {
     icon: "code",
     description: "Different ways to use the AuroraView API",
   },
+  browser_features: {
+    title: "Browser & Tabs",
+    icon: "globe",
+    description: "Multi-tab browser, bookmarks, history, and navigation",
+  },
   window_features: {
     title: "Window Features",
     icon: "layout",
-    description: "Window styles, events, and customization",
+    description: "Window styles, effects, and customization",
   },
   desktop_features: {
     title: "Desktop Features",

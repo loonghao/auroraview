@@ -2,44 +2,55 @@
 outline: deep
 ---
 
-# Multi-Tab Browser Demo
+# Agent Browser - Multi-Tab Browser Demo
 
 This guide demonstrates how to create a browser-like application with multiple tabs using AuroraView WebView.
 
 ## Overview
 
-The multi-tab browser demo showcases:
+The Agent Browser demo showcases:
 
 - **Tab Management**: Create, close, and switch between tabs
 - **Navigation Controls**: Back, forward, reload, and home buttons
 - **URL Bar**: Smart URL/search detection
-- **New Window Handling**: Using `new_window_mode` for link interception
+- **File Drag & Drop**: Open PDF, images, and text files by dragging
+- **Keyboard Shortcuts**: Ctrl+T, Ctrl+W, Ctrl+L, F5, etc.
 - **State Synchronization**: Keeping tab state in sync between Python and JavaScript
+
+## Running the Browser
+
+```bash
+# Run as module
+python -m examples.agent_browser
+
+# Or run directly
+python examples/agent_browser/browser.py
+```
 
 ## Key Concepts
 
-### New Window Mode
+### Using the Unified API
 
-AuroraView provides three modes for handling `window.open()` and `target="_blank"` links:
+Agent Browser uses AuroraView's unified `create_webview()` API:
 
 ```python
-from auroraview import WebView
+from auroraview import create_webview
 
-# Mode 1: Deny (default) - Block all new window requests
-webview = WebView(new_window_mode="deny")
-
-# Mode 2: System Browser - Open links in the default browser
-webview = WebView(new_window_mode="system_browser")
-
-# Mode 3: Child WebView - Create new WebView windows
-webview = WebView(new_window_mode="child_webview")
+# Create a standalone browser window
+webview = create_webview(
+    title="Agent Browser",
+    html=browser_html,
+    width=1280,
+    height=900,
+    debug=True,
+    allow_file_protocol=True,  # Enable file:// for local files
+    context_menu=True,
+)
 ```
-
-For a tabbed browser, `child_webview` mode is most appropriate as it allows you to intercept new window requests and handle them within your application.
 
 ### Tab State Management
 
-The demo uses a `BrowserState` class to manage tabs:
+The demo uses a `TabManager` class to manage tabs:
 
 ```python
 from dataclasses import dataclass, field
@@ -55,35 +66,34 @@ class Tab:
     is_loading: bool = False
     can_go_back: bool = False
     can_go_forward: bool = False
+    history: List[str] = field(default_factory=list)
+    history_index: int = -1
 
-@dataclass
-class BrowserState:
-    """Thread-safe browser state manager."""
-    tabs: Dict[str, Tab] = field(default_factory=dict)
-    active_tab_id: Optional[str] = None
-    tab_order: List[str] = field(default_factory=list)
-    _lock: threading.Lock = field(default_factory=threading.Lock)
+class TabManager:
+    """Thread-safe tab manager with history support."""
+    
+    def __init__(self):
+        self.tabs: Dict[str, Tab] = {}
+        self.tab_order: List[str] = []
+        self.active_tab_id: Optional[str] = None
+        self._lock = threading.Lock()
 
-    def add_tab(self, tab: Tab) -> None:
-        with self._lock:
-            self.tabs[tab.id] = tab
-            self.tab_order.append(tab.id)
-
-    def remove_tab(self, tab_id: str) -> Optional[str]:
-        """Remove tab and return next active tab ID."""
+    def navigate(self, tab_id: str, url: str) -> None:
+        """Navigate a tab to a URL, updating history."""
         with self._lock:
             if tab_id not in self.tabs:
-                return self.active_tab_id
+                return
+            tab = self.tabs[tab_id]
             
-            idx = self.tab_order.index(tab_id)
-            del self.tabs[tab_id]
-            self.tab_order.remove(tab_id)
+            # Truncate forward history
+            if tab.history_index < len(tab.history) - 1:
+                tab.history = tab.history[:tab.history_index + 1]
             
-            if not self.tab_order:
-                return None
-            
-            new_idx = min(idx, len(self.tab_order) - 1)
-            return self.tab_order[new_idx]
+            tab.history.append(url)
+            tab.history_index = len(tab.history) - 1
+            tab.url = url
+            tab.can_go_back = tab.history_index > 0
+            tab.can_go_forward = False
 ```
 
 ### Python-JavaScript Communication
@@ -94,9 +104,9 @@ The browser uses AuroraView's event system for bidirectional communication:
 ```python
 # Broadcast tab updates to UI
 def broadcast_tabs_update():
-    main_window.emit("tabs:update", {
-        "tabs": browser_state.get_tabs_info(),
-        "active_tab_id": browser_state.active_tab_id,
+    webview.emit("tabs:update", {
+        "tabs": tab_manager.get_tabs_info(),
+        "active_tab_id": tab_manager.active_tab_id,
     })
 ```
 
@@ -112,69 +122,75 @@ auroraview.api.close_tab({ tab_id: "tab-123" });
 auroraview.api.navigate({ url: "https://github.com" });
 ```
 
-## Running the Examples
+### File Drag & Drop
 
-### Multi-Tab Browser Demo
+The browser supports opening files by dragging them onto the window:
 
-```bash
-python examples/multi_tab_browser_demo.py
+```python
+from auroraview.core.events import WindowEvent
+
+@webview.on(WindowEvent.FILE_DROP)
+def on_file_drop(data):
+    """Handle file drop events."""
+    paths = data.get("paths", [])
+    if paths:
+        result = handle_file_open(paths[0])
+        if result.get("success"):
+            webview.emit("file:opened", result)
 ```
 
-This demo provides a complete browser-like UI with:
-- Tab bar with create/close/switch functionality
-- Navigation bar with back/forward/reload/home buttons
-- URL bar with smart URL detection
-- Quick links for common websites
-
-### Tabbed WebView Demo
-
-```bash
-python examples/tabbed_webview_demo.py
-```
-
-A simpler version focusing on tab management concepts and `new_window_mode` usage.
+Supported file types:
+- **PDF**: Opens directly in browser
+- **Images**: PNG, JPG, GIF, WebP, SVG, etc.
+- **Text**: TXT, JSON, XML, MD, CSS, JS
+- **HTML**: Opens as web page
 
 ## Implementation Details
 
-### Creating the Main Window
+### Creating the Browser
 
 ```python
-from auroraview import WebView
+from auroraview import create_webview
+from auroraview.core.events import WindowEvent
 
-def create_browser_window() -> WebView:
-    view = WebView.create(
-        title="AuroraView Browser",
-        html=BROWSER_HTML,
-        width=1200,
-        height=800,
-        debug=True,
-        # Enable child WebView mode for handling window.open()
-        new_window_mode="child_webview",
-    )
-    
-    # Register API handlers
-    @view.bind_call("api.create_tab")
-    def create_tab(url: str = "") -> dict:
-        tab_id = str(uuid.uuid4())[:8]
-        tab = Tab(id=tab_id, title="New Tab", url=url)
-        browser_state.add_tab(tab)
-        browser_state.active_tab_id = tab_id
-        broadcast_tabs_update()
-        return {"tab_id": tab_id}
-    
-    @view.bind_call("api.navigate")
-    def navigate(url: str) -> dict:
-        if browser_state.active_tab_id:
-            browser_state.update_tab(
-                browser_state.active_tab_id,
-                url=url,
-                title=get_title_from_url(url),
+class AgentBrowser:
+    def __init__(self):
+        self.tab_manager = TabManager()
+        self.webview = None
+
+    def run(self):
+        self.webview = create_webview(
+            title="Agent Browser",
+            html=self._load_html(),
+            width=1280,
+            height=900,
+            debug=True,
+            allow_file_protocol=True,
+        )
+        
+        # Register API handlers
+        @self.webview.bind_call("api.create_tab")
+        def create_tab(url: str = "") -> dict:
+            tab_id = self.tab_manager.create_tab(url=url)
+            self._broadcast_tabs_update()
+            if url:
+                self.webview.load_url(url)
+            return {"tab_id": tab_id, "success": True}
+        
+        @self.webview.bind_call("api.navigate")
+        def navigate(url: str) -> dict:
+            final_url = self._process_url(url)
+            self.tab_manager.navigate(
+                self.tab_manager.active_tab_id, 
+                final_url
             )
-            broadcast_tabs_update()
-            return {"success": True}
-        return {"success": False}
-    
-    return view
+            self._broadcast_tabs_update()
+            self.webview.load_url(final_url)
+            return {"success": True, "url": final_url}
+        
+        # Create initial tab
+        self.tab_manager.create_tab()
+        self.webview.show()
 ```
 
 ### Handling Tab Events in JavaScript
@@ -186,74 +202,46 @@ window.addEventListener('auroraviewready', () => {
         tabs = data.tabs;
         activeTabId = data.active_tab_id;
         renderTabs();
+        updateNavButtons();
     });
     
-    // Create initial tab
-    auroraview.api.create_tab();
+    // Get initial tabs state
+    auroraview.api.get_tabs().then(data => {
+        tabs = data.tabs || [];
+        activeTabId = data.active_tab_id;
+        renderTabs();
+    });
 });
 
-function renderTabs() {
-    const container = document.getElementById('tabs-container');
-    container.innerHTML = tabs.map(tab => `
-        <div class="tab ${tab.is_active ? 'active' : ''}"
-             onclick="switchTab('${tab.id}')">
-            <span class="tab-title">${tab.title}</span>
-            <span class="tab-close" 
-                  onclick="event.stopPropagation(); closeTab('${tab.id}')">×</span>
-        </div>
-    `).join('');
-}
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 't') { e.preventDefault(); createNewTab(); }
+    if (e.ctrlKey && e.key === 'w') { e.preventDefault(); closeTab(activeTabId); }
+    if (e.ctrlKey && e.key === 'l') { e.preventDefault(); focusUrlBar(); }
+    if (e.key === 'F5') { e.preventDefault(); reloadPage(); }
+});
 ```
 
-## Advanced Topics
+## Keyboard Shortcuts
 
-### Real Multi-WebView Implementation
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+T` | New tab |
+| `Ctrl+W` | Close tab |
+| `Ctrl+L` | Focus URL bar |
+| `F5` | Reload page |
+| `Alt+←` | Go back |
+| `Alt+→` | Go forward |
+| `F12` | Developer tools |
 
-For a production browser, each tab would have its own WebView instance. The architecture would look like:
+## Project Structure
 
-```python
-class TabManager:
-    def __init__(self):
-        self.tab_webviews: Dict[str, WebView] = {}
-    
-    def create_tab(self, url: str = "") -> str:
-        tab_id = str(uuid.uuid4())[:8]
-        
-        # Create a new WebView for this tab
-        webview = WebView.create(
-            title=f"Tab {tab_id}",
-            url=url,
-            new_window_mode="child_webview",
-        )
-        
-        # Handle navigation events from this tab
-        @webview.on("navigation")
-        def on_navigate(data):
-            self.update_tab_url(tab_id, data["url"])
-        
-        self.tab_webviews[tab_id] = webview
-        return tab_id
-    
-    def close_tab(self, tab_id: str):
-        if tab_id in self.tab_webviews:
-            self.tab_webviews[tab_id].close()
-            del self.tab_webviews[tab_id]
 ```
-
-### Thread Safety
-
-The `BrowserState` class uses a lock for thread safety, which is important when:
-- Multiple tabs may trigger events simultaneously
-- Background tasks update tab state
-- The main window needs to read state while tabs are being modified
-
-```python
-def update_tab(self, tab_id: str, **kwargs) -> None:
-    with self._lock:
-        if tab_id in self.tabs:
-            for key, value in kwargs.items():
-                if hasattr(self.tabs[tab_id], key):
-                    setattr(self.tabs[tab_id], key, value)
+examples/agent_browser/
+├── __init__.py      # Package exports
+├── __main__.py      # Entry point for -m
+├── browser.py       # Main browser implementation
+└── ui.html          # Browser UI template
 ```
 
 ## See Also

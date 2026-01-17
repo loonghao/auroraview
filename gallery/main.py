@@ -42,6 +42,7 @@ from backend.dependency_api import register_dependency_apis
 from backend.extension_api import cleanup_extension_bridge, register_extension_apis
 from backend.process_api import register_process_apis
 from backend.webview_extension_api import register_webview_extension_apis
+from backend.features_api import register_features_api
 
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "python"))
@@ -142,7 +143,9 @@ def run_gallery():
             sys.exit(1)
         url = None  # Packed mode doesn't need URL
     else:
-        url = str(index_html)
+        # Convert file path to file:// URL for proper loading
+        from auroraview.utils.file_protocol import path_to_file_url
+        url = path_to_file_url(index_html)
         print(f"[Python] Loading: {url}", file=sys.stderr)
 
     print(f"[Python] Creating WebView with allow_new_window=True, new_window_mode='child_webview'", file=sys.stderr)
@@ -214,6 +217,9 @@ def run_gallery():
 
     # Register dependency installation APIs
     register_dependency_apis(view)
+
+    # Register features APIs (bookmarks, history, downloads, settings, notifications)
+    register_features_api(view)
 
     # Register simple API handlers
     @view.bind_call("api.get_samples")

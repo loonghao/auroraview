@@ -167,6 +167,55 @@ export interface BrowserExtensionStatus {
   isRunning: boolean;
 }
 
+// ============================================
+// Features API Types
+// ============================================
+
+export interface Bookmark {
+  id: string;
+  url: string;
+  title: string;
+  favicon?: string;
+  folderId?: string;
+  createdAt?: string;
+}
+
+export interface BookmarkFolder {
+  id: string;
+  name: string;
+  parentId?: string;
+  bookmarks: Bookmark[];
+}
+
+export interface HistoryEntry {
+  id: string;
+  url: string;
+  title: string;
+  visitCount: number;
+  lastVisit: string;
+  favicon?: string;
+}
+
+export interface DownloadItem {
+  id: string;
+  url: string;
+  filename: string;
+  path?: string;
+  size?: number;
+  downloadedBytes: number;
+  state: 'pending' | 'downloading' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  error?: string;
+  startedAt?: string;
+  completedAt?: string;
+  speed?: number;
+}
+
+export interface FeaturesResult<T = unknown> {
+  ok: boolean;
+  error?: string;
+  [key: string]: T | boolean | string | undefined;
+}
+
 /**
  * Gallery-specific hook that wraps SDK's useAuroraView with Gallery API methods
  */
@@ -810,6 +859,244 @@ export function useAuroraView() {
     }
   }, [client]);
 
+  // ============================================
+  // Features APIs (Python backend)
+  // ============================================
+
+  // Bookmarks
+  const getBookmarks = useCallback(async (): Promise<{
+    ok: boolean;
+    bookmarks: Bookmark[];
+    folders: BookmarkFolder[];
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      return await client.call('features.get_bookmarks');
+    } catch {
+      return { ok: false, bookmarks: [], folders: [] };
+    }
+  }, [client]);
+
+  const addBookmark = useCallback(async (url: string, title: string, folderId?: string): Promise<{
+    ok: boolean;
+    bookmark?: Bookmark;
+    error?: string;
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.add_bookmark', { url, title, folder_id: folderId });
+  }, [client]);
+
+  const removeBookmark = useCallback(async (bookmarkId: string): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.remove_bookmark', { bookmark_id: bookmarkId });
+  }, [client]);
+
+  const isBookmarked = useCallback(async (url: string): Promise<{
+    ok: boolean;
+    bookmarked: boolean;
+    bookmark?: Bookmark;
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      return await client.call('features.is_bookmarked', { url });
+    } catch {
+      return { ok: false, bookmarked: false };
+    }
+  }, [client]);
+
+  // History
+  const getHistory = useCallback(async (limit = 100): Promise<{
+    ok: boolean;
+    entries: HistoryEntry[];
+    total: number;
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      return await client.call('features.get_history', { limit });
+    } catch {
+      return { ok: false, entries: [], total: 0 };
+    }
+  }, [client]);
+
+  const addHistory = useCallback(async (url: string, title: string): Promise<{
+    ok: boolean;
+    entry?: HistoryEntry;
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.add_history', { url, title });
+  }, [client]);
+
+  const removeHistory = useCallback(async (entryId: string): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.remove_history', { entry_id: entryId });
+  }, [client]);
+
+  const clearHistory = useCallback(async (): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.clear_history');
+  }, [client]);
+
+  const searchHistory = useCallback(async (query: string, limit = 50): Promise<{
+    ok: boolean;
+    entries: HistoryEntry[];
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      return await client.call('features.search_history', { query, limit });
+    } catch {
+      return { ok: false, entries: [] };
+    }
+  }, [client]);
+
+  // Downloads
+  const getDownloads = useCallback(async (): Promise<{
+    ok: boolean;
+    downloads: DownloadItem[];
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      return await client.call('features.get_downloads');
+    } catch {
+      return { ok: false, downloads: [] };
+    }
+  }, [client]);
+
+  const pauseDownload = useCallback(async (downloadId: string): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.pause_download', { download_id: downloadId });
+  }, [client]);
+
+  const resumeDownload = useCallback(async (downloadId: string): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.resume_download', { download_id: downloadId });
+  }, [client]);
+
+  const cancelDownload = useCallback(async (downloadId: string): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.cancel_download', { download_id: downloadId });
+  }, [client]);
+
+  const retryDownload = useCallback(async (downloadId: string): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.retry_download', { download_id: downloadId });
+  }, [client]);
+
+  const removeDownload = useCallback(async (downloadId: string): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.remove_download', { download_id: downloadId });
+  }, [client]);
+
+  const clearCompletedDownloads = useCallback(async (): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.clear_completed_downloads');
+  }, [client]);
+
+  // Settings
+  const getSettings = useCallback(async (): Promise<{
+    ok: boolean;
+    settings: Record<string, unknown>;
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      return await client.call('features.get_settings');
+    } catch {
+      return { ok: false, settings: {} };
+    }
+  }, [client]);
+
+  const getSetting = useCallback(async (key: string): Promise<{
+    ok: boolean;
+    key: string;
+    value: unknown;
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.get_setting', { key });
+  }, [client]);
+
+  const setSetting = useCallback(async (key: string, value: unknown): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.set_setting', { key, value });
+  }, [client]);
+
+  const resetSettings = useCallback(async (): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.reset_settings');
+  }, [client]);
+
+  // Notifications
+  const showNotification = useCallback(async (
+    title: string,
+    message: string,
+    type: 'info' | 'success' | 'warning' | 'error' = 'info',
+    timeout?: number
+  ): Promise<{ ok: boolean; id?: string }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.show_notification', { title, message, type, timeout });
+  }, [client]);
+
+  const dismissNotification = useCallback(async (notificationId: string): Promise<{ ok: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    return client.call('features.dismiss_notification', { notification_id: notificationId });
+  }, [client]);
+
+  const getNotifications = useCallback(async (): Promise<{
+    ok: boolean;
+    notifications: Array<{ id: string; title: string; message: string; type: string }>;
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      return await client.call('features.get_notifications');
+    } catch {
+      return { ok: false, notifications: [] };
+    }
+  }, [client]);
+
   return {
     isReady,
     // Sample Management
@@ -857,6 +1144,35 @@ export function useAuroraView() {
     broadcastToExtensions,
     installExtension,
     getExtensionInfo,
+    // Features APIs
+    // Bookmarks
+    getBookmarks,
+    addBookmark,
+    removeBookmark,
+    isBookmarked,
+    // History
+    getHistory,
+    addHistory,
+    removeHistory,
+    clearHistory,
+    searchHistory,
+    // Downloads
+    getDownloads,
+    pauseDownload,
+    resumeDownload,
+    cancelDownload,
+    retryDownload,
+    removeDownload,
+    clearCompletedDownloads,
+    // Settings
+    getSettings,
+    getSetting,
+    setSetting,
+    resetSettings,
+    // Notifications
+    showNotification,
+    dismissNotification,
+    getNotifications,
   };
 }
 
