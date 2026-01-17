@@ -13,9 +13,7 @@ use crate::snapshot::{ActionResult, RefId, RefInfo, ScrollDirection, Snapshot};
 
 /// Create a new Tokio runtime
 fn get_runtime() -> Arc<Runtime> {
-    Arc::new(
-        Runtime::new().expect("Failed to create Tokio runtime")
-    )
+    Arc::new(Runtime::new().expect("Failed to create Tokio runtime"))
 }
 
 /// Python Inspector class
@@ -184,10 +182,12 @@ impl PyInspector {
             .as_ref()
             .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Inspector closed"))?;
 
-        let dir = ScrollDirection::parse(direction)
-            .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Invalid direction: {}", direction)
-            ))?;
+        let dir = ScrollDirection::parse(direction).ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Invalid direction: {}",
+                direction
+            ))
+        })?;
 
         let result = self
             .runtime
@@ -466,8 +466,12 @@ impl PySnapshot {
     }
 
     fn __repr__(&self) -> String {
-        format!("Snapshot(title='{}', url='{}', refs={})", 
-            self.0.title, self.0.url, self.0.ref_count())
+        format!(
+            "Snapshot(title='{}', url='{}', refs={})",
+            self.0.title,
+            self.0.url,
+            self.0.ref_count()
+        )
     }
 }
 
@@ -513,8 +517,10 @@ impl PyRefInfo {
     }
 
     fn __repr__(&self) -> String {
-        format!("RefInfo(ref_id='{}', role='{}', name='{}')",
-            self.0.ref_id, self.0.role, self.0.name)
+        format!(
+            "RefInfo(ref_id='{}', role='{}', name='{}')",
+            self.0.ref_id, self.0.role, self.0.name
+        )
     }
 }
 
@@ -574,8 +580,10 @@ impl PyActionResult {
         if self.0.success {
             format!("ActionResult(success=True, action='{}')", self.0.action)
         } else {
-            format!("ActionResult(success=False, error='{}')", 
-                self.0.error.as_deref().unwrap_or("unknown"))
+            format!(
+                "ActionResult(success=False, error='{}')",
+                self.0.error.as_deref().unwrap_or("unknown")
+            )
         }
     }
 
@@ -600,7 +608,10 @@ fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyResult<PyObject> {
         }
         serde_json::Value::String(s) => Ok(s.into_pyobject(py)?.into()),
         serde_json::Value::Array(arr) => {
-            let list: Vec<PyObject> = arr.iter().map(|v| json_to_py(py, v)).collect::<PyResult<_>>()?;
+            let list: Vec<PyObject> = arr
+                .iter()
+                .map(|v| json_to_py(py, v))
+                .collect::<PyResult<_>>()?;
             Ok(list.into_pyobject(py)?.into())
         }
         serde_json::Value::Object(obj) => {

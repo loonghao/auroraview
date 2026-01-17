@@ -253,7 +253,6 @@ impl AuroraView {
         }
     }
 
-
     /// Create WebView for standalone mode (creates its own window)
     fn show_window(&self) -> PyResult<()> {
         let title = self.config.borrow().title.clone();

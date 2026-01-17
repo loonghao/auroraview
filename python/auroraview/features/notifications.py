@@ -437,12 +437,10 @@ class NotificationManager:
         try:
             data = json.loads(self._storage_path.read_text(encoding="utf-8"))
             self._notifications = {
-                k: Notification.from_dict(v)
-                for k, v in data.get("notifications", {}).items()
+                k: Notification.from_dict(v) for k, v in data.get("notifications", {}).items()
             }
             self._permissions = {
-                k: PermissionState(v)
-                for k, v in data.get("permissions", {}).items()
+                k: PermissionState(v) for k, v in data.get("permissions", {}).items()
             }
         except (json.JSONDecodeError, KeyError):
             pass

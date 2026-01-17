@@ -250,8 +250,8 @@ fn run_desktop(
         allow_downloads,                  // Enable file downloads
         download_prompt,                  // Show "Save As" dialog for downloads
         download_directory: download_directory.map(PathBuf::from),
-        proxy_url,                        // Proxy server URL
-        user_agent,                       // Custom User-Agent
+        proxy_url,  // Proxy server URL
+        user_agent, // Custom User-Agent
         #[cfg(target_os = "windows")]
         tool_window,
         #[cfg(target_os = "windows")]

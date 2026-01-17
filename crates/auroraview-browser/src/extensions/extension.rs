@@ -135,7 +135,11 @@ impl<T: Extension> From<&T> for ExtensionManifest {
             description: ext.description().to_string(),
             icon: ext.icon().map(String::from),
             enabled: ext.enabled(),
-            content_script_matches: ext.content_script_matches().iter().map(|s| s.to_string()).collect(),
+            content_script_matches: ext
+                .content_script_matches()
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             permissions: ext.permissions().iter().map(|s| s.to_string()).collect(),
         }
     }

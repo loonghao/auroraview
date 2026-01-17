@@ -160,15 +160,17 @@ mod tests {
             .with_position(5)
             .with_tag("test");
 
-        assert_eq!(bookmark.favicon, Some("https://test.com/favicon.ico".to_string()));
+        assert_eq!(
+            bookmark.favicon,
+            Some("https://test.com/favicon.ico".to_string())
+        );
         assert_eq!(bookmark.position, 5);
         assert_eq!(bookmark.tags, vec!["test".to_string()]);
     }
 
     #[test]
     fn test_bookmark_matches() {
-        let bookmark = Bookmark::new("GitHub", "https://github.com")
-            .with_tag("code");
+        let bookmark = Bookmark::new("GitHub", "https://github.com").with_tag("code");
 
         assert!(bookmark.matches("git"));
         assert!(bookmark.matches("hub"));

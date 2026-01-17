@@ -171,10 +171,8 @@ impl WebSocketCdpClient {
                                     });
                                     let _ = sender.send(error_val);
                                 } else {
-                                    let result = value
-                                        .get("result")
-                                        .cloned()
-                                        .unwrap_or(Value::Null);
+                                    let result =
+                                        value.get("result").cloned().unwrap_or(Value::Null);
                                     let _ = sender.send(result);
                                 }
                             }
@@ -232,9 +230,7 @@ impl CdpClient for WebSocketCdpClient {
 
         // Check for error in response
         if let Some(error) = response.get("error") {
-            let message = error["message"]
-                .as_str()
-                .unwrap_or("Unknown error");
+            let message = error["message"].as_str().unwrap_or("Unknown error");
             return Err(InspectorError::Command(message.to_string()));
         }
 

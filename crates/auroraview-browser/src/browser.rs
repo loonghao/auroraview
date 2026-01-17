@@ -158,9 +158,10 @@ impl Browser {
 
     /// Create a new tab
     pub fn new_tab(&self, url: &str) -> Result<TabId> {
-        let window = self.window.as_ref().ok_or_else(|| {
-            BrowserError::WindowCreation("Window not initialized".to_string())
-        })?;
+        let window = self
+            .window
+            .as_ref()
+            .ok_or_else(|| BrowserError::WindowCreation("Window not initialized".to_string()))?;
 
         let header_height = self.header_height();
         self.tabs.create_tab(window, Some(url), header_height)
@@ -384,10 +385,7 @@ impl Browser {
     pub fn run(&mut self) {
         use tao::platform::windows::EventLoopBuilderExtWindows;
 
-        tracing::info!(
-            "[Browser] Starting with config: {:?}",
-            self.config.title
-        );
+        tracing::info!("[Browser] Starting with config: {:?}", self.config.title);
 
         // Create event loop
         let event_loop: EventLoop<TabEvent> = EventLoopBuilder::with_user_event()
@@ -423,13 +421,14 @@ impl Browser {
 
                     match method {
                         "browser.new_tab" => {
-                            let url = params
-                                .get("url")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("");
+                            let url = params.get("url").and_then(|v| v.as_str()).unwrap_or("");
                             if let Some(proxy) = tabs_clone.event_proxy() {
                                 let _ = proxy.send_event(TabEvent::NewTab {
-                                    url: if url.is_empty() { None } else { Some(url.to_string()) },
+                                    url: if url.is_empty() {
+                                        None
+                                    } else {
+                                        Some(url.to_string())
+                                    },
                                 });
                             }
                         }
@@ -481,19 +480,28 @@ impl Browser {
                             }
                         }
                         "browser.toggle_devtools" => {
-                            let tab_id = params.get("tabId").and_then(|v| v.as_str()).map(String::from);
+                            let tab_id = params
+                                .get("tabId")
+                                .and_then(|v| v.as_str())
+                                .map(String::from);
                             if let Some(proxy) = tabs_clone.event_proxy() {
                                 let _ = proxy.send_event(TabEvent::ToggleDevTools { tab_id });
                             }
                         }
                         "browser.open_devtools" => {
-                            let tab_id = params.get("tabId").and_then(|v| v.as_str()).map(String::from);
+                            let tab_id = params
+                                .get("tabId")
+                                .and_then(|v| v.as_str())
+                                .map(String::from);
                             if let Some(proxy) = tabs_clone.event_proxy() {
                                 let _ = proxy.send_event(TabEvent::OpenDevTools { tab_id });
                             }
                         }
                         "browser.close_devtools" => {
-                            let tab_id = params.get("tabId").and_then(|v| v.as_str()).map(String::from);
+                            let tab_id = params
+                                .get("tabId")
+                                .and_then(|v| v.as_str())
+                                .map(String::from);
                             if let Some(proxy) = tabs_clone.event_proxy() {
                                 let _ = proxy.send_event(TabEvent::CloseDevTools { tab_id });
                             }
@@ -605,7 +613,8 @@ impl Browser {
                         });
                     }
 
-                    self.tabs.resize_tabs(0, content_y, size.width, content_height);
+                    self.tabs
+                        .resize_tabs(0, content_y, size.width, content_height);
                 }
                 Event::UserEvent(tab_event) => {
                     self.handle_tab_event(tab_event, control_flow);
@@ -623,7 +632,8 @@ impl Browser {
             TabEvent::NewTab { url } => {
                 if let Some(window) = &self.window {
                     let header_height = self.header_height();
-                    if let Ok(tab_id) = self.tabs.create_tab(window, url.as_deref(), header_height) {
+                    if let Ok(tab_id) = self.tabs.create_tab(window, url.as_deref(), header_height)
+                    {
                         let _ = self.tabs.activate_tab(&tab_id);
                     }
                 }
@@ -681,7 +691,8 @@ impl Browser {
                 can_go_back,
                 can_go_forward,
             } => {
-                self.tabs.update_history(&tab_id, can_go_back, can_go_forward);
+                self.tabs
+                    .update_history(&tab_id, can_go_back, can_go_forward);
                 self.sync_tabs();
             }
             TabEvent::Close => {

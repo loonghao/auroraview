@@ -63,10 +63,7 @@ impl Snapshot {
         let mut output = String::new();
 
         // Header
-        output.push_str(&format!(
-            "Page: \"{}\" ({})\n",
-            self.title, self.url
-        ));
+        output.push_str(&format!("Page: \"{}\" ({})\n", self.title, self.url));
         output.push_str(&format!(
             "Viewport: {}x{}\n\n",
             self.viewport.0, self.viewport.1
@@ -162,7 +159,11 @@ pub struct RefInfo {
 
 impl RefInfo {
     /// Create a new ref info
-    pub fn new(ref_id: impl Into<String>, role: impl Into<String>, name: impl Into<String>) -> Self {
+    pub fn new(
+        ref_id: impl Into<String>,
+        role: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Self {
         Self {
             ref_id: ref_id.into(),
             role: role.into(),
@@ -206,7 +207,11 @@ impl fmt::Display for RefInfo {
         } else {
             format!(" - {}", self.description)
         };
-        write!(f, "{} [{}] \"{}\"{}", self.ref_id, self.role, self.name, desc)
+        write!(
+            f,
+            "{} [{}] \"{}\"{}",
+            self.ref_id, self.role, self.name, desc
+        )
     }
 }
 
@@ -468,8 +473,7 @@ mod tests {
 
     #[test]
     fn test_ref_info_display() {
-        let ref_info = RefInfo::new("@3", "textbox", "Search")
-            .with_description("search input");
+        let ref_info = RefInfo::new("@3", "textbox", "Search").with_description("search input");
 
         assert_eq!(
             ref_info.to_string(),
@@ -479,8 +483,7 @@ mod tests {
 
     #[test]
     fn test_action_result_display() {
-        let success = ActionResult::success("click @3")
-            .with_change("@3 focused");
+        let success = ActionResult::success("click @3").with_change("@3 focused");
 
         assert!(success.to_string().contains("✓"));
         assert!(success.to_string().contains("@3 focused"));
@@ -520,15 +523,15 @@ mod tests {
 
     #[test]
     fn test_snapshot_find() {
-        let mut snapshot = Snapshot::new("Test".to_string(), "http://test/".to_string(), (800, 600));
+        let mut snapshot =
+            Snapshot::new("Test".to_string(), "http://test/".to_string(), (800, 600));
         snapshot.refs.insert(
             "@1".to_string(),
             RefInfo::new("@1", "button", "Submit Form"),
         );
-        snapshot.refs.insert(
-            "@2".to_string(),
-            RefInfo::new("@2", "link", "Go Home"),
-        );
+        snapshot
+            .refs
+            .insert("@2".to_string(), RefInfo::new("@2", "link", "Go Home"));
 
         let results = snapshot.find("form");
         assert_eq!(results.len(), 1);

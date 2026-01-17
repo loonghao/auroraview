@@ -64,7 +64,6 @@ pub mod navigation;
 pub mod tab;
 pub mod ui;
 
-
 // Re-export from independent crates when modular features are enabled
 #[cfg(feature = "modular-tabs")]
 pub use auroraview_tabs as tabs_crate;
@@ -102,7 +101,9 @@ pub use devtools::{
     cdp, ConsoleMessage, ConsoleMessageType, DevToolsConfig, DevToolsManager, DevToolsState,
     DockSide,
 };
-pub use extensions::{ChromeExtensionBridge, ChromeExtensionInfo, Extension, ExtensionManifest, ExtensionRegistry};
+pub use extensions::{
+    ChromeExtensionBridge, ChromeExtensionInfo, Extension, ExtensionManifest, ExtensionRegistry,
+};
 pub use navigation::{Bookmark, BookmarkId, BookmarkManager, HistoryEntry, HistoryManager};
 pub use tab::{Tab, TabId, TabManager, TabState};
 

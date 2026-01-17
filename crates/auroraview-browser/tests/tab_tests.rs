@@ -47,10 +47,7 @@ fn test_tab_state_security() {
 
     // Update to HTTPS URL
     state.set_url("https://secure.example.com".to_string());
-    assert!(matches!(
-        state.security_state,
-        Some(SecurityState::Secure)
-    ));
+    assert!(matches!(state.security_state, Some(SecurityState::Secure)));
 
     // Update to HTTP URL
     state.set_url("http://insecure.example.com".to_string());
@@ -61,10 +58,7 @@ fn test_tab_state_security() {
 
     // Update to file URL
     state.set_url("file:///path/to/file.html".to_string());
-    assert!(matches!(
-        state.security_state,
-        Some(SecurityState::Neutral)
-    ));
+    assert!(matches!(state.security_state, Some(SecurityState::Neutral)));
 }
 
 #[test]

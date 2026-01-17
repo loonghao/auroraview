@@ -29,7 +29,10 @@ fn test_history_entry_with_favicon() {
     let entry = HistoryEntry::new("https://example.com", "Example Site")
         .with_favicon("https://example.com/favicon.ico");
 
-    assert_eq!(entry.favicon, Some("https://example.com/favicon.ico".to_string()));
+    assert_eq!(
+        entry.favicon,
+        Some("https://example.com/favicon.ico".to_string())
+    );
 }
 
 #[test]

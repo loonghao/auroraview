@@ -52,7 +52,9 @@ impl SettingsManager {
     pub fn register_schema(&self, schema: SettingSchema) {
         let mut state = self.inner.write();
         // Set the default value
-        state.defaults.set(schema.key.clone(), schema.default.clone());
+        state
+            .defaults
+            .set(schema.key.clone(), schema.default.clone());
         state.registry.register(schema);
     }
 

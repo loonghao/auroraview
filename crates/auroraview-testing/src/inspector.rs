@@ -300,8 +300,7 @@ impl Inspector {
         self.client.scroll(delta_x, delta_y).await?;
         tokio::time::sleep(Duration::from_millis(100)).await;
 
-        Ok(ActionResult::success(action)
-            .with_duration(start.elapsed().as_millis() as u64))
+        Ok(ActionResult::success(action).with_duration(start.elapsed().as_millis() as u64))
     }
 
     // === Navigation ===
@@ -428,8 +427,7 @@ impl Inspector {
     /// * `timeout` - Optional timeout (default: 30s)
     pub async fn wait(&self, condition: &str, timeout: Option<Duration>) -> Result<bool> {
         let timeout = timeout.unwrap_or(self.config.timeout);
-        let condition = WaitCondition::parse(condition)
-            .map_err(|e| InspectorError::Parse(e))?;
+        let condition = WaitCondition::parse(condition).map_err(|e| InspectorError::Parse(e))?;
 
         self.wait_for(condition, timeout).await
     }
@@ -497,14 +495,13 @@ impl Inspector {
                     ready_state == "interactive" || ready_state == "complete"
                 }
 
-                WaitCondition::Js(expr) => {
-                    self.client
-                        .evaluate(expr)
-                        .await
-                        .ok()
-                        .and_then(|v| v["value"].as_bool())
-                        .unwrap_or(false)
-                }
+                WaitCondition::Js(expr) => self
+                    .client
+                    .evaluate(expr)
+                    .await
+                    .ok()
+                    .and_then(|v| v["value"].as_bool())
+                    .unwrap_or(false),
             };
 
             if satisfied {

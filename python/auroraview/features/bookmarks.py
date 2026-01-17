@@ -267,9 +267,7 @@ class BookmarkManager:
 
     # Folder operations
 
-    def create_folder(
-        self, name: str, parent_id: Optional[str] = None
-    ) -> BookmarkFolder:
+    def create_folder(self, name: str, parent_id: Optional[str] = None) -> BookmarkFolder:
         """Create a folder."""
         folder_id = str(uuid.uuid4())[:8]
         folder = BookmarkFolder(
@@ -297,11 +295,7 @@ class BookmarkManager:
 
         if delete_contents:
             # Delete all bookmarks in folder
-            to_delete = [
-                bid
-                for bid, b in self._bookmarks.items()
-                if b.parent_id == folder_id
-            ]
+            to_delete = [bid for bid, b in self._bookmarks.items() if b.parent_id == folder_id]
             for bid in to_delete:
                 del self._bookmarks[bid]
         else:
@@ -376,9 +370,7 @@ class BookmarkManager:
     def clear(self) -> None:
         """Clear all bookmarks (keeps special folders)."""
         self._bookmarks.clear()
-        self._folders = {
-            k: v for k, v in self._folders.items() if v.is_special
-        }
+        self._folders = {k: v for k, v in self._folders.items() if v.is_special}
         self._save()
 
     @property

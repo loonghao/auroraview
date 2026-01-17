@@ -35,7 +35,7 @@ mod manager;
 mod session;
 mod state;
 
-pub use error::{TabError, Result};
+pub use error::{Result, TabError};
 pub use event::TabEvent;
 pub use group::{TabGroup, TabGroupId};
 pub use manager::TabManager;

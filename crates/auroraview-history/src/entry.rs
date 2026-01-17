@@ -96,8 +96,7 @@ impl HistoryEntry {
     /// Check if entry matches a search query
     pub fn matches(&self, query: &str) -> bool {
         let query = query.to_lowercase();
-        self.title.to_lowercase().contains(&query)
-            || self.url.to_lowercase().contains(&query)
+        self.title.to_lowercase().contains(&query) || self.url.to_lowercase().contains(&query)
     }
 
     /// Calculate relevance score for search

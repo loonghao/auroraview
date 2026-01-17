@@ -190,8 +190,11 @@ mod tests {
 
     #[test]
     fn test_reorder_tab() {
-        let mut group = TabGroup::new("Test")
-            .with_tabs(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+        let mut group = TabGroup::new("Test").with_tabs(vec![
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+        ]);
 
         group.reorder_tab(&"c".to_string(), 0);
 

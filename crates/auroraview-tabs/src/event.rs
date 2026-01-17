@@ -61,7 +61,10 @@ pub enum TabEvent {
     /// Group deleted
     GroupDeleted { group_id: TabGroupId },
     /// Group collapsed/expanded
-    GroupCollapsed { group_id: TabGroupId, collapsed: bool },
+    GroupCollapsed {
+        group_id: TabGroupId,
+        collapsed: bool,
+    },
 
     // === Navigation Events ===
     /// Navigate to a URL

@@ -30,7 +30,11 @@ impl ExtensionRegistry {
 
         let id = extension.id().to_string();
         let name = extension.name().to_string();
-        tracing::info!("[ExtensionRegistry] Registering extension: {} ({})", name, id);
+        tracing::info!(
+            "[ExtensionRegistry] Registering extension: {} ({})",
+            name,
+            id
+        );
 
         // Call on_load before inserting
         extension.on_load();
@@ -174,7 +178,11 @@ fn manifest_from_extension(ext: &dyn Extension) -> ExtensionManifest {
         description: ext.description().to_string(),
         icon: ext.icon().map(String::from),
         enabled: ext.enabled(),
-        content_script_matches: ext.content_script_matches().iter().map(|s| s.to_string()).collect(),
+        content_script_matches: ext
+            .content_script_matches()
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
         permissions: ext.permissions().iter().map(|s| s.to_string()).collect(),
     }
 }

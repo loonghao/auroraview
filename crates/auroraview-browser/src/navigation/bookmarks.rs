@@ -48,7 +48,11 @@ impl Bookmark {
     }
 
     /// Create a bookmark with ID
-    pub fn with_id(id: impl Into<String>, title: impl Into<String>, url: impl Into<String>) -> Self {
+    pub fn with_id(
+        id: impl Into<String>,
+        title: impl Into<String>,
+        url: impl Into<String>,
+    ) -> Self {
         let now = Utc::now();
         Self {
             id: id.into(),
