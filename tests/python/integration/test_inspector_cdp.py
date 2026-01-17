@@ -36,8 +36,7 @@ def is_cdp_available() -> bool:
 
 # Skip all tests if CDP not available
 pytestmark = pytest.mark.skipif(
-    not is_cdp_available(),
-    reason=f"CDP endpoint not available at {get_test_endpoint()}"
+    not is_cdp_available(), reason=f"CDP endpoint not available at {get_test_endpoint()}"
 )
 
 

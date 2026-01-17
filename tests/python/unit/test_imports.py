@@ -117,11 +117,8 @@ def test_testing_module():
     """Test testing framework module imports."""
     from auroraview import testing
 
-    # New headless testing API
-    assert hasattr(testing, "HeadlessWebView")
-    assert hasattr(testing, "HeadlessOptions")
-    assert hasattr(testing, "headless_webview")
-    assert hasattr(testing, "DomAssertions")
-
-    # AuroraTest submodule
-    assert hasattr(testing, "auroratest")
+    # New Inspector API
+    assert hasattr(testing, "Inspector")
+    assert hasattr(testing, "Snapshot")
+    assert hasattr(testing, "RefInfo")
+    assert hasattr(testing, "ActionResult")

@@ -319,9 +319,7 @@ class TestBrowserWithTabContainer:
         container = TabContainer(default_url="about:blank")
 
         with patch("auroraview.browser.tab_container.get_window_manager"):
-            tab1 = container.create_tab(
-                url="https://example.com", load_immediately=False
-            )
+            tab1 = container.create_tab(url="https://example.com", load_immediately=False)
             tab2 = container.create_tab(url="https://github.com", load_immediately=False)
 
         # Get all tabs
@@ -362,9 +360,7 @@ class TestBrowserWithTabContainer:
         container = TabContainer(default_url="about:blank")
 
         with patch("auroraview.browser.tab_container.get_window_manager"):
-            tab = container.create_tab(
-                url="https://example.com", load_immediately=False
-            )
+            tab = container.create_tab(url="https://example.com", load_immediately=False)
 
         # Navigate should update URL but not fail
         container.navigate("https://newurl.com")

@@ -250,6 +250,7 @@ from .core import (
     EventHandler,
     LoadEvent,
     NavigationEvent,
+    ReadyEvents,
     Signal,
     SignalRegistry,
     WebView,  # Kept for backward compatibility, prefer QtWebView/AuroraView
@@ -257,11 +258,21 @@ from .core import (
     WebViewSignals,
     WindowEvent,
     WindowEventData,
+    WindowManager,
+    broadcast_event,
     deprecated,
+    get_active_window,
     get_available_backends,
     get_backend_type,
     get_default_backend,
+    get_window_manager,
+    get_windows,
     is_backend_available,
+    require_bridge_ready,
+    require_created,
+    require_loaded,
+    require_ready,
+    require_shown,
     set_backend_type,
 )
 
@@ -291,6 +302,26 @@ from .utils import (
     path_to_file_url,
     prepare_html_with_local_assets,
     register_timer_backend,
+)
+
+# Browser module for multi-tab support
+from .browser import Browser, TabContainer, TabState
+
+# Feature modules (browser-like capabilities)
+from .features import (
+    BookmarkManager,
+    Bookmark,
+    BookmarkFolder,
+    HistoryManager,
+    HistoryEntry,
+    DownloadManager,
+    DownloadItem,
+    DownloadState,
+    SettingsManager,
+    Setting,
+    NotificationManager,
+    Notification,
+    NotificationType,
 )
 
 # Child window support
@@ -374,6 +405,8 @@ from . import core  # auroraview.core - WebView, Backend, Settings, Cookies
 from . import integration  # auroraview.integration - AuroraView, Bridge, Qt
 from . import ui  # auroraview.ui - DOM, Menu
 from . import utils  # auroraview.utils - EventTimer, FileProtocol, Automation
+from . import browser  # auroraview.browser - Browser, TabContainer
+from . import features  # auroraview.features - Bookmarks, History, Downloads, Settings, Notifications
 
 __all__ = [
     # ============================================================
@@ -383,6 +416,8 @@ __all__ = [
     "ui",  # auroraview.ui - DOM, Menu
     "integration",  # auroraview.integration - AuroraView, Bridge, Qt
     "utils",  # auroraview.utils - EventTimer, FileProtocol, Automation
+    "browser",  # auroraview.browser - Browser, TabContainer
+    "features",  # auroraview.features - Bookmarks, History, Downloads, Settings, Notifications
     # ============================================================
     # Unified API (recommended for new code)
     # ============================================================
@@ -390,6 +425,50 @@ __all__ = [
     "create_webview",
     # Convenience function for standalone apps
     "run_app",
+    # ============================================================
+    # Browser API (multi-tab support)
+    # ============================================================
+    "Browser",
+    "TabContainer",
+    "TabState",
+    # ============================================================
+    # Feature modules (browser-like capabilities)
+    # ============================================================
+    # Bookmarks
+    "BookmarkManager",
+    "Bookmark",
+    "BookmarkFolder",
+    # History
+    "HistoryManager",
+    "HistoryEntry",
+    # Downloads
+    "DownloadManager",
+    "DownloadItem",
+    "DownloadState",
+    # Settings
+    "SettingsManager",
+    "Setting",
+    # Notifications
+    "NotificationManager",
+    "Notification",
+    "NotificationType",
+    # ============================================================
+    # Window Management
+    # ============================================================
+    "WindowManager",
+    "get_window_manager",
+    "get_windows",
+    "get_active_window",
+    "broadcast_event",
+    # ============================================================
+    # Ready Events (lifecycle waiting)
+    # ============================================================
+    "ReadyEvents",
+    "require_created",
+    "require_shown",
+    "require_loaded",
+    "require_bridge_ready",
+    "require_ready",
     # ============================================================
     # Primary APIs (legacy - still supported)
     # ============================================================
