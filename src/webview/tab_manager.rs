@@ -434,6 +434,7 @@ impl TabManager {
             url.to_string()
         };
         let debug = self.config.debug;
+        #[cfg(target_os = "windows")]
         let header_height = self.config.header_height;
 
         // Get event loop proxy for sending events from callbacks
