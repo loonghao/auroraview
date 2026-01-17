@@ -111,9 +111,41 @@ class WebViewEventMixin:
             logger.debug("[SEND] [WebView.emit] Converting non-dict data to dict")
             data = {"value": data}
 
+        # In packed mode, send events through stdout to Rust CLI
+        from auroraview.core.packed import is_packed_mode, send_event
+
+        if is_packed_mode():
+            logger.debug("[SEND] [WebView.emit] Packed mode: sending event via stdout")
+            send_event(event_name, data)
+            logger.debug(f"[OK] [WebView.emit] Event sent to Rust CLI: {event_name}")
+            return
+
         # Use the async core if available (when running in background thread)
-        with self._async_core_lock:
-            core = self._async_core if self._async_core is not None else self._core
+        # If WebView is running in background thread mode, we need to use _async_core
+        # and wait for it to become available
+        core = None
+        if getattr(self, "_is_running", False) and getattr(self, "_show_thread", None) is not None:
+            # WebView is running in background thread mode
+            import time
+
+            timeout = 10.0  # Wait up to 10 seconds for async_core
+            start_time = time.monotonic()
+            while time.monotonic() - start_time < timeout:
+                with self._async_core_lock:
+                    if self._async_core is not None:
+                        core = self._async_core
+                        break
+                time.sleep(0.05)  # Wait 50ms between checks
+
+            if core is None:
+                logger.warning(
+                    "[WebView.emit] Timeout waiting for async_core, WebView may not be ready"
+                )
+                return
+        else:
+            # Not in background thread mode, use regular core
+            with self._async_core_lock:
+                core = self._async_core if self._async_core is not None else self._core
 
         try:
             logger.debug("[SEND] [WebView.emit] Calling core.emit()...")

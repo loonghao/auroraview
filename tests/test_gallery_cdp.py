@@ -1,27 +1,25 @@
 """Gallery CDP Integration Tests for CI Environment.
 
 This module provides comprehensive testing of the AuroraView Gallery
-through CDP (Chrome DevTools Protocol) connection. It tests:
+through CDP (Chrome DevTools Protocol) connection.
 
+Gallery is auto-started by the session fixture if not running.
+
+Tests:
 1. Gallery startup and initialization
 2. All examples can be launched
 3. Gallery UI interactions (search, filter, settings)
 4. Process management (spawn, kill, list)
 5. IPC communication (stdout/stderr streaming)
 
-Usage:
-    # In CI, first build and start gallery:
-    just gallery-pack
-    ./gallery/pack-output/auroraview-gallery.exe &
-
-    # Then run tests:
+Usage in CI:
     pytest tests/test_gallery_cdp.py -v
 
-    # Or run directly:
-    python tests/test_gallery_cdp.py
+Usage locally:
+    # Connect to existing Gallery
+    pytest tests/test_gallery_cdp.py -v
 
 Requirements:
-    - Packed gallery with remote_debugging_port = 9222
     - playwright: pip install playwright
 """
 
