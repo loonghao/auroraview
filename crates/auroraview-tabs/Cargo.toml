@@ -16,6 +16,7 @@ parking_lot = "0.12"
 thiserror = "1"
 
 [dev-dependencies]
+tempfile = "3"
 
 [features]
 default = []

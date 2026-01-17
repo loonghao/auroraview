@@ -10,8 +10,10 @@ pub type DownloadId = String;
 /// Download state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum DownloadState {
     /// Download is pending/queued
+    #[default]
     Pending,
     /// Download is in progress
     Downloading,
@@ -23,12 +25,6 @@ pub enum DownloadState {
     Failed,
     /// Download was cancelled
     Cancelled,
-}
-
-impl Default for DownloadState {
-    fn default() -> Self {
-        Self::Pending
-    }
 }
 
 /// A download item

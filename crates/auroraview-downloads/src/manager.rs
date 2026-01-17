@@ -522,7 +522,7 @@ mod tests {
         let manager = DownloadManager::new(Some(Path::new("/tmp")));
 
         let id1 = manager.add("https://example.com/1.zip", "1.zip");
-        let id2 = manager.add("https://example.com/2.zip", "2.zip");
+        let _id2 = manager.add("https://example.com/2.zip", "2.zip");
 
         manager.start(&id1).unwrap();
         manager.complete(&id1).unwrap();

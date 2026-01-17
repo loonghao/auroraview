@@ -6,8 +6,10 @@ use std::collections::HashMap;
 /// A setting value that can hold various types.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[derive(Default)]
 pub enum SettingValue {
     /// Null value.
+    #[default]
     Null,
     /// Boolean value.
     Bool(bool),
@@ -89,12 +91,6 @@ impl SettingValue {
             Self::Object(v) => Some(v),
             _ => None,
         }
-    }
-}
-
-impl Default for SettingValue {
-    fn default() -> Self {
-        Self::Null
     }
 }
 
