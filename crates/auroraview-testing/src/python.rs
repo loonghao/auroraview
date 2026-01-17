@@ -282,7 +282,7 @@ impl PyInspector {
     }
 
     /// Execute JavaScript
-    fn eval(&self, py: Python<'_>, script: &str) -> PyResult<PyObject> {
+    fn eval(&self, py: Python<'_>, script: &str) -> PyResult<Py<PyAny>> {
         let guard = self.inner.lock();
         let inspector = guard
             .as_ref()
@@ -375,7 +375,7 @@ impl PyInspector {
 #[derive(Clone)]
 pub struct PyRefId(RefId);
 
-impl<'py> FromPyObject<'py> for PyRefId {
+impl<'a, 'py> FromPyObject<'a, 'py> for PyRefId {
     fn extract_bound(ob: &Bound<'py, pyo3::PyAny>) -> PyResult<Self> {
         if let Ok(s) = ob.extract::<String>() {
             Ok(PyRefId(RefId::from(s)))
@@ -420,12 +420,12 @@ impl PySnapshot {
 
     /// Get refs as dict
     #[getter]
-    fn refs(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn refs(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (k, v) in &self.0.refs {
             dict.set_item(k, PyRefInfo(v.clone()).into_pyobject(py)?)?;
         }
-        Ok(dict.into())
+        Ok(dict.unbind().into_any())
     }
 
     /// Get accessibility tree
@@ -435,19 +435,27 @@ impl PySnapshot {
     }
 
     /// Find refs containing text
-    fn find(&self, text: &str, py: Python<'_>) -> PyResult<Vec<PyObject>> {
+    fn find(&self, text: &str, py: Python<'_>) -> PyResult<Vec<Py<PyAny>>> {
         let results = self.0.find(text);
         results
             .into_iter()
-            .map(|r| PyRefInfo(r.clone()).into_pyobject(py).map(|o| o.into()))
+            .map(|r| {
+                PyRefInfo(r.clone())
+                    .into_pyobject(py)
+                    .map(|o| o.unbind().into_any())
+            })
             .collect()
     }
 
     /// Get ref by ID
-    fn get_ref(&self, id: &str, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn get_ref(&self, id: &str, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         self.0
             .get_ref(id)
-            .map(|r| PyRefInfo(r.clone()).into_pyobject(py).map(|o| o.into()))
+            .map(|r| {
+                PyRefInfo(r.clone())
+                    .into_pyobject(py)
+                    .map(|o| o.unbind().into_any())
+            })
             .transpose()
     }
 
@@ -593,33 +601,33 @@ impl PyActionResult {
 }
 
 /// Convert JSON value to Python object
-fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyResult<PyObject> {
+fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
     match value {
         serde_json::Value::Null => Ok(py.None()),
-        serde_json::Value::Bool(b) => Ok(b.into_pyobject(py)?.into()),
+        serde_json::Value::Bool(b) => Ok(b.into_pyobject(py)?.unbind().into_any()),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Ok(i.into_pyobject(py)?.into())
+                Ok(i.into_pyobject(py)?.unbind().into_any())
             } else if let Some(f) = n.as_f64() {
-                Ok(f.into_pyobject(py)?.into())
+                Ok(f.into_pyobject(py)?.unbind().into_any())
             } else {
                 Ok(py.None())
             }
         }
-        serde_json::Value::String(s) => Ok(s.into_pyobject(py)?.into()),
+        serde_json::Value::String(s) => Ok(s.into_pyobject(py)?.unbind().into_any()),
         serde_json::Value::Array(arr) => {
-            let list: Vec<PyObject> = arr
+            let list: Vec<Py<PyAny>> = arr
                 .iter()
                 .map(|v| json_to_py(py, v))
                 .collect::<PyResult<_>>()?;
-            Ok(list.into_pyobject(py)?.into())
+            Ok(list.into_pyobject(py)?.unbind().into_any())
         }
         serde_json::Value::Object(obj) => {
             let dict = PyDict::new(py);
             for (k, v) in obj {
                 dict.set_item(k, json_to_py(py, v)?)?;
             }
-            Ok(dict.into())
+            Ok(dict.unbind().into_any())
         }
     }
 }

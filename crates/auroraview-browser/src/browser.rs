@@ -536,25 +536,25 @@ impl Browser {
             }
         };
 
+        #[cfg(target_os = "windows")]
         let window_size = window_ref.inner_size();
+        #[cfg(target_os = "windows")]
         let header_height = self.header_height();
 
-        let mut controller_builder = WebViewBuilder::new()
+        let controller_builder = WebViewBuilder::new()
             .with_html(&controller_html)
             .with_initialization_script(&event_bridge_script)
             .with_devtools(self.config.debug)
             .with_ipc_handler(ipc_handler);
 
         #[cfg(target_os = "windows")]
-        {
-            controller_builder = controller_builder.with_bounds(wry::Rect {
-                position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
-                size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(
-                    window_size.width,
-                    header_height,
-                )),
-            });
-        }
+        let controller_builder = controller_builder.with_bounds(wry::Rect {
+            position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
+            size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(
+                window_size.width,
+                header_height,
+            )),
+        });
 
         let controller = controller_builder
             .build_as_child(window_ref)

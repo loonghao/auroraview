@@ -93,7 +93,8 @@ impl TabManager {
         &self,
         window: &Window,
         url: Option<&str>,
-        header_height: u32,
+        #[cfg(target_os = "windows")] header_height: u32,
+        #[cfg(not(target_os = "windows"))] _header_height: u32,
     ) -> crate::Result<TabId> {
         let tab_id = self.next_tab_id();
         let actual_url = url
@@ -108,6 +109,7 @@ impl TabManager {
         );
 
         // Calculate content area bounds
+        #[cfg(target_os = "windows")]
         let size = window.inner_size();
         #[cfg(target_os = "windows")]
         let content_y = header_height as i32;
