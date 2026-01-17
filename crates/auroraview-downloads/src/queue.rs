@@ -111,14 +111,13 @@ impl DownloadQueue {
     }
 
     /// Get next download to start (if any slot available)
-    pub fn next(&mut self) -> Option<DownloadId> {
+    pub fn next_pending(&mut self) -> Option<DownloadId> {
         if self.active.len() >= self.max_concurrent {
             return None;
         }
 
-        self.pending.pop_front().map(|id| {
+        self.pending.pop_front().inspect(|id| {
             self.active.push(id.clone());
-            id
         })
     }
 
@@ -228,12 +227,12 @@ mod tests {
         queue.enqueue("d2".to_string());
         queue.enqueue("d3".to_string());
 
-        assert_eq!(queue.next(), Some("d1".to_string()));
-        assert_eq!(queue.next(), Some("d2".to_string()));
-        assert_eq!(queue.next(), None); // Max concurrent reached
+        assert_eq!(queue.next_pending(), Some("d1".to_string()));
+        assert_eq!(queue.next_pending(), Some("d2".to_string()));
+        assert_eq!(queue.next_pending(), None); // Max concurrent reached
 
         queue.mark_finished(&"d1".to_string());
-        assert_eq!(queue.next(), Some("d3".to_string()));
+        assert_eq!(queue.next_pending(), Some("d3".to_string()));
     }
 
     #[test]
@@ -244,7 +243,7 @@ mod tests {
         queue.enqueue("d2".to_string());
         queue.enqueue_priority("d3".to_string()); // Should go to front
 
-        assert_eq!(queue.next(), Some("d3".to_string()));
+        assert_eq!(queue.next_pending(), Some("d3".to_string()));
     }
 
     #[test]

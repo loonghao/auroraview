@@ -324,7 +324,7 @@ impl DownloadManager {
     /// Get next download to start (from queue)
     pub fn next_to_start(&self) -> Option<DownloadId> {
         let mut store = self.inner.write();
-        store.queue.next()
+        store.queue.next_pending()
     }
 
     /// Check if can start new download

@@ -379,4 +379,4 @@ for t in threads:
 
 - [ReadyEvents API](./ready-events.md) - Lifecycle event management
 - [TabContainer API](./tab-container.md) - Multi-tab management
-- [Multi-Window Guide](../guide/multi-window.md) - Usage patterns
+- [Qt Integration Guide](../guide/qt-integration.md) - DCC integration patterns

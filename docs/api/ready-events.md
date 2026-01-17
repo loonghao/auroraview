@@ -441,4 +441,4 @@ for t in threads:
 
 - [WindowManager API](./window-manager.md) - Global window registry
 - [WebView API](./webview.md) - Core WebView API
-- [Multi-Window Guide](../guide/multi-window.md) - Usage patterns
+- [Qt Integration Guide](../guide/qt-integration.md) - DCC integration patterns
