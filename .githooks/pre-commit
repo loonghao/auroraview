@@ -1,39 +1,29 @@
 #!/usr/bin/env bash
 # AuroraView pre-commit hook
 # Ensures Python & Rust lint pass before committing.
-# Requires: ruff and cargo available on PATH for their respective checks.
+# Uses vx just for consistent tool management.
 
 set -euo pipefail
-
-# Resolve ruff command (prefer direct, fallback to uvx)
-if command -v ruff >/dev/null 2>&1; then
-  RUFF_CMD="ruff"
-elif command -v uvx >/dev/null 2>&1; then
-  RUFF_CMD="uvx ruff"
-elif command -v uv >/dev/null 2>&1; then
-  RUFF_CMD="uvx ruff"
-else
-  RUFF_CMD=""
-fi
 
 # Detect changed files in index (staged)
 changed_files=$(git diff --cached --name-only --diff-filter=ACM || true)
 
 # ---------- Python (ruff) ----------
-if echo "$changed_files" | grep -E '^(python/|tests/).*\.py$' >/dev/null 2>&1; then
-  py_changed=$(echo "$changed_files" | grep -E '^(python/|tests/).*\.py$' || true)
+if echo "$changed_files" | grep -E '^(python/|tests/|examples/|gallery/).*\.py$' >/dev/null 2>&1; then
+  py_changed=$(echo "$changed_files" | grep -E '^(python/|tests/|examples/|gallery/).*\.py$' || true)
 
-  if [ -z "$RUFF_CMD" ]; then
-    echo "[pre-commit] ruff not found (and uv/uvx not available); skipping Python checks"
-  else
+  if command -v vx >/dev/null 2>&1; then
     echo "[pre-commit] Running ruff format on staged Python files"
-    $RUFF_CMD format $py_changed
+    vx uvx ruff format $py_changed
 
     echo "[pre-commit] Running ruff check --fix on staged Python files"
-    $RUFF_CMD check --fix --select=E,F,W --ignore=E501 $py_changed
+    vx uvx ruff check --fix --select=E,F,W --ignore=E501 $py_changed
 
     echo "[pre-commit] Running ruff check (repo-level)"
-    $RUFF_CMD check --select=E,F,W --ignore=E501 python/ tests/
+    vx uvx ruff check --select=E,F,W --ignore=E501 python/ tests/
+  else
+    echo "[pre-commit] vx not found; skipping Python checks"
+    echo "[pre-commit] Install vx: https://github.com/loonghao/vx"
   fi
 else
   echo "[pre-commit] Skipping ruff (no Python changes staged)"
@@ -42,25 +32,27 @@ fi
 # ---------- Rust (fmt + clippy) ----------
 # Match: src/**/*.rs, crates/**/*.rs (including tests/), benches/**/*.rs, Cargo.toml, build.rs
 if echo "$changed_files" | grep -E '(^src/.*\.rs$|^crates/.*\.rs$|^benches/.*\.rs$|^Cargo\.toml$|^build\.rs$)' >/dev/null 2>&1; then
-  if command -v cargo >/dev/null 2>&1; then
+  if command -v vx >/dev/null 2>&1; then
     echo "[pre-commit] Running cargo fmt --all"
-    cargo fmt --all
+    vx cargo fmt --all
 
     # Verify formatting passes (same as CI check)
     echo "[pre-commit] Verifying cargo fmt --check passes"
-    if ! cargo fmt --all -- --check; then
+    if ! vx cargo fmt --all -- --check; then
       echo "[pre-commit] ERROR: cargo fmt --check failed after formatting. This should not happen."
-      echo "[pre-commit] Please run 'cargo fmt --all' manually and try again."
+      echo "[pre-commit] Please run 'vx cargo fmt --all' manually and try again."
       exit 1
     fi
 
+    # Run clippy without --all-features to avoid PyO3 build issues
     echo "[pre-commit] Running cargo clippy --fix --allow-dirty --allow-staged"
-    cargo clippy --fix --allow-dirty --allow-staged --workspace --all-targets --all-features -- -D warnings 2>/dev/null || true
+    vx cargo clippy --fix --allow-dirty --allow-staged --workspace --all-targets -- -D warnings 2>/dev/null || true
 
     echo "[pre-commit] Verifying clippy passes"
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
+    vx cargo clippy --workspace --all-targets -- -D warnings
   else
-    echo "[pre-commit] cargo not found; skipping Rust checks"
+    echo "[pre-commit] vx not found; skipping Rust checks"
+    echo "[pre-commit] Install vx: https://github.com/loonghao/vx"
   fi
 else
   echo "[pre-commit] Skipping cargo (no Rust changes staged)"
