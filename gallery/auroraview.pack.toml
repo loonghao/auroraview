@@ -168,6 +168,18 @@ dest = "resources/examples"
 preserve_structure = false
 description = "HTML example files"
 
+[[hooks.collect]]
+source = "../examples/agent_browser"
+dest = "resources/examples/agent_browser"
+preserve_structure = true
+description = "Agent browser resources (HTML templates, bookmarks, etc.)"
+
+[[hooks.collect]]
+source = "../examples/*.toml"
+dest = "resources/examples"
+preserve_structure = false
+description = "TOML configuration files"
+
 # ============================================================================
 # Runtime Environment
 # ============================================================================

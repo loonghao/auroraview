@@ -60,6 +60,8 @@ const tagStyles: Record<Tag, { bg: string; text: string; border: string }> = {
   standalone: { bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/20' },
   ui: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/20' },
   api: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/20' },
+  effects: { bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-400', border: 'border-fuchsia-500/20' },
+  browser: { bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/20' },
 };
 
 export function SampleCard({ sample, onViewSource, onRun }: SampleCardProps) {

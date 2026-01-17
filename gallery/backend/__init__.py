@@ -10,6 +10,7 @@ Submodules:
 - extension_api: Browser extension bridge API handlers
 - webview_extension_api: WebView2 extension management API handlers
 - child_manager: Child window management for running examples as sub-windows
+- features_api: Browser features (bookmarks, history, downloads, settings)
 """
 
 from __future__ import annotations
@@ -43,6 +44,14 @@ from .child_manager import (
     init_manager as init_child_manager,
     cleanup_manager as cleanup_child_manager,
 )
+from .features_api import (
+    register_features_api,
+    get_bookmark_manager,
+    get_history_manager,
+    get_download_manager,
+    get_settings_manager,
+    get_notification_manager,
+)
 
 __all__ = [
     # Config
@@ -71,4 +80,11 @@ __all__ = [
     "get_child_manager",
     "init_child_manager",
     "cleanup_child_manager",
+    # Features API
+    "register_features_api",
+    "get_bookmark_manager",
+    "get_history_manager",
+    "get_download_manager",
+    "get_settings_manager",
+    "get_notification_manager",
 ]

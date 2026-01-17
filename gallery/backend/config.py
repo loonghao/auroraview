@@ -41,10 +41,15 @@ CATEGORIES = {
         "icon": "code",
         "description": "Different ways to use the AuroraView API",
     },
+    "browser_features": {
+        "title": "Browser & Tabs",
+        "icon": "globe",
+        "description": "Multi-tab browser, bookmarks, history, and navigation",
+    },
     "window_features": {
         "title": "Window Features",
         "icon": "layout",
-        "description": "Window styles, events, and customization",
+        "description": "Window styles, effects, and customization",
     },
     "desktop_features": {
         "title": "Desktop Features",
@@ -60,6 +65,11 @@ CATEGORIES = {
 
 # Icon mapping based on keywords in filename or docstring
 ICON_MAPPING = {
+    "browser": "globe",
+    "tab": "layout-grid",
+    "bookmark": "bookmark",
+    "history": "clock",
+    "download": "download",
     "decorator": "wand-2",
     "binding": "link",
     "event": "bell",
@@ -87,6 +97,12 @@ ICON_MAPPING = {
     "mica": "sparkles",
     "click": "mouse-pointer",
     "transparent": "eye",
+    "notification": "bell",
+    "settings": "settings",
+    "cookie": "cookie",
+    "automation": "bot",
+    "ai": "brain",
+    "chat": "message-circle",
 }
 
 # Category mapping based on keywords
@@ -99,6 +115,20 @@ CATEGORY_MAPPING = {
     # API Patterns
     "event": "api_patterns",
     "callback": "api_patterns",
+    "signal": "api_patterns",
+    "channel": "api_patterns",
+    "command": "api_patterns",
+    "ipc": "api_patterns",
+    # Browser & Tabs (higher priority)
+    "browser": "browser_features",
+    "multi-tab": "browser_features",
+    "tabcontainer": "browser_features",
+    "tabbed": "browser_features",
+    "agent_browser": "browser_features",
+    "bookmark": "browser_features",
+    "history": "browser_features",
+    "cookie": "browser_features",
+    "automation": "browser_features",
     # Window Features
     "floating": "window_features",
     "panel": "window_features",
@@ -115,12 +145,17 @@ CATEGORY_MAPPING = {
     "mica": "window_features",
     "click-through": "window_features",
     "transparent": "window_features",
+    "child": "window_features",
+    "dock": "window_features",
+    "toolbar": "window_features",
+    "radial": "window_features",
     # Desktop Features
     "desktop": "desktop_features",
     "file": "desktop_features",
     "dialog": "desktop_features",
     "asset": "desktop_features",
     "local": "desktop_features",
+    "dom": "desktop_features",
     # DCC Integration
     "dcc": "dcc_integration",
     "maya": "dcc_integration",
@@ -133,12 +168,13 @@ CATEGORY_MAPPING = {
 # Tag mapping based on keywords
 TAG_MAPPING = {
     "beginner": ["simple", "basic", "getting started", "quick"],
-    "advanced": ["advanced", "complex", "plugin", "floating", "tray"],
-    "window": ["window", "panel", "frame", "transparent", "vibrancy", "blur", "mica"],
-    "events": ["event", "callback", "lifecycle"],
+    "advanced": ["advanced", "complex", "plugin", "floating", "tray", "browser", "multi-tab", "automation"],
+    "window": ["window", "panel", "frame", "transparent", "vibrancy", "blur", "mica", "browser", "tab"],
+    "events": ["event", "callback", "lifecycle", "signal", "channel"],
     "qt": ["qt", "pyside", "maya", "houdini", "nuke"],
     "standalone": ["standalone", "desktop", "run_desktop"],
-    "ui": ["ui", "style", "menu", "button", "panel"],
-    "api": ["api", "decorator", "binding", "call"],
+    "ui": ["ui", "style", "menu", "button", "panel", "browser", "navigation", "toolbar"],
+    "api": ["api", "decorator", "binding", "call", "command"],
     "effects": ["effect", "vibrancy", "blur", "acrylic", "mica", "click-through"],
+    "browser": ["browser", "tab", "bookmark", "history", "cookie", "navigation"],
 }
