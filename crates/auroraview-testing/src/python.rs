@@ -376,7 +376,9 @@ impl PyInspector {
 pub struct PyRefId(RefId);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for PyRefId {
-    fn extract_bound(ob: &Bound<'py, pyo3::PyAny>) -> PyResult<Self> {
+    type Error = PyErr;
+
+    fn extract(ob: pyo3::Borrowed<'a, 'py, pyo3::PyAny>) -> PyResult<Self> {
         if let Ok(s) = ob.extract::<String>() {
             Ok(PyRefId(RefId::from(s)))
         } else if let Ok(n) = ob.extract::<i32>() {
@@ -604,7 +606,7 @@ impl PyActionResult {
 fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
     match value {
         serde_json::Value::Null => Ok(py.None()),
-        serde_json::Value::Bool(b) => Ok(b.into_pyobject(py)?.unbind().into_any()),
+        serde_json::Value::Bool(b) => Ok(b.into_pyobject(py)?.clone().unbind().into_any()),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
                 Ok(i.into_pyobject(py)?.unbind().into_any())
