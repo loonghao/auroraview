@@ -450,8 +450,11 @@ impl TabManager {
 
         // Calculate content area bounds
         // Reference: BrowserWindow::ResizeUIWebViews calculates content area
+        #[cfg(target_os = "windows")]
         let size = window.inner_size();
+        #[cfg(target_os = "windows")]
         let content_y = header_height as i32;
+        #[cfg(target_os = "windows")]
         let content_height = size.height.saturating_sub(header_height);
 
         // Set dark background color to prevent white flash during loading
@@ -969,13 +972,15 @@ impl TabManager {
 
         // Controller WebView only occupies the header area (tab bar + toolbar)
         // This prevents it from overlapping with tab content WebViews
+        #[cfg(target_os = "windows")]
         let window_size = window_ref.inner_size();
+        #[cfg(target_os = "windows")]
         let header_height = self.config.header_height;
 
         // Set dark background color to prevent white flash during resize
         let background_color = get_background_color();
 
-        let mut controller_builder = WebViewBuilder::new()
+        let controller_builder = WebViewBuilder::new()
             .with_html(&controller_html)
             .with_initialization_script(&event_bridge_script)
             .with_devtools(self.config.debug)
@@ -986,15 +991,13 @@ impl TabManager {
         // IMPORTANT: Use build_as_child() so WRY respects bounds settings
         // (build() ignores bounds and fills the entire parent window)
         #[cfg(target_os = "windows")]
-        {
-            controller_builder = controller_builder.with_bounds(wry::Rect {
-                position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
-                size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(
-                    window_size.width,
-                    header_height,
-                )),
-            });
-        }
+        let controller_builder = controller_builder.with_bounds(wry::Rect {
+            position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
+            size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(
+                window_size.width,
+                header_height,
+            )),
+        });
 
         // Use build_as_child() to ensure bounds are respected
         let controller = controller_builder
