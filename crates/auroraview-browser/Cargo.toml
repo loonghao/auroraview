@@ -1,0 +1,89 @@
+[package]
+name = "auroraview-browser"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Multi-tab browser component for AuroraView with Edge-style UI"
+keywords = ["webview", "browser", "tabs", "gui", "rust"]
+categories = ["gui", "multimedia"]
+
+[lib]
+name = "auroraview_browser"
+path = "src/lib.rs"
+
+[dependencies]
+# Core library
+auroraview-core = { path = "../auroraview-core", features = ["wry-builder"] }
+
+# Independent feature crates (optional - browser has built-in implementations)
+auroraview-tabs = { path = "../auroraview-tabs", optional = true }
+auroraview-extensions = { path = "../../submodules/auroraview-extensions", optional = true }
+auroraview-bookmarks = { path = "../auroraview-bookmarks", optional = true }
+auroraview-history = { path = "../auroraview-history", optional = true }
+auroraview-devtools = { path = "../auroraview-devtools", optional = true }
+
+# Optional feature crates
+auroraview-downloads = { path = "../auroraview-downloads", optional = true }
+auroraview-settings = { path = "../auroraview-settings", optional = true }
+auroraview-notifications = { path = "../auroraview-notifications", optional = true }
+
+# Plugin system (for extensions)
+auroraview-plugins = { path = "../auroraview-plugins", optional = true }
+auroraview-plugin-core = { path = "../auroraview-plugins/core", optional = true }
+
+# Wry for WebView
+wry = "0.53.5"
+tao = "0.34.5"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+
+# Error handling
+thiserror = "2.0"
+
+# Thread safety
+parking_lot = "0.12"
+
+# Unique IDs
+uuid = { version = "1.11", features = ["v4"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Directory paths (for bookmark/history storage)
+dirs = "6.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
+
+[dev-dependencies]
+rstest = "0.26"
+tempfile = "3.14"
+
+[features]
+default = []
+# Enable integration with auroraview-plugins extension system
+plugins = ["dep:auroraview-plugins", "dep:auroraview-plugin-core"]
+# Use independent feature crates instead of built-in implementations
+modular-tabs = ["dep:auroraview-tabs"]
+modular-extensions = ["dep:auroraview-extensions"]
+modular-bookmarks = ["dep:auroraview-bookmarks"]
+modular-history = ["dep:auroraview-history"]
+modular-devtools = ["dep:auroraview-devtools"]
+# Enable all modular features
+modular = ["modular-tabs", "modular-extensions", "modular-bookmarks", "modular-history", "modular-devtools"]
+# Enable downloads feature
+downloads = ["dep:auroraview-downloads"]
+# Enable settings feature
+settings = ["dep:auroraview-settings"]
+# Enable notifications feature
+notifications = ["dep:auroraview-notifications"]
+# Enable all optional features
+full = ["modular", "downloads", "settings", "notifications"]

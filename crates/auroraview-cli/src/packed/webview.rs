@@ -273,6 +273,23 @@ fn handle_ipc_message(
                 let _ = proxy.send_event(UserEvent::PageReady);
             }
         }
+        "set_html" => {
+            // Handle set_html command from Python (for dynamic HTML like Browser component)
+            let html = msg
+                .get("html")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let title = msg.get("title").and_then(|v| v.as_str()).map(String::from);
+
+            tracing::info!(
+                "[Rust] Received set_html command (html_len: {}, title: {:?})",
+                html.len(),
+                title
+            );
+
+            let _ = proxy.send_event(UserEvent::SetHtml { html, title });
+        }
         _ => {
             tracing::warn!("Unknown IPC message type: {}", msg_type);
         }
@@ -611,12 +628,14 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     // Always log performance report for debugging startup issues
     metrics.log_report();
 
-    // Wrap webview in Rc<RefCell> for single-threaded access
+    // Wrap webview and window in Rc<RefCell> for single-threaded access
     // Note: WebView is not Send+Sync, so we use Rc instead of Arc
     use std::cell::RefCell;
     use std::rc::Rc;
     let webview = Rc::new(RefCell::new(webview));
     let webview_for_event = webview.clone();
+    let window = Rc::new(RefCell::new(window));
+    let window_for_event = window.clone();
 
     // Run event loop
     event_loop.run(move |event, _, control_flow| {
@@ -833,14 +852,87 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 let _ = wv.evaluate_script(&script);
                             }
                         }
+                        UserEvent::BackendError { message, source } => {
+                            // Send backend error to frontend for display
+                            let escaped_msg = message
+                                .replace('\\', "\\\\")
+                                .replace('\'', "\\'")
+                                .replace('\n', "\\n")
+                                .replace('\r', "");
+                            let escaped_source = source.replace('\\', "\\\\").replace('\'', "\\'");
+                            let script = format!(
+                                r#"(function() {{
+                                    if (window.auroraLoading && window.auroraLoading.addError) {{
+                                        window.auroraLoading.addError('{}', '{}');
+                                    }}
+                                    // Also trigger event for custom handling
+                                    if (window.auroraview && window.auroraview.trigger) {{
+                                        window.auroraview.trigger('backend_error', {{
+                                            message: '{}',
+                                            source: '{}'
+                                        }});
+                                    }}
+                                    console.error('[Backend:{}] {}');
+                                }})()"#,
+                                escaped_msg, escaped_source, escaped_msg, escaped_source, escaped_source, escaped_msg
+                            );
+                            let _ = wv.evaluate_script(&script);
+                        }
+                        UserEvent::SetHtml { html, title } => {
+                            // Load dynamic HTML content (for Browser component in packed mode)
+                            tracing::info!(
+                                "[Rust] SetHtml event: loading {} bytes of HTML",
+                                html.len()
+                            );
+
+                            // Set window title if provided
+                            if let Some(new_title) = title {
+                                if let Ok(win) = window_for_event.try_borrow() {
+                                    win.set_title(&new_title);
+                                    tracing::debug!("[Rust] Window title set to: {}", new_title);
+                                }
+                            }
+
+                            // Use set_html to load the HTML content
+                            // WRY WebView doesn't have a direct set_html method, so we use
+                            // navigate to a data URL or use evaluate_script to replace document
+                            let escaped_html = html
+                                .replace('\\', "\\\\")
+                                .replace('`', "\\`")
+                                .replace("${", "\\${");
+
+                            let script = format!(
+                                r#"(function() {{
+                                    document.open();
+                                    document.write(`{}`);
+                                    document.close();
+                                }})()"#,
+                                escaped_html
+                            );
+
+                            match wv.evaluate_script(&script) {
+                                Ok(_) => {
+                                    tracing::info!(
+                                        "[Rust] SetHtml: Successfully loaded dynamic HTML"
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "[Rust] SetHtml: Failed to load HTML: {}",
+                                        e
+                                    );
+                                }
+                            }
+                        }
                     }
                 }
             }
             _ => {}
         }
 
-        // Keep webview alive
+        // Keep webview and window alive
         let _ = &webview;
+        let _ = &window;
     });
 
     // This is unreachable because event_loop.run() never returns

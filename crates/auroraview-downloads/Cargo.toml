@@ -1,0 +1,23 @@
+[package]
+name = "auroraview-downloads"
+version = "0.1.0"
+edition = "2021"
+description = "Download management for AuroraView"
+license = "MIT"
+repository = "https://github.com/aspect-apps/auroraview"
+keywords = ["webview", "downloads", "browser"]
+categories = ["gui", "web-programming"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+parking_lot = "0.12"
+thiserror = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+default = []

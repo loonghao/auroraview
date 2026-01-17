@@ -10,6 +10,7 @@
 //! - `service_discovery` - Service discovery and port allocation
 //! - `cli_utils` - CLI utility functions (URL normalization, HTML rewriting)
 //! - `desktop_runner` - Desktop WebView runner (uses event_loop.run())
+//! - `tab_browser` - Multi-tab browser (Microsoft WebView2Browser architecture)
 //! - `assets` - Static assets (JavaScript, HTML) for testing
 //! - `webview2` - Windows WebView2 embedded API (feature-gated)
 
@@ -19,6 +20,7 @@ pub mod desktop_runner;
 pub mod ipc;
 pub mod ipc_metrics;
 pub mod service_discovery;
+pub mod tab_browser;
 pub mod timer;
 pub mod warmup;
 pub mod webview;

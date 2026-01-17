@@ -28,6 +28,7 @@ pub mod protocol;
 pub mod protocol_handlers; // Custom protocol handlers
 #[cfg(feature = "python-bindings")]
 pub(crate) use desktop as standalone; // Backward compatibility alias
+pub mod tab_manager; // Multi-tab browser support
 pub mod timer;
 pub mod tray; // System tray support
 pub mod window_manager; // Multi-window support

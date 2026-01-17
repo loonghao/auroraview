@@ -1,0 +1,65 @@
+[package]
+name = "auroraview-testing"
+version = "0.1.0"
+edition = "2021"
+description = "AI-friendly testing and inspection for AuroraView"
+license = "MIT"
+repository = "https://github.com/loonghao/auroraview"
+keywords = ["testing", "webview", "cdp", "automation", "ai"]
+categories = ["development-tools::testing", "web-programming"]
+
+[dependencies]
+# Reuse existing CDP types
+auroraview-devtools = { path = "../auroraview-devtools" }
+
+# Async runtime
+tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "time", "macros"] }
+
+# WebSocket
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Thread safety
+parking_lot = "0.12"
+dashmap = "6.1"
+
+# URL handling
+url = "2.5"
+
+# Logging
+tracing = "0.1"
+
+# Async trait
+async-trait = "0.1"
+
+# Base64 for screenshot decoding
+base64 = "0.22"
+
+# HTTP client for CDP endpoint discovery
+reqwest = { version = "0.12", features = ["json"] }
+
+# Regex for URL pattern matching
+regex = "1.11"
+
+# PyO3 (optional)
+pyo3 = { version = "0.27", features = ["multiple-pymethods"], optional = true }
+
+# chromiumoxide for browser launching (optional)
+chromiumoxide = { version = "0.8", optional = true, default-features = false, features = ["tokio-runtime"] }
+
+[features]
+default = []
+python = ["pyo3"]
+browser-launch = ["dep:chromiumoxide"]
+
+[dev-dependencies]
+rstest = "0.26"
+tokio-test = "0.4"

@@ -1,0 +1,22 @@
+[package]
+name = "auroraview-history"
+version = "0.1.0"
+edition = "2021"
+description = "Browser history management for AuroraView"
+license = "MIT"
+repository = "https://github.com/aspect-apps/auroraview"
+keywords = ["webview", "history", "browser"]
+categories = ["gui", "web-programming"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+thiserror = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+default = []

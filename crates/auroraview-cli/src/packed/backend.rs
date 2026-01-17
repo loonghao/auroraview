@@ -627,13 +627,19 @@ pub fn start_python_backend_with_ipc(
 
     let stdin = Arc::new(Mutex::new(stdin));
 
-    // Spawn thread to read stderr and log errors
+    // Spawn thread to read stderr and forward errors to frontend
+    let proxy_for_stderr = proxy.clone();
     thread::spawn(move || {
         let reader = BufReader::new(stderr);
         for line in reader.lines() {
             match line {
                 Ok(line) if !line.is_empty() => {
                     tracing::error!("[Python stderr] {}", line);
+                    // Send error to frontend for display
+                    let _ = proxy_for_stderr.send_event(UserEvent::BackendError {
+                        message: line,
+                        source: "stderr".to_string(),
+                    });
                 }
                 Err(e) => {
                     tracing::debug!("Python stderr reader ended: {}", e);

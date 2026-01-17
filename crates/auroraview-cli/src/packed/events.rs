@@ -25,4 +25,19 @@ pub enum UserEvent {
         step_text: Option<String>,
         step_status: Option<String>,
     },
+    /// Backend error from Python stderr
+    /// Used to display errors on the loading screen for debugging
+    BackendError {
+        message: String,
+        /// Error source: "stderr", "startup", "crash"
+        source: String,
+    },
+    /// Set HTML content for WebView (dynamic HTML from Python)
+    /// Used by Browser component in packed mode to load dynamic HTML
+    SetHtml {
+        /// The HTML content to load
+        html: String,
+        /// Optional title to set for the window
+        title: Option<String>,
+    },
 }

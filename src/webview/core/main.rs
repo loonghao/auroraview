@@ -22,7 +22,7 @@ impl AuroraView {
     /// Create a new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None, tool_window=false, undecorated_shadow=true, allow_new_window=false, new_window_mode=None))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None, tool_window=false, undecorated_shadow=true, allow_new_window=false, new_window_mode=None, splash_overlay=false, allow_downloads=true, download_prompt=false, download_directory=None, proxy_url=None, user_agent=None))]
     fn new(
         title: &str,
         width: u32,
@@ -50,6 +50,12 @@ impl AuroraView {
         #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] undecorated_shadow: bool,
         allow_new_window: bool,
         new_window_mode: Option<&str>,
+        splash_overlay: bool,
+        allow_downloads: bool,
+        download_prompt: bool,
+        download_directory: Option<&str>,
+        proxy_url: Option<&str>,
+        user_agent: Option<&str>,
     ) -> PyResult<Self> {
         tracing::info!(
             "AuroraView::new() called with title: {}, transparent={}, tool_window={}, decorations={}",
@@ -105,6 +111,12 @@ impl AuroraView {
                     }
                 }
             },
+            splash_overlay,
+            allow_downloads,
+            download_prompt,
+            download_directory: download_directory.map(std::path::PathBuf::from),
+            proxy_url: proxy_url.map(|s| s.to_string()),
+            user_agent: user_agent.map(|s| s.to_string()),
             ..Default::default()
         };
 
@@ -241,10 +253,14 @@ impl AuroraView {
         }
     }
 
+
     /// Create WebView for standalone mode (creates its own window)
     fn show_window(&self) -> PyResult<()> {
         let title = self.config.borrow().title.clone();
         tracing::info!("Showing WebView (standalone mode): {}", title);
+
+        #[cfg(target_os = "windows")]
+        let mut hwnd_for_callback: Option<u64> = None;
 
         let mut inner = self.inner.borrow_mut();
         let need_create = inner.as_ref().is_none_or(|e| e.event_loop.is_none());
@@ -270,6 +286,7 @@ impl AuroraView {
                         hwnd
                     );
                     *self.cached_hwnd.borrow_mut() = Some(hwnd);
+                    hwnd_for_callback = Some(hwnd);
                 }
             }
 
@@ -277,6 +294,28 @@ impl AuroraView {
         }
 
         drop(inner);
+
+        // Invoke on_hwnd_created callback if set (standalone mode)
+        #[cfg(target_os = "windows")]
+        if let Some(hwnd) = hwnd_for_callback {
+            if let Some(callback) = Python::attach(|py| {
+                self.on_hwnd_created
+                    .borrow()
+                    .as_ref()
+                    .map(|cb| cb.clone_ref(py))
+            }) {
+                tracing::info!(
+                    "[show_window] Invoking on_hwnd_created callback with HWND 0x{:X}",
+                    hwnd
+                );
+                Python::attach(|py| {
+                    if let Err(e) = callback.call1(py, (hwnd,)) {
+                        tracing::error!("Error calling on_hwnd_created callback: {:?}", e);
+                        e.print(py);
+                    }
+                });
+            }
+        }
 
         if let Some(webview_inner) = self.inner.borrow_mut().as_mut() {
             webview_inner.run_event_loop_blocking();

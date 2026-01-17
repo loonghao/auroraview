@@ -378,10 +378,42 @@ pub fn create_desktop(
 
     // Build initialization script using js_assets module
     tracing::info!("[standalone] Building initialization script with js_assets");
-    let event_bridge_script = js_assets::build_init_script(&config);
+    let mut init_script = js_assets::build_init_script(&config);
+
+    // Add splash overlay script if enabled
+    if config.splash_overlay {
+        tracing::info!("[standalone] Splash overlay enabled, adding to initialization script");
+        let splash_js = auroraview_core::assets::get_splash_overlay_js();
+        init_script = format!("{}\n\n// Splash Overlay\n{}", init_script, splash_js);
+    }
 
     // IMPORTANT: use initialization script so it reloads with every page load
-    webview_builder = webview_builder.with_initialization_script(&event_bridge_script);
+    webview_builder = webview_builder.with_initialization_script(&init_script);
+
+    // Add proxy configuration if specified
+    if let Some(ref proxy_url) = config.proxy_url {
+        if let Ok(url) = url::Url::parse(proxy_url) {
+            let host = url.host_str().unwrap_or("localhost").to_string();
+            let port = url.port().unwrap_or(8080).to_string();
+            let endpoint = wry::ProxyEndpoint { host, port };
+
+            let proxy_config = match url.scheme() {
+                "socks5" | "socks" => {
+                    tracing::info!("[standalone] Using SOCKS5 proxy: {}", proxy_url);
+                    wry::ProxyConfig::Socks5(endpoint)
+                }
+                _ => {
+                    // Default to HTTP proxy
+                    tracing::info!("[standalone] Using HTTP proxy: {}", proxy_url);
+                    wry::ProxyConfig::Http(endpoint)
+                }
+            };
+
+            webview_builder = webview_builder.with_proxy_config(proxy_config);
+        } else {
+            tracing::warn!("[standalone] Invalid proxy URL: {}", proxy_url);
+        }
+    }
 
     // Add navigation handler for security filtering
     if config.block_external_navigation {
@@ -477,24 +509,198 @@ pub fn create_desktop(
     }
 
     // Determine initial content to load
-    // Priority: 1. Target HTML, 2. Target URL (via splash), 3. Splash screen only
+    // Priority: 1. Target HTML, 2. Target URL (direct), 3. Splash screen only
     let target_url = config.url.clone();
     let target_html = config.html.clone();
 
     // If we have target HTML, load it directly (no splash screen needed)
-    // If we have target URL, show splash screen first then navigate
-    // If neither, just show splash screen
+    // If we have target URL, load it directly (no splash screen needed)
+    // If neither, show splash screen
     if let Some(ref html) = target_html {
         tracing::info!(
             "[standalone] Loading target HTML directly ({} bytes)",
             html.len()
         );
         webview_builder = webview_builder.with_html(html);
+    } else if let Some(ref url) = target_url {
+        tracing::info!("[standalone] Loading target URL directly: {}", url);
+        webview_builder = webview_builder.with_url(url);
     } else {
-        // Load splash screen for URL navigation or empty state
+        // Load splash screen for empty state
         let loading_html = js_assets::get_loading_html();
-        tracing::info!("[standalone] Loading splash screen");
+        tracing::info!("[standalone] Loading splash screen (no URL or HTML specified)");
         webview_builder = webview_builder.with_html(loading_html);
+    }
+
+    // Add custom User-Agent if configured
+    if let Some(ref user_agent) = config.user_agent {
+        tracing::info!("[standalone] Setting custom User-Agent: {}", user_agent);
+        webview_builder = webview_builder.with_user_agent(user_agent);
+    }
+
+    // Add page load handler for tracking loading state
+    // This emits events to JavaScript when page starts/finishes loading
+    let ipc_handler_for_page_load = ipc_handler.clone();
+    webview_builder = webview_builder.with_on_page_load_handler(move |event, url| {
+        let event_name = match event {
+            wry::PageLoadEvent::Started => {
+                tracing::debug!("[standalone] Page load started: {}", url);
+                "page_load_started"
+            }
+            wry::PageLoadEvent::Finished => {
+                tracing::debug!("[standalone] Page load finished: {}", url);
+                "page_load_finished"
+            }
+        };
+
+        // Emit event to JavaScript
+        let ipc_message = IpcMessage {
+            event: event_name.to_string(),
+            data: serde_json::json!({ "url": url }),
+            id: None,
+        };
+
+        if let Err(e) = ipc_handler_for_page_load.handle_message(ipc_message) {
+            tracing::error!("[standalone] Error handling page load event: {}", e);
+        }
+    });
+
+    // Add document title changed handler
+    // This emits an event when the page title changes
+    let ipc_handler_for_title = ipc_handler.clone();
+    webview_builder = webview_builder.with_document_title_changed_handler(move |title| {
+        tracing::debug!("[standalone] Document title changed: {}", title);
+
+        // Emit event to JavaScript
+        let ipc_message = IpcMessage {
+            event: "title_changed".to_string(),
+            data: serde_json::json!({ "title": title }),
+            id: None,
+        };
+
+        if let Err(e) = ipc_handler_for_title.handle_message(ipc_message) {
+            tracing::error!("[standalone] Error handling title change event: {}", e);
+        }
+    });
+
+    // Add download handlers if downloads are enabled
+    if config.allow_downloads {
+        // Use custom directory or system default Downloads folder
+        let download_dir = config
+            .download_directory
+            .clone()
+            .or_else(dirs::download_dir);
+        let download_prompt = config.download_prompt;
+        let ipc_handler_for_download_start = ipc_handler.clone();
+        let ipc_handler_for_download_complete = ipc_handler.clone();
+
+        tracing::info!(
+            "[standalone] Downloads enabled, directory: {:?}, prompt: {}",
+            download_dir,
+            download_prompt
+        );
+
+        // Download started handler - allows modifying download path
+        webview_builder = webview_builder.with_download_started_handler(move |url, path| {
+            tracing::info!("[standalone] Download started: {} -> {:?}", url, path);
+
+            // Get the filename from the original path
+            let filename = path
+                .file_name()
+                .map(|f| f.to_string_lossy().to_string())
+                .unwrap_or_else(|| "download".to_string());
+
+            // If download_prompt is enabled, show "Save As" dialog
+            if download_prompt {
+                use rfd::FileDialog;
+
+                let mut dialog = FileDialog::new().set_file_name(&filename);
+
+                // Set initial directory to download_dir if available
+                if let Some(ref dir) = download_dir {
+                    dialog = dialog.set_directory(dir);
+                }
+
+                // Try to set file filter based on extension
+                if let Some(ext) = path.extension() {
+                    let ext_str = ext.to_string_lossy().to_string();
+                    dialog = dialog.add_filter(&ext_str.to_uppercase(), &[&ext_str]);
+                }
+                dialog = dialog.add_filter("All Files", &["*"]);
+
+                if let Some(save_path) = dialog.save_file() {
+                    *path = save_path.clone();
+                    tracing::info!("[standalone] User selected save path: {:?}", path);
+                } else {
+                    // User cancelled the dialog
+                    tracing::info!("[standalone] Download cancelled by user");
+
+                    // Emit cancel event
+                    let ipc_message = IpcMessage {
+                        event: "download_cancelled".to_string(),
+                        data: serde_json::json!({
+                            "url": url,
+                            "filename": filename
+                        }),
+                        id: None,
+                    };
+                    let _ = ipc_handler_for_download_start.handle_message(ipc_message);
+
+                    return false; // Cancel the download
+                }
+            } else {
+                // Use download directory (custom or system default)
+                if let Some(ref dir) = download_dir {
+                    if let Some(fname) = path.file_name() {
+                        *path = dir.join(fname);
+                        tracing::info!("[standalone] Download path changed to: {:?}", path);
+                    }
+                }
+            }
+
+            // Emit event to JavaScript
+            let ipc_message = IpcMessage {
+                event: "download_started".to_string(),
+                data: serde_json::json!({
+                    "url": url,
+                    "path": path.to_string_lossy()
+                }),
+                id: None,
+            };
+
+            if let Err(e) = ipc_handler_for_download_start.handle_message(ipc_message) {
+                tracing::error!("[standalone] Error handling download start event: {}", e);
+            }
+
+            true // Allow the download
+        });
+
+        // Download completed handler
+        webview_builder = webview_builder.with_download_completed_handler(
+            move |url, path, success| {
+                tracing::info!(
+                    "[standalone] Download completed: {} -> {:?} (success: {})",
+                    url,
+                    path,
+                    success
+                );
+
+                // Emit event to JavaScript
+                let ipc_message = IpcMessage {
+                    event: "download_completed".to_string(),
+                    data: serde_json::json!({
+                        "url": url,
+                        "path": path.map(|p| p.to_string_lossy().to_string()),
+                        "success": success
+                    }),
+                    id: None,
+                };
+
+                if let Err(e) = ipc_handler_for_download_complete.handle_message(ipc_message) {
+                    tracing::error!("[standalone] Error handling download complete event: {}", e);
+                }
+            },
+        );
     }
 
     // Add native file drag-drop handler using shared builder module
@@ -738,13 +944,8 @@ pub fn create_desktop(
         build_duration.as_secs_f64()
     );
 
-    // Load target URL if specified (HTML was already loaded via with_html)
-    // This navigates from splash screen to the target URL
-    if let Some(ref url) = target_url {
-        tracing::info!("[standalone] Loading target URL: {}", url);
-        webview.load_url(url)?;
-    }
-    // Note: target_html was already loaded via with_html() above
+    // Note: URL or HTML was already loaded via with_url() or with_html() above
+    // No need for additional load_url() call
 
     // Create event loop proxy for sending close events
     let event_loop_proxy = event_loop.create_proxy();
