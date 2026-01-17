@@ -53,10 +53,16 @@ async fn test_snapshot() {
     }
 
     let endpoint = get_test_endpoint();
-    let inspector = Inspector::connect(&endpoint).await.expect("Failed to connect");
+    let inspector = Inspector::connect(&endpoint)
+        .await
+        .expect("Failed to connect");
 
     let snapshot = inspector.snapshot().await;
-    assert!(snapshot.is_ok(), "Failed to get snapshot: {:?}", snapshot.err());
+    assert!(
+        snapshot.is_ok(),
+        "Failed to get snapshot: {:?}",
+        snapshot.err()
+    );
 
     let snap = snapshot.unwrap();
     assert!(!snap.url.is_empty(), "URL should not be empty");
@@ -81,15 +87,25 @@ async fn test_screenshot() {
     }
 
     let endpoint = get_test_endpoint();
-    let inspector = Inspector::connect(&endpoint).await.expect("Failed to connect");
+    let inspector = Inspector::connect(&endpoint)
+        .await
+        .expect("Failed to connect");
 
     let screenshot = inspector.screenshot().await;
-    assert!(screenshot.is_ok(), "Failed to take screenshot: {:?}", screenshot.err());
+    assert!(
+        screenshot.is_ok(),
+        "Failed to take screenshot: {:?}",
+        screenshot.err()
+    );
 
     let bytes = screenshot.unwrap();
     assert!(!bytes.is_empty(), "Screenshot should not be empty");
     // Check PNG magic bytes
-    assert_eq!(&bytes[0..4], &[0x89, 0x50, 0x4E, 0x47], "Should be PNG format");
+    assert_eq!(
+        &bytes[0..4],
+        &[0x89, 0x50, 0x4E, 0x47],
+        "Should be PNG format"
+    );
 
     println!("Screenshot size: {} bytes", bytes.len());
 
@@ -107,7 +123,9 @@ async fn test_navigation() {
     }
 
     let endpoint = get_test_endpoint();
-    let inspector = Inspector::connect(&endpoint).await.expect("Failed to connect");
+    let inspector = Inspector::connect(&endpoint)
+        .await
+        .expect("Failed to connect");
 
     // Navigate to about:blank
     let result = inspector.goto("about:blank").await;
@@ -134,7 +152,9 @@ async fn test_eval() {
     }
 
     let endpoint = get_test_endpoint();
-    let inspector = Inspector::connect(&endpoint).await.expect("Failed to connect");
+    let inspector = Inspector::connect(&endpoint)
+        .await
+        .expect("Failed to connect");
 
     // Simple evaluation
     let result = inspector.eval("1 + 1").await;
@@ -146,10 +166,7 @@ async fn test_eval() {
     // String evaluation
     let result = inspector.eval("'hello ' + 'world'").await;
     assert!(result.is_ok());
-    assert_eq!(
-        result.unwrap()["value"].as_str(),
-        Some("hello world")
-    );
+    assert_eq!(result.unwrap()["value"].as_str(), Some("hello world"));
 
     inspector.close().await.ok();
 }
@@ -165,7 +182,9 @@ async fn test_wait() {
     }
 
     let endpoint = get_test_endpoint();
-    let inspector = Inspector::connect(&endpoint).await.expect("Failed to connect");
+    let inspector = Inspector::connect(&endpoint)
+        .await
+        .expect("Failed to connect");
 
     // Wait for network idle (should pass quickly on about:blank)
     let result = inspector.wait("idle", Some(Duration::from_secs(5))).await;
@@ -191,7 +210,9 @@ async fn test_press_key() {
     }
 
     let endpoint = get_test_endpoint();
-    let inspector = Inspector::connect(&endpoint).await.expect("Failed to connect");
+    let inspector = Inspector::connect(&endpoint)
+        .await
+        .expect("Failed to connect");
 
     // Press Tab key (should not error even without focused element)
     let result = inspector.press("Tab").await;
@@ -219,7 +240,9 @@ async fn test_scroll() {
     use auroraview_testing::snapshot::ScrollDirection;
 
     let endpoint = get_test_endpoint();
-    let inspector = Inspector::connect(&endpoint).await.expect("Failed to connect");
+    let inspector = Inspector::connect(&endpoint)
+        .await
+        .expect("Failed to connect");
 
     // Scroll down
     let result = inspector.scroll(ScrollDirection::Down, 100).await;
@@ -252,7 +275,11 @@ async fn test_connect_with_config() {
     };
 
     let result = Inspector::connect_with_config(&endpoint, config).await;
-    assert!(result.is_ok(), "Failed to connect with config: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to connect with config: {:?}",
+        result.err()
+    );
 
     let inspector = result.unwrap();
     assert!(inspector.is_connected());
@@ -271,7 +298,9 @@ async fn test_page_properties() {
     }
 
     let endpoint = get_test_endpoint();
-    let inspector = Inspector::connect(&endpoint).await.expect("Failed to connect");
+    let inspector = Inspector::connect(&endpoint)
+        .await
+        .expect("Failed to connect");
 
     // Get URL
     let url = inspector.url().await;
@@ -297,7 +326,9 @@ async fn test_snapshot_formats() {
     }
 
     let endpoint = get_test_endpoint();
-    let inspector = Inspector::connect(&endpoint).await.expect("Failed to connect");
+    let inspector = Inspector::connect(&endpoint)
+        .await
+        .expect("Failed to connect");
 
     let snapshot = inspector.snapshot().await.expect("Failed to get snapshot");
 

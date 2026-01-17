@@ -19,7 +19,10 @@ fn test_bookmark_builder() {
         .with_favicon("https://test.com/favicon.ico")
         .with_position(5);
 
-    assert_eq!(bookmark.favicon, Some("https://test.com/favicon.ico".to_string()));
+    assert_eq!(
+        bookmark.favicon,
+        Some("https://test.com/favicon.ico".to_string())
+    );
     assert_eq!(bookmark.position, 5);
 }
 

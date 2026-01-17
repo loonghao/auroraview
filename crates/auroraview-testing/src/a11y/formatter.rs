@@ -12,9 +12,7 @@ pub fn format_tree(nodes: &[A11yNode], refs: &HashMap<String, RefInfo>) -> Strin
     // Create reverse mapping from backend_node_id to ref_id
     let backend_to_ref: HashMap<i64, String> = refs
         .iter()
-        .filter_map(|(ref_id, info)| {
-            info.backend_node_id.map(|id| (id, ref_id.clone()))
-        })
+        .filter_map(|(ref_id, info)| info.backend_node_id.map(|id| (id, ref_id.clone())))
         .collect();
 
     for node in nodes {
@@ -93,10 +91,7 @@ fn format_node(
 
         // Interactive elements
         "button" => {
-            output.push_str(&format!(
-                "{}[button{} \"{}\"]",
-                indent, ref_str, node.name
-            ));
+            output.push_str(&format!("{}[button{} \"{}\"]", indent, ref_str, node.name));
             if !node.description.is_empty() {
                 output.push_str(&format!(" - {}", node.description));
             }
@@ -104,10 +99,7 @@ fn format_node(
         }
 
         "link" => {
-            output.push_str(&format!(
-                "{}[link{} \"{}\"]",
-                indent, ref_str, node.name
-            ));
+            output.push_str(&format!("{}[link{} \"{}\"]", indent, ref_str, node.name));
             if !node.description.is_empty() {
                 output.push_str(&format!(" - {}", node.description));
             }
@@ -129,11 +121,7 @@ fn format_node(
         }
 
         "checkbox" => {
-            let checked = node
-                .value
-                .as_ref()
-                .map(|v| v == "true")
-                .unwrap_or(false);
+            let checked = node.value.as_ref().map(|v| v == "true").unwrap_or(false);
             let state = if checked { "☑" } else { "☐" };
             output.push_str(&format!(
                 "{}[checkbox{} {} \"{}\"]",
@@ -143,11 +131,7 @@ fn format_node(
         }
 
         "radio" => {
-            let selected = node
-                .value
-                .as_ref()
-                .map(|v| v == "true")
-                .unwrap_or(false);
+            let selected = node.value.as_ref().map(|v| v == "true").unwrap_or(false);
             let state = if selected { "●" } else { "○" };
             output.push_str(&format!(
                 "{}[radio{} {} \"{}\"]",
@@ -171,10 +155,7 @@ fn format_node(
         }
 
         "option" => {
-            output.push_str(&format!(
-                "{}  - {}{}\n",
-                indent, node.name, ref_str
-            ));
+            output.push_str(&format!("{}  - {}{}\n", indent, node.name, ref_str));
         }
 
         "tab" => {

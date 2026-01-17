@@ -199,8 +199,7 @@ class HistoryManager:
         # Sort by relevance (visit count + recency)
         results.sort(
             key=lambda e: (
-                e.visit_count * 0.3 +
-                (datetime.now() - e.last_visit).total_seconds() * -0.00001
+                e.visit_count * 0.3 + (datetime.now() - e.last_visit).total_seconds() * -0.00001
             ),
             reverse=True,
         )
@@ -234,9 +233,7 @@ class HistoryManager:
     def delete_older_than(self, days: int) -> int:
         """Delete entries older than specified days."""
         cutoff = datetime.now() - timedelta(days=days)
-        to_delete = [
-            eid for eid, e in self._entries.items() if e.last_visit < cutoff
-        ]
+        to_delete = [eid for eid, e in self._entries.items() if e.last_visit < cutoff]
         for eid in to_delete:
             del self._entries[eid]
         if to_delete:
@@ -245,9 +242,7 @@ class HistoryManager:
 
     def delete_domain(self, domain: str) -> int:
         """Delete all entries for a domain."""
-        to_delete = [
-            eid for eid, e in self._entries.items() if e.domain() == domain
-        ]
+        to_delete = [eid for eid, e in self._entries.items() if e.domain() == domain]
         for eid in to_delete:
             del self._entries[eid]
         if to_delete:

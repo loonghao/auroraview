@@ -1147,8 +1147,6 @@ class WebView(
                         logger.debug(f"Background thread: Registering handler for '{event_name}'")
                         core.on(event_name, handler)
 
-
-
                 # Load the same content that was loaded in the main thread
                 if self._stored_html:
                     logger.info("Background thread: Loading stored HTML")

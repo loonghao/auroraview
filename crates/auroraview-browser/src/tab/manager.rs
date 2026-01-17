@@ -5,8 +5,8 @@ use crate::config::BrowserConfig;
 use crate::BrowserError;
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use tao::event_loop::EventLoopProxy;
 use tao::window::Window;
 use wry::WebViewBuilder;
@@ -354,7 +354,8 @@ impl TabManager {
     pub fn update_history(&self, tab_id: &TabId, can_go_back: bool, can_go_forward: bool) {
         let mut tabs = self.tabs.write();
         if let Some(tab) = tabs.get_mut(tab_id) {
-            tab.state_mut().set_history_state(can_go_back, can_go_forward);
+            tab.state_mut()
+                .set_history_state(can_go_back, can_go_forward);
         }
     }
 
@@ -393,7 +394,12 @@ impl TabManager {
     }
 
     /// Duplicate a tab
-    pub fn duplicate_tab(&self, window: &Window, tab_id: &TabId, header_height: u32) -> crate::Result<TabId> {
+    pub fn duplicate_tab(
+        &self,
+        window: &Window,
+        tab_id: &TabId,
+        header_height: u32,
+    ) -> crate::Result<TabId> {
         let url = {
             let tabs = self.tabs.read();
             tabs.get(tab_id)
@@ -424,7 +430,10 @@ impl TabManager {
         let tabs = self.tabs.read();
         if let Some(_tab) = tabs.get(tab_id) {
             // TODO: Implement using CDP or WebView2 native DevTools API
-            tracing::debug!("[TabManagerNested] DevTools toggle requested for tab {}", tab_id);
+            tracing::debug!(
+                "[TabManagerNested] DevTools toggle requested for tab {}",
+                tab_id
+            );
         }
     }
 
@@ -433,7 +442,10 @@ impl TabManager {
         let tabs = self.tabs.read();
         if let Some(_tab) = tabs.get(tab_id) {
             // TODO: Implement using CDP or WebView2 native DevTools API
-            tracing::debug!("[TabManagerNested] DevTools open requested for tab {}", tab_id);
+            tracing::debug!(
+                "[TabManagerNested] DevTools open requested for tab {}",
+                tab_id
+            );
         }
     }
 
@@ -442,7 +454,10 @@ impl TabManager {
         let tabs = self.tabs.read();
         if let Some(_tab) = tabs.get(tab_id) {
             // TODO: Implement using CDP or WebView2 native DevTools API
-            tracing::debug!("[TabManagerNested] DevTools close requested for tab {}", tab_id);
+            tracing::debug!(
+                "[TabManagerNested] DevTools close requested for tab {}",
+                tab_id
+            );
         }
     }
 

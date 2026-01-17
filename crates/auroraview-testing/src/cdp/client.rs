@@ -130,9 +130,7 @@ pub trait CdpClient: Send + Sync {
 
         // Check for exception
         if let Some(exception) = result.get("exceptionDetails") {
-            let text = exception["text"]
-                .as_str()
-                .unwrap_or("JavaScript error");
+            let text = exception["text"].as_str().unwrap_or("JavaScript error");
             return Err(InspectorError::JavaScript(text.to_string()));
         }
 

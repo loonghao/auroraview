@@ -595,7 +595,8 @@ mod tests {
         let tab1 = manager.create("https://github.com");
         let tab2 = manager.create("https://gitlab.com");
 
-        let group_id = manager.create_group_with_tabs("Development", vec![tab1.clone(), tab2.clone()]);
+        let group_id =
+            manager.create_group_with_tabs("Development", vec![tab1.clone(), tab2.clone()]);
 
         let group = manager.get_group(&group_id).unwrap();
         assert_eq!(group.len(), 2);

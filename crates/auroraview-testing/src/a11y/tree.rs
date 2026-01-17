@@ -91,10 +91,7 @@ pub fn process_a11y_tree(ax_tree: Value) -> (Vec<A11yNode>, HashMap<String, RefI
     let mut children_map: HashMap<String, Vec<String>> = HashMap::new();
 
     for ax_node in ax_nodes {
-        let node_id = ax_node["nodeId"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
+        let node_id = ax_node["nodeId"].as_str().unwrap_or("").to_string();
 
         if node_id.is_empty() {
             continue;
@@ -115,25 +112,17 @@ pub fn process_a11y_tree(ax_tree: Value) -> (Vec<A11yNode>, HashMap<String, RefI
 
         // Extract name
         if let Some(name_obj) = ax_node.get("name") {
-            node.name = name_obj["value"]
-                .as_str()
-                .unwrap_or("")
-                .to_string();
+            node.name = name_obj["value"].as_str().unwrap_or("").to_string();
         }
 
         // Extract description
         if let Some(desc_obj) = ax_node.get("description") {
-            node.description = desc_obj["value"]
-                .as_str()
-                .unwrap_or("")
-                .to_string();
+            node.description = desc_obj["value"].as_str().unwrap_or("").to_string();
         }
 
         // Extract value
         if let Some(value_obj) = ax_node.get("value") {
-            node.value = value_obj["value"]
-                .as_str()
-                .map(|s| s.to_string());
+            node.value = value_obj["value"].as_str().map(|s| s.to_string());
         }
 
         // Extract backend node ID
@@ -175,11 +164,8 @@ pub fn process_a11y_tree(ax_tree: Value) -> (Vec<A11yNode>, HashMap<String, RefI
     }
 
     // Build tree structure (find root nodes)
-    let all_children: std::collections::HashSet<_> = children_map
-        .values()
-        .flatten()
-        .cloned()
-        .collect();
+    let all_children: std::collections::HashSet<_> =
+        children_map.values().flatten().cloned().collect();
 
     for (node_id, mut node) in node_map {
         // Root nodes are those not referenced as children
@@ -204,7 +190,10 @@ fn build_tree(
 }
 
 /// Alternative: Process from DOM tree with accessibility info
-pub fn process_dom_tree_with_a11y(dom_root: Value, a11y_map: &HashMap<i64, A11yNode>) -> Vec<A11yNode> {
+pub fn process_dom_tree_with_a11y(
+    dom_root: Value,
+    a11y_map: &HashMap<i64, A11yNode>,
+) -> Vec<A11yNode> {
     let mut nodes = Vec::new();
 
     fn process_node(

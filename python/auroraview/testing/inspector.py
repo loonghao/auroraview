@@ -71,7 +71,8 @@ class Snapshot:
         """Find refs containing text (case-insensitive)."""
         text_lower = text.lower()
         return [
-            r for r in self.refs.values()
+            r
+            for r in self.refs.values()
             if text_lower in r.name.lower() or text_lower in r.description.lower()
         ]
 
@@ -231,9 +232,21 @@ class Inspector:
 
             # Check if interactive
             interactive_roles = {
-                "button", "link", "textbox", "searchbox", "checkbox",
-                "radio", "combobox", "listbox", "option", "menuitem",
-                "tab", "switch", "slider", "spinbutton", "treeitem",
+                "button",
+                "link",
+                "textbox",
+                "searchbox",
+                "checkbox",
+                "radio",
+                "combobox",
+                "listbox",
+                "option",
+                "menuitem",
+                "tab",
+                "switch",
+                "slider",
+                "spinbutton",
+                "treeitem",
             }
 
             indent = "  " * depth
@@ -567,6 +580,7 @@ class Inspector:
             if condition.startswith("ref:"):
                 # Wait for ref to appear in snapshot
                 import time
+
                 start = time.time()
                 while time.time() - start < (timeout or 30):
                     snap = self.snapshot()

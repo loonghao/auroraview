@@ -406,7 +406,9 @@ from . import integration  # auroraview.integration - AuroraView, Bridge, Qt
 from . import ui  # auroraview.ui - DOM, Menu
 from . import utils  # auroraview.utils - EventTimer, FileProtocol, Automation
 from . import browser  # auroraview.browser - Browser, TabContainer
-from . import features  # auroraview.features - Bookmarks, History, Downloads, Settings, Notifications
+from . import (
+    features,
+)  # auroraview.features - Bookmarks, History, Downloads, Settings, Notifications
 
 __all__ = [
     # ============================================================

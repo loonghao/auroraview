@@ -93,9 +93,7 @@ class DownloadItem:
             start_time=datetime.fromisoformat(data["start_time"])
             if "start_time" in data
             else datetime.now(),
-            end_time=datetime.fromisoformat(data["end_time"])
-            if data.get("end_time")
-            else None,
+            end_time=datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None,
             error=data.get("error"),
             mime_type=data.get("mime_type"),
         )
@@ -166,6 +164,7 @@ class DownloadManager:
         if filename is None:
             # Extract filename from URL
             from urllib.parse import unquote, urlparse
+
             parsed = urlparse(url)
             filename = unquote(parsed.path.split("/")[-1]) or "download"
 
@@ -295,9 +294,7 @@ class DownloadManager:
     def clear_completed(self) -> int:
         """Clear completed downloads. Returns count removed."""
         to_remove = [
-            did
-            for did, d in self._downloads.items()
-            if d.state == DownloadState.COMPLETED
+            did for did, d in self._downloads.items() if d.state == DownloadState.COMPLETED
         ]
         for did in to_remove:
             del self._downloads[did]
@@ -342,10 +339,7 @@ class DownloadManager:
 
     def completed(self) -> List[DownloadItem]:
         """Get completed downloads."""
-        return [
-            d for d in self._downloads.values()
-            if d.state == DownloadState.COMPLETED
-        ]
+        return [d for d in self._downloads.values() if d.state == DownloadState.COMPLETED]
 
     def recent(self, limit: int = 20) -> List[DownloadItem]:
         """Get recent downloads."""

@@ -527,13 +527,7 @@ impl TabManager {
         match builder.build_as_child(window) {
             Ok(webview) => {
                 let state = TabState::new(tab_id.clone(), actual_url);
-                self.tabs.insert(
-                    tab_id.clone(),
-                    Tab {
-                        state,
-                        webview,
-                    },
-                );
+                self.tabs.insert(tab_id.clone(), Tab { state, webview });
 
                 // Add to tab order
                 self.tab_order.push(tab_id.clone());
@@ -650,8 +644,7 @@ impl TabManager {
             {
                 let _ = tab.webview.set_bounds(wry::Rect {
                     position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(
-                        x as f64,
-                        y as f64,
+                        x as f64, y as f64,
                     )),
                     size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(width, height)),
                 });
@@ -1164,7 +1157,10 @@ impl TabManager {
                 self.update_tab_history(&tab_id, can_go_back, can_go_forward);
                 self.sync_tabs();
             }
-            TabManagerEvent::FaviconChanged { tab_id, favicon_url } => {
+            TabManagerEvent::FaviconChanged {
+                tab_id,
+                favicon_url,
+            } => {
                 // For future use
                 if let Some(tab) = self.tabs.get_mut(&tab_id) {
                     tab.state.favicon = Some(favicon_url);
@@ -1186,7 +1182,12 @@ impl TabManager {
                     window.set_maximized(!window.is_maximized());
                 }
             }
-            TabManagerEvent::ResizeContent { x, y, width, height } => {
+            TabManagerEvent::ResizeContent {
+                x,
+                y,
+                width,
+                height,
+            } => {
                 self.resize_tabs(x, y, width, height);
             }
 
@@ -1213,7 +1214,10 @@ impl TabManager {
             return;
         }
         self.bookmarks.push(Bookmark { url, title });
-        tracing::info!("[TabManager] Added bookmark: {} bookmarks total", self.bookmarks.len());
+        tracing::info!(
+            "[TabManager] Added bookmark: {} bookmarks total",
+            self.bookmarks.len()
+        );
     }
 
     /// Remove a bookmark by URL
@@ -1221,7 +1225,10 @@ impl TabManager {
         let initial_len = self.bookmarks.len();
         self.bookmarks.retain(|b| b.url != url);
         if self.bookmarks.len() < initial_len {
-            tracing::info!("[TabManager] Removed bookmark: {} bookmarks remaining", self.bookmarks.len());
+            tracing::info!(
+                "[TabManager] Removed bookmark: {} bookmarks remaining",
+                self.bookmarks.len()
+            );
         }
     }
 

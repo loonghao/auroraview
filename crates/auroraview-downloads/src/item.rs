@@ -290,8 +290,8 @@ mod tests {
 
     #[test]
     fn test_progress() {
-        let mut item = DownloadItem::new("https://example.com/file.zip", "file.zip")
-            .with_total_bytes(1000);
+        let mut item =
+            DownloadItem::new("https://example.com/file.zip", "file.zip").with_total_bytes(1000);
 
         item.update_progress(500, None);
         assert_eq!(item.progress(), Some(50));
@@ -302,8 +302,8 @@ mod tests {
 
     #[test]
     fn test_eta() {
-        let mut item = DownloadItem::new("https://example.com/file.zip", "file.zip")
-            .with_total_bytes(1000);
+        let mut item =
+            DownloadItem::new("https://example.com/file.zip", "file.zip").with_total_bytes(1000);
 
         item.update_progress(500, None);
         item.update_speed(100); // 100 bytes/sec

@@ -89,4 +89,3 @@ pub fn register_assets_functions(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_browser_controller_html, m)?)?;
     Ok(())
 }
-

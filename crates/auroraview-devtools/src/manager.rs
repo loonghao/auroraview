@@ -149,12 +149,18 @@ impl DevToolsManager {
 
     /// Get error messages only
     pub fn error_messages(&self) -> Vec<&ConsoleMessage> {
-        self.console_messages.iter().filter(|m| m.is_error()).collect()
+        self.console_messages
+            .iter()
+            .filter(|m| m.is_error())
+            .collect()
     }
 
     /// Get warning messages only
     pub fn warning_messages(&self) -> Vec<&ConsoleMessage> {
-        self.console_messages.iter().filter(|m| m.is_warning()).collect()
+        self.console_messages
+            .iter()
+            .filter(|m| m.is_warning())
+            .collect()
     }
 
     /// Clear console messages
@@ -171,7 +177,8 @@ impl DevToolsManager {
 
     /// Track network request
     pub fn add_network_request(&mut self, request: NetworkRequestInfo) {
-        self.network_requests.insert(request.request_id.clone(), request);
+        self.network_requests
+            .insert(request.request_id.clone(), request);
     }
 
     /// Get network request by ID

@@ -27,6 +27,7 @@ try:
         RefInfo,
         ActionResult,
     )
+
     _RUST_BACKEND = True
 except ImportError:
     # Fall back to pure Python implementation

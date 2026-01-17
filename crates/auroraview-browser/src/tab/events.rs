@@ -9,42 +9,23 @@ use serde::{Deserialize, Serialize};
 pub enum TabEvent {
     // === Tab Management Events (from UI) ===
     /// Create a new tab with optional URL
-    NewTab {
-        url: Option<String>,
-    },
+    NewTab { url: Option<String> },
     /// Close a specific tab
-    CloseTab {
-        tab_id: TabId,
-    },
+    CloseTab { tab_id: TabId },
     /// Activate/switch to a tab
-    ActivateTab {
-        tab_id: TabId,
-    },
+    ActivateTab { tab_id: TabId },
     /// Duplicate a tab
-    DuplicateTab {
-        tab_id: TabId,
-    },
+    DuplicateTab { tab_id: TabId },
     /// Pin/unpin a tab
-    PinTab {
-        tab_id: TabId,
-        pinned: bool,
-    },
+    PinTab { tab_id: TabId, pinned: bool },
     /// Mute/unmute a tab
-    MuteTab {
-        tab_id: TabId,
-        muted: bool,
-    },
+    MuteTab { tab_id: TabId, muted: bool },
     /// Reorder tabs (drag and drop)
-    ReorderTab {
-        tab_id: TabId,
-        new_index: usize,
-    },
+    ReorderTab { tab_id: TabId, new_index: usize },
 
     // === Navigation Events (from UI) ===
     /// Navigate the active tab to a URL
-    Navigate {
-        url: String,
-    },
+    Navigate { url: String },
     /// Go back in active tab history
     GoBack,
     /// Go forward in active tab history
@@ -58,20 +39,11 @@ pub enum TabEvent {
 
     // === Tab State Update Events (from Tab WebViews) ===
     /// Tab title changed
-    TitleChanged {
-        tab_id: TabId,
-        title: String,
-    },
+    TitleChanged { tab_id: TabId, title: String },
     /// Tab URL changed
-    UrlChanged {
-        tab_id: TabId,
-        url: String,
-    },
+    UrlChanged { tab_id: TabId, url: String },
     /// Tab loading state changed
-    LoadingChanged {
-        tab_id: TabId,
-        is_loading: bool,
-    },
+    LoadingChanged { tab_id: TabId, is_loading: bool },
     /// Tab history state changed
     HistoryChanged {
         tab_id: TabId,
@@ -79,15 +51,9 @@ pub enum TabEvent {
         can_go_forward: bool,
     },
     /// Tab favicon changed
-    FaviconChanged {
-        tab_id: TabId,
-        favicon_url: String,
-    },
+    FaviconChanged { tab_id: TabId, favicon_url: String },
     /// Tab audible state changed
-    AudibleChanged {
-        tab_id: TabId,
-        audible: bool,
-    },
+    AudibleChanged { tab_id: TabId, audible: bool },
 
     // === Window Events ===
     /// Close the browser window
@@ -106,17 +72,11 @@ pub enum TabEvent {
 
     // === DevTools Events ===
     /// Toggle DevTools for a tab
-    ToggleDevTools {
-        tab_id: Option<TabId>,
-    },
+    ToggleDevTools { tab_id: Option<TabId> },
     /// Open DevTools for a tab
-    OpenDevTools {
-        tab_id: Option<TabId>,
-    },
+    OpenDevTools { tab_id: Option<TabId> },
     /// Close DevTools for a tab
-    CloseDevTools {
-        tab_id: Option<TabId>,
-    },
+    CloseDevTools { tab_id: Option<TabId> },
 }
 
 impl TabEvent {

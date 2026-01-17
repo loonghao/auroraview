@@ -28,11 +28,11 @@
 //! ```
 
 mod error;
+mod manager;
 mod notification;
 mod permission;
-mod manager;
 
 pub use error::{NotificationError, Result};
-pub use notification::{Notification, NotificationType, NotificationAction};
-pub use permission::{Permission, PermissionState};
 pub use manager::NotificationManager;
+pub use notification::{Notification, NotificationAction, NotificationType};
+pub use permission::{Permission, PermissionState};

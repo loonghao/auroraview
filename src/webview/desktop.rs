@@ -676,8 +676,8 @@ pub fn create_desktop(
         });
 
         // Download completed handler
-        webview_builder = webview_builder.with_download_completed_handler(
-            move |url, path, success| {
+        webview_builder =
+            webview_builder.with_download_completed_handler(move |url, path, success| {
                 tracing::info!(
                     "[standalone] Download completed: {} -> {:?} (success: {})",
                     url,
@@ -699,8 +699,7 @@ pub fn create_desktop(
                 if let Err(e) = ipc_handler_for_download_complete.handle_message(ipc_message) {
                     tracing::error!("[standalone] Error handling download complete event: {}", e);
                 }
-            },
-        );
+            });
     }
 
     // Add native file drag-drop handler using shared builder module

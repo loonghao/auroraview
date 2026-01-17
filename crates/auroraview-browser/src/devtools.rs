@@ -230,7 +230,8 @@ impl DevToolsManager {
 
     /// Track network request
     pub fn add_network_request(&mut self, request: NetworkRequestInfo) {
-        self.network_requests.insert(request.request_id.clone(), request);
+        self.network_requests
+            .insert(request.request_id.clone(), request);
     }
 
     /// Get network requests

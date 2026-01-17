@@ -25,13 +25,13 @@
 //! ```
 
 mod error;
+mod manager;
 mod schema;
 mod store;
 mod value;
-mod manager;
 
-pub use error::{SettingsError, Result};
-pub use schema::{SettingSchema, SchemaType, SchemaRegistry};
+pub use error::{Result, SettingsError};
+pub use manager::SettingsManager;
+pub use schema::{SchemaRegistry, SchemaType, SettingSchema};
 pub use store::SettingsStore;
 pub use value::SettingValue;
-pub use manager::SettingsManager;

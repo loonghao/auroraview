@@ -1,7 +1,7 @@
 //! Accessibility tree processing
 
-mod tree;
 mod formatter;
+mod tree;
 
-pub use tree::{A11yNode, process_a11y_tree};
 pub use formatter::format_tree;
+pub use tree::{process_a11y_tree, A11yNode};

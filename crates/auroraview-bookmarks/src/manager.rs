@@ -59,7 +59,8 @@ impl BookmarkManager {
 
         // Other bookmarks
         if !store.folders.contains_key(special_folders::OTHER_BOOKMARKS) {
-            let folder = BookmarkFolder::with_id(special_folders::OTHER_BOOKMARKS, "Other Bookmarks");
+            let folder =
+                BookmarkFolder::with_id(special_folders::OTHER_BOOKMARKS, "Other Bookmarks");
             store.folders.insert(folder.id.clone(), folder);
         }
     }
@@ -233,11 +234,7 @@ impl BookmarkManager {
     }
 
     /// Create a subfolder
-    pub fn create_subfolder(
-        &self,
-        name: impl Into<String>,
-        parent_id: &str,
-    ) -> Result<BookmarkId> {
+    pub fn create_subfolder(&self, name: impl Into<String>, parent_id: &str) -> Result<BookmarkId> {
         let store = self.inner.read().unwrap();
         if !store.folders.contains_key(parent_id) {
             return Err(BookmarkError::FolderNotFound(parent_id.to_string()));
@@ -290,10 +287,14 @@ impl BookmarkManager {
 
         if delete_contents {
             // Delete all bookmarks in folder
-            store.bookmarks.retain(|_, b| b.parent_id.as_deref() != Some(id));
+            store
+                .bookmarks
+                .retain(|_, b| b.parent_id.as_deref() != Some(id));
 
             // Delete all subfolders (recursively would need more complex logic)
-            store.folders.retain(|_, f| f.parent_id.as_deref() != Some(id));
+            store
+                .folders
+                .retain(|_, f| f.parent_id.as_deref() != Some(id));
         } else {
             // Move contents to root
             for bookmark in store.bookmarks.values_mut() {
@@ -517,7 +518,9 @@ mod tests {
         let manager = BookmarkManager::new(None);
 
         let folder_id = manager.create_folder("Development");
-        manager.add_to_folder("https://github.com", "GitHub", &folder_id).unwrap();
+        manager
+            .add_to_folder("https://github.com", "GitHub", &folder_id)
+            .unwrap();
 
         let bookmarks = manager.in_folder(&folder_id);
         assert_eq!(bookmarks.len(), 1);
@@ -531,6 +534,8 @@ mod tests {
         let manager = BookmarkManager::new(None);
 
         assert!(manager.get_folder(special_folders::BOOKMARKS_BAR).is_some());
-        assert!(manager.get_folder(special_folders::OTHER_BOOKMARKS).is_some());
+        assert!(manager
+            .get_folder(special_folders::OTHER_BOOKMARKS)
+            .is_some());
     }
 }
