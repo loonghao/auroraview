@@ -151,7 +151,7 @@ asyncio.run(test_auroraview_app())
 
 ## Using with chrome-devtools MCP
 
-The [chrome-devtools MCP server](https://github.com/nicholasoxford/chrome-devtools-mcp) provides direct CDP access for AI assistants.
+The [chrome-devtools MCP server](https://github.com/anthropics/anthropic-quickstarts/tree/main/mcp-chrome-devtools) provides direct CDP access for AI assistants.
 
 ### Configuration
 
@@ -159,9 +159,12 @@ The [chrome-devtools MCP server](https://github.com/nicholasoxford/chrome-devtoo
 {
   "mcpServers": {
     "chrome-devtools": {
-      "command": "npx",
-      "args": ["--yes", "@anthropic/mcp-chrome-devtools"],
-      "env": {}
+      "command": "vx",
+      "args": [
+        "npx@20",
+        "chrome-devtools-mcp@latest",
+        "--browser-url=http://127.0.0.1:9222"
+      ]
     }
   }
 }
@@ -207,6 +210,143 @@ AI: I'll connect to your AuroraView instance and take a screenshot.
 2. select_page - Select it
 3. take_screenshot - Capture and return the image
 ```
+
+## Using with Playwright MCP
+
+[Playwright MCP](https://github.com/microsoft/playwright-mcp) is Microsoft's official MCP server that provides browser automation capabilities using Playwright.
+
+### Features
+
+- **Fast and lightweight** - Uses Playwright's accessibility tree instead of pixel-based input
+- **LLM-friendly** - No vision models needed, operates purely on structured data
+- **Deterministic tool application** - Avoids ambiguity common in screenshot-based approaches
+
+### Configuration
+
+**Basic configuration:**
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    }
+  }
+}
+```
+
+**Connect to AuroraView CDP endpoint:**
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--cdp-endpoint=http://127.0.0.1:9222"
+      ]
+    }
+  }
+}
+```
+
+**With configuration file:**
+
+Create `playwright-mcp-config.json`:
+
+```json
+{
+  "browser": {
+    "cdpEndpoint": "http://127.0.0.1:9222",
+    "cdpTimeout": 30000
+  },
+  "capabilities": ["core"],
+  "network": {
+    "allowedOrigins": ["*"]
+  }
+}
+```
+
+Then use:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--config=playwright-mcp-config.json"
+      ]
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `browser_navigate` | Navigate to a URL |
+| `browser_click` | Click on an element |
+| `browser_type` | Type text into inputs |
+| `browser_snapshot` | Get page accessibility snapshot |
+| `browser_evaluate` | Execute JavaScript |
+| `browser_tabs` | Manage browser tabs |
+
+### Example Usage
+
+```
+User: Navigate to the Gallery page and click on the "Cookie Demo" sample
+
+AI: I'll use Playwright to navigate and interact with the page.
+
+[Uses playwright MCP to:]
+1. browser_snapshot - Get current page structure
+2. browser_click - Click on Gallery link
+3. browser_snapshot - Get updated structure
+4. browser_click - Click on Cookie Demo
+```
+
+## Combined MCP Configuration
+
+For maximum flexibility, you can use multiple MCP servers together:
+
+```json
+{
+  "mcpServers": {
+    "auroraview": {
+      "command": "uvx",
+      "args": ["auroraview-mcp"],
+      "env": {
+        "AURORAVIEW_DEFAULT_PORT": "9222"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--cdp-endpoint=http://127.0.0.1:9222"
+      ]
+    },
+    "chrome-devtools": {
+      "command": "vx",
+      "args": [
+        "npx@20",
+        "chrome-devtools-mcp@latest",
+        "--browser-url=http://127.0.0.1:9222"
+      ]
+    }
+  }
+}
+```
+
+This allows AI assistants to:
+- Use `auroraview` tools for Python API calls and instance management
+- Use `playwright` tools for accessibility-based browser automation
+- Use `chrome-devtools` tools for low-level CDP operations
 
 ## CDP API Reference
 

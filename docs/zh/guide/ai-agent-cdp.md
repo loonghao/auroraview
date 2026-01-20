@@ -151,7 +151,7 @@ asyncio.run(test_auroraview_app())
 
 ## 与 chrome-devtools MCP 配合使用
 
-[chrome-devtools MCP 服务器](https://github.com/nicholasoxford/chrome-devtools-mcp) 为 AI 助手提供直接的 CDP 访问。
+[chrome-devtools MCP 服务器](https://github.com/anthropics/anthropic-quickstarts/tree/main/mcp-chrome-devtools) 为 AI 助手提供直接的 CDP 访问。
 
 ### 配置
 
@@ -159,9 +159,12 @@ asyncio.run(test_auroraview_app())
 {
   "mcpServers": {
     "chrome-devtools": {
-      "command": "npx",
-      "args": ["--yes", "@anthropic/mcp-chrome-devtools"],
-      "env": {}
+      "command": "vx",
+      "args": [
+        "npx@20",
+        "chrome-devtools-mcp@latest",
+        "--browser-url=http://127.0.0.1:9222"
+      ]
     }
   }
 }
@@ -207,6 +210,143 @@ AI：我将连接到您的 AuroraView 实例并截图。
 2. select_page - 选择它
 3. take_screenshot - 截取并返回图片
 ```
+
+## 与 Playwright MCP 配合使用
+
+[Playwright MCP](https://github.com/microsoft/playwright-mcp) 是微软官方的 MCP 服务器，使用 Playwright 提供浏览器自动化能力。
+
+### 特性
+
+- **快速且轻量** - 使用 Playwright 的可访问性树，而非基于像素的输入
+- **对 LLM 友好** - 不需要视觉模型，完全基于结构化数据操作
+- **确定性的工具应用** - 避免了基于截图方法中常见的歧义
+
+### 配置
+
+**基本配置：**
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    }
+  }
+}
+```
+
+**连接到 AuroraView CDP 端点：**
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--cdp-endpoint=http://127.0.0.1:9222"
+      ]
+    }
+  }
+}
+```
+
+**使用配置文件：**
+
+创建 `playwright-mcp-config.json`：
+
+```json
+{
+  "browser": {
+    "cdpEndpoint": "http://127.0.0.1:9222",
+    "cdpTimeout": 30000
+  },
+  "capabilities": ["core"],
+  "network": {
+    "allowedOrigins": ["*"]
+  }
+}
+```
+
+然后使用：
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--config=playwright-mcp-config.json"
+      ]
+    }
+  }
+}
+```
+
+### 可用工具
+
+| 工具 | 描述 |
+|------|------|
+| `browser_navigate` | 导航到 URL |
+| `browser_click` | 点击元素 |
+| `browser_type` | 在输入框中输入文本 |
+| `browser_snapshot` | 获取页面可访问性快照 |
+| `browser_evaluate` | 执行 JavaScript |
+| `browser_tabs` | 管理浏览器标签页 |
+
+### 使用示例
+
+```
+用户：导航到 Gallery 页面并点击 "Cookie Demo" 示例
+
+AI：我将使用 Playwright 来导航和交互。
+
+[使用 playwright MCP：]
+1. browser_snapshot - 获取当前页面结构
+2. browser_click - 点击 Gallery 链接
+3. browser_snapshot - 获取更新后的结构
+4. browser_click - 点击 Cookie Demo
+```
+
+## 组合 MCP 配置
+
+为了获得最大的灵活性，你可以同时使用多个 MCP 服务器：
+
+```json
+{
+  "mcpServers": {
+    "auroraview": {
+      "command": "uvx",
+      "args": ["auroraview-mcp"],
+      "env": {
+        "AURORAVIEW_DEFAULT_PORT": "9222"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--cdp-endpoint=http://127.0.0.1:9222"
+      ]
+    },
+    "chrome-devtools": {
+      "command": "vx",
+      "args": [
+        "npx@20",
+        "chrome-devtools-mcp@latest",
+        "--browser-url=http://127.0.0.1:9222"
+      ]
+    }
+  }
+}
+```
+
+这使 AI 助手能够：
+- 使用 `auroraview` 工具进行 Python API 调用和实例管理
+- 使用 `playwright` 工具进行基于可访问性的浏览器自动化
+- 使用 `chrome-devtools` 工具进行底层 CDP 操作
 
 ## CDP API 参考
 
