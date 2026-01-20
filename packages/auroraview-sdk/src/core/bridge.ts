@@ -261,3 +261,11 @@ export function createAuroraView(): AuroraViewClient {
 export function getAuroraView(): AuroraViewClient {
   return createAuroraView();
 }
+
+/**
+ * Reset the singleton instance (for testing only)
+ * @internal
+ */
+export function _resetClientInstance(): void {
+  clientInstance = null;
+}

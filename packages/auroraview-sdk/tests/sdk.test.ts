@@ -43,15 +43,18 @@ const mockAuroraView = {
   },
 };
 
-// Setup global window mock
+// Setup global window mock with addEventListener/removeEventListener
 (global as any).window = {
   auroraview: mockAuroraView,
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
 };
 
 // Import SDK after mocking
 import {
   createAuroraView,
   getAuroraView,
+  _resetClientInstance,
   type AuroraViewClient,
 } from '../src/core/bridge';
 import { EventEmitter, getGlobalEmitter } from '../src/core/events';
@@ -222,6 +225,7 @@ describe('AuroraViewClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetClientInstance();
     client = createAuroraView();
   });
 
@@ -304,6 +308,10 @@ describe('AuroraViewClient', () => {
 });
 
 describe('getAuroraView', () => {
+  beforeEach(() => {
+    _resetClientInstance();
+  });
+
   it('should return same instance as createAuroraView', () => {
     const client1 = createAuroraView();
     const client2 = getAuroraView();
@@ -316,8 +324,12 @@ describe('AuroraViewClient without bridge', () => {
   let originalWindow: any;
 
   beforeEach(() => {
+    _resetClientInstance();
     originalWindow = (global as any).window;
-    (global as any).window = {};
+    (global as any).window = {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
   });
 
   afterEach(() => {
@@ -326,10 +338,9 @@ describe('AuroraViewClient without bridge', () => {
 
   it('should reject call when bridge not available', async () => {
     // Need to create a fresh instance without the bridge
-    // This is tricky due to singleton pattern, but we test the error path
     const client = createAuroraView();
-    // The singleton still has the old bridge reference, so this test
-    // mainly verifies the error handling code path exists
+    // The call should reject since no auroraview bridge exists
+    await expect(client.call('test')).rejects.toThrow('AuroraView bridge not available');
   });
 });
 
