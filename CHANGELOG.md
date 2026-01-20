@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.5](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.4...auroraview-v0.4.5) (2026-01-20)
+
+
+### Features
+
+* **ai-agent:** add AI Agent + CDP integration documentation and examples ([6145f24](https://github.com/loonghao/auroraview/commit/6145f246a2ba9a3e93a1f9045609d813d51b37c2))
+* **python:** add multi-panel and browser features, refactor testing module ([30f34e9](https://github.com/loonghao/auroraview/commit/30f34e9b44168fe586d389d2d19b262b88d89798))
+* **rust:** add browser-related crates and multi-panel support ([bbc406c](https://github.com/loonghao/auroraview/commit/bbc406ca759bea3b96f427e8a820ab4cdd370fe2))
+
+
+### Bug Fixes
+
+* add _async_chat_and_emit method and remove sensitive logging ([ab6e62e](https://github.com/loonghao/auroraview/commit/ab6e62e544e3d9177af321abddbd030b98aeeb50))
+* add cfg attributes for Windows-only variables and fix clippy lint ([77ad8a4](https://github.com/loonghao/auroraview/commit/77ad8a424a398da531ab92c7d9aad7674bb547f9))
+* add cross-platform support for tab_manager event loop ([34051da](https://github.com/loonghao/auroraview/commit/34051da07c9e320d473613c6058e7264c8348bae))
+* add missing parameters to QtWebView.create_deferred() ([2bd883f](https://github.com/loonghao/auroraview/commit/2bd883f3c1ff4be92f3995a227893fc2b1a91605))
+* add UTF-8 encoding declaration and missing _window_id attribute ([f58e79d](https://github.com/loonghao/auroraview/commit/f58e79d00395a7704999781cc32df9c6fc547361))
+* cross-platform compilation for auroraview-browser ([7547f7a](https://github.com/loonghao/auroraview/commit/7547f7aed932b764388151099f82e5825639d758))
+* make header_height cross-platform and fix unused code warnings ([8838d49](https://github.com/loonghao/auroraview/commit/8838d498936ba124785f6cfdf2863605a2a28826))
+* mark header_height as Windows-only in create_tab ([0930b86](https://github.com/loonghao/auroraview/commit/0930b86dc26d4d917430d8b3a724e77ab2cc2cfa))
+* mock _load_tab_webview in test_navigate to avoid native lib dependency ([08014e4](https://github.com/loonghao/auroraview/commit/08014e45e2e1219af9a456b8666071ea133006a5))
+* resolve dead links and clippy warnings ([43a90cb](https://github.com/loonghao/auroraview/commit/43a90cbe0c205cf8903962046f43f5b709807ec3))
+* resolve lint errors in test and feature modules ([44c2708](https://github.com/loonghao/auroraview/commit/44c2708109389b200170d2016c6679a025e2482a))
+* resolve ruff lint errors (B904, I001) ([393605c](https://github.com/loonghao/auroraview/commit/393605c77519713babfc4c60047b5d6b8b610f40))
+* resolve unused variables and PyO3 API updates ([8a39227](https://github.com/loonghao/auroraview/commit/8a392276582932a98393cba613ba7cd585ef374a))
+* SDK tests and Rust clippy lint issues ([c7edcbb](https://github.com/loonghao/auroraview/commit/c7edcbb163c59e9f895f98b1497a8fca21881c1b))
+* skip test_showevent_auto_initialization in CI to avoid WebView2 crash ([a89a2af](https://github.com/loonghao/auroraview/commit/a89a2af5af0648c9c5d23565bef05bb2220a1fa6))
+* update PyO3 0.27 FromPyObject API and fix Bool conversion ([bbecf9b](https://github.com/loonghao/auroraview/commit/bbecf9b6f0bd4bdbc5a1c569591307ad1ab96b20))
+* use tempfile for bookmark tests to ensure isolated state ([4db928c](https://github.com/loonghao/auroraview/commit/4db928cfff7cea121e8c135b3289483ab3ff062f))
+* use to_owned() for Borrowed to Bound conversion ([048040d](https://github.com/loonghao/auroraview/commit/048040d44d720a7272ad419440d25eb91d754e5c))
+
+
+### Documentation
+
+* fix chrome-devtools MCP config and add Playwright MCP integration ([b8e9fbd](https://github.com/loonghao/auroraview/commit/b8e9fbdd513d803934a9d4a56629f056ca14475b))
+
 ## [0.4.4](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.3...auroraview-v0.4.4) (2026-01-14)
 
 
