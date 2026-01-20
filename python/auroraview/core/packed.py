@@ -21,7 +21,6 @@ import threading
 import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
-
 if TYPE_CHECKING:
     from .webview import WebView
 

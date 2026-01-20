@@ -7,7 +7,7 @@ from __future__ import annotations
 import inspect
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, get_type_hints, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, get_type_hints
 
 if TYPE_CHECKING:
     from ..core.webview import WebView
