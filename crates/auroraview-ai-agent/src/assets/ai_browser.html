@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuroraView AI Browser</title>
+    <style>
+        :root {
+            /* Light theme - Gemini-inspired */
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #f1f3f4;
+            --bg-hover: rgba(0,0,0,0.04);
+            --bg-active: rgba(0,0,0,0.08);
+            --text-primary: #202124;
+            --text-secondary: #5f6368;
+            --text-muted: #9aa0a6;
+            --border-color: #e8eaed;
+            --accent-color: #1a73e8;
+            --accent-hover: #1557b0;
+            --success-color: #34a853;
+            --warning-color: #fbbc04;
+            --error-color: #ea4335;
+            --surface-elevated: #ffffff;
+            --chat-user-bg: #e8f0fe;
+            --chat-ai-bg: #f1f3f4;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.1);
+            --shadow-md: 0 2px 6px rgba(0,0,0,0.15);
+            --shadow-lg: 0 4px 12px rgba(0,0,0,0.15);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-full: 9999px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1f1f1f;
+                --bg-secondary: #282828;
+                --bg-tertiary: #303134;
+                --bg-hover: rgba(255,255,255,0.08);
+                --bg-active: rgba(255,255,255,0.12);
+                --text-primary: #e8eaed;
+                --text-secondary: #9aa0a6;
+                --text-muted: #5f6368;
+                --border-color: #3c4043;
+                --accent-color: #8ab4f8;
+                --accent-hover: #aecbfa;
+                --surface-elevated: #303134;
+                --chat-user-bg: #174ea6;
+                --chat-ai-bg: #303134;
+                --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+                --shadow-md: 0 2px 6px rgba(0,0,0,0.4);
+                --shadow-lg: 0 4px 12px rgba(0,0,0,0.4);
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; background: var(--bg-primary); }
+        body {
+            font-family: 'Google Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Browser Panel */
+        .browser-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        /* Tab Bar - Modern Chrome-like */
+        .tab-bar {
+            display: flex;
+            align-items: center;
+            background: var(--bg-secondary);
+            padding: 8px 8px 0;
+            height: 42px;
+            gap: 2px;
+        }
+
+        .tabs-container {
+            display: flex;
+            flex: 1;
+            overflow-x: auto;
+            scrollbar-width: none;
+            gap: 2px;
+        }
+        .tabs-container::-webkit-scrollbar { display: none; }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            height: 34px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            cursor: pointer;
+            min-width: 180px;
+            max-width: 240px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            transition: all 0.15s ease;
+            position: relative;
+            gap: 8px;
+        }
+
+        .tab.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .tab:hover:not(.active) {
+            background: var(--bg-hover);
+        }
+
+        .tab-favicon {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .tab-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .tab-close {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-full);
+            opacity: 0;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .tab:hover .tab-close { opacity: 0.6; }
+        .tab-close:hover { opacity: 1 !important; background: var(--bg-active); }
+
+        .new-tab-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            border-radius: var(--radius-full);
+            margin-left: 4px;
+            transition: all 0.15s;
+        }
+        .new-tab-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* Toolbar - Modern with pill-shaped URL bar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            gap: 8px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .nav-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-full);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .nav-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .nav-btn:active { transform: scale(0.95); }
+
+        .url-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-full);
+            height: 40px;
+            padding: 0 16px;
+            gap: 8px;
+            transition: all 0.15s;
+        }
+        .url-container:focus-within {
+            background: var(--bg-secondary);
+            box-shadow: 0 0 0 2px var(--accent-color);
+        }
+
+        .url-icon {
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .url-bar {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+        .url-bar::placeholder { color: var(--text-muted); }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            position: relative;
+            background: var(--bg-primary);
+        }
+
+        .browser-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #fff;
+        }
+
+        .loading-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-color), var(--accent-hover));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+        .loading-indicator.active {
+            animation: loading 1.5s ease-in-out infinite;
+        }
+        @keyframes loading {
+            0% { transform: scaleX(0) translateX(0); }
+            50% { transform: scaleX(0.5) translateX(50%); }
+            100% { transform: scaleX(0) translateX(100%); }
+        }
+
+        /* AI Chat Panel - Gemini-inspired */
+        .chat-panel {
+            width: 380px;
+            background: var(--bg-primary);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.2s ease;
+        }
+
+        .chat-panel.collapsed {
+            width: 0;
+            border-left: none;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 12px;
+        }
+
+        .chat-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #4285f4, #ea4335, #fbbc04, #34a853);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-logo svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .chat-title {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .chat-action-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-full);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .chat-action-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* Messages Area */
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            animation: messageIn 0.3s ease;
+        }
+
+        @keyframes messageIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-full);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .message-avatar.user {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .message-avatar.ai {
+            background: linear-gradient(135deg, #4285f4, #ea4335, #fbbc04, #34a853);
+        }
+
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .message-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .message-text {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            border-top-left-radius: 4px;
+        }
+
+        .message.user .message-text {
+            background: var(--chat-user-bg);
+            border-top-left-radius: var(--radius-md);
+            border-top-right-radius: 4px;
+        }
+
+        .message-text code {
+            background: var(--bg-active);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 13px;
+        }
+
+        .message-text pre {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: var(--radius-full);
+            animation: typingBounce 1.4s ease-in-out infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-8px); }
+        }
+
+        /* Chat Input */
+        .chat-input-area {
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .chat-input-container {
+            display: flex;
+            align-items: flex-end;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-lg);
+            padding: 8px;
+            gap: 8px;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+            max-height: 120px;
+            min-height: 24px;
+            padding: 4px 8px;
+        }
+        .chat-input::placeholder { color: var(--text-muted); }
+
+        .send-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-color);
+            border: none;
+            border-radius: var(--radius-full);
+            color: white;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .send-btn:hover { background: var(--accent-hover); transform: scale(1.05); }
+        .send-btn:active { transform: scale(0.95); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .quick-action {
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .quick-action:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        /* Toggle Chat Button */
+        .toggle-chat-btn {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            width: 56px;
+            height: 56px;
+            background: var(--accent-color);
+            border: none;
+            border-radius: var(--radius-full);
+            color: white;
+            cursor: pointer;
+            box-shadow: var(--shadow-lg);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 100;
+        }
+        .toggle-chat-btn:hover { transform: scale(1.1); }
+        .chat-panel.collapsed ~ .toggle-chat-btn { display: flex; }
+
+        /* Model Selector */
+        .model-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-full);
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .model-selector:hover { background: var(--bg-hover); }
+
+        .model-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success-color);
+            border-radius: var(--radius-full);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .chat-panel {
+                position: fixed;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: 100%;
+                max-width: 380px;
+                z-index: 100;
+                box-shadow: var(--shadow-lg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Browser Panel -->
+        <div class="browser-panel">
+            <!-- Tab Bar -->
+            <div class="tab-bar">
+                <div class="tabs-container" id="tabsContainer"></div>
+                <div class="new-tab-btn" onclick="newTab()" title="New tab (Ctrl+T)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <button class="nav-btn" id="backBtn" onclick="goBack()" title="Go back">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+                <button class="nav-btn" id="forwardBtn" onclick="goForward()" title="Go forward">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+                <button class="nav-btn" id="reloadBtn" onclick="reloadPage()" title="Reload (Ctrl+R)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                </button>
+                <div class="url-container">
+                    <span class="url-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </span>
+                    <input class="url-bar" id="urlBar" placeholder="Search or enter URL" 
+                           onkeypress="if(event.key==='Enter')navigateToUrl()">
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <div class="loading-indicator" id="loadingIndicator"></div>
+                <iframe class="browser-frame" id="browserFrame" src="about:blank"></iframe>
+            </div>
+        </div>
+
+        <!-- AI Chat Panel -->
+        <div class="chat-panel" id="chatPanel">
+            <div class="chat-header">
+                <div class="chat-logo">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                </div>
+                <span class="chat-title">AuroraView AI</span>
+                <div class="model-selector" onclick="toggleModelMenu()">
+                    <span class="model-dot"></span>
+                    <span id="currentModel">GPT-4o</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+                <div class="chat-actions">
+                    <button class="chat-action-btn" onclick="newChat()" title="New chat">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button class="chat-action-btn" onclick="toggleChat()" title="Close panel">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="messages-area" id="messagesArea">
+                <!-- Welcome message -->
+                <div class="message">
+                    <div class="message-avatar ai">
+                        <svg width="16" height="16" fill="white" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                        </svg>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-name">AuroraView AI</span>
+                        </div>
+                        <div class="message-text">
+                            Hi! I'm your AI browser assistant. I can help you navigate, search, summarize pages, and more. What would you like to do?
+                        </div>
+                        <div class="quick-actions">
+                            <button class="quick-action" onclick="quickAction('search')">🔍 Search the web</button>
+                            <button class="quick-action" onclick="quickAction('summarize')">📝 Summarize page</button>
+                            <button class="quick-action" onclick="quickAction('navigate')">🌐 Go to website</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="chat-input-container">
+                    <textarea class="chat-input" id="chatInput" placeholder="Ask me anything..." rows="1"
+                              onkeydown="handleChatKeydown(event)"></textarea>
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send message">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toggle Chat FAB -->
+    <button class="toggle-chat-btn" onclick="toggleChat()" title="Open AI assistant">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+        </svg>
+    </button>
+
+    <script>
+        // State
+        let tabs = [];
+        let activeTabId = null;
+        let messages = [];
+        let isTyping = false;
+        let currentModel = 'gpt-4o';
+
+        // DOM Elements
+        const tabsContainer = document.getElementById('tabsContainer');
+        const urlBar = document.getElementById('urlBar');
+        const browserFrame = document.getElementById('browserFrame');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const chatPanel = document.getElementById('chatPanel');
+        const messagesArea = document.getElementById('messagesArea');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // Icons
+        const closeIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+
+        // Initialize
+        window.addEventListener('auroraviewready', () => {
+            // Subscribe to tab updates
+            auroraview.on('tabs:update', data => {
+                tabs = data.tabs || [];
+                activeTabId = data.activeTabId;
+                renderTabs();
+                updateUrlBar();
+            });
+
+            // Subscribe to AI events
+            auroraview.on('ai:text_delta', data => {
+                appendToLastMessage(data.delta);
+            });
+
+            auroraview.on('ai:text_end', () => {
+                setTyping(false);
+            });
+
+            // Get initial state
+            auroraview.call('browser.get_state').then(data => {
+                if (data) {
+                    tabs = data.tabs;
+                    activeTabId = data.activeTabId;
+                    renderTabs();
+                    updateUrlBar();
+                }
+            });
+        });
+
+        // Tab Functions
+        function renderTabs() {
+            tabsContainer.innerHTML = tabs.map(t => `
+                <div class="tab ${t.id === activeTabId ? 'active' : ''}" onclick="activateTab('${t.id}')">
+                    <img class="tab-favicon" src="${t.favicon || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>'}" onerror="this.style.display='none'">
+                    <span class="tab-title">${escapeHtml(t.title || 'New Tab')}</span>
+                    <span class="tab-close" onclick="event.stopPropagation();closeTab('${t.id}')">${closeIcon}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateUrlBar() {
+            const active = tabs.find(t => t.id === activeTabId);
+            if (active && active.url) urlBar.value = active.url;
+        }
+
+        function newTab() { auroraview.call('browser.new_tab'); }
+        function closeTab(id) { auroraview.call('browser.close_tab', { tabId: id }); }
+        
+        function activateTab(id) {
+            const tab = tabs.find(t => t.id === id);
+            if (tab && tab.url && browserFrame.src !== tab.url) {
+                showLoading();
+                browserFrame.src = tab.url;
+            }
+            auroraview.call('browser.activate_tab', { tabId: id });
+        }
+
+        function navigateToUrl() {
+            let url = urlBar.value.trim();
+            if (!url) return;
+            
+            if (!url.match(/^https?:\/\//i) && !url.startsWith('about:')) {
+                url = (url.includes('.') && !url.includes(' ')) 
+                    ? 'https://' + url 
+                    : 'https://www.google.com/search?q=' + encodeURIComponent(url);
+            }
+            
+            showLoading();
+            browserFrame.src = url;
+            auroraview.call('browser.navigate', { url });
+        }
+
+        function goBack() {
+            try { browserFrame.contentWindow.history.back(); } catch(e) {}
+            auroraview.call('browser.go_back');
+        }
+
+        function goForward() {
+            try { browserFrame.contentWindow.history.forward(); } catch(e) {}
+            auroraview.call('browser.go_forward');
+        }
+
+        function reloadPage() {
+            showLoading();
+            browserFrame.src = browserFrame.src;
+            auroraview.call('browser.reload');
+        }
+
+        // Loading indicator
+        function showLoading() {
+            loadingIndicator.classList.add('active');
+        }
+
+        function hideLoading() {
+            loadingIndicator.classList.remove('active');
+        }
+
+        browserFrame.addEventListener('load', () => {
+            hideLoading();
+            try {
+                const url = browserFrame.contentWindow.location.href;
+                if (url && url !== 'about:blank') {
+                    urlBar.value = url;
+                    auroraview.call('browser.navigate', { url, silent: true });
+                }
+            } catch (e) {}
+        });
+
+        // Chat Functions
+        function toggleChat() {
+            chatPanel.classList.toggle('collapsed');
+        }
+
+        function newChat() {
+            messages = [];
+            messagesArea.innerHTML = '';
+            addWelcomeMessage();
+            auroraview.call('ai.new_session');
+        }
+
+        function addWelcomeMessage() {
+            const welcomeHtml = `
+                <div class="message">
+                    <div class="message-avatar ai">
+                        <svg width="16" height="16" fill="white" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                        </svg>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-name">AuroraView AI</span>
+                        </div>
+                        <div class="message-text">
+                            Hi! I'm your AI browser assistant. What would you like to do?
+                        </div>
+                        <div class="quick-actions">
+                            <button class="quick-action" onclick="quickAction('search')">🔍 Search</button>
+                            <button class="quick-action" onclick="quickAction('summarize')">📝 Summarize</button>
+                            <button class="quick-action" onclick="quickAction('navigate')">🌐 Navigate</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            messagesArea.innerHTML = welcomeHtml;
+        }
+
+        function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text || isTyping) return;
+
+            // Add user message
+            addMessage('user', text);
+            chatInput.value = '';
+            autoResizeInput();
+
+            // Show typing indicator
+            setTyping(true);
+
+            // Send to AI
+            auroraview.call('ai.chat', { message: text, model: currentModel })
+                .then(response => {
+                    addMessage('ai', response.content || response);
+                    setTyping(false);
+                })
+                .catch(err => {
+                    addMessage('ai', 'Sorry, I encountered an error. Please try again.');
+                    setTyping(false);
+                });
+        }
+
+        function addMessage(role, text) {
+            const isUser = role === 'user';
+            const avatar = isUser 
+                ? `<div class="message-avatar user">
+                       <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                           <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                       </svg>
+                   </div>`
+                : `<div class="message-avatar ai">
+                       <svg width="16" height="16" fill="white" viewBox="0 0 24 24">
+                           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                       </svg>
+                   </div>`;
+
+            const html = `
+                <div class="message ${isUser ? 'user' : ''}">
+                    ${avatar}
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-name">${isUser ? 'You' : 'AuroraView AI'}</span>
+                            <span class="message-time">${formatTime(new Date())}</span>
+                        </div>
+                        <div class="message-text" id="msg-${Date.now()}">${formatMessage(text)}</div>
+                    </div>
+                </div>
+            `;
+
+            // Remove typing indicator if exists
+            const typingEl = messagesArea.querySelector('.typing-indicator');
+            if (typingEl) typingEl.parentElement.remove();
+
+            messagesArea.insertAdjacentHTML('beforeend', html);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        function appendToLastMessage(delta) {
+            const lastMsg = messagesArea.querySelector('.message:last-child .message-text');
+            if (lastMsg && !lastMsg.closest('.message').classList.contains('user')) {
+                lastMsg.textContent += delta;
+            }
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        function setTyping(typing) {
+            isTyping = typing;
+            sendBtn.disabled = typing;
+
+            if (typing) {
+                const typingHtml = `
+                    <div class="message">
+                        <div class="message-avatar ai">
+                            <svg width="16" height="16" fill="white" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                            </svg>
+                        </div>
+                        <div class="message-content">
+                            <div class="typing-indicator">
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                messagesArea.insertAdjacentHTML('beforeend', typingHtml);
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+            }
+        }
+
+        function quickAction(action) {
+            const prompts = {
+                'search': 'Search the web for ',
+                'summarize': 'Summarize the current page',
+                'navigate': 'Go to '
+            };
+            chatInput.value = prompts[action] || '';
+            chatInput.focus();
+        }
+
+        function handleChatKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+            autoResizeInput();
+        }
+
+        function autoResizeInput() {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+        }
+
+        function toggleModelMenu() {
+            // TODO: Show model selector dropdown
+            const models = ['gpt-4o', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'deepseek-chat'];
+            const idx = models.indexOf(currentModel);
+            currentModel = models[(idx + 1) % models.length];
+            document.getElementById('currentModel').textContent = currentModel.split('-').slice(0, 2).join('-');
+        }
+
+        // Utilities
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatMessage(text) {
+            return escapeHtml(text)
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 't') { e.preventDefault(); newTab(); }
+                if (e.key === 'w') { e.preventDefault(); if (activeTabId) closeTab(activeTabId); }
+                if (e.key === 'r') { e.preventDefault(); reloadPage(); }
+                if (e.key === 'l') { e.preventDefault(); urlBar.focus(); urlBar.select(); }
+            }
+        });
+    </script>
+</body>
+</html>

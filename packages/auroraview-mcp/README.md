@@ -425,12 +425,112 @@ just mcp-ci
     └──────────┘   └──────────┘   └──────────┘
 ```
 
+## Integration with Other Tools
+
+### browser-use Integration
+
+[browser-use](https://github.com/browser-use/browser-use) is an AI-powered browser automation library that can connect to AuroraView instances via CDP.
+
+```bash
+pip install browser-use langchain-openai
+```
+
+```python
+from browser_use import Agent, Browser
+from browser_use.browser.browser import BrowserConfig
+from langchain_openai import ChatOpenAI
+
+# Connect to AuroraView via CDP
+browser = Browser(config=BrowserConfig(
+    cdp_url="http://127.0.0.1:9222",  # AuroraView CDP endpoint
+    headless=False,
+))
+
+agent = Agent(
+    task="Click the submit button and verify the result",
+    llm=ChatOpenAI(model="gpt-4o"),
+    browser=browser,
+)
+
+result = await agent.run()
+```
+
+### chrome-devtools MCP Integration
+
+Use [chrome-devtools MCP](https://github.com/nicholasoxford/chrome-devtools-mcp) alongside AuroraView MCP for enhanced debugging:
+
+```json
+{
+  "mcpServers": {
+    "auroraview": {
+      "command": "uvx",
+      "args": ["auroraview-mcp"]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["--yes", "@anthropic/mcp-chrome-devtools"]
+    }
+  }
+}
+```
+
+This allows AI assistants to:
+- Use `auroraview` tools for Python API calls and instance management
+- Use `chrome-devtools` tools for low-level CDP operations
+
+### Direct CDP Access
+
+AuroraView instances expose Chrome DevTools Protocol endpoints:
+
+```bash
+# Get browser version
+curl http://127.0.0.1:9222/json/version
+
+# List all pages
+curl http://127.0.0.1:9222/json/list
+
+# Connect via WebSocket for CDP commands
+wscat -c ws://127.0.0.1:9222/devtools/page/<pageId>
+```
+
+### Python CDP Client Example
+
+```python
+import asyncio
+import websockets
+import json
+
+async def cdp_example():
+    # Get page info
+    import httpx
+    async with httpx.AsyncClient() as client:
+        pages = await client.get("http://127.0.0.1:9222/json/list")
+        page = pages.json()[0]
+        ws_url = page["webSocketDebuggerUrl"]
+    
+    # Connect via WebSocket
+    async with websockets.connect(ws_url) as ws:
+        # Execute JavaScript
+        await ws.send(json.dumps({
+            "id": 1,
+            "method": "Runtime.evaluate",
+            "params": {"expression": "document.title"}
+        }))
+        
+        response = await ws.recv()
+        print(json.loads(response))
+
+asyncio.run(cdp_example())
+```
+
 ## Related
 
 - [AuroraView](https://github.com/loonghao/auroraview) - Main project
 - [MCP Protocol](https://modelcontextprotocol.io/) - Model Context Protocol
 - [FastMCP](https://github.com/jlowin/fastmcp) - Fast, Pythonic MCP framework
 - [MCP Inspector](https://github.com/modelcontextprotocol/inspector) - MCP debugging tool
+- [browser-use](https://github.com/browser-use/browser-use) - AI browser automation
+- [chrome-devtools MCP](https://github.com/nicholasoxford/chrome-devtools-mcp) - CDP MCP server
 
 ## License
 
