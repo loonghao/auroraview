@@ -8,9 +8,9 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
-from .config import AIConfig, SidebarConfig, ProviderType
+from .config import AIConfig, ProviderType, SidebarConfig
 from .protocol import (
     AGUIEvent,
     Session,
@@ -641,8 +641,8 @@ class AIAgent:
 
         try:
             import openai
-        except ImportError:
-            raise ImportError("openai package is required for OpenAI provider")
+        except ImportError as err:
+            raise ImportError("openai package is required for OpenAI provider") from err
 
         # Get API key from config or environment
         api_key = self.config.api_key or os.environ.get("OPENAI_API_KEY")
@@ -692,8 +692,8 @@ class AIAgent:
 
         try:
             import anthropic
-        except ImportError:
-            raise ImportError("anthropic package is required for Anthropic provider")
+        except ImportError as err:
+            raise ImportError("anthropic package is required for Anthropic provider") from err
 
         # Get API key from config or environment
         api_key = self.config.api_key or os.environ.get("ANTHROPIC_API_KEY")
@@ -766,11 +766,11 @@ class AIAgent:
             import google.generativeai as genai_legacy
 
             return await self._gemini_legacy_sdk(genai_legacy, messages, tools, stream, message_id)
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "google-genai package is required for Gemini provider. "
                 "Install with: pip install google-genai"
-            )
+            ) from err
 
     async def _gemini_new_sdk(
         self,
@@ -906,8 +906,8 @@ class AIAgent:
 
         try:
             import openai
-        except ImportError:
-            raise ImportError("openai package is required")
+        except ImportError as err:
+            raise ImportError("openai package is required") from err
 
         # Determine base URL for different providers
         provider = self.config.infer_provider()
