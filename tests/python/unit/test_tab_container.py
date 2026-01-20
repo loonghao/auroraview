@@ -143,11 +143,13 @@ class TestTabContainer:
             container = TabContainer()
             tab = container.create_tab(load_immediately=False)
 
-            result = container.navigate("https://new-url.com")
+            # Mock _load_tab_webview to avoid creating real WebView
+            with patch.object(container, "_load_tab_webview"):
+                result = container.navigate("https://new-url.com")
 
-            assert result is True
-            assert tab.url == "https://new-url.com"
-            assert tab.is_loading is True
+                assert result is True
+                assert tab.url == "https://new-url.com"
+                assert tab.is_loading is True
 
     def test_get_all_tabs(self):
         """Test getting all tabs in order."""
