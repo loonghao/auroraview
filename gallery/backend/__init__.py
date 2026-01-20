@@ -52,6 +52,11 @@ from .features_api import (
     get_settings_manager,
     get_notification_manager,
 )
+from .ai_api import (
+    register_ai_apis,
+    get_ai_agent,
+    cleanup_ai_agent,
+)
 
 __all__ = [
     # Config
@@ -87,4 +92,8 @@ __all__ = [
     "get_download_manager",
     "get_settings_manager",
     "get_notification_manager",
+    # AI API
+    "register_ai_apis",
+    "get_ai_agent",
+    "cleanup_ai_agent",
 ]

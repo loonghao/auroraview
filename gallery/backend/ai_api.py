@@ -24,9 +24,9 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(PROJECT_ROOT / "python") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "python"))
 
-from auroraview.ai import AIAgent, AIConfig
-from auroraview.ai.config import AVAILABLE_MODELS, ProviderType, get_models_for_provider
-from auroraview.ai.protocol import AGUIEvent
+from auroraview.ai import AIAgent, AIConfig  # noqa: E402
+from auroraview.ai.config import AVAILABLE_MODELS, ProviderType, get_models_for_provider  # noqa: E402
+from auroraview.ai.protocol import AGUIEvent  # noqa: E402
 
 if TYPE_CHECKING:
     from auroraview import WebView
@@ -69,7 +69,7 @@ def register_ai_apis(webview: "WebView") -> Dict[str, Callable]:
     # Create AI agent with the WebView
     # Default to GPT-4o if API key is available, otherwise use local Ollama
     api_keys = _get_api_key_status()
-    logger.info("API Keys status: %s", api_keys)
+    logger.info("API key status checked.")
 
     if api_keys["openai"]:
         default_model = "gpt-4o"

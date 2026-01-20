@@ -18,6 +18,7 @@ import { AnimatedHeader } from './components/AnimatedHeader';
 import { PageTransition, StaggeredList } from './components/PageTransition';
 import { AnimatedCard } from './components/AnimatedCard';
 import { DependencyModal } from './components/DependencyModal';
+import { AISidebar } from './components/AISidebar';
 import { type Tag } from './data/samples';
 import { useAuroraView, type Sample, type Category, type ExtensionInfo } from './hooks/useAuroraView';
 import * as Icons from 'lucide-react';
@@ -76,6 +77,9 @@ function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'gallery' | 'extensions' | 'extension-content'>('gallery');
+  const [backendRetrying, setBackendRetrying] = useState(false);
+  const [backendRestarting, setBackendRestarting] = useState(false);
+
 
   // Browser extension status (legacy)
   const [extensionStatus, setExtensionStatus] = useState<BrowserExtensionStatus>({
@@ -92,7 +96,9 @@ function App() {
   const [dataLoaded, setDataLoaded] = useState(false);
 
   const { 
-    isReady, 
+    isReady,
+    backendError,
+    clearBackendError,
     getSource, 
     runSample, 
     getSamples, 
@@ -123,6 +129,7 @@ function App() {
     managementSetEnabled,
     managementGetPermissionWarnings,
   } = useAuroraView();
+
 
   // Installed WebView extensions
   const [installedExtensions, setInstalledExtensions] = useState<InstalledExtension[]>([]);
@@ -328,6 +335,46 @@ function App() {
   const hideToast = useCallback(() => {
     setToast(prev => ({ ...prev, visible: false }));
   }, []);
+
+  const handleRetryBackend = useCallback(() => {
+    if (backendRetrying) return;
+    setBackendRetrying(true);
+    clearBackendError();
+    setDataLoaded(false);
+    Promise.all([getSamples(), getCategories()])
+      .then(([samplesData, categoriesData]) => {
+        setSamples(samplesData);
+        setCategories(categoriesData);
+        setDataLoaded(true);
+        showToast('Backend reconnected', 'success');
+      })
+      .catch((err) => {
+        console.error('Failed to reload data:', err);
+        showToast('Failed to reload data', 'error');
+      })
+      .finally(() => {
+        setBackendRetrying(false);
+      });
+  }, [backendRetrying, clearBackendError, getSamples, getCategories, showToast]);
+
+  const handleRestartBackend = useCallback(async () => {
+    if (backendRestarting) return;
+    setBackendRestarting(true);
+    try {
+      const result = await restartApp();
+      if (result?.ok) {
+        showToast('Restarting application...', 'success');
+      } else {
+        showToast(result?.error || 'Failed to restart', 'error');
+      }
+    } catch (err) {
+      console.error('Failed to restart app:', err);
+      showToast('Failed to restart', 'error');
+    } finally {
+      setBackendRestarting(false);
+    }
+  }, [backendRestarting, restartApp, showToast]);
+
 
   const handleCategoryClick = useCallback((categoryId: string) => {
     setViewMode('gallery');
@@ -831,7 +878,8 @@ function App() {
   }, [sidePanelOpen, activeSidePanelExtension, handleCloseSidePanel, handleOpenUrl]);
 
   // Show loading state while data is being fetched
-  if (isReady && !dataLoaded) {
+  if (isReady && !dataLoaded && !backendError) {
+
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-muted-foreground">Loading samples...</div>
@@ -841,6 +889,39 @@ function App() {
 
   return (
     <div className="flex min-h-screen bg-white">
+      {backendError && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-red-50 border-b border-red-200 text-red-900">
+          <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+            <div className="text-sm">
+              <span className="font-semibold">Backend Error:</span> {backendError}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRetryBackend}
+                disabled={backendRetrying}
+                className="text-sm px-2 py-1 rounded border border-red-300 hover:bg-red-100 disabled:opacity-60"
+              >
+                {backendRetrying ? 'Retrying...' : 'Retry'}
+              </button>
+              <button
+                onClick={handleRestartBackend}
+                disabled={backendRestarting}
+                className="text-sm px-2 py-1 rounded border border-red-300 hover:bg-red-100 disabled:opacity-60"
+              >
+                {backendRestarting ? 'Restarting...' : 'Restart'}
+              </button>
+              <button
+                onClick={clearBackendError}
+                className="text-sm px-2 py-1 rounded border border-red-300 hover:bg-red-100"
+              >
+                Dismiss
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       <AnimatedSidebar
         activeCategory={activeCategory}
         onCategoryClick={handleCategoryClick}
@@ -1035,6 +1116,9 @@ function App() {
         onCancelInstall={cancelInstallation}
         onComplete={handleDepModalComplete}
       />
+
+      {/* AI Assistant Sidebar */}
+      <AISidebar />
 
     </div>
   );

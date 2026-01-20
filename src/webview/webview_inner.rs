@@ -273,22 +273,11 @@ impl WebViewInner {
                                         }
                                     }
                                     WebViewMessage::EmitEvent { event_name, data } => {
-                                        // Use window.auroraview.trigger() to dispatch events
-                                        // This ensures compatibility with window.auroraview.on() listeners
+                                        // JSON is already valid JavaScript literal, no escaping needed
                                         let json_str = data.to_string();
-                                        let escaped_json =
-                                            json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                        let script = format!(
-                                            r#"
-                                            (function() {{
-                                                if (window.auroraview && window.auroraview.trigger) {{
-                                                    window.auroraview.trigger('{}', JSON.parse('{}'));
-                                                }} else {{
-                                                    console.error('[AuroraView] Event bridge not ready, cannot emit event: {}');
-                                                }}
-                                            }})();
-                                            "#,
-                                            event_name, escaped_json, event_name
+                                        let script = js_assets::build_emit_event_script(
+                                            &event_name,
+                                            &json_str,
                                         );
                                         if let Err(e) = webview.evaluate_script(&script) {
                                             tracing::error!("Failed to emit event: {}", e);
@@ -308,12 +297,11 @@ impl WebViewInner {
                                     WebViewMessage::WindowEvent { event_type, data } => {
                                         // Window events are handled by emitting to JavaScript
                                         let event_name = event_type.as_str();
+                                        // JSON is already valid JavaScript literal, no escaping needed
                                         let json_str = data.to_string();
-                                        let escaped_json =
-                                            json_str.replace('\\', "\\\\").replace('\'', "\\'");
                                         let script = js_assets::build_emit_event_script(
                                             event_name,
-                                            &escaped_json,
+                                            &json_str,
                                         );
                                         tracing::debug!(
                                             "[WINDOW_EVENT] Emitting window event: {}",

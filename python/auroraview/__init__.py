@@ -409,6 +409,7 @@ from . import browser  # auroraview.browser - Browser, TabContainer
 from . import (
     features,
 )  # auroraview.features - Bookmarks, History, Downloads, Settings, Notifications
+from . import ai  # auroraview.ai - AI Agent
 
 __all__ = [
     # ============================================================
@@ -420,6 +421,7 @@ __all__ = [
     "utils",  # auroraview.utils - EventTimer, FileProtocol, Automation
     "browser",  # auroraview.browser - Browser, TabContainer
     "features",  # auroraview.features - Bookmarks, History, Downloads, Settings, Notifications
+    "ai",  # auroraview.ai - AI Agent
     # ============================================================
     # Unified API (recommended for new code)
     # ============================================================

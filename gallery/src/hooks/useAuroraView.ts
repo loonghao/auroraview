@@ -221,10 +221,53 @@ export interface FeaturesResult<T = unknown> {
  */
 export function useAuroraView() {
   const { client, isReady } = useAuroraViewBase();
+  const [backendError, setBackendError] = useState<string | null>(null);
+
+  const clearBackendError = useCallback(() => {
+    setBackendError(null);
+  }, []);
+
 
   // ============================================
   // Sample Management APIs (Python backend)
   // ============================================
+
+  // Handle backend errors from Python stderr
+  useEffect(() => {
+    if (!client) return;
+
+    client.setConfig({
+      callTimeoutMs: 30000,
+      backendFailFast: true,
+    });
+
+
+    const errorHandler = (errorData: any) => {
+      const message =
+        typeof errorData === 'string'
+          ? errorData
+          : (errorData && typeof errorData.message === 'string'
+              ? errorData.message
+              : 'Backend error');
+      console.error('[AuroraView] Backend error received:', errorData);
+      setBackendError(message);
+    };
+
+    const healthHandler = () => {
+      setBackendError(null);
+    };
+
+    const unsubscribe = client.on('backend_error', errorHandler);
+    const unsubscribeHealth = client.on('backend_health', healthHandler);
+    const unsubscribeReady = client.on('backend_ready', healthHandler);
+    return () => {
+      unsubscribe();
+      unsubscribeHealth();
+      unsubscribeReady();
+    };
+  }, [client]);
+
+
 
   const getSource = useCallback(async (sampleId: string): Promise<string> => {
     if (!client) {
@@ -1099,7 +1142,10 @@ export function useAuroraView() {
 
   return {
     isReady,
+    backendError,
+    clearBackendError,
     // Sample Management
+
     getSource,
     runSample,
     getSamples,

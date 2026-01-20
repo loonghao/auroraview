@@ -43,6 +43,7 @@ from backend.extension_api import cleanup_extension_bridge, register_extension_a
 from backend.process_api import register_process_apis
 from backend.webview_extension_api import register_webview_extension_apis
 from backend.features_api import register_features_api
+from backend.ai_api import register_ai_apis, cleanup_ai_agent
 
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "python"))
@@ -81,6 +82,12 @@ def _cleanup_all():
         cleanup_extension_bridge()
     except Exception as e:
         print(f"[Gallery] Error cleaning up extension bridge: {e}", file=sys.stderr)
+    
+    # Cleanup AI agent
+    try:
+        cleanup_ai_agent()
+    except Exception as e:
+        print(f"[Gallery] Error cleaning up AI agent: {e}", file=sys.stderr)
     
     # Cleanup child window manager
     try:
@@ -178,6 +185,8 @@ def run_gallery():
     # Set up event callback for plugins
     if packed_mode:
         _stdout_lock = threading.Lock()
+        # Events that should not log (high-frequency internal events)
+        _silent_events = {"backend_health", "process:stdout", "process:stderr"}
 
         def packed_emit_callback(event_name, data):
             """Emit events to Rust CLI via stdout in packed mode."""
@@ -189,7 +198,9 @@ def run_gallery():
                 })
                 with _stdout_lock:
                     print(event_msg, flush=True)
-                print(f"[Python:emit] Sent event via stdout: {event_name}", file=sys.stderr)
+                # Only log non-frequent events to reduce noise
+                if event_name not in _silent_events:
+                    print(f"[Python:emit] Sent event: {event_name}", file=sys.stderr)
             except Exception as e:
                 print(f"[Python:emit] Error sending event: {e}", file=sys.stderr)
 
@@ -220,6 +231,9 @@ def run_gallery():
 
     # Register features APIs (bookmarks, history, downloads, settings, notifications)
     register_features_api(view)
+
+    # Register AI Agent APIs
+    register_ai_apis(view)
 
     # Register simple API handlers
     @view.bind_call("api.get_samples")

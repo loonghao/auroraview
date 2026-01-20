@@ -6,12 +6,25 @@
 //! - Properly manages window lifecycle
 //! - Integrates better with Python's GIL
 //! - Emits window events to Python callbacks (inspired by Tauri/Electron)
+//!
+//! ## Thread Safety Optimizations
+//!
+//! - Uses `AtomicBool` for `should_exit` flag (lock-free)
+//! - Uses `crossbeam-channel` for message queue (lock-free MPMC)
+//! - Minimizes lock contention in hot paths
+//!
+//! ## Error Handling
+//!
+//! This module uses [`EventLoopError`] for structured error handling with
+//! actionable information for debugging production issues.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tao::event::{Event, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 use tao::platform::run_return::EventLoopExtRunReturn;
 use tao::window::Window;
+use thiserror::Error;
 use wry::WebView as WryWebView;
 
 use crate::ipc::{MessageQueue, WebViewMessage};
@@ -19,6 +32,106 @@ use crate::webview::js_assets;
 
 #[cfg(feature = "python-bindings")]
 use crate::ipc::{IpcHandler, WindowEventType};
+
+/// Event loop errors with context for debugging
+///
+/// These errors provide structured information for diagnosing issues
+/// in production environments. Each variant includes relevant context
+/// to help identify the root cause.
+#[derive(Debug, Error)]
+pub enum EventLoopError {
+    /// Failed to acquire WebView lock
+    #[error("WebView lock failed: {context}")]
+    WebViewLock {
+        /// Description of what operation was attempted
+        context: String,
+    },
+
+    /// JavaScript execution failed
+    #[error("JavaScript execution failed: {script_preview}")]
+    ScriptExecution {
+        /// First 100 chars of the script for identification
+        script_preview: String,
+        /// The underlying error message
+        message: String,
+    },
+
+    /// Message queue is full (backpressure)
+    #[error("Message queue full: {queue_len} messages pending")]
+    QueueFull {
+        /// Current queue length
+        queue_len: usize,
+    },
+
+    /// UTF-8 encoding error in message data
+    #[error("Encoding error: {message}")]
+    Encoding {
+        /// Description of the encoding issue
+        message: String,
+    },
+
+    /// Event loop proxy error (loop may be closed)
+    #[error("Event loop closed or unavailable")]
+    EventLoopClosed,
+
+    /// Window operation failed
+    #[error("Window operation failed: {operation}")]
+    WindowOperation {
+        /// The operation that failed
+        operation: String,
+    },
+
+    /// Message processing timeout
+    #[error("Message processing timed out after {timeout_ms}ms")]
+    Timeout {
+        /// Timeout duration in milliseconds
+        timeout_ms: u64,
+    },
+}
+
+/// Result type for event loop operations
+pub type EventLoopResult<T> = Result<T, EventLoopError>;
+
+impl EventLoopError {
+    /// Create a WebView lock error with context
+    pub fn webview_lock(context: impl Into<String>) -> Self {
+        Self::WebViewLock {
+            context: context.into(),
+        }
+    }
+
+    /// Create a script execution error with preview
+    pub fn script_execution(script: &str, message: impl Into<String>) -> Self {
+        let preview = if script.len() > 100 {
+            format!("{}...", &script[..100])
+        } else {
+            script.to_string()
+        };
+        Self::ScriptExecution {
+            script_preview: preview,
+            message: message.into(),
+        }
+    }
+
+    /// Create an encoding error
+    pub fn encoding(message: impl Into<String>) -> Self {
+        Self::Encoding {
+            message: message.into(),
+        }
+    }
+
+    /// Create a window operation error
+    pub fn window_operation(operation: impl Into<String>) -> Self {
+        Self::WindowOperation {
+            operation: operation.into(),
+        }
+    }
+
+    /// Create a timeout error
+    pub fn timeout(timeout_ms: u64) -> Self {
+        Self::Timeout { timeout_ms }
+    }
+}
 
 /// Custom user event for waking up the event loop
 #[derive(Debug, Clone)]
@@ -63,9 +176,14 @@ pub struct WindowStyleHints {
 }
 
 /// Event loop state management
+///
+/// ## Thread Safety
+/// - `should_exit`: `AtomicBool` for lock-free exit signaling
+/// - `webview`: `Arc<Mutex<>>` because WryWebView is not Send/Sync
+/// - `message_queue`: Uses `crossbeam-channel` internally (lock-free MPMC)
 pub struct EventLoopState {
-    /// Whether the event loop should continue running
-    pub should_exit: Arc<Mutex<bool>>,
+    /// Whether the event loop should continue running (atomic for lock-free access)
+    pub should_exit: Arc<AtomicBool>,
     /// Window reference
     pub window: Option<Window>,
     /// WebView reference for processing messages (wrapped in Arc<Mutex<>> for thread safety)
@@ -91,7 +209,7 @@ impl EventLoopState {
     #[allow(clippy::arc_with_non_send_sync)]
     pub fn new(window: Window, webview: WryWebView, message_queue: Arc<MessageQueue>) -> Self {
         Self {
-            should_exit: Arc::new(Mutex::new(false)),
+            should_exit: Arc::new(AtomicBool::new(false)),
             window: Some(window),
             webview: Some(Arc::new(Mutex::new(webview))),
             message_queue,
@@ -107,7 +225,7 @@ impl EventLoopState {
     /// Create a new event loop state without webview (for later initialization)
     pub fn new_without_webview(window: Window, message_queue: Arc<MessageQueue>) -> Self {
         Self {
-            should_exit: Arc::new(Mutex::new(false)),
+            should_exit: Arc::new(AtomicBool::new(false)),
             window: Some(window),
             webview: None,
             message_queue,
@@ -146,6 +264,7 @@ impl EventLoopState {
     /// Signal the event loop to exit
     ///
     /// Uses ipckit's graceful shutdown mechanism to wait for pending operations.
+    /// This method is lock-free for the exit flag (uses AtomicBool).
     pub fn request_exit(&self) {
         // Shutdown the message queue first to prevent background threads
         // from sending messages after the event loop is closed
@@ -160,14 +279,13 @@ impl EventLoopState {
             tracing::warn!("[EventLoopState] Drain timeout during exit: {}", e);
         }
 
-        if let Ok(mut should_exit) = self.should_exit.lock() {
-            *should_exit = true;
-        }
+        // Set exit flag atomically (lock-free)
+        self.should_exit.store(true, Ordering::SeqCst);
     }
 
-    /// Check if exit was requested
+    /// Check if exit was requested (lock-free)
     pub fn should_exit(&self) -> bool {
-        self.should_exit.lock().map(|flag| *flag).unwrap_or(false)
+        self.should_exit.load(Ordering::SeqCst)
     }
 
     /// Emit a window event to Python callbacks
@@ -258,6 +376,88 @@ impl EventLoopState {
 /// Improved event loop handler
 pub struct WebViewEventHandler {
     state: Arc<Mutex<EventLoopState>>,
+}
+
+/// Process a single WebView message
+///
+/// This is extracted as a separate function to avoid code duplication
+/// across different event handlers (UserEvent::ProcessMessages, MainEventsCleared, poll_events_once).
+fn process_webview_message(
+    message: &WebViewMessage,
+    webview: &WryWebView,
+    window: Option<&Window>,
+    state: &EventLoopState,
+) {
+    match message {
+        WebViewMessage::EvalJs(script) => {
+            tracing::debug!("[EventLoop] Executing EvalJs");
+            if let Err(e) = webview.evaluate_script(script) {
+                tracing::error!("[EventLoop] Failed to execute JavaScript: {}", e);
+            }
+        }
+        WebViewMessage::EmitEvent { event_name, data } => {
+            // JSON is already valid JavaScript literal
+            let json_str = data.to_string();
+            let script = js_assets::build_emit_event_script(event_name, &json_str);
+            if let Err(e) = webview.evaluate_script(&script) {
+                tracing::error!("Failed to emit event '{}': {}", event_name, e);
+            }
+        }
+        WebViewMessage::LoadUrl(url) => {
+            tracing::info!("[EventLoop] Loading URL via native API: {}", url);
+            if let Err(e) = webview.load_url(url) {
+                tracing::error!("Failed to load URL '{}': {}", url, e);
+            }
+        }
+        WebViewMessage::LoadHtml(html) => {
+            tracing::debug!("Processing LoadHtml ({} bytes)", html.len());
+            if let Err(e) = webview.load_html(html) {
+                tracing::error!("Failed to load HTML: {}", e);
+            }
+        }
+        WebViewMessage::SetVisible(visible) => {
+            // Handle at window level
+            if let Some(win) = window {
+                tracing::debug!("[EventLoop] Setting window visibility: {}", visible);
+                win.set_visible(*visible);
+            }
+        }
+        WebViewMessage::WindowEvent { event_type, data } => {
+            let event_name = event_type.as_str();
+            let json_str = data.to_string();
+            let script = js_assets::build_emit_event_script(event_name, &json_str);
+            if let Err(e) = webview.evaluate_script(&script) {
+                tracing::error!("Failed to emit window event '{}': {}", event_name, e);
+            }
+        }
+        WebViewMessage::EvalJsAsync { script, callback_id } => {
+            let async_script = js_assets::build_eval_js_async_script(script, *callback_id);
+            if let Err(e) = webview.evaluate_script(&async_script) {
+                tracing::error!(
+                    "Failed to execute async JavaScript (id={}): {}",
+                    callback_id,
+                    e
+                );
+            }
+        }
+        WebViewMessage::Reload => {
+            if let Err(e) = webview.evaluate_script("location.reload()") {
+                tracing::error!("Failed to reload: {}", e);
+            }
+        }
+        WebViewMessage::StopLoading => {
+            if let Err(e) = webview.evaluate_script("window.stop()") {
+                tracing::error!("Failed to stop loading: {}", e);
+            }
+        }
+        WebViewMessage::Close => {
+            tracing::info!("[EventLoop] Close message received, requesting exit");
+            state.request_exit();
+            if let Some(win) = window {
+                win.set_visible(false);
+            }
+        }
+    }
 }
 
 impl WebViewEventHandler {
@@ -445,8 +645,8 @@ impl WebViewEventHandler {
             match event {
                 Event::UserEvent(UserEvent::ProcessMessages) => {
                     tracing::debug!("[EventLoop] Processing UserEvent::ProcessMessages");
-                    // Process messages immediately when woken up
                     if let Ok(state_guard) = state_clone.lock() {
+                        let window_ref = state_guard.window.as_ref();
                         let count = state_guard.message_queue.process_all(|message| {
                             tracing::debug!("[EventLoop] Processing message: {:?}",
                                 match &message {
@@ -463,94 +663,14 @@ impl WebViewEventHandler {
                                 }
                             );
 
-                            // Handle Close message - request exit
-                            if matches!(&message, WebViewMessage::Close) {
-                                tracing::info!("[EventLoop] Close message received, requesting exit");
-                                state_guard.request_exit();
-                                if let Some(ref window) = state_guard.window {
-                                    window.set_visible(false);
-                                }
-                                return; // Skip other processing for Close
-                            }
-
                             if let Some(webview_arc) = &state_guard.webview {
                                 if let Ok(webview) = webview_arc.lock() {
-                                    match &message {
-                                        WebViewMessage::EvalJs(script) => {
-                                            tracing::debug!("[EventLoop] Executing EvalJs");
-                                            if let Err(e) = webview.evaluate_script(script) {
-                                                tracing::error!("[EventLoop] Failed to execute JavaScript: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::EmitEvent { event_name, data } => {
-                                            let json_str = data.to_string();
-                                            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                            let script = js_assets::build_emit_event_script(event_name, &escaped_json);
-                                            if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("Failed to emit event '{}': {}", event_name, e);
-                                            }
-                                        }
-                                        WebViewMessage::LoadUrl(url) => {
-                                            // Use native WebView2 navigation
-                                            tracing::info!("[EventLoop] Loading URL via native API: {}", url);
-                                            if let Err(e) = webview.load_url(url) {
-                                                tracing::error!("Failed to load URL '{}': {}", url, e);
-                                            }
-                                        }
-                                        WebViewMessage::LoadHtml(html) => {
-                                            if let Err(e) = webview.load_html(html) {
-                                                tracing::error!("Failed to load HTML: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::SetVisible(visible) => {
-                                            // SetVisible is handled at window level, not webview
-                                            // This is a no-op here, handled separately
-                                            tracing::debug!("SetVisible({}) received in webview handler (no-op)", visible);
-                                        }
-                                        WebViewMessage::WindowEvent { event_type, data } => {
-                                            // Window events are emitted to JavaScript
-                                            let event_name = event_type.as_str();
-                                            let json_str = data.to_string();
-                                            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                            let script = js_assets::build_emit_event_script(event_name, &escaped_json);
-                                            if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("Failed to emit window event '{}': {}", event_name, e);
-                                            }
-                                        }
-                                        WebViewMessage::EvalJsAsync { script, callback_id } => {
-                                            // Execute JavaScript and send result back via IPC
-                                            let async_script = js_assets::build_eval_js_async_script(script, *callback_id);
-                                            if let Err(e) = webview.evaluate_script(&async_script) {
-                                                tracing::error!("Failed to execute async JavaScript (id={}): {}", callback_id, e);
-                                            }
-                                        }
-                                        WebViewMessage::Reload => {
-                                            if let Err(e) = webview.evaluate_script("location.reload()") {
-                                                tracing::error!("Failed to reload: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::StopLoading => {
-                                            if let Err(e) = webview.evaluate_script("window.stop()") {
-                                                tracing::error!("Failed to stop loading: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::Close => {
-                                            // Close is handled above, this branch should not be reached
-                                        }
-                                    }
+                                    process_webview_message(&message, &webview, window_ref, &state_guard);
                                 } else {
                                     tracing::error!("[EventLoop] Failed to lock WebView");
                                 }
                             } else {
                                 tracing::warn!("[EventLoop] WebView is None");
-                            }
-
-                            // Handle SetVisible at window level
-                            if let WebViewMessage::SetVisible(visible) = &message {
-                                if let Some(ref window) = state_guard.window {
-                                    tracing::debug!("[EventLoop] Setting window visibility: {}", visible);
-                                    window.set_visible(*visible);
-                                }
                             }
                         });
 
@@ -558,7 +678,6 @@ impl WebViewEventHandler {
                             tracing::debug!("[EventLoop] Processed {} messages via UserEvent", count);
                         }
 
-                        // Check if Close message was processed and exit immediately
                         if state_guard.should_exit() {
                             tracing::info!("[EventLoop] Exit requested after processing messages, exiting");
                             *control_flow = ControlFlow::Exit;
@@ -605,8 +724,8 @@ impl WebViewEventHandler {
                     if let Ok(state_guard) = state_clone.lock() {
                         if let Some(webview_arc) = &state_guard.webview {
                             if let Ok(webview) = webview_arc.lock() {
-                                let escaped_data = data.replace('\\', "\\\\").replace('\'', "\\'");
-                                let script = js_assets::build_emit_event_script(&event, &escaped_data);
+                                // data is already a JSON string, no escaping needed
+                                let script = js_assets::build_emit_event_script(&event, &data);
                                 if let Err(e) = webview.evaluate_script(&script) {
                                     tracing::error!("[EventLoop] Failed to emit plugin event '{}': {}", event, e);
                                 }
@@ -675,7 +794,7 @@ impl WebViewEventHandler {
                             if let Ok(state_guard) = state_clone.lock() {
                                 (state_guard.get_hwnd(), state_guard.should_exit.clone())
                             } else {
-                                (None, Arc::new(Mutex::new(false)))
+                                (None, Arc::new(AtomicBool::new(false)))
                             }
                         };
 
@@ -685,10 +804,8 @@ impl WebViewEventHandler {
                             let should_close = message_pump::process_messages_for_hwnd(hwnd);
                             if should_close {
                                 tracing::info!("[EventLoop] Close detected from message pump, requesting exit");
-                                // Set exit flag directly without holding state lock
-                                if let Ok(mut flag) = should_exit_arc.lock() {
-                                    *flag = true;
-                                }
+                                // Set exit flag directly using AtomicBool (lock-free)
+                                should_exit_arc.store(true, Ordering::SeqCst);
                             }
                         } else {
                             // Fallback: If HWND not available, use limited global processing
@@ -700,89 +817,11 @@ impl WebViewEventHandler {
 
                     // Process pending messages from the queue
                     if let Ok(state_guard) = state_clone.lock() {
-                        // Process all pending messages
+                        let window_ref = state_guard.window.as_ref();
                         let count = state_guard.message_queue.process_all(|message| {
-                            // Handle Close message - request exit
-                            if matches!(&message, WebViewMessage::Close) {
-                                tracing::info!("[EventLoop] Close message received in MainEventsCleared, requesting exit");
-                                state_guard.request_exit();
-                                if let Some(ref window) = state_guard.window {
-                                    window.set_visible(false);
-                                }
-                                return; // Skip other processing for Close
-                            }
-
                             if let Some(webview_arc) = &state_guard.webview {
                                 if let Ok(webview) = webview_arc.lock() {
-                                    match &message {
-                                        WebViewMessage::EvalJs(script) => {
-                                            tracing::debug!("Processing EvalJs: {}", script);
-                                            if let Err(e) = webview.evaluate_script(script) {
-                                                tracing::error!("Failed to execute JavaScript: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::EmitEvent { event_name, data } => {
-                                            let json_str = data.to_string();
-                                            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                            let script = js_assets::build_emit_event_script(event_name, &escaped_json);
-                                            if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("Failed to emit event '{}': {}", event_name, e);
-                                            }
-                                        }
-                                        WebViewMessage::LoadUrl(url) => {
-                                            // Use native WebView2 navigation
-                                            tracing::info!("[EventLoop] Loading URL via native API: {}", url);
-                                            if let Err(e) = webview.load_url(url) {
-                                                tracing::error!("Failed to load URL '{}': {}", url, e);
-                                            }
-                                        }
-                                        WebViewMessage::LoadHtml(html) => {
-                                            tracing::debug!("Processing LoadHtml ({} bytes)", html.len());
-                                            if let Err(e) = webview.load_html(html) {
-                                                tracing::error!("Failed to load HTML: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::SetVisible(visible) => {
-                                            tracing::debug!("SetVisible({}) in webview handler (no-op)", visible);
-                                        }
-                                        WebViewMessage::WindowEvent { event_type, data } => {
-                                            let event_name = event_type.as_str();
-                                            let json_str = data.to_string();
-                                            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                            let script = js_assets::build_emit_event_script(event_name, &escaped_json);
-                                            if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!("Failed to emit window event '{}': {}", event_name, e);
-                                            }
-                                        }
-                                        WebViewMessage::EvalJsAsync { script, callback_id } => {
-                                            // Execute JavaScript and send result back via IPC
-                                            let async_script = js_assets::build_eval_js_async_script(script, *callback_id);
-                                            if let Err(e) = webview.evaluate_script(&async_script) {
-                                                tracing::error!("Failed to execute async JavaScript (id={}): {}", callback_id, e);
-                                            }
-                                        }
-                                        WebViewMessage::Reload => {
-                                            if let Err(e) = webview.evaluate_script("location.reload()") {
-                                                tracing::error!("Failed to reload: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::StopLoading => {
-                                            if let Err(e) = webview.evaluate_script("window.stop()") {
-                                                tracing::error!("Failed to stop loading: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::Close => {
-                                            // Close is handled above, this branch should not be reached
-                                        }
-                                    }
-                                }
-
-                                // Handle SetVisible at window level
-                                if let WebViewMessage::SetVisible(visible) = &message {
-                                    if let Some(ref window) = state_guard.window {
-                                        tracing::info!("[EventLoop] Setting window visibility: {}", visible);
-                                        window.set_visible(*visible);
-                                    }
+                                    process_webview_message(&message, &webview, window_ref, &state_guard);
                                 }
                             }
                         });
@@ -838,109 +877,11 @@ impl WebViewEventHandler {
                 Event::UserEvent(UserEvent::ProcessMessages) => {
                     tracing::debug!("[OK] [poll_events_once] Processing messages");
                     if let Ok(state_guard) = state_clone.lock() {
+                        let window_ref = state_guard.window.as_ref();
                         state_guard.message_queue.process_all(|message| {
-                            // Handle Close message - request exit
-                            if matches!(&message, WebViewMessage::Close) {
-                                tracing::info!("[poll_events_once] Close message received, requesting exit");
-                                state_guard.request_exit();
-                                if let Some(ref window) = state_guard.window {
-                                    window.set_visible(false);
-                                }
-                                return;
-                            }
-
                             if let Some(webview_arc) = &state_guard.webview {
                                 if let Ok(webview) = webview_arc.lock() {
-                                    match &message {
-                                        WebViewMessage::EvalJs(script) => {
-                                            if let Err(e) = webview.evaluate_script(script) {
-                                                tracing::error!(
-                                                    "Failed to execute JavaScript: {}",
-                                                    e
-                                                );
-                                            }
-                                        }
-                                        WebViewMessage::EmitEvent { event_name, data } => {
-                                            let json_str = data.to_string();
-                                            let escaped_json =
-                                                json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                            let script = js_assets::build_emit_event_script(
-                                                event_name,
-                                                &escaped_json,
-                                            );
-                                            if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!(
-                                                    "Failed to emit event '{}': {}",
-                                                    event_name,
-                                                    e
-                                                );
-                                            }
-                                        }
-                                        WebViewMessage::LoadUrl(url) => {
-                                            // Use native WebView2 navigation
-                                            tracing::info!("[EventLoop] Loading URL via native API: {}", url);
-                                            if let Err(e) = webview.load_url(url) {
-                                                tracing::error!(
-                                                    "Failed to load URL '{}': {}",
-                                                    url,
-                                                    e
-                                                );
-                                            }
-                                        }
-                                        WebViewMessage::LoadHtml(html) => {
-                                            if let Err(e) = webview.load_html(html) {
-                                                tracing::error!("Failed to load HTML: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::SetVisible(visible) => {
-                                            tracing::debug!("SetVisible({}) in webview handler (no-op)", visible);
-                                        }
-                                        WebViewMessage::WindowEvent { event_type, data } => {
-                                            let event_name = event_type.as_str();
-                                            let json_str = data.to_string();
-                                            let escaped_json =
-                                                json_str.replace('\\', "\\\\").replace('\'', "\\'");
-                                            let script = js_assets::build_emit_event_script(
-                                                event_name,
-                                                &escaped_json,
-                                            );
-                                            if let Err(e) = webview.evaluate_script(&script) {
-                                                tracing::error!(
-                                                    "Failed to emit window event '{}': {}",
-                                                    event_name,
-                                                    e
-                                                );
-                                            }
-                                        }
-                                        WebViewMessage::EvalJsAsync { script, callback_id } => {
-                                            // Execute JavaScript and send result back via IPC
-                                            let async_script = js_assets::build_eval_js_async_script(script, *callback_id);
-                                            if let Err(e) = webview.evaluate_script(&async_script) {
-                                                tracing::error!("Failed to execute async JavaScript (id={}): {}", callback_id, e);
-                                            }
-                                        }
-                                        WebViewMessage::Reload => {
-                                            if let Err(e) = webview.evaluate_script("location.reload()") {
-                                                tracing::error!("Failed to reload: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::StopLoading => {
-                                            if let Err(e) = webview.evaluate_script("window.stop()") {
-                                                tracing::error!("Failed to stop loading: {}", e);
-                                            }
-                                        }
-                                        WebViewMessage::Close => {
-                                            // Close is handled above, this branch should not be reached
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Handle SetVisible at window level
-                            if let WebViewMessage::SetVisible(visible) = &message {
-                                if let Some(ref window) = state_guard.window {
-                                    tracing::info!("[EventLoop] Setting window visibility: {}", visible);
-                                    window.set_visible(*visible);
+                                    process_webview_message(&message, &webview, window_ref, &state_guard);
                                 }
                             }
                         });

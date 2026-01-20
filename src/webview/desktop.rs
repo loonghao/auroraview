@@ -889,16 +889,17 @@ pub fn create_desktop(
                             };
 
                             // Dispatch call_result event to JavaScript using auroraview.trigger()
-                            let escaped_json = result_payload.to_string().replace('\\', "\\\\").replace('\'', "\\'");
+                            // JSON is already valid JavaScript literal, no escaping needed
+                            let json_str = result_payload.to_string();
                             let script = format!(
                                 "(function() {{ \
                                     if (window.auroraview && window.auroraview.trigger) {{ \
-                                        window.auroraview.trigger('__auroraview_call_result', JSON.parse('{}')); \
+                                        window.auroraview.trigger('__auroraview_call_result', {}); \
                                     }} else {{ \
                                         console.error('[AuroraView] Event bridge not ready, cannot emit call_result'); \
                                     }} \
                                 }})();",
-                                escaped_json
+                                json_str
                             );
                             message_queue_clone.push(crate::ipc::WebViewMessage::EvalJs(script));
                         }

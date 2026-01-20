@@ -225,9 +225,9 @@ pub trait PyBindingsBackend {
         if self.is_closing() {
             return Err("WebView is closing".into());
         }
+        // JSON is already valid JavaScript literal, no escaping needed
         let json_str = data.to_string();
-        let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-        let script = js_assets::build_emit_event_script(event_name, &escaped_json);
+        let script = js_assets::build_emit_event_script(event_name, &json_str);
         if let Ok(webview) = self.webview().lock() {
             webview.evaluate_script(&script)?;
         }

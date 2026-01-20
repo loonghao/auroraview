@@ -23,6 +23,9 @@ path = "src/main.rs"
 # Core utilities and assets
 auroraview-core = { path = "../auroraview-core" }
 
+# Plugin system for built-in plugins (fs, clipboard, shell, dialog, etc.)
+auroraview-plugins = { path = "../auroraview-plugins" }
+
 # Pack functionality (via submodule)
 auroraview-pack = { path = "../../submodules/auroraview-pack", features = ["code-protection"] }
 

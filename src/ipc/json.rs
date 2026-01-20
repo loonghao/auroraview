@@ -18,7 +18,8 @@ use pyo3::{Py, PyAny};
 
 // Re-export all core JSON functions
 pub use auroraview_core::json::{
-    from_bytes, from_slice, from_str, from_value, to_string, to_string_pretty, to_value, Value,
+    from_bytes, from_slice, from_str, from_value, serialize_to_js_literal, to_js_literal,
+    to_string, to_string_pretty, to_value, Value,
 };
 
 /// Convert JSON value to Python object
