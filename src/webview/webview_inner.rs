@@ -300,8 +300,7 @@ impl WebViewInner {
                                         // JSON is already valid JavaScript literal, no escaping needed
                                         let json_str = data.to_string();
                                         let script = js_assets::build_emit_event_script(
-                                            event_name,
-                                            &json_str,
+                                            event_name, &json_str,
                                         );
                                         tracing::debug!(
                                             "[WINDOW_EVENT] Emitting window event: {}",
@@ -315,15 +314,26 @@ impl WebViewInner {
                                         // SetVisible is handled at window level, not webview level
                                         // This is a no-op here
                                     }
-                                    WebViewMessage::EvalJsAsync { script, callback_id } => {
+                                    WebViewMessage::EvalJsAsync {
+                                        script,
+                                        callback_id,
+                                    } => {
                                         // Execute JavaScript and send result back via IPC
-                                        let async_script = js_assets::build_eval_js_async_script(&script, callback_id);
+                                        let async_script = js_assets::build_eval_js_async_script(
+                                            &script,
+                                            callback_id,
+                                        );
                                         if let Err(e) = webview.evaluate_script(&async_script) {
-                                            tracing::error!("Failed to execute async JavaScript (id={}): {}", callback_id, e);
+                                            tracing::error!(
+                                                "Failed to execute async JavaScript (id={}): {}",
+                                                callback_id,
+                                                e
+                                            );
                                         }
                                     }
                                     WebViewMessage::Reload => {
-                                        if let Err(e) = webview.evaluate_script("location.reload()") {
+                                        if let Err(e) = webview.evaluate_script("location.reload()")
+                                        {
                                             tracing::error!("Failed to reload: {}", e);
                                         }
                                     }

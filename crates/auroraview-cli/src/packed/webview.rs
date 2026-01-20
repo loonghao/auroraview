@@ -5,9 +5,9 @@
 use anyhow::{Context, Result};
 use auroraview_core::assets::{build_packed_init_script, get_loading_html};
 use auroraview_core::plugins::{PathScope, PluginRequest, ScopeConfig, ShellScope};
-use auroraview_plugins::PluginRouter;
 use auroraview_core::protocol::MemoryAssets;
 use auroraview_pack::{OverlayData, PackMode, PackedMetrics};
+use auroraview_plugins::PluginRouter;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
@@ -416,9 +416,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             .with_shell_scope(ShellScope::new()) // Allows open_url/open_file but not arbitrary commands
     };
 
-    let plugin_router = Arc::new(RwLock::new(
-        auroraview_plugins::create_router_with_scope(default_scope),
-    ));
+    let plugin_router = Arc::new(RwLock::new(auroraview_plugins::create_router_with_scope(
+        default_scope,
+    )));
 
     // Set up event callback for plugins to emit events to WebView
     let proxy_for_events = proxy.clone();
@@ -468,10 +468,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         let proxy_for_timeout = proxy.clone();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(10));
-            let is_ready = python_ready_for_timeout
-                .read()
-                .map(|r| *r)
-                .unwrap_or(false);
+            let is_ready = python_ready_for_timeout.read().map(|r| *r).unwrap_or(false);
             if !is_ready {
                 tracing::error!("[Rust] Python backend ready timeout");
                 let _ = proxy_for_timeout.send_event(UserEvent::BackendError {
@@ -484,7 +481,6 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             }
         });
     }
-
 
     // Create window
     let mut window_builder = tao::window::WindowBuilder::new()

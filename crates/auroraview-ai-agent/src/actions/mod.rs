@@ -182,9 +182,15 @@ impl Action for SearchAction {
             .unwrap_or("google");
 
         let search_url = match engine {
-            "bing" => format!("https://www.bing.com/search?q={}", urlencoding::encode(query)),
+            "bing" => format!(
+                "https://www.bing.com/search?q={}",
+                urlencoding::encode(query)
+            ),
             "duckduckgo" => format!("https://duckduckgo.com/?q={}", urlencoding::encode(query)),
-            _ => format!("https://www.google.com/search?q={}", urlencoding::encode(query)),
+            _ => format!(
+                "https://www.google.com/search?q={}",
+                urlencoding::encode(query)
+            ),
         };
 
         Ok(ActionResult::ok(serde_json::json!({
@@ -286,10 +292,7 @@ impl Action for TypeAction {
             .and_then(|v| v.as_str())
             .ok_or_else(|| AIError::ActionExecutionFailed("Missing 'text' parameter".into()))?;
 
-        let clear = args
-            .get("clear")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let clear = args.get("clear").and_then(|v| v.as_bool()).unwrap_or(false);
 
         Ok(ActionResult::ok(serde_json::json!({
             "typed": true,
@@ -378,10 +381,7 @@ impl Action for ScrollAction {
                 AIError::ActionExecutionFailed("Missing 'direction' parameter".into())
             })?;
 
-        let amount = args
-            .get("amount")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(300);
+        let amount = args.get("amount").and_then(|v| v.as_i64()).unwrap_or(300);
 
         Ok(ActionResult::ok(serde_json::json!({
             "scrolled": true,
@@ -415,9 +415,6 @@ mod tests {
         assert!(result.success);
 
         let data = result.data.unwrap();
-        assert!(data["search_url"]
-            .as_str()
-            .unwrap()
-            .contains("google.com"));
+        assert!(data["search_url"].as_str().unwrap().contains("google.com"));
     }
 }

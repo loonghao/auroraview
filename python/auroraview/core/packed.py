@@ -22,7 +22,6 @@ import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 
-
 if TYPE_CHECKING:
     from .webview import WebView
 
@@ -245,7 +244,9 @@ def run_api_server(webview: "WebView") -> None:
     def heartbeat_loop() -> None:
         """Send periodic heartbeat events to Rust."""
         while not stop_event.is_set() and not writer.is_closed():
-            if not send_event("backend_health", {"status": "alive", "ts": time.time(), "schema_version": 1}):
+            if not send_event(
+                "backend_health", {"status": "alive", "ts": time.time(), "schema_version": 1}
+            ):
                 # Pipe closed, signal main loop to stop
                 print("[AuroraView] Heartbeat: pipe closed, stopping", file=sys.stderr)
                 stop_event.set()
@@ -341,7 +342,6 @@ def _handle_request(
             },
         }
 
-
     # Find the handler
     handler = bound_functions.get(method)
     if handler is None:
@@ -353,7 +353,6 @@ def _handle_request(
                 "message": f"Method not found: {method}",
             },
         }
-
 
     # Call the handler
     try:

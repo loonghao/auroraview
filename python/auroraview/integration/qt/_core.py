@@ -731,6 +731,7 @@ class QtWebView(FileDialogMixin, QWidget):
         context_menu: bool = True,
         asset_root: Optional[str] = None,
         allow_file_protocol: bool = False,
+        always_on_top: bool = False,
         frameless: bool = False,
         transparent: bool = False,
         background_color: Optional[str] = None,
@@ -738,7 +739,12 @@ class QtWebView(FileDialogMixin, QWidget):
         on_ready: Optional[Callable[["QtWebView"], None]] = None,
         on_error: Optional[Callable[[str], None]] = None,
         ipc_batch_size: int = 0,
+        icon: Optional[str] = None,
+        tool_window: bool = False,
         auto_prewarm: bool = True,
+        allow_new_window: bool = False,
+        new_window_mode: Optional[str] = None,
+        remote_debugging_port: Optional[int] = None,
     ) -> QWidget:
         """Create QtWebView with deferred initialization for DCC environments.
 
@@ -765,6 +771,7 @@ class QtWebView(FileDialogMixin, QWidget):
             context_menu: Enable native context menu
             asset_root: Root directory for auroraview:// protocol
             allow_file_protocol: Enable file:// protocol support
+            always_on_top: Keep window always on top
             frameless: Enable frameless window mode
             transparent: Enable transparent window background
             background_color: Custom background color
@@ -774,7 +781,12 @@ class QtWebView(FileDialogMixin, QWidget):
             on_ready: Callback invoked with QtWebView instance when ready
             on_error: Callback invoked with error message if creation fails
             ipc_batch_size: Max IPC messages per tick (0=unlimited, 5 for Houdini)
+            icon: Window icon path
+            tool_window: Hide from taskbar/Alt+Tab (Windows)
             auto_prewarm: Automatically trigger WebView2 pre-warming (default: True)
+            allow_new_window: Allow opening new windows from links
+            new_window_mode: How to handle new window requests
+            remote_debugging_port: CDP remote debugging port
 
         Returns:
             A placeholder QWidget that shows loading indicator initially.
@@ -828,12 +840,18 @@ class QtWebView(FileDialogMixin, QWidget):
                     context_menu=context_menu,
                     asset_root=asset_root,
                     allow_file_protocol=allow_file_protocol,
+                    always_on_top=always_on_top,
                     frameless=frameless,
                     transparent=transparent,
                     background_color=background_color,
                     embed_mode=embed_mode,
                     ipc_batch_size=ipc_batch_size,
+                    icon=icon,
+                    tool_window=tool_window,
                     auto_prewarm=auto_prewarm,
+                    allow_new_window=allow_new_window,
+                    new_window_mode=new_window_mode,
+                    remote_debugging_port=remote_debugging_port,
                 )
 
                 elapsed = time.time() - start_time

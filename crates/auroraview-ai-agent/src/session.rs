@@ -96,7 +96,11 @@ impl ChatSession {
     }
 
     /// Add an assistant message with tool calls
-    pub fn add_assistant_with_tools(&mut self, content: impl Into<String>, tool_calls: Vec<ToolCall>) {
+    pub fn add_assistant_with_tools(
+        &mut self,
+        content: impl Into<String>,
+        tool_calls: Vec<ToolCall>,
+    ) {
         let msg = Message::assistant(content.into()).with_tool_calls(tool_calls);
         self.add_message(msg);
     }

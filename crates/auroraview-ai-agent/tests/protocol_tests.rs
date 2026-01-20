@@ -1,9 +1,9 @@
 //! Tests for AG-UI and A2UI protocol implementations
 
+use auroraview_ai_agent::protocol::a2ui::{builders, NotifyLevel, UIAction, UIComponentType};
 use auroraview_ai_agent::protocol::agui::{
     AGUIEmitter, AGUIEvent, BaseEvent, CallbackEmitter, EventType, JsonPatchOp, NoOpEmitter,
 };
-use auroraview_ai_agent::protocol::a2ui::{builders, NotifyLevel, UIAction, UIComponentType};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 

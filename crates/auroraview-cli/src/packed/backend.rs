@@ -13,7 +13,10 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
-use std::sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    mpsc, Arc, Mutex,
+};
 
 use std::thread;
 use std::time::{Duration, Instant};
@@ -407,7 +410,10 @@ pub fn start_python_backend_with_ipc(
     let site_packages_dir = if cache_valid {
         // Use cached site-packages directory
         let cached_site_packages = temp_dir.join("site-packages");
-        tracing::info!("Using cached site-packages: {}", cached_site_packages.display());
+        tracing::info!(
+            "Using cached site-packages: {}",
+            cached_site_packages.display()
+        );
         cached_site_packages
     } else {
         let lib_start = Instant::now();
@@ -651,7 +657,6 @@ pub fn start_python_backend_with_ipc(
     let ping_ready = Arc::new(AtomicBool::new(false));
     let last_pong = Arc::new(Mutex::new(Instant::now()));
 
-
     // Spawn thread to read stderr and forward errors to frontend (throttled)
     let proxy_for_stderr = proxy.clone();
     thread::spawn(move || {
@@ -660,7 +665,6 @@ pub fn start_python_backend_with_ipc(
         let mut last_flush = Instant::now();
 
         let flush = |buffer: &mut Vec<String>, proxy: &EventLoopProxy<UserEvent>| {
-
             if buffer.is_empty() {
                 return;
             }
@@ -693,7 +697,6 @@ pub fn start_python_backend_with_ipc(
         flush(&mut buffer, &proxy_for_stderr);
     });
 
-
     // Create shutdown state for graceful shutdown coordination (using ipckit)
     let shutdown_state = Arc::new(ShutdownState::new());
     let shutdown_state_for_thread = Arc::clone(&shutdown_state);
@@ -709,7 +712,6 @@ pub fn start_python_backend_with_ipc(
     let ping_ready_for_stdout = ping_ready.clone();
     let last_pong_for_stdout = last_pong.clone();
 
-
     thread::spawn(move || {
         struct ReadyRead {
             result: std::io::Result<usize>,
@@ -718,7 +720,6 @@ pub fn start_python_backend_with_ipc(
         }
 
         let mut reader = BufReader::new(stdout);
-
 
         let (ready_tx, ready_rx) = mpsc::channel();
         thread::spawn(move || {
@@ -752,7 +753,6 @@ pub fn start_python_backend_with_ipc(
 
         let reader = ready_read.reader;
 
-
         // Read the first line - should be the ready signal
         match ready_read.result {
             Ok(0) => {
@@ -770,7 +770,6 @@ pub fn start_python_backend_with_ipc(
                 let ready_line_trimmed = ready_read.line.trim();
                 if let Ok(msg) = serde_json::from_str::<serde_json::Value>(ready_line_trimmed) {
                     if msg.get("type").and_then(|v| v.as_str()) == Some("ready") {
-
                         // Extract handler names from Python ready signal
                         let handlers: Vec<String> = msg
                             .get("handlers")
@@ -801,8 +800,9 @@ pub fn start_python_backend_with_ipc(
                         });
 
                         // Notify WebView to navigate to actual content with handlers
-                        if let Err(e) = proxy_for_stdout.send_event(UserEvent::PythonReady { handlers }) {
-
+                        if let Err(e) =
+                            proxy_for_stdout.send_event(UserEvent::PythonReady { handlers })
+                        {
                             tracing::error!("Failed to send PythonReady event: {}", e);
                         }
                     } else {
@@ -811,16 +811,11 @@ pub fn start_python_backend_with_ipc(
                             ready_line_trimmed
                         );
                         let _ = proxy_for_stdout.send_event(UserEvent::BackendError {
-
-                            message: format!(
-                                "Unexpected ready signal: {}",
-                                ready_line_trimmed
-                            ),
+                            message: format!("Unexpected ready signal: {}", ready_line_trimmed),
                             source: "stdout".to_string(),
                         });
                         // Still notify ready to avoid hanging on loading screen
                         let _ = proxy_for_stdout.send_event(UserEvent::PythonReady {
-
                             handlers: Vec::new(),
                         });
                     }
@@ -830,16 +825,11 @@ pub fn start_python_backend_with_ipc(
                         ready_line_trimmed
                     );
                     let _ = proxy_for_stdout.send_event(UserEvent::BackendError {
-
-                        message: format!(
-                            "Failed to parse ready signal: {}",
-                            ready_line_trimmed
-                        ),
+                        message: format!("Failed to parse ready signal: {}", ready_line_trimmed),
                         source: "stdout".to_string(),
                     });
                     // Still notify ready to avoid hanging on loading screen
                     let _ = proxy_for_stdout.send_event(UserEvent::PythonReady {
-
                         handlers: Vec::new(),
                     });
                 }
@@ -998,19 +988,23 @@ pub fn start_python_backend_with_ipc(
                 let mut stdin_guard = stdin_for_ping
                     .lock()
                     .map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
-                writeln!(stdin_guard, "{}", payload.to_string())?;
+                writeln!(stdin_guard, "{}", payload)?;
                 stdin_guard.flush()?;
                 Ok::<(), anyhow::Error>(())
             })();
 
             if let Err(e) = send_result {
                 ping_failures += 1;
-                tracing::warn!("[Rust] Failed to send ping (attempt {}): {}", ping_failures, e);
+                tracing::warn!(
+                    "[Rust] Failed to send ping (attempt {}): {}",
+                    ping_failures,
+                    e
+                );
 
                 // Check if this is a pipe closed error (expected during shutdown)
                 let is_pipe_error = e.to_string().contains("232")  // Windows ERROR_NO_DATA
                     || e.to_string().contains("Broken pipe")
-                    || e.to_string().contains("os error 109");  // Windows ERROR_BROKEN_PIPE
+                    || e.to_string().contains("os error 109"); // Windows ERROR_BROKEN_PIPE
 
                 if ping_failures >= 3 {
                     // Only report error if not shutting down and not a pipe error
@@ -1051,5 +1045,4 @@ pub fn start_python_backend_with_ipc(
         stdin,
         shutdown_state,
     })
-
 }
