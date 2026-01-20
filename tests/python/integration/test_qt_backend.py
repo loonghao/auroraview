@@ -186,7 +186,13 @@ class TestQtWebViewFunctionality:
         This verifies the standard Qt semantics: when a QtWebView is embedded
         in a parent widget and the parent is shown, the WebView should
         auto-initialize via showEvent without needing explicit show() call.
+
+        Note: This test is skipped in CI because QMainWindow/QDockWidget
+        with WebView2 can cause crashes in headless environments.
         """
+        if _IN_CI:
+            pytest.skip("QMainWindow with WebView2 is unstable in CI environments")
+
         from qtpy.QtCore import Qt
         from qtpy.QtWidgets import QDockWidget, QMainWindow
 
