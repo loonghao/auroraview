@@ -561,7 +561,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -590,7 +590,7 @@ dependencies = [
  "mdns-sd",
  "mime_guess",
  "mockall",
- "muda 0.16.1",
+ "muda",
  "num_cpus",
  "once_cell",
  "open",
@@ -648,7 +648,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-bookmarks"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "chrono",
  "dirs",
@@ -664,7 +664,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-browser"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "auroraview-bookmarks",
  "auroraview-core",
@@ -694,7 +694,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -873,7 +873,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "dunce",
  "serde",
@@ -884,7 +884,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "auroraview-plugin-core",
  "base64 0.22.1",
@@ -895,7 +895,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -4694,27 +4694,6 @@ dependencies = [
 
 [[package]]
 name = "muda"
-version = "0.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4de14a9b5d569ca68d7c891d613b390cf5ab4f851c77aaa2f9e435555d3d9492"
-dependencies = [
- "crossbeam-channel",
- "dpi",
- "gtk",
- "keyboard-types",
- "libxdo",
- "objc2",
- "objc2-app-kit",
- "objc2-core-foundation",
- "objc2-foundation",
- "once_cell",
- "png 0.17.16",
- "thiserror 2.0.17",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "muda"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01c1738382f66ed56b3b9c8119e794a2e23148ac8ea214eda86622d4cb9d415a"
@@ -6662,7 +6641,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -8101,7 +8080,7 @@ dependencies = [
  "crossbeam-channel",
  "dirs",
  "libappindicator",
- "muda 0.17.1",
+ "muda",
  "objc2",
  "objc2-app-kit",
  "objc2-core-foundation",
