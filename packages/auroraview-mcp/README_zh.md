@@ -424,12 +424,112 @@ just mcp-ci
     └──────────┘   └──────────┘   └──────────┘
 ```
 
+## 与其他工具集成
+
+### browser-use 集成
+
+[browser-use](https://github.com/browser-use/browser-use) 是一个 AI 驱动的浏览器自动化库，可以通过 CDP 连接到 AuroraView 实例。
+
+```bash
+pip install browser-use langchain-openai
+```
+
+```python
+from browser_use import Agent, Browser
+from browser_use.browser.browser import BrowserConfig
+from langchain_openai import ChatOpenAI
+
+# 通过 CDP 连接到 AuroraView
+browser = Browser(config=BrowserConfig(
+    cdp_url="http://127.0.0.1:9222",  # AuroraView CDP 端点
+    headless=False,
+))
+
+agent = Agent(
+    task="点击提交按钮并验证结果",
+    llm=ChatOpenAI(model="gpt-4o"),
+    browser=browser,
+)
+
+result = await agent.run()
+```
+
+### chrome-devtools MCP 集成
+
+将 [chrome-devtools MCP](https://github.com/nicholasoxford/chrome-devtools-mcp) 与 AuroraView MCP 一起使用以增强调试：
+
+```json
+{
+  "mcpServers": {
+    "auroraview": {
+      "command": "uvx",
+      "args": ["auroraview-mcp"]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["--yes", "@anthropic/mcp-chrome-devtools"]
+    }
+  }
+}
+```
+
+这使 AI 助手能够：
+- 使用 `auroraview` 工具进行 Python API 调用和实例管理
+- 使用 `chrome-devtools` 工具进行底层 CDP 操作
+
+### 直接 CDP 访问
+
+AuroraView 实例暴露 Chrome DevTools Protocol 端点：
+
+```bash
+# 获取浏览器版本
+curl http://127.0.0.1:9222/json/version
+
+# 列出所有页面
+curl http://127.0.0.1:9222/json/list
+
+# 通过 WebSocket 连接进行 CDP 命令
+wscat -c ws://127.0.0.1:9222/devtools/page/<pageId>
+```
+
+### Python CDP 客户端示例
+
+```python
+import asyncio
+import websockets
+import json
+
+async def cdp_example():
+    # 获取页面信息
+    import httpx
+    async with httpx.AsyncClient() as client:
+        pages = await client.get("http://127.0.0.1:9222/json/list")
+        page = pages.json()[0]
+        ws_url = page["webSocketDebuggerUrl"]
+    
+    # 通过 WebSocket 连接
+    async with websockets.connect(ws_url) as ws:
+        # 执行 JavaScript
+        await ws.send(json.dumps({
+            "id": 1,
+            "method": "Runtime.evaluate",
+            "params": {"expression": "document.title"}
+        }))
+        
+        response = await ws.recv()
+        print(json.loads(response))
+
+asyncio.run(cdp_example())
+```
+
 ## 相关链接
 
 - [AuroraView](https://github.com/loonghao/auroraview) - 主项目
 - [MCP 协议](https://modelcontextprotocol.io/) - Model Context Protocol
 - [FastMCP](https://github.com/jlowin/fastmcp) - 快速、Pythonic 的 MCP 框架
 - [MCP Inspector](https://github.com/modelcontextprotocol/inspector) - MCP 调试工具
+- [browser-use](https://github.com/browser-use/browser-use) - AI 浏览器自动化
+- [chrome-devtools MCP](https://github.com/nicholasoxford/chrome-devtools-mcp) - CDP MCP 服务器
 
 ## 许可证
 
