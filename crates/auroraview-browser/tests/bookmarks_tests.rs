@@ -1,6 +1,14 @@
 //! Tests for bookmarks module
 
 use auroraview_browser::navigation::{Bookmark, BookmarkManager};
+use tempfile::TempDir;
+
+/// Helper to create a BookmarkManager with a fresh temporary directory
+fn create_test_manager() -> (BookmarkManager, TempDir) {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let manager = BookmarkManager::new(Some(temp_dir.path().to_str().unwrap()));
+    (manager, temp_dir)
+}
 
 #[test]
 fn test_bookmark_new() {
@@ -28,7 +36,7 @@ fn test_bookmark_builder() {
 
 #[test]
 fn test_bookmark_manager_add_and_get() {
-    let manager = BookmarkManager::new(None);
+    let (manager, _temp_dir) = create_test_manager();
 
     let id = manager.add_bookmark("https://example.com", "Example");
 
@@ -42,7 +50,10 @@ fn test_bookmark_manager_add_and_get() {
 
 #[test]
 fn test_bookmark_manager_remove() {
-    let manager = BookmarkManager::new(None);
+    let (manager, _temp_dir) = create_test_manager();
+
+    // Verify we start with empty bookmarks
+    assert_eq!(manager.count(), 0);
 
     let id = manager.add_bookmark("https://example.com", "Example");
     assert_eq!(manager.count(), 1);
@@ -54,7 +65,7 @@ fn test_bookmark_manager_remove() {
 
 #[test]
 fn test_bookmark_manager_update() {
-    let manager = BookmarkManager::new(None);
+    let (manager, _temp_dir) = create_test_manager();
 
     let id = manager.add_bookmark("https://example.com", "Example");
 
@@ -68,7 +79,7 @@ fn test_bookmark_manager_update() {
 
 #[test]
 fn test_bookmark_manager_is_bookmarked() {
-    let manager = BookmarkManager::new(None);
+    let (manager, _temp_dir) = create_test_manager();
 
     manager.add_bookmark("https://example.com", "Example");
 
@@ -78,7 +89,7 @@ fn test_bookmark_manager_is_bookmarked() {
 
 #[test]
 fn test_bookmark_manager_find_by_url() {
-    let manager = BookmarkManager::new(None);
+    let (manager, _temp_dir) = create_test_manager();
 
     manager.add_bookmark("https://example.com", "Example");
 
@@ -92,7 +103,7 @@ fn test_bookmark_manager_find_by_url() {
 
 #[test]
 fn test_bookmark_manager_clear() {
-    let manager = BookmarkManager::new(None);
+    let (manager, _temp_dir) = create_test_manager();
 
     manager.add_bookmark("https://example1.com", "Example 1");
     manager.add_bookmark("https://example2.com", "Example 2");
