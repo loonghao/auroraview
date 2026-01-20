@@ -129,7 +129,7 @@ impl Features {
     /// # Arguments
     ///
     /// * `data_dir` - Optional directory for storing bookmark data.
-    ///                If None, bookmarks are stored in memory only.
+    ///   If None, bookmarks are stored in memory only.
     #[cfg(feature = "feature-bookmarks")]
     pub fn with_bookmarks(mut self, data_dir: Option<&Path>) -> Self {
         self.bookmarks = Some(auroraview_bookmarks::BookmarkManager::new(data_dir));
@@ -152,7 +152,7 @@ impl Features {
     /// # Arguments
     ///
     /// * `download_dir` - Optional directory for storing downloads.
-    ///                    If None, uses system default downloads folder.
+    ///   If None, uses system default downloads folder.
     #[cfg(feature = "feature-downloads")]
     pub fn with_downloads(mut self, download_dir: Option<&Path>) -> Self {
         self.downloads = Some(auroraview_downloads::DownloadManager::new(download_dir));
@@ -182,8 +182,7 @@ impl Features {
     /// Enable DevTools management.
     #[cfg(feature = "feature-devtools")]
     pub fn with_devtools(mut self) -> Self {
-        self.devtools_manager =
-            Some(auroraview_devtools::DevToolsManager::new(Default::default()));
+        self.devtools_manager = Some(auroraview_devtools::DevToolsManager::new(Default::default()));
         self
     }
 
