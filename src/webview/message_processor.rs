@@ -38,12 +38,9 @@ pub fn process_message(webview: &WryWebView, message: WebViewMessage, context: &
                 event_name,
                 data
             );
+            // JSON is already valid JavaScript literal, no escaping needed
             let json_str = data.to_string();
-            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-            let script = format!(
-                "window.dispatchEvent(new CustomEvent('{}', {{ detail: JSON.parse('{}') }}));",
-                event_name, escaped_json
-            );
+            let script = js_assets::build_emit_event_script(&event_name, &json_str);
             if let Err(e) = webview.evaluate_script(&script) {
                 tracing::error!("[{}] Failed to emit event: {}", context, e);
             } else {
@@ -66,9 +63,9 @@ pub fn process_message(webview: &WryWebView, message: WebViewMessage, context: &
         }
         WebViewMessage::WindowEvent { event_type, data } => {
             let event_name = event_type.as_str();
+            // JSON is already valid JavaScript literal, no escaping needed
             let json_str = data.to_string();
-            let escaped_json = json_str.replace('\\', "\\\\").replace('\'', "\\'");
-            let script = js_assets::build_emit_event_script(event_name, &escaped_json);
+            let script = js_assets::build_emit_event_script(event_name, &json_str);
             tracing::debug!(
                 "[WINDOW_EVENT] [{}] Emitting window event: {}",
                 context,

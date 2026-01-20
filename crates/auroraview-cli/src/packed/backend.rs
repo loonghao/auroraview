@@ -11,14 +11,17 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+
+use std::sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc, Mutex};
+
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
 use tao::event_loop::EventLoopProxy;
 
 use super::events::UserEvent;
-use super::extract::{extract_resources_parallel, extract_standalone_python};
+use super::extract::{extract_lib_packages, extract_resources_parallel, extract_standalone_python};
 use super::utils::{build_module_search_paths, get_python_extract_dir_with_hash};
 
 /// Python backend handle for IPC communication
@@ -218,6 +221,12 @@ pub fn start_python_backend_with_ipc(
         .filter(|(path, _)| path.starts_with("python/"))
         .collect();
 
+    tracing::debug!(
+        "Found {} Python files to extract (cache_valid={})",
+        python_assets.len(),
+        cache_valid
+    );
+
     if !python_assets.is_empty() && !cache_valid {
         // Update loading: extracting Python files
         send_loading_update(
@@ -393,6 +402,20 @@ pub fn start_python_backend_with_ipc(
         resources_dir
     };
 
+    // Extract third-party library packages (from lib/) to site-packages
+    // Only extract if cache is not valid
+    let site_packages_dir = if cache_valid {
+        // Use cached site-packages directory
+        let cached_site_packages = temp_dir.join("site-packages");
+        tracing::info!("Using cached site-packages: {}", cached_site_packages.display());
+        cached_site_packages
+    } else {
+        let lib_start = Instant::now();
+        let site_packages = extract_lib_packages(overlay, &temp_dir)?;
+        metrics.add_phase("lib_extract", lib_start.elapsed());
+        site_packages
+    };
+
     // Parse entry point (format: "module:function" or "file.py")
     let entry_point = &python_config.entry_point;
     let (module, function) = if entry_point.contains(':') {
@@ -403,7 +426,6 @@ pub fn start_python_backend_with_ipc(
     };
 
     // Build module search paths from configuration
-    let site_packages_dir = temp_dir.join("site-packages");
     let module_paths = build_module_search_paths(
         &python_config.module_search_paths,
         &temp_dir,
@@ -626,20 +648,39 @@ pub fn start_python_backend_with_ipc(
         .ok_or_else(|| anyhow::anyhow!("Failed to get stderr"))?;
 
     let stdin = Arc::new(Mutex::new(stdin));
+    let ping_ready = Arc::new(AtomicBool::new(false));
+    let last_pong = Arc::new(Mutex::new(Instant::now()));
 
-    // Spawn thread to read stderr and forward errors to frontend
+
+    // Spawn thread to read stderr and forward errors to frontend (throttled)
     let proxy_for_stderr = proxy.clone();
     thread::spawn(move || {
         let reader = BufReader::new(stderr);
+        let mut buffer: Vec<String> = Vec::new();
+        let mut last_flush = Instant::now();
+
+        let flush = |buffer: &mut Vec<String>, proxy: &EventLoopProxy<UserEvent>| {
+
+            if buffer.is_empty() {
+                return;
+            }
+            let message = buffer.join("\n");
+            buffer.clear();
+            let _ = proxy.send_event(UserEvent::BackendError {
+                message,
+                source: "stderr".to_string(),
+            });
+        };
+
         for line in reader.lines() {
             match line {
                 Ok(line) if !line.is_empty() => {
                     tracing::error!("[Python stderr] {}", line);
-                    // Send error to frontend for display
-                    let _ = proxy_for_stderr.send_event(UserEvent::BackendError {
-                        message: line,
-                        source: "stderr".to_string(),
-                    });
+                    buffer.push(line);
+                    if buffer.len() >= 20 || last_flush.elapsed() >= Duration::from_millis(300) {
+                        flush(&mut buffer, &proxy_for_stderr);
+                        last_flush = Instant::now();
+                    }
                 }
                 Err(e) => {
                     tracing::debug!("Python stderr reader ended: {}", e);
@@ -648,7 +689,10 @@ pub fn start_python_backend_with_ipc(
                 _ => {}
             }
         }
+
+        flush(&mut buffer, &proxy_for_stderr);
     });
+
 
     // Create shutdown state for graceful shutdown coordination (using ipckit)
     let shutdown_state = Arc::new(ShutdownState::new());
@@ -659,20 +703,74 @@ pub fn start_python_backend_with_ipc(
     // Uses ipckit's ShutdownState for graceful shutdown
     let ready_start = Instant::now();
     let proxy_for_loading = proxy.clone();
+    let proxy_for_ready_error = proxy.clone();
+    let proxy_for_stdout = proxy.clone();
+    let proxy_for_ping = proxy.clone();
+    let ping_ready_for_stdout = ping_ready.clone();
+    let last_pong_for_stdout = last_pong.clone();
+
+
     thread::spawn(move || {
+        struct ReadyRead {
+            result: std::io::Result<usize>,
+            line: String,
+            reader: BufReader<ChildStdout>,
+        }
+
         let mut reader = BufReader::new(stdout);
-        let mut ready_line = String::new();
+
+
+        let (ready_tx, ready_rx) = mpsc::channel();
+        thread::spawn(move || {
+            let mut ready_line = String::new();
+            let result = reader.read_line(&mut ready_line);
+            let _ = ready_tx.send(ReadyRead {
+                result,
+                line: ready_line,
+                reader,
+            });
+        });
+
+        let ready_read = match ready_rx.recv_timeout(Duration::from_secs(10)) {
+            Ok(value) => value,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                tracing::error!("Python ready signal timeout");
+                let _ = proxy_for_ready_error.send_event(UserEvent::BackendError {
+                    message: "Python backend ready timeout".to_string(),
+                    source: "stdout".to_string(),
+                });
+                let _ = proxy_for_ready_error.send_event(UserEvent::PythonReady {
+                    handlers: Vec::new(),
+                });
+                match ready_rx.recv() {
+                    Ok(value) => value,
+                    Err(_) => return,
+                }
+            }
+            Err(_) => return,
+        };
+
+        let reader = ready_read.reader;
+
 
         // Read the first line - should be the ready signal
-        match reader.read_line(&mut ready_line) {
+        match ready_read.result {
             Ok(0) => {
                 tracing::error!("Python process closed stdout before sending ready signal");
+                let _ = proxy_for_ready_error.send_event(UserEvent::BackendError {
+                    message: "Python stdout closed before ready signal".to_string(),
+                    source: "stdout".to_string(),
+                });
+                let _ = proxy_for_ready_error.send_event(UserEvent::PythonReady {
+                    handlers: Vec::new(),
+                });
                 return;
             }
             Ok(_) => {
-                let ready_line_trimmed = ready_line.trim();
+                let ready_line_trimmed = ready_read.line.trim();
                 if let Ok(msg) = serde_json::from_str::<serde_json::Value>(ready_line_trimmed) {
                     if msg.get("type").and_then(|v| v.as_str()) == Some("ready") {
+
                         // Extract handler names from Python ready signal
                         let handlers: Vec<String> = msg
                             .get("handlers")
@@ -689,6 +787,8 @@ pub fn start_python_backend_with_ipc(
                             handlers.len(),
                             ready_start.elapsed().as_secs_f64() * 1000.0
                         );
+                        ping_ready_for_stdout.store(true, Ordering::SeqCst);
+
                         tracing::debug!("Registered handlers: {:?}", handlers);
 
                         // Update loading: Python ready, navigating to app
@@ -701,7 +801,8 @@ pub fn start_python_backend_with_ipc(
                         });
 
                         // Notify WebView to navigate to actual content with handlers
-                        if let Err(e) = proxy.send_event(UserEvent::PythonReady { handlers }) {
+                        if let Err(e) = proxy_for_stdout.send_event(UserEvent::PythonReady { handlers }) {
+
                             tracing::error!("Failed to send PythonReady event: {}", e);
                         }
                     } else {
@@ -709,8 +810,17 @@ pub fn start_python_backend_with_ipc(
                             "Unexpected first message from Python (expected ready signal): {}",
                             ready_line_trimmed
                         );
+                        let _ = proxy_for_stdout.send_event(UserEvent::BackendError {
+
+                            message: format!(
+                                "Unexpected ready signal: {}",
+                                ready_line_trimmed
+                            ),
+                            source: "stdout".to_string(),
+                        });
                         // Still notify ready to avoid hanging on loading screen
-                        let _ = proxy.send_event(UserEvent::PythonReady {
+                        let _ = proxy_for_stdout.send_event(UserEvent::PythonReady {
+
                             handlers: Vec::new(),
                         });
                     }
@@ -719,30 +829,60 @@ pub fn start_python_backend_with_ipc(
                         "Failed to parse Python ready signal: {}",
                         ready_line_trimmed
                     );
+                    let _ = proxy_for_stdout.send_event(UserEvent::BackendError {
+
+                        message: format!(
+                            "Failed to parse ready signal: {}",
+                            ready_line_trimmed
+                        ),
+                        source: "stdout".to_string(),
+                    });
                     // Still notify ready to avoid hanging on loading screen
-                    let _ = proxy.send_event(UserEvent::PythonReady {
+                    let _ = proxy_for_stdout.send_event(UserEvent::PythonReady {
+
                         handlers: Vec::new(),
                     });
                 }
             }
             Err(e) => {
                 tracing::error!("Failed to read Python ready signal: {}", e);
+                let _ = proxy_for_ready_error.send_event(UserEvent::BackendError {
+                    message: format!("Failed to read ready signal: {}", e),
+                    source: "stdout".to_string(),
+                });
+                let _ = proxy_for_ready_error.send_event(UserEvent::PythonReady {
+                    handlers: Vec::new(),
+                });
                 return;
             }
         }
 
         // Continue reading Python stdout and forward responses
-        // Check shutdown state before each send to avoid EventLoopClosed errors
-        for line in reader.lines() {
+        // Use read_until for bytes, then convert to string with lossy conversion
+        // This handles non-UTF-8 bytes gracefully instead of failing
+        let mut reader = reader;
+        let mut buf = Vec::with_capacity(8192);
+
+        loop {
             // Check if shutdown has been initiated (using ipckit)
             if shutdown_state_for_thread.is_shutdown() {
                 tracing::debug!("[Rust] Shutdown detected, stopping Python stdout reader");
                 break;
             }
 
-            match line {
-                Ok(response) => {
-                    if response.trim().is_empty() {
+            buf.clear();
+            match reader.read_until(b'\n', &mut buf) {
+                Ok(0) => {
+                    // EOF reached
+                    tracing::info!("Python stdout EOF reached");
+                    break;
+                }
+                Ok(_) => {
+                    // Convert bytes to string with lossy conversion (replaces invalid UTF-8 with replacement char)
+                    let response = String::from_utf8_lossy(&buf);
+                    let response = response.trim();
+
+                    if response.is_empty() {
                         continue;
                     }
 
@@ -753,7 +893,15 @@ pub fn start_python_backend_with_ipc(
 
                     // Check if this is an event message from Python
                     // Format: {"type": "event", "event": "...", "data": {...}}
-                    if let Ok(msg) = serde_json::from_str::<serde_json::Value>(&response) {
+                    if let Ok(msg) = serde_json::from_str::<serde_json::Value>(response) {
+                        if let Some(id) = msg.get("id").and_then(|v| v.as_str()) {
+                            if id.starts_with("__av_ping_") {
+                                if let Ok(mut last) = last_pong_for_stdout.lock() {
+                                    *last = Instant::now();
+                                }
+                                continue;
+                            }
+                        }
                         if msg.get("type").and_then(|v| v.as_str()) == Some("event") {
                             // This is an event from Python, forward it to WebView
                             let event_name = msg
@@ -762,14 +910,17 @@ pub fn start_python_backend_with_ipc(
                                 .unwrap_or("unknown");
                             let event_data =
                                 msg.get("data").cloned().unwrap_or(serde_json::json!({}));
-                            let data_str = serde_json::to_string(&event_data).unwrap_or_default();
+                            // Use to_string() which preserves UTF-8 characters properly
+                            let data_str = event_data.to_string();
 
                             tracing::info!(
-                                "[Rust] Forwarding Python event to WebView: {}",
-                                event_name
+                                "[Rust] Forwarding Python event to WebView: {} (data_len: {})",
+                                event_name,
+                                data_str.len()
                             );
+                            tracing::debug!("[Rust] Event data: {}", data_str);
 
-                            if let Err(e) = proxy.send_event(UserEvent::PluginEvent {
+                            if let Err(e) = proxy_for_stdout.send_event(UserEvent::PluginEvent {
                                 event: event_name.to_string(),
                                 data: data_str,
                             }) {
@@ -787,7 +938,9 @@ pub fn start_python_backend_with_ipc(
                     }
 
                     // Regular response (API call result)
-                    if let Err(e) = proxy.send_event(UserEvent::PythonResponse(response)) {
+                    if let Err(e) =
+                        proxy_for_stdout.send_event(UserEvent::PythonResponse(response.to_string()))
+                    {
                         // Check if this is an EventLoopClosed error
                         if shutdown_state_for_thread.is_shutdown() {
                             tracing::debug!("Event loop closed during shutdown, stopping reader");
@@ -798,7 +951,14 @@ pub fn start_python_backend_with_ipc(
                     }
                 }
                 Err(e) => {
-                    tracing::error!("Error reading Python stdout: {}", e);
+                    // Only log error if not during shutdown and not a broken pipe
+                    let is_pipe_error = e.raw_os_error() == Some(232)
+                        || e.raw_os_error() == Some(109)
+                        || e.kind() == std::io::ErrorKind::BrokenPipe;
+
+                    if !shutdown_state_for_thread.is_shutdown() && !is_pipe_error {
+                        tracing::error!("Error reading Python stdout: {}", e);
+                    }
                     break;
                 }
             }
@@ -806,9 +966,90 @@ pub fn start_python_backend_with_ipc(
         tracing::info!("Python stdout reader thread exiting");
     });
 
+    let ping_ready_for_thread = ping_ready.clone();
+    let last_pong_for_thread = last_pong.clone();
+    let stdin_for_ping = stdin.clone();
+    let shutdown_for_ping = shutdown_state.clone();
+    thread::spawn(move || {
+        let mut counter: u64 = 0;
+        let mut ping_failures: u32 = 0;
+        loop {
+            if shutdown_for_ping.is_shutdown() {
+                tracing::debug!("[Rust] Ping thread: shutdown detected, exiting");
+                break;
+            }
+            if !ping_ready_for_thread.load(Ordering::SeqCst) {
+                thread::sleep(Duration::from_millis(200));
+                continue;
+            }
+
+            let ping_id = format!("__av_ping_{}", counter);
+            counter += 1;
+            let payload = serde_json::json!({
+                "id": ping_id,
+                "method": "__ping__",
+                "params": {
+                    "schema_version": 1,
+                    "ts": Instant::now().elapsed().as_millis(),
+                },
+            });
+
+            let send_result = (|| {
+                let mut stdin_guard = stdin_for_ping
+                    .lock()
+                    .map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+                writeln!(stdin_guard, "{}", payload.to_string())?;
+                stdin_guard.flush()?;
+                Ok::<(), anyhow::Error>(())
+            })();
+
+            if let Err(e) = send_result {
+                ping_failures += 1;
+                tracing::warn!("[Rust] Failed to send ping (attempt {}): {}", ping_failures, e);
+
+                // Check if this is a pipe closed error (expected during shutdown)
+                let is_pipe_error = e.to_string().contains("232")  // Windows ERROR_NO_DATA
+                    || e.to_string().contains("Broken pipe")
+                    || e.to_string().contains("os error 109");  // Windows ERROR_BROKEN_PIPE
+
+                if ping_failures >= 3 {
+                    // Only report error if not shutting down and not a pipe error
+                    if !shutdown_for_ping.is_shutdown() && !is_pipe_error {
+                        let _ = proxy_for_ping.send_event(UserEvent::BackendError {
+                            message: format!("Ping send failure: {}", e),
+                            source: "stdin".to_string(),
+                        });
+                    }
+                    tracing::info!("[Rust] Ping thread: too many failures, exiting");
+                    break;
+                }
+            } else {
+                ping_failures = 0;
+            }
+
+            if let Ok(last) = last_pong_for_thread.lock() {
+                if last.elapsed() >= Duration::from_secs(8) {
+                    // Only report timeout if not shutting down
+                    if !shutdown_for_ping.is_shutdown() {
+                        let _ = proxy_for_ping.send_event(UserEvent::BackendError {
+                            message: "Ping timeout: no pong from backend".to_string(),
+                            source: "stdout".to_string(),
+                        });
+                    }
+                    tracing::warn!("[Rust] Ping thread: pong timeout, exiting");
+                    break;
+                }
+            }
+
+            thread::sleep(Duration::from_secs(2));
+        }
+        tracing::info!("[Rust] Ping thread exiting");
+    });
+
     Ok(PythonBackend {
         process: Mutex::new(child),
         stdin,
         shutdown_state,
     })
+
 }

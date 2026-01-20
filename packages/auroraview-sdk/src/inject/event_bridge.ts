@@ -51,6 +51,94 @@
   // Default timeout for pending calls (30 seconds)
   const DEFAULT_CALL_TIMEOUT_MS = 30000;
 
+  type AuroraViewConfig = {
+    callTimeoutMs?: number;
+    backendFailFast?: boolean;
+    heartbeatTimeoutMs?: number;
+  };
+
+  const config: Required<AuroraViewConfig> = {
+    callTimeoutMs: DEFAULT_CALL_TIMEOUT_MS,
+    backendFailFast: true,
+    heartbeatTimeoutMs: 0,
+  };
+
+  function applyConfig(partial?: AuroraViewConfig): void {
+    if (!partial) return;
+    if (typeof partial.callTimeoutMs === 'number') {
+      config.callTimeoutMs = partial.callTimeoutMs;
+    }
+    if (typeof partial.backendFailFast === 'boolean') {
+      config.backendFailFast = partial.backendFailFast;
+    }
+    if (typeof partial.heartbeatTimeoutMs === 'number') {
+      config.heartbeatTimeoutMs = partial.heartbeatTimeoutMs;
+    }
+  }
+
+  applyConfig((window as unknown as { __AURORAVIEW_CONFIG__?: AuroraViewConfig }).__AURORAVIEW_CONFIG__);
+
+  let lastHealthTs = Date.now();
+  let hasHealthSignal = false;
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+
+  function ensureHeartbeatMonitor(): void {
+    if (config.heartbeatTimeoutMs <= 0) {
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+      return;
+    }
+    if (heartbeatTimer) return;
+    heartbeatTimer = setInterval(() => {
+      if (!backendHealthy || !hasHealthSignal) return;
+      const now = Date.now();
+
+      if (now - lastHealthTs > config.heartbeatTimeoutMs) {
+        markBackendUnhealthy('heartbeat timeout');
+      }
+    }, Math.max(500, Math.floor(config.heartbeatTimeoutMs / 2)));
+  }
+
+  ensureHeartbeatMonitor();
+
+  // Backend health state (used for fail-fast behavior)
+  let backendHealthy = true;
+
+
+  function describeBackendError(detail: unknown): string {
+    if (typeof detail === 'string') return detail;
+    if (detail && typeof detail === 'object') {
+      const maybeMessage = (detail as { message?: unknown }).message;
+      if (typeof maybeMessage === 'string') return maybeMessage;
+      try {
+        return JSON.stringify(detail);
+      } catch {
+        return '[unserializable backend error]';
+      }
+    }
+    return 'unknown backend error';
+  }
+
+  function markBackendUnhealthy(detail?: unknown): void {
+    if (!backendHealthy) return;
+    backendHealthy = false;
+    const reason = describeBackendError(detail);
+    console.error('[AuroraView] Backend error:', reason, detail ?? '');
+    clearAllPendingCalls(`backend unavailable: ${reason}`);
+  }
+
+  function markBackendHealthy(): void {
+    lastHealthTs = Date.now();
+    if (backendHealthy) return;
+    backendHealthy = true;
+    debugLog('Backend marked healthy');
+  }
+
+
+
   /**
    * Generate unique call ID for Promise tracking
    */
@@ -68,7 +156,8 @@
     reject: (error: Error) => void,
     timeoutMs?: number
   ): void {
-    const timeout = timeoutMs ?? DEFAULT_CALL_TIMEOUT_MS;
+    const timeout = timeoutMs ?? config.callTimeoutMs;
+
     const timeoutId = setTimeout(() => {
       const pending = auroraviewPendingCalls.get(id);
       if (pending) {
@@ -169,6 +258,13 @@
      */
     call: function <T = unknown>(method: string, params?: unknown, options?: { timeout?: number }): Promise<T> {
       debugLog('Calling Python method via auroraview.call:', method, DEBUG ? params : '(params hidden)');
+      if (config.backendFailFast && !backendHealthy) {
+        const error = new Error('AuroraView backend unavailable') as Error & { code?: string };
+        error.name = 'BackendUnavailableError';
+        error.code = 'BACKEND_UNAVAILABLE';
+        return Promise.reject(error);
+      }
+
       return new Promise(function (resolve, reject) {
         const id = auroraviewGenerateCallId();
         // Register with timeout support
@@ -178,6 +274,7 @@
           reject,
           options?.timeout
         );
+
 
         try {
           const payload: { type: string; id: string; method: string; params?: unknown } = {
@@ -272,11 +369,33 @@
         return;
       }
 
+      if (event === 'backend_error') {
+        markBackendUnhealthy(detail);
+        const handlers = eventHandlers.get(event);
+        if (!handlers || handlers.size === 0) {
+          return;
+        }
+      } else if (event === 'backend_ready' || event === 'backend_health') {
+        if (event === 'backend_health') {
+          hasHealthSignal = true;
+        }
+        markBackendHealthy();
+        // Silent return for internal health events without handlers
+        const handlers = eventHandlers.get(event);
+        if (!handlers || handlers.size === 0) {
+          return;
+        }
+      }
+
       const handlers = eventHandlers.get(event);
       if (!handlers || handlers.size === 0) {
-        console.warn('[AuroraView] No handlers for event:', event);
+        // Use debug level for internal events to reduce noise
+        if (DEBUG) {
+          console.debug('[AuroraView] No handlers for event:', event);
+        }
         return;
       }
+
       handlers.forEach(function (handler) {
         try {
           handler(detail);
@@ -300,6 +419,7 @@
     invoke: function <T = unknown>(cmd: string, args?: Record<string, unknown>, options?: { timeout?: number }): Promise<T> {
       debugLog('Invoking plugin command:', cmd, DEBUG ? args : '(args hidden)');
       return new Promise(function (resolve, reject) {
+
         const id = auroraviewGenerateCallId();
         // Register with timeout support
         registerPendingCall(
@@ -308,6 +428,7 @@
           reject,
           options?.timeout
         );
+
 
         try {
           const payload = {
@@ -334,6 +455,12 @@
      * Ready state flag
      */
     _ready: false,
+
+    setConfig: function (partial: AuroraViewConfig): void {
+      applyConfig(partial);
+      ensureHeartbeatMonitor();
+    },
+
 
     /**
      * Pending calls queue

@@ -60,6 +60,20 @@
     window.addEventListener("beforeunload", () => {
       clearAllPendingCalls("page unloading");
     });
+    let backendHealthy = true;
+    let hasHealthSignal = false;
+    function markBackendUnhealthy(detail) {
+      if (!backendHealthy) return;
+      backendHealthy = false;
+      const reason = typeof detail === "string" ? detail : (detail?.message || "unknown");
+      console.error("[AuroraView] Backend error:", reason);
+      clearAllPendingCalls("backend unavailable: " + reason);
+    }
+    function markBackendHealthy() {
+      if (backendHealthy) return;
+      backendHealthy = true;
+      debugLog("Backend marked healthy");
+    }
     function handleCallResult(detail) {
       try {
         const id = detail && detail.id;
@@ -190,9 +204,27 @@
           handleCallResult(detail);
           return;
         }
+        if (event === "backend_error") {
+          markBackendUnhealthy(detail);
+          const handlers = eventHandlers.get(event);
+          if (!handlers || handlers.size === 0) {
+            return;
+          }
+        } else if (event === "backend_ready" || event === "backend_health") {
+          if (event === "backend_health") {
+            hasHealthSignal = true;
+          }
+          markBackendHealthy();
+          const handlers = eventHandlers.get(event);
+          if (!handlers || handlers.size === 0) {
+            return;
+          }
+        }
         const handlers = eventHandlers.get(event);
         if (!handlers || handlers.size === 0) {
-          console.warn("[AuroraView] No handlers for event:", event);
+          if (DEBUG) {
+            console.debug("[AuroraView] No handlers for event:", event);
+          }
           return;
         }
         handlers.forEach(function(handler) {

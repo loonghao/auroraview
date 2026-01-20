@@ -248,3 +248,87 @@ pub fn extract_resources(overlay: &OverlayData, base_dir: &Path) -> Result<PathB
 
     Ok(resources_dir)
 }
+
+/// Extract third-party library files from overlay to site-packages
+///
+/// Libraries are stored with prefix "lib/" in overlay.
+/// This function extracts them to the site-packages directory.
+pub fn extract_lib_packages(overlay: &OverlayData, base_dir: &Path) -> Result<PathBuf> {
+    let site_packages_dir = base_dir.join("site-packages");
+    fs::create_dir_all(&site_packages_dir)?;
+
+    // Collect lib files to extract
+    let lib_assets: Vec<_> = overlay
+        .assets
+        .iter()
+        .filter_map(|(path, content)| {
+            if path.starts_with("lib/") {
+                let rel_path = path.strip_prefix("lib/").unwrap_or(path);
+                Some((site_packages_dir.join(rel_path), content))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if lib_assets.is_empty() {
+        tracing::debug!("No third-party library files to extract");
+        return Ok(site_packages_dir);
+    }
+
+    tracing::info!("Extracting {} third-party library files...", lib_assets.len());
+
+    // Pre-create all directories in batch
+    let dirs: HashSet<PathBuf> = lib_assets
+        .iter()
+        .filter_map(|(path, _)| path.parent().map(|p| p.to_path_buf()))
+        .collect();
+
+    for dir in &dirs {
+        fs::create_dir_all(dir)?;
+    }
+
+    // Parallel file extraction with file locking handling
+    let results: Vec<Result<(), anyhow::Error>> = lib_assets
+        .par_iter()
+        .map(|(dest_path, content)| {
+            match fs::write(dest_path, content) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    // Check if it's a file locking error (os error 32 on Windows)
+                    if e.raw_os_error() == Some(32) {
+                        // File is locked, check if existing file has same content
+                        if let Ok(existing_content) = fs::read(dest_path) {
+                            if existing_content == content.as_slice() {
+                                tracing::debug!(
+                                    "Library file {} is locked but content matches, skipping",
+                                    dest_path.display()
+                                );
+                                return Ok(());
+                            }
+                        }
+                        Err(anyhow::anyhow!(
+                            "Library file {} is locked by another process",
+                            dest_path.display()
+                        ))
+                    } else {
+                        Err(e).with_context(|| format!("Failed to write: {}", dest_path.display()))
+                    }
+                }
+            }
+        })
+        .collect();
+
+    // Check for errors
+    for result in results {
+        result?;
+    }
+
+    tracing::info!(
+        "Extracted {} library files to: {}",
+        lib_assets.len(),
+        site_packages_dir.display()
+    );
+
+    Ok(site_packages_dir)
+}

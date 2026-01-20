@@ -9,7 +9,9 @@ import type {
   EventHandler,
   Unsubscribe,
   AuroraViewBridge,
+  AuroraViewConfig,
   FileSystemAPI,
+
   DialogAPI,
   ClipboardAPI,
   ShellAPI,
@@ -43,6 +45,10 @@ export interface AuroraViewClient {
 
   /** Wait for bridge to be ready */
   whenReady(): Promise<AuroraViewClient>;
+
+  /** Configure timeouts and health strategy */
+  setConfig(config: AuroraViewConfig): void;
+
 
   /** Get the raw bridge object */
   getRawBridge(): AuroraViewBridge | undefined;
@@ -79,35 +85,55 @@ class AuroraViewClientImpl implements AuroraViewClient {
    * Install intercept on window.auroraview.trigger to forward events
    */
   private installTriggerIntercept(): void {
-    if (this.interceptInstalled) return;
     if (typeof window === 'undefined') return;
+
+    const self = this;
 
     const install = () => {
       const bridge = window.auroraview;
       if (!bridge) return;
 
+      // Check if we've already wrapped this trigger function
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((bridge.trigger as any)?._sdkWrapped) {
+        return;
+      }
+
       const originalTrigger = bridge.trigger;
-      bridge.trigger = (event: string, detail?: unknown) => {
+      const wrappedTrigger = function(event: string, detail?: unknown) {
         // Call original trigger first
         originalTrigger?.call(bridge, event, detail);
         // Forward to our event system
-        this.events.emit(event, detail);
+        self.events.emit(event, detail);
       };
+      // Mark as wrapped to prevent double-wrapping
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (wrappedTrigger as any)._sdkWrapped = true;
+      bridge.trigger = wrappedTrigger;
 
-      this.interceptInstalled = true;
+      self.interceptInstalled = true;
     };
 
-    // Try to install immediately
+    // Install immediately if bridge available
     if (window.auroraview) {
       install();
-    } else {
-      // Wait for bridge to be available
+    }
+
+    // Also listen for auroraviewready event to handle late initialization
+    window.addEventListener('auroraviewready', () => {
+      install();
+    });
+
+    // Fallback: check periodically in case the event was missed
+    if (!this.interceptInstalled) {
       const checkInterval = setInterval(() => {
         if (window.auroraview) {
-          clearInterval(checkInterval);
           install();
+          if (self.interceptInstalled) {
+            clearInterval(checkInterval);
+          }
         }
-      }, 10);
+      }, 50);
 
       // Stop checking after 10 seconds
       setTimeout(() => clearInterval(checkInterval), 10000);
@@ -183,9 +209,17 @@ class AuroraViewClientImpl implements AuroraViewClient {
     });
   }
 
+  setConfig(config: AuroraViewConfig): void {
+    const bridge = window.auroraview;
+    if (bridge?.setConfig) {
+      bridge.setConfig(config);
+    }
+  }
+
   getRawBridge(): AuroraViewBridge | undefined {
     return window.auroraview;
   }
+
 
   get fs(): FileSystemAPI | undefined {
     return window.auroraview?.fs;

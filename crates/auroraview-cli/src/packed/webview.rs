@@ -4,7 +4,8 @@
 
 use anyhow::{Context, Result};
 use auroraview_core::assets::{build_packed_init_script, get_loading_html};
-use auroraview_core::plugins::{PluginRequest, PluginRouter, ScopeConfig};
+use auroraview_core::plugins::{PathScope, PluginRequest, ScopeConfig, ShellScope};
+use auroraview_plugins::PluginRouter;
 use auroraview_core::protocol::MemoryAssets;
 use auroraview_pack::{OverlayData, PackMode, PackedMetrics};
 use std::collections::HashMap;
@@ -290,6 +291,86 @@ fn handle_ipc_message(
 
             let _ = proxy.send_event(UserEvent::SetHtml { html, title });
         }
+        "invoke" => {
+            // Handle Tauri-style invoke command (used by frontend SDK)
+            // Format: {"type": "invoke", "id": "...", "cmd": "plugin:name|command", "args": {...}}
+            let id = msg
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let cmd = msg.get("cmd").and_then(|v| v.as_str()).unwrap_or("");
+            let args = msg.get("args").cloned().unwrap_or(serde_json::Value::Null);
+
+            tracing::debug!("[Rust] Invoke command: {} (id: {})", cmd, id);
+
+            // Handle plugin commands (plugin:name|command format)
+            if cmd.starts_with("plugin:") {
+                // Parse plugin:name|command format
+                let plugin_part = cmd.strip_prefix("plugin:").unwrap_or("");
+                if let Some((plugin, command)) = plugin_part.split_once('|') {
+                    tracing::debug!(
+                        "[Rust] Plugin invoke: plugin={}, command={}, id={}",
+                        plugin,
+                        command,
+                        id
+                    );
+
+                    let request = PluginRequest::new(plugin, command, args);
+                    let response = match plugin_router.read() {
+                        Ok(router) => router.handle(request),
+                        Err(e) => {
+                            tracing::error!("Plugin router lock poisoned: {}", e);
+                            let error_response = serde_json::json!({
+                                "id": id,
+                                "ok": false,
+                                "result": null,
+                                "error": {
+                                    "name": "InternalError",
+                                    "message": "Plugin router unavailable"
+                                }
+                            });
+                            let _ = proxy
+                                .send_event(UserEvent::PythonResponse(error_response.to_string()));
+                            return;
+                        }
+                    };
+
+                    // Send response back via event loop
+                    let result = serde_json::json!({
+                        "id": id,
+                        "ok": response.success,
+                        "result": response.data,
+                        "error": response.error
+                    });
+                    let _ = proxy.send_event(UserEvent::PythonResponse(result.to_string()));
+                } else {
+                    tracing::warn!("Invalid invoke plugin command format: {}", cmd);
+                    let error_response = serde_json::json!({
+                        "id": id,
+                        "ok": false,
+                        "result": null,
+                        "error": {
+                            "name": "InvalidFormat",
+                            "message": format!("Invalid plugin command format: {}", cmd)
+                        }
+                    });
+                    let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
+                }
+            } else {
+                tracing::warn!("Unsupported invoke command: {}", cmd);
+                let error_response = serde_json::json!({
+                    "id": id,
+                    "ok": false,
+                    "result": null,
+                    "error": {
+                        "name": "UnsupportedCommand",
+                        "message": format!("Unsupported invoke command: {}", cmd)
+                    }
+                });
+                let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
+            }
+        }
         _ => {
             tracing::warn!("Unknown IPC message type: {}", msg_type);
         }
@@ -322,15 +403,10 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
     let proxy = event_loop.create_proxy();
 
-    // Create PluginRouter with secure default scope
-    // Instead of permissive(), use a restricted scope that only allows:
-    // - File system access within the application's working directory
-    // - Shell commands for opening URLs and files (but not arbitrary command execution)
-    // This follows the principle of least privilege for packed applications.
+    // Create PluginRouter with all built-in plugins and secure default scope
+    // Using create_router_with_scope() ensures all plugins (fs, clipboard, shell, dialog,
+    // process, browser_bridge, extensions) are registered with the router.
     let default_scope = {
-        use auroraview_core::plugins::PathScope;
-        use auroraview_core::plugins::ShellScope;
-
         // Get the current working directory as the base for file system access
         let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
 
@@ -340,7 +416,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             .with_shell_scope(ShellScope::new()) // Allows open_url/open_file but not arbitrary commands
     };
 
-    let plugin_router = Arc::new(RwLock::new(PluginRouter::with_scope(default_scope)));
+    let plugin_router = Arc::new(RwLock::new(
+        auroraview_plugins::create_router_with_scope(default_scope),
+    ));
 
     // Set up event callback for plugins to emit events to WebView
     let proxy_for_events = proxy.clone();
@@ -383,6 +461,30 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     let waiting_for_python = Arc::new(RwLock::new(python_backend.is_some()));
     // Store registered handlers for API method registration
     let registered_handlers: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
+
+    // Ready timeout guard for packed FullStack (avoid infinite loading)
+    if python_backend.is_some() {
+        let python_ready_for_timeout = python_ready.clone();
+        let proxy_for_timeout = proxy.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            let is_ready = python_ready_for_timeout
+                .read()
+                .map(|r| *r)
+                .unwrap_or(false);
+            if !is_ready {
+                tracing::error!("[Rust] Python backend ready timeout");
+                let _ = proxy_for_timeout.send_event(UserEvent::BackendError {
+                    message: "Python backend ready timeout".to_string(),
+                    source: "stdout".to_string(),
+                });
+                let _ = proxy_for_timeout.send_event(UserEvent::PythonReady {
+                    handlers: Vec::new(),
+                });
+            }
+        });
+    }
+
 
     // Create window
     let mut window_builder = tao::window::WindowBuilder::new()
@@ -787,27 +889,30 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                         }
                         UserEvent::PluginEvent { event, data } => {
                             // Send plugin event to WebView
+                            // The `data` is already a valid JSON string from Python
+                            // We insert it directly as a JavaScript object literal
                             tracing::info!(
                                 "[Rust:WebView] Received PluginEvent: event={}, data_len={}",
                                 event,
                                 data.len()
                             );
-                            let escaped = escape_json_for_js(&data);
+                            tracing::debug!("[Rust:WebView] Event data: {}", data);
+                            // Insert JSON directly as JavaScript object literal (no JSON.parse needed)
                             let script = format!(
                                 r#"(function() {{
                                     if (window.auroraview && window.auroraview.trigger) {{
                                         try {{
-                                            var data = JSON.parse("{}");
+                                            var data = {};
                                             console.log('[AuroraView] Triggering event:', '{}', data);
                                             window.auroraview.trigger('{}', data);
                                         }} catch (e) {{
-                                            console.error('[AuroraView] Failed to parse event data:', e);
+                                            console.error('[AuroraView] Failed to process event data:', e);
                                         }}
                                     }} else {{
                                         console.warn('[AuroraView] Bridge not ready for event:', '{}');
                                     }}
                                 }})()"#,
-                                escaped, event, event, event
+                                data, event, event, event
                             );
                             let _ = wv.evaluate_script(&script);
                         }

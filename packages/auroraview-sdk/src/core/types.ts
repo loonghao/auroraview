@@ -22,8 +22,19 @@ export type StateChangeHandler = (
 ) => void;
 
 // ============================================
+// Config Types
+// ============================================
+
+export interface AuroraViewConfig {
+  callTimeoutMs?: number;
+  backendFailFast?: boolean;
+  heartbeatTimeoutMs?: number;
+}
+
+// ============================================
 // IPC Types
 // ============================================
+
 
 /** IPC message payload types */
 export type IPCMessageType = 'call' | 'event' | 'invoke';
@@ -286,6 +297,8 @@ export interface AuroraViewBridge {
   isReady(): boolean;
   isMethodBound?(fullMethodName: string): boolean;
   getBoundMethods?(): string[];
+  setConfig?(config: AuroraViewConfig): void;
+
   _registerApiMethods?(
     namespace: string,
     methods: string[],

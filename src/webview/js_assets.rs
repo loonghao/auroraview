@@ -398,20 +398,30 @@ pub fn get_assets(assets: &[JsAsset]) -> String {
 /// # Arguments
 ///
 /// * `event_name` - Name of the event to trigger
-/// * `event_data` - JSON string of event data (must be properly escaped)
+/// * `event_data` - JSON string from `serde_json::Value::to_string()` or
+///   `auroraview_core::json::to_js_literal()`. **DO NOT** apply additional escaping!
 ///
 /// # Returns
 ///
 /// JavaScript code as a String
 ///
-/// # Example
+/// # Correct Usage
 ///
 /// ```rust,ignore
 /// use crate::webview::js_assets;
 ///
-/// let json_data = r#"{"message": "hello"}"#;
-/// let escaped = json_data.replace('\\', "\\\\").replace('\'', "\\'");
-/// let script = js_assets::build_emit_event_script("my_event", &escaped);
+/// let data = serde_json::json!({"message": "你好"});
+/// // Use to_string() directly - NO additional escaping!
+/// let json_str = data.to_string();
+/// let script = js_assets::build_emit_event_script("my_event", &json_str);
+/// ```
+///
+/// # Warning
+///
+/// **DO NOT** manually escape the JSON string like this:
+/// ```rust,ignore
+/// // WRONG! This causes encoding issues (中文乱码)
+/// let escaped = json_str.replace('\\', "\\\\").replace('\'', "\\'");
 /// ```
 #[cfg(feature = "templates")]
 pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {

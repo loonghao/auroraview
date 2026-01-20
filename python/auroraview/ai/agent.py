@@ -150,9 +150,8 @@ class AIAgent:
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    # Create future for async result
-                    future = asyncio.ensure_future(self.chat(message))
-                    # Note: This is simplified - in practice you'd use proper async handling
+                    # Schedule the coroutine - result will be sent via event
+                    asyncio.ensure_future(self._async_chat_and_emit(message))
                     return {"status": "pending", "message": "Processing..."}
                 else:
                     result = loop.run_until_complete(self.chat(message))
@@ -195,6 +194,24 @@ class AIAgent:
             return {"status": "ok"}
 
         logger.debug("Registered AI sidebar APIs")
+
+    async def _async_chat_and_emit(self, message: str) -> None:
+        """Process chat asynchronously and emit result via event.
+
+        This method is called when ai.chat is invoked from an already running
+        event loop. The result will be sent back to the frontend via an event.
+
+        Args:
+            message: User message to process
+        """
+        try:
+            result = await self.chat(message)
+            if self.webview:
+                self.webview.emit("ai.chat.response", {"status": "ok", "response": result})
+        except Exception as e:
+            logger.exception("Error in async chat")
+            if self.webview:
+                self.webview.emit("ai.chat.response", {"status": "error", "message": str(e)})
 
     def _inject_sidebar_ui(self) -> None:
         """Inject sidebar UI into the WebView."""

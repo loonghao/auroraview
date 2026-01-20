@@ -9,7 +9,7 @@
  *
  * Template variables:
  * @param {string} event_name - The name of the event to emit
- * @param {string} event_data - JSON-encoded event data payload
+ * @param {string} event_data - JSON-encoded event data payload (must be properly escaped)
  *
  * @example
  * // In Python:
@@ -24,10 +24,11 @@
     'use strict';
     if (window.auroraview && window.auroraview.trigger) {
         /** @type {Object} */
-        var eventData = JSON.parse('{{ event_data }}');
+        var eventData = {{ event_data|safe }};
         window.auroraview.trigger('{{ event_name }}', eventData);
     } else {
         console.error('[AuroraView] Event bridge not ready, cannot emit event: {{ event_name }}');
     }
 })();
+
 

@@ -304,14 +304,13 @@ impl NativeBackend {
                                 }
                             }
                             WebViewMessage::EmitEvent { event_name, data } => {
+                                // JSON is already valid JavaScript literal, no escaping needed
                                 let json_str = data.to_string();
-                                let escaped_json =
-                                    json_str.replace('\\', "\\\\").replace('\'', "\\'");
                                 let script =
-                                    js_assets::build_emit_event_script(&event_name, &escaped_json);
+                                    js_assets::build_emit_event_script(&event_name, &json_str);
                                 tracing::debug!(
-                                    "[CLOSE] [NativeBackend] Generated script: {}",
-                                    script
+                                    "[EmitEvent] [NativeBackend] Generated script for event: {}",
+                                    event_name
                                 );
                                 if let Err(e) = webview.evaluate_script(&script) {
                                     tracing::error!("Failed to emit event: {}", e);
@@ -332,11 +331,10 @@ impl NativeBackend {
                             WebViewMessage::WindowEvent { event_type, data } => {
                                 // Window events are handled by emitting to JavaScript
                                 let event_name = event_type.as_str();
+                                // JSON is already valid JavaScript literal, no escaping needed
                                 let json_str = data.to_string();
-                                let escaped_json =
-                                    json_str.replace('\\', "\\\\").replace('\'', "\\'");
                                 let script =
-                                    js_assets::build_emit_event_script(event_name, &escaped_json);
+                                    js_assets::build_emit_event_script(event_name, &json_str);
                                 tracing::debug!(
                                     "[WINDOW_EVENT] [NativeBackend] Emitting window event: {}",
                                     event_name

@@ -61,7 +61,7 @@ type = "python"                                 # "python" | "go" | "rust" | "no
 [backend.python]
 version = "3.11"
 entry_point = "main:run_gallery"
-packages = ["pyyaml"]
+packages = ["pyyaml", "openai", "anthropic", "google-genai", "httpx"]
 include_paths = [".", "../python"]
 exclude = ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"]
 optimize = 1
@@ -73,6 +73,35 @@ pythonpath = true
 path = true
 extra_path = []
 extra_pythonpath = []
+# Inherit API keys from system environment
+inherit_env = [
+    # System essentials (Windows)
+    "SYSTEMROOT",
+    "SYSTEMDRIVE",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "COMPUTERNAME",
+    "USERNAME",
+    # AI Provider API Keys
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "GROQ_API_KEY",
+    # Proxy settings (useful for API calls)
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+]
 
 # Python code protection (bytecode encryption with ECC + AES-256-GCM)
 # This is FAST because it only compiles to .pyc and encrypts, no C compiler needed.

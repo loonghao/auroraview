@@ -12,11 +12,16 @@ running in a packed application.
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import signal
 import sys
+import threading
+import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+
+
 
 if TYPE_CHECKING:
     from .webview import WebView
@@ -24,13 +29,107 @@ if TYPE_CHECKING:
 # Check if running in packed mode (set by Rust CLI)
 PACKED_MODE = os.environ.get("AURORAVIEW_PACKED", "0") == "1"
 
+# Windows error codes
+_ERROR_NO_DATA = 232  # Pipe is being closed
+_ERROR_BROKEN_PIPE = 109  # The pipe has been ended
+
+# Pipe error codes (POSIX + Windows)
+_PIPE_ERRORS = (errno.EINVAL, errno.EPIPE, errno.EBADF)
+_PIPE_WIN_ERRORS = (_ERROR_NO_DATA, _ERROR_BROKEN_PIPE)
+
+
+class StdioWriter:
+    """Thread-safe stdout writer with pipe closure detection.
+
+    This class provides a robust way to write to stdout in packed mode,
+    automatically detecting when the pipe is closed and preventing
+    further write attempts to avoid cascading errors.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._closed = False
+
+    def is_closed(self) -> bool:
+        """Check if the pipe has been detected as closed."""
+        return self._closed
+
+    def write(self, data: str) -> bool:
+        """Write data to stdout.
+
+        Args:
+            data: The string data to write
+
+        Returns:
+            True if write succeeded, False if pipe is closed
+        """
+        if self._closed:
+            return False
+
+        with self._lock:
+            if self._closed:
+                return False
+
+            try:
+                print(data, flush=True)
+                return True
+            except OSError as e:
+                if self._is_pipe_error(e):
+                    self._closed = True
+                    return False
+                raise
+
+    def write_json(self, obj: Dict[str, Any]) -> bool:
+        """Write a JSON object to stdout.
+
+        Args:
+            obj: The dictionary to JSON serialize and write
+
+        Returns:
+            True if write succeeded, False if pipe is closed
+        """
+        return self.write(json.dumps(obj, ensure_ascii=False))
+
+    @staticmethod
+    def _is_pipe_error(e: OSError) -> bool:
+        """Check if an OSError indicates a closed/broken pipe."""
+        winerror = getattr(e, "winerror", None)
+        if winerror in _PIPE_WIN_ERRORS:
+            return True
+        if e.errno in _PIPE_ERRORS:
+            return True
+        return False
+
+
+# Global writer instance for packed mode
+_stdout_writer: Optional[StdioWriter] = None
+
+
+def _get_writer() -> StdioWriter:
+    """Get or create the global stdout writer."""
+    global _stdout_writer
+    if _stdout_writer is None:
+        _stdout_writer = StdioWriter()
+    return _stdout_writer
+
 
 def is_packed_mode() -> bool:
     """Check if running in packed mode."""
     return PACKED_MODE
 
 
-def send_command(command: Dict[str, Any]) -> None:
+def is_pipe_closed() -> bool:
+    """Check if the stdout pipe has been closed.
+
+    This can be used to detect when the Rust process has terminated
+    and avoid attempting further communication.
+    """
+    if not is_packed_mode():
+        return False
+    return _get_writer().is_closed()
+
+
+def send_command(command: Dict[str, Any]) -> bool:
     """Send a command to the Rust backend via stdout.
 
     This is used for fire-and-forget commands like set_html that don't
@@ -38,14 +137,17 @@ def send_command(command: Dict[str, Any]) -> None:
 
     Args:
         command: The command dictionary to send (will be JSON serialized)
+
+    Returns:
+        True if command was sent, False if pipe is closed
     """
     if not is_packed_mode():
-        return
+        return True
 
-    print(json.dumps(command), flush=True)
+    return _get_writer().write_json(command)
 
 
-def send_set_html(html: str, title: Optional[str] = None) -> None:
+def send_set_html(html: str, title: Optional[str] = None) -> bool:
     """Send HTML content to the Rust WebView for dynamic loading.
 
     This allows Python components like Browser to dynamically set HTML
@@ -54,6 +156,9 @@ def send_set_html(html: str, title: Optional[str] = None) -> None:
     Args:
         html: The HTML content to load
         title: Optional window title to set
+
+    Returns:
+        True if command was sent, False if pipe is closed
     """
     command: Dict[str, Any] = {
         "type": "set_html",
@@ -63,10 +168,10 @@ def send_set_html(html: str, title: Optional[str] = None) -> None:
         command["title"] = title
 
     print(f"[AuroraView] Sending set_html command (html_len: {len(html)})", file=sys.stderr)
-    send_command(command)
+    return send_command(command)
 
 
-def send_event(event: str, data: Optional[Dict[str, Any]] = None) -> None:
+def send_event(event: str, data: Optional[Dict[str, Any]] = None) -> bool:
     """Send an event to the Rust WebView in packed mode.
 
     This is used by WebView.emit() to forward events to the Rust CLI,
@@ -78,16 +183,19 @@ def send_event(event: str, data: Optional[Dict[str, Any]] = None) -> None:
     Args:
         event: Event name
         data: Event data (will be JSON serialized)
+
+    Returns:
+        True if event was sent, False if pipe is closed
     """
     if not is_packed_mode():
-        return
+        return True
 
     message: Dict[str, Any] = {
         "type": "event",
         "event": event,
         "data": data or {},
     }
-    print(json.dumps(message), flush=True)
+    return _get_writer().write_json(message)
 
 
 def run_api_server(webview: "WebView") -> None:
@@ -105,29 +213,54 @@ def run_api_server(webview: "WebView") -> None:
     """
     print("[AuroraView] Running in packed mode (API server)", file=sys.stderr)
 
+    # Get the global writer for consistent pipe state tracking
+    writer = _get_writer()
+
     # Get the bound functions from the WebView
     bound_functions = getattr(webview, "_bound_functions", {})
     print(f"[AuroraView] Registered {len(bound_functions)} API handlers", file=sys.stderr)
 
     # Setup signal handler for graceful shutdown
     running = True
+    stop_event = threading.Event()
 
     def signal_handler(signum: int, frame: Any) -> None:
         nonlocal running
         print("[AuroraView] Received shutdown signal", file=sys.stderr)
         running = False
+        stop_event.set()
 
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
     # Send ready signal to Rust backend
     # This tells Rust that Python is ready to receive requests
-    ready_signal = json.dumps({"type": "ready", "handlers": list(bound_functions.keys())})
-    print(ready_signal, flush=True)
+    ready_signal = {"type": "ready", "handlers": list(bound_functions.keys())}
+    if not writer.write_json(ready_signal):
+        print("[AuroraView] Failed to send ready signal, pipe closed", file=sys.stderr)
+        return
     print("[AuroraView] Ready signal sent", file=sys.stderr)
+    send_event("backend_health", {"status": "ready", "schema_version": 1})
+
+    def heartbeat_loop() -> None:
+        """Send periodic heartbeat events to Rust."""
+        while not stop_event.is_set() and not writer.is_closed():
+            if not send_event("backend_health", {"status": "alive", "ts": time.time(), "schema_version": 1}):
+                # Pipe closed, signal main loop to stop
+                print("[AuroraView] Heartbeat: pipe closed, stopping", file=sys.stderr)
+                stop_event.set()
+                break
+            stop_event.wait(2.0)
+
+    heartbeat_thread = threading.Thread(
+        target=heartbeat_loop,
+        name="AuroraViewHeartbeat",
+        daemon=True,
+    )
+    heartbeat_thread.start()
 
     # Main JSON-RPC loop
-    while running:
+    while running and not writer.is_closed():
         try:
             line = sys.stdin.readline()
             if not line:
@@ -149,15 +282,28 @@ def run_api_server(webview: "WebView") -> None:
             # Handle the request
             response = _handle_request(request, bound_functions)
 
-            # Send response
-            print(json.dumps(response), flush=True)
+            # Send response - break if pipe is closed
+            if not writer.write_json(response):
+                print("[AuroraView] stdout closed, shutting down", file=sys.stderr)
+                break
 
+        except OSError as e:
+            # Check for pipe errors
+            winerror = getattr(e, "winerror", None)
+            if winerror in _PIPE_WIN_ERRORS or e.errno in _PIPE_ERRORS:
+                print(f"[AuroraView] Pipe closed, shutting down: {e}", file=sys.stderr)
+                break
+            print(f"[AuroraView] OSError in API server loop: {e}", file=sys.stderr)
+            continue
         except Exception as e:
             print(f"[AuroraView] Error in API server loop: {e}", file=sys.stderr)
             continue
 
+    stop_event.set()
+
     # Trigger close event if registered
     close_handlers = getattr(webview, "_event_handlers", {}).get("close", [])
+
     for handler in close_handlers:
         try:
             handler()
@@ -184,6 +330,18 @@ def _handle_request(
     method = request.get("method", "")
     params = request.get("params")
 
+    if method == "__ping__":
+        return {
+            "id": call_id,
+            "ok": True,
+            "result": {
+                "status": "pong",
+                "ts": time.time(),
+                "schema_version": 1,
+            },
+        }
+
+
     # Find the handler
     handler = bound_functions.get(method)
     if handler is None:
@@ -195,6 +353,7 @@ def _handle_request(
                 "message": f"Method not found: {method}",
             },
         }
+
 
     # Call the handler
     try:

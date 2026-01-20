@@ -18,6 +18,7 @@ pub mod config; // Public for testing
 pub(crate) mod desktop;
 pub mod devtools; // DevTools window management
 pub(crate) mod event_loop;
+pub mod features; // Feature integration (RFC 0007 Phase 4)
 pub mod js_assets; // JavaScript assets management
 #[cfg(feature = "templates")]
 pub mod js_templates; // Type-safe JS templates using Askama
@@ -48,6 +49,8 @@ pub use core::PluginManager;
 #[cfg(feature = "python-bindings")]
 pub use core::PyRegion;
 pub use devtools::{DevToolsManager, DevToolsWindowConfig, DevToolsWindowInfo};
+pub use event_loop::{EventLoopError, EventLoopResult};
+pub use features::{Features, FeaturesConfig};
 #[cfg(feature = "python-bindings")]
 pub use proxy::WebViewProxy;
 pub use window_manager::{WindowInfo, WindowManager};

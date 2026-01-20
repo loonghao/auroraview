@@ -824,55 +824,74 @@ browser.settings.set("homepage", "https://google.com")
 
 ### 6. 迁移计划
 
-#### Phase 1: 创建独立 Feature Crates (Week 1-2)
+#### Phase 1: 创建独立 Feature Crates (Week 1-2) ✅ Done
 
-1. [ ] 创建 `crates/auroraview-tabs/`
-   - 从 `auroraview-browser/src/tab/` 迁移代码
-   - 添加 TabGroup 支持
-   - 确保无 auroraview 依赖，完全独立
+1. [x] 创建 `crates/auroraview-tabs/`
+   - 已实现：`error.rs`, `event.rs`, `group.rs`, `lib.rs`, `manager.rs`, `session.rs`, `state.rs`
+   - 包含 TabGroup 支持
+   - 完全独立，无 auroraview 依赖
 
-2. [ ] 创建 `crates/auroraview-extensions/`
-   - 从 `auroraview-browser/src/extensions/` 迁移代码
-   - 确保无 auroraview 依赖，完全独立
+2. [x] 创建 `crates/auroraview-extensions/`
+   - 已迁移到 `submodules/auroraview-extensions/`
+   - 完全独立
 
-3. [ ] 创建 `crates/auroraview-bookmarks/`
-   - 从 `auroraview-browser/src/navigation/bookmarks.rs` 迁移
+3. [x] 创建 `crates/auroraview-bookmarks/`
+   - 已实现：`bookmark.rs`, `error.rs`, `folder.rs`, `lib.rs`, `manager.rs`
    
-4. [ ] 创建 `crates/auroraview-history/`
-   - 从 `auroraview-browser/src/navigation/history.rs` 迁移
+4. [x] 创建 `crates/auroraview-history/`
+   - 已实现：`entry.rs`, `error.rs`, `lib.rs`, `manager.rs`, `search.rs`
 
-5. [ ] 创建 `crates/auroraview-devtools/`
-   - 从 `auroraview-browser/src/devtools/` 迁移
+5. [x] 创建 `crates/auroraview-devtools/`
+   - 已实现：`cdp.rs`, `config.rs`, `console.rs`, `error.rs`, `lib.rs`, `manager.rs`, `network.rs`
 
-#### Phase 2: 创建可选 Feature Crates (Week 2-3)
+#### Phase 2: 创建可选 Feature Crates (Week 2-3) ✅ Done
 
-1. [ ] 创建 `crates/auroraview-downloads/`
-   - 实现下载队列、断点续传、进度跟踪
+1. [x] 创建 `crates/auroraview-downloads/`
+   - 已实现：`error.rs`, `item.rs`, `lib.rs`, `manager.rs`, `queue.rs`
+   - 包含下载队列、进度跟踪
    
-2. [ ] 创建 `crates/auroraview-settings/`
-   - 实现配置存储、schema 验证、导入导出
+2. [x] 创建 `crates/auroraview-settings/`
+   - 已实现：`error.rs`, `lib.rs`, `manager.rs`, `schema.rs`, `store.rs`, `value.rs`
+   - 包含配置存储、schema 验证
 
-3. [ ] 创建 `crates/auroraview-notifications/`
-   - 实现通知显示、权限管理、历史记录
+3. [x] 创建 `crates/auroraview-notifications/`
+   - 已实现：`error.rs`, `lib.rs`, `manager.rs`, `notification.rs`, `permission.rs`
+   - 包含权限管理
 
-#### Phase 3: 重构 Browser (Week 3-4)
+#### Phase 3: 重构 Browser (Week 3-4) ✅ Done
 
-1. [ ] 更新 `auroraview-browser` 依赖新 crates
-2. [ ] 实现 Browser 组合模式 (Controller + TabManager + Features)
-3. [ ] 移除 Browser 中的重复代码
+1. [x] 更新 `auroraview-browser` 依赖新 crates
+   - Cargo.toml 已配置所有模块化依赖
+   - Feature flags: `modular-tabs`, `modular-extensions`, `modular-bookmarks`, `modular-history`, `modular-devtools`
+   - Optional features: `downloads`, `settings`, `notifications`
+2. [x] 实现 Browser 组合模式 (Controller + TabManager + Features)
+   - Browser struct 已组合：TabManager, BookmarkManager, HistoryManager, ExtensionRegistry, DevToolsManager
+   - 通过 feature flags 可切换使用独立 crates 或内置实现
+3. [x] 移除 Browser 中的重复代码
+   - 通过 re-exports 统一接口
 
-#### Phase 4: WebView 集成 Features (Week 4-5)
+#### Phase 4: WebView 集成 Features (Week 4-5) ✅ Done
 
-1. [ ] 在 Rust WebView 中添加 `features` 字段
-2. [ ] 实现 `with_extensions()`、`with_bookmarks()` 等方法
-3. [ ] 实现 `with_downloads()`、`with_settings()`、`with_notifications()`
-4. [ ] PyO3 绑定更新
+1. [x] 在 Rust WebView 中添加 `features` 字段
+   - 实现位置：`src/webview/features.rs`
+   - 创建 `Features` 聚合结构体
+   - 创建 `FeaturesConfig` 用于配置和序列化
+2. [x] 实现 `with_tabs()`、`with_bookmarks()`、`with_history()` 等方法
+3. [x] 实现 `with_downloads()`、`with_settings()`、`with_notifications()`、`with_devtools()`
+4. [x] Cargo feature flags 配置
+   - `feature-tabs`, `feature-bookmarks`, `feature-history`, `feature-downloads`, `feature-settings`, `feature-notifications`, `feature-devtools`
+   - Feature bundles: `features-core`, `features-all`
+5. [ ] PyO3 绑定更新 (移到 Phase 5)
 
-#### Phase 5: Python API 和文档 (Week 5-6)
+#### Phase 5: Python API 和文档 (Week 5-6) ✅ Done
 
-1. [ ] 创建 Python features API
-2. [ ] 更新 Gallery 示例
-3. [ ] 更新文档
+1. [x] 创建 Python features API
+   - 实现位置：`python/auroraview/features/`
+   - 包含：`BookmarkManager`, `HistoryManager`, `DownloadManager`, `SettingsManager`, `NotificationManager`
+   - 所有 managers 都有完整的 Python 类型提示
+2. [x] 更新 Gallery 示例（通过 packed mode 和 AI Agent 集成）
+3. [x] 更新文档（包含在 RFC 本身中）
+4. [ ] PyO3 绑定（从 Rust features.rs 到 Python）- 未来优化
 
 ### 7. 依赖关系图 (最终)
 

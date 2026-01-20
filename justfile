@@ -668,61 +668,61 @@ maya-debug:
 # Install SDK dependencies
 sdk-install:
     @echo "Installing SDK dependencies..."
-    cd packages/auroraview-sdk; vx npm install
+    cd packages/auroraview-sdk; vx pnpm install
     @echo "[OK] SDK dependencies installed!"
 
 # Build SDK npm package
 sdk-build:
     @echo "Building SDK npm package..."
-    cd packages/auroraview-sdk; vx npm run build
+    cd packages/auroraview-sdk; vx pnpm run build
     @echo "[OK] SDK built in packages/auroraview-sdk/dist/"
 
 # Build SDK assets (inject scripts for Rust)
 sdk-build-assets:
     @echo "Building SDK assets (inject scripts)..."
-    cd packages/auroraview-sdk; vx npm run build:assets
+    cd packages/auroraview-sdk; vx pnpm run build:assets
     @echo "[OK] Assets built in crates/auroraview-core/src/assets/js/"
 
 # Build SDK all (npm package + assets)
 sdk-build-all: sdk-install
     @echo "Building SDK (all)..."
-    cd packages/auroraview-sdk; vx npm run build:all
+    cd packages/auroraview-sdk; vx pnpm run build:all
     @echo "[OK] SDK and assets built!"
 
 # Run SDK unit tests
 sdk-test:
     @echo "Running SDK unit tests..."
-    cd packages/auroraview-sdk; vx npm run test
+    cd packages/auroraview-sdk; vx pnpm run test
     @echo "[OK] SDK tests passed!"
 
 # Run SDK tests with coverage
 sdk-test-cov:
     @echo "Running SDK tests with coverage..."
-    cd packages/auroraview-sdk; vx npm run test:coverage
+    cd packages/auroraview-sdk; vx pnpm run test:coverage
     @echo "[OK] SDK coverage report: packages/auroraview-sdk/coverage/"
 
 # Run SDK E2E tests (requires Playwright)
 sdk-test-e2e:
     @echo "Running SDK E2E tests..."
-    cd packages/auroraview-sdk; vx npm run test:e2e
+    cd packages/auroraview-sdk; vx pnpm run test:e2e
     @echo "[OK] SDK E2E tests passed!"
 
 # Run all SDK tests (unit + E2E)
 sdk-test-all:
     @echo "Running all SDK tests..."
-    cd packages/auroraview-sdk; vx npm run test:all
+    cd packages/auroraview-sdk; vx pnpm run test:all
     @echo "[OK] All SDK tests passed!"
 
 # Run SDK type check
 sdk-typecheck:
     @echo "Running SDK type check..."
-    cd packages/auroraview-sdk; vx npm run typecheck
+    cd packages/auroraview-sdk; vx pnpm run typecheck
     @echo "[OK] SDK type check passed!"
 
 # Install Playwright for SDK E2E tests
 sdk-playwright-install:
     @echo "Installing Playwright for SDK E2E tests..."
-    cd packages/auroraview-sdk; vx npx playwright install chromium --with-deps
+    cd packages/auroraview-sdk; vx pnpm exec playwright install chromium --with-deps
     @echo "[OK] Playwright installed!"
 
 # Full SDK CI check (typecheck + test + coverage + build)
@@ -736,7 +736,7 @@ sdk-ci: sdk-install sdk-typecheck sdk-test-cov sdk-build-all
 # Build gallery frontend (builds SDK first)
 gallery-build: sdk-build
     @echo "Building gallery frontend..."
-    cd gallery; vx npm install; vx npm run build
+    cd gallery; vx pnpm install; vx pnpm run build
     @echo "[OK] Gallery built in gallery/dist/"
 
 # Run gallery (build frontend first, then launch with AuroraView)
@@ -747,7 +747,7 @@ gallery: gallery-build
 # Run gallery dev server (for frontend development)
 gallery-dev:
     @echo "Starting gallery dev server..."
-    cd gallery; vx npm run dev
+    cd gallery; vx pnpm run dev
 
 # Run Gallery E2E tests
 gallery-test:
@@ -947,7 +947,7 @@ pack-all: test-pack lint-pack gallery-pack
 # Install documentation dependencies
 docs-install:
     @echo "Installing documentation dependencies..."
-    cd docs; vx npm install
+    cd docs; vx pnpm install
     @echo "[OK] Documentation dependencies installed!"
 
 # Generate Python API documentation with pdoc (optional, may fail due to network)
