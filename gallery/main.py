@@ -30,8 +30,6 @@ import time
 # Import backend modules
 from backend import (
     CATEGORIES,
-    EXAMPLES_DIR,
-    GALLERY_DIR,
     PROJECT_ROOT,
     get_samples_list,
 )
@@ -66,9 +64,9 @@ def _cleanup_all():
     if _cleanup_done:
         return
     _cleanup_done = True
-    
+
     print("[Gallery] Running cleanup...", file=sys.stderr)
-    
+
     # Kill all managed processes
     if _global_plugins is not None:
         try:
@@ -76,25 +74,25 @@ def _cleanup_all():
             print(f"[Gallery] kill_all result: {result}", file=sys.stderr)
         except Exception as e:
             print(f"[Gallery] Error killing processes: {e}", file=sys.stderr)
-    
+
     # Cleanup extension bridge
     try:
         cleanup_extension_bridge()
     except Exception as e:
         print(f"[Gallery] Error cleaning up extension bridge: {e}", file=sys.stderr)
-    
+
     # Cleanup AI agent
     try:
         cleanup_ai_agent()
     except Exception as e:
         print(f"[Gallery] Error cleaning up AI agent: {e}", file=sys.stderr)
-    
+
     # Cleanup child window manager
     try:
         cleanup_child_manager()
     except Exception as e:
         print(f"[Gallery] Error cleaning up child manager: {e}", file=sys.stderr)
-    
+
     print("[Gallery] Cleanup complete", file=sys.stderr)
 
 
@@ -152,17 +150,21 @@ def run_gallery():
     else:
         # Convert file path to file:// URL for proper loading
         from auroraview.utils.file_protocol import path_to_file_url
+
         url = path_to_file_url(index_html)
         print(f"[Python] Loading: {url}", file=sys.stderr)
 
-    print(f"[Python] Creating WebView with allow_new_window=True, new_window_mode='child_webview'", file=sys.stderr)
-    
+    print(
+        "[Python] Creating WebView with allow_new_window=True, new_window_mode='child_webview'",
+        file=sys.stderr,
+    )
+
     # Check for CDP port from environment (for MCP testing)
     cdp_port = os.environ.get("AURORAVIEW_CDP_PORT")
     if cdp_port:
         cdp_port = int(cdp_port)
         print(f"[Python] CDP remote debugging enabled on port {cdp_port}", file=sys.stderr)
-    
+
     view = WebView(
         title="AuroraView Gallery",
         url=url,
@@ -173,11 +175,11 @@ def run_gallery():
         new_window_mode="child_webview",  # Open new windows as child WebViews
         remote_debugging_port=cdp_port,  # Enable CDP if port specified
     )
-    print(f"[Python] WebView created successfully", file=sys.stderr)
+    print("[Python] WebView created successfully", file=sys.stderr)
 
     # Create plugin manager with permissive scope for demo
     plugins = PluginManager.permissive()
-    
+
     # Store global reference for cleanup
     global _global_plugins
     _global_plugins = plugins
@@ -191,11 +193,13 @@ def run_gallery():
         def packed_emit_callback(event_name, data):
             """Emit events to Rust CLI via stdout in packed mode."""
             try:
-                event_msg = json.dumps({
-                    "type": "event",
-                    "event": event_name,
-                    "data": data if isinstance(data, dict) else {"value": data}
-                })
+                event_msg = json.dumps(
+                    {
+                        "type": "event",
+                        "event": event_name,
+                        "data": data if isinstance(data, dict) else {"value": data},
+                    }
+                )
                 with _stdout_lock:
                     print(event_msg, flush=True)
                 # Only log non-frequent events to reduce noise
@@ -252,15 +256,24 @@ def run_gallery():
         """Handle native file drop events from Wry/WebView."""
         paths = data.get("paths", [])
         position = data.get("position", {})
-        print(f"[Python:on_file_drop] Received file drop: paths={paths}, position={position}", file=sys.stderr)
+        print(
+            f"[Python:on_file_drop] Received file drop: paths={paths}, position={position}",
+            file=sys.stderr,
+        )
 
         if paths:
             emitter = view.create_emitter()
-            emitter.emit("extension:file_drop", {
-                "paths": paths,
-                "position": position,
-            })
-            print("[Python:on_file_drop] Emitted extension:file_drop event to frontend", file=sys.stderr)
+            emitter.emit(
+                "extension:file_drop",
+                {
+                    "paths": paths,
+                    "position": position,
+                },
+            )
+            print(
+                "[Python:on_file_drop] Emitted extension:file_drop event to frontend",
+                file=sys.stderr,
+            )
 
     # Cleanup on close - use "closing" event (before window closes)
     @view.on("closing")

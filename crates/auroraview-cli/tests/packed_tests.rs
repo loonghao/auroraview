@@ -20,8 +20,8 @@ use std::path::PathBuf;
 /// Backslashes ARE escaped to support Windows paths in JSON
 #[rstest]
 #[case(r#"{"key": "value"}"#, r#"{\"key\": \"value\"}"#)]
-#[case(r#"path\to\file"#, r#"path\\to\\file"#)]  // Backslash escaped for JS string embedding
-#[case("line1\nline2\rline3\ttab", r#"line1\nline2\rline3	tab"#)]  // Only \n \r escaped, \t preserved
+#[case(r#"path\to\file"#, r#"path\\to\\file"#)] // Backslash escaped for JS string embedding
+#[case("line1\nline2\rline3\ttab", r#"line1\nline2\rline3	tab"#)] // Only \n \r escaped, \t preserved
 #[case("", "")]
 fn test_escape_json_for_js(#[case] input: &str, #[case] expected: &str) {
     let escaped = escape_json_for_js(input);
@@ -67,19 +67,22 @@ fn test_escape_json_for_js_windows_path() {
         "path": "C:\\Users\\test",
         "name": "file.txt"
     });
-    
+
     let json_str = json::to_string(&original).unwrap();
     // json_str = {"name":"file.txt","path":"C:\\Users\\test"}
-    
+
     let escaped = escape_json_for_js(&json_str);
     // Each \\ in JSON must become \\\\ in JS string literal
     // So C:\\Users becomes C:\\\\Users in the escaped string
-    
+
     // Verify backslashes are properly doubled
     // In Rust string literal: C:\\\\Users\\\\test represents C:\\Users\\test
-    assert!(escaped.contains(r#"C:\\\\Users\\\\test"#), 
-        "Windows path backslashes should be escaped. Got: {}", escaped);
-    
+    assert!(
+        escaped.contains(r#"C:\\\\Users\\\\test"#),
+        "Windows path backslashes should be escaped. Got: {}",
+        escaped
+    );
+
     // Verify the structure is correct
     assert!(escaped.contains("\\\"path\\\""));
     assert!(escaped.contains("\\\"name\\\""));
@@ -102,16 +105,16 @@ fn test_escape_json_for_js_unicode() {
     // Unicode characters should be preserved (not corrupted by backslash escaping)
     // serde_json may output Chinese as-is or as \uXXXX, both should work
     // The key is that after JSON.parse(), we get the original characters back
-    
+
     // Verify the escaped string is valid for JSON.parse
     // We simulate what happens in JS: JSON.parse('"' + escaped + '"')
     // But since escaped already has escaped quotes, we need different approach
-    
+
     // Just verify the key structure is correct
     assert!(escaped.contains("\\\"message\\\""));
     assert!(escaped.contains("\\\"model\\\""));
     assert!(escaped.contains("deepseek-chat"));
-    
+
     // With the new escaping, Unicode escape sequences like \u4F60 become \\u4F60
     // This is correct because when embedded in JS string and parsed:
     // JS string literal \\u4F60 -> \u4F60 -> JSON.parse interprets as Unicode

@@ -31,7 +31,7 @@ use std::process::Command;
 /// # Example
 /// ```
 /// use auroraview_cli::escape_json_for_js;
-/// 
+///
 /// let json = r#"{"path":"C:\\Users"}"#;
 /// let escaped = escape_json_for_js(json);
 /// // Result: {\"path\":\"C:\\\\Users\"}

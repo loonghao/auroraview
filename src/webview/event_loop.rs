@@ -430,7 +430,10 @@ fn process_webview_message(
                 tracing::error!("Failed to emit window event '{}': {}", event_name, e);
             }
         }
-        WebViewMessage::EvalJsAsync { script, callback_id } => {
+        WebViewMessage::EvalJsAsync {
+            script,
+            callback_id,
+        } => {
             let async_script = js_assets::build_eval_js_async_script(script, *callback_id);
             if let Err(e) = webview.evaluate_script(&async_script) {
                 tracing::error!(
@@ -881,7 +884,12 @@ impl WebViewEventHandler {
                         state_guard.message_queue.process_all(|message| {
                             if let Some(webview_arc) = &state_guard.webview {
                                 if let Ok(webview) = webview_arc.lock() {
-                                    process_webview_message(&message, &webview, window_ref, &state_guard);
+                                    process_webview_message(
+                                        &message,
+                                        &webview,
+                                        window_ref,
+                                        &state_guard,
+                                    );
                                 }
                             }
                         });

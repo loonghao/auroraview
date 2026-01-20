@@ -143,7 +143,10 @@ pub enum UIAction {
     },
 
     /// Append child to component
-    AppendChild { parent_id: String, child: UIComponentSpec },
+    AppendChild {
+        parent_id: String,
+        child: UIComponentSpec,
+    },
 
     /// Remove component
     Remove { id: String },

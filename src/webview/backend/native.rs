@@ -1102,6 +1102,18 @@ impl NativeBackend {
 
         let mut builder = WryWebViewBuilder::new_with_web_context(&mut web_context);
 
+        // Set remote debugging port for CDP (Chrome DevTools Protocol) connections
+        // This allows external tools (Playwright, chrome://inspect, MCP servers) to connect
+        #[cfg(target_os = "windows")]
+        if let Some(port) = config.remote_debugging_port {
+            let args = format!("--remote-debugging-port={}", port);
+            builder = builder.with_additional_browser_args(&args);
+            tracing::info!(
+                "[NativeBackend] Set WebView2 additional browser args: {}",
+                args
+            );
+        }
+
         // Transparent windows need both:
         // 1. with_transparent(true) on WebViewBuilder
         // 2. with_background_color((0,0,0,0)) for fully transparent background

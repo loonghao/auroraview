@@ -276,7 +276,10 @@ pub fn extract_lib_packages(overlay: &OverlayData, base_dir: &Path) -> Result<Pa
         return Ok(site_packages_dir);
     }
 
-    tracing::info!("Extracting {} third-party library files...", lib_assets.len());
+    tracing::info!(
+        "Extracting {} third-party library files...",
+        lib_assets.len()
+    );
 
     // Pre-create all directories in batch
     let dirs: HashSet<PathBuf> = lib_assets

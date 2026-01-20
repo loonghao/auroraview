@@ -104,7 +104,8 @@ impl AIClient {
 
     /// Simple chat with single user message
     pub async fn chat(&self, model: &str, message: &str) -> AIResult<CompletionResponse> {
-        self.chat_with_messages(model, vec![("user", message)]).await
+        self.chat_with_messages(model, vec![("user", message)])
+            .await
     }
 
     /// Chat with message history
@@ -364,16 +365,24 @@ impl AIClient {
                 )
                 .with_description("Fast and efficient")
                 .with_context_window(200000),
-                ModelInfo::new("claude-3-opus-20240229", "Claude 3 Opus", ProviderType::Anthropic)
-                    .with_description("Most powerful Claude 3")
-                    .with_context_window(200000)
-                    .with_vision(true),
+                ModelInfo::new(
+                    "claude-3-opus-20240229",
+                    "Claude 3 Opus",
+                    ProviderType::Anthropic,
+                )
+                .with_description("Most powerful Claude 3")
+                .with_context_window(200000)
+                .with_vision(true),
             ],
             ProviderType::Gemini => vec![
-                ModelInfo::new("gemini-2.0-flash-exp", "Gemini 2.0 Flash", ProviderType::Gemini)
-                    .with_description("Latest Gemini model")
-                    .with_context_window(1000000)
-                    .with_vision(true),
+                ModelInfo::new(
+                    "gemini-2.0-flash-exp",
+                    "Gemini 2.0 Flash",
+                    ProviderType::Gemini,
+                )
+                .with_description("Latest Gemini model")
+                .with_context_window(1000000)
+                .with_vision(true),
                 ModelInfo::new("gemini-1.5-pro", "Gemini 1.5 Pro", ProviderType::Gemini)
                     .with_description("Advanced reasoning")
                     .with_context_window(2000000)
