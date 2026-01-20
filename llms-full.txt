@@ -1,0 +1,691 @@
+# AuroraView
+
+> A lightweight WebView framework for DCC (Digital Content Creation) software, built with Rust and Python bindings. Perfect for Maya, 3ds Max, Houdini, Blender, and more.
+
+AuroraView provides a modern web-based UI solution for professional DCC applications like Maya, 3ds Max, Houdini, Blender, Photoshop, and Unreal Engine. Built on Rust's Wry library with PyO3 bindings, it offers native performance with minimal overhead.
+
+- **Package**: `pip install auroraview`
+- **Python**: 3.7+
+- **Platforms**: Windows, macOS, Linux
+- **License**: MIT
+- **Repository**: https://github.com/loonghao/auroraview
+- **PyPI**: https://pypi.org/project/auroraview/
+
+## Key Features
+
+- **Lightweight**: ~5MB package size vs ~120MB for Electron
+- **Fast**: Native Rust performance with minimal memory footprint
+- **Native WebView**: Uses system WebView (WebView2/WKWebView/WebKitGTK) for minimal footprint
+- **Bidirectional Communication**: Python ↔ JavaScript IPC with async/await support
+- **Custom Protocol Handler**: Load resources from DCC projects (`auroraview://`, custom protocols)
+- **Event System**: Node.js-style EventEmitter with `on()`, `once()`, `off()`, `emit()`
+- **Multi-Window Support**: WindowManager for creating/managing multiple windows
+- **Thread-Safe**: Rust-guaranteed memory safety and concurrent operations
+- **Cross-Platform**: Windows, macOS, and Linux support
+- **DCC-First Design**: Built specifically for DCC software integration
+- **Type-Safe**: Full type checking with Rust + Python
+
+## Technical Stack
+
+- Core: Rust 1.75+, PyO3 0.22 (abi3), Wry 0.47, Tao 0.30
+- Web engines: Windows (WebView2), macOS (WKWebView), Linux (WebKitGTK)
+- Packaging: maturin with abi3 → one wheel works for CPython 3.7-3.13
+
+## Integration Modes
+
+| Mode | Class | Best For | Docking Support |
+|------|-------|----------|-----------------|
+| **Qt Native** | `QtWebView` | Maya, Houdini, Nuke, 3ds Max | ✅ QDockWidget |
+| **HWND** | `AuroraView` | Unreal Engine, non-Qt apps | ✅ via HWND API |
+| **Standalone** | `run_standalone` | Desktop applications | N/A |
+
+## Quick Start
+
+### Installation
+
+```bash
+# Windows/macOS
+pip install auroraview
+
+# With Qt support (for Maya, Houdini, Nuke)
+pip install auroraview[qt]
+```
+
+### Basic Usage
+
+```python
+from auroraview import WebView
+
+# Create and show WebView
+webview = WebView.create("My App", url="http://localhost:3000")
+webview.show()
+```
+
+### Desktop App (one-liner)
+
+```python
+from auroraview import run_desktop
+
+run_desktop(title="My App", url="http://localhost:3000")
+```
+
+### Maya Integration (Qt-based)
+
+```python
+from auroraview import QtWebView
+import maya.OpenMayaUI as omui
+
+webview = QtWebView(
+    parent=maya_main_window(),
+    url="http://localhost:3000",
+    width=800,
+    height=600
+)
+webview.show()
+```
+
+### Unreal Engine (HWND-based)
+
+```python
+from auroraview import AuroraView
+
+webview = AuroraView(url="http://localhost:3000")
+webview.show()
+
+hwnd = webview.get_hwnd()
+if hwnd:
+    import unreal
+    unreal.parent_external_window_to_slate(hwnd)
+```
+
+## Core API
+
+### WebView Class
+
+```python
+WebView(
+    title: str = "AuroraView",
+    width: int = 800,
+    height: int = 600,
+    url: str = None,
+    html: str = None,
+    debug: bool = True,
+    context_menu: bool = True,
+    resizable: bool = True,
+    frame: bool = True,
+    parent: int = None,
+    mode: str = None,
+    asset_root: str = None,
+    allow_file_protocol: bool = False,
+    always_on_top: bool = False,
+    transparent: bool = False,
+)
+```
+
+### Content Loading
+
+```python
+webview.load_url("http://localhost:3000")
+webview.load_html("<h1>Hello World</h1>")
+webview.load_file("path/to/index.html")
+```
+
+### JavaScript Execution
+
+```python
+webview.eval_js("console.log('Hello from Python')")
+webview.eval_js_async(
+    "document.title",
+    callback=lambda result: print(f"Title: {result}"),
+    timeout_ms=5000
+)
+```
+
+### Window Control
+
+```python
+webview.show()
+webview.hide()
+webview.close()
+webview.resize(1024, 768)
+webview.move(100, 100)
+webview.minimize()
+webview.maximize()
+webview.toggle_fullscreen()
+webview.focus()
+```
+
+## Bidirectional Communication
+
+### Python → JavaScript
+
+```python
+webview.emit("update_data", {"frame": 120, "objects": ["cube", "sphere"]})
+```
+
+```javascript
+window.auroraview.on('update_data', (data) => {
+    console.log('Frame:', data.frame);
+});
+```
+
+### JavaScript → Python (Events)
+
+```javascript
+window.auroraview.send_event('export_scene', {
+    path: '/path/to/export.fbx',
+    format: 'fbx'
+});
+```
+
+```python
+@webview.on("export_scene")
+def handle_export(data):
+    print(f"Exporting to: {data['path']}")
+```
+
+### JavaScript → Python (RPC with Return Value)
+
+```javascript
+const result = await auroraview.api.get_hierarchy({ root: 'scene' });
+console.log(result);
+```
+
+```python
+@webview.bind_call("api.get_hierarchy")
+def get_hierarchy(root=None):
+    return {"children": ["group1", "mesh_cube"], "count": 2}
+```
+
+## API Binding
+
+```python
+# Bind single method
+@webview.bind_call("api.echo")
+def echo(message: str = "") -> dict:
+    return {"message": message}
+
+# Bind all methods of an object
+class API:
+    def get_data(self) -> dict:
+        return {"items": [1, 2, 3]}
+
+    def save_item(self, name: str = "", value: int = 0) -> dict:
+        return {"ok": True, "name": name}
+
+webview.bind_api(API(), namespace="api")
+```
+
+## Custom Protocol Handler
+
+```python
+webview = WebView(
+    title="My App",
+    asset_root="./assets"
+)
+
+def handle_maya_protocol(uri: str) -> dict:
+    path = uri.replace("maya://", "")
+    try:
+        with open(f"C:/maya_projects/{path}", "rb") as f:
+            return {
+                "data": f.read(),
+                "mime_type": "image/png",
+                "status": 200
+            }
+    except FileNotFoundError:
+        return {"data": b"Not Found", "mime_type": "text/plain", "status": 404}
+
+webview.register_protocol("maya", handle_maya_protocol)
+```
+
+## Window Events
+
+```python
+@webview.on_shown
+def on_shown(data):
+    print("Window is now visible")
+
+@webview.on_focused
+def on_focused(data):
+    print("Window gained focus")
+
+@webview.on_resized
+def on_resized(data):
+    print(f"Window resized to {data.width}x{data.height}")
+
+@webview.on_closing
+def on_closing(data):
+    return True  # Return True to allow close, False to cancel
+```
+
+## File Drop Events
+
+```python
+from auroraview.core.events import WindowEvent
+
+@webview.on(WindowEvent.FILE_DROP)
+def on_file_drop(data):
+    for path in data['paths']:
+        print(f"Dropped: {path}")
+    print(f"Position: {data['position']['x']}, {data['position']['y']}")
+
+@webview.on(WindowEvent.FILE_DROP_HOVER)
+def on_file_hover(data):
+    if data['hovering']:
+        print(f"Dragging {len(data['paths'])} files over window")
+```
+
+## Signals (Qt-like Pattern)
+
+```python
+from auroraview import WebView, Signal
+
+class MyTool(WebView):
+    selection_changed = Signal(list)
+    progress_updated = Signal(int, str)
+
+    def __init__(self):
+        super().__init__(title="My Tool")
+        self.selection_changed.connect(self._on_selection)
+
+    def _on_selection(self, items):
+        print(f"Selection: {items}")
+
+    def update_selection(self, items):
+        self.selection_changed.emit(items)
+```
+
+## Desktop Application APIs (JavaScript)
+
+### File Dialogs
+
+```javascript
+const result = await auroraview.dialog.openFile({
+    title: 'Select a File',
+    defaultPath: '/home/user',
+    filters: [
+        { name: 'Images', extensions: ['png', 'jpg', 'gif'] },
+        { name: 'All Files', extensions: ['*'] }
+    ]
+});
+
+const files = await auroraview.dialog.openFiles({ title: 'Select Files' });
+const folder = await auroraview.dialog.openFolder({ title: 'Select Folder' });
+const savePath = await auroraview.dialog.saveFile({
+    title: 'Save As',
+    defaultName: 'document.txt',
+    filters: [{ name: 'Text', extensions: ['txt'] }]
+});
+
+await auroraview.dialog.info('Operation completed!', 'Success');
+await auroraview.dialog.warning('This action cannot be undone.', 'Warning');
+await auroraview.dialog.error('File not found.', 'Error');
+const confirmed = await auroraview.dialog.ask('Save changes?', 'Confirm');
+```
+
+### File System Operations
+
+```javascript
+const content = await auroraview.fs.readFile('/path/to/file.txt');
+const base64 = await auroraview.fs.readFileBinary('/path/to/image.png');
+const buffer = await auroraview.fs.readFileBuffer('/path/to/file.bin');
+
+await auroraview.fs.writeFile('/path/to/file.txt', 'Hello World');
+await auroraview.fs.writeFileBinary('/path/to/file.bin', uint8Array);
+
+const exists = await auroraview.fs.exists('/path/to/file.txt');
+const stat = await auroraview.fs.stat('/path/to/file.txt');
+const entries = await auroraview.fs.readDir('/path/to/dir');
+
+await auroraview.fs.createDir('/path/to/new/dir');
+await auroraview.fs.remove('/path/to/file.txt');
+await auroraview.fs.copy('/source/file.txt', '/dest/file.txt');
+await auroraview.fs.rename('/old/path.txt', '/new/path.txt');
+```
+
+### Shell Commands
+
+```javascript
+const result = await auroraview.shell.execute('python', ['-c', 'print("Hello")']);
+const { pid } = await auroraview.shell.spawn('notepad', ['file.txt']);
+const pythonPath = await auroraview.shell.which('python');
+const home = await auroraview.shell.getEnv('HOME');
+const env = await auroraview.shell.getEnvAll();
+
+await auroraview.shell.open('https://github.com');
+await auroraview.shell.openPath('/path/to/document.pdf');
+await auroraview.shell.showInFolder('/path/to/file.txt');
+```
+
+## Qt Integration (QtWebView)
+
+```python
+from auroraview import QtWebView
+from qtpy.QtWidgets import QDialog, QVBoxLayout
+
+dialog = QDialog(maya_main_window())
+layout = QVBoxLayout(dialog)
+
+webview = QtWebView(parent=dialog, width=800, height=600)
+layout.addWidget(webview)
+
+webview.load_url("http://localhost:3000")
+
+dialog.show()
+webview.show()
+```
+
+### WebView2 Pre-warming
+
+```python
+from auroraview.integration.qt import WebViewPool
+
+WebViewPool.prewarm()
+
+if WebViewPool.has_prewarmed():
+    print(f"Pre-warm took {WebViewPool.get_prewarm_time():.2f}s")
+```
+
+## System Tray Support
+
+```python
+from auroraview import run_desktop
+
+run_desktop(
+    title="Background App",
+    html=my_html,
+    width=400,
+    height=300,
+    system_tray=True,
+    hide_on_close=True,
+)
+```
+
+## Floating Tool Windows
+
+```python
+from auroraview import WebView
+
+webview = WebView.create(
+    title="AI Assistant",
+    html=panel_html,
+    width=320,
+    height=400,
+    frame=False,
+    transparent=True,
+    always_on_top=True,
+    tool_window=True,
+    parent=parent_hwnd,
+    mode="owner",
+)
+webview.show()
+```
+
+## Application Packaging
+
+```bash
+# Pack a URL-based application
+auroraview-cli pack --url https://example.com --output myapp
+
+# Pack a frontend project
+auroraview-cli pack --frontend ./dist --output myapp
+
+# Pack with configuration
+auroraview-cli pack --config auroraview.pack.toml
+```
+
+Configuration example (`auroraview.pack.toml`):
+
+```toml
+[package]
+name = "my-app"
+version = "1.0.0"
+
+[app]
+title = "My Application"
+frontend_path = "./dist"
+
+[window]
+width = 1200
+height = 800
+resizable = true
+
+[bundle]
+icon = "./assets/my-app-icon.png"
+
+[bundle.platform.windows]
+console = false
+
+[python]
+entry_point = "main:main"
+include_paths = ["./backend"]
+strategy = "standalone"
+```
+
+## Command Line Interface
+
+```bash
+auroraview --url https://example.com
+auroraview --html /path/to/file.html
+auroraview --url https://example.com --title "My App" --width 1024 --height 768
+uvx auroraview --url https://example.com
+```
+
+## Testing Framework
+
+### HeadlessWebView
+
+```python
+from auroraview.testing import HeadlessWebView
+
+with HeadlessWebView.auto() as webview:
+    webview.goto("https://example.com")
+    webview.click("#button")
+    assert webview.text("#result") == "Success"
+
+with HeadlessWebView.playwright() as webview:
+    webview.load_html("<h1>Test</h1>")
+    assert webview.text("h1") == "Test"
+    webview.screenshot("test.png")
+```
+
+### Available Backends
+
+| Backend | Method | Platform | Use Case |
+|---------|--------|----------|----------|
+| Playwright | `HeadlessWebView.playwright()` | All | CI/CD |
+| Xvfb | `HeadlessWebView.virtual_display()` | Linux | Real WebView |
+| WebView2 CDP | `HeadlessWebView.webview2_cdp(url)` | Windows | Real WebView2 |
+
+## JavaScript API Reference
+
+### window.auroraview
+
+```javascript
+// Call Python method (returns Promise)
+const result = await auroraview.call('api.method_name', { param: value });
+
+// Call via api proxy (shorthand)
+const result = await auroraview.api.method_name({ param: value });
+
+// Invoke plugin command (returns Promise)
+const content = await auroraview.invoke('plugin:fs|read_file', { path: '/path/to/file.txt' });
+
+// Send event to Python (fire-and-forget)
+auroraview.send_event('event_name', { data: value });
+
+// Listen for Python events
+const unsubscribe = auroraview.on('event_name', (data) => {
+    console.log('Received:', data);
+});
+
+// Unsubscribe
+auroraview.off('event_name', handler);
+
+// Local JS event (does NOT reach Python)
+auroraview.trigger('local_event', data);
+```
+
+### Event Utilities
+
+```javascript
+const debouncedResize = auroraview.utils.debounce(function() {
+    console.log('Resized!');
+}, 250);
+window.addEventListener('resize', debouncedResize);
+
+const throttledScroll = auroraview.utils.throttle(function() {
+    console.log('Scrolled!');
+}, 100);
+window.addEventListener('scroll', throttledScroll);
+
+auroraview.onDebounced('resize', handler, 250);
+auroraview.onThrottled('scroll', handler, 100);
+```
+
+### Ready Event
+
+```javascript
+window.addEventListener('auroraviewready', () => {
+    auroraview.api.init();
+});
+```
+
+## DCC Software Support
+
+| Software | Status | Python | Mode |
+|----------|--------|--------|------|
+| Maya | ✅ | 3.7+ | Qt Native (QtWebView) |
+| 3ds Max | ✅ | 3.7+ | Qt Native (QtWebView) |
+| Houdini | ✅ | 3.7+ | Qt Native (QtWebView) |
+| Blender | ✅ | 3.7+ | Standalone mode |
+| Nuke | ✅ | 3.7+ | Qt Native (QtWebView) |
+| Unreal Engine | ✅ | 3.7+ | HWND mode (AuroraView) |
+| Photoshop | 🚧 | 3.7+ | Planned |
+
+## Plugin System
+
+- **Process Plugin**: Run external processes with stdout/stderr streaming
+- **File System Plugin**: Native file operations (read, write, copy, move)
+- **Dialog Plugin**: Native file/folder dialogs and message boxes
+- **Shell Plugin**: Execute commands, open URLs, reveal in file manager
+- **Clipboard Plugin**: System clipboard read/write access
+
+## Chrome Extension API Compatibility
+
+- Storage API: `chrome.storage.local/sync/session`
+- Bookmarks API: Create, search, update, delete bookmarks
+- History API: Search and manage browsing history
+- Downloads API: Download files with progress tracking
+- Cookies API: Get, set, remove cookies
+- Notifications API: System notifications with actions
+- TTS API: Text-to-speech synthesis
+- Idle/Power API: User activity detection and power management
+
+## Key Imports
+
+```python
+from auroraview import (
+    WebView,
+    Signal,
+    AuroraView,
+    QtWebView,
+    run_standalone,
+    EventTimer,
+    path_to_file_url,
+)
+```
+
+## Documentation
+
+- [Getting Started](https://github.com/loonghao/auroraview/blob/main/docs/guide/getting-started.md): Quick start guide
+- [Installation](https://github.com/loonghao/auroraview/blob/main/docs/guide/installation.md): Installation instructions
+- [WebView Basics](https://github.com/loonghao/auroraview/blob/main/docs/guide/webview-basics.md): Core WebView concepts
+- [Communication](https://github.com/loonghao/auroraview/blob/main/docs/guide/communication.md): Python ↔ JS bidirectional communication
+- [Qt Integration](https://github.com/loonghao/auroraview/blob/main/docs/guide/qt-integration.md): QtWebView for DCC applications
+- [Architecture](https://github.com/loonghao/auroraview/blob/main/docs/guide/architecture.md): System architecture overview
+
+## API Reference
+
+- [WebView API](https://github.com/loonghao/auroraview/blob/main/docs/api/webview.md): Core WebView class reference
+- [AuroraView API](https://github.com/loonghao/auroraview/blob/main/docs/api/auroraview.md): HWND-based wrapper
+- [QtWebView API](https://github.com/loonghao/auroraview/blob/main/docs/api/qt-webview.md): Qt widget integration
+- [Browser API](https://github.com/loonghao/auroraview/blob/main/docs/api/browser.md): Browser-related APIs
+- [Tab Container API](https://github.com/loonghao/auroraview/blob/main/docs/api/tab-container.md): Multi-tab container
+- [Window Manager API](https://github.com/loonghao/auroraview/blob/main/docs/api/window-manager.md): Multi-window management
+- [Ready Events API](https://github.com/loonghao/auroraview/blob/main/docs/api/ready-events.md): Initialization events
+
+## DCC Integration Guides
+
+- [Maya](https://github.com/loonghao/auroraview/blob/main/docs/dcc/maya.md): Maya integration guide
+- [Houdini](https://github.com/loonghao/auroraview/blob/main/docs/dcc/houdini.md): Houdini integration guide
+- [3ds Max](https://github.com/loonghao/auroraview/blob/main/docs/dcc/3dsmax.md): 3ds Max integration guide
+- [Blender](https://github.com/loonghao/auroraview/blob/main/docs/dcc/blender.md): Blender integration guide
+- [Unreal Engine](https://github.com/loonghao/auroraview/blob/main/docs/dcc/unreal.md): Unreal Engine integration guide
+- [Substance Painter](https://github.com/loonghao/auroraview/blob/main/docs/dcc/substance-painter.md): Substance Painter guide
+- [Photoshop](https://github.com/loonghao/auroraview/blob/main/docs/dcc/photoshop.md): Photoshop integration guide
+
+## Advanced Guides
+
+- [Advanced Usage](https://github.com/loonghao/auroraview/blob/main/docs/guide/advanced-usage.md): Advanced features and patterns
+- [CLI](https://github.com/loonghao/auroraview/blob/main/docs/guide/cli.md): Command-line interface
+- [Packing](https://github.com/loonghao/auroraview/blob/main/docs/guide/packing.md): Application packaging guide
+- [Testing Framework](https://github.com/loonghao/auroraview/blob/main/docs/guide/testing-framework.md): Testing with HeadlessWebView
+- [Headless Testing](https://github.com/loonghao/auroraview/blob/main/docs/guide/headless-testing.md): Headless browser testing
+- [Chrome Extension APIs](https://github.com/loonghao/auroraview/blob/main/docs/guide/chrome-extension-apis.md): Chrome API compatibility
+- [Custom Protocol](https://github.com/loonghao/auroraview/blob/main/docs/guide/custom-protocol.md): Custom protocol handlers
+- [Local Resources](https://github.com/loonghao/auroraview/blob/main/docs/guide/local-resources.md): Loading local assets
+- [Context Menu](https://github.com/loonghao/auroraview/blob/main/docs/guide/context-menu.md): Custom context menus
+- [Window Effects](https://github.com/loonghao/auroraview/blob/main/docs/guide/window-effects.md): Window visual effects
+- [Child Windows](https://github.com/loonghao/auroraview/blob/main/docs/guide/child-windows.md): Child window management
+- [Floating Panel](https://github.com/loonghao/auroraview/blob/main/docs/guide/floating-panel.md): Floating panel windows
+- [System Tray](https://github.com/loonghao/auroraview/blob/main/docs/guide/system-tray.md): System tray integration
+- [Multi-Tab Browser](https://github.com/loonghao/auroraview/blob/main/docs/guide/multi-tab-browser.md): Multi-tab browser implementation
+- [Performance](https://github.com/loonghao/auroraview/blob/main/docs/guide/performance.md): Performance optimization
+- [Thread Dispatcher](https://github.com/loonghao/auroraview/blob/main/docs/guide/thread-dispatcher.md): Thread safety
+- [TypeScript SDK](https://github.com/loonghao/auroraview/blob/main/docs/guide/typescript-sdk.md): TypeScript SDK usage
+- [Unified API](https://github.com/loonghao/auroraview/blob/main/docs/guide/unified-api.md): Unified API reference
+- [AI Agent CDP](https://github.com/loonghao/auroraview/blob/main/docs/guide/ai-agent-cdp.md): AI Agent + CDP integration
+- [GSAP Animations](https://github.com/loonghao/auroraview/blob/main/docs/guide/gsap-animations.md): GSAP animation integration
+- [Design Philosophy](https://github.com/loonghao/auroraview/blob/main/docs/guide/design-philosophy.md): Design principles
+- [Contributing](https://github.com/loonghao/auroraview/blob/main/docs/guide/contributing.md): Contribution guide
+- [Gallery](https://github.com/loonghao/auroraview/blob/main/docs/guide/gallery.md): Interactive feature showcase
+- [Examples](https://github.com/loonghao/auroraview/blob/main/docs/guide/examples.md): Comprehensive examples
+
+## Architecture & RFCs
+
+- [Thread Safety Diagnosis](https://github.com/loonghao/auroraview/blob/main/docs/architecture/thread-safety-diagnosis.md): Thread safety analysis
+- [CI Pipeline](https://github.com/loonghao/auroraview/blob/main/docs/contributing/ci-pipeline.md): CI/CD pipeline documentation
+
+### RFCs (Request for Comments)
+
+- [RFC 0001: AuroraView MCP Server](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0001-auroraview-mcp-server.md)
+- [RFC 0002: DCC Thread Safety](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0002-dcc-thread-safety.md)
+- [RFC 0003: VX Packed Dependency Bootstrap](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0003-vx-packed-dependency-bootstrap.md)
+- [RFC 0004: Multi-Window Management](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0004-multi-window-management.md)
+- [RFC 0005: DCC Plugin Architecture](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0005-dcc-plugin-architecture.md)
+- [RFC 0006: AuroraView Browser Crate](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0006-auroraview-browser-crate.md)
+- [RFC 0007: WebView Browser Unified Architecture](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0007-webview-browser-unified-architecture.md)
+- [RFC 0008: AI Agent Integration](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0008-ai-agent-integration.md)
+- [RFC 0009: AI Chat UI Integration](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0009-ai-chat-ui-integration.md)
+- [RFC 0010: Event Loop Optimization](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0010-event-loop-optimization.md)
+- [RFC 0011: Unified IPC Architecture](https://github.com/loonghao/auroraview/blob/main/docs/rfcs/0011-unified-ipc-architecture.md)
+
+## Examples
+
+- [Simple Decorator](https://github.com/loonghao/auroraview/blob/main/examples/simple_decorator.py): Basic decorator pattern
+- [Dynamic Binding](https://github.com/loonghao/auroraview/blob/main/examples/dynamic_binding.py): Dynamic API binding
+- [Desktop App Demo](https://github.com/loonghao/auroraview/blob/main/examples/desktop_app_demo.py): Desktop application example
+- [Qt Browser](https://github.com/loonghao/auroraview/blob/main/examples/qt_browser.py): Qt-based browser
+- [Multi Window Demo](https://github.com/loonghao/auroraview/blob/main/examples/multi_window_demo.py): Multi-window management
+- [Floating Panel Demo](https://github.com/loonghao/auroraview/blob/main/examples/floating_panel_demo.py): Floating panel window
+- [System Tray Demo](https://github.com/loonghao/auroraview/blob/main/examples/system_tray_demo.py): System tray integration
+- [Window Effects Demo](https://github.com/loonghao/auroraview/blob/main/examples/window_effects_demo.py): Window visual effects
+- [AI Chat Demo](https://github.com/loonghao/auroraview/blob/main/examples/ai_chat_demo.py): AI chat integration
+- [AI CDP Integration](https://github.com/loonghao/auroraview/blob/main/examples/ai_cdp_integration.py): AI + CDP integration
+- [Cookie Management Demo](https://github.com/loonghao/auroraview/blob/main/examples/cookie_management_demo.py): Cookie management
+- [DOM Manipulation Demo](https://github.com/loonghao/auroraview/blob/main/examples/dom_manipulation_demo.py): DOM manipulation
+- [Custom Context Menu Demo](https://github.com/loonghao/auroraview/blob/main/examples/custom_context_menu_demo.py): Custom context menus
+- [Local Assets Example](https://github.com/loonghao/auroraview/blob/main/examples/local_assets_example.py): Local asset loading
+- [DCC Integration Example](https://github.com/loonghao/auroraview/blob/main/examples/dcc_integration_example.py): DCC integration
