@@ -251,16 +251,47 @@ await win.emit('custom_event', { data: 'value' });
 
 ## Python 后端 API
 
-### 设置窗口 API
+### 快速开始（推荐）
+
+使用 `create_webview()` 一行代码即可创建功能完整的 WebView，内置窗口 API 自动启用：
 
 ```python
-from auroraview import WebView, setup_window_api
+from auroraview import create_webview
 
-# 创建 WebView
+# 一行代码创建功能完整的 WebView
+webview = create_webview(url="http://localhost:3000")
+webview.show()
+
+# JavaScript 可直接调用 window.* API：
+# await auroraview.call('window.minimize')
+# await auroraview.call('window.setTitle', { title: '新标题' })
+```
+
+### 高级用法
+
+如果需要禁用内置窗口 API 或自定义实现：
+
+```python
+from auroraview import create_webview
+
+# 禁用内置窗口 API
+webview = create_webview(url="...", window_api=False)
+
+# 或者使用底层 API 完全控制
+from auroraview.core import WebView
+from auroraview.core.window_api import setup_window_api, WindowAPI
+
 webview = WebView.create("我的应用")
 
-# 设置窗口 API（启用 JS window.* 调用）
+# 可选：手动设置窗口 API
 setup_window_api(webview)
+
+# 或者自定义实现
+class MyWindowAPI(WindowAPI):
+    def close(self, label=None):
+        # 自定义关闭逻辑
+        print("窗口即将关闭...")
+        return super().close(label)
 
 webview.show()
 ```
