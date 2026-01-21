@@ -256,6 +256,7 @@ from .core import (
     WebView,  # Kept for backward compatibility, prefer QtWebView/AuroraView
     WebViewSettings,
     WebViewSignals,
+    WindowAPI,
     WindowEvent,
     WindowEventData,
     WindowManager,
@@ -274,6 +275,7 @@ from .core import (
     require_ready,
     require_shown,
     set_backend_type,
+    setup_window_api,
 )
 
 # Unified API (recommended for new code)
@@ -569,6 +571,11 @@ __all__ = [
     "close_window_by_hwnd",
     "destroy_window_by_hwnd",
     "fix_webview2_child_windows",  # Qt6 compatibility
+    # ============================================================
+    # Window API (JS Bridge)
+    # ============================================================
+    "WindowAPI",
+    "setup_window_api",
     # ============================================================
     # CLI utilities (Rust-powered)
     # ============================================================
