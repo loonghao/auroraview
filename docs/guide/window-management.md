@@ -251,16 +251,47 @@ await win.emit('custom_event', { data: 'value' });
 
 ## Python Backend API
 
-### Setup Window API
+### Quick Start (Recommended)
+
+Use `create_webview()` with a single line of code to create a fully-featured WebView with built-in window API enabled automatically:
 
 ```python
-from auroraview import WebView, setup_window_api
+from auroraview import create_webview
 
-# Create WebView
+# One line to create a fully-featured WebView
+webview = create_webview(url="http://localhost:3000")
+webview.show()
+
+# JavaScript can directly call window.* APIs:
+# await auroraview.call('window.minimize')
+# await auroraview.call('window.setTitle', { title: 'New Title' })
+```
+
+### Advanced Usage
+
+If you need to disable built-in window API or provide custom implementation:
+
+```python
+from auroraview import create_webview
+
+# Disable built-in window API
+webview = create_webview(url="...", window_api=False)
+
+# Or use low-level API for full control
+from auroraview.core import WebView
+from auroraview.core.window_api import setup_window_api, WindowAPI
+
 webview = WebView.create("My App")
 
-# Setup window API (enables JS window.* calls)
+# Optional: manually setup window API
 setup_window_api(webview)
+
+# Or provide custom implementation
+class MyWindowAPI(WindowAPI):
+    def close(self, label=None):
+        # Custom close logic
+        print("Window is about to close...")
+        return super().close(label)
 
 webview.show()
 ```
