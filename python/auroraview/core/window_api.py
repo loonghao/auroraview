@@ -177,9 +177,7 @@ class WindowAPI:
             window._title = title
         return {"success": True}
 
-    def set_position(
-        self, x: int, y: int, label: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def set_position(self, x: int, y: int, label: Optional[str] = None) -> Dict[str, Any]:
         """Set window position.
 
         Args:
@@ -195,9 +193,7 @@ class WindowAPI:
             window.move(x, y)
         return {"success": True}
 
-    def set_size(
-        self, width: int, height: int, label: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def set_size(self, width: int, height: int, label: Optional[str] = None) -> Dict[str, Any]:
         """Set window size.
 
         Args:
@@ -213,9 +209,7 @@ class WindowAPI:
             window.resize(width, height)
         return {"success": True}
 
-    def set_min_size(
-        self, width: int, height: int, label: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def set_min_size(self, width: int, height: int, label: Optional[str] = None) -> Dict[str, Any]:
         """Set minimum window size.
 
         Args:
@@ -231,9 +225,7 @@ class WindowAPI:
             window._core.set_min_size(width, height)
         return {"success": True}
 
-    def set_max_size(
-        self, width: int, height: int, label: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def set_max_size(self, width: int, height: int, label: Optional[str] = None) -> Dict[str, Any]:
         """Set maximum window size.
 
         Args:
@@ -263,9 +255,7 @@ class WindowAPI:
             window._core.center()
         return {"success": True}
 
-    def set_always_on_top(
-        self, always_on_top: bool, label: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def set_always_on_top(self, always_on_top: bool, label: Optional[str] = None) -> Dict[str, Any]:
         """Set always on top.
 
         Args:
@@ -280,9 +270,7 @@ class WindowAPI:
             window.set_always_on_top(always_on_top)
         return {"success": True}
 
-    def set_resizable(
-        self, resizable: bool, label: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def set_resizable(self, resizable: bool, label: Optional[str] = None) -> Dict[str, Any]:
         """Set whether window is resizable.
 
         Args:
@@ -605,9 +593,7 @@ class WindowAPI:
             window.load_html(html)
         return {"success": True}
 
-    def eval(
-        self, script: str, label: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def eval(self, script: str, label: Optional[str] = None) -> Dict[str, Any]:
         """Execute JavaScript in a window.
 
         Args:
@@ -622,9 +608,7 @@ class WindowAPI:
             window.eval_js(script)
         return {"success": True}
 
-    def emit(
-        self, event: str, data: Any = None, label: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def emit(self, event: str, data: Any = None, label: Optional[str] = None) -> Dict[str, Any]:
         """Emit an event to a window.
 
         Args:
