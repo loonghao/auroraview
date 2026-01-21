@@ -266,7 +266,7 @@ function detectDCCHost(): DCCHost {
   if (typeof window === 'undefined') return null;
 
   // Check window global for DCC indicators
-  const w = window as Record<string, unknown>;
+  const w = window as unknown as Record<string, unknown>;
 
   // Maya
   if (w.maya || w.cmds) return 'maya';
