@@ -19,6 +19,49 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 - Plugin system: File System, Dialog, Shell, Clipboard
 - Chrome Extension API compatibility (25+ APIs)
 - Application packaging with embedded Python runtime
+- **JavaScript SDK** (`@auroraview/sdk`): Type-safe client for frontend development
+- **Feature Detection API**: Runtime detection of available capabilities
+- **Window Management API**: Multi-window control from JavaScript
+
+## Quick Start
+
+```python
+from auroraview import create_webview
+
+# One line to create a fully-featured WebView
+webview = create_webview(url="http://localhost:3000")
+webview.show()
+```
+
+## JavaScript SDK
+
+```typescript
+import { 
+  hasFeature, getEnvironment, 
+  Window, createWindow, startDrag 
+} from '@auroraview/sdk';
+
+// Feature detection
+if (hasFeature('clipboard')) {
+  await window.auroraview.clipboard.writeText('Hello');
+}
+
+// Environment detection
+const env = getEnvironment();
+if (env.mode === 'dcc' && env.dccHost === 'maya') {
+  // Maya-specific code
+}
+
+// Window management
+const settings = await Window.create({
+  label: 'settings',
+  url: '/settings.html',
+  width: 520,
+  height: 650,
+  center: true,
+});
+await settings.setAlwaysOnTop(true);
+```
 
 ## Documentation
 
@@ -28,6 +71,8 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 - [Communication](https://github.com/loonghao/auroraview/blob/main/docs/guide/communication.md): Python ↔ JS bidirectional communication
 - [Qt Integration](https://github.com/loonghao/auroraview/blob/main/docs/guide/qt-integration.md): QtWebView for DCC applications
 - [Architecture](https://github.com/loonghao/auroraview/blob/main/docs/guide/architecture.md): System architecture overview
+- [SDK Features](https://github.com/loonghao/auroraview/blob/main/docs/guide/sdk-features.md): Feature detection and environment APIs
+- [Window Management](https://github.com/loonghao/auroraview/blob/main/docs/guide/window-management.md): Multi-window management APIs
 
 ## API Reference
 
@@ -35,6 +80,7 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 - [AuroraView API](https://github.com/loonghao/auroraview/blob/main/docs/api/auroraview.md): HWND-based wrapper
 - [QtWebView API](https://github.com/loonghao/auroraview/blob/main/docs/api/qt-webview.md): Qt widget integration
 - [Browser API](https://github.com/loonghao/auroraview/blob/main/docs/api/browser.md): Browser-related APIs
+- [Window Manager API](https://github.com/loonghao/auroraview/blob/main/docs/api/window-manager.md): Python window management
 
 ## DCC Integration
 
