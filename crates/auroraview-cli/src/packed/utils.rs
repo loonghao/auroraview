@@ -8,41 +8,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Escape JSON string for embedding in JavaScript double-quoted string
-///
-/// This function prepares a JSON string for embedding inside a JavaScript
-/// string literal (double-quoted). It escapes:
-/// - Backslashes (`\` → `\\`) - MUST be escaped first to avoid double-escaping
-/// - Double quotes (`"` → `\"`) - required for JS string delimiter
-/// - Newlines and carriage returns - required for single-line JS string
-///
-/// # Why backslashes must be escaped
-/// When serde_json serializes a Windows path like `C:\Users`, it produces:
-/// `"path":"C:\\Users"` (JSON standard: `\` becomes `\\`)
-///
-/// When embedding this JSON into a JavaScript string literal:
-/// `JSON.parse("{...}")`, the `\\` must become `\\\\` so that:
-/// - JS parser sees `\\` (an escaped backslash in string literal)
-/// - Which becomes `\` in the actual string value
-/// - Which `JSON.parse()` then interprets as the JSON escape for `\`
-///
-/// Without this escaping, `\U` would be interpreted as an invalid JS escape.
-///
-/// # Example
-/// ```
-/// use auroraview_cli::escape_json_for_js;
-///
-/// let json = r#"{"path":"C:\\Users"}"#;
-/// let escaped = escape_json_for_js(json);
-/// // Result: {\"path\":\"C:\\\\Users\"}
-/// // Can be embedded in: JSON.parse("{...}")
-/// ```
-pub fn escape_json_for_js(json: &str) -> String {
-    json.replace('\\', "\\\\") // MUST be first to avoid double-escaping \"
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r")
-}
+// Re-export escape_json_for_js from core
+pub use auroraview_core::utils::escape_json_for_js;
 
 /// Get the runtime cache directory with content hash
 ///

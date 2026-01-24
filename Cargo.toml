@@ -5,6 +5,8 @@
 members = [
     "crates/auroraview-core",
     "crates/auroraview-cli",
+    "crates/auroraview-desktop",
+    "crates/auroraview-dcc",
     "crates/auroraview-plugins",
     "crates/auroraview-plugins/core",
     "crates/auroraview-plugins/fs",
@@ -22,6 +24,8 @@ members = [
     "crates/auroraview-notifications",
     # AI Agent integration
     "crates/auroraview-ai-agent",
+    # Frontend assets (Vite build)
+    "crates/auroraview-assets",
     # Submodules (extensions is a full implementation)
     "submodules/auroraview-extensions",
     "submodules/auroraview-signals",
@@ -78,10 +82,15 @@ auroraview-settings = { path = "crates/auroraview-settings", optional = true }
 auroraview-notifications = { path = "crates/auroraview-notifications", optional = true }
 auroraview-devtools = { path = "crates/auroraview-devtools", optional = true }
 
+# Runtime crates (Desktop and DCC modes)
+auroraview-desktop = { path = "crates/auroraview-desktop", optional = true }
+auroraview-dcc = { path = "crates/auroraview-dcc", optional = true }
+
 # PyO3 for Python bindings (optional)
 # multiple-pymethods: Allow splitting #[pymethods] across multiple files
 # Note: abi3 feature is controlled separately via features section
 pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true }
+pythonize = { version = "0.27", optional = true }
 
 # Wry for WebView
 wry = "0.53.5"
@@ -171,7 +180,7 @@ urlencoding = { version = "2.1", optional = true }
 rust-embed = { version = "8.5", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_System_Threading"] }
 winapi = "0.3.9"
 webview2 = { version = "0.1.4", optional = true }
 webview2-com = { version = "0.38", optional = true }
@@ -244,6 +253,10 @@ feature-downloads = ["dep:auroraview-downloads"]
 feature-settings = ["dep:auroraview-settings"]
 feature-notifications = ["dep:auroraview-notifications"]
 feature-devtools = ["dep:auroraview-devtools"]
+
+# Runtime mode features
+runtime-desktop = ["dep:auroraview-desktop", "dep:pythonize"]
+runtime-dcc = ["dep:auroraview-dcc", "dep:pythonize"]
 
 # Feature bundles
 features-core = ["feature-tabs", "feature-bookmarks", "feature-history", "feature-devtools"]

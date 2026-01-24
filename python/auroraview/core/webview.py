@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from .bridge import Bridge
     from .channel import Channel, ChannelManager
     from .commands import CommandRegistry
+    from .config import WebViewConfig
     from .ready_events import ReadyEvents
     from .state import State
 
@@ -129,6 +130,8 @@ class WebView(
         embed_mode: Optional[str] = None,
         # DCC thread safety
         dcc_mode: Union[bool, str] = "auto",
+        # New structured config (takes precedence if provided)
+        config: Optional["WebViewConfig"] = None,
     ) -> None:
         r"""Initialize the WebView.
 
@@ -327,6 +330,44 @@ class WebView(
             except Exception:
                 pass
             raise RuntimeError("\n".join(error_details))
+
+        # Support new WebViewConfig if provided
+        if config is not None:
+
+            # Config takes precedence - extract values
+            title = config.window.title
+            width = config.window.width
+            height = config.window.height
+            icon = config.window.icon
+            frame = config.window.frame
+            resizable = config.window.resizable
+            always_on_top = config.window.always_on_top
+            transparent = config.window.transparent
+            background_color = config.window.background_color
+            tool_window = config.window.tool_window
+            undecorated_shadow = config.window.undecorated_shadow
+            url = config.content.url
+            html = config.content.html
+            asset_root = config.content.asset_root
+            allow_file_protocol = config.content.allow_file_protocol
+            parent = config.embedding.parent
+            mode = config.embedding.mode if config.embedding.parent else None
+            dcc_mode = config.embedding.dcc_mode
+            auto_show = config.embedding.auto_show
+            allow_downloads = config.download.allow_downloads
+            download_prompt = config.download.download_prompt
+            download_directory = config.download.download_directory
+            proxy_url = config.network.proxy_url
+            user_agent = config.network.user_agent
+            debug = config.debug.debug
+            context_menu = config.debug.context_menu
+            remote_debugging_port = config.debug.remote_debugging_port
+            splash_overlay = config.debug.splash_overlay
+            allow_new_window = config.new_window.allow_new_window
+            new_window_mode = config.new_window.new_window_mode
+            bridge = config.bridge
+            data_directory = config.data_directory
+            ipc_batch_size = config.ipc_batch_size
 
         # Backward-compat parameter aliases
         if dev_tools is not None and debug is None:
@@ -1229,27 +1270,12 @@ class WebView(
             logger.info("Example: __main__.webview = webview")
 
     # =========================================================================
-    # Window Control Methods - Now provided by WebViewWindowMixin
+    # Window Control Methods - provided by WebViewWindowMixin
+    # JavaScript Methods - provided by WebViewJSMixin
+    # DOM Methods - provided by WebViewDOMMixin
+    # Event Methods - provided by WebViewEventMixin
+    # API Methods - provided by WebViewApiMixin
     # =========================================================================
-
-    # NOTE: Content loading methods (load_url, get_current_url, load_html, load_file, load_local_html)
-    # are now provided by WebViewContentMixin
-
-    # =========================================================================
-    # JavaScript Interaction Methods - Now provided by WebViewJSMixin
-    # =========================================================================
-
-    # NOTE: JavaScript methods (eval_js, eval_js_async, eval_js_awaitable, get_proxy)
-    # are now provided by WebViewJSMixin
-
-    # NOTE: DOM methods (dom, dom_all, dom_by_id, dom_by_class)
-    # are now provided by WebViewDOMMixin
-
-    # NOTE: Event system methods (emit, on, register_callback, on_loaded, on_shown, etc.)
-    # are now provided by WebViewEventMixin
-
-    # NOTE: API binding methods (register_protocol, bind_call, bind_api, _inject_api_methods_via_js)
-    # are now provided by WebViewApiMixin
 
     def wait(self, timeout: Optional[float] = None) -> bool:
         """Wait for the WebView to close.

@@ -138,6 +138,10 @@ try:
         get_warmup_stage,
         get_warmup_status,
         get_shared_user_data_folder,
+        # WebView2 cleanup (stale directory cleanup)
+        cleanup_webview_dirs,
+        get_cleanup_stats,
+        get_webview_data_dir,
         # Plugin system for native desktop operations
         PluginManager,
         # Thread-safe event emitter for cross-thread operations
@@ -182,6 +186,11 @@ except ImportError as e:
     get_warmup_status = None  # type: ignore
     get_shared_user_data_folder = None  # type: ignore
 
+    # Placeholder for cleanup functions
+    cleanup_webview_dirs = None  # type: ignore
+    get_cleanup_stats = None  # type: ignore
+    get_webview_data_dir = None  # type: ignore
+
     # Placeholder for plugin system
     PluginManager = None  # type: ignore
 
@@ -189,6 +198,44 @@ except ImportError as e:
     json_loads = None  # type: ignore
     json_dumps = None  # type: ignore
     json_dumps_bytes = None  # type: ignore
+
+# Optional: Import runtime classes (if compiled with runtime features)
+_RUNTIME_DESKTOP_AVAILABLE = False
+_RUNTIME_DCC_AVAILABLE = False
+
+try:
+    from ._core import (
+        # Desktop runtime (standalone applications)
+        DesktopConfig,
+        TrayConfig,
+        DesktopIpcRouter,
+        DesktopWindowManager,
+        run_desktop_app,
+    )
+
+    _RUNTIME_DESKTOP_AVAILABLE = True
+except ImportError:
+    DesktopConfig = None  # type: ignore
+    TrayConfig = None  # type: ignore
+    DesktopIpcRouter = None  # type: ignore
+    DesktopWindowManager = None  # type: ignore
+    run_desktop_app = None  # type: ignore
+
+try:
+    from ._core import (
+        # DCC runtime (Maya, Houdini, Nuke integration)
+        DccType,
+        DccConfig,
+        DccIpcRouter,
+        DccWindowManager,
+    )
+
+    _RUNTIME_DCC_AVAILABLE = True
+except ImportError:
+    DccType = None  # type: ignore
+    DccConfig = None  # type: ignore
+    DccIpcRouter = None  # type: ignore
+    DccWindowManager = None  # type: ignore
 
 
 def diagnose_core_library() -> dict:
@@ -592,6 +639,12 @@ __all__ = [
     "get_warmup_status",
     "get_shared_user_data_folder",
     # ============================================================
+    # WebView2 cleanup (stale directory cleanup)
+    # ============================================================
+    "cleanup_webview_dirs",
+    "get_cleanup_stats",
+    "get_webview_data_dir",
+    # ============================================================
     # High-performance JSON (Rust-powered, orjson-equivalent)
     # ============================================================
     "json_loads",
@@ -601,6 +654,22 @@ __all__ = [
     # Plugin system
     # ============================================================
     "PluginManager",
+    # ============================================================
+    # Runtime classes (optional - require feature flags)
+    # ============================================================
+    # Desktop runtime
+    "DesktopConfig",
+    "TrayConfig",
+    "DesktopIpcRouter",
+    "DesktopWindowManager",
+    "run_desktop_app",
+    "_RUNTIME_DESKTOP_AVAILABLE",
+    # DCC runtime
+    "DccType",
+    "DccConfig",
+    "DccIpcRouter",
+    "DccWindowManager",
+    "_RUNTIME_DCC_AVAILABLE",
     # ============================================================
     # Child window support
     # ============================================================

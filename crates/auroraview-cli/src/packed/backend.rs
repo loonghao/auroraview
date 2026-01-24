@@ -35,6 +35,8 @@ pub struct PythonBackend {
     stdin: Arc<Mutex<ChildStdin>>,
     /// Shutdown state from ipckit for graceful shutdown coordination
     shutdown_state: Arc<ShutdownState>,
+    /// Shared storage for last stderr output (for crash diagnostics)
+    last_stderr: Arc<Mutex<Vec<String>>>,
 }
 
 impl PythonBackend {
@@ -54,6 +56,27 @@ impl PythonBackend {
             }
         } else {
             false
+        }
+    }
+
+    /// Get the exit code if the process has exited
+    pub fn get_exit_code(&self) -> Option<i32> {
+        if let Ok(mut process) = self.process.lock() {
+            match process.try_wait() {
+                Ok(Some(status)) => status.code(),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Get the last captured stderr output (for crash diagnostics)
+    pub fn get_last_stderr(&self) -> String {
+        if let Ok(stderr) = self.last_stderr.lock() {
+            stderr.join("\n")
+        } else {
+            String::new()
         }
     }
 
@@ -589,7 +612,8 @@ pub fn start_python_backend_with_ipc(
         .env("AURORAVIEW_RESOURCES_DIR", &resources_dir)
         .env("AURORAVIEW_PYTHON_PATH", &pythonpath)
         .env("AURORAVIEW_PYTHON_EXE", &python_exe)
-        .env("PYTHONUNBUFFERED", "1"); // Ensure Python stderr is not buffered
+        .env("PYTHONUNBUFFERED", "1") // Ensure Python stderr is not buffered
+        .env("PYTHONIOENCODING", "utf-8"); // Ensure UTF-8 encoding for stdin/stdout/stderr
 
     // Windows: hide console window unless show_console is enabled
     #[cfg(windows)]
@@ -656,15 +680,47 @@ pub fn start_python_backend_with_ipc(
     let stdin = Arc::new(Mutex::new(stdin));
     let ping_ready = Arc::new(AtomicBool::new(false));
     let last_pong = Arc::new(Mutex::new(Instant::now()));
+    // Shared storage for last stderr output (keep last 100 lines for crash diagnostics)
+    let last_stderr: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let last_stderr_for_thread = last_stderr.clone();
 
     // Spawn thread to read stderr and forward errors to frontend (throttled)
+    // Now with log level filtering: DEBUG/INFO are informational, only ERROR/CRITICAL trigger backend_error
+    // Also stores last stderr lines for crash diagnostics
     let proxy_for_stderr = proxy.clone();
     thread::spawn(move || {
         let reader = BufReader::new(stderr);
-        let mut buffer: Vec<String> = Vec::new();
+        let mut error_buffer: Vec<String> = Vec::new();
         let mut last_flush = Instant::now();
+        const MAX_STORED_LINES: usize = 100;
 
-        let flush = |buffer: &mut Vec<String>, proxy: &EventLoopProxy<UserEvent>| {
+        // Parse log level from structured log format: [LEVEL:module] message
+        fn parse_log_level(line: &str) -> Option<&str> {
+            if line.starts_with('[') {
+                if let Some(end) = line.find(':') {
+                    return Some(&line[1..end]);
+                }
+            }
+            None
+        }
+
+        // Check if a log line represents a real error (not informational)
+        fn is_error_level(line: &str) -> bool {
+            match parse_log_level(line) {
+                Some("DEBUG") | Some("INFO") | Some("WARNING") => false,
+                Some("ERROR") | Some("CRITICAL") | Some("FATAL") => true,
+                // Unknown log level - treat as informational (not error)
+                Some(_) => false,
+                // If no level prefix, check for error indicators
+                None => {
+                    let lower = line.to_lowercase();
+                    lower.contains("error") || lower.contains("exception") || 
+                    lower.contains("traceback") || lower.contains("fatal")
+                }
+            }
+        }
+
+        let flush_errors = |buffer: &mut Vec<String>, proxy: &EventLoopProxy<UserEvent>| {
             if buffer.is_empty() {
                 return;
             }
@@ -679,11 +735,26 @@ pub fn start_python_backend_with_ipc(
         for line in reader.lines() {
             match line {
                 Ok(line) if !line.is_empty() => {
-                    tracing::error!("[Python stderr] {}", line);
-                    buffer.push(line);
-                    if buffer.len() >= 20 || last_flush.elapsed() >= Duration::from_millis(300) {
-                        flush(&mut buffer, &proxy_for_stderr);
-                        last_flush = Instant::now();
+                    // Log all stderr output for debugging
+                    tracing::debug!("[Python stderr] {}", line);
+                    
+                    // Store all lines for crash diagnostics (ring buffer)
+                    if let Ok(mut stored) = last_stderr_for_thread.lock() {
+                        stored.push(line.clone());
+                        // Keep only last N lines
+                        if stored.len() > MAX_STORED_LINES {
+                            stored.remove(0);
+                        }
+                    }
+                    
+                    // Only buffer error-level messages for backend_error events
+                    if is_error_level(&line) {
+                        tracing::error!("[Python stderr] {}", line);
+                        error_buffer.push(line);
+                        if error_buffer.len() >= 20 || last_flush.elapsed() >= Duration::from_millis(300) {
+                            flush_errors(&mut error_buffer, &proxy_for_stderr);
+                            last_flush = Instant::now();
+                        }
                     }
                 }
                 Err(e) => {
@@ -694,7 +765,7 @@ pub fn start_python_backend_with_ipc(
             }
         }
 
-        flush(&mut buffer, &proxy_for_stderr);
+        flush_errors(&mut error_buffer, &proxy_for_stderr);
     });
 
     // Create shutdown state for graceful shutdown coordination (using ipckit)
@@ -1044,5 +1115,6 @@ pub fn start_python_backend_with_ipc(
         process: Mutex::new(child),
         stdin,
         shutdown_state,
+        last_stderr,
     })
 }

@@ -23,6 +23,9 @@ path = "src/main.rs"
 # Core utilities and assets
 auroraview-core = { path = "../auroraview-core" }
 
+# Frontend assets (loading, error, browser pages)
+auroraview-assets = { path = "../auroraview-assets" }
+
 # Plugin system for built-in plugins (fs, clipboard, shell, dialog, etc.)
 auroraview-plugins = { path = "../auroraview-plugins" }
 
@@ -95,6 +98,7 @@ self-replace = "1.5"
 webview2-com = "0.38"
 windows = { version = "0.61", features = [
     "Win32_System_Com",
+    "Win32_System_Console",
 ] }
 
 [target.'cfg(windows)'.build-dependencies]

@@ -324,6 +324,19 @@ pub struct MemoryAssets {
     assets: std::collections::HashMap<String, Vec<u8>>,
     /// Optional loading HTML for special `__loading__` path
     loading_html: Option<String>,
+    /// Optional startup error info for special `__startup_error__` path
+    startup_error: Option<StartupError>,
+}
+
+/// Startup error information for displaying friendly error pages
+#[derive(Clone, Default)]
+pub struct StartupError {
+    /// Error message
+    pub message: String,
+    /// Python output (stdout/stderr)
+    pub python_output: Option<String>,
+    /// Entry point that failed
+    pub entry_point: Option<String>,
 }
 
 impl MemoryAssets {
@@ -332,6 +345,7 @@ impl MemoryAssets {
         Self {
             assets: std::collections::HashMap::new(),
             loading_html: None,
+            startup_error: None,
         }
     }
 
@@ -340,6 +354,7 @@ impl MemoryAssets {
         Self {
             assets,
             loading_html: None,
+            startup_error: None,
         }
     }
 
@@ -348,6 +363,7 @@ impl MemoryAssets {
         Self {
             assets: assets.into_iter().collect(),
             loading_html: None,
+            startup_error: None,
         }
     }
 
@@ -355,6 +371,16 @@ impl MemoryAssets {
     pub fn with_loading_html(mut self, html: String) -> Self {
         self.loading_html = Some(html);
         self
+    }
+
+    /// Set startup error for the `__startup_error__` path
+    pub fn set_startup_error(&mut self, error: StartupError) {
+        self.startup_error = Some(error);
+    }
+
+    /// Clear startup error
+    pub fn clear_startup_error(&mut self) {
+        self.startup_error = None;
     }
 
     /// Add an asset
@@ -372,10 +398,12 @@ impl MemoryAssets {
         self.assets.is_empty()
     }
 
+
     /// Handle a protocol request and return a response
     ///
     /// This method handles:
     /// - `__loading__` - Returns the loading HTML if set
+    /// - `__startup_error__` - Returns the startup error page if set
     /// - Empty path or `/` - Returns `index.html`
     /// - Other paths - Looks up in assets with fallback variations
     pub fn handle_request(&self, path: &str) -> FileResponse {
@@ -391,6 +419,24 @@ impl MemoryAssets {
                     data: Cow::Owned(html.clone().into_bytes()),
                     mime_type: "text/html; charset=utf-8".to_string(),
                     status: 200,
+                };
+            }
+        }
+
+        // Handle startup error page
+        if path == "__startup_error__" {
+            if let Some(ref error) = self.startup_error {
+                use crate::assets::startup_error_page;
+                let html = startup_error_page(
+                    &error.message,
+                    error.python_output.as_deref(),
+                    error.entry_point.as_deref(),
+                );
+                tracing::debug!("MemoryAssets: serving startup error page ({} bytes)", html.len());
+                return FileResponse {
+                    data: Cow::Owned(html.into_bytes()),
+                    mime_type: "text/html; charset=utf-8".to_string(),
+                    status: 500,
                 };
             }
         }
@@ -428,8 +474,23 @@ impl MemoryAssets {
             }
             None => {
                 tracing::warn!("MemoryAssets: asset not found: '{}'", path);
-                FileResponse::not_found()
+                // Return a friendly 404 page with debugging info
+                self.not_found_response(path)
             }
+        }
+    }
+
+    /// Generate a friendly 404 response with available assets info
+    fn not_found_response(&self, requested_path: &str) -> FileResponse {
+        use crate::assets::not_found_page;
+        
+        let available: Vec<&str> = self.assets.keys().map(|s| s.as_str()).collect();
+        let html = not_found_page(requested_path, Some(available));
+        
+        FileResponse {
+            data: Cow::Owned(html.into_bytes()),
+            mime_type: "text/html; charset=utf-8".to_string(),
+            status: 404,
         }
     }
 

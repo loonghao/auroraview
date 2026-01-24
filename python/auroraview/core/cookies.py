@@ -22,9 +22,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
+from ..features.serializable import Serializable
+
 
 @dataclass
-class Cookie:
+class Cookie(Serializable):
     """Represents an HTTP cookie.
 
     Attributes:
@@ -53,52 +55,6 @@ class Cookie:
             raise ValueError("Cookie name cannot be empty")
         if self.same_site is not None and self.same_site not in ("Strict", "Lax", "None"):
             raise ValueError(f"Invalid SameSite value: {self.same_site}")
-
-    def to_dict(self) -> dict:
-        """Convert cookie to dictionary.
-
-        Returns:
-            Dictionary representation of the cookie
-        """
-        result = {
-            "name": self.name,
-            "value": self.value,
-            "path": self.path,
-            "secure": self.secure,
-            "http_only": self.http_only,
-        }
-        if self.domain is not None:
-            result["domain"] = self.domain
-        if self.expires is not None:
-            result["expires"] = self.expires.isoformat()
-        if self.same_site is not None:
-            result["same_site"] = self.same_site
-        return result
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "Cookie":
-        """Create cookie from dictionary.
-
-        Args:
-            data: Dictionary with cookie attributes
-
-        Returns:
-            Cookie instance
-        """
-        expires = data.get("expires")
-        if expires is not None and isinstance(expires, str):
-            expires = datetime.fromisoformat(expires)
-
-        return cls(
-            name=data["name"],
-            value=data["value"],
-            domain=data.get("domain"),
-            path=data.get("path", "/"),
-            expires=expires,
-            secure=data.get("secure", False),
-            http_only=data.get("http_only", False),
-            same_site=data.get("same_site"),
-        )
 
     def to_set_cookie_header(self) -> str:
         """Generate Set-Cookie header value.

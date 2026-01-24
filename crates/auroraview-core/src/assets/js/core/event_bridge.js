@@ -22,12 +22,95 @@
     let auroraviewCallIdCounter = 0;
     const auroraviewPendingCalls = /* @__PURE__ */ new Map();
     const DEFAULT_CALL_TIMEOUT_MS = 3e4;
+    const config = {
+      callTimeoutMs: DEFAULT_CALL_TIMEOUT_MS,
+      backendFailFast: true,
+      heartbeatTimeoutMs: 0
+    };
+    function applyConfig(partial) {
+      if (!partial) return;
+      if (typeof partial.callTimeoutMs === "number") {
+        config.callTimeoutMs = partial.callTimeoutMs;
+      }
+      if (typeof partial.backendFailFast === "boolean") {
+        config.backendFailFast = partial.backendFailFast;
+      }
+      if (typeof partial.heartbeatTimeoutMs === "number") {
+        config.heartbeatTimeoutMs = partial.heartbeatTimeoutMs;
+      }
+    }
+    applyConfig(window.__AURORAVIEW_CONFIG__);
+    let lastHealthTs = Date.now();
+    let hasHealthSignal = false;
+    let heartbeatTimer = null;
+    function ensureHeartbeatMonitor() {
+      if (config.heartbeatTimeoutMs <= 0) {
+        if (heartbeatTimer) {
+          clearInterval(heartbeatTimer);
+          heartbeatTimer = null;
+        }
+        return;
+      }
+      if (heartbeatTimer) return;
+      heartbeatTimer = setInterval(() => {
+        if (!backendHealthy || !hasHealthSignal) return;
+        const now = Date.now();
+        if (now - lastHealthTs > config.heartbeatTimeoutMs) {
+          markBackendUnhealthy("heartbeat timeout");
+        }
+      }, Math.max(500, Math.floor(config.heartbeatTimeoutMs / 2)));
+    }
+    ensureHeartbeatMonitor();
+    let backendHealthy = true;
+    const FATAL_ERROR_KEYWORDS = [
+      "process has exited",
+      "backend ready timeout",
+      "stdout closed",
+      "connection lost",
+      "fatal error",
+      "crash"
+    ];
+    function isFatalError(message) {
+      const lowerMessage = message.toLowerCase();
+      return FATAL_ERROR_KEYWORDS.some((keyword) => lowerMessage.includes(keyword));
+    }
+    function describeBackendError(detail) {
+      if (typeof detail === "string") return detail;
+      if (detail && typeof detail === "object") {
+        const maybeMessage = detail.message;
+        if (typeof maybeMessage === "string") return maybeMessage;
+        try {
+          return JSON.stringify(detail);
+        } catch {
+          return "[unserializable backend error]";
+        }
+      }
+      return "unknown backend error";
+    }
+    function markBackendUnhealthy(detail) {
+      const reason = describeBackendError(detail);
+      if (isFatalError(reason)) {
+        if (backendHealthy) {
+          backendHealthy = false;
+          console.error("[AuroraView] Fatal backend error:", reason, detail ?? "");
+          clearAllPendingCalls(`backend unavailable: ${reason}`);
+        }
+      } else {
+        console.error("[AuroraView] Backend error received:", detail ?? "");
+      }
+    }
+    function markBackendHealthy() {
+      lastHealthTs = Date.now();
+      if (backendHealthy) return;
+      backendHealthy = true;
+      debugLog("Backend marked healthy");
+    }
     function auroraviewGenerateCallId() {
       auroraviewCallIdCounter += 1;
       return "av_call_" + Date.now() + "_" + auroraviewCallIdCounter;
     }
     function registerPendingCall(id, resolve, reject, timeoutMs) {
-      const timeout = timeoutMs ?? DEFAULT_CALL_TIMEOUT_MS;
+      const timeout = timeoutMs ?? config.callTimeoutMs;
       const timeoutId = setTimeout(() => {
         const pending = auroraviewPendingCalls.get(id);
         if (pending) {
@@ -60,20 +143,6 @@
     window.addEventListener("beforeunload", () => {
       clearAllPendingCalls("page unloading");
     });
-    let backendHealthy = true;
-    let hasHealthSignal = false;
-    function markBackendUnhealthy(detail) {
-      if (!backendHealthy) return;
-      backendHealthy = false;
-      const reason = typeof detail === "string" ? detail : (detail?.message || "unknown");
-      console.error("[AuroraView] Backend error:", reason);
-      clearAllPendingCalls("backend unavailable: " + reason);
-    }
-    function markBackendHealthy() {
-      if (backendHealthy) return;
-      backendHealthy = true;
-      debugLog("Backend marked healthy");
-    }
     function handleCallResult(detail) {
       try {
         const id = detail && detail.id;
@@ -113,6 +182,12 @@
        */
       call: function(method, params, options) {
         debugLog("Calling Python method via auroraview.call:", method, DEBUG ? params : "(params hidden)");
+        if (config.backendFailFast && !backendHealthy) {
+          const error = new Error("AuroraView backend unavailable");
+          error.name = "BackendUnavailableError";
+          error.code = "BACKEND_UNAVAILABLE";
+          return Promise.reject(error);
+        }
         return new Promise(function(resolve, reject) {
           const id = auroraviewGenerateCallId();
           registerPendingCall(
@@ -206,8 +281,8 @@
         }
         if (event === "backend_error") {
           markBackendUnhealthy(detail);
-          const handlers = eventHandlers.get(event);
-          if (!handlers || handlers.size === 0) {
+          const handlers2 = eventHandlers.get(event);
+          if (!handlers2 || handlers2.size === 0) {
             return;
           }
         } else if (event === "backend_ready" || event === "backend_health") {
@@ -215,8 +290,8 @@
             hasHealthSignal = true;
           }
           markBackendHealthy();
-          const handlers = eventHandlers.get(event);
-          if (!handlers || handlers.size === 0) {
+          const handlers2 = eventHandlers.get(event);
+          if (!handlers2 || handlers2.size === 0) {
             return;
           }
         }
@@ -278,6 +353,10 @@
        * Ready state flag
        */
       _ready: false,
+      setConfig: function(partial) {
+        applyConfig(partial);
+        ensureHeartbeatMonitor();
+      },
       /**
        * Pending calls queue
        */

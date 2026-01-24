@@ -106,7 +106,7 @@ build-release:
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 # Build Python library (PyO3 bindings)
-rebuild-pylib:
+rebuild-pylib: assets-build sdk-build-assets
     @echo "Building Python library with maturin..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] Python library rebuilt and installed successfully!"
@@ -816,7 +816,7 @@ build-wheel:
     @echo "[OK] Wheel built in target/wheels/"
 
 # Pack Gallery into standalone executable
-gallery-pack: gallery-build
+gallery-pack: assets-build gallery-build
     @echo "Packing Gallery into standalone executable..."
     vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --build
     @echo "[OK] Gallery packed successfully!"
@@ -1074,3 +1074,49 @@ mcp-build:
 # Full MCP CI check
 mcp-ci: mcp-install mcp-lint mcp-test
     @echo "[OK] MCP CI check passed!"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Assets Commands (Frontend Assets for Rust Crates)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Install assets frontend dependencies
+assets-install:
+    @echo "Installing assets frontend dependencies..."
+    cd crates/auroraview-assets/frontend; vx pnpm install
+    @echo "[OK] Assets dependencies installed!"
+
+# Build all assets (loading, error, browser, browser-controller)
+assets-build: assets-install
+    @echo "Building frontend assets..."
+    cd crates/auroraview-assets/frontend; vx pnpm run build
+    @echo "[OK] Assets built in crates/auroraview-assets/frontend/dist/"
+
+# Build assets in watch mode (for development)
+assets-dev: assets-install
+    @echo "Starting assets dev server..."
+    cd crates/auroraview-assets/frontend; vx pnpm run dev
+
+# Preview built assets
+assets-preview: assets-build
+    @echo "Previewing built assets..."
+    cd crates/auroraview-assets/frontend; vx pnpm run preview
+
+# Lint assets frontend code
+assets-lint: assets-install
+    @echo "Linting assets frontend code..."
+    cd crates/auroraview-assets/frontend; vx pnpm run lint
+
+# Type check assets frontend code
+assets-typecheck: assets-install
+    @echo "Type checking assets frontend code..."
+    cd crates/auroraview-assets/frontend; vx pnpm run typecheck
+
+# Clean assets build artifacts
+assets-clean:
+    @echo "Cleaning assets build artifacts..."
+    rm -rf crates/auroraview-assets/frontend/dist crates/auroraview-assets/frontend/node_modules
+    @echo "[OK] Assets artifacts cleaned!"
+
+# Full assets CI check
+assets-ci: assets-install assets-typecheck assets-lint assets-build
+    @echo "[OK] Assets CI check passed!"

@@ -21,6 +21,9 @@ auroraview-plugins = { path = "../auroraview-plugins" }
 # Signal system (Qt-style signals/slots) - via submodule
 auroraview-signals = { path = "../../submodules/auroraview-signals" }
 
+# Frontend assets (Vite-built pages: loading, error, browser)
+auroraview-assets = { path = "../auroraview-assets" }
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -54,6 +57,7 @@ mdns-sd = "0.17"
 parking_lot = "0.12"
 tokio = { version = "1", features = ["sync", "net", "rt-multi-thread", "macros"] }
 warp = "0.3"
+dirs = "6.0"
 
 # Templates
 askama = "0.15"
@@ -69,7 +73,7 @@ image = { version = "0.24", default-features = false, features = ["png", "ico"] 
 wry = { version = "0.53.5", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Dwm", "Win32_UI_Controls", "Win32_System_LibraryLoader", "Win32_Graphics_Gdi"] }
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Dwm", "Win32_UI_Controls", "Win32_System_LibraryLoader", "Win32_Graphics_Gdi", "Win32_System_Threading"] }
 
 [features]
 default = []

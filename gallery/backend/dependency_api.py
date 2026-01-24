@@ -8,7 +8,7 @@ This module provides API handlers for:
 The workflow is:
 1. Frontend calls api.check_dependencies(sample_id)
 2. If missing dependencies found, frontend shows installation UI
-3. Frontend calls api.install_dependencies(sample_id) 
+3. Frontend calls api.install_dependencies(sample_id)
 4. Progress events are streamed to frontend: dep:progress, dep:complete, dep:error
 5. Once installed, frontend can run the sample
 
@@ -17,20 +17,22 @@ Signed-off-by: Hal Long <hal.long@outlook.com>
 
 from __future__ import annotations
 
+import logging
 import threading
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .config import EXAMPLES_DIR
 from .dependency_installer import (
     DependencyInstaller,
-    parse_requirements_from_docstring,
     get_missing_requirements,
+    parse_requirements_from_docstring,
 )
-from .samples import get_sample_by_id, extract_docstring
+from .samples import extract_docstring, get_sample_by_id
 
 if TYPE_CHECKING:
     from auroraview import WebView
+
+logger = logging.getLogger(__name__)
 
 
 def register_dependency_apis(view: WebView):
@@ -132,91 +134,117 @@ def register_dependency_apis(view: WebView):
         def run_installation():
             """Run installation in background thread."""
             try:
-                import sys
-                print(f"[DependencyAPI] Starting installation thread for sample_id={sample_id}", file=sys.stderr)
-                print(f"[DependencyAPI] Missing packages: {missing}", file=sys.stderr)
-                
+                logger.debug(f"Starting installation thread for sample_id={sample_id}")
+                logger.debug(f"Missing packages: {missing}")
+
                 # Emit start event
-                emitter.emit("dep:start", {
-                    "sample_id": sample_id,
-                    "packages": missing,
-                    "total": len(missing),
-                })
-                print(f"[DependencyAPI] Emitted dep:start event", file=sys.stderr)
+                emitter.emit(
+                    "dep:start",
+                    {
+                        "sample_id": sample_id,
+                        "packages": missing,
+                        "total": len(missing),
+                    },
+                )
+                logger.debug("Emitted dep:start event")
 
                 def on_progress(progress: dict):
                     """Handle progress updates."""
                     event_type = progress.get("type", "")
-                    print(f"[DependencyAPI] Progress update: type={event_type}, package={progress.get('package')}", file=sys.stderr)
-                    
-                    if event_type == "start":
-                        emitter.emit("dep:progress", {
-                            "sample_id": sample_id,
-                            "package": progress.get("package"),
-                            "index": progress.get("index", 0),
-                            "total": progress.get("total", len(missing)),
-                            "message": progress.get("message", ""),
-                            "phase": "starting",
-                        })
-                    elif event_type == "output":
-                        emitter.emit("dep:progress", {
-                            "sample_id": sample_id,
-                            "package": progress.get("package"),
-                            "line": progress.get("line", ""),
-                            "phase": "installing",
-                        })
-                    elif event_type == "complete":
-                        emitter.emit("dep:progress", {
-                            "sample_id": sample_id,
-                            "package": progress.get("package"),
-                            "success": True,
-                            "message": progress.get("message", ""),
-                            "phase": "complete",
-                        })
-                    elif event_type == "error":
-                        print(f"[DependencyAPI] Error in progress: {progress}", file=sys.stderr)
-                        emitter.emit("dep:error", {
-                            "sample_id": sample_id,
-                            "package": progress.get("package"),
-                            "error": progress.get("message", "Installation failed"),
-                        })
+                    logger.debug(
+                        f"Progress update: type={event_type}, package={progress.get('package')}"
+                    )
 
-                print(f"[DependencyAPI] Starting installer.install_missing()", file=sys.stderr)
+                    if event_type == "start":
+                        emitter.emit(
+                            "dep:progress",
+                            {
+                                "sample_id": sample_id,
+                                "package": progress.get("package"),
+                                "index": progress.get("index", 0),
+                                "total": progress.get("total", len(missing)),
+                                "message": progress.get("message", ""),
+                                "phase": "starting",
+                            },
+                        )
+                    elif event_type == "output":
+                        emitter.emit(
+                            "dep:progress",
+                            {
+                                "sample_id": sample_id,
+                                "package": progress.get("package"),
+                                "line": progress.get("line", ""),
+                                "phase": "installing",
+                            },
+                        )
+                    elif event_type == "complete":
+                        emitter.emit(
+                            "dep:progress",
+                            {
+                                "sample_id": sample_id,
+                                "package": progress.get("package"),
+                                "success": True,
+                                "message": progress.get("message", ""),
+                                "phase": "complete",
+                            },
+                        )
+                    elif event_type == "error":
+                        logger.warning(f"Error in progress: {progress}")
+                        emitter.emit(
+                            "dep:error",
+                            {
+                                "sample_id": sample_id,
+                                "package": progress.get("package"),
+                                "error": progress.get("message", "Installation failed"),
+                            },
+                        )
+
+                logger.debug("Starting installer.install_missing()")
                 # Run installation
                 result = installer.install_missing(missing, on_progress, cancel_event=_cancel_event)
-                print(f"[DependencyAPI] Installation result: {result}", file=sys.stderr)
+                logger.debug(f"Installation result: {result}")
 
                 if result.get("cancelled"):
-                    print(f"[DependencyAPI] Installation was cancelled", file=sys.stderr)
-                    emitter.emit("dep:error", {
-                        "sample_id": sample_id,
-                        "error": "Installation cancelled by user",
-                        "cancelled": True,
-                    })
+                    logger.info("Installation was cancelled")
+                    emitter.emit(
+                        "dep:error",
+                        {
+                            "sample_id": sample_id,
+                            "error": "Installation cancelled by user",
+                            "cancelled": True,
+                        },
+                    )
                 elif result.get("success"):
-                    print(f"[DependencyAPI] Installation succeeded", file=sys.stderr)
-                    emitter.emit("dep:complete", {
-                        "sample_id": sample_id,
-                        "installed": result.get("installed", []),
-                        "message": "All dependencies installed successfully",
-                    })
+                    logger.info("Installation succeeded")
+                    emitter.emit(
+                        "dep:complete",
+                        {
+                            "sample_id": sample_id,
+                            "installed": result.get("installed", []),
+                            "message": "All dependencies installed successfully",
+                        },
+                    )
                 else:
-                    print(f"[DependencyAPI] Installation failed: {result.get('failed', [])}", file=sys.stderr)
-                    emitter.emit("dep:error", {
-                        "sample_id": sample_id,
-                        "failed": result.get("failed", []),
-                        "error": result.get("error", "Some dependencies failed to install"),
-                    })
+                    logger.warning(f"Installation failed: {result.get('failed', [])}")
+                    emitter.emit(
+                        "dep:error",
+                        {
+                            "sample_id": sample_id,
+                            "failed": result.get("failed", []),
+                            "error": result.get("error", "Some dependencies failed to install"),
+                        },
+                    )
             except Exception as e:
-                print(f"[DependencyAPI] Exception in installation thread: {e}", file=sys.stderr)
-                import traceback
-                traceback.print_exc(file=sys.stderr)
-                emitter.emit("dep:error", {
-                    "sample_id": sample_id,
-                    "error": f"Installation thread exception: {e}",
-                })
+                logger.exception(f"Exception in installation thread: {e}")
+                emitter.emit(
+                    "dep:error",
+                    {
+                        "sample_id": sample_id,
+                        "error": f"Installation thread exception: {e}",
+                    },
+                )
             finally:
-                print(f"[DependencyAPI] Installation thread finished, releasing lock", file=sys.stderr)
+                logger.debug("Installation thread finished, releasing lock")
                 _install_lock.release()
 
         # Start installation in background
@@ -265,4 +293,3 @@ def register_dependency_apis(view: WebView):
                     }
 
         return {"ok": True, "samples": result}
-

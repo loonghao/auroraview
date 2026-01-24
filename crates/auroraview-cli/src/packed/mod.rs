@@ -13,6 +13,13 @@
 //! - `extract` - File extraction (Python runtime, resources)
 //! - `license` - License validation
 //! - `utils` - Utility functions (paths, environment variables)
+//!
+//! ## Debug Mode
+//!
+//! Set `AURORAVIEW_DEBUG=1` environment variable to enable debug mode:
+//! - On Windows: Opens a console window for log output
+//! - Writes logs to `%TEMP%/auroraview_packed.log`
+//! - Enables verbose logging
 
 mod backend;
 mod events;
@@ -35,11 +42,45 @@ pub use utils::{
 // Re-export from auroraview-core
 pub use auroraview_core::assets::build_packed_init_script;
 
+/// Check if debug mode is enabled via environment variable
+fn is_debug_env() -> bool {
+    std::env::var("AURORAVIEW_DEBUG")
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false)
+}
+
+/// Allocate a console window on Windows for debug output
+#[cfg(target_os = "windows")]
+fn allocate_console() {
+    use windows::Win32::System::Console::{AllocConsole, AttachConsole, ATTACH_PARENT_PROCESS};
+    unsafe {
+        // Try to attach to parent console first (if run from command line)
+        if AttachConsole(ATTACH_PARENT_PROCESS).is_err() {
+            // If no parent console, allocate a new one
+            let _ = AllocConsole();
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn allocate_console() {
+    // No-op on non-Windows platforms
+}
+
 /// Run a packed application (overlay mode)
 ///
 /// This function is called when the executable contains embedded overlay data.
 /// It reads the overlay, initializes logging, validates license, and launches the WebView.
 pub fn run_packed_app() -> Result<()> {
+    // Check for debug mode early
+    let debug_env = is_debug_env();
+    
+    // Allocate console on Windows if debug mode is enabled
+    if debug_env {
+        allocate_console();
+        eprintln!("[DEBUG] AuroraView packed app starting in debug mode...");
+    }
+    
     // Start WebView2 warmup IMMEDIATELY - this runs in background while we read overlay
     // This is critical for reducing cold-start latency by 2-4 seconds
     warmup::start_webview2_warmup();
@@ -56,7 +97,8 @@ pub fn run_packed_app() -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("No overlay data found in packed executable"))?;
 
     // Initialize logging
-    let log_level = if overlay.config.debug {
+    // Use debug level if either config.debug or AURORAVIEW_DEBUG env is set
+    let log_level = if overlay.config.debug || debug_env {
         "debug"
     } else {
         "info"
@@ -96,11 +138,32 @@ pub fn run_packed_app() -> Result<()> {
         }
     }
 
+    // Write debug log file if debug mode is enabled
+    if debug_env {
+        let log_path = std::env::temp_dir().join("auroraview_packed.log");
+        tracing::info!("[DEBUG] Log file: {:?}", log_path);
+        if let Ok(mut file) = std::fs::File::create(&log_path) {
+            use std::io::Write;
+            let _ = writeln!(file, "AuroraView Packed App Debug Log");
+            let _ = writeln!(file, "================================");
+            let _ = writeln!(file, "Exe: {:?}", exe_path);
+            let _ = writeln!(file, "Title: {}", overlay.config.window.title);
+            let _ = writeln!(file, "Assets: {} files", overlay.assets.len());
+            let _ = writeln!(file, "Mode: {:?}", overlay.config.mode);
+            let _ = writeln!(file, "");
+            let _ = writeln!(file, "Assets list:");
+            for (i, (path, data)) in overlay.assets.iter().enumerate() {
+                let _ = writeln!(file, "  [{}] {} ({} bytes)", i, path, data.len());
+            }
+        }
+    }
+
     tracing::info!(
         "[Rust] Running packed application: {}",
         overlay.config.window.title
     );
     tracing::info!("[Rust] Assets: {} files", overlay.assets.len());
+    tracing::info!("[Rust] Mode: {:?}", overlay.config.mode);
     tracing::info!(
         "[Rust] Overlay read completed in {:.2}ms",
         startup_start.elapsed().as_secs_f64() * 1000.0

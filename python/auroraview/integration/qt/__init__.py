@@ -42,8 +42,11 @@ Example:
     ... )
 """
 
-from auroraview.integration.qt._core import QtEventProcessor, QtWebView
+from auroraview.integration.qt._core import QtWebView
 from auroraview.integration.qt.dialogs import FileDialog, create_file_dialog
+from auroraview.integration.qt.embedding import EmbeddingMixin
+from auroraview.integration.qt.event_processor import QtEventProcessor
+from auroraview.integration.qt.lifecycle import LifecycleMixin
 from auroraview.integration.qt.pool import WebViewPool
 from auroraview.integration.qt.signals import QtWebViewSignals
 
@@ -54,4 +57,7 @@ __all__ = [
     "FileDialog",
     "create_file_dialog",
     "WebViewPool",
+    # Mixins (for advanced customization)
+    "EmbeddingMixin",
+    "LifecycleMixin",
 ]

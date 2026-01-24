@@ -16,6 +16,7 @@
 //! - **Builder extensions** (shared WebView building logic)
 //! - **Plugin system** (native desktop capabilities)
 //! - **Thread safety utilities** (lock ordering, deadlock prevention)
+//! - **Events** (unified user event types)
 //!
 //! Used by:
 //! - `auroraview-cli` (Command-line interface)
@@ -25,12 +26,14 @@ pub mod assets;
 pub mod backend; // WebView backend abstraction (traits, factory, settings)
 pub mod bom; // Browser Object Model APIs (navigation, zoom, window control)
 pub mod builder; // WebView builder extensions (drag-drop, IPC, protocols)
+pub mod cleanup; // WebView user data directory cleanup (cross-platform)
 pub mod cli; // CLI utilities (URL normalization, HTML rewriting)
 pub mod config;
 pub mod dom; // DOM manipulation primitives (DomOp, DomBatch)
+pub mod events; // Unified user event types (CoreUserEvent, ExtendedUserEvent)
 pub mod icon; // Icon utilities (PNG loading, ICO conversion, compression)
 pub mod id_generator;
-pub mod ipc; // IPC abstractions (message, metrics) - platform-agnostic
+pub mod ipc; // IPC abstractions (message, metrics, WebViewMessage) - platform-agnostic
 pub mod json;
 pub mod menu; // Native menu bar support
 pub mod metrics; // Timing metrics for WebView lifecycle

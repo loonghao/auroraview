@@ -38,6 +38,102 @@ def get_webview_extensions_dir() -> Path:
         return Path.home() / ".local" / "share" / "AuroraView" / "Extensions"
 
 
+def get_extension_config_path() -> Path:
+    """Get the extension configuration file path."""
+    if platform.system() == "Windows":
+        local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+        return Path(local_app_data) / "AuroraView" / "extension_config.json"
+    else:
+        return Path.home() / ".local" / "share" / "AuroraView" / "extension_config.json"
+
+
+def load_extension_config() -> dict:
+    """Load extension configuration from file."""
+    config_path = get_extension_config_path()
+    if config_path.exists():
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                return json_module.load(f)
+        except (json_module.JSONDecodeError, OSError) as e:
+            print(f"[Python] Error loading extension config: {e}", file=sys.stderr)
+    return {"disabled_extensions": []}
+
+
+def save_extension_config(config: dict) -> bool:
+    """Save extension configuration to file."""
+    config_path = get_extension_config_path()
+    try:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "w", encoding="utf-8") as f:
+            json_module.dump(config, f, indent=2)
+        return True
+    except OSError as e:
+        print(f"[Python] Error saving extension config: {e}", file=sys.stderr)
+        return False
+
+
+def is_extension_enabled(extension_id: str) -> bool:
+    """Check if an extension is enabled."""
+    config = load_extension_config()
+    return extension_id not in config.get("disabled_extensions", [])
+
+
+def resolve_i18n_message(text: str, extension_path: Path, default_locale: str = "en") -> str:
+    """Resolve Chrome extension i18n message placeholders.
+
+    Chrome extensions use __MSG_key__ format for internationalized strings.
+    The actual values are in _locales/<locale>/messages.json.
+
+    Args:
+        text: Text that may contain __MSG_key__ placeholders
+        extension_path: Path to the extension directory
+        default_locale: Default locale to use (default: "en")
+
+    Returns:
+        Resolved text with placeholders replaced
+    """
+    if not text or not text.startswith("__MSG_") or not text.endswith("__"):
+        return text
+
+    # Extract the message key (remove __MSG_ prefix and __ suffix)
+    key = text[6:-2]
+
+    # Try to find messages.json
+    locales_dir = extension_path / "_locales"
+    if not locales_dir.exists():
+        return text
+
+    # Try locales in order: default_locale, "en", first available
+    locales_to_try = [default_locale, "en"]
+    available_locales = [d.name for d in locales_dir.iterdir() if d.is_dir()]
+
+    for locale in locales_to_try:
+        if locale in available_locales:
+            messages_file = locales_dir / locale / "messages.json"
+            if messages_file.exists():
+                try:
+                    with open(messages_file, "r", encoding="utf-8") as f:
+                        messages = json_module.load(f)
+                    if key in messages:
+                        return messages[key].get("message", text)
+                except (json_module.JSONDecodeError, OSError):
+                    pass
+
+    # Try first available locale
+    if available_locales:
+        messages_file = locales_dir / available_locales[0] / "messages.json"
+        if messages_file.exists():
+            try:
+                with open(messages_file, "r", encoding="utf-8") as f:
+                    messages = json_module.load(f)
+                if key in messages:
+                    return messages[key].get("message", text)
+            except (json_module.JSONDecodeError, OSError):
+                pass
+
+    return text
+
+
 def register_webview_extension_apis(view: WebView) -> None:
     """Register all WebView2 extension management API handlers.
 
@@ -150,11 +246,19 @@ def register_webview_extension_apis(view: WebView) -> None:
                             side_panel = manifest.get("side_panel", {})
                             has_side_panel = bool(side_panel.get("default_path"))
                             side_panel_path = side_panel.get("default_path", "")
+                            # Normalize path: remove leading ./ and normalize slashes
+                            if side_panel_path.startswith("./"):
+                                side_panel_path = side_panel_path[2:]
+                            side_panel_path = side_panel_path.replace("\\", "/")
 
                             # Check for popup (action.default_popup)
                             action = manifest.get("action", {})
                             has_popup = bool(action.get("default_popup"))
                             popup_path = action.get("default_popup", "")
+                            # Normalize popup path as well
+                            if popup_path.startswith("./"):
+                                popup_path = popup_path[2:]
+                            popup_path = popup_path.replace("\\", "/")
 
                             # Get options page
                             options_url = manifest.get("options_page", "")
@@ -171,17 +275,23 @@ def register_webview_extension_apis(view: WebView) -> None:
 
                             # Get icons from manifest
                             # Chrome extensions define icons in manifest.icons or action.default_icon
+                            # Use custom protocol URL for packed mode compatibility
                             icons = []
+                            ext_id = entry.name
                             manifest_icons = manifest.get("icons", {})
                             if manifest_icons:
-                                for size, path in manifest_icons.items():
-                                    icon_file = entry / path
+                                for size, icon_path in manifest_icons.items():
+                                    icon_file = entry / icon_path
                                     if icon_file.exists():
-                                        # Return file:// URL for local icons
+                                        # Use custom protocol: https://auroraview.localhost/extension/{id}/{path}
+                                        # Normalize icon path (remove leading ./ and use forward slashes)
+                                        normalized_path = icon_path.replace("\\", "/")
+                                        if normalized_path.startswith("./"):
+                                            normalized_path = normalized_path[2:]
                                         icons.append(
                                             {
                                                 "size": int(size),
-                                                "url": f"file:///{icon_file.as_posix()}",
+                                                "url": f"https://auroraview.localhost/extension/{ext_id}/{normalized_path}",
                                             }
                                         )
 
@@ -191,17 +301,26 @@ def register_webview_extension_apis(view: WebView) -> None:
                                 if isinstance(action_icon, str):
                                     icon_file = entry / action_icon
                                     if icon_file.exists():
+                                        normalized_path = action_icon.replace("\\", "/")
+                                        if normalized_path.startswith("./"):
+                                            normalized_path = normalized_path[2:]
                                         icons.append(
-                                            {"size": 32, "url": f"file:///{icon_file.as_posix()}"}
+                                            {
+                                                "size": 32,
+                                                "url": f"https://auroraview.localhost/extension/{ext_id}/{normalized_path}",
+                                            }
                                         )
                                 elif isinstance(action_icon, dict):
-                                    for size, path in action_icon.items():
-                                        icon_file = entry / path
+                                    for size, icon_path in action_icon.items():
+                                        icon_file = entry / icon_path
                                         if icon_file.exists():
+                                            normalized_path = icon_path.replace("\\", "/")
+                                            if normalized_path.startswith("./"):
+                                                normalized_path = normalized_path[2:]
                                             icons.append(
                                                 {
                                                     "size": int(size),
-                                                    "url": f"file:///{icon_file.as_posix()}",
+                                                    "url": f"https://auroraview.localhost/extension/{ext_id}/{normalized_path}",
                                                 }
                                             )
 
@@ -211,18 +330,23 @@ def register_webview_extension_apis(view: WebView) -> None:
                             # Determine install type based on extension ID format
                             # Chrome Web Store extensions have 32-char lowercase IDs
                             # Local unpacked extensions use folder names
-                            ext_id = entry.name
                             is_webstore_id = (
                                 len(ext_id) == 32 and ext_id.isalpha() and ext_id.islower()
                             )
                             install_type = "normal" if is_webstore_id else "development"
 
+                            # Get name and description, resolving i18n placeholders
+                            raw_name = manifest.get("name", "Unknown")
+                            raw_desc = manifest.get("description", "")
+                            ext_name = resolve_i18n_message(raw_name, entry)
+                            ext_desc = resolve_i18n_message(raw_desc, entry)
+
                             extensions.append(
                                 {
                                     "id": entry.name,
-                                    "name": manifest.get("name", "Unknown"),
+                                    "name": ext_name,
                                     "version": manifest.get("version", "0.0.0"),
-                                    "description": manifest.get("description", ""),
+                                    "description": ext_desc,
                                     "path": str(entry),
                                     "hasSidePanel": has_side_panel,
                                     "sidePanelPath": side_panel_path,
@@ -233,6 +357,7 @@ def register_webview_extension_apis(view: WebView) -> None:
                                     "hostPermissions": host_permissions,
                                     "homepageUrl": homepage_url,
                                     "installType": install_type,
+                                    "enabled": is_extension_enabled(entry.name),
                                     "icons": icons,
                                 }
                             )
@@ -511,3 +636,61 @@ def register_webview_extension_apis(view: WebView) -> None:
 
             traceback.print_exc(file=sys.stderr)
             return {"ok": False, "error": error_msg}
+
+    @view.bind_call("api.set_extension_enabled")
+    def set_extension_enabled(id: str = "", enabled: bool = True) -> dict:
+        """Enable or disable an extension.
+
+        This persists the enabled state to a config file. Disabled extensions
+        will not be loaded on the next application restart.
+
+        Args:
+            id: Extension ID (folder name)
+            enabled: True to enable, False to disable
+        """
+        print(
+            f"[Python:set_extension_enabled] id={id}, enabled={enabled}",
+            file=sys.stderr,
+        )
+
+        if not id:
+            return {"ok": False, "error": "No extension ID provided"}
+
+        config = load_extension_config()
+        disabled_list = config.get("disabled_extensions", [])
+
+        if enabled:
+            # Remove from disabled list
+            if id in disabled_list:
+                disabled_list.remove(id)
+        else:
+            # Add to disabled list
+            if id not in disabled_list:
+                disabled_list.append(id)
+
+        config["disabled_extensions"] = disabled_list
+
+        if save_extension_config(config):
+            print(
+                f"[Python:set_extension_enabled] SUCCESS: {id} -> enabled={enabled}",
+                file=sys.stderr,
+            )
+            return {
+                "ok": True,
+                "id": id,
+                "enabled": enabled,
+                "requiresRestart": True,
+                "message": f"Extension will be {'enabled' if enabled else 'disabled'} on next restart.",
+            }
+        else:
+            return {"ok": False, "error": "Failed to save configuration"}
+
+    @view.bind_call("api.get_extension_config")
+    def get_extension_config() -> dict:
+        """Get the extension configuration including disabled extensions list."""
+        config = load_extension_config()
+        return {
+            "ok": True,
+            "config": config,
+            "configPath": str(get_extension_config_path()),
+        }
