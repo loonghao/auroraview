@@ -102,6 +102,24 @@ pub fn create_desktop(
     ipc_handler: Arc<IpcHandler>,
     message_queue: Arc<MessageQueue>,
 ) -> Result<WebViewInner, Box<dyn std::error::Error>> {
+    // Clean up stale WebView2 user data directories from crashed processes
+    // This prevents initialization hangs due to orphaned LOCK files
+    #[cfg(target_os = "windows")]
+    {
+        match super::cleanup::cleanup_stale_webview_dirs() {
+            Ok(count) if count > 0 => {
+                tracing::info!(
+                    "[standalone] Cleaned up {} stale WebView2 directories",
+                    count
+                );
+            }
+            Err(e) => {
+                tracing::warn!("[standalone] Failed to clean up stale directories: {}", e);
+            }
+            _ => {}
+        }
+    }
+
     // Debug: Log config values
     #[cfg(target_os = "windows")]
     tracing::info!(
@@ -1079,6 +1097,26 @@ pub fn create_desktop(
         #[cfg(target_os = "windows")]
         transparent: config.transparent,
     });
+
+    // Register instance to file-based registry for MCP discovery
+    // This enables unified discovery for both packed and unpacked modes
+    let cdp_port = config.remote_debugging_port.unwrap_or(0);
+    if cdp_port > 0 {
+        let window_id = format!("webview_{}", std::process::id());
+        let instance_info = crate::service_discovery::InstanceInfo::new(
+            window_id,
+            config.title.clone(),
+            cdp_port,
+        );
+        if let Err(e) = crate::service_discovery::get_registry().register(&instance_info) {
+            tracing::warn!("[standalone] Failed to register instance: {}", e);
+        } else {
+            tracing::info!(
+                "[standalone] Instance registered for CDP discovery (port {})",
+                cdp_port
+            );
+        }
+    }
 
     #[allow(clippy::arc_with_non_send_sync)]
     Ok(WebViewInner {

@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
+from ..features.serializable import Serializable
+
 
 class MenuItemType(Enum):
     """Menu item type."""
@@ -41,7 +43,7 @@ class MenuItemType(Enum):
 
 
 @dataclass
-class MenuItem:
+class MenuItem(Serializable):
     """A single menu item.
 
     Attributes:
@@ -112,26 +114,9 @@ class MenuItem:
             children=children,
         )
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization."""
-        result = {
-            "label": self.label,
-            "item_type": self.item_type.value,
-            "enabled": self.enabled,
-        }
-        if self.action_id:
-            result["action_id"] = self.action_id
-        if self.accelerator:
-            result["accelerator"] = self.accelerator
-        if self.item_type in (MenuItemType.CHECKBOX, MenuItemType.RADIO):
-            result["checked"] = self.checked
-        if self.children:
-            result["children"] = [c.to_dict() for c in self.children]
-        return result
-
 
 @dataclass
-class Menu:
+class Menu(Serializable):
     """A menu (dropdown from menu bar).
 
     Attributes:
@@ -158,17 +143,9 @@ class Menu:
         """Add a separator."""
         return self.add_item(MenuItem.separator())
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization."""
-        return {
-            "label": self.label,
-            "items": [item.to_dict() for item in self.items],
-            "enabled": self.enabled,
-        }
-
 
 @dataclass
-class MenuBar:
+class MenuBar(Serializable):
     """Menu bar (top-level menu container).
 
     Attributes:
@@ -249,9 +226,3 @@ class MenuBar:
         bar.add_menu(help_menu)
 
         return bar
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization."""
-        return {
-            "menus": [menu.to_dict() for menu in self.menus],
-        }

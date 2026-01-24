@@ -5,6 +5,6 @@
 
 // Re-export everything from core
 pub use auroraview_core::service_discovery::{
-    DiscoveryResponse, HttpDiscovery, MdnsService, PortAllocator, Result, ServiceDiscoveryError,
-    ServiceInfo, SERVICE_TYPE,
+    get_registry, DiscoveryResponse, HttpDiscovery, InstanceInfo, InstanceRegistry, MdnsService,
+    PortAllocator, Result, ServiceDiscoveryError, ServiceInfo, SERVICE_TYPE,
 };

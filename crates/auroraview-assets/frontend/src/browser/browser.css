@@ -1,0 +1,50 @@
+/* Browser theme CSS variables */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f3f3;
+  --bg-tertiary: #f9f9f9;
+  --bg-hover: rgba(0,0,0,0.04);
+  --bg-active: rgba(0,0,0,0.08);
+  --text-primary: #1a1a1a;
+  --text-secondary: #444444;
+  --border-color: #e5e5e5;
+  --accent-color: #0078d4;
+  --url-bar-bg: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #2d2d2d;
+    --bg-tertiary: #252526;
+    --bg-hover: rgba(255,255,255,0.08);
+    --bg-active: rgba(255,255,255,0.12);
+    --text-primary: #e0e0e0;
+    --text-secondary: #999999;
+    --border-color: #3d3d3d;
+    --accent-color: #0078d4;
+    --url-bar-bg: #252526;
+  }
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+body {
+  color: var(--text-primary);
+}
+
+/* Loading bar animation */
+@keyframes loading {
+  0% { transform: translateX(-100%) scaleX(0.2); }
+  50% { transform: translateX(0%) scaleX(0.5); }
+  100% { transform: translateX(100%) scaleX(0.2); }
+}
+
+.loading-bar.active {
+  animation: loading 2s infinite linear;
+  transform: scaleX(1);
+}

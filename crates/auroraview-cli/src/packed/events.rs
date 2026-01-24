@@ -32,6 +32,16 @@ pub enum UserEvent {
         /// Error source: "stderr", "startup", "crash"
         source: String,
     },
+    /// Python process crashed or exited unexpectedly
+    /// This triggers a full error page display
+    PythonCrash {
+        /// Exit code (if available)
+        exit_code: Option<i32>,
+        /// Last captured stderr output
+        stderr_output: String,
+        /// Whether crash happened during startup
+        during_startup: bool,
+    },
     /// Set HTML content for WebView (dynamic HTML from Python)
     /// Used by Browser component in packed mode to load dynamic HTML
     SetHtml {
@@ -39,5 +49,22 @@ pub enum UserEvent {
         html: String,
         /// Optional title to set for the window
         title: Option<String>,
+    },
+    /// Close the window and exit the application
+    /// This is triggered by window.close() API from JavaScript
+    CloseWindow,
+    /// Show error page with full diagnostics
+    /// Used when critical errors occur that prevent normal operation
+    ShowError {
+        /// HTTP-style status code (e.g., 500, 503)
+        code: u16,
+        /// Error title
+        title: String,
+        /// User-friendly error message
+        message: String,
+        /// Technical details (stack trace, etc.)
+        details: Option<String>,
+        /// Error source: "python", "rust", "javascript", "unknown"
+        source: String,
     },
 }

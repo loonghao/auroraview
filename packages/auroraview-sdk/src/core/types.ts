@@ -5,6 +5,16 @@
  */
 
 // ============================================
+// Log Level Types
+// ============================================
+
+/** Log levels matching Python/Rust conventions */
+export type LogLevel = 'debug' | 'info' | 'warning' | 'error' | 'critical';
+
+/** Backend error severity for fail-fast behavior */
+export type ErrorSeverity = 'fatal' | 'error' | 'warning' | 'info';
+
+// ============================================
 // Event System Types
 // ============================================
 
@@ -26,9 +36,14 @@ export type StateChangeHandler = (
 // ============================================
 
 export interface AuroraViewConfig {
+  /** Timeout for RPC calls in milliseconds (default: 30000) */
   callTimeoutMs?: number;
+  /** Whether to fail all pending calls on backend error (default: true for fatal errors only) */
   backendFailFast?: boolean;
+  /** Heartbeat timeout in milliseconds (0 to disable) */
   heartbeatTimeoutMs?: number;
+  /** Minimum error severity to trigger fail-fast (default: 'fatal') */
+  failFastSeverity?: ErrorSeverity;
 }
 
 // ============================================
@@ -85,6 +100,28 @@ export interface CallErrorInfo {
 }
 
 // ============================================
+// Error Code Types (matching Rust PluginErrorCode)
+// ============================================
+
+/** Standard error codes from AuroraView plugins */
+export type PluginErrorCode =
+  | 'PLUGIN_NOT_FOUND'
+  | 'COMMAND_NOT_FOUND'
+  | 'INVALID_ARGS'
+  | 'PERMISSION_DENIED'
+  | 'SCOPE_VIOLATION'
+  | 'FILE_NOT_FOUND'
+  | 'IO_ERROR'
+  | 'ENCODING_ERROR'
+  | 'CLIPBOARD_ERROR'
+  | 'SHELL_ERROR'
+  | 'DIALOG_CANCELLED'
+  | 'TIMEOUT'
+  | 'CANCELLED'
+  | 'BACKEND_UNAVAILABLE'
+  | 'UNKNOWN';
+
+// ============================================
 // Pending Call Types
 // ============================================
 
@@ -92,6 +129,17 @@ export interface CallErrorInfo {
 export interface PendingCall<T = unknown> {
   resolve: (value: T) => void;
   reject: (error: Error) => void;
+}
+
+// ============================================
+// Backend Error Types
+// ============================================
+
+/** Backend error event detail */
+export interface BackendErrorDetail {
+  message: string;
+  source: 'stderr' | 'stdout' | 'startup' | 'crash';
+  level?: LogLevel;
 }
 
 // ============================================

@@ -743,6 +743,37 @@ export function useAuroraView() {
   }, [client]);
 
   /**
+   * Set extension enabled/disabled state (persisted to config file)
+   */
+  const setExtensionEnabled = useCallback(async (id: string, enabled: boolean): Promise<ApiResult & { requiresRestart?: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      const result = await client.call<{
+        ok: boolean;
+        id?: string;
+        enabled?: boolean;
+        message?: string;
+        error?: string;
+        requiresRestart?: boolean;
+      }>('api.set_extension_enabled', { id, enabled });
+      
+      return {
+        ok: result.ok || false,
+        message: result.message,
+        error: result.error,
+        requiresRestart: result.requiresRestart,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        error: String(e),
+      };
+    }
+  }, [client]);
+
+  /**
    * Remove extension from WebView2's extensions directory
    */
   const removeWebViewExtension = useCallback(async (id: string): Promise<ApiResult & { requiresRestart?: boolean }> => {
@@ -1180,6 +1211,7 @@ export function useAuroraView() {
     // Extension Installation (Python backend)
     installToWebView,
     listWebViewExtensions,
+    setExtensionEnabled,
     removeWebViewExtension,
     openExtensionsDir,
     restartApp,

@@ -151,9 +151,6 @@ class WebViewApiMixin:
             json_str = json.dumps(payload)
         except Exception as exc:  # pragma: no cover
             logger.error("Failed to JSON-encode __auroraview_call_result payload: %s", exc)
-            print(
-                f"[AuroraView DEBUG] Failed to JSON-encode __auroraview_call_result payload: {exc}"
-            )
             return
 
         # Use auroraview.trigger() for consistent event handling
@@ -166,14 +163,11 @@ class WebViewApiMixin:
             "  }"
             "})();"
         )
-        print(f"[AuroraView DEBUG] _emit_call_result_js dispatching payload to JS: {payload}")
+        logger.debug("Dispatching call result to JS: id=%s", payload.get("id"))
         try:
             self.eval_js(script)
         except Exception as exc:  # pragma: no cover
             logger.error("Failed to dispatch __auroraview_call_result via eval_js: %s", exc)
-            print(
-                f"[AuroraView DEBUG] Failed to dispatch __auroraview_call_result via eval_js: {exc}"
-            )
 
     def bind_call(
         self,
@@ -241,11 +235,11 @@ class WebViewApiMixin:
             self._bound_functions[method] = func
 
         def _handler(raw: Dict[str, Any]) -> None:
-            print(f"[AuroraView DEBUG] _handler invoked for method={method} with raw={raw}")
-
             call_id = raw.get("id") or raw.get("__auroraview_call_id")
             has_params_key = "params" in raw
             params = raw.get("params")
+
+            logger.debug("Handler invoked for method=%s with raw=%s", method, raw)
 
             # Get the latest bound function (allows for hot-reload scenarios)
             current_func = self._bound_functions.get(method, func)
@@ -279,19 +273,13 @@ class WebViewApiMixin:
             else:
                 payload["error"] = error_info
 
-            print(
-                f"[AuroraView DEBUG] bind_call sending result: method={method}, id={call_id}, ok={ok}"
-            )
+            logger.debug("Sending result: method=%s, id=%s, ok=%s", method, call_id, ok)
 
             try:
                 self.emit("__auroraview_call_result", payload)
             except Exception:
                 logger.debug(
                     "WebView.emit for __auroraview_call_result raised; falling back to eval_js"
-                )
-                print(
-                    "[AuroraView DEBUG] WebView.emit for __auroraview_call_result raised; "
-                    "falling back to eval_js"
                 )
             self._emit_call_result_js(payload)
 

@@ -11,7 +11,8 @@
 //! │  (Platform-agnostic IPC abstractions)                        │
 //! │  - IpcMessage: Message structure                             │
 //! │  - IpcMetrics: Performance tracking                          │
-//! │  - MessageQueue: Thread-safe queue                           │
+//! │  - WebViewMessage: WebView operations                        │
+//! │  - WindowEventType: Window lifecycle events                  │
 //! └─────────────────────────────────────────────────────────────┘
 //!                              ↑
 //!                              │ uses
@@ -25,5 +26,5 @@
 mod message;
 mod metrics;
 
-pub use message::{IpcMessage, IpcMode};
+pub use message::{IpcMessage, IpcMode, WebViewMessage, WindowEventType};
 pub use metrics::{IpcMetrics, IpcMetricsSnapshot};

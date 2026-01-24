@@ -5,12 +5,15 @@
 //! - Service information structures
 //! - mDNS service registration and discovery
 //! - HTTP discovery endpoint
+//! - Instance registry for CDP discovery
 
 pub mod http_discovery;
+pub mod instance_registry;
 pub mod mdns_service;
 pub mod port_allocator;
 
 pub use http_discovery::{DiscoveryResponse, HttpDiscovery};
+pub use instance_registry::{get_registry, InstanceInfo, InstanceRegistry};
 pub use mdns_service::{MdnsService, SERVICE_TYPE};
 pub use port_allocator::PortAllocator;
 
