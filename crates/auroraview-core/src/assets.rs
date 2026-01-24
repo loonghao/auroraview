@@ -1,66 +1,47 @@
 //! Static assets for AuroraView
 //!
 //! This module provides embedded static assets including:
-//! - Loading HTML page
+//! - Loading HTML page (Vite-built React page)
+//! - Error HTML page (Next.js-style diagnostics)
+//! - Browser controller HTML page
 //! - JavaScript utilities (event bridge, context menu, etc.)
 //! - BOM (Browser Object Model) scripts
+//! - HTML error page templates (generated at runtime)
 
 use rust_embed::RustEmbed;
+
+// Re-export HTML templates module
+#[path = "assets/html/mod.rs"]
+pub mod html;
+
+pub use html::{
+    connection_error_page, internal_error_page, loading_with_error, not_found_page,
+    python_error_page, startup_error_page,
+};
 
 /// Embedded static assets
 #[derive(RustEmbed)]
 #[folder = "src/assets/"]
 pub struct Assets;
 
+// ========================================
+// HTML Pages (from auroraview-assets)
+// ========================================
+
 /// Get the loading HTML page content
+///
+/// Returns a modern React-based loading screen with Aurora animation
+/// and progress indication, built via Vite from auroraview-assets.
 pub fn get_loading_html() -> String {
-    Assets::get("html/loading.html")
-        .map(|f| String::from_utf8_lossy(&f.data).to_string())
-        .unwrap_or_else(|| {
-            r#"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: white;
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .container { text-align: center; }
-        h1 { font-size: 1.5rem; margin-top: 1rem; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="spinner"></div>
-        <h1>Loading...</h1>
-    </div>
-</body>
-</html>"#
-                .to_string()
-        })
+    auroraview_assets::get_page_html(auroraview_assets::Page::Loading)
+        .expect("Loading page should be available from auroraview-assets")
 }
 
 /// Get the error HTML page content
 ///
-/// Returns a styled error page that matches the AuroraView design language.
+/// Returns a Next.js-style error overlay with full diagnostics,
+/// stack traces, and developer-friendly error information.
+///
 /// The page accepts URL parameters to customize the error display:
 /// - `code`: HTTP status code (e.g., "500", "404")
 /// - `title`: Error title (e.g., "Internal Server Error")
@@ -68,87 +49,22 @@ pub fn get_loading_html() -> String {
 /// - `details`: Technical details (shown in a code block)
 /// - `url`: The URL that caused the error (for retry functionality)
 pub fn get_error_html() -> String {
-    Assets::get("html/error.html")
-        .map(|f| String::from_utf8_lossy(&f.data).to_string())
-        .unwrap_or_else(|| {
-            // Fallback minimal error page
-            r#"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: white;
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-        .container { text-align: center; }
-        h1 { font-size: 4rem; margin: 0; color: #f36262; }
-        h2 { font-size: 1.5rem; margin: 1rem 0; }
-        p { opacity: 0.8; }
-        button {
-            margin-top: 1rem;
-            padding: 10px 24px;
-            background: #f36262;
-            border: none;
-            border-radius: 6px;
-            color: white;
-            cursor: pointer;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Error</h1>
-        <h2>Something went wrong</h2>
-        <p>An unexpected error occurred.</p>
-        <button onclick="location.reload()">Try Again</button>
-    </div>
-</body>
-</html>"#
-                .to_string()
-        })
+    auroraview_assets::get_page_html(auroraview_assets::Page::Error)
+        .expect("Error page should be available from auroraview-assets")
 }
 
 /// Get the browser controller HTML page content
 ///
-/// Returns an Edge-style browser controller UI with:
+/// Returns an Edge-style browser controller UI with modern React components.
+///
+/// Features:
 /// - Tab bar with rounded tabs, favicons, and close buttons
 /// - Navigation toolbar (back, forward, reload, home)
 /// - URL/search bar with modern styling
-///
-/// This HTML is used by TabManager for the browser controller WebView.
+/// - Theme support (light/dark)
 pub fn get_browser_controller_html() -> String {
-    Assets::get("html/browser_controller.html")
-        .map(|f| String::from_utf8_lossy(&f.data).to_string())
-        .unwrap_or_else(|| {
-            // Fallback minimal controller
-            r#"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { margin: 0; padding: 8px; font-family: system-ui; background: #f3f3f3; }
-        .toolbar { display: flex; gap: 8px; align-items: center; }
-        button { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; }
-        input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    </style>
-</head>
-<body>
-    <div class="toolbar">
-        <button onclick="auroraview.call('browser.go_back')">Back</button>
-        <button onclick="auroraview.call('browser.go_forward')">Forward</button>
-        <input id="urlBar" placeholder="Enter URL" onkeypress="if(event.key==='Enter')auroraview.call('browser.navigate',{url:this.value})">
-    </div>
-</body>
-</html>"#
-                .to_string()
-        })
+    auroraview_assets::get_page_html(auroraview_assets::Page::BrowserController)
+        .expect("Browser controller page should be available from auroraview-assets")
 }
 
 /// Build an error page HTML with specific error information

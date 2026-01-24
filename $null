@@ -1,0 +1,8 @@
+子目录或文件 -p 已经存在。
+处理: -p 时出错。
+子目录或文件 c:\Users\hallo\Documents\augment-projects\dcc_webview\docs\rfcs 已经存在。
+处理: c:\Users\hallo\Documents\augment-projects\dcc_webview\docs\rfcs 时出错。
+子目录或文件 Copy-Item 已经存在。
+处理: Copy-Item 时出错。
+子目录或文件 c:\Users\hallo\Documents\augment-projects\dcc_webview\docs\rfcs\0001-cross-platform-bindings.md 已经存在。
+处理: c:\Users\hallo\Documents\augment-projects\dcc_webview\docs\rfcs\0001-cross-platform-bindings.md 时出错。

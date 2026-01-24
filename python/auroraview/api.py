@@ -169,6 +169,7 @@ def create_webview(
     new_window_mode: Optional[str] = None,
     remote_debugging_port: Optional[int] = None,
     api: Optional[Any] = None,
+    window_api: bool = True,
     **kwargs: Any,
 ) -> Union["WebView", "QtWebView"]:
     """Create a WebView with automatic mode selection.
@@ -205,6 +206,8 @@ def create_webview(
         new_window_mode: New window behavior
         remote_debugging_port: CDP debugging port
         api: API object to expose to JavaScript
+        window_api: Enable built-in window management API (default: True)
+            Set to False if you want to implement your own window.* handlers.
         **kwargs: Additional backend-specific arguments
 
     Returns:
@@ -231,7 +234,7 @@ def create_webview(
 
         logger.debug("Creating QtWebView (Qt parent detected)")
 
-        return QtWebView(
+        qt_webview = QtWebView(
             parent=parent,
             title=title,
             width=width,
@@ -256,6 +259,18 @@ def create_webview(
             remote_debugging_port=remote_debugging_port,
             **kwargs,
         )
+
+        # Bind API if provided
+        if api is not None:
+            qt_webview.bind_api(api)
+
+        # Setup built-in window API for Qt mode too
+        if window_api:
+            from auroraview.core.window_api import setup_window_api
+
+            setup_window_api(qt_webview)
+
+        return qt_webview
     else:
         # Standalone or HWND mode - use core WebView
         from auroraview.core.webview import WebView
@@ -292,6 +307,12 @@ def create_webview(
         # Bind API if provided
         if api is not None:
             webview.bind_api(api)
+
+        # Setup built-in window API (enabled by default)
+        if window_api:
+            from auroraview.core.window_api import setup_window_api
+
+            setup_window_api(webview)
 
         return webview
 

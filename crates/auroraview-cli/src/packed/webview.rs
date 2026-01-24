@@ -3,7 +3,7 @@
 //! Handles creating the WebView window and running the main event loop.
 
 use anyhow::{Context, Result};
-use auroraview_core::assets::{build_packed_init_script, get_loading_html};
+use auroraview_core::assets::{build_error_page, build_packed_init_script, get_loading_html};
 use auroraview_core::plugins::{PathScope, PluginRequest, ScopeConfig, ShellScope};
 use auroraview_core::protocol::MemoryAssets;
 use auroraview_pack::{OverlayData, PackMode, PackedMetrics};
@@ -97,6 +97,162 @@ fn build_api_registration_script(handlers: &[String]) -> String {
     script
 }
 
+/// Handle extension resource requests in the custom protocol
+///
+/// Maps URLs like `https://auroraview.localhost/extension/{extensionId}/{path}`
+/// to local files in `%LOCALAPPDATA%/AuroraView/Extensions/{extensionId}/{path}`
+#[cfg(target_os = "windows")]
+fn handle_extension_resource_request(
+    ext_path: &str,
+    allowed_origin: &str,
+) -> wry::http::Response<std::borrow::Cow<'static, [u8]>> {
+    use mime_guess::from_path;
+    use std::borrow::Cow;
+
+    tracing::debug!("[Protocol] extension resource request: {}", ext_path);
+
+    // Parse extension ID and resource path
+    // Format: {extensionId}/{path/to/resource}
+    let parts: Vec<&str> = ext_path.splitn(2, '/').collect();
+    if parts.is_empty() {
+        tracing::warn!("[Protocol] Invalid extension path: {}", ext_path);
+        return wry::http::Response::builder()
+            .status(400)
+            .body(Cow::Borrowed(b"Bad Request: Invalid extension path" as &[u8]))
+            .unwrap();
+    }
+
+    let extension_id = parts[0];
+    let resource_path = if parts.len() > 1 {
+        parts[1]
+    } else {
+        "index.html"
+    };
+
+    // Get the extensions directory
+    let extensions_dir = get_extensions_dir();
+
+    // Build full path to the resource
+    let full_path = extensions_dir.join(extension_id).join(resource_path);
+
+    tracing::debug!(
+        "[Protocol] Extension resource: {} -> {:?}",
+        ext_path,
+        full_path
+    );
+
+    // Security check: ensure the path is within the extension directory
+    let canonical_ext_dir = match extensions_dir.join(extension_id).canonicalize() {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(
+                "[Protocol] Extension directory not found: {} ({})",
+                extension_id,
+                e
+            );
+            return wry::http::Response::builder()
+                .status(404)
+                .body(Cow::Borrowed(b"Extension not found" as &[u8]))
+                .unwrap();
+        }
+    };
+
+    let canonical_full_path = match full_path.canonicalize() {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(
+                "[Protocol] Extension resource not found: {:?} ({})",
+                full_path,
+                e
+            );
+            return wry::http::Response::builder()
+                .status(404)
+                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
+                .unwrap();
+        }
+    };
+
+    // Verify the resource is within the extension directory (prevent directory traversal)
+    if !canonical_full_path.starts_with(&canonical_ext_dir) {
+        tracing::warn!(
+            "[Protocol] Directory traversal attempt in extension: {:?}",
+            full_path
+        );
+        return wry::http::Response::builder()
+            .status(403)
+            .body(Cow::Borrowed(b"Forbidden: Directory traversal" as &[u8]))
+            .unwrap();
+    }
+
+    // Read and serve the file
+    match std::fs::read(&full_path) {
+        Ok(data) => {
+            let mime_type = from_path(&full_path).first_or_octet_stream().to_string();
+            tracing::debug!(
+                "[Protocol] Loaded extension resource: {} ({} bytes, {})",
+                ext_path,
+                data.len(),
+                mime_type
+            );
+
+            wry::http::Response::builder()
+                .status(200)
+                .header("Content-Type", mime_type)
+                .header("Access-Control-Allow-Origin", allowed_origin)
+                .body(Cow::Owned(data))
+                .unwrap()
+        }
+        Err(e) => {
+            tracing::warn!(
+                "[Protocol] Failed to read extension resource: {:?} ({})",
+                full_path,
+                e
+            );
+            wry::http::Response::builder()
+                .status(404)
+                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
+                .unwrap()
+        }
+    }
+}
+
+/// Handle window commands from JavaScript
+///
+/// These commands are handled directly by Rust since the window is controlled by Rust.
+/// Supported commands:
+/// - close: Close the window and exit the application
+/// - (future) show, hide, minimize, maximize, etc.
+fn handle_window_command(
+    method: &str,
+    _params: &serde_json::Value,
+    proxy: &EventLoopProxy<UserEvent>,
+) -> Result<serde_json::Value, String> {
+    tracing::info!("[Rust] Window command: {}", method);
+
+    match method {
+        "close" => {
+            tracing::info!("[Rust] Closing window via window.close() API");
+            // Send close event to event loop
+            if let Err(e) = proxy.send_event(UserEvent::CloseWindow) {
+                tracing::error!("[Rust] Failed to send CloseWindow event: {}", e);
+                return Err(format!("Failed to close window: {}", e));
+            }
+            Ok(serde_json::json!({"success": true}))
+        }
+        // Future: Add more window commands here
+        // "show" => { ... }
+        // "hide" => { ... }
+        // "minimize" => { ... }
+        // "maximize" => { ... }
+        // "setTitle" => { ... }
+        // etc.
+        _ => {
+            tracing::warn!("[Rust] Unknown window command: {}", method);
+            Err(format!("Unknown window command: {}", method))
+        }
+    }
+}
+
 /// Handle IPC message from WebView
 ///
 /// This function routes messages to either:
@@ -137,8 +293,24 @@ fn handle_ipc_message(
 
             tracing::debug!("[Rust] API call: {} (id: {})", method, id);
 
+            // Check if this is a window command (window.*)
+            // These are handled directly by Rust since Rust controls the window
+            if method.starts_with("window.") {
+                let window_method = &method[7..]; // Strip "window." prefix
+                let result = handle_window_command(window_method, &params, proxy);
+                let response = serde_json::json!({
+                    "id": id,
+                    "ok": result.is_ok(),
+                    "result": result.as_ref().ok(),
+                    "error": result.as_ref().err().map(|e| serde_json::json!({
+                        "name": "WindowError",
+                        "message": e.to_string()
+                    }))
+                });
+                let _ = proxy.send_event(UserEvent::PythonResponse(response.to_string()));
+            }
             // Check if this is a plugin command (plugin:*)
-            if method.starts_with("plugin:") {
+            else if method.starts_with("plugin:") {
                 // Handle via PluginRouter
                 if let Some(request) = PluginRequest::from_invoke(method, params) {
                     // Use map_err to handle lock poisoning gracefully
@@ -410,9 +582,19 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         // Get the current working directory as the base for file system access
         let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
 
+        // Build fs scope with cwd
+        let mut fs_scope = PathScope::new().allow(&cwd);
+
+        // On Windows, also allow access to extensions directory
+        #[cfg(target_os = "windows")]
+        {
+            let extensions_dir = get_extensions_dir();
+            fs_scope = fs_scope.allow(&extensions_dir);
+        }
+
         // Create a restricted scope configuration
         ScopeConfig::new()
-            .with_fs_scope(PathScope::new().allow(cwd))
+            .with_fs_scope(fs_scope)
             .with_shell_scope(ShellScope::new()) // Allows open_url/open_file but not arbitrary commands
     };
 
@@ -463,21 +645,47 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     let registered_handlers: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
 
     // Ready timeout guard for packed FullStack (avoid infinite loading)
+    // Two-stage timeout:
+    // 1. First timeout (10s): Show warning, allow Python to continue initializing
+    // 2. Final timeout (20s): Show error page if still not ready
     if python_backend.is_some() {
         let python_ready_for_timeout = python_ready.clone();
         let proxy_for_timeout = proxy.clone();
         std::thread::spawn(move || {
+            // First timeout: 10 seconds
             std::thread::sleep(std::time::Duration::from_secs(10));
             let is_ready = python_ready_for_timeout.read().map(|r| *r).unwrap_or(false);
             if !is_ready {
-                tracing::error!("[Rust] Python backend ready timeout");
+                tracing::warn!("[Rust] Python backend not ready after 10s, showing warning...");
                 let _ = proxy_for_timeout.send_event(UserEvent::BackendError {
-                    message: "Python backend ready timeout".to_string(),
-                    source: "stdout".to_string(),
+                    message: "Python backend initialization taking longer than expected...".to_string(),
+                    source: "startup".to_string(),
                 });
-                let _ = proxy_for_timeout.send_event(UserEvent::PythonReady {
-                    handlers: Vec::new(),
+                let _ = proxy_for_timeout.send_event(UserEvent::LoadingUpdate {
+                    progress: None,
+                    text: Some("Backend initialization slow, please wait...".to_string()),
+                    step_id: None,
+                    step_text: None,
+                    step_status: None,
                 });
+                
+                // Second timeout: additional 20 seconds (total 30s)
+                std::thread::sleep(std::time::Duration::from_secs(20));
+                let is_ready_final = python_ready_for_timeout.read().map(|r| *r).unwrap_or(false);
+                if !is_ready_final {
+                    tracing::error!("[Rust] Python backend ready timeout after 30s, showing error page");
+                    let _ = proxy_for_timeout.send_event(UserEvent::ShowError {
+                        code: 503,
+                        title: "Backend Initialization Failed".to_string(),
+                        message: "The Python backend failed to initialize within the expected time.\n\nThis could be caused by:\n- Missing Python dependencies\n- Syntax errors in your application code\n- Import errors in your modules".to_string(),
+                        details: Some("The backend process may have crashed or is stuck.\nCheck the console output for more details.".to_string()),
+                        source: "python".to_string(),
+                    });
+                    // Also send empty PythonReady to unblock any waiting code
+                    let _ = proxy_for_timeout.send_event(UserEvent::PythonReady {
+                        handlers: Vec::new(),
+                    });
+                }
             }
         });
     }
@@ -555,12 +763,24 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         }
         PackMode::Frontend { .. } | PackMode::FullStack { .. } => {
             // Create MemoryAssets from overlay assets
-            let memory_assets = MemoryAssets::from_vec(overlay.assets.clone())
+            let mut memory_assets = MemoryAssets::from_vec(overlay.assets.clone())
                 .with_loading_html(get_loading_html());
 
+            // Add auroraview-assets resources for loading/error pages
+            // These are required because loading HTML references relative JS/CSS paths
+            for path in auroraview_assets::list_assets() {
+                if let Some(data) = auroraview_assets::get_asset(&path) {
+                    memory_assets.insert(path, data.into_owned());
+                }
+            }
+            tracing::debug!(
+                "Added {} auroraview-assets resources to MemoryAssets",
+                auroraview_assets::list_assets().len()
+            );
+
             // Find index.html path for logging
-            let index_path = memory_assets
-                .list_paths()
+            let all_paths = memory_assets.list_paths();
+            let index_path = all_paths
                 .iter()
                 .find(|path| {
                     **path == "index.html"
@@ -572,6 +792,18 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
             tracing::info!("Loading embedded assets via auroraview:// protocol");
             tracing::info!("Index path: {}", index_path);
+            
+            // Debug: Print all available assets for troubleshooting
+            tracing::info!("[DEBUG] Available assets ({} total):", all_paths.len());
+            for (i, path) in all_paths.iter().enumerate() {
+                if i < 50 {
+                    // Limit to first 50 to avoid log spam
+                    tracing::info!("  [{}] {}", i, path);
+                } else if i == 50 {
+                    tracing::info!("  ... and {} more", all_paths.len() - 50);
+                    break;
+                }
+            }
 
             // For FullStack mode, show loading screen while waiting for Python
             // For Frontend mode, load index.html directly
@@ -674,10 +906,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             builder
                 .with_custom_protocol("auroraview".to_string(), move |_webview_id, request| {
                     let uri = request.uri();
-                    let path = uri.path();
-
-                    // Use MemoryAssets to handle the request
-                    let response = memory_assets.handle_request(path);
+                    let path = uri.path().trim_start_matches('/');
 
                     // Security: Restrict CORS to same-origin only
                     // Using the custom protocol origin prevents cross-origin access from external sites
@@ -685,6 +914,16 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     let allowed_origin = "https://auroraview.localhost";
                     #[cfg(not(target_os = "windows"))]
                     let allowed_origin = "auroraview://localhost";
+
+                    // Handle extension resources: /extension/{extensionId}/{path}
+                    // Maps to %LOCALAPPDATA%/AuroraView/Extensions/{extensionId}/{path}
+                    #[cfg(target_os = "windows")]
+                    if let Some(ext_path) = path.strip_prefix("extension/") {
+                        return handle_extension_resource_request(ext_path, allowed_origin);
+                    }
+
+                    // Use MemoryAssets to handle the request
+                    let response = memory_assets.handle_request(path);
 
                     wry::http::Response::builder()
                         .status(response.status)
@@ -725,6 +964,52 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     );
     // Always log performance report for debugging startup issues
     metrics.log_report();
+
+    // Start process monitor thread to detect Python crashes
+    // This thread checks if Python process is still alive every 500ms
+    // If Python crashes, it sends a PythonCrash event to display error page
+    if let Some(ref backend) = python_backend_arc {
+        let backend_for_monitor = Arc::clone(backend);
+        let proxy_for_monitor = proxy.clone();
+        let python_ready_for_monitor = python_ready.clone();
+        std::thread::spawn(move || {
+            // Wait a bit for initial startup
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                
+                // Check if shutdown has been initiated
+                if backend_for_monitor.is_shutting_down() {
+                    tracing::debug!("[ProcessMonitor] Shutdown detected, stopping monitor");
+                    break;
+                }
+                
+                // Check if process is still alive
+                if !backend_for_monitor.is_alive() {
+                    let exit_code = backend_for_monitor.get_exit_code();
+                    let stderr_output = backend_for_monitor.get_last_stderr();
+                    let during_startup = !python_ready_for_monitor.read().map(|r| *r).unwrap_or(false);
+                    
+                    tracing::error!(
+                        "[ProcessMonitor] Python process crashed! exit_code={:?}, during_startup={}, stderr_len={}",
+                        exit_code,
+                        during_startup,
+                        stderr_output.len()
+                    );
+                    
+                    // Send crash event
+                    let _ = proxy_for_monitor.send_event(UserEvent::PythonCrash {
+                        exit_code,
+                        stderr_output,
+                        during_startup,
+                    });
+                    break;
+                }
+            }
+            tracing::info!("[ProcessMonitor] Monitor thread exiting");
+        });
+    }
 
     // Wrap webview and window in Rc<RefCell> for single-threaded access
     // Note: WebView is not Send+Sync, so we use Rc instead of Arc
@@ -1020,6 +1305,180 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 Err(e) => {
                                     tracing::error!(
                                         "[Rust] SetHtml: Failed to load HTML: {}",
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                        UserEvent::CloseWindow => {
+                            // Close window triggered by JavaScript window.close() API
+                            tracing::info!("[Rust] CloseWindow event received from JavaScript");
+
+                            // Kill all managed processes on close
+                            if let Ok(router) = plugin_router.read() {
+                                let request =
+                                    PluginRequest::new("process", "kill_all", serde_json::json!({}));
+                                let _ = router.handle(request);
+                            }
+                            // Gracefully shutdown Python backend using ipckit
+                            if let Some(ref backend) = python_backend_arc {
+                                tracing::info!("Stopping Python backend...");
+                                backend.shutdown();
+                            }
+                            *control_flow = ControlFlow::Exit;
+                        }
+                        UserEvent::PythonCrash {
+                            exit_code,
+                            stderr_output,
+                            during_startup,
+                        } => {
+                            // Python process crashed - display error page
+                            tracing::error!(
+                                "[Rust] PythonCrash: exit_code={:?}, during_startup={}, stderr_len={}",
+                                exit_code,
+                                during_startup,
+                                stderr_output.len()
+                            );
+
+                            // Build error message
+                            let exit_info = match exit_code {
+                                Some(code) => format!("Process exited with code: {}", code),
+                                None => "Process terminated unexpectedly".to_string(),
+                            };
+
+                            let title = if during_startup {
+                                "Python Backend Failed to Start"
+                            } else {
+                                "Python Backend Crashed"
+                            };
+
+                            let message = if during_startup {
+                                format!(
+                                    "The Python backend failed to start properly.\n\n{}\n\nCommon causes:\n- Syntax errors in Python code\n- Missing dependencies\n- Import errors\n- Invalid configuration",
+                                    exit_info
+                                )
+                            } else {
+                                format!(
+                                    "The Python backend has unexpectedly terminated.\n\n{}\n\nThis may be caused by:\n- Unhandled exceptions\n- Memory issues\n- External termination",
+                                    exit_info
+                                )
+                            };
+
+                            // Format stderr as details
+                            let details = if stderr_output.is_empty() {
+                                Some("No error output captured.".to_string())
+                            } else {
+                                // Limit stderr to last 50 lines for display
+                                let lines: Vec<&str> = stderr_output.lines().collect();
+                                let truncated = if lines.len() > 50 {
+                                    format!(
+                                        "... ({} lines truncated)\n{}",
+                                        lines.len() - 50,
+                                        lines[lines.len() - 50..].join("\n")
+                                    )
+                                } else {
+                                    stderr_output.clone()
+                                };
+                                Some(truncated)
+                            };
+
+                            // Build and display error page
+                            let error_html = build_error_page(
+                                500,
+                                title,
+                                &message,
+                                details.as_deref(),
+                                None, // No retry URL for crashes
+                            );
+
+                            // Load error page using document.write
+                            let escaped_html = error_html
+                                .replace('\\', "\\\\")
+                                .replace('`', "\\`")
+                                .replace("${", "\\${");
+
+                            let script = format!(
+                                r#"(function() {{
+                                    document.open();
+                                    document.write(`{}`);
+                                    document.close();
+                                }})()"#,
+                                escaped_html
+                            );
+
+                            match wv.evaluate_script(&script) {
+                                Ok(_) => {
+                                    tracing::info!(
+                                        "[Rust] PythonCrash: Error page displayed successfully"
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "[Rust] PythonCrash: Failed to display error page: {}",
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                        UserEvent::ShowError {
+                            code,
+                            title,
+                            message,
+                            details,
+                            source,
+                        } => {
+                            // Navigate to error page with full diagnostics
+                            tracing::error!(
+                                "[Rust] ShowError: {} - {} (source: {})",
+                                code, title, source
+                            );
+
+                            // Build and display error page
+                            let error_html = build_error_page(
+                                code,
+                                &title,
+                                &message,
+                                details.as_deref(),
+                                None, // No retry URL
+                            );
+
+                            // Add source info via JavaScript
+                            let error_html_with_source = error_html.replace(
+                                "</body>",
+                                &format!(
+                                    r#"<script>
+                                    if (window._errorInfo) {{
+                                        window._errorInfo.source = '{}';
+                                    }}
+                                    </script></body>"#,
+                                    source
+                                ),
+                            );
+
+                            // Load error page using document.write
+                            let escaped_html = error_html_with_source
+                                .replace('\\', "\\\\")
+                                .replace('`', "\\`")
+                                .replace("${", "\\${");
+
+                            let script = format!(
+                                r#"(function() {{
+                                    document.open();
+                                    document.write(`{}`);
+                                    document.close();
+                                }})()"#,
+                                escaped_html
+                            );
+
+                            match wv.evaluate_script(&script) {
+                                Ok(_) => {
+                                    tracing::info!(
+                                        "[Rust] ShowError: Error page displayed successfully"
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "[Rust] ShowError: Failed to display error page: {}",
                                         e
                                     );
                                 }

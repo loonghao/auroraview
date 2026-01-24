@@ -39,6 +39,12 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install and build auroraview-assets
+        run: |
+          cd crates/auroraview-assets/frontend
+          npm install
+          npm run build
+
       - name: Install SDK dependencies
         run: |
           cd packages/auroraview-sdk
@@ -58,6 +64,13 @@ jobs:
           path: |
             crates/auroraview-core/src/assets/js/core/
             crates/auroraview-core/src/assets/js/plugins/
+          retention-days: 7
+
+      - name: Upload auroraview-assets artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: gallery-vite-assets-${{ github.run_id }}
+          path: crates/auroraview-assets/frontend/dist/
           retention-days: 7
 
   # Build wheels for all platforms (needed for Python dependency collection)
@@ -92,6 +105,12 @@ jobs:
         with:
           name: gallery-sdk-assets-${{ github.run_id }}
           path: crates/auroraview-core/src/assets/js/
+
+      - name: Download auroraview-assets
+        uses: actions/download-artifact@v7
+        with:
+          name: gallery-vite-assets-${{ github.run_id }}
+          path: crates/auroraview-assets/frontend/dist/
 
       - name: Build Wheel
         uses: ./.github/actions/build-wheel

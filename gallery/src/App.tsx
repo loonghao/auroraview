@@ -118,6 +118,7 @@ function App() {
     // Extension management APIs
     installToWebView,
     listWebViewExtensions,
+    setExtensionEnabled,
     removeWebViewExtension,
     openExtensionsDir,
     restartApp,
@@ -146,13 +147,10 @@ function App() {
     }
   });
   // Local enabled state for extensions (persisted in localStorage)
+  // Note: This is now synced with backend config on load
   const [enabledExtensions, setEnabledExtensions] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem('auroraview-enabled-extensions');
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch {
-      return new Set();
-    }
+    // Initial empty set - will be populated from backend via installedExtensions
+    return new Set();
   });
 
   // Save developer mode to localStorage
@@ -164,21 +162,25 @@ function App() {
     }
   }, [developerMode]);
 
-  // Save enabled extensions to localStorage
+  // Sync enabled extensions from backend on installedExtensions change
   useEffect(() => {
-    try {
-      localStorage.setItem('auroraview-enabled-extensions', JSON.stringify([...enabledExtensions]));
-    } catch {
-      // Ignore storage errors
+    // Build enabled set from backend data (extensions come with enabled field)
+    const enabled = new Set<string>();
+    for (const ext of installedExtensions) {
+      if (ext.enabled !== false) {
+        enabled.add(ext.id);
+      }
     }
-  }, [enabledExtensions]);
+    setEnabledExtensions(enabled);
+  }, [installedExtensions]);
 
   // Merge installed extensions with enabled state for display
+  // Note: enabled state now comes from backend config
   const displayExtensions = useMemo((): InstalledExtension[] => {
     return installedExtensions.map(ext => ({
       ...ext,
-      // Check local enabled state, default to true for newly installed extensions
-      enabled: enabledExtensions.size === 0 ? true : enabledExtensions.has(ext.id),
+      // Use enabled state from backend, fallback to enabledExtensions set for immediate UI updates
+      enabled: ext.enabled !== undefined ? ext.enabled : enabledExtensions.has(ext.id),
     }));
   }, [installedExtensions, enabledExtensions]);
 
@@ -809,12 +811,11 @@ function App() {
   }, []);
 
   // Handle extension toggle (enable/disable)
-  // Note: WebView2 extensions are managed locally - the Rust management API is for
-  // Chrome extension compatibility, not for WebView2 native extensions
+  // Note: This persists to backend config file - changes take effect on restart
   const handleExtensionToggle = useCallback(async (extension: InstalledExtension, enabled: boolean) => {
     console.log(`[handleExtensionToggle] ${extension.id} -> ${enabled}`);
     
-    // Update local state - this is the primary state management for WebView2 extensions
+    // Update local state immediately for responsive UI
     setEnabledExtensions(prev => {
       const next = new Set(prev);
       if (enabled) {
@@ -825,11 +826,21 @@ function App() {
       return next;
     });
     
-    // Optionally notify Rust layer (fire-and-forget, don't block on errors)
+    // Persist to backend config file
+    try {
+      const result = await setExtensionEnabled(extension.id, enabled);
+      if (result.ok && result.requiresRestart) {
+        setExtensionPendingRestart(true);
+      }
+    } catch (e) {
+      console.error('[handleExtensionToggle] Error:', e);
+    }
+    
+    // Also notify Rust layer for Chrome management API compatibility
     managementSetEnabled(extension.id, enabled).catch(() => {
       // Silently ignore - Rust layer may not have this extension registered
     });
-  }, [managementSetEnabled]);
+  }, [setExtensionEnabled, managementSetEnabled]);
 
   // Handle opening extension options
   const handleOpenOptions = useCallback((extension: InstalledExtension) => {

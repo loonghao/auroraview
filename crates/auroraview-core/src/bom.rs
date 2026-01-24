@@ -305,3 +305,175 @@ pub trait BomApi: NavigationApi + ZoomApi + WindowControlApi + ClearDataApi {}
 
 // Blanket implementation for types that implement all sub-traits
 impl<T> BomApi for T where T: NavigationApi + ZoomApi + WindowControlApi + ClearDataApi {}
+
+/// Simplified window commands trait for IPC handlers
+///
+/// This trait provides a simpler interface for handling window commands
+/// from JavaScript without needing the full BomApi implementation.
+pub trait WindowCommands {
+    /// Handle a window command and return JSON result
+    fn handle_window_command(
+        &self,
+        method: &str,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, String>;
+}
+
+/// Default implementation of window commands that can be used by different backends
+pub fn handle_window_command_default<W: WindowControlApi>(
+    window: &W,
+    method: &str,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    match method {
+        "close" => {
+            // Close is usually handled at the event loop level
+            Ok(serde_json::json!({ "ok": true }))
+        }
+        "minimize" => window
+            .minimize()
+            .map(|_| serde_json::json!({ "ok": true }))
+            .map_err(|e| e.to_string()),
+        "maximize" => window
+            .maximize()
+            .map(|_| serde_json::json!({ "ok": true }))
+            .map_err(|e| e.to_string()),
+        "unmaximize" | "restore" => window
+            .unmaximize()
+            .map(|_| serde_json::json!({ "ok": true }))
+            .map_err(|e| e.to_string()),
+        "toggle_maximize" => window
+            .toggle_maximize()
+            .map(|_| serde_json::json!({ "ok": true }))
+            .map_err(|e| e.to_string()),
+        "is_maximized" => window
+            .is_maximized()
+            .map(|v| serde_json::json!({ "result": v }))
+            .map_err(|e| e.to_string()),
+        "is_minimized" => window
+            .is_minimized()
+            .map(|v| serde_json::json!({ "result": v }))
+            .map_err(|e| e.to_string()),
+        "set_fullscreen" => {
+            let fullscreen = params
+                .get("fullscreen")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            window
+                .set_fullscreen(fullscreen)
+                .map(|_| serde_json::json!({ "ok": true }))
+                .map_err(|e| e.to_string())
+        }
+        "is_fullscreen" => window
+            .is_fullscreen()
+            .map(|v| serde_json::json!({ "result": v }))
+            .map_err(|e| e.to_string()),
+        "set_visible" | "show" => {
+            let visible = params
+                .get("visible")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            window
+                .set_visible(visible)
+                .map(|_| serde_json::json!({ "ok": true }))
+                .map_err(|e| e.to_string())
+        }
+        "hide" => window
+            .set_visible(false)
+            .map(|_| serde_json::json!({ "ok": true }))
+            .map_err(|e| e.to_string()),
+        "is_visible" => window
+            .is_visible()
+            .map(|v| serde_json::json!({ "result": v }))
+            .map_err(|e| e.to_string()),
+        "set_title" => {
+            let title = params
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            window
+                .set_title(title)
+                .map(|_| serde_json::json!({ "ok": true }))
+                .map_err(|e| e.to_string())
+        }
+        "set_size" => {
+            let width = params
+                .get("width")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(800) as u32;
+            let height = params
+                .get("height")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(600) as u32;
+            window
+                .set_size(width, height)
+                .map(|_| serde_json::json!({ "ok": true }))
+                .map_err(|e| e.to_string())
+        }
+        "get_size" | "inner_size" => window
+            .inner_size()
+            .map(|size| {
+                serde_json::json!({
+                    "width": size.width,
+                    "height": size.height
+                })
+            })
+            .map_err(|e| e.to_string()),
+        "get_position" | "position" => window
+            .position()
+            .map(|pos| {
+                serde_json::json!({
+                    "x": pos.x,
+                    "y": pos.y
+                })
+            })
+            .map_err(|e| e.to_string()),
+        "set_position" => {
+            let x = params.get("x").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+            let y = params.get("y").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+            window
+                .set_position(x, y)
+                .map(|_| serde_json::json!({ "ok": true }))
+                .map_err(|e| e.to_string())
+        }
+        "center" => window
+            .center()
+            .map(|_| serde_json::json!({ "ok": true }))
+            .map_err(|e| e.to_string()),
+        "set_always_on_top" => {
+            let always_on_top = params
+                .get("always_on_top")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            window
+                .set_always_on_top(always_on_top)
+                .map(|_| serde_json::json!({ "ok": true }))
+                .map_err(|e| e.to_string())
+        }
+        "is_always_on_top" => window
+            .is_always_on_top()
+            .map(|v| serde_json::json!({ "result": v }))
+            .map_err(|e| e.to_string()),
+        "set_decorations" => {
+            let decorations = params
+                .get("decorations")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            window
+                .set_decorations(decorations)
+                .map(|_| serde_json::json!({ "ok": true }))
+                .map_err(|e| e.to_string())
+        }
+        "set_resizable" => {
+            let resizable = params
+                .get("resizable")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            window
+                .set_resizable(resizable)
+                .map(|_| serde_json::json!({ "ok": true }))
+                .map_err(|e| e.to_string())
+        }
+        _ => Err(format!("Unknown window command: {}", method)),
+    }
+}

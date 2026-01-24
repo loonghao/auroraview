@@ -16,9 +16,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+from auroraview.features.serializable import Serializable
+
 
 @dataclass
-class WebViewSettings:
+class WebViewSettings(Serializable):
     """WebView settings configuration.
 
     This class provides a unified interface for managing WebView settings
@@ -80,27 +82,13 @@ class WebViewSettings:
             return getattr(self, key)
         return self._extra.get(key, default)
 
-    def to_dict(self) -> dict:
-        """Convert settings to dictionary.
+    def copy(self) -> "WebViewSettings":
+        """Create a copy of settings.
 
         Returns:
-            Dictionary of all settings
+            New WebViewSettings instance with same values
         """
-        result = {
-            "javascript_enabled": self.javascript_enabled,
-            "local_storage_enabled": self.local_storage_enabled,
-            "dev_tools_enabled": self.dev_tools_enabled,
-            "context_menu_enabled": self.context_menu_enabled,
-            "allow_file_access": self.allow_file_access,
-            "user_agent": self.user_agent,
-            "background_color": self.background_color,
-            "zoom_level": self.zoom_level,
-            "minimum_font_size": self.minimum_font_size,
-            "default_font_size": self.default_font_size,
-            "default_encoding": self.default_encoding,
-        }
-        result.update(self._extra)
-        return result
+        return WebViewSettings.from_dict(self.to_dict())
 
     @classmethod
     def from_dict(cls, data: dict) -> "WebViewSettings":
@@ -112,32 +100,13 @@ class WebViewSettings:
         Returns:
             WebViewSettings instance
         """
-        known_keys = {
-            "javascript_enabled",
-            "local_storage_enabled",
-            "dev_tools_enabled",
-            "context_menu_enabled",
-            "allow_file_access",
-            "user_agent",
-            "background_color",
-            "zoom_level",
-            "minimum_font_size",
-            "default_font_size",
-            "default_encoding",
-        }
-        known = {k: v for k, v in data.items() if k in known_keys}
-        extra = {k: v for k, v in data.items() if k not in known_keys}
+        # Separate known fields from extra fields
+        known_fields = {f.name for f in cls.__dataclass_fields__.values() if f.name != "_extra"}
+        known = {k: v for k, v in data.items() if k in known_fields}
+        extra = {k: v for k, v in data.items() if k not in known_fields}
         settings = cls(**known)
         settings._extra = extra
         return settings
-
-    def copy(self) -> "WebViewSettings":
-        """Create a copy of settings.
-
-        Returns:
-            New WebViewSettings instance with same values
-        """
-        return WebViewSettings.from_dict(self.to_dict())
 
 
 # Default settings instance

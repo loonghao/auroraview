@@ -13,6 +13,7 @@ mod webview_inner;
 // Core modules (always available)
 pub mod backend;
 pub(crate) mod child_window; // Child WebView window creation
+pub mod cleanup; // WebView2 user data directory cleanup
 pub mod config; // Public for testing
 #[cfg(feature = "python-bindings")]
 pub(crate) mod desktop;

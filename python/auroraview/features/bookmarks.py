@@ -17,9 +17,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .persistence import PersistenceMixin
+from .serializable import Serializable
+
 
 @dataclass
-class Bookmark:
+class Bookmark(Serializable):
     """A bookmark entry."""
 
     id: str
@@ -32,42 +35,9 @@ class Bookmark:
     updated_at: datetime = field(default_factory=datetime.now)
     tags: List[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "id": self.id,
-            "title": self.title,
-            "url": self.url,
-            "favicon": self.favicon,
-            "parent_id": self.parent_id,
-            "position": self.position,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
-            "tags": self.tags,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Bookmark":
-        """Create from dictionary."""
-        return cls(
-            id=data["id"],
-            title=data["title"],
-            url=data["url"],
-            favicon=data.get("favicon"),
-            parent_id=data.get("parent_id"),
-            position=data.get("position", 0),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if "created_at" in data
-            else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if "updated_at" in data
-            else datetime.now(),
-            tags=data.get("tags", []),
-        )
-
 
 @dataclass
-class BookmarkFolder:
+class BookmarkFolder(Serializable):
     """A bookmark folder."""
 
     id: str
@@ -77,38 +47,13 @@ class BookmarkFolder:
     created_at: datetime = field(default_factory=datetime.now)
     is_special: bool = False  # For bookmarks bar, other bookmarks
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "id": self.id,
-            "name": self.name,
-            "parent_id": self.parent_id,
-            "position": self.position,
-            "created_at": self.created_at.isoformat(),
-            "is_special": self.is_special,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BookmarkFolder":
-        """Create from dictionary."""
-        return cls(
-            id=data["id"],
-            name=data["name"],
-            parent_id=data.get("parent_id"),
-            position=data.get("position", 0),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if "created_at" in data
-            else datetime.now(),
-            is_special=data.get("is_special", False),
-        )
-
 
 # Special folder IDs
 BOOKMARKS_BAR_ID = "bookmarks_bar"
 OTHER_BOOKMARKS_ID = "other_bookmarks"
 
 
-class BookmarkManager:
+class BookmarkManager(PersistenceMixin[Bookmark]):
     """Manages bookmarks with persistence."""
 
     def __init__(self, data_dir: Optional[Path] = None):
@@ -122,11 +67,11 @@ class BookmarkManager:
 
         if data_dir is None:
             data_dir = Path(os.environ.get("APPDATA", Path.home())) / "AuroraView"
-        self._data_dir = Path(data_dir)
-        self._storage_path = self._data_dir / "bookmarks.json"
+
+        super().__init__(Path(data_dir), "bookmarks.json")
 
         self._init_special_folders()
-        self._load()
+        self._load_all()
 
     def _init_special_folders(self) -> None:
         """Initialize special folders."""
@@ -319,21 +264,13 @@ class BookmarkManager:
 
     # Persistence
 
-    def _save(self) -> None:
-        """Save bookmarks to disk."""
-        self._data_dir.mkdir(parents=True, exist_ok=True)
-        data = {
-            "bookmarks": {k: v.to_dict() for k, v in self._bookmarks.items()},
-            "folders": {k: v.to_dict() for k, v in self._folders.items()},
-        }
-        self._storage_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-    def _load(self) -> None:
-        """Load bookmarks from disk."""
+    def _load_all(self) -> None:
+        """Load bookmarks and folders from disk."""
         if not self._storage_path.exists():
             return
         try:
-            data = json.loads(self._storage_path.read_text(encoding="utf-8"))
+            text = self._storage_path.read_text(encoding="utf-8")
+            data = json.loads(text)
             self._bookmarks = {
                 k: Bookmark.from_dict(v) for k, v in data.get("bookmarks", {}).items()
             }
@@ -343,6 +280,19 @@ class BookmarkManager:
             self._init_special_folders()
         except (json.JSONDecodeError, KeyError):
             pass
+
+    def _save(self) -> None:
+        """Save bookmarks and folders to disk."""
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        data = {
+            "bookmarks": {k: v.to_dict() for k, v in self._bookmarks.items()},
+            "folders": {k: v.to_dict() for k, v in self._folders.items()},
+        }
+        self._storage_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    def _item_to_dict(self, item: Bookmark) -> Dict[str, Any]:
+        """Convert Bookmark to dictionary (required by PersistenceMixin)."""
+        return item.to_dict()
 
     def export_json(self) -> str:
         """Export bookmarks to JSON."""

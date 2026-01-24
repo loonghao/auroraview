@@ -18,9 +18,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
+from .persistence import PersistenceMixin
+from .serializable import Serializable
+
 
 @dataclass
-class HistoryEntry:
+class HistoryEntry(Serializable):
     """A history entry."""
 
     id: str
@@ -40,39 +43,8 @@ class HistoryEntry:
         except Exception:
             return None
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "id": self.id,
-            "url": self.url,
-            "title": self.title,
-            "visit_count": self.visit_count,
-            "typed_count": self.typed_count,
-            "last_visit": self.last_visit.isoformat(),
-            "first_visit": self.first_visit.isoformat(),
-            "favicon": self.favicon,
-        }
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HistoryEntry":
-        """Create from dictionary."""
-        return cls(
-            id=data["id"],
-            url=data["url"],
-            title=data["title"],
-            visit_count=data.get("visit_count", 1),
-            typed_count=data.get("typed_count", 0),
-            last_visit=datetime.fromisoformat(data["last_visit"])
-            if "last_visit" in data
-            else datetime.now(),
-            first_visit=datetime.fromisoformat(data["first_visit"])
-            if "first_visit" in data
-            else datetime.now(),
-            favicon=data.get("favicon"),
-        )
-
-
-class HistoryManager:
+class HistoryManager(PersistenceMixin[HistoryEntry]):
     """Manages browsing history with persistence."""
 
     DEFAULT_MAX_ENTRIES = 10000
@@ -93,10 +65,10 @@ class HistoryManager:
 
         if data_dir is None:
             data_dir = Path(os.environ.get("APPDATA", Path.home())) / "AuroraView"
-        self._data_dir = Path(data_dir)
-        self._storage_path = self._data_dir / "history.json"
 
-        self._load()
+        super().__init__(Path(data_dir), "history.json")
+
+        self._load_entries()
 
     def visit(
         self,
@@ -276,14 +248,8 @@ class HistoryManager:
 
     # Persistence
 
-    def _save(self) -> None:
-        """Save history to disk."""
-        self._data_dir.mkdir(parents=True, exist_ok=True)
-        data = {k: v.to_dict() for k, v in self._entries.items()}
-        self._storage_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-    def _load(self) -> None:
-        """Load history from disk."""
+    def _load_entries(self) -> None:
+        """Load history entries from disk."""
         if not self._storage_path.exists():
             return
         try:
@@ -291,6 +257,16 @@ class HistoryManager:
             self._entries = {k: HistoryEntry.from_dict(v) for k, v in data.items()}
         except (json.JSONDecodeError, KeyError):
             pass
+
+    def _save(self) -> None:
+        """Save history to disk."""
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        data = {k: v.to_dict() for k, v in self._entries.items()}
+        self._storage_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    def _item_to_dict(self, item: HistoryEntry) -> Dict[str, Any]:
+        """Convert HistoryEntry to dictionary (required by PersistenceMixin)."""
+        return item.to_dict()
 
     def export_json(self) -> str:
         """Export history to JSON."""

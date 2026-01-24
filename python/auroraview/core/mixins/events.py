@@ -30,7 +30,7 @@ class WebViewEventMixin:
     - on: Decorator to register event callback (backward compatible)
     - register_callback: Register a callback for an event
     - signals: WebViewSignals instance for Qt-style signal connections
-    - on_loaded, on_shown, on_closing, on_closed: Lifecycle event decorators
+    - on_loaded, on_shown, on_hidden, on_closing, on_closed: Lifecycle event decorators
     - on_resized, on_moved, on_focused, on_blurred: Window event decorators
     - on_minimized, on_maximized, on_restored: State event decorators
 
@@ -325,6 +325,11 @@ class WebViewEventMixin:
     def on_shown(self, callback: Callable) -> Callable:
         """Register a callback for when the window becomes visible."""
         self.register_callback("shown", callback)
+        return callback
+
+    def on_hidden(self, callback: Callable) -> Callable:
+        """Register a callback for when the window becomes hidden."""
+        self.register_callback("hidden", callback)
         return callback
 
     def on_closing(self, callback: Callable) -> Callable:

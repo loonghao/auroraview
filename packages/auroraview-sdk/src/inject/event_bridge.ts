@@ -107,6 +107,20 @@
   // Backend health state (used for fail-fast behavior)
   let backendHealthy = true;
 
+  // Fatal error keywords that should trigger fail-fast behavior
+  const FATAL_ERROR_KEYWORDS = [
+    'process has exited',
+    'backend ready timeout',
+    'stdout closed',
+    'connection lost',
+    'fatal error',
+    'crash',
+  ];
+
+  function isFatalError(message: string): boolean {
+    const lowerMessage = message.toLowerCase();
+    return FATAL_ERROR_KEYWORDS.some(keyword => lowerMessage.includes(keyword));
+  }
 
   function describeBackendError(detail: unknown): string {
     if (typeof detail === 'string') return detail;
@@ -123,11 +137,20 @@
   }
 
   function markBackendUnhealthy(detail?: unknown): void {
-    if (!backendHealthy) return;
-    backendHealthy = false;
     const reason = describeBackendError(detail);
-    console.error('[AuroraView] Backend error:', reason, detail ?? '');
-    clearAllPendingCalls(`backend unavailable: ${reason}`);
+    
+    // Only log as error and clear pending calls for fatal errors
+    // Non-fatal errors (like stderr debug output) should not disrupt IPC
+    if (isFatalError(reason)) {
+      if (backendHealthy) {
+        backendHealthy = false;
+        console.error('[AuroraView] Fatal backend error:', reason, detail ?? '');
+        clearAllPendingCalls(`backend unavailable: ${reason}`);
+      }
+    } else {
+      // Non-fatal error: log but don't clear pending calls
+      console.error('[AuroraView] Backend error received:', detail ?? '');
+    }
   }
 
   function markBackendHealthy(): void {

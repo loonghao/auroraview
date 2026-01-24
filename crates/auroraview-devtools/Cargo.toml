@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "DevTools and CDP (Chrome DevTools Protocol) support for AuroraView"
 license = "MIT"
-repository = "https://github.com/aspect-apps/auroraview"
+repository = "https://github.com/loonghao/auroraview"
 keywords = ["webview", "devtools", "cdp", "browser"]
 categories = ["gui", "web-programming", "development-tools"]
 

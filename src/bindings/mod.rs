@@ -13,8 +13,12 @@
 //! - `tab_browser` - Multi-tab browser (Microsoft WebView2Browser architecture)
 //! - `assets` - Static assets (JavaScript, HTML) for testing
 //! - `webview2` - Windows WebView2 embedded API (feature-gated)
+//! - `runtime_desktop` - Desktop runtime bindings (multi-window, IPC router)
+//! - `runtime_dcc` - DCC runtime bindings (Maya, Houdini, Nuke integration)
+//! - `cleanup` - WebView2 user data directory cleanup
 
 pub mod assets;
+pub mod cleanup;
 pub mod cli_utils;
 pub mod desktop_runner;
 pub mod ipc;
@@ -28,3 +32,9 @@ pub mod window_manager;
 
 #[cfg(all(target_os = "windows", feature = "win-webview2"))]
 pub mod webview2;
+
+// Runtime crate bindings
+#[cfg(feature = "runtime-desktop")]
+pub mod runtime_desktop;
+#[cfg(feature = "runtime-dcc")]
+pub mod runtime_dcc;

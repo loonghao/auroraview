@@ -54,6 +54,10 @@ from .window_manager import (
     get_window_manager,
     get_windows,
 )
+from .window_api import (
+    WindowAPI,
+    setup_window_api,
+)
 from .ready_events import (
     ReadyEvents,
     require_bridge_ready,
@@ -75,6 +79,7 @@ from . import settings as settings
 from . import state as state
 from . import webview as webview
 from . import window_manager as window_manager
+from . import window_api as window_api
 from . import ready_events as ready_events
 
 __all__ = [
@@ -135,6 +140,7 @@ __all__ = [
     "state",
     "webview",
     "window_manager",
+    "window_api",
     "ready_events",
     # WindowManager
     "WindowManager",
@@ -142,6 +148,9 @@ __all__ = [
     "get_windows",
     "get_active_window",
     "broadcast_event",
+    # WindowAPI
+    "WindowAPI",
+    "setup_window_api",
     # ReadyEvents
     "ReadyEvents",
     "require_created",

@@ -18,6 +18,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from .persistence import PersistenceMixin
+from .serializable import Serializable
+
 
 class NotificationType(Enum):
     """Notification types."""
@@ -47,33 +50,16 @@ class PermissionState(Enum):
 
 
 @dataclass
-class NotificationAction:
+class NotificationAction(Serializable):
     """A notification action button."""
 
     id: str
     label: str
     icon: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "id": self.id,
-            "label": self.label,
-            "icon": self.icon,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "NotificationAction":
-        """Create from dictionary."""
-        return cls(
-            id=data["id"],
-            label=data["label"],
-            icon=data.get("icon"),
-        )
-
 
 @dataclass
-class Notification:
+class Notification(Serializable):
     """A notification."""
 
     id: str
@@ -90,52 +76,13 @@ class Notification:
     read: bool = False
     auto_close: Optional[int] = None  # Auto close after N milliseconds
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "id": self.id,
-            "title": self.title,
-            "body": self.body,
-            "type": self.type.value,
-            "priority": self.priority.value,
-            "icon": self.icon,
-            "image": self.image,
-            "tag": self.tag,
-            "timestamp": self.timestamp.isoformat(),
-            "actions": [a.to_dict() for a in self.actions],
-            "data": self.data,
-            "read": self.read,
-            "auto_close": self.auto_close,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Notification":
-        """Create from dictionary."""
-        return cls(
-            id=data["id"],
-            title=data["title"],
-            body=data["body"],
-            type=NotificationType(data.get("type", "info")),
-            priority=NotificationPriority(data.get("priority", "normal")),
-            icon=data.get("icon"),
-            image=data.get("image"),
-            tag=data.get("tag"),
-            timestamp=datetime.fromisoformat(data["timestamp"])
-            if "timestamp" in data
-            else datetime.now(),
-            actions=[NotificationAction.from_dict(a) for a in data.get("actions", [])],
-            data=data.get("data"),
-            read=data.get("read", False),
-            auto_close=data.get("auto_close"),
-        )
-
 
 # Type alias for notification callback
 NotificationCallback = Callable[[Notification], None]
 ActionCallback = Callable[[Notification, str], None]  # notification, action_id
 
 
-class NotificationManager:
+class NotificationManager(PersistenceMixin[Notification]):
     """Manages notifications with persistence."""
 
     DEFAULT_MAX_HISTORY = 100
@@ -159,8 +106,7 @@ class NotificationManager:
 
         if data_dir is None:
             data_dir = Path(os.environ.get("APPDATA", Path.home())) / "AuroraView"
-        self._data_dir = Path(data_dir)
-        self._storage_path = self._data_dir / "notifications.json"
+        super().__init__(Path(data_dir), "notifications.json")
 
         self._load()
 
@@ -421,6 +367,17 @@ class NotificationManager:
         for notification in notifications[:to_remove]:
             del self._notifications[notification.id]
 
+    def _item_to_dict(self, item: Notification) -> Dict[str, Any]:
+        """Convert notification to dictionary.
+
+        Args:
+            item: Notification to convert
+
+        Returns:
+            Dictionary representation
+        """
+        return item.to_dict()
+
     def _save(self) -> None:
         """Save notifications to disk."""
         self._data_dir.mkdir(parents=True, exist_ok=True)
@@ -433,17 +390,19 @@ class NotificationManager:
     def _load(self) -> None:
         """Load notifications from disk."""
         if not self._storage_path.exists():
+            self._notifications = {}
+            self._permissions = {}
             return
         try:
-            data = json.loads(self._storage_path.read_text(encoding="utf-8"))
-            self._notifications = {
-                k: Notification.from_dict(v) for k, v in data.get("notifications", {}).items()
-            }
+            text = self._storage_path.read_text(encoding="utf-8")
+            data = json.loads(text)
+            self._notifications = super()._load(Notification)
             self._permissions = {
                 k: PermissionState(v) for k, v in data.get("permissions", {}).items()
             }
         except (json.JSONDecodeError, KeyError):
-            pass
+            self._notifications = {}
+            self._permissions = {}
 
     def clear_history(self) -> None:
         """Clear notification history."""

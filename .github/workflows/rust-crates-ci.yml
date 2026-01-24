@@ -104,6 +104,8 @@ jobs:
             plugins:
               - 'crates/auroraview-plugins/Cargo.toml'
               - 'crates/auroraview-plugins/src/**'
+            assets:
+              - 'crates/auroraview-assets/**'
             core:
               - 'crates/auroraview-core/**'
             pack:
@@ -124,6 +126,7 @@ jobs:
           plugin_fs="${{ steps.filter.outputs.plugin-fs }}"
           extensions="${{ steps.filter.outputs.extensions }}"
           plugins="${{ steps.filter.outputs.plugins }}"
+          assets="${{ steps.filter.outputs.assets }}"
           core="${{ steps.filter.outputs.core }}"
           pack="${{ steps.filter.outputs.pack }}"
           cli="${{ steps.filter.outputs.cli }}"
@@ -156,8 +159,8 @@ jobs:
             needs_plugins="false"
           fi
 
-          # auroraview-core: depends on signals, plugins
-          if [[ "$core" == "true" || "$signals" == "true" || "$needs_plugins" == "true" ]]; then
+          # auroraview-core: depends on signals, plugins, assets
+          if [[ "$core" == "true" || "$signals" == "true" || "$needs_plugins" == "true" || "$assets" == "true" ]]; then
             needs_core="true"
           else
             needs_core="false"
@@ -220,6 +223,7 @@ jobs:
           echo "| auroraview-plugin-fs | ${{ steps.filter.outputs.plugin-fs }} | ${{ steps.deps.outputs.needs-plugin-fs }} |" >> $GITHUB_STEP_SUMMARY
           echo "| auroraview-extensions | ${{ steps.filter.outputs.extensions }} | ${{ steps.deps.outputs.needs-extensions }} |" >> $GITHUB_STEP_SUMMARY
           echo "| auroraview-plugins | ${{ steps.filter.outputs.plugins }} | ${{ steps.deps.outputs.needs-plugins }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-assets | ${{ steps.filter.outputs.assets }} | (triggers core) |" >> $GITHUB_STEP_SUMMARY
           echo "| auroraview-core | ${{ steps.filter.outputs.core }} | ${{ steps.deps.outputs.needs-core }} |" >> $GITHUB_STEP_SUMMARY
           echo "| auroraview-pack | ${{ steps.filter.outputs.pack }} | ${{ steps.deps.outputs.needs-pack }} |" >> $GITHUB_STEP_SUMMARY
           echo "| auroraview-cli | ${{ steps.filter.outputs.cli }} | ${{ steps.deps.outputs.needs-cli }} |" >> $GITHUB_STEP_SUMMARY
@@ -357,6 +361,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Build auroraview-assets (required by auroraview-core)
+        run: |
+          cd crates/auroraview-assets/frontend
+          npm install
+          npm run build
+
       - name: Cache Rust
         uses: actions/cache@v5
         with:
@@ -446,6 +461,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Build auroraview-assets (required by auroraview-core)
+        run: |
+          cd crates/auroraview-assets/frontend
+          npm install
+          npm run build
 
       - name: Cache Rust
         uses: actions/cache@v5

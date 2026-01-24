@@ -2,6 +2,12 @@
 //!
 //! This library provides Python bindings for creating WebView windows in DCC applications
 //! like Maya, 3ds Max, Houdini, Blender, etc.
+//!
+//! ## Architecture Layers
+//!
+//! - **Runtime Layer**: `auroraview-desktop` (standalone mode), `auroraview-dcc` (DCC embedded mode)
+//! - **Application Layer**: `auroraview-tabs`, `auroraview-browser`
+//! - **Core Layer**: `auroraview-core` (WebView, IPC protocol, JS injection)
 
 #[cfg(feature = "python-bindings")]
 use pyo3::prelude::*;
@@ -16,6 +22,12 @@ mod utils;
 pub mod webview;
 #[cfg(feature = "python-bindings")]
 pub mod window_utils;
+
+// Re-export runtime crates when enabled
+#[cfg(feature = "runtime-desktop")]
+pub use auroraview_desktop as desktop;
+#[cfg(feature = "runtime-dcc")]
+pub use auroraview_dcc as dcc;
 
 #[cfg(feature = "python-bindings")]
 #[allow(unused_imports)]
@@ -82,6 +94,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register static assets functions (JavaScript, HTML for testing)
     bindings::assets::register_assets_functions(m)?;
 
+    // Register WebView2 cleanup functions (stale directory cleanup)
+    bindings::cleanup::register_cleanup_functions(m)?;
+
     // Register high-performance DOM batch operations
     dom::register_dom_module(m)?;
 
@@ -95,6 +110,13 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Windows-only: register minimal WebView2 embedded API (feature-gated)
     #[cfg(all(target_os = "windows", feature = "win-webview2"))]
     bindings::webview2::register_webview2_api(m)?;
+
+    // Register runtime crate bindings (when features enabled)
+    #[cfg(feature = "runtime-desktop")]
+    bindings::runtime_desktop::register_desktop_runtime(m)?;
+
+    #[cfg(feature = "runtime-dcc")]
+    bindings::runtime_dcc::register_dcc_runtime(m)?;
 
     // Add module metadata
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
@@ -285,6 +307,25 @@ mod tests {
         let _: Option<crate::WebViewBuilder> = None;
         #[cfg(feature = "python-bindings")]
         let _: Option<crate::webview::AuroraView> = None;
+    }
+
+    /// Test runtime crate re-exports (when features enabled)
+    #[cfg(feature = "runtime-desktop")]
+    #[rstest]
+    fn test_desktop_runtime_exports() {
+        use crate::desktop;
+        let _: Option<desktop::DesktopConfig> = None;
+        let _: Option<desktop::WindowManager> = None;
+        let _: Option<desktop::IpcRouter> = None;
+    }
+
+    #[cfg(feature = "runtime-dcc")]
+    #[rstest]
+    fn test_dcc_runtime_exports() {
+        use crate::dcc;
+        let _: Option<dcc::DccConfig> = None;
+        let _: Option<dcc::WindowManager> = None;
+        let _: Option<dcc::IpcRouter> = None;
     }
 
     /// Python module initialization test

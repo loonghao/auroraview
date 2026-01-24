@@ -18,6 +18,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from .persistence import PersistenceMixin
+from .serializable import Serializable
+
 
 class DownloadState(Enum):
     """Download state."""
@@ -31,7 +34,7 @@ class DownloadState(Enum):
 
 
 @dataclass
-class DownloadItem:
+class DownloadItem(Serializable):
     """A download item."""
 
     id: str
@@ -63,47 +66,12 @@ class DownloadItem:
         """Check if download can be resumed."""
         return self.state == DownloadState.PAUSED
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "id": self.id,
-            "url": self.url,
-            "filename": self.filename,
-            "save_path": self.save_path,
-            "state": self.state.value,
-            "total_bytes": self.total_bytes,
-            "received_bytes": self.received_bytes,
-            "start_time": self.start_time.isoformat(),
-            "end_time": self.end_time.isoformat() if self.end_time else None,
-            "error": self.error,
-            "mime_type": self.mime_type,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DownloadItem":
-        """Create from dictionary."""
-        return cls(
-            id=data["id"],
-            url=data["url"],
-            filename=data["filename"],
-            save_path=data["save_path"],
-            state=DownloadState(data.get("state", "pending")),
-            total_bytes=data.get("total_bytes", 0),
-            received_bytes=data.get("received_bytes", 0),
-            start_time=datetime.fromisoformat(data["start_time"])
-            if "start_time" in data
-            else datetime.now(),
-            end_time=datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None,
-            error=data.get("error"),
-            mime_type=data.get("mime_type"),
-        )
-
 
 # Type alias for progress callback
 ProgressCallback = Callable[[DownloadItem], None]
 
 
-class DownloadManager:
+class DownloadManager(PersistenceMixin[DownloadItem]):
     """Manages downloads with persistence."""
 
     DEFAULT_DOWNLOAD_DIR = "Downloads"
@@ -124,14 +92,14 @@ class DownloadManager:
 
         if data_dir is None:
             data_dir = Path(os.environ.get("APPDATA", Path.home())) / "AuroraView"
-        self._data_dir = Path(data_dir)
-        self._storage_path = self._data_dir / "downloads.json"
 
         if download_dir is None:
             download_dir = Path.home() / self.DEFAULT_DOWNLOAD_DIR
         self._download_dir = Path(download_dir)
 
-        self._load()
+        super().__init__(Path(data_dir), "downloads.json")
+
+        self._load_downloads()
 
     @property
     def download_dir(self) -> Path:
@@ -359,13 +327,7 @@ class DownloadManager:
 
     # Persistence
 
-    def _save(self) -> None:
-        """Save downloads to disk."""
-        self._data_dir.mkdir(parents=True, exist_ok=True)
-        data = {k: v.to_dict() for k, v in self._downloads.items()}
-        self._storage_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-    def _load(self) -> None:
+    def _load_downloads(self) -> None:
         """Load downloads from disk."""
         if not self._storage_path.exists():
             return
@@ -378,3 +340,13 @@ class DownloadManager:
                     download.state = DownloadState.PAUSED
         except (json.JSONDecodeError, KeyError):
             pass
+
+    def _save(self) -> None:
+        """Save downloads to disk."""
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        data = {k: v.to_dict() for k, v in self._downloads.items()}
+        self._storage_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    def _item_to_dict(self, item: DownloadItem) -> Dict[str, Any]:
+        """Convert DownloadItem to dictionary (required by PersistenceMixin)."""
+        return item.to_dict()
