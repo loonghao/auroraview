@@ -35,7 +35,7 @@ auroraview-plugins = { path = "../auroraview-plugins", optional = true }
 auroraview-plugin-core = { path = "../auroraview-plugins/core", optional = true }
 
 # Wry for WebView
-wry = "0.53.5"
+wry = "0.54.1"
 tao = "0.34.5"
 
 # Serialization
