@@ -84,7 +84,7 @@ export function AgentSidebar({
   className = '',
   onToggle,
 }: AgentSidebarProps) {
-  const av = useAuroraView();
+  const { client } = useAuroraView();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -137,7 +137,7 @@ export function AgentSidebar({
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
-      await av.call('ai.chat', { message: text });
+      await client.call('ai.chat', { message: text });
     } catch (error) {
       console.error('AI chat error:', error);
       setMessages((prev) => {

@@ -1,0 +1,10 @@
+/target
+Cargo.lock
+*.pyd
+*.so
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
