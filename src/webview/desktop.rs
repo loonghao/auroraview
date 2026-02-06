@@ -1103,11 +1103,8 @@ pub fn create_desktop(
     let cdp_port = config.remote_debugging_port.unwrap_or(0);
     if cdp_port > 0 {
         let window_id = format!("webview_{}", std::process::id());
-        let instance_info = crate::service_discovery::InstanceInfo::new(
-            window_id,
-            config.title.clone(),
-            cdp_port,
-        );
+        let instance_info =
+            crate::service_discovery::InstanceInfo::new(window_id, config.title.clone(), cdp_port);
         if let Err(e) = crate::service_discovery::get_registry().register(&instance_info) {
             tracing::warn!("[standalone] Failed to register instance: {}", e);
         } else {

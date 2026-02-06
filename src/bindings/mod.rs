@@ -34,7 +34,7 @@ pub mod window_manager;
 pub mod webview2;
 
 // Runtime crate bindings
-#[cfg(feature = "runtime-desktop")]
-pub mod runtime_desktop;
 #[cfg(feature = "runtime-dcc")]
 pub mod runtime_dcc;
+#[cfg(feature = "runtime-desktop")]
+pub mod runtime_desktop;

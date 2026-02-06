@@ -207,7 +207,11 @@ pub fn enable_click_through(hwnd: isize) -> Result<ClickThroughResult, String> {
 
         // Subclass the window
         #[allow(clippy::fn_to_numeric_cast)]
-        let result = SetWindowLongPtrW(hwnd_win, GWLP_WNDPROC, click_through_wndproc as isize);
+        let result = SetWindowLongPtrW(
+            hwnd_win,
+            GWLP_WNDPROC,
+            click_through_wndproc as *const () as isize,
+        );
         if result == 0 {
             // Rollback
             CLICK_THROUGH_DATA.write().unwrap().remove(&hwnd);

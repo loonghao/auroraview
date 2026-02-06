@@ -387,24 +387,15 @@ pub fn handle_window_command_default<W: WindowControlApi>(
             .map(|v| serde_json::json!({ "result": v }))
             .map_err(|e| e.to_string()),
         "set_title" => {
-            let title = params
-                .get("title")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let title = params.get("title").and_then(|v| v.as_str()).unwrap_or("");
             window
                 .set_title(title)
                 .map(|_| serde_json::json!({ "ok": true }))
                 .map_err(|e| e.to_string())
         }
         "set_size" => {
-            let width = params
-                .get("width")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(800) as u32;
-            let height = params
-                .get("height")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(600) as u32;
+            let width = params.get("width").and_then(|v| v.as_u64()).unwrap_or(800) as u32;
+            let height = params.get("height").and_then(|v| v.as_u64()).unwrap_or(600) as u32;
             window
                 .set_size(width, height)
                 .map(|_| serde_json::json!({ "ok": true }))

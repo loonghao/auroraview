@@ -29,8 +29,8 @@ auroraview-assets = { path = "../auroraview-assets" }
 # Plugin system for built-in plugins (fs, clipboard, shell, dialog, etc.)
 auroraview-plugins = { path = "../auroraview-plugins" }
 
-# Pack functionality (via submodule)
-auroraview-pack = { path = "../../submodules/auroraview-pack", features = ["code-protection"] }
+# Pack functionality
+auroraview-pack = { path = "../auroraview-pack", features = ["code-protection"] }
 
 # Wry for WebView (direct dependency for CLI)
 wry = "0.53.5"

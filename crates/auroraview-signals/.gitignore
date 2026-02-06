@@ -1,0 +1,10 @@
+/target
+Cargo.lock
+*.pdb
+*.pyc
+__pycache__/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/

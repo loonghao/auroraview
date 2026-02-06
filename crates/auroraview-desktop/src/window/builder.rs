@@ -62,8 +62,8 @@ pub fn create_window_with_router(
     if config.width == 0 || config.height == 0 {
         window_builder = window_builder.with_maximized(true);
     } else {
-        window_builder = window_builder
-            .with_inner_size(tao::dpi::LogicalSize::new(config.width, config.height));
+        window_builder =
+            window_builder.with_inner_size(tao::dpi::LogicalSize::new(config.width, config.height));
     }
 
     // Load window icon
@@ -138,6 +138,7 @@ pub fn create_window_with_router(
     let event_loop_proxy = event_loop.create_proxy();
 
     Ok(DesktopWindow {
+        #[allow(clippy::arc_with_non_send_sync)]
         webview: Arc::new(Mutex::new(webview)),
         window,
         event_loop_proxy,
@@ -176,8 +177,7 @@ fn create_web_context(config: &DesktopConfig) -> wry::WebContext {
     } else {
         #[cfg(target_os = "windows")]
         {
-            let local_app_data =
-                std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
+            let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
             let pid = std::process::id();
             let cache_dir = std::path::PathBuf::from(local_app_data)
                 .join("AuroraView")

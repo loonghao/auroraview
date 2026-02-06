@@ -88,8 +88,7 @@ pub fn get_asset(path: &str) -> Option<Cow<'static, [u8]>> {
 /// Get asset as UTF-8 string
 pub fn get_asset_string(path: &str) -> Result<String, AssetError> {
     let data = get_asset(path).ok_or_else(|| AssetError::NotFound(path.to_string()))?;
-    String::from_utf8(data.into_owned())
-        .map_err(|_| AssetError::InvalidUtf8(path.to_string()))
+    String::from_utf8(data.into_owned()).map_err(|_| AssetError::InvalidUtf8(path.to_string()))
 }
 
 /// Get page HTML content
@@ -126,7 +125,10 @@ mod tests {
         assert_eq!(Page::Loading.html_path(), "loading/index.html");
         assert_eq!(Page::Error.html_path(), "error/index.html");
         assert_eq!(Page::Browser.html_path(), "browser/index.html");
-        assert_eq!(Page::BrowserController.html_path(), "browser-controller/index.html");
+        assert_eq!(
+            Page::BrowserController.html_path(),
+            "browser-controller/index.html"
+        );
     }
 
     #[test]

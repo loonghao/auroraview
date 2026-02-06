@@ -24,10 +24,10 @@ pub mod webview;
 pub mod window_utils;
 
 // Re-export runtime crates when enabled
-#[cfg(feature = "runtime-desktop")]
-pub use auroraview_desktop as desktop;
 #[cfg(feature = "runtime-dcc")]
 pub use auroraview_dcc as dcc;
+#[cfg(feature = "runtime-desktop")]
+pub use auroraview_desktop as desktop;
 
 #[cfg(feature = "python-bindings")]
 #[allow(unused_imports)]

@@ -53,6 +53,7 @@ class WebViewEventMixin:
     _async_core: Optional[Any]
     _async_core_lock: threading.Lock
     _event_handlers: Dict[str, List[Callable]]
+    _event_handlers_lock: threading.Lock
     _post_eval_js_hook: Optional[Callable[[], None]]
     _auto_process_events: Callable[[], None]
     _signals: Optional[WebViewSignals]
@@ -273,9 +274,11 @@ class WebViewEventMixin:
             logger.debug(f"Wrapped callback for DCC thread safety: {event_str}")
 
         # Register with legacy event handlers dict (for backward compatibility)
-        if event_str not in self._event_handlers:
-            self._event_handlers[event_str] = []
-        self._event_handlers[event_str].append(callback)
+        # Use lock to protect concurrent access from background threads.
+        with self._event_handlers_lock:
+            if event_str not in self._event_handlers:
+                self._event_handlers[event_str] = []
+            self._event_handlers[event_str].append(callback)
 
         # Register with signal system
         conn_id = self.signals.custom.connect(event_str, callback)

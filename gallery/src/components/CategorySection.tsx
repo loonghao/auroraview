@@ -17,6 +17,10 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
   ui_patterns: Icons.Palette,
   api_patterns: Icons.Code,
   advanced: Icons.Zap,
+  desktop_features: Icons.Monitor,
+  dcc_integration: Icons.Box,
+  browser_features: Icons.Globe,
+  ai_agent: Icons.Brain,
 };
 
 const categoryGradients: Record<string, string> = {
@@ -25,6 +29,10 @@ const categoryGradients: Record<string, string> = {
   ui_patterns: 'from-pink-500 to-rose-500',
   api_patterns: 'from-orange-500 to-amber-500',
   advanced: 'from-emerald-500 to-green-500',
+  desktop_features: 'from-slate-500 to-gray-600',
+  dcc_integration: 'from-indigo-500 to-purple-600',
+  browser_features: 'from-teal-500 to-cyan-600',
+  ai_agent: 'from-fuchsia-500 to-pink-600',
 };
 
 export function CategorySection({

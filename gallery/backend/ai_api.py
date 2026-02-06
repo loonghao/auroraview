@@ -4,6 +4,7 @@
 
 This module provides the backend API handlers for the AI Agent sidebar,
 enabling natural language interaction with the Gallery application.
+Uses the auroraview-ai package for Pydantic AI-based agent functionality.
 """
 
 from __future__ import annotations
@@ -13,20 +14,22 @@ import logging
 import os
 import sys
 import threading
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
-
-# Add project root to path for imports
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable
 
+# Add auroraview-ai package to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-if str(PROJECT_ROOT / "python") not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT / "python"))
+PACKAGES_DIR = PROJECT_ROOT / "packages"
+if str(PACKAGES_DIR / "auroraview-ai" / "src") not in sys.path:
+    sys.path.insert(0, str(PACKAGES_DIR / "auroraview-ai" / "src"))
 
-from auroraview.ai import AIAgent, AIConfig  # noqa: E402
-from auroraview.ai.config import AVAILABLE_MODELS, ProviderType, get_models_for_provider  # noqa: E402
-from auroraview.ai.protocol import AGUIEvent  # noqa: E402
+from auroraview_ai import (  # noqa: E402
+    AVAILABLE_MODELS,
+    AgentConfig,
+    AuroraAgent,
+    ProviderType,
+    get_models_for_provider,
+)
 
 if TYPE_CHECKING:
     from auroraview import WebView
@@ -34,32 +37,43 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global AI agent instance
-_ai_agent: Optional[AIAgent] = None
+_ai_agent: AuroraAgent | None = None
 _agent_lock = threading.Lock()
 
 
-def get_ai_agent() -> Optional[AIAgent]:
+def get_ai_agent() -> AuroraAgent | None:
     """Get the global AI agent instance."""
     return _ai_agent
 
 
-def _get_api_key_status() -> Dict[str, bool]:
+def _get_api_key_status() -> dict[str, bool]:
     """Check which API keys are configured."""
     return {
         "openai": bool(os.environ.get("OPENAI_API_KEY")),
         "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
         "gemini": bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")),
+        "google": bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")),
         "deepseek": bool(os.environ.get("DEEPSEEK_API_KEY")),
         "groq": bool(os.environ.get("GROQ_API_KEY")),
         "ollama": True,  # Ollama is local, always "available"
     }
 
 
-def register_ai_apis(webview: "WebView") -> Dict[str, Callable]:
+# Type alias for emit callback
+EmitCallback = Callable[[str, dict[str, Any]], None]
+
+
+def register_ai_apis(
+    webview: "WebView", emit_callback: EmitCallback | None = None
+) -> dict[str, Callable[..., Any]]:
     """Register AI Agent API handlers with WebView.
 
     Args:
         webview: WebView instance to register APIs with
+        emit_callback: Optional emit callback for sending events to frontend.
+            If None, will use webview.create_emitter() (development mode).
+            In packed mode, pass the packed_emit_callback to ensure events
+            are sent via stdout to the Rust CLI.
 
     Returns:
         Dict of API function references for cleanup
@@ -84,12 +98,8 @@ def register_ai_apis(webview: "WebView") -> Dict[str, Callable]:
 
     logger.info("Selected default model: %s", default_model)
 
-    with _agent_lock:
-        _ai_agent = AIAgent(
-            webview=webview,
-            config=AIConfig(
-                model=default_model,
-                system_prompt="""You are an AI assistant integrated into AuroraView Gallery.
+    # System prompt for Gallery AI assistant
+    system_prompt = """You are an AI assistant integrated into AuroraView Gallery.
 You help users explore and run code examples, understand AuroraView features,
 and provide guidance on WebView development.
 
@@ -99,41 +109,59 @@ Available capabilities:
 - Help with AuroraView API usage
 - Answer questions about WebView development
 
-Be concise and helpful. When referencing code examples, mention them by name.""",
-            ),
-            auto_discover_apis=True,  # Discover bound APIs as tools
+Be concise and helpful. When referencing code examples, mention them by name."""
+
+    # Prepare config with API key for the selected provider
+    config = AgentConfig(
+        model=default_model,
+        system_prompt=system_prompt,
+    )
+
+    # Set provider-specific API key
+    if api_keys["deepseek"] and default_model.startswith("deepseek-"):
+        config.api_key = os.environ.get("DEEPSEEK_API_KEY")
+
+    with _agent_lock:
+        _ai_agent = AuroraAgent(
+            config=config,
+            webview=webview,
+            emit_callback=emit_callback,
+            auto_discover_apis=True,
         )
 
-    # Create thread-safe emitter once at registration time
-    # This avoids calling create_emitter() from background threads
-    _thread_safe_emitter = None
+    # Set up event emission for development mode if no callback provided
+    effective_emit_callback = emit_callback
+    if effective_emit_callback is None:
+        # Development mode: create thread-safe emitter once at registration time
+        _thread_safe_emitter = None
 
-    def get_emitter():
-        """Get or create thread-safe emitter lazily on main thread."""
-        nonlocal _thread_safe_emitter
-        if _thread_safe_emitter is None:
+        def get_emitter():
+            """Get or create thread-safe emitter lazily on main thread."""
+            nonlocal _thread_safe_emitter
+            if _thread_safe_emitter is None:
+                try:
+                    _thread_safe_emitter = webview.create_emitter()
+                except Exception as e:
+                    logger.warning("Failed to create emitter: %s", e)
+                    return None
+            return _thread_safe_emitter
+
+        # Initialize emitter on main thread
+        get_emitter()
+
+        def dev_emit_callback(event_name: str, data: dict[str, Any]) -> None:
+            """Forward events to WebView via emitter in dev mode."""
             try:
-                _thread_safe_emitter = webview.create_emitter()
+                emitter = get_emitter()
+                if emitter:
+                    emitter.emit(event_name, data)
             except Exception as e:
-                logger.warning("Failed to create emitter: %s", e)
-                return None
-        return _thread_safe_emitter
+                logger.debug("Failed to emit event: %s", e)
 
-    # Initialize emitter on main thread
-    get_emitter()
+        effective_emit_callback = dev_emit_callback
 
-    # Set up event emission to WebView
-    def emit_agui_event(event: AGUIEvent) -> None:
-        """Forward AG-UI events to WebView."""
-        try:
-            emitter = get_emitter()
-            if emitter:
-                event_type = event.type.value.lower()
-                emitter.emit(f"agui:{event_type}", event.to_dict())
-        except Exception as e:
-            logger.debug("Failed to emit AG-UI event: %s", e)
-
-    _ai_agent.on_event(emit_agui_event)
+    # Set the emit callback on the agent
+    _ai_agent.set_emit_callback(effective_emit_callback)
 
     # Discover tools from bound APIs
     tool_count = _ai_agent.discover_tools()
@@ -142,7 +170,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
     # ==================== API Handlers ====================
 
     @webview.bind_call("ai.chat")
-    def ai_chat(message: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+    def ai_chat(message: str, session_id: str | None = None) -> dict[str, Any]:
         """Send a message to the AI agent.
 
         Args:
@@ -156,22 +184,19 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             return {"status": "error", "message": "AI agent not initialized"}
 
         try:
-            # Run async chat in sync context
-            # Use chat_sync for simplicity in the Gallery demo
             response = _ai_agent.chat_sync(message, session_id=session_id)
             return {"status": "ok", "response": response}
         except ImportError as e:
-            # Missing AI provider package
             return {
                 "status": "error",
-                "message": f"Missing AI package: {e}. Install with: pip install openai anthropic google-generativeai",
+                "message": f"Missing AI package: {e}. Install with: pip install pydantic-ai-slim[openai]",
             }
         except Exception as e:
             logger.exception("Error in ai.chat")
             return {"status": "error", "message": str(e)}
 
     @webview.bind_call("ai.chat_stream")
-    def ai_chat_stream(message: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+    def ai_chat_stream(message: str, session_id: str | None = None) -> dict[str, Any]:
         """Send a message with streaming response.
 
         The response will be streamed via AG-UI events (agui:text_message_content).
@@ -186,15 +211,20 @@ Be concise and helpful. When referencing code examples, mention them by name."""
         if not _ai_agent:
             return {"status": "error", "message": "AI agent not initialized"}
 
-        def run_async():
+        async def stream_chat():
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(_ai_agent.chat(message, session_id=session_id, stream=True))
+                async for _ in _ai_agent.chat_stream(message, session_id=session_id):
+                    pass  # Events are emitted via callback
             except Exception as e:
                 logger.exception("Error in streaming chat")
-                # Emit error event
-                emit_agui_event(AGUIEvent.run_error("", str(e)))
+                # Emit error via callback
+                if effective_emit_callback:
+                    effective_emit_callback("agui:run_error", {"message": str(e)})
+
+        def run_async():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(stream_chat())
 
         # Run in background thread
         thread = threading.Thread(target=run_async, daemon=True)
@@ -203,7 +233,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
         return {"status": "streaming"}
 
     @webview.bind_call("ai.get_config")
-    def ai_get_config() -> Dict[str, Any]:
+    def ai_get_config() -> dict[str, Any]:
         """Get current AI configuration.
 
         Returns:
@@ -217,16 +247,15 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             "temperature": _ai_agent.config.temperature,
             "max_tokens": _ai_agent.config.max_tokens,
             "provider": _ai_agent.config.infer_provider().value,
-            "stream": _ai_agent.config.stream,
         }
 
     @webview.bind_call("ai.set_config")
     def ai_set_config(
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        system_prompt: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        system_prompt: str | None = None,
+    ) -> dict[str, Any]:
         """Update AI configuration.
 
         Args:
@@ -242,7 +271,20 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             return {"status": "error", "message": "AI agent not initialized"}
 
         if model is not None:
-            _ai_agent.config.model = model
+            # Set provider-specific API key BEFORE switching models
+            # This ensures the new agent is created with correct credentials
+            if model.startswith("deepseek-"):
+                api_key = os.environ.get("DEEPSEEK_API_KEY")
+                if not api_key:
+                    return {
+                        "status": "error",
+                        "message": "DEEPSEEK_API_KEY environment variable not set",
+                    }
+                _ai_agent.config.api_key = api_key
+            else:
+                _ai_agent.config.api_key = None
+            # Update model - this recreates the internal agent with new config
+            _ai_agent.model = model
         if temperature is not None:
             _ai_agent.config.temperature = max(0.0, min(2.0, temperature))
         if max_tokens is not None:
@@ -253,7 +295,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
         return ai_get_config()
 
     @webview.bind_call("ai.get_models")
-    def ai_get_models(provider: Optional[str] = None) -> List[Dict[str, Any]]:
+    def ai_get_models(provider: str | None = None) -> list[dict[str, Any]]:
         """Get available AI models.
 
         Args:
@@ -288,7 +330,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
         ]
 
     @webview.bind_call("ai.get_api_keys")
-    def ai_get_api_keys() -> Dict[str, bool]:
+    def ai_get_api_keys() -> dict[str, bool]:
         """Check which API keys are configured.
 
         Returns:
@@ -297,7 +339,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
         return _get_api_key_status()
 
     @webview.bind_call("ai.get_tools")
-    def ai_get_tools() -> List[Dict[str, Any]]:
+    def ai_get_tools() -> list[dict[str, Any]]:
         """Get available AI tools.
 
         Returns:
@@ -310,37 +352,13 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             {
                 "name": t.name,
                 "description": t.description,
-                "parameters": t.parameters,
+                "parameters": t.get_schema(),
             }
-            for t in _ai_agent.tools.all()
+            for t in _ai_agent.get_tools()
         ]
 
-    @webview.bind_call("ai.execute_tool")
-    def ai_execute_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute an AI tool directly.
-
-        Args:
-            name: Tool name
-            arguments: Tool arguments
-
-        Returns:
-            Tool execution result
-        """
-        if not _ai_agent:
-            return {"status": "error", "message": "AI agent not initialized"}
-
-        try:
-            # Run async tool execution
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(_ai_agent.execute_tool(name, arguments))
-            return {"status": "ok", "result": result}
-        except Exception as e:
-            logger.exception("Error executing tool %s", name)
-            return {"status": "error", "message": str(e)}
-
     @webview.bind_call("ai.get_session")
-    def ai_get_session(session_id: Optional[str] = None) -> Dict[str, Any]:
+    def ai_get_session(session_id: str | None = None) -> dict[str, Any]:
         """Get session information.
 
         Args:
@@ -352,22 +370,15 @@ Be concise and helpful. When referencing code examples, mention them by name."""
         if not _ai_agent:
             return {"status": "error", "message": "AI agent not initialized"}
 
-        session = _ai_agent.get_session(session_id)
+        sid = _ai_agent.get_session(session_id)
+        messages = _ai_agent._sessions.get(sid, [])
         return {
-            "id": session.id,
-            "messages": [
-                {
-                    "id": m.id,
-                    "role": m.role,
-                    "content": m.content,
-                }
-                for m in session.messages
-            ],
-            "system_prompt": session.system_prompt,
+            "id": sid,
+            "messages": messages,
         }
 
     @webview.bind_call("ai.clear_session")
-    def ai_clear_session(session_id: Optional[str] = None) -> Dict[str, Any]:
+    def ai_clear_session(session_id: str | None = None) -> dict[str, Any]:
         """Clear chat session.
 
         Args:
@@ -383,7 +394,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
         return {"status": "ok"}
 
     @webview.bind_call("ai.discover_tools")
-    def ai_discover_tools() -> Dict[str, Any]:
+    def ai_discover_tools() -> dict[str, Any]:
         """Re-discover tools from bound APIs.
 
         Returns:

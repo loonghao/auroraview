@@ -64,9 +64,7 @@ pub fn get_webview_data_dir() -> PathBuf {
     let base = if cfg!(windows) {
         std::env::var("LOCALAPPDATA")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."))
-            })
+            .unwrap_or_else(|_| dirs::data_local_dir().unwrap_or_else(|| PathBuf::from(".")))
     } else {
         dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."))
     };
@@ -83,9 +81,7 @@ pub fn get_extensions_dir() -> PathBuf {
     let base = if cfg!(windows) {
         std::env::var("LOCALAPPDATA")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."))
-            })
+            .unwrap_or_else(|_| dirs::data_local_dir().unwrap_or_else(|| PathBuf::from(".")))
     } else {
         dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."))
     };
@@ -102,9 +98,7 @@ pub fn get_cache_dir() -> PathBuf {
     if cfg!(windows) {
         std::env::var("LOCALAPPDATA")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs::cache_dir().unwrap_or_else(|| PathBuf::from("."))
-            })
+            .unwrap_or_else(|_| dirs::cache_dir().unwrap_or_else(|| PathBuf::from(".")))
             .join("AuroraView")
             .join("cache")
     } else {

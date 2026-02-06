@@ -90,8 +90,6 @@ jobs:
       source-sha: ${{ steps.check.outputs.source_sha }}
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Find PR workflow run for this commit
         id: check
@@ -328,8 +326,6 @@ jobs:
       url: https://www.npmjs.com/package/@auroraview/sdk
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -378,8 +374,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Install vx
         uses: loonghao/vx@main
@@ -518,8 +512,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Determine tag and version
         id: tag

@@ -118,7 +118,9 @@ fn handle_extension_resource_request(
         tracing::warn!("[Protocol] Invalid extension path: {}", ext_path);
         return wry::http::Response::builder()
             .status(400)
-            .body(Cow::Borrowed(b"Bad Request: Invalid extension path" as &[u8]))
+            .body(Cow::Borrowed(
+                b"Bad Request: Invalid extension path" as &[u8],
+            ))
             .unwrap();
     }
 
@@ -295,8 +297,8 @@ fn handle_ipc_message(
 
             // Check if this is a window command (window.*)
             // These are handled directly by Rust since Rust controls the window
-            if method.starts_with("window.") {
-                let window_method = &method[7..]; // Strip "window." prefix
+            if let Some(window_method) = method.strip_prefix("window.") {
+                // Strip "window." prefix
                 let result = handle_window_command(window_method, &params, proxy);
                 let response = serde_json::json!({
                     "id": id,
@@ -658,7 +660,8 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             if !is_ready {
                 tracing::warn!("[Rust] Python backend not ready after 10s, showing warning...");
                 let _ = proxy_for_timeout.send_event(UserEvent::BackendError {
-                    message: "Python backend initialization taking longer than expected...".to_string(),
+                    message: "Python backend initialization taking longer than expected..."
+                        .to_string(),
                     source: "startup".to_string(),
                 });
                 let _ = proxy_for_timeout.send_event(UserEvent::LoadingUpdate {
@@ -668,12 +671,14 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     step_text: None,
                     step_status: None,
                 });
-                
+
                 // Second timeout: additional 20 seconds (total 30s)
                 std::thread::sleep(std::time::Duration::from_secs(20));
                 let is_ready_final = python_ready_for_timeout.read().map(|r| *r).unwrap_or(false);
                 if !is_ready_final {
-                    tracing::error!("[Rust] Python backend ready timeout after 30s, showing error page");
+                    tracing::error!(
+                        "[Rust] Python backend ready timeout after 30s, showing error page"
+                    );
                     let _ = proxy_for_timeout.send_event(UserEvent::ShowError {
                         code: 503,
                         title: "Backend Initialization Failed".to_string(),
@@ -792,7 +797,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
             tracing::info!("Loading embedded assets via auroraview:// protocol");
             tracing::info!("Index path: {}", index_path);
-            
+
             // Debug: Print all available assets for troubleshooting
             tracing::info!("[DEBUG] Available assets ({} total):", all_paths.len());
             for (i, path) in all_paths.iter().enumerate() {
@@ -975,29 +980,30 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         std::thread::spawn(move || {
             // Wait a bit for initial startup
             std::thread::sleep(std::time::Duration::from_secs(1));
-            
+
             loop {
                 std::thread::sleep(std::time::Duration::from_millis(500));
-                
+
                 // Check if shutdown has been initiated
                 if backend_for_monitor.is_shutting_down() {
                     tracing::debug!("[ProcessMonitor] Shutdown detected, stopping monitor");
                     break;
                 }
-                
+
                 // Check if process is still alive
                 if !backend_for_monitor.is_alive() {
                     let exit_code = backend_for_monitor.get_exit_code();
                     let stderr_output = backend_for_monitor.get_last_stderr();
-                    let during_startup = !python_ready_for_monitor.read().map(|r| *r).unwrap_or(false);
-                    
+                    let during_startup =
+                        !python_ready_for_monitor.read().map(|r| *r).unwrap_or(false);
+
                     tracing::error!(
                         "[ProcessMonitor] Python process crashed! exit_code={:?}, during_startup={}, stderr_len={}",
                         exit_code,
                         during_startup,
                         stderr_output.len()
                     );
-                    
+
                     // Send crash event
                     let _ = proxy_for_monitor.send_event(UserEvent::PythonCrash {
                         exit_code,

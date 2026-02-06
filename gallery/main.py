@@ -184,7 +184,10 @@ def run_gallery():
     global _global_plugins
     _global_plugins = plugins
 
-    # Set up event callback for plugins
+    # Set up event callback for plugins and APIs
+    # This callback is used by both PluginManager and dependency installation
+    emit_callback = None  # Will be set below
+
     if packed_mode:
         _stdout_lock = threading.Lock()
         # Events that should not log (high-frequency internal events)
@@ -208,10 +211,12 @@ def run_gallery():
             except Exception as e:
                 print(f"[Python:emit] Error sending event: {e}", file=sys.stderr)
 
+        emit_callback = packed_emit_callback
         plugins.set_emit_callback(packed_emit_callback)
         print("[Python] Using packed mode event callback (stdout)", file=sys.stderr)
     else:
         emitter = view.create_emitter()
+        emit_callback = emitter.emit
         plugins.set_emit_callback(emitter.emit)
         print("[Python] Using development mode event callback (message queue)", file=sys.stderr)
 
@@ -230,14 +235,14 @@ def run_gallery():
     # Register child window APIs
     register_child_apis(view)
 
-    # Register dependency installation APIs
-    register_dependency_apis(view)
+    # Register dependency installation APIs with the unified emit callback
+    register_dependency_apis(view, emit_callback=emit_callback)
 
     # Register features APIs (bookmarks, history, downloads, settings, notifications)
     register_features_api(view)
 
-    # Register AI Agent APIs
-    register_ai_apis(view)
+    # Register AI Agent APIs with the unified emit callback
+    register_ai_apis(view, emit_callback=emit_callback)
 
     # Register simple API handlers
     @view.bind_call("api.get_samples")

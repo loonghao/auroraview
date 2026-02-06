@@ -3,12 +3,17 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from typing import Any, Callable, TypeVar
 
-from ..base import ThreadDispatcherBackend
+from ..base import ThreadDispatcherBackend, ThreadDispatchTimeoutError
 
 T = TypeVar("T")
+logger = logging.getLogger(__name__)
+
+# Default timeout for synchronous game thread dispatch (seconds)
+DEFAULT_SYNC_TIMEOUT = 30.0
 
 
 class UnrealDispatcherBackend(ThreadDispatcherBackend):
@@ -21,6 +26,16 @@ class UnrealDispatcherBackend(ThreadDispatcherBackend):
         https://docs.unrealengine.com/5.0/en-US/PythonAPI/
     """
 
+    def __init__(self, sync_timeout: float = DEFAULT_SYNC_TIMEOUT) -> None:
+        """Initialize the Unreal dispatcher backend.
+
+        Args:
+            sync_timeout: Timeout in seconds for synchronous game thread
+                dispatch. Set to 0 or negative to wait indefinitely
+                (not recommended). Default: 30.0 seconds.
+        """
+        self._sync_timeout = sync_timeout
+
     def is_available(self) -> bool:
         """Check if Unreal Engine is available."""
         try:
@@ -31,11 +46,22 @@ class UnrealDispatcherBackend(ThreadDispatcherBackend):
             return False
 
     def run_deferred(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> None:
-        """Execute function on game thread using slate tick."""
+        """Execute function on game thread using slate tick.
+
+        Exceptions are caught and logged to prevent crashing the
+        Slate tick loop.
+        """
         import unreal
 
         def tick_callback(delta_time):
-            func(*args, **kwargs)
+            try:
+                func(*args, **kwargs)
+            except Exception:
+                logger.error(
+                    "Error in deferred game thread call: %s",
+                    func,
+                    exc_info=True,
+                )
             return False  # Unregister after first call
 
         unreal.register_slate_post_tick_callback(tick_callback)
@@ -45,14 +71,18 @@ class UnrealDispatcherBackend(ThreadDispatcherBackend):
 
         Uses an event-based approach since UE Python doesn't have
         a built-in blocking main thread execution.
+
+        Raises:
+            ThreadDispatchTimeoutError: If the game thread doesn't complete
+                within the configured timeout.
         """
         import unreal
 
         if self.is_main_thread():
             return func(*args, **kwargs)
 
-        result_holder = [None]
-        exception_holder = [None]
+        result_holder: list = [None]
+        exception_holder: list = [None]
         done_event = threading.Event()
 
         def tick_callback(delta_time):
@@ -66,8 +96,14 @@ class UnrealDispatcherBackend(ThreadDispatcherBackend):
 
         unreal.register_slate_post_tick_callback(tick_callback)
 
-        # Wait for completion
-        done_event.wait()
+        # Wait for completion with timeout to prevent deadlocks
+        timeout = self._sync_timeout if self._sync_timeout > 0 else None
+        if not done_event.wait(timeout=timeout):
+            raise ThreadDispatchTimeoutError(
+                f"Game thread dispatch timed out after {self._sync_timeout}s. "
+                f"The game thread may be blocked or Slate ticks are paused. "
+                f"Function: {getattr(func, '__name__', repr(func))}"
+            )
 
         if exception_holder[0] is not None:
             raise exception_holder[0]
@@ -78,6 +114,11 @@ class UnrealDispatcherBackend(ThreadDispatcherBackend):
         try:
             import unreal
 
-            return unreal.is_game_thread()
+            # Try both API names for compatibility across UE versions
+            if hasattr(unreal, "is_game_thread"):
+                return unreal.is_game_thread()
+            if hasattr(unreal, "is_in_game_thread"):
+                return unreal.is_in_game_thread()
+            return super().is_main_thread()
         except (ImportError, AttributeError):
             return super().is_main_thread()

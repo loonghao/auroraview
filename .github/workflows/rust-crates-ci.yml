@@ -20,7 +20,7 @@ on:
     branches: [develop]
     paths:
       - 'crates/**'
-      - 'submodules/**'
+
       - 'src/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -83,8 +83,6 @@ jobs:
       any-changes: ${{ steps.deps.outputs.any-changes }}
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Detect file changes
         uses: dorny/paths-filter@v3
@@ -92,15 +90,15 @@ jobs:
         with:
           filters: |
             aurora-signals:
-              - 'submodules/auroraview-signals/**'
+              - 'crates/auroraview-signals/**'
             aurora-protect:
-              - 'submodules/auroraview-protect/**'
+              - 'crates/auroraview-protect/**'
             plugin-core:
               - 'crates/auroraview-plugins/core/**'
             plugin-fs:
               - 'crates/auroraview-plugins/fs/**'
             extensions:
-              - 'submodules/auroraview-extensions/**'
+              - 'crates/auroraview-extensions/**'
             plugins:
               - 'crates/auroraview-plugins/Cargo.toml'
               - 'crates/auroraview-plugins/src/**'
@@ -109,7 +107,7 @@ jobs:
             core:
               - 'crates/auroraview-core/**'
             pack:
-              - 'submodules/auroraview-pack/**'
+              - 'crates/auroraview-pack/**'
             cli:
               - 'crates/auroraview-cli/**'
             root:
@@ -242,8 +240,6 @@ jobs:
       needs.detect-changes.outputs.needs-extensions == 'true'
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -302,8 +298,6 @@ jobs:
        needs.detect-changes.outputs.needs-plugins == 'true')
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -348,8 +342,6 @@ jobs:
       needs.detect-changes.outputs.needs-core == 'true'
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -401,8 +393,6 @@ jobs:
       needs.detect-changes.outputs.needs-pack == 'true'
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -449,8 +439,6 @@ jobs:
       needs.detect-changes.outputs.needs-cli == 'true'
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0

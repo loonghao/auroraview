@@ -18,8 +18,8 @@ path = "src/lib.rs"
 # Plugin system
 auroraview-plugins = { path = "../auroraview-plugins" }
 
-# Signal system (Qt-style signals/slots) - via submodule
-auroraview-signals = { path = "../../submodules/auroraview-signals" }
+# Signal system (Qt-style signals/slots)
+auroraview-signals = { path = "../auroraview-signals" }
 
 # Frontend assets (Vite-built pages: loading, error, browser)
 auroraview-assets = { path = "../auroraview-assets" }

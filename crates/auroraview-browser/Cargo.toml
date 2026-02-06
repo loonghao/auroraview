@@ -20,7 +20,7 @@ auroraview-core = { path = "../auroraview-core", features = ["wry-builder"] }
 
 # Independent feature crates (optional - browser has built-in implementations)
 auroraview-tabs = { path = "../auroraview-tabs", optional = true }
-auroraview-extensions = { path = "../../submodules/auroraview-extensions", optional = true }
+auroraview-extensions = { path = "../auroraview-extensions", optional = true }
 auroraview-bookmarks = { path = "../auroraview-bookmarks", optional = true }
 auroraview-history = { path = "../auroraview-history", optional = true }
 auroraview-devtools = { path = "../auroraview-devtools", optional = true }

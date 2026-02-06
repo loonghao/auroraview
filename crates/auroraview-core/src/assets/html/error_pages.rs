@@ -76,12 +76,7 @@ pub fn not_found_page(requested_path: &str, available_assets: Option<Vec<&str>>)
 /// Generate a 500 Internal Error page
 pub fn internal_error_page(error_message: &str, details: Option<&str>) -> String {
     let details_section = details
-        .map(|d| {
-            format!(
-                r#"<pre class="error-details">{}</pre>"#,
-                html_escape(d)
-            )
-        })
+        .map(|d| format!(r#"<pre class="error-details">{}</pre>"#, html_escape(d)))
         .unwrap_or_default();
 
     format!(
@@ -266,7 +261,12 @@ pub fn startup_error_page(
         .unwrap_or_default();
 
     let entry_info = entry_point
-        .map(|ep| format!("<p><strong>Entry point:</strong> <code>{}</code></p>", html_escape(ep)))
+        .map(|ep| {
+            format!(
+                "<p><strong>Entry point:</strong> <code>{}</code></p>",
+                html_escape(ep)
+            )
+        })
         .unwrap_or_default();
 
     format!(

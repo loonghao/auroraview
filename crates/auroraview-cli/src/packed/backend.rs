@@ -530,10 +530,28 @@ pub fn start_python_backend_with_ipc(
         Some("active"),
     );
 
-    tracing::debug!("[Rust] Starting Python backend: {}", entry_point);
-    tracing::debug!("[Rust] Using Python: {}", python_exe.display());
-    tracing::debug!("[Rust] Python code: {}", python_code);
-    tracing::debug!("[Rust] Module search paths: {:?}", module_paths);
+    // Verify main.py exists before starting
+    let main_py_path = temp_dir.join("main.py");
+    tracing::info!("[Rust] Starting Python backend: {}", entry_point);
+    tracing::info!("[Rust] Using Python: {}", python_exe.display());
+    tracing::info!("[Rust] Python code: {}", python_code);
+    tracing::info!("[Rust] Module search paths: {:?}", module_paths);
+    tracing::info!("[Rust] temp_dir: {}", temp_dir.display());
+    tracing::info!(
+        "[Rust] main.py exists at {:?}: {}",
+        main_py_path,
+        main_py_path.exists()
+    );
+
+    // List first few files in temp_dir for debugging
+    if let Ok(entries) = std::fs::read_dir(&temp_dir) {
+        let files: Vec<_> = entries
+            .take(10)
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .collect();
+        tracing::info!("[Rust] Files in temp_dir (first 10): {:?}", files);
+    }
 
     // Build PYTHONPATH from module search paths
     let pythonpath = module_paths.join(if cfg!(windows) { ";" } else { ":" });
@@ -714,8 +732,10 @@ pub fn start_python_backend_with_ipc(
                 // If no level prefix, check for error indicators
                 None => {
                     let lower = line.to_lowercase();
-                    lower.contains("error") || lower.contains("exception") || 
-                    lower.contains("traceback") || lower.contains("fatal")
+                    lower.contains("error")
+                        || lower.contains("exception")
+                        || lower.contains("traceback")
+                        || lower.contains("fatal")
                 }
             }
         }
@@ -737,7 +757,7 @@ pub fn start_python_backend_with_ipc(
                 Ok(line) if !line.is_empty() => {
                     // Log all stderr output for debugging
                     tracing::debug!("[Python stderr] {}", line);
-                    
+
                     // Store all lines for crash diagnostics (ring buffer)
                     if let Ok(mut stored) = last_stderr_for_thread.lock() {
                         stored.push(line.clone());
@@ -746,12 +766,14 @@ pub fn start_python_backend_with_ipc(
                             stored.remove(0);
                         }
                     }
-                    
+
                     // Only buffer error-level messages for backend_error events
                     if is_error_level(&line) {
                         tracing::error!("[Python stderr] {}", line);
                         error_buffer.push(line);
-                        if error_buffer.len() >= 20 || last_flush.elapsed() >= Duration::from_millis(300) {
+                        if error_buffer.len() >= 20
+                            || last_flush.elapsed() >= Duration::from_millis(300)
+                        {
                             flush_errors(&mut error_buffer, &proxy_for_stderr);
                             last_flush = Instant::now();
                         }

@@ -19,6 +19,7 @@ const tagStyles: Record<Tag, string> = {
   api: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20 hover:bg-indigo-500/20',
   effects: 'bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20 hover:bg-fuchsia-500/20',
   browser: 'bg-sky-500/10 text-sky-600 border-sky-500/20 hover:bg-sky-500/20',
+  ai: 'bg-violet-500/10 text-violet-600 border-violet-500/20 hover:bg-violet-500/20',
 };
 
 export function TagFilter({ selectedTags, onTagToggle, onClear }: TagFilterProps) {

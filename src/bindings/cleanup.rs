@@ -81,8 +81,7 @@ pub fn get_cleanup_stats() -> Py<PyDict> {
 ///     >>> print(f"WebView data directory: {path}")
 #[pyfunction]
 pub fn get_webview_data_dir() -> Option<String> {
-    auroraview_core::cleanup::get_webview_base_dir()
-        .map(|p| p.to_string_lossy().to_string())
+    auroraview_core::cleanup::get_webview_base_dir().map(|p| p.to_string_lossy().to_string())
 }
 
 /// Register cleanup functions in the Python module

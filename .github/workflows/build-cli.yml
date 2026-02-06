@@ -54,8 +54,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.90.0

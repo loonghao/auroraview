@@ -91,7 +91,7 @@ pub struct PackArgs {
 
 /// Run the pack command
 pub fn run_pack(args: PackArgs) -> Result<()> {
-    use auroraview_pack::{Manifest, PackConfig, PackGenerator};
+    use auroraview_pack::{Manifest, PackConfig, PackManager};
 
     let progress = PackProgress::new();
     let spinner = progress.spinner("Loading configuration...");
@@ -264,8 +264,8 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
 
     // Pack the application with progress
     let pack_spinner = progress.spinner("Packing application...");
-    let packer = PackGenerator::new(config);
-    let output = match packer.pack() {
+    let manager = PackManager::new();
+    let output = match manager.pack(&config) {
         Ok(o) => {
             pack_spinner.finish_success("Pack completed");
             o

@@ -88,8 +88,11 @@ impl WindowManager {
     #[cfg(target_os = "windows")]
     pub fn create(&self, config: DccConfig) -> Result<WindowId> {
         let id = self.generate_id();
-        
-        info!("[WindowManager] Creating window: id={}, title={}", id, config.title);
+
+        info!(
+            "[WindowManager] Creating window: id={}, title={}",
+            id, config.title
+        );
 
         let webview = crate::webview::DccWebView::new(config.clone())?;
 
@@ -119,7 +122,7 @@ impl WindowManager {
     #[cfg(not(target_os = "windows"))]
     pub fn create(&self, config: DccConfig) -> Result<WindowId> {
         let id = self.generate_id();
-        
+
         let info = WindowInfo {
             id: id.clone(),
             title: config.title.clone(),

@@ -30,6 +30,8 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   layout: Icons.Layout,
   monitor: Icons.Monitor,
   box: Icons.Box,
+  globe: Icons.Globe,
+  brain: Icons.Brain,
 };
 
 interface SidebarButtonProps {

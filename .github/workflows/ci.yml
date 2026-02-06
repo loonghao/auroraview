@@ -43,8 +43,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -75,8 +73,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0
@@ -123,8 +119,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Build and Test Wheel
         uses: ./.github/actions/build-wheel
@@ -160,8 +154,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.90.0

@@ -21,8 +21,8 @@ auroraview-plugin-core = { path = "core" }
 # File system plugin
 auroraview-plugin-fs = { path = "fs" }
 
-# Extensions support - via submodule
-auroraview-extensions = { path = "../../submodules/auroraview-extensions" }
+# Extensions support
+auroraview-extensions = { path = "../auroraview-extensions" }
 
 # Directory paths
 dirs = "6.0"

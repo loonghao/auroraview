@@ -1,0 +1,875 @@
+//! Python Dependency Collector
+//!
+//! Automatically discovers and collects Python dependencies similar to PyInstaller.
+//! This module analyzes Python source files to find imports and collects the
+//! corresponding packages from the current Python environment.
+
+use crate::vx_tool::VxTool;
+use crate::{PackError, PackResult};
+use std::collections::{HashMap, HashSet};
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+/// Collected dependency information
+#[derive(Debug, Clone)]
+pub struct CollectedDeps {
+    /// Paths to collected packages/modules
+    pub paths: Vec<PathBuf>,
+    /// Total size in bytes
+    pub total_size: u64,
+    /// Number of files collected
+    pub file_count: usize,
+    /// Package names that were collected
+    pub packages: Vec<String>,
+}
+
+/// File hash cache for detecting changes
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct FileHashCache {
+    /// Map of file path to content hash
+    pub hashes: HashMap<String, String>,
+    /// Cache version for compatibility
+    pub version: u32,
+}
+
+impl FileHashCache {
+    const CURRENT_VERSION: u32 = 1;
+
+    /// Create a new empty cache
+    pub fn new() -> Self {
+        Self {
+            hashes: HashMap::new(),
+            version: Self::CURRENT_VERSION,
+        }
+    }
+
+    /// Load cache from file
+    pub fn load(path: &Path) -> PackResult<Self> {
+        if !path.exists() {
+            return Ok(Self::new());
+        }
+
+        let content = std::fs::read_to_string(path)?;
+        let cache: Self = serde_json::from_str(&content)
+            .map_err(|e| PackError::Config(format!("Failed to parse cache: {}", e)))?;
+
+        // Check version compatibility
+        if cache.version != Self::CURRENT_VERSION {
+            tracing::info!("Cache version mismatch, rebuilding");
+            return Ok(Self::new());
+        }
+
+        Ok(cache)
+    }
+
+    /// Save cache to file
+    pub fn save(&self, path: &Path) -> PackResult<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| PackError::Config(format!("Failed to serialize cache: {}", e)))?;
+        std::fs::write(path, content)?;
+        Ok(())
+    }
+
+    /// Compute hash of file content
+    pub fn compute_hash(path: &Path) -> PackResult<String> {
+        use std::hash::{Hash, Hasher};
+
+        let mut file = std::fs::File::open(path)?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+
+        // Use a simple hash for speed (not cryptographic)
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        buffer.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        Ok(format!("{:016x}", hash))
+    }
+
+    /// Check if file has changed since last cache
+    pub fn has_changed(&self, path: &Path, key: &str) -> PackResult<bool> {
+        let current_hash = Self::compute_hash(path)?;
+        match self.hashes.get(key) {
+            Some(cached_hash) => Ok(cached_hash != &current_hash),
+            None => Ok(true), // Not in cache, consider changed
+        }
+    }
+
+    /// Update hash for a file
+    pub fn update(&mut self, key: &str, path: &Path) -> PackResult<()> {
+        let hash = Self::compute_hash(path)?;
+        self.hashes.insert(key.to_string(), hash);
+        Ok(())
+    }
+
+    /// Remove entry from cache
+    pub fn remove(&mut self, key: &str) {
+        self.hashes.remove(key);
+    }
+}
+
+/// Python dependency collector
+pub struct DepsCollector {
+    /// Python executable to use
+    python_exe: PathBuf,
+    /// Packages to exclude
+    exclude_packages: HashSet<String>,
+    /// Additional packages to include
+    include_packages: HashSet<String>,
+}
+
+impl DepsCollector {
+    /// Create a new dependency collector
+    pub fn new() -> Self {
+        Self {
+            python_exe: Self::find_python_executable(),
+            exclude_packages: default_excludes(),
+            include_packages: HashSet::new(),
+        }
+    }
+
+    /// Find a working Python executable
+    fn find_python_executable() -> PathBuf {
+        let candidates = ["python", "python3", "python3.11", "python3.10", "python3.9"];
+
+        for candidate in candidates {
+            if let Ok(output) = Command::new(candidate).args(["--version"]).output() {
+                if output.status.success() {
+                    return PathBuf::from(candidate);
+                }
+            }
+        }
+
+        // Fall back to "python" even if not found - will fail later with better error message
+        PathBuf::from("python")
+    }
+
+    /// Check if Python is available
+    pub fn is_python_available(&self) -> bool {
+        Command::new(&self.python_exe)
+            .args(["--version"])
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }
+
+    /// Set the Python executable to use
+    pub fn python_exe(mut self, path: impl Into<PathBuf>) -> Self {
+        self.python_exe = path.into();
+        self
+    }
+
+    /// Add packages to exclude
+    pub fn exclude(mut self, packages: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        for pkg in packages {
+            self.exclude_packages.insert(pkg.into());
+        }
+        self
+    }
+
+    /// Add packages to include (even if not detected)
+    pub fn include(mut self, packages: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        for pkg in packages {
+            self.include_packages.insert(pkg.into());
+        }
+        self
+    }
+
+    /// Log Python environment information for debugging
+    pub fn log_python_info(&self) {
+        tracing::info!("Python executable: {}", self.python_exe.display());
+
+        // Get Python version
+        match Command::new(&self.python_exe).args(["--version"]).output() {
+            Ok(output) if output.status.success() => {
+                let version = String::from_utf8_lossy(&output.stdout);
+                tracing::info!("Python version: {}", version.trim());
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                tracing::warn!("Failed to get Python version: {}", stderr.trim());
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Python not found or not executable: {} ({})",
+                    self.python_exe.display(),
+                    e
+                );
+            }
+        }
+
+        // Get Python executable path and site-packages
+        let script = r#"
+import sys
+import site
+print(f"Executable: {sys.executable}")
+print(f"Prefix: {sys.prefix}")
+print(f"Site-packages: {site.getsitepackages()}")
+"#;
+        match Command::new(&self.python_exe).args(["-c", script]).output() {
+            Ok(output) if output.status.success() => {
+                for line in String::from_utf8_lossy(&output.stdout).lines() {
+                    tracing::info!("  {}", line);
+                }
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                tracing::debug!("Failed to get Python info: {}", stderr.trim());
+            }
+            Err(e) => {
+                tracing::debug!("Failed to run Python info script: {}", e);
+            }
+        }
+    }
+
+    /// Check if a package is installed and log its location
+    pub fn check_package(&self, package_name: &str) -> bool {
+        match self.get_package_path(package_name) {
+            Ok(Some(path)) => {
+                tracing::info!("Package '{}' found at: {}", package_name, path.display());
+                true
+            }
+            Ok(None) => {
+                tracing::warn!("Package '{}' NOT FOUND in Python environment", package_name);
+                tracing::warn!(
+                    "  Hint: Install with 'pip install {}' or ensure the wheel is installed",
+                    package_name
+                );
+                false
+            }
+            Err(e) => {
+                tracing::error!("Failed to check package '{}': {}", package_name, e);
+                false
+            }
+        }
+    }
+
+    /// Analyze a Python file and discover its dependencies
+    pub fn analyze_file(&self, file_path: &Path) -> PackResult<Vec<String>> {
+        let script = r#"
+import sys
+import ast
+import importlib.util
+
+def get_imports(file_path):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        try:
+            tree = ast.parse(f.read())
+        except SyntaxError:
+            return []
+    
+    imports = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imports.add(alias.name.split('.')[0])
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                imports.add(node.module.split('.')[0])
+    
+    return list(imports)
+
+file_path = sys.argv[1]
+for imp in get_imports(file_path):
+    print(imp)
+"#;
+
+        let output = Command::new(&self.python_exe)
+            .args(["-c", script, file_path.to_str().unwrap_or("")])
+            .output()
+            .map_err(|e| PackError::Config(format!("Failed to run Python: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            tracing::warn!("Failed to analyze {}: {}", file_path.display(), stderr);
+            return Ok(Vec::new());
+        }
+
+        let imports: Vec<String> = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        Ok(imports)
+    }
+
+    /// Get the installation path for a package
+    pub fn get_package_path(&self, package_name: &str) -> PackResult<Option<PathBuf>> {
+        let script = format!(
+            r#"
+import importlib.util
+import os
+
+spec = importlib.util.find_spec("{}")
+if spec and spec.origin:
+    # Get the package directory
+    origin = spec.origin
+    if origin.endswith('__init__.py'):
+        print(os.path.dirname(origin))
+    else:
+        print(origin)
+elif spec and spec.submodule_search_locations:
+    for loc in spec.submodule_search_locations:
+        print(loc)
+        break
+"#,
+            package_name
+        );
+
+        let output = Command::new(&self.python_exe)
+            .args(["-c", &script])
+            .output()
+            .map_err(|e| PackError::Config(format!("Failed to run Python: {}", e)))?;
+
+        if !output.status.success() {
+            return Ok(None);
+        }
+
+        let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if path_str.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(PathBuf::from(path_str)))
+    }
+
+    /// Collect all dependencies for a Python entry point
+    pub fn collect(&self, entry_files: &[PathBuf], dest_dir: &Path) -> PackResult<CollectedDeps> {
+        let mut all_imports = HashSet::new();
+
+        // Analyze all entry files
+        for file in entry_files {
+            if file.exists() && file.extension().is_some_and(|e| e == "py") {
+                let imports = self.analyze_file(file)?;
+                all_imports.extend(imports);
+            }
+        }
+
+        // Add explicitly included packages
+        all_imports.extend(self.include_packages.iter().cloned());
+
+        // Filter out excluded and stdlib packages
+        let packages_to_collect: Vec<String> = all_imports
+            .into_iter()
+            .filter(|p| !self.exclude_packages.contains(p))
+            .filter(|p| !is_stdlib(p))
+            .collect();
+
+        tracing::info!(
+            "Discovered {} packages to collect: {:?}",
+            packages_to_collect.len(),
+            packages_to_collect
+        );
+
+        let mut collected = CollectedDeps {
+            paths: Vec::new(),
+            total_size: 0,
+            file_count: 0,
+            packages: Vec::new(),
+        };
+
+        std::fs::create_dir_all(dest_dir)?;
+
+        for package in &packages_to_collect {
+            if let Some(pkg_path) = self.get_package_path(package)? {
+                let result = self.copy_package(&pkg_path, dest_dir, package)?;
+                collected.paths.push(result.0);
+                collected.total_size += result.1;
+                collected.file_count += result.2;
+                collected.packages.push(package.clone());
+            } else {
+                tracing::warn!("Package not found: {}", package);
+            }
+        }
+
+        Ok(collected)
+    }
+
+    /// Copy a package to the destination directory
+    fn copy_package(
+        &self,
+        src: &Path,
+        dest_dir: &Path,
+        package_name: &str,
+    ) -> PackResult<(PathBuf, u64, usize)> {
+        let mut total_size = 0u64;
+        let mut file_count = 0usize;
+
+        if src.is_file() {
+            // Single file module (e.g., yaml.py)
+            let dest = dest_dir.join(src.file_name().unwrap_or_default());
+            std::fs::copy(src, &dest)?;
+            total_size = std::fs::metadata(&dest)?.len();
+            file_count = 1;
+            tracing::debug!("Collected module: {} -> {}", src.display(), dest.display());
+            return Ok((dest, total_size, file_count));
+        }
+
+        // Directory package
+        let dest = dest_dir.join(package_name);
+        std::fs::create_dir_all(&dest)?;
+
+        for entry in walkdir::WalkDir::new(src)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            let rel_path = path.strip_prefix(src).unwrap_or(path);
+            let dest_path = dest.join(rel_path);
+
+            if path.is_dir() {
+                std::fs::create_dir_all(&dest_path)?;
+            } else if path.is_file() {
+                // Skip __pycache__ and .pyc files
+                if rel_path.to_string_lossy().contains("__pycache__") {
+                    continue;
+                }
+                if path.extension().is_some_and(|e| e == "pyc") {
+                    continue;
+                }
+
+                if let Some(parent) = dest_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::copy(path, &dest_path)?;
+                total_size += std::fs::metadata(&dest_path)?.len();
+                file_count += 1;
+            }
+        }
+
+        tracing::debug!(
+            "Collected package: {} ({} files, {} bytes)",
+            package_name,
+            file_count,
+            total_size
+        );
+
+        Ok((dest, total_size, file_count))
+    }
+
+    /// Collect site-packages for specific packages using pip
+    ///
+    /// By default, this installs packages WITH their dependencies.
+    /// Use `collect_with_pip_no_deps` if you want to skip dependencies.
+    pub fn collect_with_pip(
+        &self,
+        packages: &[String],
+        dest_dir: &Path,
+    ) -> PackResult<CollectedDeps> {
+        self.collect_with_pip_impl(packages, dest_dir, false)
+    }
+
+    /// Collect site-packages for specific packages using pip without dependencies
+    pub fn collect_with_pip_no_deps(
+        &self,
+        packages: &[String],
+        dest_dir: &Path,
+    ) -> PackResult<CollectedDeps> {
+        self.collect_with_pip_impl(packages, dest_dir, true)
+    }
+
+    /// Internal implementation for pip collection
+    fn collect_with_pip_impl(
+        &self,
+        packages: &[String],
+        dest_dir: &Path,
+        no_deps: bool,
+    ) -> PackResult<CollectedDeps> {
+        if packages.is_empty() {
+            return Ok(CollectedDeps {
+                paths: Vec::new(),
+                total_size: 0,
+                file_count: 0,
+                packages: Vec::new(),
+            });
+        }
+
+        std::fs::create_dir_all(dest_dir)?;
+
+        tracing::info!(
+            "Installing {} packages with pip (no_deps={})...",
+            packages.len(),
+            no_deps
+        );
+
+        // Try installation methods in order of preference:
+        // 1. vx uv pip (downloaded vx tool)
+        // 2. system uv
+        // 3. python -m pip (fallback)
+        let success = self.try_vx_uv_pip(packages, dest_dir, no_deps)?
+            || self.try_system_uv_pip(packages, dest_dir, no_deps)?
+            || self.try_python_pip(packages, dest_dir, no_deps)?;
+
+        if !success {
+            tracing::warn!("All pip installation methods failed");
+        }
+
+        // Calculate collected stats
+        let mut total_size = 0u64;
+        let mut file_count = 0usize;
+
+        for entry in walkdir::WalkDir::new(dest_dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_file())
+        {
+            total_size += std::fs::metadata(entry.path())?.len();
+            file_count += 1;
+        }
+
+        Ok(CollectedDeps {
+            paths: vec![dest_dir.to_path_buf()],
+            total_size,
+            file_count,
+            packages: packages.to_vec(),
+        })
+    }
+
+    /// Try to install packages using vx uv pip
+    fn try_vx_uv_pip(
+        &self,
+        packages: &[String],
+        dest_dir: &Path,
+        no_deps: bool,
+    ) -> PackResult<bool> {
+        // Try to get or download vx
+        let vx = match VxTool::new() {
+            Ok(vx) => vx,
+            Err(e) => {
+                tracing::debug!("Failed to get vx tool: {}", e);
+                return Ok(false);
+            }
+        };
+
+        tracing::info!("Using vx {} for package installation", vx.version());
+
+        vx.uv_pip_install(packages, dest_dir, no_deps)
+    }
+
+    /// Try to install packages using system uv
+    fn try_system_uv_pip(
+        &self,
+        packages: &[String],
+        dest_dir: &Path,
+        no_deps: bool,
+    ) -> PackResult<bool> {
+        if !Self::is_uv_available() {
+            return Ok(false);
+        }
+
+        tracing::info!("Using system uv for package installation");
+
+        let mut args = vec![
+            "pip".to_string(),
+            "install".to_string(),
+            "--target".to_string(),
+            dest_dir.to_string_lossy().to_string(),
+            "--no-compile".to_string(),
+        ];
+
+        if no_deps {
+            args.push("--no-deps".to_string());
+        }
+
+        let status = Command::new("uv")
+            .args(&args)
+            .args(packages)
+            .status()
+            .map_err(|e| PackError::Config(format!("Failed to run uv: {}", e)))?;
+
+        Ok(status.success())
+    }
+
+    /// Try to install packages using python -m pip
+    fn try_python_pip(
+        &self,
+        packages: &[String],
+        dest_dir: &Path,
+        no_deps: bool,
+    ) -> PackResult<bool> {
+        tracing::info!("Using python -m pip for package installation");
+
+        let mut args = vec![
+            "-m".to_string(),
+            "pip".to_string(),
+            "install".to_string(),
+            "--target".to_string(),
+            dest_dir.to_string_lossy().to_string(),
+            "--no-compile".to_string(),
+        ];
+
+        if no_deps {
+            args.push("--no-deps".to_string());
+        }
+
+        let status = Command::new(&self.python_exe)
+            .args(&args)
+            .args(packages)
+            .status()
+            .map_err(|e| PackError::Config(format!("Failed to run pip: {}", e)))?;
+
+        Ok(status.success())
+    }
+
+    /// Check if uv is available in system PATH
+    fn is_uv_available() -> bool {
+        Command::new("uv")
+            .args(["--version"])
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }
+}
+
+impl Default for DepsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Default packages to exclude (stdlib and common dev packages)
+fn default_excludes() -> HashSet<String> {
+    [
+        // Test frameworks
+        "pytest",
+        "unittest",
+        "nose",
+        "coverage",
+        // Dev tools
+        "pip",
+        "setuptools",
+        "wheel",
+        "pkg_resources",
+        // Type checking
+        "mypy",
+        "typing_extensions",
+        // Linting
+        "pylint",
+        "flake8",
+        "black",
+        "ruff",
+        // Build tools
+        "build",
+        "twine",
+        "maturin",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect()
+}
+
+/// Check if a module is part of Python standard library
+fn is_stdlib(module: &str) -> bool {
+    // Common stdlib modules
+    const STDLIB: &[&str] = &[
+        "abc",
+        "aifc",
+        "argparse",
+        "array",
+        "ast",
+        "asynchat",
+        "asyncio",
+        "asyncore",
+        "atexit",
+        "audioop",
+        "base64",
+        "bdb",
+        "binascii",
+        "binhex",
+        "bisect",
+        "builtins",
+        "bz2",
+        "calendar",
+        "cgi",
+        "cgitb",
+        "chunk",
+        "cmath",
+        "cmd",
+        "code",
+        "codecs",
+        "codeop",
+        "collections",
+        "colorsys",
+        "compileall",
+        "concurrent",
+        "configparser",
+        "contextlib",
+        "contextvars",
+        "copy",
+        "copyreg",
+        "cProfile",
+        "crypt",
+        "csv",
+        "ctypes",
+        "curses",
+        "dataclasses",
+        "datetime",
+        "dbm",
+        "decimal",
+        "difflib",
+        "dis",
+        "distutils",
+        "doctest",
+        "email",
+        "encodings",
+        "enum",
+        "errno",
+        "faulthandler",
+        "fcntl",
+        "filecmp",
+        "fileinput",
+        "fnmatch",
+        "fractions",
+        "ftplib",
+        "functools",
+        "gc",
+        "getopt",
+        "getpass",
+        "gettext",
+        "glob",
+        "graphlib",
+        "grp",
+        "gzip",
+        "hashlib",
+        "heapq",
+        "hmac",
+        "html",
+        "http",
+        "idlelib",
+        "imaplib",
+        "imghdr",
+        "imp",
+        "importlib",
+        "inspect",
+        "io",
+        "ipaddress",
+        "itertools",
+        "json",
+        "keyword",
+        "lib2to3",
+        "linecache",
+        "locale",
+        "logging",
+        "lzma",
+        "mailbox",
+        "mailcap",
+        "marshal",
+        "math",
+        "mimetypes",
+        "mmap",
+        "modulefinder",
+        "multiprocessing",
+        "netrc",
+        "nis",
+        "nntplib",
+        "numbers",
+        "operator",
+        "optparse",
+        "os",
+        "ossaudiodev",
+        "pathlib",
+        "pdb",
+        "pickle",
+        "pickletools",
+        "pipes",
+        "pkgutil",
+        "platform",
+        "plistlib",
+        "poplib",
+        "posix",
+        "posixpath",
+        "pprint",
+        "profile",
+        "pstats",
+        "pty",
+        "pwd",
+        "py_compile",
+        "pyclbr",
+        "pydoc",
+        "queue",
+        "quopri",
+        "random",
+        "re",
+        "readline",
+        "reprlib",
+        "resource",
+        "rlcompleter",
+        "runpy",
+        "sched",
+        "secrets",
+        "select",
+        "selectors",
+        "shelve",
+        "shlex",
+        "shutil",
+        "signal",
+        "site",
+        "smtpd",
+        "smtplib",
+        "sndhdr",
+        "socket",
+        "socketserver",
+        "spwd",
+        "sqlite3",
+        "ssl",
+        "stat",
+        "statistics",
+        "string",
+        "stringprep",
+        "struct",
+        "subprocess",
+        "sunau",
+        "symtable",
+        "sys",
+        "sysconfig",
+        "syslog",
+        "tabnanny",
+        "tarfile",
+        "telnetlib",
+        "tempfile",
+        "termios",
+        "test",
+        "textwrap",
+        "threading",
+        "time",
+        "timeit",
+        "tkinter",
+        "token",
+        "tokenize",
+        "trace",
+        "traceback",
+        "tracemalloc",
+        "tty",
+        "turtle",
+        "turtledemo",
+        "types",
+        "typing",
+        "unicodedata",
+        "unittest",
+        "urllib",
+        "uu",
+        "uuid",
+        "venv",
+        "warnings",
+        "wave",
+        "weakref",
+        "webbrowser",
+        "winreg",
+        "winsound",
+        "wsgiref",
+        "xdrlib",
+        "xml",
+        "xmlrpc",
+        "zipapp",
+        "zipfile",
+        "zipimport",
+        "zlib",
+        "_thread",
+        "__future__",
+    ];
+
+    STDLIB.contains(&module)
+}

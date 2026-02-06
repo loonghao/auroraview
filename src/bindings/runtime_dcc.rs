@@ -232,8 +232,9 @@ impl PyDccIpcRouter {
                     .unwrap_or_else(|_| py.None().into());
 
                 match handler.call1(py, (py_params,)) {
-                    Ok(result) => pythonize::depythonize(&result.bind(py))
-                        .unwrap_or(serde_json::Value::Null),
+                    Ok(result) => {
+                        pythonize::depythonize(&result.bind(py)).unwrap_or(serde_json::Value::Null)
+                    }
                     Err(e) => {
                         tracing::error!("[DccIpcRouter] Python handler error: {}", e);
                         serde_json::json!({ "error": e.to_string() })

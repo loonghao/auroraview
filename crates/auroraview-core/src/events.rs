@@ -41,9 +41,7 @@ pub enum CoreUserEvent {
 pub enum ExtendedUserEvent {
     /// Python backend is ready, notify frontend
     /// Contains list of registered API handlers
-    PythonReady {
-        handlers: Vec<String>,
-    },
+    PythonReady { handlers: Vec<String> },
 
     /// Python response to be sent to WebView
     PythonResponse(String),
@@ -74,10 +72,7 @@ pub enum ExtendedUserEvent {
     },
 
     /// Set HTML content for WebView
-    SetHtml {
-        html: String,
-        title: Option<String>,
-    },
+    SetHtml { html: String, title: Option<String> },
 
     /// Show error page with full diagnostics
     ShowError {

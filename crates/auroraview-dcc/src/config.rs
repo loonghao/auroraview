@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// DCC application type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum DccType {
     Maya,
     Houdini,
@@ -12,13 +12,8 @@ pub enum DccType {
     Blender,
     Max3ds,
     Unreal,
+    #[default]
     Unknown,
-}
-
-impl Default for DccType {
-    fn default() -> Self {
-        Self::Unknown
-    }
 }
 
 impl DccType {

@@ -61,8 +61,8 @@ type = "python"                                 # "python" | "go" | "rust" | "no
 [backend.python]
 version = "3.11"
 entry_point = "main:run_gallery"
-packages = ["pyyaml", "openai", "anthropic", "google-genai", "httpx"]
-include_paths = [".", "../python"]
+packages = ["pyyaml", "pydantic-ai-slim[openai,anthropic,google]", "httpx"]
+include_paths = [".", "../python", "../packages/auroraview-ai/src"]
 exclude = ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"]
 optimize = 1
 strategy = "standalone"                         # "standalone" | "pyoxidizer" | "embedded" | "portable" | "system"
