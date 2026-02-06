@@ -83,6 +83,18 @@ runs:
           libxdo-dev \
           pkg-config
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '20'
+
+    - name: Build frontend assets (required by auroraview-assets)
+      shell: bash
+      run: |
+        cd crates/auroraview-assets/frontend
+        npm install
+        npm run build
+
     - name: Cache Rust build
       if: runner.os != 'macOS' # Work around actions/runner hashFiles bug on macOS
       uses: actions/cache@v5
