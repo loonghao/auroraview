@@ -198,6 +198,13 @@ jobs:
           npm install
           npm run build
 
+      - name: Build frontend assets (required by auroraview-assets)
+        shell: bash
+        run: |
+          cd crates/auroraview-assets/frontend
+          npm install
+          npm run build
+
       - name: Build Gallery frontend
         shell: bash
         run: |
