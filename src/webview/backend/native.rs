@@ -583,7 +583,7 @@ impl NativeBackend {
                         SetWindowLongPtrW(
                             child_hwnd,
                             GWLP_WNDPROC,
-                            subclass_wndproc as usize as isize,
+                            subclass_wndproc as *const () as usize as isize,
                         );
 
                         SUBCLASSED_COUNT.fetch_add(1, Ordering::SeqCst);

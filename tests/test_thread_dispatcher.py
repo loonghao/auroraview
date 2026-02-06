@@ -545,6 +545,118 @@ class TestMockDCCBackends:
         assert backend.is_available() is False
 
 
+class TestUnrealBackendThreadSafety:
+    """Tests for Unreal Engine backend thread safety fixes."""
+
+    def test_run_sync_timeout(self):
+        """Test that run_sync raises ThreadDispatchTimeoutError on timeout."""
+        import sys
+        import types
+
+        from auroraview.utils.thread_dispatcher import (
+            ThreadDispatchTimeoutError,
+            UnrealDispatcherBackend,
+        )
+
+        # Create a mock unreal module where tick callback never fires
+        mock_unreal = types.ModuleType("unreal")
+        mock_unreal.is_game_thread = lambda: False
+        # register_slate_post_tick_callback that does NOT call the callback
+        mock_unreal.register_slate_post_tick_callback = lambda cb: None
+        sys.modules["unreal"] = mock_unreal
+
+        try:
+            backend = UnrealDispatcherBackend(sync_timeout=0.2)
+            with pytest.raises(ThreadDispatchTimeoutError, match="timed out"):
+                backend.run_sync(lambda: 42)
+        finally:
+            del sys.modules["unreal"]
+
+    def test_run_sync_success(self):
+        """Test that run_sync returns result when tick fires."""
+        import sys
+        import types
+
+        from auroraview.utils.thread_dispatcher import UnrealDispatcherBackend
+
+        mock_unreal = types.ModuleType("unreal")
+        mock_unreal.is_game_thread = lambda: False
+
+        # Immediately call the tick callback to simulate Slate tick
+        def register_and_fire(cb):
+            cb(0.016)  # Simulate delta_time
+
+        mock_unreal.register_slate_post_tick_callback = register_and_fire
+        sys.modules["unreal"] = mock_unreal
+
+        try:
+            backend = UnrealDispatcherBackend(sync_timeout=5.0)
+            result = backend.run_sync(lambda: 42)
+            assert result == 42
+        finally:
+            del sys.modules["unreal"]
+
+    def test_run_deferred_exception_handling(self):
+        """Test that run_deferred catches exceptions without crashing."""
+        import sys
+        import types
+
+        from auroraview.utils.thread_dispatcher import UnrealDispatcherBackend
+
+        mock_unreal = types.ModuleType("unreal")
+        captured_cb = [None]
+
+        def capture_callback(cb):
+            captured_cb[0] = cb
+
+        mock_unreal.register_slate_post_tick_callback = capture_callback
+        sys.modules["unreal"] = mock_unreal
+
+        try:
+            backend = UnrealDispatcherBackend()
+
+            # Schedule a function that raises an exception
+            def bad_func():
+                raise RuntimeError("boom")
+
+            backend.run_deferred(bad_func)
+
+            # Simulate Slate tick calling the callback — should NOT raise
+            assert captured_cb[0] is not None
+            result = captured_cb[0](0.016)
+            assert result is False  # Should still return False to unregister
+        finally:
+            del sys.modules["unreal"]
+
+    def test_is_main_thread_api_fallback(self):
+        """Test is_main_thread tries both API names."""
+        import sys
+        import types
+
+        from auroraview.utils.thread_dispatcher import UnrealDispatcherBackend
+
+        # Test with is_in_game_thread (some UE versions)
+        mock_unreal = types.ModuleType("unreal")
+        mock_unreal.is_in_game_thread = lambda: True
+        sys.modules["unreal"] = mock_unreal
+
+        try:
+            backend = UnrealDispatcherBackend()
+            assert backend.is_main_thread() is True
+        finally:
+            del sys.modules["unreal"]
+
+    def test_custom_sync_timeout(self):
+        """Test configurable sync_timeout parameter."""
+        from auroraview.utils.thread_dispatcher import UnrealDispatcherBackend
+
+        backend = UnrealDispatcherBackend(sync_timeout=60.0)
+        assert backend._sync_timeout == 60.0
+
+        backend2 = UnrealDispatcherBackend(sync_timeout=0)
+        assert backend2._sync_timeout == 0
+
+
 class TestQtBackend:
     """Tests for Qt backend."""
 

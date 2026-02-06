@@ -251,19 +251,22 @@ pub fn extract_resources(overlay: &OverlayData, base_dir: &Path) -> Result<PathB
 
 /// Extract third-party library files from overlay to site-packages
 ///
-/// Libraries are stored with prefix "lib/" in overlay.
+/// Libraries are stored with prefix "lib/" or "python/site-packages/" in overlay.
 /// This function extracts them to the site-packages directory.
 pub fn extract_lib_packages(overlay: &OverlayData, base_dir: &Path) -> Result<PathBuf> {
     let site_packages_dir = base_dir.join("site-packages");
     fs::create_dir_all(&site_packages_dir)?;
 
-    // Collect lib files to extract
+    // Collect lib files to extract (support both "lib/" and "python/site-packages/" prefixes)
     let lib_assets: Vec<_> = overlay
         .assets
         .iter()
         .filter_map(|(path, content)| {
             if path.starts_with("lib/") {
                 let rel_path = path.strip_prefix("lib/").unwrap_or(path);
+                Some((site_packages_dir.join(rel_path), content))
+            } else if path.starts_with("python/site-packages/") {
+                let rel_path = path.strip_prefix("python/site-packages/").unwrap_or(path);
                 Some((site_packages_dir.join(rel_path), content))
             } else {
                 None

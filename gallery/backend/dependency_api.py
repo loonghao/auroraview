@@ -34,12 +34,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Type alias for emit callback
+EmitCallback = "Callable[[str, dict], None]"
 
-def register_dependency_apis(view: WebView):
+
+def register_dependency_apis(view: "WebView", emit_callback: "EmitCallback | None" = None):
     """Register dependency installation API handlers.
 
     Args:
         view: The WebView instance to register handlers on.
+        emit_callback: Optional emit callback for sending events to frontend.
+            If None, will use view.create_emitter() (development mode).
+            In packed mode, pass the packed_emit_callback to ensure events
+            are sent via stdout to the Rust CLI.
     """
     installer = DependencyInstaller()
     _install_lock = threading.Lock()
@@ -121,15 +128,25 @@ def register_dependency_apis(view: WebView):
             }
 
         _cancel_event.clear()
-        try:
-            # Create emitter on the main thread to avoid PyO3 unsendable panic
-            emitter = view.create_emitter()
-        except Exception as exc:  # pragma: no cover - defensive
-            _install_lock.release()
-            return {
-                "ok": False,
-                "error": f"Failed to create emitter: {exc}",
-            }
+
+        # Use provided emit_callback or create emitter for development mode
+        if emit_callback is not None:
+            # Use the provided callback (e.g., packed mode stdout callback)
+            def emit_event(event_name: str, data: dict) -> None:
+                emit_callback(event_name, data)
+        else:
+            # Development mode: create emitter on the main thread
+            try:
+                emitter = view.create_emitter()
+
+                def emit_event(event_name: str, data: dict) -> None:
+                    emitter.emit(event_name, data)
+            except Exception as exc:  # pragma: no cover - defensive
+                _install_lock.release()
+                return {
+                    "ok": False,
+                    "error": f"Failed to create emitter: {exc}",
+                }
 
         def run_installation():
             """Run installation in background thread."""
@@ -138,7 +155,7 @@ def register_dependency_apis(view: WebView):
                 logger.debug(f"Missing packages: {missing}")
 
                 # Emit start event
-                emitter.emit(
+                emit_event(
                     "dep:start",
                     {
                         "sample_id": sample_id,
@@ -156,7 +173,7 @@ def register_dependency_apis(view: WebView):
                     )
 
                     if event_type == "start":
-                        emitter.emit(
+                        emit_event(
                             "dep:progress",
                             {
                                 "sample_id": sample_id,
@@ -168,7 +185,7 @@ def register_dependency_apis(view: WebView):
                             },
                         )
                     elif event_type == "output":
-                        emitter.emit(
+                        emit_event(
                             "dep:progress",
                             {
                                 "sample_id": sample_id,
@@ -178,7 +195,7 @@ def register_dependency_apis(view: WebView):
                             },
                         )
                     elif event_type == "complete":
-                        emitter.emit(
+                        emit_event(
                             "dep:progress",
                             {
                                 "sample_id": sample_id,
@@ -190,7 +207,7 @@ def register_dependency_apis(view: WebView):
                         )
                     elif event_type == "error":
                         logger.warning(f"Error in progress: {progress}")
-                        emitter.emit(
+                        emit_event(
                             "dep:error",
                             {
                                 "sample_id": sample_id,
@@ -206,7 +223,7 @@ def register_dependency_apis(view: WebView):
 
                 if result.get("cancelled"):
                     logger.info("Installation was cancelled")
-                    emitter.emit(
+                    emit_event(
                         "dep:error",
                         {
                             "sample_id": sample_id,
@@ -216,7 +233,7 @@ def register_dependency_apis(view: WebView):
                     )
                 elif result.get("success"):
                     logger.info("Installation succeeded")
-                    emitter.emit(
+                    emit_event(
                         "dep:complete",
                         {
                             "sample_id": sample_id,
@@ -226,7 +243,7 @@ def register_dependency_apis(view: WebView):
                     )
                 else:
                     logger.warning(f"Installation failed: {result.get('failed', [])}")
-                    emitter.emit(
+                    emit_event(
                         "dep:error",
                         {
                             "sample_id": sample_id,
@@ -236,7 +253,7 @@ def register_dependency_apis(view: WebView):
                     )
             except Exception as e:
                 logger.exception(f"Exception in installation thread: {e}")
-                emitter.emit(
+                emit_event(
                     "dep:error",
                     {
                         "sample_id": sample_id,

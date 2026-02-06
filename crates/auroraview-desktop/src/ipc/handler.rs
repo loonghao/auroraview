@@ -14,6 +14,7 @@ pub struct IpcRouter {
     handlers: RwLock<HashMap<String, IpcCallback>>,
 
     /// Event listeners
+    #[allow(clippy::type_complexity)]
     event_listeners: RwLock<HashMap<String, Vec<Arc<dyn Fn(serde_json::Value) + Send + Sync>>>>,
 }
 
@@ -111,20 +112,18 @@ impl IpcRouter {
             if let Some(handler) = handlers.get(method) {
                 handler(params)
             } else {
-                return Some(
-                    serde_json::to_string(&IpcResponse::err(
-                        id,
-                        "NotFound",
-                        &format!("Method not found: {}", method),
-                    ))
-                    .ok()?,
-                );
+                return serde_json::to_string(&IpcResponse::err(
+                    id,
+                    "NotFound",
+                    &format!("Method not found: {}", method),
+                ))
+                .ok();
             }
         } else {
             return None;
         };
 
-        Some(serde_json::to_string(&IpcResponse::ok(id, result)).ok()?)
+        serde_json::to_string(&IpcResponse::ok(id, result)).ok()
     }
 
     /// Handle invoke message (plugin commands)
@@ -149,20 +148,18 @@ impl IpcRouter {
             if let Some(handler) = handlers.get(cmd) {
                 handler(args)
             } else {
-                return Some(
-                    serde_json::to_string(&IpcResponse::err(
-                        id,
-                        "NotFound",
-                        &format!("Command not found: {}", cmd),
-                    ))
-                    .ok()?,
-                );
+                return serde_json::to_string(&IpcResponse::err(
+                    id,
+                    "NotFound",
+                    &format!("Command not found: {}", cmd),
+                ))
+                .ok();
             }
         } else {
             return None;
         };
 
-        Some(serde_json::to_string(&IpcResponse::ok(id, result)).ok()?)
+        serde_json::to_string(&IpcResponse::ok(id, result)).ok()
     }
 }
 

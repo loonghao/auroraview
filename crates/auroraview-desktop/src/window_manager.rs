@@ -214,7 +214,10 @@ impl WindowManager {
             if let Some(state) = windows.get_mut(id) {
                 state.info.width = width;
                 state.info.height = height;
-                debug!("[WindowManager] Window {} resized to {}x{}", id, width, height);
+                debug!(
+                    "[WindowManager] Window {} resized to {}x{}",
+                    id, width, height
+                );
                 return Ok(());
             }
         }

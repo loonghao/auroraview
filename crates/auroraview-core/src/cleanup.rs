@@ -53,7 +53,12 @@ pub fn get_webview_base_dir() -> Option<PathBuf> {
     {
         let data_dir = std::env::var("XDG_DATA_HOME")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".local").join("share"));
+            .unwrap_or_else(|_| {
+                dirs::home_dir()
+                    .unwrap_or_default()
+                    .join(".local")
+                    .join("share")
+            });
         Some(data_dir.join("auroraview").join("webview"))
     }
 
@@ -223,10 +228,7 @@ pub fn cleanup_stale_webview_dirs() -> Result<usize, String> {
     }
 
     if cleaned > 0 {
-        info!(
-            "[cleanup] Cleaned up {} stale WebView directories",
-            cleaned
-        );
+        info!("[cleanup] Cleaned up {} stale WebView directories", cleaned);
     }
 
     if !errors.is_empty() {
@@ -407,7 +409,10 @@ mod tests {
             let dir = get_webview_base_dir();
             assert!(dir.is_some());
             let dir = dir.unwrap();
-            assert!(dir.to_string_lossy().contains("AuroraView") || dir.to_string_lossy().contains("auroraview"));
+            assert!(
+                dir.to_string_lossy().contains("AuroraView")
+                    || dir.to_string_lossy().contains("auroraview")
+            );
         }
     }
 

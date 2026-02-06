@@ -173,11 +173,13 @@ impl PyTrayConfig {
 
     /// Add a menu item
     fn add_item(&mut self, id: &str, label: &str) -> Self {
-        self.inner.menu.push(auroraview_desktop::TrayMenuItem::Item {
-            id: id.to_string(),
-            label: label.to_string(),
-            enabled: true,
-        });
+        self.inner
+            .menu
+            .push(auroraview_desktop::TrayMenuItem::Item {
+                id: id.to_string(),
+                label: label.to_string(),
+                enabled: true,
+            });
         self.clone()
     }
 
@@ -221,8 +223,7 @@ impl PyDesktopIpcRouter {
                 match handler.call1(py, (py_params,)) {
                     Ok(result) => {
                         // Convert result back to JSON
-                        pythonize::depythonize(&result.bind(py))
-                            .unwrap_or(serde_json::Value::Null)
+                        pythonize::depythonize(&result.bind(py)).unwrap_or(serde_json::Value::Null)
                     }
                     Err(e) => {
                         tracing::error!("[IpcRouter] Python handler error: {}", e);
@@ -393,17 +394,7 @@ mod tests {
     #[test]
     fn test_desktop_config_builder_style() {
         let mut config = PyDesktopConfig::new(
-            "Default",
-            100,
-            100,
-            None,
-            None,
-            true,
-            true,
-            false,
-            false,
-            true,
-            0,
+            "Default", 100, 100, None, None, true, true, false, false, true, 0,
         );
 
         config = config.title("New Title");

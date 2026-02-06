@@ -64,10 +64,7 @@ pub enum WebViewMessage {
 
     /// Execute JavaScript code with async callback
     /// Returns result via the provided callback
-    EvalJsAsync {
-        script: String,
-        callback_id: u64,
-    },
+    EvalJsAsync { script: String, callback_id: u64 },
 
     /// Emit an event to JavaScript
     EmitEvent {

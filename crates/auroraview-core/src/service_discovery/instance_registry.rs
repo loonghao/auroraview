@@ -336,7 +336,12 @@ fn get_instances_dir() -> Result<PathBuf> {
     } else {
         std::env::var("XDG_DATA_HOME")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".local").join("share"))
+            .unwrap_or_else(|_| {
+                dirs::home_dir()
+                    .unwrap_or_default()
+                    .join(".local")
+                    .join("share")
+            })
     };
 
     let instances_dir = base.join("AuroraView").join("instances");

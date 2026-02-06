@@ -398,7 +398,6 @@ impl MemoryAssets {
         self.assets.is_empty()
     }
 
-
     /// Handle a protocol request and return a response
     ///
     /// This method handles:
@@ -432,7 +431,10 @@ impl MemoryAssets {
                     error.python_output.as_deref(),
                     error.entry_point.as_deref(),
                 );
-                tracing::debug!("MemoryAssets: serving startup error page ({} bytes)", html.len());
+                tracing::debug!(
+                    "MemoryAssets: serving startup error page ({} bytes)",
+                    html.len()
+                );
                 return FileResponse {
                     data: Cow::Owned(html.into_bytes()),
                     mime_type: "text/html; charset=utf-8".to_string(),
@@ -483,10 +485,10 @@ impl MemoryAssets {
     /// Generate a friendly 404 response with available assets info
     fn not_found_response(&self, requested_path: &str) -> FileResponse {
         use crate::assets::not_found_page;
-        
+
         let available: Vec<&str> = self.assets.keys().map(|s| s.as_str()).collect();
         let html = not_found_page(requested_path, Some(available));
-        
+
         FileResponse {
             data: Cow::Owned(html.into_bytes()),
             mime_type: "text/html; charset=utf-8".to_string(),

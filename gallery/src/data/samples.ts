@@ -28,6 +28,7 @@ export const TAGS = [
   'api',
   'effects',
   'browser',
+  'ai',
 ] as const;
 
 export type Tag = typeof TAGS[number];
@@ -64,6 +65,11 @@ export const CATEGORIES: Record<string, Category> = {
     title: "DCC Integration",
     icon: "box",
     description: "Maya, Houdini, Blender, and other DCC apps",
+  },
+  ai_agent: {
+    title: "AI Agent",
+    icon: "brain",
+    description: "AI-powered assistant, chat, and automation",
   },
 };
 

@@ -333,7 +333,6 @@ class WebView(
 
         # Support new WebViewConfig if provided
         if config is not None:
-
             # Config takes precedence - extract values
             title = config.window.title
             width = config.window.width
@@ -431,6 +430,7 @@ class WebView(
             user_agent=user_agent,  # Custom User-Agent string
         )
         self._event_handlers: Dict[str, List[Callable]] = {}
+        self._event_handlers_lock = threading.Lock()
         self._title = title
         self._width = width
         self._height = height
@@ -1179,11 +1179,15 @@ class WebView(
                     return
 
                 # Re-register all event handlers in the background thread
+                # Snapshot the handlers under lock to avoid race conditions
+                # with the main thread adding handlers concurrently.
+                with self._event_handlers_lock:
+                    handlers_snapshot = {k: list(v) for k, v in self._event_handlers.items()}
 
                 logger.info(
-                    f"Background thread: Re-registering {len(self._event_handlers)} event handlers"
+                    f"Background thread: Re-registering {len(handlers_snapshot)} event handlers"
                 )
-                for event_name, handlers in self._event_handlers.items():
+                for event_name, handlers in handlers_snapshot.items():
                     for handler in handlers:
                         logger.debug(f"Background thread: Registering handler for '{event_name}'")
                         core.on(event_name, handler)

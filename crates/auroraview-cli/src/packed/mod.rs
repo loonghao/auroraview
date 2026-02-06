@@ -74,13 +74,13 @@ fn allocate_console() {
 pub fn run_packed_app() -> Result<()> {
     // Check for debug mode early
     let debug_env = is_debug_env();
-    
+
     // Allocate console on Windows if debug mode is enabled
     if debug_env {
         allocate_console();
         eprintln!("[DEBUG] AuroraView packed app starting in debug mode...");
     }
-    
+
     // Start WebView2 warmup IMMEDIATELY - this runs in background while we read overlay
     // This is critical for reducing cold-start latency by 2-4 seconds
     warmup::start_webview2_warmup();
@@ -150,7 +150,7 @@ pub fn run_packed_app() -> Result<()> {
             let _ = writeln!(file, "Title: {}", overlay.config.window.title);
             let _ = writeln!(file, "Assets: {} files", overlay.assets.len());
             let _ = writeln!(file, "Mode: {:?}", overlay.config.mode);
-            let _ = writeln!(file, "");
+            let _ = writeln!(file);
             let _ = writeln!(file, "Assets list:");
             for (i, (path, data)) in overlay.assets.iter().enumerate() {
                 let _ = writeln!(file, "  [{}] {} ({} bytes)", i, path, data.len());

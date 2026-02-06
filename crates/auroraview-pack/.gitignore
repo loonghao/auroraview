@@ -1,0 +1,8 @@
+/target
+Cargo.lock
+*.exe
+*.app
+*.AppImage
+/dist
+/build
+.DS_Store

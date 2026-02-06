@@ -61,6 +61,11 @@ CATEGORIES = {
         "icon": "box",
         "description": "Maya, Houdini, Blender, and other DCC apps",
     },
+    "ai_agent": {
+        "title": "AI Agent",
+        "icon": "brain",
+        "description": "AI-powered assistant, chat, and automation",
+    },
 }
 
 # Icon mapping based on keywords in filename or docstring
@@ -163,13 +168,40 @@ CATEGORY_MAPPING = {
     "blender": "dcc_integration",
     "qt": "dcc_integration",
     "integration": "dcc_integration",
+    # AI Agent
+    "ai": "ai_agent",
+    "agent": "ai_agent",
+    "chat": "ai_agent",
+    "assistant": "ai_agent",
+    "llm": "ai_agent",
+    "openai": "ai_agent",
+    "deepseek": "ai_agent",
 }
 
 # Tag mapping based on keywords
 TAG_MAPPING = {
     "beginner": ["simple", "basic", "getting started", "quick"],
-    "advanced": ["advanced", "complex", "plugin", "floating", "tray", "browser", "multi-tab", "automation"],
-    "window": ["window", "panel", "frame", "transparent", "vibrancy", "blur", "mica", "browser", "tab"],
+    "advanced": [
+        "advanced",
+        "complex",
+        "plugin",
+        "floating",
+        "tray",
+        "browser",
+        "multi-tab",
+        "automation",
+    ],
+    "window": [
+        "window",
+        "panel",
+        "frame",
+        "transparent",
+        "vibrancy",
+        "blur",
+        "mica",
+        "browser",
+        "tab",
+    ],
     "events": ["event", "callback", "lifecycle", "signal", "channel"],
     "qt": ["qt", "pyside", "maya", "houdini", "nuke"],
     "standalone": ["standalone", "desktop", "run_desktop"],
@@ -177,4 +209,5 @@ TAG_MAPPING = {
     "api": ["api", "decorator", "binding", "call", "command"],
     "effects": ["effect", "vibrancy", "blur", "acrylic", "mica", "click-through"],
     "browser": ["browser", "tab", "bookmark", "history", "cookie", "navigation"],
+    "ai": ["ai", "agent", "chat", "llm", "assistant", "openai", "deepseek", "claude", "gemini"],
 }

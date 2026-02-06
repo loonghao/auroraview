@@ -1,0 +1,181 @@
+//! AuroraView Pack - Zero-Dependency Standalone Executable Packaging
+//!
+//! This crate provides functionality to package AuroraView-based applications
+//! into standalone executables **without requiring any build tools**.
+//!
+//! # Design Philosophy
+//!
+//! Unlike traditional packaging tools that generate source code and require
+//! compilation, AuroraView Pack uses a **self-replicating approach**:
+//!
+//! 1. The `auroraview` CLI itself is a fully functional WebView shell
+//! 2. During `pack`, it copies itself and appends configuration + assets as overlay data
+//! 3. On startup, the packed exe detects the overlay and runs as a standalone app
+//!
+//! This means users only need the `auroraview` binary - no Rust, Cargo, or any
+//! other build tools required!
+//!
+//! # Features
+//!
+//! - **URL Mode**: Wrap any website into a desktop app
+//! - **Frontend Mode**: Bundle local HTML/CSS/JS into a standalone app
+//! - **FullStack Mode**: Bundle frontend + backend (Python/Go/Rust/Node.js)
+//! - **Manifest Support**: Declarative configuration via `auroraview.pack.toml`
+//! - **Zero Dependencies**: No build tools required on user's machine
+//!
+//! # Quick Start
+//!
+//! ## Command Line Usage
+//!
+//! ```bash
+//! # Wrap a website
+//! auroraview pack --url www.example.com --output my-app
+//!
+//! # Bundle local frontend
+//! auroraview pack --frontend ./dist --output my-app
+//!
+//! # Use manifest file
+//! auroraview pack --config auroraview.pack.toml
+//! ```
+//!
+//! ## Manifest File (auroraview.pack.toml)
+//!
+//! ```toml
+//! [package]
+//! name = "my-app"
+//! version = "1.0.0"
+//! title = "My Application"
+//!
+//! [frontend]
+//! path = "./dist"
+//! # url = "https://example.com"
+//!
+//! [backend]
+//! type = "python"  # or "go", "rust", "node", "none"
+//!
+//! [backend.python]
+//! version = "3.11"
+//! entry_point = "main:run"
+//!
+//! [window]
+//! width = 1280
+//! height = 720
+//!
+//! [bundle]
+//! icon = "./assets/icon.png"
+//! ```
+//!
+//! # Technical Details
+//!
+//! ## Overlay Format
+//!
+//! The packed executable contains:
+//! ```text
+//! [Original auroraview.exe]
+//! [Overlay Data]
+//!   - Magic: "AVPK" (4 bytes)
+//!   - Version: u32 (4 bytes)
+//!   - Config Length: u64 (8 bytes)
+//!   - Assets Length: u64 (8 bytes)
+//!   - Config JSON (compressed)
+//!   - Assets Archive (tar.zstd)
+//! [Footer]
+//!   - Overlay Offset: u64 (8 bytes)
+//!   - Magic: "AVPK" (4 bytes)
+//! ```
+
+mod bundle;
+pub mod common;
+mod config;
+mod deps_collector;
+mod downloader;
+mod error;
+pub mod icon;
+mod license;
+mod manifest;
+mod metrics;
+mod overlay;
+mod packer;
+pub mod progress;
+mod protection;
+mod pyoxidizer;
+mod python_standalone;
+mod resource_editor;
+mod vx_tool;
+
+// Re-export public API
+pub use bundle::{AssetBundle, BundleBuilder};
+
+// Re-export common types (unified configuration types)
+pub use common::{
+    BundleStrategy, CollectPattern, DebugConfig, HooksConfig, IsolationConfig, LicenseConfig,
+    LinuxPlatformConfig, MacOSPlatformConfig, NotarizationConfig, PlatformConfig, ProcessConfig,
+    ProtectionConfig as CommonProtectionConfig, PyOxidizerConfig as CommonPyOxidizerConfig,
+    RuntimeConfig, TargetPlatform, VxHooksConfig, WindowConfig, WindowStartPosition,
+    WindowsPlatformConfig, WindowsResourceConfig,
+};
+
+// Re-export config types (runtime configuration)
+pub use config::{PackConfig, PackMode, PythonBundleConfig};
+
+pub use deps_collector::{CollectedDeps, DepsCollector, FileHashCache};
+pub use downloader::Downloader;
+pub use error::{PackError, PackResult};
+pub use icon::{convert_icon_data, load_icon, IconData, IconFormat};
+pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator};
+
+// Re-export manifest types (TOML parsing)
+pub use manifest::{
+    BackendConfig, BackendGoConfig, BackendNodeConfig, BackendProcessConfig, BackendPythonConfig,
+    BackendRustConfig, BackendType, BuildConfig, BundleConfig, CollectEntry, DownloadEntry,
+    DownloadStage, FrontendConfig, HealthCheckConfig, HooksManifestConfig, IsolationManifestConfig,
+    Manifest, ManifestWindowConfig, PackageConfig, ProcessManifestConfig, ProtectionManifestConfig,
+    PyOxidizerManifestConfig, StartPosition, VxConfig,
+};
+
+// Backward compatibility aliases for manifest platform types
+pub use manifest::{LinuxBundleConfig, MacOSBundleConfig, WindowsBundleConfig};
+
+// Re-export InjectConfig from common
+pub use common::InjectConfig;
+
+pub use metrics::PackedMetrics;
+pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};
+pub use packer::{PackManager, Packer};
+pub use progress::{progress_bar, spinner, PackProgress, ProgressExt, ProgressStyles};
+pub use protection::{
+    check_build_tools_available, is_protection_available, protect_python_code,
+    EncryptionConfigPack, ProtectionConfig, ProtectionMethodConfig, ProtectionResult,
+};
+pub use pyoxidizer::{
+    check_pyoxidizer, installation_instructions, DistributionFlavor, ExternalBinary,
+    PyOxidizerBuilder, PyOxidizerConfig as PyOxidizerBuilderConfig, ResourceFile,
+};
+pub use python_standalone::{
+    extract_runtime, get_runtime_cache_dir, PythonRuntimeMeta, PythonStandalone,
+    PythonStandaloneConfig, PythonTarget,
+};
+pub use resource_editor::{ResourceConfig, ResourceEditor};
+
+/// Alias for backward compatibility with CLI
+pub type PackGenerator = dyn Packer;
+
+/// Crate version
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Check if the current executable has overlay data (is a packed app)
+pub fn is_packed() -> bool {
+    let exe_path = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    OverlayReader::has_overlay(&exe_path).unwrap_or(false)
+}
+
+/// Read overlay data from the current executable
+pub fn read_overlay() -> PackResult<Option<OverlayData>> {
+    let exe_path = std::env::current_exe()?;
+    OverlayReader::read(&exe_path)
+}
+
+pub mod builder;

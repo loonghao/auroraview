@@ -433,6 +433,13 @@ function App() {
           if (!showConsole) {
             setConsoleOpen(true);
           }
+        } else if (result.error === 'MISSING_DEPENDENCIES') {
+          // Backend detected missing dependencies, show dependency modal
+          const sample = getSampleById(sampleId);
+          setDepModalSampleId(sampleId);
+          setDepModalSampleTitle(sample?.title || sampleId);
+          setDepModalMissing(result.missing || []);
+          setDepModalOpen(true);
         } else {
           showToast(result.error || 'Failed to run demo', 'error');
         }

@@ -64,13 +64,10 @@ pub fn run_inspect(args: InspectArgs) -> Result<()> {
     assets.sort_by(|a, b| a.0.cmp(&b.0));
 
     // Filter if pattern provided
-    let filter_pattern = args
-        .filter
-        .as_ref()
-        .and_then(|f| {
-            let pattern = f.replace('*', ".*");
-            regex::Regex::new(&pattern).ok()
-        });
+    let filter_pattern = args.filter.as_ref().and_then(|f| {
+        let pattern = f.replace('*', ".*");
+        regex::Regex::new(&pattern).ok()
+    });
 
     let mut shown_count = 0;
     for (path, content) in &assets {
@@ -100,19 +97,20 @@ pub fn run_inspect(args: InspectArgs) -> Result<()> {
         println!("  {} ({}){}", path, size_str, marker);
 
         // Show content for small HTML/JS/CSS files if requested
-        if args.show_content && size < 2000 {
-            if path.ends_with(".html") || path.ends_with(".js") || path.ends_with(".css") {
-                if let Ok(text) = std::str::from_utf8(content) {
-                    let preview = text.chars().take(500).collect::<String>();
-                    println!("    Content Preview:");
-                    for line in preview.lines().take(10) {
-                        println!("      {}", line);
-                    }
-                    if text.len() > 500 {
-                        println!("      ...");
-                    }
-                    println!();
+        if args.show_content
+            && size < 2000
+            && (path.ends_with(".html") || path.ends_with(".js") || path.ends_with(".css"))
+        {
+            if let Ok(text) = std::str::from_utf8(content) {
+                let preview = text.chars().take(500).collect::<String>();
+                println!("    Content Preview:");
+                for line in preview.lines().take(10) {
+                    println!("      {}", line);
                 }
+                if text.len() > 500 {
+                    println!("      ...");
+                }
+                println!();
             }
         }
 
@@ -131,9 +129,9 @@ pub fn run_inspect(args: InspectArgs) -> Result<()> {
     println!("\n[Diagnostics]");
 
     // Check for index.html
-    let has_index = assets
-        .iter()
-        .any(|(path, _)| *path == "index.html" || *path == "frontend/index.html" || path.ends_with("/index.html"));
+    let has_index = assets.iter().any(|(path, _)| {
+        *path == "index.html" || *path == "frontend/index.html" || path.ends_with("/index.html")
+    });
 
     if has_index {
         println!("  ✓ index.html found");

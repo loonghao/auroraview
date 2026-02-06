@@ -62,6 +62,18 @@ from .wrapper import (
     wrap_callback_for_dcc,
 )
 
+# DCC-specific backends (re-exported for convenience)
+from .backends import (
+    BlenderDispatcherBackend,
+    FallbackDispatcherBackend,
+    HoudiniDispatcherBackend,
+    MayaDispatcherBackend,
+    MaxDispatcherBackend,
+    NukeDispatcherBackend,
+    QtDispatcherBackend,
+    UnrealDispatcherBackend,
+)
+
 __all__ = [
     # Exceptions
     "ThreadSafetyError",
@@ -93,4 +105,13 @@ __all__ = [
     "wrap_callback_for_dcc",
     # Wrapper class
     "DCCThreadSafeWrapper",
+    # DCC backends
+    "BlenderDispatcherBackend",
+    "FallbackDispatcherBackend",
+    "HoudiniDispatcherBackend",
+    "MayaDispatcherBackend",
+    "MaxDispatcherBackend",
+    "NukeDispatcherBackend",
+    "QtDispatcherBackend",
+    "UnrealDispatcherBackend",
 ]

@@ -54,8 +54,69 @@ export function ErrorOverlay() {
     return unsub
   }, [])
 
-  // Parse error from URL params
+  // Watch for window._errorInfo changes (injected by Rust backend)
+  useEffect(() => {
+    const checkForInjectedInfo = () => {
+      const injectedInfo = (window as unknown as { _errorInfo?: {
+        code?: string
+        title?: string
+        message?: string
+        details?: string
+        url?: string
+        source?: string
+      } })._errorInfo
+
+      if (injectedInfo && (injectedInfo.code || injectedInfo.title || injectedInfo.message)) {
+        setError(prev => ({
+          ...prev,
+          code: injectedInfo.code || prev.code,
+          title: injectedInfo.title || prev.title,
+          message: injectedInfo.message || prev.message,
+          details: injectedInfo.details || prev.details,
+          url: injectedInfo.url || prev.url,
+          source: (injectedInfo.source as ErrorInfo['source']) || prev.source || 'python',
+        }))
+      }
+    }
+
+    // Check immediately and after a short delay to catch late injections
+    checkForInjectedInfo()
+    const timer = setTimeout(checkForInjectedInfo, 100)
+    const timer2 = setTimeout(checkForInjectedInfo, 500)
+
+    return () => {
+      clearTimeout(timer)
+      clearTimeout(timer2)
+    }
+  }, [])
+
+  // Parse error from window._errorInfo (injected by Rust) or URL params
   function getErrorFromUrl(): ErrorInfo {
+    // First check if error info was injected via JavaScript by build_error_page()
+    const injectedInfo = (window as unknown as { _errorInfo?: {
+      code?: string
+      title?: string
+      message?: string
+      details?: string
+      url?: string
+      source?: string
+    } })._errorInfo
+
+    if (injectedInfo && (injectedInfo.code || injectedInfo.title || injectedInfo.message)) {
+      return {
+        code: injectedInfo.code || '500',
+        title: injectedInfo.title || 'Internal Server Error',
+        message: injectedInfo.message || 'An unexpected error occurred while processing your request.',
+        details: injectedInfo.details || undefined,
+        url: injectedInfo.url || undefined,
+        stack: undefined,
+        source: (injectedInfo.source as ErrorInfo['source']) || 'python',
+        timestamp: Date.now(),
+        console: undefined,
+      }
+    }
+
+    // Fallback to URL params
     const params = getUrlParams()
     let stack: StackFrame[] | undefined
     let console_output: ConsoleMessage[] | undefined
@@ -175,7 +236,7 @@ export function ErrorOverlay() {
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-6 min-h-0">
           {activeTab === 'overview' && (
             <OverviewTab error={error} />
           )}
@@ -194,11 +255,11 @@ export function ErrorOverlay() {
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-center gap-4 px-6 py-4 border-t border-white/10">
+        {/* Actions - Fixed at bottom */}
+        <div className="flex-none flex items-center justify-center gap-4 px-6 py-4 border-t border-white/10 bg-[#1a1a2e]/80 backdrop-blur">
           <button
             onClick={handleCopy}
-            className="px-4 py-2 text-sm font-medium text-white/70 bg-white/5 hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-white/70 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2 border border-white/10"
           >
             <CopyIcon />
             {copied ? 'Copied!' : 'Copy Error'}
@@ -229,6 +290,12 @@ function OverviewTab({ error }: { error: ErrorInfo }) {
     )
   }
 
+  // Truncate very long details to prevent UI freeze
+  const maxDetailsLength = 10000
+  const truncatedDetails = error.details && error.details.length > maxDetailsLength
+    ? error.details.slice(0, maxDetailsLength) + '\n\n... (truncated, use Copy Error to get full text)'
+    : error.details
+
   return (
     <div className="space-y-4">
       {error.url && (
@@ -237,12 +304,14 @@ function OverviewTab({ error }: { error: ErrorInfo }) {
           <div className="text-sm text-white/80 font-mono break-all">{error.url}</div>
         </div>
       )}
-      {error.details && (
+      {truncatedDetails && (
         <div className="bg-white/5 rounded-lg p-4">
           <div className="text-xs text-white/40 mb-1">Details</div>
-          <pre className="text-sm text-white/80 font-mono whitespace-pre-wrap break-words">
-            {error.details}
-          </pre>
+          <div className="max-h-80 overflow-y-auto overflow-x-hidden">
+            <pre className="text-sm text-white/80 font-mono whitespace-pre-wrap break-words">
+              {truncatedDetails}
+            </pre>
+          </div>
         </div>
       )}
     </div>

@@ -30,6 +30,10 @@ export interface ApiResult {
   pid?: number;
   mode?: string;
   message?: string;
+  // Fields for MISSING_DEPENDENCIES error
+  requirements?: string[];
+  missing?: string[];
+  needs_install?: boolean;
 }
 
 export interface Sample {

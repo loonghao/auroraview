@@ -126,10 +126,7 @@ impl DccWebView {
 
     /// Check if WebView is initialized
     pub fn is_initialized(&self) -> bool {
-        self.initialized
-            .lock()
-            .map(|g| *g)
-            .unwrap_or(false)
+        self.initialized.lock().map(|g| *g).unwrap_or(false)
     }
 
     /// Navigate to URL
@@ -214,10 +211,7 @@ impl DccWebView {
         }
 
         // Check if there are more messages
-        self.messages
-            .lock()
-            .map(|q| !q.is_empty())
-            .unwrap_or(false)
+        self.messages.lock().map(|q| !q.is_empty()).unwrap_or(false)
     }
 
     /// Get config
