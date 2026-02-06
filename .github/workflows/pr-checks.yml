@@ -337,6 +337,19 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
+      - name: Setup Node.js
+        if: needs.path-filter.outputs.needs_rust_checks == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Build frontend assets (required by auroraview-assets)
+        if: needs.path-filter.outputs.needs_rust_checks == 'true'
+        run: |
+          cd crates/auroraview-assets/frontend
+          npm install
+          npm run build
+
       - name: Check Python formatting (ruff)
         if: needs.path-filter.outputs.python == 'true' || needs.path-filter.outputs.ci == 'true'
         run: vx uvx ruff check python/ tests/ && vx uvx ruff format --check python/ tests/
@@ -372,6 +385,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Build frontend assets (required by auroraview-assets)
+        run: |
+          cd crates/auroraview-assets/frontend
+          npm install
+          npm run build
 
       - name: Cache Rust
         uses: actions/cache@v5
@@ -845,6 +869,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Build frontend assets (required by auroraview-assets)
+        run: |
+          cd crates/auroraview-assets/frontend
+          npm install
+          npm run build
+
       - name: Cache Rust
         uses: actions/cache@v5
         with:
@@ -1134,6 +1169,19 @@ jobs:
           sudo apt-get update
           # Install both dev and runtime libraries
           sudo apt-get install -y libwebkit2gtk-4.1-dev libwebkit2gtk-4.1-0 libgtk-3-dev libgtk-3-0 libayatana-appindicator3-dev libxdo-dev
+
+      - name: Setup Node.js (fallback)
+        if: needs.cli-build.result == 'skipped'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Build frontend assets (fallback)
+        if: needs.cli-build.result == 'skipped'
+        run: |
+          cd crates/auroraview-assets/frontend
+          npm install
+          npm run build
 
       - name: Cache Rust (fallback)
         if: needs.cli-build.result == 'skipped'

@@ -152,7 +152,7 @@ export function AgentSidebar({
     } finally {
       setIsLoading(false);
     }
-  }, [av, inputValue, isLoading]);
+  }, [client, inputValue, isLoading]);
 
   // Handle keyboard shortcut
   useEffect(() => {
