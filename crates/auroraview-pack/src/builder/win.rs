@@ -36,10 +36,16 @@ impl WinBuilder {
             .output_name
             .clone()
             .unwrap_or_else(|| ctx.config.app.name.clone());
-        if name.ends_with(".exe") {
-            name
+        // Only append .exe on Windows; on macOS/Linux executables have no extension
+        if cfg!(target_os = "windows") {
+            if name.ends_with(".exe") {
+                name
+            } else {
+                format!("{}.exe", name)
+            }
         } else {
-            format!("{}.exe", name)
+            // Strip .exe suffix if present (e.g., from config)
+            name.strip_suffix(".exe").unwrap_or(&name).to_string()
         }
     }
 }
