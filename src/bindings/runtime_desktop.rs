@@ -217,13 +217,13 @@ impl PyDesktopIpcRouter {
                 // Convert params to Python
                 let py_params = pythonize::pythonize(py, &params)
                     .map(|v| v.unbind())
-                    .unwrap_or_else(|_| py.None().into());
+                    .unwrap_or_else(|_| py.None());
 
                 // Call Python handler
                 match handler.call1(py, (py_params,)) {
                     Ok(result) => {
                         // Convert result back to JSON
-                        pythonize::depythonize(&result.bind(py)).unwrap_or(serde_json::Value::Null)
+                        pythonize::depythonize(result.bind(py)).unwrap_or(serde_json::Value::Null)
                     }
                     Err(e) => {
                         tracing::error!("[IpcRouter] Python handler error: {}", e);
@@ -243,7 +243,7 @@ impl PyDesktopIpcRouter {
             Python::attach(|py| {
                 let py_data = pythonize::pythonize(py, &data)
                     .map(|v| v.unbind())
-                    .unwrap_or_else(|_| py.None().into());
+                    .unwrap_or_else(|_| py.None());
                 if let Err(e) = handler.call1(py, (py_data,)) {
                     tracing::error!("[IpcRouter] Event handler error: {}", e);
                 }
