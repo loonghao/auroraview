@@ -306,8 +306,10 @@ class LifecycleMixin:
         # Reset initialization flag so showEvent will reinitialize
         self._webview_initialized = False
 
-        # Reset closing flag
-        self._is_closing = False
+        # Note: We intentionally do NOT reset _is_closing here.
+        # The _is_closing flag should remain True after closeEvent to indicate
+        # the widget is in a closing state. It will be reset by showEvent
+        # if the widget is shown again.
 
         # Clear container references (will be recreated on next show)
         self._webview_container = None
