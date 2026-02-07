@@ -16,8 +16,7 @@ from typing import TYPE_CHECKING, Optional
 try:
     from qtpy.QtCore import QTimer
     from qtpy.QtGui import QWindow
-    from qtpy.QtWidgets import QWidget
-    from qtpy.QtWidgets import QVBoxLayout
+    from qtpy.QtWidgets import QVBoxLayout, QWidget
 except ImportError as e:
     raise ImportError(
         "Qt backend requires qtpy and Qt bindings. Install with: pip install auroraview[qt]"

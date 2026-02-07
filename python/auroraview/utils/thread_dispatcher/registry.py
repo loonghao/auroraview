@@ -192,12 +192,13 @@ def _register_builtin_backends() -> None:
         BlenderDispatcherBackend,
         FallbackDispatcherBackend,
         HoudiniDispatcherBackend,
-        MayaDispatcherBackend,
         MaxDispatcherBackend,
+        MayaDispatcherBackend,
         NukeDispatcherBackend,
         QtDispatcherBackend,
         UnrealDispatcherBackend,
     )
+
 
     register_dispatcher_backend(
         MayaDispatcherBackend, priority=DispatcherPriority.MAYA, name="Maya"

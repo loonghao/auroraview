@@ -25,9 +25,8 @@ from auroraview.integration.qt._compat import (
 )
 
 if TYPE_CHECKING:
-    from qtpy.QtWidgets import QStackedWidget
-    from qtpy.QtWidgets import QWidget
     from qtpy.QtGui import QWindow
+    from qtpy.QtWidgets import QStackedWidget, QWidget
 
     from auroraview.core.webview import WebView
 
