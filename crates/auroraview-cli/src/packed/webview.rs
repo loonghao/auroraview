@@ -585,14 +585,14 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
 
         // Build fs scope with cwd
-        let mut fs_scope = PathScope::new().allow(&cwd);
+        let fs_scope = PathScope::new().allow(&cwd);
 
         // On Windows, also allow access to extensions directory
         #[cfg(target_os = "windows")]
-        {
+        let fs_scope = {
             let extensions_dir = get_extensions_dir();
-            fs_scope = fs_scope.allow(&extensions_dir);
-        }
+            fs_scope.allow(&extensions_dir)
+        };
 
         // Create a restricted scope configuration
         ScopeConfig::new()
