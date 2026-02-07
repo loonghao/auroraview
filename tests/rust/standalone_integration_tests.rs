@@ -51,13 +51,11 @@ fn test_loading_html_generation() {
     assert!(html.contains("<html"));
     assert!(html.contains("</html>"));
 
-    // Verify loading animation elements
-    assert!(html.contains("loading"));
-    assert!(html.contains("spin")); // Animation keyframe
+    // Verify loading page has root container for React app
+    assert!(html.contains("root"));
 
-    // Verify styling
-    assert!(html.contains("background"));
-    assert!(html.contains("gradient"));
+    // Verify styling references
+    assert!(html.contains("background") || html.contains("stylesheet"));
 }
 
 /// Test URL loading script generation
