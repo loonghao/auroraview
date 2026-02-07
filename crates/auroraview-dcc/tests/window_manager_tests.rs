@@ -11,9 +11,8 @@ fn test_window_manager_new() {
 
 #[test]
 fn test_window_manager_create() {
+    // On Windows, variables are unused (non-Windows test only)
     let _manager = WindowManager::new();
-
-    // Create without parent (will fail on Windows, but tests structure)
     let _config = DccConfig::new().title("Test Window").size(400, 300);
 
     // On non-Windows, this should work (stub implementation)
@@ -23,10 +22,10 @@ fn test_window_manager_create() {
         assert!(result.is_ok());
 
         let id = result.unwrap();
-        assert_eq!(manager.count(), 1);
-        assert!(manager.list().contains(&id));
+        assert_eq!(_manager.count(), 1);
+        assert!(_manager.list().contains(&id));
 
-        let info = manager.get(&id);
+        let info = _manager.get(&id);
         assert!(info.is_some());
         assert_eq!(info.unwrap().title, "Test Window");
     }
