@@ -6,12 +6,22 @@ handling common types like datetime, enum, and optional fields.
 
 from __future__ import annotations
 
+import typing
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Tuple, Type, TypeVar
 
 T = TypeVar("T", bound="Serializable")
+
+
+def _resolve_type_hints(cls):
+    # type: (type) -> Dict[str, Any]
+    """Resolve type hints for a class, handling `from __future__ import annotations`."""
+    try:
+        return typing.get_type_hints(cls)
+    except Exception:
+        return {}
 
 
 class Serializable:
@@ -28,6 +38,9 @@ class Serializable:
         # from_dict() is automatically provided as a classmethod
     """
 
+    #: Set of field names to exclude from to_dict() when their value is None.
+    _exclude_none_fields = frozenset()  # type: frozenset
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert dataclass to dictionary.
 
@@ -42,8 +55,12 @@ class Serializable:
         if not is_dataclass(self):
             raise TypeError(f"{self.__class__.__name__} is not a dataclass")
 
+        exclude_none = self._exclude_none_fields
         result = {}
         for field_name, field_value in asdict(self).items():
+            # Skip None values for fields marked as exclude-when-None
+            if exclude_none and field_name in exclude_none and field_value is None:
+                continue
             # Handle datetime conversion
             if isinstance(field_value, datetime):
                 result[field_name] = field_value.isoformat()
@@ -77,29 +94,28 @@ class Serializable:
         if not is_dataclass(cls):
             raise TypeError(f"{cls.__name__} is not a dataclass")
 
-        # Get dataclass fields
         from dataclasses import fields
+
+        # Resolve real type hints (handles `from __future__ import annotations`)
+        resolved_hints = _resolve_type_hints(cls)
 
         field_dict = {}
         for field in fields(cls):
             field_name = field.name
             if field_name not in data:
-                # Skip missing fields (use default)
                 continue
 
             value = data[field_name]
 
-            # Get field type annotation
-            field_type = field.type
+            # Use resolved type hint if available, otherwise fall back to field.type
+            field_type = resolved_hints.get(field_name, field.type)
 
-            # Handle Optional types
             is_optional = _is_optional_type(field_type)
 
             if value is None and is_optional:
                 field_dict[field_name] = None
                 continue
 
-            # Extract actual type for Optional
             actual_type = _extract_actual_type(field_type)
 
             # Handle datetime

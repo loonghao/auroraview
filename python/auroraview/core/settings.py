@@ -56,6 +56,18 @@ class WebViewSettings(Serializable):
     # Additional settings for advanced use cases
     _extra: dict = field(default_factory=dict)
 
+    def to_dict(self) -> dict:
+        """Convert settings to dictionary, flattening _extra fields.
+
+        Returns:
+            Dictionary with all settings including custom extra keys
+        """
+        result = super().to_dict()
+        # Remove internal _extra dict and flatten its contents
+        extra = result.pop("_extra", {})
+        result.update(extra)
+        return result
+
     def set(self, key: str, value: object) -> None:
         """Set a custom setting value.
 
