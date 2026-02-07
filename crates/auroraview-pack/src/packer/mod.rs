@@ -58,11 +58,6 @@ pub use traits::{
     PackContext, PackHook, PackOutput, PackPlugin, PackResult, PackTarget, Packer, TargetPacker,
 };
 
-#[cfg(target_os = "linux")]
-pub use desktop::LinuxTargetPacker;
-#[cfg(target_os = "macos")]
-pub use desktop::MacOSTargetPacker;
-
 use crate::{PackConfig, PackError};
 use std::sync::Arc;
 
