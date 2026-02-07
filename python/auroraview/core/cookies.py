@@ -40,6 +40,8 @@ class Cookie(Serializable):
         same_site: SameSite attribute ("Strict", "Lax", "None", or None)
     """
 
+    _exclude_none_fields = frozenset({"domain", "expires", "same_site"})
+
     name: str
     value: str
     domain: Optional[str] = None
