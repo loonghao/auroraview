@@ -7,7 +7,9 @@ use crate::error::{DccError, Result};
 use crate::ipc::IpcRouter;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tracing::{debug, info};
+#[cfg(target_os = "windows")]
+use tracing::debug;
+use tracing::info;
 
 /// Unique window identifier
 pub type WindowId = String;
