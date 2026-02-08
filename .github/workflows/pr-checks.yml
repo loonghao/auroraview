@@ -464,7 +464,8 @@ jobs:
           - os: macos-latest
             target: universal2-apple-darwin
             artifact-name: wheels-macos-universal2-apple-darwin
-            maturin-args: '--release --out dist --sdist --find-interpreter --features python-bindings,ext-module,abi3-py38'
+            # Note: --sdist removed to avoid 100MB PyPI limit in releases
+            maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
     steps:
       - uses: actions/checkout@v6
 

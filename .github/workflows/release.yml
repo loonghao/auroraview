@@ -129,11 +129,19 @@ jobs:
               });
 
               const hasLinux = artifacts.artifacts.some(a => a.name === 'wheels-linux-x86_64');
+              const hasLinuxArm64 = artifacts.artifacts.some(a => a.name === 'wheels-linux-arm64');
               const hasWindows = artifacts.artifacts.some(a => a.name === 'wheels-windows-x64');
+              const hasWindowsArm64 = artifacts.artifacts.some(a => a.name === 'wheels-windows-arm64');
               const hasMacos = artifacts.artifacts.some(a => a.name === 'wheels-macos-universal2-apple-darwin');
 
+              // Check for essential platforms (x86_64) - ARM64 is optional for PR artifacts
               if (hasLinux && hasWindows && hasMacos) {
                 console.log(`Found matching artifacts from run ${run.id} (commit: ${targetSha})`);
+                console.log(`  Linux x86_64: ${hasLinux}`);
+                console.log(`  Linux ARM64: ${hasLinuxArm64}`);
+                console.log(`  Windows x64: ${hasWindows}`);
+                console.log(`  Windows ARM64: ${hasWindowsArm64}`);
+                console.log(`  macOS universal2: ${hasMacos}`);
                 core.setOutput('available', 'true');
                 core.setOutput('run_id', run.id.toString());
                 core.setOutput('source_sha', targetSha);
@@ -159,7 +167,9 @@ jobs:
       matrix:
         artifact:
           - wheels-linux-x86_64
+          - wheels-linux-arm64
           - wheels-windows-x64
+          - wheels-windows-arm64
           - wheels-macos-universal2-apple-darwin
           - wheels-linux-x86_64-py37
           - wheels-windows-x64-py37
@@ -333,6 +343,26 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Verify npm authentication
+        run: |
+          echo "Verifying npm authentication..."
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "ERROR: NPM_TOKEN secret is not set or empty"
+            echo "Please set the NPM_TOKEN secret in GitHub repository settings"
+            exit 1
+          fi
+          # Verify token format (npm tokens typically start with 'npm_' or are 36 char hex)
+          TOKEN="${{ secrets.NPM_TOKEN }}"
+          if [[ "$TOKEN" =~ ^npm_[a-zA-Z0-9]{36}$ ]] || [[ "$TOKEN" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; then
+            echo "Token format appears valid"
+          else
+            echo "WARNING: Token format may be invalid. Expected npm_ prefix or UUID format."
+          fi
+          echo "Checking npm registry connectivity..."
+          npm ping || echo "WARNING: npm ping failed, but continuing..."
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Download SDK artifact
         uses: actions/download-artifact@v7
         with:
@@ -349,13 +379,42 @@ jobs:
           npm version "$VERSION" --no-git-tag-version --allow-same-version
 
       - name: Publish to npm
+        id: npm-publish
         run: |
           cd packages/auroraview-sdk
           # Skip prepublishOnly since we already have pre-built dist from build-sdk job
           # This avoids the "tsup: not found" error
-          npm publish --access public --ignore-scripts
+          npm publish --access public --ignore-scripts 2>&1 || {
+            EXIT_CODE=$?
+            echo "ERROR: npm publish failed with exit code $EXIT_CODE"
+            echo ""
+            echo "Common causes:"
+            echo "  1. NPM_TOKEN is expired or revoked - generate a new token at https://www.npmjs.com/settings/loonghao/tokens"
+            echo "  2. Package version already exists - check if this version was already published"
+            echo "  3. Package name not found - ensure @auroraview/sdk is properly set up on npm"
+            echo ""
+            echo "To fix token issues:"
+            echo "  1. Go to https://www.npmjs.com/settings/loonghao/tokens"
+            echo "  2. Generate a new 'Automation' token with publish permission"
+            echo "  3. Update the NPM_TOKEN secret in GitHub repository settings"
+            exit $EXIT_CODE
+          }
+          echo "NPM publish completed successfully"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: NPM Publish Summary
+        if: always()
+        run: |
+          echo "## npm Publish Results" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.npm-publish.outcome }}" == "success" ]; then
+            echo "- ✅ npm publish successful" >> $GITHUB_STEP_SUMMARY
+            echo "- Package: @auroraview/sdk" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ npm publish failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Error: Check logs above for details" >> $GITHUB_STEP_SUMMARY
+            echo "- Common fix: Regenerate NPM_TOKEN at https://www.npmjs.com/settings/loonghao/tokens" >> $GITHUB_STEP_SUMMARY
+          fi
 
   # Publish MCP Server to PyPI
   mcp-pypi-publish:
@@ -457,30 +516,48 @@ jobs:
         run: |
           echo "Before cleanup:"
           ls -la dist/
-          
+
           # Remove any directories that might have been accidentally included
           find dist -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
-          
+
           # Remove any .js files (shouldn't be here, but just in case)
           rm -f dist/*.js 2>/dev/null || true
-          
+
           # Remove CLI tar.gz/zip files (they don't have version numbers in the name)
           # CLI files: auroraview-cli-linux-x64.tar.gz, auroraview-cli-macos-arm64.tar.gz, etc.
-          # sdist file: auroraview-0.3.1.tar.gz (has version number)
           rm -f dist/auroraview-cli-*.tar.gz || true
           rm -f dist/auroraview-cli-*.zip || true
-          
-          # Remove any other non-wheel, non-sdist files
-          # Keep only .whl files and versioned .tar.gz (sdist)
-          find dist -maxdepth 1 -type f ! -name "*.whl" ! -name "auroraview-[0-9]*.tar.gz" -delete || true
-          
-          # Remove linux_x86_64 wheels as PyPI doesn't accept them
+
+          # Remove Gallery artifacts
+          rm -f dist/auroraview-gallery-*.tar.gz || true
+          rm -f dist/auroraview-gallery-*.zip || true
+
+          # Remove sdist (tar.gz) to avoid 100MB PyPI limit
+          # sdist often exceeds limit due to bundled assets and Rust code
+          # Users can build from GitHub source if needed
+          rm -f dist/*.tar.gz || true
+
+          # Remove any other non-wheel files
+          # Keep only .whl files
+          find dist -maxdepth 1 -type f ! -name "*.whl" -delete || true
+
+          # Remove linux_x86_64 and linux_aarch64 wheels as PyPI doesn't accept them
           # These wheels require webkit2gtk at runtime and use non-standard platform tags
           # Linux users should install from GitHub Releases or build from source
           rm -f dist/*-linux_x86_64.whl || true
-          
+          rm -f dist/*-linux_aarch64.whl || true
+
           echo "After cleanup (files for PyPI):"
           ls -la dist/
+
+          # Verify we have wheels to publish
+          wheel_count=$(ls dist/*.whl 2>/dev/null | wc -l)
+          if [ "$wheel_count" -eq 0 ]; then
+            echo "WARNING: No wheels found after cleanup!"
+            echo "This may happen if all wheels are Linux-only (not accepted by PyPI)"
+            exit 1
+          fi
+          echo "Found $wheel_count wheel(s) for PyPI upload"
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v3
@@ -495,12 +572,46 @@ jobs:
           print-hash: true
           skip-existing: true  # Skip files that already exist on PyPI
 
+  # Build standalone source distribution (optional, for GitHub Releases only)
+  # This is separate from PyPI publish to avoid 100MB limit
+  build-sdist:
+    name: Build Source Distribution
+    runs-on: ubuntu-latest
+    needs: [release-please, check-tag]
+    if: |
+      always() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true'))
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install maturin
+        run: pip install maturin
+
+      - name: Build sdist
+        run: |
+          # Build sdist only (no wheels)
+          maturin sdist --out dist
+          ls -la dist/
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          retention-days: 7
+
   # Upload Release Assets - Preserves release-please changelog, only adds artifacts
   # Uses softprops/action-gh-release which preserves existing release body when only uploading files
   upload-release-assets:
     name: Upload Release Assets
     runs-on: ubuntu-latest
-    needs: [release-please, check-tag, check-pr-artifacts, pypi-publish, build-cli, build-gallery, reuse-pr-wheels, build-wheels]
+    needs: [release-please, check-tag, check-pr-artifacts, pypi-publish, build-cli, build-gallery, reuse-pr-wheels, build-wheels, build-sdist]
     if: |
       always() &&
       ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
@@ -546,24 +657,35 @@ jobs:
           path: gallery-artifacts
         continue-on-error: true
 
+      - name: Download sdist artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: sdist
+          path: sdist-artifacts
+        continue-on-error: true
+
       - name: Rename artifacts with version
         run: |
           VERSION="${{ steps.tag.outputs.VERSION }}"
           echo "Renaming artifacts with version: $VERSION"
-          
+
           # Rename CLI artifacts to include version
-          # Format: auroraview-cli-windows-x64.zip -> auroraview-cli-0.3.8-x86_64-pc-windows-msvc.zip
           if [ -d "cli-artifacts" ]; then
             for file in cli-artifacts/*; do
               if [ -f "$file" ]; then
                 basename=$(basename "$file")
-                # Map friendly names to Rust target triples for consistency
                 case "$basename" in
                   auroraview-cli-windows-x64.zip)
                     newname="auroraview-cli-${VERSION}-x86_64-pc-windows-msvc.zip"
                     ;;
+                  auroraview-cli-windows-arm64.zip)
+                    newname="auroraview-cli-${VERSION}-aarch64-pc-windows-msvc.zip"
+                    ;;
                   auroraview-cli-linux-x64.tar.gz)
                     newname="auroraview-cli-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+                    ;;
+                  auroraview-cli-linux-arm64.tar.gz)
+                    newname="auroraview-cli-${VERSION}-aarch64-unknown-linux-gnu.tar.gz"
                     ;;
                   auroraview-cli-macos-arm64.tar.gz)
                     newname="auroraview-cli-${VERSION}-aarch64-apple-darwin.tar.gz"
@@ -572,7 +694,6 @@ jobs:
                     newname="auroraview-cli-${VERSION}-x86_64-apple-darwin.tar.gz"
                     ;;
                   *)
-                    # Fallback: just insert version
                     newname=$(echo "$basename" | sed "s/auroraview-cli-/auroraview-cli-${VERSION}-/")
                     ;;
                 esac
@@ -581,20 +702,24 @@ jobs:
               fi
             done
           fi
-          
+
           # Rename Gallery artifacts to include version
-          # Format: auroraview-gallery-windows-x64.zip -> auroraview-gallery-0.3.8-x86_64-pc-windows-msvc.zip
           if [ -d "gallery-artifacts" ]; then
             for file in gallery-artifacts/*; do
               if [ -f "$file" ]; then
                 basename=$(basename "$file")
-                # Map friendly names to Rust target triples for consistency
                 case "$basename" in
                   auroraview-gallery-windows-x64.zip)
                     newname="auroraview-gallery-${VERSION}-x86_64-pc-windows-msvc.zip"
                     ;;
+                  auroraview-gallery-windows-arm64.zip)
+                    newname="auroraview-gallery-${VERSION}-aarch64-pc-windows-msvc.zip"
+                    ;;
                   auroraview-gallery-linux-x64.tar.gz)
                     newname="auroraview-gallery-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+                    ;;
+                  auroraview-gallery-linux-arm64.tar.gz)
+                    newname="auroraview-gallery-${VERSION}-aarch64-unknown-linux-gnu.tar.gz"
                     ;;
                   auroraview-gallery-macos-arm64.tar.gz)
                     newname="auroraview-gallery-${VERSION}-aarch64-apple-darwin.tar.gz"
@@ -603,7 +728,6 @@ jobs:
                     newname="auroraview-gallery-${VERSION}-x86_64-apple-darwin.tar.gz"
                     ;;
                   *)
-                    # Fallback: just insert version
                     newname=$(echo "$basename" | sed "s/auroraview-gallery-/auroraview-gallery-${VERSION}-/")
                     ;;
                 esac
@@ -612,12 +736,21 @@ jobs:
               fi
             done
           fi
-          
+
+          # Copy sdist to release artifacts
+          if [ -d "sdist-artifacts" ]; then
+            for file in sdist-artifacts/*.tar.gz; do
+              if [ -f "$file" ]; then
+                cp "$file" "release-artifacts/"
+                echo "Added sdist: $(basename "$file")"
+              fi
+            done
+          fi
+
           echo "Final release artifacts:"
           ls -la release-artifacts/
 
       # Upload assets to existing release created by release-please
-      # softprops/action-gh-release preserves existing body when only uploading files
       - name: Upload assets to existing release
         uses: softprops/action-gh-release@v2
         with:
@@ -626,4 +759,18 @@ jobs:
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Summary
+        run: |
+          echo "## Release Assets Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Uploaded to GitHub Release" >> $GITHUB_STEP_SUMMARY
+          echo "- Wheels (all platforms including ARM64)" >> $GITHUB_STEP_SUMMARY
+          echo "- CLI binaries (x64 and ARM64)" >> $GITHUB_STEP_SUMMARY
+          echo "- Gallery binaries (x64 and ARM64)" >> $GITHUB_STEP_SUMMARY
+          echo "- Source distribution (sdist)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Uploaded to PyPI" >> $GITHUB_STEP_SUMMARY
+          echo "- Wheels (Windows x64/macOS universal2 only)" >> $GITHUB_STEP_SUMMARY
+          echo "- Note: Linux wheels and sdist excluded due to PyPI limitations" >> $GITHUB_STEP_SUMMARY
 
