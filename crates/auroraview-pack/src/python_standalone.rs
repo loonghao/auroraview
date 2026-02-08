@@ -260,62 +260,22 @@ fn get_full_python_version(short_version: &str, _release: &str) -> String {
     }
 }
 
-/// Download a file using system tools
+/// Download a file using ureq (cross-platform, no external dependencies)
 fn download_file(url: &str, dest: &Path) -> PackResult<()> {
-    // Try different download methods based on platform
-    #[cfg(target_os = "windows")]
-    {
-        // Use PowerShell on Windows
-        let status = std::process::Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                &format!(
-                    "Invoke-WebRequest -Uri '{}' -OutFile '{}' -UseBasicParsing",
-                    url,
-                    dest.display()
-                ),
-            ])
-            .status()
-            .map_err(|e| PackError::Download(format!("Failed to run PowerShell: {}", e)))?;
+    tracing::debug!("Downloading: {}", url);
 
-        if !status.success() {
-            return Err(PackError::Download(format!(
-                "PowerShell download failed with status: {}",
-                status
-            )));
-        }
-    }
+    let mut response = ureq::get(url)
+        .header("User-Agent", "auroraview-pack")
+        .call()
+        .map_err(|e| PackError::Download(format!("Failed to download from {}: {}", url, e)))?;
 
-    #[cfg(not(target_os = "windows"))]
-    {
-        // Try curl first, then wget
-        let curl_result = std::process::Command::new("curl")
-            .args(["-fsSL", "-o", dest.to_str().unwrap_or("."), url])
-            .status();
+    let data = response
+        .body_mut()
+        .read_to_vec()
+        .map_err(|e| PackError::Download(format!("Failed to read download response: {}", e)))?;
 
-        match curl_result {
-            Ok(status) if status.success() => {}
-            _ => {
-                // Fallback to wget
-                let wget_status = std::process::Command::new("wget")
-                    .args(["-q", "-O", dest.to_str().unwrap_or("."), url])
-                    .status()
-                    .map_err(|e| {
-                        PackError::Download(format!("Failed to download (no curl/wget): {}", e))
-                    })?;
-
-                if !wget_status.success() {
-                    return Err(PackError::Download(format!(
-                        "wget download failed with status: {}",
-                        wget_status
-                    )));
-                }
-            }
-        }
-    }
+    std::fs::write(dest, &data)?;
+    tracing::debug!("Downloaded {} bytes to {}", data.len(), dest.display());
 
     Ok(())
 }
