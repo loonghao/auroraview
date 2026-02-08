@@ -4,7 +4,7 @@ use opentelemetry::global;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry::KeyValue;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
-use opentelemetry_sdk::trace::{SdkTracerProvider, Sampler};
+use opentelemetry_sdk::trace::{Sampler, SdkTracerProvider};
 use opentelemetry_sdk::Resource;
 use tracing_opentelemetry::{MetricsLayer, OpenTelemetryLayer};
 use tracing_subscriber::layer::SubscriberExt;
@@ -32,7 +32,10 @@ pub fn init(config: TelemetryConfig) -> Result<TelemetryGuard, TelemetryError> {
 
     let resource = Resource::builder()
         .with_service_name(config.service_name.clone())
-        .with_attribute(KeyValue::new("service.version", config.service_version.clone()))
+        .with_attribute(KeyValue::new(
+            "service.version",
+            config.service_version.clone(),
+        ))
         .build();
 
     // Build trace provider
@@ -98,12 +101,7 @@ pub fn init(config: TelemetryConfig) -> Result<TelemetryGuard, TelemetryError> {
     let env_filter = EnvFilter::try_new(&config.log_level).map_err(map_init_err)?;
 
     // Use a simpler init approach to avoid complex type nesting
-    init_subscriber(
-        env_filter,
-        &tracer_provider,
-        &meter_provider,
-        &config,
-    )?;
+    init_subscriber(env_filter, &tracer_provider, &meter_provider, &config)?;
 
     guard::mark_initialized();
 
@@ -226,11 +224,9 @@ fn init_subscriber(
                     .map_err(map_init_err)
             }
         }
-        (None, None, false) => {
-            tracing_subscriber::registry()
-                .with(env_filter)
-                .try_init()
-                .map_err(map_init_err)
-        }
+        (None, None, false) => tracing_subscriber::registry()
+            .with(env_filter)
+            .try_init()
+            .map_err(map_init_err),
     }
 }
