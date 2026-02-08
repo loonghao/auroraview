@@ -16,7 +16,7 @@ use std::process::Command;
 use std::time::{Duration, SystemTime};
 
 /// Default vx version fallback when API is unavailable
-const VX_DEFAULT_VERSION: &str = "0.6.27";
+const VX_DEFAULT_VERSION: &str = "0.7.5";
 
 /// GitHub API URL for latest release
 const VX_GITHUB_API_URL: &str = "https://api.github.com/repos/loonghao/vx/releases/latest";
@@ -28,21 +28,25 @@ const VERSION_CACHE_DURATION: Duration = Duration::from_secs(24 * 60 * 60);
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct VersionCache {
     version: String,
+    download_url: Option<String>,
     timestamp: SystemTime,
 }
 
-/// vx download URL templates
+/// Asset name pattern per platform (matched against GitHub release assets)
 #[cfg(target_os = "windows")]
-const VX_DOWNLOAD_URL: &str =
-    "https://github.com/loonghao/vx/releases/download/vx-v{version}/vx-x86_64-pc-windows-msvc.zip";
+const VX_ASSET_NAME: &str = "vx-x86_64-pc-windows-msvc.zip";
 
-#[cfg(target_os = "linux")]
-const VX_DOWNLOAD_URL: &str =
-    "https://github.com/loonghao/vx/releases/download/vx-v{version}/vx-x86_64-unknown-linux-gnu.tar.gz";
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const VX_ASSET_NAME: &str = "vx-x86_64-unknown-linux-gnu.tar.gz";
 
-#[cfg(target_os = "macos")]
-const VX_DOWNLOAD_URL: &str =
-    "https://github.com/loonghao/vx/releases/download/vx-v{version}/vx-x86_64-apple-darwin.tar.gz";
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+const VX_ASSET_NAME: &str = "vx-aarch64-unknown-linux-gnu.tar.gz";
+
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+const VX_ASSET_NAME: &str = "vx-x86_64-apple-darwin.tar.gz";
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+const VX_ASSET_NAME: &str = "vx-aarch64-apple-darwin.tar.gz";
 
 /// vx tool manager
 ///
@@ -118,8 +122,8 @@ impl VxTool {
         Self::get_cache_dir().join("vx_version_cache.json")
     }
 
-    /// Fetch the latest vx version from GitHub API
-    fn fetch_latest_version() -> PackResult<String> {
+    /// Fetch the latest vx version and download URL from GitHub API
+    fn fetch_latest_release() -> PackResult<(String, Option<String>)> {
         tracing::info!("Fetching latest vx version from GitHub...");
 
         let mut response = ureq::get(VX_GITHUB_API_URL)
@@ -141,18 +145,36 @@ impl VxTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| PackError::Config("Missing tag_name in vx release".to_string()))?;
 
-        // Extract version from tag (e.g., "vx-v0.6.27" -> "0.6.27")
+        // Extract version from tag (supports "vx-v0.6.27", "v0.7.5", "0.7.5")
         let version = tag_name
             .trim_start_matches("vx-v")
             .trim_start_matches('v')
             .to_string();
 
+        // Find the matching asset download URL
+        let download_url = json
+            .get("assets")
+            .and_then(|a| a.as_array())
+            .and_then(|assets| {
+                assets.iter().find_map(|asset| {
+                    let name = asset.get("name")?.as_str()?;
+                    if name == VX_ASSET_NAME {
+                        asset
+                            .get("browser_download_url")
+                            .and_then(|u| u.as_str())
+                            .map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+            });
+
         tracing::info!("Latest vx version: {}", version);
-        Ok(version)
+        Ok((version, download_url))
     }
 
-    /// Get the cached or latest vx version
-    fn get_version() -> String {
+    /// Get the cached or latest vx version and download URL
+    fn get_version_info() -> (String, Option<String>) {
         // Check cache first
         let cache_path = Self::get_version_cache_path();
         if let Ok(content) = fs::read_to_string(&cache_path) {
@@ -160,18 +182,19 @@ impl VxTool {
                 if let Ok(elapsed) = cache.timestamp.elapsed() {
                     if elapsed < VERSION_CACHE_DURATION {
                         tracing::debug!("Using cached vx version: {}", cache.version);
-                        return cache.version;
+                        return (cache.version, cache.download_url);
                     }
                 }
             }
         }
 
         // Fetch latest version
-        match Self::fetch_latest_version() {
-            Ok(version) => {
+        match Self::fetch_latest_release() {
+            Ok((version, download_url)) => {
                 // Update cache
                 let cache = VersionCache {
                     version: version.clone(),
+                    download_url: download_url.clone(),
                     timestamp: SystemTime::now(),
                 };
                 let _ = fs::create_dir_all(cache_path.parent().unwrap_or(Path::new(".")));
@@ -179,7 +202,7 @@ impl VxTool {
                     &cache_path,
                     serde_json::to_string_pretty(&cache).unwrap_or_default(),
                 );
-                version
+                (version, download_url)
             }
             Err(e) => {
                 tracing::warn!(
@@ -187,7 +210,7 @@ impl VxTool {
                     e,
                     VX_DEFAULT_VERSION
                 );
-                VX_DEFAULT_VERSION.to_string()
+                (VX_DEFAULT_VERSION.to_string(), None)
             }
         }
     }
@@ -204,8 +227,8 @@ impl VxTool {
 
         let vx_path = cache_dir.join(vx_exe_name);
 
-        // Get the version to use
-        let version = Self::get_version();
+        // Get the version and download URL
+        let (version, download_url) = Self::get_version_info();
 
         // Check if already downloaded and valid (and matches version)
         if vx_path.exists() {
@@ -237,10 +260,16 @@ impl VxTool {
             }
         }
 
-        // Download vx
-        tracing::info!("Downloading vx v{}...", version);
-        let url = VX_DOWNLOAD_URL.replace("{version}", &version);
+        // Build download URL: prefer API-provided URL, fallback to convention
+        let url = download_url.unwrap_or_else(|| {
+            format!(
+                "https://github.com/loonghao/vx/releases/download/v{}/{}",
+                version, VX_ASSET_NAME
+            )
+        });
 
+        // Download vx
+        tracing::info!("Downloading vx v{} from: {}", version, url);
         let archive_data = Self::download_file(&url)?;
 
         // Extract the executable from the archive
@@ -362,54 +391,24 @@ impl VxTool {
         Ok(status.success())
     }
 
-    /// Download a file from URL
+    /// Download a file from URL using ureq (cross-platform, no external dependencies)
     fn download_file(url: &str) -> PackResult<Vec<u8>> {
-        #[cfg(target_os = "windows")]
-        {
-            let temp_file = std::env::temp_dir().join("vx-download.zip");
-            let output = Command::new("powershell")
-                .args([
-                    "-NoProfile",
-                    "-NonInteractive",
-                    "-Command",
-                    &format!(
-                        "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
-                         Invoke-WebRequest -Uri '{}' -OutFile '{}' -UseBasicParsing",
-                        url,
-                        temp_file.display()
-                    ),
-                ])
-                .output()
-                .map_err(|e| PackError::Config(format!("Failed to run PowerShell: {}", e)))?;
+        tracing::debug!("Downloading: {}", url);
 
-            if !output.status.success() {
-                return Err(PackError::Config(format!(
-                    "Failed to download vx: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                )));
-            }
+        let mut response = ureq::get(url)
+            .header("User-Agent", "auroraview-pack")
+            .call()
+            .map_err(|e| {
+                PackError::Download(format!("Failed to download vx from {}: {}", url, e))
+            })?;
 
-            let data = fs::read(&temp_file)?;
-            let _ = fs::remove_file(&temp_file);
-            Ok(data)
-        }
+        let data = response
+            .body_mut()
+            .read_to_vec()
+            .map_err(|e| PackError::Download(format!("Failed to read download response: {}", e)))?;
 
-        #[cfg(not(target_os = "windows"))]
-        {
-            let output = Command::new("curl")
-                .args(["-fsSL", url])
-                .output()
-                .map_err(|e| PackError::Config(format!("Failed to run curl: {}", e)))?;
-
-            if !output.status.success() {
-                return Err(PackError::Config(format!(
-                    "Failed to download vx: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                )));
-            }
-
-            Ok(output.stdout)
-        }
+        tracing::debug!("Downloaded {} bytes", data.len());
+        Ok(data)
     }
 
     /// Extract the vx executable from the downloaded archive
@@ -504,7 +503,7 @@ impl VxTool {
 
     /// Get the latest vx version (public API)
     pub fn latest_version() -> String {
-        Self::get_version()
+        Self::get_version_info().0
     }
 
     /// Force update to latest version (ignore cache)

@@ -32,11 +32,16 @@ if TYPE_CHECKING:
     from .state import State
 
 _CORE_IMPORT_ERROR = None
+_IS_PACKED_MODE = False
 try:
     from auroraview._core import WebView as _CoreWebView
 except ImportError as e:
     _CoreWebView = None
     _CORE_IMPORT_ERROR = str(e)
+    # Check if running in packed mode where _core.pyd is not needed
+    import os
+
+    _IS_PACKED_MODE = os.environ.get("AURORAVIEW_PACKED", "0") == "1"
 
 logger = logging.getLogger(__name__)
 
@@ -306,30 +311,34 @@ class WebView(
                                return cmds.polyCube()[0]
         """
         if _CoreWebView is None:
-            import sys
+            # In packed mode, _core.pyd is not needed - Python runs as API server
+            if _IS_PACKED_MODE:
+                logger.info("Packed mode: _core.pyd not available, WebView will run as API server")
+            else:
+                import sys
 
-            error_details = [
-                "AuroraView core library not found.",
-                f"Import error: {_CORE_IMPORT_ERROR}",
-                f"Python version: {sys.version}",
-                f"Platform: {sys.platform}",
-            ]
-            # Check if _core.pyd exists in expected locations
-            try:
-                import auroraview
+                error_details = [
+                    "AuroraView core library not found.",
+                    f"Import error: {_CORE_IMPORT_ERROR}",
+                    f"Python version: {sys.version}",
+                    f"Platform: {sys.platform}",
+                ]
+                # Check if _core.pyd exists in expected locations
+                try:
+                    import auroraview
 
-                pkg_dir = Path(auroraview.__file__).parent
-                pyd_path = pkg_dir / "_core.pyd"
-                so_path = pkg_dir / "_core.so"
-                if pyd_path.exists():
-                    error_details.append(f"Found: {pyd_path}")
-                elif so_path.exists():
-                    error_details.append(f"Found: {so_path}")
-                else:
-                    error_details.append(f"_core.pyd not found in: {pkg_dir}")
-            except Exception:
-                pass
-            raise RuntimeError("\n".join(error_details))
+                    pkg_dir = Path(auroraview.__file__).parent
+                    pyd_path = pkg_dir / "_core.pyd"
+                    so_path = pkg_dir / "_core.so"
+                    if pyd_path.exists():
+                        error_details.append(f"Found: {pyd_path}")
+                    elif so_path.exists():
+                        error_details.append(f"Found: {so_path}")
+                    else:
+                        error_details.append(f"_core.pyd not found in: {pkg_dir}")
+                except Exception:
+                    pass
+                raise RuntimeError("\n".join(error_details))
 
         # Support new WebViewConfig if provided
         if config is not None:
@@ -396,39 +405,43 @@ class WebView(
             mode = embed_mode
 
         # Map new parameter names to Rust core (which still uses old names)
-        self._core = _CoreWebView(
-            title=title,
-            width=width,
-            height=height,
-            url=url,
-            html=html,
-            dev_tools=debug,  # debug -> dev_tools
-            context_menu=context_menu,
-            resizable=resizable,
-            decorations=frame,  # frame -> decorations
-            parent_hwnd=parent,  # parent -> parent_hwnd
-            parent_mode=mode,  # mode -> parent_mode
-            asset_root=asset_root,  # Custom protocol asset root
-            data_directory=data_directory,  # User data directory (cookies, cache, etc.)
-            allow_file_protocol=allow_file_protocol,  # Enable file:// protocol
-            always_on_top=always_on_top,  # Keep window always on top
-            transparent=transparent,  # Enable transparent window
-            background_color=background_color,  # Window background color
-            auto_show=auto_show,  # Control window visibility on creation
-            ipc_batch_size=ipc_batch_size,  # Max messages per tick (0=unlimited)
-            icon=icon,  # Custom window icon path
-            tool_window=tool_window,  # Tool window style (hide from taskbar/Alt+Tab)
-            undecorated_shadow=undecorated_shadow,  # Show shadow for frameless windows
-            allow_new_window=allow_new_window,  # Allow window.open() to create new windows
-            new_window_mode=new_window_mode,  # New window behavior: deny, system_browser, child_webview
-            remote_debugging_port=remote_debugging_port,  # CDP remote debugging port
-            splash_overlay=splash_overlay,  # Show splash overlay while loading
-            allow_downloads=allow_downloads,  # Enable file downloads
-            download_prompt=download_prompt,  # Show "Save As" dialog for downloads
-            download_directory=download_directory,  # Default download directory
-            proxy_url=proxy_url,  # Proxy server URL
-            user_agent=user_agent,  # Custom User-Agent string
-        )
+        # In packed mode, _CoreWebView is not available - Python runs as API server
+        if _CoreWebView is not None:
+            self._core = _CoreWebView(
+                title=title,
+                width=width,
+                height=height,
+                url=url,
+                html=html,
+                dev_tools=debug,  # debug -> dev_tools
+                context_menu=context_menu,
+                resizable=resizable,
+                decorations=frame,  # frame -> decorations
+                parent_hwnd=parent,  # parent -> parent_hwnd
+                parent_mode=mode,  # mode -> parent_mode
+                asset_root=asset_root,  # Custom protocol asset root
+                data_directory=data_directory,  # User data directory (cookies, cache, etc.)
+                allow_file_protocol=allow_file_protocol,  # Enable file:// protocol
+                always_on_top=always_on_top,  # Keep window always on top
+                transparent=transparent,  # Enable transparent window
+                background_color=background_color,  # Window background color
+                auto_show=auto_show,  # Control window visibility on creation
+                ipc_batch_size=ipc_batch_size,  # Max messages per tick (0=unlimited)
+                icon=icon,  # Custom window icon path
+                tool_window=tool_window,  # Tool window style (hide from taskbar/Alt+Tab)
+                undecorated_shadow=undecorated_shadow,  # Show shadow for frameless windows
+                allow_new_window=allow_new_window,  # Allow window.open() to create new windows
+                new_window_mode=new_window_mode,  # New window behavior: deny, system_browser, child_webview
+                remote_debugging_port=remote_debugging_port,  # CDP remote debugging port
+                splash_overlay=splash_overlay,  # Show splash overlay while loading
+                allow_downloads=allow_downloads,  # Enable file downloads
+                download_prompt=download_prompt,  # Show "Save As" dialog for downloads
+                download_directory=download_directory,  # Default download directory
+                proxy_url=proxy_url,  # Proxy server URL
+                user_agent=user_agent,  # Custom User-Agent string
+            )
+        else:
+            self._core = None  # Packed mode: no Rust core needed
         self._event_handlers: Dict[str, List[Callable]] = {}
         self._event_handlers_lock = threading.Lock()
         self._title = title
