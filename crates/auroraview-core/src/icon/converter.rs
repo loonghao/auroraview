@@ -8,7 +8,7 @@ use std::path::Path;
 
 use image::codecs::ico::{IcoEncoder, IcoFrame};
 use image::imageops::FilterType;
-use image::io::Reader as ImageReader;
+use image::ImageReader;
 use image::{ColorType, DynamicImage};
 
 use super::DEFAULT_ICO_SIZES;
@@ -114,7 +114,7 @@ fn png_to_ico_with_config(
         let resized = img.resize_exact(size, size, config.filter);
         let rgba = resized.to_rgba8();
 
-        let frame = IcoFrame::as_png(rgba.as_raw(), size, size, ColorType::Rgba8)
+        let frame = IcoFrame::as_png(rgba.as_raw(), size, size, ColorType::Rgba8.into())
             .map_err(|e| WebViewError::Icon(format!("Failed to create ICO frame: {}", e)))?;
 
         frames.push(frame);
