@@ -46,7 +46,7 @@ tar = "0.4"
 zip = { version = "4", default-features = false, features = ["deflate"] }
 
 # HTTP client for downloads
-ureq = "2.10"
+ureq = "3.2"
 
 # URL parsing
 url = "2.5"
