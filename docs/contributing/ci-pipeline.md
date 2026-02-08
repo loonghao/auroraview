@@ -138,6 +138,44 @@ To avoid duplicate builds, artifacts are shared between jobs:
 2. **Update dependencies**: Keep the dependency graph in sync with `Cargo.toml`
 3. **Cache optimization**: Ensure cache keys are package-specific
 
+## Release Workflow
+
+The release process is handled by `.github/workflows/release.yml`, which manages:
+
+1. **Version Management**: Uses `release-please` to automate version bumps and changelog generation
+2. **Wheel Building**: Builds platform-specific wheels for all supported platforms
+3. **Package Publishing**: Publishes to PyPI (Python) and npm (TypeScript SDK)
+4. **GitHub Releases**: Creates release assets including CLI binaries and Gallery executables
+
+### Supported Platforms
+
+| Platform | Architecture | PyPI Upload | GitHub Release |
+|----------|-------------|-------------|----------------|
+| Windows | x64 (amd64) | ✅ Yes | ✅ Yes |
+| Windows | ARM64 | ❌ No | ✅ Yes |
+| macOS | universal2 (x64+ARM64) | ✅ Yes | ✅ Yes |
+| Linux | x86_64 | ❌ No | ✅ Yes |
+| Linux | ARM64 | ❌ No | ✅ Yes |
+
+Note: Linux wheels are not uploaded to PyPI because they require system libraries (webkit2gtk) and use non-standard platform tags. Linux users should install from GitHub Releases or build from source.
+
+### NPM Publishing
+
+The SDK is published to npm as `@auroraview/sdk`. If publishing fails:
+
+1. **Token Expired**: Generate a new token at https://www.npmjs.com/settings/loonghao/tokens
+2. **Create Automation Token**: Select "Automation" type with publish permission
+3. **Update GitHub Secret**: Set `NPM_TOKEN` in repository settings
+4. **Verify Package Access**: Ensure the package exists and you have publish rights
+
+### PyPI Publishing
+
+The Python package is published to PyPI as `auroraview`. Key considerations:
+
+1. **File Size Limit**: PyPI has a 100MB limit per file. Source distributions (sdist) often exceed this due to bundled assets, so they are built separately for GitHub Releases only.
+2. **Platform Tags**: Only Windows and macOS wheels are uploaded to PyPI. Linux wheels use non-standard tags and are excluded.
+3. **ABI3 Support**: Python 3.8+ uses abi3 (stable ABI) for a single wheel per platform. Python 3.7 requires separate non-abi3 builds.
+
 ## Troubleshooting
 
 ### CI runs all checks unexpectedly
@@ -154,3 +192,29 @@ To avoid duplicate builds, artifacts are shared between jobs:
 
 - Cache keys are based on `Cargo.lock` hash
 - Different packages may have different cache keys
+
+### NPM publish fails with 404
+
+Error: `404 Not Found - PUT https://registry.npmjs.org/@auroraview%2fsdk`
+
+**Solution**:
+1. Verify `NPM_TOKEN` is set in GitHub repository secrets
+2. Generate a new token at https://www.npmjs.com/settings/loonghao/tokens
+3. Use "Automation" token type (not "Publish")
+4. Ensure the token hasn't expired
+
+### PyPI publish fails with "File too large"
+
+Error: `400 File too large. Limit for project 'auroraview' is 100 MB`
+
+**Solution**:
+- This is expected for source distributions (sdist) containing Rust code and assets
+- The CI workflow automatically excludes sdist from PyPI uploads
+- sdist is built separately and uploaded to GitHub Releases only
+- Users needing source can download from GitHub Releases
+
+### ARM64 builds fail
+
+- Linux ARM64 uses QEMU emulation which may be slow
+- Windows ARM64 requires cross-compilation toolchain
+- These builds are allowed to fail in PR checks but must pass for releases
