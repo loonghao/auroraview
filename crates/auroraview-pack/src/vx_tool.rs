@@ -128,12 +128,9 @@ impl VxTool {
             .map_err(|e| PackError::Config(format!("Failed to fetch vx version: {}", e)))?;
 
         let json: serde_json::Value = {
-            let buf = response
-                .body_mut()
-                .read_to_vec()
-                .map_err(|e| {
-                    PackError::Config(format!("Failed to read vx version response: {}", e))
-                })?;
+            let buf = response.body_mut().read_to_vec().map_err(|e| {
+                PackError::Config(format!("Failed to read vx version response: {}", e))
+            })?;
             serde_json::from_slice(&buf).map_err(|e| {
                 PackError::Config(format!("Failed to parse vx version response: {}", e))
             })?
