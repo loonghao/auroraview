@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.7](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.6...auroraview-v0.4.7) (2026-02-08)
+
+
+### Bug Fixes
+
+* resolve dependency API breakage for ureq 3.x and image 0.25 ([a004497](https://github.com/loonghao/auroraview/commit/a0044977d6405551d634a1504e7d50d811e4ef1a))
+
 ## [Unreleased]
 
 ### Fixed
