@@ -67,7 +67,7 @@ active-win-pos-rs = "0.9"
 
 # Image processing (for icon utilities)
 # Note: Using 0.24 for compatibility with Rust 1.77+ (0.25+ requires edition2024 via pxfm)
-image = { version = "0.24", default-features = false, features = ["png", "ico"] }
+image = { version = "0.25", default-features = false, features = ["png", "ico"] }
 
 # WebView (optional, for builder extensions)
 wry = { version = "0.53.5", optional = true }
