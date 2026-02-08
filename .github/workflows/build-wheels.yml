@@ -170,9 +170,70 @@ jobs:
         with:
           target: ${{ matrix.target }}
           python-version: ${{ inputs.python-version }}
-          maturin-args: '--release --out dist --sdist --find-interpreter --features python-bindings,ext-module,abi3-py38'
+          # Note: --sdist removed to avoid 100MB PyPI limit
+          # sdist is built separately in the sdist job if needed
+          maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-macos-universal2-apple-darwin'
+
+  # Linux ARM64 builds (abi3) - Cross-compiled using QEMU
+  linux-arm64:
+    runs-on: ubuntu-latest
+    needs: [sdk-assets]
+    strategy:
+      matrix:
+        target: [aarch64]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download SDK assets
+        uses: actions/download-artifact@v7
+        with:
+          name: build-sdk-assets
+          path: crates/auroraview-core/src/assets/js/
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build and Test Wheel (ARM64)
+        uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ matrix.target }}
+          python-version: ${{ inputs.python-version }}
+          maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
+          test-wheel: 'false'  # Skip testing on emulated ARM64
+          artifact-name: 'wheels-linux-arm64'
+          use-sccache: 'false'  # Disable sccache for cross-compilation
+
+  # Windows ARM64 builds (abi3)
+  windows-arm64:
+    runs-on: windows-latest
+    needs: [sdk-assets]
+    strategy:
+      matrix:
+        target: [aarch64-pc-windows-msvc]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download SDK assets
+        uses: actions/download-artifact@v7
+        with:
+          name: build-sdk-assets
+          path: crates/auroraview-core/src/assets/js/
+
+      - name: Build and Test Wheel (ARM64)
+        uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ matrix.target }}
+          python-version: ${{ inputs.python-version }}
+          maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38,win-webview2'
+          test-wheel: 'false'  # Skip testing on cross-compiled ARM64
+          artifact-name: 'wheels-windows-arm64'
+          use-sccache: 'false'  # Disable sccache for cross-compilation
 
   # ============================================================================
   # Python 3.7 builds (non-abi3) - Separate wheel for each platform
