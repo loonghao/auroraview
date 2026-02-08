@@ -31,6 +31,8 @@ members = [
     "crates/auroraview-signals",
     "crates/auroraview-protect",
     "crates/auroraview-pack",
+    # Telemetry (OpenTelemetry-based observability)
+    "crates/auroraview-telemetry",
 ]
 resolver = "2"
 
