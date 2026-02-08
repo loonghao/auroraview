@@ -76,5 +76,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/loonghao/auroraview"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

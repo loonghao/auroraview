@@ -351,17 +351,44 @@ jobs:
             echo "Please set the NPM_TOKEN secret in GitHub repository settings"
             exit 1
           fi
-          # Verify token format (npm tokens typically start with 'npm_' or are 36 char hex)
+
+          # Verify token format (npm tokens typically start with 'npm_' or are classic token hex)
           TOKEN="${{ secrets.NPM_TOKEN }}"
-          if [[ "$TOKEN" =~ ^npm_[a-zA-Z0-9]{36}$ ]] || [[ "$TOKEN" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; then
-            echo "Token format appears valid"
+          if [[ "$TOKEN" =~ ^npm_[a-zA-Z0-9]{36}$ ]]; then
+            echo "Token format: Granular access token (npm_ prefix)"
+          elif [[ "$TOKEN" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; then
+            echo "Token format: Classic token (UUID format)"
           else
             echo "WARNING: Token format may be invalid. Expected npm_ prefix or UUID format."
+            echo "Token length: ${#TOKEN}"
           fi
+
           echo "Checking npm registry connectivity..."
           npm ping || echo "WARNING: npm ping failed, but continuing..."
+
+          echo "Checking npm whoami..."
+          npm whoami 2>/dev/null || echo "Could not determine npm user (this is OK for publish-only tokens)"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify package configuration
+        run: |
+          cd packages/auroraview-sdk
+          echo "Package name: $(cat package.json | grep '"name"' | head -1)"
+          echo "Checking publishConfig..."
+          if grep -q '"publishConfig"' package.json; then
+            echo "publishConfig found:"
+            cat package.json | grep -A5 '"publishConfig"'
+          else
+            echo "WARNING: No publishConfig found in package.json"
+            echo "Adding publishConfig for scoped package..."
+          fi
+
+          echo ""
+          echo "For scoped packages (@auroraview/sdk), ensure:"
+          echo "1. The 'auroraview' organization exists on npm: https://www.npmjs.com/org/auroraview"
+          echo "2. Your account has publish access to this organization"
+          echo "3. If this is the first publish, you may need to create the package via npm web UI first"
 
       - name: Download SDK artifact
         uses: actions/download-artifact@v7
