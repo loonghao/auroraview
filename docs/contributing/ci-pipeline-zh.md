@@ -149,15 +149,21 @@ CI 使用路径过滤器来确定运行哪些工作流：
 
 ### 支持的平台
 
-| 平台 | 架构 | PyPI 上传 | GitHub 发布 |
-|------|------|-----------|-------------|
-| Windows | x64 (amd64) | ✅ 是 | ✅ 是 |
-| Windows | ARM64 | ❌ 否 | ✅ 是 |
-| macOS | universal2 (x64+ARM64) | ✅ 是 | ✅ 是 |
-| Linux | x86_64 | ❌ 否 | ✅ 是 |
-| Linux | ARM64 | ❌ 否 | ✅ 是 |
+| 平台 | 架构 | Python Wheel | PyPI 上传 | GitHub 发布 |
+|------|------|-------------|-----------|-------------|
+| Windows | x64 (amd64) | ✅ 是 | ✅ 是 | ✅ 是 |
+| macOS | universal2 (x64+ARM64) | ✅ 是 | ✅ 是 | ✅ 是 |
+| Linux | x86_64 | ✅ 是 | ❌ 否 | ✅ 是 |
+| Windows | ARM64 | ❌ 否 | ❌ 否 | 仅 CLI/Gallery |
+| Linux | ARM64 | ❌ 否 | ❌ 否 | 仅 CLI/Gallery |
 
-注意：Linux wheel 不会上传到 PyPI，因为它们需要系统库（webkit2gtk）并使用非标准平台标签。Linux 用户应从 GitHub 发布页面安装或从源代码构建。
+**为什么没有 ARM64 Python wheel？**
+
+- **Linux ARM64**：`wry` 依赖 `webkit2gtk`，需要原生 ARM64 系统库（`libwebkit2gtk-4.1-dev`）。从 x86_64 交叉编译需要完整的 ARM64 sysroot 及这些库，极其复杂且不可靠。`pkg-config` 在没有正确配置交叉编译 sysroot 的情况下无法解析 ARM64 库路径。
+- **Windows ARM64**：`maturin` 需要与目标架构匹配的 Python 解释器来确定正确的 wheel 文件名和 ABI 标签。GitHub Actions 运行器仅提供 x86_64 Python 解释器。
+- **解决方法**：ARM64 用户可以从源码构建（`pip install .`，需要 Rust 工具链），或使用 CLI/Gallery ARM64 二进制文件（纯 Rust 构建，不依赖 Python）。
+
+注意：Linux x86_64 wheel 不会上传到 PyPI，因为它们需要系统库（webkit2gtk）并使用非标准平台标签。Linux 用户应从 GitHub 发布页面安装或从源代码构建。
 
 ### NPM 发布
 
@@ -215,6 +221,9 @@ Python 包作为 `auroraview` 发布到 PyPI。关键注意事项：
 
 ### ARM64 构建失败
 
-- Linux ARM64 使用 QEMU 模拟，可能较慢
-- Windows ARM64 需要交叉编译工具链
-- 这些构建在 PR 检查中允许失败，但发布时必须通过
+ARM64 Python wheel 构建已从 CI 中移除，原因是根本性的交叉编译限制：
+
+- **Linux ARM64**：`wry`/`webkit2gtk` 在没有完整 ARM64 sysroot 的情况下无法交叉编译。`pkg-config` 报错 "not been configured to support cross-compilation"，因为 x86_64 运行器上没有 ARM64 开发库。
+- **Windows ARM64**：`maturin` 找不到匹配的 Python 解释器。错误："Need a Python interpreter to compile for Windows without PyO3's generate-import-lib feature"。即使启用 `generate-import-lib`，maturin 仍需要解释器来生成 wheel 打包元数据。
+
+CLI 和 Gallery 的 ARM64 二进制文件（纯 Rust，无 Python 依赖）仍通过交叉编译构建，可在 GitHub Releases 中获取。

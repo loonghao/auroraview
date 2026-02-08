@@ -129,18 +129,15 @@ jobs:
               });
 
               const hasLinux = artifacts.artifacts.some(a => a.name === 'wheels-linux-x86_64');
-              const hasLinuxArm64 = artifacts.artifacts.some(a => a.name === 'wheels-linux-arm64');
               const hasWindows = artifacts.artifacts.some(a => a.name === 'wheels-windows-x64');
-              const hasWindowsArm64 = artifacts.artifacts.some(a => a.name === 'wheels-windows-arm64');
               const hasMacos = artifacts.artifacts.some(a => a.name === 'wheels-macos-universal2-apple-darwin');
 
-              // Check for essential platforms (x86_64) - ARM64 is optional for PR artifacts
+              // Check for essential platforms (x86_64 + macOS universal2)
+              // Note: ARM64 wheels are not built (webkit2gtk/wry cross-compilation is not feasible)
               if (hasLinux && hasWindows && hasMacos) {
                 console.log(`Found matching artifacts from run ${run.id} (commit: ${targetSha})`);
                 console.log(`  Linux x86_64: ${hasLinux}`);
-                console.log(`  Linux ARM64: ${hasLinuxArm64}`);
                 console.log(`  Windows x64: ${hasWindows}`);
-                console.log(`  Windows ARM64: ${hasWindowsArm64}`);
                 console.log(`  macOS universal2: ${hasMacos}`);
                 core.setOutput('available', 'true');
                 core.setOutput('run_id', run.id.toString());
@@ -167,9 +164,7 @@ jobs:
       matrix:
         artifact:
           - wheels-linux-x86_64
-          - wheels-linux-arm64
           - wheels-windows-x64
-          - wheels-windows-arm64
           - wheels-macos-universal2-apple-darwin
           - wheels-linux-x86_64-py37
           - wheels-windows-x64-py37
@@ -344,51 +339,34 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Verify npm authentication
+        id: npm-auth
+        continue-on-error: true
         run: |
-          echo "Verifying npm authentication..."
-          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
-            echo "ERROR: NPM_TOKEN secret is not set or empty"
-            echo "Please set the NPM_TOKEN secret in GitHub repository settings"
-            exit 1
-          fi
-
-          # Verify token format (npm tokens typically start with 'npm_' or are classic token hex)
-          TOKEN="${{ secrets.NPM_TOKEN }}"
-          if [[ "$TOKEN" =~ ^npm_[a-zA-Z0-9]{36}$ ]]; then
-            echo "Token format: Granular access token (npm_ prefix)"
-          elif [[ "$TOKEN" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; then
-            echo "Token format: Classic token (UUID format)"
-          else
-            echo "WARNING: Token format may be invalid. Expected npm_ prefix or UUID format."
-            echo "Token length: ${#TOKEN}"
-          fi
-
           echo "Checking npm registry connectivity..."
-          npm ping || echo "WARNING: npm ping failed, but continuing..."
+          npm ping || echo "WARNING: npm ping failed"
 
           echo "Checking npm whoami..."
-          npm whoami 2>/dev/null || echo "Could not determine npm user (this is OK for publish-only tokens)"
+          if npm whoami 2>/dev/null; then
+            echo "npm_auth=ok" >> $GITHUB_OUTPUT
+          else
+            echo "WARNING: npm whoami failed - token may be expired or revoked"
+            echo "npm_auth=failed" >> $GITHUB_OUTPUT
+            echo ""
+            echo "ACTION REQUIRED: Regenerate NPM_TOKEN"
+            echo "  1. Go to https://www.npmjs.com/settings/loonghao/tokens"
+            echo "  2. Generate a new 'Automation' token with publish permission"
+            echo "  3. Update the NPM_TOKEN secret in GitHub repository settings"
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Verify package configuration
         run: |
           cd packages/auroraview-sdk
-          echo "Package name: $(cat package.json | grep '"name"' | head -1)"
-          echo "Checking publishConfig..."
-          if grep -q '"publishConfig"' package.json; then
-            echo "publishConfig found:"
-            cat package.json | grep -A5 '"publishConfig"'
-          else
-            echo "WARNING: No publishConfig found in package.json"
-            echo "Adding publishConfig for scoped package..."
-          fi
-
-          echo ""
-          echo "For scoped packages (@auroraview/sdk), ensure:"
-          echo "1. The 'auroraview' organization exists on npm: https://www.npmjs.com/org/auroraview"
-          echo "2. Your account has publish access to this organization"
-          echo "3. If this is the first publish, you may need to create the package via npm web UI first"
+          echo "Package: $(node -p "require('./package.json').name")"
+          echo "Version: $(node -p "require('./package.json').version")"
+          echo "Registry: $(node -p "require('./package.json').publishConfig?.registry || 'default'")"
+          echo "Access: $(node -p "require('./package.json').publishConfig?.access || 'default'")"
 
       - name: Download SDK artifact
         uses: actions/download-artifact@v7
@@ -409,24 +387,33 @@ jobs:
         id: npm-publish
         run: |
           cd packages/auroraview-sdk
+
+          # Check version existence before publishing
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Publishing @auroraview/sdk@$VERSION..."
+
+          if npm view "@auroraview/sdk@$VERSION" version 2>/dev/null; then
+            echo "Version $VERSION already published, skipping"
+            echo "publish_result=skipped" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           # Skip prepublishOnly since we already have pre-built dist from build-sdk job
-          # This avoids the "tsup: not found" error
-          npm publish --access public --ignore-scripts 2>&1 || {
+          if npm publish --access public --ignore-scripts 2>&1; then
+            echo "publish_result=success" >> $GITHUB_OUTPUT
+          else
             EXIT_CODE=$?
-            echo "ERROR: npm publish failed with exit code $EXIT_CODE"
+            echo "publish_result=failed" >> $GITHUB_OUTPUT
             echo ""
-            echo "Common causes:"
-            echo "  1. NPM_TOKEN is expired or revoked - generate a new token at https://www.npmjs.com/settings/loonghao/tokens"
-            echo "  2. Package version already exists - check if this version was already published"
-            echo "  3. Package name not found - ensure @auroraview/sdk is properly set up on npm"
+            echo "npm publish failed (exit code $EXIT_CODE)"
+            echo "Most likely cause: NPM_TOKEN is expired or revoked"
             echo ""
-            echo "To fix token issues:"
+            echo "To fix:"
             echo "  1. Go to https://www.npmjs.com/settings/loonghao/tokens"
-            echo "  2. Generate a new 'Automation' token with publish permission"
-            echo "  3. Update the NPM_TOKEN secret in GitHub repository settings"
+            echo "  2. Generate a new 'Automation' token"
+            echo "  3. Update NPM_TOKEN in GitHub repository secrets"
             exit $EXIT_CODE
-          }
-          echo "NPM publish completed successfully"
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -434,13 +421,14 @@ jobs:
         if: always()
         run: |
           echo "## npm Publish Results" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.npm-publish.outcome }}" == "success" ]; then
-            echo "- ✅ npm publish successful" >> $GITHUB_STEP_SUMMARY
-            echo "- Package: @auroraview/sdk" >> $GITHUB_STEP_SUMMARY
+          RESULT="${{ steps.npm-publish.outputs.publish_result }}"
+          if [ "$RESULT" == "success" ]; then
+            echo "- Published @auroraview/sdk successfully" >> $GITHUB_STEP_SUMMARY
+          elif [ "$RESULT" == "skipped" ]; then
+            echo "- Skipped: version already exists on npm" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- ❌ npm publish failed" >> $GITHUB_STEP_SUMMARY
-            echo "- Error: Check logs above for details" >> $GITHUB_STEP_SUMMARY
-            echo "- Common fix: Regenerate NPM_TOKEN at https://www.npmjs.com/settings/loonghao/tokens" >> $GITHUB_STEP_SUMMARY
+            echo "- npm publish failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Fix: Regenerate NPM_TOKEN at https://www.npmjs.com/settings/loonghao/tokens" >> $GITHUB_STEP_SUMMARY
           fi
 
   # Publish MCP Server to PyPI
@@ -568,11 +556,10 @@ jobs:
           # Keep only .whl files
           find dist -maxdepth 1 -type f ! -name "*.whl" -delete || true
 
-          # Remove linux_x86_64 and linux_aarch64 wheels as PyPI doesn't accept them
+          # Remove linux_x86_64 wheels as PyPI doesn't accept them
           # These wheels require webkit2gtk at runtime and use non-standard platform tags
           # Linux users should install from GitHub Releases or build from source
           rm -f dist/*-linux_x86_64.whl || true
-          rm -f dist/*-linux_aarch64.whl || true
 
           echo "After cleanup (files for PyPI):"
           ls -la dist/
@@ -792,12 +779,16 @@ jobs:
           echo "## Release Assets Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Uploaded to GitHub Release" >> $GITHUB_STEP_SUMMARY
-          echo "- Wheels (all platforms including ARM64)" >> $GITHUB_STEP_SUMMARY
+          echo "- Wheels (Windows x64, macOS universal2, Linux x86_64)" >> $GITHUB_STEP_SUMMARY
           echo "- CLI binaries (x64 and ARM64)" >> $GITHUB_STEP_SUMMARY
           echo "- Gallery binaries (x64 and ARM64)" >> $GITHUB_STEP_SUMMARY
           echo "- Source distribution (sdist)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Uploaded to PyPI" >> $GITHUB_STEP_SUMMARY
-          echo "- Wheels (Windows x64/macOS universal2 only)" >> $GITHUB_STEP_SUMMARY
-          echo "- Note: Linux wheels and sdist excluded due to PyPI limitations" >> $GITHUB_STEP_SUMMARY
+          echo "- Wheels (Windows x64 + macOS universal2 only)" >> $GITHUB_STEP_SUMMARY
+          echo "- Note: Linux wheels excluded (non-standard tags, requires webkit2gtk)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Not Available" >> $GITHUB_STEP_SUMMARY
+          echo "- ARM64 Python wheels (webkit2gtk/wry cross-compilation not feasible)" >> $GITHUB_STEP_SUMMARY
+          echo "- ARM64 users: build from source or use CLI/Gallery ARM64 binaries" >> $GITHUB_STEP_SUMMARY
 

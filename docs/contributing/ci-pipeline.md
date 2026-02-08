@@ -149,15 +149,21 @@ The release process is handled by `.github/workflows/release.yml`, which manages
 
 ### Supported Platforms
 
-| Platform | Architecture | PyPI Upload | GitHub Release |
-|----------|-------------|-------------|----------------|
-| Windows | x64 (amd64) | ✅ Yes | ✅ Yes |
-| Windows | ARM64 | ❌ No | ✅ Yes |
-| macOS | universal2 (x64+ARM64) | ✅ Yes | ✅ Yes |
-| Linux | x86_64 | ❌ No | ✅ Yes |
-| Linux | ARM64 | ❌ No | ✅ Yes |
+| Platform | Architecture | Python Wheel | PyPI Upload | GitHub Release |
+|----------|-------------|--------------|-------------|----------------|
+| Windows | x64 (amd64) | ✅ Yes | ✅ Yes | ✅ Yes |
+| macOS | universal2 (x64+ARM64) | ✅ Yes | ✅ Yes | ✅ Yes |
+| Linux | x86_64 | ✅ Yes | ❌ No | ✅ Yes |
+| Windows | ARM64 | ❌ No | ❌ No | CLI/Gallery only |
+| Linux | ARM64 | ❌ No | ❌ No | CLI/Gallery only |
 
-Note: Linux wheels are not uploaded to PyPI because they require system libraries (webkit2gtk) and use non-standard platform tags. Linux users should install from GitHub Releases or build from source.
+**Why no ARM64 Python wheels?**
+
+- **Linux ARM64**: `wry` depends on `webkit2gtk` which requires native ARM64 system libraries (`libwebkit2gtk-4.1-dev`). Cross-compiling from x86_64 requires a complete ARM64 sysroot with these libraries, which is extremely complex and unreliable. `pkg-config` cannot resolve ARM64 library paths without a properly configured cross-compilation sysroot.
+- **Windows ARM64**: `maturin` requires a Python interpreter matching the target architecture to determine correct wheel filenames and ABI tags. GitHub Actions runners only provide x86_64 Python interpreters.
+- **Workaround**: ARM64 users can build from source (`pip install .` with Rust toolchain), or use the CLI/Gallery ARM64 binaries which are pure Rust builds without Python dependency.
+
+Note: Linux x86_64 wheels are not uploaded to PyPI because they require system libraries (webkit2gtk) and use non-standard platform tags. Linux users should install from GitHub Releases or build from source.
 
 ### NPM Publishing
 
@@ -215,6 +221,9 @@ Error: `400 File too large. Limit for project 'auroraview' is 100 MB`
 
 ### ARM64 builds fail
 
-- Linux ARM64 uses QEMU emulation which may be slow
-- Windows ARM64 requires cross-compilation toolchain
-- These builds are allowed to fail in PR checks but must pass for releases
+ARM64 Python wheel builds have been removed from CI due to fundamental cross-compilation limitations:
+
+- **Linux ARM64**: `wry`/`webkit2gtk` cannot be cross-compiled without a complete ARM64 sysroot. The `pkg-config` tool fails with "not been configured to support cross-compilation" because ARM64 development libraries are not available on x86_64 runners.
+- **Windows ARM64**: `maturin` cannot find a matching Python interpreter. Error: "Need a Python interpreter to compile for Windows without PyO3's generate-import-lib feature". Even with `generate-import-lib`, maturin still needs an interpreter for wheel packaging metadata.
+
+CLI and Gallery ARM64 binaries (pure Rust, no Python) are still built via cross-compilation and available in GitHub Releases.
