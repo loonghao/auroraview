@@ -138,6 +138,44 @@ CI 使用路径过滤器来确定运行哪些工作流：
 2. **更新依赖**：保持依赖图与 `Cargo.toml` 同步
 3. **缓存优化**：确保缓存键是包特定的
 
+## 发布工作流
+
+发布流程由 `.github/workflows/release.yml` 处理，管理以下内容：
+
+1. **版本管理**: 使用 `release-please` 自动化版本升级和变更日志生成
+2. **Wheel 构建**: 为所有支持的平台构建平台特定的 wheel
+3. **包发布**: 发布到 PyPI（Python）和 npm（TypeScript SDK）
+4. **GitHub 发布**: 创建包含 CLI 二进制文件和 Gallery 可执行文件的发布资源
+
+### 支持的平台
+
+| 平台 | 架构 | PyPI 上传 | GitHub 发布 |
+|------|------|-----------|-------------|
+| Windows | x64 (amd64) | ✅ 是 | ✅ 是 |
+| Windows | ARM64 | ❌ 否 | ✅ 是 |
+| macOS | universal2 (x64+ARM64) | ✅ 是 | ✅ 是 |
+| Linux | x86_64 | ❌ 否 | ✅ 是 |
+| Linux | ARM64 | ❌ 否 | ✅ 是 |
+
+注意：Linux wheel 不会上传到 PyPI，因为它们需要系统库（webkit2gtk）并使用非标准平台标签。Linux 用户应从 GitHub 发布页面安装或从源代码构建。
+
+### NPM 发布
+
+SDK 作为 `@auroraview/sdk` 发布到 npm。如果发布失败：
+
+1. **Token 过期**: 在 https://www.npmjs.com/settings/loonghao/tokens 生成新令牌
+2. **创建自动化令牌**: 选择具有发布权限的 "Automation" 类型
+3. **更新 GitHub Secret**: 在仓库设置中设置 `NPM_TOKEN`
+4. **验证包访问权限**: 确保包存在并且您具有发布权限
+
+### PyPI 发布
+
+Python 包作为 `auroraview` 发布到 PyPI。关键注意事项：
+
+1. **文件大小限制**: PyPI 对每个文件有 100MB 限制。源代码分发包（sdist）通常由于捆绑的资源而超过此限制，因此它们仅单独构建用于 GitHub 发布。
+2. **平台标签**: 只有 Windows 和 macOS 的 wheel 会上传到 PyPI。Linux wheel 使用非标准标签并被排除。
+3. **ABI3 支持**: Python 3.8+ 使用 abi3（稳定 ABI），每个平台只需一个 wheel。Python 3.7 需要单独的非 abi3 构建。
+
 ## 故障排除
 
 ### CI 意外运行所有检查
@@ -154,3 +192,29 @@ CI 使用路径过滤器来确定运行哪些工作流：
 
 - 缓存键基于 `Cargo.lock` 哈希
 - 不同的包可能有不同的缓存键
+
+### NPM 发布失败，返回 404
+
+错误：`404 Not Found - PUT https://registry.npmjs.org/@auroraview%2fsdk`
+
+**解决方案**：
+1. 验证 GitHub 仓库 secrets 中已设置 `NPM_TOKEN`
+2. 在 https://www.npmjs.com/settings/loonghao/tokens 生成新令牌
+3. 使用 "Automation" 令牌类型（不是 "Publish"）
+4. 确保令牌未过期
+
+### PyPI 发布失败，提示"文件太大"
+
+错误：`400 File too large. Limit for project 'auroraview' is 100 MB`
+
+**解决方案**：
+- 对于包含 Rust 代码和资源的源代码分发包（sdist），这是预期的
+- CI 工作流会自动将 sdist 从 PyPI 上传中排除
+- sdist 单独构建并仅上传到 GitHub 发布
+- 需要源代码的用户可以从 GitHub 发布页面下载
+
+### ARM64 构建失败
+
+- Linux ARM64 使用 QEMU 模拟，可能较慢
+- Windows ARM64 需要交叉编译工具链
+- 这些构建在 PR 检查中允许失败，但发布时必须通过
