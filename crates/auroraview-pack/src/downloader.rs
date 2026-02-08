@@ -10,7 +10,7 @@
 use crate::error::{PackError, PackResult};
 use sha2::{Digest, Sha256, Sha512};
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
@@ -248,14 +248,13 @@ impl Downloader {
 
     /// Fetch URL content
     fn fetch_url(&self, url: &str) -> PackResult<Vec<u8>> {
-        let response = ureq::get(url)
+        let mut response = ureq::get(url)
             .call()
             .map_err(|e| PackError::Config(format!("Failed to download {}: {}", url, e)))?;
 
-        let mut buffer = Vec::new();
-        response
-            .into_reader()
-            .read_to_end(&mut buffer)
+        let buffer = response
+            .body_mut()
+            .read_to_vec()
             .map_err(|e| PackError::Config(format!("Failed to read response: {}", e)))?;
 
         debug!("Downloaded {} bytes from {}", buffer.len(), url);

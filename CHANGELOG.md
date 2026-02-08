@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+* Fix `ureq 3.x` API compatibility issues in `auroraview-pack`
+  * Update `downloader.rs`: Use `body_mut().read_to_vec()` instead of `into_reader().read_to_end()`
+  * Update `vx_tool.rs`: Replace deprecated `set()` with `header()`, use `body_mut().read_to_vec()`
+* Fix `image 0.25` API compatibility issues in `auroraview-core`
+  * Update `compress.rs`, `converter.rs`, `loader.rs`: Use `ImageReader` instead of `io::Reader`
+  * Fix `ColorType::Rgba8` to `ExtendedColorType` conversion using `.into()`
+
 ## [0.4.6](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.5...auroraview-v0.4.6) (2026-02-08)
 
 

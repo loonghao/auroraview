@@ -122,15 +122,22 @@ impl VxTool {
     fn fetch_latest_version() -> PackResult<String> {
         tracing::info!("Fetching latest vx version from GitHub...");
 
-        let response = ureq::get(VX_GITHUB_API_URL)
-            .set("User-Agent", "auroraview-pack")
+        let mut response = ureq::get(VX_GITHUB_API_URL)
+            .header("User-Agent", "auroraview-pack")
             .call()
             .map_err(|e| PackError::Config(format!("Failed to fetch vx version: {}", e)))?;
 
-        let json: serde_json::Value =
-            serde_json::from_reader(response.into_reader()).map_err(|e| {
+        let json: serde_json::Value = {
+            let buf = response
+                .body_mut()
+                .read_to_vec()
+                .map_err(|e| {
+                    PackError::Config(format!("Failed to read vx version response: {}", e))
+                })?;
+            serde_json::from_slice(&buf).map_err(|e| {
                 PackError::Config(format!("Failed to parse vx version response: {}", e))
-            })?;
+            })?
+        };
 
         let tag_name = json
             .get("tag_name")
