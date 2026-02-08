@@ -586,7 +586,7 @@ dependencies = [
  "flume 0.12.0",
  "hyper 1.8.1",
  "hyper-util",
- "image 0.24.9",
+ "image",
  "ipc-channel",
  "ipckit",
  "mdns-sd",
@@ -721,7 +721,7 @@ dependencies = [
  "dirs",
  "dunce",
  "flate2",
- "image 0.25.9",
+ "image",
  "indicatif",
  "ipckit",
  "mime_guess",
@@ -761,7 +761,7 @@ dependencies = [
  "dirs",
  "dunce",
  "http 1.4.0",
- "image 0.24.9",
+ "image",
  "mdns-sd",
  "mime_guess",
  "parking_lot",
@@ -804,7 +804,7 @@ dependencies = [
  "auroraview-core",
  "auroraview-plugins",
  "ctrlc",
- "image 0.25.9",
+ "image",
  "raw-window-handle",
  "rstest 0.24.0",
  "serde",
@@ -904,7 +904,7 @@ dependencies = [
  "glob",
  "hostname",
  "ico",
- "image 0.25.9",
+ "image",
  "indicatif",
  "rand 0.8.5",
  "rayon",
@@ -3902,19 +3902,6 @@ checksum = "bf39cc0423ee66021dc5eccface85580e4a001e0c5288bae8bea7ecb69225e90"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "image"
-version = "0.24.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5690139d2f55868e080017335e4b94cb7414274c74f1669c84fb5feba2c9f69d"
-dependencies = [
- "bytemuck",
- "byteorder",
- "color_quant",
- "num-traits",
- "png 0.17.16",
 ]
 
 [[package]]

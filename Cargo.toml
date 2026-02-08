@@ -161,7 +161,7 @@ rfd = "0.16"
 open = "5.3"
 
 # Image processing for window icon (minimal features for PNG loading)
-image = { version = "0.24", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 # Service discovery
 mdns-sd = "0.17"
