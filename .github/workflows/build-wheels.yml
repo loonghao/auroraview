@@ -176,64 +176,22 @@ jobs:
           test-wheel: ${{ inputs.test-wheel }}
           artifact-name: 'wheels-macos-universal2-apple-darwin'
 
-  # Linux ARM64 builds (abi3) - Cross-compiled using QEMU
-  linux-arm64:
-    runs-on: ubuntu-latest
-    needs: [sdk-assets]
-    strategy:
-      matrix:
-        target: [aarch64]
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Download SDK assets
-        uses: actions/download-artifact@v7
-        with:
-          name: build-sdk-assets
-          path: crates/auroraview-core/src/assets/js/
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
-      - name: Build and Test Wheel (ARM64)
-        uses: ./.github/actions/build-wheel
-        with:
-          target: ${{ matrix.target }}
-          python-version: ${{ inputs.python-version }}
-          maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
-          test-wheel: 'false'  # Skip testing on emulated ARM64
-          artifact-name: 'wheels-linux-arm64'
-          use-sccache: 'false'  # Disable sccache for cross-compilation
-
-  # Windows ARM64 builds (abi3)
-  windows-arm64:
-    runs-on: windows-latest
-    needs: [sdk-assets]
-    strategy:
-      matrix:
-        target: [aarch64-pc-windows-msvc]
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Download SDK assets
-        uses: actions/download-artifact@v7
-        with:
-          name: build-sdk-assets
-          path: crates/auroraview-core/src/assets/js/
-
-      - name: Build and Test Wheel (ARM64)
-        uses: ./.github/actions/build-wheel
-        with:
-          target: ${{ matrix.target }}
-          python-version: ${{ inputs.python-version }}
-          maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38,win-webview2'
-          test-wheel: 'false'  # Skip testing on cross-compiled ARM64
-          artifact-name: 'wheels-windows-arm64'
-          use-sccache: 'false'  # Disable sccache for cross-compilation
+  # NOTE: Linux ARM64 and Windows ARM64 wheel builds are NOT included here.
+  #
+  # Linux ARM64: wry depends on webkit2gtk which requires native ARM64 system libraries
+  # (libwebkit2gtk-4.1-dev). Cross-compiling from x86_64 requires a complete ARM64 sysroot
+  # with these libraries, which is extremely complex and unreliable in CI.
+  # pkg-config cannot find ARM64 libraries without a properly configured sysroot.
+  #
+  # Windows ARM64: maturin requires a Python interpreter matching the target architecture
+  # to determine the correct wheel filename and ABI tags. GitHub Actions runners only
+  # provide x86_64 Python, and PyO3's generate-import-lib feature alone cannot solve
+  # the interpreter discovery issue for maturin's wheel packaging.
+  #
+  # ARM64 users should:
+  # - Install from source: pip install . (requires Rust toolchain)
+  # - Download pre-built wheels from GitHub Releases (if available)
+  # - Use CLI/Gallery ARM64 binaries which are pure Rust and don't need Python
 
   # ============================================================================
   # Python 3.7 builds (non-abi3) - Separate wheel for each platform
