@@ -3,37 +3,43 @@
 //! This module provides functionality to modify Windows PE executable resources,
 //! including icons, version information, and subsystem settings.
 //!
-//! It uses rcedit (https://github.com/electron/rcedit) as the underlying tool.
+//! It uses rcedit (https://github.com/electron/rcedit) as the underlying tool,
+//! managed through vx (https://github.com/loonghao/vx).
 
+use crate::vx_tool::VxTool;
 use crate::{PackError, PackResult};
-use std::fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// rcedit release version to download
-const RCEDIT_VERSION: &str = "v2.0.0";
-
-/// rcedit download URL template
-const RCEDIT_DOWNLOAD_URL: &str =
-    "https://github.com/electron/rcedit/releases/download/{version}/rcedit-x64.exe";
+/// Rcedit execution strategy
+enum RceditRunner {
+    /// Run rcedit through vx (`vx rcedit <args>`)
+    Vx(VxTool),
+    /// Run rcedit directly from a custom path
+    Direct(PathBuf),
+}
 
 /// Windows executable resource editor
 ///
 /// This struct wraps the rcedit tool for modifying PE resources.
+/// By default, rcedit is managed through vx. A custom rcedit path
+/// can be provided as a fallback.
 pub struct ResourceEditor {
-    /// Path to the rcedit executable
-    rcedit_path: PathBuf,
+    runner: RceditRunner,
 }
 
 impl ResourceEditor {
-    /// Create a new ResourceEditor, downloading rcedit if necessary
+    /// Create a new ResourceEditor using vx to manage rcedit.
+    ///
+    /// vx will automatically download and cache rcedit if not already installed.
     pub fn new() -> PackResult<Self> {
-        let rcedit_path = Self::ensure_rcedit()?;
-        Ok(Self { rcedit_path })
+        let vx = VxTool::new()?;
+        Ok(Self {
+            runner: RceditRunner::Vx(vx),
+        })
     }
 
-    /// Create a ResourceEditor with a custom rcedit path
+    /// Create a ResourceEditor with a custom rcedit path.
     pub fn with_rcedit_path(path: PathBuf) -> PackResult<Self> {
         if !path.exists() {
             return Err(PackError::ResourceEdit(format!(
@@ -41,118 +47,28 @@ impl ResourceEditor {
                 path.display()
             )));
         }
-        Ok(Self { rcedit_path: path })
+        Ok(Self {
+            runner: RceditRunner::Direct(path),
+        })
     }
 
-    /// Minimum expected size for rcedit-x64.exe (should be ~1.3MB)
-    const RCEDIT_MIN_SIZE: u64 = 500_000;
-
-    /// Ensure rcedit is available, downloading if necessary
-    fn ensure_rcedit() -> PackResult<PathBuf> {
-        // Check cache directory
-        let cache_dir = dirs::cache_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("auroraview")
-            .join("tools");
-
-        fs::create_dir_all(&cache_dir)?;
-
-        let rcedit_path = cache_dir.join("rcedit-x64.exe");
-
-        // Check if already downloaded and valid
-        if rcedit_path.exists() {
-            // Verify file size to detect corrupted downloads
-            if let Ok(metadata) = fs::metadata(&rcedit_path) {
-                if metadata.len() >= Self::RCEDIT_MIN_SIZE {
-                    tracing::debug!("Using cached rcedit at: {}", rcedit_path.display());
-                    return Ok(rcedit_path);
-                } else {
-                    tracing::warn!(
-                        "Cached rcedit is too small ({} bytes), re-downloading...",
-                        metadata.len()
-                    );
-                    let _ = fs::remove_file(&rcedit_path);
-                }
+    /// Execute rcedit with the given arguments.
+    fn run_rcedit(&self, args: &[&str]) -> PackResult<std::process::Output> {
+        match &self.runner {
+            RceditRunner::Vx(vx) => {
+                let mut cmd_args = vec!["rcedit"];
+                cmd_args.extend(args);
+                tracing::debug!("Running: vx {}", cmd_args.join(" "));
+                vx.exec(&cmd_args)
+                    .map_err(|e| PackError::ResourceEdit(format!("Failed to run vx rcedit: {}", e)))
             }
-        }
-
-        // Download rcedit
-        tracing::info!("Downloading rcedit {}...", RCEDIT_VERSION);
-        let url = RCEDIT_DOWNLOAD_URL.replace("{version}", RCEDIT_VERSION);
-
-        let response = Self::download_file(&url)?;
-
-        // Validate downloaded size
-        if (response.len() as u64) < Self::RCEDIT_MIN_SIZE {
-            return Err(PackError::ResourceEdit(format!(
-                "Downloaded rcedit is too small ({} bytes), expected at least {} bytes. \
-                 Download may have failed.",
-                response.len(),
-                Self::RCEDIT_MIN_SIZE
-            )));
-        }
-
-        let mut file = fs::File::create(&rcedit_path)?;
-        file.write_all(&response)?;
-
-        tracing::info!(
-            "rcedit downloaded to: {} ({} bytes)",
-            rcedit_path.display(),
-            response.len()
-        );
-        Ok(rcedit_path)
-    }
-
-    /// Download a file from URL
-    fn download_file(url: &str) -> PackResult<Vec<u8>> {
-        // Use PowerShell to download on Windows (no extra dependencies)
-        #[cfg(target_os = "windows")]
-        {
-            // Use Invoke-WebRequest with -OutFile to download binary correctly
-            let temp_file = std::env::temp_dir().join("rcedit-download.exe");
-            let output = Command::new("powershell")
-                .args([
-                    "-NoProfile",
-                    "-NonInteractive",
-                    "-Command",
-                    &format!(
-                        "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
-                         Invoke-WebRequest -Uri '{}' -OutFile '{}' -UseBasicParsing",
-                        url,
-                        temp_file.display()
-                    ),
-                ])
-                .output()
-                .map_err(|e| PackError::ResourceEdit(format!("Failed to run PowerShell: {}", e)))?;
-
-            if !output.status.success() {
-                return Err(PackError::ResourceEdit(format!(
-                    "Failed to download rcedit: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                )));
+            RceditRunner::Direct(path) => {
+                tracing::debug!("Running: {} {}", path.display(), args.join(" "));
+                Command::new(path)
+                    .args(args)
+                    .output()
+                    .map_err(|e| PackError::ResourceEdit(format!("Failed to run rcedit: {}", e)))
             }
-
-            let data = fs::read(&temp_file)?;
-            let _ = fs::remove_file(&temp_file);
-            Ok(data)
-        }
-
-        #[cfg(not(target_os = "windows"))]
-        {
-            // On non-Windows, use curl
-            let output = Command::new("curl")
-                .args(["-fsSL", url])
-                .output()
-                .map_err(|e| PackError::ResourceEdit(format!("Failed to run curl: {}", e)))?;
-
-            if !output.status.success() {
-                return Err(PackError::ResourceEdit(format!(
-                    "Failed to download rcedit: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                )));
-            }
-
-            Ok(output.stdout)
         }
     }
 
@@ -180,12 +96,9 @@ impl ResourceEditor {
 
         tracing::info!("Setting icon: {}", icon_path.display());
 
-        // rcedit syntax: rcedit <exe> --set-icon <icon>
-        let output = Command::new(&self.rcedit_path)
-            .arg(exe_path)
-            .args(["--set-icon", &icon_path.to_string_lossy()])
-            .output()
-            .map_err(|e| PackError::ResourceEdit(format!("Failed to run rcedit: {}", e)))?;
+        let exe_str = exe_path.to_string_lossy();
+        let icon_str = icon_path.to_string_lossy();
+        let output = self.run_rcedit(&[&exe_str, "--set-icon", &icon_str])?;
 
         if !output.status.success() {
             return Err(PackError::ResourceEdit(format!(
@@ -207,6 +120,7 @@ impl ResourceEditor {
     /// * `console` - If true, set to CONSOLE subsystem (shows console window).
     ///   If false, set to WINDOWS subsystem (no console window)
     pub fn set_subsystem(&self, exe_path: &Path, console: bool) -> PackResult<()> {
+        use std::fs;
         use std::io::{Read, Seek, SeekFrom, Write};
 
         // Windows subsystem values
@@ -297,12 +211,8 @@ impl ResourceEditor {
     pub fn set_version_string(&self, exe_path: &Path, key: &str, value: &str) -> PackResult<()> {
         tracing::debug!("Setting version string {}: {}", key, value);
 
-        // rcedit syntax: rcedit <exe> --set-version-string <key> <value>
-        let output = Command::new(&self.rcedit_path)
-            .arg(exe_path)
-            .args(["--set-version-string", key, value])
-            .output()
-            .map_err(|e| PackError::ResourceEdit(format!("Failed to run rcedit: {}", e)))?;
+        let exe_str = exe_path.to_string_lossy();
+        let output = self.run_rcedit(&[&exe_str, "--set-version-string", key, value])?;
 
         if !output.status.success() {
             return Err(PackError::ResourceEdit(format!(
@@ -322,12 +232,8 @@ impl ResourceEditor {
     pub fn set_file_version(&self, exe_path: &Path, version: &str) -> PackResult<()> {
         tracing::debug!("Setting file version: {}", version);
 
-        // rcedit syntax: rcedit <exe> --set-file-version <version>
-        let output = Command::new(&self.rcedit_path)
-            .arg(exe_path)
-            .args(["--set-file-version", version])
-            .output()
-            .map_err(|e| PackError::ResourceEdit(format!("Failed to run rcedit: {}", e)))?;
+        let exe_str = exe_path.to_string_lossy();
+        let output = self.run_rcedit(&[&exe_str, "--set-file-version", version])?;
 
         if !output.status.success() {
             return Err(PackError::ResourceEdit(format!(
@@ -347,12 +253,8 @@ impl ResourceEditor {
     pub fn set_product_version(&self, exe_path: &Path, version: &str) -> PackResult<()> {
         tracing::debug!("Setting product version: {}", version);
 
-        // rcedit syntax: rcedit <exe> --set-product-version <version>
-        let output = Command::new(&self.rcedit_path)
-            .arg(exe_path)
-            .args(["--set-product-version", version])
-            .output()
-            .map_err(|e| PackError::ResourceEdit(format!("Failed to run rcedit: {}", e)))?;
+        let exe_str = exe_path.to_string_lossy();
+        let output = self.run_rcedit(&[&exe_str, "--set-product-version", version])?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
