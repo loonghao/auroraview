@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.6](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.5...auroraview-v0.4.6) (2026-02-08)
+
+
+### Features
+
+* **api:** auto-enable window API in create_webview() ([8442374](https://github.com/loonghao/auroraview/commit/8442374c42aae886af941d5454c687cf3df837f4))
+* **sdk:** add feature detection and window management APIs ([b1da6e2](https://github.com/loonghao/auroraview/commit/b1da6e29b99cb0f1997695ac7ae0f13f923709b1))
+
+
+### Bug Fixes
+
+* add frontend assets build steps to CI workflows ([06a99fc](https://github.com/loonghao/auroraview/commit/06a99fc595a18a992c14027f6b085b981f96e6fe))
+* add frontend assets build to all CI workflows that compile Rust ([16e9e3e](https://github.com/loonghao/auroraview/commit/16e9e3ec66e40028f7d37cfd394e3e20661a90df))
+* correct variable name in window_manager_tests.rs ([fe5efe3](https://github.com/loonghao/auroraview/commit/fe5efe329e6531e2270294b6a0243a38c207b692))
+* keep _is_closing True after closeEvent ([d036df2](https://github.com/loonghao/auroraview/commit/d036df281002ca6ce099cba132a6dfedc551c3b5))
+* make pack output executable name platform-aware ([b9f5d6a](https://github.com/loonghao/auroraview/commit/b9f5d6acb9bbff7f5fd3962dcecf95a17e1dc6ac))
+* remove unnecessary `mut` from fs_scope in auroraview-cli ([58bc68a](https://github.com/loonghao/auroraview/commit/58bc68ab525b3214b8406aa4e02ee09d783d75ab))
+* resolve CI failures - unused import and formatting ([89e1a48](https://github.com/loonghao/auroraview/commit/89e1a485ea44cf9ea35f073cb0e2201a2bc00cc4))
+* resolve CI failures for TypeScript and submodule migration ([29ef24e](https://github.com/loonghao/auroraview/commit/29ef24e5b7e4d854d20569d12b02c0637c24c34f))
+* resolve CI failures in auroraview-pack and standalone tests ([fe834f6](https://github.com/loonghao/auroraview/commit/fe834f69cca2bbfa6d3acd3b8ad2fd482467baac))
+* resolve unit test failures in cookies and settings serialization ([b19ded5](https://github.com/loonghao/auroraview/commit/b19ded5b1f5b32a8e61d117af0e0aaf50baf5fab))
+* **sdk:** fix TypeScript type conversion in features.ts ([42f44c6](https://github.com/loonghao/auroraview/commit/42f44c684f75fd0630017f8ae15e70920e011813))
+* update repository URL and SDK package name references ([570cc03](https://github.com/loonghao/auroraview/commit/570cc039ae11e792cc2cc07a83d5ac6d5ac9c0f9))
+
+
+### Code Refactoring
+
+* migrate submodules to crates for simplified project structure ([d37cbdd](https://github.com/loonghao/auroraview/commit/d37cbddaee061077e469e09146554e972a608f48))
+* restructure architecture and consolidate platform-specific implementations ([a51dd6d](https://github.com/loonghao/auroraview/commit/a51dd6dd49461d26841af3f38585968327046ec8))
+
+
+### Documentation
+
+* add llms.txt and llms-full.txt following llmstxt.org protocol ([29ce14a](https://github.com/loonghao/auroraview/commit/29ce14a77f411c3905f0375493b08b44690d75ce))
+* update llms.txt with SDK features and window management APIs ([8ccfbb2](https://github.com/loonghao/auroraview/commit/8ccfbb25186dedaa628388d6bf4a3cd828cbde36))
+
 ## [0.4.5](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.4...auroraview-v0.4.5) (2026-01-20)
 
 
