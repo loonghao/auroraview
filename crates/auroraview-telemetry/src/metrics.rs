@@ -159,8 +159,10 @@ impl WebViewMetrics {
 
     /// Record memory usage.
     pub fn record_memory(&self, webview_id: &str, bytes: u64) {
-        self.memory_bytes
-            .record(bytes, &[KeyValue::new("webview_id", webview_id.to_string())]);
+        self.memory_bytes.record(
+            bytes,
+            &[KeyValue::new("webview_id", webview_id.to_string())],
+        );
     }
 }
 
@@ -188,9 +190,7 @@ pub fn record_webview_load_time(webview_id: &str, duration_ms: f64) {
 /// Record an IPC message.
 pub fn record_ipc_message(webview_id: &str, direction: &str, latency_ms: f64) {
     let meter = global::meter("auroraview");
-    let counter = meter
-        .u64_counter("auroraview.ipc.messages")
-        .build();
+    let counter = meter.u64_counter("auroraview.ipc.messages").build();
     counter.add(
         1,
         &[
@@ -214,9 +214,7 @@ pub fn record_ipc_message(webview_id: &str, direction: &str, latency_ms: f64) {
 /// Record an error.
 pub fn record_error(webview_id: &str, error_type: &str) {
     let meter = global::meter("auroraview");
-    let counter = meter
-        .u64_counter("auroraview.errors")
-        .build();
+    let counter = meter.u64_counter("auroraview.errors").build();
     counter.add(
         1,
         &[
