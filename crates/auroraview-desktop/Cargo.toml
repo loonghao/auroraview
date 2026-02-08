@@ -13,7 +13,7 @@ auroraview-core = { path = "../auroraview-core" }
 auroraview-plugins = { path = "../auroraview-plugins" }
 
 # WebView
-wry = "0.53.5"
+wry = "0.54.1"
 tao = "0.32"
 
 # System tray

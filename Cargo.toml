@@ -93,7 +93,7 @@ pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true 
 pythonize = { version = "0.27", optional = true }
 
 # Wry for WebView
-wry = "0.53.5"
+wry = "0.54.1"
 tao = "0.34.5"
 
 # Window handle for DCC integration
