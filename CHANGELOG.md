@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.8](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.7...auroraview-v0.4.8) (2026-02-08)
+
+
+### Bug Fixes
+
+* add publishConfig for scoped npm package and enhanced diagnostics ([259232d](https://github.com/loonghao/auroraview/commit/259232d8fd4eee0542d1448a59ebd29a18fb1d12))
+
+
+### Documentation
+
+* update CI pipeline documentation with release workflow details ([4ad760b](https://github.com/loonghao/auroraview/commit/4ad760bf51dafa975a9dac64270413234afc0bda))
+
 ## [0.4.7](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.6...auroraview-v0.4.7) (2026-02-08)
 
 
