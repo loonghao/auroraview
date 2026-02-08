@@ -6,6 +6,7 @@ name: Rust Crates CI
 # Dependency Graph:
 #   auroraview-signals (submodule, standalone)
 #   auroraview-protect (submodule, standalone)
+#   auroraview-telemetry (standalone)
 #   auroraview-extensions (submodule, standalone)
 #   auroraview-plugin-core (standalone)
 #   auroraview-plugin-fs -> auroraview-plugin-core
@@ -72,6 +73,7 @@ jobs:
       # Computed dependency flags (includes transitive deps)
       needs-signals: ${{ steps.deps.outputs.needs-signals }}
       needs-protect: ${{ steps.deps.outputs.needs-protect }}
+      needs-telemetry: ${{ steps.deps.outputs.needs-telemetry }}
       needs-plugin-core: ${{ steps.deps.outputs.needs-plugin-core }}
       needs-plugin-fs: ${{ steps.deps.outputs.needs-plugin-fs }}
       needs-extensions: ${{ steps.deps.outputs.needs-extensions }}
@@ -93,6 +95,8 @@ jobs:
               - 'crates/auroraview-signals/**'
             aurora-protect:
               - 'crates/auroraview-protect/**'
+            telemetry:
+              - 'crates/auroraview-telemetry/**'
             plugin-core:
               - 'crates/auroraview-plugins/core/**'
             plugin-fs:
@@ -136,6 +140,10 @@ jobs:
 
           # aurora-protect: standalone
           needs_protect="$protect"
+
+          # auroraview-telemetry: standalone
+          telemetry="${{ steps.filter.outputs.telemetry }}"
+          needs_telemetry="$telemetry"
 
           # auroraview-plugin-core: standalone
           needs_plugin_core="$plugin_core"
@@ -187,6 +195,7 @@ jobs:
 
           # Any changes at all
           if [[ "$needs_signals" == "true" || "$needs_protect" == "true" || \
+                "$needs_telemetry" == "true" || \
                 "$needs_plugin_core" == "true" || "$needs_plugin_fs" == "true" || \
                 "$needs_extensions" == "true" || "$needs_plugins" == "true" || \
                 "$needs_core" == "true" || "$needs_pack" == "true" || \
@@ -199,6 +208,7 @@ jobs:
           # Output results
           echo "needs-signals=$needs_signals" >> $GITHUB_OUTPUT
           echo "needs-protect=$needs_protect" >> $GITHUB_OUTPUT
+          echo "needs-telemetry=$needs_telemetry" >> $GITHUB_OUTPUT
           echo "needs-plugin-core=$needs_plugin_core" >> $GITHUB_OUTPUT
           echo "needs-plugin-fs=$needs_plugin_fs" >> $GITHUB_OUTPUT
           echo "needs-extensions=$needs_extensions" >> $GITHUB_OUTPUT
@@ -217,6 +227,7 @@ jobs:
           echo "|-------|---------------|-----------|" >> $GITHUB_STEP_SUMMARY
           echo "| aurora-signals | ${{ steps.filter.outputs.aurora-signals }} | ${{ steps.deps.outputs.needs-signals }} |" >> $GITHUB_STEP_SUMMARY
           echo "| aurora-protect | ${{ steps.filter.outputs.aurora-protect }} | ${{ steps.deps.outputs.needs-protect }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| auroraview-telemetry | ${{ steps.filter.outputs.telemetry }} | ${{ steps.deps.outputs.needs-telemetry }} |" >> $GITHUB_STEP_SUMMARY
           echo "| auroraview-plugin-core | ${{ steps.filter.outputs.plugin-core }} | ${{ steps.deps.outputs.needs-plugin-core }} |" >> $GITHUB_STEP_SUMMARY
           echo "| auroraview-plugin-fs | ${{ steps.filter.outputs.plugin-fs }} | ${{ steps.deps.outputs.needs-plugin-fs }} |" >> $GITHUB_STEP_SUMMARY
           echo "| auroraview-extensions | ${{ steps.filter.outputs.extensions }} | ${{ steps.deps.outputs.needs-extensions }} |" >> $GITHUB_STEP_SUMMARY
@@ -236,6 +247,7 @@ jobs:
     if: |
       needs.detect-changes.outputs.needs-signals == 'true' ||
       needs.detect-changes.outputs.needs-protect == 'true' ||
+      needs.detect-changes.outputs.needs-telemetry == 'true' ||
       needs.detect-changes.outputs.needs-plugin-core == 'true' ||
       needs.detect-changes.outputs.needs-extensions == 'true'
     steps:
@@ -284,6 +296,13 @@ jobs:
           echo "Testing auroraview-extensions..."
           cargo test -p auroraview-extensions
           cargo clippy -p auroraview-extensions -- -D warnings
+
+      - name: Test auroraview-telemetry
+        if: needs.detect-changes.outputs.needs-telemetry == 'true'
+        run: |
+          echo "Testing auroraview-telemetry..."
+          cargo test -p auroraview-telemetry
+          cargo clippy -p auroraview-telemetry -- -D warnings
 
   # Plugin crates (depend on standalone)
   test-plugins:
