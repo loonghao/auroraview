@@ -44,7 +44,7 @@ async-trait = "0.1"
 base64 = "0.22"
 
 # HTTP client for CDP endpoint discovery
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.13", features = ["json"] }
 
 # Regex for URL pattern matching
 regex = "1.11"
