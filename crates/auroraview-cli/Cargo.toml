@@ -89,7 +89,7 @@ ipckit = "0.1"
 
 # Self-update functionality
 reqwest = { version = "0.12", features = ["blocking", "json"] }
-zip = { version = "4", default-features = false, features = ["deflate"] }
+zip = { version = "7", default-features = false, features = ["deflate"] }
 
 self-replace = "1.5"
 

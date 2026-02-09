@@ -43,7 +43,7 @@ flate2 = "1.0"
 tar = "0.4"
 
 # Zip archive
-zip = { version = "4", default-features = false, features = ["deflate"] }
+zip = { version = "7", default-features = false, features = ["deflate"] }
 
 # HTTP client for downloads
 ureq = "3.2"
