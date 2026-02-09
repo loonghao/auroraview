@@ -561,7 +561,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-assets"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "include_dir",
  "mime_guess",
@@ -663,7 +663,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-bookmarks"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "chrono",
  "dirs",
@@ -679,7 +679,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-browser"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "auroraview-bookmarks",
  "auroraview-core",
@@ -709,7 +709,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "anyhow",
  "auroraview-assets",
@@ -746,12 +746,12 @@ dependencies = [
  "windows 0.61.3",
  "winresource",
  "wry",
- "zip",
+ "zip 7.4.0",
 ]
 
 [[package]]
 name = "auroraview-core"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -919,13 +919,13 @@ dependencies = [
  "ureq",
  "url",
  "walkdir",
- "zip",
+ "zip 7.4.0",
  "zstd",
 ]
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "dunce",
  "serde",
@@ -936,7 +936,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "auroraview-plugin-core",
  "base64 0.22.1",
@@ -947,7 +947,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -6068,7 +6068,7 @@ dependencies = [
  "uuid",
  "walkdir",
  "which 8.0.0",
- "zip",
+ "zip 4.6.1",
 ]
 
 [[package]]
@@ -8472,6 +8472,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "typed-path"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3015e6ce46d5ad8751e4a772543a30c7511468070e98e64e20165f8f81155b64"
+
+[[package]]
 name = "typenum"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10276,6 +10282,20 @@ dependencies = [
  "zeroize",
  "zopfli",
  "zstd",
+]
+
+[[package]]
+name = "zip"
+version = "7.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc12baa6db2b15a140161ce53d72209dacea594230798c24774139b54ecaa980"
+dependencies = [
+ "crc32fast",
+ "flate2",
+ "indexmap 2.13.0",
+ "memchr",
+ "typed-path",
+ "zopfli",
 ]
 
 [[package]]
