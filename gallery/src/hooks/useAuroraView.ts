@@ -687,9 +687,41 @@ export function useAuroraView() {
   // ============================================
 
   /**
+   * Install extension from Chrome/Edge store URL
+   */
+  const installExtensionFromUrl = useCallback(async (url: string): Promise<ApiResult & { success?: boolean; requiresRestart?: boolean }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      const result = await client.call<{
+        ok?: boolean;
+        success?: boolean;
+        message?: string;
+        error?: string;
+        requiresRestart?: boolean;
+      }>('api.install_extension_from_url', { url });
+
+      return {
+        ok: result.ok || result.success || false,
+        success: result.success,
+        message: result.message,
+        error: result.error,
+        requiresRestart: result.requiresRestart,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        error: String(e),
+      };
+    }
+  }, [client]);
+
+  /**
    * Install extension to WebView2's extensions directory
    */
   const installToWebView = useCallback(async (path: string, name?: string): Promise<ApiResult & { requiresRestart?: boolean; extensionsDir?: string }> => {
+
     if (!client) {
       throw new Error('AuroraView not ready');
     }
