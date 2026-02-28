@@ -87,8 +87,6 @@ Thumbs.db
 htmlcov/
 
 # AI assistants
-.augment/
-.codebuddy/
 code-review.md
 
 
