@@ -501,6 +501,57 @@ impl VxTool {
         Ok(status.success())
     }
 
+    /// Ensure required tools are available via vx before pack continues.
+    pub fn ensure_tools(&self, tools: &[String]) -> PackResult<()> {
+        for tool in tools {
+            self.ensure_tool(tool)?;
+        }
+        Ok(())
+    }
+
+    fn ensure_tool(&self, spec: &str) -> PackResult<()> {
+        let (tool, probe_args) = Self::probe_command_for_tool(spec);
+
+        tracing::info!(
+            "Ensuring tool via vx: {} (probe: vx {} {})",
+            spec,
+            tool,
+            probe_args.join(" ")
+        );
+
+        let status = Command::new(&self.vx_path)
+            .arg(&tool)
+            .args(&probe_args)
+            .status()
+            .map_err(|e| {
+                PackError::VxEnsureFailed(format!("Failed to run vx command for '{}': {}", spec, e))
+            })?;
+
+        if !status.success() {
+            return Err(PackError::VxEnsureFailed(format!(
+                "Tool ensure failed for '{}' via `vx {}` (exit code {:?})",
+                spec,
+                tool,
+                status.code()
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn probe_command_for_tool(spec: &str) -> (String, Vec<String>) {
+        let base = spec.split_once('@').map_or(spec, |(name, _)| name).trim();
+
+        match base {
+            "go" => ("go".to_string(), vec!["version".to_string()]),
+            "rust" | "rustc" => ("rustc".to_string(), vec!["--version".to_string()]),
+            "python" | "python3" | "uv" | "node" | "npm" | "npx" | "cargo" | "just" | "git" => {
+                (base.to_string(), vec!["--version".to_string()])
+            }
+            _ => (base.to_string(), vec!["--version".to_string()]),
+        }
+    }
+
     /// Check if vx is available in the system PATH
     pub fn is_system_vx_available() -> bool {
         Command::new("vx")

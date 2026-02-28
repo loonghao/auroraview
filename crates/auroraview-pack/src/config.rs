@@ -116,7 +116,12 @@ pub struct PythonBundleConfig {
     #[serde(default)]
     pub requirements: Option<PathBuf>,
 
+    /// Only allow dependency installation through `vx uv pip` (no fallback to system uv/pip)
+    #[serde(default)]
+    pub pip_via_vx_only: bool,
+
     /// Bundle strategy
+
     #[serde(default)]
     pub strategy: BundleStrategy,
 
@@ -189,7 +194,9 @@ impl Default for PythonBundleConfig {
             include_paths: Vec::new(),
             packages: Vec::new(),
             requirements: None,
+            pip_via_vx_only: false,
             strategy: BundleStrategy::default(),
+
             version: default_python_version(),
             optimize: default_optimize(),
             exclude: Vec::new(),
