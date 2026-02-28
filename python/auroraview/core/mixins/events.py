@@ -158,6 +158,10 @@ class WebViewEventMixin:
             logger.error(f"[ERROR] [WebView.emit] Traceback: {traceback.format_exc()}")
             raise
 
+        # Auto-telemetry: record event emission
+        if hasattr(self, "_telemetry_on_emit"):
+            self._telemetry_on_emit(event_name)
+
         # Call post eval_js hook if set (for Qt integration and testing)
         if self._post_eval_js_hook is not None:
             self._post_eval_js_hook()

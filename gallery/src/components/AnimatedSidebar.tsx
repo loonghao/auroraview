@@ -21,7 +21,9 @@ interface AnimatedSidebarProps {
   onOpenLink: (url: string, title?: string) => void;
   onConsoleClick?: () => void;
   onExtensionsClick?: () => void;
+  onTelemetryClick?: () => void;
   consoleOpen?: boolean;
+  telemetryOpen?: boolean;
 }
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -162,8 +164,8 @@ function SidebarButton({
         className={cn(
           'w-10 h-10 rounded-xl flex items-center justify-center transition-all relative',
           'text-muted-foreground hover:text-foreground',
-          isActive 
-            ? 'bg-primary/20 text-primary shadow-lg shadow-primary/10' 
+          isActive
+            ? 'bg-primary/20 text-primary shadow-lg shadow-primary/10'
             : 'hover:bg-accent/50'
         )}
         title={title}
@@ -213,7 +215,9 @@ export function AnimatedSidebar({
   onOpenLink,
   onConsoleClick,
   onExtensionsClick,
+  onTelemetryClick,
   consoleOpen,
+  telemetryOpen,
 }: AnimatedSidebarProps) {
   const sidebarRef = useRef<HTMLElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
@@ -325,6 +329,15 @@ export function AnimatedSidebar({
             title="Process Console"
             isActive={consoleOpen}
             onClick={onConsoleClick}
+            index={buttonIndex++}
+          />
+        )}
+        {onTelemetryClick && (
+          <SidebarButton
+            icon={Icons.Activity}
+            title="Telemetry"
+            isActive={telemetryOpen}
+            onClick={onTelemetryClick}
             index={buttonIndex++}
           />
         )}

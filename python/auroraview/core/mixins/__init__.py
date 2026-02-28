@@ -20,6 +20,7 @@ from auroraview.core.mixins.javascript import WebViewJSMixin
 from auroraview.core.mixins.events import WebViewEventMixin
 from auroraview.core.mixins.api import WebViewApiMixin
 from auroraview.core.mixins.dom import WebViewDOMMixin
+from auroraview.core.mixins.telemetry import WebViewTelemetryMixin
 
 __all__ = [
     "WebViewWindowMixin",
@@ -28,4 +29,5 @@ __all__ = [
     "WebViewEventMixin",
     "WebViewApiMixin",
     "WebViewDOMMixin",
+    "WebViewTelemetryMixin",
 ]

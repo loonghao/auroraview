@@ -10,6 +10,7 @@ import { Footer } from './components/Footer';
 import { SampleCard } from './components/SampleCard';
 import { TagFilter } from './components/TagFilter';
 import { ProcessConsole } from './components/ProcessConsole';
+import { TelemetryPanel } from './components/TelemetryPanel';
 import { ExtensionPanel, type InstalledExtension } from './components/ExtensionPanel';
 import { ExtensionToolbar } from './components/ExtensionToolbar';
 import { SplitLayout } from './components/SplitLayout';
@@ -34,8 +35,8 @@ function loadSettings(): Settings {
   } catch {
     // Ignore parse errors
   }
-  return { 
-    runMode: 'external', 
+  return {
+    runMode: 'external',
     linkMode: 'browser',
     browserExtension: {
       enabled: false,
@@ -76,6 +77,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [consoleOpen, setConsoleOpen] = useState(false);
+  const [telemetryOpen, setTelemetryOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'gallery' | 'extensions' | 'extension-content'>('gallery');
   const [backendRetrying, setBackendRetrying] = useState(false);
   const [backendRestarting, setBackendRestarting] = useState(false);
@@ -95,15 +97,15 @@ function App() {
   const [categories, setCategories] = useState<Record<string, Category>>({});
   const [dataLoaded, setDataLoaded] = useState(false);
 
-  const { 
+  const {
     isReady,
     backendError,
     clearBackendError,
-    getSource, 
-    runSample, 
-    getSamples, 
-    getCategories, 
-    openUrl, 
+    getSource,
+    runSample,
+    getSamples,
+    getCategories,
+    openUrl,
     killProcess,
     // Dependency management APIs
     checkDependencies,
@@ -129,6 +131,8 @@ function App() {
     // Chrome management API
     managementSetEnabled,
     managementGetPermissionWarnings,
+    // Telemetry
+    getTelemetry,
   } = useAuroraView();
 
 
@@ -247,7 +251,7 @@ function App() {
   // Fetch extension status - only poll when settings modal is open
   useEffect(() => {
     if (!isReady) return;
-    
+
     const fetchStatus = async () => {
       try {
         const status = await getExtensionStatus();
@@ -256,10 +260,10 @@ function App() {
         // Silently ignore errors to avoid console spam
       }
     };
-    
+
     // Initial fetch
     fetchStatus();
-    
+
     // Only poll when settings modal is open
     if (settingsOpen) {
       const interval = setInterval(fetchStatus, 5000); // Poll every 5 seconds
@@ -564,7 +568,7 @@ function App() {
       showToast('AuroraView not ready', 'error');
       return;
     }
-    
+
     try {
       if (enabled) {
         const result = await startExtensionBridge(
@@ -607,18 +611,12 @@ function App() {
     if (!isReady) {
       return { ok: false, error: 'AuroraView not ready' };
     }
-    
+
     try {
-      // Call Python backend to download and install extension from URL
-      const result = await window.auroraview?.call?.('api.install_extension_from_url', { url }) as {
-        ok?: boolean;
-        success?: boolean;
-        message?: string;
-        error?: string;
-        requiresRestart?: boolean;
-      } | undefined;
-      
+      const result = await installExtensionFromUrl(url);
+
       if (result) {
+
         const success = result.ok || result.success || false;
         if (success) {
           showToast(result.message || 'Extension installed!');
@@ -636,7 +634,8 @@ function App() {
       console.error('[handleInstallFromUrl] Error:', err);
       return { ok: false, error: String(err) };
     }
-  }, [isReady, showToast]);
+  }, [isReady, installExtensionFromUrl, showToast]);
+
 
   // Install extension from dropped file (legacy)
   const handleInstallExtension = useCallback(async (path: string, browser: 'chrome' | 'firefox') => {
@@ -644,10 +643,10 @@ function App() {
       showToast('AuroraView not ready', 'error');
       return;
     }
-    
+
     try {
       const result = await installExtension(path, browser);
-      
+
       if (result.ok) {
         showToast(result.message || `Opening ${browser} extension installer...`);
       } else {
@@ -664,10 +663,10 @@ function App() {
     if (!isReady) {
       return { ok: false, error: 'AuroraView not ready' };
     }
-    
+
     try {
       const result = await installToWebView(path);
-      
+
       if (result.ok) {
         showToast(result.message || 'Extension installed! Restart required.');
       } else {
@@ -686,7 +685,7 @@ function App() {
       showToast('AuroraView not ready', 'error');
       return;
     }
-    
+
     try {
       await openExtensionsDir();
     } catch (err) {
@@ -701,7 +700,7 @@ function App() {
       showToast('AuroraView not ready', 'error');
       return;
     }
-    
+
     try {
       showToast('Restarting application...');
       await restartApp();
@@ -752,7 +751,7 @@ function App() {
     // Open extension content in main area instead of side panel
     setActiveSidePanelExtension(extension);
     setViewMode('extension-content');
-    
+
     // Notify Rust plugin about side panel state
     if (isReady) {
       try {
@@ -768,7 +767,7 @@ function App() {
     // Open extension popup content in main area
     setActiveSidePanelExtension(extension);
     setViewMode('extension-content');
-    
+
     // Notify Rust plugin about popup state (reuse side panel mechanism for now)
     if (isReady) {
       try {
@@ -785,7 +784,7 @@ function App() {
     setSidePanelOpen(false);
     setActiveSidePanelExtension(null);
     setViewMode('gallery');
-    
+
     // Notify Rust plugin about side panel state
     if (isReady && extensionId) {
       try {
@@ -821,7 +820,7 @@ function App() {
   // Note: This persists to backend config file - changes take effect on restart
   const handleExtensionToggle = useCallback(async (extension: InstalledExtension, enabled: boolean) => {
     console.log(`[handleExtensionToggle] ${extension.id} -> ${enabled}`);
-    
+
     // Update local state immediately for responsive UI
     setEnabledExtensions(prev => {
       const next = new Set(prev);
@@ -832,7 +831,7 @@ function App() {
       }
       return next;
     });
-    
+
     // Persist to backend config file
     try {
       const result = await setExtensionEnabled(extension.id, enabled);
@@ -842,7 +841,7 @@ function App() {
     } catch (e) {
       console.error('[handleExtensionToggle] Error:', e);
     }
-    
+
     // Also notify Rust layer for Chrome management API compatibility
     managementSetEnabled(extension.id, enabled).catch(() => {
       // Silently ignore - Rust layer may not have this extension registered
@@ -947,7 +946,9 @@ function App() {
         onOpenLink={handleOpenLink}
         onConsoleClick={() => setConsoleOpen(!consoleOpen)}
         onExtensionsClick={() => setViewMode('extensions')}
+        onTelemetryClick={() => setTelemetryOpen(!telemetryOpen)}
         consoleOpen={consoleOpen}
+        telemetryOpen={telemetryOpen}
       />
 
       <SplitLayout sidePanel={sidePanelConfig}>
@@ -957,7 +958,7 @@ function App() {
           title="AuroraView Gallery"
           subtitle="Explore all features and components with live demos and source code"
         >
-          <ExtensionToolbar 
+          <ExtensionToolbar
             extensions={displayExtensions}
             activeExtensionId={viewMode === 'extension-content' ? activeSidePanelExtension?.id ?? null : null}
             onExtensionClick={handleToolbarExtensionClick}
@@ -1122,6 +1123,12 @@ function App() {
         isOpen={consoleOpen}
         onClose={() => setConsoleOpen(false)}
         onKillProcess={handleKillProcess}
+      />
+
+      <TelemetryPanel
+        isOpen={telemetryOpen}
+        onClose={() => setTelemetryOpen(false)}
+        getTelemetry={getTelemetry}
       />
 
       <DependencyModal
