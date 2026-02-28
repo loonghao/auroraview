@@ -51,13 +51,22 @@ class WebViewJSMixin:
             >>> webview.eval_js("console.log('2')", auto_process=False)
             >>> webview.process_events()  # Process all at once
         """
+        import time as _time
+
         logger.debug(f"Executing JavaScript: {script[:100]}...")
+
+        _t0 = _time.monotonic()
 
         # Use the async core if available (when running in background thread)
         with self._async_core_lock:
             core = self._async_core if self._async_core is not None else self._core
 
         core.eval_js(script)
+
+        # Auto-telemetry: record JS eval duration
+        _dt = (_time.monotonic() - _t0) * 1000.0
+        if hasattr(self, "_telemetry_on_eval_js"):
+            self._telemetry_on_eval_js(_dt)
 
         # Call post eval_js hook if set (for Qt integration and testing)
         if self._post_eval_js_hook is not None:

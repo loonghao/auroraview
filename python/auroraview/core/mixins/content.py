@@ -49,6 +49,10 @@ class WebViewContentMixin:
         self._stored_url = url
         self._stored_html = None
 
+        # Auto-telemetry: record navigation
+        if hasattr(self, "_telemetry_on_navigate"):
+            self._telemetry_on_navigate(url)
+
         # Use the async core if available (when running in background thread)
         with self._async_core_lock:
             core = self._async_core if self._async_core is not None else self._core
@@ -90,6 +94,10 @@ class WebViewContentMixin:
         logger.info(f"Loading HTML ({len(html)} bytes)")
         self._stored_html = html
         self._stored_url = None
+
+        # Auto-telemetry: record navigation for inline HTML
+        if hasattr(self, "_telemetry_on_navigate"):
+            self._telemetry_on_navigate("about:blank (inline HTML)")
 
         # Use the async core if available (when running in background thread)
         with self._async_core_lock:

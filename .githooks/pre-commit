@@ -1,61 +1,8 @@
-#!/usr/bin/env bash
-# AuroraView pre-commit hook
-# Ensures Python & Rust lint pass before committing.
-# Uses vx just for consistent tool management.
-
-set -euo pipefail
-
-# Detect changed files in index (staged)
-changed_files=$(git diff --cached --name-only --diff-filter=ACM || true)
-
-# ---------- Python (ruff) ----------
-if echo "$changed_files" | grep -E '^(python/|tests/|examples/|gallery/).*\.py$' >/dev/null 2>&1; then
-  py_changed=$(echo "$changed_files" | grep -E '^(python/|tests/|examples/|gallery/).*\.py$' || true)
-
-  if command -v vx >/dev/null 2>&1; then
-    echo "[pre-commit] Running ruff format on staged Python files"
-    vx uvx ruff format $py_changed
-
-    echo "[pre-commit] Running ruff check --fix on staged Python files"
-    vx uvx ruff check --fix --select=E,F,W --ignore=E501 $py_changed
-
-    echo "[pre-commit] Running ruff check (repo-level)"
-    vx uvx ruff check --select=E,F,W --ignore=E501 python/ tests/
-  else
-    echo "[pre-commit] vx not found; skipping Python checks"
-    echo "[pre-commit] Install vx: https://github.com/loonghao/vx"
-  fi
-else
-  echo "[pre-commit] Skipping ruff (no Python changes staged)"
+#!/usr/bin/env sh
+set -eu
+if ! command -v vx >/dev/null 2>&1; then
+  echo "[pre-commit] vx not found; install from https://github.com/loonghao/vx" >&2
+  exit 1
 fi
-
-# ---------- Rust (fmt + clippy) ----------
-# Match: src/**/*.rs, crates/**/*.rs (including tests/), benches/**/*.rs, Cargo.toml, build.rs
-if echo "$changed_files" | grep -E '(^src/.*\.rs$|^crates/.*\.rs$|^benches/.*\.rs$|^Cargo\.toml$|^build\.rs$)' >/dev/null 2>&1; then
-  if command -v vx >/dev/null 2>&1; then
-    echo "[pre-commit] Running cargo fmt --all"
-    vx cargo fmt --all
-
-    # Verify formatting passes (same as CI check)
-    echo "[pre-commit] Verifying cargo fmt --check passes"
-    if ! vx cargo fmt --all -- --check; then
-      echo "[pre-commit] ERROR: cargo fmt --check failed after formatting. This should not happen."
-      echo "[pre-commit] Please run 'vx cargo fmt --all' manually and try again."
-      exit 1
-    fi
-
-    # Run clippy without --all-features to avoid PyO3 build issues
-    echo "[pre-commit] Running cargo clippy --fix --allow-dirty --allow-staged"
-    vx cargo clippy --fix --allow-dirty --allow-staged --workspace --all-targets -- -D warnings 2>/dev/null || true
-
-    echo "[pre-commit] Verifying clippy passes"
-    vx cargo clippy --workspace --all-targets -- -D warnings
-  else
-    echo "[pre-commit] vx not found; skipping Rust checks"
-    echo "[pre-commit] Install vx: https://github.com/loonghao/vx"
-  fi
-else
-  echo "[pre-commit] Skipping cargo (no Rust changes staged)"
-fi
-
-echo "[pre-commit] OK"
+echo "[pre-commit] Running prek with .pre-commit-config.yaml"
+exec vx prek run --stage pre-commit --show-diff-on-failure

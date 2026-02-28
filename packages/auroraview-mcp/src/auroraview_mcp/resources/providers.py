@@ -6,6 +6,7 @@ Provides MCP resources for:
 - Sample listings
 - Gallery status
 - Console logs
+- Telemetry metrics
 """
 
 from __future__ import annotations
@@ -245,3 +246,28 @@ async def get_processes_resource() -> str:
         )
 
     return json.dumps(processes, indent=2)
+
+
+@mcp.resource("auroraview://telemetry")
+async def get_telemetry_resource() -> str:
+    """Get telemetry metrics for all active WebView instances.
+
+    Returns auto-collected performance metrics including counters
+    (emit, eval_js, IPC calls, errors), timing histograms (load time,
+    JS eval duration, IPC latency), and health indicators.
+
+    Returns:
+        JSON string of telemetry data for all active instances.
+    """
+    try:
+        from auroraview.telemetry import get_all_snapshots
+
+        snapshots = get_all_snapshots()
+        return json.dumps(
+            {"instances": snapshots, "count": len(snapshots)},
+            indent=2,
+        )
+    except ImportError:
+        return json.dumps(
+            {"error": "Telemetry module not available. Install auroraview with telemetry-python feature."}
+        )

@@ -3,7 +3,7 @@
  *
  * This file re-exports hooks from @auroraview/sdk and adds Gallery-specific
  * API wrappers for sample management.
- * 
+ *
  * Design: Uses Rust native plugins for extension management and Chrome API compatibility.
  * All extension APIs now go through `plugin:extensions|*` commands.
  */
@@ -706,7 +706,7 @@ export function useAuroraView() {
         error?: string;
         requiresRestart?: boolean;
       }>('api.install_to_webview', { path, name });
-      
+
       return {
         ok: result.ok || result.success || false,
         message: result.message,
@@ -762,7 +762,7 @@ export function useAuroraView() {
         error?: string;
         requiresRestart?: boolean;
       }>('api.set_extension_enabled', { id, enabled });
-      
+
       return {
         ok: result.ok || false,
         message: result.message,
@@ -793,7 +793,7 @@ export function useAuroraView() {
         error?: string;
         requiresRestart?: boolean;
       }>('api.remove_webview_extension', { id });
-      
+
       return {
         ok: result.ok || result.success || false,
         message: result.message,
@@ -822,7 +822,7 @@ export function useAuroraView() {
         path?: string;
         error?: string;
       }>('api.open_extensions_dir', {});
-      
+
       return {
         ok: result.ok || result.success || false,
         message: result.path ? `Opened: ${result.path}` : undefined,
@@ -850,7 +850,7 @@ export function useAuroraView() {
         message?: string;
         error?: string;
       }>('plugin:shell|restart_app', {});
-      
+
       return {
         ok: result.ok || result.success || false,
         message: result.message,
@@ -906,7 +906,7 @@ export function useAuroraView() {
         'api.install_extension',
         { path, browser }
       );
-      
+
       return {
         ok: result.ok || result.success || false,
         message: result.message,
@@ -1141,6 +1141,60 @@ export function useAuroraView() {
     return client.call('features.reset_settings');
   }, [client]);
 
+  // ============================================
+  // Telemetry APIs (Python backend)
+  // ============================================
+
+  const getTelemetry = useCallback(async (opts?: {
+    include_logs?: boolean;
+    log_since?: number;
+  }): Promise<{
+    ok: boolean;
+    instances?: Array<{
+      webview_id: string;
+      uptime_s: number;
+      counters: {
+        emit_count: number;
+        eval_js_count: number;
+        navigation_count: number;
+        ipc_call_count: number;
+        error_count: number;
+      };
+      histograms: {
+        load_time_avg_ms: number | null;
+        load_time_p95_ms: number | null;
+        eval_js_avg_ms: number | null;
+        eval_js_p95_ms: number | null;
+        ipc_latency_avg_ms: number | null;
+        ipc_latency_p95_ms: number | null;
+      };
+      last_url: string | null;
+      last_error: string | null;
+      otel_available: boolean;
+      log_seq: number;
+      logs?: Array<{
+        seq: number;
+        ts: number;
+        level: string;
+        logger: string;
+        msg: string;
+      }>;
+    }>;
+    count?: number;
+  }> => {
+    if (!client) {
+      throw new Error('AuroraView not ready');
+    }
+    try {
+      return await client.call('api.get_all_telemetry', {
+        include_logs: opts?.include_logs ?? false,
+        log_since: opts?.log_since ?? 0,
+      });
+    } catch {
+      return { ok: false, instances: [], count: 0 };
+    }
+  }, [client]);
+
   // Notifications
   const showNotification = useCallback(async (
     title: string,
@@ -1213,7 +1267,9 @@ export function useAuroraView() {
     managementUninstall,
     managementGetPermissionWarnings,
     // Extension Installation (Python backend)
+    installExtensionFromUrl,
     installToWebView,
+
     listWebViewExtensions,
     setExtensionEnabled,
     removeWebViewExtension,
@@ -1255,6 +1311,8 @@ export function useAuroraView() {
     showNotification,
     dismissNotification,
     getNotifications,
+    // Telemetry
+    getTelemetry,
   };
 }
 

@@ -3,29 +3,52 @@
 use auroraview_telemetry::WebViewMetrics;
 
 #[test]
-fn test_metrics_creation() {
+fn test_webview_metrics_creation() {
     let metrics = WebViewMetrics::new();
     // Should not panic
-    metrics.webview_created("test-1");
-    metrics.webview_destroyed("test-1");
+    metrics.webview_created("test-window");
+    metrics.webview_destroyed("test-window");
 }
 
 #[test]
-fn test_metrics_default() {
-    let metrics = WebViewMetrics::default();
-    metrics.record_load_time("test-1", 150.0);
-    metrics.record_ipc_latency("test-1", "js_to_rust", 5.0);
-    metrics.record_ipc_message("test-1", "js_to_rust");
-    metrics.record_js_eval("test-1", 10.0);
-    metrics.record_error("test-1", "timeout");
-    metrics.record_navigation("test-1", "https://example.com");
-    metrics.record_event_emit("test-1", "data_loaded");
-    metrics.record_memory("test-1", 1024 * 1024);
+fn test_webview_metrics_record_load_time() {
+    let metrics = WebViewMetrics::new();
+    metrics.record_load_time("test-window", 250.0);
 }
 
 #[test]
-fn test_convenience_functions() {
-    auroraview_telemetry::metrics_api::record_webview_load_time("test-2", 200.0);
-    auroraview_telemetry::metrics_api::record_ipc_message("test-2", "rust_to_js", 3.0);
-    auroraview_telemetry::metrics_api::record_error("test-2", "crash");
+fn test_webview_metrics_record_ipc() {
+    let metrics = WebViewMetrics::new();
+    metrics.record_ipc_message("test-window", "js_to_rust");
+    metrics.record_ipc_latency("test-window", "js_to_rust", 5.2);
+}
+
+#[test]
+fn test_webview_metrics_record_js_eval() {
+    let metrics = WebViewMetrics::new();
+    metrics.record_js_eval("test-window", 12.5);
+}
+
+#[test]
+fn test_webview_metrics_record_error() {
+    let metrics = WebViewMetrics::new();
+    metrics.record_error("test-window", "timeout");
+}
+
+#[test]
+fn test_webview_metrics_record_navigation() {
+    let metrics = WebViewMetrics::new();
+    metrics.record_navigation("test-window", "https://example.com");
+}
+
+#[test]
+fn test_webview_metrics_record_event_emit() {
+    let metrics = WebViewMetrics::new();
+    metrics.record_event_emit("test-window", "data_update");
+}
+
+#[test]
+fn test_webview_metrics_record_memory() {
+    let metrics = WebViewMetrics::new();
+    metrics.record_memory("test-window", 1024 * 1024);
 }

@@ -13,6 +13,42 @@ AuroraView Telemetry provides OpenTelemetry-based observability including loggin
 
 ## Quick Start
 
+### Python
+
+```python
+from auroraview.telemetry import init, shutdown, TelemetryConfig, WebViewMetrics
+
+# Initialize with defaults (stdout, info level)
+init()
+
+# Or with custom config
+config = TelemetryConfig(log_level="debug", service_name="my-app")
+init(config)
+
+# Record metrics
+metrics = WebViewMetrics()
+metrics.webview_created("main-window")
+metrics.record_load_time("main-window", 180.0)
+metrics.record_ipc_latency("main-window", "js_to_rust", 5.2)
+
+# Cleanup
+shutdown()
+```
+
+### Python with OTLP Export (Jaeger / Grafana)
+
+```python
+from auroraview.telemetry import init, TelemetryConfig
+
+config = TelemetryConfig(
+    otlp_endpoint="http://localhost:4317",
+    log_level="debug",
+    traces_enabled=True,
+    metrics_enabled=True,
+)
+init(config)
+```
+
 ### Rust
 
 ```rust
@@ -28,7 +64,7 @@ tracing::info!(webview_id = "main", "WebView created");
 auroraview_telemetry::metrics_api::record_webview_load_time("main", 250.0);
 ```
 
-### With OTLP Export
+### Rust with OTLP Export
 
 ```rust
 use auroraview_telemetry::{Telemetry, TelemetryConfig};
@@ -42,16 +78,16 @@ let _guard = Telemetry::init(config).unwrap();
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | `bool` | `true` | Enable/disable telemetry globally |
-| `service_name` | `String` | `"auroraview"` | Service name in telemetry data |
-| `service_version` | `String` | crate version | Service version |
-| `log_level` | `String` | `"info"` | Log level filter (e.g., `"debug"`, `"auroraview=debug,warn"`) |
+| `service_name` | `str` | `"auroraview"` | Service name in telemetry data |
+| `service_version` | `str` | crate version | Service version |
+| `log_level` | `str` | `"info"` | Log level filter (e.g., `"debug"`, `"auroraview=debug,warn"`) |
 | `log_to_stdout` | `bool` | `true` | Output logs to stdout |
 | `log_json` | `bool` | `false` | Use JSON format for stdout logs |
-| `otlp_endpoint` | `Option<String>` | `None` | OTLP gRPC endpoint (e.g., `"http://localhost:4317"`) |
+| `otlp_endpoint` | `str \| None` | `None` | OTLP gRPC endpoint (e.g., `"http://localhost:4317"`) |
 | `metrics_enabled` | `bool` | `true` | Enable metrics collection |
-| `metrics_interval_secs` | `u64` | `60` | Metrics export interval |
+| `metrics_interval_secs` | `int` | `60` | Metrics export interval |
 | `traces_enabled` | `bool` | `true` | Enable distributed tracing |
-| `trace_sample_ratio` | `f64` | `1.0` | Trace sampling ratio (0.0-1.0) |
+| `trace_sample_ratio` | `float` | `1.0` | Trace sampling ratio (0.0-1.0) |
 
 ## Built-in Metrics
 
@@ -68,27 +104,83 @@ let _guard = Telemetry::init(config).unwrap();
 | `auroraview.events.emitted` | Counter | - | Events emitted (Python -> JS) |
 | `auroraview.memory.bytes` | Gauge | bytes | Memory usage |
 
-## Using WebViewMetrics
+## Python API
 
-```rust
-use auroraview_telemetry::WebViewMetrics;
+### Module Functions
 
-let metrics = WebViewMetrics::new();
+```python
+from auroraview.telemetry import (
+    init, shutdown, is_enabled, enable, disable,
+    record_load_time, record_ipc_message, record_error,
+)
 
-// Track WebView lifecycle
-metrics.webview_created("main-window");
-metrics.record_load_time("main-window", 180.0);
-metrics.record_ipc_message("main-window", "js_to_rust");
-metrics.record_ipc_latency("main-window", "js_to_rust", 5.2);
+# Initialize / shutdown
+init()                  # default config
+init(config)            # custom config
+shutdown()              # flush & shutdown
 
-// Track errors
-metrics.record_error("main-window", "timeout");
+# Runtime control
+is_enabled()            # -> bool
+enable()
+disable()
 
-// Cleanup
-metrics.webview_destroyed("main-window");
+# Convenience metric recording
+record_load_time("webview-id", 250.0)
+record_ipc_message("webview-id", "js_to_rust", 5.2)
+record_error("webview-id", "timeout")
 ```
 
-## Span Extensions
+### WebViewMetrics
+
+```python
+from auroraview.telemetry import WebViewMetrics
+
+metrics = WebViewMetrics()
+
+# Track WebView lifecycle
+metrics.webview_created("main-window")
+metrics.record_load_time("main-window", 180.0)
+metrics.record_ipc_message("main-window", "js_to_rust")
+metrics.record_ipc_latency("main-window", "js_to_rust", 5.2)
+metrics.record_js_eval("main-window", 12.5)
+metrics.record_navigation("main-window", "https://example.com")
+metrics.record_event_emit("main-window", "data_update")
+metrics.record_memory("main-window", 1024 * 1024)
+
+# Track errors
+metrics.record_error("main-window", "timeout")
+
+# Cleanup
+metrics.webview_destroyed("main-window")
+```
+
+### TelemetryConfig
+
+```python
+from auroraview.telemetry import TelemetryConfig
+
+# Default config
+config = TelemetryConfig()
+
+# Custom config
+config = TelemetryConfig(
+    enabled=True,
+    service_name="my-app",
+    log_level="debug",
+    otlp_endpoint="http://localhost:4317",
+    metrics_interval_secs=30,
+    trace_sample_ratio=0.5,
+)
+
+# Testing config (stdout, debug level)
+config = TelemetryConfig.for_testing()
+
+# Modify after creation
+config.log_level = "warn"
+config.otlp_endpoint = None
+```
+
+## Rust Span Extensions
 
 Add AuroraView-specific attributes to tracing spans:
 
@@ -104,16 +196,25 @@ span.set_app_name("my-gallery-app");
 
 ## Runtime Control
 
+### Python
+
+```python
+from auroraview.telemetry import is_enabled, enable, disable
+
+disable()        # pause collection
+assert not is_enabled()
+
+enable()         # resume collection
+assert is_enabled()
+```
+
+### Rust
+
 ```rust
 use auroraview_telemetry::Telemetry;
 
-// Disable telemetry at runtime
 Telemetry::disable();
-
-// Re-enable
 Telemetry::enable();
-
-// Check status
 if Telemetry::is_enabled() {
     // ...
 }
@@ -122,31 +223,31 @@ if Telemetry::is_enabled() {
 ## Architecture
 
 ```
-Application Code
-    │
-    ▼
-┌─────────────────────────────┐
-│  tracing macros             │  (info!, debug!, span!)
-│  (tracing crate)            │
-└──────────┬──────────────────┘
-           │
-           ▼
-┌─────────────────────────────┐
-│  tracing-opentelemetry      │  Bridge layer
-│  (OpenTelemetryLayer)       │
-└──────────┬──────────────────┘
-           │
-    ┌──────┴──────┐
-    ▼             ▼
-┌────────┐  ┌──────────┐
-│ Traces │  │ Metrics  │
-│ (OTLP) │  │ (OTLP)   │
-└────────┘  └──────────┘
-    │             │
-    ▼             ▼
-  Jaeger      Prometheus
-  Zipkin      Grafana
-  etc.        etc.
+Python / Rust Application Code
+    |
+    v
++-----------------------------+
+|  tracing macros             |  (info!, debug!, span!)
+|  (tracing crate)            |
++-------------+---------------+
+              |
+              v
++-----------------------------+
+|  tracing-opentelemetry      |  Bridge layer
+|  (OpenTelemetryLayer)       |
++-------------+---------------+
+              |
+       +------+------+
+       v              v
++----------+  +----------+
+|  Traces  |  |  Metrics |
+|  (OTLP)  |  |  (OTLP)  |
++----------+  +----------+
+       |              |
+       v              v
+   Jaeger         Prometheus
+   Zipkin         Grafana
+   etc.           etc.
 ```
 
 ## Cargo Features
@@ -154,3 +255,4 @@ Application Code
 | Feature | Default | Description |
 |---------|---------|-------------|
 | `otlp` | Yes | Enable OTLP gRPC export via tonic |
+| `python` | No | Enable Python bindings via PyO3 |

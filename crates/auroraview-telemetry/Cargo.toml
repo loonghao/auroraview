@@ -40,6 +40,9 @@ serde_json = "1.0"
 # Async runtime
 tokio = { version = "1.48", features = ["rt", "sync"] }
 
+# Python bindings (optional)
+pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true }
+
 [dev-dependencies]
 rstest = "0.26"
 tempfile = "3.15"
@@ -48,3 +51,5 @@ tokio = { version = "1.48", features = ["full", "test-util"] }
 [features]
 default = ["otlp"]
 otlp = ["opentelemetry-otlp"]
+# Python bindings via PyO3
+python = ["pyo3"]

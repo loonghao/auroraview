@@ -169,6 +169,17 @@ class WebViewApiMixin:
         except Exception as exc:  # pragma: no cover
             logger.error("Failed to dispatch __auroraview_call_result via eval_js: %s", exc)
 
+    def _dispatch_call_result(self, payload: Dict[str, Any]) -> None:
+        """Dispatch call result to JS with emit-first, eval_js fallback."""
+        try:
+            self.emit("__auroraview_call_result", payload)
+            return
+        except Exception:
+            logger.debug(
+                "WebView.emit for __auroraview_call_result raised; falling back to eval_js"
+            )
+        self._emit_call_result_js(payload)
+
     def bind_call(
         self,
         method: str,
@@ -234,57 +245,11 @@ class WebViewApiMixin:
             # Store the function reference
             self._bound_functions[method] = func
 
-        def _handler(raw: Dict[str, Any]) -> None:
-            call_id = raw.get("id") or raw.get("__auroraview_call_id")
-            has_params_key = "params" in raw
-            params = raw.get("params")
-
-            logger.debug("Handler invoked for method=%s with raw=%s", method, raw)
-
-            # Get the latest bound function (allows for hot-reload scenarios)
-            current_func = self._bound_functions.get(method, func)
-
-            try:
-                if not has_params_key:
-                    result = current_func()
-                elif isinstance(params, dict):
-                    result = current_func(**params)
-                elif isinstance(params, list):
-                    result = current_func(*params)
-                else:
-                    result = current_func(params)
-                ok = True
-                error_info: Optional[Dict[str, Any]] = None
-            except Exception as exc:  # pragma: no cover
-                ok = False
-                result = None
-                error_info = {
-                    "name": exc.__class__.__name__,
-                    "message": str(exc),
-                }
-                logger.exception("Error in bound call '%s'", method)
-
-            if not call_id:
-                return
-
-            payload: Dict[str, Any] = {"id": call_id, "ok": ok}
-            if ok:
-                payload["result"] = result
-            else:
-                payload["error"] = error_info
-
-            logger.debug("Sending result: method=%s, id=%s, ok=%s", method, call_id, ok)
-
-            try:
-                self.emit("__auroraview_call_result", payload)
-            except Exception:
-                logger.debug(
-                    "WebView.emit for __auroraview_call_result raised; falling back to eval_js"
-                )
-            self._emit_call_result_js(payload)
+        logger.debug("Handler prepared for method=%s", method)
 
         # Register wrapper with core IPC handler
-        self._core.on(method, _handler)
+        self._core.on(method, self._create_ipc_handler(method, func))
+
         logger.info("Bound auroraview.call handler: %s", method)
 
         # Register API method in JavaScript (high-performance path via Rust)
@@ -469,6 +434,9 @@ class WebViewApiMixin:
         """
 
         def _handler(raw: Dict[str, Any]) -> None:
+            import time as _time
+
+            _t0 = _time.monotonic()
             call_id = raw.get("id") or raw.get("__auroraview_call_id")
             has_params_key = "params" in raw
             params = raw.get("params")
@@ -495,6 +463,13 @@ class WebViewApiMixin:
                     "message": str(exc),
                 }
                 logger.exception("Error in bound call '%s'", method)
+                if hasattr(self, "_telemetry_on_error"):
+                    self._telemetry_on_error(f"ipc:{method}")
+
+            # Auto-telemetry: record IPC call duration
+            _dt = (_time.monotonic() - _t0) * 1000.0
+            if hasattr(self, "_telemetry_on_ipc_call"):
+                self._telemetry_on_ipc_call(method, _dt)
 
             if not call_id:
                 return
@@ -505,13 +480,7 @@ class WebViewApiMixin:
             else:
                 payload["error"] = error_info
 
-            try:
-                self.emit("__auroraview_call_result", payload)
-            except Exception:
-                logger.debug(
-                    "WebView.emit for __auroraview_call_result raised; falling back to eval_js"
-                )
-            self._emit_call_result_js(payload)
+            self._dispatch_call_result(payload)
 
         return _handler
 

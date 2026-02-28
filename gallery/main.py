@@ -33,15 +33,21 @@ from backend import (
     PROJECT_ROOT,
     get_samples_list,
 )
-from backend.config import DIST_DIR
+
+try:
+    from backend.ai_api import cleanup_ai_agent, register_ai_apis
+except ImportError:
+    register_ai_apis = None  # type: ignore[assignment]
+    cleanup_ai_agent = None  # type: ignore[assignment]
 from backend.child_api import register_child_apis
 from backend.child_manager import cleanup_manager as cleanup_child_manager
+from backend.config import DIST_DIR
 from backend.dependency_api import register_dependency_apis
 from backend.extension_api import cleanup_extension_bridge, register_extension_apis
-from backend.process_api import register_process_apis
-from backend.webview_extension_api import register_webview_extension_apis
 from backend.features_api import register_features_api
-from backend.ai_api import register_ai_apis, cleanup_ai_agent
+from backend.process_api import register_process_apis
+from backend.telemetry_api import register_telemetry_apis
+from backend.webview_extension_api import register_webview_extension_apis
 
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "python"))
@@ -83,7 +89,8 @@ def _cleanup_all():
 
     # Cleanup AI agent
     try:
-        cleanup_ai_agent()
+        if cleanup_ai_agent is not None:
+            cleanup_ai_agent()
     except Exception as e:
         print(f"[Gallery] Error cleaning up AI agent: {e}", file=sys.stderr)
 
@@ -242,7 +249,11 @@ def run_gallery():
     register_features_api(view)
 
     # Register AI Agent APIs with the unified emit callback
-    register_ai_apis(view, emit_callback=emit_callback)
+    if register_ai_apis is not None:
+        register_ai_apis(view, emit_callback=emit_callback)
+
+    # Register telemetry query APIs
+    register_telemetry_apis(view)
 
     # Register simple API handlers
     @view.bind_call("api.get_samples")
