@@ -260,7 +260,7 @@ def get_imports(file_path):
             tree = ast.parse(f.read())
         except SyntaxError:
             return []
-    
+
     imports = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -269,7 +269,7 @@ def get_imports(file_path):
         elif isinstance(node, ast.ImportFrom):
             if node.module:
                 imports.add(node.module.split('.')[0])
-    
+
     return list(imports)
 
 file_path = sys.argv[1]
@@ -451,25 +451,27 @@ elif spec and spec.submodule_search_locations:
         Ok((dest, total_size, file_count))
     }
 
-    /// Collect site-packages for specific packages using pip
+    /// Collect site-packages for specific packages using pip.
     ///
     /// By default, this installs packages WITH their dependencies.
-    /// Use `collect_with_pip_no_deps` if you want to skip dependencies.
+    /// Set `vx_only=true` to force using `vx uv pip` only.
     pub fn collect_with_pip(
         &self,
         packages: &[String],
         dest_dir: &Path,
+        vx_only: bool,
     ) -> PackResult<CollectedDeps> {
-        self.collect_with_pip_impl(packages, dest_dir, false)
+        self.collect_with_pip_impl(packages, dest_dir, false, vx_only)
     }
 
-    /// Collect site-packages for specific packages using pip without dependencies
+    /// Collect site-packages for specific packages using pip without dependencies.
     pub fn collect_with_pip_no_deps(
         &self,
         packages: &[String],
         dest_dir: &Path,
+        vx_only: bool,
     ) -> PackResult<CollectedDeps> {
-        self.collect_with_pip_impl(packages, dest_dir, true)
+        self.collect_with_pip_impl(packages, dest_dir, true, vx_only)
     }
 
     /// Internal implementation for pip collection
@@ -478,6 +480,7 @@ elif spec and spec.submodule_search_locations:
         packages: &[String],
         dest_dir: &Path,
         no_deps: bool,
+        vx_only: bool,
     ) -> PackResult<CollectedDeps> {
         if packages.is_empty() {
             return Ok(CollectedDeps {
@@ -491,20 +494,31 @@ elif spec and spec.submodule_search_locations:
         std::fs::create_dir_all(dest_dir)?;
 
         tracing::info!(
-            "Installing {} packages with pip (no_deps={})...",
+            "Installing {} packages with pip (no_deps={}, vx_only={})...",
             packages.len(),
-            no_deps
+            no_deps,
+            vx_only
         );
 
-        // Try installation methods in order of preference:
-        // 1. vx uv pip (downloaded vx tool)
-        // 2. system uv
-        // 3. python -m pip (fallback)
-        let success = self.try_vx_uv_pip(packages, dest_dir, no_deps)?
-            || self.try_system_uv_pip(packages, dest_dir, no_deps)?
-            || self.try_python_pip(packages, dest_dir, no_deps)?;
+        let success = if vx_only {
+            self.try_vx_uv_pip(packages, dest_dir, no_deps)?
+        } else {
+            // Try installation methods in order of preference:
+            // 1. vx uv pip (downloaded vx tool)
+            // 2. system uv
+            // 3. python -m pip (fallback)
+            self.try_vx_uv_pip(packages, dest_dir, no_deps)?
+                || self.try_system_uv_pip(packages, dest_dir, no_deps)?
+                || self.try_python_pip(packages, dest_dir, no_deps)?
+        };
 
         if !success {
+            if vx_only {
+                return Err(PackError::VxEnsureFailed(
+                    "vx-only dependency install is enabled, but `vx uv pip install` failed"
+                        .to_string(),
+                ));
+            }
             tracing::warn!("All pip installation methods failed");
         }
 

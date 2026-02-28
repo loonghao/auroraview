@@ -58,7 +58,9 @@ pub use traits::{
     PackContext, PackHook, PackOutput, PackPlugin, PackResult, PackTarget, Packer, TargetPacker,
 };
 
+use crate::vx_tool::VxTool;
 use crate::{PackConfig, PackError};
+
 use std::sync::Arc;
 
 /// High-level pack manager coordinating plugins, packers, and targets
@@ -155,6 +157,9 @@ impl PackManager {
         // Before pack
         self.registry.run_hooks(PackHook::BeforePack, context)?;
 
+        // Ensure [vx].ensure tools are available before collect hooks.
+        self.run_vx_ensure(context)?;
+
         // Before collect
         self.registry.run_hooks(PackHook::BeforeCollect, context)?;
 
@@ -187,6 +192,22 @@ impl PackManager {
         self.registry.run_hooks(PackHook::AfterPack, context)?;
 
         Ok(output)
+    }
+
+    fn run_vx_ensure(&self, context: &PackContext) -> PackResult<()> {
+        let Some(vx_config) = context.config.vx.as_ref() else {
+            return Ok(());
+        };
+
+        if !vx_config.enabled || vx_config.ensure.is_empty() {
+            return Ok(());
+        }
+
+        let vx = VxTool::new().map_err(|e| {
+            PackError::VxEnsureFailed(format!("Failed to initialize vx for ensure: {}", e))
+        })?;
+
+        vx.ensure_tools(&vx_config.ensure)
     }
 
     /// Print available targets and their status

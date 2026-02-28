@@ -332,7 +332,12 @@ pub struct BackendPythonConfig {
     #[serde(default)]
     pub requirements: Option<PathBuf>,
 
+    /// Only allow dependency installation through `vx uv pip` (no fallback)
+    #[serde(default)]
+    pub pip_via_vx_only: bool,
+
     /// Additional Python paths to include
+
     #[serde(default)]
     pub include_paths: Vec<PathBuf>,
 
@@ -392,7 +397,9 @@ impl Default for BackendPythonConfig {
             entry_point: None,
             packages: Vec::new(),
             requirements: None,
+            pip_via_vx_only: false,
             include_paths: Vec::new(),
+
             exclude: Vec::new(),
             strategy: default_strategy(),
             optimize: default_optimize(),
@@ -429,7 +436,9 @@ impl BackendPythonConfig {
             include_paths: self.include_paths.iter().map(resolve_path).collect(),
             packages: self.packages.clone(),
             requirements: self.requirements.as_ref().map(resolve_path),
+            pip_via_vx_only: self.pip_via_vx_only,
             strategy: BundleStrategy::parse(&self.strategy),
+
             version: self.version.clone(),
             optimize: self.optimize,
             exclude: self.exclude.clone(),

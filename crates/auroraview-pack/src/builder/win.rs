@@ -388,7 +388,11 @@ impl WinBuilder {
 
         // Use DepsCollector to install packages with dependencies
         let collector = DepsCollector::new();
-        let result = collector.collect_with_pip(&python.packages, &temp_site_packages)?;
+        let result = collector.collect_with_pip(
+            &python.packages,
+            &temp_site_packages,
+            python.pip_via_vx_only,
+        )?;
 
         tracing::info!(
             "Installed {} files ({:.2} MB) from pip packages",
