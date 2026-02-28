@@ -66,6 +66,8 @@ include_paths = [".", "../python", "../packages/auroraview-ai/src"]
 exclude = ["*.pyc", "__pycache__", "*.egg-info", "tests", "node_modules", "dist", "pack-output"]
 optimize = 1
 strategy = "standalone"                         # "standalone" | "pyoxidizer" | "embedded" | "portable" | "system"
+pip_via_vx_only = true
+
 
 # Python environment isolation
 [backend.python.isolation]
@@ -179,11 +181,20 @@ out_dir = "./pack-output"
 release = true
 
 # ============================================================================
+# Vx Configuration (unified tool/runtime management)
+# ============================================================================
+[vx]
+enabled = true
+ensure = ["python@3.11", "uv", "npm"]
+
+# ============================================================================
 # Hooks Configuration (file collection)
 # ============================================================================
 [hooks]
+use_vx = true
 before_collect = []
 after_pack = []
+
 
 [[hooks.collect]]
 source = "../examples/*.py"
