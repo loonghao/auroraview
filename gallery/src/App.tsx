@@ -117,7 +117,9 @@ function App() {
     stopExtensionBridge,
     getExtensionStatus,
     installExtension,
+    installExtensionFromUrl,
     // Extension management APIs
+
     installToWebView,
     listWebViewExtensions,
     setExtensionEnabled,
