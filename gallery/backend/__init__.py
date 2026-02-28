@@ -52,10 +52,19 @@ from .features_api import (
     get_settings_manager,
     get_notification_manager,
 )
-from .ai_api import (
-    register_ai_apis,
-    get_ai_agent,
-    cleanup_ai_agent,
+
+try:
+    from .ai_api import (
+        register_ai_apis,
+        get_ai_agent,
+        cleanup_ai_agent,
+    )
+except ImportError:
+    register_ai_apis = None  # type: ignore[assignment]
+    get_ai_agent = None  # type: ignore[assignment]
+    cleanup_ai_agent = None  # type: ignore[assignment]
+from .telemetry_api import (
+    register_telemetry_apis,
 )
 
 __all__ = [
@@ -96,4 +105,6 @@ __all__ = [
     "register_ai_apis",
     "get_ai_agent",
     "cleanup_ai_agent",
+    # Telemetry API
+    "register_telemetry_apis",
 ]

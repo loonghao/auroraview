@@ -19,6 +19,8 @@ Available capabilities:
 - call_api: Call Python backend APIs
 - take_screenshot: Capture page screenshots
 - evaluate: Execute JavaScript code
+- get_telemetry: Get auto-collected performance metrics (counters, histograms, errors)
+- get_performance_summary: Quick health check with warnings
 - Gallery tools: Run and manage samples
 """,
 )
@@ -39,7 +41,7 @@ def get_connection_manager() -> ConnectionManager:
 
 
 # Import tools to register them with the MCP server
-from auroraview_mcp.tools import api, dcc, debug, discovery, gallery, page, ui  # noqa: E402, F401
+from auroraview_mcp.tools import api, dcc, debug, discovery, gallery, page, telemetry, ui  # noqa: E402, F401
 
 
 def create_server() -> FastMCP:

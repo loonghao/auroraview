@@ -75,6 +75,10 @@ auroraview-signals = { path = "crates/auroraview-signals" }
 # Python bindings enabled via testing-python feature
 auroraview-testing = { path = "crates/auroraview-testing", optional = true }
 
+# Telemetry (OpenTelemetry-based observability)
+# Python bindings enabled via telemetry-python feature
+auroraview-telemetry = { path = "crates/auroraview-telemetry", optional = true }
+
 # Optional feature crates (RFC 0007 Phase 4)
 auroraview-tabs = { path = "crates/auroraview-tabs", optional = true }
 auroraview-bookmarks = { path = "crates/auroraview-bookmarks", optional = true }
@@ -211,10 +215,13 @@ opt-level = 0
 default = ["threaded-ipc", "wry-backend", "templates", "url-utils"]
 
 # Python bindings (for Python wheel)
-python-bindings = ["pyo3", "url-utils", "auroraview-signals/python"]
+python-bindings = ["pyo3", "url-utils", "auroraview-signals/python", "telemetry-python"]
 
 # Testing framework Python bindings
 testing-python = ["dep:auroraview-testing", "auroraview-testing/python"]
+
+# Telemetry Python bindings
+telemetry-python = ["dep:auroraview-telemetry", "auroraview-telemetry/python"]
 
 # ABI3 stable ABI for Python 3.8+ (single wheel for all Python 3.8+ versions)
 # For Python 3.7, use python-bindings without this feature
@@ -327,4 +334,3 @@ path = "tests/rust/http_discovery_integration_tests.rs"
 [[bench]]
 name = "ipc_bench"
 harness = false
-

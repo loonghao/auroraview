@@ -32,6 +32,10 @@ mod metrics;
 mod provider;
 mod span_ext;
 
+// Python bindings (optional)
+#[cfg(feature = "python")]
+pub mod python;
+
 pub use config::TelemetryConfig;
 pub use error::TelemetryError;
 pub use guard::TelemetryGuard;

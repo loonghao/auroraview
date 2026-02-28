@@ -20,6 +20,7 @@ from auroraview.core.mixins import (
     WebViewDOMMixin,
     WebViewEventMixin,
     WebViewJSMixin,
+    WebViewTelemetryMixin,
     WebViewWindowMixin,
 )
 
@@ -53,6 +54,7 @@ class WebView(
     WebViewEventMixin,
     WebViewApiMixin,
     WebViewDOMMixin,
+    WebViewTelemetryMixin,
 ):
     """High-level WebView class with enhanced Python API.
 
@@ -546,6 +548,9 @@ class WebView(
 
         # Setup lifecycle event handlers
         self._setup_lifecycle_events()
+
+        # Initialize auto-telemetry (after WindowManager registration)
+        self._init_telemetry()
 
     @property
     def state(self) -> "State":
@@ -1666,6 +1671,9 @@ class WebView(
         """Close the WebView window and remove from registries."""
         logger.info("Closing WebView")
 
+        # Teardown telemetry before closing
+        self._teardown_telemetry()
+
         # Mark close intent early so background thread can bail out if it hasn't
         # entered the event loop yet.
         self._close_requested = True
@@ -1732,6 +1740,8 @@ class WebView(
         def _on_load_finish(data: Any) -> None:
             if hasattr(self, "_ready_events") and self._ready_events:
                 self._ready_events.set_loaded()
+            # Auto-telemetry: record page load time
+            self._telemetry_on_page_loaded()
 
         # Track bridge ready
         @self.on("auroraviewready")

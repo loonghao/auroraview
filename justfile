@@ -288,6 +288,12 @@ test-extensions:
     vx cargo test -p auroraview-extensions
     vx cargo clippy -p auroraview-extensions -- -D warnings
 
+# Test auroraview-telemetry crate (standalone)
+test-telemetry:
+    @echo "Testing auroraview-telemetry..."
+    vx cargo test -p auroraview-telemetry
+    vx cargo clippy -p auroraview-telemetry -- -D warnings
+
 # Test auroraview-plugins crate (depends on plugin-core, plugin-fs, extensions)
 test-plugins:
     @echo "Testing auroraview-plugins..."
