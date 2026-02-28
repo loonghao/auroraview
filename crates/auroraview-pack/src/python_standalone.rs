@@ -18,7 +18,7 @@
 
 use crate::{PackError, PackResult};
 use std::fs::{self, File};
-use std::io::BufReader;
+use std::io::{BufReader, Write};
 use std::path::{Path, PathBuf};
 
 /// Python standalone distribution configuration
@@ -269,13 +269,13 @@ fn download_file(url: &str, dest: &Path) -> PackResult<()> {
         .call()
         .map_err(|e| PackError::Download(format!("Failed to download from {}: {}", url, e)))?;
 
-    let data = response
-        .body_mut()
-        .read_to_vec()
-        .map_err(|e| PackError::Download(format!("Failed to read download response: {}", e)))?;
+    let mut reader = response.body_mut().as_reader();
+    let mut file = File::create(dest)?;
+    let bytes = std::io::copy(&mut reader, &mut file)
+        .map_err(|e| PackError::Download(format!("Failed to stream download response: {}", e)))?;
 
-    std::fs::write(dest, &data)?;
-    tracing::debug!("Downloaded {} bytes to {}", data.len(), dest.display());
+    file.flush()?;
+    tracing::debug!("Downloaded {} bytes to {}", bytes, dest.display());
 
     Ok(())
 }
