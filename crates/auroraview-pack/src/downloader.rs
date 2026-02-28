@@ -10,7 +10,8 @@
 use crate::error::{PackError, PackResult};
 use sha2::{Digest, Sha256, Sha512};
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
+
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
@@ -252,9 +253,11 @@ impl Downloader {
             .call()
             .map_err(|e| PackError::Config(format!("Failed to download {}: {}", url, e)))?;
 
-        let buffer = response
+        let mut buffer = Vec::new();
+        response
             .body_mut()
-            .read_to_vec()
+            .as_reader()
+            .read_to_end(&mut buffer)
             .map_err(|e| PackError::Config(format!("Failed to read response: {}", e)))?;
 
         debug!("Downloaded {} bytes from {}", buffer.len(), url);

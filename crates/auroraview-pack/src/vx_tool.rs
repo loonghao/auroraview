@@ -10,7 +10,8 @@
 
 use crate::{PackError, PackResult};
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, SystemTime};
@@ -132,9 +133,14 @@ impl VxTool {
             .map_err(|e| PackError::Config(format!("Failed to fetch vx version: {}", e)))?;
 
         let json: serde_json::Value = {
-            let buf = response.body_mut().read_to_vec().map_err(|e| {
-                PackError::Config(format!("Failed to read vx version response: {}", e))
-            })?;
+            let mut buf = Vec::new();
+            response
+                .body_mut()
+                .as_reader()
+                .read_to_end(&mut buf)
+                .map_err(|e| {
+                    PackError::Config(format!("Failed to read vx version response: {}", e))
+                })?;
             serde_json::from_slice(&buf).map_err(|e| {
                 PackError::Config(format!("Failed to parse vx version response: {}", e))
             })?
@@ -402,9 +408,11 @@ impl VxTool {
                 PackError::Download(format!("Failed to download vx from {}: {}", url, e))
             })?;
 
-        let data = response
+        let mut data = Vec::new();
+        response
             .body_mut()
-            .read_to_vec()
+            .as_reader()
+            .read_to_end(&mut data)
             .map_err(|e| PackError::Download(format!("Failed to read download response: {}", e)))?;
 
         tracing::debug!("Downloaded {} bytes", data.len());
