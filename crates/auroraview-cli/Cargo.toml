@@ -88,7 +88,7 @@ rayon = "1.10"
 ipckit = "0.1"
 
 # Self-update functionality
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+reqwest = { version = "0.13", features = ["blocking", "json"] }
 zip = { version = "4", default-features = false, features = ["deflate"] }
 
 self-replace = "1.5"
