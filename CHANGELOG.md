@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.9](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.8...auroraview-v0.4.9) (2026-03-01)
+
+
+### Features
+
+* add telemetry stack and migrate pre-commit to vx prek ([9a1deee](https://github.com/loonghao/auroraview/commit/9a1deeeb3dbb260654d8b089fb6da5dd0abb3e49))
+* **pack:** add vx-only dependency mode and auto vx ensure ([0b376ae](https://github.com/loonghao/auroraview/commit/0b376ae5cad89cabc99d32c61c60abd2e975a820))
+
+
+### Bug Fixes
+
+* **gallery:** restore installExtensionFromUrl hook wiring ([f287723](https://github.com/loonghao/auroraview/commit/f287723605678ff1ca18b944acaaa1b07b66afcf))
+* **pack:** stream python standalone download to avoid size limit ([0b0b499](https://github.com/loonghao/auroraview/commit/0b0b4997d560230aee74da759cdfc74aaf7d545a))
+* **pack:** stream vx/downloader responses to avoid body limits ([490d5b8](https://github.com/loonghao/auroraview/commit/490d5b8da329612d78ca79e178d232c7813f6f33))
+* **pack:** use ureq for downloads, fix vx release URL pattern ([53f449f](https://github.com/loonghao/auroraview/commit/53f449f12f8e82c5aabd693345b0bb79f3671b2d))
+* **py:** add telemetry fallback for environments without native core ([dde251b](https://github.com/loonghao/auroraview/commit/dde251bfaf1160b8458c40ca951e02e1b4a78f67))
+* skip _core.pyd check in packed mode & feat: add auroraview-telemetry crate ([adf0457](https://github.com/loonghao/auroraview/commit/adf0457973a425cb1b9ee5321ae87e6a23e59830))
+
+
+### Code Refactoring
+
+* **pack:** use vx to manage rcedit instead of manual download ([e694b53](https://github.com/loonghao/auroraview/commit/e694b53bf0346048bb41885122fe790e697f5c4d))
+
 ## [0.4.8](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.7...auroraview-v0.4.8) (2026-02-08)
 
 
