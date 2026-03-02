@@ -55,7 +55,7 @@ jobs:
           npm run build:assets
 
       - name: Upload SDK assets artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           # Use unique name with run_id to avoid conflicts with other workflows
           name: gallery-sdk-assets-${{ github.run_id }}
@@ -65,7 +65,7 @@ jobs:
           retention-days: 7
 
       - name: Upload auroraview-assets artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: gallery-vite-assets-${{ github.run_id }}
           path: crates/auroraview-assets/frontend/dist/
@@ -271,7 +271,7 @@ jobs:
           tar -czvf ${{ github.workspace }}/${{ matrix.archive }} ${{ matrix.artifact }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: gallery-${{ matrix.target }}
           path: ${{ matrix.archive }}
@@ -315,7 +315,7 @@ jobs:
 
       - name: Upload combined artifact
         if: steps.check.outputs.has_artifacts == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: gallery-all-platforms
           path: artifacts/*

@@ -919,7 +919,7 @@ jobs:
 
       # Upload CLI artifact for reuse by gallery-pack
       - name: Upload CLI artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact-name }}
           path: target/${{ matrix.target }}/release/${{ matrix.exe-name }}
@@ -993,7 +993,7 @@ jobs:
 
       - name: Upload test screenshots
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: gallery-e2e-screenshots
           path: test-screenshots/
@@ -1346,7 +1346,7 @@ jobs:
           fi
 
       - name: Upload pack artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: gallery-pack-${{ matrix.os }}
           path: target/pack/auroraview-gallery${{ matrix.exe-ext }}
@@ -1378,7 +1378,7 @@ jobs:
         run: npm run build
 
       - name: Upload docs artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: docs-build
           path: docs/.vitepress/dist
