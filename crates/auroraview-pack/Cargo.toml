@@ -37,7 +37,7 @@ glob = "0.3"
 
 # Compression
 zstd = "0.13"
-flate2 = "1.0"
+flate2 = "1.1"
 
 # Archive format
 tar = "0.4"
