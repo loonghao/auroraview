@@ -210,7 +210,7 @@ jobs:
           tar -czvf ../../../${{ matrix.archive }} ${{ matrix.artifact }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: cli-${{ matrix.target }}
           path: ${{ matrix.archive }}
