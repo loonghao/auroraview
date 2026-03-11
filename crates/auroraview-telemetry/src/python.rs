@@ -76,6 +76,26 @@ pub struct PyTelemetryConfig {
     /// Sampling ratio for traces (0.0 to 1.0).
     #[pyo3(get, set)]
     pub trace_sample_ratio: f64,
+
+    /// Optional Sentry DSN.
+    #[pyo3(get, set)]
+    pub sentry_dsn: Option<String>,
+
+    /// Optional Sentry environment.
+    #[pyo3(get, set)]
+    pub sentry_environment: Option<String>,
+
+    /// Optional Sentry release value.
+    #[pyo3(get, set)]
+    pub sentry_release: Option<String>,
+
+    /// Sentry error sampling ratio (0.0 to 1.0).
+    #[pyo3(get, set)]
+    pub sentry_sample_rate: f32,
+
+    /// Sentry transaction sampling ratio (0.0 to 1.0).
+    #[pyo3(get, set)]
+    pub sentry_traces_sample_rate: f32,
 }
 
 #[pymethods]
@@ -94,6 +114,11 @@ impl PyTelemetryConfig {
         metrics_interval_secs=60,
         traces_enabled=true,
         trace_sample_ratio=1.0,
+        sentry_dsn=None,
+        sentry_environment=None,
+        sentry_release=None,
+        sentry_sample_rate=1.0,
+        sentry_traces_sample_rate=0.0,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -109,6 +134,11 @@ impl PyTelemetryConfig {
         metrics_interval_secs: u64,
         traces_enabled: bool,
         trace_sample_ratio: f64,
+        sentry_dsn: Option<String>,
+        sentry_environment: Option<String>,
+        sentry_release: Option<String>,
+        sentry_sample_rate: f32,
+        sentry_traces_sample_rate: f32,
     ) -> Self {
         let defaults = TelemetryConfig::default();
         Self {
@@ -123,6 +153,11 @@ impl PyTelemetryConfig {
             metrics_interval_secs,
             traces_enabled,
             trace_sample_ratio,
+            sentry_dsn,
+            sentry_environment,
+            sentry_release,
+            sentry_sample_rate,
+            sentry_traces_sample_rate,
         }
     }
 
@@ -135,11 +170,14 @@ impl PyTelemetryConfig {
     fn __repr__(&self) -> String {
         format!(
             "TelemetryConfig(enabled={}, service_name='{}', log_level='{}', \
-             otlp_endpoint={}, metrics={}, traces={})",
+             otlp_endpoint={}, sentry_dsn={}, metrics={}, traces={})",
             self.enabled,
             self.service_name,
             self.log_level,
             self.otlp_endpoint
+                .as_deref()
+                .map_or("None".to_string(), |e| format!("'{e}'")),
+            self.sentry_dsn
                 .as_deref()
                 .map_or("None".to_string(), |e| format!("'{e}'")),
             self.metrics_enabled,
@@ -162,6 +200,11 @@ impl From<TelemetryConfig> for PyTelemetryConfig {
             metrics_interval_secs: c.metrics_interval_secs,
             traces_enabled: c.traces_enabled,
             trace_sample_ratio: c.trace_sample_ratio,
+            sentry_dsn: c.sentry_dsn,
+            sentry_environment: c.sentry_environment,
+            sentry_release: c.sentry_release,
+            sentry_sample_rate: c.sentry_sample_rate,
+            sentry_traces_sample_rate: c.sentry_traces_sample_rate,
         }
     }
 }
@@ -180,6 +223,11 @@ impl From<&PyTelemetryConfig> for TelemetryConfig {
             metrics_interval_secs: c.metrics_interval_secs,
             traces_enabled: c.traces_enabled,
             trace_sample_ratio: c.trace_sample_ratio,
+            sentry_dsn: c.sentry_dsn.clone(),
+            sentry_environment: c.sentry_environment.clone(),
+            sentry_release: c.sentry_release.clone(),
+            sentry_sample_rate: c.sentry_sample_rate,
+            sentry_traces_sample_rate: c.sentry_traces_sample_rate,
         }
     }
 }
@@ -350,6 +398,15 @@ fn record_telemetry_error(webview_id: &str, error_type: &str) {
     crate::metrics::record_error(webview_id, error_type);
 }
 
+/// Capture a message to Sentry.
+///
+/// Returns `True` when Sentry feature is active and the message was accepted.
+#[pyfunction]
+#[pyo3(signature = (message, level="error"))]
+fn capture_sentry_message(message: &str, level: &str) -> bool {
+    Telemetry::capture_sentry_message(message, level)
+}
+
 // ============================================================================
 // Module registration
 // ============================================================================
@@ -371,6 +428,7 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(record_webview_load_time, &m)?)?;
     m.add_function(wrap_pyfunction!(record_ipc_message, &m)?)?;
     m.add_function(wrap_pyfunction!(record_telemetry_error, &m)?)?;
+    m.add_function(wrap_pyfunction!(capture_sentry_message, &m)?)?;
 
     parent.add_submodule(&m)?;
     Ok(())

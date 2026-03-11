@@ -225,6 +225,8 @@ jobs:
     permissions:
       contents: read
       actions: write
+    secrets: inherit
+
 
   # Update Gallery screenshots in assets/images/
   update-gallery-screenshots:
@@ -281,7 +283,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Check if there are changes
           if git diff --quiet assets/images/; then
             echo "No screenshot changes detected"
@@ -465,18 +467,18 @@ jobs:
           # Extract version from tag (auroraview-v0.3.8 -> 0.3.8)
           VERSION=$(echo "$TAG_NAME" | sed 's/auroraview-v//')
           echo "Building MCP package with version: $VERSION"
-          
+
           cd packages/auroraview-mcp
-          
+
           # Update version in pyproject.toml
           sed -i 's/^version = ".*"/version = "'"$VERSION"'"/' pyproject.toml
           echo "Updated pyproject.toml:"
           grep version pyproject.toml
-          
+
           # Build package with correct version using just
           cd ../..
           vx just mcp-build
-          
+
           echo "Built packages:"
           ls -la packages/auroraview-mcp/dist/
 
@@ -791,4 +793,3 @@ jobs:
           echo "### Not Available" >> $GITHUB_STEP_SUMMARY
           echo "- ARM64 Python wheels (webkit2gtk/wry cross-compilation not feasible)" >> $GITHUB_STEP_SUMMARY
           echo "- ARM64 users: build from source or use CLI/Gallery ARM64 binaries" >> $GITHUB_STEP_SUMMARY
-

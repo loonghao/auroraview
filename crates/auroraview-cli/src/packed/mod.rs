@@ -49,6 +49,75 @@ fn is_debug_env() -> bool {
         .unwrap_or(false)
 }
 
+fn parse_env_bool(value: Option<&str>) -> bool {
+    value
+        .map(|v| matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+}
+
+fn parse_env_f32(value: Option<&str>, default: f32) -> f32 {
+    value.and_then(|v| v.parse::<f32>().ok()).unwrap_or(default)
+}
+
+fn init_packed_telemetry(log_level: &str) -> Option<auroraview_telemetry::TelemetryGuard> {
+    if parse_env_bool(
+        std::env::var("AURORAVIEW_GALLERY_RUST_TELEMETRY_DISABLED")
+            .ok()
+            .as_deref(),
+    ) {
+        return None;
+    }
+
+    let sentry_dsn = std::env::var("AURORAVIEW_GALLERY_RUST_SENTRY_DSN").ok();
+    let otlp_endpoint = std::env::var("AURORAVIEW_GALLERY_RUST_OTLP_ENDPOINT").ok();
+
+    if sentry_dsn.is_none() && otlp_endpoint.is_none() {
+        return None;
+    }
+
+    let config = auroraview_telemetry::TelemetryConfig {
+        enabled: true,
+        service_name: std::env::var("AURORAVIEW_GALLERY_RUST_SERVICE_NAME")
+            .unwrap_or_else(|_| "auroraview-packed-client".to_string()),
+        service_version: env!("CARGO_PKG_VERSION").to_string(),
+        log_level: std::env::var("AURORAVIEW_GALLERY_RUST_LOG_LEVEL")
+            .unwrap_or_else(|_| log_level.to_string()),
+        log_to_stdout: false,
+        log_json: false,
+        otlp_endpoint,
+        metrics_enabled: true,
+        metrics_interval_secs: 30,
+        traces_enabled: true,
+        trace_sample_ratio: 0.2,
+        sentry_dsn,
+        sentry_environment: Some(
+            std::env::var("AURORAVIEW_GALLERY_RUST_SENTRY_ENV")
+                .unwrap_or_else(|_| "packed".to_string()),
+        ),
+        sentry_release: std::env::var("AURORAVIEW_GALLERY_RUST_SENTRY_RELEASE").ok(),
+        sentry_sample_rate: parse_env_f32(
+            std::env::var("AURORAVIEW_GALLERY_RUST_SENTRY_SAMPLE_RATE")
+                .ok()
+                .as_deref(),
+            1.0,
+        ),
+        sentry_traces_sample_rate: parse_env_f32(
+            std::env::var("AURORAVIEW_GALLERY_RUST_SENTRY_TRACES_SAMPLE_RATE")
+                .ok()
+                .as_deref(),
+            0.2,
+        ),
+    };
+
+    match auroraview_telemetry::Telemetry::init(config) {
+        Ok(guard) => Some(guard),
+        Err(err) => {
+            eprintln!("[packed] telemetry init failed: {err}");
+            None
+        }
+    }
+}
+
 /// Allocate a console window on Windows for debug output
 #[cfg(target_os = "windows")]
 fn allocate_console() {
@@ -96,45 +165,49 @@ pub fn run_packed_app() -> Result<()> {
         .with_context(|| "Failed to read overlay data")?
         .ok_or_else(|| anyhow::anyhow!("No overlay data found in packed executable"))?;
 
-    // Initialize logging
+    // Initialize logging/telemetry
     // Use debug level if either config.debug or AURORAVIEW_DEBUG env is set
     let log_level = if overlay.config.debug || debug_env {
         "debug"
     } else {
         "info"
     };
-    let local_time = tracing_subscriber::fmt::time::OffsetTime::local_rfc_3339();
 
-    // Configure tracing to output to stderr (stdout is used for JSON-RPC in packed mode)
-    // Disable ANSI colors on Windows to avoid garbled output in parent process console
-    #[cfg(target_os = "windows")]
-    let use_ansi = false;
-    #[cfg(not(target_os = "windows"))]
-    let use_ansi = true;
+    let _telemetry_guard = init_packed_telemetry(log_level);
+    if _telemetry_guard.is_none() {
+        let local_time = tracing_subscriber::fmt::time::OffsetTime::local_rfc_3339();
 
-    match local_time {
-        Ok(timer) => {
-            tracing_subscriber::fmt()
-                .with_timer(timer)
-                .with_writer(std::io::stderr)
-                .with_env_filter(
-                    tracing_subscriber::EnvFilter::try_from_default_env()
-                        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
-                )
-                .with_target(false)
-                .with_ansi(use_ansi)
-                .init();
-        }
-        Err(_) => {
-            tracing_subscriber::fmt()
-                .with_writer(std::io::stderr)
-                .with_env_filter(
-                    tracing_subscriber::EnvFilter::try_from_default_env()
-                        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
-                )
-                .with_target(false)
-                .with_ansi(use_ansi)
-                .init();
+        // Configure tracing to output to stderr (stdout is used for JSON-RPC in packed mode)
+        // Disable ANSI colors on Windows to avoid garbled output in parent process console
+        #[cfg(target_os = "windows")]
+        let use_ansi = false;
+        #[cfg(not(target_os = "windows"))]
+        let use_ansi = true;
+
+        match local_time {
+            Ok(timer) => {
+                tracing_subscriber::fmt()
+                    .with_timer(timer)
+                    .with_writer(std::io::stderr)
+                    .with_env_filter(
+                        tracing_subscriber::EnvFilter::try_from_default_env()
+                            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
+                    )
+                    .with_target(false)
+                    .with_ansi(use_ansi)
+                    .init();
+            }
+            Err(_) => {
+                tracing_subscriber::fmt()
+                    .with_writer(std::io::stderr)
+                    .with_env_filter(
+                        tracing_subscriber::EnvFilter::try_from_default_env()
+                            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
+                    )
+                    .with_target(false)
+                    .with_ansi(use_ansi)
+                    .init();
+            }
         }
     }
 

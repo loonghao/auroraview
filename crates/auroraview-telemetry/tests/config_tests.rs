@@ -14,6 +14,11 @@ fn test_default_config() {
     assert!(config.traces_enabled);
     assert!((config.trace_sample_ratio - 1.0).abs() < f64::EPSILON);
     assert_eq!(config.metrics_interval_secs, 60);
+    assert!(config.sentry_dsn.is_none());
+    assert!(config.sentry_environment.is_none());
+    assert!(config.sentry_release.is_none());
+    assert!((config.sentry_sample_rate - 1.0).abs() < f32::EPSILON);
+    assert!((config.sentry_traces_sample_rate - 0.0).abs() < f32::EPSILON);
 }
 
 #[test]

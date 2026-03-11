@@ -25,6 +25,10 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 tracing-opentelemetry = "0.32"
 
+# Sentry integration (optional)
+sentry = { version = "0.46", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls", "anyhow"], optional = true }
+
+
 # Error handling
 thiserror = "2.0"
 anyhow = "1.0"
@@ -42,6 +46,7 @@ tokio = { version = "1.48", features = ["rt", "sync"] }
 
 # Python bindings (optional)
 pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true }
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [dev-dependencies]
 rstest = "0.26"
@@ -53,3 +58,5 @@ default = ["otlp"]
 otlp = ["opentelemetry-otlp"]
 # Python bindings via PyO3
 python = ["pyo3"]
+# Sentry SDK integration
+sentry = ["dep:sentry"]

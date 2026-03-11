@@ -23,7 +23,7 @@ use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
 use super::utils::{escape_json_for_js, get_webview_data_dir};
 #[cfg(target_os = "windows")]
-use super::utils::{get_extensions_dir, has_extensions};
+use super::utils::{get_extensions_dir, has_extensions_in_dir, prepare_active_extensions_dir};
 
 /// Regex pattern for valid handler names: alphanumeric, underscore, dot, colon, hyphen
 /// This prevents injection attacks via malicious handler names
@@ -95,6 +95,53 @@ fn build_api_registration_script(handlers: &[String]) -> String {
 
     script.push_str("})()");
     script
+}
+
+fn duration_to_ms(duration: Option<std::time::Duration>) -> Option<f64> {
+    duration.map(|d| d.as_secs_f64() * 1000.0)
+}
+
+fn capture_packed_sentry(level: &str, message: &str) {
+    let _ = auroraview_telemetry::Telemetry::capture_sentry_message(message, level);
+}
+
+/// Install bundled extensions from overlay assets into shared extension directory
+#[cfg(target_os = "windows")]
+fn install_bundled_extensions_from_assets(overlay: &OverlayData) -> Result<usize> {
+    let extensions_dir = get_extensions_dir();
+    std::fs::create_dir_all(&extensions_dir).with_context(|| {
+        format!(
+            "Failed to create extensions dir: {}",
+            extensions_dir.display()
+        )
+    })?;
+
+    let mut installed = 0usize;
+
+    for (asset_path, content) in &overlay.assets {
+        if !asset_path.starts_with("extensions/") {
+            continue;
+        }
+
+        let relative = asset_path.trim_start_matches("extensions/");
+        if relative.is_empty() {
+            continue;
+        }
+
+        let target_path = extensions_dir.join(relative.replace('/', "\\"));
+        if let Some(parent) = target_path.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Failed to create dir: {}", parent.display()))?;
+        }
+
+        std::fs::write(&target_path, content).with_context(|| {
+            format!("Failed to write extension asset: {}", target_path.display())
+        })?;
+
+        installed += 1;
+    }
+
+    Ok(installed)
 }
 
 /// Handle extension resource requests in the custom protocol
@@ -262,7 +309,7 @@ fn handle_window_command(
 /// 2. Python backend - for application-specific API calls (api.*)
 fn handle_ipc_message(
     body: &str,
-    python_backend: Option<&Arc<PythonBackend>>,
+    python_backend: &Arc<RwLock<Option<Arc<PythonBackend>>>>,
     plugin_router: &Arc<RwLock<PluginRouter>>,
     proxy: &EventLoopProxy<UserEvent>,
 ) {
@@ -273,6 +320,10 @@ fn handle_ipc_message(
         Ok(v) => v,
         Err(e) => {
             tracing::warn!("Failed to parse IPC message: {}", e);
+            let _ = proxy.send_event(UserEvent::BackendError {
+                message: format!("Invalid IPC payload: {}", e),
+                source: "ipc".to_string(),
+            });
             return;
         }
     };
@@ -345,42 +396,56 @@ fn handle_ipc_message(
                     let _ = proxy.send_event(UserEvent::PythonResponse(result.to_string()));
                 } else {
                     tracing::warn!("Invalid plugin command format: {}", method);
-                }
-            } else if let Some(backend) = python_backend {
-                // Forward to Python backend for api.* calls
-                let request = serde_json::json!({
-                    "id": id,
-                    "method": method,
-                    "params": params
-                });
-
-                if let Err(e) = backend.send_request(&request.to_string()) {
-                    tracing::error!("Failed to send request to Python: {}", e);
-                    // Send error response back to WebView so it doesn't hang
                     let error_response = serde_json::json!({
                         "id": id,
                         "ok": false,
                         "result": null,
                         "error": {
-                            "name": "PythonBackendError",
-                            "message": format!("{}", e)
+                            "name": "InvalidFormat",
+                            "message": format!("Invalid plugin command format: {}", method)
                         }
                     });
                     let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
                 }
             } else {
-                tracing::warn!("No Python backend available for API call: {}", method);
-                // Send error response for missing backend
-                let error_response = serde_json::json!({
-                    "id": id,
-                    "ok": false,
-                    "result": null,
-                    "error": {
-                        "name": "NoPythonBackend",
-                        "message": "No Python backend available for API calls"
+                let backend = python_backend.read().ok().and_then(|state| state.clone());
+                if let Some(backend) = backend {
+                    // Forward to Python backend for api.* calls
+                    let request = serde_json::json!({
+                        "id": id,
+                        "method": method,
+                        "params": params
+                    });
+
+                    if let Err(e) = backend.send_request(&request.to_string()) {
+                        tracing::error!("Failed to send request to Python: {}", e);
+                        // Send error response back to WebView so it doesn't hang
+                        let error_response = serde_json::json!({
+                            "id": id,
+                            "ok": false,
+                            "result": null,
+                            "error": {
+                                "name": "PythonBackendError",
+                                "message": format!("{}", e)
+                            }
+                        });
+                        let _ =
+                            proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
                     }
-                });
-                let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
+                } else {
+                    tracing::warn!("No Python backend available for API call: {}", method);
+                    // Send error response for missing backend
+                    let error_response = serde_json::json!({
+                        "id": id,
+                        "ok": false,
+                        "result": null,
+                        "error": {
+                            "name": "NoPythonBackend",
+                            "message": "No Python backend available for API calls"
+                        }
+                    });
+                    let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
+                }
             }
         }
         "plugin" => {
@@ -547,6 +612,18 @@ fn handle_ipc_message(
         }
         _ => {
             tracing::warn!("Unknown IPC message type: {}", msg_type);
+            if let Some(id) = msg.get("id").and_then(|v| v.as_str()) {
+                let error_response = serde_json::json!({
+                    "id": id,
+                    "ok": false,
+                    "result": null,
+                    "error": {
+                        "name": "UnknownMessageType",
+                        "message": format!("Unknown IPC message type: {}", msg_type)
+                    }
+                });
+                let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
+            }
         }
     }
 }
@@ -557,6 +634,7 @@ fn handle_ipc_message(
 /// It will call std::process::exit() when the window closes.
 #[allow(unreachable_code)]
 pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> Result<()> {
+    let overlay = Arc::new(overlay);
     let config = &overlay.config;
     let is_fullstack = matches!(config.mode, PackMode::FullStack { .. });
 
@@ -591,7 +669,11 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         #[cfg(target_os = "windows")]
         let fs_scope = {
             let extensions_dir = get_extensions_dir();
-            fs_scope.allow(&extensions_dir)
+            let active_dir = dirs::data_local_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("AuroraView")
+                .join("ExtensionsActive");
+            fs_scope.allow(&extensions_dir).allow(&active_dir)
         };
 
         // Create a restricted scope configuration
@@ -623,26 +705,14 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         }
     }
 
-    // For FullStack mode, start Python backend BEFORE creating window
-    // This allows Python to initialize while the window is being created
-    // We'll show a loading screen while waiting for Python to be ready
-    let python_backend = if let PackMode::FullStack { ref python, .. } = config.mode {
-        tracing::info!("Starting Python backend before window creation...");
-        Some(start_python_backend_with_ipc(
-            &overlay,
-            python,
-            proxy.clone(),
-            &mut metrics,
-        )?)
-    } else {
-        None
-    };
+    let needs_python_backend = matches!(config.mode, PackMode::FullStack { .. });
+    let python_backend_state: Arc<RwLock<Option<Arc<PythonBackend>>>> = Arc::new(RwLock::new(None));
 
     // Track loading state for FullStack mode
     // We need both loading screen ready AND Python ready before navigating
     let loading_screen_ready = Arc::new(RwLock::new(false));
     let python_ready = Arc::new(RwLock::new(false));
-    let waiting_for_python = Arc::new(RwLock::new(python_backend.is_some()));
+    let waiting_for_python = Arc::new(RwLock::new(needs_python_backend));
     // Store registered handlers for API method registration
     let registered_handlers: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
 
@@ -650,7 +720,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     // Two-stage timeout:
     // 1. First timeout (10s): Show warning, allow Python to continue initializing
     // 2. Final timeout (20s): Show error page if still not ready
-    if python_backend.is_some() {
+    if needs_python_backend {
         let python_ready_for_timeout = python_ready.clone();
         let proxy_for_timeout = proxy.clone();
         std::thread::spawn(move || {
@@ -740,8 +810,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     let init_script = build_packed_init_script();
 
     // Clone for IPC handler
-    let python_backend_arc = python_backend.map(Arc::new);
-    let python_backend_for_ipc = python_backend_arc.clone();
+    let python_backend_for_ipc = python_backend_state.clone();
     let plugin_router_for_ipc = plugin_router.clone();
     let proxy_for_ipc = proxy.clone();
 
@@ -757,7 +826,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                 .with_ipc_handler(move |request| {
                     handle_ipc_message(
                         request.body(),
-                        python_backend_for_ipc.as_ref(),
+                        &python_backend_for_ipc,
                         &plugin_router_for_ipc,
                         &proxy_for_ipc,
                     );
@@ -795,17 +864,17 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                 .map(|p| (*p).clone())
                 .unwrap_or_else(|| "index.html".to_string());
 
-            tracing::info!("Loading embedded assets via auroraview:// protocol");
-            tracing::info!("Index path: {}", index_path);
+            tracing::debug!("Loading embedded assets via auroraview:// protocol");
+            tracing::debug!("Index path: {}", index_path);
 
             // Debug: Print all available assets for troubleshooting
-            tracing::info!("[DEBUG] Available assets ({} total):", all_paths.len());
+            tracing::debug!("[DEBUG] Available assets ({} total):", all_paths.len());
             for (i, path) in all_paths.iter().enumerate() {
                 if i < 50 {
                     // Limit to first 50 to avoid log spam
-                    tracing::info!("  [{}] {}", i, path);
+                    tracing::debug!("  [{}] {}", i, path);
                 } else if i == 50 {
-                    tracing::info!("  ... and {} more", all_paths.len() - 50);
+                    tracing::debug!("  ... and {} more", all_paths.len() - 50);
                     break;
                 }
             }
@@ -856,43 +925,45 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             #[cfg(target_os = "windows")]
             let builder = builder.with_https_scheme(true);
 
-            // Enable browser extensions if the extensions directory exists and has extensions
+            // Enable browser extensions from a filtered per-app runtime directory
             #[cfg(target_os = "windows")]
             let builder = {
-                let ext_dir = get_extensions_dir();
-                tracing::info!("[packed] Extensions directory: {}", ext_dir.display());
-
-                // List all entries in extensions directory for debugging
-                if ext_dir.exists() {
-                    if let Ok(entries) = std::fs::read_dir(&ext_dir) {
-                        for entry in entries.flatten() {
-                            let path = entry.path();
-                            let manifest_exists = path.join("manifest.json").exists();
-                            tracing::info!(
-                                "[packed] Extension entry: {} (is_dir={}, has_manifest={})",
-                                path.display(),
-                                path.is_dir(),
-                                manifest_exists
-                            );
+                if config.extensions.bundle {
+                    match install_bundled_extensions_from_assets(&overlay) {
+                        Ok(count) => tracing::info!(
+                            "[packed] Installed {} bundled extension asset file(s)",
+                            count
+                        ),
+                        Err(e) => {
+                            tracing::error!("[packed] Failed to install bundled extensions: {}", e)
                         }
                     }
                 }
 
-                if has_extensions() {
-                    tracing::info!(
-                        "[packed] Enabling browser extensions from: {}",
-                        ext_dir.display()
-                    );
-                    // Create extensions directory if needed
-                    let _ = std::fs::create_dir_all(&ext_dir);
+                let active_ext_dir = match prepare_active_extensions_dir(config.extensions.enabled)
+                {
+                    Ok(dir) => dir,
+                    Err(e) => {
+                        tracing::error!(
+                            "[packed] Failed to prepare active extensions directory: {}",
+                            e
+                        );
+                        get_extensions_dir()
+                    }
+                };
+
+                tracing::info!(
+                    "[packed] Active extensions directory: {} (runtime enabled={})",
+                    active_ext_dir.display(),
+                    config.extensions.enabled
+                );
+
+                if has_extensions_in_dir(&active_ext_dir) {
                     builder
                         .with_browser_extensions_enabled(true)
-                        .with_extensions_path(ext_dir)
+                        .with_extensions_path(active_ext_dir)
                 } else {
-                    tracing::warn!(
-                        "[packed] No valid extensions found in: {}",
-                        ext_dir.display()
-                    );
+                    tracing::info!("[packed] No enabled extensions to load");
                     builder
                 }
             };
@@ -946,7 +1017,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                 .with_ipc_handler(move |request| {
                     handle_ipc_message(
                         request.body(),
-                        python_backend_for_ipc.as_ref(),
+                        &python_backend_for_ipc,
                         &plugin_router_for_ipc,
                         &proxy_for_ipc,
                     );
@@ -959,6 +1030,42 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         }
     };
 
+    // Start Python backend AFTER window/webview creation to improve first-screen responsiveness.
+    if let PackMode::FullStack { ref python, .. } = config.mode {
+        let overlay_for_backend = overlay.clone();
+        let python_config = python.clone();
+        let proxy_for_backend = proxy.clone();
+        let backend_state_for_start = python_backend_state.clone();
+
+        std::thread::spawn(move || {
+            let mut backend_metrics = PackedMetrics::default();
+            match start_python_backend_with_ipc(
+                overlay_for_backend.as_ref(),
+                &python_config,
+                proxy_for_backend.clone(),
+                &mut backend_metrics,
+            ) {
+                Ok(backend) => {
+                    if let Ok(mut state) = backend_state_for_start.write() {
+                        *state = Some(Arc::new(backend));
+                    } else {
+                        tracing::error!("Failed to store Python backend state: lock poisoned");
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to start Python backend: {}", e);
+                    let _ = proxy_for_backend.send_event(UserEvent::BackendError {
+                        message: format!("Failed to start Python backend: {}", e),
+                        source: "startup".to_string(),
+                    });
+                    let _ = proxy_for_backend.send_event(UserEvent::PythonReady {
+                        handlers: Vec::new(),
+                    });
+                }
+            }
+        });
+    }
+
     metrics.mark_webview_created();
     metrics.mark_total();
 
@@ -970,11 +1077,31 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     // Always log performance report for debugging startup issues
     metrics.log_report();
 
+    let startup_metrics_payload = serde_json::json!({
+        "total_ms": duration_to_ms(metrics.total),
+        "overlay_read_ms": duration_to_ms(metrics.overlay_read),
+        "config_decompress_ms": duration_to_ms(metrics.config_decompress),
+        "assets_decompress_ms": duration_to_ms(metrics.assets_decompress),
+        "tar_extract_ms": duration_to_ms(metrics.tar_extract),
+        "python_runtime_extract_ms": duration_to_ms(metrics.python_runtime_extract),
+        "python_files_extract_ms": duration_to_ms(metrics.python_files_extract),
+        "resources_extract_ms": duration_to_ms(metrics.resources_extract),
+        "python_start_ms": duration_to_ms(metrics.python_start),
+        "window_created_ms": duration_to_ms(metrics.window_created),
+        "webview_created_ms": duration_to_ms(metrics.webview_created),
+        "is_fullstack": is_fullstack,
+        "content_hash": overlay.content_hash,
+    });
+    let startup_metrics_payload_escaped = escape_json_for_js(&startup_metrics_payload.to_string());
+    let startup_metrics_message = format!("[packed.startup.metrics] {}", startup_metrics_payload);
+    capture_packed_sentry("info", &startup_metrics_message);
+    let mut startup_metrics_sent = false;
+
     // Start process monitor thread to detect Python crashes
     // This thread checks if Python process is still alive every 500ms
     // If Python crashes, it sends a PythonCrash event to display error page
-    if let Some(ref backend) = python_backend_arc {
-        let backend_for_monitor = Arc::clone(backend);
+    if needs_python_backend {
+        let backend_state_for_monitor = python_backend_state.clone();
         let proxy_for_monitor = proxy.clone();
         let python_ready_for_monitor = python_ready.clone();
         std::thread::spawn(move || {
@@ -984,16 +1111,25 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             loop {
                 std::thread::sleep(std::time::Duration::from_millis(500));
 
+                let backend = backend_state_for_monitor
+                    .read()
+                    .ok()
+                    .and_then(|state| state.clone());
+
+                let Some(backend) = backend else {
+                    continue;
+                };
+
                 // Check if shutdown has been initiated
-                if backend_for_monitor.is_shutting_down() {
+                if backend.is_shutting_down() {
                     tracing::debug!("[ProcessMonitor] Shutdown detected, stopping monitor");
                     break;
                 }
 
                 // Check if process is still alive
-                if !backend_for_monitor.is_alive() {
-                    let exit_code = backend_for_monitor.get_exit_code();
-                    let stderr_output = backend_for_monitor.get_last_stderr();
+                if !backend.is_alive() {
+                    let exit_code = backend.get_exit_code();
+                    let stderr_output = backend.get_last_stderr();
                     let during_startup =
                         !python_ready_for_monitor.read().map(|r| *r).unwrap_or(false);
 
@@ -1041,7 +1177,11 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     let _ = router.handle(request);
                 }
                 // Gracefully shutdown Python backend using ipckit
-                if let Some(ref backend) = python_backend_arc {
+                if let Some(backend) = python_backend_state
+                    .read()
+                    .ok()
+                    .and_then(|state| state.clone())
+                {
                     tracing::info!("Stopping Python backend...");
                     backend.shutdown();
                 }
@@ -1063,8 +1203,13 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                             }
                             Err(e) => {
                                 tracing::error!("[Rust] Failed to navigate to application: {}", e);
+                                capture_packed_sentry(
+                                    "error",
+                                    &format!("[packed.navigation] failed to navigate to app: {}", e),
+                                );
                             }
                         }
+
                     };
 
                     match user_event {
@@ -1084,8 +1229,6 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                         if (window.auroraview && window.auroraview.trigger) {
                                             window.auroraview.trigger('backend_ready', { ready: true });
                                         }
-                                        // Also dispatch a custom event for the loading page
-                                        window.dispatchEvent(new CustomEvent('auroraview:backend_ready', { detail: { ready: true } }));
                                     })()
                                 "#;
                                 let _ = wv.evaluate_script(script);
@@ -1124,8 +1267,6 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                         if (window.auroraview && window.auroraview.trigger) {
                                             window.auroraview.trigger('backend_ready', { ready: true });
                                         }
-                                        // Also dispatch a custom event for the loading page
-                                        window.dispatchEvent(new CustomEvent('auroraview:backend_ready', { detail: { ready: true } }));
                                     })()
                                 "#;
                                 let _ = wv.evaluate_script(script);
@@ -1155,7 +1296,36 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                     }
                                 }
                             }
+
+                            if !startup_metrics_sent {
+                                let startup_script = format!(
+                                    r#"(function() {{
+                                        try {{
+                                            var data = JSON.parse('{}');
+                                            if (window.auroraview && window.auroraview.trigger) {{
+                                                window.auroraview.trigger('packed_startup_metrics', data);
+                                            }}
+                                        }} catch (e) {{
+                                            console.error('[AuroraView] Failed to emit packed_startup_metrics:', e);
+                                        }}
+                                    }})()"#,
+                                    startup_metrics_payload_escaped
+                                );
+                                match wv.evaluate_script(&startup_script) {
+                                    Ok(_) => {
+                                        startup_metrics_sent = true;
+                                        tracing::info!("[Rust] Emitted packed_startup_metrics event");
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "[Rust] Failed to emit packed_startup_metrics event: {}",
+                                            e
+                                        );
+                                    }
+                                }
+                            }
                         }
+
                         UserEvent::PythonResponse(response) => {
                             // Send response back to WebView
                             let escaped = escape_json_for_js(&response);
@@ -1178,7 +1348,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                             // Send plugin event to WebView
                             // The `data` is already a valid JSON string from Python
                             // We insert it directly as a JavaScript object literal
-                            tracing::info!(
+                            tracing::debug!(
                                 "[Rust:WebView] Received PluginEvent: event={}, data_len={}",
                                 event,
                                 data.len()
@@ -1190,7 +1360,6 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                     if (window.auroraview && window.auroraview.trigger) {{
                                         try {{
                                             var data = {};
-                                            console.log('[AuroraView] Triggering event:', '{}', data);
                                             window.auroraview.trigger('{}', data);
                                         }} catch (e) {{
                                             console.error('[AuroraView] Failed to process event data:', e);
@@ -1199,7 +1368,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                         console.warn('[AuroraView] Bridge not ready for event:', '{}');
                                     }}
                                 }})()"#,
-                                data, event, event, event
+                                data, event, event
                             );
                             let _ = wv.evaluate_script(&script);
                         }
@@ -1257,7 +1426,6 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                     if (window.auroraLoading && window.auroraLoading.addError) {{
                                         window.auroraLoading.addError('{}', '{}');
                                     }}
-                                    // Also trigger event for custom handling
                                     if (window.auroraview && window.auroraview.trigger) {{
                                         window.auroraview.trigger('backend_error', {{
                                             message: '{}',
@@ -1266,10 +1434,20 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                     }}
                                     console.error('[Backend:{}] {}');
                                 }})()"#,
-                                escaped_msg, escaped_source, escaped_msg, escaped_source, escaped_source, escaped_msg
+                                escaped_msg,
+                                escaped_source,
+                                escaped_msg,
+                                escaped_source,
+                                escaped_source,
+                                escaped_msg
                             );
                             let _ = wv.evaluate_script(&script);
+                            capture_packed_sentry(
+                                "error",
+                                &format!("[packed.backend_error][{}] {}", source, message),
+                            );
                         }
+
                         UserEvent::SetHtml { html, title } => {
                             // Load dynamic HTML content (for Browser component in packed mode)
                             tracing::info!(
@@ -1327,7 +1505,11 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 let _ = router.handle(request);
                             }
                             // Gracefully shutdown Python backend using ipckit
-                            if let Some(ref backend) = python_backend_arc {
+                            if let Some(backend) = python_backend_state
+                                .read()
+                                .ok()
+                                .and_then(|state| state.clone())
+                            {
                                 tracing::info!("Stopping Python backend...");
                                 backend.shutdown();
                             }
@@ -1388,7 +1570,20 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 Some(truncated)
                             };
 
+                            let sentry_detail_preview = details
+                                .as_deref()
+                                .map(|d| d.chars().take(2000).collect::<String>())
+                                .unwrap_or_default();
+                            capture_packed_sentry(
+                                "error",
+                                &format!(
+                                    "[packed.python_crash] during_startup={} exit_code={:?} title={} message={} details={}",
+                                    during_startup, exit_code, title, message, sentry_detail_preview
+                                ),
+                            );
+
                             // Build and display error page
+
                             let error_html = build_error_page(
                                 500,
                                 title,
@@ -1438,8 +1633,20 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 "[Rust] ShowError: {} - {} (source: {})",
                                 code, title, source
                             );
+                            let sentry_detail_preview = details
+                                .as_deref()
+                                .map(|d| d.chars().take(2000).collect::<String>())
+                                .unwrap_or_default();
+                            capture_packed_sentry(
+                                "error",
+                                &format!(
+                                    "[packed.show_error] code={} title={} source={} message={} details={}",
+                                    code, title, source, message, sentry_detail_preview
+                                ),
+                            );
 
                             // Build and display error page
+
                             let error_html = build_error_page(
                                 code,
                                 &title,

@@ -545,6 +545,7 @@ impl VxTool {
         match base {
             "go" => ("go".to_string(), vec!["version".to_string()]),
             "rust" | "rustc" => ("rustc".to_string(), vec!["--version".to_string()]),
+            "rcedit" => ("rcedit".to_string(), vec![]),
             "python" | "python3" | "uv" | "node" | "npm" | "npx" | "cargo" | "just" | "git" => {
                 (base.to_string(), vec!["--version".to_string()])
             }

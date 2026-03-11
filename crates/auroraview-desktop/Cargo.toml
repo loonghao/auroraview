@@ -34,6 +34,7 @@ image = "0.25"
 
 # Ctrl+C handling
 ctrlc = "3.4"
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 # Platform specific
 [target.'cfg(windows)'.dependencies]

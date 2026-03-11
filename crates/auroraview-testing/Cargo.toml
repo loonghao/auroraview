@@ -54,6 +54,7 @@ pyo3 = { version = "0.27", features = ["multiple-pymethods"], optional = true }
 
 # chromiumoxide for browser launching (optional)
 chromiumoxide = { version = "0.8", optional = true, default-features = false, features = ["tokio-runtime"] }
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [features]
 default = []

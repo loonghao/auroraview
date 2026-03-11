@@ -4,13 +4,19 @@ use super::common::{BuildContext, BuildOutput, BuildResult};
 use super::traits::{Builder, BuilderCapability};
 use crate::bundle::BundleBuilder;
 use crate::common::BundleStrategy;
-use crate::config::PythonBundleConfig;
+use crate::config::{ExtensionRemoteSource, PythonBundleConfig};
 use crate::deps_collector::DepsCollector;
 use crate::overlay::{OverlayData, OverlayWriter};
 use crate::python_standalone::{PythonRuntimeMeta, PythonStandalone, PythonStandaloneConfig};
-use crate::{PackConfig, PackError, PackMode};
+use crate::{Downloader, PackConfig, PackError, PackMode};
+use auroraview_extensions::{
+    archive_suffix_from_url, extract_crx_archive, find_extension_root,
+    resolve_extension_source_url, validate_extension_dir, ExtensionSourceKind,
+    ResolvedExtensionSource,
+};
 use std::fs;
 use std::path::Path;
+use tempfile::TempDir;
 use walkdir::WalkDir;
 
 /// Windows platform builder
@@ -47,6 +53,35 @@ impl WinBuilder {
             // Strip .exe suffix if present (e.g., from config)
             name.strip_suffix(".exe").unwrap_or(&name).to_string()
         }
+    }
+
+    fn normalize_windows_version(version: &str) -> Option<String> {
+        let core = version.split(['-', '+']).next().unwrap_or(version);
+        let mut parts = [0u16; 4];
+        let mut has_numeric_part = false;
+
+        for (idx, segment) in core.split('.').take(4).enumerate() {
+            if segment.is_empty() {
+                continue;
+            }
+
+            match segment.parse::<u16>() {
+                Ok(value) => {
+                    parts[idx] = value;
+                    has_numeric_part = true;
+                }
+                Err(_) => break,
+            }
+        }
+
+        if !has_numeric_part {
+            return None;
+        }
+
+        Some(format!(
+            "{}.{}.{}.{}",
+            parts[0], parts[1], parts[2], parts[3]
+        ))
     }
 }
 
@@ -138,6 +173,9 @@ impl Builder for WinBuilder {
             }
         }
 
+        // Bundle configured extensions into overlay
+        self.add_configured_extensions(&mut overlay, &overlay_config)?;
+
         // Add collected assets
         for (path, content) in &ctx.assets {
             overlay.add_asset(path.clone(), content.clone());
@@ -165,6 +203,193 @@ impl Builder for WinBuilder {
 }
 
 impl WinBuilder {
+    fn add_configured_extensions(
+        &self,
+        overlay: &mut OverlayData,
+        config: &PackConfig,
+    ) -> BuildResult<()> {
+        if !config.extensions.bundle {
+            return Ok(());
+        }
+
+        if config.extensions.local.is_empty() && config.extensions.remote.is_empty() {
+            tracing::info!("Extensions bundle enabled, but no local/remote extensions configured");
+            return Ok(());
+        }
+
+        let mut bundled_files = 0usize;
+        let mut bundled_exts = 0usize;
+
+        for ext_path in &config.extensions.local {
+            if !ext_path.exists() || !ext_path.is_dir() {
+                tracing::warn!(
+                    "Skipping extension path (not a directory): {}",
+                    ext_path.display()
+                );
+                continue;
+            }
+
+            if let Err(e) = validate_extension_dir(ext_path) {
+                tracing::warn!(
+                    "Skipping extension path (invalid extension): {} ({})",
+                    ext_path.display(),
+                    e
+                );
+                continue;
+            }
+
+            let extension_id = ext_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("extension")
+                .to_string();
+
+            let file_count = self.bundle_extension_dir(overlay, ext_path, &extension_id)?;
+            if file_count > 0 {
+                bundled_exts += 1;
+                bundled_files += file_count;
+            }
+        }
+
+        for remote in &config.extensions.remote {
+            match self.download_and_bundle_remote_extension(overlay, remote) {
+                Ok(file_count) if file_count > 0 => {
+                    bundled_exts += 1;
+                    bundled_files += file_count;
+                }
+                Ok(_) => {}
+                Err(e) => tracing::warn!(
+                    "Failed to bundle remote extension '{}' from {}: {}",
+                    remote.id,
+                    remote.url,
+                    e
+                ),
+            }
+        }
+
+        tracing::info!(
+            "Bundled {} extension(s), {} file(s) into overlay",
+            bundled_exts,
+            bundled_files
+        );
+
+        Ok(())
+    }
+
+    fn bundle_extension_dir(
+        &self,
+        overlay: &mut OverlayData,
+        ext_root: &Path,
+        extension_id: &str,
+    ) -> BuildResult<usize> {
+        let mut bundled_files = 0usize;
+        tracing::info!(
+            "Bundling extension '{}' from {}",
+            extension_id,
+            ext_root.display()
+        );
+
+        for entry in WalkDir::new(ext_root)
+            .follow_links(true)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            let path = entry.path();
+            let relative = match path.strip_prefix(ext_root) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+
+            let content = match fs::read(path) {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::warn!("Failed to read extension file {}: {}", path.display(), e);
+                    continue;
+                }
+            };
+
+            let asset_path = format!(
+                "extensions/{}/{}",
+                extension_id,
+                relative.to_string_lossy().replace('\\', "/")
+            );
+            overlay.add_asset(asset_path, content);
+            bundled_files += 1;
+        }
+
+        Ok(bundled_files)
+    }
+
+    fn download_and_bundle_remote_extension(
+        &self,
+        overlay: &mut OverlayData,
+        remote: &ExtensionRemoteSource,
+    ) -> BuildResult<usize> {
+        if remote.id.trim().is_empty() {
+            return Err(PackError::Config(
+                "Remote extension id cannot be empty".to_string(),
+            ));
+        }
+
+        if remote.url.trim().is_empty() {
+            return Err(PackError::Config(format!(
+                "Remote extension '{}' url cannot be empty",
+                remote.id
+            )));
+        }
+
+        let resolved = resolve_extension_source_url(&remote.url)
+            .map_err(|e| PackError::Config(format!("Failed to resolve extension source: {}", e)))?;
+
+        let cache_dir = std::env::temp_dir()
+            .join("auroraview-pack")
+            .join("extensions-cache");
+        let downloader = Downloader::new(&cache_dir);
+
+        let archive_name = Self::build_remote_archive_name(remote, &resolved);
+        let archive_path = downloader.download(
+            &archive_name,
+            &resolved.download_url,
+            remote.checksum.as_deref(),
+        )?;
+
+        let temp_dir = TempDir::new().map_err(|e| {
+            PackError::Config(format!(
+                "Failed to create temporary dir for extension '{}': {}",
+                remote.id, e
+            ))
+        })?;
+
+        match resolved.kind {
+            ExtensionSourceKind::Crx => extract_crx_archive(&archive_path, temp_dir.path())
+                .map_err(|e| PackError::Config(format!("Failed to extract CRX: {}", e)))?,
+            ExtensionSourceKind::Archive => {
+                downloader.extract(&archive_path, temp_dir.path(), remote.strip_components)?
+            }
+        }
+
+        let ext_root = find_extension_root(temp_dir.path()).ok_or_else(|| {
+            PackError::Config(format!(
+                "No manifest.json found after extracting remote extension '{}'",
+                remote.id
+            ))
+        })?;
+
+        validate_extension_dir(&ext_root)
+            .map_err(|e| PackError::Config(format!("Invalid extension manifest: {}", e)))?;
+
+        self.bundle_extension_dir(overlay, &ext_root, &remote.id)
+    }
+
+    fn build_remote_archive_name(
+        remote: &ExtensionRemoteSource,
+        resolved: &ResolvedExtensionSource,
+    ) -> String {
+        let suffix = archive_suffix_from_url(&resolved.download_url, resolved.kind);
+        format!("{}-remote.{}", remote.id, suffix)
+    }
+
     fn build_overlay_config(&self, ctx: &BuildContext) -> PackConfig {
         // First, try to get the original PackConfig from context metadata
         // This preserves the full configuration including FullStack mode
@@ -447,11 +672,32 @@ impl WinBuilder {
         }
         res.product_name = Some(ctx.config.app.name.clone());
         res.file_description = ctx.config.app.description.clone();
-        res.product_version = Some(ctx.config.app.version.clone());
+
+        if let Some(win_version) = Self::normalize_windows_version(&ctx.config.app.version) {
+            res.file_version = Some(win_version.clone());
+            res.product_version = Some(win_version);
+        } else {
+            tracing::warn!(
+                "Skipping Windows version resource update: invalid version '{}'. Expected numeric format like 1.2.3.4",
+                ctx.config.app.version
+            );
+        }
 
         if res.has_modifications() {
             let editor = ResourceEditor::new()?;
-            editor.apply_config(exe_path, &res)?;
+            if let Err(err) = editor.apply_config(exe_path, &res) {
+                let is_debug_pack = ctx.config.debug.devtools
+                    || ctx.config.debug.hot_reload
+                    || ctx.config.debug.verbose;
+                if is_debug_pack {
+                    tracing::warn!(
+                        "Skipping Windows resource edit in debug pack due to error: {}",
+                        err
+                    );
+                } else {
+                    return Err(err);
+                }
+            }
         }
         Ok(())
     }

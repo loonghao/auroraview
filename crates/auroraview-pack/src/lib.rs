@@ -128,8 +128,9 @@ pub use license::{get_machine_id, LicenseReason, LicenseStatus, LicenseValidator
 pub use manifest::{
     BackendConfig, BackendGoConfig, BackendNodeConfig, BackendProcessConfig, BackendPythonConfig,
     BackendRustConfig, BackendType, BuildConfig, BundleConfig, CollectEntry, DownloadEntry,
-    DownloadStage, FrontendConfig, HealthCheckConfig, HooksManifestConfig, IsolationManifestConfig,
-    Manifest, ManifestWindowConfig, PackageConfig, ProcessManifestConfig, ProtectionManifestConfig,
+    DownloadStage, ExtensionRemoteManifestEntry, ExtensionsManifestConfig, FrontendConfig,
+    HealthCheckConfig, HooksManifestConfig, IsolationManifestConfig, Manifest,
+    ManifestWindowConfig, PackageConfig, ProcessManifestConfig, ProtectionManifestConfig,
     PyOxidizerManifestConfig, StartPosition, VxConfig,
 };
 

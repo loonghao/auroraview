@@ -1,16 +1,17 @@
 # justfile for AuroraView development
-# Run `just --list` to see all available commands
+# Run `vx just --list` to see all available commands
 #
 # Quick Start:
-#   just rebuild-core        - Rebuild Rust core with maturin (release mode)
-#   just rebuild-core-verbose - Same as above with verbose output
-#   just test                - Run all tests
-#   just format              - Format code
-#   just lint                - Run linting
+#   vx just rebuild-pylib         - Rebuild Rust core Python module (release mode)
+#   vx just rebuild-pylib-verbose - Same as above with verbose output
+#   vx just test                  - Run all tests
+#   vx just format                - Format code
+#   vx just lint                  - Run linting
 #
 # Note: This justfile uses vx for tool management.
 #       Run `vx setup` to install all required tools.
-#       Or use `vx just <command>` to run commands with vx-managed tools.
+#       Prefer `vx just <command>` to keep tool/runtime resolution reproducible.
+
 
 # Set shell for Windows compatibility
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
@@ -18,7 +19,8 @@ set shell := ["sh", "-c"]
 
 # Default recipe to display help
 default:
-    @just --list
+    @vx just --list
+
 
 # ============================================================================
 # Submodule Migration Tasks
@@ -232,13 +234,14 @@ test-py312:
 # Test with all supported Python versions
 test-all-python:
     @echo "Testing with all supported Python versions..."
-    just test-py37
-    just test-py38
-    just test-py39
-    just test-py310
-    just test-py311
-    just test-py312
+    vx just test-py37
+    vx just test-py38
+    vx just test-py39
+    vx just test-py310
+    vx just test-py311
+    vx just test-py312
     @echo "[OK] All Python versions tested successfully!"
+
 # nox wrappers for multi-Python testing
 nox:
     @echo "Running nox session: pytest (multi-Python)"
@@ -321,10 +324,11 @@ test-cli:
 # Test all standalone crates (no internal dependencies)
 test-standalone:
     @echo "Testing standalone crates..."
-    just test-signals
-    just test-protect
-    just test-plugin-core
-    just test-extensions
+    vx just test-signals
+    vx just test-protect
+    vx just test-plugin-core
+    vx just test-extensions
+
 
 # Test Python package only (no Rust rebuild)
 test-python:
@@ -390,12 +394,25 @@ format:
     @echo "Formatting Python code..."
     vx uv run ruff format python/ tests/ examples/
 
+# Refresh workspace-hack dependencies for faster incremental Rust builds
+hakari-sync:
+    @echo "Regenerating cargo-hakari workspace-hack crate..."
+    vx cargo hakari generate
+    vx cargo hakari manage-deps -y
+
+# Verify workspace-hack metadata is up-to-date (CI friendly)
+hakari-check:
+    @echo "Checking cargo-hakari state..."
+    vx cargo hakari generate --diff
+    vx cargo hakari manage-deps --dry-run
+
 # Run linting
 lint:
     @echo "Linting Rust code..."
     vx cargo clippy --all-targets --all-features -- -D warnings
     @echo "Linting Python code..."
     vx uv run ruff check python/ tests/ examples/
+
 
 # Fix linting issues automatically
 fix:
@@ -461,7 +478,8 @@ coverage-python:
 # Shortcut alias for Python coverage
 pycov:
     @echo "[Alias] Running Python coverage via coverage-python..."
-    @just coverage-python
+    @vx just coverage-python
+
 
 
 coverage-rust:
@@ -565,7 +583,42 @@ docs:
 check-all: format lint test coverage-all
     @echo "All checks completed!"
 
+# ============================================================================
+# Harness workflows (Agent-friendly, reproducible entrypoints)
+# ============================================================================
+
+# Show deterministic tool/runtime info used by harness tasks
+harness-info:
+    @echo "Harness runtime info:"
+    @echo "  vx: $(vx --version)"
+    @echo "  just: $(vx just --version)"
+    @echo "  rust: $(vx rustc --version)"
+    @echo "  python: $(vx uv run python --version)"
+    @echo "  node: $(vx node --version)"
+
+# Fast feedback loop for local or agent iterative execution
+harness-quick:
+    @echo "Running harness quick checks..."
+    vx just ci-lint
+    vx just ci-test-basic
+    @echo "[OK] harness-quick completed"
+
+# Full validation loop aligned with CI quality gates
+harness-verify:
+    @echo "Running harness verify checks..."
+    vx just ci-lint
+    vx just ci-test-rust
+    vx just ci-test-python
+    @echo "[OK] harness-verify completed"
+
+# Deterministic gallery UI regression loop (pack + CDP + Playwright)
+harness-gallery-e2e:
+    @echo "Running harness gallery e2e..."
+    vx just gallery-e2e-packed-playwright
+    @echo "[OK] harness-gallery-e2e completed"
+
 # Setup development module for Maya
+
 maya-setup-dev:
     @echo "=========================================="
     @echo "Setting up Maya Development Environment"
@@ -594,7 +647,8 @@ maya-setup-dev:
     @echo "  PYTHONPATH: {{justfile_directory()}}/examples/maya-outliner"
     @echo ""
     @echo "Next steps:"
-    @echo "  1. Run: just maya-dev (rebuild + launch Maya)"
+    @echo "  1. Run: vx just maya-dev (rebuild + launch Maya)"
+
     @echo "  2. Click 'Outliner' button on AuroraView shelf"
     @echo ""
 
@@ -608,7 +662,8 @@ maya-dev:
     -@powershell -Command "try { Get-Process maya -ErrorAction Stop | Stop-Process -Force; Write-Host '[OK] Maya processes terminated' } catch { Write-Host '[OK] No Maya processes running' }"
     @echo ""
     @echo "[2/3] Rebuilding Rust core..."
-    @just rebuild-core
+    @vx just rebuild-pylib
+
     @echo ""
     @echo "[3/3] Launching Maya 2024..."
     @powershell -Command "Start-Process -FilePath 'C:\Program Files\Autodesk\Maya2024\bin\maya.exe'"
@@ -625,7 +680,8 @@ maya-dev:
     @echo "    maya_outliner.main()"
     @echo ""
     @echo "To rebuild after code changes:"
-    @echo "  just maya-dev"
+    @echo "  vx just maya-dev"
+
     @echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -642,7 +698,8 @@ maya-debug:
     -@powershell -Command "try { Get-Process maya -ErrorAction Stop | Stop-Process -Force; Write-Host '[OK] Maya processes terminated' } catch { Write-Host '[OK] No Maya processes running' }"
     @echo ""
     @echo "[2/4] Rebuilding Rust core..."
-    @just rebuild-core
+    @vx just rebuild-pylib
+
     @echo ""
     @echo "[3/4] Creating launch script..."
     @echo @echo off > launch_maya_temp.bat
@@ -742,7 +799,7 @@ sdk-ci: sdk-install sdk-typecheck sdk-test-cov sdk-build-all
 # Build gallery frontend (builds SDK first)
 gallery-build: sdk-build
     @echo "Building gallery frontend..."
-    cd gallery; vx pnpm install; vx pnpm run build
+    cd gallery; vx bun install; vx bun run build
     @echo "[OK] Gallery built in gallery/dist/"
 
 # Run gallery (build frontend first, then launch with AuroraView)
@@ -753,7 +810,7 @@ gallery: gallery-build
 # Run gallery dev server (for frontend development)
 gallery-dev:
     @echo "Starting gallery dev server..."
-    cd gallery; vx pnpm run dev
+    cd gallery; vx bun run dev
 
 # Run Gallery E2E tests
 gallery-test:
@@ -770,7 +827,139 @@ gallery-test-playwright:
     @echo "Running Gallery Playwright E2E tests..."
     vx uv run python scripts/test_gallery_e2e.py
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Gallery E2E Tests (Playwright + CDP)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Install Playwright for E2E tests
+gallery-e2e-install:
+    @echo "Installing Playwright E2E dependencies..."
+    cd tests/e2e; vx npm install
+    cd tests/e2e; vx npx playwright install chromium
+    @echo "[OK] Playwright installed!"
+
+
+# Start Gallery with CDP for E2E testing (background process)
+# Use this before running gallery-e2e-test
+[windows]
+gallery-e2e-start: gallery-pack-debug
+    @echo "Starting Gallery with CDP enabled (port 9222)..."
+    @powershell -Command "Start-Process -FilePath 'gallery\pack-output\auroraview-gallery-debug.exe' -WorkingDirectory 'gallery\pack-output'"
+    @echo "[OK] Gallery started. Run: vx just gallery-e2e-test"
+    @echo ""
+    @echo "CDP endpoint: http://127.0.0.1:9222"
+    @echo "Run tests with: vx just gallery-e2e-test"
+    @echo "Stop with: vx just gallery-e2e-stop"
+
+
+[unix]
+gallery-e2e-start: gallery-pack-debug
+    @echo "Starting Gallery with CDP enabled (port 9222)..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @echo "[OK] Gallery started. Run: vx just gallery-e2e-test"
+    @echo ""
+    @echo "CDP endpoint: http://127.0.0.1:9222"
+    @echo "Run tests with: vx just gallery-e2e-test"
+    @echo "Stop with: vx just gallery-e2e-stop"
+
+
+# Stop Gallery E2E test instance
+[windows]
+gallery-e2e-stop:
+    @echo "Stopping Gallery..."
+    @powershell -Command "Get-Process -Name 'auroraview-gallery-debug' -ErrorAction SilentlyContinue | Stop-Process -Force"
+    @echo "[OK] Gallery stopped"
+
+[unix]
+gallery-e2e-stop:
+    @echo "Stopping Gallery..."
+    @pkill -f "auroraview-gallery-debug" || true
+    @echo "[OK] Gallery stopped"
+
+# Run E2E tests (Playwright + CDP — connects to running Gallery)
+gallery-e2e-test:
+    @echo "Running E2E tests..."
+    cd tests/e2e; vx npx playwright test --config playwright.config.ts
+
+# Run E2E tests with headed browser (for debugging)
+gallery-e2e-test-headed:
+    @echo "Running E2E tests in headed mode..."
+    cd tests/e2e; vx npx playwright test --config playwright.config.ts --headed
+
+# Open Playwright HTML report after test run
+gallery-e2e-report:
+    @echo "Opening E2E test report..."
+    cd tests/e2e; vx npx playwright show-report report
+
+
+# Full E2E workflow: auto pack + start + playwright tests + cleanup
+[windows]
+gallery-e2e-packed-playwright: gallery-e2e-install gallery-pack-debug
+    @echo "=========================================="
+    @echo "Gallery E2E Playwright Suite (Packed)"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/4] Starting packed Gallery (debug, CDP enabled)..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "[2/4] Waiting for CDP port (9222)..."
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo ""
+    @echo "[3/4] Running Playwright E2E tests (includes Sentry trigger checks)..."
+    @powershell -NoLogo -File scripts/gallery_e2e_run_playwright.ps1 -ProjectRoot "{{justfile_directory()}}" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "[4/4] Completed (failed cases are auto-screenshotted by Playwright)"
+    @echo "=========================================="
+
+[unix]
+gallery-e2e-packed-playwright: gallery-e2e-install gallery-pack-debug
+    @echo "=========================================="
+    @echo "Gallery E2E Playwright Suite (Packed)"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/3] Starting packed Gallery (debug, CDP enabled)..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @echo "[2/3] Waiting for CDP port (9222)..."
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo "[3/3] Running Playwright E2E tests..."
+    @bash -lc 'set -e; trap "pkill -f auroraview-gallery-debug || true" EXIT; cd tests/e2e; vx npx playwright test --config playwright.config.ts'
+    @echo "[OK] Completed (failed cases are auto-screenshotted by Playwright)"
+
+# 生成 Gallery 文档截图（Playwright + CDP）
+[windows]
+gallery-e2e-screenshots: gallery-e2e-install gallery-pack-debug
+    @echo "=========================================="
+    @echo "Gallery Docs Screenshots (Playwright)"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/3] Starting packed Gallery (debug, CDP enabled)..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo "[2/3] Waiting for CDP port (9222)..."
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo "[3/3] Capturing documentation screenshots via Playwright..."
+    @powershell -NoLogo -File scripts/gallery_e2e_run_playwright.ps1 -ProjectRoot "{{justfile_directory()}}" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp" -SpecFile "specs/gallery-screenshots.e2e.ts" -EnableScreenshots
+    @echo "[OK] Screenshots updated: docs/public/gallery/"
+
+[unix]
+gallery-e2e-screenshots: gallery-e2e-install gallery-pack-debug
+    @echo "=========================================="
+    @echo "Gallery Docs Screenshots (Playwright)"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/3] Starting packed Gallery (debug, CDP enabled)..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @echo "[2/3] Waiting for CDP port (9222)..."
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo "[3/3] Capturing documentation screenshots via Playwright..."
+    @bash -lc 'set -e; trap "pkill -f auroraview-gallery-debug || true" EXIT; cd tests/e2e; AURORAVIEW_SCREENSHOTS=1 vx npx playwright test --config playwright.config.ts specs/gallery-screenshots.e2e.ts'
+    @echo "[OK] Screenshots updated: docs/public/gallery/"
+
+# Backward-compatible alias
+gallery-e2e: gallery-e2e-packed-playwright
+
+
 # Run Gallery real E2E tests (requires gallery-build first)
+
 gallery-test-real: gallery-build
     @echo "Running Gallery real E2E tests..."
     vx uvx pytest tests/python/integration/test_gallery_real_e2e.py -v --tb=short
@@ -787,9 +976,10 @@ gallery-test-watch:
 
 # Generate Gallery screenshots for documentation
 gallery-screenshots:
-    @echo "Generating Gallery screenshots for documentation..."
-    vx uv run python scripts/test_gallery_e2e.py --screenshots-only
+    @echo "Generating Gallery screenshots for documentation (Playwright)..."
+    vx just gallery-e2e-screenshots
     @echo "[OK] Screenshots saved to docs/public/gallery/"
+
 
 # Generate example screenshots for documentation
 example-screenshots:
@@ -821,25 +1011,81 @@ build-wheel:
     vx uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
     @echo "[OK] Wheel built in target/wheels/"
 
-# Pack Gallery into standalone executable
-gallery-pack: assets-build gallery-build
-    @echo "Packing Gallery into standalone executable..."
-    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --build
-    @echo "[OK] Gallery packed successfully!"
+# Pack Gallery into standalone executable (release profile)
+# Frontend build is handled by gallery/auroraview.pack.toml [build].before
+gallery-pack: assets-build
+    @echo "Packing Gallery into standalone executable (release)..."
+    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml
+    @echo "[OK] Gallery release package built!"
     @echo ""
     @echo "Output: gallery/pack-output/auroraview-gallery.exe"
     @echo "Run with: just gallery-run-packed"
 
-# Run the packed Gallery executable
+# Pack Gallery with local Sentry configuration
+# Loads DSN from gallery/.env.sentry (not committed to repo)
+[windows]
+gallery-pack-local: assets-build
+    @echo "Packing Gallery with local Sentry configuration..."
+    @if (Test-Path "gallery/.env.sentry") { \
+        Write-Host "Loading Sentry configuration from gallery/.env.sentry"; \
+        Get-Content "gallery/.env.sentry" | ForEach-Object { \
+            if ($_ -match '^([^#][^=]+)=(.*)$') { \
+                [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), 'Process'); \
+            } \
+        } \
+    } else { \
+        Write-Host "WARNING: gallery/.env.sentry not found, Sentry will be disabled" -ForegroundColor Yellow; \
+    }
+    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml
+    @echo "[OK] Gallery package built with local config!"
+
+[unix]
+gallery-pack-local: assets-build
+    @echo "Packing Gallery with local Sentry configuration..."
+    @if [ -f "gallery/.env.sentry" ]; then \
+        echo "Loading Sentry configuration from gallery/.env.sentry"; \
+        export $$(grep -v '^#' gallery/.env.sentry | xargs); \
+    else \
+        echo "WARNING: gallery/.env.sentry not found, Sentry will be disabled"; \
+    fi
+    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml
+    @echo "[OK] Gallery package built with local config!"
+
+# Pack Gallery debug executable (devtools + remote debug + react-devtools)
+# Uses dedicated debug config and writes a separate output binary name.
+gallery-pack-debug: assets-build
+    @echo "Packing Gallery debug executable..."
+    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.debug.toml --output auroraview-gallery-debug
+    @echo "[OK] Gallery debug package built!"
+    @echo ""
+    @echo "Output: gallery/pack-output/auroraview-gallery-debug.exe"
+    @echo "Run with: vx just gallery-run-packed-debug"
+
+
+# Run the packed Gallery executable (release)
 [windows]
 gallery-run-packed:
-    @echo "Running packed Gallery..."
-    @if (Test-Path "gallery/pack-output/auroraview-gallery.exe") { Start-Process -FilePath "gallery/pack-output/auroraview-gallery.exe" -WorkingDirectory "gallery/pack-output" } else { Write-Host "[ERROR] Packed Gallery not found. Run 'just gallery-pack' first." -ForegroundColor Red }
+    @echo "Running packed Gallery (release)..."
+    @if (Test-Path "gallery/pack-output/auroraview-gallery.exe") { Start-Process -FilePath "gallery/pack-output/auroraview-gallery.exe" -WorkingDirectory "gallery/pack-output" } else { Write-Host "[ERROR] Packed Gallery not found. Run 'vx just gallery-pack' first." -ForegroundColor Red }
+
+
+[windows]
+gallery-run-packed-debug:
+    @echo "Running packed Gallery (debug)..."
+    @if (Test-Path "gallery/pack-output/auroraview-gallery-debug.exe") { Start-Process -FilePath "gallery/pack-output/auroraview-gallery-debug.exe" -WorkingDirectory "gallery/pack-output" } else { Write-Host "[ERROR] Packed debug Gallery not found. Run 'vx just gallery-pack-debug' first." -ForegroundColor Red }
+
 
 [unix]
 gallery-run-packed:
-    @echo "Running packed Gallery..."
-    @if [ -f "gallery/pack-output/auroraview-gallery" ]; then cd gallery/pack-output && ./auroraview-gallery; else echo "[ERROR] Packed Gallery not found. Run 'just gallery-pack' first."; fi
+    @echo "Running packed Gallery (release)..."
+    @if [ -f "gallery/pack-output/auroraview-gallery" ]; then cd gallery/pack-output && ./auroraview-gallery; else echo "[ERROR] Packed Gallery not found. Run 'vx just gallery-pack' first."; fi
+
+
+[unix]
+gallery-run-packed-debug:
+    @echo "Running packed Gallery (debug)..."
+    @if [ -f "gallery/pack-output/auroraview-gallery-debug" ]; then cd gallery/pack-output && ./auroraview-gallery-debug; else echo "[ERROR] Packed debug Gallery not found. Run 'vx just gallery-pack-debug' first."; fi
+
 
 # Run Gallery CDP tests (build, start, test, cleanup)
 gallery-cdp: gallery-pack
@@ -885,7 +1131,47 @@ gallery-cdp-only:
     @echo "[OK] Gallery CDP tests completed!"
     @echo "=========================================="
 
+# Debug Promise rejection button in packed Gallery via agent-browser (Windows)
+[windows]
+gallery-debug-promise-rejection: gallery-pack-debug
+    @echo "Starting packed debug Gallery with CDP..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo "Capturing initial interactive snapshot via agent-browser..."
+    vx npx --yes agent-browser --cdp 9222 snapshot -i
+    @echo "Capturing annotated screenshot..."
+    vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    @echo "Use these follow-up commands to continue manual debug:"
+    @echo "  vx npx --yes agent-browser --cdp 9222 snapshot -i"
+    @echo "  vx npx --yes agent-browser --cdp 9222 click @e<id>"
+    @echo "Stop with: vx just gallery-debug-promise-rejection-stop"
+
+[windows]
+gallery-debug-promise-rejection-stop:
+    @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+
+# Debug Promise rejection button in packed Gallery via agent-browser (Unix)
+[unix]
+gallery-debug-promise-rejection: gallery-pack-debug
+    @echo "Starting packed debug Gallery with CDP..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @echo "Waiting for CDP port (9222)..."
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo "Capturing initial interactive snapshot via agent-browser..."
+    vx npx --yes agent-browser --cdp 9222 snapshot -i
+    @echo "Capturing annotated screenshot..."
+    vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    @echo "Use these follow-up commands to continue manual debug:"
+    @echo "  vx npx --yes agent-browser --cdp 9222 snapshot -i"
+    @echo "  vx npx --yes agent-browser --cdp 9222 click @e<id>"
+    @echo "Stop with: vx just gallery-debug-promise-rejection-stop"
+
+[unix]
+gallery-debug-promise-rejection-stop:
+    @pkill -f "auroraview-gallery-debug" || true
+
 # Pack Gallery for release (generates project without building)
+
 gallery-pack-project: gallery-build
     @echo "Generating Gallery pack project..."
     vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --output-dir target/pack

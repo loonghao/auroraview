@@ -58,9 +58,11 @@ __all__ = [
     "record_load_time",
     "record_ipc_message",
     "record_error",
+    "capture_sentry_message",
     "get_all_snapshots",
     "get_snapshot",
 ]
+
 
 _import_error = None
 _telemetry_native_available = False
@@ -93,6 +95,11 @@ except ImportError as exc:
             metrics_interval_secs=60,
             traces_enabled=True,
             trace_sample_ratio=1.0,
+            sentry_dsn=None,
+            sentry_environment=None,
+            sentry_release=None,
+            sentry_sample_rate=1.0,
+            sentry_traces_sample_rate=0.0,
         ):
             self.enabled = enabled
             self.service_name = service_name
@@ -104,6 +111,11 @@ except ImportError as exc:
             self.metrics_interval_secs = metrics_interval_secs
             self.traces_enabled = traces_enabled
             self.trace_sample_ratio = trace_sample_ratio
+            self.sentry_dsn = sentry_dsn
+            self.sentry_environment = sentry_environment
+            self.sentry_release = sentry_release
+            self.sentry_sample_rate = sentry_sample_rate
+            self.sentry_traces_sample_rate = sentry_traces_sample_rate
 
         @classmethod
         def for_testing(cls):
@@ -282,6 +294,21 @@ def record_error(webview_id: str, error_type: str) -> None:
         return
 
     del webview_id, error_type
+
+
+def capture_sentry_message(message: str, level: str = "error") -> bool:
+    """Capture a message to Sentry via the native Rust backend.
+
+    Returns:
+        True when native Sentry integration is available and active.
+        False when fallback/no-op mode is used.
+    """
+    if _telemetry_native_available and hasattr(_telemetry, "capture_sentry_message"):
+        assert _telemetry is not None
+        return bool(_telemetry.capture_sentry_message(message, level))
+
+    del message, level
+    return False
 
 
 # =========================================================================
