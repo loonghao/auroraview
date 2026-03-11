@@ -15,6 +15,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2.0"
 parking_lot = "0.12"
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [dev-dependencies]
 rstest = "0.24"

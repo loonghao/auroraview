@@ -1,6 +1,6 @@
 # Contributing to DCC WebView
 
-Thank you for your interest in contributing to DCC WebView! This document provides guidelines and instructions for contributing.
+Thank you for contributing to AuroraView / DCC WebView.
 
 ## Code of Conduct
 
@@ -10,57 +10,75 @@ Please be respectful and constructive in all interactions with the community.
 
 ### Prerequisites
 
-- Rust 1.75 or higher
-- Python 3.7 or higher
+- `vx` (required runtime/tool manager)
 - Git
 
-### Setting Up Your Development Environment
+### Setup
 
-1. Fork and clone the repository:
 ```bash
 git clone https://github.com/YOUR_USERNAME/dcc_webview.git
 cd dcc_webview
+
+# Install tools and hooks from vx.toml
+vx setup
+
+# Install Python dependencies
+vx just install
 ```
 
-2. Install Rust dependencies:
-```bash
-cargo build
-```
+## Canonical Workflow (Harness)
 
-3. Install Python development dependencies:
+Use **`vx just <task>`** as the only entrypoint for local development and CI.
+
 ```bash
-pip install -e ".[dev]"
+# Fast feedback loop
+vx just harness-quick
+
+# Full validation aligned with CI
+vx just harness-verify
+
+# Gallery packed E2E validation
+vx just harness-gallery-e2e
 ```
 
 ## Development Workflow
 
-### Code Style
+### Rust
 
-#### Rust
-- Run `cargo fmt` before committing
-- Run `cargo clippy` and fix all warnings
-- Follow Rust naming conventions
+- Run `vx cargo fmt --all` before committing
+- Run `vx cargo clippy --all-targets --all-features -- -D warnings`
+- Keep modules focused and dependency direction clear
 
-#### Python
-- Use `ruff` for formatting and linting
-- Follow PEP 8 guidelines
-- Type hints are required for all public APIs
+### Python
+
+- Run `vx uvx ruff check python/ tests/`
+- Run `vx uvx ruff format --check python/ tests/`
+- Keep public APIs typed
 
 ### Testing
 
-#### Rust Tests
 ```bash
-cargo test
+# Main workflow
+vx just test
+
+# Optional nox matrix
+vx uvx nox -s pytest
+vx uvx nox -s pytest-qt
+vx uvx nox -s pytest-all
 ```
 
-#### Python Tests
-```bash
-pytest tests/
-```
+## Agent-Friendly Contribution Rules
 
-### Commit Messages
+To keep the repository agent-operable and reproducible:
 
-Follow the Conventional Commits specification:
+- Keep decisions and operational rules in-repo (docs/code/config), not chat-only
+- Prefer mechanical checks (lint/test/tasks) over human-only conventions
+- Add or update `justfile` tasks when introducing new workflows
+- Keep CI commands and local commands aligned through the same `vx just` task entrypoints
+
+## Commit Messages
+
+Follow Conventional Commits:
 
 - `feat: add new feature`
 - `fix: fix bug`
@@ -69,45 +87,33 @@ Follow the Conventional Commits specification:
 - `refactor: refactor code`
 - `chore: update dependencies`
 
-All commits must include DCO sign-off:
-```
+All commits should include DCO sign-off:
+
+```text
 Signed-off-by: Your Name <your.email@example.com>
 ```
 
-Use `git commit -s` to automatically add the sign-off.
+Use `git commit -s` to add sign-off automatically.
 
 ## Pull Request Process
 
 1. Create a feature branch from `main`
-2. Make your changes following the code style guidelines
-3. Add tests for new functionality
-4. Update documentation as needed
-5. Run all tests and ensure they pass
-6. Run `cargo fmt` and `cargo clippy`
-7. Commit your changes with descriptive messages
-8. Push to your fork and create a pull request
-
-### PR Description
-
-- Use English for PR title and description
-- Clearly describe what the PR does
-- Reference any related issues
-- Include screenshots/videos for UI changes
+2. Implement changes with tests
+3. Run `vx just harness-verify`
+4. Update docs when behavior changes
+5. Open PR with clear scope and validation evidence (logs/screenshots if UI related)
 
 ## Reporting Issues
 
-When reporting issues, please include:
+Please include:
 
 - DCC software name and version
 - Python version
 - Operating system
-- Steps to reproduce
+- Reproduction steps
 - Expected vs actual behavior
-- Error messages or logs
+- Error logs / screenshots
 
 ## Questions?
 
-Feel free to open an issue for questions or discussions.
-
-Thank you for contributing! [SUCCESS]
-
+Open an issue for discussion.

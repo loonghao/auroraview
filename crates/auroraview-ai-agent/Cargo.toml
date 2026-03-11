@@ -39,6 +39,7 @@ urlencoding = "2"
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [dev-dependencies]
 rstest = "0.23"

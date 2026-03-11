@@ -38,6 +38,21 @@ pub struct TelemetryConfig {
 
     /// Sampling ratio for traces (0.0 to 1.0, default: 1.0 = sample everything).
     pub trace_sample_ratio: f64,
+
+    /// Optional Sentry DSN. Set to `Some(...)` to enable Sentry export.
+    pub sentry_dsn: Option<String>,
+
+    /// Sentry environment name (e.g. "development", "production").
+    pub sentry_environment: Option<String>,
+
+    /// Optional release identifier sent to Sentry.
+    pub sentry_release: Option<String>,
+
+    /// Sampling ratio for Sentry events (0.0 to 1.0, default: 1.0).
+    pub sentry_sample_rate: f32,
+
+    /// Sampling ratio for Sentry transactions (0.0 to 1.0, default: 0.0 = disabled).
+    pub sentry_traces_sample_rate: f32,
 }
 
 impl Default for TelemetryConfig {
@@ -54,6 +69,11 @@ impl Default for TelemetryConfig {
             metrics_interval_secs: 60,
             traces_enabled: true,
             trace_sample_ratio: 1.0,
+            sentry_dsn: None,
+            sentry_environment: None,
+            sentry_release: None,
+            sentry_sample_rate: 1.0,
+            sentry_traces_sample_rate: 0.0,
         }
     }
 }

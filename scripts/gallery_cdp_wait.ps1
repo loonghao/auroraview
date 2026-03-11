@@ -10,7 +10,7 @@ $url = "http://127.0.0.1:$Port/json/version"
 
 for ($i = 0; $i -lt $Timeout; $i++) {
     try {
-        $null = Invoke-WebRequest -Uri $url -TimeoutSec 1 -ErrorAction Stop
+        $null = Invoke-WebRequest -Uri $url -TimeoutSec 1 -UseBasicParsing -ErrorAction Stop
         Write-Host "[OK] CDP ready on port $Port"
         exit 0
     } catch {

@@ -22,6 +22,7 @@ path = "src/main.rs"
 [dependencies]
 # Core utilities and assets
 auroraview-core = { path = "../auroraview-core" }
+auroraview-telemetry = { path = "../auroraview-telemetry", features = ["sentry"] }
 
 # Frontend assets (loading, error, browser pages)
 auroraview-assets = { path = "../auroraview-assets" }
@@ -92,6 +93,7 @@ reqwest = { version = "0.12", features = ["blocking", "json"] }
 zip = { version = "4", default-features = false, features = ["deflate"] }
 
 self-replace = "1.5"
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [target.'cfg(windows)'.dependencies]
 # WebView2 COM bindings for warmup

@@ -84,9 +84,11 @@ pub mod apis;
 pub mod error;
 pub mod host;
 pub mod injection;
+pub mod installer;
 pub mod js_assets;
 pub mod manifest;
 pub mod polyfill;
+
 pub mod runtime;
 pub mod service_worker;
 pub mod storage;
@@ -95,7 +97,14 @@ pub mod view_manager;
 pub use error::{ExtensionError, ExtensionResult};
 pub use host::{ExtensionConfig, ExtensionHost, LoadedExtension};
 pub use injection::ScriptInjector;
+pub use installer::{
+    archive_suffix_from_url, extract_crx_archive, extract_store_extension_id, find_extension_root,
+    resolve_extension_source_url, validate_extension_dir, ExtensionSourceKind,
+    ResolvedExtensionSource,
+};
+
 pub use manifest::{Manifest, ManifestV3, Permission};
+
 pub use polyfill::{
     generate_content_script_polyfill, generate_polyfill_from_sdk, generate_wxt_shim,
 };

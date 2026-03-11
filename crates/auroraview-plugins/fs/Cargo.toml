@@ -27,3 +27,4 @@ serde_json = "1.0"
 
 # Binary encoding
 base64 = "0.22"
+auroraview-workspace-hack = { version = "0.1", path = "../../auroraview-workspace-hack" }

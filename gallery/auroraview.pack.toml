@@ -155,7 +155,6 @@ icon = "../assets/icons/auroraview-256.png"
 copyright = "Copyright 2025 AuroraView Team"
 category = "Developer Tools"
 short_description = "AuroraView Feature Gallery"
-resources = ["../examples"]
 
 # Windows-specific
 [bundle.windows]
@@ -173,8 +172,12 @@ console = false
 # Build Configuration
 # ============================================================================
 [build]
-before = ["npm run build"]
+before = ["bun run build"]
 after = []
+compression_level = 19
+
+
+
 resources = ["./public"]
 exclude = ["*.map", "*.ts", "node_modules"]
 out_dir = "./pack-output"
@@ -185,7 +188,8 @@ release = true
 # ============================================================================
 [vx]
 enabled = true
-ensure = ["python@3.11", "uv", "npm"]
+ensure = ["python@3.11", "uv", "node", "bun"]
+
 
 # ============================================================================
 # Hooks Configuration (file collection)
@@ -221,6 +225,26 @@ preserve_structure = false
 description = "TOML configuration files"
 
 # ============================================================================
+# Browser Extensions (local + remote)
+# ============================================================================
+[extensions]
+enabled = true
+bundle = true
+local = [
+    "./extensions/devtools-helper",
+]
+
+# release 包默认不打入远程调试扩展（如 react-devtools），避免体积和初始化开销
+# 如需调试版可单独启用：
+# [[extensions.remote]]
+# id = "react-devtools"
+# url = "https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi"
+# # store link 会在打包阶段自动转换为可下载的 CRX
+# strip_components = 0
+# # checksum = "sha256:REPLACE_WITH_REAL_CHECKSUM"
+
+
+# ============================================================================
 # Runtime Environment
 # ============================================================================
 [runtime]
@@ -228,14 +252,40 @@ description = "TOML configuration files"
 AURORAVIEW_APP = "gallery"
 LOG_LEVEL = "info"
 
+# Sentry Telemetry Configuration
+# DSN values are injected from:
+#   1. Local: gallery/.env.sentry (for development, NOT committed)
+#   2. CI/CD: GitHub Secrets (for release builds)
+#
+# Use `just pack-gallery` for local builds (loads .env.sentry)
+# Use CI/CD for release builds (injects from GitHub Secrets)
+
+# Rust/Packed Client (backend telemetry) - injected at pack time
+# AURORAVIEW_GALLERY_RUST_SENTRY_DSN = ""
+# AURORAVIEW_GALLERY_RUST_OTLP_ENDPOINT = ""
+# AURORAVIEW_GALLERY_RUST_SERVICE_NAME = "auroraview-gallery-packed-client"
+# AURORAVIEW_GALLERY_RUST_SENTRY_ENV = "production"
+# AURORAVIEW_GALLERY_RUST_SENTRY_SAMPLE_RATE = "1.0"
+# AURORAVIEW_GALLERY_RUST_SENTRY_TRACES_SAMPLE_RATE = "0.2"
+
+# Frontend (browser telemetry) - injected at build time via Vite
+# VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_DSN = ""
+# VITE_AURORAVIEW_GALLERY_FRONTEND_OTLP_ENDPOINT = ""
+# VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_SAMPLE_RATE = "1.0"
+# VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_TRACES_SAMPLE_RATE = "0.2"
+
+
+
+
 # ============================================================================
 # Debug Configuration
 # ============================================================================
 [debug]
-enabled = true
-devtools = true
+enabled = false
+devtools = false
 verbose = false
-remote_debugging_port = 9222
+# release 默认关闭 remote_debugging_port，调试包再开启
+# remote_debugging_port = 9222
 
 # ============================================================================
 # License Configuration (optional)

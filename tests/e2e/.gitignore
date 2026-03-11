@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test results
+report/
+results/
+screenshots/
+*.png
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

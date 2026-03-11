@@ -64,6 +64,58 @@ _global_plugins: PluginManager | None = None
 _cleanup_done = False
 
 
+def _parse_float(value: str | None, default: float) -> float:
+    """Parse float env value with fallback."""
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _init_gallery_telemetry() -> None:
+    """Initialize Rust telemetry for Gallery with Sentry + OTLP defaults."""
+    telemetry_disabled = os.environ.get("AURORAVIEW_GALLERY_RUST_TELEMETRY_DISABLED", "0")
+    if telemetry_disabled.lower() in {"1", "true", "yes", "on"}:
+        print("[Python] Gallery Rust telemetry disabled by env", file=sys.stderr)
+        return
+
+    try:
+        from auroraview.telemetry import TelemetryConfig, init
+    except Exception as e:
+        print(f"[Python] Telemetry module unavailable: {e}", file=sys.stderr)
+        return
+
+    rust_sentry_dsn = os.environ.get("AURORAVIEW_GALLERY_RUST_SENTRY_DSN")
+    rust_otlp_endpoint = os.environ.get("AURORAVIEW_GALLERY_RUST_OTLP_ENDPOINT")
+
+    config = TelemetryConfig(
+        service_name=os.environ.get(
+            "AURORAVIEW_GALLERY_RUST_SERVICE_NAME", "auroraview-gallery-rust"
+        ),
+        log_level=os.environ.get("AURORAVIEW_GALLERY_RUST_LOG_LEVEL", "info"),
+        otlp_endpoint=rust_otlp_endpoint or None,
+        sentry_dsn=rust_sentry_dsn or None,
+        sentry_environment=os.environ.get("AURORAVIEW_GALLERY_RUST_SENTRY_ENV", "gallery"),
+        sentry_release=os.environ.get("AURORAVIEW_GALLERY_RUST_SENTRY_RELEASE"),
+        sentry_sample_rate=_parse_float(
+            os.environ.get("AURORAVIEW_GALLERY_RUST_SENTRY_SAMPLE_RATE"),
+            1.0,
+        ),
+        sentry_traces_sample_rate=_parse_float(
+            os.environ.get("AURORAVIEW_GALLERY_RUST_SENTRY_TRACES_SAMPLE_RATE"),
+            0.2,
+        ),
+    )
+
+    try:
+        init(config)
+        print("[Python] Gallery Rust telemetry initialized", file=sys.stderr)
+    except Exception as e:
+        print(f"[Python] Failed to init telemetry: {e}", file=sys.stderr)
+
+
 def _cleanup_all():
     """Cleanup all processes and resources. Called on exit."""
     global _cleanup_done
@@ -99,6 +151,14 @@ def _cleanup_all():
         cleanup_child_manager()
     except Exception as e:
         print(f"[Gallery] Error cleaning up child manager: {e}", file=sys.stderr)
+
+    # Shutdown telemetry guard
+    try:
+        from auroraview.telemetry import shutdown
+
+        shutdown()
+    except Exception as e:
+        print(f"[Gallery] Error shutting down telemetry: {e}", file=sys.stderr)
 
     print("[Gallery] Cleanup complete", file=sys.stderr)
 
@@ -137,7 +197,10 @@ def run_gallery():
     packed_mode = is_packed_mode()
     print(f"[Python] Packed mode: {packed_mode}", file=sys.stderr)
 
+    _init_gallery_telemetry()
+
     # Pre-load samples during startup to avoid delay when frontend requests them
+
     start_time = time.time()
     samples = get_samples_list()
     elapsed = (time.time() - start_time) * 1000

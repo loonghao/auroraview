@@ -43,7 +43,9 @@ interface SidebarButtonProps {
   onClick: () => void;
   badge?: number;
   index: number;
+  testId?: string;
 }
+
 
 function SidebarButton({
   icon: Icon,
@@ -52,7 +54,9 @@ function SidebarButton({
   onClick,
   badge,
   index,
+  testId,
 }: SidebarButtonProps) {
+
   const buttonRef = useRef<HTMLButtonElement>(null);
   const iconRef = useRef<HTMLDivElement>(null);
   const indicatorRef = useRef<HTMLDivElement>(null);
@@ -161,7 +165,9 @@ function SidebarButton({
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        data-testid={testId}
         className={cn(
+
           'w-10 h-10 rounded-xl flex items-center justify-center transition-all relative',
           'text-muted-foreground hover:text-foreground',
           isActive
@@ -339,8 +345,10 @@ export function AnimatedSidebar({
             isActive={telemetryOpen}
             onClick={onTelemetryClick}
             index={buttonIndex++}
+            testId="sidebar-telemetry"
           />
         )}
+
         {onExtensionsClick && (
           <SidebarButton
             icon={Icons.Puzzle}

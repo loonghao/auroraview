@@ -19,6 +19,10 @@ pub enum TelemetryError {
     #[error("OTLP configuration error: {0}")]
     OtlpConfig(String),
 
+    /// Sentry configuration error.
+    #[error("Sentry configuration error: {0}")]
+    SentryConfig(String),
+
     /// Telemetry already initialized.
     #[error("telemetry already initialized")]
     AlreadyInitialized,

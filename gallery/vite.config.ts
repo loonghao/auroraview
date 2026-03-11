@@ -1,8 +1,21 @@
-import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { loadEnv } from 'vite'
+
+
+function applySentryEnv(): void {
+  const sentryEnv = loadEnv('sentry', process.cwd(), '')
+
+  for (const [key, value] of Object.entries(sentryEnv)) {
+    if (process.env[key] === undefined) {
+      process.env[key] = value
+    }
+  }
+}
+
+applySentryEnv()
 
 // https://vite.dev/config/
-export default defineConfig({
+export default {
   plugins: [react()],
   base: './',
   build: {
@@ -15,4 +28,4 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom'],
   },
-})
+}

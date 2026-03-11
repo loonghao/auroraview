@@ -174,6 +174,10 @@ pub struct Manifest {
     /// Downloads configuration for embedding external dependencies
     #[serde(default)]
     pub downloads: Vec<DownloadEntry>,
+
+    /// WebView2 extensions configuration
+    #[serde(default)]
+    pub extensions: Option<ExtensionsManifestConfig>,
 }
 
 // ============================================================================
@@ -1077,6 +1081,45 @@ impl ProtectionManifestConfig {
 // ============================================================================
 // Build Configuration
 // ============================================================================
+
+/// WebView2 extensions configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ExtensionsManifestConfig {
+    /// Enable WebView extension loading at runtime
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Bundle configured local/remote extensions into packed executable
+    #[serde(default)]
+    pub bundle: bool,
+
+    /// Local extension directories to bundle (each must contain manifest.json)
+    #[serde(default)]
+    pub local: Vec<PathBuf>,
+
+    /// Remote extension archives to download and bundle at pack-time
+    #[serde(default)]
+    pub remote: Vec<ExtensionRemoteManifestEntry>,
+}
+
+/// Remote extension archive source
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ExtensionRemoteManifestEntry {
+    /// Stable extension ID used as install directory name
+    pub id: String,
+
+    /// Remote source URL: archive (.zip/.tar/.tar.gz/.tgz/.crx) or store detail page URL
+    /// (Chrome Web Store / Microsoft Edge Add-ons)
+    pub url: String,
+
+    /// Optional checksum for verification (sha256/sha512)
+    #[serde(default)]
+    pub checksum: Option<String>,
+
+    /// Number of leading path components to strip when extracting archive
+    #[serde(default)]
+    pub strip_components: usize,
+}
 
 /// Build hooks and resource configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

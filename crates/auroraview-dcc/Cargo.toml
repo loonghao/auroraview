@@ -20,6 +20,7 @@ tracing = "0.1"
 
 # Error handling
 thiserror = "2.0"
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 # Platform specific (Windows WebView2)
 [target.'cfg(windows)'.dependencies]
