@@ -190,6 +190,34 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
         }
     };
 
+    // Run [vx].ensure before [build].before so that tools like bun/node are
+    // available when before_build commands execute.
+    if let Some(ref manifest) = manifest_opt {
+        if let Some(ref vx_config) = manifest.vx {
+            if vx_config.enabled && !vx_config.ensure.is_empty() {
+                let vx_spinner = progress.spinner("Ensuring vx-managed tools...");
+                match auroraview_pack::VxTool::new() {
+                    Ok(vx) => match vx.ensure_tools(&vx_config.ensure) {
+                        Ok(()) => {
+                            vx_spinner.finish_success(&format!(
+                                "vx tools ensured ({})",
+                                vx_config.ensure.join(", ")
+                            ));
+                        }
+                        Err(e) => {
+                            vx_spinner.finish_error(&format!("vx ensure failed: {}", e));
+                            tracing::warn!("vx ensure failed (non-fatal): {}", e);
+                        }
+                    },
+                    Err(e) => {
+                        vx_spinner.finish_error(&format!("vx not available: {}", e));
+                        tracing::warn!("vx not available (non-fatal): {}", e);
+                    }
+                }
+            }
+        }
+    }
+
     // Run before commands if manifest has them
     if let (Some(ref manifest), Some(ref base_dir)) = (&manifest_opt, &base_dir_opt) {
         if !manifest.build.before.is_empty() {
