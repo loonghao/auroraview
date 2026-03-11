@@ -54,35 +54,6 @@ impl WinBuilder {
             name.strip_suffix(".exe").unwrap_or(&name).to_string()
         }
     }
-
-    fn normalize_windows_version(version: &str) -> Option<String> {
-        let core = version.split(['-', '+']).next().unwrap_or(version);
-        let mut parts = [0u16; 4];
-        let mut has_numeric_part = false;
-
-        for (idx, segment) in core.split('.').take(4).enumerate() {
-            if segment.is_empty() {
-                continue;
-            }
-
-            match segment.parse::<u16>() {
-                Ok(value) => {
-                    parts[idx] = value;
-                    has_numeric_part = true;
-                }
-                Err(_) => break,
-            }
-        }
-
-        if !has_numeric_part {
-            return None;
-        }
-
-        Some(format!(
-            "{}.{}.{}.{}",
-            parts[0], parts[1], parts[2], parts[3]
-        ))
-    }
 }
 
 impl Default for WinBuilder {
@@ -660,6 +631,36 @@ impl WinBuilder {
 
         tracing::info!("Pip packages added to overlay");
         Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    fn normalize_windows_version(version: &str) -> Option<String> {
+        let core = version.split(['-', '+']).next().unwrap_or(version);
+        let mut parts = [0u16; 4];
+        let mut has_numeric_part = false;
+
+        for (idx, segment) in core.split('.').take(4).enumerate() {
+            if segment.is_empty() {
+                continue;
+            }
+
+            match segment.parse::<u16>() {
+                Ok(value) => {
+                    parts[idx] = value;
+                    has_numeric_part = true;
+                }
+                Err(_) => break,
+            }
+        }
+
+        if !has_numeric_part {
+            return None;
+        }
+
+        Some(format!(
+            "{}.{}.{}.{}",
+            parts[0], parts[1], parts[2], parts[3]
+        ))
     }
 
     #[cfg(target_os = "windows")]

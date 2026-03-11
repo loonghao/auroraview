@@ -178,6 +178,9 @@ jobs:
           pip install dist/*.whl
           python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
+      - name: Setup Bun (required by pack [build].before)
+        uses: oven-sh/setup-bun@v2
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.90.0
         with:

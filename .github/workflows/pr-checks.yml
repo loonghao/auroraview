@@ -502,7 +502,7 @@ jobs:
             target: x86_64
             artifact-name: wheels-linux-x86_64-py37
             maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
-          - os: windows-2019
+          - os: windows-2022
             target: x64
             artifact-name: wheels-windows-x64-py37
             maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2'
@@ -562,6 +562,11 @@ jobs:
         uses: dtolnay/rust-toolchain@1.90.0
         with:
           components: llvm-tools-preview
+
+      - name: Setup Python (required for pyo3 linking in coverage)
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
 
       - name: Install system dependencies
         run: |
@@ -1006,29 +1011,29 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            
+
             const screenshotsDir = 'test-screenshots';
             if (!fs.existsSync(screenshotsDir)) {
               console.log('No screenshots directory found');
               return;
             }
-            
+
             const files = fs.readdirSync(screenshotsDir).filter(f => f.endsWith('.png'));
             if (files.length === 0) {
               console.log('No screenshots found');
               return;
             }
-            
+
             // Get artifact URL
             const runId = context.runId;
             const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
-            
+
             // Build comment body
             let body = '## 📸 Gallery E2E Screenshots\n\n';
             body += `Screenshots from this PR's E2E tests. [View all artifacts](${artifactUrl})\n\n`;
             body += '| Page | Screenshot |\n';
             body += '|------|------------|\n';
-            
+
             const pageNames = {
               'gallery_home': '🏠 Home',
               'gallery_getting_started': '🚀 Getting Started',
@@ -1036,31 +1041,31 @@ jobs:
               'gallery_window_features': '🪟 Window Features',
               'gallery_settings': '⚙️ Settings'
             };
-            
+
             for (const file of files) {
               const name = file.replace('.png', '');
               const displayName = pageNames[name] || name;
               body += `| ${displayName} | [View](${artifactUrl}) |\n`;
             }
-            
+
             body += '\n<details><summary>ℹ️ How to view screenshots</summary>\n\n';
             body += '1. Click "View all artifacts" above\n';
             body += '2. Scroll to "Artifacts" section\n';
             body += '3. Download `gallery-e2e-screenshots`\n';
             body += '</details>';
-            
+
             // Find existing comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number
             });
-            
-            const botComment = comments.find(c => 
-              c.user.type === 'Bot' && 
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
               c.body.includes('Gallery E2E Screenshots')
             );
-            
+
             if (botComment) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
@@ -1274,16 +1279,16 @@ jobs:
         run: |
           $exe = "target/pack/auroraview-gallery.exe"
           Write-Host "Testing packed executable startup: $exe"
-          
+
           # Start the process
           $process = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden
-          
+
           # Wait up to 15 seconds for startup
           $timeout = 15
           for ($i = 0; $i -lt $timeout; $i++) {
             Start-Sleep -Seconds 1
             Write-Host "Waiting for startup... ($i/$timeout seconds)"
-            
+
             # Check if process exited with error
             if ($process.HasExited) {
               if ($process.ExitCode -ne 0) {
@@ -1294,7 +1299,7 @@ jobs:
               break
             }
           }
-          
+
           # If still running after timeout, consider it a success and kill it
           if (-not $process.HasExited) {
             Write-Host "SUCCESS: Packed executable started and running for $timeout seconds"
@@ -1308,10 +1313,10 @@ jobs:
         run: |
           exe="target/pack/auroraview-gallery"
           echo "Testing packed executable startup: $exe"
-          
+
           # Make executable
           chmod +x "$exe"
-          
+
           # On Linux, we need a virtual display for GTK
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             sudo apt-get update -qq && sudo apt-get install -y -qq xvfb || true
@@ -1322,12 +1327,12 @@ jobs:
             "$exe" &
             PID=$!
           fi
-          
+
           # Wait up to 15 seconds
           for i in {1..15}; do
             sleep 1
             echo "Waiting for startup... ($i/15 seconds)"
-            
+
             if ! kill -0 $PID 2>/dev/null; then
               wait $PID || EXIT_CODE=$?
               if [ "${EXIT_CODE:-0}" -ne 0 ]; then
@@ -1338,7 +1343,7 @@ jobs:
               break
             fi
           done
-          
+
           # If still running, success
           if kill -0 $PID 2>/dev/null; then
             echo "SUCCESS: Packed executable started and running for 15 seconds"
@@ -1397,7 +1402,7 @@ jobs:
         run: |
           echo "## PR Check Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Show what was detected
           echo "### 🔍 Change Detection" >> $GITHUB_STEP_SUMMARY
           echo "- Rust: ${{ needs.path-filter.outputs.rust }}" >> $GITHUB_STEP_SUMMARY

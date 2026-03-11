@@ -72,11 +72,11 @@ jobs:
           echo "Checking generated assets..."
           ls -la crates/auroraview-core/src/assets/js/core/
           ls -la crates/auroraview-core/src/assets/js/plugins/
-          
+
           # Verify core files
           test -f crates/auroraview-core/src/assets/js/core/event_bridge.js || (echo "Missing event_bridge.js" && exit 1)
           test -f crates/auroraview-core/src/assets/js/core/state_bridge.js || (echo "Missing state_bridge.js" && exit 1)
-          
+
           echo "All SDK assets verified!"
 
       - name: Upload SDK assets artifact
@@ -231,7 +231,7 @@ jobs:
 
   # Windows Python 3.7 build
   windows-py37:
-    runs-on: windows-2019  # Use older Windows for Python 3.7 compatibility
+    runs-on: windows-2022  # windows-2019 removed; use windows-2022 for Python 3.7
     needs: [sdk-assets]
     strategy:
       matrix:
@@ -263,4 +263,3 @@ jobs:
   # - macOS-15 (ARM64) does not support Python 3.7
   # - Python 3.7 reached EOL in June 2023
   # Users needing Python 3.7 on macOS should use the source distribution
-

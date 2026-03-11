@@ -157,6 +157,7 @@ pub use python_standalone::{
     PythonStandaloneConfig, PythonTarget,
 };
 pub use resource_editor::{ResourceConfig, ResourceEditor};
+pub use vx_tool::VxTool;
 
 /// Alias for backward compatibility with CLI
 pub type PackGenerator = dyn Packer;
