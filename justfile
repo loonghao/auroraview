@@ -959,13 +959,13 @@ sdk-typecheck: sdk-install
 [unix]
 sdk-playwright-install: sdk-install
     @echo "Installing Playwright for SDK E2E tests..."
-    cd packages/auroraview-sdk; vx bun run install:playwright
+    cd packages/auroraview-sdk; vx bun run playwright install chromium --with-deps
     @echo "[OK] Playwright installed!"
 
 [windows]
 sdk-playwright-install: sdk-install
     @echo "Installing Playwright for SDK E2E tests..."
-    cd packages/auroraview-sdk; vx bun run install:playwright
+    cd packages/auroraview-sdk; vx bun run playwright install chromium --with-deps
     @echo "[OK] Playwright installed!"
 
 # Full SDK CI check (typecheck + test + coverage + build)
