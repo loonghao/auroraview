@@ -94,7 +94,7 @@ uuid = { version = "1", features = ["serde", "v4"] }
 winnow = { version = "0.7", features = ["simd"] }
 zerocopy = { version = "0.8", default-features = false, features = ["derive", "simd"] }
 zeroize = { version = "1", features = ["zeroize_derive"] }
-zip = { version = "4" }
+zip = { version = "8" }
 zstd = { version = "0.13" }
 zstd-safe = { version = "7", default-features = false, features = ["arrays", "legacy", "std", "zdict_builder"] }
 zstd-sys = { version = "2", default-features = false, features = ["legacy", "std", "zdict_builder"] }

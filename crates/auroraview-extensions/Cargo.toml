@@ -53,7 +53,7 @@ regex = "1.11"
 glob = "0.3"
 
 # CRX ZIP payload extraction
-zip = { version = "4", default-features = false, features = ["deflate"] }
+zip = { version = "8", default-features = false, features = ["deflate"] }
 
 # Time handling
 chrono = "0.4"
