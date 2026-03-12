@@ -100,21 +100,13 @@ jobs:
 
       - name: Build wheel (if not provided)
         if: inputs.wheel-artifact == ''
-        shell: bash
-        run: |
-          # Install system dependencies on Linux
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
-          fi
-
-          # Build wheel with maturin
-          vx uv pip install maturin
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            vx uv run maturin build --release --out dist --features "ext-module,python-bindings,abi3-py38,win-webview2"
-          else
-            vx uv run maturin build --release --out dist --features "ext-module,python-bindings,abi3-py38"
-          fi
+        uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ runner.os == 'Windows' && 'x64' || runner.os == 'macOS' && 'universal2-apple-darwin' || 'x86_64' }}
+          python-version: ${{ matrix.python-version }}
+          maturin-args: ${{ runner.os == 'Windows' && '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38,win-webview2' || '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38' }}
+          test-wheel: 'false'
+          upload-wheel: 'false'
 
       - name: Install wheel and test dependencies
         shell: bash
@@ -173,9 +165,13 @@ jobs:
 
       - name: Build wheel (if not provided)
         if: inputs.wheel-artifact == ''
-        run: |
-          vx uv pip install maturin
-          vx uv run maturin build --release --out dist --features "ext-module,python-bindings,abi3-py38"
+        uses: ./.github/actions/build-wheel
+        with:
+          target: x86_64
+          python-version: '3.11'
+          maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
+          test-wheel: 'false'
+          upload-wheel: 'false'
 
       - name: Install wheel and test dependencies
         run: |
@@ -221,9 +217,14 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Build wheel for Python 3.7
-        run: |
-          vx uv pip install maturin
-          vx uv run maturin build --release --out dist -i python3.7 --features "ext-module,python-bindings"
+        uses: ./.github/actions/build-wheel
+        with:
+          target: x86_64
+          python-version: '3.7'
+          rust-version: '1.90.0'
+          maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
+          test-wheel: 'false'
+          upload-wheel: 'false'
 
       - name: Install and test
         run: |

@@ -88,12 +88,16 @@ runs:
       with:
         node-version: '20'
 
+    - name: Setup vx helpers
+      uses: loonghao/vx@main
+      with:
+        github-token: ${{ github.token }}
+        tools: 'just pnpm'
+        cache: 'false'
+
     - name: Build frontend assets (required by auroraview-assets)
       shell: bash
-      run: |
-        cd crates/auroraview-assets/frontend
-        npm install
-        npm run build
+      run: vx just ci-assets-build
 
     - name: Cache Rust build
       if: runner.os != 'macOS' # Work around actions/runner hashFiles bug on macOS
@@ -123,6 +127,22 @@ runs:
           echo "[WARN] cargo fetch failed, retrying in 5s..."; sleep 5;
         done
 
+    - name: Resolve maturin args
+      id: resolve-maturin-args
+      shell: bash
+      run: |
+        resolved_args="${{ inputs.maturin-args }}"
+
+        # Python 3.7 must not use abi3-py38 (PyO3 requires interpreter >= 3.8 for that feature)
+        if [[ "${{ inputs.python-version }}" == "3.7" ]]; then
+          resolved_args="${resolved_args//abi3-py38,/}"
+          resolved_args="${resolved_args//,abi3-py38/}"
+          resolved_args="${resolved_args//abi3-py38/}"
+        fi
+
+        echo "Resolved maturin args: ${resolved_args}"
+        echo "value=${resolved_args}" >> "$GITHUB_OUTPUT"
+
     - name: Build wheel
       id: build
       uses: PyO3/maturin-action@v1
@@ -132,7 +152,7 @@ runs:
         CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
       with:
         target: ${{ inputs.target }}
-        args: ${{ inputs.maturin-args }}
+        args: ${{ steps.resolve-maturin-args.outputs.value }}
         rust-toolchain: ${{ inputs.rust-version }}
         # Disable sccache for older runners to avoid GLIBC incompatibility
         sccache: ${{ inputs.use-sccache == 'true' && !startsWith(github.ref, 'refs/tags/') }}
@@ -146,6 +166,7 @@ runs:
         #   - Wheels are platform-specific (not portable across Linux distros)
         #   - PyPI may not accept these wheels (use GitHub Releases instead)
         manylinux: off
+
 
     - name: Set wheel path output
       shell: bash
@@ -293,4 +314,3 @@ runs:
         name: ${{ inputs.artifact-name }}
         path: dist/
         retention-days: 30
-

@@ -17,6 +17,8 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set shell := ["sh", "-c"]
 
+windows_rust_target := "x86_64-pc-windows-msvc"
+
 # Default recipe to display help
 default:
     @vx just --list
@@ -98,25 +100,59 @@ install:
     vx uv sync --group dev
 
 # Build the extension module
-build:
+[unix]
+build: assets-build sdk-build-assets
     @echo "Building extension module..."
     vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
+[windows]
+build: assets-build sdk-build-assets
+    @echo "Building extension module with MSVC..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx --with msvc rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
+
 # Build with release optimizations
-build-release:
+[unix]
+build-release: assets-build sdk-build-assets
     @echo "Building release version..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
+[windows]
+build-release: assets-build sdk-build-assets
+    @echo "Building release version with MSVC..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx --with msvc rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+
 # Build Python library (PyO3 bindings)
+[unix]
 rebuild-pylib: assets-build sdk-build-assets
     @echo "Building Python library with maturin..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] Python library rebuilt and installed successfully!"
 
+[windows]
+rebuild-pylib: assets-build sdk-build-assets
+    @echo "Building Python library with maturin (MSVC)..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx --with msvc rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "[OK] Python library rebuilt and installed successfully!"
+
 # Build Python library with verbose output
-rebuild-pylib-verbose:
+[unix]
+rebuild-pylib-verbose: assets-build sdk-build-assets
     @echo "Building Python library with maturin (verbose)..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
+    @echo "[OK] Python library rebuilt and installed successfully!"
+
+[windows]
+rebuild-pylib-verbose: assets-build sdk-build-assets
+    @echo "Building Python library with maturin (verbose, MSVC)..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx --with msvc rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build CLI binary
@@ -126,12 +162,23 @@ build-cli:
     @echo "[OK] CLI built: target/release/auroraview.exe"
 
 # Build all workspace crates (including SDK assets)
-build-all: sdk-build-all
+[unix]
+build-all: assets-build sdk-build-all
     @echo "Building all workspace crates..."
     vx cargo build -p auroraview-core
     vx cargo build -p auroraview-pack
     vx cargo build -p auroraview-cli --release
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "[OK] All crates built successfully!"
+
+[windows]
+build-all: assets-build sdk-build-all
+    @echo "Building all workspace crates with MSVC..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx --with msvc rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo build -p auroraview-core
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo build -p auroraview-pack
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo build -p auroraview-cli --release
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] All crates built successfully!"
 
 # Run all tests
@@ -430,19 +477,79 @@ ci-install:
     vx uv sync --group dev --group test
     vx uv pip install qtpy PySide6 pytest-qt
 
+ci-assets-build: assets-build
+    @echo "[OK] CI frontend assets prepared!"
+
+ci-sdk-assets: sdk-build-assets
+    @echo "[OK] CI SDK assets prepared!"
+
 # CI build command - consistent across all platforms
 # Uses ext-module for proper Python extension module compilation
 [unix]
-ci-build:
+ci-build: ci-assets-build ci-sdk-assets
     @echo "Building extension for CI (Unix)..."
     vx uv pip install maturin
-    vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38"
+    py_minor=$$(vx uv run python -c "import sys; print(sys.version_info[1])"); \
+    if [ "$$py_minor" -ge 8 ]; then \
+        features="ext-module,python-bindings,abi3-py38"; \
+    else \
+        features="ext-module,python-bindings"; \
+    fi; \
+    echo "Using maturin features: $$features"; \
+    vx uv run maturin develop --features "$$features"
 
 [windows]
-ci-build:
+ci-build: ci-assets-build ci-sdk-assets
     @echo "Building extension for CI (Windows)..."
     vx uv pip install maturin
-    vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    $pyMinor = [int](vx uv run python -c "import sys; print(sys.version_info[1])")
+    if ($pyMinor -ge 8) { $features = "ext-module,python-bindings,abi3-py38,win-webview2" } else { $features = "ext-module,python-bindings,win-webview2" }
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using maturin features: $features"; vx --with msvc uv run maturin develop --features $features
+
+[unix]
+ci-docs-rust: ci-assets-build
+    @echo "Running Rust doc tests and documentation build..."
+    vx cargo test --doc
+    RUSTDOCFLAGS="-D warnings" vx cargo doc --no-deps --document-private-items
+    @echo "[OK] Rust documentation checks completed"
+
+[windows]
+ci-docs-rust: ci-assets-build
+    @echo "Running Rust doc tests and documentation build..."
+    vx cargo test --doc
+    $env:RUSTDOCFLAGS = "-D warnings"; vx cargo doc --no-deps --document-private-items
+    @echo "[OK] Rust documentation checks completed"
+
+[unix]
+ci-cli-build TARGET:
+    @echo "Building CLI for target {{TARGET}}..."
+    vx rustup target add {{TARGET}}
+    vx just ci-assets-build
+    vx cargo build -p auroraview-cli --release --target {{TARGET}}
+    @echo "[OK] CLI built: target/{{TARGET}}/release/"
+
+[windows]
+ci-cli-build TARGET:
+    @echo "Building CLI for target {{TARGET}}..."
+    vx rustup target add "{{TARGET}}"
+    vx just ci-assets-build
+    $env:CARGO_BUILD_TARGET = "{{TARGET}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx --with msvc cargo build -p auroraview-cli --release --target "{{TARGET}}"
+    @echo "[OK] CLI built: target/{{TARGET}}/release/"
+
+[unix]
+ci-cli-smoke TARGET BIN:
+    @echo "Running CLI smoke tests for {{BIN}}..."
+    ./target/{{TARGET}}/release/{{BIN}} --help
+    ./target/{{TARGET}}/release/{{BIN}} --version
+    @echo "[OK] CLI smoke tests passed"
+
+[windows]
+ci-cli-smoke TARGET BIN:
+    @echo "Running CLI smoke tests for {{BIN}}..."
+    & "target/{{TARGET}}/release/{{BIN}}" --help
+    & "target/{{TARGET}}/release/{{BIN}}" --version
+    @echo "[OK] CLI smoke tests passed"
+
 
 ci-test-rust:
     @echo "Running Rust doc tests..."
@@ -735,13 +842,27 @@ sdk-install:
     @echo "[OK] SDK dependencies installed!"
 
 # Build SDK npm package
-sdk-build:
+[unix]
+sdk-build: sdk-install
+    @echo "Building SDK npm package..."
+    cd packages/auroraview-sdk; vx pnpm run build
+    @echo "[OK] SDK built in packages/auroraview-sdk/dist/"
+
+[windows]
+sdk-build: sdk-install
     @echo "Building SDK npm package..."
     cd packages/auroraview-sdk; vx pnpm run build
     @echo "[OK] SDK built in packages/auroraview-sdk/dist/"
 
 # Build SDK assets (inject scripts for Rust)
-sdk-build-assets:
+[unix]
+sdk-build-assets: sdk-install
+    @echo "Building SDK assets (inject scripts)..."
+    cd packages/auroraview-sdk; vx pnpm run build:assets
+    @echo "[OK] Assets built in crates/auroraview-core/src/assets/js/"
+
+[windows]
+sdk-build-assets: sdk-install
     @echo "Building SDK assets (inject scripts)..."
     cd packages/auroraview-sdk; vx pnpm run build:assets
     @echo "[OK] Assets built in crates/auroraview-core/src/assets/js/"
@@ -753,37 +874,79 @@ sdk-build-all: sdk-install
     @echo "[OK] SDK and assets built!"
 
 # Run SDK unit tests
-sdk-test:
+[unix]
+sdk-test: sdk-install
+    @echo "Running SDK unit tests..."
+    cd packages/auroraview-sdk; vx pnpm run test
+    @echo "[OK] SDK tests passed!"
+
+[windows]
+sdk-test: sdk-install
     @echo "Running SDK unit tests..."
     cd packages/auroraview-sdk; vx pnpm run test
     @echo "[OK] SDK tests passed!"
 
 # Run SDK tests with coverage
-sdk-test-cov:
+[unix]
+sdk-test-cov: sdk-install
+    @echo "Running SDK tests with coverage..."
+    cd packages/auroraview-sdk; vx pnpm run test:coverage
+    @echo "[OK] SDK coverage report: packages/auroraview-sdk/coverage/"
+
+[windows]
+sdk-test-cov: sdk-install
     @echo "Running SDK tests with coverage..."
     cd packages/auroraview-sdk; vx pnpm run test:coverage
     @echo "[OK] SDK coverage report: packages/auroraview-sdk/coverage/"
 
 # Run SDK E2E tests (requires Playwright)
-sdk-test-e2e:
+[unix]
+sdk-test-e2e: sdk-install
+    @echo "Running SDK E2E tests..."
+    cd packages/auroraview-sdk; vx pnpm run test:e2e
+    @echo "[OK] SDK E2E tests passed!"
+
+[windows]
+sdk-test-e2e: sdk-install
     @echo "Running SDK E2E tests..."
     cd packages/auroraview-sdk; vx pnpm run test:e2e
     @echo "[OK] SDK E2E tests passed!"
 
 # Run all SDK tests (unit + E2E)
-sdk-test-all:
+[unix]
+sdk-test-all: sdk-install
+    @echo "Running all SDK tests..."
+    cd packages/auroraview-sdk; vx pnpm run test:all
+    @echo "[OK] All SDK tests passed!"
+
+[windows]
+sdk-test-all: sdk-install
     @echo "Running all SDK tests..."
     cd packages/auroraview-sdk; vx pnpm run test:all
     @echo "[OK] All SDK tests passed!"
 
 # Run SDK type check
-sdk-typecheck:
+[unix]
+sdk-typecheck: sdk-install
+    @echo "Running SDK type check..."
+    cd packages/auroraview-sdk; vx pnpm run typecheck
+    @echo "[OK] SDK type check passed!"
+
+[windows]
+sdk-typecheck: sdk-install
     @echo "Running SDK type check..."
     cd packages/auroraview-sdk; vx pnpm run typecheck
     @echo "[OK] SDK type check passed!"
 
 # Install Playwright for SDK E2E tests
-sdk-playwright-install:
+[unix]
+sdk-playwright-install: sdk-install
+    @echo "Installing Playwright for SDK E2E tests..."
+    cd packages/auroraview-sdk; vx pnpm exec playwright install chromium --with-deps
+    @echo "[OK] Playwright installed!"
+
+[windows]
+sdk-playwright-install: sdk-install
     @echo "Installing Playwright for SDK E2E tests..."
     cd packages/auroraview-sdk; vx pnpm exec playwright install chromium --with-deps
     @echo "[OK] Playwright installed!"
@@ -795,6 +958,24 @@ sdk-ci: sdk-install sdk-typecheck sdk-test-cov sdk-build-all
 # ═══════════════════════════════════════════════════════════════════════════════
 # Gallery Commands
 # ═══════════════════════════════════════════════════════════════════════════════
+
+# Install gallery dependencies using pnpm (CI/local parity path)
+gallery-ci-install:
+    @echo "Installing gallery dependencies (pnpm)..."
+    cd gallery; vx pnpm install
+    @echo "[OK] Gallery dependencies installed!"
+
+# Build gallery frontend using pnpm (CI/local parity path)
+gallery-ci-build: sdk-build gallery-ci-install
+    @echo "Building gallery frontend (pnpm)..."
+    cd gallery; vx pnpm run build
+    @echo "[OK] Gallery built in gallery/dist/"
+
+# Install Playwright for gallery CI/E2E flows
+gallery-ci-playwright-install: gallery-ci-install
+    @echo "Installing Playwright for Gallery..."
+    cd gallery; vx pnpm exec playwright install chromium --with-deps
+    @echo "[OK] Gallery Playwright installed!"
 
 # Build gallery frontend (builds SDK first)
 gallery-build: sdk-build
@@ -1237,9 +1418,16 @@ pack-all: test-pack lint-pack gallery-pack
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Install documentation dependencies
+[unix]
 docs-install:
     @echo "Installing documentation dependencies..."
-    cd docs; vx pnpm install
+    pnpm install --dir docs --reporter=append-only
+    @echo "[OK] Documentation dependencies installed!"
+
+[windows]
+docs-install:
+    @echo "Installing documentation dependencies..."
+    pnpm install --dir docs --reporter=append-only
     @echo "[OK] Documentation dependencies installed!"
 
 # Generate Python API documentation with pdoc (optional, may fail due to network)
@@ -1272,31 +1460,62 @@ docs-python-api:
 
 
 # Generate examples documentation from examples/ directory
+[unix]
 docs-generate-examples:
     @echo "Generating examples documentation..."
-    cd docs; vx npx tsx .vitepress/hooks/generate-examples.ts
+    cd docs; ./node_modules/.bin/tsx .vitepress/hooks/generate-examples.ts
+    @echo "[OK] Examples documentation generated!"
+
+[windows]
+docs-generate-examples:
+    @echo "Generating examples documentation..."
+    cd docs; .\node_modules\.bin\tsx .vitepress/hooks/generate-examples.ts
     @echo "[OK] Examples documentation generated!"
 
 # Start documentation dev server (auto-generates examples docs)
+[unix]
 docs-dev: docs-install docs-generate-examples docs-python-api
     @echo "Starting documentation dev server..."
-    cd docs; vx npx vitepress dev
+    cd docs; ./node_modules/.bin/vitepress dev
+
+[windows]
+docs-dev: docs-install docs-generate-examples docs-python-api
+    @echo "Starting documentation dev server..."
+    cd docs; .\node_modules\.bin\vitepress dev
 
 # Alias for docs-dev
 docs-serve: docs-dev
 
 # Build documentation (auto-generates examples docs + Python API)
+[unix]
 docs-build: docs-install docs-generate-examples docs-python-api
     @echo "Building documentation..."
     mkdir -p docs/public
     cp assets/icons/auroraview-logo-text.png docs/public/logo.png || echo "Logo not found, using placeholder"
-    cd docs; vx npx vitepress build
+    cd docs; ./node_modules/.bin/vitepress build
     @echo "[OK] Documentation built in docs/.vitepress/dist/"
 
+[windows]
+docs-build: docs-install docs-generate-examples docs-python-api
+    @echo "Building documentation..."
+    New-Item -ItemType Directory -Path docs/public -Force | Out-Null
+    if (Test-Path "assets/icons/auroraview-logo-text.png") { Copy-Item "assets/icons/auroraview-logo-text.png" "docs/public/logo.png" -Force } else { Write-Host "Logo not found, using placeholder" }
+    cd docs; .\node_modules\.bin\vitepress build
+    @echo "[OK] Documentation built in docs/.vitepress/dist/"
+
+ci-docs-build: docs-build
+    @echo "[OK] CI docs build completed"
+
 # Preview built documentation
+[unix]
 docs-preview: docs-build
     @echo "Previewing documentation..."
-    cd docs; vx npx vitepress preview
+    cd docs; ./node_modules/.bin/vitepress preview
+
+[windows]
+docs-preview: docs-build
+    @echo "Previewing documentation..."
+    cd docs; .\node_modules\.bin\vitepress preview
 
 # Clean documentation build artifacts
 docs-clean:

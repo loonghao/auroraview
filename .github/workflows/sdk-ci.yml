@@ -46,25 +46,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          # Disable npm cache to avoid rollup native module issues
-          # cache: 'npm'
-          # cache-dependency-path: packages/auroraview-sdk/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd packages/auroraview-sdk
-          # Clean install to fix rollup native module issue (npm bug #4828)
-          rm -rf node_modules package-lock.json
-          npm install
+          install-dependencies: 'false'
+          cache-key-suffix: 'sdk-typecheck'
 
       - name: Run type check
-        run: |
-          cd packages/auroraview-sdk
-          npm run typecheck
+        run: vx just sdk-typecheck
 
   # Unit tests with coverage
   unit-tests:
@@ -106,25 +95,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          # Disable npm cache to avoid rollup native module issues
-          # cache: 'npm'
-          # cache-dependency-path: packages/auroraview-sdk/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd packages/auroraview-sdk
-          # Clean install to fix rollup native module issue (npm bug #4828)
-          rm -rf node_modules package-lock.json
-          npm install
+          install-dependencies: 'false'
+          cache-key-suffix: 'sdk-coverage'
 
       - name: Run tests with coverage
-        run: |
-          cd packages/auroraview-sdk
-          npm run test:coverage
+        run: vx just sdk-test-cov
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -151,38 +129,27 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          # Disable npm cache to avoid rollup native module issues
-          # cache: 'npm'
-          # cache-dependency-path: packages/auroraview-sdk/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd packages/auroraview-sdk
-          # Clean install to fix rollup native module issue (npm bug #4828)
-          rm -rf node_modules package-lock.json
-          npm install
+          install-dependencies: 'false'
+          cache-key-suffix: 'sdk-build-package'
 
       - name: Build SDK
-        run: |
-          cd packages/auroraview-sdk
-          npm run build
+        run: vx just sdk-build
 
       - name: Verify build outputs
         run: |
           echo "Checking SDK dist..."
           ls -la packages/auroraview-sdk/dist/
-          
+
           # Verify key files exist
           test -f packages/auroraview-sdk/dist/index.js || (echo "Missing index.js" && exit 1)
           test -f packages/auroraview-sdk/dist/index.cjs || (echo "Missing index.cjs" && exit 1)
           test -f packages/auroraview-sdk/dist/index.d.ts || (echo "Missing index.d.ts" && exit 1)
           test -f packages/auroraview-sdk/dist/react.js || (echo "Missing react.js" && exit 1)
           test -f packages/auroraview-sdk/dist/vue.js || (echo "Missing vue.js" && exit 1)
-          
+
           echo "All SDK package outputs verified!"
 
       - name: Upload SDK package artifact
@@ -203,43 +170,32 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          # Disable npm cache to avoid rollup native module issues
-          # cache: 'npm'
-          # cache-dependency-path: packages/auroraview-sdk/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd packages/auroraview-sdk
-          # Clean install to fix rollup native module issue (npm bug #4828)
-          rm -rf node_modules package-lock.json
-          npm install
+          install-dependencies: 'false'
+          cache-key-suffix: 'sdk-build-assets'
 
       - name: Build assets
-        run: |
-          cd packages/auroraview-sdk
-          npm run build:assets
+        run: vx just ci-sdk-assets
 
       - name: Verify assets outputs
         run: |
           echo "Checking generated assets..."
           ls -la crates/auroraview-core/src/assets/js/core/
           ls -la crates/auroraview-core/src/assets/js/plugins/
-          
+
           # Verify core files
           test -f crates/auroraview-core/src/assets/js/core/event_bridge.js || (echo "Missing event_bridge.js" && exit 1)
           test -f crates/auroraview-core/src/assets/js/core/state_bridge.js || (echo "Missing state_bridge.js" && exit 1)
           test -f crates/auroraview-core/src/assets/js/core/bridge_stub.js || (echo "Missing bridge_stub.js" && exit 1)
-          
+
           # Verify plugin files
           test -f crates/auroraview-core/src/assets/js/plugins/fs.js || (echo "Missing fs.js" && exit 1)
           test -f crates/auroraview-core/src/assets/js/plugins/dialog.js || (echo "Missing dialog.js" && exit 1)
           test -f crates/auroraview-core/src/assets/js/plugins/clipboard.js || (echo "Missing clipboard.js" && exit 1)
           test -f crates/auroraview-core/src/assets/js/plugins/shell.js || (echo "Missing shell.js" && exit 1)
-          
+
           echo "All SDK assets verified!"
 
       - name: Upload SDK assets artifact
@@ -264,30 +220,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          # Disable npm cache to avoid rollup native module issues
-          # cache: 'npm'
-          # cache-dependency-path: packages/auroraview-sdk/package-lock.json
-
-      - name: Install SDK dependencies
-        run: |
-          cd packages/auroraview-sdk
-          # Clean install to fix rollup native module issue (npm bug #4828)
-          rm -rf node_modules package-lock.json
-          npm install
+          install-dependencies: 'false'
+          cache-key-suffix: 'sdk-e2e'
 
       - name: Install Playwright
-        run: |
-          cd packages/auroraview-sdk
-          npx playwright install chromium --with-deps
+        run: vx just sdk-playwright-install
 
       - name: Run E2E tests
-        run: |
-          cd packages/auroraview-sdk
-          npm run test:e2e || echo "E2E tests not configured yet"
+        run: vx just sdk-test-e2e || echo "E2E tests not configured yet"
 
       - name: Upload E2E test results
         if: always()
@@ -307,10 +250,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
+          install-dependencies: 'false'
+          cache-key-suffix: 'sdk-gallery-integration'
 
       - name: Download SDK package
         uses: actions/download-artifact@v7
@@ -328,15 +272,14 @@ jobs:
       - name: Install Gallery dependencies
         run: |
           cd gallery
-          # Use npm install to re-resolve file: dependency with pre-built SDK dist
-          rm -rf node_modules package-lock.json
-          npm install
+          # Re-resolve file: dependency with pre-built SDK dist
+          vx pnpm install
 
       - name: Build Gallery with SDK
         run: |
           cd gallery
           # Skip TypeScript project references check since SDK is pre-built
-          npx vite build
+          vx pnpm exec vite build
 
       - name: Verify Gallery build
         run: |
@@ -353,7 +296,7 @@ jobs:
       - name: Check results
         run: |
           echo "## SDK CI Results" >> $GITHUB_STEP_SUMMARY
-          
+
           declare -A jobs=(
             ["typecheck"]="${{ needs.typecheck.result }}"
             ["unit-tests"]="${{ needs.unit-tests.result }}"
@@ -362,7 +305,7 @@ jobs:
             ["build-assets"]="${{ needs.build-assets.result }}"
             ["integration-gallery"]="${{ needs.integration-gallery.result }}"
           )
-          
+
           failed=0
           for job in "${!jobs[@]}"; do
             result="${jobs[$job]}"
@@ -378,12 +321,12 @@ jobs:
               failed=1
             fi
           done
-          
+
           if [[ $failed -eq 1 ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **SDK CI failed**" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **SDK CI passed!**" >> $GITHUB_STEP_SUMMARY

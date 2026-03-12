@@ -55,30 +55,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1.90.0
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          targets: ${{ matrix.target }}
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-
-      - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
+          install-dependencies: 'false'
+          cache-key-suffix: 'build-cli-${{ matrix.target }}'
 
       - name: Build CLI
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+        run: vx just ci-cli-build ${{ matrix.target }}
+
+      - name: Test CLI (--help)
+        run: vx just ci-cli-smoke ${{ matrix.target }} ${{ matrix.artifact }}
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -122,4 +109,3 @@ jobs:
           name: cli-all-platforms
           path: artifacts/*
           if-no-files-found: error
-
