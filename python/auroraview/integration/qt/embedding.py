@@ -14,7 +14,7 @@ import sys
 from typing import TYPE_CHECKING, Optional
 
 try:
-    from qtpy.QtCore import QTimer
+    from qtpy.QtCore import Qt, QTimer
     from qtpy.QtGui import QWindow
     from qtpy.QtWidgets import QVBoxLayout, QWidget
 except ImportError as e:
@@ -142,7 +142,19 @@ class EmbeddingMixin:
         Args:
             webview_hwnd: The WebView's native window handle.
         """
+        from qtpy.QtWidgets import QApplication
+
         logger.info(f"[EmbeddingMixin] Using DIRECT embedding mode for HWND=0x{webview_hwnd:X}")
+
+        # Ensure key Qt widgets have native window handles created.
+        # This is critical: Qt only creates real HWNDs when winId() is
+        # called or WA_NativeWindow is set.  Without this the Win32
+        # parent-child hierarchy may be incomplete, causing incorrect
+        # initial positioning.
+        for attr_name in ("_stack", "_webview_page"):
+            w = getattr(self, attr_name, None)
+            if w is not None:
+                w.setAttribute(Qt.WA_NativeWindow, True)
 
         # Get our widget's HWND
         parent_hwnd = int(self.winId())  # type: ignore[attr-defined]
@@ -150,6 +162,11 @@ class EmbeddingMixin:
             logger.error("[EmbeddingMixin] Failed to get parent widget HWND")
             self._create_container_qt(webview_hwnd)  # Fallback
             return
+
+        # Flush pending Qt events so that native window creation and
+        # geometry synchronisation from WA_NativeWindow above are fully
+        # processed before we call Win32 SetParent.
+        QApplication.processEvents()
 
         # Get initial size
         size = self.size()  # type: ignore[attr-defined]
@@ -171,6 +188,7 @@ class EmbeddingMixin:
 
         # Create a placeholder widget to participate in Qt layout
         self._webview_container = QWidget(self)  # type: ignore[arg-type]
+        self._webview_container.setAttribute(Qt.WA_NativeWindow, True)
         self._webview_container.setStyleSheet(
             "border: none; margin: 0; padding: 0; background-color: transparent;"
         )
@@ -195,9 +213,9 @@ class EmbeddingMixin:
         # Fix WebView2 child windows
         self._schedule_child_window_fixes(webview_hwnd)
 
-        # DEBUG: dump Qt widget hierarchy styles
-        if sys.platform == "win32":
-            self._debug_dump_qt_layers("_create_container_direct COMPLETE", webview_hwnd)
+        # Flush again after all Win32 manipulations so that the message
+        # queue is drained and geometry changes are fully applied.
+        QApplication.processEvents()
 
         logger.info(f"[EmbeddingMixin] Direct embedding successful: HWND=0x{webview_hwnd:X}")
 
@@ -242,11 +260,22 @@ class EmbeddingMixin:
         Args:
             webview_hwnd: The WebView's native window handle.
         """
+        from qtpy.QtWidgets import QApplication
+
         logger.info(
             f"[EmbeddingMixin] Using createWindowContainer mode for HWND=0x{webview_hwnd:X}"
         )
 
         self._using_direct_embed = False
+
+        # Ensure key Qt widgets have native window handles before embedding.
+        for attr_name in ("_stack", "_webview_page"):
+            w = getattr(self, attr_name, None)
+            if w is not None:
+                w.setAttribute(Qt.WA_NativeWindow, True)
+
+        # Flush pending events to complete native window creation
+        QApplication.processEvents()
 
         # Step 1: Prepare HWND using compat layer
         prepare_hwnd_for_container(webview_hwnd)
@@ -325,52 +354,14 @@ class EmbeddingMixin:
             # Schedule delayed Python-side fixes for async child windows
             self._schedule_child_window_fixes(webview_hwnd)
 
+        # Flush pending events to ensure all Win32 operations and Qt
+        # geometry updates are fully processed.
+        QApplication.processEvents()
+
         if _VERBOSE_LOGGING:
             logger.debug(
                 "[EmbeddingMixin] Container created successfully for HWND=0x%X", webview_hwnd
             )
-
-        # DEBUG: dump Qt widget hierarchy styles
-        if sys.platform == "win32":
-            self._debug_dump_qt_layers("_create_container_qt COMPLETE", webview_hwnd)
-
-    def _debug_dump_qt_layers(self, tag: str, webview_hwnd: int) -> None:
-        """Debug: dump Win32 styles of all Qt layers to identify white border source."""
-        try:
-            from auroraview.integration.qt.platforms.win import _dump_hwnd_styles
-
-            logger.info(f"[DEBUG-LAYERS] === {tag} ===")
-
-            # Self (QtWebView)
-            self_hwnd = int(self.winId())  # type: ignore[attr-defined]
-            if self_hwnd:
-                _dump_hwnd_styles(self_hwnd, "QtWebView")
-
-            # QStackedWidget
-            stack = getattr(self, "_stack", None)
-            if stack:
-                stack_hwnd = int(stack.winId())
-                _dump_hwnd_styles(stack_hwnd, "QStackedWidget")
-
-            # _webview_page
-            page = getattr(self, "_webview_page", None)
-            if page:
-                page_hwnd = int(page.winId())
-                _dump_hwnd_styles(page_hwnd, "_webview_page")
-
-            # _webview_container
-            container = getattr(self, "_webview_container", None)
-            if container:
-                container_hwnd = int(container.winId())
-                _dump_hwnd_styles(container_hwnd, "_webview_container")
-
-            # tao / Rust WebView HWND
-            if webview_hwnd:
-                _dump_hwnd_styles(webview_hwnd, "tao/Rust HWND")
-
-            logger.info(f"[DEBUG-LAYERS] === END {tag} ===")
-        except Exception as e:
-            logger.debug(f"[DEBUG-LAYERS] Failed: {e}")
 
     def _sync_embedded_geometry(self) -> None:
         """Resize the embedded native WebView window to match this QWidget.

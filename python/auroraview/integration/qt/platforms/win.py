@@ -85,7 +85,7 @@ WS_BORDER = 0x00800000
 WS_DLGFRAME = 0x00400000
 WS_OVERLAPPEDWINDOW = 0x00CF0000
 
-    # Extended window styles
+# Extended window styles
 WS_EX_DLGMODALFRAME = 0x00000001
 WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_WINDOWEDGE = 0x00000100
@@ -108,87 +108,6 @@ SWP_NOACTIVATE = 0x0010
 
 # Layered window alpha flag
 LWA_ALPHA = 0x00000002
-
-
-def _dump_hwnd_styles(hwnd, label=""):
-    """Debug helper: dump Win32 styles of a HWND to logger."""
-    try:
-        style = GetWindowLong(hwnd, GWL_STYLE) & 0xFFFFFFFF
-        ex_style = GetWindowLong(hwnd, GWL_EXSTYLE) & 0xFFFFFFFF
-
-        # Decode key style bits
-        parts = []
-        if style & WS_CHILD:
-            parts.append("WS_CHILD")
-        if style & WS_POPUP:
-            parts.append("WS_POPUP")
-        if style & 0x10000000:
-            parts.append("WS_VISIBLE")
-        if style & WS_BORDER:
-            parts.append("WS_BORDER")
-        if style & WS_DLGFRAME:
-            parts.append("WS_DLGFRAME")
-        if style & WS_CAPTION:
-            parts.append("WS_CAPTION")
-        if style & WS_THICKFRAME:
-            parts.append("WS_THICKFRAME")
-        if style & WS_CLIPCHILDREN:
-            parts.append("WS_CLIPCHILDREN")
-        if style & WS_CLIPSIBLINGS:
-            parts.append("WS_CLIPSIBLINGS")
-
-        ex_parts = []
-        if ex_style & WS_EX_CLIENTEDGE:
-            ex_parts.append("WS_EX_CLIENTEDGE")
-        if ex_style & WS_EX_STATICEDGE:
-            ex_parts.append("WS_EX_STATICEDGE")
-        if ex_style & WS_EX_WINDOWEDGE:
-            ex_parts.append("WS_EX_WINDOWEDGE")
-        if ex_style & WS_EX_DLGMODALFRAME:
-            ex_parts.append("WS_EX_DLGMODALFRAME")
-        if ex_style & WS_EX_CONTEXTHELP:
-            ex_parts.append("WS_EX_CONTEXTHELP")
-        if ex_style & WS_EX_APPWINDOW:
-            ex_parts.append("WS_EX_APPWINDOW")
-        if ex_style & WS_EX_TOOLWINDOW:
-            ex_parts.append("WS_EX_TOOLWINDOW")
-        if ex_style & WS_EX_LAYERED:
-            ex_parts.append("WS_EX_LAYERED")
-
-        # Get class name
-        buf = ctypes.create_unicode_buffer(256)
-        user32.GetClassNameW(hwnd, buf, 256)
-        class_name = buf.value
-
-        # Window rect vs client rect (detect NC area)
-        class RECT(ctypes.Structure):
-            _fields_ = [
-                ("left", ctypes.c_long), ("top", ctypes.c_long),
-                ("right", ctypes.c_long), ("bottom", ctypes.c_long),
-            ]
-
-        wr = RECT()
-        cr = RECT()
-        user32.GetWindowRect(hwnd, ctypes.byref(wr))
-        user32.GetClientRect(hwnd, ctypes.byref(cr))
-        wr_w = wr.right - wr.left
-        wr_h = wr.bottom - wr.top
-        cr_w = cr.right - cr.left
-        cr_h = cr.bottom - cr.top
-
-        nc_info = ""
-        if wr_w != cr_w or wr_h != cr_h:
-            nc_info = f" NC_AREA={wr_w - cr_w}x{wr_h - cr_h}"
-
-        tag = f" [{label}]" if label else ""
-        logger.info(
-            f"[DEBUG-STYLES]{tag} HWND=0x{hwnd:08X} class='{class_name}' "
-            f"style=0x{style:08X}[{','.join(parts)}] "
-            f"ex=0x{ex_style:08X}[{','.join(ex_parts)}] "
-            f"size={wr_w}x{wr_h} client={cr_w}x{cr_h}{nc_info}"
-        )
-    except Exception as e:
-        logger.debug(f"[DEBUG-STYLES] Failed to dump HWND 0x{hwnd:X}: {e}")
 
 
 class WindowsPlatformBackend(PlatformBackend):
@@ -228,10 +147,6 @@ class WindowsPlatformBackend(PlatformBackend):
             True if successful, False otherwise.
         """
         try:
-            # DEBUG: Dump styles BEFORE modification
-            _dump_hwnd_styles(child_hwnd, "embed_window_directly BEFORE child")
-            _dump_hwnd_styles(parent_hwnd, "embed_window_directly BEFORE parent")
-
             # Step 1: Get current styles
             style = GetWindowLong(child_hwnd, GWL_STYLE)
             ex_style = GetWindowLong(child_hwnd, GWL_EXSTYLE)
@@ -319,10 +234,6 @@ class WindowsPlatformBackend(PlatformBackend):
                     f"ex_style=0x{old_ex_style:08X}->0x{ex_style:08X}, "
                     f"size={width}x{height})"
                 )
-
-            # DEBUG: Dump styles AFTER all modifications
-            _dump_hwnd_styles(child_hwnd, "embed_window_directly AFTER child")
-            _dump_hwnd_styles(parent_hwnd, "embed_window_directly AFTER parent")
 
             return True
 
@@ -487,12 +398,15 @@ class WindowsPlatformBackend(PlatformBackend):
                     # Trigger SWP_FRAMECHANGED + resize to apply
                     SWP_SHOWWINDOW = 0x0040
                     user32.SetWindowPos(
-                        hwnd, None, 0, 0, target_w, target_h,
+                        hwnd,
+                        None,
+                        0,
+                        0,
+                        target_w,
+                        target_h,
                         SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
                     )
-                    logger.info(
-                        f"[Win32] Subclassed HWND 0x{hwnd:X} for zero NC area (Rust)"
-                    )
+                    logger.info(f"[Win32] Subclassed HWND 0x{hwnd:X} for zero NC area (Rust)")
                     return
             except Exception:
                 pass
@@ -506,7 +420,10 @@ class WindowsPlatformBackend(PlatformBackend):
     _nc_subclass_originals = {}  # type: dict[int, tuple]
 
     def _subclass_for_zero_nc_area_ctypes(
-        self, hwnd: int, target_w: int, target_h: int,
+        self,
+        hwnd: int,
+        target_w: int,
+        target_h: int,
     ) -> None:
         """Pure ctypes fallback for WM_NCCALCSIZE subclass."""
         if hwnd in WindowsPlatformBackend._nc_subclass_originals:
@@ -518,19 +435,27 @@ class WindowsPlatformBackend(PlatformBackend):
         if ctypes.sizeof(ctypes.c_void_p) == 8:
             WNDPROCTYPE = ctypes.WINFUNCTYPE(
                 ctypes.c_longlong,
-                wintypes.HWND, wintypes.UINT, ctypes.c_ulonglong, ctypes.c_longlong,
+                wintypes.HWND,
+                wintypes.UINT,
+                ctypes.c_ulonglong,
+                ctypes.c_longlong,
             )
             _GetWndProc = user32.GetWindowLongPtrW
             _SetWndProc = user32.SetWindowLongPtrW
         else:
             WNDPROCTYPE = ctypes.WINFUNCTYPE(
                 ctypes.c_long,
-                wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
+                wintypes.HWND,
+                wintypes.UINT,
+                wintypes.WPARAM,
+                wintypes.LPARAM,
             )
             _GetWndProc = user32.GetWindowLongW
             _SetWndProc = user32.SetWindowLongW
 
-        user32.CallWindowProcW.restype = ctypes.c_longlong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_long
+        user32.CallWindowProcW.restype = (
+            ctypes.c_longlong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_long
+        )
 
         original_wndproc = _GetWndProc(hwnd, GWLP_WNDPROC)
         if not original_wndproc:
@@ -552,13 +477,16 @@ class WindowsPlatformBackend(PlatformBackend):
         # Trigger recalculation
         SWP_SHOWWINDOW = 0x0040
         user32.SetWindowPos(
-            hwnd, None, 0, 0, target_w, target_h,
+            hwnd,
+            None,
+            0,
+            0,
+            target_w,
+            target_h,
             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
         )
 
-        logger.info(
-            f"[Win32] Subclassed HWND 0x{hwnd:X} for zero NC area (ctypes fallback)"
-        )
+        logger.info(f"[Win32] Subclassed HWND 0x{hwnd:X} for zero NC area (ctypes fallback)")
 
     def apply_clip_styles_to_parent(self, parent_hwnd: int) -> bool:
         """Apply WS_CLIPCHILDREN and WS_CLIPSIBLINGS to parent container."""

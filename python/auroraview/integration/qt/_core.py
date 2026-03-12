@@ -772,8 +772,12 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
         # Sync container and WebView2 bounds
         container = getattr(self, "_webview_container", None)
         if container is not None:
-            container.setGeometry(0, 0, width, height)
-            self._sync_webview2_controller_bounds()
+            try:
+                container.setGeometry(0, 0, width, height)
+                self._sync_webview2_controller_bounds()
+            except RuntimeError:
+                # C++ object already deleted during close sequence
+                self._webview_container = None
 
     def moveEvent(self, event) -> None:
         """Handle Qt widget move."""

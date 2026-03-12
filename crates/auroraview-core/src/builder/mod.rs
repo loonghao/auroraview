@@ -79,9 +79,9 @@ pub use window_style::{
     apply_child_window_style, apply_frameless_popup_window_style, apply_frameless_window_style,
     apply_owner_window_style, apply_tool_window_style, compute_frameless_popup_window_styles,
     compute_frameless_window_styles, disable_window_shadow, extend_frame_into_client_area,
-    optimize_transparent_window_resize, remove_clip_children_style, set_window_class_dark_background,
-    subclass_for_zero_nc_area, ChildWindowStyleOptions, ChildWindowStyleResult,
-    FramelessWindowStyleResult, OwnerWindowStyleResult,
+    optimize_transparent_window_resize, remove_clip_children_style,
+    set_window_class_dark_background, subclass_for_zero_nc_area, ChildWindowStyleOptions,
+    ChildWindowStyleResult, FramelessWindowStyleResult, OwnerWindowStyleResult,
 };
 
 // Wry-specific exports

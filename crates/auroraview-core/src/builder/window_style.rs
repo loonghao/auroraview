@@ -769,7 +769,7 @@ pub fn set_window_class_dark_background(hwnd: isize) {
     use std::sync::OnceLock;
     use windows::Win32::Foundation::COLORREF;
     use windows::Win32::Graphics::Gdi::CreateSolidBrush;
-    use windows::Win32::UI::WindowsAndMessaging::{GET_CLASS_LONG_INDEX, SetClassLongPtrW};
+    use windows::Win32::UI::WindowsAndMessaging::{SetClassLongPtrW, GET_CLASS_LONG_INDEX};
 
     static DARK_BACKGROUND_BRUSH: OnceLock<isize> = OnceLock::new();
 
