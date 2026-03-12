@@ -179,7 +179,7 @@ jobs:
         continue-on-error: true
 
       - name: Re-upload artifact for release
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: dist/
@@ -333,32 +333,39 @@ jobs:
       - name: Verify npm authentication
         id: npm-auth
         continue-on-error: true
+        shell: bash
         run: |
           echo "Checking npm registry connectivity..."
           npm ping || echo "WARNING: npm ping failed"
 
-          echo "Checking npm whoami..."
-          if npm whoami 2>/dev/null; then
-            echo "npm_auth=ok" >> $GITHUB_OUTPUT
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            echo "Checking npm token with npm whoami..."
+            if npm whoami 2>/dev/null; then
+              echo "npm_auth=token-ok" >> $GITHUB_OUTPUT
+            else
+              echo "WARNING: npm token authentication failed"
+              echo "npm_auth=token-failed" >> $GITHUB_OUTPUT
+              echo ""
+              echo "ACTION REQUIRED: update npm authentication"
+              echo "  - Preferred: enable npm trusted publishing for this repository"
+              echo "  - Fallback: replace NPM_TOKEN with an Automation token that bypasses OTP"
+            fi
           else
-            echo "WARNING: npm whoami failed - token may be expired or revoked"
-            echo "npm_auth=failed" >> $GITHUB_OUTPUT
-            echo ""
-            echo "ACTION REQUIRED: Regenerate NPM_TOKEN"
-            echo "  1. Go to https://www.npmjs.com/settings/loonghao/tokens"
-            echo "  2. Generate a new 'Automation' token with publish permission"
-            echo "  3. Update the NPM_TOKEN secret in GitHub repository settings"
+            echo "No NPM_TOKEN configured; workflow will rely on npm trusted publishing"
+            echo "npm_auth=trusted-publishing" >> $GITHUB_OUTPUT
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Verify package configuration
+        shell: bash
         run: |
           cd packages/auroraview-sdk
-          echo "Package: $(node -p "require('./package.json').name")"
-          echo "Version: $(node -p "require('./package.json').version")"
-          echo "Registry: $(node -p "require('./package.json').publishConfig?.registry || 'default'")"
-          echo "Access: $(node -p "require('./package.json').publishConfig?.access || 'default'")"
+          echo "Package: $(node -p \"require('./package.json').name\")"
+          echo "Version: $(node -p \"require('./package.json').version\")"
+          echo "Registry: $(node -p \"require('./package.json').publishConfig?.registry || 'default'\")"
+          echo "Access: $(node -p \"require('./package.json').publishConfig?.access || 'default'\")"
 
       - name: Download SDK artifact
         uses: actions/download-artifact@v7
@@ -367,6 +374,7 @@ jobs:
           path: packages/auroraview-sdk/dist/
 
       - name: Sync version from release tag
+        shell: bash
         run: |
           TAG_NAME="${{ needs.release-please.outputs.tag_name || needs.check-tag.outputs.tag_name }}"
           # Extract version from tag (auroraview-v0.3.8 -> 0.3.8)
@@ -377,50 +385,113 @@ jobs:
 
       - name: Publish to npm
         id: npm-publish
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           cd packages/auroraview-sdk
 
-          # Check version existence before publishing
           VERSION=$(node -p "require('./package.json').version")
           echo "Publishing @auroraview/sdk@$VERSION..."
 
           if npm view "@auroraview/sdk@$VERSION" version 2>/dev/null; then
             echo "Version $VERSION already published, skipping"
-            echo "publish_result=skipped" >> $GITHUB_OUTPUT
+            echo "publish_result=skipped" >> "$GITHUB_OUTPUT"
+            echo "publish_method=already-exists" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Skip prepublishOnly since we already have pre-built dist from build-sdk job
-          if npm publish --access public --ignore-scripts 2>&1; then
-            echo "publish_result=success" >> $GITHUB_OUTPUT
-          else
-            EXIT_CODE=$?
-            echo "publish_result=failed" >> $GITHUB_OUTPUT
-            echo ""
-            echo "npm publish failed (exit code $EXIT_CODE)"
-            echo "Most likely cause: NPM_TOKEN is expired or revoked"
-            echo ""
-            echo "To fix:"
-            echo "  1. Go to https://www.npmjs.com/settings/loonghao/tokens"
-            echo "  2. Generate a new 'Automation' token"
-            echo "  3. Update NPM_TOKEN in GitHub repository secrets"
-            exit $EXIT_CODE
+          trusted_log=$(mktemp)
+          token_log=$(mktemp)
+          final_log="$trusted_log"
+          final_status=1
+          publish_method="trusted"
+
+          publish_trusted() {
+            local log_file="$1"
+            echo "Attempting npm trusted publishing with provenance..."
+            unset NODE_AUTH_TOKEN
+            npm publish --provenance --access public --ignore-scripts 2>&1 | tee "$log_file"
+            return ${PIPESTATUS[0]}
+          }
+
+          publish_with_token() {
+            local log_file="$1"
+            echo "Attempting npm token-based publishing with provenance..."
+            export NODE_AUTH_TOKEN="$NPM_TOKEN"
+            npm publish --provenance --access public --ignore-scripts 2>&1 | tee "$log_file"
+            return ${PIPESTATUS[0]}
+          }
+
+          publish_trusted "$trusted_log"
+          trusted_status=$?
+          if [ "$trusted_status" -eq 0 ]; then
+            echo "publish_result=success" >> "$GITHUB_OUTPUT"
+            echo "publish_method=trusted" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+          final_status="$trusted_status"
+
+          if [ -n "${NPM_TOKEN:-}" ] && grep -Eiq 'ENEEDAUTH|E401|E404|authentication|must be logged in|trusted publishing|trusted publisher|not authorized|not linked' "$trusted_log"; then
+            publish_method="token"
+            final_log="$token_log"
+            publish_with_token "$token_log"
+            token_status=$?
+            final_status="$token_status"
+            if [ "$token_status" -eq 0 ]; then
+              echo "publish_result=success" >> "$GITHUB_OUTPUT"
+              echo "publish_method=token" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          echo "publish_result=failed" >> "$GITHUB_OUTPUT"
+          echo "publish_method=$publish_method" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "npm publish failed (exit code $final_status)"
+
+          if grep -qi 'EOTP' "$final_log"; then
+            echo "Detected npm EOTP: this publish path still requires a one-time password."
+            echo ""
+            echo "Recommended fixes (choose one):"
+            echo "  1. Preferred: enable npm trusted publishing for this GitHub repository/package"
+            echo "  2. Or replace NPM_TOKEN with an Automation token that bypasses OTP"
+          elif grep -Eiq 'ENEEDAUTH|E401|authentication|must be logged in|not authorized' "$final_log"; then
+            echo "Detected npm authentication failure."
+            echo ""
+            echo "Recommended fixes:"
+            echo "  1. Preferred: enable npm trusted publishing for this GitHub repository/package"
+            echo "  2. Or verify NPM_TOKEN is present and has publish permission"
+          elif grep -Eiq 'trusted publishing|trusted publisher|not linked' "$final_log"; then
+            echo "Trusted publishing is not configured for this npm package/repository pair."
+            echo ""
+            echo "Recommended fixes:"
+            echo "  1. Link this GitHub repository as a trusted publisher in npm"
+            echo "  2. Or provide an Automation token via NPM_TOKEN"
+          else
+            echo "See the npm output above for the exact failure details."
+          fi
+          echo ""
+          exit "$final_status"
 
       - name: NPM Publish Summary
         if: always()
+        shell: bash
         run: |
           echo "## npm Publish Results" >> $GITHUB_STEP_SUMMARY
           RESULT="${{ steps.npm-publish.outputs.publish_result }}"
+          METHOD="${{ steps.npm-publish.outputs.publish_method }}"
           if [ "$RESULT" == "success" ]; then
             echo "- Published @auroraview/sdk successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- Method: ${METHOD:-unknown}" >> $GITHUB_STEP_SUMMARY
           elif [ "$RESULT" == "skipped" ]; then
             echo "- Skipped: version already exists on npm" >> $GITHUB_STEP_SUMMARY
           else
             echo "- npm publish failed" >> $GITHUB_STEP_SUMMARY
-            echo "- Fix: Regenerate NPM_TOKEN at https://www.npmjs.com/settings/loonghao/tokens" >> $GITHUB_STEP_SUMMARY
+            echo "- Last attempted method: ${METHOD:-unknown}" >> $GITHUB_STEP_SUMMARY
+            echo "- Prefer enabling npm trusted publishing for this repository/package" >> $GITHUB_STEP_SUMMARY
+            echo "- If token publishing is still required, use an Automation token instead of a token that triggers OTP" >> $GITHUB_STEP_SUMMARY
           fi
 
   # Publish MCP Server to PyPI
@@ -606,7 +677,7 @@ jobs:
           ls -la dist/
 
       - name: Upload sdist artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: sdist
           path: dist/*.tar.gz
