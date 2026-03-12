@@ -74,7 +74,7 @@ jobs:
           echo "All SDK assets verified!"
 
       - name: Upload SDK assets artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           # Use 'build-' prefix instead of 'wheels-' to avoid being matched by
           # 'pattern: wheels-*' in release.yml PyPI publish step
