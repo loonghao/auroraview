@@ -172,7 +172,7 @@ console = false
 # Build Configuration
 # ============================================================================
 [build]
-before = ["bun run build"]
+before = ["vx bun run build"]
 after = []
 compression_level = 19
 
