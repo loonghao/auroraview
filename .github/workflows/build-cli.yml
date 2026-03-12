@@ -67,7 +67,12 @@ jobs:
         with:
           arch: x64
 
-      - name: Build CLI
+      - name: Build CLI (Windows)
+        if: runner.os == 'Windows'
+        run: just ci-cli-build ${{ matrix.target }}
+
+      - name: Build CLI (Non-Windows)
+        if: runner.os != 'Windows'
         run: vx just ci-cli-build ${{ matrix.target }}
 
       - name: Test CLI (--help)
