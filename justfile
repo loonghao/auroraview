@@ -531,9 +531,9 @@ ci-cli-build TARGET:
 [windows]
 ci-cli-build TARGET:
     @echo "Building CLI for target {{TARGET}}..."
-    vx rustup target add "{{TARGET}}"
+    rustup target add "{{TARGET}}"
     vx just ci-assets-build
-    $env:CARGO_BUILD_TARGET = "{{TARGET}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx cargo build -p auroraview-cli --release --target "{{TARGET}}"
+    $env:CARGO_BUILD_TARGET = "{{TARGET}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; cargo build -p auroraview-cli --release --target "{{TARGET}}"
     @echo "[OK] CLI built: target/{{TARGET}}/release/"
 
 [unix]
