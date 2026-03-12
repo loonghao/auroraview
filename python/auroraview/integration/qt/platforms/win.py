@@ -297,6 +297,12 @@ class WindowsPlatformBackend(PlatformBackend):
             if not result:
                 logger.warning(f"[Win32] SetWindowPos failed for child 0x{child_hwnd:X}")
 
+            # Step 7b: Detect and eliminate residual NC (non-client) area.
+            # Even after removing WS_CAPTION/WS_THICKFRAME, DWM may keep a NC
+            # border that makes WindowRect > ClientRect. Re-set the window size
+            # to exactly its client-area size to force NC gap to zero.
+            self._strip_nc_area(child_hwnd, width, height)
+
             # Step 8: Apply clip styles to parent
             self.apply_clip_styles_to_parent(parent_hwnd)
 
@@ -442,7 +448,7 @@ class WindowsPlatformBackend(PlatformBackend):
                 y,
                 width,
                 height,
-                SWP_NOZORDER | SWP_NOACTIVATE,
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             )
             if _VERBOSE_LOGGING:
                 logger.debug(
@@ -454,6 +460,105 @@ class WindowsPlatformBackend(PlatformBackend):
             if _VERBOSE_LOGGING:
                 logger.debug(f"[Win32] update_embedded_window_geometry failed: {e}")
             return False
+
+    def _strip_nc_area(self, hwnd: int, target_w: int, target_h: int) -> None:
+        """Subclass a window to intercept WM_NCCALCSIZE and force zero NC area.
+
+        tao's WndProc returns a non-zero NC region even after all border/caption
+        style bits are removed. The only reliable fix is to subclass the HWND and
+        handle WM_NCCALCSIZE ourselves, returning 0 so that Windows treats the
+        entire window rect as the client rect.
+
+        This replaces the previous resize-based approach which was ineffective.
+
+        Args:
+            hwnd: Window handle to subclass.
+            target_w: Desired width (used for final SetWindowPos).
+            target_h: Desired height (used for final SetWindowPos).
+        """
+        try:
+            # Check if Rust-side subclass is available (preferred)
+            try:
+                import auroraview
+
+                rust_fn = getattr(auroraview, "subclass_for_zero_nc_area", None)
+                if callable(rust_fn):
+                    rust_fn(hwnd)
+                    # Trigger SWP_FRAMECHANGED + resize to apply
+                    SWP_SHOWWINDOW = 0x0040
+                    user32.SetWindowPos(
+                        hwnd, None, 0, 0, target_w, target_h,
+                        SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
+                    )
+                    logger.info(
+                        f"[Win32] Subclassed HWND 0x{hwnd:X} for zero NC area (Rust)"
+                    )
+                    return
+            except Exception:
+                pass
+
+            # Fallback: Python ctypes subclass
+            self._subclass_for_zero_nc_area_ctypes(hwnd, target_w, target_h)
+        except Exception as e:
+            logger.debug(f"[Win32] _strip_nc_area failed for HWND 0x{hwnd:X}: {e}")
+
+    # Keep a class-level dict to prevent GC of callback pointers and store originals
+    _nc_subclass_originals = {}  # type: dict[int, tuple]
+
+    def _subclass_for_zero_nc_area_ctypes(
+        self, hwnd: int, target_w: int, target_h: int,
+    ) -> None:
+        """Pure ctypes fallback for WM_NCCALCSIZE subclass."""
+        if hwnd in WindowsPlatformBackend._nc_subclass_originals:
+            return  # Already subclassed
+
+        WM_NCCALCSIZE = 0x0083
+        GWLP_WNDPROC = -4
+
+        if ctypes.sizeof(ctypes.c_void_p) == 8:
+            WNDPROCTYPE = ctypes.WINFUNCTYPE(
+                ctypes.c_longlong,
+                wintypes.HWND, wintypes.UINT, ctypes.c_ulonglong, ctypes.c_longlong,
+            )
+            _GetWndProc = user32.GetWindowLongPtrW
+            _SetWndProc = user32.SetWindowLongPtrW
+        else:
+            WNDPROCTYPE = ctypes.WINFUNCTYPE(
+                ctypes.c_long,
+                wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
+            )
+            _GetWndProc = user32.GetWindowLongW
+            _SetWndProc = user32.SetWindowLongW
+
+        user32.CallWindowProcW.restype = ctypes.c_longlong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_long
+
+        original_wndproc = _GetWndProc(hwnd, GWLP_WNDPROC)
+        if not original_wndproc:
+            logger.warning(f"[Win32] GetWindowLongPtrW returned 0 for HWND 0x{hwnd:X}")
+            return
+
+        def nc_wndproc(h, msg, wp, lp):
+            if msg == WM_NCCALCSIZE and wp != 0:
+                # Return 0: entire window rect = client rect → NC area = 0
+                return 0
+            return user32.CallWindowProcW(original_wndproc, h, msg, wp, lp)
+
+        callback = WNDPROCTYPE(nc_wndproc)
+        # Store to prevent GC
+        WindowsPlatformBackend._nc_subclass_originals[hwnd] = (original_wndproc, callback)
+
+        _SetWndProc(hwnd, GWLP_WNDPROC, ctypes.cast(callback, ctypes.c_void_p).value)
+
+        # Trigger recalculation
+        SWP_SHOWWINDOW = 0x0040
+        user32.SetWindowPos(
+            hwnd, None, 0, 0, target_w, target_h,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
+        )
+
+        logger.info(
+            f"[Win32] Subclassed HWND 0x{hwnd:X} for zero NC area (ctypes fallback)"
+        )
 
     def apply_clip_styles_to_parent(self, parent_hwnd: int) -> bool:
         """Apply WS_CLIPCHILDREN and WS_CLIPSIBLINGS to parent container."""

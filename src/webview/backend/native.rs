@@ -451,12 +451,12 @@ impl NativeBackend {
         use std::sync::Mutex;
         use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
         use windows::Win32::UI::WindowsAndMessaging::{
-            CallWindowProcW, DefWindowProcW, EnumChildWindows, GetClassNameW, GetWindowLongPtrW,
-            GetWindowLongW, SetWindowLongPtrW, SetWindowLongW, SetWindowPos, GWLP_WNDPROC,
-            GWL_EXSTYLE, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-            SWP_NOZORDER, WNDPROC, WS_BORDER, WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE,
-            WS_EX_CONTEXTHELP, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_POPUP,
-            WS_THICKFRAME,
+            CallWindowProcW, DefWindowProcW, EnumChildWindows, GetClassNameW,
+            GetWindowLongPtrW, GetWindowLongW, SetWindowLongPtrW, SetWindowLongW,
+            SetWindowPos, GWLP_WNDPROC, GWL_EXSTYLE, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE,
+            SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WNDPROC, WS_BORDER, WS_CAPTION,
+            WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_CONTEXTHELP, WS_EX_DLGMODALFRAME,
+            WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
         };
 
         // WM_NCHITTEST message constant
@@ -625,7 +625,12 @@ impl NativeBackend {
                     SetWindowLongW(child_hwnd, GWL_STYLE, new_style);
                     SetWindowLongW(child_hwnd, GWL_EXSTYLE, new_ex_style);
 
-                    // Apply changes
+                    // Subclass to intercept WM_NCCALCSIZE and force zero NC area
+                    auroraview_core::builder::subclass_for_zero_nc_area(
+                        child_hwnd.0 as isize,
+                    );
+
+                    // Apply changes with SWP_FRAMECHANGED
                     let _ = SetWindowPos(
                         child_hwnd,
                         None,

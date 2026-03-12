@@ -123,6 +123,31 @@ pub fn fix_webview2_child_windows(hwnd: u64) -> PyResult<bool> {
     }
 }
 
+/// Subclass a window to intercept WM_NCCALCSIZE and force zero non-client area.
+///
+/// tao's WndProc returns a non-zero NC region even after all border/caption style
+/// bits are removed. This function subclasses the HWND so that WM_NCCALCSIZE always
+/// sets the client rect equal to the window rect (NC = 0).
+///
+/// Args:
+///     hwnd: The window handle (HWND) to subclass
+///
+/// Returns:
+///     True if successful, False otherwise (non-Windows platforms)
+#[pyfunction]
+pub fn subclass_for_zero_nc_area(hwnd: u64) -> PyResult<bool> {
+    #[cfg(target_os = "windows")]
+    {
+        auroraview_core::builder::subclass_for_zero_nc_area(hwnd as isize);
+        Ok(true)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = hwnd;
+        Ok(false)
+    }
+}
+
 /// Register window utilities functions with Python module
 pub fn register_window_utils(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_foreground_window, m)?)?;
@@ -132,6 +157,7 @@ pub fn register_window_utils(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(close_window_by_hwnd, m)?)?;
     m.add_function(wrap_pyfunction!(destroy_window_by_hwnd, m)?)?;
     m.add_function(wrap_pyfunction!(fix_webview2_child_windows, m)?)?;
+    m.add_function(wrap_pyfunction!(subclass_for_zero_nc_area, m)?)?;
     m.add_class::<WindowInfo>()?;
     Ok(())
 }
