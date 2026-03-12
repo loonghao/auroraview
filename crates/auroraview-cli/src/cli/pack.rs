@@ -89,6 +89,10 @@ pub struct PackArgs {
     pub no_console: bool,
 }
 
+fn format_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 /// Run the pack command
 pub fn run_pack(args: PackArgs) -> Result<()> {
     use auroraview_pack::{Manifest, PackConfig, PackManager};
@@ -110,15 +114,13 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
         };
 
         if !manifest_path.exists() {
-            spinner.finish_error(&format!(
-                "Config file not found: {}",
-                manifest_path.display()
-            ));
-            anyhow::bail!("Config file not found: {}", manifest_path.display());
+            let manifest_path_str = format_path(&manifest_path);
+            spinner.finish_error(&format!("Config file not found: {}", manifest_path_str));
+            anyhow::bail!("Config file not found: {}", manifest_path_str);
         }
 
         let manifest = Manifest::from_file(&manifest_path)
-            .with_context(|| format!("Failed to load manifest: {}", manifest_path.display()))?;
+            .with_context(|| format!("Failed to load manifest: {}", format_path(&manifest_path)))?;
 
         manifest
             .validate()
@@ -130,7 +132,7 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
             .to_path_buf();
         spinner.finish_success(&format!(
             "Loaded manifest from: {}",
-            manifest_path.display()
+            format_path(&manifest_path)
         ));
 
         let config = PackConfig::from_manifest(&manifest, &base_dir)?;
@@ -151,8 +153,9 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
     } else {
         // Try to find manifest in current directory
         if let Some(manifest_path) = Manifest::find_in_dir(".") {
-            let manifest = Manifest::from_file(&manifest_path)
-                .with_context(|| format!("Failed to load manifest: {}", manifest_path.display()))?;
+            let manifest = Manifest::from_file(&manifest_path).with_context(|| {
+                format!("Failed to load manifest: {}", format_path(&manifest_path))
+            })?;
 
             manifest
                 .validate()
@@ -162,7 +165,10 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
                 .parent()
                 .unwrap_or(Path::new("."))
                 .to_path_buf();
-            spinner.finish_success(&format!("Found manifest at: {}", manifest_path.display()));
+            spinner.finish_success(&format!(
+                "Found manifest at: {}",
+                format_path(&manifest_path)
+            ));
 
             let config = PackConfig::from_manifest(&manifest, &base_dir)?;
             manifest_opt = Some(manifest);
@@ -184,30 +190,103 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
         }
     };
 
+    // Run [vx].ensure before [build].before so that tools like bun/node are
+    // available when before_build commands execute.
+    if let Some(ref manifest) = manifest_opt {
+        if let Some(ref vx_config) = manifest.vx {
+            if vx_config.enabled && !vx_config.ensure.is_empty() {
+                let vx_spinner = progress.spinner("Ensuring vx-managed tools...");
+                match auroraview_pack::VxTool::new() {
+                    Ok(vx) => match vx.ensure_tools(&vx_config.ensure) {
+                        Ok(()) => {
+                            vx_spinner.finish_success(&format!(
+                                "vx tools ensured ({})",
+                                vx_config.ensure.join(", ")
+                            ));
+                        }
+                        Err(e) => {
+                            vx_spinner.finish_error(&format!("vx ensure failed: {}", e));
+                            tracing::warn!("vx ensure failed (non-fatal): {}", e);
+                        }
+                    },
+                    Err(e) => {
+                        vx_spinner.finish_error(&format!("vx not available: {}", e));
+                        tracing::warn!("vx not available (non-fatal): {}", e);
+                    }
+                }
+            }
+        }
+    }
+
+    let before_build_vx_dir = manifest_opt
+        .as_ref()
+        .and_then(|manifest| manifest.vx.as_ref())
+        .filter(|vx_config| vx_config.enabled)
+        .and_then(|_| auroraview_pack::VxTool::new().ok())
+        .and_then(|vx| vx.path().parent().map(|parent| parent.to_path_buf()));
+
     // Run before commands if manifest has them
     if let (Some(ref manifest), Some(ref base_dir)) = (&manifest_opt, &base_dir_opt) {
         if !manifest.build.before.is_empty() {
+            let total = manifest.build.before.len();
             let build_spinner = progress.spinner("Running before build commands...");
-            for cmd in &manifest.build.before {
-                tracing::info!("Running before build: {}", cmd);
+            for (index, cmd) in manifest.build.before.iter().enumerate() {
+                let (shell, shell_flag) = if cfg!(windows) {
+                    ("cmd", "/C")
+                } else {
+                    ("sh", "-c")
+                };
+                let command_line = format!("{} {} {}", shell, shell_flag, cmd);
+                let cwd = format_path(base_dir);
+
+                progress.info(&format!(
+                    "[before_build {}/{}] cwd={} cmd={}",
+                    index + 1,
+                    total,
+                    cwd,
+                    command_line
+                ));
+                tracing::info!("Running before build: {}", command_line);
 
                 // Run command in the base_dir (manifest directory)
-                let status = std::process::Command::new(if cfg!(windows) { "cmd" } else { "sh" })
-                    .args(if cfg!(windows) {
-                        vec!["/C", cmd]
-                    } else {
-                        vec!["-c", cmd]
-                    })
-                    .current_dir(base_dir)
-                    .status()
-                    .with_context(|| format!("Failed to run before build command: {}", cmd))?;
+                let mut command = std::process::Command::new(shell);
+                command.args([shell_flag, cmd]).current_dir(base_dir);
+
+                if let Some(ref vx_dir) = before_build_vx_dir {
+                    let path_var = std::env::var_os("PATH").unwrap_or_default();
+                    let mut paths = vec![vx_dir.clone()];
+                    paths.extend(std::env::split_paths(&path_var));
+                    let joined = std::env::join_paths(paths)
+                        .context("Failed to construct PATH for before_build command")?;
+                    command.env("PATH", joined);
+                }
+
+                let status = command.status().with_context(|| {
+                    format!("Failed to run before build command: {}", command_line)
+                })?;
 
                 if !status.success() {
-                    build_spinner.finish_error(&format!("before_build command failed: {}", cmd));
-                    anyhow::bail!("before_build command failed: {}", cmd);
+                    let exit_code = status
+                        .code()
+                        .map(|code| code.to_string())
+                        .unwrap_or_else(|| "terminated by signal".to_string());
+                    build_spinner.finish_error(&format!(
+                        "before_build command failed ({}/{})",
+                        index + 1,
+                        total
+                    ));
+                    anyhow::bail!(
+                        "before_build command failed\n  cwd: {}\n  command: {}\n  exit_code: {}",
+                        cwd,
+                        command_line,
+                        exit_code
+                    );
                 }
             }
-            build_spinner.finish_success("before_build commands completed");
+            build_spinner.finish_success(&format!(
+                "before_build commands completed ({} commands)",
+                total
+            ));
         }
     }
 
@@ -283,7 +362,8 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
     progress.success("Pack completed successfully!");
     println!();
     println!("  Mode: {}", output.mode);
-    println!("  Output: {}", output.executable.display());
+    println!("  Output: {}", format_path(&output.executable));
+
     println!("  Size: {:.2} MB", size_mb);
 
     if output.asset_count > 0 {
@@ -315,11 +395,11 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
         }
         println!();
         println!("  Run the application:");
-        println!("    {}", output.executable.display());
+        println!("    {}", format_path(&output.executable));
     } else {
         println!();
         println!("  Run the application:");
-        println!("    {}", output.executable.display());
+        println!("    {}", format_path(&output.executable));
     }
 
     Ok(())

@@ -36,17 +36,20 @@ pub(crate) fn mark_initialized() {
 pub struct TelemetryGuard {
     meter_provider: Option<SdkMeterProvider>,
     tracer_provider: Option<SdkTracerProvider>,
+    sentry_guard: Option<crate::sentry_support::SentryGuard>,
 }
 
 impl TelemetryGuard {
     pub(crate) fn new(
         meter_provider: Option<SdkMeterProvider>,
         tracer_provider: Option<SdkTracerProvider>,
+        sentry_guard: Option<crate::sentry_support::SentryGuard>,
     ) -> Self {
         ENABLED.store(true, Ordering::Relaxed);
         Self {
             meter_provider,
             tracer_provider,
+            sentry_guard,
         }
     }
 }
@@ -68,5 +71,9 @@ impl Drop for TelemetryGuard {
                 eprintln!("Failed to shutdown tracer provider: {e}");
             }
         }
+
+        // Keep Sentry guard alive for the full telemetry lifecycle.
+        // Dropping it flushes pending events according to client options.
+        self.sentry_guard = None;
     }
 }

@@ -27,8 +27,10 @@ pub fn init(config: TelemetryConfig) -> Result<TelemetryGuard, TelemetryError> {
 
     if !config.enabled {
         guard::mark_initialized();
-        return Ok(TelemetryGuard::new(None, None));
+        return Ok(TelemetryGuard::new(None, None, None));
     }
+
+    let sentry_guard = crate::sentry_support::init(&config)?;
 
     let resource = Resource::builder()
         .with_service_name(config.service_name.clone())
@@ -105,7 +107,11 @@ pub fn init(config: TelemetryConfig) -> Result<TelemetryGuard, TelemetryError> {
 
     guard::mark_initialized();
 
-    Ok(TelemetryGuard::new(meter_provider, tracer_provider))
+    Ok(TelemetryGuard::new(
+        meter_provider,
+        tracer_provider,
+        sentry_guard,
+    ))
 }
 
 fn init_subscriber(

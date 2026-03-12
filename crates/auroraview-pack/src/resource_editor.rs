@@ -10,6 +10,8 @@ use crate::vx_tool::VxTool;
 use crate::{PackError, PackResult};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
 
 /// Rcedit execution strategy
 enum RceditRunner {
@@ -72,6 +74,51 @@ impl ResourceEditor {
         }
     }
 
+    fn should_retry_rcedit(stderr: &str) -> bool {
+        stderr.contains("Unable to commit changes")
+            || stderr.contains("cannot open")
+            || stderr.contains("permission denied")
+            || stderr.contains("Access is denied")
+    }
+
+    fn run_rcedit_checked(&self, args: &[&str], action: &str) -> PackResult<()> {
+        const MAX_RETRIES: usize = 4;
+
+        for attempt in 0..MAX_RETRIES {
+            let output = self.run_rcedit(args)?;
+            if output.status.success() {
+                return Ok(());
+            }
+
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let can_retry = attempt + 1 < MAX_RETRIES && Self::should_retry_rcedit(&stderr);
+
+            if can_retry {
+                let delay_ms = 120 * (attempt as u64 + 1);
+                tracing::warn!(
+                    "rcedit failed to {} (attempt {}/{}): {}. Retrying in {}ms",
+                    action,
+                    attempt + 1,
+                    MAX_RETRIES,
+                    stderr,
+                    delay_ms
+                );
+                thread::sleep(Duration::from_millis(delay_ms));
+                continue;
+            }
+
+            return Err(PackError::ResourceEdit(format!(
+                "rcedit failed to {}: {}",
+                action, stderr
+            )));
+        }
+
+        Err(PackError::ResourceEdit(format!(
+            "rcedit failed to {}: retry limit reached",
+            action
+        )))
+    }
+
     /// Set the icon of an executable
     ///
     /// # Arguments
@@ -98,16 +145,7 @@ impl ResourceEditor {
 
         let exe_str = exe_path.to_string_lossy();
         let icon_str = icon_path.to_string_lossy();
-        let output = self.run_rcedit(&[&exe_str, "--set-icon", &icon_str])?;
-
-        if !output.status.success() {
-            return Err(PackError::ResourceEdit(format!(
-                "rcedit failed to set icon: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
-
-        Ok(())
+        self.run_rcedit_checked(&[&exe_str, "--set-icon", &icon_str], "set icon")
     }
 
     /// Set the Windows subsystem of an executable
@@ -212,16 +250,10 @@ impl ResourceEditor {
         tracing::debug!("Setting version string {}: {}", key, value);
 
         let exe_str = exe_path.to_string_lossy();
-        let output = self.run_rcedit(&[&exe_str, "--set-version-string", key, value])?;
-
-        if !output.status.success() {
-            return Err(PackError::ResourceEdit(format!(
-                "rcedit failed to set version string: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
-
-        Ok(())
+        self.run_rcedit_checked(
+            &[&exe_str, "--set-version-string", key, value],
+            "set version string",
+        )
     }
 
     /// Set file version
@@ -233,16 +265,10 @@ impl ResourceEditor {
         tracing::debug!("Setting file version: {}", version);
 
         let exe_str = exe_path.to_string_lossy();
-        let output = self.run_rcedit(&[&exe_str, "--set-file-version", version])?;
-
-        if !output.status.success() {
-            return Err(PackError::ResourceEdit(format!(
-                "rcedit failed to set file version: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
-
-        Ok(())
+        self.run_rcedit_checked(
+            &[&exe_str, "--set-file-version", version],
+            "set file version",
+        )
     }
 
     /// Set product version
@@ -254,36 +280,10 @@ impl ResourceEditor {
         tracing::debug!("Setting product version: {}", version);
 
         let exe_str = exe_path.to_string_lossy();
-        let output = self.run_rcedit(&[&exe_str, "--set-product-version", version])?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            tracing::error!("rcedit stderr: {}", stderr);
-
-            // Check if this is a file lock issue
-            if stderr.contains("cannot open")
-                || stderr.contains("permission denied")
-                || stderr.contains("Access is denied")
-            {
-                return Err(PackError::ResourceEdit("Cannot modify executable (file may be locked by antivirus or another process). \
-                     Try: 1) Close all running instances, 2) Temporarily disable antivirus, 3) Run as administrator".to_string()));
-            }
-
-            // Check if this is an invalid format issue
-            if stderr.contains("not a valid PE file") {
-                return Err(PackError::ResourceEdit(format!(
-                    "Executable is not a valid PE file: {}. Check if the file was copied correctly.",
-                    exe_path.display()
-                )));
-            }
-
-            return Err(PackError::ResourceEdit(format!(
-                "rcedit failed to set product version: {}",
-                stderr
-            )));
-        }
-
-        Ok(())
+        self.run_rcedit_checked(
+            &[&exe_str, "--set-product-version", version],
+            "set product version",
+        )
     }
 
     /// Apply all resource modifications from a configuration

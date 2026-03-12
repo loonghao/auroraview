@@ -32,27 +32,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
+          install-dependencies: 'false'
+          cache-key-suffix: 'gallery-sdk-assets'
 
-      - name: Install and build auroraview-assets
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
-      - name: Install SDK dependencies
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
+      - name: Build auroraview-assets
+        run: vx just ci-assets-build
 
       - name: Build SDK assets
-        run: |
-          cd packages/auroraview-sdk
-          npm run build:assets
+        run: vx just ci-sdk-assets
 
       - name: Upload SDK assets artifact
         uses: actions/upload-artifact@v6
@@ -153,12 +143,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: gallery/package-lock.json
+          install-dependencies: 'false'
+          cache-key-suffix: 'build-gallery-${{ matrix.target }}'
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -178,56 +167,32 @@ jobs:
           pip install dist/*.whl
           python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1.90.0
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          # Install both dev and runtime libraries
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libwebkit2gtk-4.1-0 libgtk-3-dev libgtk-3-0 libayatana-appindicator3-dev libxdo-dev
-
-      - name: Build SDK first (Gallery depends on it)
-        shell: bash
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
-
-      - name: Build frontend assets (required by auroraview-assets)
-        shell: bash
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
       - name: Build Gallery frontend
         shell: bash
-        run: |
-          cd gallery
-          # Retry npm ci up to 3 times to handle transient network errors
-          for i in 1 2 3; do
-            echo "Attempt $i: Running npm ci..."
-            if npm ci; then
-              echo "npm ci succeeded on attempt $i"
-              break
-            else
-              if [ $i -eq 3 ]; then
-                echo "npm ci failed after 3 attempts"
-                exit 1
-              fi
-              echo "npm ci failed, waiting 10 seconds before retry..."
-              sleep 10
-            fi
-          done
-          npm run build
+        run: vx just gallery-ci-build
+        env:
+          # Frontend Sentry configuration (injected from GitHub Secrets)
+          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_DSN: ${{ secrets.SENTRY_FRONTEND_DSN }}
+          VITE_AURORAVIEW_GALLERY_FRONTEND_OTLP_ENDPOINT: ${{ secrets.SENTRY_FRONTEND_OTLP_ENDPOINT }}
+          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_SAMPLE_RATE || '1.0' }}
+          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_TRACES_SAMPLE_RATE || '0.2' }}
 
-      - name: Build CLI (for pack command)
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+      - name: Build CLI (for pack command, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          vx just ci-assets-build
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw 'Visual Studio installation with MSVC tools not found'
+          }
+          $vsDevCmd = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 && rustup target add ${{ matrix.target }} && cargo build -p auroraview-cli --release --target ${{ matrix.target }}"
+
+      - name: Build CLI (for pack command, Non-Windows)
+        if: runner.os != 'Windows'
+        run: vx just ci-cli-build ${{ matrix.target }}
 
       - name: Pack Gallery executable (FullStack mode)
         shell: bash
@@ -244,6 +209,20 @@ jobs:
               --config gallery/auroraview.pack.toml \
               --output-dir target/pack
           fi
+        env:
+          # Frontend Sentry configuration must also be forwarded here because pack runs gallery [build].before again.
+          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_DSN: ${{ secrets.SENTRY_FRONTEND_DSN }}
+          VITE_AURORAVIEW_GALLERY_FRONTEND_OTLP_ENDPOINT: ${{ secrets.SENTRY_FRONTEND_OTLP_ENDPOINT }}
+          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_SAMPLE_RATE || '1.0' }}
+          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_TRACES_SAMPLE_RATE || '0.2' }}
+          # Rust/Packed Client Sentry configuration (injected from GitHub Secrets)
+          AURORAVIEW_GALLERY_RUST_SENTRY_DSN: ${{ secrets.SENTRY_RUST_DSN }}
+          AURORAVIEW_GALLERY_RUST_OTLP_ENDPOINT: ${{ secrets.SENTRY_RUST_OTLP_ENDPOINT }}
+          AURORAVIEW_GALLERY_RUST_SERVICE_NAME: auroraview-gallery-packed-client
+          AURORAVIEW_GALLERY_RUST_SENTRY_ENV: production
+          AURORAVIEW_GALLERY_RUST_SENTRY_SAMPLE_RATE: ${{ vars.SENTRY_RUST_SAMPLE_RATE || '1.0' }}
+          AURORAVIEW_GALLERY_RUST_SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_RUST_TRACES_SAMPLE_RATE || '0.2' }}
+
 
       - name: Verify pack output
         shell: bash
@@ -276,6 +255,82 @@ jobs:
           name: gallery-${{ matrix.target }}
           path: ${{ matrix.archive }}
           if-no-files-found: error
+
+  # E2E tests on Windows (representative platform)
+  e2e-test:
+    name: E2E Tests (Windows)
+    runs-on: windows-latest
+    needs: build
+    # Only run on main branch or manual trigger
+    if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
+        with:
+          install-dependencies: 'false'
+          cache-key-suffix: 'gallery-e2e-windows'
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: gallery-x86_64-pc-windows-msvc
+          path: artifacts/
+
+      - name: Extract artifact
+        shell: pwsh
+        run: |
+          Expand-Archive -Path artifacts/auroraview-gallery-windows-x64.zip -DestinationPath gallery/pack-output
+          Move-Item gallery/pack-output/target/pack/auroraview-gallery.exe gallery/pack-output/auroraview-gallery.exe -Force
+          ls gallery/pack-output/
+
+      - name: Install Playwright
+        run: vx just gallery-ci-playwright-install
+
+      - name: Start Gallery with CDP
+        shell: pwsh
+        run: |
+          Start-Process -FilePath "gallery\pack-output\auroraview-gallery.exe" -WorkingDirectory "gallery\pack-output"
+
+      - name: Wait for CDP port
+        shell: pwsh
+        run: |
+          $deadline = (Get-Date).AddSeconds(60)
+          while ((Get-Date) -lt $deadline) {
+            try {
+              $r = Invoke-WebRequest -Uri 'http://127.0.0.1:9222/json/version' -TimeoutSec 2 -UseBasicParsing
+              if ($r.StatusCode -eq 200) {
+                Write-Host "CDP ready!"
+                exit 0
+              }
+            } catch { }
+            Start-Sleep -Milliseconds 1000
+          }
+          Write-Host "ERROR: CDP not ready after 60s"
+          exit 1
+
+      - name: Run E2E tests
+        shell: bash
+        run: |
+          cd gallery
+          npx playwright test --config ../tests/e2e/playwright.config.ts
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-test-results
+          path: |
+            tests/e2e/report/
+            tests/e2e/screenshots/
+          retention-days: 7
+
+      - name: Stop Gallery
+        if: always()
+        shell: pwsh
+        run: |
+          Get-Process -Name 'auroraview-gallery' -ErrorAction SilentlyContinue | Stop-Process -Force
 
   # Combine all artifacts into one
   # Uses if: always() to run even if some builds fail, ensuring partial releases

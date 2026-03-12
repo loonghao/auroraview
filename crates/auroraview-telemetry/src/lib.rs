@@ -30,6 +30,7 @@ mod error;
 mod guard;
 mod metrics;
 mod provider;
+mod sentry_support;
 mod span_ext;
 
 // Python bindings (optional)
@@ -72,5 +73,12 @@ impl Telemetry {
     /// Re-enable telemetry at runtime.
     pub fn enable() {
         guard::set_enabled(true);
+    }
+
+    /// Capture a message to Sentry when Sentry integration is enabled.
+    ///
+    /// Returns `true` if Sentry capture path is active, otherwise `false`.
+    pub fn capture_sentry_message(message: &str, level: &str) -> bool {
+        sentry_support::capture_message(message, level)
     }
 }

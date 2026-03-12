@@ -107,6 +107,11 @@ scripts/run_cdp_test.ps1
 gallery/debug_log.txt
 gallery/full_log.txt
 
+# Sentry credentials (DO NOT COMMIT)
+gallery/.env.sentry
+gallery/.env.sentry.local
+
 # VitePress cache (root level, if any)
 /.vitepress/
 test-screenshots/
+tests/report/

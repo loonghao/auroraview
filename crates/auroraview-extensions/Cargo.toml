@@ -52,11 +52,15 @@ urlencoding = "2.1"
 regex = "1.11"
 glob = "0.3"
 
+# CRX ZIP payload extraction
+zip = { version = "4", default-features = false, features = ["deflate"] }
+
 # Time handling
 chrono = "0.4"
 
 # Embedded assets
 rust-embed = { version = "8.5", features = ["include-exclude"] }
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [dev-dependencies]
 tempfile = "3.14"

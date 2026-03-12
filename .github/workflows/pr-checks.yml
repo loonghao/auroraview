@@ -335,20 +335,11 @@ jobs:
       - name: Install system dependencies
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
         run: |
-          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
-
-      - name: Setup Node.js
-        if: needs.path-filter.outputs.needs_rust_checks == 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
+          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Build frontend assets (required by auroraview-assets)
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
+        run: vx just ci-assets-build
 
       - name: Check Python formatting (ruff)
         if: needs.path-filter.outputs.python == 'true' || needs.path-filter.outputs.ci == 'true'
@@ -384,18 +375,17 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup vx helpers
+        uses: loonghao/vx@main
         with:
-          node-version: '20'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tools: 'just bun'
+          cache: 'false'
 
       - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
+        run: vx just ci-assets-build
 
       - name: Cache Rust
         uses: actions/cache@v5
@@ -502,7 +492,7 @@ jobs:
             target: x86_64
             artifact-name: wheels-linux-x86_64-py37
             maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module'
-          - os: windows-2019
+          - os: windows-2022
             target: x64
             artifact-name: wheels-windows-x64-py37
             maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2'
@@ -563,21 +553,25 @@ jobs:
         with:
           components: llvm-tools-preview
 
+      - name: Setup Python (required for pyo3 linking in coverage)
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup vx helpers
+        uses: loonghao/vx@main
         with:
-          node-version: '20'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tools: 'just bun'
+          cache: 'false'
 
       - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
+        run: vx just ci-assets-build
 
       - name: Cache Rust
         uses: actions/cache@v5
@@ -596,21 +590,15 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Run tests with coverage
-        run: |
-          cargo llvm-cov --workspace --lcov --output-path lcov.info \
-            --no-default-features --features "python-bindings,test-helpers,threaded-ipc" \
-            --exclude auroraview-cli \
-            -- --skip window_utils --skip webview::event_loop --skip webview::message_pump \
-               --skip webview::parent_monitor --skip service_discovery::python_bindings \
-               --skip ipc:: --skip tests::test_pymodule_init_registers_symbols
+        run: vx just ci-rust-coverage-lcov
 
       - name: Run doc tests
-        run: cargo test --doc
+        run: vx just ci-test-rust
 
       - name: Upload Rust coverage
         uses: codecov/codecov-action@v5
         with:
-          files: lcov.info
+          files: rust-coverage.lcov
           flags: rust
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -870,52 +858,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          targets: ${{ matrix.target }}
+          install-dependencies: 'false'
+          cache-key-suffix: 'pr-cli-${{ matrix.target }}'
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
+      - name: Build CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
+          vx just ci-assets-build
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw 'Visual Studio installation with MSVC tools not found'
+          }
+          $vsDevCmd = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 && rustup target add ${{ matrix.target }} && cargo build -p auroraview-cli --release --target ${{ matrix.target }}"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-
-      - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
-      - name: Cache Rust
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-cli-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-cli-
-
-      - name: Build CLI
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+      - name: Build CLI (Non-Windows)
+        if: runner.os != 'Windows'
+        run: vx just ci-cli-build ${{ matrix.target }}
 
       - name: Test CLI (--help)
-        shell: bash
-        run: |
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            ./target/${{ matrix.target }}/release/auroraview-cli.exe --help
-            ./target/${{ matrix.target }}/release/auroraview-cli.exe --version
-          else
-            ./target/${{ matrix.target }}/release/auroraview-cli --help
-            ./target/${{ matrix.target }}/release/auroraview-cli --version
-          fi
+        run: vx just ci-cli-smoke ${{ matrix.target }} ${{ matrix.exe-name }}
 
       # Upload CLI artifact for reuse by gallery-pack
       - name: Upload CLI artifact
@@ -941,20 +908,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: gallery/package-lock.json
+          install-dependencies: 'false'
+          cache-key-suffix: 'pr-gallery-e2e'
 
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
 
       # Download pre-built SDK package if available
       - name: Download SDK package
@@ -967,20 +930,13 @@ jobs:
       # Build SDK only if sdk-build was skipped (no SDK changes)
       - name: Build SDK (fallback)
         if: needs.sdk-build.result == 'skipped'
-        shell: bash
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
+        run: vx just sdk-build
 
       - name: Build Gallery frontend
-        shell: bash
         run: |
+          vx just gallery-ci-install
           cd gallery
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
+          vx bun run build
 
       - name: Install Playwright
         run: |
@@ -1006,29 +962,29 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            
+
             const screenshotsDir = 'test-screenshots';
             if (!fs.existsSync(screenshotsDir)) {
               console.log('No screenshots directory found');
               return;
             }
-            
+
             const files = fs.readdirSync(screenshotsDir).filter(f => f.endsWith('.png'));
             if (files.length === 0) {
               console.log('No screenshots found');
               return;
             }
-            
+
             // Get artifact URL
             const runId = context.runId;
             const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
-            
+
             // Build comment body
             let body = '## 📸 Gallery E2E Screenshots\n\n';
             body += `Screenshots from this PR's E2E tests. [View all artifacts](${artifactUrl})\n\n`;
             body += '| Page | Screenshot |\n';
             body += '|------|------------|\n';
-            
+
             const pageNames = {
               'gallery_home': '🏠 Home',
               'gallery_getting_started': '🚀 Getting Started',
@@ -1036,31 +992,31 @@ jobs:
               'gallery_window_features': '🪟 Window Features',
               'gallery_settings': '⚙️ Settings'
             };
-            
+
             for (const file of files) {
               const name = file.replace('.png', '');
               const displayName = pageNames[name] || name;
               body += `| ${displayName} | [View](${artifactUrl}) |\n`;
             }
-            
+
             body += '\n<details><summary>ℹ️ How to view screenshots</summary>\n\n';
             body += '1. Click "View all artifacts" above\n';
             body += '2. Scroll to "Artifacts" section\n';
             body += '3. Download `gallery-e2e-screenshots`\n';
             body += '</details>';
-            
+
             // Find existing comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number
             });
-            
-            const botComment = comments.find(c => 
-              c.user.type === 'Bot' && 
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
               c.body.includes('Gallery E2E Screenshots')
             );
-            
+
             if (botComment) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
@@ -1116,12 +1072,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: gallery/package-lock.json
+          install-dependencies: 'false'
+          cache-key-suffix: 'pr-gallery-pack-${{ matrix.target }}'
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -1169,47 +1124,22 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-0 libgtk-3-0
 
       # Fallback: Build CLI only if cli-build was skipped
-      - name: Setup Rust (fallback)
-        if: needs.cli-build.result == 'skipped'
-        uses: dtolnay/rust-toolchain@1.90.0
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Install Linux dependencies (fallback)
-        if: needs.cli-build.result == 'skipped' && runner.os == 'Linux'
+      - name: Build CLI (fallback, Windows)
+        if: needs.cli-build.result == 'skipped' && runner.os == 'Windows'
+        shell: pwsh
         run: |
-          sudo apt-get update
-          # Install both dev and runtime libraries
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libwebkit2gtk-4.1-0 libgtk-3-dev libgtk-3-0 libayatana-appindicator3-dev libxdo-dev
+          vx just ci-assets-build
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw 'Visual Studio installation with MSVC tools not found'
+          }
+          $vsDevCmd = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 && rustup target add ${{ matrix.target }} && cargo build -p auroraview-cli --release --target ${{ matrix.target }}"
 
-      - name: Setup Node.js (fallback)
-        if: needs.cli-build.result == 'skipped'
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-
-      - name: Build frontend assets (fallback)
-        if: needs.cli-build.result == 'skipped'
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
-      - name: Cache Rust (fallback)
-        if: needs.cli-build.result == 'skipped'
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-gallery-pack-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-gallery-pack-
-
-      - name: Build CLI (fallback)
-        if: needs.cli-build.result == 'skipped'
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+      - name: Build CLI (fallback, Non-Windows)
+        if: needs.cli-build.result == 'skipped' && runner.os != 'Windows'
+        run: vx just ci-cli-build ${{ matrix.target }}
 
       # Download pre-built SDK package if available
       - name: Download SDK package
@@ -1222,20 +1152,13 @@ jobs:
       # Build SDK only if sdk-build was skipped
       - name: Build SDK (fallback)
         if: needs.sdk-build.result == 'skipped'
-        shell: bash
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
+        run: vx just sdk-build
 
       - name: Build Gallery frontend
-        shell: bash
         run: |
+          vx just gallery-ci-install
           cd gallery
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
+          vx bun run build
 
       - name: Pack Gallery (generate executable)
         shell: bash
@@ -1274,16 +1197,16 @@ jobs:
         run: |
           $exe = "target/pack/auroraview-gallery.exe"
           Write-Host "Testing packed executable startup: $exe"
-          
+
           # Start the process
           $process = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden
-          
+
           # Wait up to 15 seconds for startup
           $timeout = 15
           for ($i = 0; $i -lt $timeout; $i++) {
             Start-Sleep -Seconds 1
             Write-Host "Waiting for startup... ($i/$timeout seconds)"
-            
+
             # Check if process exited with error
             if ($process.HasExited) {
               if ($process.ExitCode -ne 0) {
@@ -1294,7 +1217,7 @@ jobs:
               break
             }
           }
-          
+
           # If still running after timeout, consider it a success and kill it
           if (-not $process.HasExited) {
             Write-Host "SUCCESS: Packed executable started and running for $timeout seconds"
@@ -1308,10 +1231,10 @@ jobs:
         run: |
           exe="target/pack/auroraview-gallery"
           echo "Testing packed executable startup: $exe"
-          
+
           # Make executable
           chmod +x "$exe"
-          
+
           # On Linux, we need a virtual display for GTK
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             sudo apt-get update -qq && sudo apt-get install -y -qq xvfb || true
@@ -1322,12 +1245,12 @@ jobs:
             "$exe" &
             PID=$!
           fi
-          
+
           # Wait up to 15 seconds
           for i in {1..15}; do
             sleep 1
             echo "Waiting for startup... ($i/15 seconds)"
-            
+
             if ! kill -0 $PID 2>/dev/null; then
               wait $PID || EXIT_CODE=$?
               if [ "${EXIT_CODE:-0}" -ne 0 ]; then
@@ -1338,7 +1261,7 @@ jobs:
               break
             fi
           done
-          
+
           # If still running, success
           if kill -0 $PID 2>/dev/null; then
             echo "SUCCESS: Packed executable started and running for 15 seconds"
@@ -1364,18 +1287,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-
-      - name: Install dependencies
-        working-directory: docs
-        run: npm install
+          install-dependencies: 'false'
+          cache-key-suffix: 'pr-docs'
 
       - name: Build docs
-        working-directory: docs
-        run: npm run build
+        run: vx just ci-docs-build
 
       - name: Upload docs artifact
         uses: actions/upload-artifact@v6
@@ -1397,7 +1316,7 @@ jobs:
         run: |
           echo "## PR Check Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Show what was detected
           echo "### 🔍 Change Detection" >> $GITHUB_STEP_SUMMARY
           echo "- Rust: ${{ needs.path-filter.outputs.rust }}" >> $GITHUB_STEP_SUMMARY

@@ -1435,11 +1435,12 @@ AuroraView includes an interactive Gallery showcasing all features:
 
 ```bash
 # Run the Gallery
-just gallery
+vx just gallery
 
 # Or build a standalone Gallery executable
-just gallery-pack
+vx just gallery-pack
 ```
+
 
 The Gallery provides:
 - Interactive example browser with categories
@@ -1589,9 +1590,11 @@ auroraview pack --config app.toml --no-console --build
 
 ### Prerequisites
 
-- Rust 1.75+
-- Python 3.7+
-- Node.js 18+ (for examples)
+- `vx` (tool/runtime manager)
+- Git
+
+> AuroraView uses **`vx + justfile`** as the canonical development harness.
+> Prefer `vx just <task>` for all local and CI workflows.
 
 ### Build from Source
 
@@ -1600,24 +1603,32 @@ auroraview pack --config app.toml --no-console --build
 git clone https://github.com/loonghao/auroraview.git
 cd auroraview
 
-# Install Rust dependencies and build
-cargo build --release
+# Install tools declared in vx.toml
+vx setup
 
-# Install Python package in development mode
-pip install -e .
+# Install Python deps and run the one-command local build
+vx just install
+vx just build
+
+# Release-style local rebuild (also refreshes frontend assets)
+vx just rebuild-pylib
 ```
 
-### Run Tests
+### Run Validation
 
 ```bash
-# Rust tests
-cargo test
+# Fast agent/local feedback loop
+vx just harness-quick
 
-# Python tests
-pytest tests/
+# Full validation aligned with CI
+vx just harness-verify
+
+# Gallery packed E2E (CDP + Playwright)
+vx just harness-gallery-e2e
 ```
 
 ## Project Structure
+
 
 ```
 auroraview/
@@ -1690,41 +1701,45 @@ def test_with_fixture(headless_webview):
 ### Running Tests
 
 ```bash
-# Using nox (recommended)
-uvx nox -s pytest          # Test without Qt
-uvx nox -s pytest-qt       # Test with Qt
-uvx nox -s pytest-all      # Run all tests
+# Preferred: unified harness tasks
+vx just harness-quick
+vx just harness-verify
 
-# Or using pytest directly
-uv run pytest tests/python/ -v
+# Nox sessions (via vx)
+vx uvx nox -s pytest
+vx uvx nox -s pytest-qt
+vx uvx nox -s pytest-all
 
-# Run headless WebView tests
-uv run pytest tests/python/integration/test_headless_webview.py -v
+# Direct pytest (still supported)
+vx uv run pytest tests/python/ -v
+vx uv run pytest tests/python/integration/test_headless_webview.py -v
 ```
+
 
 ### CI/CD Configuration
 
 ```yaml
 # GitHub Actions example
-- name: Install dependencies
-  run: |
-    pip install playwright
-    playwright install chromium
+- uses: loonghao/vx@main
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
 
-- name: Run tests
-  run: pytest tests/ -v
+- name: Run unified verification
+  run: vx just harness-verify
 ```
+
 
 ### Available Nox Sessions
 
 ```bash
-uvx nox -l                 # List all sessions
-uvx nox -s pytest          # Test without Qt
-uvx nox -s pytest-qt       # Test with Qt
-uvx nox -s pytest-all      # Run all tests
-uvx nox -s lint            # Run linting
-uvx nox -s coverage        # Generate coverage report
+vx uvx nox -l              # List all sessions
+vx uvx nox -s pytest       # Test without Qt
+vx uvx nox -s pytest-qt    # Test with Qt
+vx uvx nox -s pytest-all   # Run all tests
+vx uvx nox -s lint         # Run linting
+vx uvx nox -s coverage     # Generate coverage report
 ```
+
 
 ## Contributing
 
@@ -1745,4 +1760,3 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 - Author: Hal Long
 - Email: hal.long@outlook.com
 - GitHub: [@loonghao](https://github.com/loonghao)
-

@@ -27,3 +27,4 @@ serde_json = "1.0"
 
 # Error handling
 thiserror = "2.0"
+auroraview-workspace-hack = { version = "0.1", path = "../../auroraview-workspace-hack" }

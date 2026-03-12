@@ -10,6 +10,8 @@ use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
 
 /// Collected dependency information
 #[derive(Debug, Clone)]
@@ -501,7 +503,8 @@ elif spec and spec.submodule_search_locations:
         );
 
         let success = if vx_only {
-            self.try_vx_uv_pip(packages, dest_dir, no_deps)?
+            self.try_vx_uv_pip_vx_only(packages, dest_dir, no_deps)?;
+            true
         } else {
             // Try installation methods in order of preference:
             // 1. vx uv pip (downloaded vx tool)
@@ -513,12 +516,6 @@ elif spec and spec.submodule_search_locations:
         };
 
         if !success {
-            if vx_only {
-                return Err(PackError::VxEnsureFailed(
-                    "vx-only dependency install is enabled, but `vx uv pip install` failed"
-                        .to_string(),
-                ));
-            }
             tracing::warn!("All pip installation methods failed");
         }
 
@@ -562,6 +559,107 @@ elif spec and spec.submodule_search_locations:
         tracing::info!("Using vx {} for package installation", vx.version());
 
         vx.uv_pip_install(packages, dest_dir, no_deps)
+    }
+
+    fn try_vx_uv_pip_vx_only(
+        &self,
+        packages: &[String],
+        dest_dir: &Path,
+        no_deps: bool,
+    ) -> PackResult<()> {
+        let vx = VxTool::new().map_err(|e| {
+            PackError::VxEnsureFailed(format!(
+                "vx-only dependency install is enabled, but vx initialization failed: {e}"
+            ))
+        })?;
+
+        let mut args = vec![
+            "uv".to_string(),
+            "pip".to_string(),
+            "install".to_string(),
+            "--target".to_string(),
+            dest_dir.to_string_lossy().to_string(),
+            "--no-compile".to_string(),
+        ];
+
+        if no_deps {
+            args.push("--no-deps".to_string());
+        }
+
+        const MAX_RETRIES: usize = 4;
+        let command_line = format!(
+            "vx uv pip install --target {} --no-compile{} {}",
+            normalize_path(dest_dir),
+            if no_deps { " --no-deps" } else { "" },
+            packages.join(" ")
+        );
+
+        let mut last_exit_code = None;
+        let mut last_stderr_tail = String::new();
+
+        for attempt in 0..MAX_RETRIES {
+            let output = Command::new(vx.path())
+                .args(&args)
+                .args(packages)
+                .output()
+                .map_err(|e| {
+                    PackError::VxEnsureFailed(format!(
+                        "vx-only dependency install is enabled, but `vx uv pip install` could not start: {e}"
+                    ))
+                })?;
+
+            if output.status.success() {
+                return Ok(());
+            }
+
+            last_exit_code = output.status.code();
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            last_stderr_tail = tail_lines(&stderr, 20);
+
+            let can_retry = attempt + 1 < MAX_RETRIES && should_retry_uv_install(&stderr);
+            if !can_retry {
+                break;
+            }
+
+            let delay_ms = 150 * (attempt as u64 + 1);
+            tracing::warn!(
+                "vx uv pip install failed with transient permission error (attempt {}/{}), retrying in {}ms",
+                attempt + 1,
+                MAX_RETRIES,
+                delay_ms
+            );
+
+            if dest_dir.exists() {
+                if let Err(err) = std::fs::remove_dir_all(dest_dir) {
+                    tracing::warn!(
+                        "Failed to clean pip target before retry: {} ({})",
+                        normalize_path(dest_dir),
+                        err
+                    );
+                }
+                if let Err(err) = std::fs::create_dir_all(dest_dir) {
+                    tracing::warn!(
+                        "Failed to recreate pip target before retry: {} ({})",
+                        normalize_path(dest_dir),
+                        err
+                    );
+                }
+            }
+
+            thread::sleep(Duration::from_millis(delay_ms));
+        }
+
+        Err(PackError::VxEnsureFailed(format!(
+            "vx-only dependency install is enabled, and `vx uv pip install` failed\n  command: {command_line}\n  exit_code: {:?}\n  target: {}\n  packages: {}\n  stderr_tail:\n{}\nHint: run the same command manually to inspect full output; also verify `vx --version` and network/index access.",
+            last_exit_code,
+            normalize_path(dest_dir),
+            packages.join(", "),
+            if last_stderr_tail.is_empty() {
+                "<empty stderr>".to_string()
+            } else {
+                last_stderr_tail
+            }
+        )))
     }
 
     /// Try to install packages using system uv
@@ -636,6 +734,28 @@ elif spec and spec.submodule_search_locations:
             .output()
             .is_ok_and(|o| o.status.success())
     }
+}
+
+fn normalize_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+fn should_retry_uv_install(stderr: &str) -> bool {
+    stderr.contains("Access is denied")
+        || stderr.contains("permission denied")
+        || stderr.contains("拒绝访问")
+        || stderr.contains("os error -2147024891")
+}
+
+fn tail_lines(text: &str, max_lines: usize) -> String {
+    text.lines()
+        .rev()
+        .take(max_lines)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 impl Default for DepsCollector {

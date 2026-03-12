@@ -1,28 +1,28 @@
 # justfile for AuroraView development
-# Run `just --list` to see all available commands
+# Run `vx just --list` to see all available commands
 #
 # Quick Start:
-#   just rebuild-core        - Rebuild Rust core with maturin (release mode)
-#   just rebuild-core-verbose - Same as above with verbose output
-#   just test                - Run all tests
-#   just format              - Format code
-#   just lint                - Run linting
+#   vx just rebuild-pylib         - Rebuild Rust core Python module (release mode)
+#   vx just rebuild-pylib-verbose - Same as above with verbose output
+#   vx just test                  - Run all tests
+#   vx just format                - Format code
+#   vx just lint                  - Run linting
 #
 # Note: This justfile uses vx for tool management.
 #       Run `vx setup` to install all required tools.
-#       Or use `vx just <command>` to run commands with vx-managed tools.
+#       Prefer `vx just <command>` to keep tool/runtime resolution reproducible.
+
 
 # Set shell for Windows compatibility
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set shell := ["sh", "-c"]
 
-# Windows Rust target
 windows_rust_target := "x86_64-pc-windows-msvc"
 
 # Default recipe to display help
-
 default:
-    @just --list
+    @vx just --list
+
 
 # ============================================================================
 # Submodule Migration Tasks
@@ -100,66 +100,86 @@ install:
     vx uv sync --group dev
 
 # Build the extension module
-build:
-    @echo "Building extension module for {{windows_rust_target}}..."
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"
+[unix]
+build: assets-build sdk-build-assets
+    @echo "Building extension module..."
+    vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
+
+[windows]
+build: assets-build sdk-build-assets
+    @echo "Building extension module with MSVC..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 # Build with release optimizations
-build-release:
-    @echo "Building release version for {{windows_rust_target}}..."
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --release --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"
+[unix]
+build-release: assets-build sdk-build-assets
+    @echo "Building release version..."
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
-# Stop common host processes that may lock python/auroraview/_core.pyd
-# Also rename locked proc-macro DLLs in target/release/deps/ (Windows linker LNK1104 workaround)
 [windows]
-unlock-pylib:
-    @echo "Stopping common processes that may lock _core.pyd..."
-    -@powershell -NoLogo -Command "Get-Process -Name python,pythonw,maya,3dsmax,houdini,nuke,blender,ue4editor,ue5editor -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host '[OK] Process cleanup completed.'"
-    @echo "Checking for locked proc-macro DLLs in target/release/deps/..."
-    -@powershell -NoLogo -Command "if (Test-Path 'target/release/deps') { Get-ChildItem 'target/release/deps/*.dll' -ErrorAction SilentlyContinue | ForEach-Object { try { [IO.File]::OpenWrite($_.FullName).Close() } catch { Rename-Item $_.FullName ($_.Name + '.bak') -Force -ErrorAction SilentlyContinue; Write-Host ('  Renamed locked: ' + $_.Name) } }; Get-ChildItem 'target/release/deps/*.dll.bak' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue; Write-Host '[OK] Proc-macro DLL check completed.' } else { Write-Host '[OK] No target/release/deps/ found, skipping.' }"
+build-release: assets-build sdk-build-assets
+    @echo "Building release version with MSVC..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 # Build Python library (PyO3 bindings)
+[unix]
 rebuild-pylib: assets-build sdk-build-assets
-    @echo "Building Python library with maturin for {{windows_rust_target}}..."
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --release --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"; if ($LASTEXITCODE -ne 0) { Write-Host '[ERROR] maturin develop failed. If you see os error 32, run: just unlock-pylib && just rebuild-pylib'; exit $LASTEXITCODE }
+    @echo "Building Python library with maturin..."
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] Python library rebuilt and installed successfully!"
 
-# Safe rebuild for Windows: unlock processes first, then rebuild
 [windows]
-rebuild-pylib-safe: unlock-pylib rebuild-pylib
-    @echo "[OK] Safe rebuild completed."
-
-# Nuclear option: rename locked target directory and rebuild from scratch
-# Use when proc-macro DLLs are persistently locked (LNK1104 errors)
-[windows]
-nuke-target:
-    @echo "Renaming target/ to target_old/ to bypass locked DLLs..."
-    -@powershell -NoLogo -Command "if (Test-Path 'target') { $ts = Get-Date -Format 'yyyyMMdd_HHmmss'; $dest = \"target_old_$ts\"; Rename-Item 'target' $dest; Write-Host \"[OK] target/ renamed to $dest\" } else { Write-Host '[OK] No target/ directory found' }"
-    @echo "Ready for a clean rebuild. Run: just rebuild-pylib"
+rebuild-pylib: assets-build sdk-build-assets
+    @echo "Building Python library with maturin (MSVC)..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build Python library with verbose output
-rebuild-pylib-verbose:
-    @echo "Building Python library with maturin (verbose) for {{windows_rust_target}}..."
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --release --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
+[unix]
+rebuild-pylib-verbose: assets-build sdk-build-assets
+    @echo "Building Python library with maturin (verbose)..."
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
+    @echo "[OK] Python library rebuilt and installed successfully!"
+
+[windows]
+rebuild-pylib-verbose: assets-build sdk-build-assets
+    @echo "Building Python library with maturin (verbose, MSVC)..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build CLI binary
 build-cli:
-    @echo "Building CLI binary for {{windows_rust_target}}..."
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo build -p auroraview-cli --release --target {{windows_rust_target}}
-    @echo "[OK] CLI built: target/{{windows_rust_target}}/release/auroraview.exe"
+    @echo "Building CLI binary..."
+    vx cargo build -p auroraview-cli --release
+    @echo "[OK] CLI built: target/release/auroraview.exe"
 
 # Build all workspace crates (including SDK assets)
-build-all: sdk-build-all
-    @echo "Building all workspace crates for {{windows_rust_target}}..."
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo build -p auroraview-core --target {{windows_rust_target}}
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo build -p auroraview-pack --target {{windows_rust_target}}
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo build -p auroraview-cli --release --target {{windows_rust_target}}
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --release --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"
+[unix]
+build-all: assets-build sdk-build-all
+    @echo "Building all workspace crates..."
+    vx cargo build -p auroraview-core
+    vx cargo build -p auroraview-pack
+    vx cargo build -p auroraview-cli --release
+    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] All crates built successfully!"
 
-
-
+[windows]
+build-all: assets-build sdk-build-all
+    @echo "Building all workspace crates with MSVC..."
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo build -p auroraview-core
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo build -p auroraview-pack
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo build -p auroraview-cli --release
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "[OK] All crates built successfully!"
 
 # Run all tests
 [unix]
@@ -261,13 +281,14 @@ test-py312:
 # Test with all supported Python versions
 test-all-python:
     @echo "Testing with all supported Python versions..."
-    just test-py37
-    just test-py38
-    just test-py39
-    just test-py310
-    just test-py311
-    just test-py312
+    vx just test-py37
+    vx just test-py38
+    vx just test-py39
+    vx just test-py310
+    vx just test-py311
+    vx just test-py312
     @echo "[OK] All Python versions tested successfully!"
+
 # nox wrappers for multi-Python testing
 nox:
     @echo "Running nox session: pytest (multi-Python)"
@@ -350,10 +371,11 @@ test-cli:
 # Test all standalone crates (no internal dependencies)
 test-standalone:
     @echo "Testing standalone crates..."
-    just test-signals
-    just test-protect
-    just test-plugin-core
-    just test-extensions
+    vx just test-signals
+    vx just test-protect
+    vx just test-plugin-core
+    vx just test-extensions
+
 
 # Test Python package only (no Rust rebuild)
 test-python:
@@ -419,12 +441,25 @@ format:
     @echo "Formatting Python code..."
     vx uv run ruff format python/ tests/ examples/
 
+# Refresh workspace-hack dependencies for faster incremental Rust builds
+hakari-sync:
+    @echo "Regenerating cargo-hakari workspace-hack crate..."
+    vx cargo hakari generate
+    vx cargo hakari manage-deps -y
+
+# Verify workspace-hack metadata is up-to-date (CI friendly)
+hakari-check:
+    @echo "Checking cargo-hakari state..."
+    vx cargo hakari generate --diff
+    vx cargo hakari manage-deps --dry-run
+
 # Run linting
 lint:
     @echo "Linting Rust code..."
     vx cargo clippy --all-targets --all-features -- -D warnings
     @echo "Linting Python code..."
     vx uv run ruff check python/ tests/ examples/
+
 
 # Fix linting issues automatically
 fix:
@@ -442,21 +477,78 @@ ci-install:
     vx uv sync --group dev --group test
     vx uv pip install qtpy PySide6 pytest-qt
 
+ci-assets-build: assets-build
+    @echo "[OK] CI frontend assets prepared!"
+
+ci-sdk-assets: sdk-build-assets
+    @echo "[OK] CI SDK assets prepared!"
+
 # CI build command - consistent across all platforms
 # Uses ext-module for proper Python extension module compilation
 [unix]
-ci-build:
+ci-build: ci-assets-build ci-sdk-assets
     @echo "Building extension for CI (Unix)..."
     vx uv pip install maturin
-    vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38"
+    py_minor=$$(vx uv run python -c "import sys; print(sys.version_info[1])"); \
+    if [ "$$py_minor" -ge 8 ]; then \
+        features="ext-module,python-bindings,abi3-py38"; \
+    else \
+        features="ext-module,python-bindings"; \
+    fi; \
+    echo "Using maturin features: $$features"; \
+    vx uv run maturin develop --features "$$features"
 
 [windows]
-ci-build:
-    @echo "Building extension for CI (Windows, {{windows_rust_target}})..."
+ci-build: ci-assets-build ci-sdk-assets
+    @echo "Building extension for CI (Windows)..."
     vx uv pip install maturin
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    $pyMinor = [int](vx uv run python -c "import sys; print(sys.version_info[1])")
+    if ($pyMinor -ge 8) { $features = "ext-module,python-bindings,abi3-py38,win-webview2" } else { $features = "ext-module,python-bindings,win-webview2" }
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using maturin features: $features"; vx uv run maturin develop --features $features
 
+[unix]
+ci-docs-rust: ci-assets-build
+    @echo "Running Rust doc tests and documentation build..."
+    vx cargo test --doc
+    RUSTDOCFLAGS="-D warnings" vx cargo doc --no-deps --document-private-items
+    @echo "[OK] Rust documentation checks completed"
 
+[windows]
+ci-docs-rust: ci-assets-build
+    @echo "Running Rust doc tests and documentation build..."
+    vx cargo test --doc
+    $env:RUSTDOCFLAGS = "-D warnings"; vx cargo doc --no-deps --document-private-items
+    @echo "[OK] Rust documentation checks completed"
+
+[unix]
+ci-cli-build TARGET:
+    @echo "Building CLI for target {{TARGET}}..."
+    vx rustup target add {{TARGET}}
+    vx just ci-assets-build
+    vx cargo build -p auroraview-cli --release --target {{TARGET}}
+    @echo "[OK] CLI built: target/{{TARGET}}/release/"
+
+[windows]
+ci-cli-build TARGET:
+    @echo "Building CLI for target {{TARGET}}..."
+    rustup target add "{{TARGET}}"
+    vx just ci-assets-build
+    $env:CARGO_BUILD_TARGET = "{{TARGET}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; cargo build -p auroraview-cli --release --target "{{TARGET}}"
+    @echo "[OK] CLI built: target/{{TARGET}}/release/"
+
+[unix]
+ci-cli-smoke TARGET BIN:
+    @echo "Running CLI smoke tests for {{BIN}}..."
+    ./target/{{TARGET}}/release/{{BIN}} --help
+    ./target/{{TARGET}}/release/{{BIN}} --version
+    @echo "[OK] CLI smoke tests passed"
+
+[windows]
+ci-cli-smoke TARGET BIN:
+    @echo "Running CLI smoke tests for {{BIN}}..."
+    & "target/{{TARGET}}/release/{{BIN}}" --help
+    & "target/{{TARGET}}/release/{{BIN}}" --version
+    @echo "[OK] CLI smoke tests passed"
 
 
 ci-test-rust:
@@ -464,6 +556,23 @@ ci-test-rust:
     @echo "Note: lib tests are skipped due to abi3 linking issues with PyO3"
     @echo "      Python tests provide comprehensive coverage instead"
     vx cargo test --doc
+
+ci-rust-coverage-lcov:
+    @echo "Running Rust integration coverage with lcov output..."
+    vx cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
+        --test config_integration \
+        --test file_protocol_integration \
+        --test http_discovery_integration \
+        --test ipc_json_integration \
+        --test ipc_message_queue_integration \
+        --test lifecycle_integration \
+        --test mdns_integration \
+        --test port_allocator_integration \
+        --test protocol_handlers_integration \
+        --test protocol_integration \
+        --test standalone_integration \
+        --test timer_integration
+    @echo "[OK] Rust coverage report: rust-coverage.lcov"
 
 ci-test-python:
     @echo "Running Python unit tests with coverage..."
@@ -493,7 +602,8 @@ coverage-python:
 # Shortcut alias for Python coverage
 pycov:
     @echo "[Alias] Running Python coverage via coverage-python..."
-    @just coverage-python
+    @vx just coverage-python
+
 
 
 coverage-rust:
@@ -566,12 +676,9 @@ dev: install build
 
 # Build release wheels
 release:
-    @echo "Building release wheels for {{windows_rust_target}}..."
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin build --release --target {{windows_rust_target}} --features "ext-module,python-bindings,win-webview2"
+    @echo "Building release wheels..."
+    vx uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
     @echo "Wheels built in target/wheels/"
-
-
-
 
 # Run examples
 example EXAMPLE:
@@ -600,7 +707,42 @@ docs:
 check-all: format lint test coverage-all
     @echo "All checks completed!"
 
+# ============================================================================
+# Harness workflows (Agent-friendly, reproducible entrypoints)
+# ============================================================================
+
+# Show deterministic tool/runtime info used by harness tasks
+harness-info:
+    @echo "Harness runtime info:"
+    @echo "  vx: $(vx --version)"
+    @echo "  just: $(vx just --version)"
+    @echo "  rust: $(vx rustc --version)"
+    @echo "  python: $(vx uv run python --version)"
+    @echo "  node: $(vx node --version)"
+
+# Fast feedback loop for local or agent iterative execution
+harness-quick:
+    @echo "Running harness quick checks..."
+    vx just ci-lint
+    vx just ci-test-basic
+    @echo "[OK] harness-quick completed"
+
+# Full validation loop aligned with CI quality gates
+harness-verify:
+    @echo "Running harness verify checks..."
+    vx just ci-lint
+    vx just ci-test-rust
+    vx just ci-test-python
+    @echo "[OK] harness-verify completed"
+
+# Deterministic gallery UI regression loop (pack + CDP + Playwright)
+harness-gallery-e2e:
+    @echo "Running harness gallery e2e..."
+    vx just gallery-e2e-packed-playwright
+    @echo "[OK] harness-gallery-e2e completed"
+
 # Setup development module for Maya
+
 maya-setup-dev:
     @echo "=========================================="
     @echo "Setting up Maya Development Environment"
@@ -629,7 +771,8 @@ maya-setup-dev:
     @echo "  PYTHONPATH: {{justfile_directory()}}/examples/maya-outliner"
     @echo ""
     @echo "Next steps:"
-    @echo "  1. Run: just maya-dev (rebuild + launch Maya)"
+    @echo "  1. Run: vx just maya-dev (rebuild + launch Maya)"
+
     @echo "  2. Click 'Outliner' button on AuroraView shelf"
     @echo ""
 
@@ -643,7 +786,8 @@ maya-dev:
     -@powershell -Command "try { Get-Process maya -ErrorAction Stop | Stop-Process -Force; Write-Host '[OK] Maya processes terminated' } catch { Write-Host '[OK] No Maya processes running' }"
     @echo ""
     @echo "[2/3] Rebuilding Rust core..."
-    @just rebuild-core
+    @vx just rebuild-pylib
+
     @echo ""
     @echo "[3/3] Launching Maya 2024..."
     @powershell -Command "Start-Process -FilePath 'C:\Program Files\Autodesk\Maya2024\bin\maya.exe'"
@@ -660,7 +804,8 @@ maya-dev:
     @echo "    maya_outliner.main()"
     @echo ""
     @echo "To rebuild after code changes:"
-    @echo "  just maya-dev"
+    @echo "  vx just maya-dev"
+
     @echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -677,7 +822,8 @@ maya-debug:
     -@powershell -Command "try { Get-Process maya -ErrorAction Stop | Stop-Process -Force; Write-Host '[OK] Maya processes terminated' } catch { Write-Host '[OK] No Maya processes running' }"
     @echo ""
     @echo "[2/4] Rebuilding Rust core..."
-    @just rebuild-core
+    @vx just rebuild-pylib
+
     @echo ""
     @echo "[3/4] Creating launch script..."
     @echo @echo off > launch_maya_temp.bat
@@ -709,61 +855,117 @@ maya-debug:
 # Install SDK dependencies
 sdk-install:
     @echo "Installing SDK dependencies..."
-    cd packages/auroraview-sdk; vx pnpm install
+    cd packages/auroraview-sdk; vx bun install
     @echo "[OK] SDK dependencies installed!"
 
 # Build SDK npm package
-sdk-build:
+[unix]
+sdk-build: sdk-install
     @echo "Building SDK npm package..."
-    cd packages/auroraview-sdk; vx pnpm run build
+    cd packages/auroraview-sdk; vx bun run build
+    @echo "[OK] SDK built in packages/auroraview-sdk/dist/"
+
+[windows]
+sdk-build: sdk-install
+    @echo "Building SDK npm package..."
+    cd packages/auroraview-sdk; vx bun run build
     @echo "[OK] SDK built in packages/auroraview-sdk/dist/"
 
 # Build SDK assets (inject scripts for Rust)
-sdk-build-assets:
+[unix]
+sdk-build-assets: sdk-install
     @echo "Building SDK assets (inject scripts)..."
-    cd packages/auroraview-sdk; vx pnpm run build:assets
+    cd packages/auroraview-sdk; vx bun run build:assets
+    @echo "[OK] Assets built in crates/auroraview-core/src/assets/js/"
+
+[windows]
+sdk-build-assets: sdk-install
+    @echo "Building SDK assets (inject scripts)..."
+    cd packages/auroraview-sdk; vx bun run build:assets
     @echo "[OK] Assets built in crates/auroraview-core/src/assets/js/"
 
 # Build SDK all (npm package + assets)
 sdk-build-all: sdk-install
     @echo "Building SDK (all)..."
-    cd packages/auroraview-sdk; vx pnpm run build:all
+    cd packages/auroraview-sdk; vx bun run build:all
     @echo "[OK] SDK and assets built!"
 
 # Run SDK unit tests
-sdk-test:
+[unix]
+sdk-test: sdk-install
     @echo "Running SDK unit tests..."
-    cd packages/auroraview-sdk; vx pnpm run test
+    cd packages/auroraview-sdk; vx bun run test
+    @echo "[OK] SDK tests passed!"
+
+[windows]
+sdk-test: sdk-install
+    @echo "Running SDK unit tests..."
+    cd packages/auroraview-sdk; vx bun run test
     @echo "[OK] SDK tests passed!"
 
 # Run SDK tests with coverage
-sdk-test-cov:
+[unix]
+sdk-test-cov: sdk-install
     @echo "Running SDK tests with coverage..."
-    cd packages/auroraview-sdk; vx pnpm run test:coverage
+    cd packages/auroraview-sdk; vx bun run test:coverage
+    @echo "[OK] SDK coverage report: packages/auroraview-sdk/coverage/"
+
+[windows]
+sdk-test-cov: sdk-install
+    @echo "Running SDK tests with coverage..."
+    cd packages/auroraview-sdk; vx bun run test:coverage
     @echo "[OK] SDK coverage report: packages/auroraview-sdk/coverage/"
 
 # Run SDK E2E tests (requires Playwright)
-sdk-test-e2e:
+[unix]
+sdk-test-e2e: sdk-playwright-install
     @echo "Running SDK E2E tests..."
-    cd packages/auroraview-sdk; vx pnpm run test:e2e
+    cd packages/auroraview-sdk; vx bun run test:e2e
+    @echo "[OK] SDK E2E tests passed!"
+
+[windows]
+sdk-test-e2e: sdk-playwright-install
+    @echo "Running SDK E2E tests..."
+    cd packages/auroraview-sdk; vx bun run test:e2e
     @echo "[OK] SDK E2E tests passed!"
 
 # Run all SDK tests (unit + E2E)
-sdk-test-all:
+[unix]
+sdk-test-all: sdk-playwright-install
     @echo "Running all SDK tests..."
-    cd packages/auroraview-sdk; vx pnpm run test:all
+    cd packages/auroraview-sdk; vx bun run test:all
+    @echo "[OK] All SDK tests passed!"
+
+[windows]
+sdk-test-all: sdk-playwright-install
+    @echo "Running all SDK tests..."
+    cd packages/auroraview-sdk; vx bun run test:all
     @echo "[OK] All SDK tests passed!"
 
 # Run SDK type check
-sdk-typecheck:
+[unix]
+sdk-typecheck: sdk-install
     @echo "Running SDK type check..."
-    cd packages/auroraview-sdk; vx pnpm run typecheck
+    cd packages/auroraview-sdk; vx bun run typecheck
+    @echo "[OK] SDK type check passed!"
+
+[windows]
+sdk-typecheck: sdk-install
+    @echo "Running SDK type check..."
+    cd packages/auroraview-sdk; vx bun run typecheck
     @echo "[OK] SDK type check passed!"
 
 # Install Playwright for SDK E2E tests
-sdk-playwright-install:
+[unix]
+sdk-playwright-install: sdk-install
     @echo "Installing Playwright for SDK E2E tests..."
-    cd packages/auroraview-sdk; vx pnpm exec playwright install chromium --with-deps
+    cd packages/auroraview-sdk; vx bun run install:playwright
+    @echo "[OK] Playwright installed!"
+
+[windows]
+sdk-playwright-install: sdk-install
+    @echo "Installing Playwright for SDK E2E tests..."
+    cd packages/auroraview-sdk; vx bun run install:playwright
     @echo "[OK] Playwright installed!"
 
 # Full SDK CI check (typecheck + test + coverage + build)
@@ -774,10 +976,28 @@ sdk-ci: sdk-install sdk-typecheck sdk-test-cov sdk-build-all
 # Gallery Commands
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Install gallery dependencies using bun (CI/local parity path)
+gallery-ci-install:
+    @echo "Installing gallery dependencies (bun)..."
+    cd gallery; vx bun install
+    @echo "[OK] Gallery dependencies installed!"
+
+# Build gallery frontend using bun (CI/local parity path)
+gallery-ci-build: sdk-build gallery-ci-install
+    @echo "Building gallery frontend (bun)..."
+    cd gallery; vx bun run build
+    @echo "[OK] Gallery built in gallery/dist/"
+
+# Install Playwright for gallery CI/E2E flows
+gallery-ci-playwright-install: gallery-ci-install
+    @echo "Installing Playwright for Gallery..."
+    cd gallery; vx bun run install:playwright
+    @echo "[OK] Gallery Playwright installed!"
+
 # Build gallery frontend (builds SDK first)
 gallery-build: sdk-build
     @echo "Building gallery frontend..."
-    cd gallery; vx pnpm install; vx pnpm run build
+    cd gallery; vx bun install; vx bun run build
     @echo "[OK] Gallery built in gallery/dist/"
 
 # Run gallery (build frontend first, then launch with AuroraView)
@@ -788,7 +1008,7 @@ gallery: gallery-build
 # Run gallery dev server (for frontend development)
 gallery-dev:
     @echo "Starting gallery dev server..."
-    cd gallery; vx pnpm run dev
+    cd gallery; vx bun run dev
 
 # Run Gallery E2E tests
 gallery-test:
@@ -805,7 +1025,139 @@ gallery-test-playwright:
     @echo "Running Gallery Playwright E2E tests..."
     vx uv run python scripts/test_gallery_e2e.py
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Gallery E2E Tests (Playwright + CDP)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Install Playwright for E2E tests
+gallery-e2e-install:
+    @echo "Installing Playwright E2E dependencies..."
+    cd tests/e2e; vx bun install
+    cd tests/e2e; vx bun run install:playwright
+    @echo "[OK] Playwright installed!"
+
+
+# Start Gallery with CDP for E2E testing (background process)
+# Use this before running gallery-e2e-test
+[windows]
+gallery-e2e-start: gallery-pack-debug
+    @echo "Starting Gallery with CDP enabled (port 9222)..."
+    @powershell -Command "Start-Process -FilePath 'gallery\pack-output\auroraview-gallery-debug.exe' -WorkingDirectory 'gallery\pack-output'"
+    @echo "[OK] Gallery started. Run: vx just gallery-e2e-test"
+    @echo ""
+    @echo "CDP endpoint: http://127.0.0.1:9222"
+    @echo "Run tests with: vx just gallery-e2e-test"
+    @echo "Stop with: vx just gallery-e2e-stop"
+
+
+[unix]
+gallery-e2e-start: gallery-pack-debug
+    @echo "Starting Gallery with CDP enabled (port 9222)..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @echo "[OK] Gallery started. Run: vx just gallery-e2e-test"
+    @echo ""
+    @echo "CDP endpoint: http://127.0.0.1:9222"
+    @echo "Run tests with: vx just gallery-e2e-test"
+    @echo "Stop with: vx just gallery-e2e-stop"
+
+
+# Stop Gallery E2E test instance
+[windows]
+gallery-e2e-stop:
+    @echo "Stopping Gallery..."
+    @powershell -Command "Get-Process -Name 'auroraview-gallery-debug' -ErrorAction SilentlyContinue | Stop-Process -Force"
+    @echo "[OK] Gallery stopped"
+
+[unix]
+gallery-e2e-stop:
+    @echo "Stopping Gallery..."
+    @pkill -f "auroraview-gallery-debug" || true
+    @echo "[OK] Gallery stopped"
+
+# Run E2E tests (Playwright + CDP — connects to running Gallery)
+gallery-e2e-test:
+    @echo "Running E2E tests..."
+    cd tests/e2e; vx npx playwright test --config playwright.config.ts
+
+# Run E2E tests with headed browser (for debugging)
+gallery-e2e-test-headed:
+    @echo "Running E2E tests in headed mode..."
+    cd tests/e2e; vx npx playwright test --config playwright.config.ts --headed
+
+# Open Playwright HTML report after test run
+gallery-e2e-report:
+    @echo "Opening E2E test report..."
+    cd tests/e2e; vx npx playwright show-report report
+
+
+# Full E2E workflow: auto pack + start + playwright tests + cleanup
+[windows]
+gallery-e2e-packed-playwright: gallery-e2e-install gallery-pack-debug
+    @echo "=========================================="
+    @echo "Gallery E2E Playwright Suite (Packed)"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/4] Starting packed Gallery (debug, CDP enabled)..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "[2/4] Waiting for CDP port (9222)..."
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo ""
+    @echo "[3/4] Running Playwright E2E tests (includes Sentry trigger checks)..."
+    @powershell -NoLogo -File scripts/gallery_e2e_run_playwright.ps1 -ProjectRoot "{{justfile_directory()}}" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "[4/4] Completed (failed cases are auto-screenshotted by Playwright)"
+    @echo "=========================================="
+
+[unix]
+gallery-e2e-packed-playwright: gallery-e2e-install gallery-pack-debug
+    @echo "=========================================="
+    @echo "Gallery E2E Playwright Suite (Packed)"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/3] Starting packed Gallery (debug, CDP enabled)..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @echo "[2/3] Waiting for CDP port (9222)..."
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo "[3/3] Running Playwright E2E tests..."
+    @bash -lc 'set -e; trap "pkill -f auroraview-gallery-debug || true" EXIT; cd tests/e2e; vx npx playwright test --config playwright.config.ts'
+    @echo "[OK] Completed (failed cases are auto-screenshotted by Playwright)"
+
+# 生成 Gallery 文档截图（Playwright + CDP）
+[windows]
+gallery-e2e-screenshots: gallery-e2e-install gallery-pack-debug
+    @echo "=========================================="
+    @echo "Gallery Docs Screenshots (Playwright)"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/3] Starting packed Gallery (debug, CDP enabled)..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo "[2/3] Waiting for CDP port (9222)..."
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo "[3/3] Capturing documentation screenshots via Playwright..."
+    @powershell -NoLogo -File scripts/gallery_e2e_run_playwright.ps1 -ProjectRoot "{{justfile_directory()}}" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp" -SpecFile "specs/gallery-screenshots.e2e.ts" -EnableScreenshots
+    @echo "[OK] Screenshots updated: docs/public/gallery/"
+
+[unix]
+gallery-e2e-screenshots: gallery-e2e-install gallery-pack-debug
+    @echo "=========================================="
+    @echo "Gallery Docs Screenshots (Playwright)"
+    @echo "=========================================="
+    @echo ""
+    @echo "[1/3] Starting packed Gallery (debug, CDP enabled)..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @echo "[2/3] Waiting for CDP port (9222)..."
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo "[3/3] Capturing documentation screenshots via Playwright..."
+    @bash -lc 'set -e; trap "pkill -f auroraview-gallery-debug || true" EXIT; cd tests/e2e; AURORAVIEW_SCREENSHOTS=1 vx npx playwright test --config playwright.config.ts specs/gallery-screenshots.e2e.ts'
+    @echo "[OK] Screenshots updated: docs/public/gallery/"
+
+# Backward-compatible alias
+gallery-e2e: gallery-e2e-packed-playwright
+
+
 # Run Gallery real E2E tests (requires gallery-build first)
+
 gallery-test-real: gallery-build
     @echo "Running Gallery real E2E tests..."
     vx uvx pytest tests/python/integration/test_gallery_real_e2e.py -v --tb=short
@@ -822,9 +1174,10 @@ gallery-test-watch:
 
 # Generate Gallery screenshots for documentation
 gallery-screenshots:
-    @echo "Generating Gallery screenshots for documentation..."
-    vx uv run python scripts/test_gallery_e2e.py --screenshots-only
+    @echo "Generating Gallery screenshots for documentation (Playwright)..."
+    vx just gallery-e2e-screenshots
     @echo "[OK] Screenshots saved to docs/public/gallery/"
+
 
 # Generate example screenshots for documentation
 example-screenshots:
@@ -852,32 +1205,85 @@ docs-screenshots: gallery-screenshots example-screenshots
 
 # Build wheel
 build-wheel:
-    @echo "Building Python wheel for {{windows_rust_target}}..."
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin build --release --target {{windows_rust_target}} --features "ext-module,python-bindings,win-webview2"
+    @echo "Building Python wheel..."
+    vx uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
     @echo "[OK] Wheel built in target/wheels/"
 
-
-
-
-# Pack Gallery into standalone executable
-gallery-pack: assets-build gallery-build
-    @echo "Packing Gallery into standalone executable..."
-    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --build
-    @echo "[OK] Gallery packed successfully!"
+# Pack Gallery into standalone executable (release profile)
+# Frontend build is handled by gallery/auroraview.pack.toml [build].before
+gallery-pack: assets-build
+    @echo "Packing Gallery into standalone executable (release)..."
+    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml
+    @echo "[OK] Gallery release package built!"
     @echo ""
     @echo "Output: gallery/pack-output/auroraview-gallery.exe"
     @echo "Run with: just gallery-run-packed"
 
-# Run the packed Gallery executable
+# Pack Gallery with local Sentry configuration
+# Loads DSN from gallery/.env.sentry (not committed to repo)
+[windows]
+gallery-pack-local: assets-build
+    @echo "Packing Gallery with local Sentry configuration..."
+    @if (Test-Path "gallery/.env.sentry") { \
+        Write-Host "Loading Sentry configuration from gallery/.env.sentry"; \
+        Get-Content "gallery/.env.sentry" | ForEach-Object { \
+            if ($_ -match '^([^#][^=]+)=(.*)$') { \
+                [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), 'Process'); \
+            } \
+        } \
+    } else { \
+        Write-Host "WARNING: gallery/.env.sentry not found, Sentry will be disabled" -ForegroundColor Yellow; \
+    }
+    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml
+    @echo "[OK] Gallery package built with local config!"
+
+[unix]
+gallery-pack-local: assets-build
+    @echo "Packing Gallery with local Sentry configuration..."
+    @if [ -f "gallery/.env.sentry" ]; then \
+        echo "Loading Sentry configuration from gallery/.env.sentry"; \
+        export $$(grep -v '^#' gallery/.env.sentry | xargs); \
+    else \
+        echo "WARNING: gallery/.env.sentry not found, Sentry will be disabled"; \
+    fi
+    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml
+    @echo "[OK] Gallery package built with local config!"
+
+# Pack Gallery debug executable (devtools + remote debug + react-devtools)
+# Uses dedicated debug config and writes a separate output binary name.
+gallery-pack-debug: assets-build
+    @echo "Packing Gallery debug executable..."
+    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.debug.toml --output auroraview-gallery-debug
+    @echo "[OK] Gallery debug package built!"
+    @echo ""
+    @echo "Output: gallery/pack-output/auroraview-gallery-debug.exe"
+    @echo "Run with: vx just gallery-run-packed-debug"
+
+
+# Run the packed Gallery executable (release)
 [windows]
 gallery-run-packed:
-    @echo "Running packed Gallery..."
-    @if (Test-Path "gallery/pack-output/auroraview-gallery.exe") { Start-Process -FilePath "gallery/pack-output/auroraview-gallery.exe" -WorkingDirectory "gallery/pack-output" } else { Write-Host "[ERROR] Packed Gallery not found. Run 'just gallery-pack' first." -ForegroundColor Red }
+    @echo "Running packed Gallery (release)..."
+    @if (Test-Path "gallery/pack-output/auroraview-gallery.exe") { Start-Process -FilePath "gallery/pack-output/auroraview-gallery.exe" -WorkingDirectory "gallery/pack-output" } else { Write-Host "[ERROR] Packed Gallery not found. Run 'vx just gallery-pack' first." -ForegroundColor Red }
+
+
+[windows]
+gallery-run-packed-debug:
+    @echo "Running packed Gallery (debug)..."
+    @if (Test-Path "gallery/pack-output/auroraview-gallery-debug.exe") { Start-Process -FilePath "gallery/pack-output/auroraview-gallery-debug.exe" -WorkingDirectory "gallery/pack-output" } else { Write-Host "[ERROR] Packed debug Gallery not found. Run 'vx just gallery-pack-debug' first." -ForegroundColor Red }
+
 
 [unix]
 gallery-run-packed:
-    @echo "Running packed Gallery..."
-    @if [ -f "gallery/pack-output/auroraview-gallery" ]; then cd gallery/pack-output && ./auroraview-gallery; else echo "[ERROR] Packed Gallery not found. Run 'just gallery-pack' first."; fi
+    @echo "Running packed Gallery (release)..."
+    @if [ -f "gallery/pack-output/auroraview-gallery" ]; then cd gallery/pack-output && ./auroraview-gallery; else echo "[ERROR] Packed Gallery not found. Run 'vx just gallery-pack' first."; fi
+
+
+[unix]
+gallery-run-packed-debug:
+    @echo "Running packed Gallery (debug)..."
+    @if [ -f "gallery/pack-output/auroraview-gallery-debug" ]; then cd gallery/pack-output && ./auroraview-gallery-debug; else echo "[ERROR] Packed debug Gallery not found. Run 'vx just gallery-pack-debug' first."; fi
+
 
 # Run Gallery CDP tests (build, start, test, cleanup)
 gallery-cdp: gallery-pack
@@ -923,7 +1329,47 @@ gallery-cdp-only:
     @echo "[OK] Gallery CDP tests completed!"
     @echo "=========================================="
 
+# Debug Promise rejection button in packed Gallery via agent-browser (Windows)
+[windows]
+gallery-debug-promise-rejection: gallery-pack-debug
+    @echo "Starting packed debug Gallery with CDP..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo "Capturing initial interactive snapshot via agent-browser..."
+    vx npx --yes agent-browser --cdp 9222 snapshot -i
+    @echo "Capturing annotated screenshot..."
+    vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    @echo "Use these follow-up commands to continue manual debug:"
+    @echo "  vx npx --yes agent-browser --cdp 9222 snapshot -i"
+    @echo "  vx npx --yes agent-browser --cdp 9222 click @e<id>"
+    @echo "Stop with: vx just gallery-debug-promise-rejection-stop"
+
+[windows]
+gallery-debug-promise-rejection-stop:
+    @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+
+# Debug Promise rejection button in packed Gallery via agent-browser (Unix)
+[unix]
+gallery-debug-promise-rejection: gallery-pack-debug
+    @echo "Starting packed debug Gallery with CDP..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @echo "Waiting for CDP port (9222)..."
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo "Capturing initial interactive snapshot via agent-browser..."
+    vx npx --yes agent-browser --cdp 9222 snapshot -i
+    @echo "Capturing annotated screenshot..."
+    vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    @echo "Use these follow-up commands to continue manual debug:"
+    @echo "  vx npx --yes agent-browser --cdp 9222 snapshot -i"
+    @echo "  vx npx --yes agent-browser --cdp 9222 click @e<id>"
+    @echo "Stop with: vx just gallery-debug-promise-rejection-stop"
+
+[unix]
+gallery-debug-promise-rejection-stop:
+    @pkill -f "auroraview-gallery-debug" || true
+
 # Pack Gallery for release (generates project without building)
+
 gallery-pack-project: gallery-build
     @echo "Generating Gallery pack project..."
     vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --output-dir target/pack
@@ -947,36 +1393,32 @@ lint-pack:
 
 # Pack a URL into standalone executable
 pack-url URL OUTPUT="myapp":
-    @echo "Packing URL: {{URL}} -> {{OUTPUT}}.exe ({{windows_rust_target}})"
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- pack --url "{{URL}}" --output "{{OUTPUT}}"
+    @echo "Packing URL: {{URL}} -> {{OUTPUT}}.exe"
+    vx cargo run -p auroraview-cli --release -- pack --url "{{URL}}" --output "{{OUTPUT}}"
     @echo "[OK] Packed to target/pack/{{OUTPUT}}/"
 
 # Pack a frontend directory into standalone executable
 pack-frontend FRONTEND OUTPUT="myapp":
-    @echo "Packing frontend: {{FRONTEND}} -> {{OUTPUT}}.exe ({{windows_rust_target}})"
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- pack --frontend "{{FRONTEND}}" --output "{{OUTPUT}}"
+    @echo "Packing frontend: {{FRONTEND}} -> {{OUTPUT}}.exe"
+    vx cargo run -p auroraview-cli --release -- pack --frontend "{{FRONTEND}}" --output "{{OUTPUT}}"
     @echo "[OK] Packed to target/pack/{{OUTPUT}}/"
 
 # Pack using a config file
 pack-config CONFIG:
-    @echo "Packing with config: {{CONFIG}} ({{windows_rust_target}})"
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- pack --config "{{CONFIG}}"
+    @echo "Packing with config: {{CONFIG}}"
+    vx cargo run -p auroraview-cli --release -- pack --config "{{CONFIG}}"
     @echo "[OK] Pack completed!"
 
 # Pack and build in one step
 pack-build CONFIG:
-    @echo "Packing and building with config: {{CONFIG}} ({{windows_rust_target}})"
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- pack --config "{{CONFIG}}" --build
+    @echo "Packing and building with config: {{CONFIG}}"
+    vx cargo run -p auroraview-cli --release -- pack --config "{{CONFIG}}" --build
     @echo "[OK] Pack and build completed!"
 
 # Show pack info for a config file
 pack-info CONFIG:
-    @echo "Pack info for: {{CONFIG}} ({{windows_rust_target}})"
-
-    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- info --config "{{CONFIG}}"
-
-
-
+    @echo "Pack info for: {{CONFIG}}"
+    vx cargo run -p auroraview-cli --release -- info --config "{{CONFIG}}"
 
 # Clean pack output directory
 pack-clean:
@@ -995,7 +1437,7 @@ pack-all: test-pack lint-pack gallery-pack
 # Install documentation dependencies
 docs-install:
     @echo "Installing documentation dependencies..."
-    cd docs; vx pnpm install
+    cd docs; vx bun install
     @echo "[OK] Documentation dependencies installed!"
 
 # Generate Python API documentation with pdoc (optional, may fail due to network)
@@ -1030,29 +1472,47 @@ docs-python-api:
 # Generate examples documentation from examples/ directory
 docs-generate-examples:
     @echo "Generating examples documentation..."
-    cd docs; vx npx tsx .vitepress/hooks/generate-examples.ts
+    cd docs; vx bun run generate-examples
     @echo "[OK] Examples documentation generated!"
 
 # Start documentation dev server (auto-generates examples docs)
 docs-dev: docs-install docs-generate-examples docs-python-api
     @echo "Starting documentation dev server..."
-    cd docs; vx npx vitepress dev
+    cd docs; vx bun run dev
 
 # Alias for docs-dev
 docs-serve: docs-dev
 
 # Build documentation (auto-generates examples docs + Python API)
+[unix]
 docs-build: docs-install docs-generate-examples docs-python-api
     @echo "Building documentation..."
     mkdir -p docs/public
     cp assets/icons/auroraview-logo-text.png docs/public/logo.png || echo "Logo not found, using placeholder"
-    cd docs; vx npx vitepress build
+    cd docs; vx bun run build
     @echo "[OK] Documentation built in docs/.vitepress/dist/"
 
+[windows]
+docs-build: docs-install docs-generate-examples docs-python-api
+    @echo "Building documentation..."
+    New-Item -ItemType Directory -Path docs/public -Force | Out-Null
+    if (Test-Path "assets/icons/auroraview-logo-text.png") { Copy-Item "assets/icons/auroraview-logo-text.png" "docs/public/logo.png" -Force } else { Write-Host "Logo not found, using placeholder" }
+    cd docs; vx bun run build
+    @echo "[OK] Documentation built in docs/.vitepress/dist/"
+
+ci-docs-build: docs-build
+    @echo "[OK] CI docs build completed"
+
 # Preview built documentation
+[unix]
 docs-preview: docs-build
     @echo "Previewing documentation..."
-    cd docs; vx npx vitepress preview
+    cd docs; vx bun run preview
+
+[windows]
+docs-preview: docs-build
+    @echo "Previewing documentation..."
+    cd docs; vx bun run preview
 
 # Clean documentation build artifacts
 docs-clean:
@@ -1130,34 +1590,34 @@ mcp-ci: mcp-install mcp-lint mcp-test
 # Install assets frontend dependencies
 assets-install:
     @echo "Installing assets frontend dependencies..."
-    cd crates/auroraview-assets/frontend; vx pnpm install
+    cd crates/auroraview-assets/frontend; vx bun install
     @echo "[OK] Assets dependencies installed!"
 
 # Build all assets (loading, error, browser, browser-controller)
 assets-build: assets-install
     @echo "Building frontend assets..."
-    cd crates/auroraview-assets/frontend; vx pnpm run build
+    cd crates/auroraview-assets/frontend; vx bun run build
     @echo "[OK] Assets built in crates/auroraview-assets/frontend/dist/"
 
 # Build assets in watch mode (for development)
 assets-dev: assets-install
     @echo "Starting assets dev server..."
-    cd crates/auroraview-assets/frontend; vx pnpm run dev
+    cd crates/auroraview-assets/frontend; vx bun run dev
 
 # Preview built assets
 assets-preview: assets-build
     @echo "Previewing built assets..."
-    cd crates/auroraview-assets/frontend; vx pnpm run preview
+    cd crates/auroraview-assets/frontend; vx bun run preview
 
 # Lint assets frontend code
 assets-lint: assets-install
     @echo "Linting assets frontend code..."
-    cd crates/auroraview-assets/frontend; vx pnpm run lint
+    cd crates/auroraview-assets/frontend; vx bun run lint
 
 # Type check assets frontend code
 assets-typecheck: assets-install
     @echo "Type checking assets frontend code..."
-    cd crates/auroraview-assets/frontend; vx pnpm run typecheck
+    cd crates/auroraview-assets/frontend; vx bun run typecheck
 
 # Clean assets build artifacts
 assets-clean:

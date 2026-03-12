@@ -37,6 +37,7 @@ crossbeam-channel = "0.5"
 
 # Python bindings (optional)
 pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true }
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [features]
 default = []

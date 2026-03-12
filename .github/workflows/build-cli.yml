@@ -55,30 +55,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1.90.0
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          targets: ${{ matrix.target }}
+          install-dependencies: 'false'
+          cache-key-suffix: 'build-cli-${{ matrix.target }}'
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
+      - name: Build CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
+          vx just ci-assets-build
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw 'Visual Studio installation with MSVC tools not found'
+          }
+          $vsDevCmd = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 && rustup target add ${{ matrix.target }} && cargo build -p auroraview-cli --release --target ${{ matrix.target }}"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
+      - name: Build CLI (Non-Windows)
+        if: runner.os != 'Windows'
+        run: vx just ci-cli-build ${{ matrix.target }}
 
-      - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
-      - name: Build CLI
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+      - name: Test CLI (--help)
+        run: vx just ci-cli-smoke ${{ matrix.target }} ${{ matrix.artifact }}
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -122,4 +123,3 @@ jobs:
           name: cli-all-platforms
           path: artifacts/*
           if-no-files-found: error
-

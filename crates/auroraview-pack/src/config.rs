@@ -253,6 +253,45 @@ impl PythonBundleConfig {
 // Complete Pack Configuration
 // ============================================================================
 
+/// Runtime extensions configuration for packed apps
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ExtensionsRuntimeConfig {
+    /// Enable extension execution in WebView runtime
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Bundle local/remote extensions during packing
+    #[serde(default)]
+    pub bundle: bool,
+
+    /// Local extension directories (pack-time only)
+    #[serde(default)]
+    pub local: Vec<PathBuf>,
+
+    /// Remote extension archives (pack-time only)
+    #[serde(default)]
+    pub remote: Vec<ExtensionRemoteSource>,
+}
+
+/// Remote extension source configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ExtensionRemoteSource {
+    /// Stable extension ID used as install directory name
+    pub id: String,
+
+    /// Remote source URL: archive (.zip/.tar/.tar.gz/.tgz/.crx) or store detail page URL
+    /// (Chrome Web Store / Microsoft Edge Add-ons)
+    pub url: String,
+
+    /// Optional checksum for verification (sha256/sha512)
+    #[serde(default)]
+    pub checksum: Option<String>,
+
+    /// Number of leading path components to strip during extraction
+    #[serde(default)]
+    pub strip_components: usize,
+}
+
 /// Complete pack configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackConfig {
@@ -335,6 +374,10 @@ pub struct PackConfig {
     /// Recommended: 19 for release, 3 for development
     #[serde(default = "default_compression_level")]
     pub compression_level: i32,
+
+    /// Extensions behavior (runtime + pack-time bundle inputs)
+    #[serde(default)]
+    pub extensions: ExtensionsRuntimeConfig,
 }
 
 /// Default compression level (19 = high compression, good for releases)
@@ -406,6 +449,7 @@ impl PackConfig {
             vx: None,
             downloads: vec![],
             compression_level: default_compression_level(),
+            extensions: ExtensionsRuntimeConfig::default(),
         }
     }
 
@@ -439,6 +483,7 @@ impl PackConfig {
             vx: None,
             downloads: vec![],
             compression_level: default_compression_level(),
+            extensions: ExtensionsRuntimeConfig::default(),
         }
     }
 
@@ -475,6 +520,7 @@ impl PackConfig {
             vx: None,
             downloads: vec![],
             compression_level: default_compression_level(),
+            extensions: ExtensionsRuntimeConfig::default(),
         }
     }
 
@@ -514,6 +560,7 @@ impl PackConfig {
             vx: None,
             downloads: vec![],
             compression_level: default_compression_level(),
+            extensions: ExtensionsRuntimeConfig::default(),
         }
     }
 
@@ -732,6 +779,25 @@ impl PackConfig {
             vx: manifest.vx.clone(),
             downloads: manifest.downloads.clone(),
             compression_level: manifest.build.compression_level,
+            extensions: manifest
+                .extensions
+                .as_ref()
+                .map(|ext| ExtensionsRuntimeConfig {
+                    enabled: ext.enabled,
+                    bundle: ext.bundle,
+                    local: ext.local.iter().map(&resolve_path).collect(),
+                    remote: ext
+                        .remote
+                        .iter()
+                        .map(|r| ExtensionRemoteSource {
+                            id: r.id.clone(),
+                            url: r.url.clone(),
+                            checksum: r.checksum.clone(),
+                            strip_components: r.strip_components,
+                        })
+                        .collect(),
+                })
+                .unwrap_or_default(),
         };
 
         Ok(config)

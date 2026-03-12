@@ -132,39 +132,174 @@ pub fn get_extensions_dir() -> PathBuf {
         .join("Extensions")
 }
 
-/// Check if the extensions directory exists and has any extensions
+/// Get extension enabled/disabled configuration file path
+pub fn get_extension_config_path() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("AuroraView")
+        .join("extension_config.json")
+}
+
+/// Load disabled extension IDs from config file
+pub fn load_disabled_extensions() -> std::collections::HashSet<String> {
+    let path = get_extension_config_path();
+    if !path.exists() {
+        return std::collections::HashSet::new();
+    }
+
+    let Ok(content) = std::fs::read_to_string(&path) else {
+        tracing::warn!(
+            "[Extensions] Failed to read config file: {}",
+            path.display()
+        );
+        return std::collections::HashSet::new();
+    };
+
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else {
+        tracing::warn!(
+            "[Extensions] Failed to parse config JSON: {}",
+            path.display()
+        );
+        return std::collections::HashSet::new();
+    };
+
+    json.get("disabled_extensions")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Check if the given directory contains at least one valid extension directory
+#[allow(dead_code)]
+pub fn has_extensions_in_dir(dir: &Path) -> bool {
+    if !dir.exists() {
+        return false;
+    }
+
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() && path.join("manifest.json").exists() {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Check if the shared extensions directory has any enabled extensions
 #[allow(dead_code)]
 pub fn has_extensions() -> bool {
     let ext_dir = get_extensions_dir();
-    tracing::debug!(
-        "[Extensions] Checking extensions directory: {}",
-        ext_dir.display()
-    );
+    let disabled = load_disabled_extensions();
 
     if !ext_dir.exists() {
         tracing::debug!("[Extensions] Extensions directory does not exist");
         return false;
     }
 
-    // Check if there are any subdirectories with manifest.json
     if let Ok(entries) = std::fs::read_dir(&ext_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            let manifest_path = path.join("manifest.json");
-            tracing::debug!(
-                "[Extensions] Checking: {} (is_dir={}, manifest_exists={})",
-                path.display(),
-                path.is_dir(),
-                manifest_path.exists()
-            );
-            if path.is_dir() && manifest_path.exists() {
-                tracing::info!("[Extensions] Found extension at: {}", path.display());
-                return true;
+            if !path.is_dir() || !path.join("manifest.json").exists() {
+                continue;
             }
+
+            let ext_id = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default();
+            if disabled.contains(ext_id) {
+                tracing::debug!("[Extensions] Disabled extension skipped: {}", ext_id);
+                continue;
+            }
+
+            tracing::info!("[Extensions] Enabled extension found: {}", ext_id);
+            return true;
         }
     }
-    tracing::debug!("[Extensions] No valid extensions found");
+
     false
+}
+
+/// Build per-app active extension directory that contains only enabled extensions
+#[allow(dead_code)]
+pub fn prepare_active_extensions_dir(runtime_enabled: bool) -> std::io::Result<PathBuf> {
+    let source_dir = get_extensions_dir();
+    let app_name = std::env::current_exe()
+        .ok()
+        .and_then(|p| {
+            p.file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| "auroraview".to_string());
+
+    let active_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("AuroraView")
+        .join("ExtensionsActive")
+        .join(app_name);
+
+    if active_dir.exists() {
+        std::fs::remove_dir_all(&active_dir)?;
+    }
+    std::fs::create_dir_all(&active_dir)?;
+
+    if !runtime_enabled || !source_dir.exists() {
+        return Ok(active_dir);
+    }
+
+    let disabled = load_disabled_extensions();
+
+    if let Ok(entries) = std::fs::read_dir(&source_dir) {
+        for entry in entries.flatten() {
+            let src_path = entry.path();
+            if !src_path.is_dir() || !src_path.join("manifest.json").exists() {
+                continue;
+            }
+
+            let ext_id = src_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default()
+                .to_string();
+
+            if disabled.contains(&ext_id) {
+                tracing::info!("[Extensions] Skip disabled extension: {}", ext_id);
+                continue;
+            }
+
+            let dst_path = active_dir.join(&ext_id);
+            copy_dir_recursive(&src_path, &dst_path)?;
+        }
+    }
+
+    Ok(active_dir)
+}
+
+#[allow(dead_code)]
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if path.is_dir() {
+            copy_dir_recursive(&path, &dst_path)?;
+        } else {
+            if let Some(parent) = dst_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::copy(&path, &dst_path)?;
+        }
+    }
+    Ok(())
 }
 
 /// List installed extensions in the extensions directory

@@ -74,43 +74,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
+          install-dependencies: 'false'
+          cache-key-suffix: 'docs'
 
-      - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
-      - name: Cache Rust
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-docs-
-
-      - name: Run doc tests
-        run: cargo test --doc
-
-      - name: Build documentation
-        run: cargo doc --no-deps --document-private-items
-        env:
-          RUSTDOCFLAGS: "-D warnings"
+      - name: Run Rust documentation checks
+        run: vx just ci-docs-rust
 
   # Wheel builds for all platforms (validates release readiness)
   wheel-builds:
@@ -166,36 +137,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          targets: ${{ matrix.target }}
+          install-dependencies: 'false'
+          cache-key-suffix: 'cli-${{ matrix.target }}'
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
+      - name: Build CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
+          vx just ci-assets-build
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw 'Visual Studio installation with MSVC tools not found'
+          }
+          $vsDevCmd = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 && rustup target add ${{ matrix.target }} && cargo build -p auroraview-cli --release --target ${{ matrix.target }}"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-
-      - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
-      - name: Build CLI
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+      - name: Build CLI (Non-Windows)
+        if: runner.os != 'Windows'
+        run: vx just ci-cli-build ${{ matrix.target }}
 
       - name: Test CLI (--help)
-        shell: bash
-        run: |
-          ./target/${{ matrix.target }}/release/${{ matrix.artifact }} --help
-          ./target/${{ matrix.target }}/release/${{ matrix.artifact }} --version
+        run: vx just ci-cli-smoke ${{ matrix.target }} ${{ matrix.artifact }}
 
       - name: Package (Windows)
         if: runner.os == 'Windows'

@@ -41,10 +41,17 @@ runs:
       shell: bash
       run: vx setup --ci
 
+    - name: Setup MSVC developer environment (Windows)
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
     - name: Show installed tools
       shell: bash
       run: |
         echo "=== Installed Tools ==="
+        vx bun --version
         vx python --version
         vx rustc --version
         vx node --version
@@ -73,6 +80,7 @@ runs:
         sudo apt-get update
         sudo apt-get install -y \
           libwebkit2gtk-4.1-dev \
+          libayatana-appindicator3-dev \
           libgtk-3-dev \
           libglib2.0-dev \
           libpango1.0-dev \
