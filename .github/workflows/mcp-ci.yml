@@ -124,7 +124,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-prefix }}mcp-coverage-report
           path: packages/auroraview-mcp/htmlcov/
@@ -193,7 +193,7 @@ jobs:
 
       - name: Upload MCP package artifact
         id: upload
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-prefix }}mcp-package
           path: packages/auroraview-mcp/dist/
