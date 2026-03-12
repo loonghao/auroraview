@@ -570,7 +570,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -663,7 +663,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-assets"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "auroraview-workspace-hack",
  "include_dir",
@@ -676,7 +676,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-bookmarks"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -693,7 +693,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-browser"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "auroraview-bookmarks",
  "auroraview-core",
@@ -724,7 +724,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "anyhow",
  "auroraview-assets",
@@ -763,12 +763,12 @@ dependencies = [
  "windows 0.61.3",
  "winresource",
  "wry",
- "zip",
+ "zip 8.2.0",
 ]
 
 [[package]]
 name = "auroraview-core"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -887,7 +887,7 @@ dependencies = [
  "urlencoding",
  "uuid",
  "walkdir",
- "zip",
+ "zip 8.2.0",
 ]
 
 [[package]]
@@ -947,13 +947,13 @@ dependencies = [
  "ureq",
  "url",
  "walkdir",
- "zip",
+ "zip 8.2.0",
  "zstd",
 ]
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "auroraview-workspace-hack",
  "dunce",
@@ -965,7 +965,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "auroraview-plugin-core",
  "auroraview-workspace-hack",
@@ -977,7 +977,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -1232,7 +1232,7 @@ dependencies = [
  "winnow 0.7.14",
  "zerocopy",
  "zeroize",
- "zip",
+ "zip 8.2.0",
  "zstd",
  "zstd-safe",
  "zstd-sys",
@@ -3335,10 +3335,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "139ef39800118c7683f2fd3c98c1b23c09ae076556b435f8e9064ae108aaeeec"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi",
  "wasip2",
  "wasip3",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -4758,6 +4760,15 @@ name = "lru-slab"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
+
+[[package]]
+name = "lzma-rust2"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47bb1e988e6fb779cf720ad431242d3f03167c1b3f2b1aae7f1a94b2495b36ae"
+dependencies = [
+ "sha2",
+]
 
 [[package]]
 name = "mac"
@@ -6545,7 +6556,7 @@ dependencies = [
  "uuid",
  "walkdir",
  "which 8.0.0",
- "zip",
+ "zip 4.6.1",
 ]
 
 [[package]]
@@ -8502,6 +8513,7 @@ checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
 dependencies = [
  "deranged",
  "itoa",
+ "js-sys",
  "libc",
  "num-conv",
  "num_threads",
@@ -9106,6 +9118,12 @@ dependencies = [
  "tracing-subscriber",
  "url",
 ]
+
+[[package]]
+name = "typed-path"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
 
 [[package]]
 name = "typenum"
@@ -11044,6 +11062,33 @@ dependencies = [
  "ppmd-rust",
  "sha1",
  "time",
+ "zeroize",
+ "zopfli",
+ "zstd",
+]
+
+[[package]]
+name = "zip"
+version = "8.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b680f2a0cd479b4cff6e1233c483fdead418106eae419dc60200ae9850f6d004"
+dependencies = [
+ "aes",
+ "bzip2",
+ "constant_time_eq 0.4.2",
+ "crc32fast",
+ "deflate64",
+ "flate2",
+ "getrandom 0.4.1",
+ "hmac",
+ "indexmap 2.13.0",
+ "lzma-rust2",
+ "memchr",
+ "pbkdf2",
+ "ppmd-rust",
+ "sha1",
+ "time",
+ "typed-path",
  "zeroize",
  "zopfli",
  "zstd",
