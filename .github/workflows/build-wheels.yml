@@ -51,21 +51,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup vx helpers
+        uses: loonghao/vx@main
         with:
-          node-version: '20'
-
-      - name: Install SDK dependencies
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
+          github-token: ${{ github.token }}
+          tools: 'just bun'
+          cache: 'false'
 
       - name: Build SDK assets
-        run: |
-          cd packages/auroraview-sdk
-          npm run build:assets
+        run: vx just ci-sdk-assets
 
       - name: Verify assets outputs
         run: |

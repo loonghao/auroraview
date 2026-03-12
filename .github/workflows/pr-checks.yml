@@ -335,13 +335,7 @@ jobs:
       - name: Install system dependencies
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
         run: |
-          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
-
-      - name: Setup Node.js
-        if: needs.path-filter.outputs.needs_rust_checks == 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
+          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Build frontend assets (required by auroraview-assets)
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
@@ -381,18 +375,10 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
+        run: vx just ci-assets-build
 
       - name: Cache Rust
         uses: actions/cache@v5
@@ -568,18 +554,10 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
+        run: vx just ci-assets-build
 
       - name: Cache Rust
         uses: actions/cache@v5
@@ -598,21 +576,15 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Run tests with coverage
-        run: |
-          cargo llvm-cov --workspace --lcov --output-path lcov.info \
-            --no-default-features --features "python-bindings,test-helpers,threaded-ipc" \
-            --exclude auroraview-cli \
-            -- --skip window_utils --skip webview::event_loop --skip webview::message_pump \
-               --skip webview::parent_monitor --skip service_discovery::python_bindings \
-               --skip ipc:: --skip tests::test_pymodule_init_registers_symbols
+        run: vx just ci-rust-coverage-lcov
 
       - name: Run doc tests
-        run: cargo test --doc
+        run: vx just ci-test-rust
 
       - name: Upload Rust coverage
         uses: codecov/codecov-action@v5
         with:
-          files: lcov.info
+          files: rust-coverage.lcov
           flags: rust
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -936,7 +908,7 @@ jobs:
         run: |
           vx just gallery-ci-install
           cd gallery
-          vx pnpm run build
+          vx bun run build
 
       - name: Install Playwright
         run: |
@@ -1145,7 +1117,7 @@ jobs:
         run: |
           vx just gallery-ci-install
           cd gallery
-          vx pnpm run build
+          vx bun run build
 
       - name: Pack Gallery (generate executable)
         shell: bash
