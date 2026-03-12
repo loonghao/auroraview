@@ -41,6 +41,12 @@ runs:
       shell: bash
       run: vx setup --ci
 
+    - name: Setup MSVC developer environment (Windows)
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
     - name: Show installed tools
       shell: bash
       run: |
