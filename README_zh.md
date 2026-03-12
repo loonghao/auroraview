@@ -1542,11 +1542,15 @@ auroraview pack --config app.toml --no-console --build
 git clone https://github.com/loonghao/auroraview.git
 cd auroraview
 
-# 安装Rust依赖并构建
-cargo build --release
+# 安装 vx.toml 中声明的工具
+vx setup
 
-# 以开发模式安装Python包
-pip install -e .
+# 安装 Python 依赖并执行统一构建入口
+vx just install
+vx just build
+
+# 如需 release 风格的本地重建（同时刷新前端资源）
+vx just rebuild-pylib
 ```
 
 ### 测试
