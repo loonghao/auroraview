@@ -9,6 +9,7 @@
 #![allow(dead_code)]
 
 use crate::{PackError, PackResult};
+use std::ffi::OsString;
 use std::fs;
 use std::io::{Read, Write};
 
@@ -17,7 +18,7 @@ use std::process::Command;
 use std::time::{Duration, SystemTime};
 
 /// Default vx version fallback when API is unavailable
-const VX_DEFAULT_VERSION: &str = "0.7.5";
+const VX_DEFAULT_VERSION: &str = "0.8.4";
 
 /// GitHub API URL for latest release
 const VX_GITHUB_API_URL: &str = "https://api.github.com/repos/loonghao/vx/releases/latest";
@@ -62,6 +63,22 @@ pub struct VxTool {
 impl VxTool {
     /// Create a new VxTool, downloading vx if necessary
     pub fn new() -> PackResult<Self> {
+        if let Some(vx_path) = Self::find_system_vx_path() {
+            if let Ok(version) = Self::detect_version(&vx_path) {
+                tracing::info!(
+                    "Using system vx {} from PATH: {}",
+                    version,
+                    vx_path.display()
+                );
+                return Ok(Self { vx_path, version });
+            }
+
+            tracing::warn!(
+                "Found vx on PATH at {}, but version detection failed; falling back to cached/downloaded vx",
+                vx_path.display()
+            );
+        }
+
         let vx_path = Self::ensure_vx()?;
         let version = Self::detect_version(&vx_path)?;
         Ok(Self { vx_path, version })
@@ -118,6 +135,34 @@ impl VxTool {
             .join("tools")
     }
 
+    fn resolve_vx_from_path(path_var: Option<OsString>) -> Option<PathBuf> {
+        let path_var = path_var?;
+        let executable_names: &[&str] = if cfg!(windows) {
+            &["vx.exe", "vx.cmd", "vx.bat", "vx"]
+        } else {
+            &["vx"]
+        };
+
+        for dir in std::env::split_paths(&path_var) {
+            for executable_name in executable_names {
+                let candidate = dir.join(executable_name);
+                if candidate.is_file() {
+                    return Some(candidate);
+                }
+            }
+        }
+
+        None
+    }
+
+    fn find_system_vx_path() -> Option<PathBuf> {
+        if !Self::is_system_vx_available() {
+            return None;
+        }
+
+        Self::resolve_vx_from_path(std::env::var_os("PATH")).or_else(|| Some(PathBuf::from("vx")))
+    }
+
     /// Get the version cache file path
     fn get_version_cache_path() -> PathBuf {
         Self::get_cache_dir().join("vx_version_cache.json")
@@ -151,7 +196,7 @@ impl VxTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| PackError::Config("Missing tag_name in vx release".to_string()))?;
 
-        // Extract version from tag (supports "vx-v0.6.27", "v0.7.5", "0.7.5")
+        // Extract version from tag (supports "vx-v0.8.4", "v0.8.4", "0.8.4")
         let version = tag_name
             .trim_start_matches("vx-v")
             .trim_start_matches('v')
@@ -583,5 +628,27 @@ impl VxTool {
         }
 
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::VxTool;
+
+    #[test]
+    fn resolve_vx_from_path_returns_none_when_path_missing() {
+        assert_eq!(VxTool::resolve_vx_from_path(None), None);
+    }
+
+    #[test]
+    fn resolve_vx_from_path_finds_vx_binary() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let executable_name = if cfg!(windows) { "vx.exe" } else { "vx" };
+        let vx_path = dir.path().join(executable_name);
+
+        std::fs::write(&vx_path, b"vx").expect("write vx test file");
+
+        let path_var = std::env::join_paths([dir.path()]).expect("join path");
+        assert_eq!(VxTool::resolve_vx_from_path(Some(path_var)), Some(vx_path));
     }
 }
