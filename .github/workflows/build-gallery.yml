@@ -32,27 +32,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
+          install-dependencies: 'false'
+          cache-key-suffix: 'gallery-sdk-assets'
 
-      - name: Install and build auroraview-assets
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
-      - name: Install SDK dependencies
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
+      - name: Build auroraview-assets
+        run: vx just ci-assets-build
 
       - name: Build SDK assets
-        run: |
-          cd packages/auroraview-sdk
-          npm run build:assets
+        run: vx just ci-sdk-assets
 
       - name: Upload SDK assets artifact
         uses: actions/upload-artifact@v6
@@ -153,12 +143,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: gallery/package-lock.json
+          install-dependencies: 'false'
+          cache-key-suffix: 'build-gallery-${{ matrix.target }}'
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -178,56 +167,9 @@ jobs:
           pip install dist/*.whl
           python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
-      - name: Setup Bun (required by pack [build].before)
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1.90.0
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          # Install both dev and runtime libraries
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libwebkit2gtk-4.1-0 libgtk-3-dev libgtk-3-0 libayatana-appindicator3-dev libxdo-dev
-
-      - name: Build SDK first (Gallery depends on it)
-        shell: bash
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
-
-      - name: Build frontend assets (required by auroraview-assets)
-        shell: bash
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
       - name: Build Gallery frontend
         shell: bash
-        run: |
-          cd gallery
-          # Retry npm ci up to 3 times to handle transient network errors
-          for i in 1 2 3; do
-            echo "Attempt $i: Running npm ci..."
-            if npm ci; then
-              echo "npm ci succeeded on attempt $i"
-              break
-            else
-              if [ $i -eq 3 ]; then
-                echo "npm ci failed after 3 attempts"
-                exit 1
-              fi
-              echo "npm ci failed, waiting 10 seconds before retry..."
-              sleep 10
-            fi
-          done
-          npm run build
+        run: vx just gallery-ci-build
         env:
           # Frontend Sentry configuration (injected from GitHub Secrets)
           VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_DSN: ${{ secrets.SENTRY_FRONTEND_DSN }}
@@ -236,7 +178,7 @@ jobs:
           VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_TRACES_SAMPLE_RATE || '0.2' }}
 
       - name: Build CLI (for pack command)
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+        run: vx just ci-cli-build ${{ matrix.target }}
 
       - name: Pack Gallery executable (FullStack mode)
         shell: bash
@@ -310,6 +252,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
+        with:
+          install-dependencies: 'false'
+          cache-key-suffix: 'gallery-e2e-windows'
+
       - name: Download Windows artifact
         uses: actions/download-artifact@v7
         with:
@@ -323,19 +271,8 @@ jobs:
           Move-Item gallery/pack-output/target/pack/auroraview-gallery.exe gallery/pack-output/auroraview-gallery.exe -Force
           ls gallery/pack-output/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: gallery/package-lock.json
-
       - name: Install Playwright
-        shell: bash
-        run: |
-          cd gallery
-          npm install
-          npx playwright install chromium --with-deps
+        run: vx just gallery-ci-playwright-install
 
       - name: Start Gallery with CDP
         shell: pwsh

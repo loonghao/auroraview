@@ -345,10 +345,7 @@ jobs:
 
       - name: Build frontend assets (required by auroraview-assets)
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
+        run: vx just ci-assets-build
 
       - name: Check Python formatting (ruff)
         if: needs.path-filter.outputs.python == 'true' || needs.path-filter.outputs.ci == 'true'
@@ -875,52 +872,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          targets: ${{ matrix.target }}
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-
-      - name: Build frontend assets (required by auroraview-assets)
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
-      - name: Cache Rust
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-cli-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-cli-
+          install-dependencies: 'false'
+          cache-key-suffix: 'pr-cli-${{ matrix.target }}'
 
       - name: Build CLI
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+        run: vx just ci-cli-build ${{ matrix.target }}
 
       - name: Test CLI (--help)
-        shell: bash
-        run: |
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            ./target/${{ matrix.target }}/release/auroraview-cli.exe --help
-            ./target/${{ matrix.target }}/release/auroraview-cli.exe --version
-          else
-            ./target/${{ matrix.target }}/release/auroraview-cli --help
-            ./target/${{ matrix.target }}/release/auroraview-cli --version
-          fi
+        run: vx just ci-cli-smoke ${{ matrix.target }} ${{ matrix.exe-name }}
 
       # Upload CLI artifact for reuse by gallery-pack
       - name: Upload CLI artifact
@@ -946,20 +908,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: gallery/package-lock.json
+          install-dependencies: 'false'
+          cache-key-suffix: 'pr-gallery-e2e'
 
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
 
       # Download pre-built SDK package if available
       - name: Download SDK package
@@ -972,20 +930,13 @@ jobs:
       # Build SDK only if sdk-build was skipped (no SDK changes)
       - name: Build SDK (fallback)
         if: needs.sdk-build.result == 'skipped'
-        shell: bash
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
+        run: vx just sdk-build
 
       - name: Build Gallery frontend
-        shell: bash
         run: |
+          vx just gallery-ci-install
           cd gallery
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
+          vx pnpm run build
 
       - name: Install Playwright
         run: |
@@ -1121,12 +1072,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: gallery/package-lock.json
+          install-dependencies: 'false'
+          cache-key-suffix: 'pr-gallery-pack-${{ matrix.target }}'
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -1174,47 +1124,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-0 libgtk-3-0
 
       # Fallback: Build CLI only if cli-build was skipped
-      - name: Setup Rust (fallback)
-        if: needs.cli-build.result == 'skipped'
-        uses: dtolnay/rust-toolchain@1.90.0
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Install Linux dependencies (fallback)
-        if: needs.cli-build.result == 'skipped' && runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          # Install both dev and runtime libraries
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libwebkit2gtk-4.1-0 libgtk-3-dev libgtk-3-0 libayatana-appindicator3-dev libxdo-dev
-
-      - name: Setup Node.js (fallback)
-        if: needs.cli-build.result == 'skipped'
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-
-      - name: Build frontend assets (fallback)
-        if: needs.cli-build.result == 'skipped'
-        run: |
-          cd crates/auroraview-assets/frontend
-          npm install
-          npm run build
-
-      - name: Cache Rust (fallback)
-        if: needs.cli-build.result == 'skipped'
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-gallery-pack-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-gallery-pack-
-
       - name: Build CLI (fallback)
         if: needs.cli-build.result == 'skipped'
-        run: cargo build -p auroraview-cli --release --target ${{ matrix.target }}
+        run: vx just ci-cli-build ${{ matrix.target }}
 
       # Download pre-built SDK package if available
       - name: Download SDK package
@@ -1227,20 +1139,13 @@ jobs:
       # Build SDK only if sdk-build was skipped
       - name: Build SDK (fallback)
         if: needs.sdk-build.result == 'skipped'
-        shell: bash
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
+        run: vx just sdk-build
 
       - name: Build Gallery frontend
-        shell: bash
         run: |
+          vx just gallery-ci-install
           cd gallery
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
+          vx pnpm run build
 
       - name: Pack Gallery (generate executable)
         shell: bash
@@ -1369,18 +1274,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
         with:
-          node-version: '20'
-
-      - name: Install dependencies
-        working-directory: docs
-        run: npm install
+          install-dependencies: 'false'
+          cache-key-suffix: 'pr-docs'
 
       - name: Build docs
-        working-directory: docs
-        run: npm run build
+        run: vx just ci-docs-build
 
       - name: Upload docs artifact
         uses: actions/upload-artifact@v6
