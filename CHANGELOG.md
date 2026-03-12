@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.10](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.9...auroraview-v0.4.10) (2026-03-12)
+
+
+### Features
+
+* switch gallery e2e screenshots to playwright ([9718655](https://github.com/loonghao/auroraview/commit/97186555d9c7dc35b45cf59e275f06eb05ddbbd2))
+
+
+### Bug Fixes
+
+* **ci:** replace deprecated windows-2019, add bun setup, run vx ensure before build ([fb5cf31](https://github.com/loonghao/auroraview/commit/fb5cf31aabeb0be9f43906a9feb39deeb48c658b))
+
 ## [0.4.9](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.8...auroraview-v0.4.9) (2026-03-01)
 
 
