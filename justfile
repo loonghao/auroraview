@@ -16,7 +16,11 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set shell := ["sh", "-c"]
 
+# Windows Rust target
+windows_rust_target := "x86_64-pc-windows-msvc"
+
 # Default recipe to display help
+
 default:
     @just --list
 
@@ -97,40 +101,65 @@ install:
 
 # Build the extension module
 build:
-    @echo "Building extension module..."
-    vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "Building extension module for {{windows_rust_target}}..."
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 # Build with release optimizations
 build-release:
-    @echo "Building release version..."
-    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "Building release version for {{windows_rust_target}}..."
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --release --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"
+
+# Stop common host processes that may lock python/auroraview/_core.pyd
+# Also rename locked proc-macro DLLs in target/release/deps/ (Windows linker LNK1104 workaround)
+[windows]
+unlock-pylib:
+    @echo "Stopping common processes that may lock _core.pyd..."
+    -@powershell -NoLogo -Command "Get-Process -Name python,pythonw,maya,3dsmax,houdini,nuke,blender,ue4editor,ue5editor -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host '[OK] Process cleanup completed.'"
+    @echo "Checking for locked proc-macro DLLs in target/release/deps/..."
+    -@powershell -NoLogo -Command "if (Test-Path 'target/release/deps') { Get-ChildItem 'target/release/deps/*.dll' -ErrorAction SilentlyContinue | ForEach-Object { try { [IO.File]::OpenWrite($_.FullName).Close() } catch { Rename-Item $_.FullName ($_.Name + '.bak') -Force -ErrorAction SilentlyContinue; Write-Host ('  Renamed locked: ' + $_.Name) } }; Get-ChildItem 'target/release/deps/*.dll.bak' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue; Write-Host '[OK] Proc-macro DLL check completed.' } else { Write-Host '[OK] No target/release/deps/ found, skipping.' }"
 
 # Build Python library (PyO3 bindings)
 rebuild-pylib: assets-build sdk-build-assets
-    @echo "Building Python library with maturin..."
-    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "Building Python library with maturin for {{windows_rust_target}}..."
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --release --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"; if ($LASTEXITCODE -ne 0) { Write-Host '[ERROR] maturin develop failed. If you see os error 32, run: just unlock-pylib && just rebuild-pylib'; exit $LASTEXITCODE }
     @echo "[OK] Python library rebuilt and installed successfully!"
+
+# Safe rebuild for Windows: unlock processes first, then rebuild
+[windows]
+rebuild-pylib-safe: unlock-pylib rebuild-pylib
+    @echo "[OK] Safe rebuild completed."
+
+# Nuclear option: rename locked target directory and rebuild from scratch
+# Use when proc-macro DLLs are persistently locked (LNK1104 errors)
+[windows]
+nuke-target:
+    @echo "Renaming target/ to target_old/ to bypass locked DLLs..."
+    -@powershell -NoLogo -Command "if (Test-Path 'target') { $ts = Get-Date -Format 'yyyyMMdd_HHmmss'; $dest = \"target_old_$ts\"; Rename-Item 'target' $dest; Write-Host \"[OK] target/ renamed to $dest\" } else { Write-Host '[OK] No target/ directory found' }"
+    @echo "Ready for a clean rebuild. Run: just rebuild-pylib"
 
 # Build Python library with verbose output
 rebuild-pylib-verbose:
-    @echo "Building Python library with maturin (verbose)..."
-    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
+    @echo "Building Python library with maturin (verbose) for {{windows_rust_target}}..."
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --release --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build CLI binary
 build-cli:
-    @echo "Building CLI binary..."
-    vx cargo build -p auroraview-cli --release
-    @echo "[OK] CLI built: target/release/auroraview.exe"
+    @echo "Building CLI binary for {{windows_rust_target}}..."
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo build -p auroraview-cli --release --target {{windows_rust_target}}
+    @echo "[OK] CLI built: target/{{windows_rust_target}}/release/auroraview.exe"
 
 # Build all workspace crates (including SDK assets)
 build-all: sdk-build-all
-    @echo "Building all workspace crates..."
-    vx cargo build -p auroraview-core
-    vx cargo build -p auroraview-pack
-    vx cargo build -p auroraview-cli --release
-    vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    @echo "Building all workspace crates for {{windows_rust_target}}..."
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo build -p auroraview-core --target {{windows_rust_target}}
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo build -p auroraview-pack --target {{windows_rust_target}}
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo build -p auroraview-cli --release --target {{windows_rust_target}}
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --release --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] All crates built successfully!"
+
+
+
 
 # Run all tests
 [unix]
@@ -423,9 +452,12 @@ ci-build:
 
 [windows]
 ci-build:
-    @echo "Building extension for CI (Windows)..."
+    @echo "Building extension for CI (Windows, {{windows_rust_target}})..."
     vx uv pip install maturin
-    vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin develop --target {{windows_rust_target}} --features "ext-module,python-bindings,abi3-py38,win-webview2"
+
+
+
 
 ci-test-rust:
     @echo "Running Rust doc tests..."
@@ -534,9 +566,12 @@ dev: install build
 
 # Build release wheels
 release:
-    @echo "Building release wheels..."
-    vx uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
+    @echo "Building release wheels for {{windows_rust_target}}..."
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin build --release --target {{windows_rust_target}} --features "ext-module,python-bindings,win-webview2"
     @echo "Wheels built in target/wheels/"
+
+
+
 
 # Run examples
 example EXAMPLE:
@@ -817,9 +852,12 @@ docs-screenshots: gallery-screenshots example-screenshots
 
 # Build wheel
 build-wheel:
-    @echo "Building Python wheel..."
-    vx uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
+    @echo "Building Python wheel for {{windows_rust_target}}..."
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc uv run maturin build --release --target {{windows_rust_target}} --features "ext-module,python-bindings,win-webview2"
     @echo "[OK] Wheel built in target/wheels/"
+
+
+
 
 # Pack Gallery into standalone executable
 gallery-pack: assets-build gallery-build
@@ -909,32 +947,36 @@ lint-pack:
 
 # Pack a URL into standalone executable
 pack-url URL OUTPUT="myapp":
-    @echo "Packing URL: {{URL}} -> {{OUTPUT}}.exe"
-    vx cargo run -p auroraview-cli --release -- pack --url "{{URL}}" --output "{{OUTPUT}}"
+    @echo "Packing URL: {{URL}} -> {{OUTPUT}}.exe ({{windows_rust_target}})"
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- pack --url "{{URL}}" --output "{{OUTPUT}}"
     @echo "[OK] Packed to target/pack/{{OUTPUT}}/"
 
 # Pack a frontend directory into standalone executable
 pack-frontend FRONTEND OUTPUT="myapp":
-    @echo "Packing frontend: {{FRONTEND}} -> {{OUTPUT}}.exe"
-    vx cargo run -p auroraview-cli --release -- pack --frontend "{{FRONTEND}}" --output "{{OUTPUT}}"
+    @echo "Packing frontend: {{FRONTEND}} -> {{OUTPUT}}.exe ({{windows_rust_target}})"
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- pack --frontend "{{FRONTEND}}" --output "{{OUTPUT}}"
     @echo "[OK] Packed to target/pack/{{OUTPUT}}/"
 
 # Pack using a config file
 pack-config CONFIG:
-    @echo "Packing with config: {{CONFIG}}"
-    vx cargo run -p auroraview-cli --release -- pack --config "{{CONFIG}}"
+    @echo "Packing with config: {{CONFIG}} ({{windows_rust_target}})"
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- pack --config "{{CONFIG}}"
     @echo "[OK] Pack completed!"
 
 # Pack and build in one step
 pack-build CONFIG:
-    @echo "Packing and building with config: {{CONFIG}}"
-    vx cargo run -p auroraview-cli --release -- pack --config "{{CONFIG}}" --build
+    @echo "Packing and building with config: {{CONFIG}} ({{windows_rust_target}})"
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- pack --config "{{CONFIG}}" --build
     @echo "[OK] Pack and build completed!"
 
 # Show pack info for a config file
 pack-info CONFIG:
-    @echo "Pack info for: {{CONFIG}}"
-    vx cargo run -p auroraview-cli --release -- info --config "{{CONFIG}}"
+    @echo "Pack info for: {{CONFIG}} ({{windows_rust_target}})"
+
+    $env:CARGO="$env:USERPROFILE\.cargo\bin\cargo.exe"; $env:RUSTC="$env:USERPROFILE\.cargo\bin\rustc.exe"; vx --with msvc cargo run -p auroraview-cli --release --target {{windows_rust_target}} -- info --config "{{CONFIG}}"
+
+
+
 
 # Clean pack output directory
 pack-clean:

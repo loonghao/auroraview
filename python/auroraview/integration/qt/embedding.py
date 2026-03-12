@@ -195,6 +195,10 @@ class EmbeddingMixin:
         # Fix WebView2 child windows
         self._schedule_child_window_fixes(webview_hwnd)
 
+        # DEBUG: dump Qt widget hierarchy styles
+        if sys.platform == "win32":
+            self._debug_dump_qt_layers("_create_container_direct COMPLETE", webview_hwnd)
+
         logger.info(f"[EmbeddingMixin] Direct embedding successful: HWND=0x{webview_hwnd:X}")
 
     def _schedule_child_window_fixes(self, webview_hwnd: int) -> None:
@@ -301,6 +305,8 @@ class EmbeddingMixin:
         self._force_container_geometry()
 
         # Step 9: Fix WebView2 child windows for Qt6 compatibility
+        # Call Rust-side fix immediately, then schedule Python-side delayed fixes
+        # for child windows that WebView2 creates asynchronously.
         if sys.platform == "win32":
             try:
                 import auroraview
@@ -316,10 +322,55 @@ class EmbeddingMixin:
                 if _VERBOSE_LOGGING:
                     logger.debug(f"[EmbeddingMixin] fix_webview2_child_windows failed: {e}")
 
+            # Schedule delayed Python-side fixes for async child windows
+            self._schedule_child_window_fixes(webview_hwnd)
+
         if _VERBOSE_LOGGING:
             logger.debug(
                 "[EmbeddingMixin] Container created successfully for HWND=0x%X", webview_hwnd
             )
+
+        # DEBUG: dump Qt widget hierarchy styles
+        if sys.platform == "win32":
+            self._debug_dump_qt_layers("_create_container_qt COMPLETE", webview_hwnd)
+
+    def _debug_dump_qt_layers(self, tag: str, webview_hwnd: int) -> None:
+        """Debug: dump Win32 styles of all Qt layers to identify white border source."""
+        try:
+            from auroraview.integration.qt.platforms.win import _dump_hwnd_styles
+
+            logger.info(f"[DEBUG-LAYERS] === {tag} ===")
+
+            # Self (QtWebView)
+            self_hwnd = int(self.winId())  # type: ignore[attr-defined]
+            if self_hwnd:
+                _dump_hwnd_styles(self_hwnd, "QtWebView")
+
+            # QStackedWidget
+            stack = getattr(self, "_stack", None)
+            if stack:
+                stack_hwnd = int(stack.winId())
+                _dump_hwnd_styles(stack_hwnd, "QStackedWidget")
+
+            # _webview_page
+            page = getattr(self, "_webview_page", None)
+            if page:
+                page_hwnd = int(page.winId())
+                _dump_hwnd_styles(page_hwnd, "_webview_page")
+
+            # _webview_container
+            container = getattr(self, "_webview_container", None)
+            if container:
+                container_hwnd = int(container.winId())
+                _dump_hwnd_styles(container_hwnd, "_webview_container")
+
+            # tao / Rust WebView HWND
+            if webview_hwnd:
+                _dump_hwnd_styles(webview_hwnd, "tao/Rust HWND")
+
+            logger.info(f"[DEBUG-LAYERS] === END {tag} ===")
+        except Exception as e:
+            logger.debug(f"[DEBUG-LAYERS] Failed: {e}")
 
     def _sync_embedded_geometry(self) -> None:
         """Resize the embedded native WebView window to match this QWidget.

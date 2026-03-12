@@ -35,8 +35,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongW, SetParent, SetWindowLongPtrW, SetWindowLongW, SetWindowPos, GWLP_HWNDPARENT,
     GWL_EXSTYLE, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
     WS_BORDER, WS_CAPTION, WS_CHILD, WS_CLIPCHILDREN, WS_DLGFRAME, WS_EX_CLIENTEDGE,
-    WS_EX_DLGMODALFRAME, WS_EX_LAYERED, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE,
-    WS_POPUP, WS_THICKFRAME,
+    WS_EX_CONTEXTHELP, WS_EX_DLGMODALFRAME, WS_EX_LAYERED, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW,
+    WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
 };
 
 /// Options for applying child window style
@@ -119,13 +119,15 @@ pub fn apply_child_window_style(
             & !(WS_DLGFRAME.0 as i32))
             | (WS_CHILD.0 as i32);
 
-        // Remove extended styles that can cause white borders
-        // WS_EX_STATICEDGE, WS_EX_CLIENTEDGE, WS_EX_WINDOWEDGE are particularly problematic
+        // Remove ALL extended styles that can cause white borders or visible edges.
+        // WS_EX_STATICEDGE, WS_EX_CLIENTEDGE, WS_EX_WINDOWEDGE, WS_EX_DLGMODALFRAME are the
+        // main culprits; WS_EX_CONTEXTHELP can add a frame in some themes.
         let new_ex_style = ex_style
             & !(WS_EX_STATICEDGE.0 as i32)
             & !(WS_EX_CLIENTEDGE.0 as i32)
             & !(WS_EX_WINDOWEDGE.0 as i32)
-            & !(WS_EX_DLGMODALFRAME.0 as i32);
+            & !(WS_EX_DLGMODALFRAME.0 as i32)
+            & !(WS_EX_CONTEXTHELP.0 as i32);
 
         SetWindowLongW(hwnd_win, GWL_STYLE, new_style);
         SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
@@ -371,6 +373,7 @@ pub fn compute_frameless_window_styles(style: i32, ex_style: i32) -> (i32, i32) 
     const WS_EX_WINDOWEDGE_BITS: i32 = 0x00000100;
     const WS_EX_CLIENTEDGE_BITS: i32 = 0x00000200;
     const WS_EX_STATICEDGE_BITS: i32 = 0x00020000;
+    const WS_EX_CONTEXTHELP_BITS: i32 = 0x00000400;
 
     let new_style = style
         & !WS_CAPTION_BITS
@@ -385,7 +388,8 @@ pub fn compute_frameless_window_styles(style: i32, ex_style: i32) -> (i32, i32) 
         & !WS_EX_DLGMODALFRAME_BITS
         & !WS_EX_WINDOWEDGE_BITS
         & !WS_EX_CLIENTEDGE_BITS
-        & !WS_EX_STATICEDGE_BITS;
+        & !WS_EX_STATICEDGE_BITS
+        & !WS_EX_CONTEXTHELP_BITS;
 
     (new_style, new_ex_style)
 }
@@ -618,6 +622,42 @@ pub fn disable_window_shadow(hwnd: isize) {
 /// Stub for non-Windows platforms
 #[cfg(not(target_os = "windows"))]
 pub fn disable_window_shadow(_hwnd: isize) {
+    // No-op on non-Windows platforms
+}
+
+/// Set the window class background brush to dark color to avoid white border/flash.
+///
+/// Any unpainted area of the window (e.g. before WebView2 draws) will use this color
+/// instead of the system default white. Uses the same dark as DARK_BACKGROUND (#020617).
+///
+/// # Arguments
+/// * `hwnd` - Handle to the window (its class will get the new background brush)
+#[cfg(target_os = "windows")]
+pub fn set_window_class_dark_background(hwnd: isize) {
+    use std::sync::OnceLock;
+    use windows::Win32::Foundation::COLORREF;
+    use windows::Win32::Graphics::Gdi::CreateSolidBrush;
+    use windows::Win32::UI::WindowsAndMessaging::{GET_CLASS_LONG_INDEX, SetClassLongPtrW};
+
+    static DARK_BACKGROUND_BRUSH: OnceLock<isize> = OnceLock::new();
+
+    unsafe {
+        let hwnd_win = HWND(hwnd as *mut _);
+        // COLORREF uses 0x00bbggrr layout. #020617 => 0x00170602.
+        let brush = *DARK_BACKGROUND_BRUSH
+            .get_or_init(|| CreateSolidBrush(COLORREF(0x00170602)).0 as isize);
+        // GCLP_HBRBACKGROUND = -10
+        let _ = SetClassLongPtrW(hwnd_win, GET_CLASS_LONG_INDEX(-10), brush);
+        tracing::debug!(
+            "Set window class dark background: HWND 0x{:X} (brush #020617)",
+            hwnd
+        );
+    }
+}
+
+/// Stub for non-Windows platforms
+#[cfg(not(target_os = "windows"))]
+pub fn set_window_class_dark_background(_hwnd: isize) {
     // No-op on non-Windows platforms
 }
 

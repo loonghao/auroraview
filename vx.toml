@@ -4,6 +4,8 @@ python = "3.11"
 rcedit = "latest"
 rust = "1.90.0"
 uv = "latest"
+msvc = "14.42"
+
 
 [settings]
 auto_install = true

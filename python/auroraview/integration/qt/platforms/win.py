@@ -85,13 +85,14 @@ WS_BORDER = 0x00800000
 WS_DLGFRAME = 0x00400000
 WS_OVERLAPPEDWINDOW = 0x00CF0000
 
-# Extended window styles
+    # Extended window styles
+WS_EX_DLGMODALFRAME = 0x00000001
+WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_WINDOWEDGE = 0x00000100
 WS_EX_CLIENTEDGE = 0x00000200
-WS_EX_APPWINDOW = 0x00040000
-WS_EX_TOOLWINDOW = 0x00000080
+WS_EX_CONTEXTHELP = 0x00000400
 WS_EX_STATICEDGE = 0x00020000
-WS_EX_DLGMODALFRAME = 0x00000001
+WS_EX_APPWINDOW = 0x00040000
 WS_EX_LAYERED = 0x00080000
 
 # Clipping styles for reducing flicker
@@ -107,6 +108,87 @@ SWP_NOACTIVATE = 0x0010
 
 # Layered window alpha flag
 LWA_ALPHA = 0x00000002
+
+
+def _dump_hwnd_styles(hwnd, label=""):
+    """Debug helper: dump Win32 styles of a HWND to logger."""
+    try:
+        style = GetWindowLong(hwnd, GWL_STYLE) & 0xFFFFFFFF
+        ex_style = GetWindowLong(hwnd, GWL_EXSTYLE) & 0xFFFFFFFF
+
+        # Decode key style bits
+        parts = []
+        if style & WS_CHILD:
+            parts.append("WS_CHILD")
+        if style & WS_POPUP:
+            parts.append("WS_POPUP")
+        if style & 0x10000000:
+            parts.append("WS_VISIBLE")
+        if style & WS_BORDER:
+            parts.append("WS_BORDER")
+        if style & WS_DLGFRAME:
+            parts.append("WS_DLGFRAME")
+        if style & WS_CAPTION:
+            parts.append("WS_CAPTION")
+        if style & WS_THICKFRAME:
+            parts.append("WS_THICKFRAME")
+        if style & WS_CLIPCHILDREN:
+            parts.append("WS_CLIPCHILDREN")
+        if style & WS_CLIPSIBLINGS:
+            parts.append("WS_CLIPSIBLINGS")
+
+        ex_parts = []
+        if ex_style & WS_EX_CLIENTEDGE:
+            ex_parts.append("WS_EX_CLIENTEDGE")
+        if ex_style & WS_EX_STATICEDGE:
+            ex_parts.append("WS_EX_STATICEDGE")
+        if ex_style & WS_EX_WINDOWEDGE:
+            ex_parts.append("WS_EX_WINDOWEDGE")
+        if ex_style & WS_EX_DLGMODALFRAME:
+            ex_parts.append("WS_EX_DLGMODALFRAME")
+        if ex_style & WS_EX_CONTEXTHELP:
+            ex_parts.append("WS_EX_CONTEXTHELP")
+        if ex_style & WS_EX_APPWINDOW:
+            ex_parts.append("WS_EX_APPWINDOW")
+        if ex_style & WS_EX_TOOLWINDOW:
+            ex_parts.append("WS_EX_TOOLWINDOW")
+        if ex_style & WS_EX_LAYERED:
+            ex_parts.append("WS_EX_LAYERED")
+
+        # Get class name
+        buf = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, buf, 256)
+        class_name = buf.value
+
+        # Window rect vs client rect (detect NC area)
+        class RECT(ctypes.Structure):
+            _fields_ = [
+                ("left", ctypes.c_long), ("top", ctypes.c_long),
+                ("right", ctypes.c_long), ("bottom", ctypes.c_long),
+            ]
+
+        wr = RECT()
+        cr = RECT()
+        user32.GetWindowRect(hwnd, ctypes.byref(wr))
+        user32.GetClientRect(hwnd, ctypes.byref(cr))
+        wr_w = wr.right - wr.left
+        wr_h = wr.bottom - wr.top
+        cr_w = cr.right - cr.left
+        cr_h = cr.bottom - cr.top
+
+        nc_info = ""
+        if wr_w != cr_w or wr_h != cr_h:
+            nc_info = f" NC_AREA={wr_w - cr_w}x{wr_h - cr_h}"
+
+        tag = f" [{label}]" if label else ""
+        logger.info(
+            f"[DEBUG-STYLES]{tag} HWND=0x{hwnd:08X} class='{class_name}' "
+            f"style=0x{style:08X}[{','.join(parts)}] "
+            f"ex=0x{ex_style:08X}[{','.join(ex_parts)}] "
+            f"size={wr_w}x{wr_h} client={cr_w}x{cr_h}{nc_info}"
+        )
+    except Exception as e:
+        logger.debug(f"[DEBUG-STYLES] Failed to dump HWND 0x{hwnd:X}: {e}")
 
 
 class WindowsPlatformBackend(PlatformBackend):
@@ -146,6 +228,10 @@ class WindowsPlatformBackend(PlatformBackend):
             True if successful, False otherwise.
         """
         try:
+            # DEBUG: Dump styles BEFORE modification
+            _dump_hwnd_styles(child_hwnd, "embed_window_directly BEFORE child")
+            _dump_hwnd_styles(parent_hwnd, "embed_window_directly BEFORE parent")
+
             # Step 1: Get current styles
             style = GetWindowLong(child_hwnd, GWL_STYLE)
             ex_style = GetWindowLong(child_hwnd, GWL_EXSTYLE)
@@ -169,7 +255,7 @@ class WindowsPlatformBackend(PlatformBackend):
             # Step 3: Add WS_CHILD and WS_CLIPSIBLINGS
             style |= WS_CHILD | WS_CLIPSIBLINGS
 
-            # Step 4: Remove extended styles that can cause issues
+            # Step 4: Remove extended styles that can cause white borders
             ex_style &= ~(
                 WS_EX_WINDOWEDGE
                 | WS_EX_CLIENTEDGE
@@ -177,6 +263,7 @@ class WindowsPlatformBackend(PlatformBackend):
                 | WS_EX_TOOLWINDOW
                 | WS_EX_STATICEDGE
                 | WS_EX_DLGMODALFRAME
+                | WS_EX_CONTEXTHELP
             )
 
             # Step 5: Apply new styles BEFORE SetParent
@@ -226,6 +313,11 @@ class WindowsPlatformBackend(PlatformBackend):
                     f"ex_style=0x{old_ex_style:08X}->0x{ex_style:08X}, "
                     f"size={width}x{height})"
                 )
+
+            # DEBUG: Dump styles AFTER all modifications
+            _dump_hwnd_styles(child_hwnd, "embed_window_directly AFTER child")
+            _dump_hwnd_styles(parent_hwnd, "embed_window_directly AFTER parent")
+
             return True
 
         except Exception as e:
@@ -283,8 +375,20 @@ class WindowsPlatformBackend(PlatformBackend):
                         new_style = (style | WS_CHILD | WS_CLIPSIBLINGS) & ~WS_POPUP
                         SetWindowLong(child_hwnd, GWL_STYLE, new_style)
 
-                        # Remove problematic extended styles
-                        new_ex_style = ex_style & ~(WS_EX_APPWINDOW | WS_EX_TOOLWINDOW)
+                        # Remove ALL problematic extended styles that cause white borders
+                        # Match Rust side: WS_EX_STATICEDGE, WS_EX_CLIENTEDGE,
+                        # WS_EX_WINDOWEDGE, WS_EX_DLGMODALFRAME, WS_EX_CONTEXTHELP,
+                        # WS_EX_APPWINDOW, WS_EX_TOOLWINDOW
+                        border_ex_mask = (
+                            WS_EX_STATICEDGE
+                            | WS_EX_CLIENTEDGE
+                            | WS_EX_WINDOWEDGE
+                            | WS_EX_DLGMODALFRAME
+                            | WS_EX_CONTEXTHELP
+                            | WS_EX_APPWINDOW
+                            | WS_EX_TOOLWINDOW
+                        )
+                        new_ex_style = ex_style & ~border_ex_mask
                         if new_ex_style != ex_style:
                             SetWindowLong(child_hwnd, GWL_EXSTYLE, new_ex_style)
 
@@ -404,7 +508,7 @@ class WindowsPlatformBackend(PlatformBackend):
             # Also add WS_CLIPSIBLINGS for child window
             style |= WS_CHILD | WS_CLIPSIBLINGS
 
-            # Remove extended styles that can cause issues (comprehensive)
+            # Remove extended styles that can cause white borders (comprehensive)
             ex_style &= ~(
                 WS_EX_WINDOWEDGE
                 | WS_EX_CLIENTEDGE
@@ -412,6 +516,7 @@ class WindowsPlatformBackend(PlatformBackend):
                 | WS_EX_TOOLWINDOW
                 | WS_EX_STATICEDGE
                 | WS_EX_DLGMODALFRAME
+                | WS_EX_CONTEXTHELP
             )
 
             # Apply new styles

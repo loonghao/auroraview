@@ -49,7 +49,7 @@ from typing import Any, Callable, Optional
 
 try:
     from qtpy.QtCore import QCoreApplication, QEvent, Qt, QTimer, Signal
-    from qtpy.QtWidgets import QLabel, QStackedWidget, QVBoxLayout, QWidget
+    from qtpy.QtWidgets import QFrame, QLabel, QStackedWidget, QVBoxLayout, QWidget
 except ImportError as e:
     raise ImportError(
         "Qt backend requires qtpy and Qt bindings. Install with: pip install auroraview[qt]"
@@ -258,7 +258,7 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
             if _VERBOSE_LOGGING:
                 logger.info("QtWebView: Transparent background enabled")
         else:
-            self.setStyleSheet("background: #0d0d0d; border: none; margin: 0; padding: 0;")
+            self.setStyleSheet("background: #0d0d0d; border: 0px; margin: 0px; padding: 0px;")
             self.setContentsMargins(0, 0, 0, 0)
 
         # Native window attributes
@@ -312,6 +312,11 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
         self._layout.setSpacing(0)
 
         self._stack = QStackedWidget()
+        self._stack.setFrameShape(QFrame.NoFrame)
+        self._stack.setContentsMargins(0, 0, 0, 0)
+        self._stack.setStyleSheet(
+            "QStackedWidget { border: none; margin: 0; padding: 0; background-color: #0d0d0d; }"
+        )
         self._layout.addWidget(self._stack)
 
         # Page 0: Loading page
@@ -320,6 +325,8 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
 
         # Page 1: WebView page
         self._webview_page = QWidget()
+        self._webview_page.setContentsMargins(0, 0, 0, 0)
+        self._webview_page.setStyleSheet("background-color: #0d0d0d; border: none;")
         self._webview_page_layout = QVBoxLayout(self._webview_page)
         self._webview_page_layout.setContentsMargins(0, 0, 0, 0)
         self._webview_page_layout.setSpacing(0)
