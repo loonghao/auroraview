@@ -174,6 +174,7 @@ pub fn load_disabled_extensions() -> std::collections::HashSet<String> {
 }
 
 /// Check if the given directory contains at least one valid extension directory
+#[allow(dead_code)]
 pub fn has_extensions_in_dir(dir: &Path) -> bool {
     if !dir.exists() {
         return false;
@@ -226,6 +227,7 @@ pub fn has_extensions() -> bool {
 }
 
 /// Build per-app active extension directory that contains only enabled extensions
+#[allow(dead_code)]
 pub fn prepare_active_extensions_dir(runtime_enabled: bool) -> std::io::Result<PathBuf> {
     let source_dir = get_extensions_dir();
     let app_name = std::env::current_exe()
@@ -280,6 +282,7 @@ pub fn prepare_active_extensions_dir(runtime_enabled: bool) -> std::io::Result<P
     Ok(active_dir)
 }
 
+#[allow(dead_code)]
 fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {

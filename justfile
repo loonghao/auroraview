@@ -108,9 +108,9 @@ build: assets-build sdk-build-assets
 [windows]
 build: assets-build sdk-build-assets
     @echo "Building extension module with MSVC..."
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; $msvcBin = Join-Path $env:VCToolsInstallDir "bin\Hostx64\x64"; $env:PATH = "$msvcBin;$env:PATH"; $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = Join-Path $msvcBin "link.exe"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using linker: $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"; vx --with msvc rustc -vV
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo -vV
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 # Build with release optimizations
 [unix]
@@ -121,9 +121,9 @@ build-release: assets-build sdk-build-assets
 [windows]
 build-release: assets-build sdk-build-assets
     @echo "Building release version with MSVC..."
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; $msvcBin = Join-Path $env:VCToolsInstallDir "bin\Hostx64\x64"; $env:PATH = "$msvcBin;$env:PATH"; $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = Join-Path $msvcBin "link.exe"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using linker: $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"; vx --with msvc rustc -vV
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo -vV
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 # Build Python library (PyO3 bindings)
 [unix]
@@ -135,9 +135,9 @@ rebuild-pylib: assets-build sdk-build-assets
 [windows]
 rebuild-pylib: assets-build sdk-build-assets
     @echo "Building Python library with maturin (MSVC)..."
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; $msvcBin = Join-Path $env:VCToolsInstallDir "bin\Hostx64\x64"; $env:PATH = "$msvcBin;$env:PATH"; $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = Join-Path $msvcBin "link.exe"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using linker: $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"; vx --with msvc rustc -vV
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo -vV
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build Python library with verbose output
@@ -150,9 +150,9 @@ rebuild-pylib-verbose: assets-build sdk-build-assets
 [windows]
 rebuild-pylib-verbose: assets-build sdk-build-assets
     @echo "Building Python library with maturin (verbose, MSVC)..."
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; $msvcBin = Join-Path $env:VCToolsInstallDir "bin\Hostx64\x64"; $env:PATH = "$msvcBin;$env:PATH"; $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = Join-Path $msvcBin "link.exe"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using linker: $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"; vx --with msvc rustc -vV
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo -vV
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 # Build CLI binary
@@ -174,11 +174,11 @@ build-all: assets-build sdk-build-all
 [windows]
 build-all: assets-build sdk-build-all
     @echo "Building all workspace crates with MSVC..."
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; $msvcBin = Join-Path $env:VCToolsInstallDir "bin\Hostx64\x64"; $env:PATH = "$msvcBin;$env:PATH"; $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = Join-Path $msvcBin "link.exe"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using linker: $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"; vx --with msvc rustc -vV
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo build -p auroraview-core
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo build -p auroraview-pack
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc cargo build -p auroraview-cli --release
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx --with msvc uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo build -p auroraview-core
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo build -p auroraview-pack
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo build -p auroraview-cli --release
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] All crates built successfully!"
 
 # Run all tests
@@ -504,7 +504,7 @@ ci-build: ci-assets-build ci-sdk-assets
     vx uv pip install maturin
     $pyMinor = [int](vx uv run python -c "import sys; print(sys.version_info[1])")
     if ($pyMinor -ge 8) { $features = "ext-module,python-bindings,abi3-py38,win-webview2" } else { $features = "ext-module,python-bindings,win-webview2" }
-    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; $msvcBin = Join-Path $env:VCToolsInstallDir "bin\Hostx64\x64"; $env:PATH = "$msvcBin;$env:PATH"; $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = Join-Path $msvcBin "link.exe"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using linker: $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"; Write-Host "Using maturin features: $features"; vx --with msvc uv run maturin develop --features $features
+    $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using maturin features: $features"; vx uv run maturin develop --features $features
 
 [unix]
 ci-docs-rust: ci-assets-build
@@ -533,7 +533,7 @@ ci-cli-build TARGET:
     @echo "Building CLI for target {{TARGET}}..."
     vx rustup target add "{{TARGET}}"
     vx just ci-assets-build
-    $env:CARGO_BUILD_TARGET = "{{TARGET}}"; $msvcBin = Join-Path $env:VCToolsInstallDir "bin\Hostx64\x64"; $env:PATH = "$msvcBin;$env:PATH"; $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = Join-Path $msvcBin "link.exe"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; Write-Host "Using linker: $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"; vx --with msvc cargo build -p auroraview-cli --release --target "{{TARGET}}"
+    $env:CARGO_BUILD_TARGET = "{{TARGET}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx cargo build -p auroraview-cli --release --target "{{TARGET}}"
     @echo "[OK] CLI built: target/{{TARGET}}/release/"
 
 [unix]
