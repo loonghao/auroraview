@@ -455,7 +455,8 @@ impl NativeBackend {
             GetWindowLongW, SetWindowLongPtrW, SetWindowLongW, SetWindowPos, GWLP_WNDPROC,
             GWL_EXSTYLE, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
             SWP_NOZORDER, WNDPROC, WS_BORDER, WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE,
-            WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
+            WS_EX_CONTEXTHELP, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_POPUP,
+            WS_THICKFRAME,
         };
 
         // WM_NCHITTEST message constant
@@ -597,6 +598,10 @@ impl NativeBackend {
                 }
             }
 
+            // Set dark background brush on every child window to prevent white
+            // edges from appearing when the window is partially painted.
+            auroraview_core::builder::set_window_class_dark_background(child_hwnd.0 as isize);
+
             // Only fix windows that aren't already proper child windows
             if has_popup || has_caption || has_thickframe || !is_child {
                 // Remove problematic styles and ensure WS_CHILD
@@ -608,18 +613,22 @@ impl NativeBackend {
                     & !(WS_DLGFRAME.0 as i32))
                     | (WS_CHILD.0 as i32);
 
-                // Remove extended styles that can cause issues
+                // Remove extended styles that can cause white borders (match window_style.rs)
                 let new_ex_style = ex_style
                     & !(WS_EX_STATICEDGE.0 as i32)
                     & !(WS_EX_CLIENTEDGE.0 as i32)
                     & !(WS_EX_WINDOWEDGE.0 as i32)
-                    & !(WS_EX_DLGMODALFRAME.0 as i32);
+                    & !(WS_EX_DLGMODALFRAME.0 as i32)
+                    & !(WS_EX_CONTEXTHELP.0 as i32);
 
                 if new_style != style || new_ex_style != ex_style {
                     SetWindowLongW(child_hwnd, GWL_STYLE, new_style);
                     SetWindowLongW(child_hwnd, GWL_EXSTYLE, new_ex_style);
 
-                    // Apply changes
+                    // Subclass to intercept WM_NCCALCSIZE and force zero NC area
+                    auroraview_core::builder::subclass_for_zero_nc_area(child_hwnd.0 as isize);
+
+                    // Apply changes with SWP_FRAMECHANGED
                     let _ = SetWindowPos(
                         child_hwnd,
                         None,
@@ -943,9 +952,10 @@ impl NativeBackend {
         if let Some(hwnd_value) = cached_hwnd {
             use crate::webview::config::EmbedMode;
             use auroraview_core::builder::{
-                apply_frameless_popup_window_style, apply_frameless_window_style,
-                apply_owner_window_style, apply_tool_window_style, disable_window_shadow,
-                remove_clip_children_style,
+                apply_child_window_style, apply_frameless_popup_window_style,
+                apply_frameless_window_style, apply_owner_window_style, apply_tool_window_style,
+                disable_window_shadow, extend_frame_into_client_area, remove_clip_children_style,
+                set_window_class_dark_background, ChildWindowStyleOptions,
             };
 
             // Force-remove title bar/borders if decorations are disabled.
@@ -965,10 +975,23 @@ impl NativeBackend {
 
             match config.embed_mode {
                 EmbedMode::Child => {
-                    // For Child mode, tao's with_parent_window handles WS_CHILD automatically
-                    tracing::info!(
-                        "[OK] [NativeBackend] Child mode: tao's with_parent_window sets WS_CHILD"
-                    );
+                    // For Child mode, tao's with_parent_window handles WS_CHILD automatically.
+                    // Also apply_child_window_style to strip extended styles that cause white borders
+                    // (WS_EX_STATICEDGE, WS_EX_CLIENTEDGE, WS_EX_WINDOWEDGE, etc.).
+                    if let Err(e) = apply_child_window_style(
+                        hwnd_value,
+                        parent_hwnd as isize,
+                        ChildWindowStyleOptions::for_dcc_embedding(),
+                    ) {
+                        tracing::warn!(
+                            "[NativeBackend] Child mode: apply_child_window_style failed: {}",
+                            e
+                        );
+                    } else {
+                        tracing::info!(
+                            "[OK] [NativeBackend] Child mode: applied child window style (no white border)"
+                        );
+                    }
                 }
                 EmbedMode::Owner => {
                     // For Owner mode, set owner relationship using GWLP_HWNDPARENT
@@ -983,31 +1006,44 @@ impl NativeBackend {
                 }
             }
 
-            // Disable window shadow for transparent frameless windows
-            // undecorated_shadow=false means we want to disable the shadow
-            if !config.undecorated_shadow {
+            // Fix WebView2 child windows: strip border/edge styles to remove white borders
+            Self::fix_webview2_child_windows(hwnd_value);
+
+            // For Child (Qt embedding): apply anti-white-border measures
+            if config.embed_mode == EmbedMode::Child {
                 disable_window_shadow(hwnd_value);
+                set_window_class_dark_background(hwnd_value);
+
+                // Only apply DWM frame extension and remove clip children for transparent windows.
+                // For opaque WS_CHILD windows, DwmExtendFrameIntoClientArea with MARGINS{-1,-1,-1,-1}
+                // can cause a visible white/glass border around the child window on Windows 11.
+                if config.transparent {
+                    remove_clip_children_style(hwnd_value);
+                    extend_frame_into_client_area(hwnd_value);
+                    tracing::info!(
+                        "[OK] [NativeBackend] Child (transparent): DWM frame extended, clip children removed"
+                    );
+                }
+
                 tracing::info!(
-                    "[OK] [NativeBackend] Disabled window shadow (undecorated_shadow=false)"
+                    "[OK] [NativeBackend] Child: DWM shadow disabled, dark background set"
                 );
-            }
-
-            // Extend DWM frame into client area for transparent windows
-            // This fixes rendering artifacts (black stripes) when dragging transparent windows
-            if config.transparent {
-                use auroraview_core::builder::extend_frame_into_client_area;
-
-                // CRITICAL: Remove WS_CLIPCHILDREN to fix transparency on Windows 11
-                // See: https://github.com/tauri-apps/wry/issues/1212
-                // tao/winit adds WS_CLIPCHILDREN by default, which prevents child windows
-                // (WebView2) from rendering transparent content correctly.
-                remove_clip_children_style(hwnd_value);
-                tracing::info!(
-                    "[OK] [NativeBackend] Removed WS_CLIPCHILDREN for transparent window"
-                );
-
-                extend_frame_into_client_area(hwnd_value);
-                tracing::info!("[OK] [NativeBackend] Extended DWM frame for transparent window");
+            } else {
+                // Disable window shadow when requested (non-Child)
+                if !config.undecorated_shadow {
+                    disable_window_shadow(hwnd_value);
+                    tracing::info!(
+                        "[OK] [NativeBackend] Disabled window shadow (undecorated_shadow=false)"
+                    );
+                }
+                // Transparent-only: remove clip children and extend frame
+                if config.transparent {
+                    remove_clip_children_style(hwnd_value);
+                    extend_frame_into_client_area(hwnd_value);
+                    tracing::info!(
+                        "[OK] [NativeBackend] Removed WS_CLIPCHILDREN, extended DWM frame for transparent"
+                    );
+                }
             }
         }
 

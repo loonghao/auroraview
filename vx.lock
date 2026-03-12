@@ -4,7 +4,7 @@
 version = 2
 
 [metadata]
-generated_at = "2026-01-31T03:08:26Z"
+generated_at = "2026-03-11T08:43:48Z"
 vx_version = "0.6.22"
 platform = "x86_64-pc-windows-msvc"
 
@@ -14,6 +14,12 @@ source = "generic"
 resolved_from = "latest"
 ecosystem = "Generic"
 download_url = "https://github.com/casey/just/releases/download/1.46.0/just-1.46.0-x86_64-pc-windows-msvc.zip"
+
+[tools.msvc]
+version = "14.42"
+source = "vx install"
+resolved_from = "latest"
+ecosystem = "Generic"
 
 [tools.python]
 version = "3.11.13"
@@ -30,7 +36,6 @@ ecosystem = "Rust"
 
 [tools.uv]
 version = "0.9.28"
-source = "python"
-resolved_from = "latest"
+source = "vx install"
+resolved_from = "0.9.28"
 ecosystem = "Python"
-download_url = "https://github.com/astral-sh/uv/releases/download/0.9.28/uv-x86_64-pc-windows-msvc.zip"

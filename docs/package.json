@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "generate-examples": "tsx .vitepress/hooks/generate-examples.ts",
-    "dev": "bun run generate-examples && vitepress dev",
-    "build": "bun run generate-examples && vitepress build",
+    "dev": "npm run generate-examples && vitepress dev",
+    "build": "npm run generate-examples && vitepress build",
     "preview": "vitepress preview"
   },
   "devDependencies": {

@@ -1,9 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './telemetry/sentry'
 import './index.css'
 import App from './App.tsx'
-
 
 const w = window as unknown as { __AURORAVIEW_CONFIG__?: { callTimeoutMs?: number; backendFailFast?: boolean; heartbeatTimeoutMs?: number } }
 if (!w.__AURORAVIEW_CONFIG__) {

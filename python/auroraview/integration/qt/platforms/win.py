@@ -86,12 +86,13 @@ WS_DLGFRAME = 0x00400000
 WS_OVERLAPPEDWINDOW = 0x00CF0000
 
 # Extended window styles
+WS_EX_DLGMODALFRAME = 0x00000001
+WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_WINDOWEDGE = 0x00000100
 WS_EX_CLIENTEDGE = 0x00000200
-WS_EX_APPWINDOW = 0x00040000
-WS_EX_TOOLWINDOW = 0x00000080
+WS_EX_CONTEXTHELP = 0x00000400
 WS_EX_STATICEDGE = 0x00020000
-WS_EX_DLGMODALFRAME = 0x00000001
+WS_EX_APPWINDOW = 0x00040000
 WS_EX_LAYERED = 0x00080000
 
 # Clipping styles for reducing flicker
@@ -169,7 +170,7 @@ class WindowsPlatformBackend(PlatformBackend):
             # Step 3: Add WS_CHILD and WS_CLIPSIBLINGS
             style |= WS_CHILD | WS_CLIPSIBLINGS
 
-            # Step 4: Remove extended styles that can cause issues
+            # Step 4: Remove extended styles that can cause white borders
             ex_style &= ~(
                 WS_EX_WINDOWEDGE
                 | WS_EX_CLIENTEDGE
@@ -177,6 +178,7 @@ class WindowsPlatformBackend(PlatformBackend):
                 | WS_EX_TOOLWINDOW
                 | WS_EX_STATICEDGE
                 | WS_EX_DLGMODALFRAME
+                | WS_EX_CONTEXTHELP
             )
 
             # Step 5: Apply new styles BEFORE SetParent
@@ -210,6 +212,12 @@ class WindowsPlatformBackend(PlatformBackend):
             if not result:
                 logger.warning(f"[Win32] SetWindowPos failed for child 0x{child_hwnd:X}")
 
+            # Step 7b: Detect and eliminate residual NC (non-client) area.
+            # Even after removing WS_CAPTION/WS_THICKFRAME, DWM may keep a NC
+            # border that makes WindowRect > ClientRect. Re-set the window size
+            # to exactly its client-area size to force NC gap to zero.
+            self._strip_nc_area(child_hwnd, width, height)
+
             # Step 8: Apply clip styles to parent
             self.apply_clip_styles_to_parent(parent_hwnd)
 
@@ -226,6 +234,7 @@ class WindowsPlatformBackend(PlatformBackend):
                     f"ex_style=0x{old_ex_style:08X}->0x{ex_style:08X}, "
                     f"size={width}x{height})"
                 )
+
             return True
 
         except Exception as e:
@@ -283,8 +292,20 @@ class WindowsPlatformBackend(PlatformBackend):
                         new_style = (style | WS_CHILD | WS_CLIPSIBLINGS) & ~WS_POPUP
                         SetWindowLong(child_hwnd, GWL_STYLE, new_style)
 
-                        # Remove problematic extended styles
-                        new_ex_style = ex_style & ~(WS_EX_APPWINDOW | WS_EX_TOOLWINDOW)
+                        # Remove ALL problematic extended styles that cause white borders
+                        # Match Rust side: WS_EX_STATICEDGE, WS_EX_CLIENTEDGE,
+                        # WS_EX_WINDOWEDGE, WS_EX_DLGMODALFRAME, WS_EX_CONTEXTHELP,
+                        # WS_EX_APPWINDOW, WS_EX_TOOLWINDOW
+                        border_ex_mask = (
+                            WS_EX_STATICEDGE
+                            | WS_EX_CLIENTEDGE
+                            | WS_EX_WINDOWEDGE
+                            | WS_EX_DLGMODALFRAME
+                            | WS_EX_CONTEXTHELP
+                            | WS_EX_APPWINDOW
+                            | WS_EX_TOOLWINDOW
+                        )
+                        new_ex_style = ex_style & ~border_ex_mask
                         if new_ex_style != ex_style:
                             SetWindowLong(child_hwnd, GWL_EXSTYLE, new_ex_style)
 
@@ -338,7 +359,7 @@ class WindowsPlatformBackend(PlatformBackend):
                 y,
                 width,
                 height,
-                SWP_NOZORDER | SWP_NOACTIVATE,
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             )
             if _VERBOSE_LOGGING:
                 logger.debug(
@@ -350,6 +371,122 @@ class WindowsPlatformBackend(PlatformBackend):
             if _VERBOSE_LOGGING:
                 logger.debug(f"[Win32] update_embedded_window_geometry failed: {e}")
             return False
+
+    def _strip_nc_area(self, hwnd: int, target_w: int, target_h: int) -> None:
+        """Subclass a window to intercept WM_NCCALCSIZE and force zero NC area.
+
+        tao's WndProc returns a non-zero NC region even after all border/caption
+        style bits are removed. The only reliable fix is to subclass the HWND and
+        handle WM_NCCALCSIZE ourselves, returning 0 so that Windows treats the
+        entire window rect as the client rect.
+
+        This replaces the previous resize-based approach which was ineffective.
+
+        Args:
+            hwnd: Window handle to subclass.
+            target_w: Desired width (used for final SetWindowPos).
+            target_h: Desired height (used for final SetWindowPos).
+        """
+        try:
+            # Check if Rust-side subclass is available (preferred)
+            try:
+                import auroraview
+
+                rust_fn = getattr(auroraview, "subclass_for_zero_nc_area", None)
+                if callable(rust_fn):
+                    rust_fn(hwnd)
+                    # Trigger SWP_FRAMECHANGED + resize to apply
+                    SWP_SHOWWINDOW = 0x0040
+                    user32.SetWindowPos(
+                        hwnd,
+                        None,
+                        0,
+                        0,
+                        target_w,
+                        target_h,
+                        SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
+                    )
+                    logger.info(f"[Win32] Subclassed HWND 0x{hwnd:X} for zero NC area (Rust)")
+                    return
+            except Exception:
+                pass
+
+            # Fallback: Python ctypes subclass
+            self._subclass_for_zero_nc_area_ctypes(hwnd, target_w, target_h)
+        except Exception as e:
+            logger.debug(f"[Win32] _strip_nc_area failed for HWND 0x{hwnd:X}: {e}")
+
+    # Keep a class-level dict to prevent GC of callback pointers and store originals
+    _nc_subclass_originals = {}  # type: dict[int, tuple]
+
+    def _subclass_for_zero_nc_area_ctypes(
+        self,
+        hwnd: int,
+        target_w: int,
+        target_h: int,
+    ) -> None:
+        """Pure ctypes fallback for WM_NCCALCSIZE subclass."""
+        if hwnd in WindowsPlatformBackend._nc_subclass_originals:
+            return  # Already subclassed
+
+        WM_NCCALCSIZE = 0x0083
+        GWLP_WNDPROC = -4
+
+        if ctypes.sizeof(ctypes.c_void_p) == 8:
+            WNDPROCTYPE = ctypes.WINFUNCTYPE(
+                ctypes.c_longlong,
+                wintypes.HWND,
+                wintypes.UINT,
+                ctypes.c_ulonglong,
+                ctypes.c_longlong,
+            )
+            _GetWndProc = user32.GetWindowLongPtrW
+            _SetWndProc = user32.SetWindowLongPtrW
+        else:
+            WNDPROCTYPE = ctypes.WINFUNCTYPE(
+                ctypes.c_long,
+                wintypes.HWND,
+                wintypes.UINT,
+                wintypes.WPARAM,
+                wintypes.LPARAM,
+            )
+            _GetWndProc = user32.GetWindowLongW
+            _SetWndProc = user32.SetWindowLongW
+
+        user32.CallWindowProcW.restype = (
+            ctypes.c_longlong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_long
+        )
+
+        original_wndproc = _GetWndProc(hwnd, GWLP_WNDPROC)
+        if not original_wndproc:
+            logger.warning(f"[Win32] GetWindowLongPtrW returned 0 for HWND 0x{hwnd:X}")
+            return
+
+        def nc_wndproc(h, msg, wp, lp):
+            if msg == WM_NCCALCSIZE and wp != 0:
+                # Return 0: entire window rect = client rect → NC area = 0
+                return 0
+            return user32.CallWindowProcW(original_wndproc, h, msg, wp, lp)
+
+        callback = WNDPROCTYPE(nc_wndproc)
+        # Store to prevent GC
+        WindowsPlatformBackend._nc_subclass_originals[hwnd] = (original_wndproc, callback)
+
+        _SetWndProc(hwnd, GWLP_WNDPROC, ctypes.cast(callback, ctypes.c_void_p).value)
+
+        # Trigger recalculation
+        SWP_SHOWWINDOW = 0x0040
+        user32.SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            target_w,
+            target_h,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
+        )
+
+        logger.info(f"[Win32] Subclassed HWND 0x{hwnd:X} for zero NC area (ctypes fallback)")
 
     def apply_clip_styles_to_parent(self, parent_hwnd: int) -> bool:
         """Apply WS_CLIPCHILDREN and WS_CLIPSIBLINGS to parent container."""
@@ -404,7 +541,7 @@ class WindowsPlatformBackend(PlatformBackend):
             # Also add WS_CLIPSIBLINGS for child window
             style |= WS_CHILD | WS_CLIPSIBLINGS
 
-            # Remove extended styles that can cause issues (comprehensive)
+            # Remove extended styles that can cause white borders (comprehensive)
             ex_style &= ~(
                 WS_EX_WINDOWEDGE
                 | WS_EX_CLIENTEDGE
@@ -412,6 +549,7 @@ class WindowsPlatformBackend(PlatformBackend):
                 | WS_EX_TOOLWINDOW
                 | WS_EX_STATICEDGE
                 | WS_EX_DLGMODALFRAME
+                | WS_EX_CONTEXTHELP
             )
 
             # Apply new styles

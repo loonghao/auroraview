@@ -1,6 +1,6 @@
 {
   "name": "@auroraview/sdk",
-  "version": "0.4.10",
+  "version": "0.4.9",
   "description": "Framework-agnostic SDK for AuroraView WebView bridge",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -26,17 +26,16 @@
   "scripts": {
     "build": "tsup",
     "build:assets": "tsup --config tsup.assets.config.ts",
-    "build:all": "bun run build && bun run build:assets",
+    "build:all": "npm run build && npm run build:assets",
     "dev": "tsup --watch",
     "dev:test": "npx serve tests/e2e/test-app -p 5173",
-    "install:playwright": "playwright install chromium --with-deps",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:all": "bun run test && bun run test:e2e",
-    "prepublishOnly": "bun run build",
+    "test:all": "npm run test && npm run test:e2e",
+    "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {

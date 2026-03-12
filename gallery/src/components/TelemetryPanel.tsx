@@ -11,12 +11,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { cn } from '../lib/utils';
 import * as Icons from 'lucide-react';
-import {
-  triggerSentryPromiseRejectionTestEvent,
-  triggerSentryTestEvent,
-} from '../telemetry/sentry';
-
-
 
 // ---------- types ----------
 
@@ -171,9 +165,7 @@ export function TelemetryPanel({ isOpen, onClose, getTelemetry }: TelemetryPanel
   const [logCursor, setLogCursor] = useState(0);
   const [levelFilter, setLevelFilter] = useState<Set<LogLevel>>(new Set(['INFO', 'WARNING', 'ERROR']));
   const [autoScroll, setAutoScroll] = useState(true);
-  const [sentryTestHint, setSentryTestHint] = useState('');
   const logEndRef = useRef<HTMLDivElement | null>(null);
-
 
   const fetchData = useCallback(async () => {
     try {
@@ -249,27 +241,7 @@ export function TelemetryPanel({ isOpen, onClose, getTelemetry }: TelemetryPanel
 
   const filteredLogs = logs.filter(l => levelFilter.has(l.level as LogLevel));
 
-  const handleTriggerSentryTest = useCallback(() => {
-    const result = triggerSentryTestEvent();
-    if (result.ok) {
-      setSentryTestHint(result.eventId ? `Sentry event: ${result.eventId}` : 'Sentry test sent');
-      return;
-    }
-    setSentryTestHint(result.reason || 'Sentry not ready');
-  }, []);
-
-  const handleTriggerPromiseRejectionTest = useCallback(() => {
-    const result = triggerSentryPromiseRejectionTestEvent();
-    if (result.ok) {
-      setSentryTestHint('Unhandled rejection test scheduled');
-      return;
-    }
-    setSentryTestHint(result.reason || 'Sentry not ready');
-  }, []);
-
   return (
-
-
     <div className="fixed bottom-0 left-14 right-0 h-72 bg-[#1e1e1e] border-t border-[#3c3c3c] flex flex-col z-40">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-[#252526] border-b border-[#3c3c3c] flex-shrink-0">
@@ -345,38 +317,15 @@ export function TelemetryPanel({ isOpen, onClose, getTelemetry }: TelemetryPanel
             <Icons.RefreshCw className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={handleTriggerSentryTest}
-            className="px-2 py-1 rounded text-[10px] text-orange-300 hover:text-orange-200 bg-orange-500/10 hover:bg-orange-500/20 transition-colors"
-            title="Trigger Sentry test event"
-          >
-            Test Sentry
-          </button>
-          <button
-            onClick={handleTriggerPromiseRejectionTest}
-            className="px-2 py-1 rounded text-[10px] text-fuchsia-300 hover:text-fuchsia-200 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 transition-colors"
-            title="Trigger Promise rejection test event"
-          >
-            Test Promise Rejection
-          </button>
-          <button
             onClick={onClose}
             className="p-1 rounded text-[#858585] hover:text-[#cccccc] hover:bg-[#3c3c3c] transition-colors"
           >
             <Icons.X className="w-3.5 h-3.5" />
           </button>
-
-
         </div>
       </div>
 
-      {sentryTestHint && (
-        <div className="px-4 py-1 text-[10px] text-orange-200 bg-orange-500/10 border-b border-orange-500/20 truncate">
-          {sentryTestHint}
-        </div>
-      )}
-
       {/* Body */}
-
       {activeTab === 'metrics' ? (
         /* METRICS TAB */
         !instance ? (

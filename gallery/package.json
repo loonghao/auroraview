@@ -6,30 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "install:playwright": "playwright install chromium --with-deps",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "test:e2e": "playwright test --config ../tests/e2e/playwright.config.ts",
-    "test:e2e:headed": "playwright test --config ../tests/e2e/playwright.config.ts --headed",
-    "test:e2e:report": "playwright show-report ../tests/e2e/report"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@auroraview/sdk": "file:../packages/auroraview-sdk",
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.207.0",
-    "@opentelemetry/instrumentation": "^0.207.0",
-    "@opentelemetry/instrumentation-document-load": "^0.54.0",
-    "@opentelemetry/instrumentation-fetch": "^0.207.0",
-    "@opentelemetry/instrumentation-xml-http-request": "^0.207.0",
-    "@opentelemetry/resources": "^2.1.0",
-    "@opentelemetry/sdk-trace-base": "^2.1.0",
-    "@opentelemetry/sdk-trace-web": "^2.1.0",
-    "@opentelemetry/semantic-conventions": "^1.37.0",
-    "@sentry/react": "^10.22.0",
     "class-variance-authority": "^0.7.1",
-
     "clsx": "^2.1.1",
-
     "gsap": "^3.14.2",
     "highlight.js": "^11.11.1",
     "lucide-react": "^0.561.0",
@@ -39,7 +22,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^24.10.2",
     "@types/react": "^19.2.7",

@@ -14,7 +14,6 @@ class TestTelemetryImport:
         from auroraview.telemetry import (
             TelemetryConfig,
             WebViewMetrics,
-            capture_sentry_message,
             disable,
             enable,
             init,
@@ -33,7 +32,6 @@ class TestTelemetryImport:
         assert record_load_time is not None
         assert record_ipc_message is not None
         assert record_error is not None
-        assert capture_sentry_message is not None
         assert TelemetryConfig is not None
         assert WebViewMetrics is not None
 
@@ -55,11 +53,6 @@ class TestTelemetryConfig:
         assert config.metrics_interval_secs == 60
         assert config.traces_enabled is True
         assert abs(config.trace_sample_ratio - 1.0) < 1e-9
-        assert config.sentry_dsn is None
-        assert config.sentry_environment is None
-        assert config.sentry_release is None
-        assert abs(config.sentry_sample_rate - 1.0) < 1e-9
-        assert abs(config.sentry_traces_sample_rate - 0.0) < 1e-9
 
     def test_custom_config(self):
         from auroraview.telemetry import TelemetryConfig
@@ -71,23 +64,12 @@ class TestTelemetryConfig:
             otlp_endpoint="http://localhost:4317",
             metrics_interval_secs=30,
             trace_sample_ratio=0.5,
-            sentry_dsn="https://public@example.com/1",
-            sentry_environment="development",
-            sentry_release="0.1.0",
-            sentry_sample_rate=0.7,
-            sentry_traces_sample_rate=0.2,
         )
-
         assert config.service_name == "my-app"
         assert config.log_level == "debug"
         assert config.otlp_endpoint == "http://localhost:4317"
         assert config.metrics_interval_secs == 30
         assert abs(config.trace_sample_ratio - 0.5) < 1e-9
-        assert config.sentry_dsn == "https://public@example.com/1"
-        assert config.sentry_environment == "development"
-        assert config.sentry_release == "0.1.0"
-        assert abs(config.sentry_sample_rate - 0.7) < 1e-6
-        assert abs(config.sentry_traces_sample_rate - 0.2) < 1e-6
 
     def test_for_testing(self):
         from auroraview.telemetry import TelemetryConfig
@@ -203,9 +185,3 @@ class TestTelemetryFunctions:
         from auroraview.telemetry import record_error
 
         record_error("test", "connection_timeout")
-
-    def test_capture_sentry_message_returns_bool(self):
-        from auroraview.telemetry import capture_sentry_message
-
-        result = capture_sentry_message("unit-test-message", level="warning")
-        assert isinstance(result, bool)

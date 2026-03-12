@@ -10,8 +10,6 @@ AuroraView Telemetry provides OpenTelemetry-based observability including loggin
 | Traces | Distributed tracing for WebView operations (creation, navigation, IPC) |
 | Metrics | Performance counters (load time, IPC latency, memory, JS eval time) |
 | OTLP Export | Optional export to any OpenTelemetry-compatible backend |
-| Sentry Export | Optional Rust-native Sentry SDK export (no Python runtime dependency) |
-
 
 ## Quick Start
 
@@ -75,25 +73,6 @@ let config = TelemetryConfig::with_otlp("http://localhost:4317");
 let _guard = Telemetry::init(config).unwrap();
 ```
 
-### Rust with Sentry Export
-
-```rust
-use auroraview_telemetry::{Telemetry, TelemetryConfig};
-
-let config = TelemetryConfig {
-    sentry_dsn: Some("https://public@example.com/1".to_string()),
-    sentry_environment: Some("production".to_string()),
-    sentry_release: Some("auroraview@0.4.9".to_string()),
-    sentry_sample_rate: 1.0,
-    sentry_traces_sample_rate: 0.2,
-    ..TelemetryConfig::default()
-};
-
-let _guard = Telemetry::init(config).unwrap();
-let _captured = Telemetry::capture_sentry_message("webview init failed", "error");
-```
-
-
 ## Configuration
 
 | Field | Type | Default | Description |
@@ -109,12 +88,6 @@ let _captured = Telemetry::capture_sentry_message("webview init failed", "error"
 | `metrics_interval_secs` | `int` | `60` | Metrics export interval |
 | `traces_enabled` | `bool` | `true` | Enable distributed tracing |
 | `trace_sample_ratio` | `float` | `1.0` | Trace sampling ratio (0.0-1.0) |
-| `sentry_dsn` | `str \| None` | `None` | Sentry DSN for Rust-native export |
-| `sentry_environment` | `str \| None` | `None` | Sentry environment tag |
-| `sentry_release` | `str \| None` | `None` | Sentry release version |
-| `sentry_sample_rate` | `float` | `1.0` | Sentry event sampling ratio (0.0-1.0) |
-| `sentry_traces_sample_rate` | `float` | `0.0` | Sentry transaction sampling ratio (0.0-1.0) |
-
 
 ## Built-in Metrics
 
@@ -138,9 +111,8 @@ let _captured = Telemetry::capture_sentry_message("webview init failed", "error"
 ```python
 from auroraview.telemetry import (
     init, shutdown, is_enabled, enable, disable,
-    record_load_time, record_ipc_message, record_error, capture_sentry_message,
+    record_load_time, record_ipc_message, record_error,
 )
-
 
 # Initialize / shutdown
 init()                  # default config
@@ -156,8 +128,6 @@ disable()
 record_load_time("webview-id", 250.0)
 record_ipc_message("webview-id", "js_to_rust", 5.2)
 record_error("webview-id", "timeout")
-capture_sentry_message("webview failed", level="error")
-
 ```
 
 ### WebViewMetrics
@@ -200,13 +170,7 @@ config = TelemetryConfig(
     otlp_endpoint="http://localhost:4317",
     metrics_interval_secs=30,
     trace_sample_ratio=0.5,
-    sentry_dsn="https://public@example.com/1",
-    sentry_environment="development",
-    sentry_release="auroraview@0.4.9",
-    sentry_sample_rate=1.0,
-    sentry_traces_sample_rate=0.2,
 )
-
 
 # Testing config (stdout, debug level)
 config = TelemetryConfig.for_testing()
@@ -292,4 +256,3 @@ Python / Rust Application Code
 |---------|---------|-------------|
 | `otlp` | Yes | Enable OTLP gRPC export via tonic |
 | `python` | No | Enable Python bindings via PyO3 |
-| `sentry` | No | Enable Rust-native Sentry SDK integration |

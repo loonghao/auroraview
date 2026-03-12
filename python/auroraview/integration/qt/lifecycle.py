@@ -197,7 +197,25 @@ class LifecycleMixin:
 
         QApplication.processEvents()
 
-        # Step 4: Ensure WebView is visible after container creation
+        # Step 4: Subclass tao HWND BEFORE making visible to prevent white border flash.
+        # The subclass intercepts WM_NCCALCSIZE to force zero NC area.
+        if sys.platform == "win32" and getattr(self, "_using_direct_embed", False):
+            direct_hwnd = getattr(self, "_direct_embed_hwnd", None)
+            if direct_hwnd:
+                try:
+                    from auroraview.integration.qt.platforms import get_backend
+
+                    backend = get_backend()
+                    size = self.size()  # type: ignore[attr-defined]
+                    w = size.width() if size.width() > 0 else 800
+                    h = size.height() if size.height() > 0 else 600
+                    if hasattr(backend, "_strip_nc_area"):
+                        backend._strip_nc_area(direct_hwnd, w, h)
+                except Exception as e:
+                    if _VERBOSE_LOGGING:
+                        logger.debug(f"[LifecycleMixin] Pre-visible NC subclass failed: {e}")
+
+        # Step 5: Ensure WebView is visible after container creation
         try:
             core.set_visible(True)
             core.process_events()
@@ -209,10 +227,10 @@ class LifecycleMixin:
 
         QApplication.processEvents()
 
-        # Step 5: Switch from loading page to webview page
+        # Step 6: Switch from loading page to webview page
         self._stack.setCurrentIndex(1)
 
-        # Step 6: Restore window visibility (anti-flicker completion)
+        # Step 7: Restore window visibility (anti-flicker completion)
         if getattr(self, "_pre_show_hidden", False) and sys.platform == "win32":
             qt_hwnd = int(self.winId())  # type: ignore[attr-defined]
             if qt_hwnd:
