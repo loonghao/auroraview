@@ -61,15 +61,17 @@ jobs:
           install-dependencies: 'false'
           cache-key-suffix: 'build-cli-${{ matrix.target }}'
 
-      - name: Setup MSVC developer environment (Windows)
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
       - name: Build CLI (Windows)
         if: runner.os == 'Windows'
-        run: just ci-cli-build ${{ matrix.target }}
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw 'Visual Studio installation with MSVC tools not found'
+          }
+          $vsDevCmd = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 && just ci-cli-build ${{ matrix.target }}"
 
       - name: Build CLI (Non-Windows)
         if: runner.os != 'Windows'
