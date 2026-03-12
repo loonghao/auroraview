@@ -1,5 +1,7 @@
 [tools]
+bun = "latest"
 just = "latest"
+node = "20"
 python = "3.11"
 rcedit = "latest"
 rust = "1.90.0"

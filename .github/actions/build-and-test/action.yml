@@ -122,20 +122,7 @@ runs:
           "rust")
             echo "Running Rust tests with coverage..."
             echo "  -> Rust integration tests with coverage..."
-            # Exclude ipc_batch_integration which requires Python bindings
-            vx cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
-              --test config_integration \
-              --test file_protocol_integration \
-              --test http_discovery_integration \
-              --test ipc_json_integration \
-              --test ipc_message_queue_integration \
-              --test lifecycle_integration \
-              --test mdns_integration \
-              --test port_allocator_integration \
-              --test protocol_handlers_integration \
-              --test protocol_integration \
-              --test standalone_integration \
-              --test timer_integration
+            vx just ci-rust-coverage-lcov
             echo "  -> Rust doc tests..."
             vx cargo test --doc
             ;;
@@ -146,20 +133,7 @@ runs:
           "full")
             echo "Running comprehensive test suite..."
             echo "  -> Rust integration tests with coverage..."
-            # Exclude ipc_batch_integration which requires Python bindings
-            vx cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
-              --test config_integration \
-              --test file_protocol_integration \
-              --test http_discovery_integration \
-              --test ipc_json_integration \
-              --test ipc_message_queue_integration \
-              --test lifecycle_integration \
-              --test mdns_integration \
-              --test port_allocator_integration \
-              --test protocol_handlers_integration \
-              --test protocol_integration \
-              --test standalone_integration \
-              --test timer_integration
+            vx just ci-rust-coverage-lcov
             echo "  -> Rust doc tests..."
             vx cargo test --doc
             echo "  -> Python unit tests..."
@@ -191,4 +165,3 @@ runs:
           coverage.xml
           rust-coverage.lcov
         retention-days: 7
-

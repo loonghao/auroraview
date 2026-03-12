@@ -245,30 +245,20 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup vx helpers
+        uses: loonghao/vx@main
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: gallery/package-lock.json
+          github-token: ${{ github.token }}
+          tools: 'just bun'
+          cache: 'false'
 
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
-      - name: Build SDK first (Gallery depends on it)
-        run: |
-          cd packages/auroraview-sdk
-          rm -rf node_modules package-lock.json
-          npm install
-          npm run build
-
       - name: Build Gallery frontend
-        run: |
-          cd gallery
-          npm ci
-          npm run build
+        run: vx just gallery-ci-build
 
       - name: Install Playwright
         run: |

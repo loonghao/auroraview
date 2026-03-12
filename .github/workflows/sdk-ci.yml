@@ -78,14 +78,12 @@ jobs:
       - name: Install dependencies
         run: |
           cd packages/auroraview-sdk
-          # Clean install to fix rollup native module issue (npm bug #4828)
-          rm -rf node_modules package-lock.json
-          npm install
+          vx bun install
 
       - name: Run unit tests
         run: |
           cd packages/auroraview-sdk
-          npm run test
+          vx bun run test
 
   # Coverage report (only on Node 20)
   coverage:
@@ -273,13 +271,13 @@ jobs:
         run: |
           cd gallery
           # Re-resolve file: dependency with pre-built SDK dist
-          vx pnpm install
+          vx bun install
 
       - name: Build Gallery with SDK
         run: |
           cd gallery
           # Skip TypeScript project references check since SDK is pre-built
-          vx pnpm exec vite build
+          vx bun run build
 
       - name: Verify Gallery build
         run: |

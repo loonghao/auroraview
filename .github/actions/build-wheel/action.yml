@@ -83,16 +83,11 @@ runs:
           libxdo-dev \
           pkg-config
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v6
-      with:
-        node-version: '20'
-
     - name: Setup vx helpers
       uses: loonghao/vx@main
       with:
         github-token: ${{ github.token }}
-        tools: 'just pnpm'
+        tools: 'just bun'
         cache: 'false'
 
     - name: Build frontend assets (required by auroraview-assets)
