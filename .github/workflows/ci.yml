@@ -143,6 +143,12 @@ jobs:
           install-dependencies: 'false'
           cache-key-suffix: 'cli-${{ matrix.target }}'
 
+      - name: Setup MSVC developer environment (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Build CLI
         run: vx just ci-cli-build ${{ matrix.target }}
 
