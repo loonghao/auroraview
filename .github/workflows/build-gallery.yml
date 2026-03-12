@@ -177,7 +177,21 @@ jobs:
           VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_SAMPLE_RATE || '1.0' }}
           VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_TRACES_SAMPLE_RATE || '0.2' }}
 
-      - name: Build CLI (for pack command)
+      - name: Build CLI (for pack command, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          vx just ci-assets-build
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw 'Visual Studio installation with MSVC tools not found'
+          }
+          $vsDevCmd = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 && rustup target add ${{ matrix.target }} && cargo build -p auroraview-cli --release --target ${{ matrix.target }}"
+
+      - name: Build CLI (for pack command, Non-Windows)
+        if: runner.os != 'Windows'
         run: vx just ci-cli-build ${{ matrix.target }}
 
       - name: Pack Gallery executable (FullStack mode)

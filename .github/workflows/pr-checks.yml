@@ -864,7 +864,21 @@ jobs:
           install-dependencies: 'false'
           cache-key-suffix: 'pr-cli-${{ matrix.target }}'
 
-      - name: Build CLI
+      - name: Build CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          vx just ci-assets-build
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw 'Visual Studio installation with MSVC tools not found'
+          }
+          $vsDevCmd = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 && rustup target add ${{ matrix.target }} && cargo build -p auroraview-cli --release --target ${{ matrix.target }}"
+
+      - name: Build CLI (Non-Windows)
+        if: runner.os != 'Windows'
         run: vx just ci-cli-build ${{ matrix.target }}
 
       - name: Test CLI (--help)
@@ -1110,8 +1124,21 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-0 libgtk-3-0
 
       # Fallback: Build CLI only if cli-build was skipped
-      - name: Build CLI (fallback)
-        if: needs.cli-build.result == 'skipped'
+      - name: Build CLI (fallback, Windows)
+        if: needs.cli-build.result == 'skipped' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          vx just ci-assets-build
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw 'Visual Studio installation with MSVC tools not found'
+          }
+          $vsDevCmd = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 && rustup target add ${{ matrix.target }} && cargo build -p auroraview-cli --release --target ${{ matrix.target }}"
+
+      - name: Build CLI (fallback, Non-Windows)
+        if: needs.cli-build.result == 'skipped' && runner.os != 'Windows'
         run: vx just ci-cli-build ${{ matrix.target }}
 
       # Download pre-built SDK package if available
