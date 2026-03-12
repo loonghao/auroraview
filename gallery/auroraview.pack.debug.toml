@@ -99,7 +99,7 @@ icon = "../assets/icons/auroraview.ico"
 console = false
 
 [build]
-before = ["bun run build"]
+before = ["vx bun run build"]
 after = []
 compression_level = 19
 resources = ["./public"]

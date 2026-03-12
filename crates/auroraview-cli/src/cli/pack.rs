@@ -218,6 +218,13 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
         }
     }
 
+    let before_build_vx_dir = manifest_opt
+        .as_ref()
+        .and_then(|manifest| manifest.vx.as_ref())
+        .filter(|vx_config| vx_config.enabled)
+        .and_then(|_| auroraview_pack::VxTool::new().ok())
+        .and_then(|vx| vx.path().parent().map(|parent| parent.to_path_buf()));
+
     // Run before commands if manifest has them
     if let (Some(ref manifest), Some(ref base_dir)) = (&manifest_opt, &base_dir_opt) {
         if !manifest.build.before.is_empty() {
@@ -242,13 +249,21 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
                 tracing::info!("Running before build: {}", command_line);
 
                 // Run command in the base_dir (manifest directory)
-                let status = std::process::Command::new(shell)
-                    .args([shell_flag, cmd])
-                    .current_dir(base_dir)
-                    .status()
-                    .with_context(|| {
-                        format!("Failed to run before build command: {}", command_line)
-                    })?;
+                let mut command = std::process::Command::new(shell);
+                command.args([shell_flag, cmd]).current_dir(base_dir);
+
+                if let Some(ref vx_dir) = before_build_vx_dir {
+                    let path_var = std::env::var_os("PATH").unwrap_or_default();
+                    let mut paths = vec![vx_dir.clone()];
+                    paths.extend(std::env::split_paths(&path_var));
+                    let joined = std::env::join_paths(paths)
+                        .context("Failed to construct PATH for before_build command")?;
+                    command.env("PATH", joined);
+                }
+
+                let status = command.status().with_context(|| {
+                    format!("Failed to run before build command: {}", command_line)
+                })?;
 
                 if !status.success() {
                     let exit_code = status
