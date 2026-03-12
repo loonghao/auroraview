@@ -5,6 +5,10 @@ rcedit = "latest"
 rust = "1.90.0"
 uv = "latest"
 
+[tools.msvc]
+version = "14.42"
+os = ["windows"]
+
 [settings]
 cache_duration = "7d"
 auto_install = true

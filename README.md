@@ -1606,9 +1606,12 @@ cd auroraview
 # Install tools declared in vx.toml
 vx setup
 
-# Install Python deps and build extension module
+# Install Python deps and run the one-command local build
 vx just install
 vx just build
+
+# Release-style local rebuild (also refreshes frontend assets)
+vx just rebuild-pylib
 ```
 
 ### Run Validation
