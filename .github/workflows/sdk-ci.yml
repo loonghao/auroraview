@@ -83,14 +83,12 @@ jobs:
           cache: 'false'
 
       - name: Install dependencies
-        run: |
-          cd packages/auroraview-sdk
-          vx bun install
+        working-directory: packages/auroraview-sdk
+        run: vx bun install
 
       - name: Run unit tests
-        run: |
-          cd packages/auroraview-sdk
-          vx bun run test
+        working-directory: packages/auroraview-sdk
+        run: vx bun run test
 
   # Coverage report (only on Node 20)
   coverage:
@@ -302,32 +300,29 @@ jobs:
         run: |
           echo "## SDK CI Results" >> $GITHUB_STEP_SUMMARY
 
-          declare -A jobs=(
-            ["typecheck"]="${{ needs.typecheck.result }}"
-            ["unit-tests"]="${{ needs.unit-tests.result }}"
-            ["coverage"]="${{ needs.coverage.result }}"
-            ["build-package"]="${{ needs.build-package.result }}"
-            ["build-assets"]="${{ needs.build-assets.result }}"
-            ["integration-gallery"]="${{ needs.integration-gallery.result }}"
-          )
-
           failed=0
-          for job in "${!jobs[@]}"; do
-            result="${jobs[$job]}"
-            if [[ "$result" == "success" ]]; then
+          while IFS='|' read -r job result; do
+            if [ "$result" = "success" ]; then
               echo "- ✅ $job" >> $GITHUB_STEP_SUMMARY
-            elif [[ "$result" == "skipped" ]]; then
+            elif [ "$result" = "skipped" ]; then
               echo "- ⏭️ $job (skipped)" >> $GITHUB_STEP_SUMMARY
-            elif [[ "$result" == "cancelled" ]]; then
+            elif [ "$result" = "cancelled" ]; then
               echo "- ⚠️ $job (cancelled)" >> $GITHUB_STEP_SUMMARY
               # Don't fail on cancelled - it means a newer run superseded this one
             else
               echo "- ❌ $job ($result)" >> $GITHUB_STEP_SUMMARY
               failed=1
             fi
-          done
+          done <<'EOF'
+          typecheck|${{ needs.typecheck.result }}
+          unit-tests|${{ needs.unit-tests.result }}
+          coverage|${{ needs.coverage.result }}
+          build-package|${{ needs.build-package.result }}
+          build-assets|${{ needs.build-assets.result }}
+          integration-gallery|${{ needs.integration-gallery.result }}
+          EOF
 
-          if [[ $failed -eq 1 ]]; then
+          if [ "$failed" -eq 1 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **SDK CI failed**" >> $GITHUB_STEP_SUMMARY
             exit 1
