@@ -173,7 +173,7 @@ console = false
 # Build Configuration
 # ============================================================================
 [build]
-before = ["npm run build"]
+before = ["python ../scripts/ensure_gallery_dist.py"]
 after = []
 resources = ["./public"]
 exclude = ["*.map", "*.ts", "node_modules"]
