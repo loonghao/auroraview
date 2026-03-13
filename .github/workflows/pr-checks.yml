@@ -1388,46 +1388,42 @@ jobs:
 
           echo "### 📋 Job Results" >> $GITHUB_STEP_SUMMARY
 
-          # Define all jobs with their results
-          declare -A jobs=(
-            ["path-filter"]="${{ needs.path-filter.result }}"
-            ["pre-build"]="${{ needs.pre-build.result }}"
-            ["python37-test"]="${{ needs.python37-test.result }}"
-            ["quick-checks"]="${{ needs.quick-checks.result }}"
-            ["clippy"]="${{ needs.clippy.result }}"
-            ["python-tests"]="${{ needs.python-tests.result }}"
-            ["rust-tests"]="${{ needs.rust-tests.result }}"
-            ["wheel-build"]="${{ needs.wheel-build.result }}"
-            ["qt-tests"]="${{ needs.qt-tests.result }}"
-            ["cli-build"]="${{ needs.cli-build.result }}"
-            ["gallery-frontend"]="${{ needs.gallery-frontend.result }}"
-            ["gallery-e2e"]="${{ needs.gallery-e2e.result }}"
-            ["gallery-pack"]="${{ needs.gallery-pack.result }}"
-            ["sdk-build"]="${{ needs.sdk-build.result }}"
-            ["mcp-build"]="${{ needs.mcp-build.result }}"
-            ["benchmark"]="${{ needs.benchmark.result }}"
-            ["docs-build"]="${{ needs.docs-build.result }}"
-          )
-
           failed=0
-          for job in "${!jobs[@]}"; do
-            result="${jobs[$job]}"
-            if [[ "$result" == "success" ]]; then
+          while IFS='|' read -r job result; do
+            if [ "$result" = "success" ]; then
               echo "- ✅ $job" >> $GITHUB_STEP_SUMMARY
-            elif [[ "$result" == "skipped" ]]; then
+            elif [ "$result" = "skipped" ]; then
               echo "- ⏭️ $job (skipped - not needed)" >> $GITHUB_STEP_SUMMARY
-            elif [[ "$result" == "cancelled" ]]; then
+            elif [ "$result" = "cancelled" ]; then
               echo "- ⚪ $job (cancelled)" >> $GITHUB_STEP_SUMMARY
             else
               echo "- ❌ $job ($result)" >> $GITHUB_STEP_SUMMARY
               # Only fail if the job was supposed to run (not skipped)
-              if [[ "$result" != "skipped" ]]; then
+              if [ "$result" != "skipped" ]; then
                 failed=1
               fi
             fi
-          done
+          done <<'EOF'
+          path-filter|${{ needs.path-filter.result }}
+          pre-build|${{ needs.pre-build.result }}
+          python37-test|${{ needs.python37-test.result }}
+          quick-checks|${{ needs.quick-checks.result }}
+          clippy|${{ needs.clippy.result }}
+          python-tests|${{ needs.python-tests.result }}
+          rust-tests|${{ needs.rust-tests.result }}
+          wheel-build|${{ needs.wheel-build.result }}
+          qt-tests|${{ needs.qt-tests.result }}
+          cli-build|${{ needs.cli-build.result }}
+          gallery-frontend|${{ needs.gallery-frontend.result }}
+          gallery-e2e|${{ needs.gallery-e2e.result }}
+          gallery-pack|${{ needs.gallery-pack.result }}
+          sdk-build|${{ needs.sdk-build.result }}
+          mcp-build|${{ needs.mcp-build.result }}
+          benchmark|${{ needs.benchmark.result }}
+          docs-build|${{ needs.docs-build.result }}
+          EOF
 
-          if [[ $failed -eq 1 ]]; then
+          if [ "$failed" -eq 1 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **PR is not ready for merge**" >> $GITHUB_STEP_SUMMARY
             exit 1
