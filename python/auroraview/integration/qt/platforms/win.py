@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Windows platform implementation for Qt WebView integration.
 
 This module provides Windows-specific window manipulation using Win32 API

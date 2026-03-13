@@ -115,3 +115,6 @@ gallery/.env.sentry.local
 /.vitepress/
 test-screenshots/
 tests/report/
+tests/e2e/report/
+tests/e2e/screenshots/
+tests/e2e/test-results/

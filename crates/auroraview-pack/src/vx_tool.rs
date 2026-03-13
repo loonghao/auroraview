@@ -121,9 +121,30 @@ impl VxTool {
 
         if output.status.success() {
             let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            Ok(version)
+            if version.is_empty() {
+                Err(PackError::Config(format!(
+                    "vx --version returned empty output for {}",
+                    vx_path.display()
+                )))
+            } else {
+                Ok(version)
+            }
         } else {
-            Ok(VX_DEFAULT_VERSION.to_string())
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let detail = if !stderr.is_empty() {
+                stderr
+            } else if !stdout.is_empty() {
+                stdout
+            } else {
+                format!("process exited with status {}", output.status)
+            };
+
+            Err(PackError::Config(format!(
+                "vx --version failed for {}: {}",
+                vx_path.display(),
+                detail
+            )))
         }
     }
 
@@ -300,6 +321,12 @@ impl VxTool {
                             detected_version,
                             version
                         );
+                    } else {
+                        tracing::warn!(
+                            "Cached vx at {} failed version detection, re-downloading...",
+                            vx_path.display()
+                        );
+                        let _ = fs::remove_file(&vx_path);
                     }
                 } else {
                     tracing::warn!(
@@ -634,6 +661,27 @@ impl VxTool {
 #[cfg(test)]
 mod tests {
     use super::VxTool;
+    use std::path::{Path, PathBuf};
+
+    fn write_test_executable(dir: &Path, stem: &str, body: &str) -> PathBuf {
+        #[cfg(windows)]
+        let path = dir.join(format!("{stem}.cmd"));
+        #[cfg(not(windows))]
+        let path = dir.join(stem);
+
+        std::fs::write(&path, body).expect("write vx test file");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let mut permissions = std::fs::metadata(&path).expect("metadata").permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(&path, permissions).expect("set executable bit");
+        }
+
+        path
+    }
 
     #[test]
     fn resolve_vx_from_path_returns_none_when_path_missing() {
@@ -650,5 +698,41 @@ mod tests {
 
         let path_var = std::env::join_paths([dir.path()]).expect("join path");
         assert_eq!(VxTool::resolve_vx_from_path(Some(path_var)), Some(vx_path));
+    }
+
+    #[test]
+    fn detect_version_reads_stdout_from_valid_executable() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let vx_path = write_test_executable(
+            dir.path(),
+            "vx-version-ok",
+            if cfg!(windows) {
+                "@echo off\r\necho 0.8.4\r\n"
+            } else {
+                "#!/bin/sh\necho 0.8.4\n"
+            },
+        );
+
+        assert_eq!(
+            VxTool::detect_version(&vx_path).expect("detect version"),
+            "0.8.4"
+        );
+    }
+
+    #[test]
+    fn detect_version_returns_error_on_nonzero_exit() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let vx_path = write_test_executable(
+            dir.path(),
+            "vx-version-fail",
+            if cfg!(windows) {
+                "@echo off\r\necho missing runtime 1>&2\r\nexit /b 1\r\n"
+            } else {
+                "#!/bin/sh\necho missing runtime 1>&2\nexit 1\n"
+            },
+        );
+
+        let error = VxTool::detect_version(&vx_path).expect_err("non-zero exit should fail");
+        assert!(error.to_string().contains("vx --version failed"));
     }
 }
