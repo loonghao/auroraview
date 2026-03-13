@@ -24,6 +24,35 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  build-frontend:
+    name: Build Gallery Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
+        with:
+          install-dependencies: 'false'
+          cache-key-suffix: 'gallery-frontend'
+
+      - name: Build Gallery frontend
+        shell: bash
+        run: vx just gallery-ci-build
+        env:
+          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_DSN: ${{ secrets.SENTRY_FRONTEND_DSN }}
+          VITE_AURORAVIEW_GALLERY_FRONTEND_OTLP_ENDPOINT: ${{ secrets.SENTRY_FRONTEND_OTLP_ENDPOINT }}
+          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_SAMPLE_RATE || '1.0' }}
+          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_TRACES_SAMPLE_RATE || '0.2' }}
+
+      - name: Upload Gallery frontend artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: gallery-frontend-dist-${{ github.run_id }}
+          path: gallery/dist/
+          retention-days: 7
+
   # First, build SDK assets (needed for wheel builds)
   build-sdk-assets:
     name: Build SDK Assets
@@ -110,7 +139,7 @@ jobs:
   build:
     name: Build Gallery (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
-    needs: build-wheels
+    needs: [build-wheels, build-frontend]
     strategy:
       fail-fast: false
       matrix:
@@ -169,15 +198,11 @@ jobs:
           pip install "$wheel_file"
           python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
-      - name: Build Gallery frontend
-        shell: bash
-        run: vx just gallery-ci-build
-        env:
-          # Frontend Sentry configuration (injected from GitHub Secrets)
-          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_DSN: ${{ secrets.SENTRY_FRONTEND_DSN }}
-          VITE_AURORAVIEW_GALLERY_FRONTEND_OTLP_ENDPOINT: ${{ secrets.SENTRY_FRONTEND_OTLP_ENDPOINT }}
-          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_SAMPLE_RATE || '1.0' }}
-          VITE_AURORAVIEW_GALLERY_FRONTEND_SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_FRONTEND_TRACES_SAMPLE_RATE || '0.2' }}
+      - name: Download Gallery frontend artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: gallery-frontend-dist-${{ github.run_id }}
+          path: gallery/dist/
 
       - name: Build CLI (for pack command, Windows)
         if: runner.os == 'Windows'
