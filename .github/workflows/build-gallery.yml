@@ -116,13 +116,13 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download SDK assets
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: gallery-sdk-assets-${{ github.run_id }}
           path: crates/auroraview-core/src/assets/js/
 
       - name: Download auroraview-assets
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: gallery-vite-assets-${{ github.run_id }}
           path: crates/auroraview-assets/frontend/dist/
@@ -184,7 +184,7 @@ jobs:
           python-version: '3.11'
 
       - name: Download pre-built auroraview wheel
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ matrix.wheel-artifact }}
           path: dist/
@@ -199,7 +199,7 @@ jobs:
           python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
       - name: Download Gallery frontend artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: gallery-frontend-dist-${{ github.run_id }}
           path: gallery/dist/
@@ -300,7 +300,7 @@ jobs:
           cache-key-suffix: 'gallery-e2e-windows'
 
       - name: Download Windows artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: gallery-x86_64-pc-windows-msvc
           path: artifacts/
@@ -368,7 +368,7 @@ jobs:
     if: always() && !cancelled()
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: gallery-*
           path: artifacts
