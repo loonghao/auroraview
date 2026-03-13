@@ -17,14 +17,14 @@ repos:
   - repo: local
     hooks:
       - id: cargo-fmt
-        name: vx cargo fmt
-        entry: vx cargo fmt --all --
+        name: cargo fmt
+        entry: python scripts/run_cargo_hook.py fmt --all --
         language: system
         types: [rust]
         pass_filenames: false
       - id: cargo-clippy
-        name: vx cargo clippy
-        entry: vx cargo clippy --workspace --all-targets -- -D warnings
+        name: cargo clippy
+        entry: python scripts/run_cargo_hook.py clippy --workspace --all-targets -- -D warnings
         language: system
         types: [rust]
         pass_filenames: false

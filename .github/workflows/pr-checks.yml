@@ -520,7 +520,9 @@ jobs:
           pip install pytest pytest-cov pytest-timeout
 
           # Install the built wheel
-          pip install dist/*.whl
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
 
           # Run unit tests (skip Qt tests as PySide6 doesn't support Python 3.7)
           pytest tests/python/unit/ -v --tb=short --timeout=60 \
@@ -662,7 +664,9 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install dist/*.whl
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
           # PySide6<6.7 doesn't support Python 3.13+, use PySide6>=6.8 for Python 3.13+
           if python -c "import sys; exit(0 if sys.version_info >= (3, 13) else 1)"; then
             pip install pytest pytest-cov pytest-timeout qtpy "PySide6>=6.8"
@@ -735,7 +739,9 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install dist/*.whl
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
           python -c "import auroraview; print(f'Wheel validation OK: {auroraview.__version__}')"
           # Test CLI entry point
           auroraview --help || python -m auroraview --help || echo "CLI test skipped"
@@ -771,7 +777,9 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install dist/*.whl
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
           pip install qtpy "PySide6<6.7" pytest pytest-qt pytest-cov pytest-timeout
 
       - name: Run Qt tests (headless)
@@ -1095,7 +1103,9 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install dist/*.whl
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
           python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
 
       # Download pre-built CLI from cli-build job
