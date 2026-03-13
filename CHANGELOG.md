@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.11](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.10...auroraview-v0.4.11) (2026-03-13)
+
+
+### Bug Fixes
+
+* **ci:** call Playwright directly in sdk recipe ([e936e22](https://github.com/loonghao/auroraview/commit/e936e22925af88646426557ac3baa461f1df837c))
+* **ci:** call Playwright directly in sdk recipe ([14353b2](https://github.com/loonghao/auroraview/commit/14353b20e51611e1e013c888ddc0cb936bcf245f))
+* **ci:** stabilize release publish workflow ([f8c5726](https://github.com/loonghao/auroraview/commit/f8c57269f75091d68e51a5634d9ca2631d70b9c8))
+* stabilize release validation and ignore e2e artifacts ([c617d50](https://github.com/loonghao/auroraview/commit/c617d50cfddf5631d2cda2acb742369254e82339))
+
 ## [0.4.10](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.9...auroraview-v0.4.10) (2026-03-12)
 
 
