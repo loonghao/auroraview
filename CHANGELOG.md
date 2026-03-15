@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.12](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.11...auroraview-v0.4.12) (2026-03-15)
+
+
+### Bug Fixes
+
+* **ci:** improve workflow shell compatibility ([d9fea19](https://github.com/loonghao/auroraview/commit/d9fea19d547034018486661bf08e818bc2618d83))
+
 ## [0.4.11](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.10...auroraview-v0.4.11) (2026-03-13)
 
 
