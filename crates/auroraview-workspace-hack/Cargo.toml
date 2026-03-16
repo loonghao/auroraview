@@ -111,7 +111,7 @@ hashbrown-986da7b5efc2b80e = { package = "hashbrown", version = "0.16" }
 log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
 phf_shared = { version = "0.11" }
-pyo3-build-config = { version = "0.27", features = ["extension-module", "resolve-config"] }
+pyo3-build-config = { version = "0.28", features = ["extension-module", "resolve-config"] }
 rand-c38e5c1d305a1b54 = { package = "rand", version = "0.8", features = ["small_rng"] }
 regex = { version = "1" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-build", "dfa-onepass", "hybrid", "meta", "nfa", "perf", "std", "unicode"] }
