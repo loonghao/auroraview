@@ -42,7 +42,7 @@ clap = { version = "4.5", features = ["derive", "env"] }
 
 # Progress bars and spinners
 indicatif = "0.17"
-console = "0.15"
+console = "0.16"
 
 # Error handling
 anyhow = "1.0"
