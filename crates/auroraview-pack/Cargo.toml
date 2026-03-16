@@ -29,7 +29,7 @@ tracing = "0.1"
 
 # Progress bars and spinners
 indicatif = "0.17"
-console = "0.15"
+console = "0.16"
 
 # File system operations
 walkdir = "2.5"
