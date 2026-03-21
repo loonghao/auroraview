@@ -34,8 +34,8 @@ auroraview-plugins = { path = "../auroraview-plugins" }
 auroraview-pack = { path = "../auroraview-pack", features = ["code-protection"] }
 
 # Wry for WebView (direct dependency for CLI)
-wry = "0.54.1"
-tao = "0.34.5"
+wry = "0.54.4"
+tao = "0.34.6"
 
 # CLI framework
 clap = { version = "4.5", features = ["derive", "env"] }
