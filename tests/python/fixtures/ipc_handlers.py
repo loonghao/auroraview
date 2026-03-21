@@ -15,6 +15,7 @@ Usage:
     # After JS sends event "ping":
     assert ping.calls[0]["response"] == "pong"
 """
+
 from __future__ import annotations
 
 import threading
@@ -80,10 +81,12 @@ class PingHandler:
         # type: (Any) -> None
         """Handle ping request, record it with pong response metadata."""
         with self._lock:
-            self._calls.append({
-                "received": data,
-                "response": "pong",
-            })
+            self._calls.append(
+                {
+                    "received": data,
+                    "response": "pong",
+                }
+            )
 
     @property
     def calls(self):

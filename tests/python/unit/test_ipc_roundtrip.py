@@ -4,14 +4,21 @@
 Tests the IPC test fixture handlers (echo, ping, collector) and verifies
 data serialization/deserialization through the Rust JSON bridge.
 """
+
 from __future__ import annotations
 
+import sys
 import threading
+from pathlib import Path
 
 import pytest
 
-# Import test fixtures
-from tests.python.fixtures import CollectorHandler, EchoHandler, PingHandler
+# Ensure tests/ root is on sys.path so we can import fixtures
+_tests_root = str(Path(__file__).resolve().parent.parent.parent)
+if _tests_root not in sys.path:
+    sys.path.insert(0, _tests_root)
+
+from python.fixtures import CollectorHandler, EchoHandler, PingHandler  # noqa: E402
 
 
 class TestEchoHandler:
@@ -164,11 +171,7 @@ class TestRustJsonRoundtrip:
         assert deserialized == original
 
     def test_nested_roundtrip(self):
-        original = {
-            "level1": {
-                "level2": {"level3": {"value": [1, "two", None, True, 3.14]}}
-            }
-        }
+        original = {"level1": {"level2": {"level3": {"value": [1, "two", None, True, 3.14]}}}}
         serialized = self.json_dumps(original)
         deserialized = self.json_loads(serialized)
         assert deserialized == original
