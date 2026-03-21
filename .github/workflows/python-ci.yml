@@ -61,6 +61,61 @@ jobs:
       - name: Check linting
         run: vx uvx ruff check python/ tests/
 
+  # Type checking with pyright --verifytypes
+  type-check:
+    name: Type Check (pyright verifytypes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Setup vx
+        uses: loonghao/vx@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
+
+      - name: Download pre-built wheel
+        if: inputs.wheel-artifact != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.wheel-artifact }}
+          path: dist/
+
+      - name: Build wheel (if not provided)
+        if: inputs.wheel-artifact == ''
+        uses: ./.github/actions/build-wheel
+        with:
+          target: x86_64
+          python-version: '3.11'
+          maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
+          test-wheel: 'false'
+          upload-wheel: 'false'
+
+      - name: Install wheel and pyright
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
+          pip install pyright
+
+      - name: Run pyright --verifytypes (warn-only)
+        shell: bash
+        run: |
+          python scripts/python_verifytypes.py --warn-only
+
   # Unit tests (requires wheel)
   unit-tests:
     name: Unit Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }})
@@ -245,7 +300,7 @@ jobs:
   python-ready:
     name: Python Ready
     runs-on: ubuntu-latest
-    needs: [lint, unit-tests, integration-tests, python37-compat]
+    needs: [lint, type-check, unit-tests, integration-tests, python37-compat]
     if: always()
     steps:
       - name: Check results
@@ -255,6 +310,7 @@ jobs:
 
           declare -A jobs=(
             ["lint"]="${{ needs.lint.result }}"
+            ["type-check"]="${{ needs.type-check.result }}"
             ["unit-tests"]="${{ needs.unit-tests.result }}"
             ["integration-tests"]="${{ needs.integration-tests.result }}"
             ["python37-compat"]="${{ needs.python37-compat.result }}"

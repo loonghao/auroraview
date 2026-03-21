@@ -460,6 +460,11 @@ lint:
     @echo "Linting Python code..."
     vx uv run ruff check python/ tests/ examples/
 
+# Verify Python type exports with pyright
+verifytypes:
+    @echo "Verifying Python type exports..."
+    vx uv run python scripts/python_verifytypes.py --warn-only
+
 
 # Fix linting issues automatically
 fix:
