@@ -101,8 +101,8 @@ pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true 
 pythonize = { version = "0.27", optional = true }
 
 # Wry for WebView
-wry = "0.54.1"
-tao = "0.34.5"
+wry = "0.54.4"
+tao = "0.34.6"
 
 # Window handle for DCC integration
 raw-window-handle = "0.6"
@@ -299,6 +299,11 @@ path = "tests/rust/ipc_json_integration_tests.rs"
 [[test]]
 name = "ipc_batch_integration"
 path = "tests/rust/ipc_batch_integration_tests.rs"
+required-features = ["python-bindings"]
+
+[[test]]
+name = "ipc_roundtrip_integration"
+path = "tests/rust/ipc_roundtrip_integration_tests.rs"
 required-features = ["python-bindings"]
 
 [[test]]
