@@ -56,7 +56,7 @@ thiserror = "2.0"
 mdns-sd = "0.17"
 parking_lot = "0.12"
 tokio = { version = "1", features = ["sync", "net", "rt-multi-thread", "macros"] }
-warp = "0.3"
+warp = { version = "0.4", features = ["server"] }
 dirs = "6.0"
 
 # Templates
@@ -74,7 +74,7 @@ wry = { version = "0.54.4", optional = true }
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Dwm", "Win32_UI_Controls", "Win32_System_LibraryLoader", "Win32_Graphics_Gdi", "Win32_System_Threading"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Dwm", "Win32_UI_Controls", "Win32_System_LibraryLoader", "Win32_Graphics_Gdi", "Win32_System_Threading"] }
 
 [features]
 default = []
@@ -82,5 +82,5 @@ default = []
 wry-builder = ["wry"]
 
 [dev-dependencies]
-rstest = "0.24"
+rstest = "0.26"
 tempfile = "3.15"

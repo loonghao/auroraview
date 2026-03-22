@@ -1504,9 +1504,8 @@ fn load_window_icon(custom_icon: Option<&std::path::PathBuf>) -> Option<tao::win
 // ============================================================
 
 /// Alias for `create_desktop` (backward compatibility)
-///
-/// This function is deprecated in favor of `create_desktop`.
-/// It will be removed in a future version.
+#[deprecated(since = "0.5.0", note = "Use `create_desktop` instead")]
+#[allow(dead_code)]
 #[inline]
 pub fn create_standalone(
     config: WebViewConfig,
@@ -1517,9 +1516,7 @@ pub fn create_standalone(
 }
 
 /// Alias for `run_desktop` (backward compatibility)
-///
-/// This function is deprecated in favor of `run_desktop`.
-/// It will be removed in a future version.
+#[deprecated(since = "0.5.0", note = "Use `run_desktop` instead")]
 #[allow(dead_code)]
 #[inline]
 pub fn run_standalone(

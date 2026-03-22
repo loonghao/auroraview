@@ -192,7 +192,7 @@ auroraview-workspace-hack = { version = "0.1", path = "crates/auroraview-workspa
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_System_Threading"] }
 winapi = "0.3.9"
 webview2 = { version = "0.1.4", optional = true }
-webview2-com = { version = "0.38", optional = true }
+webview2-com = { version = "0.39", optional = true }
 
 [dev-dependencies]
 criterion = "0.8"

@@ -19,7 +19,6 @@ pub enum LifecycleState {
     /// Window is active and running
     Active,
     /// Close has been requested but not yet processed
-    #[allow(dead_code)]
     CloseRequested,
     /// Window is being destroyed
     Destroying,
@@ -41,7 +40,6 @@ pub struct LifecycleManager {
 
 /// Reason for window closure
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub enum CloseReason {
     /// User clicked the close button
     UserRequest,
