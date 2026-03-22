@@ -153,6 +153,8 @@ class TestRustJsonRoundtrip:
         try:
             from auroraview import json_dumps, json_loads
 
+            if json_loads is None or json_dumps is None:
+                pytest.skip("Rust core JSON functions not available")
             self.json_loads = json_loads
             self.json_dumps = json_dumps
         except (ImportError, TypeError):
