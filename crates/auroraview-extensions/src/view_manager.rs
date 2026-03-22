@@ -202,8 +202,8 @@ impl ExtensionViewManager {
 
     /// Get the global extension view manager instance
     pub fn global() -> &'static ExtensionViewManager {
-        use once_cell::sync::Lazy;
-        static INSTANCE: Lazy<ExtensionViewManager> = Lazy::new(ExtensionViewManager::new);
+        use std::sync::LazyLock;
+        static INSTANCE: LazyLock<ExtensionViewManager> = LazyLock::new(ExtensionViewManager::new);
         &INSTANCE
     }
 
