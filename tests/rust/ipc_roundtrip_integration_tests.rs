@@ -295,30 +295,26 @@ fn test_complex_data_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue
         assert_eq!(unicode, "Hello 你好 こんにちは 🌍");
 
         // Verify nested access
-        let nested = dict
+        let nested_tmp = dict
             .get_item("nested")
             .unwrap()
-            .unwrap()
-            .cast::<PyDict>()
             .unwrap();
-        let level1 = nested
+        let nested = nested_tmp.cast::<PyDict>().unwrap();
+        let level1_tmp = nested
             .get_item("level1")
             .unwrap()
-            .unwrap()
-            .cast::<PyDict>()
             .unwrap();
-        let level2 = level1
+        let level1 = level1_tmp.cast::<PyDict>().unwrap();
+        let level2_tmp = level1
             .get_item("level2")
             .unwrap()
-            .unwrap()
-            .cast::<PyDict>()
             .unwrap();
-        let value = level2
+        let level2 = level2_tmp.cast::<PyDict>().unwrap();
+        let value_tmp = level2
             .get_item("value")
             .unwrap()
-            .unwrap()
-            .cast::<PyList>()
             .unwrap();
+        let value = value_tmp.cast::<PyList>().unwrap();
         assert_eq!(value.len(), 3);
 
         // Verify null
