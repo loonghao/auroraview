@@ -779,7 +779,7 @@ impl WebViewBuilder {
     }
 
     /// Allow or block new windows (e.g., window.open)
-    /// DEPRECATED: Use `new_window_mode` instead
+    #[deprecated(since = "0.5.0", note = "Use `new_window_mode` instead")]
     pub fn allow_new_window(mut self, allow: bool) -> Self {
         self.config.allow_new_window = allow;
         // Also update new_window_mode for consistency
@@ -1020,6 +1020,7 @@ mod tests {
     #[rstest]
     fn test_allow_new_window_builder(builder: WebViewBuilder) {
         // Test enabling new window
+        #[allow(deprecated)]
         let cfg = builder.allow_new_window(true).build();
         assert!(cfg.allow_new_window);
 
@@ -1042,6 +1043,7 @@ mod tests {
     #[rstest]
     fn test_new_features_combined(builder: WebViewBuilder) {
         // Test all new features together
+        #[allow(deprecated)]
         let cfg = builder
             .allow_new_window(true)
             .allow_file_protocol(true)
@@ -1063,6 +1065,7 @@ mod tests {
         #[case] allow_new_window: bool,
         #[case] allow_file_protocol: bool,
     ) {
+        #[allow(deprecated)]
         let cfg = builder
             .allow_new_window(allow_new_window)
             .allow_file_protocol(allow_file_protocol)

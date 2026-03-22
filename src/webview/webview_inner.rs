@@ -153,7 +153,7 @@ impl WebViewInner {
         ipc_handler: Arc<IpcHandler>,
         message_queue: Arc<MessageQueue>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        standalone::create_standalone(config, ipc_handler, message_queue)
+        standalone::create_desktop(config, ipc_handler, message_queue)
     }
 
     /// Create embedded WebView for external window integration

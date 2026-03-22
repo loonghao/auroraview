@@ -6,11 +6,9 @@ use std::sync::{Arc, Mutex};
 /// Protocol response
 pub struct ProtocolResponse {
     /// Response data
-    #[allow(dead_code)]
     pub data: Vec<u8>,
 
     /// MIME type
-    #[allow(dead_code)]
     pub mime_type: String,
 
     /// HTTP status code
@@ -39,7 +37,6 @@ impl ProtocolHandler {
     /// # Arguments
     /// * `scheme` - Protocol scheme (e.g., "dcc", "asset")
     /// * `handler` - Callback function to handle requests
-    #[allow(dead_code)]
     pub fn register<F>(&self, scheme: &str, handler: F)
     where
         F: Fn(&str) -> Option<ProtocolResponse> + Send + Sync + 'static,
@@ -57,7 +54,6 @@ impl ProtocolHandler {
     ///
     /// # Arguments
     /// * `uri` - Full URI (e.g., "dcc://assets/texture.png")
-    #[allow(dead_code)]
     pub fn handle(&self, uri: &str) -> Option<ProtocolResponse> {
         // Parse scheme from URI
         let scheme = uri.split("://").next()?;
@@ -78,7 +74,6 @@ impl ProtocolHandler {
     }
 
     /// Unregister a protocol
-    #[allow(dead_code)]
     pub fn unregister(&self, scheme: &str) {
         // Use ok() and into_inner() to handle poisoned mutex gracefully
         let mut handlers = match self.handlers.lock() {
@@ -90,7 +85,6 @@ impl ProtocolHandler {
     }
 
     /// Clear all protocol handlers
-    #[allow(dead_code)]
     pub fn clear(&self) {
         // Use ok() and into_inner() to handle poisoned mutex gracefully
         let mut handlers = match self.handlers.lock() {
@@ -118,7 +112,6 @@ impl ProtocolResponse {
     }
 
     /// Create a response with custom status code
-    #[allow(dead_code)]
     pub fn with_status(mut self, status: u16) -> Self {
         self.status = status;
         self
@@ -130,20 +123,17 @@ impl ProtocolResponse {
     }
 
     /// Create an HTML response
-    #[allow(dead_code)]
     pub fn html(content: impl Into<String>) -> Self {
         Self::new(content.into().into_bytes(), "text/html")
     }
 
     /// Create a JSON response
-    #[allow(dead_code)]
     pub fn json(value: &serde_json::Value) -> Self {
         let data = serde_json::to_vec(value).unwrap_or_default();
         Self::new(data, "application/json")
     }
 
     /// Create a 404 Not Found response
-    #[allow(dead_code)]
     pub fn not_found() -> Self {
         Self::text("Not Found").with_status(404)
     }
