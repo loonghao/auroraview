@@ -97,8 +97,8 @@ auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-h
 
 [target.'cfg(windows)'.dependencies]
 # WebView2 COM bindings for warmup
-webview2-com = "0.38"
-windows = { version = "0.61", features = [
+webview2-com = "0.39"
+windows = { version = "0.62", features = [
     "Win32_System_Com",
     "Win32_System_Console",
 ] }
@@ -107,4 +107,4 @@ windows = { version = "0.61", features = [
 winresource = "0.1"
 
 [dev-dependencies]
-rstest = "0.24"
+rstest = "0.26"

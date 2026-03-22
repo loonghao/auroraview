@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/loonghao/auroraview"
 keywords = ["webview", "ai", "agent", "llm", "browser"]
 categories = ["gui", "web-programming"]
-rust-version = "1.70"
+rust-version = "1.90"
 
 [dependencies]
 # Async runtime
@@ -42,7 +42,7 @@ chrono = { version = "0.4", features = ["serde"] }
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [dev-dependencies]
-rstest = "0.23"
+rstest = "0.26"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [features]

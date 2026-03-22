@@ -17,7 +17,7 @@ wry = "0.54.4"
 tao = "0.34.6"
 
 # System tray
-tray-icon = "0.19"
+tray-icon = "0.21"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -38,7 +38,7 @@ auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-h
 
 # Platform specific
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.61", features = [
+windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
     "Win32_Graphics_Gdi",
@@ -52,4 +52,4 @@ default = []
 test-helpers = []
 
 [dev-dependencies]
-rstest = "0.24"
+rstest = "0.26"
