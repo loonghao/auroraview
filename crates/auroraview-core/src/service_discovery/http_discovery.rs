@@ -6,6 +6,7 @@ use super::Result;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info};
@@ -98,11 +99,9 @@ impl HttpDiscovery {
         let routes = discover.with(cors).boxed();
         let addr: SocketAddr = ([127, 0, 0, 1], self.discovery_port).into();
 
-        // Use bind_with_graceful_shutdown which returns (bound_addr, Future)
-        let (bound_addr, server_future) =
-            warp::serve(routes).bind_with_graceful_shutdown(addr, async move {
-                shutdown_rx.await.ok();
-            });
+        // Bind a TcpListener manually to get the actual bound address
+        let listener = TcpListener::bind(addr).await?;
+        let bound_addr = listener.local_addr()?;
 
         self.port = bound_addr.port();
 
@@ -110,6 +109,13 @@ impl HttpDiscovery {
             "HTTP discovery server started at http://{}/discover",
             bound_addr
         );
+
+        let server_future = warp::serve(routes)
+            .incoming(listener)
+            .graceful(async move {
+                shutdown_rx.await.ok();
+            })
+            .run();
 
         let handle = tokio::spawn(server_future);
         self.server_handle = Some(handle);

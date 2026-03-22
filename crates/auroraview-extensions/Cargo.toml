@@ -65,4 +65,4 @@ auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-h
 [dev-dependencies]
 tempfile = "3.14"
 tokio-test = "0.4"
-rstest = "0.24"
+rstest = "0.26"

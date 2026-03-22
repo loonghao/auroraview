@@ -48,7 +48,7 @@ which = "8.0"
 ipckit = "0.1"
 
 # File dialogs
-rfd = "0.15"
+rfd = "0.16"
 
 # Open URLs/files with default app
 open = "5.3"
@@ -59,4 +59,4 @@ auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-h
 
 [dev-dependencies]
 tempfile = "3.15"
-rstest = "0.24"
+rstest = "0.26"
