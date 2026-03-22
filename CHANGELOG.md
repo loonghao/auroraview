@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.13](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.12...auroraview-v0.4.13) (2026-03-22)
+
+
+### Bug Fixes
+
+* **ci:** resolve commitlint, Rust lifetime, and Python skip errors ([62c38fc](https://github.com/loonghao/auroraview/commit/62c38fc6931884ae027e391bb378ae00112e789e))
+* **test:** resolve clippy approx_constant and rustfmt in IPC test ([e3432a2](https://github.com/loonghao/auroraview/commit/e3432a23fb373e9307cb799585bf0520e64e49d5))
+* **test:** resolve import error and ruff format in IPC tests ([faff997](https://github.com/loonghao/auroraview/commit/faff9975d3904425d2a6ff552fb3dac209cc5ee8))
+
 ## [0.4.12](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.11...auroraview-v0.4.12) (2026-03-15)
 
 
