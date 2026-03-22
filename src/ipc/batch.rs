@@ -20,6 +20,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "python-bindings")]
 use std::sync::Arc;
 
+#[cfg(feature = "python-bindings")]
+use super::json::json_to_python;
+
 /// IPC message with metadata for batching
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,51 +221,6 @@ impl BatchedCallback {
 
             Ok(())
         })
-    }
-}
-
-/// Convert JSON value to Python object
-#[cfg(feature = "python-bindings")]
-#[allow(dead_code)]
-fn json_to_python(py: Python, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
-    match value {
-        serde_json::Value::Null => Ok(py.None()),
-        serde_json::Value::Bool(b) => {
-            let obj = b.into_pyobject(py)?;
-            Ok(obj.as_any().clone().unbind())
-        }
-        serde_json::Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                let obj = i.into_pyobject(py)?;
-                Ok(obj.as_any().clone().unbind())
-            } else if let Some(f) = n.as_f64() {
-                let obj = f.into_pyobject(py)?;
-                Ok(obj.as_any().clone().unbind())
-            } else {
-                let obj = n.to_string().into_pyobject(py)?;
-                Ok(obj.as_any().clone().unbind())
-            }
-        }
-        serde_json::Value::String(s) => {
-            let obj = s.into_pyobject(py)?;
-            Ok(obj.as_any().clone().unbind())
-        }
-        serde_json::Value::Array(arr) => {
-            let py_list = PyList::new(py, arr.iter().map(|_| py.None()))?;
-            for (idx, item) in arr.iter().enumerate() {
-                let py_item = json_to_python(py, item)?;
-                py_list.set_item(idx, py_item)?;
-            }
-            Ok(py_list.into_any().unbind())
-        }
-        serde_json::Value::Object(obj) => {
-            let py_dict = PyDict::new(py);
-            for (key, val) in obj {
-                let py_val = json_to_python(py, val)?;
-                py_dict.set_item(key, py_val)?;
-            }
-            Ok(py_dict.into_any().unbind())
-        }
     }
 }
 

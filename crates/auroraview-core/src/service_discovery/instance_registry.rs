@@ -149,7 +149,7 @@ impl InstanceRegistry {
     }
 
     /// Get the instances directory path
-    pub fn instances_dir(&self) -> &PathBuf {
+    pub fn instances_dir(&self) -> &std::path::Path {
         &self.instances_dir
     }
 
@@ -157,7 +157,10 @@ impl InstanceRegistry {
     pub fn register(&self, info: &InstanceInfo) -> Result<()> {
         self.write_file(info)?;
 
-        let mut ids = self.registered_ids.lock().unwrap();
+        let mut ids = self
+            .registered_ids
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         if !ids.contains(&info.window_id) {
             ids.push(info.window_id.clone());
         }
@@ -173,7 +176,10 @@ impl InstanceRegistry {
     pub fn unregister(&self, window_id: &str) -> Result<()> {
         self.delete_file(window_id)?;
 
-        let mut ids = self.registered_ids.lock().unwrap();
+        let mut ids = self
+            .registered_ids
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         ids.retain(|id| id != window_id);
 
         info!("Instance unregistered: {}", window_id);
@@ -231,7 +237,10 @@ impl InstanceRegistry {
     /// Cleanup all instances registered by this process
     pub fn cleanup(&self) {
         let ids: Vec<String> = {
-            let ids = self.registered_ids.lock().unwrap();
+            let ids = self
+                .registered_ids
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             ids.clone()
         };
 
@@ -274,7 +283,7 @@ impl InstanceRegistry {
         Ok(())
     }
 
-    fn read_file(&self, file_path: &PathBuf) -> Result<Option<InstanceInfo>> {
+    fn read_file(&self, file_path: &std::path::Path) -> Result<Option<InstanceInfo>> {
         let content = match fs::read_to_string(file_path) {
             Ok(c) => c,
             Err(e) => {

@@ -185,7 +185,11 @@ pub fn enable_click_through(hwnd: isize) -> Result<ClickThroughResult, String> {
         let hwnd_win = HWND(hwnd as *mut c_void);
 
         // Check if already enabled
-        if CLICK_THROUGH_DATA.read().unwrap().contains_key(&hwnd) {
+        if CLICK_THROUGH_DATA
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains_key(&hwnd)
+        {
             return Err("Click-through already enabled for this window".to_string());
         }
 
@@ -214,7 +218,10 @@ pub fn enable_click_through(hwnd: isize) -> Result<ClickThroughResult, String> {
         );
         if result == 0 {
             // Rollback
-            CLICK_THROUGH_DATA.write().unwrap().remove(&hwnd);
+            CLICK_THROUGH_DATA
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(&hwnd);
             return Err("Failed to subclass window".to_string());
         }
 
@@ -242,7 +249,7 @@ pub fn disable_click_through(hwnd: isize) -> Result<(), String> {
         // Get and remove state
         let state = CLICK_THROUGH_DATA
             .write()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .remove(&hwnd)
             .ok_or("Click-through not enabled for this window")?;
 
@@ -269,7 +276,9 @@ pub fn update_interactive_regions(
     hwnd: isize,
     regions: Vec<InteractiveRegion>,
 ) -> Result<(), String> {
-    let mut data = CLICK_THROUGH_DATA.write().unwrap();
+    let mut data = CLICK_THROUGH_DATA
+        .write()
+        .unwrap_or_else(|e| e.into_inner());
     let state = data
         .get_mut(&hwnd)
         .ok_or("Click-through not enabled for this window")?;
@@ -289,14 +298,17 @@ pub fn update_interactive_regions(
 pub fn get_interactive_regions(hwnd: isize) -> Option<Vec<InteractiveRegion>> {
     CLICK_THROUGH_DATA
         .read()
-        .unwrap()
+        .unwrap_or_else(|e| e.into_inner())
         .get(&hwnd)
         .map(|state| state.config.regions.clone())
 }
 
 /// Check if click-through is enabled for a window
 pub fn is_click_through_enabled(hwnd: isize) -> bool {
-    CLICK_THROUGH_DATA.read().unwrap().contains_key(&hwnd)
+    CLICK_THROUGH_DATA
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains_key(&hwnd)
 }
 
 /// Window procedure for click-through windows
@@ -319,7 +331,7 @@ unsafe extern "system" fn click_through_wndproc(
         let _ = windows::Win32::Graphics::Gdi::ScreenToClient(hwnd, &mut point);
 
         // Check if point is in an interactive region
-        let data = CLICK_THROUGH_DATA.read().unwrap();
+        let data = CLICK_THROUGH_DATA.read().unwrap_or_else(|e| e.into_inner());
         if let Some(state) = data.get(&hwnd_isize) {
             if state.config.enabled && !state.config.is_interactive(point.x, point.y) {
                 // Pass through - let click go to window below
@@ -329,7 +341,7 @@ unsafe extern "system" fn click_through_wndproc(
     }
 
     // Call original window procedure
-    let data = CLICK_THROUGH_DATA.read().unwrap();
+    let data = CLICK_THROUGH_DATA.read().unwrap_or_else(|e| e.into_inner());
     if let Some(state) = data.get(&hwnd_isize) {
         let original_wndproc: WNDPROC =
             std::mem::transmute::<isize, WNDPROC>(state.original_wndproc);
