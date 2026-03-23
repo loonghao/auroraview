@@ -66,8 +66,8 @@ impl WindowManager {
 
     /// Get the global window manager instance
     pub fn global() -> &'static WindowManager {
-        use once_cell::sync::Lazy;
-        static INSTANCE: Lazy<WindowManager> = Lazy::new(WindowManager::new);
+        use std::sync::LazyLock;
+        static INSTANCE: LazyLock<WindowManager> = LazyLock::new(WindowManager::new);
         &INSTANCE
     }
 

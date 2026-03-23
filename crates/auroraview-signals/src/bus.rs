@@ -339,7 +339,7 @@ unsafe impl Sync for EventBus {}
 // Global Event Bus
 // ============================================================================
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 /// Global event bus instance
 ///
@@ -358,7 +358,7 @@ use once_cell::sync::Lazy;
 ///
 /// global_bus().emit("app:event", json!({"key": "value"}));
 /// ```
-static GLOBAL_BUS: Lazy<EventBus> = Lazy::new(|| EventBus::named("global"));
+static GLOBAL_BUS: LazyLock<EventBus> = LazyLock::new(|| EventBus::named("global"));
 
 /// Get the global event bus
 pub fn global_bus() -> &'static EventBus {

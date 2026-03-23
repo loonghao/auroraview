@@ -123,8 +123,8 @@ impl DevToolsManager {
 
     /// Get the global DevTools manager instance
     pub fn global() -> &'static DevToolsManager {
-        use once_cell::sync::Lazy;
-        static INSTANCE: Lazy<DevToolsManager> = Lazy::new(DevToolsManager::new);
+        use std::sync::LazyLock;
+        static INSTANCE: LazyLock<DevToolsManager> = LazyLock::new(DevToolsManager::new);
         &INSTANCE
     }
 
