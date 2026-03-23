@@ -177,33 +177,6 @@ impl TrayManager {
     pub fn is_enabled(&self) -> bool {
         self.tray_icon.is_some()
     }
-
-    /// Get the custom menu item ID for a MenuId
-    #[allow(dead_code)]
-    pub fn get_menu_item_id(&self, menu_id: &MenuId) -> Option<&String> {
-        self.menu_ids.get(menu_id)
-    }
-
-    /// Update tooltip
-    #[allow(dead_code)]
-    pub fn set_tooltip(&self, tooltip: &str) -> Result<(), TrayError> {
-        if let Some(tray) = &self.tray_icon {
-            tray.set_tooltip(Some(tooltip))
-                .map_err(|e| TrayError::UpdateFailed(e.to_string()))?;
-        }
-        Ok(())
-    }
-
-    /// Update icon
-    #[allow(dead_code)]
-    pub fn set_icon(&self, icon_path: &PathBuf) -> Result<(), TrayError> {
-        if let Some(tray) = &self.tray_icon {
-            let icon = Self::load_icon(Some(icon_path))?;
-            tray.set_icon(Some(icon))
-                .map_err(|e| TrayError::UpdateFailed(e.to_string()))?;
-        }
-        Ok(())
-    }
 }
 
 impl Drop for TrayManager {
@@ -212,20 +185,6 @@ impl Drop for TrayManager {
             tracing::info!("[Tray] System tray icon destroyed");
         }
     }
-}
-
-/// Tray event types
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub enum TrayEvent {
-    /// Tray icon was clicked
-    Click,
-    /// Tray icon was double-clicked
-    DoubleClick,
-    /// Tray icon was right-clicked
-    RightClick,
-    /// A menu item was clicked
-    MenuClick { id: String },
 }
 
 /// Tray error types
@@ -237,6 +196,4 @@ pub enum TrayError {
     BuildFailed(String),
     #[error("Failed to build menu: {0}")]
     MenuBuildFailed(String),
-    #[error("Failed to update tray: {0}")]
-    UpdateFailed(String),
 }

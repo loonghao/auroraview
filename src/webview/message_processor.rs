@@ -1,13 +1,7 @@
 //! Message processing utilities for WebView
 //!
-//! This module provides a unified message processor to reduce code duplication
-//! between `process_events()` and `process_ipc_only()`.
-//!
-//! NOTE: This module is prepared for future refactoring. Currently the message
-//! processing logic is duplicated in `event_loop.rs` and `backend/native.rs`.
-//! Once stabilized, we can migrate to use this unified processor.
-
-#![allow(dead_code)]
+//! This module provides a unified message processor used by both
+//! `process_events()` and `process_ipc_only()` in `webview_inner.rs`.
 
 use crate::ipc::WebViewMessage;
 use crate::webview::js_assets;
@@ -23,6 +17,8 @@ use wry::WebView as WryWebView;
 /// * `webview` - Reference to the locked WebView
 /// * `message` - The message to process
 /// * `context` - A string identifying the caller (for logging)
+// Used by `process_message_queue` below
+#[allow(dead_code)]
 pub fn process_message(webview: &WryWebView, message: WebViewMessage, context: &str) {
     match message {
         WebViewMessage::EvalJs(script) => {
@@ -119,6 +115,8 @@ pub fn process_message(webview: &WryWebView, message: WebViewMessage, context: &
 /// Note: `WebViewMessage::Close` is a *control* message. We don't execute any JS
 /// here, but we do surface it to the caller so mode-specific code (event loop,
 /// embedded/Qt host, etc.) can perform the correct shutdown.
+// Used by `webview_inner.rs` process_events() and process_ipc_only()
+#[allow(dead_code)]
 pub fn process_message_queue(
     webview: &Arc<Mutex<WryWebView>>,
     message_queue: &crate::ipc::MessageQueue,
