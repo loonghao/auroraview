@@ -84,7 +84,6 @@ impl LifecycleManager {
     }
 
     /// Request window close
-    #[allow(dead_code)]
     pub fn request_close(&self, reason: CloseReason) -> Result<(), String> {
         let current_state = self.state();
 

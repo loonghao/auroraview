@@ -228,7 +228,7 @@ mod tests {
         assert!(!event_bridge.is_empty());
 
         // Test loading HTML is accessible (from auroraview-core)
-        let loading_html = js_assets::get_loading_html_string();
+        let loading_html = js_assets::get_loading_html();
         assert!(!loading_html.is_empty());
         assert!(loading_html.contains("<!DOCTYPE html>") || loading_html.contains("<html"));
     }
@@ -239,7 +239,7 @@ mod tests {
         use crate::webview::js_assets;
 
         // Test loading HTML generation (from auroraview-core)
-        let html = js_assets::get_loading_html_string();
+        let html = js_assets::get_loading_html();
         assert!(!html.is_empty());
         assert!(html.contains("Loading") || html.contains("loading"));
 

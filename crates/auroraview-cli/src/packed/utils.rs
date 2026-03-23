@@ -124,7 +124,6 @@ pub fn get_webview_data_dir() -> PathBuf {
 ///     ├── manifest.json
 ///     └── ...
 /// ```
-#[allow(dead_code)]
 pub fn get_extensions_dir() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -174,7 +173,6 @@ pub fn load_disabled_extensions() -> std::collections::HashSet<String> {
 }
 
 /// Check if the given directory contains at least one valid extension directory
-#[allow(dead_code)]
 pub fn has_extensions_in_dir(dir: &Path) -> bool {
     if !dir.exists() {
         return false;
@@ -191,43 +189,7 @@ pub fn has_extensions_in_dir(dir: &Path) -> bool {
     false
 }
 
-/// Check if the shared extensions directory has any enabled extensions
-#[allow(dead_code)]
-pub fn has_extensions() -> bool {
-    let ext_dir = get_extensions_dir();
-    let disabled = load_disabled_extensions();
-
-    if !ext_dir.exists() {
-        tracing::debug!("[Extensions] Extensions directory does not exist");
-        return false;
-    }
-
-    if let Ok(entries) = std::fs::read_dir(&ext_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() || !path.join("manifest.json").exists() {
-                continue;
-            }
-
-            let ext_id = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or_default();
-            if disabled.contains(ext_id) {
-                tracing::debug!("[Extensions] Disabled extension skipped: {}", ext_id);
-                continue;
-            }
-
-            tracing::info!("[Extensions] Enabled extension found: {}", ext_id);
-            return true;
-        }
-    }
-
-    false
-}
-
 /// Build per-app active extension directory that contains only enabled extensions
-#[allow(dead_code)]
 pub fn prepare_active_extensions_dir(runtime_enabled: bool) -> std::io::Result<PathBuf> {
     let source_dir = get_extensions_dir();
     let app_name = std::env::current_exe()
@@ -282,7 +244,6 @@ pub fn prepare_active_extensions_dir(runtime_enabled: bool) -> std::io::Result<P
     Ok(active_dir)
 }
 
-#[allow(dead_code)]
 fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
@@ -300,79 +261,6 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
         }
     }
     Ok(())
-}
-
-/// List installed extensions in the extensions directory
-#[allow(dead_code)]
-pub fn list_extensions() -> Vec<ExtensionInfo> {
-    let ext_dir = get_extensions_dir();
-    let mut extensions = Vec::new();
-
-    if !ext_dir.exists() {
-        return extensions;
-    }
-
-    if let Ok(entries) = std::fs::read_dir(&ext_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let manifest_path = path.join("manifest.json");
-
-            if path.is_dir() && manifest_path.exists() {
-                // Read manifest to get extension info
-                if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path) {
-                    if let Ok(manifest) =
-                        serde_json::from_str::<serde_json::Value>(&manifest_content)
-                    {
-                        let name = manifest
-                            .get("name")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("Unknown")
-                            .to_string();
-                        let version = manifest
-                            .get("version")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("0.0.0")
-                            .to_string();
-                        let description = manifest
-                            .get("description")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-
-                        extensions.push(ExtensionInfo {
-                            id: path
-                                .file_name()
-                                .and_then(|n| n.to_str())
-                                .unwrap_or("unknown")
-                                .to_string(),
-                            name,
-                            version,
-                            description,
-                            path: path.to_string_lossy().to_string(),
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    extensions
-}
-
-/// Information about an installed extension
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[allow(dead_code)]
-pub struct ExtensionInfo {
-    /// Extension folder name (used as ID)
-    pub id: String,
-    /// Extension name from manifest
-    pub name: String,
-    /// Extension version from manifest
-    pub version: String,
-    /// Extension description from manifest
-    pub description: String,
-    /// Full path to extension folder
-    pub path: String,
 }
 
 /// Inject environment variables from config

@@ -40,10 +40,10 @@ pub use auroraview_core::assets::{
     get_clipboard_plugin_js, get_command_bridge_js, get_context_menu_js, get_dialog_plugin_js,
     get_dom_events_js, get_emit_event_js, get_event_bridge_js, get_event_utils_js,
     get_file_drop_js, get_fs_plugin_js, get_js_asset, get_load_url_js, get_loading_html,
-    get_loading_html as get_loading_html_string, get_midscene_bridge_js, get_navigation_api_js,
-    get_navigation_tracker_js, get_network_intercept_js, get_plugin_js, get_screenshot_js,
-    get_shell_plugin_js, get_state_bridge_js, get_test_callback_js, get_typescript_definitions,
-    get_zoom_api_js, plugin_names,
+    get_midscene_bridge_js, get_navigation_api_js, get_navigation_tracker_js,
+    get_network_intercept_js, get_plugin_js, get_screenshot_js, get_shell_plugin_js,
+    get_state_bridge_js, get_test_callback_js, get_typescript_definitions, get_zoom_api_js,
+    plugin_names,
 };
 
 /// Get JavaScript code by path
@@ -288,101 +288,6 @@ fn build_api_registration_script(
     }
 
     script.push_str("})();\n");
-
-    script
-}
-
-/// Get event bridge script only
-///
-/// Returns just the core event bridge without any optional features.
-/// Useful for minimal WebView setups.
-#[allow(dead_code)]
-pub fn get_event_bridge() -> String {
-    event_bridge()
-}
-
-/// Get context menu disable script only
-///
-/// Returns just the context menu disable script.
-/// Useful for dynamic injection after WebView creation.
-#[allow(dead_code)]
-pub fn get_context_menu_disable() -> String {
-    context_menu_disable()
-}
-
-/// JavaScript asset types
-///
-/// Enum representing all available JavaScript assets.
-/// Used with `get_asset()` for dynamic loading.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
-pub enum JsAsset {
-    /// Core event bridge (window.auroraview API)
-    EventBridge,
-    /// Context menu disable script
-    ContextMenuDisable,
-}
-
-/// Get a JavaScript asset by type
-///
-/// This function provides a dynamic way to load JavaScript assets at runtime.
-/// All assets are embedded at compile time in auroraview-core.
-///
-/// # Arguments
-///
-/// * `asset` - The type of asset to retrieve
-///
-/// # Returns
-///
-/// The JavaScript code as a String
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use crate::webview::js_assets::{get_asset, JsAsset};
-///
-/// let event_bridge = get_asset(JsAsset::EventBridge);
-/// let context_menu = get_asset(JsAsset::ContextMenuDisable);
-/// ```
-#[allow(dead_code)]
-pub fn get_asset(asset: JsAsset) -> String {
-    match asset {
-        JsAsset::EventBridge => event_bridge(),
-        JsAsset::ContextMenuDisable => context_menu_disable(),
-    }
-}
-
-/// Get multiple JavaScript assets and combine them
-///
-/// This function allows you to dynamically select and combine multiple
-/// JavaScript assets into a single script.
-///
-/// # Arguments
-///
-/// * `assets` - Slice of asset types to include
-///
-/// # Returns
-///
-/// Combined JavaScript code as a String
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use crate::webview::js_assets::{get_assets, JsAsset};
-///
-/// let script = get_assets(&[
-///     JsAsset::EventBridge,
-///     JsAsset::ContextMenuDisable,
-/// ]);
-/// ```
-#[allow(dead_code)]
-pub fn get_assets(assets: &[JsAsset]) -> String {
-    let mut script = String::with_capacity(8192);
-
-    for asset in assets {
-        script.push_str(&get_asset(*asset));
-        script.push('\n');
-    }
 
     script
 }
