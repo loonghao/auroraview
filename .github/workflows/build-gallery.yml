@@ -337,11 +337,8 @@ jobs:
           Write-Host "ERROR: CDP not ready after 60s"
           exit 1
 
-      - name: Run E2E tests
-        shell: bash
-        run: |
-          cd gallery
-          npx playwright test --config ../tests/e2e/playwright.config.ts
+      - name: Run CDP E2E tests
+        run: vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
 
       - name: Upload test results
         if: always()
@@ -349,9 +346,11 @@ jobs:
         with:
           name: e2e-test-results
           path: |
-            tests/e2e/report/
-            tests/e2e/screenshots/
+            gallery/test_screenshot.png
+            test-screenshots/
           retention-days: 7
+          if-no-files-found: ignore
+
 
       - name: Stop Gallery
         if: always()

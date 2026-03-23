@@ -233,7 +233,8 @@ jobs:
         run: vx just sdk-playwright-install
 
       - name: Run E2E tests
-        run: vx just sdk-test-e2e || echo "E2E tests not configured yet"
+        run: vx just sdk-test-e2e
+
 
       - name: Upload E2E test results
         if: always()
@@ -293,7 +294,7 @@ jobs:
   sdk-ready:
     name: SDK Ready
     runs-on: ubuntu-latest
-    needs: [typecheck, unit-tests, coverage, build-package, build-assets, integration-gallery]
+    needs: [typecheck, unit-tests, coverage, build-package, build-assets, e2e-tests, integration-gallery]
     if: always() && !cancelled()
     steps:
       - name: Check results
@@ -319,7 +320,9 @@ jobs:
           coverage|${{ needs.coverage.result }}
           build-package|${{ needs.build-package.result }}
           build-assets|${{ needs.build-assets.result }}
+          e2e-tests|${{ needs.e2e-tests.result }}
           integration-gallery|${{ needs.integration-gallery.result }}
+
           EOF
 
           if [ "$failed" -eq 1 ]; then

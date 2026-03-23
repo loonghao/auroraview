@@ -19,14 +19,17 @@ if (process.platform === 'win32' && process.env.AURORAVIEW_PLAYWRIGHT_CHANNEL ==
 
 export default defineConfig({
   testDir: './tests/e2e',
+  testMatch: '**/*.e2e.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
+  outputDir: 'test-results/artifacts',
   reporter: [
     ['html', { outputFolder: 'test-results/html' }],
     ['json', { outputFile: 'test-results/e2e-results.json' }],
   ],
+
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
@@ -40,4 +43,3 @@ export default defineConfig({
     timeout: 120 * 1000,
   },
 });
-

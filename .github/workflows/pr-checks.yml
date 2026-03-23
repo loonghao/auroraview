@@ -1017,14 +1017,12 @@ jobs:
           name: gallery-frontend-dist
           path: gallery/dist/
 
-      - name: Install Playwright
-        run: |
-          pip install playwright
-          playwright install chromium --with-deps
+      - name: Install Gallery Playwright dependencies
+        run: vx just gallery-ci-playwright-install
 
       - name: Run Gallery Playwright E2E tests
-        run: |
-          python scripts/test_gallery_e2e.py
+        run: vx just gallery-test-playwright
+
 
       - name: Upload test screenshots
         if: always()

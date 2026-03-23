@@ -993,11 +993,13 @@ gallery-ci-build: sdk-build gallery-ci-install
     cd gallery; vx bun run build
     @echo "[OK] Gallery built in gallery/dist/"
 
-# Install Playwright for gallery CI/E2E flows
-gallery-ci-playwright-install: gallery-ci-install
-    @echo "Installing Playwright for Gallery..."
-    cd gallery; vx bun run install:playwright
+# Install Python Playwright for Gallery CI/E2E flows
+gallery-ci-playwright-install:
+    @echo "Installing Python Playwright for Gallery tests..."
+    vx uv sync --group test
+    vx uv run python -m playwright install chromium
     @echo "[OK] Gallery Playwright installed!"
+
 
 # Build gallery frontend (builds SDK first)
 gallery-build: sdk-build
@@ -1026,20 +1028,18 @@ gallery-test-inspector: gallery-build
     vx uvx pytest tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
 
 # Run Gallery Playwright E2E tests (frontend only, with mock API)
-gallery-test-playwright:
+gallery-test-playwright: gallery-ci-playwright-install
     @echo "Running Gallery Playwright E2E tests..."
     vx uv run python scripts/test_gallery_e2e.py
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Gallery E2E Tests (Playwright + CDP)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Install Playwright for E2E tests
-gallery-e2e-install:
-    @echo "Installing Playwright E2E dependencies..."
-    cd tests/e2e; vx bun install
-    cd tests/e2e; vx bun run install:playwright
-    @echo "[OK] Playwright installed!"
+gallery-e2e-install: gallery-ci-playwright-install
+    @echo "[OK] Gallery E2E dependencies ready!"
 
 
 # Start Gallery with CDP for E2E testing (background process)
@@ -1079,27 +1079,29 @@ gallery-e2e-stop:
     @pkill -f "auroraview-gallery-debug" || true
     @echo "[OK] Gallery stopped"
 
-# Run E2E tests (Playwright + CDP — connects to running Gallery)
-gallery-e2e-test:
-    @echo "Running E2E tests..."
-    cd tests/e2e; vx npx playwright test --config playwright.config.ts
+# Run E2E tests against a running packed Gallery via CDP
+gallery-e2e-test: gallery-ci-playwright-install
+    @echo "Running Gallery CDP E2E tests..."
+    vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
 
-# Run E2E tests with headed browser (for debugging)
-gallery-e2e-test-headed:
-    @echo "Running E2E tests in headed mode..."
-    cd tests/e2e; vx npx playwright test --config playwright.config.ts --headed
+# Run E2E tests with more verbose stdout (for debugging)
+gallery-e2e-test-headed: gallery-ci-playwright-install
+    @echo "Running Gallery CDP E2E tests with verbose output..."
+    vx uv run pytest tests/test_gallery_cdp.py -v --tb=short -s
 
-# Open Playwright HTML report after test run
+# Show where Gallery E2E artifacts are written
 gallery-e2e-report:
-    @echo "Opening E2E test report..."
-    cd tests/e2e; vx npx playwright show-report report
+    @echo "Gallery E2E artifacts:"
+    @echo "  - pytest output: terminal / CI logs"
+    @echo "  - screenshot: gallery/test_screenshot.png"
+    @echo "  - script screenshots: test-screenshots/"
 
 
-# Full E2E workflow: auto pack + start + playwright tests + cleanup
+# Full E2E workflow: auto pack + start + CDP tests + cleanup
 [windows]
 gallery-e2e-packed-playwright: gallery-e2e-install gallery-pack-debug
     @echo "=========================================="
-    @echo "Gallery E2E Playwright Suite (Packed)"
+    @echo "Gallery E2E CDP Suite (Packed)"
     @echo "=========================================="
     @echo ""
     @echo "[1/4] Starting packed Gallery (debug, CDP enabled)..."
@@ -1108,25 +1110,26 @@ gallery-e2e-packed-playwright: gallery-e2e-install gallery-pack-debug
     @echo "[2/4] Waiting for CDP port (9222)..."
     @powershell -File scripts/gallery_cdp_wait.ps1
     @echo ""
-    @echo "[3/4] Running Playwright E2E tests (includes Sentry trigger checks)..."
-    @powershell -NoLogo -File scripts/gallery_e2e_run_playwright.ps1 -ProjectRoot "{{justfile_directory()}}" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo "[3/4] Running Gallery CDP E2E tests..."
+    @vx just gallery-e2e-test
     @echo ""
-    @echo "[4/4] Completed (failed cases are auto-screenshotted by Playwright)"
+    @echo "[4/4] Completed"
     @echo "=========================================="
 
 [unix]
 gallery-e2e-packed-playwright: gallery-e2e-install gallery-pack-debug
     @echo "=========================================="
-    @echo "Gallery E2E Playwright Suite (Packed)"
+    @echo "Gallery E2E CDP Suite (Packed)"
     @echo "=========================================="
     @echo ""
     @echo "[1/3] Starting packed Gallery (debug, CDP enabled)..."
     cd gallery/pack-output && ./auroraview-gallery-debug &
     @echo "[2/3] Waiting for CDP port (9222)..."
     @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
-    @echo "[3/3] Running Playwright E2E tests..."
-    @bash -lc 'set -e; trap "pkill -f auroraview-gallery-debug || true" EXIT; cd tests/e2e; vx npx playwright test --config playwright.config.ts'
-    @echo "[OK] Completed (failed cases are auto-screenshotted by Playwright)"
+    @echo "[3/3] Running Gallery CDP E2E tests..."
+    @bash -lc 'set -e; trap "pkill -f auroraview-gallery-debug || true" EXIT; vx just gallery-e2e-test'
+    @echo "[OK] Completed"
+
 
 # 生成 Gallery 文档截图（Playwright + CDP）
 [windows]
