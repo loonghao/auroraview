@@ -3,7 +3,7 @@
 //! This module provides a unified interface for managing window lifecycle
 //! across different platforms (Windows, macOS, Linux) and modes (standalone, embedded).
 
-use flume::{Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender};
 use parking_lot::Mutex;
 use std::sync::Arc;
 use tracing::{debug, info, trace, warn};
@@ -56,7 +56,7 @@ pub enum CloseReason {
 impl LifecycleManager {
     /// Create a new lifecycle manager
     pub fn new() -> Self {
-        let (close_tx, close_rx) = flume::bounded(1);
+        let (close_tx, close_rx) = crossbeam_channel::bounded(1);
 
         Self {
             state: Arc::new(Mutex::new(LifecycleState::Creating)),
