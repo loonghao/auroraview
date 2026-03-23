@@ -154,9 +154,6 @@ dashmap = "6.1"
 ipc-channel = { version = "0.20", optional = true }
 ipckit = "0.1"
 
-# CPU detection
-num_cpus = "1.16"
-
 # Window utilities
 active-win-pos-rs = "0.9"
 
@@ -213,7 +210,7 @@ opt-level = 0
 
 [features]
 # Default: Core features without Python bindings (for CLI usage)
-default = ["threaded-ipc", "wry-backend", "templates", "url-utils"]
+default = ["templates", "url-utils"]
 
 # Python bindings (for Python wheel)
 python-bindings = ["pyo3", "url-utils", "auroraview-signals/python", "telemetry-python", "sentry-python"]
@@ -240,11 +237,9 @@ test-helpers = ["pyo3/auto-initialize"]
 ext-module = ["pyo3/extension-module"]
 
 # Rendering backend
-wry-backend = []
 win-webview2 = ["dep:webview2"]
 
 # IPC backend
-threaded-ipc = []
 process-ipc = ["ipc-channel"]
 
 # Templates for JS generation
@@ -255,9 +250,6 @@ url-utils = ["regex", "urlencoding"]
 
 # Embed static assets
 embed-assets = ["rust-embed"]
-
-# Performance features
-performance-monitoring = []
 
 # Optional feature crates (RFC 0007 Phase 4)
 feature-tabs = ["dep:auroraview-tabs"]
