@@ -33,19 +33,10 @@ pub fn load_window_icon_from_bytes(png_bytes: &[u8]) -> Option<tao::window::Icon
     tao::window::Icon::from_rgba(rgba, width, height).ok()
 }
 
-/// Normalize URL by adding https:// prefix if missing
+/// Normalize URL by adding https:// prefix if missing.
+///
+/// Delegates to [`auroraview_core::cli::normalize_url`] and converts the error
+/// to [`anyhow::Error`] for convenience.
 pub fn normalize_url(url_str: &str) -> anyhow::Result<String> {
-    use anyhow::Context;
-    use url::Url;
-
-    // If it already has a scheme, validate and return
-    if url_str.contains("://") {
-        let url = Url::parse(url_str).with_context(|| format!("Invalid URL: {}", url_str))?;
-        return Ok(url.to_string());
-    }
-
-    // Add https:// prefix for URLs without scheme
-    let with_scheme = format!("https://{}", url_str);
-    let url = Url::parse(&with_scheme).with_context(|| format!("Invalid URL: {}", url_str))?;
-    Ok(url.to_string())
+    auroraview_core::cli::normalize_url(url_str).map_err(|e| anyhow::anyhow!("{}", e))
 }

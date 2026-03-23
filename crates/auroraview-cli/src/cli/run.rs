@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use tao::event_loop::{ControlFlow, EventLoop};
 use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
 
+use auroraview_core::cli::rewrite_html_for_custom_protocol;
+
 use crate::{get_webview_data_dir, load_window_icon, normalize_url, protocol_handlers};
 
 /// Arguments for the 'run' subcommand
@@ -50,79 +52,6 @@ pub struct RunArgs {
     /// Keep window always on top
     #[arg(long)]
     pub always_on_top: bool,
-}
-
-/// Rewrite HTML to use auroraview:// protocol for relative paths
-fn rewrite_html_for_custom_protocol(html: &str) -> String {
-    use regex::Regex;
-
-    let mut result = html.to_string();
-
-    // Helper function to check if a path is relative (not absolute URL or data URI)
-    fn is_relative_path(path: &str) -> bool {
-        !path.starts_with("http://")
-            && !path.starts_with("https://")
-            && !path.starts_with("data:")
-            && !path.starts_with("//") // Protocol-relative URLs
-            && !path.starts_with("auroraview://") // Already rewritten
-    }
-
-    // Rewrite link href - match any href attribute
-    let link_re = Regex::new(r#"<link\s+([^>]*)href="([^"]+)""#).unwrap();
-    result = link_re
-        .replace_all(&result, |caps: &regex::Captures| {
-            let attrs = &caps[1];
-            let path = &caps[2];
-            if is_relative_path(path) {
-                format!(r#"<link {}href="auroraview://{}""#, attrs, path)
-            } else {
-                caps[0].to_string()
-            }
-        })
-        .to_string();
-
-    // Rewrite script src
-    let script_re = Regex::new(r#"<script\s+([^>]*)src="([^"]+)""#).unwrap();
-    result = script_re
-        .replace_all(&result, |caps: &regex::Captures| {
-            let attrs = &caps[1];
-            let path = &caps[2];
-            if is_relative_path(path) {
-                format!(r#"<script {}src="auroraview://{}""#, attrs, path)
-            } else {
-                caps[0].to_string()
-            }
-        })
-        .to_string();
-
-    // Rewrite img src
-    let img_re = Regex::new(r#"<img\s+([^>]*)src="([^"]+)""#).unwrap();
-    result = img_re
-        .replace_all(&result, |caps: &regex::Captures| {
-            let attrs = &caps[1];
-            let path = &caps[2];
-            if is_relative_path(path) {
-                format!(r#"<img {}src="auroraview://{}""#, attrs, path)
-            } else {
-                caps[0].to_string()
-            }
-        })
-        .to_string();
-
-    // Rewrite CSS url()
-    let css_url_re = Regex::new(r#"url\(["']?([^"':)]+)["']?\)"#).unwrap();
-    result = css_url_re
-        .replace_all(&result, |caps: &regex::Captures| {
-            let path = &caps[1];
-            if is_relative_path(path) {
-                format!(r#"url("auroraview://{}")"#, path)
-            } else {
-                caps[0].to_string()
-            }
-        })
-        .to_string();
-
-    result
 }
 
 /// Detect assets root directory based on browser save patterns
