@@ -66,7 +66,7 @@ pub use auroraview_core::backend::{
     // Factory and types
     BackendConfig,
     BackendFactory,
-    BackendType as CoreBackendType,
+    BackendType,
     // Core traits and types
     CookieInfo,
     EmbeddableBackend,
@@ -239,39 +239,4 @@ pub trait PyBindingsBackend {
 
     /// Request close
     fn request_close(&self) -> Result<(), Box<dyn std::error::Error>>;
-}
-
-// Keep the old trait name as an alias for backwards compatibility
-#[allow(dead_code)]
-pub trait WebViewBackend: PyBindingsBackend {}
-impl<T: PyBindingsBackend> WebViewBackend for T {}
-
-/// Backend type enum for runtime selection
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BackendType {
-    /// Native embedding mode (using platform-specific wry/tao)
-    Native,
-}
-
-#[allow(dead_code)]
-impl BackendType {
-    /// Create a native backend
-    pub fn native() -> Self {
-        BackendType::Native
-    }
-
-    /// Parse backend type from string
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "native" => Some(Self::native()),
-            _ => None,
-        }
-    }
-
-    /// Auto-detect the best backend for the current environment
-    pub fn auto_detect() -> Self {
-        Self::native()
-    }
 }
