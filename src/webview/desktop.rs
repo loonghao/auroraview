@@ -473,22 +473,18 @@ pub fn create_desktop(
     // Handle new window requests (window.open())
     // The behavior depends on the new_window_mode configuration
     let new_window_mode = config.new_window_mode;
-    eprintln!("[Rust] new_window_mode = {:?}", new_window_mode);
+    tracing::debug!("[standalone] new_window_mode = {:?}", new_window_mode);
     match new_window_mode {
         NewWindowMode::Deny => {
-            eprintln!("[Rust] Setting up Deny mode handler");
             tracing::debug!("[standalone] New windows blocked (Deny mode)");
             webview_builder = webview_builder.with_new_window_req_handler(|url, _features| {
-                eprintln!("[Rust] Deny handler called for: {}", url);
                 tracing::debug!("[standalone] Blocked new window request: {}", url);
                 wry::NewWindowResponse::Deny
             });
         }
         NewWindowMode::SystemBrowser => {
-            eprintln!("[Rust] Setting up SystemBrowser mode handler");
             tracing::info!("[standalone] New windows open in system browser");
             webview_builder = webview_builder.with_new_window_req_handler(|url, _features| {
-                eprintln!("[Rust] SystemBrowser handler called for: {}", url);
                 tracing::info!("[standalone] Opening in system browser: {}", url);
                 if let Err(e) = open::that(&url) {
                     tracing::error!("[standalone] Failed to open URL in browser: {}", e);
@@ -497,13 +493,11 @@ pub fn create_desktop(
             });
         }
         NewWindowMode::ChildWebView => {
-            eprintln!("[Rust] Setting up ChildWebView mode handler");
             tracing::info!("[standalone] New windows create child WebView");
             // ChildWebView mode: Create a new independent WebView window in a separate thread
             // This avoids WebView2's threading restrictions by creating a completely new
             // WebView instance with its own event loop
             webview_builder = webview_builder.with_new_window_req_handler(move |url, features| {
-                eprintln!("[Rust] ChildWebView handler called for: {}", url);
                 tracing::info!("[standalone] Creating child WebView window for: {}", url);
 
                 // Get window size from features or use defaults
@@ -515,7 +509,6 @@ pub fn create_desktop(
                 if let Err(e) =
                     super::child_window::create_child_webview_window(&url, width, height)
                 {
-                    eprintln!("[Rust] Failed to create child window: {}", e);
                     tracing::error!("[standalone] Failed to create child window: {}", e);
                 }
 

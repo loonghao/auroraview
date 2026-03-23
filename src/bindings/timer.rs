@@ -119,7 +119,7 @@ impl PyTimer {
                 // Call the Python callback
                 Python::attach(|py| {
                     if let Err(e) = callback.call0(py) {
-                        eprintln!("Error calling timer callback: {:?}", e);
+                        tracing::error!("Error calling timer callback: {:?}", e);
                     }
                 });
             }

@@ -38,14 +38,16 @@ pub fn create_child_webview_window(
     use tao::platform::windows::EventLoopBuilderExtWindows;
 
     let url = url.to_string();
-    eprintln!(
+    tracing::info!(
         "[ChildWindow] Creating child window for: {} ({}x{})",
-        url, width, height
+        url,
+        width,
+        height
     );
 
     // Spawn a new thread for the child window's event loop
     std::thread::spawn(move || {
-        eprintln!("[ChildWindow] Thread started for: {}", url);
+        tracing::debug!("[ChildWindow] Thread started for: {}", url);
 
         // Create event loop for this child window
         let event_loop = EventLoopBuilder::new().with_any_thread(true).build();
@@ -59,12 +61,12 @@ pub fn create_child_webview_window(
         {
             Ok(w) => w,
             Err(e) => {
-                eprintln!("[ChildWindow] Failed to create window: {}", e);
+                tracing::error!("[ChildWindow] Failed to create window: {}", e);
                 return;
             }
         };
 
-        eprintln!("[ChildWindow] Window created, creating WebView...");
+        tracing::debug!("[ChildWindow] Window created, creating WebView...");
 
         // Create WebView
         let webview = match WebViewBuilder::new()
@@ -74,12 +76,12 @@ pub fn create_child_webview_window(
         {
             Ok(wv) => wv,
             Err(e) => {
-                eprintln!("[ChildWindow] Failed to create WebView: {}", e);
+                tracing::error!("[ChildWindow] Failed to create WebView: {}", e);
                 return;
             }
         };
 
-        eprintln!("[ChildWindow] WebView created successfully!");
+        tracing::debug!("[ChildWindow] WebView created successfully!");
 
         // State for tracking window
         let state = Arc::new(Mutex::new(ChildWindowState {
@@ -100,7 +102,7 @@ pub fn create_child_webview_window(
                     event: WindowEvent::CloseRequested,
                     ..
                 } => {
-                    eprintln!("[ChildWindow] Close requested");
+                    tracing::debug!("[ChildWindow] Close requested");
                     if let Ok(mut s) = state_clone.lock() {
                         s.should_close = true;
                     }
@@ -110,7 +112,7 @@ pub fn create_child_webview_window(
                     event: WindowEvent::Destroyed,
                     ..
                 } => {
-                    eprintln!("[ChildWindow] Window destroyed");
+                    tracing::debug!("[ChildWindow] Window destroyed");
                     *control_flow = ControlFlow::Exit;
                 }
                 Event::MainEventsCleared => {
@@ -125,7 +127,7 @@ pub fn create_child_webview_window(
             }
         });
 
-        eprintln!("[ChildWindow] Event loop exited for: {}", url);
+        tracing::debug!("[ChildWindow] Event loop exited for: {}", url);
     });
 
     Ok(())

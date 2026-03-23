@@ -248,7 +248,7 @@ fn build_api_registration_script(
         api_methods: entries,
     };
     template.render().unwrap_or_else(|e| {
-        eprintln!(
+        tracing::error!(
             "[AuroraView] Failed to render API registration template: {}",
             e
         );
@@ -430,7 +430,7 @@ pub fn build_emit_event_script(event_name: &str, event_data: &str) -> String {
         event_data,
     };
     template.render().unwrap_or_else(|e| {
-        eprintln!("[AuroraView] Failed to render emit event template: {}", e);
+        tracing::error!("[AuroraView] Failed to render emit event template: {}", e);
         // Fallback to legacy method
         get_emit_event_js()
             .replace("{EVENT_NAME}", event_name)
@@ -532,7 +532,7 @@ pub fn build_eval_js_async_script(script: &str, callback_id: u64) -> String {
 pub fn build_load_url_script(url: &str) -> String {
     let template = LoadUrlTemplate { url };
     template.render().unwrap_or_else(|e| {
-        eprintln!("[AuroraView] Failed to render load URL template: {}", e);
+        tracing::error!("[AuroraView] Failed to render load URL template: {}", e);
         // Fallback to legacy method
         get_load_url_js().replace("{URL}", url)
     })
