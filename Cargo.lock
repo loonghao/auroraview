@@ -777,7 +777,6 @@ dependencies = [
  "time",
  "tracing",
  "tracing-subscriber",
- "url",
  "urlencoding",
  "webview2-com 0.39.1",
  "windows 0.62.2",
