@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.14](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.13...auroraview-v0.4.14) (2026-03-23)
+
+
+### Code Refactoring
+
+* code quality cleanup - fix metadata and remove dead code ([c785f8c](https://github.com/loonghao/auroraview/commit/c785f8c912a6fed7a695488b9a91420a19a30f6f))
+* **deps:** replace once_cell with std::sync::LazyLock ([#287](https://github.com/loonghao/auroraview/issues/287)) ([ee5edff](https://github.com/loonghao/auroraview/commit/ee5edffb25143459003e0aa6727cbb57b59b22d2))
+* improve code quality and robustness ([26fc05c](https://github.com/loonghao/auroraview/commit/26fc05cbc3d73b8522c26ff7b33ff221f576d2fe))
+* remove dead code and audit allow(dead_code) suppressions ([1ebae0b](https://github.com/loonghao/auroraview/commit/1ebae0bb4081cdbcafedc7827a95c25f377d1346))
+* remove flume dependency and dead metrics.rs ([19e94e8](https://github.com/loonghao/auroraview/commit/19e94e87a61c049685678a6bca4765da4e97d969))
+* remove unused IPC batch module and empty feature flag ([20c938a](https://github.com/loonghao/auroraview/commit/20c938ae169e5b76f4966e2f573f01ea8ddd327f))
+* remove unused num_cpus dependency and empty feature flags ([d0f3097](https://github.com/loonghao/auroraview/commit/d0f3097752ac0a0a40bb00926668779921a46d45))
+* replace eprintln! with tracing macros for structured logging ([1cb8a30](https://github.com/loonghao/auroraview/commit/1cb8a307628c40fcc687af4cc010bfa9cf15f8fa))
+* replace unwrap() with safe response builders in protocol handlers ([071e4e1](https://github.com/loonghao/auroraview/commit/071e4e18d68da5ab78cc47d0aabeebc5d71d226d))
+* slim tokio features from full to specific subset ([#298](https://github.com/loonghao/auroraview/issues/298)) ([6f14eee](https://github.com/loonghao/auroraview/commit/6f14eee89416fe766ed3afa725980856d34cf714))
+
 ## [0.4.13](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.12...auroraview-v0.4.13) (2026-03-22)
 
 
