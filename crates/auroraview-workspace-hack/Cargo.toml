@@ -56,8 +56,8 @@ percent-encoding = { version = "2" }
 phf_shared = { version = "0.11" }
 portable-atomic = { version = "1" }
 ppv-lite86 = { version = "0.2", default-features = false, features = ["simd", "std"] }
-pyo3 = { version = "0.27", features = ["abi3-py38", "auto-initialize", "extension-module", "multiple-pymethods"] }
-pyo3-ffi = { version = "0.27", features = ["abi3-py38", "extension-module"] }
+pyo3 = { version = "0.27", features = ["auto-initialize", "extension-module", "multiple-pymethods"] }
+pyo3-ffi = { version = "0.27", features = ["extension-module"] }
 rand-274715c4dabd11b0 = { package = "rand", version = "0.9" }
 rand-c38e5c1d305a1b54 = { package = "rand", version = "0.8", features = ["small_rng"] }
 rand_chacha = { version = "0.9", default-features = false, features = ["std"] }
@@ -108,7 +108,7 @@ log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
 phf_shared = { version = "0.11" }
 ppv-lite86 = { version = "0.2", default-features = false, features = ["simd", "std"] }
-pyo3-build-config = { version = "0.27", features = ["abi3-py38", "extension-module", "resolve-config"] }
+pyo3-build-config = { version = "0.27", features = ["extension-module", "resolve-config"] }
 rand-c38e5c1d305a1b54 = { package = "rand", version = "0.8", features = ["small_rng"] }
 regex = { version = "1" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-build", "dfa-onepass", "hybrid", "meta", "nfa", "perf", "std", "unicode"] }
