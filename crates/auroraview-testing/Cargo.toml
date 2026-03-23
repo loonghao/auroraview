@@ -13,7 +13,7 @@ categories = ["development-tools::testing", "web-programming"]
 auroraview-devtools = { path = "../auroraview-devtools" }
 
 # Async runtime
-tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "time", "macros"] }
+tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "time", "macros", "net"] }
 
 # WebSocket
 tokio-tungstenite = "0.26"
