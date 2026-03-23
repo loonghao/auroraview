@@ -23,7 +23,6 @@
 
 pub mod async_handler;
 pub mod backend;
-pub mod batch;
 pub mod handler;
 pub mod js_callback;
 pub mod json;

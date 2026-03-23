@@ -258,7 +258,6 @@ embed-assets = ["rust-embed"]
 
 # Performance features
 performance-monitoring = []
-ipc-batching = []
 
 # Optional feature crates (RFC 0007 Phase 4)
 feature-tabs = ["dep:auroraview-tabs"]
@@ -293,11 +292,6 @@ path = "tests/rust/config_integration_tests.rs"
 [[test]]
 name = "ipc_json_integration"
 path = "tests/rust/ipc_json_integration_tests.rs"
-
-[[test]]
-name = "ipc_batch_integration"
-path = "tests/rust/ipc_batch_integration_tests.rs"
-required-features = ["python-bindings"]
 
 [[test]]
 name = "ipc_roundtrip_integration"
