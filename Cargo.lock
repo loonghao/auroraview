@@ -594,7 +594,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.4.13"
+version = "0.4.14"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
@@ -684,7 +684,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-assets"
-version = "0.4.13"
+version = "0.4.14"
 dependencies = [
  "auroraview-workspace-hack",
  "include_dir",
@@ -696,7 +696,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-bookmarks"
-version = "0.4.13"
+version = "0.4.14"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -713,7 +713,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-browser"
-version = "0.4.13"
+version = "0.4.14"
 dependencies = [
  "auroraview-bookmarks",
  "auroraview-core",
@@ -744,7 +744,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.4.13"
+version = "0.4.14"
 dependencies = [
  "anyhow",
  "auroraview-assets",
@@ -788,7 +788,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.4.13"
+version = "0.4.14"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -972,7 +972,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.4.13"
+version = "0.4.14"
 dependencies = [
  "auroraview-workspace-hack",
  "dunce",
@@ -984,7 +984,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.4.13"
+version = "0.4.14"
 dependencies = [
  "auroraview-plugin-core",
  "auroraview-workspace-hack",
@@ -996,7 +996,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.4.13"
+version = "0.4.14"
 dependencies = [
  "arboard",
  "auroraview-extensions",

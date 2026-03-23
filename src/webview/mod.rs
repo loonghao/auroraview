@@ -36,8 +36,7 @@ pub mod tray; // System tray support
 pub mod window_manager; // Multi-window support
 
 // Public exports
-#[allow(unused_imports)]
-pub use backend::{BackendType, WebViewBackend};
+pub use backend::BackendType;
 pub use config::{
     NewWindowMode, TrayConfig, TrayMenuItem, TrayMenuItemType, WebViewBuilder, WebViewConfig,
 };
