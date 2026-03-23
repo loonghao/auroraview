@@ -154,9 +154,6 @@ dashmap = "6.1"
 ipc-channel = { version = "0.20", optional = true }
 ipckit = "0.1"
 
-# Window utilities
-active-win-pos-rs = "0.9"
-
 # File dialogs
 rfd = "0.16"
 
@@ -165,12 +162,6 @@ open = "5.3"
 
 # Image processing for window icon (minimal features for PNG loading)
 image = { version = "0.25", default-features = false, features = ["png"] }
-
-# Service discovery
-mdns-sd = "0.17"
-warp = { version = "0.4", features = ["server"] }
-hyper = { version = "1.8", features = ["full"] }
-hyper-util = { version = "0.1", features = ["full"] }
 
 # Template engine for JS code generation
 askama = { version = "0.15", optional = true }

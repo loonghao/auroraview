@@ -38,15 +38,11 @@ pub use message_queue::{MessageQueue, WebViewMessage, WindowEventType};
 
 // Re-export for API consumers
 #[cfg(feature = "python-bindings")]
-#[allow(unused_imports)]
 pub use backend::IpcBackend;
 #[cfg(feature = "python-bindings")]
-#[allow(unused_imports)]
 pub use handler::PythonCallback;
-#[allow(unused_imports)]
 pub use message_queue::MessageQueueConfig;
 #[cfg(feature = "python-bindings")]
-#[allow(unused_imports)]
 pub use threaded::{ThreadedBackend, ThreadedConfig};
 
 // Re-export async handler

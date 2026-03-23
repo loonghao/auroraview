@@ -241,11 +241,6 @@ pub trait PyBindingsBackend {
     fn request_close(&self) -> Result<(), Box<dyn std::error::Error>>;
 }
 
-// Keep the old trait name as an alias for backwards compatibility
-#[allow(dead_code)]
-pub trait WebViewBackend: PyBindingsBackend {}
-impl<T: PyBindingsBackend> WebViewBackend for T {}
-
 /// Backend type enum for runtime selection
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
