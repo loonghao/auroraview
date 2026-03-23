@@ -28,6 +28,46 @@ use wry::http::{Request, Response};
 // Import protocol type constants
 use crate::utils::{PROTOCOL_TYPE_FILE, PROTOCOL_TYPE_LOCAL};
 
+/// Build an HTTP response, returning a 500 fallback if builder fails.
+///
+/// `Response::builder().body()` only fails when status/headers are invalid,
+/// which should never happen with well-formed constants. This helper
+/// removes the need for `.unwrap()` while still producing a valid response.
+fn build_response(
+    status: u16,
+    content_type: &str,
+    body: Cow<'static, [u8]>,
+) -> Response<Cow<'static, [u8]>> {
+    Response::builder()
+        .status(status)
+        .header("Content-Type", content_type)
+        .body(body)
+        .unwrap_or_else(|_| Response::new(Cow::Borrowed(b"Internal Server Error" as &[u8])))
+}
+
+/// Build an HTTP response with extra headers.
+fn build_response_with_headers(
+    status: u16,
+    headers: &[(&str, &str)],
+    body: Cow<'static, [u8]>,
+) -> Response<Cow<'static, [u8]>> {
+    let mut builder = Response::builder().status(status);
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    builder
+        .body(body)
+        .unwrap_or_else(|_| Response::new(Cow::Borrowed(b"Internal Server Error" as &[u8])))
+}
+
+/// Build a simple text response (no Content-Type header needed).
+fn build_plain_response(status: u16, body: Cow<'static, [u8]>) -> Response<Cow<'static, [u8]>> {
+    Response::builder()
+        .status(status)
+        .body(body)
+        .unwrap_or_else(|_| Response::new(Cow::Borrowed(b"Internal Server Error" as &[u8])))
+}
+
 /// Handle auroraview:// protocol requests
 ///
 /// Maps URLs like `auroraview://css/style.css` to `{asset_root}/css/style.css`
@@ -37,10 +77,7 @@ pub fn handle_auroraview_protocol(
 ) -> Response<Cow<'static, [u8]>> {
     // Only handle GET requests
     if request.method() != "GET" {
-        return Response::builder()
-            .status(405)
-            .body(Cow::Borrowed(b"Method Not Allowed" as &[u8]))
-            .unwrap();
+        return build_plain_response(405, Cow::Borrowed(b"Method Not Allowed" as &[u8]));
     }
 
     // Extract path from URI
@@ -232,11 +269,7 @@ pub fn handle_auroraview_protocol(
                 mime_type
             );
 
-            Response::builder()
-                .status(200)
-                .header("Content-Type", mime_type.as_str())
-                .body(Cow::Owned(data))
-                .unwrap()
+            build_response(200, mime_type.as_str(), Cow::Owned(data))
         }
         Err(e) => {
             tracing::warn!("[Protocol] File not found: {:?} ({})", full_path, e);
@@ -259,10 +292,7 @@ pub fn handle_auroraview_protocol(
 pub fn handle_file_protocol(request: Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> {
     // Only handle GET requests
     if request.method() != "GET" {
-        return Response::builder()
-            .status(405)
-            .body(Cow::Borrowed(b"Method Not Allowed" as &[u8]))
-            .unwrap();
+        return build_plain_response(405, Cow::Borrowed(b"Method Not Allowed" as &[u8]));
     }
 
     let uri = request.uri().to_string();
@@ -289,10 +319,7 @@ pub fn handle_file_protocol(request: Request<Vec<u8>>) -> Response<Cow<'static, 
         }
     } else {
         tracing::warn!("[Protocol] Invalid file:// URI: {}", uri);
-        return Response::builder()
-            .status(400)
-            .body(Cow::Borrowed(b"Bad Request" as &[u8]))
-            .unwrap();
+        return build_plain_response(400, Cow::Borrowed(b"Bad Request" as &[u8]));
     };
 
     // URL decode the path (handle %20 etc.)
@@ -300,10 +327,7 @@ pub fn handle_file_protocol(request: Request<Vec<u8>>) -> Response<Cow<'static, 
         Ok(p) => p.to_string(),
         Err(e) => {
             tracing::warn!("[Protocol] Failed to decode path: {} ({})", path_str, e);
-            return Response::builder()
-                .status(400)
-                .body(Cow::Borrowed(b"Bad Request" as &[u8]))
-                .unwrap();
+            return build_plain_response(400, Cow::Borrowed(b"Bad Request" as &[u8]));
         }
     };
 
@@ -321,18 +345,11 @@ pub fn handle_file_protocol(request: Request<Vec<u8>>) -> Response<Cow<'static, 
                 mime_type
             );
 
-            Response::builder()
-                .status(200)
-                .header("Content-Type", mime_type.as_str())
-                .body(Cow::Owned(data))
-                .unwrap()
+            build_response(200, mime_type.as_str(), Cow::Owned(data))
         }
         Err(e) => {
             tracing::warn!("[Protocol] File not found: {:?} ({})", file_path, e);
-            Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Not Found" as &[u8]))
-                .unwrap()
+            build_plain_response(404, Cow::Borrowed(b"Not Found" as &[u8]))
         }
     }
 }
@@ -357,18 +374,11 @@ pub fn handle_custom_protocol(
                 status
             );
 
-            Response::builder()
-                .status(status)
-                .header("Content-Type", mime_type)
-                .body(Cow::Owned(data))
-                .unwrap()
+            build_response(status, &mime_type, Cow::Owned(data))
         }
         None => {
             tracing::warn!("[Protocol] Custom handler returned None for: {}", uri);
-            Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Not Found" as &[u8]))
-                .unwrap()
+            build_plain_response(404, Cow::Borrowed(b"Not Found" as &[u8]))
         }
     }
 }
@@ -392,12 +402,10 @@ fn handle_file_path_request(file_path: &str) -> Response<Cow<'static, [u8]>> {
                 file_path,
                 e
             );
-            return Response::builder()
-                .status(400)
-                .body(Cow::Borrowed(
-                    b"Bad Request: Invalid path encoding" as &[u8],
-                ))
-                .unwrap();
+            return build_plain_response(
+                400,
+                Cow::Borrowed(b"Bad Request: Invalid path encoding" as &[u8]),
+            );
         }
     };
 
@@ -422,19 +430,18 @@ fn handle_file_path_request(file_path: &str) -> Response<Cow<'static, [u8]>> {
                 mime_type
             );
 
-            Response::builder()
-                .status(200)
-                .header("Content-Type", mime_type.as_str())
-                .header("Access-Control-Allow-Origin", "*")
-                .body(Cow::Owned(data))
-                .unwrap()
+            build_response_with_headers(
+                200,
+                &[
+                    ("Content-Type", mime_type.as_str()),
+                    ("Access-Control-Allow-Origin", "*"),
+                ],
+                Cow::Owned(data),
+            )
         }
         Err(e) => {
             tracing::warn!("[Protocol] /file/ not found: {:?} ({})", path, e);
-            Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Not Found" as &[u8]))
-                .unwrap()
+            build_plain_response(404, Cow::Borrowed(b"Not Found" as &[u8]))
         }
     }
 }
@@ -454,12 +461,10 @@ fn handle_extension_request(ext_path: &str) -> Response<Cow<'static, [u8]>> {
     let parts: Vec<&str> = ext_path.splitn(2, '/').collect();
     if parts.is_empty() {
         tracing::warn!("[Protocol] Invalid extension path: {}", ext_path);
-        return Response::builder()
-            .status(400)
-            .body(Cow::Borrowed(
-                b"Bad Request: Invalid extension path" as &[u8],
-            ))
-            .unwrap();
+        return build_plain_response(
+            400,
+            Cow::Borrowed(b"Bad Request: Invalid extension path" as &[u8]),
+        );
     }
 
     let extension_id = parts[0];
@@ -496,10 +501,7 @@ fn handle_extension_request(ext_path: &str) -> Response<Cow<'static, [u8]>> {
                 extension_id,
                 e
             );
-            return Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Extension not found" as &[u8]))
-                .unwrap();
+            return build_plain_response(404, Cow::Borrowed(b"Extension not found" as &[u8]));
         }
     };
 
@@ -511,10 +513,7 @@ fn handle_extension_request(ext_path: &str) -> Response<Cow<'static, [u8]>> {
                 full_path,
                 e
             );
-            return Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
-                .unwrap();
+            return build_plain_response(404, Cow::Borrowed(b"Resource not found" as &[u8]));
         }
     };
 
@@ -524,10 +523,10 @@ fn handle_extension_request(ext_path: &str) -> Response<Cow<'static, [u8]>> {
             "[Protocol] Directory traversal attempt in extension: {:?}",
             full_path
         );
-        return Response::builder()
-            .status(403)
-            .body(Cow::Borrowed(b"Forbidden: Directory traversal" as &[u8]))
-            .unwrap();
+        return build_plain_response(
+            403,
+            Cow::Borrowed(b"Forbidden: Directory traversal" as &[u8]),
+        );
     }
 
     // Read and serve the file
@@ -541,12 +540,14 @@ fn handle_extension_request(ext_path: &str) -> Response<Cow<'static, [u8]>> {
                 mime_type
             );
 
-            Response::builder()
-                .status(200)
-                .header("Content-Type", mime_type.as_str())
-                .header("Access-Control-Allow-Origin", "*")
-                .body(Cow::Owned(data))
-                .unwrap()
+            build_response_with_headers(
+                200,
+                &[
+                    ("Content-Type", mime_type.as_str()),
+                    ("Access-Control-Allow-Origin", "*"),
+                ],
+                Cow::Owned(data),
+            )
         }
         Err(e) => {
             tracing::warn!(
@@ -554,10 +555,7 @@ fn handle_extension_request(ext_path: &str) -> Response<Cow<'static, [u8]>> {
                 full_path,
                 e
             );
-            Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
-                .unwrap()
+            build_plain_response(404, Cow::Borrowed(b"Resource not found" as &[u8]))
         }
     }
 }
@@ -654,18 +652,18 @@ pub fn build_error_response(
     if is_html_request {
         // Return styled HTML error page
         let html = build_error_page(status, title, message, details, url);
-        Response::builder()
-            .status(status)
-            .header("Content-Type", "text/html; charset=utf-8")
-            .body(Cow::Owned(html.into_bytes()))
-            .unwrap()
+        build_response(
+            status,
+            "text/html; charset=utf-8",
+            Cow::Owned(html.into_bytes()),
+        )
     } else {
         // Return simple text for non-HTML resources
-        Response::builder()
-            .status(status)
-            .header("Content-Type", "text/plain; charset=utf-8")
-            .body(Cow::Owned(format!("{}: {}", status, title).into_bytes()))
-            .unwrap()
+        build_response(
+            status,
+            "text/plain; charset=utf-8",
+            Cow::Owned(format!("{}: {}", status, title).into_bytes()),
+        )
     }
 }
 

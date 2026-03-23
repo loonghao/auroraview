@@ -627,7 +627,6 @@ dependencies = [
  "mime_guess",
  "mockall",
  "muda 0.16.1",
- "num_cpus",
  "open",
  "parking_lot",
  "path-clean",
@@ -784,7 +783,7 @@ dependencies = [
  "windows 0.62.2",
  "winresource",
  "wry",
- "zip 8.3.1",
+ "zip 8.4.0",
 ]
 
 [[package]]
@@ -907,7 +906,7 @@ dependencies = [
  "urlencoding",
  "uuid",
  "walkdir",
- "zip 8.3.1",
+ "zip 8.4.0",
 ]
 
 [[package]]
@@ -967,7 +966,7 @@ dependencies = [
  "ureq",
  "url",
  "walkdir",
- "zip 8.3.1",
+ "zip 8.4.0",
  "zstd",
 ]
 
@@ -1250,7 +1249,7 @@ dependencies = [
  "winnow 0.7.15",
  "zerocopy",
  "zeroize",
- "zip 8.3.1",
+ "zip 8.4.0",
  "zstd",
  "zstd-safe",
  "zstd-sys",
@@ -5078,16 +5077,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "num_cpus"
-version = "1.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
-dependencies = [
- "hermit-abi",
- "libc",
 ]
 
 [[package]]
@@ -10412,9 +10401,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "8.3.1"
+version = "8.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c546feb4481b0fbafb4ef0d79b6204fc41c6f9884b1b73b1d73f82442fc0845"
+checksum = "7756d0206d058333667493c4014f545f4b9603c4330ccd6d9b3f86dcab59f7d9"
 dependencies = [
  "aes",
  "bzip2",
