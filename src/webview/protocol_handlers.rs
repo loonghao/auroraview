@@ -609,10 +609,9 @@ pub fn is_windows_absolute_path_without_colon(path: &str) -> bool {
         return false;
     }
 
-    let chars: Vec<char> = path.chars().collect();
-
-    // Check for pattern: [a-zA-Z]/...
-    chars[0].is_ascii_alphabetic() && chars[1] == '/'
+    // Safety: path.len() >= 2 and we only check ASCII chars (single byte)
+    let bytes = path.as_bytes();
+    bytes[0].is_ascii_alphabetic() && bytes[1] == b'/'
 }
 
 /// Normalize a Windows path without colon to standard format
@@ -623,7 +622,8 @@ pub fn normalize_windows_path_without_colon(path: &str) -> String {
         return path.to_string();
     }
 
-    let drive_letter = path.chars().next().unwrap().to_ascii_uppercase();
+    // Safety: path.len() >= 2 and drive letter is ASCII (single byte)
+    let drive_letter = path.as_bytes()[0].to_ascii_uppercase() as char;
     let rest = &path[1..]; // This includes the leading "/"
 
     // Convert to standard Windows path format: C:/users/...

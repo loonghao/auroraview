@@ -4,7 +4,7 @@ version = "0.4.5"
 edition = "2021"
 description = "Desktop runtime for AuroraView - standalone WebView applications"
 license = "MIT"
-repository = "https://github.com/AuroraView/auroraview"
+repository = "https://github.com/loonghao/auroraview"
 keywords = ["webview", "desktop", "gui", "tauri", "electron"]
 categories = ["gui", "web-programming"]
 

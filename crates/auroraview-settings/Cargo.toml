@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Settings and preferences management for AuroraView"
 license = "MIT"
-repository = "https://github.com/aspect-build/auroraview"
+repository = "https://github.com/loonghao/auroraview"
 keywords = ["settings", "preferences", "configuration"]
 categories = ["config"]
 
