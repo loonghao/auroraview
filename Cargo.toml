@@ -33,7 +33,7 @@ members = [
     "crates/auroraview-pack",
     # Telemetry (OpenTelemetry-based observability)
     "crates/auroraview-telemetry",
-    # Telemetry (OpenTelemetry-based observability)
+    # Workspace dependency unification
     "crates/auroraview-workspace-hack",
 ]
 resolver = "2"

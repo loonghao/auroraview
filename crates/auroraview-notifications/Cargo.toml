@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Notification system for AuroraView"
 license = "MIT"
-repository = "https://github.com/aspect-build/auroraview"
+repository = "https://github.com/loonghao/auroraview"
 keywords = ["notifications", "toast", "alerts"]
 categories = ["gui"]
 

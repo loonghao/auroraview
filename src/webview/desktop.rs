@@ -1499,34 +1499,6 @@ fn load_window_icon(custom_icon: Option<&std::path::PathBuf>) -> Option<tao::win
     tao::window::Icon::from_rgba(rgba, width, height).ok()
 }
 
-// ============================================================
-// Backward compatibility aliases
-// ============================================================
-
-/// Alias for `create_desktop` (backward compatibility)
-#[deprecated(since = "0.5.0", note = "Use `create_desktop` instead")]
-#[allow(dead_code)]
-#[inline]
-pub fn create_standalone(
-    config: WebViewConfig,
-    ipc_handler: Arc<IpcHandler>,
-    message_queue: Arc<MessageQueue>,
-) -> Result<WebViewInner, Box<dyn std::error::Error>> {
-    create_desktop(config, ipc_handler, message_queue)
-}
-
-/// Alias for `run_desktop` (backward compatibility)
-#[deprecated(since = "0.5.0", note = "Use `run_desktop` instead")]
-#[allow(dead_code)]
-#[inline]
-pub fn run_standalone(
-    config: WebViewConfig,
-    ipc_handler: Arc<IpcHandler>,
-    message_queue: Arc<MessageQueue>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    run_desktop(config, ipc_handler, message_queue)
-}
-
 #[cfg(test)]
 mod tests {
     use crate::webview::config::WebViewConfig;
