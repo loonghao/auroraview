@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.15](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.14...auroraview-v0.4.15) (2026-03-23)
+
+
+### Code Refactoring
+
+* remove dead BackendType enum and WebViewBackend alias ([8acf68c](https://github.com/loonghao/auroraview/commit/8acf68c73994dc36e9de6aa6de72b94012cbba7c))
+
 ## [0.4.14](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.13...auroraview-v0.4.14) (2026-03-23)
 
 
