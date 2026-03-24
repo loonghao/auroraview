@@ -210,10 +210,13 @@ impl PackManager {
         vx.ensure_tools(&vx_config.ensure)
     }
 
-    /// Print available targets and their status
-    pub fn print_targets(&self) {
-        println!("Available pack targets:");
-        println!();
+    /// Format available targets and their status as a displayable string
+    pub fn format_targets(&self) -> String {
+        use std::fmt::Write;
+
+        let mut output = String::new();
+        let _ = writeln!(output, "Available pack targets:");
+        let _ = writeln!(output);
 
         for packer in self.registry.target_packers() {
             let target = packer.target();
@@ -221,7 +224,8 @@ impl PackManager {
             let status = if available { "✓" } else { "✗" };
             let tools = packer.required_tools().join(", ");
 
-            println!(
+            let _ = writeln!(
+                output,
                 "  {} {:20} {} (tools: {})",
                 status,
                 target.name(),
@@ -233,6 +237,13 @@ impl PackManager {
                 if tools.is_empty() { "none" } else { &tools }
             );
         }
+        output
+    }
+
+    /// Print available targets and their status to stdout
+    #[deprecated(note = "use format_targets() instead for library code")]
+    pub fn print_targets(&self) {
+        print!("{}", self.format_targets());
     }
 }
 
