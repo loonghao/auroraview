@@ -49,7 +49,6 @@ raw-window-handle = "0.6"
 
 [features]
 default = []
-test-helpers = []
 
 [dev-dependencies]
 rstest = "0.26"

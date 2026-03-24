@@ -31,10 +31,6 @@ sentry = { version = "0.46", default-features = false, features = ["backtrace", 
 
 # Error handling
 thiserror = "2.0"
-anyhow = "1.0"
-
-# Thread safety
-parking_lot = "0.12"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

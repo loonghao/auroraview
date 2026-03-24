@@ -22,7 +22,6 @@ serde_json = "1.0"
 
 # Error handling
 thiserror = "2.0"
-anyhow = "1.0"
 
 # Logging
 tracing = "0.1"
@@ -41,7 +40,6 @@ uuid = { version = "1.11", features = ["v4"] }
 
 # Thread safety
 parking_lot = "0.12"
-dashmap = "6.1"
 
 # URL handling
 url = "2.5"
@@ -49,7 +47,6 @@ urlencoding = "2.1"
 
 # Regex for content script matching
 regex = "1.11"
-glob = "0.3"
 
 # CRX ZIP payload extraction
 zip = { version = "8", default-features = false, features = ["deflate"] }

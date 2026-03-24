@@ -124,6 +124,7 @@ pub fn get_webview_data_dir() -> PathBuf {
 ///     ├── manifest.json
 ///     └── ...
 /// ```
+#[cfg(target_os = "windows")]
 pub fn get_extensions_dir() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -132,6 +133,7 @@ pub fn get_extensions_dir() -> PathBuf {
 }
 
 /// Get extension enabled/disabled configuration file path
+#[cfg(target_os = "windows")]
 pub fn get_extension_config_path() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -140,6 +142,7 @@ pub fn get_extension_config_path() -> PathBuf {
 }
 
 /// Load disabled extension IDs from config file
+#[cfg(target_os = "windows")]
 pub fn load_disabled_extensions() -> std::collections::HashSet<String> {
     let path = get_extension_config_path();
     if !path.exists() {
@@ -173,6 +176,7 @@ pub fn load_disabled_extensions() -> std::collections::HashSet<String> {
 }
 
 /// Check if the given directory contains at least one valid extension directory
+#[cfg(target_os = "windows")]
 pub fn has_extensions_in_dir(dir: &Path) -> bool {
     if !dir.exists() {
         return false;
@@ -190,6 +194,7 @@ pub fn has_extensions_in_dir(dir: &Path) -> bool {
 }
 
 /// Build per-app active extension directory that contains only enabled extensions
+#[cfg(target_os = "windows")]
 pub fn prepare_active_extensions_dir(runtime_enabled: bool) -> std::io::Result<PathBuf> {
     let source_dir = get_extensions_dir();
     let app_name = std::env::current_exe()
@@ -244,6 +249,7 @@ pub fn prepare_active_extensions_dir(runtime_enabled: bool) -> std::io::Result<P
     Ok(active_dir)
 }
 
+#[cfg(target_os = "windows")]
 fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
