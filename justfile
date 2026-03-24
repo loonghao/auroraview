@@ -607,11 +607,12 @@ ci-cli-smoke TARGET BIN:
 [unix]
 ci-test-rust: nextest-install
     @echo "Running Rust integration tests with cargo-nextest..."
-    vx cargo nextest run --config-file .config/nextest.toml --features "test-helpers" --tests
+    vx cargo nextest run --config-file .config/nextest.toml --profile ci --features "test-helpers" --tests
     @echo "Running Rust doc tests..."
     @echo "Note: lib tests are skipped due to abi3 linking issues with PyO3"
     @echo "      Python tests provide additional coverage for Python bindings"
     vx cargo test --doc
+
 
 [windows]
 ci-test-rust:
@@ -1099,10 +1100,14 @@ gallery-test-playwright: gallery-ci-playwright-install
     @echo "Running Gallery Playwright E2E tests..."
     vx uv run python scripts/test_gallery_e2e.py
 
+# Full Gallery verification path aligned with CI frontend checks
+gallery-verify: gallery-ci-build gallery-test-playwright
+    @echo "[OK] Gallery verify check passed!"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Gallery E2E Tests (Playwright + CDP)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 # Install Playwright for E2E tests
 gallery-e2e-install: gallery-ci-playwright-install
@@ -1658,9 +1663,14 @@ mcp-build:
 mcp-ci: mcp-install mcp-lint mcp-test
     @echo "[OK] MCP CI check passed!"
 
+# Full MCP verification path aligned with CI package validation
+mcp-verify: mcp-ci mcp-build
+    @echo "[OK] MCP verify check passed!"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Assets Commands (Frontend Assets for Rust Crates)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 # Install assets frontend dependencies
 assets-install:
