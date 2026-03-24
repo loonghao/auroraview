@@ -615,11 +615,16 @@ jobs:
         with:
           tool: cargo-llvm-cov
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+
       - name: Run tests with coverage
         run: vx just ci-rust-coverage-lcov
 
       - name: Run doc tests
-        run: vx just ci-test-rust
+        run: vx just ci-docs-rust
 
       - name: Upload Rust coverage
         uses: codecov/codecov-action@v5

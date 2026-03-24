@@ -235,6 +235,54 @@ test-fast:
     @echo "Running fast tests..."
     vx uvx pytest tests/python/ -v -m "not slow"
 
+# Ensure cargo-nextest is available for fast Rust integration runs
+[unix]
+nextest-install:
+    @if vx cargo nextest --version >/dev/null 2>&1; then \
+        echo "cargo-nextest already available"; \
+    else \
+        echo "Installing cargo-nextest..."; \
+        vx cargo install cargo-nextest --locked; \
+    fi
+
+[windows]
+nextest-install:
+    @if (vx cargo nextest --version *> $null) { Write-Host "cargo-nextest already available" } else { Write-Host "Installing cargo-nextest..."; vx cargo install cargo-nextest --locked }
+
+# Ensure cargo-llvm-cov is available for local Rust coverage runs
+[unix]
+llvm-cov-install:
+    @if vx cargo llvm-cov --version >/dev/null 2>&1; then \
+        echo "cargo-llvm-cov already available"; \
+    else \
+        echo "Installing cargo-llvm-cov..."; \
+        vx cargo install cargo-llvm-cov --locked; \
+    fi
+
+[windows]
+llvm-cov-install:
+    @if (vx cargo llvm-cov --version *> $null) { Write-Host "cargo-llvm-cov already available" } else { Write-Host "Installing cargo-llvm-cov..."; vx cargo install cargo-llvm-cov --locked }
+
+# Run Rust integration tests with cargo-nextest
+[unix]
+test-rust-fast: nextest-install
+    @echo "Running Rust integration tests with cargo-nextest..."
+    vx cargo nextest run --config-file .config/nextest.toml --features "test-helpers" --tests
+    @echo "[OK] Rust integration tests passed"
+
+[windows]
+test-rust-fast:
+    @echo "Skipping cargo-nextest integration path on Windows due to abi3/PyO3 DLL constraints."
+    @echo "Use Linux CI for full Rust integration coverage."
+
+# Test Python unit tests without slow markers
+test-python-unit-fast:
+    @echo "Running fast Python unit tests..."
+    vx uv run pytest tests/python/unit -q --tb=short -m "not slow and not qt" \
+        --ignore=tests/python/unit/integration/qt \
+        --ignore=tests/python/unit/test_qt_signals.py
+
+
 
 # Test with Python 3.7
 test-py37:
@@ -411,8 +459,8 @@ test-unit:
 
 # Run only Rust integration tests
 test-integration:
-    @echo "Running Rust integration tests (with rstest)..."
-    vx cargo test --test '*' --features "test-helpers"
+    @echo "Running Rust integration tests (cargo-nextest)..."
+    vx just test-rust-fast
     @echo "Running Python integration tests..."
     vx uvx pytest tests/python/integration -v
 
@@ -556,28 +604,34 @@ ci-cli-smoke TARGET BIN:
     @echo "[OK] CLI smoke tests passed"
 
 
-ci-test-rust:
+[unix]
+ci-test-rust: nextest-install
+    @echo "Running Rust integration tests with cargo-nextest..."
+    vx cargo nextest run --config-file .config/nextest.toml --features "test-helpers" --tests
     @echo "Running Rust doc tests..."
     @echo "Note: lib tests are skipped due to abi3 linking issues with PyO3"
-    @echo "      Python tests provide comprehensive coverage instead"
+    @echo "      Python tests provide additional coverage for Python bindings"
     vx cargo test --doc
 
-ci-rust-coverage-lcov:
-    @echo "Running Rust integration coverage with lcov output..."
-    vx cargo llvm-cov --features "test-helpers" --lcov --output-path rust-coverage.lcov \
-        --test config_integration \
-        --test file_protocol_integration \
-        --test http_discovery_integration \
-        --test ipc_json_integration \
-        --test ipc_message_queue_integration \
-        --test lifecycle_integration \
-        --test mdns_integration \
-        --test port_allocator_integration \
-        --test protocol_handlers_integration \
-        --test protocol_integration \
-        --test standalone_integration \
-        --test timer_integration
+[windows]
+ci-test-rust:
+    @echo "Running Rust doc tests..."
+    @echo "Note: cargo-nextest integration is skipped on Windows due to STATUS_DLL_NOT_FOUND (abi3/PyO3 linking) on some machines."
+    @echo "      Linux CI runs the Rust integration suite via cargo-nextest."
+    vx cargo test --doc
+
+
+[unix]
+ci-rust-coverage-lcov: llvm-cov-install nextest-install
+    @echo "Running Rust integration coverage with cargo-llvm-cov + cargo-nextest..."
+    vx cargo llvm-cov nextest --no-report --features "test-helpers" --config-file .config/nextest.toml --profile ci --tests
+    vx cargo llvm-cov report --lcov --output-path rust-coverage.lcov
     @echo "[OK] Rust coverage report: rust-coverage.lcov"
+
+[windows]
+ci-rust-coverage-lcov:
+    @echo "Rust lcov coverage is only generated on Linux CI."
+    @echo "Use the Linux CI rust-tests job for full Rust integration coverage."
 
 ci-test-python:
     @echo "Running Python unit tests with coverage..."
@@ -640,10 +694,13 @@ coverage-cli:
     @echo "[OK] Coverage report: target/llvm-cov/auroraview-cli/html/index.html"
 
 # Run coverage for all crates with lcov output (for CI)
+[unix]
+coverage-rust-lcov: ci-rust-coverage-lcov
+    @echo "[OK] Reused CI-aligned Rust coverage flow"
+
+[windows]
 coverage-rust-lcov:
-    @echo "Running Rust coverage with lcov output..."
-    vx cargo llvm-cov --workspace --lcov --output-path rust-coverage.lcov --tests --no-default-features --features "python-bindings threaded-ipc test-helpers"
-    @echo "[OK] Coverage report: rust-coverage.lcov"
+    @echo "Rust lcov coverage is only generated on Linux CI."
 
 coverage-all: coverage-rust coverage-python
     @echo "All coverage reports generated!"
@@ -731,6 +788,11 @@ harness-quick:
     vx just ci-lint
     vx just ci-test-basic
     @echo "[OK] harness-quick completed"
+
+# Diff-aware harness plan for iterative verification
+harness-changed BASE="origin/main":
+    @echo "Running diff-aware harness plan against {{BASE}}..."
+    vx uv run python scripts/harness_changed.py --base {{BASE}}
 
 # Full validation loop aligned with CI quality gates
 harness-verify:

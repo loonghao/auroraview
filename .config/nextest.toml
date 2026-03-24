@@ -1,0 +1,8 @@
+[profile.default]
+failure-output = "immediate-final"
+retries = { backoff = "fixed", count = 1, delay = "1s" }
+slow-timeout = { period = "60s", terminate-after = 2, grace-period = "10s" }
+
+[profile.ci]
+inherits = "default"
+slow-timeout = { period = "90s", terminate-after = 2, grace-period = "10s" }

@@ -77,12 +77,15 @@ runs:
 
     - name: Install cargo-llvm-cov
       if: inputs.test-type == 'rust' || inputs.test-type == 'full'
-      shell: bash
-      run: |
-        if ! command -v cargo-llvm-cov &> /dev/null; then
-          echo "Installing cargo-llvm-cov..."
-          vx cargo install cargo-llvm-cov --locked
-        fi
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-llvm-cov
+
+    - name: Install cargo-nextest
+      if: inputs.test-type == 'rust' || inputs.test-type == 'full'
+      uses: taiki-e/install-action@v2
+      with:
+        tool: nextest
 
     - name: Install xvfb for headless UI tests (Linux)
       if: runner.os == 'Linux'
@@ -124,8 +127,9 @@ runs:
             echo "  -> Rust integration tests with coverage..."
             vx just ci-rust-coverage-lcov
             echo "  -> Rust doc tests..."
-            vx cargo test --doc
+            vx just ci-docs-rust
             ;;
+
           "python")
             echo "Running Python unit tests..."
             eval "$XVFB_PREFIX vx just ci-test-python"
@@ -135,13 +139,14 @@ runs:
             echo "  -> Rust integration tests with coverage..."
             vx just ci-rust-coverage-lcov
             echo "  -> Rust doc tests..."
-            vx cargo test --doc
+            vx just ci-docs-rust
             echo "  -> Python unit tests..."
             eval "$XVFB_PREFIX vx just ci-test-python"
             echo "  -> Basic functionality tests..."
             vx just ci-test-basic
             echo "[OK] All tests completed"
             ;;
+
           *)
             echo "[ERROR] Unknown test type: ${{ inputs.test-type }}"
             echo "Available types: basic, rust, python, full"
