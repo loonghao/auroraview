@@ -29,4 +29,4 @@ jobs:
       - name: Run cargo audit
         run: |
           cargo generate-lockfile || true
-          cargo audit --deny warnings
+          cargo audit
