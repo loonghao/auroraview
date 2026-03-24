@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.16](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.15...auroraview-v0.4.16) (2026-03-24)
+
+
+### Bug Fixes
+
+* **ci:** resolve release [#266](https://github.com/loonghao/auroraview/issues/266) failures (py37 wheel, SDK E2E, artifact versions) ([bd561d0](https://github.com/loonghao/auroraview/commit/bd561d0f771af960fc0d7109477c6eb6369c9c46))
+
 ## [0.4.15](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.14...auroraview-v0.4.15) (2026-03-23)
 
 
