@@ -1,10 +1,10 @@
 [package]
 name = "auroraview-dcc"
-version = "0.4.5"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "DCC (Digital Content Creation) runtime for AuroraView - Maya, Houdini, Nuke, Blender integration"
-license = "MIT"
-repository = "https://github.com/loonghao/auroraview"
+license.workspace = true
+repository.workspace = true
 keywords = ["webview", "dcc", "maya", "houdini", "blender"]
 categories = ["gui", "multimedia"]
 

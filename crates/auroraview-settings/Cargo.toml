@@ -1,10 +1,10 @@
 [package]
 name = "auroraview-settings"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Settings and preferences management for AuroraView"
-license = "MIT"
-repository = "https://github.com/loonghao/auroraview"
+license.workspace = true
+repository.workspace = true
 keywords = ["settings", "preferences", "configuration"]
 categories = ["config"]
 

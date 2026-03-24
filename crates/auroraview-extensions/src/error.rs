@@ -56,6 +56,10 @@ pub enum ExtensionError {
     /// Runtime error
     #[error("Runtime error: {0}")]
     Runtime(String),
+
+    /// Lock poisoned
+    #[error("Lock poisoned: {0}")]
+    LockPoisoned(String),
 }
 
 /// Result type for extension operations

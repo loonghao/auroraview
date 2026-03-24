@@ -18,7 +18,7 @@ name: Rust Crates CI
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
     paths:
       - 'crates/**'
 

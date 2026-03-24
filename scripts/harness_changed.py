@@ -53,6 +53,8 @@ def classify_changes(paths: Iterable[str]) -> Dict[str, bool]:
         "python_unit": False,
         "python_integration": False,
         "sdk": False,
+        "mcp": False,
+        "assets": False,
         "gallery": False,
         "docs": False,
     }
@@ -75,12 +77,17 @@ def classify_changes(paths: Iterable[str]) -> Dict[str, bool]:
             flags["python_integration"] = True
         if path.startswith("packages/auroraview-sdk/"):
             flags["sdk"] = True
+        if path.startswith("packages/auroraview-mcp/") or path == ".github/workflows/mcp-ci.yml":
+            flags["mcp"] = True
+        if path.startswith("crates/auroraview-assets/frontend/"):
+            flags["assets"] = True
         if path.startswith("gallery/"):
             flags["gallery"] = True
         if path.startswith("docs/") or path.endswith(".md"):
             flags["docs"] = True
 
     return flags
+
 
 
 def build_command_plan(paths: Iterable[str]) -> List[str]:
@@ -101,10 +108,14 @@ def build_command_plan(paths: Iterable[str]) -> List[str]:
         if flags["python_integration"]:
             commands.append("vx just test-python-integration")
 
+    if flags["assets"]:
+        commands.append("vx just assets-ci")
     if flags["sdk"]:
         commands.append("vx just sdk-ci")
+    if flags["mcp"]:
+        commands.append("vx just mcp-verify")
     if flags["gallery"]:
-        commands.append("vx just gallery-test-playwright")
+        commands.append("vx just gallery-verify")
     if flags["docs"] and not commands:
         commands.append("vx just ci-docs-build")
     if not commands:
@@ -115,6 +126,7 @@ def build_command_plan(paths: Iterable[str]) -> List[str]:
         if command not in unique_commands:
             unique_commands.append(command)
     return unique_commands
+
 
 
 def run_plan(commands: Iterable[str]) -> int:
