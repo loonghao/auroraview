@@ -229,12 +229,26 @@ jobs:
           install-dependencies: 'false'
           cache-key-suffix: 'sdk-e2e'
 
+      - name: Download SDK package
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact-prefix }}sdk-package
+          path: packages/auroraview-sdk/dist/
+
+      - name: Link SDK dist into E2E test-app
+        run: |
+          # The E2E test HTML imports from '/dist/index.js'.
+          # npx serve roots at tests/e2e/test-app/, so dist/ must exist there.
+          ln -s "${{ github.workspace }}/packages/auroraview-sdk/dist" \
+                packages/auroraview-sdk/tests/e2e/test-app/dist
+          echo "Linked SDK dist into test-app:"
+          ls -la packages/auroraview-sdk/tests/e2e/test-app/dist/
+
       - name: Install Playwright
         run: vx just sdk-playwright-install
 
       - name: Run E2E tests
         run: vx just sdk-test-e2e
-
 
       - name: Upload E2E test results
         if: always()

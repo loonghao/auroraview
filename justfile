@@ -923,14 +923,19 @@ sdk-test-cov: sdk-install
 
 # Run SDK E2E tests (requires Playwright)
 [unix]
-sdk-test-e2e: sdk-playwright-install
+sdk-test-e2e: sdk-playwright-install sdk-build
     @echo "Running SDK E2E tests..."
+    @# E2E test HTML imports from /dist/index.js; npx serve roots at test-app/
+    @ln -sfn "{{justfile_directory()}}/packages/auroraview-sdk/dist" \
+             "{{justfile_directory()}}/packages/auroraview-sdk/tests/e2e/test-app/dist"
     cd packages/auroraview-sdk; vx bun run test:e2e
     @echo "[OK] SDK E2E tests passed!"
 
 [windows]
-sdk-test-e2e: sdk-playwright-install
+sdk-test-e2e: sdk-playwright-install sdk-build
     @echo "Running SDK E2E tests..."
+    # E2E test HTML imports from /dist/index.js; npx serve roots at test-app/
+    if (!(Test-Path "packages/auroraview-sdk/tests/e2e/test-app/dist")) { cmd /c mklink /D "packages\auroraview-sdk\tests\e2e\test-app\dist" "{{justfile_directory()}}\packages\auroraview-sdk\dist" }
     cd packages/auroraview-sdk; vx bun run test:e2e
     @echo "[OK] SDK E2E tests passed!"
 
