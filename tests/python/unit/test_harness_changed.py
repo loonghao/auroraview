@@ -44,13 +44,33 @@ def test_build_command_plan_escalates_ci_changes_to_verify():
     assert build_command_plan([".github/workflows/pr-checks.yml"]) == ["vx just harness-verify"]
 
 
+def test_build_command_plan_runs_assets_ci_for_assets_changes():
+    assert build_command_plan(["crates/auroraview-assets/frontend/src/main.tsx"]) == [
+        "vx just test-rust-fast",
+        "vx just assets-ci",
+    ]
+
+
+def test_build_command_plan_runs_mcp_verify_for_mcp_changes():
+    assert build_command_plan(["packages/auroraview-mcp/src/auroraview_mcp/server.py"]) == [
+        "vx just mcp-verify"
+    ]
+
+
+def test_build_command_plan_combines_ci_verify_and_mcp_verify_for_mcp_ci_changes():
+    assert build_command_plan([".github/workflows/mcp-ci.yml"]) == [
+        "vx just harness-verify",
+        "vx just mcp-verify",
+    ]
+
+
 def test_build_command_plan_combines_sdk_and_gallery_checks():
     assert build_command_plan(
         [
             "packages/auroraview-sdk/src/core/bridge.ts",
             "gallery/src/main.ts",
         ]
-    ) == ["vx just sdk-ci", "vx just gallery-test-playwright"]
+    ) == ["vx just sdk-ci", "vx just gallery-verify"]
 
 
 def test_classify_changes_marks_docs_for_markdown_files():

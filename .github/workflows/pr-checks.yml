@@ -441,13 +441,14 @@ jobs:
   # MCP Build - MCP Server package (parallel, no dependencies)
   # =============================================================================
   mcp-build:
-    name: MCP CI (disabled temporarily)
+    name: MCP CI
     needs: [path-filter]
-    if: false # temporarily disabling MCP CI to unblock core releases
+    if: needs.path-filter.outputs.needs_mcp_build == 'true'
     uses: ./.github/workflows/mcp-ci.yml
     with:
       artifact-prefix: 'pr-'
     secrets: inherit
+
 
 
   # =============================================================================
@@ -626,8 +627,18 @@ jobs:
       - name: Run doc tests
         run: vx just ci-docs-rust
 
+      - name: Upload nextest JUnit report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: rust-nextest-junit
+          path: target/nextest/ci/junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Upload Rust coverage
         uses: codecov/codecov-action@v5
+
         with:
           files: rust-coverage.lcov
           flags: rust
