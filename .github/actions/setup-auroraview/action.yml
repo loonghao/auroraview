@@ -33,7 +33,7 @@ runs:
     - name: Install vx
       uses: loonghao/vx@vx-v0.8.4
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ github.token }}
         cache: false
 
     - name: Setup vx
