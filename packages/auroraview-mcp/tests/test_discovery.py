@@ -51,7 +51,7 @@ class TestInstanceDiscovery:
     def test_default_ports(self) -> None:
         """Test default port list."""
         discovery = InstanceDiscovery()
-        assert discovery.default_ports == [9222, 9223, 9224, 9225]
+        assert discovery.default_ports == [9222, 9223, 9224, 9225, 9226, 9227, 9228, 9229, 9230]
 
     def test_custom_ports(self) -> None:
         """Test custom port list."""
