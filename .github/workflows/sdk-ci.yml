@@ -235,20 +235,30 @@ jobs:
           name: ${{ inputs.artifact-prefix }}sdk-package
           path: packages/auroraview-sdk/dist/
 
+      - name: Install SDK dependencies
+        working-directory: packages/auroraview-sdk
+        run: vx bun install
+
       - name: Link SDK dist into E2E test-app
         run: |
-          # The E2E test HTML imports from '/dist/index.js'.
-          # npx serve roots at tests/e2e/test-app/, so dist/ must exist there.
-          ln -s "${{ github.workspace }}/packages/auroraview-sdk/dist" \
+          # Copy built SDK dist into the test-app serve root.
+          # npx serve may not follow symlinks reliably in CI, so use a real copy.
+          rm -rf packages/auroraview-sdk/tests/e2e/test-app/dist
+          cp -r packages/auroraview-sdk/dist \
                 packages/auroraview-sdk/tests/e2e/test-app/dist
-          echo "Linked SDK dist into test-app:"
+          echo "SDK dist copied into test-app:"
           ls -la packages/auroraview-sdk/tests/e2e/test-app/dist/
+          # Verify the key entry point exists
+          test -f packages/auroraview-sdk/tests/e2e/test-app/dist/index.js || \
+            (echo "ERROR: index.js not found in test-app/dist/" && exit 1)
 
       - name: Install Playwright
-        run: vx just sdk-playwright-install
+        working-directory: packages/auroraview-sdk
+        run: vx bun run playwright install chromium --with-deps
 
       - name: Run E2E tests
-        run: vx just sdk-test-e2e
+        working-directory: packages/auroraview-sdk
+        run: vx bun run test:e2e
 
       - name: Upload E2E test results
         if: always()
