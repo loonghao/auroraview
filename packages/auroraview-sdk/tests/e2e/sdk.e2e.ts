@@ -35,12 +35,12 @@ test.describe('SDK Browser Integration', () => {
       return new Promise((resolve) => {
         const { EventEmitter } = (window as any).AuroraView;
         const emitter = new EventEmitter();
-        
+
         let received = false;
         emitter.on('test', () => {
           received = true;
         });
-        
+
         emitter.emit('test', { data: 'hello' });
         resolve(received);
       });
@@ -52,16 +52,16 @@ test.describe('SDK Browser Integration', () => {
     const unsubscribeWorks = await page.evaluate(() => {
       const { EventEmitter } = (window as any).AuroraView;
       const emitter = new EventEmitter();
-      
+
       let count = 0;
       const unsubscribe = emitter.on('test', () => {
         count++;
       });
-      
+
       emitter.emit('test', 1);
       unsubscribe();
       emitter.emit('test', 2);
-      
+
       return count === 1;
     });
     expect(unsubscribeWorks).toBe(true);
@@ -71,16 +71,16 @@ test.describe('SDK Browser Integration', () => {
     const onceWorks = await page.evaluate(() => {
       const { EventEmitter } = (window as any).AuroraView;
       const emitter = new EventEmitter();
-      
+
       let count = 0;
       emitter.once('test', () => {
         count++;
       });
-      
+
       emitter.emit('test', 1);
       emitter.emit('test', 2);
       emitter.emit('test', 3);
-      
+
       return count === 1;
     });
     expect(onceWorks).toBe(true);
@@ -88,6 +88,10 @@ test.describe('SDK Browser Integration', () => {
 });
 
 test.describe('SDK Type Safety', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
   test('should export all required types', async ({ page }) => {
     const typesExist = await page.evaluate(() => {
       const sdk = (window as any).AuroraView;
