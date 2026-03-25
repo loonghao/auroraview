@@ -755,7 +755,7 @@ dependencies = [
  "dunce",
  "flate2",
  "image",
- "indicatif",
+ "indicatif 0.18.4",
  "ipckit",
  "mime_guess",
  "open",
@@ -943,7 +943,7 @@ dependencies = [
  "hostname",
  "ico",
  "image",
- "indicatif",
+ "indicatif 0.18.4",
  "rand 0.8.5",
  "rayon",
  "serde",
@@ -4050,6 +4050,19 @@ dependencies = [
  "number_prefix",
  "portable-atomic",
  "unicode-width",
+ "web-time",
+]
+
+[[package]]
+name = "indicatif"
+version = "0.18.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25470f23803092da7d239834776d653104d551bc4d7eacaf31e6837854b8e9eb"
+dependencies = [
+ "console 0.16.3",
+ "portable-atomic",
+ "unicode-width",
+ "unit-prefix",
  "web-time",
 ]
 
@@ -8485,7 +8498,7 @@ dependencies = [
  "futures",
  "futures-util",
  "hickory-resolver",
- "indicatif",
+ "indicatif 0.17.11",
  "lru",
  "memmap2",
  "mimalloc",
@@ -8661,6 +8674,12 @@ name = "unindent"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7264e107f553ccae879d21fbea1d6724ac785e8c3bfc762137959b5802826ef3"
+
+[[package]]
+name = "unit-prefix"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81e544489bf3d8ef66c953931f56617f423cd4b5494be343d9b9d3dda037b9a3"
 
 [[package]]
 name = "universal-hash"
