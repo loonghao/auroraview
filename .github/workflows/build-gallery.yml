@@ -308,9 +308,19 @@ jobs:
       - name: Extract artifact
         shell: pwsh
         run: |
-          Expand-Archive -Path artifacts/auroraview-gallery-windows-x64.zip -DestinationPath gallery/pack-output
-          Move-Item gallery/pack-output/target/pack/auroraview-gallery.exe gallery/pack-output/auroraview-gallery.exe -Force
-          ls gallery/pack-output/
+          Expand-Archive -Path artifacts/auroraview-gallery-windows-x64.zip -DestinationPath gallery/pack-output -Force
+          # Find the exe wherever it was extracted (handles both flat and nested zip layouts)
+          $exe = Get-ChildItem -Path gallery/pack-output -Recurse -Filter 'auroraview-gallery.exe' | Select-Object -First 1
+          if (-not $exe) {
+            Write-Error "auroraview-gallery.exe not found in archive"
+            exit 1
+          }
+          # Move to expected location if nested
+          if ($exe.DirectoryName -ne (Resolve-Path gallery/pack-output).Path) {
+            Move-Item $exe.FullName gallery/pack-output/auroraview-gallery.exe -Force
+          }
+          Write-Host "Gallery executable ready:"
+          ls gallery/pack-output/auroraview-gallery.exe
 
       - name: Install Playwright
         run: vx just gallery-ci-playwright-install
