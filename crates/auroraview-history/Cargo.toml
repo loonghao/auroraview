@@ -1,10 +1,10 @@
 [package]
 name = "auroraview-history"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Browser history management for AuroraView"
-license = "MIT"
-repository = "https://github.com/loonghao/auroraview"
+license.workspace = true
+repository.workspace = true
 keywords = ["webview", "history", "browser"]
 categories = ["gui", "web-programming"]
 

@@ -1,10 +1,10 @@
 [package]
 name = "auroraview-testing"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "AI-friendly testing and inspection for AuroraView"
-license = "MIT"
-repository = "https://github.com/loonghao/auroraview"
+license.workspace = true
+repository.workspace = true
 keywords = ["testing", "webview", "cdp", "automation", "ai"]
 categories = ["development-tools::testing", "web-programming"]
 

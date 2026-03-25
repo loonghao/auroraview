@@ -356,17 +356,17 @@ nox-all:
 # Package-Level Test Commands (for isolated CI)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Test aurora-signals crate (standalone, no deps)
+# Test auroraview-signals crate (standalone, no deps)
 test-signals:
-    @echo "Testing aurora-signals..."
-    vx cargo test -p aurora-signals
-    vx cargo clippy -p aurora-signals -- -D warnings
+    @echo "Testing auroraview-signals..."
+    vx cargo test -p auroraview-signals
+    vx cargo clippy -p auroraview-signals -- -D warnings
 
-# Test aurora-protect crate (standalone, no deps)
+# Test auroraview-protect crate (standalone, no deps)
 test-protect:
-    @echo "Testing aurora-protect..."
-    vx cargo test -p aurora-protect
-    vx cargo clippy -p aurora-protect -- -D warnings
+    @echo "Testing auroraview-protect..."
+    vx cargo test -p auroraview-protect
+    vx cargo clippy -p auroraview-protect -- -D warnings
 
 # Test auroraview-plugin-core crate (standalone, no deps)
 test-plugin-core:

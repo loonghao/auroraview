@@ -1,11 +1,11 @@
 [package]
 name = "auroraview-signals"
-version = "0.4.3"
-edition = "2021"
-rust-version = "1.90"
-authors = ["Hal Long <hal.long@outlook.com>"]
-license = "MIT"
-repository = "https://github.com/loonghao/auroraview-signals"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "AuroraView Signals: A cross-language signal-slot system with middleware and event bus support"
 keywords = ["signals", "events", "pubsub", "middleware", "rust"]
 categories = ["development-tools", "asynchronous"]

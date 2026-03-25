@@ -1,11 +1,11 @@
 [package]
 name = "auroraview-extensions"
-version = "0.4.3"
-edition = "2021"
-rust-version = "1.90"
-authors = ["Hal Long <hal.long@outlook.com>"]
-license = "MIT"
-repository = "https://github.com/loonghao/auroraview-extensions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Browser extension compatibility layer - 1:1 Chrome Extension API support for WebView applications"
 keywords = ["webview", "extensions", "chrome", "browser", "manifest-v3"]
 categories = ["gui", "web-programming"]

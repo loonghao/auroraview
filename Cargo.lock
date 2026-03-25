@@ -664,7 +664,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-ai-agent"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "async-trait",
  "auroraview-workspace-hack",
@@ -817,7 +817,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-dcc"
-version = "0.4.5"
+version = "0.4.16"
 dependencies = [
  "auroraview-core",
  "auroraview-workspace-hack",
@@ -832,7 +832,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-desktop"
-version = "0.4.5"
+version = "0.4.16"
 dependencies = [
  "auroraview-core",
  "auroraview-plugins",
@@ -853,7 +853,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-devtools"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "auroraview-workspace-hack",
  "serde",
@@ -863,7 +863,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-downloads"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -877,7 +877,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.4.3"
+version = "0.4.16"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -902,7 +902,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-history"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -915,7 +915,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-notifications"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -929,7 +929,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "auroraview-extensions",
  "auroraview-protect",
@@ -1010,7 +1010,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-protect"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -1033,7 +1033,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-settings"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "auroraview-workspace-hack",
  "parking_lot",
@@ -1046,7 +1046,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-signals"
-version = "0.4.3"
+version = "0.4.16"
 dependencies = [
  "auroraview-workspace-hack",
  "crossbeam-channel",
@@ -1063,7 +1063,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-tabs"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "auroraview-workspace-hack",
  "parking_lot",
@@ -1076,7 +1076,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-telemetry"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "auroraview-workspace-hack",
  "opentelemetry",
@@ -1097,7 +1097,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-testing"
-version = "0.1.0"
+version = "0.4.16"
 dependencies = [
  "anyhow",
  "async-trait",

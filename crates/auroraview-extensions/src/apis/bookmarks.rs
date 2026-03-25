@@ -140,7 +140,13 @@ impl BookmarksApi {
 
     /// Initialize default bookmark folders
     fn init_default_folders(&self) {
-        let mut bookmarks = self.bookmarks.write().unwrap();
+        let mut bookmarks = match self.bookmarks.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                tracing::error!("Failed to acquire bookmarks lock: {}", e);
+                return;
+            }
+        };
 
         // Root node
         bookmarks.insert(
@@ -195,17 +201,23 @@ impl BookmarksApi {
     }
 
     /// Generate next ID
-    fn next_id(&self) -> String {
-        let mut id = self.next_id.write().unwrap();
+    fn next_id(&self) -> ExtensionResult<String> {
+        let mut id = self
+            .next_id
+            .write()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let current = *id;
         *id += 1;
         // Start from 100 to avoid conflicts with default folders
-        format!("{}", current + 100)
+        Ok(format!("{}", current + 100))
     }
 
     /// Get bookmark by ID
     pub fn get(&self, id_or_ids: Value) -> ExtensionResult<Value> {
-        let bookmarks = self.bookmarks.read().unwrap();
+        let bookmarks = self
+            .bookmarks
+            .read()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let ids: Vec<String> = match id_or_ids {
             Value::String(s) => vec![s],
             Value::Array(arr) => arr
@@ -223,7 +235,10 @@ impl BookmarksApi {
 
     /// Get children of a bookmark folder
     pub fn get_children(&self, id: &str) -> ExtensionResult<Value> {
-        let bookmarks = self.bookmarks.read().unwrap();
+        let bookmarks = self
+            .bookmarks
+            .read()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
 
         let children: Vec<&BookmarkTreeNode> = bookmarks
             .values()
@@ -235,7 +250,10 @@ impl BookmarksApi {
 
     /// Get recent bookmarks
     pub fn get_recent(&self, number_of_items: usize) -> ExtensionResult<Value> {
-        let bookmarks = self.bookmarks.read().unwrap();
+        let bookmarks = self
+            .bookmarks
+            .read()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
 
         let mut recent: Vec<&BookmarkTreeNode> = bookmarks
             .values()
@@ -251,7 +269,10 @@ impl BookmarksApi {
 
     /// Get subtree starting from a node
     pub fn get_sub_tree(&self, id: &str) -> ExtensionResult<Value> {
-        let bookmarks = self.bookmarks.read().unwrap();
+        let bookmarks = self
+            .bookmarks
+            .read()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
 
         let node = bookmarks
             .get(id)
@@ -289,7 +310,7 @@ impl BookmarksApi {
 
     /// Create a bookmark or folder
     pub fn create(&self, details: CreateDetails) -> ExtensionResult<Value> {
-        let id = self.next_id();
+        let id = self.next_id()?;
         let parent_id = details.parent_id.unwrap_or_else(|| "2".to_string()); // Default to "Other Bookmarks"
         let is_folder = details.url.is_none();
 
@@ -306,7 +327,10 @@ impl BookmarksApi {
             unmodifiable: None,
         };
 
-        let mut bookmarks = self.bookmarks.write().unwrap();
+        let mut bookmarks = self
+            .bookmarks
+            .write()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         bookmarks.insert(id, node.clone());
 
         Ok(serde_json::to_value(node)?)
@@ -314,7 +338,10 @@ impl BookmarksApi {
 
     /// Move a bookmark
     pub fn move_bookmark(&self, id: &str, destination: MoveDestination) -> ExtensionResult<Value> {
-        let mut bookmarks = self.bookmarks.write().unwrap();
+        let mut bookmarks = self
+            .bookmarks
+            .write()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
 
         let node = bookmarks
             .get_mut(id)
@@ -338,7 +365,10 @@ impl BookmarksApi {
 
     /// Update a bookmark
     pub fn update(&self, id: &str, changes: UpdateChanges) -> ExtensionResult<Value> {
-        let mut bookmarks = self.bookmarks.write().unwrap();
+        let mut bookmarks = self
+            .bookmarks
+            .write()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
 
         let node = bookmarks
             .get_mut(id)
@@ -362,7 +392,10 @@ impl BookmarksApi {
 
     /// Remove a bookmark
     pub fn remove(&self, id: &str) -> ExtensionResult<Value> {
-        let mut bookmarks = self.bookmarks.write().unwrap();
+        let mut bookmarks = self
+            .bookmarks
+            .write()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
 
         let node = bookmarks
             .get(id)
@@ -392,7 +425,10 @@ impl BookmarksApi {
 
     /// Remove a bookmark tree
     pub fn remove_tree(&self, id: &str) -> ExtensionResult<Value> {
-        let mut bookmarks = self.bookmarks.write().unwrap();
+        let mut bookmarks = self
+            .bookmarks
+            .write()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
 
         let node = bookmarks
             .get(id)
@@ -433,7 +469,10 @@ impl BookmarksApi {
 
     /// Search bookmarks
     pub fn search(&self, query: Value) -> ExtensionResult<Value> {
-        let bookmarks = self.bookmarks.read().unwrap();
+        let bookmarks = self
+            .bookmarks
+            .read()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
 
         let search_query: SearchQuery = if query.is_string() {
             SearchQuery {

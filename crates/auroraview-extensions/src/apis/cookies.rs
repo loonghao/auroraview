@@ -188,7 +188,10 @@ impl CookiesApi {
 
     /// Get a cookie
     pub fn get(&self, details: CookieDetails) -> ExtensionResult<Value> {
-        let cookies = self.cookies.read().unwrap();
+        let cookies = self
+            .cookies
+            .read()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let store_id = details.store_id.unwrap_or_else(|| "0".to_string());
 
         let domain = Self::domain_from_url(&details.url)
@@ -221,7 +224,10 @@ impl CookiesApi {
 
     /// Get all cookies matching query
     pub fn get_all(&self, query: CookieQuery) -> ExtensionResult<Value> {
-        let cookies = self.cookies.read().unwrap();
+        let cookies = self
+            .cookies
+            .read()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let store_id = query.store_id.clone().unwrap_or_else(|| "0".to_string());
 
         let url_domain = query.url.as_ref().and_then(|u| Self::domain_from_url(u));
@@ -288,7 +294,10 @@ impl CookiesApi {
 
     /// Set a cookie
     pub fn set(&self, details: SetDetails) -> ExtensionResult<Value> {
-        let mut cookies = self.cookies.write().unwrap();
+        let mut cookies = self
+            .cookies
+            .write()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let store_id = details.store_id.unwrap_or_else(|| "0".to_string());
 
         let domain = details
@@ -329,7 +338,10 @@ impl CookiesApi {
 
     /// Remove a cookie
     pub fn remove(&self, details: CookieDetails) -> ExtensionResult<Value> {
-        let mut cookies = self.cookies.write().unwrap();
+        let mut cookies = self
+            .cookies
+            .write()
+            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let store_id = details.store_id.unwrap_or_else(|| "0".to_string());
 
         let domain = Self::domain_from_url(&details.url)

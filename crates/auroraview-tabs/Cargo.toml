@@ -1,10 +1,10 @@
 [package]
 name = "auroraview-tabs"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Tab management for AuroraView (WebView-agnostic)"
-license = "MIT"
-repository = "https://github.com/loonghao/auroraview"
+license.workspace = true
+repository.workspace = true
 keywords = ["webview", "tabs", "browser"]
 categories = ["gui", "web-programming"]
 
