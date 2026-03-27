@@ -1,0 +1,50 @@
+# cargo-mutants configuration for AuroraView
+# Run: cargo mutants --test-tool=nextest
+# See: https://mutants.rs/
+
+# Use nextest for faster mutation testing
+test_tool = "nextest"
+
+# Timeout per mutant (seconds) - generous for WebView-related tests
+timeout = 120
+
+# Minimum test timeout (covers fast-completing mutants)
+minimum_test_timeout = 30
+
+# Cap number of mutants per run for agent-friendly iteration loops
+# Override with: cargo mutants --mutant-limit <N>
+# (no cap by default; use justfile targets for bounded runs)
+
+# Skip files that are hard to test meaningfully with mutations
+# (platform-specific, GUI, Python bindings)
+exclude_globs = [
+    # Platform-specific code (requires specific OS to test)
+    "src/webview/backend/*",
+    "src/webview/platform/*",
+
+    # Python bindings (tested via Python tests, not Rust unit tests)
+    "src/python_bindings/*",
+    "crates/auroraview-testing/src/python.rs",
+
+    # Generated / template code
+    "crates/auroraview-workspace-hack/**",
+
+    # Build scripts
+    "build.rs",
+
+    # Telemetry (mostly side-effect code, low mutation value)
+    "crates/auroraview-telemetry/src/**",
+]
+
+# Only test crates that have meaningful unit tests
+examine_globs = [
+    "crates/auroraview-core/src/**",
+    "crates/auroraview-signals/src/**",
+    "crates/auroraview-pack/src/**",
+    "crates/auroraview-extensions/src/**",
+    "crates/auroraview-plugins/core/src/**",
+    "crates/auroraview-plugins/fs/src/**",
+    "crates/auroraview-protect/src/**",
+    "crates/auroraview-cli/src/**",
+    "src/ipc/**",
+]
