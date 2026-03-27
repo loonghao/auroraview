@@ -809,6 +809,55 @@ harness-gallery-e2e:
     vx just gallery-e2e-packed-playwright
     @echo "[OK] harness-gallery-e2e completed"
 
+# ============================================================================
+# Advanced Testing Commands (mutation, parallelism, partitioning)
+# ============================================================================
+
+# Run Rust integration tests with nextest fast profile (no retries, short timeout)
+[unix]
+test-rust-turbo: nextest-install
+    @echo "Running Rust tests with fast profile (turbo mode)..."
+    vx cargo nextest run --config-file .config/nextest.toml --profile fast --features "test-helpers" --tests
+    @echo "[OK] Rust turbo tests passed"
+
+[windows]
+test-rust-turbo:
+    @echo "Skipping cargo-nextest turbo path on Windows due to abi3/PyO3 DLL constraints."
+
+# Run Rust integration tests with CI partitioning (for sharded CI jobs)
+[unix]
+ci-test-rust-partition SLICE:
+    @echo "Running Rust tests partition {{SLICE}}..."
+    vx cargo nextest run --config-file .config/nextest.toml --profile ci --features "test-helpers" --tests --partition hash:{{SLICE}}
+    @echo "[OK] Rust partition {{SLICE}} passed"
+
+# Run Python tests in parallel via pytest-xdist
+test-python-parallel WORKERS="auto":
+    @echo "Running Python tests in parallel ({{WORKERS}} workers)..."
+    vx uv run pytest tests/python/unit -q --tb=short -m "not slow and not qt" -n {{WORKERS}} \
+        --ignore=tests/python/unit/integration/qt \
+        --ignore=tests/python/unit/test_qt_signals.py
+    @echo "[OK] Parallel Python tests passed"
+
+# Run mutation testing on a specific crate (requires cargo-mutants)
+mutants-crate CRATE:
+    @echo "Running mutation tests for {{CRATE}}..."
+    vx cargo mutants -p {{CRATE}} --test-tool=nextest -- --config-file .config/nextest.toml --features "test-helpers"
+    @echo "[OK] Mutation testing for {{CRATE}} completed"
+    @echo "Report: mutants.out/
+
+# Dry-run mutation testing (list mutants without running)
+mutants-list CRATE:
+    @echo "Listing mutants for {{CRATE}}..."
+    vx cargo mutants -p {{CRATE}} --list
+
+# Run mutation testing on core crates (quick subset)
+mutants-quick:
+    @echo "Running quick mutation tests on core crates..."
+    vx cargo mutants -p auroraview-signals --test-tool=nextest -- --config-file .config/nextest.toml
+    vx cargo mutants -p auroraview-protect --test-tool=nextest -- --config-file .config/nextest.toml
+    @echo "[OK] Quick mutation testing completed"
+
 # Setup development module for Maya
 
 maya-setup-dev:

@@ -79,6 +79,11 @@ def test_classify_changes_marks_docs_for_markdown_files():
     assert flags["ci"] is False
 
 
+def test_classify_changes_marks_cargo_mutants_as_ci():
+    flags = classify_changes([".cargo/mutants.toml"])
+    assert flags["ci"] is True
+
+
 def test_list_changed_files_includes_worktree_and_filters_internal_files(monkeypatch):
     outputs = {
         ("vx", "git", "diff", "--name-only", "origin/main...HEAD"): ["justfile"],

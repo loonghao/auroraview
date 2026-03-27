@@ -22,6 +22,7 @@ CI_FILES = {
     "pyproject.toml",
     "vx.toml",
     ".config/nextest.toml",
+    ".cargo/mutants.toml",
 }
 
 
