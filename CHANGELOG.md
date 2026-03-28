@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.17](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.16...auroraview-v0.4.17) (2026-03-28)
+
+
+### Bug Fixes
+
+* **ci:** resolve release E2E test failures ([e68c1f3](https://github.com/loonghao/auroraview/commit/e68c1f3df52565cf2d5ba6aed2f8e1ce828b097c))
+* **ci:** use github.token instead of secrets in composite action ([7ecacbc](https://github.com/loonghao/auroraview/commit/7ecacbc79e7b151e3f092d6d90a62d197fa89cd9))
+* update test expectations for default ports and SDK e2e navigation ([35e5f95](https://github.com/loonghao/auroraview/commit/35e5f957a1799d55a4d0090608d7dded73d9162b))
+
 ## [0.4.16](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.15...auroraview-v0.4.16) (2026-03-24)
 
 
