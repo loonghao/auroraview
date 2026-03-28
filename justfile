@@ -911,6 +911,30 @@ mutants-quick:
     vx cargo mutants -p auroraview-protect --test-tool=nextest -- --config-file .config/nextest.toml
     @echo "[OK] Quick mutation testing completed"
 
+# Run diff-based mutation testing (only mutate files changed vs base)
+[unix]
+mutants-diff BASE="origin/main":
+    @echo "Running diff-based mutation testing against {{BASE}}..."
+    @file_args=""; for f in $(vx git diff --name-only --diff-filter=ACMR {{BASE}}...HEAD -- '*.rs' | grep -E '^(crates|src)/' | head 20); do file_args="$file_args --file $f"; done; \
+    if [ -z "$file_args" ]; then echo "No changed Rust files found"; else \
+    vx cargo mutants $file_args --test-tool=nextest -- --config-file .config/nextest.toml --profile mutation --features "test-helpers"; fi
+    @echo "[OK] Diff-based mutation testing completed"
+
+[windows]
+mutants-diff BASE="origin/main":
+    @echo "Diff-based mutation testing is only supported on Unix."
+
+# Collect unified coverage + mutation report
+harness-coverage:
+    @echo "Collecting coverage and mutation report..."
+    vx uv run python scripts/harness_coverage.py
+    @echo "[OK] harness-coverage completed"
+
+# Write unified coverage report to a file
+harness-coverage-file OUTPUT="coverage-report.json":
+    @echo "Writing coverage report to {{OUTPUT}}..."
+    vx uv run python scripts/harness_coverage.py --output {{OUTPUT}}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Snapshot & Flaky Test Commands
 # ═══════════════════════════════════════════════════════════════════════════════

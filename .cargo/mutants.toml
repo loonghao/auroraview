@@ -11,6 +11,9 @@ timeout = 120
 # Minimum test timeout (covers fast-completing mutants)
 minimum_test_timeout = 30
 
+# Additional args passed to cargo test / nextest
+additional_cargo_test_args = ["--config-file", ".config/nextest.toml", "--profile", "mutation"]
+
 # Cap number of mutants per run for agent-friendly iteration loops
 # Override with: cargo mutants --mutant-limit <N>
 # (no cap by default; use justfile targets for bounded runs)
