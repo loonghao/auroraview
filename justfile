@@ -858,6 +858,67 @@ mutants-quick:
     vx cargo mutants -p auroraview-protect --test-tool=nextest -- --config-file .config/nextest.toml
     @echo "[OK] Quick mutation testing completed"
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Snapshot & Flaky Test Commands
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Run Rust tests and update insta snapshots
+snapshot-review:
+    @echo "Running Rust tests with insta snapshot review..."
+    INSTA_UPDATE=new vx cargo test --workspace
+    @echo "[OK] Snapshots generated. Run 'vx cargo insta review' to accept."
+
+# Accept all pending insta snapshots
+snapshot-accept:
+    @echo "Accepting all pending insta snapshots..."
+    vx cargo insta accept --all
+    @echo "[OK] All snapshots accepted"
+
+# Reject all pending insta snapshots
+snapshot-reject:
+    @echo "Rejecting all pending insta snapshots..."
+    vx cargo insta reject --all
+    @echo "[OK] All pending snapshots rejected"
+
+# Run Rust snapshot tests in CI mode (fail on mismatch)
+snapshot-ci:
+    @echo "Running insta snapshot tests in CI mode..."
+    CI=true vx cargo test --workspace
+    @echo "[OK] All snapshots match"
+
+# Detect flaky Rust tests (using nextest flaky-detect profile with retries)
+[unix]
+test-flaky-detect: nextest-install
+    @echo "Running flaky test detection (3 retries per test)..."
+    vx cargo nextest run --config-file .config/nextest.toml --profile flaky-detect --features "test-helpers" --tests
+    @echo "[OK] Flaky detection run completed"
+
+[windows]
+test-flaky-detect:
+    @echo "Skipping flaky detection on Windows due to abi3/PyO3 DLL constraints."
+
+# Detect flaky Python tests (re-run failures up to 3 times)
+test-python-flaky-detect:
+    @echo "Running Python flaky test detection (rerun failures up to 3 times)..."
+    vx uv run pytest tests/python/unit -v --tb=short --reruns 3 --reruns-delay 1 \
+        -m "not slow and not qt" \
+        --ignore=tests/python/unit/integration/qt \
+        --ignore=tests/python/unit/test_qt_signals.py
+    @echo "[OK] Python flaky detection completed"
+
+# Run Python tests with auto-rerun for flaky tests (CI-friendly)
+ci-test-python-rerun:
+    @echo "Running Python tests with auto-rerun for flaky tests..."
+    vx uv run pytest tests/python/unit tests/python/integration -v --tb=short \
+        --reruns 2 --reruns-delay 1 \
+        -m "not slow" \
+        --cov=auroraview \
+        --cov-report=term-missing \
+        --cov-report=xml \
+        --cov-fail-under=0 \
+        --timeout=60
+    @echo "[OK] Python tests with rerun completed"
+
 # Setup development module for Maya
 
 maya-setup-dev:

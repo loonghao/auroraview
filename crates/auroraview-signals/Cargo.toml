@@ -50,3 +50,4 @@ ext-module = ["pyo3/extension-module"]
 [dev-dependencies]
 rstest = "0.26"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+insta = { version = "1.42", features = ["json"] }

@@ -84,3 +84,4 @@ wry-builder = ["wry"]
 [dev-dependencies]
 rstest = "0.26"
 tempfile = "3.15"
+insta = { version = "1.42", features = ["json", "redactions"] }

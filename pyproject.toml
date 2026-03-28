@@ -48,6 +48,7 @@ test = [
     "pytest-timeout>=2.0.0",
     "pytest-xdist>=3.5; python_version>='3.8'",
     "pytest-randomly>=3.15; python_version>='3.8'",
+    "pytest-rerunfailures>=14.0; python_version>='3.8'",
     "coverage[toml]>=7.0",
     "websockets>=10.0",
     "playwright>=1.40.0; python_version>='3.8'",
@@ -142,6 +143,7 @@ markers = [
     "qt: Qt-specific tests",
     "headless: Headless tests (no display required)",
     "e2e: End-to-end tests",
+    "flaky: Flaky tests (auto-rerun up to 2 times)",
 ]
 
 # Coverage configuration

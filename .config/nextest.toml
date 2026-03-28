@@ -26,6 +26,19 @@ fail-fast = true
 status-level = "fail"
 final-status-level = "fail"
 
+# Flaky-detection profile: run all tests with extra retries to surface flaky tests
+[profile.flaky-detect]
+inherits = "default"
+retries = { backoff = "exponential", count = 3, delay = "500ms", max-delay = "5s" }
+slow-timeout = { period = "120s", terminate-after = 2, grace-period = "10s" }
+fail-fast = false
+
+# Snapshot review profile: for running insta snapshot tests
+[profile.snapshot]
+inherits = "default"
+retries = 0
+fail-fast = false
+
 # Test groups for resource isolation
 # Tests that bind ports or use shared resources must run serially
 [test-groups.serial-network]

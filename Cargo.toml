@@ -198,6 +198,8 @@ proptest = "1.5"
 mockall = "0.14"
 serial_test = "3.2"
 reqwest = { version = "0.12", features = ["json"] }
+# Snapshot testing (serialize-based golden file testing)
+insta = { version = "1.42", features = ["json", "redactions"] }
 
 [profile.release]
 opt-level = 3
