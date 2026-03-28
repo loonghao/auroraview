@@ -17,6 +17,19 @@ path = "junit.xml"
 report-name = "auroraview-rust-ci"
 store-failure-output = true
 
+# Agent-friendly profile: JSON + JUnit output for machine consumption
+[profile.agent]
+inherits = "ci"
+retries = { backoff = "fixed", count = 2, delay = "1s" }
+slow-timeout = { period = "120s", terminate-after = 2, grace-period = "10s" }
+fail-fast = false
+
+[profile.agent.junit]
+path = "agent-junit.xml"
+report-name = "auroraview-agent"
+store-failure-output = true
+store-success-output = true
+
 # Fast profile for quick iteration (harness-quick / agent loops)
 [profile.fast]
 inherits = "default"

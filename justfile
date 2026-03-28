@@ -809,6 +809,59 @@ harness-gallery-e2e:
     vx just gallery-e2e-packed-playwright
     @echo "[OK] harness-gallery-e2e completed"
 
+# Collect and print structured JSON summary from test artifacts
+harness-summary:
+    @echo "Collecting test result summary..."
+    vx uv run python scripts/harness_summary.py
+    @echo "[OK] harness-summary completed"
+
+# Write structured JSON summary to a file
+harness-summary-file OUTPUT="test-summary.json":
+    @echo "Writing test result summary to {{OUTPUT}}..."
+    vx uv run python scripts/harness_summary.py --output {{OUTPUT}}
+
+# Run Python tests with JSON report output (for agent consumption)
+test-python-json:
+    @echo "Running Python tests with JSON report..."
+    vx uv run pytest tests/python/unit -q --tb=short -m "not slow and not qt" \
+        --json-report --json-report-file=test-report.json \
+        --ignore=tests/python/unit/integration/qt \
+        --ignore=tests/python/unit/test_qt_signals.py
+    @echo "[OK] JSON report: test-report.json"
+
+# Run Rust tests with agent profile (JSON + JUnit, retries, full output)
+[unix]
+test-rust-agent: nextest-install
+    @echo "Running Rust tests with agent profile..."
+    vx cargo nextest run --config-file .config/nextest.toml --profile agent --features "test-helpers" --tests
+    @echo "[OK] Agent JUnit report: target/nextest/ci/agent-junit.xml"
+
+[windows]
+test-rust-agent:
+    @echo "Skipping cargo-nextest agent path on Windows due to abi3/PyO3 DLL constraints."
+
+# Run full agent test loop: Rust + Python with structured output + summary
+[unix]
+harness-agent: test-rust-agent test-python-json harness-summary
+    @echo "[OK] harness-agent completed"
+
+[windows]
+harness-agent: test-python-json harness-summary
+    @echo "[OK] harness-agent completed (Rust nextest skipped on Windows)"
+
+# CI Python tests with JSON report + GitHub Actions annotations
+ci-test-python-json:
+    @echo "Running Python tests with JSON report + GH annotations..."
+    vx uv run pytest tests/python/unit tests/python/integration -v --tb=short \
+        -m "not slow" \
+        --json-report --json-report-file=test-report.json \
+        --cov=auroraview \
+        --cov-report=term-missing \
+        --cov-report=xml \
+        --cov-fail-under=0 \
+        --timeout=60
+    @echo "[OK] CI Python JSON tests completed"
+
 # ============================================================================
 # Advanced Testing Commands (mutation, parallelism, partitioning)
 # ============================================================================
