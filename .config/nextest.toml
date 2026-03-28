@@ -52,6 +52,16 @@ inherits = "default"
 retries = 0
 fail-fast = false
 
+# Mutation testing profile: used by cargo-mutants via nextest
+# Short timeout, no retries (mutations should fail fast)
+[profile.mutation]
+inherits = "default"
+retries = 0
+slow-timeout = { period = "45s", terminate-after = 1, grace-period = "5s" }
+fail-fast = true
+status-level = "fail"
+final-status-level = "fail"
+
 # Test groups for resource isolation
 # Tests that bind ports or use shared resources must run serially
 [test-groups.serial-network]
