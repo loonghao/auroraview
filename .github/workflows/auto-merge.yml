@@ -1,0 +1,32 @@
+name: Auto Merge
+
+# Enable auto-merge on PRs from automation branches after CI passes.
+# This workflow is triggered when PR checks complete successfully.
+#
+# Requirements:
+# - Repository must have "Allow auto-merge" enabled in Settings > General
+# - Branch protection rules must require status checks
+# - PR must be from an automation/* branch
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: Enable Auto-Merge
+    runs-on: ubuntu-latest
+    # Only run for automation branches (created by scheduled tasks)
+    if: startsWith(github.head_ref, 'automation/')
+    timeout-minutes: 5
+    steps:
+      - name: Enable auto-merge (squash)
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ github.event.pull_request.number }}
+          merge-method: squash

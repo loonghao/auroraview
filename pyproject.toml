@@ -49,6 +49,10 @@ test = [
     "pytest-xdist>=3.5; python_version>='3.8'",
     "pytest-randomly>=3.15; python_version>='3.8'",
     "pytest-rerunfailures>=14.0; python_version>='3.8'",
+    # Structured JSON test reports for agent/CI consumption
+    "pytest-json-report>=1.5; python_version>='3.8'",
+    # GitHub Actions inline annotations for test failures
+    "pytest-github-actions-annotate-failures>=0.2; python_version>='3.8'",
     "coverage[toml]>=7.0",
     "websockets>=10.0",
     "playwright>=1.40.0; python_version>='3.8'",
