@@ -5,6 +5,7 @@
 //! extension service workers natively, we simulate the lifecycle
 //! and message passing.
 
+use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -138,24 +139,24 @@ impl std::fmt::Debug for PendingResponse {
 /// Manages the lifecycle and message passing for extension service workers.
 pub struct ServiceWorkerManager {
     /// Registered workers
-    workers: RwLock<HashMap<String, ServiceWorkerRegistration>>,
+    workers: DashMap<String, ServiceWorkerRegistration>,
     /// Message queue per extension
-    message_queues: RwLock<HashMap<String, Vec<ServiceWorkerMessage>>>,
-    /// Pending responses
+    message_queues: DashMap<String, Vec<ServiceWorkerMessage>>,
+    /// Pending responses (kept as RwLock — PendingResponse contains FnOnce which is !Sync for DashMap)
     #[allow(dead_code)]
     pending_responses: RwLock<HashMap<String, PendingResponse>>,
     /// Event listeners per extension
-    event_listeners: RwLock<HashMap<String, HashMap<String, Vec<String>>>>,
+    event_listeners: DashMap<String, HashMap<String, Vec<String>>>,
 }
 
 impl ServiceWorkerManager {
     /// Create a new service worker manager
     pub fn new() -> Self {
         Self {
-            workers: RwLock::new(HashMap::new()),
-            message_queues: RwLock::new(HashMap::new()),
+            workers: DashMap::new(),
+            message_queues: DashMap::new(),
             pending_responses: RwLock::new(HashMap::new()),
-            event_listeners: RwLock::new(HashMap::new()),
+            event_listeners: DashMap::new(),
         }
     }
 
@@ -165,8 +166,6 @@ impl ServiceWorkerManager {
         extension_id: &str,
         script_path: &str,
     ) -> Result<ServiceWorkerRegistration, String> {
-        let mut workers = self.workers.write();
-
         let registration = ServiceWorkerRegistration {
             extension_id: extension_id.to_string(),
             script_path: script_path.to_string(),
@@ -175,11 +174,11 @@ impl ServiceWorkerManager {
             error: None,
         };
 
-        workers.insert(extension_id.to_string(), registration.clone());
+        self.workers
+            .insert(extension_id.to_string(), registration.clone());
 
         // Initialize message queue
         self.message_queues
-            .write()
             .insert(extension_id.to_string(), Vec::new());
 
         Ok(registration)
@@ -187,12 +186,11 @@ impl ServiceWorkerManager {
 
     /// Unregister a service worker
     pub fn unregister(&self, extension_id: &str) -> bool {
-        let mut workers = self.workers.write();
-        let removed = workers.remove(extension_id).is_some();
+        let removed = self.workers.remove(extension_id).is_some();
 
         if removed {
-            self.message_queues.write().remove(extension_id);
-            self.event_listeners.write().remove(extension_id);
+            self.message_queues.remove(extension_id);
+            self.event_listeners.remove(extension_id);
         }
 
         removed
@@ -200,9 +198,8 @@ impl ServiceWorkerManager {
 
     /// Start a service worker
     pub fn start(&self, extension_id: &str) -> Result<(), String> {
-        let mut workers = self.workers.write();
-
-        let worker = workers
+        let mut worker = self
+            .workers
             .get_mut(extension_id)
             .ok_or_else(|| format!("Service worker not registered: {}", extension_id))?;
 
@@ -226,8 +223,7 @@ impl ServiceWorkerManager {
 
     /// Mark a service worker as running
     pub fn set_running(&self, extension_id: &str) {
-        let mut workers = self.workers.write();
-        if let Some(worker) = workers.get_mut(extension_id) {
+        if let Some(mut worker) = self.workers.get_mut(extension_id) {
             worker.state = ServiceWorkerState::Running;
             worker.last_active = Some(chrono::Utc::now().timestamp_millis());
         }
@@ -235,9 +231,8 @@ impl ServiceWorkerManager {
 
     /// Stop a service worker
     pub fn stop(&self, extension_id: &str) -> Result<(), String> {
-        let mut workers = self.workers.write();
-
-        let worker = workers
+        let mut worker = self
+            .workers
             .get_mut(extension_id)
             .ok_or_else(|| format!("Service worker not registered: {}", extension_id))?;
 
@@ -249,8 +244,7 @@ impl ServiceWorkerManager {
 
     /// Set service worker to error state
     pub fn set_error(&self, extension_id: &str, error: &str) {
-        let mut workers = self.workers.write();
-        if let Some(worker) = workers.get_mut(extension_id) {
+        if let Some(mut worker) = self.workers.get_mut(extension_id) {
             worker.state = ServiceWorkerState::Error;
             worker.error = Some(error.to_string());
         }
@@ -258,27 +252,25 @@ impl ServiceWorkerManager {
 
     /// Get service worker state
     pub fn get_state(&self, extension_id: &str) -> Option<ServiceWorkerState> {
-        self.workers.read().get(extension_id).map(|w| w.state)
+        self.workers.get(extension_id).map(|w| w.state)
     }
 
     /// Get service worker registration
     pub fn get_registration(&self, extension_id: &str) -> Option<ServiceWorkerRegistration> {
-        self.workers.read().get(extension_id).cloned()
+        self.workers.get(extension_id).map(|w| w.clone())
     }
 
     /// Queue a message for the service worker
     pub fn queue_message(&self, extension_id: &str, message: ServiceWorkerMessage) {
-        let mut queues = self.message_queues.write();
-        if let Some(queue) = queues.get_mut(extension_id) {
+        if let Some(mut queue) = self.message_queues.get_mut(extension_id) {
             queue.push(message);
         }
     }
 
     /// Get and clear pending messages
     pub fn drain_messages(&self, extension_id: &str) -> Vec<ServiceWorkerMessage> {
-        let mut queues = self.message_queues.write();
-        if let Some(queue) = queues.get_mut(extension_id) {
-            std::mem::take(queue)
+        if let Some(mut queue) = self.message_queues.get_mut(extension_id) {
+            std::mem::take(queue.value_mut())
         } else {
             Vec::new()
         }
@@ -332,8 +324,10 @@ impl ServiceWorkerManager {
 
     /// Register an event listener
     pub fn add_event_listener(&self, extension_id: &str, event: &str, listener_id: &str) {
-        let mut listeners = self.event_listeners.write();
-        let ext_listeners = listeners.entry(extension_id.to_string()).or_default();
+        let mut ext_listeners = self
+            .event_listeners
+            .entry(extension_id.to_string())
+            .or_default();
         let event_listeners = ext_listeners.entry(event.to_string()).or_default();
 
         if !event_listeners.contains(&listener_id.to_string()) {
@@ -343,8 +337,7 @@ impl ServiceWorkerManager {
 
     /// Remove an event listener
     pub fn remove_event_listener(&self, extension_id: &str, event: &str, listener_id: &str) {
-        let mut listeners = self.event_listeners.write();
-        if let Some(ext_listeners) = listeners.get_mut(extension_id) {
+        if let Some(mut ext_listeners) = self.event_listeners.get_mut(extension_id) {
             if let Some(event_listeners) = ext_listeners.get_mut(event) {
                 event_listeners.retain(|id| id != listener_id);
             }
@@ -353,18 +346,15 @@ impl ServiceWorkerManager {
 
     /// Check if there are listeners for an event
     pub fn has_listeners(&self, extension_id: &str, event: &str) -> bool {
-        let listeners = self.event_listeners.read();
-        listeners
+        self.event_listeners
             .get(extension_id)
-            .and_then(|ext| ext.get(event))
-            .map(|l| !l.is_empty())
+            .and_then(|ext| ext.get(event).map(|l| !l.is_empty()))
             .unwrap_or(false)
     }
 
     /// Update last active timestamp
     pub fn touch(&self, extension_id: &str) {
-        let mut workers = self.workers.write();
-        if let Some(worker) = workers.get_mut(extension_id) {
+        if let Some(mut worker) = self.workers.get_mut(extension_id) {
             worker.last_active = Some(chrono::Utc::now().timestamp_millis());
             if worker.state == ServiceWorkerState::Idle {
                 worker.state = ServiceWorkerState::Running;
@@ -374,7 +364,7 @@ impl ServiceWorkerManager {
 
     /// Get all registered workers
     pub fn list_workers(&self) -> Vec<ServiceWorkerRegistration> {
-        self.workers.read().values().cloned().collect()
+        self.workers.iter().map(|r| r.value().clone()).collect()
     }
 
     /// Check for idle workers that should be stopped
@@ -382,8 +372,8 @@ impl ServiceWorkerManager {
         let now = chrono::Utc::now().timestamp_millis();
         let mut to_stop = Vec::new();
 
-        let workers = self.workers.read();
-        for (id, worker) in workers.iter() {
+        for entry in self.workers.iter() {
+            let (id, worker) = entry.pair();
             if worker.state == ServiceWorkerState::Running
                 || worker.state == ServiceWorkerState::Idle
             {

@@ -25,7 +25,7 @@
 //! await chrome.storage.local.clear();
 //! ```
 
-use parking_lot::RwLock;
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -71,10 +71,10 @@ pub struct StorageBackend {
     /// Storage directory
     storage_dir: PathBuf,
     /// In-memory cache for session storage
-    session_cache: Arc<RwLock<HashMap<ExtensionId, HashMap<String, Value>>>>,
+    session_cache: Arc<DashMap<ExtensionId, HashMap<String, Value>>>,
     /// In-memory cache for local/sync storage (write-through)
     #[allow(dead_code)]
-    local_cache: Arc<RwLock<HashMap<ExtensionId, HashMap<String, Value>>>>,
+    local_cache: Arc<DashMap<ExtensionId, HashMap<String, Value>>>,
 }
 
 impl StorageBackend {
@@ -82,8 +82,8 @@ impl StorageBackend {
     pub fn new(storage_dir: PathBuf) -> Self {
         Self {
             storage_dir,
-            session_cache: Arc::new(RwLock::new(HashMap::new())),
-            local_cache: Arc::new(RwLock::new(HashMap::new())),
+            session_cache: Arc::new(DashMap::new()),
+            local_cache: Arc::new(DashMap::new()),
         }
     }
 
@@ -145,8 +145,11 @@ impl StorageBackend {
     ) -> ExtensionResult<HashMap<String, Value>> {
         // For session storage, use in-memory cache only
         if area == StorageArea::Session {
-            let cache = self.session_cache.read();
-            let ext_data = cache.get(extension_id).cloned().unwrap_or_default();
+            let ext_data = self
+                .session_cache
+                .get(extension_id)
+                .map(|r| r.value().clone())
+                .unwrap_or_default();
 
             return Ok(match keys {
                 Some(keys) => ext_data
@@ -177,8 +180,10 @@ impl StorageBackend {
 
         // For session storage, use in-memory cache only
         if area == StorageArea::Session {
-            let mut cache = self.session_cache.write();
-            let ext_data = cache.entry(extension_id.to_string()).or_default();
+            let mut ext_data = self
+                .session_cache
+                .entry(extension_id.to_string())
+                .or_default();
 
             for (key, new_value) in items {
                 let old_value = ext_data.insert(key.clone(), new_value.clone());
@@ -224,8 +229,7 @@ impl StorageBackend {
 
         // For session storage, use in-memory cache only
         if area == StorageArea::Session {
-            let mut cache = self.session_cache.write();
-            if let Some(ext_data) = cache.get_mut(extension_id) {
+            if let Some(mut ext_data) = self.session_cache.get_mut(extension_id) {
                 for key in keys {
                     if let Some(old_value) = ext_data.remove(&key) {
                         changes.insert(
@@ -271,8 +275,7 @@ impl StorageBackend {
 
         // For session storage, use in-memory cache only
         if area == StorageArea::Session {
-            let mut cache = self.session_cache.write();
-            if let Some(ext_data) = cache.remove(extension_id) {
+            if let Some((_, ext_data)) = self.session_cache.remove(extension_id) {
                 for (key, old_value) in ext_data {
                     changes.insert(
                         key,

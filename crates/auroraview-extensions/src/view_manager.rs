@@ -31,9 +31,9 @@
 //! - DevTools can be opened in independent windows
 //! - View lifecycle management (create, show, hide, destroy)
 
+use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
 
@@ -173,9 +173,9 @@ struct ExtensionViewHandle {
 /// providing Chrome-like DevTools separation.
 pub struct ExtensionViewManager {
     /// All views by view_id
-    views: RwLock<HashMap<String, ExtensionViewHandle>>,
+    views: DashMap<String, ExtensionViewHandle>,
     /// Views by extension_id and view_type
-    views_by_extension: RwLock<HashMap<(ExtensionId, ExtensionViewType), String>>,
+    views_by_extension: DashMap<(ExtensionId, ExtensionViewType), String>,
     /// Callback for creating WebView (set by the host application)
     create_webview_callback: RwLock<Option<CreateWebViewCallback>>,
     /// Callback for opening DevTools
@@ -193,8 +193,8 @@ impl ExtensionViewManager {
     /// Create a new extension view manager
     pub fn new() -> Self {
         Self {
-            views: RwLock::new(HashMap::new()),
-            views_by_extension: RwLock::new(HashMap::new()),
+            views: DashMap::new(),
+            views_by_extension: DashMap::new(),
             create_webview_callback: RwLock::new(None),
             open_devtools_callback: RwLock::new(None),
         }
@@ -234,11 +234,8 @@ impl ExtensionViewManager {
         let view_id = Self::generate_view_id(&config.extension_id, config.view_type);
 
         // Check if view already exists
-        {
-            let views = self.views.read();
-            if views.contains_key(&view_id) {
-                return Err(format!("View already exists: {}", view_id));
-            }
+        if self.views.contains_key(&view_id) {
+            return Err(format!("View already exists: {}", view_id));
         }
 
         // Allocate debug port
@@ -297,18 +294,12 @@ impl ExtensionViewManager {
             devtools_hwnd: None,
         };
 
-        {
-            let mut views = self.views.write();
-            views.insert(view_id.clone(), handle);
-        }
+        self.views.insert(view_id.clone(), handle);
 
-        {
-            let mut by_ext = self.views_by_extension.write();
-            by_ext.insert(
-                (config.extension_id.clone(), config.view_type),
-                view_id.clone(),
-            );
-        }
+        self.views_by_extension.insert(
+            (config.extension_id.clone(), config.view_type),
+            view_id.clone(),
+        );
 
         tracing::info!("Created extension view: {} (port: {})", view_id, debug_port);
 
@@ -317,8 +308,7 @@ impl ExtensionViewManager {
 
     /// Get view info by view ID
     pub fn get_view(&self, view_id: &str) -> Option<ExtensionViewInfo> {
-        let views = self.views.read();
-        views.get(view_id).map(|h| h.info.clone())
+        self.views.get(view_id).map(|h| h.info.clone())
     }
 
     /// Get view by extension ID and view type
@@ -327,36 +317,38 @@ impl ExtensionViewManager {
         extension_id: &str,
         view_type: ExtensionViewType,
     ) -> Option<ExtensionViewInfo> {
-        let by_ext = self.views_by_extension.read();
-        let view_id = by_ext.get(&(extension_id.to_string(), view_type))?;
-        self.get_view(view_id)
+        let view_id = self
+            .views_by_extension
+            .get(&(extension_id.to_string(), view_type))?
+            .value()
+            .clone();
+        self.get_view(&view_id)
     }
 
     /// Get all views for an extension
     pub fn get_extension_views(&self, extension_id: &str) -> Vec<ExtensionViewInfo> {
-        let views = self.views.read();
-        views
-            .values()
-            .filter(|h| h.info.extension_id == extension_id)
-            .map(|h| h.info.clone())
+        self.views
+            .iter()
+            .filter(|entry| entry.value().info.extension_id == extension_id)
+            .map(|entry| entry.value().info.clone())
             .collect()
     }
 
     /// Get all views
     pub fn get_all_views(&self) -> Vec<ExtensionViewInfo> {
-        let views = self.views.read();
-        views.values().map(|h| h.info.clone()).collect()
+        self.views
+            .iter()
+            .map(|entry| entry.value().info.clone())
+            .collect()
     }
 
     /// Open DevTools for a view
     pub fn open_devtools(&self, view_id: &str) -> Result<(), String> {
-        let debug_port = {
-            let views = self.views.read();
-            let handle = views
-                .get(view_id)
-                .ok_or_else(|| format!("View not found: {}", view_id))?;
-            handle.info.debug_port
-        };
+        let debug_port = self
+            .views
+            .get(view_id)
+            .map(|h| h.info.debug_port)
+            .ok_or_else(|| format!("View not found: {}", view_id))?;
 
         // Open DevTools via callback
         #[allow(unused_variables)]
@@ -377,14 +369,11 @@ impl ExtensionViewManager {
         };
 
         // Update view state
-        {
-            let mut views = self.views.write();
-            if let Some(handle) = views.get_mut(view_id) {
-                handle.info.devtools_open = true;
-                #[cfg(target_os = "windows")]
-                {
-                    handle.devtools_hwnd = devtools_hwnd;
-                }
+        if let Some(mut handle) = self.views.get_mut(view_id) {
+            handle.info.devtools_open = true;
+            #[cfg(target_os = "windows")]
+            {
+                handle.devtools_hwnd = devtools_hwnd;
             }
         }
 
@@ -398,8 +387,8 @@ impl ExtensionViewManager {
 
     /// Close DevTools for a view
     pub fn close_devtools(&self, view_id: &str) -> Result<(), String> {
-        let mut views = self.views.write();
-        let handle = views
+        let mut handle = self
+            .views
             .get_mut(view_id)
             .ok_or_else(|| format!("View not found: {}", view_id))?;
 
@@ -415,8 +404,8 @@ impl ExtensionViewManager {
 
     /// Show a view
     pub fn show_view(&self, view_id: &str) -> Result<(), String> {
-        let mut views = self.views.write();
-        let handle = views
+        let mut handle = self
+            .views
             .get_mut(view_id)
             .ok_or_else(|| format!("View not found: {}", view_id))?;
 
@@ -427,8 +416,8 @@ impl ExtensionViewManager {
 
     /// Hide a view
     pub fn hide_view(&self, view_id: &str) -> Result<(), String> {
-        let mut views = self.views.write();
-        let handle = views
+        let mut handle = self
+            .views
             .get_mut(view_id)
             .ok_or_else(|| format!("View not found: {}", view_id))?;
 
@@ -439,18 +428,13 @@ impl ExtensionViewManager {
 
     /// Destroy a view
     pub fn destroy_view(&self, view_id: &str) -> Result<(), String> {
-        let (extension_id, view_type) = {
-            let mut views = self.views.write();
-            let handle = views
-                .remove(view_id)
-                .ok_or_else(|| format!("View not found: {}", view_id))?;
-            (handle.info.extension_id, handle.info.view_type)
-        };
+        let (_, handle) = self
+            .views
+            .remove(view_id)
+            .ok_or_else(|| format!("View not found: {}", view_id))?;
 
-        {
-            let mut by_ext = self.views_by_extension.write();
-            by_ext.remove(&(extension_id, view_type));
-        }
+        self.views_by_extension
+            .remove(&(handle.info.extension_id, handle.info.view_type));
 
         tracing::info!("Destroyed view: {}", view_id);
         Ok(())
@@ -458,14 +442,12 @@ impl ExtensionViewManager {
 
     /// Destroy all views for an extension
     pub fn destroy_extension_views(&self, extension_id: &str) -> Result<(), String> {
-        let view_ids: Vec<String> = {
-            let views = self.views.read();
-            views
-                .values()
-                .filter(|h| h.info.extension_id == extension_id)
-                .map(|h| h.info.view_id.clone())
-                .collect()
-        };
+        let view_ids: Vec<String> = self
+            .views
+            .iter()
+            .filter(|entry| entry.value().info.extension_id == extension_id)
+            .map(|entry| entry.value().info.view_id.clone())
+            .collect();
 
         for view_id in view_ids {
             self.destroy_view(&view_id)?;
@@ -476,8 +458,7 @@ impl ExtensionViewManager {
 
     /// Get CDP connection info for a view
     pub fn get_cdp_info(&self, view_id: &str) -> Option<CdpConnectionInfo> {
-        let views = self.views.read();
-        let handle = views.get(view_id)?;
+        let handle = self.views.get(view_id)?;
 
         Some(CdpConnectionInfo {
             view_id: view_id.to_string(),
@@ -490,15 +471,17 @@ impl ExtensionViewManager {
 
     /// Get all CDP connections
     pub fn get_all_cdp_connections(&self) -> Vec<CdpConnectionInfo> {
-        let views = self.views.read();
-        views
-            .values()
-            .map(|h| CdpConnectionInfo {
-                view_id: h.info.view_id.clone(),
-                host: "127.0.0.1".to_string(),
-                port: h.info.debug_port,
-                ws_url: format!("ws://127.0.0.1:{}/devtools/page/1", h.info.debug_port),
-                devtools_frontend_url: h.info.devtools_url.clone(),
+        self.views
+            .iter()
+            .map(|entry| {
+                let h = entry.value();
+                CdpConnectionInfo {
+                    view_id: h.info.view_id.clone(),
+                    host: "127.0.0.1".to_string(),
+                    port: h.info.debug_port,
+                    ws_url: format!("ws://127.0.0.1:{}/devtools/page/1", h.info.debug_port),
+                    devtools_frontend_url: h.info.devtools_url.clone(),
+                }
             })
             .collect()
     }
