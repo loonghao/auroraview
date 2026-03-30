@@ -6,9 +6,10 @@
 //! - Get most visited URLs
 //! - Configurable result count
 
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -46,7 +47,7 @@ impl TopSitesApi {
 
     /// Initialize with some default sites
     fn init_default_sites(&self) {
-        let mut sites = self.top_sites.write().unwrap();
+        let mut sites = self.top_sites.write();
         sites.push(MostVisitedURL {
             url: "https://www.google.com".to_string(),
             title: "Google".to_string(),
@@ -63,13 +64,13 @@ impl TopSitesApi {
 
     /// Get most visited sites
     pub fn get(&self) -> ExtensionResult<Value> {
-        let sites = self.top_sites.read().unwrap();
+        let sites = self.top_sites.read();
         Ok(serde_json::to_value(sites.clone())?)
     }
 
     /// Add a site to top sites (internal use)
     pub fn add_site(&self, url: String, title: String) {
-        let mut sites = self.top_sites.write().unwrap();
+        let mut sites = self.top_sites.write();
 
         // Check if already exists
         if let Some(site) = sites.iter_mut().find(|s| s.url == url) {

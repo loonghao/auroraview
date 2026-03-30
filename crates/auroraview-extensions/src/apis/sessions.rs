@@ -7,10 +7,12 @@
 //! - Restore closed tabs and windows
 //! - Get devices with synced sessions
 
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::VecDeque;
-use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -85,7 +87,7 @@ pub struct SessionsApi {
     sessions: Arc<RwLock<VecDeque<Session>>>,
     /// Next session ID
     #[allow(dead_code)]
-    next_id: Arc<RwLock<u64>>,
+    next_id: AtomicU64,
 }
 
 impl Default for SessionsApi {
@@ -99,22 +101,20 @@ impl SessionsApi {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(RwLock::new(VecDeque::new())),
-            next_id: Arc::new(RwLock::new(1)),
+            next_id: AtomicU64::new(1),
         }
     }
 
     /// Generate next session ID
     #[allow(dead_code)]
     fn next_id(&self) -> String {
-        let mut id = self.next_id.write().unwrap();
-        let current = *id;
-        *id += 1;
+        let current = self.next_id.fetch_add(1, Ordering::Relaxed);
         format!("session_{}", current)
     }
 
     /// Get recently closed sessions
     pub fn get_recently_closed(&self, filter: Filter) -> ExtensionResult<Value> {
-        let sessions = self.sessions.read().unwrap();
+        let sessions = self.sessions.read();
         let max_results = filter.max_results.unwrap_or(MAX_SESSION_RESULTS);
 
         let results: Vec<&Session> = sessions.iter().take(max_results).collect();
@@ -131,7 +131,7 @@ impl SessionsApi {
 
     /// Restore a session
     pub fn restore(&self, session_id: Option<String>) -> ExtensionResult<Value> {
-        let mut sessions = self.sessions.write().unwrap();
+        let mut sessions = self.sessions.write();
 
         if let Some(id) = session_id {
             // Find and remove the session
@@ -164,7 +164,7 @@ impl SessionsApi {
 
     /// Record a closed tab (internal use)
     pub fn record_closed_tab(&self, tab: SessionTab) {
-        let mut sessions = self.sessions.write().unwrap();
+        let mut sessions = self.sessions.write();
 
         let session = Session {
             last_modified: now_ms(),
@@ -182,7 +182,7 @@ impl SessionsApi {
 
     /// Record a closed window (internal use)
     pub fn record_closed_window(&self, window: SessionWindow) {
-        let mut sessions = self.sessions.write().unwrap();
+        let mut sessions = self.sessions.write();
 
         let session = Session {
             last_modified: now_ms(),

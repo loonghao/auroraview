@@ -8,10 +8,11 @@
 //! - Get/set minimum font size
 //! - Event notifications for changes
 
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -135,14 +136,14 @@ impl FontSettingsApi {
 
     /// Clear all font settings
     pub fn clear_all_fonts(&self) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         *state = FontSettingsState::default();
         Ok(json!(null))
     }
 
     /// Get font
     pub fn get_font(&self, details: FontDetails) -> ExtensionResult<Value> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read();
         let script = details.script.unwrap_or_else(|| "Zyyy".to_string());
         let key = (script, details.generic_family);
 
@@ -155,7 +156,7 @@ impl FontSettingsApi {
 
     /// Set font
     pub fn set_font(&self, details: FontDetails, font_id: &str) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         let script = details.script.unwrap_or_else(|| "Zyyy".to_string());
         let key = (script, details.generic_family);
 
@@ -165,7 +166,7 @@ impl FontSettingsApi {
 
     /// Clear font
     pub fn clear_font(&self, details: FontDetails) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         let script = details.script.unwrap_or_else(|| "Zyyy".to_string());
         let key = (script.clone(), details.generic_family.clone());
 
@@ -225,7 +226,7 @@ impl FontSettingsApi {
 
     /// Get default font size
     pub fn get_default_font_size(&self) -> ExtensionResult<Value> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read();
         Ok(json!({
             "pixelSize": state.default_font_size,
             "levelOfControl": "controllable_by_this_extension"
@@ -234,21 +235,21 @@ impl FontSettingsApi {
 
     /// Set default font size
     pub fn set_default_font_size(&self, pixel_size: i32) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         state.default_font_size = pixel_size;
         Ok(json!(null))
     }
 
     /// Clear default font size
     pub fn clear_default_font_size(&self) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         state.default_font_size = 16;
         Ok(json!(null))
     }
 
     /// Get default fixed font size
     pub fn get_default_fixed_font_size(&self) -> ExtensionResult<Value> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read();
         Ok(json!({
             "pixelSize": state.default_fixed_font_size,
             "levelOfControl": "controllable_by_this_extension"
@@ -257,21 +258,21 @@ impl FontSettingsApi {
 
     /// Set default fixed font size
     pub fn set_default_fixed_font_size(&self, pixel_size: i32) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         state.default_fixed_font_size = pixel_size;
         Ok(json!(null))
     }
 
     /// Clear default fixed font size
     pub fn clear_default_fixed_font_size(&self) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         state.default_fixed_font_size = 13;
         Ok(json!(null))
     }
 
     /// Get minimum font size
     pub fn get_minimum_font_size(&self) -> ExtensionResult<Value> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read();
         Ok(json!({
             "pixelSize": state.minimum_font_size,
             "levelOfControl": "controllable_by_this_extension"
@@ -280,14 +281,14 @@ impl FontSettingsApi {
 
     /// Set minimum font size
     pub fn set_minimum_font_size(&self, pixel_size: i32) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         state.minimum_font_size = pixel_size;
         Ok(json!(null))
     }
 
     /// Clear minimum font size
     pub fn clear_minimum_font_size(&self) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         state.minimum_font_size = 0;
         Ok(json!(null))
     }

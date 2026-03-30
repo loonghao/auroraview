@@ -8,9 +8,10 @@
 //! - Get available voices
 //! - Pause/resume speech
 
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -129,7 +130,7 @@ impl TtsApi {
 
     /// Initialize default voices
     fn init_default_voices(&self) {
-        let mut voices = self.voices.write().unwrap();
+        let mut voices = self.voices.write();
 
         // Add some default system voices
         voices.push(TtsVoice {
@@ -162,7 +163,7 @@ impl TtsApi {
 
     /// Speak text
     pub fn speak(&self, utterance: &str, _options: SpeakOptions) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
 
         // In a real implementation, this would use the system TTS API
         // For now, we just update the state
@@ -175,7 +176,7 @@ impl TtsApi {
 
     /// Stop speaking
     pub fn stop(&self) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         state.speaking = false;
         state.paused = false;
         state.current_text = None;
@@ -184,7 +185,7 @@ impl TtsApi {
 
     /// Pause speaking
     pub fn pause(&self) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         if state.speaking {
             state.paused = true;
         }
@@ -193,7 +194,7 @@ impl TtsApi {
 
     /// Resume speaking
     pub fn resume(&self) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         if state.speaking && state.paused {
             state.paused = false;
         }
@@ -202,13 +203,13 @@ impl TtsApi {
 
     /// Check if speaking
     pub fn is_speaking(&self) -> ExtensionResult<Value> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read();
         Ok(json!(state.speaking && !state.paused))
     }
 
     /// Get available voices
     pub fn get_voices(&self) -> ExtensionResult<Value> {
-        let voices = self.voices.read().unwrap();
+        let voices = self.voices.read();
         Ok(serde_json::to_value(voices.clone())?)
     }
 
