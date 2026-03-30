@@ -55,6 +55,9 @@ open = "5.3"
 
 # Thread safety (for extensions plugin)
 parking_lot = "0.12"
+
+# Concurrent map (replaces RwLock<HashMap> in ProcessPlugin)
+dashmap = "6.1"
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [dev-dependencies]
