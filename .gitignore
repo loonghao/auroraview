@@ -22,6 +22,7 @@ __pycache__/
 *.egg
 *.egg-info/
 dist/
+!crates/auroraview-assets/frontend/dist/.gitkeep
 build/
 .eggs/
 *.whl
@@ -74,6 +75,7 @@ TODO.md
 # OS specific
 Thumbs.db
 .DS_Store
+$null
 
 # Build artifacts
 *.dylib
