@@ -9,10 +9,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import TYPE_CHECKING, Any, Callable, Optional
-
-if TYPE_CHECKING:
-    pass
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 

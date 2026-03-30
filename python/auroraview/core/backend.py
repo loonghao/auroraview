@@ -18,10 +18,7 @@ from __future__ import annotations
 import os
 import sys
 from enum import Enum
-from typing import TYPE_CHECKING, List
-
-if TYPE_CHECKING:
-    pass
+from typing import List
 
 
 class BackendType(Enum):

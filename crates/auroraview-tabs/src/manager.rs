@@ -469,9 +469,6 @@ impl Default for TabManager {
     }
 }
 
-// TabManager is Send + Sync because all fields are protected
-unsafe impl Send for TabManager {}
-unsafe impl Sync for TabManager {}
 
 #[cfg(test)]
 mod tests {

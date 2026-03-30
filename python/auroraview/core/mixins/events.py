@@ -12,12 +12,9 @@ from __future__ import annotations
 import logging
 import threading
 import traceback
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from auroraview.core.signals import ConnectionId, WebViewSignals
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
