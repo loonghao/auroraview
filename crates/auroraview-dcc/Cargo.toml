@@ -24,6 +24,9 @@ thiserror = "2.0"
 # Lock-free message passing (replaces Arc<Mutex<VecDeque>>)
 crossbeam-channel = "0.5"
 
+# Concurrent map (replaces RwLock<HashMap>)
+dashmap = "6.1"
+
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 # Platform specific (Windows WebView2)
