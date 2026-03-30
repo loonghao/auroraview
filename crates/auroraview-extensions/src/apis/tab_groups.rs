@@ -8,10 +8,11 @@
 //! - Move tab groups
 //! - Event notifications
 
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -97,9 +98,9 @@ pub struct MoveProperties {
 /// Tab Groups API handler
 pub struct TabGroupsApi {
     /// In-memory tab groups storage
-    groups: Arc<RwLock<HashMap<i32, TabGroup>>>,
+    groups: Arc<DashMap<i32, TabGroup>>,
     /// Next group ID
-    next_id: Arc<RwLock<i32>>,
+    next_id: AtomicI32,
 }
 
 impl Default for TabGroupsApi {
@@ -112,35 +113,32 @@ impl TabGroupsApi {
     /// Create a new TabGroupsApi instance
     pub fn new() -> Self {
         Self {
-            groups: Arc::new(RwLock::new(HashMap::new())),
-            next_id: Arc::new(RwLock::new(1)),
+            groups: Arc::new(DashMap::new()),
+            next_id: AtomicI32::new(1),
         }
     }
 
     /// Generate next group ID
     fn next_id(&self) -> i32 {
-        let mut id = self.next_id.write().unwrap();
-        let current = *id;
-        *id += 1;
-        current
+        self.next_id.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Get a tab group by ID
     pub fn get(&self, group_id: i32) -> ExtensionResult<Value> {
-        let groups = self.groups.read().unwrap();
-        let group = groups
+        let group = self
+            .groups
             .get(&group_id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Tab group {} not found", group_id)))?;
-        Ok(serde_json::to_value(group)?)
+        Ok(serde_json::to_value(group.value())?)
     }
 
     /// Query tab groups
     pub fn query(&self, query_info: QueryInfo) -> ExtensionResult<Value> {
-        let groups = self.groups.read().unwrap();
-
-        let results: Vec<&TabGroup> = groups
-            .values()
-            .filter(|group| {
+        let results: Vec<TabGroup> = self
+            .groups
+            .iter()
+            .filter(|entry| {
+                let group = entry.value();
                 if let Some(collapsed) = query_info.collapsed {
                     if group.collapsed != collapsed {
                         return false;
@@ -163,6 +161,7 @@ impl TabGroupsApi {
                 }
                 true
             })
+            .map(|entry| entry.value().clone())
             .collect();
 
         Ok(serde_json::to_value(results)?)
@@ -174,9 +173,8 @@ impl TabGroupsApi {
         group_id: i32,
         update_properties: UpdateProperties,
     ) -> ExtensionResult<Value> {
-        let mut groups = self.groups.write().unwrap();
-
-        let group = groups
+        let mut group = self
+            .groups
             .get_mut(&group_id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Tab group {} not found", group_id)))?;
 
@@ -199,16 +197,14 @@ impl TabGroupsApi {
         group_id: i32,
         move_properties: MoveProperties,
     ) -> ExtensionResult<Value> {
-        let mut groups = self.groups.write().unwrap();
-
-        let group = groups
+        let mut group = self
+            .groups
             .get_mut(&group_id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Tab group {} not found", group_id)))?;
 
         if let Some(window_id) = move_properties.window_id {
             group.window_id = window_id;
         }
-        // Index handling would require more complex logic in a real implementation
 
         Ok(serde_json::to_value(group.clone())?)
     }
@@ -224,8 +220,7 @@ impl TabGroupsApi {
             window_id,
         };
 
-        let mut groups = self.groups.write().unwrap();
-        groups.insert(id, group);
+        self.groups.insert(id, group);
         id
     }
 

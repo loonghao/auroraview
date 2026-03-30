@@ -7,10 +7,10 @@
 //! - Provide suggestions as user types
 //! - Handle user selection
 
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -58,7 +58,7 @@ struct OmniboxState {
 /// Omnibox API handler
 pub struct OmniboxApi {
     /// Per-extension omnibox state
-    states: Arc<RwLock<HashMap<String, OmniboxState>>>,
+    states: Arc<DashMap<String, OmniboxState>>,
 }
 
 impl Default for OmniboxApi {
@@ -71,7 +71,7 @@ impl OmniboxApi {
     /// Create a new OmniboxApi instance
     pub fn new() -> Self {
         Self {
-            states: Arc::new(RwLock::new(HashMap::new())),
+            states: Arc::new(DashMap::new()),
         }
     }
 
@@ -81,9 +81,10 @@ impl OmniboxApi {
         extension_id: &str,
         suggestion: DefaultSuggestion,
     ) -> ExtensionResult<Value> {
-        let mut states = self.states.write().unwrap();
-        let state = states.entry(extension_id.to_string()).or_default();
-        state.default_suggestion = Some(suggestion);
+        self.states
+            .entry(extension_id.to_string())
+            .or_default()
+            .default_suggestion = Some(suggestion);
         Ok(json!(null))
     }
 
@@ -93,16 +94,16 @@ impl OmniboxApi {
         extension_id: &str,
         suggestions: Vec<SuggestResult>,
     ) -> ExtensionResult<Value> {
-        let mut states = self.states.write().unwrap();
-        let state = states.entry(extension_id.to_string()).or_default();
-        state.suggestions = suggestions;
+        self.states
+            .entry(extension_id.to_string())
+            .or_default()
+            .suggestions = suggestions;
         Ok(json!(null))
     }
 
     /// Get current suggestions for an extension
     pub fn get_suggestions(&self, extension_id: &str) -> Vec<SuggestResult> {
-        let states = self.states.read().unwrap();
-        states
+        self.states
             .get(extension_id)
             .map(|s| s.suggestions.clone())
             .unwrap_or_default()
@@ -110,8 +111,7 @@ impl OmniboxApi {
 
     /// Get default suggestion for an extension
     pub fn get_default_suggestion(&self, extension_id: &str) -> Option<DefaultSuggestion> {
-        let states = self.states.read().unwrap();
-        states
+        self.states
             .get(extension_id)
             .and_then(|s| s.default_suggestion.clone())
     }

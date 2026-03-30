@@ -8,10 +8,10 @@
 //! - Cookie store management
 //! - Event notifications for changes
 
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -154,7 +154,7 @@ struct CookieKey {
 /// Cookies API handler
 pub struct CookiesApi {
     /// In-memory cookie storage
-    cookies: Arc<RwLock<HashMap<CookieKey, Cookie>>>,
+    cookies: Arc<DashMap<CookieKey, Cookie>>,
 }
 
 impl Default for CookiesApi {
@@ -167,7 +167,7 @@ impl CookiesApi {
     /// Create a new CookiesApi instance
     pub fn new() -> Self {
         Self {
-            cookies: Arc::new(RwLock::new(HashMap::new())),
+            cookies: Arc::new(DashMap::new()),
         }
     }
 
@@ -188,10 +188,6 @@ impl CookiesApi {
 
     /// Get a cookie
     pub fn get(&self, details: CookieDetails) -> ExtensionResult<Value> {
-        let cookies = self
-            .cookies
-            .read()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let store_id = details.store_id.unwrap_or_else(|| "0".to_string());
 
         let domain = Self::domain_from_url(&details.url)
@@ -205,12 +201,14 @@ impl CookiesApi {
         };
 
         // Try exact match first
-        if let Some(cookie) = cookies.get(&key) {
-            return Ok(serde_json::to_value(cookie)?);
+        if let Some(cookie) = self.cookies.get(&key) {
+            return Ok(serde_json::to_value(cookie.value())?);
         }
 
         // Try with domain prefix (for subdomain cookies)
-        for (k, cookie) in cookies.iter() {
+        for entry in self.cookies.iter() {
+            let k = entry.key();
+            let cookie = entry.value();
             if k.name == details.name
                 && k.store_id == store_id
                 && (k.domain == domain || domain.ends_with(&format!(".{}", k.domain)))
@@ -224,16 +222,14 @@ impl CookiesApi {
 
     /// Get all cookies matching query
     pub fn get_all(&self, query: CookieQuery) -> ExtensionResult<Value> {
-        let cookies = self
-            .cookies
-            .read()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let store_id = query.store_id.clone().unwrap_or_else(|| "0".to_string());
 
         let url_domain = query.url.as_ref().and_then(|u| Self::domain_from_url(u));
 
-        let results: Vec<&Cookie> = cookies
-            .values()
+        let results: Vec<Cookie> = self
+            .cookies
+            .iter()
+            .map(|entry| entry.value().clone())
             .filter(|cookie| {
                 // Store ID filter
                 if cookie.store_id != store_id {
@@ -294,10 +290,6 @@ impl CookiesApi {
 
     /// Set a cookie
     pub fn set(&self, details: SetDetails) -> ExtensionResult<Value> {
-        let mut cookies = self
-            .cookies
-            .write()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let store_id = details.store_id.unwrap_or_else(|| "0".to_string());
 
         let domain = details
@@ -332,33 +324,31 @@ impl CookiesApi {
             store_id,
         };
 
-        cookies.insert(key, cookie.clone());
+        self.cookies.insert(key, cookie.clone());
         Ok(serde_json::to_value(cookie)?)
     }
 
     /// Remove a cookie
     pub fn remove(&self, details: CookieDetails) -> ExtensionResult<Value> {
-        let mut cookies = self
-            .cookies
-            .write()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let store_id = details.store_id.unwrap_or_else(|| "0".to_string());
 
         let domain = Self::domain_from_url(&details.url)
             .ok_or_else(|| ExtensionError::InvalidParams("Invalid URL".into()))?;
 
         // Find and remove matching cookie
-        let key_to_remove: Option<CookieKey> = cookies
-            .keys()
-            .find(|k| {
+        let key_to_remove: Option<CookieKey> = self
+            .cookies
+            .iter()
+            .find(|entry| {
+                let k = entry.key();
                 k.name == details.name
                     && k.store_id == store_id
                     && (k.domain == domain || domain.ends_with(&format!(".{}", k.domain)))
             })
-            .cloned();
+            .map(|entry| entry.key().clone());
 
         if let Some(key) = key_to_remove {
-            cookies.remove(&key);
+            self.cookies.remove(&key);
             Ok(json!({
                 "url": details.url,
                 "name": details.name,

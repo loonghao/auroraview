@@ -8,10 +8,11 @@
 //! - Search and manage downloads
 //! - Event notifications
 
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -229,9 +230,9 @@ pub struct DownloadQuery {
 /// Downloads API handler
 pub struct DownloadsApi {
     /// In-memory download storage
-    downloads: Arc<RwLock<HashMap<i32, DownloadItem>>>,
+    downloads: Arc<DashMap<i32, DownloadItem>>,
     /// Next ID counter
-    next_id: Arc<RwLock<i32>>,
+    next_id: AtomicI32,
 }
 
 impl Default for DownloadsApi {
@@ -244,17 +245,14 @@ impl DownloadsApi {
     /// Create a new DownloadsApi instance
     pub fn new() -> Self {
         Self {
-            downloads: Arc::new(RwLock::new(HashMap::new())),
-            next_id: Arc::new(RwLock::new(1)),
+            downloads: Arc::new(DashMap::new()),
+            next_id: AtomicI32::new(1),
         }
     }
 
     /// Generate next ID
     fn next_id(&self) -> i32 {
-        let mut id = self.next_id.write().unwrap();
-        let current = *id;
-        *id += 1;
-        current
+        self.next_id.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Initiate a download
@@ -300,87 +298,65 @@ impl DownloadsApi {
             by_extension_name: None,
         };
 
-        let mut downloads = self.downloads.write().unwrap();
-        downloads.insert(id, item);
-
-        // In a real implementation, we would start the actual download here
-        // For now, we just return the ID
+        self.downloads.insert(id, item);
 
         Ok(json!(id))
     }
 
     /// Search downloads
     pub fn search(&self, query: DownloadQuery) -> ExtensionResult<Value> {
-        let downloads = self.downloads.read().unwrap();
         let limit = query.limit.unwrap_or(1000) as usize;
 
-        let mut results: Vec<&DownloadItem> = downloads
-            .values()
+        let mut results: Vec<DownloadItem> = self
+            .downloads
+            .iter()
+            .map(|entry| entry.value().clone())
             .filter(|item| {
-                // ID filter
                 if let Some(id) = query.id {
                     if item.id != id {
                         return false;
                     }
                 }
-
-                // URL filter
                 if let Some(ref url) = query.url {
                     if &item.url != url {
                         return false;
                     }
                 }
-
-                // Filename filter
                 if let Some(ref filename) = query.filename {
                     if &item.filename != filename {
                         return false;
                     }
                 }
-
-                // State filter
                 if let Some(ref state) = query.state {
                     if &item.state != state {
                         return false;
                     }
                 }
-
-                // Paused filter
                 if let Some(paused) = query.paused {
                     if item.paused != paused {
                         return false;
                     }
                 }
-
-                // Exists filter
                 if let Some(exists) = query.exists {
                     if item.exists != exists {
                         return false;
                     }
                 }
-
-                // Query text filter
                 if let Some(ref queries) = query.query {
                     for q in queries {
                         if let Some(q) = q.strip_prefix('-') {
-                            // Negative match
                             if item.filename.contains(q) || item.url.contains(q) {
                                 return false;
                             }
-                        } else {
-                            // Positive match
-                            if !item.filename.contains(q) && !item.url.contains(q) {
-                                return false;
-                            }
+                        } else if !item.filename.contains(q) && !item.url.contains(q) {
+                            return false;
                         }
                     }
                 }
-
                 true
             })
             .collect();
 
-        // Sort by start time descending by default
         results.sort_by(|a, b| b.start_time.cmp(&a.start_time));
         results.truncate(limit);
 
@@ -389,9 +365,7 @@ impl DownloadsApi {
 
     /// Pause a download
     pub fn pause(&self, download_id: i32) -> ExtensionResult<Value> {
-        let mut downloads = self.downloads.write().unwrap();
-
-        let item = downloads.get_mut(&download_id).ok_or_else(|| {
+        let mut item = self.downloads.get_mut(&download_id).ok_or_else(|| {
             ExtensionError::NotFound(format!("Download {} not found", download_id))
         })?;
 
@@ -407,9 +381,7 @@ impl DownloadsApi {
 
     /// Resume a download
     pub fn resume(&self, download_id: i32) -> ExtensionResult<Value> {
-        let mut downloads = self.downloads.write().unwrap();
-
-        let item = downloads.get_mut(&download_id).ok_or_else(|| {
+        let mut item = self.downloads.get_mut(&download_id).ok_or_else(|| {
             ExtensionError::NotFound(format!("Download {} not found", download_id))
         })?;
 
@@ -425,9 +397,7 @@ impl DownloadsApi {
 
     /// Cancel a download
     pub fn cancel(&self, download_id: i32) -> ExtensionResult<Value> {
-        let mut downloads = self.downloads.write().unwrap();
-
-        let item = downloads.get_mut(&download_id).ok_or_else(|| {
+        let mut item = self.downloads.get_mut(&download_id).ok_or_else(|| {
             ExtensionError::NotFound(format!("Download {} not found", download_id))
         })?;
 
@@ -444,22 +414,19 @@ impl DownloadsApi {
         download_id: i32,
         _options: Option<Value>,
     ) -> ExtensionResult<Value> {
-        let downloads = self.downloads.read().unwrap();
+        if !self.downloads.contains_key(&download_id) {
+            return Err(ExtensionError::NotFound(format!(
+                "Download {} not found",
+                download_id
+            )));
+        }
 
-        let _item = downloads.get(&download_id).ok_or_else(|| {
-            ExtensionError::NotFound(format!("Download {} not found", download_id))
-        })?;
-
-        // Return a placeholder data URL for the icon
-        // In a real implementation, this would get the actual file icon
         Ok(json!("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="))
     }
 
     /// Open downloaded file
     pub fn open(&self, download_id: i32) -> ExtensionResult<Value> {
-        let downloads = self.downloads.read().unwrap();
-
-        let item = downloads.get(&download_id).ok_or_else(|| {
+        let item = self.downloads.get(&download_id).ok_or_else(|| {
             ExtensionError::NotFound(format!("Download {} not found", download_id))
         })?;
 
@@ -469,37 +436,33 @@ impl DownloadsApi {
             ));
         }
 
-        // In a real implementation, we would open the file with the default application
-        // For now, just return success
         Ok(json!(null))
     }
 
     /// Show downloaded file in folder
     pub fn show(&self, download_id: i32) -> ExtensionResult<Value> {
-        let downloads = self.downloads.read().unwrap();
+        if !self.downloads.contains_key(&download_id) {
+            return Err(ExtensionError::NotFound(format!(
+                "Download {} not found",
+                download_id
+            )));
+        }
 
-        let _item = downloads.get(&download_id).ok_or_else(|| {
-            ExtensionError::NotFound(format!("Download {} not found", download_id))
-        })?;
-
-        // In a real implementation, we would open the containing folder
         Ok(json!(null))
     }
 
     /// Show default downloads folder
     pub fn show_default_folder(&self) -> ExtensionResult<Value> {
-        // In a real implementation, we would open the downloads folder
         Ok(json!(null))
     }
 
     /// Erase downloads from history
     pub fn erase(&self, query: DownloadQuery) -> ExtensionResult<Value> {
-        let mut downloads = self.downloads.write().unwrap();
-
-        let ids_to_remove: Vec<i32> = downloads
+        let ids_to_remove: Vec<i32> = self
+            .downloads
             .iter()
-            .filter(|(_, item)| {
-                // Apply same filters as search
+            .filter(|entry| {
+                let item = entry.value();
                 if let Some(id) = query.id {
                     if item.id != id {
                         return false;
@@ -512,11 +475,11 @@ impl DownloadsApi {
                 }
                 true
             })
-            .map(|(id, _)| *id)
+            .map(|entry| *entry.key())
             .collect();
 
         for id in &ids_to_remove {
-            downloads.remove(id);
+            self.downloads.remove(id);
         }
 
         Ok(serde_json::to_value(ids_to_remove)?)
@@ -524,9 +487,7 @@ impl DownloadsApi {
 
     /// Remove downloaded file
     pub fn remove_file(&self, download_id: i32) -> ExtensionResult<Value> {
-        let downloads = self.downloads.read().unwrap();
-
-        let item = downloads.get(&download_id).ok_or_else(|| {
+        let item = self.downloads.get(&download_id).ok_or_else(|| {
             ExtensionError::NotFound(format!("Download {} not found", download_id))
         })?;
 
@@ -536,15 +497,12 @@ impl DownloadsApi {
             ));
         }
 
-        // In a real implementation, we would delete the actual file
         Ok(json!(null))
     }
 
     /// Accept dangerous download
     pub fn accept_danger(&self, download_id: i32) -> ExtensionResult<Value> {
-        let mut downloads = self.downloads.write().unwrap();
-
-        let item = downloads.get_mut(&download_id).ok_or_else(|| {
+        let mut item = self.downloads.get_mut(&download_id).ok_or_else(|| {
             ExtensionError::NotFound(format!("Download {} not found", download_id))
         })?;
 

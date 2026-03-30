@@ -8,9 +8,10 @@
 //! - Get visit details
 //! - Event notifications
 
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 use crate::error::{ExtensionError, ExtensionResult};
@@ -112,11 +113,11 @@ pub struct UrlDetails {
 /// History API handler
 pub struct HistoryApi {
     /// In-memory history storage
-    history: Arc<RwLock<HashMap<String, HistoryItem>>>,
+    history: Arc<DashMap<String, HistoryItem>>,
     /// Visit records
     visits: Arc<RwLock<Vec<VisitItem>>>,
     /// Next ID counter
-    next_id: Arc<RwLock<u64>>,
+    next_id: AtomicU64,
 }
 
 impl Default for HistoryApi {
@@ -129,30 +130,28 @@ impl HistoryApi {
     /// Create a new HistoryApi instance
     pub fn new() -> Self {
         Self {
-            history: Arc::new(RwLock::new(HashMap::new())),
+            history: Arc::new(DashMap::new()),
             visits: Arc::new(RwLock::new(Vec::new())),
-            next_id: Arc::new(RwLock::new(1)),
+            next_id: AtomicU64::new(1),
         }
     }
 
     /// Generate next ID
     fn next_id(&self) -> String {
-        let mut id = self.next_id.write().unwrap();
-        let current = *id;
-        *id += 1;
+        let current = self.next_id.fetch_add(1, Ordering::Relaxed);
         format!("{}", current)
     }
 
     /// Search history
     pub fn search(&self, query: SearchQuery) -> ExtensionResult<Value> {
-        let history = self.history.read().unwrap();
         let text_lower = query.text.to_lowercase();
         let max_results = query.max_results.unwrap_or(100) as usize;
 
-        let mut results: Vec<&HistoryItem> = history
-            .values()
+        let mut results: Vec<HistoryItem> = self
+            .history
+            .iter()
+            .map(|entry| entry.value().clone())
             .filter(|item| {
-                // Text filter
                 if !text_lower.is_empty() {
                     let url_match = item.url.to_lowercase().contains(&text_lower);
                     let title_match = item
@@ -165,7 +164,6 @@ impl HistoryApi {
                     }
                 }
 
-                // Time filters
                 if let Some(start_time) = query.start_time {
                     if item.last_visit_time.unwrap_or(0.0) < start_time {
                         return false;
@@ -181,7 +179,6 @@ impl HistoryApi {
             })
             .collect();
 
-        // Sort by last visit time descending
         results.sort_by(|a, b| {
             b.last_visit_time
                 .unwrap_or(0.0)
@@ -195,14 +192,13 @@ impl HistoryApi {
 
     /// Get visits for a URL
     pub fn get_visits(&self, details: UrlDetails) -> ExtensionResult<Value> {
-        let history = self.history.read().unwrap();
         let visits = self.visits.read().unwrap();
 
-        // Find the history item
-        let item = history.values().find(|h| h.url == details.url);
+        let item = self.history.iter().find(|entry| entry.value().url == details.url);
 
         if let Some(item) = item {
-            let item_visits: Vec<&VisitItem> = visits.iter().filter(|v| v.id == item.id).collect();
+            let item_visits: Vec<&VisitItem> =
+                visits.iter().filter(|v| v.id == item.id).collect();
             Ok(serde_json::to_value(item_visits)?)
         } else {
             Ok(json!([]))
@@ -211,19 +207,19 @@ impl HistoryApi {
 
     /// Add URL to history
     pub fn add_url(&self, details: UrlDetails) -> ExtensionResult<Value> {
-        let mut history = self.history.write().unwrap();
         let mut visits = self.visits.write().unwrap();
-
         let now = now_ms();
 
         // Check if URL already exists
-        let existing = history.values_mut().find(|h| h.url == details.url);
+        let existing = self
+            .history
+            .iter_mut()
+            .find(|entry| entry.value().url == details.url);
 
-        if let Some(item) = existing {
+        if let Some(mut item) = existing {
             item.visit_count = Some(item.visit_count.unwrap_or(0) + 1);
             item.last_visit_time = Some(now);
 
-            // Add visit record
             let visit_id = self.next_id();
             visits.push(VisitItem {
                 id: item.id.clone(),
@@ -237,7 +233,7 @@ impl HistoryApi {
             let id = self.next_id();
             let visit_id = self.next_id();
 
-            history.insert(
+            self.history.insert(
                 id.clone(),
                 HistoryItem {
                     id: id.clone(),
@@ -264,17 +260,16 @@ impl HistoryApi {
 
     /// Delete URL from history
     pub fn delete_url(&self, details: UrlDetails) -> ExtensionResult<Value> {
-        let mut history = self.history.write().unwrap();
         let mut visits = self.visits.write().unwrap();
 
-        // Find and remove the history item
-        let id_to_remove: Option<String> = history
+        let id_to_remove: Option<String> = self
+            .history
             .iter()
-            .find(|(_, h)| h.url == details.url)
-            .map(|(id, _)| id.clone());
+            .find(|entry| entry.value().url == details.url)
+            .map(|entry| entry.key().clone());
 
         if let Some(id) = id_to_remove {
-            history.remove(&id);
+            self.history.remove(&id);
             visits.retain(|v| v.id != id);
         }
 
@@ -283,10 +278,9 @@ impl HistoryApi {
 
     /// Delete all history
     pub fn delete_all(&self) -> ExtensionResult<Value> {
-        let mut history = self.history.write().unwrap();
         let mut visits = self.visits.write().unwrap();
 
-        history.clear();
+        self.history.clear();
         visits.clear();
 
         Ok(json!(null))
@@ -294,16 +288,13 @@ impl HistoryApi {
 
     /// Delete history in range
     pub fn delete_range(&self, range: DeleteRange) -> ExtensionResult<Value> {
-        let mut history = self.history.write().unwrap();
         let mut visits = self.visits.write().unwrap();
 
-        // Remove visits in range
         visits.retain(|v| v.visit_time < range.start_time || v.visit_time > range.end_time);
 
-        // Remove history items with no visits
         let visit_ids: std::collections::HashSet<String> =
             visits.iter().map(|v| v.id.clone()).collect();
-        history.retain(|id, _| visit_ids.contains(id));
+        self.history.retain(|id, _| visit_ids.contains(id));
 
         Ok(json!(null))
     }

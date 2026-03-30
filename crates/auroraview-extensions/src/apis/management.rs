@@ -8,10 +8,10 @@
 //! - Uninstall extensions
 //! - Event notifications
 
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -136,7 +136,7 @@ pub struct UninstallOptions {
 /// Management API handler
 pub struct ManagementApi {
     /// In-memory extension storage
-    extensions: Arc<RwLock<HashMap<String, ExtensionInfo>>>,
+    extensions: Arc<DashMap<String, ExtensionInfo>>,
 }
 
 impl Default for ManagementApi {
@@ -149,7 +149,7 @@ impl ManagementApi {
     /// Create a new ManagementApi instance
     pub fn new() -> Self {
         let api = Self {
-            extensions: Arc::new(RwLock::new(HashMap::new())),
+            extensions: Arc::new(DashMap::new()),
         };
         api.init_self_extension();
         api
@@ -157,8 +157,7 @@ impl ManagementApi {
 
     /// Initialize self extension info
     fn init_self_extension(&self) {
-        let mut extensions = self.extensions.write().unwrap();
-        extensions.insert(
+        self.extensions.insert(
             "auroraview-host".to_string(),
             ExtensionInfo {
                 id: "auroraview-host".to_string(),
@@ -190,18 +189,17 @@ impl ManagementApi {
 
     /// Get all extensions
     pub fn get_all(&self) -> ExtensionResult<Value> {
-        let extensions = self.extensions.read().unwrap();
-        let list: Vec<&ExtensionInfo> = extensions.values().collect();
+        let list: Vec<ExtensionInfo> = self.extensions.iter().map(|e| e.value().clone()).collect();
         Ok(serde_json::to_value(list)?)
     }
 
     /// Get extension by ID
     pub fn get(&self, id: &str) -> ExtensionResult<Value> {
-        let extensions = self.extensions.read().unwrap();
-        let info = extensions
+        let info = self
+            .extensions
             .get(id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Extension {} not found", id)))?;
-        Ok(serde_json::to_value(info)?)
+        Ok(serde_json::to_value(info.value())?)
     }
 
     /// Get self (the calling extension)
@@ -211,8 +209,8 @@ impl ManagementApi {
 
     /// Get permission warnings by ID
     pub fn get_permission_warnings_by_id(&self, id: &str) -> ExtensionResult<Value> {
-        let extensions = self.extensions.read().unwrap();
-        let info = extensions
+        let info = self
+            .extensions
             .get(id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Extension {} not found", id)))?;
 
@@ -235,8 +233,8 @@ impl ManagementApi {
 
     /// Set enabled state
     pub fn set_enabled(&self, id: &str, enabled: bool) -> ExtensionResult<Value> {
-        let mut extensions = self.extensions.write().unwrap();
-        let info = extensions
+        let mut info = self
+            .extensions
             .get_mut(id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Extension {} not found", id)))?;
 
@@ -252,16 +250,14 @@ impl ManagementApi {
 
     /// Uninstall extension
     pub fn uninstall(&self, id: &str, _options: UninstallOptions) -> ExtensionResult<Value> {
-        let mut extensions = self.extensions.write().unwrap();
-
-        if !extensions.contains_key(id) {
+        if !self.extensions.contains_key(id) {
             return Err(ExtensionError::NotFound(format!(
                 "Extension {} not found",
                 id
             )));
         }
 
-        extensions.remove(id);
+        self.extensions.remove(id);
         Ok(json!(null))
     }
 
@@ -271,15 +267,14 @@ impl ManagementApi {
         extension_id: &str,
         _options: UninstallOptions,
     ) -> ExtensionResult<Value> {
-        let mut extensions = self.extensions.write().unwrap();
-        extensions.remove(extension_id);
+        self.extensions.remove(extension_id);
         Ok(json!(null))
     }
 
     /// Launch app
     pub fn launch_app(&self, id: &str) -> ExtensionResult<Value> {
-        let extensions = self.extensions.read().unwrap();
-        let info = extensions
+        let info = self
+            .extensions
             .get(id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Extension {} not found", id)))?;
 
@@ -293,8 +288,8 @@ impl ManagementApi {
 
     /// Create app shortcut
     pub fn create_app_shortcut(&self, id: &str) -> ExtensionResult<Value> {
-        let extensions = self.extensions.read().unwrap();
-        let info = extensions
+        let info = self
+            .extensions
             .get(id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Extension {} not found", id)))?;
 
@@ -308,8 +303,8 @@ impl ManagementApi {
 
     /// Set launch type
     pub fn set_launch_type(&self, id: &str, launch_type: LaunchType) -> ExtensionResult<Value> {
-        let mut extensions = self.extensions.write().unwrap();
-        let info = extensions
+        let mut info = self
+            .extensions
             .get_mut(id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Extension {} not found", id)))?;
 
@@ -332,8 +327,7 @@ impl ManagementApi {
 
     /// Register extension (internal use)
     pub fn register_extension(&self, info: ExtensionInfo) {
-        let mut extensions = self.extensions.write().unwrap();
-        extensions.insert(info.id.clone(), info);
+        self.extensions.insert(info.id.clone(), info);
     }
 
     /// Handle API call
