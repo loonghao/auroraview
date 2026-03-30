@@ -49,7 +49,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup vx
-        uses: loonghao/vx@main
+        uses: loonghao/vx@vx-v0.8.15
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
