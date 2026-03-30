@@ -1074,6 +1074,7 @@ name = "auroraview-tabs"
 version = "0.4.17"
 dependencies = [
  "auroraview-workspace-hack",
+ "dashmap",
  "parking_lot",
  "serde",
  "serde_json",
