@@ -6,8 +6,7 @@
 //! - Routing API calls to appropriate handlers
 //! - Providing extension resources (HTML, JS, CSS)
 
-use parking_lot::RwLock;
-use std::collections::HashMap;
+use dashmap::DashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use walkdir::WalkDir;
@@ -110,11 +109,11 @@ pub struct ExtensionHost {
     /// Configuration
     config: ExtensionConfig,
     /// Loaded extensions
-    extensions: Arc<RwLock<HashMap<ExtensionId, LoadedExtension>>>,
+    extensions: Arc<DashMap<ExtensionId, LoadedExtension>>,
     /// Storage backend
     storage: Arc<StorageBackend>,
     /// Extension runtimes (for background scripts)
-    runtimes: Arc<RwLock<HashMap<ExtensionId, ExtensionRuntime>>>,
+    runtimes: Arc<DashMap<ExtensionId, ExtensionRuntime>>,
 }
 
 impl ExtensionHost {
@@ -124,9 +123,9 @@ impl ExtensionHost {
 
         Self {
             config,
-            extensions: Arc::new(RwLock::new(HashMap::new())),
+            extensions: Arc::new(DashMap::new()),
             storage,
-            runtimes: Arc::new(RwLock::new(HashMap::new())),
+            runtimes: Arc::new(DashMap::new()),
         }
     }
 
@@ -191,11 +190,8 @@ impl ExtensionHost {
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
         // Check if already loaded
-        {
-            let extensions = self.extensions.read();
-            if extensions.contains_key(&id) {
-                return Err(ExtensionError::AlreadyLoaded(id));
-            }
+        if self.extensions.contains_key(&id) {
+            return Err(ExtensionError::AlreadyLoaded(id));
         }
 
         let extension = LoadedExtension {
@@ -206,10 +202,7 @@ impl ExtensionHost {
         };
 
         // Store extension
-        {
-            let mut extensions = self.extensions.write();
-            extensions.insert(id.clone(), extension);
-        }
+        self.extensions.insert(id.clone(), extension);
 
         // Initialize runtime if extension has background script
         // (This will be implemented later)
@@ -219,67 +212,64 @@ impl ExtensionHost {
 
     /// Unload an extension
     pub fn unload_extension(&self, id: &str) -> ExtensionResult<()> {
-        let mut extensions = self.extensions.write();
-        extensions
+        self.extensions
             .remove(id)
             .ok_or_else(|| ExtensionError::NotFound(id.to_string()))?;
 
         // Clean up runtime
-        let mut runtimes = self.runtimes.write();
-        runtimes.remove(id);
+        self.runtimes.remove(id);
 
         Ok(())
     }
 
     /// Get a loaded extension
     pub fn get_extension(&self, id: &str) -> Option<LoadedExtension> {
-        let extensions = self.extensions.read();
-        extensions.get(id).cloned()
+        self.extensions.get(id).map(|entry| entry.value().clone())
     }
 
     /// Get all loaded extensions
     pub fn get_all_extensions(&self) -> Vec<LoadedExtension> {
-        let extensions = self.extensions.read();
-        extensions.values().cloned().collect()
+        self.extensions
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
     }
 
     /// Get extensions with side panel
     pub fn get_side_panel_extensions(&self) -> Vec<LoadedExtension> {
-        let extensions = self.extensions.read();
-        extensions
-            .values()
-            .filter(|ext| ext.manifest.has_side_panel() && ext.enabled)
-            .cloned()
+        self.extensions
+            .iter()
+            .filter(|entry| entry.value().manifest.has_side_panel() && entry.value().enabled)
+            .map(|entry| entry.value().clone())
             .collect()
     }
 
     /// Get extensions with action (toolbar button)
     pub fn get_action_extensions(&self) -> Vec<LoadedExtension> {
-        let extensions = self.extensions.read();
-        extensions
-            .values()
-            .filter(|ext| ext.manifest.has_action() && ext.enabled)
-            .cloned()
+        self.extensions
+            .iter()
+            .filter(|entry| entry.value().manifest.has_action() && entry.value().enabled)
+            .map(|entry| entry.value().clone())
             .collect()
     }
 
     /// Enable an extension
     pub fn enable_extension(&self, id: &str) -> ExtensionResult<()> {
-        let mut extensions = self.extensions.write();
-        let ext = extensions
+        let mut entry = self
+            .extensions
             .get_mut(id)
             .ok_or_else(|| ExtensionError::NotFound(id.to_string()))?;
-        ext.enabled = true;
+        entry.value_mut().enabled = true;
         Ok(())
     }
 
     /// Disable an extension
     pub fn disable_extension(&self, id: &str) -> ExtensionResult<()> {
-        let mut extensions = self.extensions.write();
-        let ext = extensions
+        let mut entry = self
+            .extensions
             .get_mut(id)
             .ok_or_else(|| ExtensionError::NotFound(id.to_string()))?;
-        ext.enabled = false;
+        entry.value_mut().enabled = false;
         Ok(())
     }
 

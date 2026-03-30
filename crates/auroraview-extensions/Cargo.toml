@@ -40,6 +40,7 @@ uuid = { version = "1.11", features = ["v4"] }
 
 # Thread safety
 parking_lot = "0.12"
+dashmap = "6.1"
 
 # URL handling
 url = "2.5"

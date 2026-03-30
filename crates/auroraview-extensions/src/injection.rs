@@ -3,9 +3,8 @@
 //! Handles injection of content scripts into web pages based on
 //! manifest configuration and URL matching.
 
-use parking_lot::RwLock;
+use dashmap::DashMap;
 use regex::Regex;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
@@ -37,14 +36,14 @@ pub struct CompiledContentScript {
 /// Script injector - manages content script injection
 pub struct ScriptInjector {
     /// Compiled content scripts by extension
-    scripts: Arc<RwLock<HashMap<ExtensionId, Vec<CompiledContentScript>>>>,
+    scripts: Arc<DashMap<ExtensionId, Vec<CompiledContentScript>>>,
 }
 
 impl ScriptInjector {
     /// Create a new script injector
     pub fn new() -> Self {
         Self {
-            scripts: Arc::new(RwLock::new(HashMap::new())),
+            scripts: Arc::new(DashMap::new()),
         }
     }
 
@@ -58,8 +57,7 @@ impl ScriptInjector {
         }
 
         if !compiled_scripts.is_empty() {
-            let mut scripts = self.scripts.write();
-            scripts.insert(extension.id.clone(), compiled_scripts);
+            self.scripts.insert(extension.id.clone(), compiled_scripts);
             tracing::info!(
                 "Registered {} content scripts for extension: {}",
                 extension.manifest.content_scripts.len(),
@@ -72,8 +70,7 @@ impl ScriptInjector {
 
     /// Unregister content scripts for an extension
     pub fn unregister_extension(&self, extension_id: &str) {
-        let mut scripts = self.scripts.write();
-        scripts.remove(extension_id);
+        self.scripts.remove(extension_id);
     }
 
     /// Compile a content script configuration
@@ -138,11 +135,10 @@ impl ScriptInjector {
 
     /// Get scripts to inject for a URL
     pub fn get_scripts_for_url(&self, url: &str, run_at: &RunAt) -> Vec<CompiledContentScript> {
-        let scripts = self.scripts.read();
         let mut result = Vec::new();
 
-        for extension_scripts in scripts.values() {
-            for script in extension_scripts {
+        for entry in self.scripts.iter() {
+            for script in entry.value() {
                 // Check run_at timing
                 if std::mem::discriminant(&script.run_at) != std::mem::discriminant(run_at) {
                     continue;
