@@ -20,6 +20,10 @@ tracing = "0.1"
 
 # Error handling
 thiserror = "2.0"
+
+# Lock-free message passing (replaces Arc<Mutex<VecDeque>>)
+crossbeam-channel = "0.5"
+
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 # Platform specific (Windows WebView2)

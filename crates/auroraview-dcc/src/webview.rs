@@ -9,7 +9,8 @@
 
 use crate::config::DccConfig;
 use crate::error::{DccError, Result};
-use std::collections::VecDeque;
+use crossbeam_channel::{Receiver, Sender};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tracing::{debug, info, warn};
 
@@ -27,13 +28,15 @@ pub enum DccMessage {
 /// DCC-embedded WebView
 ///
 /// Thread-safe wrapper around WebView2 for DCC integration.
+/// Uses lock-free channel for message passing and atomic for initialization state.
 pub struct DccWebView {
     config: DccConfig,
     inner: Arc<Mutex<Option<DccWebViewInner>>>,
-    /// Message queue for async operations
-    messages: Arc<Mutex<VecDeque<DccMessage>>>,
-    /// Whether the WebView is initialized
-    initialized: Arc<Mutex<bool>>,
+    /// Lock-free message channel for async operations
+    msg_sender: Sender<DccMessage>,
+    msg_receiver: Receiver<DccMessage>,
+    /// Whether the WebView is initialized (atomic, no lock needed)
+    initialized: Arc<AtomicBool>,
 }
 
 struct DccWebViewInner {
@@ -81,11 +84,14 @@ impl DccWebView {
         // Initialize COM
         init_com()?;
 
+        let (msg_sender, msg_receiver) = crossbeam_channel::unbounded();
+
         Ok(Self {
             config,
             inner: Arc::new(Mutex::new(None)),
-            messages: Arc::new(Mutex::new(VecDeque::new())),
-            initialized: Arc::new(Mutex::new(false)),
+            msg_sender,
+            msg_receiver,
+            initialized: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -110,9 +116,7 @@ impl DccWebView {
             *guard = Some(inner);
         }
 
-        if let Ok(mut init) = self.initialized.lock() {
-            *init = true;
-        }
+        self.initialized.store(true, Ordering::Release);
 
         // Load initial content
         if let Some(ref url) = self.config.url {
@@ -126,7 +130,7 @@ impl DccWebView {
 
     /// Check if WebView is initialized
     pub fn is_initialized(&self) -> bool {
-        self.initialized.lock().map(|g| *g).unwrap_or(false)
+        self.initialized.load(Ordering::Acquire)
     }
 
     /// Navigate to URL
@@ -192,26 +196,22 @@ impl DccWebView {
     /// Call this from the UI thread periodically (e.g., in a Qt timer).
     /// Returns `true` if there are more messages to process.
     pub fn process_events(&self) -> bool {
-        let messages: Vec<DccMessage> = {
-            let mut queue = match self.messages.lock() {
-                Ok(q) => q,
-                Err(_) => return false,
-            };
-            queue.drain(..).collect()
-        };
+        let mut processed = false;
 
-        if messages.is_empty() {
-            return false;
-        }
-
-        for msg in messages {
+        while let Ok(msg) = self.msg_receiver.try_recv() {
+            processed = true;
             if let Err(e) = self.handle_message(msg) {
                 warn!("[DCC] Failed to handle message: {}", e);
             }
         }
 
-        // Check if there are more messages
-        self.messages.lock().map(|q| !q.is_empty()).unwrap_or(false)
+        // Return false since we drained all available messages
+        // If new messages arrive concurrently, next call will pick them up
+        if processed {
+            !self.msg_receiver.is_empty()
+        } else {
+            false
+        }
     }
 
     /// Get config
@@ -234,10 +234,10 @@ impl DccWebView {
         self.config.parent_hwnd
     }
 
-    /// Push message to queue
+    /// Push message to channel
     fn push_message(&self, msg: DccMessage) {
-        if let Ok(mut queue) = self.messages.lock() {
-            queue.push_back(msg);
+        if let Err(e) = self.msg_sender.send(msg) {
+            warn!("[DCC] Failed to send message: {}", e);
         }
     }
 
