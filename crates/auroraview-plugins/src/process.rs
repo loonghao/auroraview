@@ -95,7 +95,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex, RwLock};
+use parking_lot::{Mutex, RwLock};
+use std::sync::Arc;
 use std::thread;
 
 /// Callback type for process events (deprecated, use PluginEventCallback)
@@ -180,7 +181,7 @@ impl ProcessPlugin {
 
     /// Set the event callback for emitting events to frontend
     pub fn set_event_callback(&self, callback: PluginEventCallback) {
-        let mut cb = self.event_callback.write().unwrap();
+        let mut cb = self.event_callback.write();
         *cb = Some(callback);
     }
 
@@ -422,7 +423,7 @@ impl ProcessPlugin {
                                 pid,
                                 data
                             );
-                            let cb_guard = event_cb.read().unwrap();
+                            let cb_guard = event_cb.read();
                             if let Some(cb) = cb_guard.as_ref() {
                                 tracing::debug!(
                                     "[Rust:ProcessPlugin] Emitting process:stdout event for PID {}",
@@ -476,7 +477,7 @@ impl ProcessPlugin {
                         Ok(data) => {
                             // Always log stderr for debugging
                             tracing::info!("[Rust:ProcessPlugin] Process {} stderr: {}", pid, data);
-                            let cb_guard = event_cb.read().unwrap();
+                            let cb_guard = event_cb.read();
                             if let Some(cb) = cb_guard.as_ref() {
                                 tracing::debug!(
                                     "[Rust:ProcessPlugin] Emitting process:stderr event for PID {}",
@@ -664,7 +665,7 @@ impl ProcessPlugin {
 
                             // Lock the handle to read
                             let read_result = {
-                                let mut h = handle.lock().unwrap();
+                                let mut h = handle.lock();
                                 let mut reader = BufReader::new(&mut h.stream);
                                 line.clear();
                                 reader.read_line(&mut line)
@@ -692,7 +693,7 @@ impl ProcessPlugin {
                                                     pid,
                                                     trimmed
                                                 );
-                                                let cb_guard = event_cb.read().unwrap();
+                                                let cb_guard = event_cb.read();
                                                 if let Some(cb) = cb_guard.as_ref() {
                                                     cb(
                                                         "process:message",
@@ -705,7 +706,7 @@ impl ProcessPlugin {
                                             }
                                             Err(_) => {
                                                 // Not valid JSON, emit as raw data
-                                                let cb_guard = event_cb.read().unwrap();
+                                                let cb_guard = event_cb.read();
                                                 if let Some(cb) = cb_guard.as_ref() {
                                                     cb(
                                                         "process:message",
@@ -757,7 +758,7 @@ impl ProcessPlugin {
                     }
                     let _guard = shutdown_state.begin_operation();
                     tracing::debug!("[Rust:ProcessPlugin] Process {} stdout: {}", pid, line);
-                    let cb_guard = event_cb.read().unwrap();
+                    let cb_guard = event_cb.read();
                     if let Some(cb) = cb_guard.as_ref() {
                         cb(
                             "process:stdout",
@@ -785,7 +786,7 @@ impl ProcessPlugin {
                     }
                     let _guard = shutdown_state.begin_operation();
                     tracing::info!("[Rust:ProcessPlugin] Process {} stderr: {}", pid, line);
-                    let cb_guard = event_cb.read().unwrap();
+                    let cb_guard = event_cb.read();
                     if let Some(cb) = cb_guard.as_ref() {
                         cb(
                             "process:stderr",
@@ -852,7 +853,7 @@ impl ProcessPlugin {
 
         match channel {
             Some(ch) => {
-                let mut handle = ch.lock().unwrap();
+                let mut handle = ch.lock();
                 let json_str = serde_json::to_string(data)
                     .map_err(|e| PluginError::shell_error(format!("Failed to serialize: {}", e)))?;
 
@@ -873,7 +874,7 @@ impl ProcessPlugin {
 
                 match proc {
                     Some(p) => {
-                        let managed = p.lock().unwrap();
+                        let managed = p.lock();
                         if managed.ipc_mode == IpcMode::Pipe {
                             Err(PluginError::shell_error(format!(
                                 "Process {} is in pipe mode, use 'send' instead of 'send_json'",
@@ -901,7 +902,7 @@ impl ProcessPlugin {
     ) {
         let exit_code = {
             if let Some(proc) = processes.get(&pid) {
-                let mut p = proc.lock().unwrap();
+                let mut p = proc.lock();
                 p.child.try_wait().ok().flatten().map(|s| s.code())
             } else {
                 None
@@ -913,7 +914,7 @@ impl ProcessPlugin {
             processes.remove(&pid);
 
             // Emit exit event
-            if let Some(cb) = event_cb.read().unwrap().as_ref() {
+            if let Some(cb) = event_cb.read().as_ref() {
                 cb(
                     "process:exit",
                     serde_json::json!({
@@ -931,7 +932,7 @@ impl ProcessPlugin {
 
         match proc {
             Some(p) => {
-                let mut managed = p.lock().unwrap();
+                let mut managed = p.lock();
 
                 // Kill the process
                 if let Err(e) = managed.child.kill() {
@@ -1015,7 +1016,7 @@ impl ProcessPlugin {
 
         match proc {
             Some(p) => {
-                let mut managed = p.lock().unwrap();
+                let mut managed = p.lock();
                 if let Some(ref mut stdin) = managed.stdin {
                     stdin
                         .write_all(data.as_bytes())

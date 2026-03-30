@@ -4,7 +4,8 @@ use crate::{HistoryEntry, HistoryId, Result, SearchOptions, SearchResult};
 use chrono::{DateTime, Duration, Utc};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 /// History manager
 ///
@@ -58,7 +59,7 @@ impl HistoryManager {
         let url = url.into();
         let title = title.into();
 
-        let mut store = self.inner.write().unwrap();
+        let mut store = self.inner.write();
 
         // Check if entry exists
         if let Some(entry) = store.entries.values_mut().find(|e| e.url == url) {
@@ -90,7 +91,7 @@ impl HistoryManager {
         let url = url.into();
         let title = title.into();
 
-        let mut store = self.inner.write().unwrap();
+        let mut store = self.inner.write();
 
         // Check if entry exists
         if let Some(entry) = store.entries.values_mut().find(|e| e.url == url) {
@@ -141,19 +142,19 @@ impl HistoryManager {
 
     /// Get a history entry by ID
     pub fn get(&self, id: &str) -> Option<HistoryEntry> {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
         store.entries.get(id).cloned()
     }
 
     /// Get entry by URL
     pub fn get_by_url(&self, url: &str) -> Option<HistoryEntry> {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
         store.entries.values().find(|e| e.url == url).cloned()
     }
 
     /// Delete a history entry
     pub fn delete(&self, id: &str) -> bool {
-        let mut store = self.inner.write().unwrap();
+        let mut store = self.inner.write();
         let removed = store.entries.remove(id).is_some();
         drop(store);
 
@@ -165,7 +166,7 @@ impl HistoryManager {
 
     /// Delete entries by URL
     pub fn delete_url(&self, url: &str) -> bool {
-        let mut store = self.inner.write().unwrap();
+        let mut store = self.inner.write();
         let initial_len = store.entries.len();
         store.entries.retain(|_, e| e.url != url);
         let removed = store.entries.len() < initial_len;
@@ -179,7 +180,7 @@ impl HistoryManager {
 
     /// Get recent history entries
     pub fn recent(&self, limit: usize) -> Vec<HistoryEntry> {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
         let mut entries: Vec<_> = store.entries.values().cloned().collect();
         entries.sort_by(|a, b| b.last_visit.cmp(&a.last_visit));
         entries.truncate(limit);
@@ -188,7 +189,7 @@ impl HistoryManager {
 
     /// Get all history entries
     pub fn all(&self) -> Vec<HistoryEntry> {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
         store.entries.values().cloned().collect()
     }
 
@@ -199,7 +200,7 @@ impl HistoryManager {
 
     /// Search history with options
     pub fn search_with_options(&self, query: &str, options: SearchOptions) -> Vec<SearchResult> {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
 
         let mut results: Vec<_> = store
             .entries
@@ -221,7 +222,7 @@ impl HistoryManager {
 
     /// Get frequently visited sites
     pub fn frequent(&self, limit: usize) -> Vec<HistoryEntry> {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
         let mut entries: Vec<_> = store.entries.values().cloned().collect();
         entries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
         entries.truncate(limit);
@@ -230,7 +231,7 @@ impl HistoryManager {
 
     /// Get entries by domain
     pub fn by_domain(&self, domain: &str) -> Vec<HistoryEntry> {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
         store
             .entries
             .values()
@@ -241,7 +242,7 @@ impl HistoryManager {
 
     /// Get entries in date range
     pub fn in_range(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<HistoryEntry> {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
         store
             .entries
             .values()
@@ -275,7 +276,7 @@ impl HistoryManager {
     pub fn delete_older_than(&self, days: i64) -> usize {
         let cutoff = Utc::now() - Duration::days(days);
 
-        let mut store = self.inner.write().unwrap();
+        let mut store = self.inner.write();
         let initial_len = store.entries.len();
         store.entries.retain(|_, e| e.last_visit >= cutoff);
         let removed = initial_len - store.entries.len();
@@ -289,7 +290,7 @@ impl HistoryManager {
 
     /// Delete all history for a domain
     pub fn delete_domain(&self, domain: &str) -> usize {
-        let mut store = self.inner.write().unwrap();
+        let mut store = self.inner.write();
         let initial_len = store.entries.len();
         store.entries.retain(|_, e| e.domain() != Some(domain));
         let removed = initial_len - store.entries.len();
@@ -303,7 +304,7 @@ impl HistoryManager {
 
     /// Clear all history
     pub fn clear(&self) {
-        let mut store = self.inner.write().unwrap();
+        let mut store = self.inner.write();
         store.entries.clear();
         drop(store);
         let _ = self.save();
@@ -311,7 +312,7 @@ impl HistoryManager {
 
     /// Get entry count
     pub fn count(&self) -> usize {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
         store.entries.len()
     }
 
@@ -323,7 +324,7 @@ impl HistoryManager {
             return Ok(());
         };
 
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
 
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
@@ -349,7 +350,7 @@ impl HistoryManager {
         let json = std::fs::read_to_string(path)?;
         let entries: HashMap<HistoryId, HistoryEntry> = serde_json::from_str(&json)?;
 
-        let mut store = self.inner.write().unwrap();
+        let mut store = self.inner.write();
         store.entries = entries;
 
         Ok(())
@@ -357,7 +358,7 @@ impl HistoryManager {
 
     /// Export history to JSON string
     pub fn export(&self) -> Result<String> {
-        let store = self.inner.read().unwrap();
+        let store = self.inner.read();
         Ok(serde_json::to_string_pretty(&store.entries)?)
     }
 
@@ -365,7 +366,7 @@ impl HistoryManager {
     pub fn import(&self, json: &str) -> Result<()> {
         let entries: HashMap<HistoryId, HistoryEntry> = serde_json::from_str(json)?;
 
-        let mut store = self.inner.write().unwrap();
+        let mut store = self.inner.write();
         store.entries.extend(entries);
         drop(store);
 

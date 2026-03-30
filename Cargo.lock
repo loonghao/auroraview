@@ -699,6 +699,7 @@ version = "0.4.17"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
+ "parking_lot",
  "rstest",
  "serde",
  "serde_json",
@@ -724,6 +725,7 @@ dependencies = [
  "auroraview-tabs",
  "auroraview-workspace-hack",
  "chrono",
+ "dashmap",
  "dirs",
  "parking_lot",
  "rstest",
@@ -790,6 +792,7 @@ dependencies = [
  "auroraview-plugins",
  "auroraview-signals",
  "auroraview-workspace-hack",
+ "dashmap",
  "dirs",
  "dunce",
  "http",
@@ -885,6 +888,7 @@ version = "0.4.17"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
+ "dashmap",
  "dunce",
  "parking_lot",
  "regex",
@@ -910,6 +914,7 @@ version = "0.4.17"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
+ "parking_lot",
  "serde",
  "serde_json",
  "tempfile",
@@ -973,6 +978,7 @@ version = "0.4.17"
 dependencies = [
  "auroraview-workspace-hack",
  "dunce",
+ "parking_lot",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

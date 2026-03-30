@@ -94,7 +94,8 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use parking_lot::{Mutex, RwLock};
+use std::sync::Arc;
 use std::thread;
 
 /// Browser bridge plugin for extension communication
@@ -301,17 +302,16 @@ impl BrowserBridgePlugin {
     /// Emit event to frontend
     #[allow(dead_code)]
     fn emit_event(&self, event: &str, data: Value) {
-        if let Ok(cb) = self.event_callback.read() {
-            if let Some(callback) = cb.as_ref() {
-                callback(event, data);
-            }
+        let cb = self.event_callback.read();
+        if let Some(callback) = cb.as_ref() {
+            callback(event, data);
         }
     }
 
     /// Start the bridge servers
     fn start(&self, opts: StartOptions) -> PluginResult<Value> {
         {
-            let state = self.state.read().unwrap();
+            let state = self.state.read();
             if state.is_running {
                 return Err(PluginError::from_plugin(
                     "browser_bridge",
@@ -325,7 +325,7 @@ impl BrowserBridgePlugin {
 
         // Update state
         {
-            let mut state = self.state.write().unwrap();
+            let mut state = self.state.write();
             state.ws_port = opts.ws_port;
             state.http_port = opts.http_port;
             state.is_running = true;
@@ -373,7 +373,7 @@ impl BrowserBridgePlugin {
     /// Stop the bridge servers
     fn stop(&self) -> PluginResult<Value> {
         {
-            let state = self.state.read().unwrap();
+            let state = self.state.read();
             if !state.is_running {
                 return Err(PluginError::from_plugin(
                     "browser_bridge",
@@ -387,7 +387,7 @@ impl BrowserBridgePlugin {
 
         // Clear state
         {
-            let mut state = self.state.write().unwrap();
+            let mut state = self.state.write();
             state.is_running = false;
             state.clients.clear();
             state.client_streams.clear();
@@ -403,7 +403,7 @@ impl BrowserBridgePlugin {
 
     /// Get bridge status
     fn status(&self) -> PluginResult<Value> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read();
 
         let status = BridgeStatus {
             is_running: state.is_running,
@@ -413,12 +413,12 @@ impl BrowserBridgePlugin {
             clients: state.clients.values().cloned().collect(),
         };
 
-        Ok(serde_json::to_value(status).unwrap())
+        Ok(serde_json::to_value(status).unwrap_or_default())
     }
 
     /// Broadcast message to all connected clients
     fn broadcast(&self, opts: BroadcastOptions) -> PluginResult<Value> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read();
 
         if !state.is_running {
             return Err(PluginError::from_plugin(
@@ -432,16 +432,15 @@ impl BrowserBridgePlugin {
             "action": opts.action,
             "data": opts.data
         });
-        let message_str = serde_json::to_string(&message).unwrap();
+        let message_str = serde_json::to_string(&message).unwrap_or_default();
 
         let mut sent_count = 0;
         for (client_id, stream) in &state.client_streams {
-            if let Ok(mut stream) = stream.lock() {
-                if send_websocket_message(&mut stream, &message_str).is_ok() {
-                    sent_count += 1;
-                } else {
-                    tracing::warn!("Failed to send to client {}", client_id);
-                }
+            let mut stream = stream.lock();
+            if send_websocket_message(&mut stream, &message_str).is_ok() {
+                sent_count += 1;
+            } else {
+                tracing::warn!("Failed to send to client {}", client_id);
             }
         }
 
@@ -453,7 +452,7 @@ impl BrowserBridgePlugin {
 
     /// Send message to a specific client
     fn send(&self, opts: SendOptions) -> PluginResult<Value> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read();
 
         if !state.is_running {
             return Err(PluginError::from_plugin(
@@ -474,9 +473,9 @@ impl BrowserBridgePlugin {
             "action": opts.action,
             "data": opts.data
         });
-        let message_str = serde_json::to_string(&message).unwrap();
+        let message_str = serde_json::to_string(&message).unwrap_or_default();
 
-        let mut stream = stream.lock().unwrap();
+        let mut stream = stream.lock();
         send_websocket_message(&mut stream, &message_str).map_err(|e| {
             PluginError::from_plugin("browser_bridge", format!("Send failed: {}", e))
         })?;
@@ -539,7 +538,7 @@ impl BrowserBridgePlugin {
             local_path,
         };
 
-        Ok(serde_json::to_value(info).unwrap())
+        Ok(serde_json::to_value(info).unwrap_or_default())
     }
 
     /// Install extension from local file or folder (opens browser with extension)
@@ -1100,7 +1099,7 @@ fn handle_websocket_client(
 
     // Register client
     let client_id = {
-        let mut state = state.write().unwrap();
+        let mut state = state.write();
         let id = state.next_client_id.fetch_add(1, Ordering::SeqCst);
         state.clients.insert(
             id,
@@ -1109,7 +1108,7 @@ fn handle_websocket_client(
                 address: addr.clone(),
                 connected_at: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or_default()
                     .as_secs(),
             },
         );
@@ -1158,7 +1157,7 @@ fn handle_websocket_client(
 
     // Cleanup
     {
-        let mut state = state.write().unwrap();
+        let mut state = state.write();
         state.clients.remove(&client_id);
         state.client_streams.remove(&client_id);
     }
@@ -1342,21 +1341,19 @@ fn handle_websocket_message(
         match action {
             "ping" => {
                 // Send pong response
-                if let Ok(state) = state.read() {
-                    if let Some(stream) = state.client_streams.get(&client_id) {
-                        if let Ok(mut stream) = stream.lock() {
-                            let response = serde_json::json!({
-                                "type": "response",
-                                "action": "pong",
-                                "requestId": request_id,
-                                "data": { "timestamp": std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_millis() }
-                            });
-                            let _ = send_websocket_message(&mut stream, &response.to_string());
-                        }
-                    }
+                let state = state.read();
+                if let Some(stream) = state.client_streams.get(&client_id) {
+                    let mut stream = stream.lock();
+                    let response = serde_json::json!({
+                        "type": "response",
+                        "action": "pong",
+                        "requestId": request_id,
+                        "data": { "timestamp": std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis() }
+                    });
+                    let _ = send_websocket_message(&mut stream, &response.to_string());
                 }
             }
             _ => {
@@ -1368,10 +1365,9 @@ fn handle_websocket_message(
 
 /// Emit event to frontend
 fn emit_event(callback: &Arc<RwLock<Option<PluginEventCallback>>>, event: &str, data: Value) {
-    if let Ok(cb) = callback.read() {
-        if let Some(callback) = cb.as_ref() {
-            callback(event, data);
-        }
+    let cb = callback.read();
+    if let Some(callback) = cb.as_ref() {
+        callback(event, data);
     }
 }
 
@@ -1461,7 +1457,7 @@ fn handle_http_request(
     // Route handling
     let (status, body) = match *path {
         "/health" => {
-            let state = state.read().unwrap();
+            let state = state.read();
             let body = serde_json::json!({
                 "status": "ok",
                 "service": "auroraview-browser-bridge",
@@ -1471,7 +1467,7 @@ fn handle_http_request(
             ("200 OK", body.to_string())
         }
         "/info" => {
-            let state = state.read().unwrap();
+            let state = state.read();
             let body = serde_json::json!({
                 "name": "AuroraView Browser Bridge",
                 "version": "1.0.0",
@@ -1482,7 +1478,7 @@ fn handle_http_request(
             ("200 OK", body.to_string())
         }
         "/status" => {
-            let state = state.read().unwrap();
+            let state = state.read();
             let body = serde_json::json!({
                 "isRunning": state.is_running,
                 "wsPort": state.ws_port,
