@@ -331,9 +331,10 @@ impl std::fmt::Debug for EventBus {
     }
 }
 
-// EventBus is Send + Sync
-unsafe impl Send for EventBus {}
-unsafe impl Sync for EventBus {}
+
+// EventBus is automatically Send + Sync because all fields
+// (SignalRegistry, MiddlewareChain, MultiBridge, Option<String>) satisfy the bounds.
+
 
 // ============================================================================
 // Global Event Bus

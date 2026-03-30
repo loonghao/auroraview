@@ -250,9 +250,10 @@ impl std::fmt::Debug for SignalRegistry {
     }
 }
 
-// SignalRegistry is Send + Sync
-unsafe impl Send for SignalRegistry {}
-unsafe impl Sync for SignalRegistry {}
+
+// SignalRegistry is automatically Send + Sync because all fields
+// (parking_lot::RwLock<HashMap<..., Arc<Signal<Value>>>>, Option<String>) satisfy the bounds.
+
 
 #[cfg(test)]
 mod tests {
