@@ -32,35 +32,24 @@
 pub type BomResult<T> = Result<T, BomError>;
 
 /// Error type for BOM operations
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum BomError {
     /// WebView not available or locked
+    #[error("WebView not available or locked")]
     WebViewUnavailable,
     /// Window not available
+    #[error("Window not available")]
     WindowUnavailable,
     /// JavaScript execution failed
+    #[error("JavaScript execution failed: {0}")]
     JsExecutionFailed(String),
     /// Platform not supported for this operation
+    #[error("Platform not supported for this operation")]
     PlatformNotSupported,
     /// Operation failed
+    #[error("Operation failed: {0}")]
     OperationFailed(String),
 }
-
-impl std::fmt::Display for BomError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BomError::WebViewUnavailable => write!(f, "WebView not available or locked"),
-            BomError::WindowUnavailable => write!(f, "Window not available"),
-            BomError::JsExecutionFailed(msg) => write!(f, "JavaScript execution failed: {}", msg),
-            BomError::PlatformNotSupported => {
-                write!(f, "Platform not supported for this operation")
-            }
-            BomError::OperationFailed(msg) => write!(f, "Operation failed: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for BomError {}
 
 /// Window size in physical pixels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

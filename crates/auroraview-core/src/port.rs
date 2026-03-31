@@ -6,23 +6,12 @@ use std::net::{SocketAddr, TcpListener};
 use tracing::{debug, info, warn};
 
 /// Error type for port allocation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum PortError {
     /// No free port found in the specified range
+    #[error("No free port found in range {start}-{end}")]
     NoFreePort { start: u16, end: u16 },
 }
-
-impl std::fmt::Display for PortError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PortError::NoFreePort { start, end } => {
-                write!(f, "No free port found in range {}-{}", start, end)
-            }
-        }
-    }
-}
-
-impl std::error::Error for PortError {}
 
 /// Port allocator for finding free ports
 pub struct PortAllocator {
