@@ -1,10 +1,11 @@
 //! Tests for auroraview-pack config module
 
+use std::path::PathBuf;
+
 use auroraview_pack::{
     BundleStrategy, LicenseConfig, PackConfig, PackMode, PythonBundleConfig, TargetPlatform,
     WindowConfig, WindowStartPosition,
 };
-use std::path::PathBuf;
 
 #[test]
 fn test_url_mode() {

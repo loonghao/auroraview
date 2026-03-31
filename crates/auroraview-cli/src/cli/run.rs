@@ -1,8 +1,9 @@
 //! Run command - Launch a WebView window
 
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::path::{Path, PathBuf};
 use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
 

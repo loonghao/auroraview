@@ -2,6 +2,10 @@
 //!
 //! These tests verify the packed application runtime functionality.
 
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+
 use auroraview_cli::packed::{
     build_css_injection_script, build_module_search_paths, build_packed_init_script_with_csp,
     escape_json_for_js, get_python_exe_path, get_runtime_cache_dir_with_hash, get_webview_data_dir,
@@ -9,9 +13,6 @@ use auroraview_cli::packed::{
 };
 use auroraview_core::json;
 use rstest::rstest;
-use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
 
 // =============================================================================
 // escape_json_for_js tests
