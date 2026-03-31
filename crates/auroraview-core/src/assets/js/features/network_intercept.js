@@ -236,7 +236,99 @@
      */
     function enable() {
         window.fetch = interceptedFetch;
-        // TODO: Also intercept XMLHttpRequest for older code
+
+        // Intercept XMLHttpRequest for older code
+        XMLHttpRequest.prototype.open = function(method, url) {
+            this._avMethod = method;
+            this._avUrl = url;
+            return originalXHROpen.apply(this, arguments);
+        };
+
+        XMLHttpRequest.prototype.send = function(body) {
+            var xhr = this;
+            var requestEntry = {
+                url: xhr._avUrl,
+                method: xhr._avMethod || 'GET',
+                body: body || null,
+                timestamp: Date.now(),
+                type: 'xhr'
+            };
+
+            var route = findRoute(xhr._avUrl, requestEntry.method);
+
+            if (route && route.handler) {
+                var routeContext = {
+                    request: {
+                        url: xhr._avUrl,
+                        method: requestEntry.method,
+                        headers: {},
+                        postData: body
+                    },
+                    fulfill: function(options) {
+                        options = options || {};
+                        requestEntry.mocked = true;
+                        requestEntry.response = {
+                            status: options.status || 200,
+                            mocked: true
+                        };
+                        logRequest(requestEntry);
+
+                        // Simulate XHR response
+                        Object.defineProperty(xhr, 'status', { writable: true });
+                        Object.defineProperty(xhr, 'statusText', { writable: true });
+                        Object.defineProperty(xhr, 'responseText', { writable: true });
+                        Object.defineProperty(xhr, 'readyState', { writable: true });
+                        xhr.status = options.status || 200;
+                        xhr.statusText = options.statusText || 'OK';
+                        xhr.responseText = options.json !== undefined
+                            ? JSON.stringify(options.json)
+                            : (options.body || '');
+                        xhr.readyState = 4;
+                        if (typeof xhr.onreadystatechange === 'function') {
+                            xhr.onreadystatechange();
+                        }
+                        if (typeof xhr.onload === 'function') {
+                            xhr.onload();
+                        }
+                        return;
+                    },
+                    continue_: function() {
+                        requestEntry.continued = true;
+                        logRequest(requestEntry);
+                        return originalXHRSend.apply(xhr, [body]);
+                    },
+                    abort: function() {
+                        requestEntry.aborted = true;
+                        logRequest(requestEntry);
+                        xhr.abort();
+                        return;
+                    }
+                };
+
+                try {
+                    route.handler(routeContext);
+                    return;
+                } catch (e) {
+                    console.error('[AuroraView] XHR route handler error:', e);
+                }
+            }
+
+            // No matching route: log and proceed normally
+            var origOnReady = xhr.onreadystatechange;
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    requestEntry.response = {
+                        status: xhr.status,
+                        statusText: xhr.statusText
+                    };
+                    logRequest(requestEntry);
+                }
+                if (typeof origOnReady === 'function') {
+                    origOnReady.apply(xhr, arguments);
+                }
+            };
+            return originalXHRSend.apply(this, arguments);
+        };
     }
 
     /**
