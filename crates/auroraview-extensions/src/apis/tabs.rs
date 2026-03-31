@@ -84,6 +84,12 @@ pub struct TabQuery {
     pub status: Option<TabStatus>,
 }
 
+/// Callback for navigating the WebView
+pub type NavigateCallback = Box<dyn Fn(&str) + Send + Sync>;
+
+/// Callback for sending messages to content scripts
+pub type SendMessageCallback = Box<dyn Fn(i32, Value) -> Option<Value> + Send + Sync>;
+
 /// Tab state manager
 pub struct TabState {
     /// Current tab info
@@ -91,6 +97,10 @@ pub struct TabState {
     /// Tab ID counter
     #[allow(dead_code)]
     next_id: RwLock<i32>,
+    /// Navigation callback
+    on_navigate: RwLock<Option<NavigateCallback>>,
+    /// Send message callback
+    on_send_message: RwLock<Option<SendMessageCallback>>,
 }
 
 impl TabState {
@@ -113,6 +123,51 @@ impl TabState {
                 height: None,
             }),
             next_id: RwLock::new(2),
+            on_navigate: RwLock::new(None),
+            on_send_message: RwLock::new(None),
+        }
+    }
+
+    /// Set the navigation callback
+    pub fn set_on_navigate<F>(&self, callback: F)
+    where
+        F: Fn(&str) + Send + Sync + 'static,
+    {
+        let mut cb = self.on_navigate.write();
+        *cb = Some(Box::new(callback));
+    }
+
+    /// Set the send message callback
+    pub fn set_on_send_message<F>(&self, callback: F)
+    where
+        F: Fn(i32, Value) -> Option<Value> + Send + Sync + 'static,
+    {
+        let mut cb = self.on_send_message.write();
+        *cb = Some(Box::new(callback));
+    }
+
+    /// Navigate the WebView to a URL
+    pub fn navigate(&self, url: &str) {
+        self.set_url(url);
+        let cb = self.on_navigate.read();
+        if let Some(callback) = cb.as_ref() {
+            callback(url);
+        } else {
+            tracing::debug!("No navigation callback registered, URL set to: {}", url);
+        }
+    }
+
+    /// Send a message to a tab's content scripts
+    pub fn send_message(&self, tab_id: i32, message: Value) -> Option<Value> {
+        let cb = self.on_send_message.read();
+        if let Some(callback) = cb.as_ref() {
+            callback(tab_id, message)
+        } else {
+            tracing::debug!(
+                "No send message callback registered for tab {}",
+                tab_id
+            );
+            None
         }
     }
 
@@ -200,8 +255,7 @@ impl ApiHandler for TabsApiHandler {
                     .map(|s| s.to_string());
 
                 if let Some(url) = url {
-                    self.state.set_url(&url);
-                    // TODO: Actually navigate the WebView
+                    self.state.navigate(&url);
                 }
 
                 let tab = self.state.get_current();
@@ -214,8 +268,7 @@ impl ApiHandler for TabsApiHandler {
                     .map(|s| s.to_string());
 
                 if let Some(url) = url {
-                    self.state.set_url(&url);
-                    // TODO: Actually navigate the WebView
+                    self.state.navigate(&url);
                 }
 
                 let tab = self.state.get_current();
@@ -226,8 +279,7 @@ impl ApiHandler for TabsApiHandler {
                 Ok(serde_json::json!({}))
             }
             "sendMessage" => {
-                // TODO: Implement message passing to content scripts
-                let _tab_id: i32 = params
+                let tab_id: i32 = params
                     .get("tabId")
                     .and_then(|v| v.as_i64())
                     .map(|v| v as i32)
@@ -235,10 +287,10 @@ impl ApiHandler for TabsApiHandler {
                         ExtensionError::InvalidArgument("tabId is required".to_string())
                     })?;
 
-                let _message = params.get("message").cloned().unwrap_or(Value::Null);
+                let message = params.get("message").cloned().unwrap_or(Value::Null);
 
-                // For now, just return undefined (no response)
-                Ok(Value::Null)
+                let response = self.state.send_message(tab_id, message);
+                Ok(response.unwrap_or(Value::Null))
             }
             _ => Err(ExtensionError::ApiNotSupported(format!(
                 "tabs.{} is not supported",

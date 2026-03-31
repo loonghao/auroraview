@@ -122,6 +122,9 @@ pub struct ScriptingManager {
     /// Callback for CSS injection
     #[allow(clippy::type_complexity)]
     on_insert_css: RwLock<Option<Box<dyn Fn(&str, &CssInjection) + Send + Sync>>>,
+    /// Callback for CSS removal
+    #[allow(clippy::type_complexity)]
+    on_remove_css: RwLock<Option<Box<dyn Fn(&str, &CssInjection) + Send + Sync>>>,
 }
 
 impl ScriptingManager {
@@ -131,6 +134,7 @@ impl ScriptingManager {
             registered_scripts: RwLock::new(std::collections::HashMap::new()),
             on_execute: RwLock::new(None),
             on_insert_css: RwLock::new(None),
+            on_remove_css: RwLock::new(None),
         }
     }
 
@@ -150,6 +154,15 @@ impl ScriptingManager {
     {
         let mut on_insert_css = self.on_insert_css.write();
         *on_insert_css = Some(Box::new(callback));
+    }
+
+    /// Set the CSS removal callback
+    pub fn set_on_remove_css<F>(&self, callback: F)
+    where
+        F: Fn(&str, &CssInjection) + Send + Sync + 'static,
+    {
+        let mut on_remove_css = self.on_remove_css.write();
+        *on_remove_css = Some(Box::new(callback));
     }
 
     /// Execute a script
@@ -176,6 +189,19 @@ impl ScriptingManager {
         let on_insert_css = self.on_insert_css.read();
         if let Some(callback) = on_insert_css.as_ref() {
             callback(extension_id, injection);
+        }
+    }
+
+    /// Remove CSS
+    pub fn remove_css(&self, extension_id: &str, injection: &CssInjection) {
+        let on_remove_css = self.on_remove_css.read();
+        if let Some(callback) = on_remove_css.as_ref() {
+            callback(extension_id, injection);
+        } else {
+            tracing::debug!(
+                "No CSS removal callback registered for extension {}",
+                extension_id
+            );
         }
     }
 
@@ -266,7 +292,10 @@ impl ApiHandler for ScriptingApiHandler {
                 Ok(serde_json::json!({}))
             }
             "removeCSS" => {
-                // TODO: Implement CSS removal
+                let injection: CssInjection = serde_json::from_value(params)
+                    .map_err(|e| ExtensionError::InvalidArgument(e.to_string()))?;
+
+                self.manager.remove_css(extension_id, &injection);
                 Ok(serde_json::json!({}))
             }
             "registerContentScripts" => {
