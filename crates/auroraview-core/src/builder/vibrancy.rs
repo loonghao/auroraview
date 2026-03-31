@@ -107,6 +107,11 @@ mod windows_impl {
 
         type RtlGetVersionFn = unsafe extern "system" fn(*mut OsVersionInfoExW) -> i32;
 
+        // SAFETY: GetModuleHandleW("ntdll.dll") returns a valid module handle because
+        // ntdll.dll is always loaded. GetProcAddress returns a valid function pointer
+        // for "RtlGetVersion". The transmute is safe because the function signature
+        // matches RtlGetVersionFn. The zeroed OsVersionInfoExW is initialized with
+        // the correct size before calling the function.
         unsafe {
             let ntdll = windows::Win32::System::LibraryLoader::GetModuleHandleW(windows::core::w!(
                 "ntdll.dll"
@@ -184,6 +189,10 @@ mod windows_impl {
         unsafe extern "system" fn(HWND, *mut WindowCompositionAttributeData) -> i32;
 
     fn get_swca_function() -> Option<SetWindowCompositionAttributeFn> {
+        // SAFETY: GetModuleHandleW("user32.dll") returns a valid module handle because
+        // user32.dll is always loaded in GUI processes. GetProcAddress returns a valid
+        // function pointer. The transmute is safe because the function signature matches
+        // SetWindowCompositionAttributeFn (an undocumented but stable Win32 API).
         unsafe {
             let user32 = windows::Win32::System::LibraryLoader::GetModuleHandleW(
                 windows::core::w!("user32.dll"),
@@ -221,6 +230,9 @@ mod windows_impl {
             size: std::mem::size_of::<AccentPolicy>(),
         };
 
+        // SAFETY: hwnd is a valid window handle. The SWCA function pointer was
+        // obtained from GetProcAddress and verified non-null. AccentPolicy and
+        // WindowCompositionAttributeData are repr(C) with correct layout.
         unsafe {
             let hwnd_win = HWND(hwnd as *mut c_void);
             swca(hwnd_win, &mut data) != 0
@@ -288,6 +300,9 @@ mod windows_impl {
             );
         }
 
+        // SAFETY: hwnd is a valid window handle. DwmSetWindowAttribute is called with
+        // this valid HWND and correctly-sized i32 value buffers. The DWMWINDOWATTRIBUTE
+        // values (20, 38, 1029) are documented/undocumented but stable Windows constants.
         unsafe {
             let hwnd_win = HWND(hwnd as *mut c_void);
 
@@ -342,6 +357,8 @@ mod windows_impl {
 
     /// Clear mica effect from a window
     pub fn clear_mica(hwnd: isize) -> VibrancyResult {
+        // SAFETY: hwnd is a valid window handle. DwmSetWindowAttribute is called with
+        // this valid HWND and correctly-sized i32 value buffers.
         unsafe {
             let hwnd_win = HWND(hwnd as *mut c_void);
 
@@ -377,6 +394,8 @@ mod windows_impl {
             );
         }
 
+        // SAFETY: hwnd is a valid window handle. DwmSetWindowAttribute is called with
+        // this valid HWND and correctly-sized i32 value buffers.
         unsafe {
             let hwnd_win = HWND(hwnd as *mut c_void);
 

@@ -7,7 +7,7 @@
 //!
 //! This implementation uses:
 //! - `AtomicLifecycle` for lock-free state management
-//! - `RwLock` for URL/title tracking (read-heavy workload)
+//! - `parking_lot::RwLock` for URL/title tracking (read-heavy workload, non-poisoning)
 //! - `AtomicBool` for simple boolean flags
 //!
 //! The actual WebView operations are delegated to the main WebView instance.
@@ -18,7 +18,8 @@ use super::lifecycle::{AtomicLifecycle, LifecycleState};
 use super::settings::{WebViewSettings, WebViewSettingsImpl};
 use super::traits::{CookieInfo, JavaScriptCallback, LoadProgress, WebViewBackend};
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-use std::sync::RwLock;
+
+use parking_lot::RwLock;
 
 /// Wry backend implementation
 ///
@@ -87,16 +88,12 @@ impl WryBackend {
 
     /// Update current URL (called by navigation event handlers)
     pub fn set_current_url(&self, url: Option<String>) {
-        if let Ok(mut u) = self.current_url.write() {
-            *u = url;
-        }
+        *self.current_url.write() = url;
     }
 
     /// Update current title
     pub fn set_current_title(&self, title: Option<String>) {
-        if let Ok(mut t) = self.current_title.write() {
-            *t = title;
-        }
+        *self.current_title.write() = title;
     }
 
     /// Set loading state
@@ -151,7 +148,7 @@ impl WebViewBackend for WryBackend {
     }
 
     fn url(&self) -> Option<String> {
-        self.current_url.read().ok().and_then(|u| u.clone())
+        self.current_url.read().clone()
     }
 
     fn can_go_back(&self) -> bool {
@@ -204,7 +201,7 @@ impl WebViewBackend for WryBackend {
     }
 
     fn title(&self) -> Option<String> {
-        self.current_title.read().ok().and_then(|t| t.clone())
+        self.current_title.read().clone()
     }
 
     fn load_progress(&self) -> LoadProgress {
