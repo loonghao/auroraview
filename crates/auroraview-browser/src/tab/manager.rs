@@ -1,15 +1,17 @@
 //! Tab Manager implementation
 
-use super::{Tab, TabEvent, TabId, TabState};
-use crate::config::BrowserConfig;
-use crate::BrowserError;
-use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+use parking_lot::RwLock;
 use tao::event_loop::EventLoopProxy;
 use tao::window::Window;
 use wry::WebViewBuilder;
+
+use super::{Tab, TabEvent, TabId, TabState};
+use crate::config::BrowserConfig;
+use crate::BrowserError;
 
 /// Tab Manager - manages multiple WebViews in a single window
 ///

@@ -1,10 +1,12 @@
 //! Tests for chrome.runtime API
 
-use auroraview_extensions::apis::runtime::{MessageSender, RuntimeApiHandler, RuntimeManager};
-use auroraview_extensions::apis::ApiHandler;
-use serde_json::json;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
+use serde_json::json;
+
+use auroraview_extensions::apis::runtime::{MessageSender, RuntimeApiHandler, RuntimeManager};
+use auroraview_extensions::apis::ApiHandler;
 
 #[test]
 fn test_runtime_manager_new() {

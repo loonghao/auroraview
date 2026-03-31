@@ -1,10 +1,12 @@
 //! Tests for chrome.tabs API
 
-use auroraview_extensions::apis::tabs::{TabState, TabsApiHandler};
-use auroraview_extensions::apis::ApiHandler;
-use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
+use serde_json::{json, Value};
+
+use auroraview_extensions::apis::tabs::{TabState, TabsApiHandler};
+use auroraview_extensions::apis::ApiHandler;
 
 #[test]
 fn test_tab_state_new() {

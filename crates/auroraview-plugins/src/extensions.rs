@@ -35,13 +35,15 @@
 //! });
 //! ```
 
-use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
 
 /// Callback for navigating to a URL (tabs.create, tabs.update)
 pub type NavigateCallback = Box<dyn Fn(&str) + Send + Sync>;

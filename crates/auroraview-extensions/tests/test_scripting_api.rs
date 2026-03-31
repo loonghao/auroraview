@@ -1,13 +1,15 @@
 //! Tests for chrome.scripting API
 
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
+
+use serde_json::json;
+
 use auroraview_extensions::apis::scripting::{
     CssInjection, InjectionResult, InjectionTarget, RegisteredContentScript, ScriptInjection,
     ScriptingApiHandler, ScriptingManager,
 };
 use auroraview_extensions::apis::ApiHandler;
-use serde_json::json;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
 
 #[test]
 fn test_scripting_manager_new() {

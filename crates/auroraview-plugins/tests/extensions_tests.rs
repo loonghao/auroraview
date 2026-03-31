@@ -1,12 +1,14 @@
 //! Tests for the ExtensionsPlugin callback system.
 
-use auroraview_plugins::extensions::*;
-use auroraview_plugins::PluginHandler;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::Arc;
+
 use parking_lot::RwLock;
 use rstest::*;
 use serde_json::{json, Value};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::Arc;
+
+use auroraview_plugins::extensions::*;
+use auroraview_plugins::PluginHandler;
 
 // ============================================================
 // Fixtures
