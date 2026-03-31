@@ -799,7 +799,17 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
     // Build initialization script with JS bridge and optional CSP policy
     // CSP is injected as a <meta> tag before any page scripts run
-    let init_script = build_packed_init_script_with_csp(config.content_security_policy.as_deref());
+    let mut init_script =
+        build_packed_init_script_with_csp(config.content_security_policy.as_deref());
+
+    // Append user-defined JavaScript injection (from [inject] js_code in manifest)
+    if let Some(ref js_code) = config.inject_js {
+        if !js_code.trim().is_empty() {
+            tracing::info!("[packed] Injecting custom JS ({} bytes)", js_code.len());
+            init_script.push('\n');
+            init_script.push_str(js_code);
+        }
+    }
 
     // Clone for IPC handler
     let python_backend_for_ipc = python_backend_state.clone();

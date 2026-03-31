@@ -779,8 +779,14 @@ impl PackConfig {
             debug: manifest.debug.enabled,
             allow_new_window: manifest.package.allow_new_window,
             user_agent: manifest.get_user_agent(),
-            inject_js: None,
-            inject_css: None,
+            inject_js: manifest
+                .inject
+                .as_ref()
+                .and_then(|inj| inj.js_code.clone()),
+            inject_css: manifest
+                .inject
+                .as_ref()
+                .and_then(|inj| inj.css_code.clone()),
             icon_path: manifest.get_icon_path().cloned().map(|p| resolve_path(&p)),
             window_icon: None,
             env: manifest

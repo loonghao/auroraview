@@ -249,6 +249,66 @@ entry_point = "./cmd/server"
     assert!(manifest.is_fullstack());
 }
 
+// ============================================================================
+// Inject Configuration Tests
+// ============================================================================
+
+#[test]
+fn test_inject_js_code_parsed() {
+    let toml = r#"
+[package]
+name = "test-app"
+title = "Test"
+
+[frontend]
+url = "https://example.com"
+
+[inject]
+js_code = "console.log('injected');"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let inject = manifest.inject.as_ref().expect("inject should be present");
+    assert_eq!(
+        inject.js_code.as_deref(),
+        Some("console.log('injected');")
+    );
+}
+
+#[test]
+fn test_inject_css_code_parsed() {
+    let toml = r#"
+[package]
+name = "test-app"
+title = "Test"
+
+[frontend]
+url = "https://example.com"
+
+[inject]
+css_code = "body { background: red; }"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let inject = manifest.inject.as_ref().expect("inject should be present");
+    assert_eq!(
+        inject.css_code.as_deref(),
+        Some("body { background: red; }")
+    );
+}
+
+#[test]
+fn test_inject_absent_is_none() {
+    let toml = r#"
+[package]
+name = "test-app"
+title = "Test"
+
+[frontend]
+url = "https://example.com"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    assert!(manifest.inject.is_none());
+}
+
 #[test]
 fn test_backend_type_rust() {
     let toml = r#"

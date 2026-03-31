@@ -262,3 +262,70 @@ fn test_collect_pattern() {
     assert!(json.contains("../examples/*.py"));
     assert!(json.contains("examples"));
 }
+
+// ============================================================================
+// inject_js / inject_css mapping via from_manifest
+// ============================================================================
+
+#[test]
+fn test_from_manifest_inject_js_code() {
+    use auroraview_pack::Manifest;
+    use std::path::Path;
+
+    let toml = r#"
+[package]
+name = "inject-test"
+title = "Inject Test"
+
+[frontend]
+url = "https://example.com"
+
+[inject]
+js_code = "window.__custom = true;"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let config = PackConfig::from_manifest(&manifest, Path::new(".")).unwrap();
+    assert_eq!(config.inject_js.as_deref(), Some("window.__custom = true;"));
+    assert!(config.inject_css.is_none());
+}
+
+#[test]
+fn test_from_manifest_inject_css_code() {
+    use auroraview_pack::Manifest;
+    use std::path::Path;
+
+    let toml = r#"
+[package]
+name = "inject-css-test"
+title = "Inject CSS Test"
+
+[frontend]
+url = "https://example.com"
+
+[inject]
+css_code = "body { margin: 0; }"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let config = PackConfig::from_manifest(&manifest, Path::new(".")).unwrap();
+    assert!(config.inject_js.is_none());
+    assert_eq!(config.inject_css.as_deref(), Some("body { margin: 0; }"));
+}
+
+#[test]
+fn test_from_manifest_no_inject() {
+    use auroraview_pack::Manifest;
+    use std::path::Path;
+
+    let toml = r#"
+[package]
+name = "no-inject-test"
+title = "No Inject Test"
+
+[frontend]
+url = "https://example.com"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let config = PackConfig::from_manifest(&manifest, Path::new(".")).unwrap();
+    assert!(config.inject_js.is_none());
+    assert!(config.inject_css.is_none());
+}
