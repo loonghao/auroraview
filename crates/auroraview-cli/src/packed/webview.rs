@@ -22,7 +22,9 @@ use crate::{load_window_icon, load_window_icon_from_bytes, normalize_url};
 
 use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
-use super::utils::{escape_js_string, escape_json_for_js, get_webview_data_dir};
+use super::utils::{
+    build_css_injection_script, escape_js_string, escape_json_for_js, get_webview_data_dir,
+};
 #[cfg(target_os = "windows")]
 use super::utils::{get_extensions_dir, has_extensions_in_dir, prepare_active_extensions_dir};
 
@@ -808,6 +810,17 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             tracing::info!("[packed] Injecting custom JS ({} bytes)", js_code.len());
             init_script.push('\n');
             init_script.push_str(js_code);
+        }
+    }
+
+    // Append user-defined CSS injection (from [inject] css_code in manifest)
+    // CSS is injected as a <style> element via JavaScript so it runs as an init script
+    if let Some(ref css_code) = config.inject_css {
+        if !css_code.trim().is_empty() {
+            tracing::info!("[packed] Injecting custom CSS ({} bytes)", css_code.len());
+            let css_script = build_css_injection_script(css_code);
+            init_script.push('\n');
+            init_script.push_str(&css_script);
         }
     }
 

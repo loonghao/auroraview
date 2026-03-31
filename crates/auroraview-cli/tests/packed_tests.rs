@@ -3,8 +3,8 @@
 //! These tests verify the packed application runtime functionality.
 
 use auroraview_cli::packed::{
-    build_module_search_paths, build_packed_init_script_with_csp, escape_json_for_js,
-    get_python_exe_path, get_runtime_cache_dir_with_hash, get_webview_data_dir,
+    build_css_injection_script, build_module_search_paths, build_packed_init_script_with_csp,
+    escape_json_for_js, get_python_exe_path, get_runtime_cache_dir_with_hash, get_webview_data_dir,
     inject_environment_variables,
 };
 use auroraview_core::json;
@@ -159,6 +159,49 @@ fn test_build_packed_init_script_csp_escapes_quotes() {
     // Should not contain a raw unescaped ' inside the JS string assignment
     // (escaped as \\' in the injected JS)
     assert!(!script.contains("= 'default-src 'self'"));
+}
+
+// =============================================================================
+// build_css_injection_script tests
+// =============================================================================
+
+#[test]
+fn test_build_css_injection_script_basic() {
+    let css = "body { margin: 0; }";
+    let script = build_css_injection_script(css);
+    // Must create a <style> element
+    assert!(script.contains("createElement('style')"));
+    // Must contain the CSS text
+    assert!(script.contains("body { margin: 0; }"));
+    // Must be an IIFE
+    assert!(script.contains("(function()"));
+}
+
+#[test]
+fn test_build_css_injection_script_empty() {
+    let script = build_css_injection_script("");
+    // Even for empty CSS, the script structure must be valid JS
+    assert!(script.contains("createElement('style')"));
+}
+
+#[test]
+fn test_build_css_injection_script_escapes_backtick() {
+    // CSS with a backtick (rare but possible in content: "")
+    let css = r#"body::before { content: "`"; }"#;
+    let script = build_css_injection_script(css);
+    // The backtick must be escaped as \` inside the template literal
+    assert!(script.contains("\\`"));
+    // The script must still contain the style element creation
+    assert!(script.contains("createElement('style')"));
+}
+
+#[test]
+fn test_build_css_injection_script_escapes_backslash() {
+    // CSS with a backslash (e.g. in unicode escapes)
+    let css = r#"content: "\2022";"#;
+    let script = build_css_injection_script(css);
+    // Backslash must be double-escaped inside the template literal
+    assert!(script.contains("\\\\"));
 }
 
 // =============================================================================

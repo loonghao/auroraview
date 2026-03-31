@@ -11,6 +11,23 @@ use std::process::Command;
 // Re-export escape utilities from core
 pub use auroraview_core::utils::{escape_js_string, escape_json_for_js};
 
+/// Build a JavaScript snippet that injects CSS into the page via a `<style>` element.
+///
+/// The generated script appends a `<style>` tag to `<head>` (or `<body>` if head is
+/// absent) on every page load when used as a WebView initialization script.
+pub fn build_css_injection_script(css: &str) -> String {
+    // Escape the CSS so it can be safely embedded in a JS template literal.
+    // We only need to escape backticks and backslashes inside the template literal.
+    let escaped = css.replace('\\', "\\\\").replace('`', "\\`");
+    format!(
+        r#"(function(){{
+  var __av_style = document.createElement('style');
+  __av_style.textContent = `{escaped}`;
+  (document.head || document.body || document.documentElement).appendChild(__av_style);
+}})();"#
+    )
+}
+
 /// Get the runtime cache directory with content hash
 ///
 /// Uses hash-based caching for cache isolation:

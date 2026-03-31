@@ -12,8 +12,8 @@ pub mod protocol_handlers;
 
 /// Packed application utility functions re-exported for convenience.
 pub use packed::{
-    build_module_search_paths, build_packed_init_script_with_csp, escape_json_for_js,
-    get_python_exe_path, get_runtime_cache_dir_with_hash, get_webview_data_dir,
+    build_css_injection_script, build_module_search_paths, build_packed_init_script_with_csp,
+    escape_json_for_js, get_python_exe_path, get_runtime_cache_dir_with_hash, get_webview_data_dir,
     inject_environment_variables,
 };
 
