@@ -17,4 +17,4 @@ auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-h
 
 [dev-dependencies]
 rstest = "0.26"
-tempfile = "3.15"
+tempfile = "3.20"
