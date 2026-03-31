@@ -196,6 +196,14 @@ impl EventBus {
     /// bus.emit("app:start", json!({"timestamp": 1234567890}));
     /// ```
     pub fn emit(&self, event: &str, data: Value) -> usize {
+        let has_middleware = !self.middleware.is_empty();
+        let has_bridges = !self.bridges.is_empty();
+
+        // Fast path: no middleware, no bridges — zero allocations.
+        if !has_middleware && !has_bridges {
+            return self.registry.emit(event, data);
+        }
+
         let mut data = data;
 
         // Process through middleware
@@ -209,8 +217,6 @@ impl EventBus {
             );
             return 0;
         }
-
-        let has_bridges = !self.bridges.is_empty();
 
         // Clone only when both local handlers AND bridges need the data.
         let handler_count = if has_bridges {
@@ -237,6 +243,11 @@ impl EventBus {
 
     /// Emit an event only to local handlers (skip bridges)
     pub fn emit_local(&self, event: &str, data: Value) -> usize {
+        // Fast path: no middleware — zero allocations.
+        if self.middleware.is_empty() {
+            return self.registry.emit(event, data);
+        }
+
         let mut data = data;
 
         let result = self.middleware.process_before(event, &mut data);
@@ -244,8 +255,6 @@ impl EventBus {
             return 0;
         }
 
-        // No bridges involved — pass data directly to registry (registry will
-        // internally clone per-handler as needed via Signal::emit).
         let handler_count = self.registry.emit(event, data.clone());
         self.middleware.process_after(event, &data, handler_count);
 
