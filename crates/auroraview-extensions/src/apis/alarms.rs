@@ -2,10 +2,11 @@
 //!
 //! Provides scheduled task functionality for extensions.
 
+use std::sync::Arc;
+
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
 
 use crate::apis::ApiHandler;
 use crate::error::{ExtensionError, ExtensionResult};

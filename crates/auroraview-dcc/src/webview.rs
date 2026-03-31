@@ -7,17 +7,19 @@
 //! - WebView is embedded as a child window into a Qt widget
 //! - No blocking event loop - host application calls process_events() periodically
 
-use crate::config::DccConfig;
-use crate::error::{DccError, Result};
-use crossbeam_channel::{Receiver, Sender};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+
+use crossbeam_channel::{Receiver, Sender};
 use tracing::{debug, error, info, warn};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
     ICoreWebView2, ICoreWebView2Controller, ICoreWebView2Settings,
 };
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HWND, RECT};
+
+use crate::config::DccConfig;
+use crate::error::{DccError, Result};
 
 /// Message types for internal message queue
 #[derive(Debug, Clone)]

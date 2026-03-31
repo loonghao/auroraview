@@ -1,17 +1,19 @@
 //! Event loop handler for desktop mode
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use tao::event::{Event, WindowEvent};
+use tao::event_loop::{ControlFlow, EventLoopBuilder};
+use tao::platform::run_return::EventLoopExtRunReturn;
+use tracing::info;
+
 use crate::config::DesktopConfig;
 use crate::error::Result;
 use crate::event_loop::UserEvent;
 use crate::ipc::IpcRouter;
 use crate::tray::TrayManager;
 use crate::window::create_window_with_router;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use tao::event::{Event, WindowEvent};
-use tao::event_loop::{ControlFlow, EventLoopBuilder};
-use tao::platform::run_return::EventLoopExtRunReturn;
-use tracing::info;
 
 /// Run the desktop event loop (blocking)
 ///

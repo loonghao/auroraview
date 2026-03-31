@@ -3,10 +3,11 @@
 //! In AuroraView, there's typically only one "tab" (the main WebView).
 //! This API provides compatibility with extensions that use tabs API.
 
+use std::sync::Arc;
+
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
 
 use crate::apis::ApiHandler;
 use crate::error::{ExtensionError, ExtensionResult};

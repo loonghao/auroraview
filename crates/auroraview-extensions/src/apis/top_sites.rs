@@ -6,10 +6,11 @@
 //! - Get most visited URLs
 //! - Configurable result count
 
+use std::sync::Arc;
+
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 

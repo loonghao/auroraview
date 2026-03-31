@@ -1,15 +1,17 @@
 //! Window builder for desktop mode
 
+use std::sync::{Arc, Mutex};
+
+use tao::event_loop::EventLoop;
+use tao::window::WindowBuilder;
+use tracing::{debug, info};
+use wry::{WebView, WebViewBuilder};
+
 use crate::config::DesktopConfig;
 use crate::error::{DesktopError, Result};
 use crate::event_loop::UserEvent;
 use crate::ipc::IpcRouter;
 use crate::window::DesktopWindow;
-use std::sync::{Arc, Mutex};
-use tao::event_loop::EventLoop;
-use tao::window::WindowBuilder;
-use tracing::{debug, info};
-use wry::{WebView, WebViewBuilder};
 
 #[cfg(target_os = "windows")]
 use wry::WebViewBuilderExtWindows;

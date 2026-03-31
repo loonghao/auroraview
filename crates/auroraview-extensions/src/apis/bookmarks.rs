@@ -8,12 +8,13 @@
 //! - Tree structure navigation
 //! - Event notifications for changes
 
-use dashmap::DashMap;
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
 use crate::error::{ExtensionError, ExtensionResult};
 

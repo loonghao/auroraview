@@ -8,10 +8,11 @@
 //! - Uninstall extensions
 //! - Event notifications
 
+use std::sync::Arc;
+
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 

@@ -2,10 +2,11 @@
 //!
 //! Implements script injection capabilities for extensions.
 
+use std::sync::Arc;
+
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
 
 use crate::apis::ApiHandler;
 use crate::error::{ExtensionError, ExtensionResult};

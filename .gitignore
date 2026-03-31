@@ -103,6 +103,7 @@ target/wheels/
 # Local test files
 local-test.py
 test_*.txt
+build_output.txt
 scripts/cdp_*.py
 scripts/run_cdp_test.ps1
 

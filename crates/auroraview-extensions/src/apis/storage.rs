@@ -1,7 +1,8 @@
 //! chrome.storage API handler
 
-use serde_json::Value;
 use std::sync::Arc;
+
+use serde_json::Value;
 
 use crate::apis::ApiHandler;
 use crate::error::{ExtensionError, ExtensionResult};

@@ -6,11 +6,12 @@
 //! - Request system to stay awake
 //! - Release wake lock
 
+use std::collections::HashSet;
+use std::sync::Arc;
+
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashSet;
-use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 

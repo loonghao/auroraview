@@ -8,10 +8,11 @@
 //! - Get available voices
 //! - Pause/resume speech
 
+use std::sync::Arc;
+
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
