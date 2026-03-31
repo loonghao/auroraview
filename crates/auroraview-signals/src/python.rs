@@ -534,30 +534,37 @@ impl PyEventBus {
 // ============================================================================
 
 /// Convert serde_json::Value to Py<PyAny>
+///
+/// Falls back to `py.None()` if a PyO3 conversion fails (should not happen
+/// for primitive types, but avoids panicking inside signal handlers).
 fn json_to_pyobject(py: Python<'_>, value: &Value) -> Py<PyAny> {
     use pyo3::IntoPyObjectExt;
 
+    let none = || py.None();
+
     match value {
         Value::Null => py.None(),
-        Value::Bool(b) => (*b).into_py_any(py).unwrap(),
+        Value::Bool(b) => (*b).into_py_any(py).unwrap_or_else(|_| none()),
         Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                i.into_py_any(py).unwrap()
+                i.into_py_any(py).unwrap_or_else(|_| none())
             } else if let Some(f) = n.as_f64() {
-                f.into_py_any(py).unwrap()
+                f.into_py_any(py).unwrap_or_else(|_| none())
             } else {
                 py.None()
             }
         }
-        Value::String(s) => s.clone().into_py_any(py).unwrap(),
+        Value::String(s) => s.clone().into_py_any(py).unwrap_or_else(|_| none()),
         Value::Array(arr) => {
             let items: Vec<Py<PyAny>> = arr.iter().map(|v| json_to_pyobject(py, v)).collect();
-            items.into_py_any(py).unwrap()
+            items.into_py_any(py).unwrap_or_else(|_| none())
         }
         Value::Object(obj) => {
             let dict = PyDict::new(py);
             for (k, v) in obj {
-                dict.set_item(k, json_to_pyobject(py, v)).unwrap();
+                if let Err(e) = dict.set_item(k, json_to_pyobject(py, v)) {
+                    tracing::warn!("Failed to set dict item '{}': {}", k, e);
+                }
             }
             dict.unbind().into_any()
         }

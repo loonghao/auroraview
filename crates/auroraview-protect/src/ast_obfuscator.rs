@@ -216,7 +216,7 @@ impl AstObfuscator {
             let indent = line.len() - line.trim_start().len();
             
             // Pop scopes when dedenting
-            while indent_stack.len() > 1 && indent < *indent_stack.last().unwrap() {
+            while indent_stack.len() > 1 && indent < *indent_stack.last().expect("indent stack non-empty") {
                 indent_stack.pop();
                 if self.scope_stack.len() > 1 {
                     self.scope_stack.pop();
@@ -266,7 +266,7 @@ impl AstObfuscator {
             self.add_name_to_scope(&name, NameContext::Definition, line_num);
             
             // Create new scope
-            let parent = *self.scope_stack.last().unwrap();
+            let parent = *self.scope_stack.last().expect("scope stack non-empty");
             let new_scope = Scope::new(ScopeType::Function, Some(parent), Some(name.clone()));
             let scope_idx = self.scopes.len();
             self.scopes.push(new_scope);
@@ -284,7 +284,7 @@ impl AstObfuscator {
             self.add_name_to_scope(&name, NameContext::Definition, line_num);
             
             // Create new scope
-            let parent = *self.scope_stack.last().unwrap();
+            let parent = *self.scope_stack.last().expect("scope stack non-empty");
             let new_scope = Scope::new(ScopeType::Class, Some(parent), Some(name));
             let scope_idx = self.scopes.len();
             self.scopes.push(new_scope);
@@ -361,7 +361,7 @@ impl AstObfuscator {
     /// Parse global declaration
     fn parse_global(&mut self, line: &str) -> ProtectResult<()> {
         let names = line[7..].trim();
-        let scope_idx = *self.scope_stack.last().unwrap();
+        let scope_idx = *self.scope_stack.last().expect("scope stack non-empty");
         for name in names.split(',') {
             let name = name.trim();
             if !name.is_empty() {
@@ -374,7 +374,7 @@ impl AstObfuscator {
     /// Parse nonlocal declaration
     fn parse_nonlocal(&mut self, line: &str) -> ProtectResult<()> {
         let names = line[9..].trim();
-        let scope_idx = *self.scope_stack.last().unwrap();
+        let scope_idx = *self.scope_stack.last().expect("scope stack non-empty");
         for name in names.split(',') {
             let name = name.trim();
             if !name.is_empty() {
@@ -522,7 +522,7 @@ impl AstObfuscator {
         if s.is_empty() {
             return false;
         }
-        let first = s.chars().next().unwrap();
+        let first = s.chars().next().expect("checked non-empty above");
         if !first.is_alphabetic() && first != '_' {
             return false;
         }
@@ -531,7 +531,7 @@ impl AstObfuscator {
 
     /// Add a name to the current scope
     fn add_name_to_scope(&mut self, name: &str, context: NameContext, line: usize) {
-        let scope_idx = *self.scope_stack.last().unwrap();
+        let scope_idx = *self.scope_stack.last().expect("scope stack non-empty");
         let scope_depth = self.scope_stack.len() - 1;
         let is_class_scope = self.scopes[scope_idx].scope_type == ScopeType::Class;
         
@@ -709,10 +709,10 @@ impl AstObfuscator {
                 
                 // Check for triple quote
                 if chars.peek() == Some(&c) {
-                    result.push(chars.next().unwrap());
+                    result.push(chars.next().expect("peeked Some"));
                     current_pos += 1;
                     if chars.peek() == Some(&c) {
-                        result.push(chars.next().unwrap());
+                        result.push(chars.next().expect("peeked Some"));
                         current_pos += 1;
                         triple_quote = true;
                     }
