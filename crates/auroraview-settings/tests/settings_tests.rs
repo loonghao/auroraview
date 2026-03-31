@@ -12,7 +12,7 @@ fn test_value_type_names() {
     assert_eq!(SettingValue::Null.type_name(), "null");
     assert_eq!(SettingValue::Bool(true).type_name(), "bool");
     assert_eq!(SettingValue::Integer(42).type_name(), "integer");
-    assert_eq!(SettingValue::Float(3.14).type_name(), "float");
+    assert_eq!(SettingValue::Float(2.78).type_name(), "float");
     assert_eq!(SettingValue::String("hello".into()).type_name(), "string");
     assert_eq!(SettingValue::Array(vec![]).type_name(), "array");
     assert_eq!(
@@ -31,7 +31,7 @@ fn test_value_is_null() {
 fn test_value_accessors() {
     assert_eq!(SettingValue::Bool(true).as_bool(), Some(true));
     assert_eq!(SettingValue::Integer(42).as_integer(), Some(42));
-    assert_eq!(SettingValue::Float(3.14).as_float(), Some(3.14));
+    assert_eq!(SettingValue::Float(2.78).as_float(), Some(2.78));
     assert_eq!(SettingValue::Integer(10).as_float(), Some(10.0));
     assert_eq!(
         SettingValue::String("hi".into()).as_str(),
@@ -48,7 +48,7 @@ fn test_value_from_conversions() {
     assert_eq!(SettingValue::from(true), SettingValue::Bool(true));
     assert_eq!(SettingValue::from(42i32), SettingValue::Integer(42));
     assert_eq!(SettingValue::from(100i64), SettingValue::Integer(100));
-    assert_eq!(SettingValue::from(3.14), SettingValue::Float(3.14));
+    assert_eq!(SettingValue::from(2.78), SettingValue::Float(2.78));
     assert_eq!(
         SettingValue::from("hello"),
         SettingValue::String("hello".into())

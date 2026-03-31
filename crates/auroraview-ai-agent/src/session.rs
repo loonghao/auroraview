@@ -1,6 +1,7 @@
 //! Chat session management
 
 use crate::message::{Message, MessageRole, ToolCall};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

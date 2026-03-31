@@ -1,13 +1,14 @@
 //! Wrapper around genai crate for unified AI provider access
 
-use crate::error::{AIError, AIResult};
-use crate::providers::types::*;
+use std::sync::Arc;
 
 use genai::chat::{ChatMessage, ChatOptions as GenaiChatOptions, ChatRequest};
 use genai::Client;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
+
+use crate::error::{AIError, AIResult};
+use crate::providers::types::*;
 
 /// AI Client wrapper around genai crate
 ///
