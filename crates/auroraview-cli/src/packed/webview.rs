@@ -156,6 +156,14 @@ fn handle_extension_resource_request(
     use mime_guess::from_path;
     use std::borrow::Cow;
 
+    /// Build an error response for extension protocol handlers.
+    fn ext_error(status: u16, body: &'static [u8]) -> wry::http::Response<Cow<'static, [u8]>> {
+        wry::http::Response::builder()
+            .status(status)
+            .body(Cow::Borrowed(body))
+            .expect("hardcoded status/body should always produce a valid response")
+    }
+
     tracing::debug!("[Protocol] extension resource request: {}", ext_path);
 
     // Parse extension ID and resource path
@@ -163,12 +171,7 @@ fn handle_extension_resource_request(
     let parts: Vec<&str> = ext_path.splitn(2, '/').collect();
     if parts.is_empty() {
         tracing::warn!("[Protocol] Invalid extension path: {}", ext_path);
-        return wry::http::Response::builder()
-            .status(400)
-            .body(Cow::Borrowed(
-                b"Bad Request: Invalid extension path" as &[u8],
-            ))
-            .unwrap();
+        return ext_error(400, b"Bad Request: Invalid extension path");
     }
 
     let extension_id = parts[0];
@@ -199,10 +202,7 @@ fn handle_extension_resource_request(
                 extension_id,
                 e
             );
-            return wry::http::Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Extension not found" as &[u8]))
-                .unwrap();
+            return ext_error(404, b"Extension not found");
         }
     };
 
@@ -214,10 +214,7 @@ fn handle_extension_resource_request(
                 full_path,
                 e
             );
-            return wry::http::Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
-                .unwrap();
+            return ext_error(404, b"Resource not found");
         }
     };
 
@@ -227,10 +224,7 @@ fn handle_extension_resource_request(
             "[Protocol] Directory traversal attempt in extension: {:?}",
             full_path
         );
-        return wry::http::Response::builder()
-            .status(403)
-            .body(Cow::Borrowed(b"Forbidden: Directory traversal" as &[u8]))
-            .unwrap();
+        return ext_error(403, b"Forbidden: Directory traversal");
     }
 
     // Read and serve the file
@@ -249,7 +243,7 @@ fn handle_extension_resource_request(
                 .header("Content-Type", mime_type)
                 .header("Access-Control-Allow-Origin", allowed_origin)
                 .body(Cow::Owned(data))
-                .unwrap()
+                .expect("valid 200 response with content-type and CORS headers")
         }
         Err(e) => {
             tracing::warn!(
@@ -257,10 +251,7 @@ fn handle_extension_resource_request(
                 full_path,
                 e
             );
-            wry::http::Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
-                .unwrap()
+            ext_error(404, b"Resource not found")
         }
     }
 }
@@ -1010,7 +1001,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                             wry::http::Response::builder()
                                 .status(500)
                                 .body(Vec::new().into())
-                                .unwrap()
+                                .expect("fallback 500 response with empty body")
                         })
                 })
                 .with_initialization_script(&init_script)
