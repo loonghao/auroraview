@@ -3,6 +3,7 @@
 //! Handles creating the WebView window and running the main event loop.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Result};
@@ -704,9 +705,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
     // Track loading state for FullStack mode
     // We need both loading screen ready AND Python ready before navigating
-    let loading_screen_ready = Arc::new(RwLock::new(false));
-    let python_ready = Arc::new(RwLock::new(false));
-    let waiting_for_python = Arc::new(RwLock::new(needs_python_backend));
+    let loading_screen_ready = Arc::new(AtomicBool::new(false));
+    let python_ready = Arc::new(AtomicBool::new(false));
+    let waiting_for_python = Arc::new(AtomicBool::new(needs_python_backend));
     // Store registered handlers for API method registration
     let registered_handlers: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
 
@@ -720,7 +721,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         std::thread::spawn(move || {
             // First timeout: 10 seconds
             std::thread::sleep(std::time::Duration::from_secs(10));
-            let is_ready = python_ready_for_timeout.read().map(|r| *r).unwrap_or(false);
+            let is_ready = python_ready_for_timeout.load(Ordering::Relaxed);
             if !is_ready {
                 tracing::warn!("[Rust] Python backend not ready after 10s, showing warning...");
                 let _ = proxy_for_timeout.send_event(UserEvent::BackendError {
@@ -738,7 +739,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
                 // Second timeout: additional 20 seconds (total 30s)
                 std::thread::sleep(std::time::Duration::from_secs(20));
-                let is_ready_final = python_ready_for_timeout.read().map(|r| *r).unwrap_or(false);
+                let is_ready_final = python_ready_for_timeout.load(Ordering::Relaxed);
                 if !is_ready_final {
                     tracing::error!(
                         "[Rust] Python backend ready timeout after 30s, showing error page"
@@ -1146,7 +1147,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     let exit_code = backend.get_exit_code();
                     let stderr_output = backend.get_last_stderr();
                     let during_startup =
-                        !python_ready_for_monitor.read().map(|r| *r).unwrap_or(false);
+                        !python_ready_for_monitor.load(Ordering::Relaxed);
 
                     tracing::error!(
                         "[ProcessMonitor] Python process crashed! exit_code={:?}, during_startup={}, stderr_len={}",
@@ -1230,11 +1231,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     match user_event {
                         UserEvent::LoadingScreenReady => {
                             tracing::info!("[Rust] Loading screen is ready (DOM rendered)");
-                            if let Ok(mut ready) = loading_screen_ready.write() {
-                                *ready = true;
-                            }
+                            loading_screen_ready.store(true, Ordering::Relaxed);
                             // If Python is already ready, send backend_ready event to frontend
-                            let is_python_ready = python_ready.read().map(|r| *r).unwrap_or(false);
+                            let is_python_ready = python_ready.load(Ordering::Relaxed);
                             if is_python_ready {
                                 tracing::info!(
                                     "[Rust] Python already ready, sending backend_ready to frontend"
@@ -1256,9 +1255,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 "[Rust] Python backend ready with {} handlers",
                                 handlers.len()
                             );
-                            if let Ok(mut ready) = python_ready.write() {
-                                *ready = true;
-                            }
+                            python_ready.store(true, Ordering::Relaxed);
 
                             // Store handlers for later use (e.g., after navigation)
                             if let Ok(mut stored) = registered_handlers.write() {
@@ -1272,7 +1269,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                             }
 
                             // If loading screen is ready, send backend_ready event to frontend
-                            let is_loading_ready = loading_screen_ready.read().map(|r| *r).unwrap_or(false);
+                            let is_loading_ready = loading_screen_ready.load(Ordering::Relaxed);
                             if is_loading_ready {
                                 tracing::info!(
                                     "[Rust] Loading screen ready, sending backend_ready to frontend"
@@ -1290,9 +1287,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                         UserEvent::NavigateToApp => {
                             // Frontend requested navigation to app
                             tracing::info!("[Rust] Frontend requested navigation to app");
-                            if let Ok(mut w) = waiting_for_python.write() {
-                                *w = false;
-                            }
+                            waiting_for_python.store(false, Ordering::Relaxed);
                             do_navigate(&wv);
                         }
                         UserEvent::PageReady => {
