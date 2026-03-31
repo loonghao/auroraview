@@ -367,7 +367,7 @@ impl ExtensionsPlugin {
                     _ => data,
                 };
 
-                Ok(serde_json::to_value(result).unwrap())
+                serde_json::to_value(result).map_err(PluginError::serialization_error)
             }
             "set" => {
                 let items: HashMap<String, Value> = params
@@ -898,7 +898,7 @@ impl ExtensionsPlugin {
                     .get(extension_id)
                     .cloned()
                     .unwrap_or_default();
-                Ok(serde_json::to_value(scripts).unwrap())
+                serde_json::to_value(scripts).map_err(PluginError::serialization_error)
             }
             "updateContentScripts" => {
                 // TODO: Implement script updates
@@ -937,7 +937,7 @@ impl ExtensionsPlugin {
                 let scheduled_time = when.unwrap_or_else(|| {
                     let now = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
+                        .unwrap_or_default()
                         .as_millis() as f64;
                     now + (delay_in_minutes * 60.0 * 1000.0)
                 });
@@ -962,7 +962,7 @@ impl ExtensionsPlugin {
                     .get(extension_id)
                     .and_then(|a| a.get(name))
                     .cloned();
-                Ok(serde_json::to_value(alarm).unwrap())
+                serde_json::to_value(alarm).map_err(PluginError::serialization_error)
             }
             "getAll" => {
                 let state = self.state.read();
@@ -971,7 +971,7 @@ impl ExtensionsPlugin {
                     .get(extension_id)
                     .map(|a| a.values().cloned().collect())
                     .unwrap_or_default();
-                Ok(serde_json::to_value(alarms).unwrap())
+                serde_json::to_value(alarms).map_err(PluginError::serialization_error)
             }
             "clear" => {
                 let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
@@ -1021,7 +1021,7 @@ impl ExtensionsPlugin {
                             "notif_{}",
                             std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
+                                .unwrap_or_default()
                                 .as_nanos()
                         )
                     });
@@ -1055,7 +1055,7 @@ impl ExtensionsPlugin {
                     notification_type,
                     created_at: std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
+                        .unwrap_or_default()
                         .as_millis() as i64,
                 };
 
@@ -1108,7 +1108,7 @@ impl ExtensionsPlugin {
                     .get(extension_id)
                     .map(|n| n.keys().map(|k| (k.clone(), true)).collect())
                     .unwrap_or_default();
-                Ok(serde_json::to_value(notifs).unwrap())
+                serde_json::to_value(notifs).map_err(PluginError::serialization_error)
             }
             "getPermissionLevel" => Ok(serde_json::json!("granted")),
             _ => Err(PluginError::command_not_found(&format!(
@@ -1136,7 +1136,7 @@ impl ExtensionsPlugin {
                             "menu_{}",
                             std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
+                                .unwrap_or_default()
                                 .as_nanos()
                         )
                     });
@@ -1469,7 +1469,7 @@ impl ExtensionsPlugin {
                         })
                     })
                     .collect();
-                Ok(serde_json::to_value(extensions).unwrap())
+                serde_json::to_value(extensions).map_err(PluginError::serialization_error)
             }
             "get" => {
                 let id = params
@@ -1568,7 +1568,7 @@ impl ExtensionsPlugin {
                                 _ => None,
                             })
                             .collect();
-                        Ok(serde_json::to_value(warnings).unwrap())
+                        serde_json::to_value(warnings).map_err(PluginError::serialization_error)
                     }
                     // Return empty array if extension not found in our state
                     // (it might be managed by WebView2 directly)
@@ -1682,7 +1682,7 @@ impl PluginHandler for ExtensionsPlugin {
             "list_extensions" => {
                 let state = self.state.read();
                 let extensions: Vec<&ExtensionInfo> = state.extensions.values().collect();
-                Ok(serde_json::to_value(extensions).unwrap())
+                serde_json::to_value(extensions).map_err(PluginError::serialization_error)
             }
             "get_extension" => {
                 let req: ExtensionIdRequest = serde_json::from_value(args)
@@ -1690,7 +1690,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let state = self.state.read();
                 match state.extensions.get(&req.extension_id) {
-                    Some(ext) => Ok(serde_json::to_value(ext).unwrap()),
+                    Some(ext) => serde_json::to_value(ext).map_err(PluginError::serialization_error),
                     None => Err(PluginError::invalid_args(format!(
                         "Extension not found: {}",
                         req.extension_id
@@ -1761,7 +1761,7 @@ impl PluginHandler for ExtensionsPlugin {
                     .cloned()
                     .unwrap_or_default();
 
-                Ok(serde_json::to_value(panel_state).unwrap())
+                serde_json::to_value(panel_state).map_err(PluginError::serialization_error)
             }
             "get_polyfill" => {
                 let req: ExtensionIdRequest = serde_json::from_value(args)
@@ -1826,7 +1826,7 @@ impl PluginHandler for ExtensionsPlugin {
                 };
 
                 match view_manager.create_view(config) {
-                    Ok(info) => Ok(serde_json::to_value(info).unwrap()),
+                    Ok(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
                     Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
@@ -1836,7 +1836,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_view(&req.view_id) {
-                    Some(info) => Ok(serde_json::to_value(info).unwrap()),
+                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id
@@ -1849,12 +1849,12 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 let views = view_manager.get_extension_views(&req.extension_id);
-                Ok(serde_json::to_value(views).unwrap())
+                serde_json::to_value(views).map_err(PluginError::serialization_error)
             }
             "get_all_views" => {
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 let views = view_manager.get_all_views();
-                Ok(serde_json::to_value(views).unwrap())
+                serde_json::to_value(views).map_err(PluginError::serialization_error)
             }
             "open_devtools" => {
                 let req: ViewIdRequest = serde_json::from_value(args)
@@ -1912,7 +1912,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_cdp_info(&req.view_id) {
-                    Some(info) => Ok(serde_json::to_value(info).unwrap()),
+                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id
@@ -1922,7 +1922,7 @@ impl PluginHandler for ExtensionsPlugin {
             "get_all_cdp_connections" => {
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 let connections = view_manager.get_all_cdp_connections();
-                Ok(serde_json::to_value(connections).unwrap())
+                serde_json::to_value(connections).map_err(PluginError::serialization_error)
             }
             _ => Err(PluginError::command_not_found(command)),
         }
