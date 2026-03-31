@@ -69,13 +69,11 @@ impl TabManager {
         // Insert tab
         self.tabs.insert(tab_id.clone(), state);
 
-        // Add to order
+        // Add to order and optionally set as active
         {
             let mut order = self.tab_order.write();
             order.push(tab_id.clone());
         }
-
-        // If first tab, make active
         {
             let mut active = self.active_tab_id.write();
             if active.is_none() {
@@ -83,9 +81,7 @@ impl TabManager {
             }
         }
 
-        self.emit(&TabEvent::Created {
-            tab_id: tab_id.clone(),
-        });
+        self.emit(&TabEvent::Created { tab_id: tab_id.clone() });
 
         tab_id
     }
@@ -97,13 +93,11 @@ impl TabManager {
         // Insert tab
         self.tabs.insert(tab_id.clone(), state);
 
-        // Add to order
+        // Add to order and optionally set as active
         {
             let mut order = self.tab_order.write();
             order.push(tab_id.clone());
         }
-
-        // If first tab, make active
         {
             let mut active = self.active_tab_id.write();
             if active.is_none() {
@@ -111,9 +105,7 @@ impl TabManager {
             }
         }
 
-        self.emit(&TabEvent::Created {
-            tab_id: tab_id.clone(),
-        });
+        self.emit(&TabEvent::Created { tab_id: tab_id.clone() });
 
         tab_id
     }
@@ -336,9 +328,7 @@ impl TabManager {
     pub fn create_group(&self, name: impl Into<String>) -> TabGroupId {
         let group = TabGroup::new(name);
         let group_id = group.id.clone();
-
         self.groups.insert(group_id.clone(), group);
-
         group_id
     }
 

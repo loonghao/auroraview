@@ -95,16 +95,23 @@ impl WindowManager {
             id, config.title
         );
 
-        let webview = crate::webview::DccWebView::new(config.clone())?;
+        // Extract fields for WindowInfo before moving config into DccWebView
+        let title = config.title.clone();
+        let parent_hwnd = config.parent_hwnd;
+        let url = config.url.clone();
+        let width = config.width;
+        let height = config.height;
+
+        let webview = crate::webview::DccWebView::new(config)?;
 
         let info = WindowInfo {
             id: id.clone(),
-            title: config.title.clone(),
-            parent_hwnd: config.parent_hwnd,
-            url: config.url.clone(),
+            title,
+            parent_hwnd,
+            url,
             visible: false,
-            width: config.width,
-            height: config.height,
+            width,
+            height,
         };
 
         let state = WindowState {
@@ -124,9 +131,9 @@ impl WindowManager {
 
         let info = WindowInfo {
             id: id.clone(),
-            title: config.title.clone(),
+            title: config.title,
             parent_hwnd: config.parent_hwnd,
-            url: config.url.clone(),
+            url: config.url,
             visible: false,
             width: config.width,
             height: config.height,

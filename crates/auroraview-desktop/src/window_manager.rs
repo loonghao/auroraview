@@ -89,8 +89,8 @@ impl WindowManager {
 
         let info = WindowInfo {
             id: id.clone(),
-            title: config.title.clone(),
-            url: config.url.clone(),
+            title: config.title,
+            url: config.url,
             visible: false,
             width: config.width,
             height: config.height,
