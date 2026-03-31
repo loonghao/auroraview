@@ -481,3 +481,45 @@ pub fn build_packed_init_script() -> String {
     // Just return the event bridge - API methods are registered dynamically
     get_event_bridge_js()
 }
+
+/// Build the JavaScript snippet that injects a CSP `<meta>` tag into the page.
+///
+/// The snippet runs synchronously before any page script, ensuring the policy
+/// is active from the very start of page evaluation.
+///
+/// # Arguments
+/// * `policy` - A valid CSP directive string, e.g.
+///   `"default-src 'self'; script-src 'self' 'unsafe-inline'"`
+///
+/// # Safety
+/// The caller is responsible for ensuring `policy` does not contain
+/// unescaped single-quote characters that could break out of the JS string literal.
+/// Use [`escape_csp_policy`] if the value originates from untrusted input.
+pub fn build_csp_injection_script(policy: &str) -> String {
+    let escaped = policy.replace('\\', "\\\\").replace('\'', "\\'");
+    format!(
+        r#"(function(){{
+    var m = document.createElement('meta');
+    m.httpEquiv = 'Content-Security-Policy';
+    m.content = '{}';
+    var head = document.head || document.documentElement;
+    if (head) {{ head.insertBefore(m, head.firstChild); }}
+}})();"#,
+        escaped
+    )
+}
+
+/// Build initialization script for packed mode with an optional CSP policy.
+///
+/// If `csp` is `Some(policy)`, a CSP `<meta>` injection is prepended to the
+/// event-bridge script so it runs before any page content is evaluated.
+pub fn build_packed_init_script_with_csp(csp: Option<&str>) -> String {
+    let bridge = get_event_bridge_js();
+    match csp {
+        Some(policy) => {
+            let csp_script = build_csp_injection_script(policy);
+            format!("{}\n{}", csp_script, bridge)
+        }
+        None => bridge,
+    }
+}
