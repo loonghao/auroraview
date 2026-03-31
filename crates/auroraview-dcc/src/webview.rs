@@ -150,6 +150,9 @@ impl DccWebView {
         // Create WebView2 environment
         let (env_tx, env_rx) = std::sync::mpsc::channel();
 
+        // SAFETY: WebView2 COM API call. The data_dir_wide ptr is valid for
+        // the duration of the call (owned Vec<u16> lives until end of scope).
+        // The completion handler is boxed and moved into the COM callback.
         let env_result = unsafe {
             webview2_com::Microsoft::Web::WebView2::Win32::CreateCoreWebView2EnvironmentWithOptions(
                 PCWSTR::null(),
@@ -185,6 +188,9 @@ impl DccWebView {
         // Create WebView2 controller (child of parent HWND)
         let (ctrl_tx, ctrl_rx) = std::sync::mpsc::channel();
 
+        // SAFETY: WebView2 COM API call. environment is a valid COM interface
+        // obtained from the previous callback. parent_hwnd is the caller-provided
+        // HWND which must be valid for the WebView's lifetime.
         let ctrl_result = unsafe {
             environment.CreateCoreWebView2Controller(
                 parent_hwnd,
@@ -221,6 +227,8 @@ impl DccWebView {
             right: width as i32,
             bottom: height as i32,
         };
+        // SAFETY: controller is a valid COM interface obtained from the
+        // creation callback. SetBounds is a safe COM method call.
         unsafe {
             controller.SetBounds(bounds).map_err(|e| {
                 DccError::WebViewCreation(format!("SetBounds failed: {e}"))
@@ -228,6 +236,8 @@ impl DccWebView {
         }
 
         // Get the core WebView2 interface
+        // SAFETY: controller is a valid COM interface. CoreWebView2() returns
+        // the associated ICoreWebView2 interface.
         let webview_core: ICoreWebView2 = unsafe {
             controller.CoreWebView2().map_err(|e| {
                 DccError::WebViewCreation(format!("CoreWebView2 failed: {e}"))
@@ -235,6 +245,8 @@ impl DccWebView {
         };
 
         // Configure settings
+        // SAFETY: webview_core is a valid COM interface. Settings() and the
+        // subsequent Set* calls are safe COM method invocations.
         let settings: ICoreWebView2Settings = unsafe {
             webview_core.Settings().map_err(|e| {
                 DccError::WebViewCreation(format!("Settings failed: {e}"))
@@ -578,6 +590,8 @@ impl Drop for DccWebView {
 fn init_com() -> Result<()> {
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
 
+    // SAFETY: CoInitializeEx is a well-defined Win32 COM API.
+    // S_FALSE (0x00000001) means already initialized, which is harmless.
     unsafe {
         let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
         if hr.is_err() {
@@ -621,6 +635,9 @@ fn pump_messages_until_recv<T>(
         }
 
         // Pump Win32 messages to allow WebView2 callbacks to fire
+        // SAFETY: PeekMessageW, TranslateMessage, DispatchMessageW are
+        // standard Win32 message loop APIs. Called on the current thread
+        // with a default MSG struct. No memory safety concerns.
         unsafe {
             let mut msg = MSG::default();
             while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {

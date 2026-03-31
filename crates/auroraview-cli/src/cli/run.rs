@@ -137,7 +137,7 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
 
         (Some(rewritten_html), Some(assets_root))
     } else {
-        unreachable!("Either url or html must be provided");
+        anyhow::bail!("Either --url or --html must be provided");
     };
 
     // Create event loop and window
@@ -241,7 +241,7 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
             .build(&window)
             .context("Failed to create WebView with URL")?
     } else {
-        unreachable!("Either html_content or url must be set");
+        anyhow::bail!("Either html_content or url must be set");
     };
 
     tracing::info!("WebView created successfully");

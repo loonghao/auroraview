@@ -176,6 +176,8 @@ pub fn create_window_with_router(
 #[cfg(target_os = "windows")]
 fn init_com() {
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+    // SAFETY: CoInitializeEx is a well-defined Win32 COM API.
+    // Returns S_FALSE if already initialized, which is harmless.
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
     }

@@ -358,32 +358,11 @@ fn get_instances_dir() -> Result<PathBuf> {
     Ok(instances_dir)
 }
 
-/// Check if a process is still running
-#[cfg(target_os = "windows")]
+/// Check if a process is still running.
+///
+/// Delegates to [`crate::utils::is_process_alive`].
 fn is_process_alive(pid: u32) -> bool {
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
-
-    unsafe {
-        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-        if let Ok(h) = handle {
-            let _ = CloseHandle(h);
-            true
-        } else {
-            false
-        }
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn is_process_alive(pid: u32) -> bool {
-    use std::process::Command;
-
-    Command::new("kill")
-        .args(["-0", &pid.to_string()])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    crate::utils::is_process_alive(pid)
 }
 
 /// Global registry instance
