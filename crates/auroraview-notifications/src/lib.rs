@@ -12,19 +12,19 @@
 //! ```rust
 //! use auroraview_notifications::{NotificationManager, Notification, NotificationType};
 //!
-//! let mut manager = NotificationManager::new();
+//! let manager = NotificationManager::new();
 //!
 //! // Show a simple notification
-//! let id = manager.notify(Notification::new("Hello", "Welcome to AuroraView"));
+//! let id = manager.notify(Notification::new("Hello", "Welcome to AuroraView")).unwrap();
 //!
 //! // Show a notification with type
 //! manager.notify(
 //!     Notification::new("Success", "Operation completed")
 //!         .with_type(NotificationType::Success)
-//! );
+//! ).unwrap();
 //!
 //! // Dismiss a notification
-//! manager.dismiss(id);
+//! manager.dismiss(id).unwrap();
 //! ```
 
 mod error;
