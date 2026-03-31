@@ -28,7 +28,7 @@ use super::utils::{get_extensions_dir, has_extensions_in_dir, prepare_active_ext
 /// Regex pattern for valid handler names: alphanumeric, underscore, dot, colon, hyphen
 /// This prevents injection attacks via malicious handler names
 static VALID_HANDLER_PATTERN: std::sync::LazyLock<regex::Regex> =
-    std::sync::LazyLock::new(|| regex::Regex::new(r"^[A-Za-z0-9_\.:\-]+$").unwrap());
+    std::sync::LazyLock::new(|| regex::Regex::new(r"^[A-Za-z0-9_\.:\-]+$").expect("valid regex"));
 
 /// Build JavaScript to register API methods in frontend
 ///

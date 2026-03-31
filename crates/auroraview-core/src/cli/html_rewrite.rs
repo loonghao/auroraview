@@ -5,19 +5,19 @@ use std::sync::LazyLock;
 
 /// Pre-compiled regex for rewriting `<link>` href attributes.
 static LINK_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<link\s+([^>]*)href="([^"]+)""#).unwrap());
+    LazyLock::new(|| Regex::new(r#"<link\s+([^>]*)href="([^"]+)""#).expect("valid regex"));
 
 /// Pre-compiled regex for rewriting `<script>` src attributes.
 static SCRIPT_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<script\s+([^>]*)src="([^"]+)""#).unwrap());
+    LazyLock::new(|| Regex::new(r#"<script\s+([^>]*)src="([^"]+)""#).expect("valid regex"));
 
 /// Pre-compiled regex for rewriting `<img>` src attributes.
 static IMG_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<img\s+([^>]*)src="([^"]+)""#).unwrap());
+    LazyLock::new(|| Regex::new(r#"<img\s+([^>]*)src="([^"]+)""#).expect("valid regex"));
 
 /// Pre-compiled regex for rewriting CSS `url()` references.
 static CSS_URL_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"url\(["']?([^"':)]+)["']?\)"#).unwrap());
+    LazyLock::new(|| Regex::new(r#"url\(["']?([^"':)]+)["']?\)"#).expect("valid regex"));
 
 /// Check if a path is relative (should be rewritten).
 fn is_relative_path(path: &str) -> bool {
