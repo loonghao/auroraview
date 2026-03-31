@@ -1,10 +1,12 @@
 //! Plugin router for dispatching commands to plugins
 
-use crate::{PluginHandler, PluginRequest, PluginResponse, ScopeConfig};
-use serde_json::Value;
 use std::collections::HashMap;
-use parking_lot::RwLock;
 use std::sync::Arc;
+
+use parking_lot::RwLock;
+use serde_json::Value;
+
+use crate::{PluginHandler, PluginRequest, PluginResponse, ScopeConfig};
 
 /// Event callback type for plugins to emit events
 pub type PluginEventCallback = Arc<dyn Fn(&str, Value) + Send + Sync>;

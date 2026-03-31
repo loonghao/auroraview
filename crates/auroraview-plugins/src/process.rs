@@ -84,20 +84,21 @@
 //! });
 //! ```
 
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
+use std::thread;
+
 use auroraview_plugin_core::{
     PluginError, PluginEventCallback, PluginHandler, PluginResult, ScopeConfig,
 };
 use dashmap::DashMap;
 use ipckit::graceful::ShutdownState;
 use ipckit::local_socket::{LocalSocketListener, LocalSocketStream};
+use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, Command, Stdio};
-use parking_lot::{Mutex, RwLock};
-use std::sync::Arc;
-use std::thread;
 
 /// Callback type for process events (deprecated, use PluginEventCallback)
 pub type ProcessEventCallback = PluginEventCallback;

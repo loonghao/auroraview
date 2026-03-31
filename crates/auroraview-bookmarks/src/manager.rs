@@ -1,10 +1,12 @@
 //! Bookmark manager implementation
 
-use crate::{Bookmark, BookmarkError, BookmarkFolder, BookmarkId, Result};
-use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+use parking_lot::RwLock;
+
+use crate::{Bookmark, BookmarkError, BookmarkFolder, BookmarkId, Result};
 
 /// Bookmark manager
 ///

@@ -85,18 +85,19 @@
 //! await auroraview.invoke("plugin:browser_bridge|stop");
 //! ```
 
-use auroraview_plugin_core::{
-    PluginError, PluginEventCallback, PluginHandler, PluginResult, ScopeConfig,
-};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use parking_lot::{Mutex, RwLock};
 use std::sync::Arc;
 use std::thread;
+
+use auroraview_plugin_core::{
+    PluginError, PluginEventCallback, PluginHandler, PluginResult, ScopeConfig,
+};
+use parking_lot::{Mutex, RwLock};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Browser bridge plugin for extension communication
 pub struct BrowserBridgePlugin {

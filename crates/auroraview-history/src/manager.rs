@@ -1,11 +1,13 @@
 //! History manager implementation
 
-use crate::{HistoryEntry, HistoryId, Result, SearchOptions, SearchResult};
-use chrono::{DateTime, Duration, Utc};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use parking_lot::RwLock;
 use std::sync::Arc;
+
+use chrono::{DateTime, Duration, Utc};
+use parking_lot::RwLock;
+
+use crate::{HistoryEntry, HistoryId, Result, SearchOptions, SearchResult};
 
 /// History manager
 ///
