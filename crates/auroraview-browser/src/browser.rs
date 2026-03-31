@@ -410,7 +410,7 @@ impl Browser {
             .expect("Failed to create window");
 
         self.window = Some(window);
-        let window_ref = self.window.as_ref().unwrap();
+        let window_ref = self.window.as_ref().expect("window was just set to Some");
 
         // Create controller WebView
         let controller_html = get_browser_controller_html();

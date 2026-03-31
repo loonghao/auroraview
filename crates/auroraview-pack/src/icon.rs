@@ -200,7 +200,7 @@ fn extract_png_from_ico(data: &[u8]) -> PackResult<Vec<u8>> {
     let best_entry = entries
         .iter()
         .max_by_key(|e| e.width() * e.height())
-        .unwrap();
+        .expect("entries is non-empty (checked above)");
 
     // Decode the entry
     let ico_image = best_entry

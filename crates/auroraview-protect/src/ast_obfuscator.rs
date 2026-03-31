@@ -731,7 +731,7 @@ impl AstObfuscator {
                 // Collect the full identifier
                 while let Some(&next) = chars.peek() {
                     if next.is_alphanumeric() || next == '_' {
-                        result.push(chars.next().unwrap());
+                        result.push(chars.next().expect("peeked Some"));
                     } else {
                         break;
                     }

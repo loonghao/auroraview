@@ -101,7 +101,7 @@ impl OverlayData {
         let hash = hasher.finalize();
         let short_hash = format!(
             "{:016x}",
-            u64::from_le_bytes(hash.as_bytes()[..8].try_into().unwrap())
+            u64::from_le_bytes(hash.as_bytes()[..8].try_into().expect("blake3 hash is 32 bytes"))
         );
 
         self.content_hash = short_hash.clone();

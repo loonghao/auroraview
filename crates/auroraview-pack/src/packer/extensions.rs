@@ -118,7 +118,7 @@ impl<'a> ExtensionBundler<'a> {
         let ext_id = sanitize_extension_id(ext_name);
 
         // Walk extension directory and add files to overlay
-        self.add_directory_to_overlay(&abs_path, &format!("extensions/{}", ext_id), overlay)?;
+        Self::add_directory_to_overlay(&abs_path, &format!("extensions/{}", ext_id), overlay)?;
 
         Ok(ext_id)
     }
@@ -133,7 +133,7 @@ impl<'a> ExtensionBundler<'a> {
         // Check if extension was pre-downloaded to output dir
         let cached_path = self.output_dir.join("extensions").join(ext_id);
         if cached_path.exists() {
-            self.add_directory_to_overlay(
+            Self::add_directory_to_overlay(
                 &cached_path,
                 &format!("extensions/{}", ext_id),
                 overlay,
@@ -153,7 +153,6 @@ impl<'a> ExtensionBundler<'a> {
 
     /// Recursively add directory contents to overlay
     fn add_directory_to_overlay(
-        &self,
         dir: &Path,
         prefix: &str,
         overlay: &mut OverlayData,
@@ -168,7 +167,7 @@ impl<'a> ExtensionBundler<'a> {
             let asset_key = format!("{}/{}", prefix, name);
 
             if path.is_dir() {
-                self.add_directory_to_overlay(&path, &asset_key, overlay)?;
+                Self::add_directory_to_overlay(&path, &asset_key, overlay)?;
             } else {
                 let content = std::fs::read(&path).map_err(|e| {
                     PackError::Build(format!("Failed to read file {}: {}", path.display(), e))
