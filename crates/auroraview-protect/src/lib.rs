@@ -54,23 +54,30 @@
 //! std::fs::write("module.pyc.enc", serde_json::to_string(&package)?)?;
 //! ```
 
+/// Python bytecode compilation, encryption, and protection.
 pub mod bytecode;
 mod config;
+/// Hybrid encryption (ECC + AES-256-GCM) for secure code distribution.
 pub mod crypto;
 mod error;
 mod protector;
 mod runtime_gen;
 
+/// Bytecode compilation and encryption types and utilities.
 pub use bytecode::{
     compile_directory, compile_to_bytecode, encrypt_bytecode, protect_with_bytecode, BytecodeFile,
     BytecodeProtectionResult, CompilationResult, EncryptedModule, EncryptionResult,
 };
+/// Protection configuration: encryption settings, strategy selection.
 pub use config::{EncryptionConfig, ProtectConfig, ProtectionMethod};
+/// Error and result types for protection operations.
 pub use error::{ProtectError, ProtectResult};
+/// High-level protector: compilation output and batch processing.
 pub use protector::{CompileOutput, CompileResult, Protector};
+/// Runtime loader code generation for encrypted modules.
 pub use runtime_gen::RuntimeGenerator;
 
-// Re-export py2pyd for advanced usage
+/// Cython-based Python-to-native compilation (py2pyd).
 pub use py2pyd;
 
 /// Crate version

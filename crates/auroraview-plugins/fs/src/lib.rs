@@ -22,7 +22,9 @@
 mod operations;
 mod types;
 
+/// File system operation functions (read, write, copy, rename, stat, etc.).
 pub use operations::*;
+/// Request/response types and options for file system commands.
 pub use types::*;
 
 use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};

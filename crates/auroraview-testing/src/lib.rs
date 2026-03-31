@@ -52,18 +52,26 @@
 //!     ...
 //! ```
 
+/// Accessibility tree extraction and ARIA role mapping.
 pub mod a11y;
+/// Chrome DevTools Protocol (CDP) WebSocket client.
 pub mod cdp;
+/// Testing framework error types.
 pub mod error;
+/// Page inspector: connect, snapshot, interact, and wait.
 pub mod inspector;
+/// AI-friendly page snapshot format with interactive element refs.
 pub mod snapshot;
 
+/// Python bindings via PyO3 (when `python` feature is enabled).
 #[cfg(feature = "python")]
 pub mod python;
 
-// Re-exports
+/// Error and result types for inspector operations.
 pub use error::{InspectorError, Result};
+/// Inspector client and configuration types.
 pub use inspector::{Inspector, InspectorConfig};
+/// Snapshot types: actions, refs, scroll, wait conditions, and formats.
 pub use snapshot::{
     ActionResult, RefId, RefInfo, ScrollDirection, Snapshot, SnapshotFormat, WaitCondition,
 };

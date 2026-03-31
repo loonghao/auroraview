@@ -33,14 +33,19 @@ mod provider;
 mod sentry_support;
 mod span_ext;
 
-// Python bindings (optional)
+/// Python bindings via PyO3 (when `python` feature is enabled).
 #[cfg(feature = "python")]
 pub mod python;
 
+/// Telemetry configuration: exporters, sampling, and feature toggles.
 pub use config::TelemetryConfig;
+/// Telemetry error types.
 pub use error::TelemetryError;
+/// RAII guard that shuts down telemetry pipelines on drop.
 pub use guard::TelemetryGuard;
+/// WebView performance metrics (FPS, load time, memory, IPC latency).
 pub use metrics::WebViewMetrics;
+/// Extension trait for `tracing::Span` with OpenTelemetry attributes.
 pub use span_ext::SpanExt;
 
 /// Re-export metrics module for direct access.

@@ -103,18 +103,24 @@ pub use installer::{
     ResolvedExtensionSource,
 };
 
+/// Manifest V3 types and permission definitions.
 pub use manifest::{Manifest, ManifestV3, Permission};
 
+/// Polyfill generation utilities for Chrome API and WXT compatibility.
 pub use polyfill::{
     generate_content_script_polyfill, generate_polyfill_from_sdk, generate_wxt_shim,
 };
+/// Extension runtime environment.
 pub use runtime::ExtensionRuntime;
+/// Service worker manager, registration, and messaging types.
 pub use service_worker::{
     create_service_worker_manager, MessageSender, ServiceWorkerManager, ServiceWorkerMessage,
     ServiceWorkerMessageType, ServiceWorkerRegistration, ServiceWorkerState,
     SharedServiceWorkerManager,
 };
+/// Storage backend for extension data persistence.
 pub use storage::StorageBackend;
+/// Extension view manager: popup, side panel, and options page lifecycle.
 pub use view_manager::{
     CdpConnectionInfo, CreateWebViewCallback, ExtensionViewConfig, ExtensionViewInfo,
     ExtensionViewManager, ExtensionViewState, ExtensionViewType, OpenDevToolsCallback,

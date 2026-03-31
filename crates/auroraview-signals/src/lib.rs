@@ -98,5 +98,5 @@ pub mod prelude {
     pub use crate::webview_bridge::{WebViewBridge, WebViewEventMessage, WebViewSender};
 }
 
-// Re-export at crate root for convenience
+/// Re-export all prelude types at crate root for ergonomic imports.
 pub use prelude::*;
