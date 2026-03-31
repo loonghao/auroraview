@@ -367,6 +367,18 @@ pub struct ExtensionsConfig {
     pub local: Vec<LocalExtension>,
 }
 
+impl ExtensionsConfig {
+    /// Check if any extensions are configured and enabled
+    pub fn has_extensions(&self) -> bool {
+        self.enabled && (!self.store.is_empty() || !self.local.is_empty())
+    }
+
+    /// Total number of configured extensions
+    pub fn extension_count(&self) -> usize {
+        self.store.len() + self.local.len()
+    }
+}
+
 /// Chrome Web Store extension
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StoreExtension {
