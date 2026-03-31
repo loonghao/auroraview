@@ -5,11 +5,12 @@
 //! extension service workers natively, we simulate the lifecycle
 //! and message passing.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Service Worker state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

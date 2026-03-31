@@ -1,10 +1,11 @@
 //! Protocol handlers for custom URI schemes
 
-use mime_guess::from_path;
-use path_clean::PathClean;
 use std::borrow::Cow;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use mime_guess::from_path;
+use path_clean::PathClean;
 use wry::http::{Request, Response};
 
 // ============================================================================

@@ -3,12 +3,13 @@
 //! Manages the execution of extension background scripts (service workers)
 //! and provides the message passing infrastructure for chrome.runtime API.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 use crate::ExtensionId;

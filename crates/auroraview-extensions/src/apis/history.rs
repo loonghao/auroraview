@@ -8,12 +8,13 @@
 //! - Get visit details
 //! - Event notifications
 
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 

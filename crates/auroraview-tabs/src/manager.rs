@@ -1,9 +1,11 @@
 //! Tab manager implementation
 
-use crate::{Result, TabError, TabEvent, TabGroup, TabGroupId, TabId, TabState};
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use dashmap::DashMap;
 use parking_lot::RwLock;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+use crate::{Result, TabError, TabEvent, TabGroup, TabGroupId, TabId, TabState};
 
 /// Tab manager - manages tab states without WebView dependency
 ///

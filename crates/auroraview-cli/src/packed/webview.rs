@@ -2,14 +2,15 @@
 //!
 //! Handles creating the WebView window and running the main event loop.
 
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+
 use anyhow::{Context, Result};
 use auroraview_core::assets::{build_error_page, build_packed_init_script, get_loading_html};
 use auroraview_core::plugins::{PathScope, PluginRequest, ScopeConfig, ShellScope};
 use auroraview_core::protocol::MemoryAssets;
 use auroraview_pack::{OverlayData, PackMode, PackedMetrics};
 use auroraview_plugins::PluginRouter;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 #[cfg(target_os = "windows")]
 use tao::platform::windows::EventLoopBuilderExtWindows;

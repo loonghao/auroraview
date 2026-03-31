@@ -31,11 +31,12 @@
 //! - DevTools can be opened in independent windows
 //! - View lifecycle management (create, show, hide, destroy)
 
+use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Arc;
+
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicU16, Ordering};
-use std::sync::Arc;
 
 use crate::ExtensionId;
 

@@ -3,9 +3,10 @@
 //! Handles injection of content scripts into web pages based on
 //! manifest configuration and URL matching.
 
+use std::sync::Arc;
+
 use dashmap::DashMap;
 use regex::Regex;
-use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 use crate::host::LoadedExtension;

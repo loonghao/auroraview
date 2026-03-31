@@ -25,12 +25,13 @@
 //! await chrome.storage.local.clear();
 //! ```
 
-use dashmap::DashMap;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio::fs;
 
 use crate::error::ExtensionResult;

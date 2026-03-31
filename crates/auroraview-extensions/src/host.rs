@@ -6,9 +6,10 @@
 //! - Routing API calls to appropriate handlers
 //! - Providing extension resources (HTML, JS, CSS)
 
-use dashmap::DashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+use dashmap::DashMap;
 use walkdir::WalkDir;
 
 use crate::error::{ExtensionError, ExtensionResult};
