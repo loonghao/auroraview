@@ -32,6 +32,14 @@ impl DccType {
         if std::env::var("BLENDER_SYSTEM_SCRIPTS").is_ok() {
             return Self::Blender;
         }
+        if std::env::var("ADSK_3DSMAX_X64_2025").is_ok()
+            || std::env::var("3DSMAX_LOCATION").is_ok()
+        {
+            return Self::Max3ds;
+        }
+        if std::env::var("UE_ROOT").is_ok() || std::env::var("UE4_ROOT").is_ok() {
+            return Self::Unreal;
+        }
         Self::Unknown
     }
 
@@ -46,6 +54,36 @@ impl DccType {
             Self::Unreal => "Unreal Engine",
             Self::Unknown => "Unknown",
         }
+    }
+
+    /// Get the primary environment variable used to detect this DCC
+    pub fn env_var(&self) -> Option<&'static str> {
+        match self {
+            Self::Maya => Some("MAYA_LOCATION"),
+            Self::Houdini => Some("HFS"),
+            Self::Nuke => Some("NUKE_PATH"),
+            Self::Blender => Some("BLENDER_SYSTEM_SCRIPTS"),
+            Self::Max3ds => Some("ADSK_3DSMAX_X64_2025"),
+            Self::Unreal => Some("UE_ROOT"),
+            Self::Unknown => None,
+        }
+    }
+
+    /// Whether this DCC uses Qt for its UI framework
+    ///
+    /// Qt-based DCCs embed WebView as a child of a Qt widget (QWidget::winId() -> HWND).
+    /// Non-Qt DCCs (Blender, Unreal) use platform-native floating/owned windows.
+    pub fn uses_qt(&self) -> bool {
+        matches!(self, Self::Maya | Self::Houdini | Self::Nuke | Self::Max3ds)
+    }
+
+    /// Whether this DCC runs WebView operations on the main/UI thread
+    ///
+    /// Most DCCs require UI operations on the main thread. Unreal Engine has
+    /// a specific GameThread that must be used for all Slate UI operations.
+    pub fn requires_main_thread(&self) -> bool {
+        // All DCC applications require WebView operations on the main/UI thread
+        !matches!(self, Self::Unknown)
     }
 }
 
@@ -160,6 +198,24 @@ impl DccConfig {
 
     pub fn debug_port(mut self, port: u16) -> Self {
         self.debug_port = port;
+        self
+    }
+
+    /// Set DCC version string
+    pub fn dcc_version(mut self, version: impl Into<String>) -> Self {
+        self.dcc_version = Some(version.into());
+        self
+    }
+
+    /// Set user data directory for WebView2
+    pub fn data_dir(mut self, path: impl Into<PathBuf>) -> Self {
+        self.data_dir = Some(path.into());
+        self
+    }
+
+    /// Set background color (RGBA)
+    pub fn background_color(mut self, r: u8, g: u8, b: u8, a: u8) -> Self {
+        self.background_color = Some((r, g, b, a));
         self
     }
 }
