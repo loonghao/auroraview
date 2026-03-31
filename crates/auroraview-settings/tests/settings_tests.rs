@@ -145,6 +145,36 @@ fn test_store_merge() {
 }
 
 #[test]
+fn test_store_merge_ref() {
+    let mut store1 = SettingsStore::new();
+    store1.set("a", SettingValue::Integer(1));
+    store1.set("b", SettingValue::Integer(2));
+
+    let mut store2 = SettingsStore::new();
+    store2.set("b", SettingValue::Integer(20));
+    store2.set("c", SettingValue::Integer(3));
+
+    store1.merge_ref(&store2);
+    assert_eq!(store1.len(), 3);
+    assert_eq!(store1.get("b"), Some(&SettingValue::Integer(20)));
+    assert_eq!(store1.get("c"), Some(&SettingValue::Integer(3)));
+    // Original store2 should be unmodified
+    assert_eq!(store2.len(), 2);
+}
+
+#[test]
+fn test_store_as_map() {
+    let mut store = SettingsStore::new();
+    store.set("key1", SettingValue::Bool(true));
+    store.set("key2", SettingValue::Integer(42));
+
+    let map = store.as_map();
+    assert_eq!(map.len(), 2);
+    assert_eq!(map.get("key1"), Some(&SettingValue::Bool(true)));
+    assert_eq!(map.get("key2"), Some(&SettingValue::Integer(42)));
+}
+
+#[test]
 fn test_store_from_map() {
     let mut map = std::collections::HashMap::new();
     map.insert("key".to_string(), SettingValue::Bool(true));
