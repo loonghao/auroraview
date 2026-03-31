@@ -378,6 +378,18 @@ pub struct PackConfig {
     /// Extensions behavior (runtime + pack-time bundle inputs)
     #[serde(default)]
     pub extensions: ExtensionsRuntimeConfig,
+
+    /// Content Security Policy injected as a `<meta>` tag before page scripts run.
+    ///
+    /// When set, the CSP policy string is injected into every page via a `<meta
+    /// http-equiv="Content-Security-Policy">` element inserted by the WebView
+    /// initialization script.
+    ///
+    /// Example: `"default-src 'self'; script-src 'self' 'unsafe-inline'"`
+    ///
+    /// Set to `None` (default) to disable CSP injection.
+    #[serde(default)]
+    pub content_security_policy: Option<String>,
 }
 
 /// Default compression level (19 = high compression, good for releases)
@@ -450,10 +462,9 @@ impl PackConfig {
             downloads: vec![],
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
+            content_security_policy: None,
         }
     }
-
-    /// Create a frontend mode configuration
     pub fn frontend(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
         let output_name = path
@@ -484,6 +495,7 @@ impl PackConfig {
             downloads: vec![],
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
+            content_security_policy: None,
         }
     }
 
@@ -521,6 +533,7 @@ impl PackConfig {
             downloads: vec![],
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
+            content_security_policy: None,
         }
     }
 
@@ -561,6 +574,7 @@ impl PackConfig {
             downloads: vec![],
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
+            content_security_policy: None,
         }
     }
 
@@ -798,6 +812,10 @@ impl PackConfig {
                         .collect(),
                 })
                 .unwrap_or_default(),
+            content_security_policy: manifest
+                .security
+                .as_ref()
+                .and_then(|s| s.content_security_policy.clone()),
         };
 
         Ok(config)

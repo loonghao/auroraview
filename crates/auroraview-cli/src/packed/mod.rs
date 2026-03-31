@@ -40,7 +40,7 @@ pub use utils::{
 };
 
 // Re-export from auroraview-core
-pub use auroraview_core::assets::build_packed_init_script;
+pub use auroraview_core::assets::build_packed_init_script_with_csp;
 
 /// Check if debug mode is enabled via environment variable
 fn is_debug_env() -> bool {

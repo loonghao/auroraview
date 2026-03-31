@@ -3,8 +3,9 @@
 //! These tests verify the packed application runtime functionality.
 
 use auroraview_cli::packed::{
-    build_module_search_paths, build_packed_init_script, escape_json_for_js, get_python_exe_path,
-    get_runtime_cache_dir_with_hash, get_webview_data_dir, inject_environment_variables,
+    build_module_search_paths, build_packed_init_script_with_csp, escape_json_for_js,
+    get_python_exe_path, get_runtime_cache_dir_with_hash, get_webview_data_dir,
+    inject_environment_variables,
 };
 use auroraview_core::json;
 use rstest::rstest;
@@ -122,17 +123,42 @@ fn test_escape_json_for_js_unicode() {
 }
 
 // =============================================================================
-// build_packed_init_script tests
+// build_packed_init_script_with_csp tests
 // =============================================================================
 
 #[test]
-fn test_build_packed_init_script() {
-    let script = build_packed_init_script();
+fn test_build_packed_init_script_no_csp() {
+    let script = build_packed_init_script_with_csp(None);
     // Should contain event bridge
     assert!(script.contains("auroraview"));
     // API methods are registered dynamically by Python backend,
     // not via static configuration
     assert!(!script.contains("Auto-generated API method registration"));
+    // No CSP meta tag when policy is None
+    assert!(!script.contains("Content-Security-Policy"));
+}
+
+#[test]
+fn test_build_packed_init_script_with_csp_policy() {
+    let policy = "default-src 'self'; script-src 'self' 'unsafe-inline'";
+    let script = build_packed_init_script_with_csp(Some(policy));
+    // Should contain event bridge
+    assert!(script.contains("auroraview"));
+    // Should contain CSP injection
+    assert!(script.contains("Content-Security-Policy"));
+    assert!(script.contains("default-src"));
+}
+
+#[test]
+fn test_build_packed_init_script_csp_escapes_quotes() {
+    // Verify that single quotes in the policy are escaped
+    let policy = "default-src 'self'";
+    let script = build_packed_init_script_with_csp(Some(policy));
+    // The resulting JS must not have unescaped single quotes that break out of the string
+    assert!(script.contains("Content-Security-Policy"));
+    // Should not contain a raw unescaped ' inside the JS string assignment
+    // (escaped as \\' in the injected JS)
+    assert!(!script.contains("= 'default-src 'self'"));
 }
 
 // =============================================================================

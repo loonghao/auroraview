@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Result};
-use auroraview_core::assets::{build_error_page, build_packed_init_script, get_loading_html};
+use auroraview_core::assets::{build_error_page, build_packed_init_script_with_csp, get_loading_html};
 use auroraview_core::plugins::{PathScope, PluginRequest, ScopeConfig, ShellScope};
 use auroraview_core::protocol::MemoryAssets;
 use auroraview_pack::{OverlayData, PackMode, PackedMetrics};
@@ -797,9 +797,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     let data_dir = get_webview_data_dir();
     let mut web_context = WebContext::new(Some(data_dir));
 
-    // Build initialization script with JS bridge
-    // Note: API methods are registered dynamically by Python backend
-    let init_script = build_packed_init_script();
+    // Build initialization script with JS bridge and optional CSP policy
+    // CSP is injected as a <meta> tag before any page scripts run
+    let init_script = build_packed_init_script_with_csp(config.content_security_policy.as_deref());
 
     // Clone for IPC handler
     let python_backend_for_ipc = python_backend_state.clone();

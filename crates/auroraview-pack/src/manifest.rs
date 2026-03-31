@@ -178,6 +178,10 @@ pub struct Manifest {
     /// WebView2 extensions configuration
     #[serde(default)]
     pub extensions: Option<ExtensionsManifestConfig>,
+
+    /// Security configuration (CSP, URL allowlist, etc.)
+    #[serde(default)]
+    pub security: Option<SecurityManifestConfig>,
 }
 
 // ============================================================================
@@ -1658,3 +1662,27 @@ fn default_download_stage() -> DownloadStage {
 pub type WindowsBundleConfig = WindowsPlatformConfig;
 pub type MacOSBundleConfig = MacOSPlatformConfig;
 pub type LinuxBundleConfig = LinuxPlatformConfig;
+
+// ============================================================================
+// Security Configuration
+// ============================================================================
+
+/// Security configuration for packed applications.
+///
+/// Configured under `[security]` in `auroraview.pack.toml`:
+///
+/// ```toml
+/// [security]
+/// content_security_policy = "default-src 'self'; script-src 'self' 'unsafe-inline'"
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SecurityManifestConfig {
+    /// Content Security Policy string injected as a `<meta>` tag on every page.
+    ///
+    /// When set, the WebView initialization script injects:
+    /// `<meta http-equiv="Content-Security-Policy" content="<value>">`
+    ///
+    /// Set to `null` / omit to disable CSP injection (default).
+    #[serde(default)]
+    pub content_security_policy: Option<String>,
+}
