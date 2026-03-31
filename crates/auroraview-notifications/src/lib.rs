@@ -32,7 +32,11 @@ mod manager;
 mod notification;
 mod permission;
 
+/// Error and result types for notification operations.
 pub use error::{NotificationError, Result};
+/// Notification manager for dispatching, dismissing, and querying notifications.
 pub use manager::NotificationManager;
+/// Notification types: content, actions, and severity levels.
 pub use notification::{Notification, NotificationAction, NotificationType};
+/// Permission model for Web Notifications API compatibility.
 pub use permission::{Permission, PermissionState};

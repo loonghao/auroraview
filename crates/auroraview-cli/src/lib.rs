@@ -3,11 +3,14 @@
 //! This library exposes internal modules for testing purposes.
 //! The main entry point is the binary crate.
 
+/// CLI argument parsing and subcommand definitions.
 pub mod cli;
+/// Packed application support: Python embedding, overlay extraction, and runtime setup.
 pub mod packed;
+/// Custom URI protocol handler registration.
 pub mod protocol_handlers;
 
-// Re-export utilities used by other modules
+/// Packed application utility functions re-exported for convenience.
 pub use packed::{
     build_module_search_paths, build_packed_init_script, escape_json_for_js, get_python_exe_path,
     get_runtime_cache_dir_with_hash, get_webview_data_dir, inject_environment_variables,
