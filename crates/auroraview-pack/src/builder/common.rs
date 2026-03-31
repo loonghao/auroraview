@@ -1,8 +1,9 @@
 //! Common types for builders
 
-use crate::PackError;
 use std::collections::HashMap;
 use std::path::PathBuf;
+
+use crate::PackError;
 
 /// Build result type
 pub type BuildResult<T> = Result<T, PackError>;

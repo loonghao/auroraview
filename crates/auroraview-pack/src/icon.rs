@@ -9,11 +9,13 @@
 //! - PNG data extraction for window icons
 //! - Standard ICO sizes: 16x16, 24x24, 32x32, 48x48, 64x64, 128x128, 256x256
 
-use crate::error::{PackError, PackResult};
-use image::{DynamicImage, ImageFormat};
 use std::fs;
 use std::io::Cursor;
 use std::path::Path;
+
+use image::{DynamicImage, ImageFormat};
+
+use crate::error::{PackError, PackResult};
 
 /// Standard ICO sizes for multi-resolution icons
 const ICO_SIZES: &[u32] = &[16, 24, 32, 48, 64, 128, 256];

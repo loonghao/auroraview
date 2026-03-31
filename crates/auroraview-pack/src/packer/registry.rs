@@ -3,12 +3,13 @@
 //! This module provides a registry for pack plugins that can modify
 //! pack behavior at various lifecycle points.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use super::collect_plugin::CollectPlugin;
 use super::traits::{
     PackContext, PackHook, PackPlugin, PackResult, PackTarget, Packer, TargetPacker,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Plugin registry for managing pack plugins
 pub struct PluginRegistry {

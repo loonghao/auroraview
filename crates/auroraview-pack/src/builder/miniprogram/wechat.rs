@@ -3,10 +3,11 @@
 //! Builds WeChat Mini Programs from web assets.
 //! Requires WeChat DevTools installed.
 
+use std::path::PathBuf;
+
 use crate::builder::common::{BuildContext, BuildOutput, BuildResult};
 use crate::builder::traits::{Builder, BuilderCapability};
 use crate::PackError;
-use std::path::PathBuf;
 
 /// WeChat MiniProgram builder
 pub struct WeChatBuilder {

@@ -18,11 +18,13 @@
 //! let ext_path = downloader.download("bpoadfkcbjbfhfodiogcnhhhpibjhbnh", None)?;
 //! ```
 
-use crate::error::{PackError, PackResult};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+
 use tracing::{debug, info};
+
+use crate::error::{PackError, PackResult};
 
 /// Chrome Web Store CRX download URL template
 /// Uses the "update" API endpoint which returns CRX files

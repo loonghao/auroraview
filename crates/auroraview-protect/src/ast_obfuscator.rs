@@ -10,8 +10,9 @@
 //! - Comprehensions and their scopes
 //! - Decorators and annotations
 
-use crate::{ObfuscationLevel, ProtectError, ProtectResult};
 use std::collections::{HashMap, HashSet};
+
+use crate::{ObfuscationLevel, ProtectError, ProtectResult};
 
 /// AST node types that we track for obfuscation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

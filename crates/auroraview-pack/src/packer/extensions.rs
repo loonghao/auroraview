@@ -7,11 +7,12 @@
 
 #![allow(dead_code)]
 
+use std::path::Path;
+
 use super::traits::PackResult;
 use crate::builder::common::ExtensionsConfig;
 use crate::overlay::OverlayData;
 use crate::PackError;
-use std::path::Path;
 
 /// Extension bundler for packaging Chrome extensions
 pub struct ExtensionBundler<'a> {
