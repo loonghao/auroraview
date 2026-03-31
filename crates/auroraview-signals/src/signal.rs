@@ -30,7 +30,7 @@ type Handler<T> = Arc<dyn Fn(T) + Send + Sync + 'static>;
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::prelude::*;
+/// use auroraview_signals::prelude::*;
 ///
 /// // Create a signal that emits strings
 /// let signal: Signal<String> = Signal::new();
@@ -91,7 +91,7 @@ impl<T: Clone + Send + 'static> Signal<T> {
     /// # Example
     ///
     /// ```rust
-    /// use aurora_signals::prelude::*;
+    /// use auroraview_signals::prelude::*;
     ///
     /// let signal: Signal<i32> = Signal::new();
     /// let conn = signal.connect(|x| println!("Received: {}", x));
@@ -118,7 +118,7 @@ impl<T: Clone + Send + 'static> Signal<T> {
     /// # Example
     ///
     /// ```rust
-    /// use aurora_signals::prelude::*;
+    /// use auroraview_signals::prelude::*;
     ///
     /// let signal: Signal<String> = Signal::new();
     ///
@@ -162,7 +162,7 @@ impl<T: Clone + Send + 'static> Signal<T> {
     /// # Example
     ///
     /// ```rust
-    /// use aurora_signals::prelude::*;
+    /// use auroraview_signals::prelude::*;
     /// use std::sync::Arc;
     ///
     /// let signal = Arc::new(Signal::<i32>::new());
@@ -199,13 +199,14 @@ impl<T: Clone + Send + 'static> Signal<T> {
 
     /// Emit a value to all connected handlers
     ///
-    /// Each handler receives a clone of the value. Handlers are called
-    /// in an unspecified order.
+    /// Each handler except the last receives a clone of the value.
+    /// The last handler receives the value by move, avoiding a final clone.
+    /// Handlers are called in an unspecified order.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use aurora_signals::prelude::*;
+    /// use auroraview_signals::prelude::*;
     ///
     /// let signal: Signal<String> = Signal::new();
     /// signal.connect(|msg| println!("{}", msg));
@@ -224,9 +225,13 @@ impl<T: Clone + Send + 'static> Signal<T> {
             );
             guard.values().cloned().collect()
         };
-        // Lock released here — handlers can now freely connect/disconnect
-        for handler in &handlers {
-            handler(value.clone());
+        // Lock released here — handlers can now freely connect/disconnect.
+        // Use split_last to move `value` into the final handler, saving one clone.
+        if let Some((last, rest)) = handlers.split_last() {
+            for handler in rest {
+                handler(value.clone());
+            }
+            last(value);
         }
     }
 
@@ -237,8 +242,11 @@ impl<T: Clone + Send + 'static> Signal<T> {
             guard.values().cloned().collect()
         };
         let count = handlers.len();
-        for handler in &handlers {
-            handler(value.clone());
+        if let Some((last, rest)) = handlers.split_last() {
+            for handler in rest {
+                handler(value.clone());
+            }
+            last(value);
         }
         count
     }

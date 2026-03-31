@@ -20,7 +20,7 @@ use crate::signal::Signal;
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::prelude::*;
+/// use auroraview_signals::prelude::*;
 /// use serde_json::json;
 ///
 /// let registry = SignalRegistry::new();
@@ -141,7 +141,7 @@ impl SignalRegistry {
     /// # Example
     ///
     /// ```rust
-    /// use aurora_signals::prelude::*;
+    /// use auroraview_signals::prelude::*;
     ///
     /// let registry = SignalRegistry::new();
     /// let conn = registry.connect("my_event", |data| {

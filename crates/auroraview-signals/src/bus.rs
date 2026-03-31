@@ -24,7 +24,7 @@ use crate::registry::SignalRegistry;
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::prelude::*;
+/// use auroraview_signals::prelude::*;
 /// use serde_json::json;
 ///
 /// let bus = EventBus::new();
@@ -140,7 +140,7 @@ impl EventBus {
     /// # Example
     ///
     /// ```rust
-    /// use aurora_signals::prelude::*;
+    /// use auroraview_signals::prelude::*;
     ///
     /// let bus = EventBus::new();
     /// let conn = bus.on("user:login", |data| {
@@ -189,7 +189,7 @@ impl EventBus {
     /// # Example
     ///
     /// ```rust
-    /// use aurora_signals::prelude::*;
+    /// use auroraview_signals::prelude::*;
     /// use serde_json::json;
     ///
     /// let bus = EventBus::new();
@@ -210,11 +210,12 @@ impl EventBus {
             return 0;
         }
 
-        // Emit to local handlers
-        let handler_count = self.registry.emit(event, data.clone());
+        let has_bridges = !self.bridges.is_empty();
 
-        // Emit to bridges
-        if !self.bridges.is_empty() {
+        // Clone only when both local handlers AND bridges need the data.
+        let handler_count = if has_bridges {
+            let local_data = data.clone();
+            let count = self.registry.emit(event, local_data);
             if let Err(e) = self.bridges.emit(event, data.clone()) {
                 tracing::warn!(
                     bus_name = ?self.name,
@@ -223,7 +224,10 @@ impl EventBus {
                     "Bridge emit failed"
                 );
             }
-        }
+            count
+        } else {
+            self.registry.emit(event, data.clone())
+        };
 
         // Notify middleware after emit
         self.middleware.process_after(event, &data, handler_count);
@@ -240,6 +244,8 @@ impl EventBus {
             return 0;
         }
 
+        // No bridges involved — pass data directly to registry (registry will
+        // internally clone per-handler as needed via Signal::emit).
         let handler_count = self.registry.emit(event, data.clone());
         self.middleware.process_after(event, &data, handler_count);
 
@@ -350,7 +356,7 @@ use std::sync::LazyLock;
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::bus::global_bus;
+/// use auroraview_signals::bus::global_bus;
 /// use serde_json::json;
 ///
 /// global_bus().on("app:event", |data| {

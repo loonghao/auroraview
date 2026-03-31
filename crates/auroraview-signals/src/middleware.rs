@@ -99,7 +99,7 @@ pub trait Middleware: Send + Sync {
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::prelude::*;
+/// use auroraview_signals::prelude::*;
 ///
 /// let logging = LoggingMiddleware::new(LogLevel::Debug);
 /// ```
@@ -215,7 +215,7 @@ impl Middleware for LoggingMiddleware {
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::prelude::*;
+/// use auroraview_signals::prelude::*;
 ///
 /// // Deny all internal events
 /// let filter = FilterMiddleware::new()
@@ -357,7 +357,7 @@ pub type TransformFn = Arc<dyn Fn(&mut Value) + Send + Sync>;
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::prelude::*;
+/// use auroraview_signals::prelude::*;
 /// use serde_json::json;
 ///
 /// let transform = TransformMiddleware::new()
