@@ -9,10 +9,11 @@
 //! - Event notifications
 
 use dashmap::DashMap;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -192,7 +193,7 @@ impl HistoryApi {
 
     /// Get visits for a URL
     pub fn get_visits(&self, details: UrlDetails) -> ExtensionResult<Value> {
-        let visits = self.visits.read().unwrap();
+        let visits = self.visits.read();
 
         let item = self.history.iter().find(|entry| entry.value().url == details.url);
 
@@ -207,7 +208,7 @@ impl HistoryApi {
 
     /// Add URL to history
     pub fn add_url(&self, details: UrlDetails) -> ExtensionResult<Value> {
-        let mut visits = self.visits.write().unwrap();
+        let mut visits = self.visits.write();
         let now = now_ms();
 
         // Check if URL already exists
@@ -260,7 +261,7 @@ impl HistoryApi {
 
     /// Delete URL from history
     pub fn delete_url(&self, details: UrlDetails) -> ExtensionResult<Value> {
-        let mut visits = self.visits.write().unwrap();
+        let mut visits = self.visits.write();
 
         let id_to_remove: Option<String> = self
             .history
@@ -278,7 +279,7 @@ impl HistoryApi {
 
     /// Delete all history
     pub fn delete_all(&self) -> ExtensionResult<Value> {
-        let mut visits = self.visits.write().unwrap();
+        let mut visits = self.visits.write();
 
         self.history.clear();
         visits.clear();
@@ -288,7 +289,7 @@ impl HistoryApi {
 
     /// Delete history in range
     pub fn delete_range(&self, range: DeleteRange) -> ExtensionResult<Value> {
-        let mut visits = self.visits.write().unwrap();
+        let mut visits = self.visits.write();
 
         visits.retain(|v| v.visit_time < range.start_time || v.visit_time > range.end_time);
 
