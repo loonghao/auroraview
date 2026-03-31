@@ -3,15 +3,17 @@
 //! This module provides runtime configuration types for the packer.
 //! Common types are re-exported from the `common` module for consistency.
 
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
 use crate::common::{
     default_module_search_paths, default_optimize, default_python_version, HooksConfig,
 };
 use crate::error::PackResult;
 use crate::manifest::Manifest;
 use crate::protection::ProtectionConfig;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 
 // Re-export common types
 pub use crate::common::{

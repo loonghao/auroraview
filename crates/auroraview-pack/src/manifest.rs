@@ -81,9 +81,10 @@
 //! js_code = "console.log('hello');"
 //! ```
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
 
 use crate::common::{
     default_module_search_paths, default_optimize, default_python_version, BundleStrategy,

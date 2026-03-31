@@ -13,13 +13,14 @@
 //! The actual WebView operations are delegated to the main WebView instance.
 //! This backend primarily tracks state for the trait interface.
 
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+
+use parking_lot::RwLock;
+
 use super::error::{WebViewError, WebViewResult};
 use super::lifecycle::{AtomicLifecycle, LifecycleState};
 use super::settings::{WebViewSettings, WebViewSettingsImpl};
 use super::traits::{CookieInfo, JavaScriptCallback, LoadProgress, WebViewBackend};
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-
-use parking_lot::RwLock;
 
 /// Wry backend implementation
 ///
