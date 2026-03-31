@@ -3,7 +3,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::path::{Path, PathBuf};
-use tao::event_loop::{ControlFlow, EventLoop};
+use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
 
 use auroraview_core::cli::rewrite_html_for_custom_protocol;
@@ -52,6 +52,17 @@ pub struct RunArgs {
     /// Keep window always on top
     #[arg(long)]
     pub always_on_top: bool,
+
+    /// Watch the HTML file for changes and reload automatically (hot reload)
+    #[arg(long, requires = "html")]
+    pub watch: bool,
+}
+
+/// User event sent from the file watcher thread to the event loop
+#[derive(Debug, Clone)]
+pub enum RunEvent {
+    /// Reload the current page
+    Reload,
 }
 
 /// Detect assets root directory based on browser save patterns
@@ -93,6 +104,52 @@ fn detect_assets_root(html_path: &Path) -> Result<PathBuf> {
     Ok(parent.to_path_buf())
 }
 
+/// Spawn a background thread that watches `path` for modifications.
+///
+/// When a change is detected, a [`RunEvent::Reload`] is sent through `proxy`.
+/// The watcher is kept alive for the lifetime of the returned handle; dropping
+/// it stops the watch.
+fn start_file_watcher(
+    path: PathBuf,
+    proxy: EventLoopProxy<RunEvent>,
+) -> Result<notify::RecommendedWatcher> {
+    use notify::{Config, EventKind, RecursiveMode, Watcher};
+
+    let mut watcher = notify::RecommendedWatcher::new(
+        move |result: notify::Result<notify::Event>| match result {
+            Ok(event) => {
+                if matches!(
+                    event.kind,
+                    EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)
+                ) {
+                    tracing::debug!("[hot-reload] Change detected: {:?}", event.paths);
+                    if proxy.send_event(RunEvent::Reload).is_err() {
+                        // Event loop has closed; watcher will be dropped soon
+                        tracing::debug!("[hot-reload] Event loop closed, stopping watcher");
+                    }
+                }
+            }
+            Err(e) => tracing::warn!("[hot-reload] Watch error: {}", e),
+        },
+        Config::default(),
+    )
+    .context("Failed to create file watcher")?;
+
+    watcher
+        .watch(&path, RecursiveMode::NonRecursive)
+        .with_context(|| format!("Failed to watch path: {}", path.display()))?;
+
+    tracing::info!("[hot-reload] Watching: {}", path.display());
+    Ok(watcher)
+}
+
+/// Read and rewrite an HTML file for the auroraview:// custom protocol
+fn load_html_file(path: &Path) -> Result<String> {
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read HTML file: {}", path.display()))?;
+    Ok(rewrite_html_for_custom_protocol(&content))
+}
+
 /// Run the WebView window
 pub fn run_webview(args: RunArgs) -> Result<()> {
     // Validate that at least one of url or html is provided
@@ -124,24 +181,19 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
         };
 
         // Read HTML content
-        let html_content = std::fs::read_to_string(html_path)
-            .with_context(|| format!("Failed to read HTML file: {}", html_path.display()))?;
-
+        let html_content = load_html_file(html_path)?;
         tracing::info!("Read HTML file ({} bytes)", html_content.len());
-
-        // Rewrite HTML to use auroraview:// protocol for relative paths
-        let rewritten_html = rewrite_html_for_custom_protocol(&html_content);
-
-        tracing::info!("Rewrote HTML for auroraview:// protocol");
         tracing::info!("Assets root: {}", assets_root.display());
 
-        (Some(rewritten_html), Some(assets_root))
+        (Some(html_content), Some(assets_root))
     } else {
         anyhow::bail!("Either --url or --html must be provided");
     };
 
-    // Create event loop and window
-    let event_loop = EventLoop::new();
+    // Create event loop — generic over RunEvent for hot-reload signalling
+    let event_loop: EventLoop<RunEvent> = EventLoopBuilder::<RunEvent>::with_user_event().build();
+    let proxy = event_loop.create_proxy();
+
     let mut window_builder = tao::window::WindowBuilder::new()
         .with_title(&args.title)
         .with_visible(false); // Start hidden to avoid white flash
@@ -246,24 +298,76 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
 
     tracing::info!("WebView created successfully");
 
+    // Start file watcher for hot reload (only for --html --watch)
+    // The watcher must outlive the event loop; we keep it in a local binding.
+    let _watcher = if args.watch {
+        if let Some(ref html_path) = args.html {
+            let canonical = html_path
+                .canonicalize()
+                .unwrap_or_else(|_| html_path.clone());
+            match start_file_watcher(canonical, proxy) {
+                Ok(w) => {
+                    tracing::info!("[hot-reload] File watcher started");
+                    Some(w)
+                }
+                Err(e) => {
+                    tracing::warn!("[hot-reload] Failed to start file watcher: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // The html_path is captured for reload; clone it outside the closure
+    let html_path_for_reload = args.html.clone();
+
     // Show window immediately
     window.set_visible(true);
     tracing::info!("Window shown");
 
-    // Run event loop
+    // Run event loop — never returns; process exits when window closes.
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
         // Keep webview alive
         let _ = &webview;
 
-        if let tao::event::Event::WindowEvent {
-            event: tao::event::WindowEvent::CloseRequested,
-            ..
-        } = event
-        {
-            tracing::info!("Window close requested");
-            *control_flow = ControlFlow::Exit;
+        match event {
+            tao::event::Event::WindowEvent {
+                event: tao::event::WindowEvent::CloseRequested,
+                ..
+            } => {
+                tracing::info!("Window close requested");
+                *control_flow = ControlFlow::Exit;
+            }
+            tao::event::Event::UserEvent(RunEvent::Reload) => {
+                tracing::info!("[hot-reload] Reloading WebView");
+                if let Some(ref path) = html_path_for_reload {
+                    match load_html_file(path) {
+                        Ok(html) => {
+                            if let Err(e) = webview.load_html(&html) {
+                                tracing::warn!("[hot-reload] load_html failed: {}", e);
+                                // Fall back to location.reload()
+                                let _ = webview.evaluate_script("location.reload();");
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("[hot-reload] Failed to read HTML: {}", e);
+                        }
+                    }
+                } else {
+                    let _ = webview.evaluate_script("location.reload();");
+                }
+            }
+            _ => {}
         }
     });
+
+    // Unreachable: event_loop.run() never returns on most platforms.
+    #[allow(unreachable_code)]
+    Ok(())
 }

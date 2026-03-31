@@ -69,6 +69,11 @@ fn test_cli_run_help() {
     assert!(stdout.contains("--url"));
     assert!(stdout.contains("--html"));
     assert!(stdout.contains("--title"));
+    // Hot reload flag must be present
+    assert!(
+        stdout.contains("--watch"),
+        "--watch flag missing from run --help output"
+    );
 }
 
 #[test]
