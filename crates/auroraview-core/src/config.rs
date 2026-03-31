@@ -93,6 +93,17 @@ pub struct CoreConfig {
     /// Enable file:// protocol support
     pub allow_file_protocol: bool,
 
+    /// Content Security Policy to inject into every loaded page
+    ///
+    /// When set, a `<meta http-equiv="Content-Security-Policy">` tag is injected
+    /// via an init script before the page renders. This hardens the embedded page
+    /// against XSS and unauthorized resource loads.
+    ///
+    /// Example: `"default-src 'self'; script-src 'self' 'unsafe-inline'"`
+    ///
+    /// Set to `None` (default) to disable CSP injection.
+    pub content_security_policy: Option<String>,
+
     /// Show shadow for undecorated (frameless) windows (Windows only).
     ///
     /// When `decorations` is false, Windows can still show a subtle shadow
@@ -133,6 +144,7 @@ impl Default for CoreConfig {
             asset_root: None,
             allow_new_window: false,
             allow_file_protocol: false,
+            content_security_policy: None,
             #[cfg(target_os = "windows")]
             undecorated_shadow: false,
         }

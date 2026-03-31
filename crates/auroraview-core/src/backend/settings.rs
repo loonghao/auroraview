@@ -50,6 +50,20 @@ pub trait WebViewSettings: Send + Sync {
 
     /// Set background color (hex format, e.g., "#1e1e1e")
     fn set_background_color(&mut self, color: Option<String>);
+
+    /// Get Content Security Policy header value
+    ///
+    /// When set, the WebView will inject a `Content-Security-Policy` meta tag
+    /// into every loaded page. This provides an additional layer of defense
+    /// against XSS and other content injection attacks.
+    ///
+    /// Example: `"default-src 'self'; script-src 'self' 'unsafe-inline'"`
+    fn content_security_policy(&self) -> Option<&str>;
+
+    /// Set Content Security Policy
+    ///
+    /// Pass `None` to disable CSP injection.
+    fn set_content_security_policy(&mut self, csp: Option<String>);
 }
 
 /// Default implementation of WebViewSettings
@@ -62,6 +76,7 @@ pub struct WebViewSettingsImpl {
     context_menu: bool,
     user_agent: Option<String>,
     background_color: Option<String>,
+    content_security_policy: Option<String>,
 }
 
 impl Default for WebViewSettingsImpl {
@@ -74,6 +89,7 @@ impl Default for WebViewSettingsImpl {
             context_menu: true,
             user_agent: None,
             background_color: None,
+            content_security_policy: None,
         }
     }
 }
@@ -133,5 +149,13 @@ impl WebViewSettings for WebViewSettingsImpl {
 
     fn set_background_color(&mut self, color: Option<String>) {
         self.background_color = color;
+    }
+
+    fn content_security_policy(&self) -> Option<&str> {
+        self.content_security_policy.as_deref()
+    }
+
+    fn set_content_security_policy(&mut self, csp: Option<String>) {
+        self.content_security_policy = csp;
     }
 }

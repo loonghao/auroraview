@@ -546,8 +546,14 @@ impl RuntimeManager {
 
     /// Broadcast a message to all extensions
     pub fn broadcast(&self, message: ExtensionMessage) -> ExtensionResult<()> {
-        for entry in self.runtimes.iter() {
-            entry.value().send_message(message.clone())?;
+        let mut iter = self.runtimes.iter().peekable();
+        while let Some(entry) = iter.next() {
+            if iter.peek().is_some() {
+                entry.value().send_message(message.clone())?;
+            } else {
+                entry.value().send_message(message)?;
+                break;
+            }
         }
         Ok(())
     }
@@ -575,8 +581,14 @@ impl RuntimeManager {
 
     /// Dispatch an event to all extensions
     pub fn dispatch_event(&self, event: &str, data: Value) -> ExtensionResult<()> {
-        for entry in self.runtimes.iter() {
-            entry.value().dispatch_event(event, data.clone())?;
+        let mut iter = self.runtimes.iter().peekable();
+        while let Some(entry) = iter.next() {
+            if iter.peek().is_some() {
+                entry.value().dispatch_event(event, data.clone())?;
+            } else {
+                entry.value().dispatch_event(event, data)?;
+                break;
+            }
         }
         Ok(())
     }

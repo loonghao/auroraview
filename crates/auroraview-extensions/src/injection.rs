@@ -37,7 +37,7 @@ pub struct CompiledContentScript {
 /// Script injector - manages content script injection
 pub struct ScriptInjector {
     /// Compiled content scripts by extension
-    scripts: Arc<DashMap<ExtensionId, Vec<CompiledContentScript>>>,
+    scripts: Arc<DashMap<ExtensionId, Vec<Arc<CompiledContentScript>>>>,
 }
 
 impl ScriptInjector {
@@ -54,7 +54,7 @@ impl ScriptInjector {
 
         for config in &extension.manifest.content_scripts {
             let compiled = self.compile_content_script(extension, config)?;
-            compiled_scripts.push(compiled);
+            compiled_scripts.push(Arc::new(compiled));
         }
 
         if !compiled_scripts.is_empty() {
@@ -135,7 +135,7 @@ impl ScriptInjector {
     }
 
     /// Get scripts to inject for a URL
-    pub fn get_scripts_for_url(&self, url: &str, run_at: &RunAt) -> Vec<CompiledContentScript> {
+    pub fn get_scripts_for_url(&self, url: &str, run_at: &RunAt) -> Vec<Arc<CompiledContentScript>> {
         let mut result = Vec::new();
 
         for entry in self.scripts.iter() {
@@ -150,7 +150,7 @@ impl ScriptInjector {
                     continue;
                 }
 
-                result.push(script.clone());
+                result.push(Arc::clone(script));
             }
         }
 
