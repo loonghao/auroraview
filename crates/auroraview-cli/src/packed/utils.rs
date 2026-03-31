@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-// Re-export escape_json_for_js from core
-pub use auroraview_core::utils::escape_json_for_js;
+// Re-export escape utilities from core
+pub use auroraview_core::utils::{escape_js_string, escape_json_for_js};
 
 /// Get the runtime cache directory with content hash
 ///

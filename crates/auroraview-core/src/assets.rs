@@ -10,6 +10,8 @@
 
 use rust_embed::RustEmbed;
 
+use crate::utils::escape_js_string;
+
 // Re-export HTML templates module
 #[path = "assets/html/mod.rs"]
 pub mod html;
@@ -135,15 +137,6 @@ pub fn build_error_page(
 
     // Insert the JavaScript before </body>
     base_html.replace("</body>", &format!("{}</body>", js_update))
-}
-
-/// Escape a string for safe inclusion in JavaScript
-fn escape_js_string(s: &str) -> String {
-    s.replace('\\', "\\\\")
-        .replace('\'', "\\'")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r")
 }
 
 /// Get the event bridge JavaScript code

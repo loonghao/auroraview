@@ -22,7 +22,7 @@ use crate::{load_window_icon, load_window_icon_from_bytes, normalize_url};
 
 use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
-use super::utils::{escape_json_for_js, get_webview_data_dir};
+use super::utils::{escape_js_string, escape_json_for_js, get_webview_data_dir};
 #[cfg(target_os = "windows")]
 use super::utils::{get_extensions_dir, has_extensions_in_dir, prepare_active_extensions_dir};
 
@@ -1378,7 +1378,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 updates.push(format!("window.auroraLoading.setProgress({});", p));
                             }
                             if let Some(t) = text {
-                                let escaped_text = t.replace('\\', "\\\\").replace('\'', "\\'");
+                                let escaped_text = escape_js_string(&t);
                                 updates.push(format!(
                                     "window.auroraLoading.setText('{}');",
                                     escaped_text
@@ -1387,10 +1387,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                             if let (Some(id), Some(txt), Some(status)) =
                                 (step_id, step_text, step_status)
                             {
-                                let escaped_id = id.replace('\\', "\\\\").replace('\'', "\\'");
-                                let escaped_txt = txt.replace('\\', "\\\\").replace('\'', "\\'");
-                                let escaped_status =
-                                    status.replace('\\', "\\\\").replace('\'', "\\'");
+                                let escaped_id = escape_js_string(&id);
+                                let escaped_txt = escape_js_string(&txt);
+                                let escaped_status = escape_js_string(&status);
                                 updates.push(format!(
                                     "window.auroraLoading.setStep('{}', '{}', '{}');",
                                     escaped_id, escaped_txt, escaped_status
@@ -1407,12 +1406,8 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                         }
                         UserEvent::BackendError { message, source } => {
                             // Send backend error to frontend for display
-                            let escaped_msg = message
-                                .replace('\\', "\\\\")
-                                .replace('\'', "\\'")
-                                .replace('\n', "\\n")
-                                .replace('\r', "");
-                            let escaped_source = source.replace('\\', "\\\\").replace('\'', "\\'");
+                            let escaped_msg = escape_js_string(&message);
+                            let escaped_source = escape_js_string(&source);
                             let script = format!(
                                 r#"(function() {{
                                     if (window.auroraLoading && window.auroraLoading.addError) {{
