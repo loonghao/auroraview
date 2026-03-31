@@ -29,9 +29,10 @@ mod utils;
 mod warmup;
 mod webview;
 
+use std::time::Instant;
+
 use anyhow::{Context, Result};
 use auroraview_pack::{OverlayReader, PackedMetrics};
-use std::time::Instant;
 
 // Re-export public items
 pub use utils::{
