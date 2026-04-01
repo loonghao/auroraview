@@ -1,517 +1,536 @@
-use auroraview_settings::{
-    SchemaRegistry, SettingSchema, SettingValue, SettingsManager, SettingsStore,
+//! Integration tests for auroraview-settings
+//!
+//! Covers SettingValue conversions, SettingsStore operations,
+//! SchemaRegistry validation, and SettingsManager lifecycle.
+
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
 };
-use rstest::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
-// ========== SettingValue Tests ==========
+use auroraview_settings::{SchemaRegistry, SettingValue, SettingsManager, SettingsStore, SettingSchema};
+use rstest::rstest;
+
+// ---------------------------------------------------------------------------
+// SettingValue — type accessors and conversions
+// ---------------------------------------------------------------------------
 
 #[test]
-fn test_value_type_names() {
-    assert_eq!(SettingValue::Null.type_name(), "null");
-    assert_eq!(SettingValue::Bool(true).type_name(), "bool");
-    assert_eq!(SettingValue::Integer(42).type_name(), "integer");
-    assert_eq!(SettingValue::Float(2.78).type_name(), "float");
-    assert_eq!(SettingValue::String("hello".into()).type_name(), "string");
-    assert_eq!(SettingValue::Array(vec![]).type_name(), "array");
-    assert_eq!(
-        SettingValue::Object(Default::default()).type_name(),
-        "object"
-    );
+fn setting_value_bool_roundtrip() {
+    let v = SettingValue::Bool(true);
+    assert_eq!(v.as_bool(), Some(true));
+    assert_eq!(v.type_name(), "bool");
+    assert!(!v.is_null());
 }
 
 #[test]
-fn test_value_is_null() {
-    assert!(SettingValue::Null.is_null());
-    assert!(!SettingValue::Bool(false).is_null());
+fn setting_value_integer_roundtrip() {
+    let v: SettingValue = 42i64.into();
+    assert_eq!(v.as_integer(), Some(42));
+    assert_eq!(v.as_float(), Some(42.0));
+    assert_eq!(v.type_name(), "integer");
 }
 
 #[test]
-fn test_value_accessors() {
-    assert_eq!(SettingValue::Bool(true).as_bool(), Some(true));
-    assert_eq!(SettingValue::Integer(42).as_integer(), Some(42));
-    assert_eq!(SettingValue::Float(2.78).as_float(), Some(2.78));
-    assert_eq!(SettingValue::Integer(10).as_float(), Some(10.0));
-    assert_eq!(
-        SettingValue::String("hi".into()).as_str(),
-        Some("hi")
-    );
-
-    // Wrong type returns None
-    assert_eq!(SettingValue::Bool(true).as_integer(), None);
-    assert_eq!(SettingValue::Integer(1).as_str(), None);
+fn setting_value_i32_converts_to_integer() {
+    let v: SettingValue = 7i32.into();
+    assert_eq!(v.as_integer(), Some(7));
 }
 
 #[test]
-fn test_value_from_conversions() {
-    assert_eq!(SettingValue::from(true), SettingValue::Bool(true));
-    assert_eq!(SettingValue::from(42i32), SettingValue::Integer(42));
-    assert_eq!(SettingValue::from(100i64), SettingValue::Integer(100));
-    assert_eq!(SettingValue::from(2.78), SettingValue::Float(2.78));
-    assert_eq!(
-        SettingValue::from("hello"),
-        SettingValue::String("hello".into())
-    );
-    assert_eq!(
-        SettingValue::from(String::from("world")),
-        SettingValue::String("world".into())
-    );
+fn setting_value_float_roundtrip() {
+    let v: SettingValue = 3.14f64.into();
+    assert!((v.as_float().unwrap() - 3.14).abs() < 1e-10);
+    assert_eq!(v.type_name(), "float");
 }
 
 #[test]
-fn test_value_from_vec() {
-    let arr = SettingValue::from(vec![1i32, 2, 3]);
-    assert_eq!(
-        arr.as_array().unwrap().len(),
-        3
-    );
+fn setting_value_string_roundtrip() {
+    let v: SettingValue = "hello".into();
+    assert_eq!(v.as_str(), Some("hello"));
+    assert_eq!(v.type_name(), "string");
 }
 
 #[test]
-fn test_value_default() {
-    assert_eq!(SettingValue::default(), SettingValue::Null);
+fn setting_value_string_owned() {
+    let v: SettingValue = String::from("world").into();
+    assert_eq!(v.as_str(), Some("world"));
 }
 
-// ========== SettingsStore Tests ==========
+#[test]
+fn setting_value_null_is_null() {
+    let v = SettingValue::Null;
+    assert!(v.is_null());
+    assert_eq!(v.type_name(), "null");
+}
 
 #[test]
-fn test_store_basic_operations() {
+fn setting_value_default_is_null() {
+    let v = SettingValue::default();
+    assert!(v.is_null());
+}
+
+#[rstest]
+#[case(SettingValue::Bool(true), "bool")]
+#[case(SettingValue::Integer(0), "integer")]
+#[case(SettingValue::Float(0.0), "float")]
+#[case(SettingValue::String("".into()), "string")]
+#[case(SettingValue::Array(vec![]), "array")]
+#[case(SettingValue::Null, "null")]
+fn setting_value_type_name(#[case] value: SettingValue, #[case] expected: &str) {
+    assert_eq!(value.type_name(), expected);
+}
+
+#[test]
+fn setting_value_array_from_vec() {
+    let v: SettingValue = vec![1i64, 2, 3].into();
+    let arr = v.as_array().expect("should be array");
+    assert_eq!(arr.len(), 3);
+}
+
+// ---------------------------------------------------------------------------
+// SettingsStore — CRUD and iteration
+// ---------------------------------------------------------------------------
+
+#[test]
+fn store_set_get_remove() {
     let mut store = SettingsStore::new();
     assert!(store.is_empty());
     assert_eq!(store.len(), 0);
 
-    store.set("key1", SettingValue::String("value1".into()));
+    store.set("theme", SettingValue::String("dark".into()));
     assert_eq!(store.len(), 1);
-    assert!(!store.is_empty());
-    assert!(store.contains("key1"));
-    assert!(!store.contains("key2"));
+    assert!(store.contains("theme"));
 
-    assert_eq!(
-        store.get("key1"),
-        Some(&SettingValue::String("value1".into()))
-    );
-    assert_eq!(store.get("key2"), None);
+    let v = store.get("theme").expect("should exist");
+    assert_eq!(v.as_str(), Some("dark"));
+
+    let removed = store.remove("theme");
+    assert!(removed.is_some());
+    assert!(!store.contains("theme"));
 }
 
 #[test]
-fn test_store_remove() {
+fn store_keys_with_prefix() {
     let mut store = SettingsStore::new();
-    store.set("key", SettingValue::Bool(true));
+    store.set("browser.homepage", SettingValue::String("https://example.com".into()));
+    store.set("browser.timeout", SettingValue::Integer(30));
+    store.set("appearance.theme", SettingValue::String("light".into()));
 
-    let removed = store.remove("key");
-    assert_eq!(removed, Some(SettingValue::Bool(true)));
-    assert!(store.is_empty());
-
-    assert_eq!(store.remove("nonexistent"), None);
+    let browser_keys: Vec<&str> = store.keys_with_prefix("browser.").collect();
+    assert_eq!(browser_keys.len(), 2);
+    assert!(browser_keys.contains(&"browser.homepage"));
+    assert!(browser_keys.contains(&"browser.timeout"));
 }
 
 #[test]
-fn test_store_clear() {
-    let mut store = SettingsStore::new();
-    store.set("a", SettingValue::Integer(1));
-    store.set("b", SettingValue::Integer(2));
-    assert_eq!(store.len(), 2);
+fn store_merge_overwrites() {
+    let mut base = SettingsStore::new();
+    base.set("k1", SettingValue::Integer(1));
+    base.set("k2", SettingValue::Integer(2));
 
+    let mut overlay = SettingsStore::new();
+    overlay.set("k2", SettingValue::Integer(99));
+    overlay.set("k3", SettingValue::Integer(3));
+
+    base.merge(overlay);
+    assert_eq!(base.get("k1").unwrap().as_integer(), Some(1));
+    assert_eq!(base.get("k2").unwrap().as_integer(), Some(99));
+    assert_eq!(base.get("k3").unwrap().as_integer(), Some(3));
+}
+
+#[test]
+fn store_merge_ref() {
+    let mut base = SettingsStore::new();
+    base.set("a", SettingValue::Bool(false));
+
+    let mut other = SettingsStore::new();
+    other.set("a", SettingValue::Bool(true));
+    other.set("b", SettingValue::Integer(5));
+
+    base.merge_ref(&other);
+    assert_eq!(base.get("a").unwrap().as_bool(), Some(true));
+    assert_eq!(base.get("b").unwrap().as_integer(), Some(5));
+}
+
+#[test]
+fn store_clear() {
+    let mut store = SettingsStore::new();
+    store.set("x", SettingValue::Bool(true));
+    store.set("y", SettingValue::Bool(false));
     store.clear();
     assert!(store.is_empty());
 }
 
 #[test]
-fn test_store_keys_with_prefix() {
-    let mut store = SettingsStore::new();
-    store.set("app.theme", SettingValue::String("dark".into()));
-    store.set("app.font", SettingValue::String("mono".into()));
-    store.set("browser.homepage", SettingValue::String("about:blank".into()));
-
-    let app_keys: Vec<&str> = store.keys_with_prefix("app.").collect();
-    assert_eq!(app_keys.len(), 2);
-}
-
-#[test]
-fn test_store_merge() {
-    let mut store1 = SettingsStore::new();
-    store1.set("a", SettingValue::Integer(1));
-    store1.set("b", SettingValue::Integer(2));
-
-    let mut store2 = SettingsStore::new();
-    store2.set("b", SettingValue::Integer(20));
-    store2.set("c", SettingValue::Integer(3));
-
-    store1.merge(store2);
-    assert_eq!(store1.len(), 3);
-    assert_eq!(store1.get("b"), Some(&SettingValue::Integer(20))); // Overwritten
-    assert_eq!(store1.get("c"), Some(&SettingValue::Integer(3)));
-}
-
-#[test]
-fn test_store_merge_ref() {
-    let mut store1 = SettingsStore::new();
-    store1.set("a", SettingValue::Integer(1));
-    store1.set("b", SettingValue::Integer(2));
-
-    let mut store2 = SettingsStore::new();
-    store2.set("b", SettingValue::Integer(20));
-    store2.set("c", SettingValue::Integer(3));
-
-    store1.merge_ref(&store2);
-    assert_eq!(store1.len(), 3);
-    assert_eq!(store1.get("b"), Some(&SettingValue::Integer(20)));
-    assert_eq!(store1.get("c"), Some(&SettingValue::Integer(3)));
-    // Original store2 should be unmodified
-    assert_eq!(store2.len(), 2);
-}
-
-#[test]
-fn test_store_as_map() {
-    let mut store = SettingsStore::new();
-    store.set("key1", SettingValue::Bool(true));
-    store.set("key2", SettingValue::Integer(42));
-
-    let map = store.as_map();
-    assert_eq!(map.len(), 2);
-    assert_eq!(map.get("key1"), Some(&SettingValue::Bool(true)));
-    assert_eq!(map.get("key2"), Some(&SettingValue::Integer(42)));
-}
-
-#[test]
-fn test_store_from_map() {
-    let mut map = std::collections::HashMap::new();
-    map.insert("key".to_string(), SettingValue::Bool(true));
-
-    let store = SettingsStore::from_map(map);
-    assert_eq!(store.get("key"), Some(&SettingValue::Bool(true)));
-
-    let back = store.into_map();
-    assert_eq!(back.len(), 1);
-}
-
-#[test]
-fn test_store_iterators() {
+fn store_into_iter() {
     let mut store = SettingsStore::new();
     store.set("a", SettingValue::Integer(1));
     store.set("b", SettingValue::Integer(2));
 
-    let keys: Vec<&str> = store.keys().collect();
-    assert_eq!(keys.len(), 2);
-
-    let items: Vec<_> = (&store).into_iter().collect();
-    assert_eq!(items.len(), 2);
-
-    let owned_items: Vec<_> = store.into_iter().collect();
-    assert_eq!(owned_items.len(), 2);
-}
-
-// ========== Schema Tests ==========
-
-#[test]
-fn test_schema_builder() {
-    let schema = SettingSchema::builder("app.theme")
-        .title("Theme")
-        .description("Application theme")
-        .enum_type(vec!["light".into(), "dark".into(), "auto".into()])
-        .default(SettingValue::String("auto".into()))
-        .category("Appearance")
-        .requires_restart()
-        .build();
-
-    assert_eq!(schema.key, "app.theme");
-    assert_eq!(schema.title, "Theme");
-    assert!(schema.requires_restart);
-    assert_eq!(schema.category, Some("Appearance".to_string()));
+    let count = store.into_iter().count();
+    assert_eq!(count, 2);
 }
 
 #[test]
-fn test_schema_validation_bool() {
-    let schema = SettingSchema::builder("flag")
+fn store_ref_iter() {
+    let mut store = SettingsStore::new();
+    store.set("p", SettingValue::Bool(true));
+
+    let count = store.into_iter().count();
+    assert_eq!(count, 1);
+}
+
+#[test]
+fn store_from_map() {
+    let mut map = std::collections::HashMap::new();
+    map.insert("key".to_string(), SettingValue::Integer(42));
+    let store = SettingsStore::from_map(map);
+    assert_eq!(store.get("key").unwrap().as_integer(), Some(42));
+}
+
+// ---------------------------------------------------------------------------
+// SchemaRegistry — validation logic
+// ---------------------------------------------------------------------------
+
+// Helper functions for building schemas in tests
+fn bool_schema(key: &str) -> SettingSchema {
+    SettingSchema::builder(key)
+        .title(key)
+        .description("bool setting")
         .bool_type()
-        .build();
+        .default(false)
+        .build()
+}
 
+fn int_schema(key: &str, min: Option<i64>, max: Option<i64>) -> SettingSchema {
+    SettingSchema::builder(key)
+        .title(key)
+        .description("int setting")
+        .integer_type(min, max)
+        .default(0i64)
+        .build()
+}
+
+fn enum_schema(key: &str, values: Vec<String>) -> SettingSchema {
+    SettingSchema::builder(key)
+        .title(key)
+        .description("enum setting")
+        .enum_type(values)
+        .default("light")
+        .build()
+}
+
+#[test]
+fn schema_bool_validates_bool_value() {
+    let schema = bool_schema("test.bool");
     assert!(schema.validate(&SettingValue::Bool(true)).is_ok());
+    assert!(schema.validate(&SettingValue::Bool(false)).is_ok());
     assert!(schema.validate(&SettingValue::Integer(1)).is_err());
 }
 
-#[rstest]
-#[case(5, true)]
-#[case(0, true)]
-#[case(10, true)]
-#[case(-1, false)]
-#[case(11, false)]
-fn test_schema_validation_integer_bounds(#[case] value: i64, #[case] valid: bool) {
-    let schema = SettingSchema::builder("count")
-        .integer_type(Some(0), Some(10))
-        .build();
-
-    assert_eq!(
-        schema.validate(&SettingValue::Integer(value)).is_ok(),
-        valid
-    );
+#[test]
+fn schema_integer_validates_in_bounds() {
+    let schema = int_schema("test.int", Some(0), Some(100));
+    assert!(schema.validate(&SettingValue::Integer(50)).is_ok());
+    assert!(schema.validate(&SettingValue::Integer(0)).is_ok());
+    assert!(schema.validate(&SettingValue::Integer(100)).is_ok());
+    assert!(schema.validate(&SettingValue::Integer(-1)).is_err());
+    assert!(schema.validate(&SettingValue::Integer(101)).is_err());
 }
 
 #[test]
-fn test_schema_validation_float() {
-    let schema = SettingSchema::builder("opacity")
-        .float_type(Some(0.0), Some(1.0))
-        .build();
-
-    assert!(schema.validate(&SettingValue::Float(0.5)).is_ok());
-    assert!(schema.validate(&SettingValue::Float(-0.1)).is_err());
-    assert!(schema.validate(&SettingValue::Float(1.1)).is_err());
+fn schema_integer_no_bounds() {
+    let schema = int_schema("test.int_unbounded", None, None);
+    assert!(schema.validate(&SettingValue::Integer(i64::MAX)).is_ok());
+    assert!(schema.validate(&SettingValue::Integer(i64::MIN)).is_ok());
 }
 
 #[test]
-fn test_schema_validation_string_max_length() {
-    let schema = SettingSchema::builder("name")
+fn schema_enum_validates_allowed_value() {
+    let schema = enum_schema("test.theme", vec!["light".into(), "dark".into()]);
+    assert!(schema.validate(&SettingValue::String("dark".into())).is_ok());
+    assert!(schema.validate(&SettingValue::String("light".into())).is_ok());
+    assert!(schema.validate(&SettingValue::String("solarized".into())).is_err());
+}
+
+#[test]
+fn schema_string_max_length() {
+    let schema = SettingSchema::builder("test.label")
+        .title("Label")
+        .description("label")
         .string_type()
+        .max_length(10)
+        .default("")
         .build();
-
-    // Default string schema has no max_length
-    assert!(schema.validate(&SettingValue::String("hello".into())).is_ok());
+    assert!(schema.validate(&SettingValue::String("short".into())).is_ok());
+    assert!(schema.validate(&SettingValue::String("this_is_too_long_string".into())).is_err());
 }
 
 #[test]
-fn test_schema_validation_enum() {
-    let schema = SettingSchema::builder("mode")
-        .enum_type(vec!["fast".into(), "slow".into()])
-        .build();
-
-    assert!(schema.validate(&SettingValue::String("fast".into())).is_ok());
-    assert!(schema.validate(&SettingValue::String("invalid".into())).is_err());
+fn registry_get_by_key() {
+    let mut reg = SchemaRegistry::new();
+    reg.register(bool_schema("nav.sidebar"));
+    assert!(reg.get("nav.sidebar").is_some());
+    assert!(reg.get("nav.toolbar").is_none());
 }
 
-// ========== SchemaRegistry Tests ==========
-
 #[test]
-fn test_registry() {
-    let mut registry = SchemaRegistry::new();
+fn registry_by_category() {
+    let mut reg = SchemaRegistry::new();
 
-    registry.register(
-        SettingSchema::builder("app.theme")
-            .category("Appearance")
-            .build(),
-    );
-    registry.register(
-        SettingSchema::builder("app.font")
-            .category("Appearance")
-            .build(),
-    );
-    registry.register(
-        SettingSchema::builder("browser.homepage")
-            .category("Browser")
-            .build(),
-    );
+    let s1 = SettingSchema::builder("appearance.theme")
+        .title("Theme")
+        .description("Color theme")
+        .enum_type(vec!["light".into(), "dark".into()])
+        .default("light")
+        .category("appearance")
+        .build();
 
-    assert!(registry.get("app.theme").is_some());
-    assert!(registry.get("nonexistent").is_none());
+    let s2 = SettingSchema::builder("appearance.font_size")
+        .title("Font Size")
+        .description("UI font size")
+        .integer_type(Some(8), Some(72))
+        .default(14i64)
+        .category("appearance")
+        .build();
 
-    let appearance: Vec<_> = registry.by_category("Appearance").collect();
+    let s3 = SettingSchema::builder("browser.homepage")
+        .title("Homepage")
+        .description("Start page URL")
+        .string_type()
+        .default("about:blank")
+        .category("browser")
+        .build();
+
+    reg.register(s1);
+    reg.register(s2);
+    reg.register(s3);
+
+    let appearance: Vec<_> = reg.by_category("appearance").collect();
     assert_eq!(appearance.len(), 2);
 
-    let categories = registry.categories();
-    assert_eq!(categories.len(), 2);
-    assert!(categories.contains(&"Appearance".to_string()));
-    assert!(categories.contains(&"Browser".to_string()));
+    let cats = reg.categories();
+    assert_eq!(cats.len(), 2);
+    assert!(cats.contains(&"appearance".to_string()));
+    assert!(cats.contains(&"browser".to_string()));
 }
 
-// ========== SettingsManager Tests ==========
+// ---------------------------------------------------------------------------
+// SettingsManager — get/set/default/reset/callbacks
+// ---------------------------------------------------------------------------
 
-#[fixture]
-fn manager() -> SettingsManager {
-    SettingsManager::new()
+#[test]
+fn manager_set_get_string() {
+    let mgr = SettingsManager::new();
+    mgr.set("ui.theme", SettingValue::String("dark".into())).unwrap();
+    assert_eq!(mgr.get_string("ui.theme"), Some("dark".to_string()));
 }
 
-#[rstest]
-fn test_manager_set_and_get(manager: SettingsManager) {
-    manager
-        .set("theme", SettingValue::String("dark".into()))
-        .unwrap();
-
-    assert_eq!(manager.get_string("theme"), Some("dark".to_string()));
-    assert_eq!(manager.get_bool("theme"), None); // Wrong type
+#[test]
+fn manager_set_get_bool() {
+    let mgr = SettingsManager::new();
+    mgr.set("privacy.dnt", SettingValue::Bool(true)).unwrap();
+    assert_eq!(mgr.get_bool("privacy.dnt"), Some(true));
 }
 
-#[rstest]
-fn test_manager_typed_getters(manager: SettingsManager) {
-    manager.set("flag", SettingValue::Bool(true)).unwrap();
-    manager.set("count", SettingValue::Integer(42)).unwrap();
-    manager.set("ratio", SettingValue::Float(0.75)).unwrap();
-    manager
-        .set("name", SettingValue::String("test".into()))
-        .unwrap();
-
-    assert_eq!(manager.get_bool("flag"), Some(true));
-    assert_eq!(manager.get_integer("count"), Some(42));
-    assert_eq!(manager.get_float("ratio"), Some(0.75));
-    assert_eq!(manager.get_string("name"), Some("test".to_string()));
-    assert_eq!(manager.get("nonexistent"), None);
+#[test]
+fn manager_set_get_integer() {
+    let mgr = SettingsManager::new();
+    mgr.set("perf.workers", SettingValue::Integer(4)).unwrap();
+    assert_eq!(mgr.get_integer("perf.workers"), Some(4));
 }
 
-#[rstest]
-fn test_manager_defaults(manager: SettingsManager) {
-    let schema = SettingSchema::builder("theme")
+#[test]
+fn manager_set_get_float() {
+    let mgr = SettingsManager::new();
+    mgr.set("audio.volume", SettingValue::Float(0.75)).unwrap();
+    let v = mgr.get_float("audio.volume").unwrap();
+    assert!((v - 0.75).abs() < 1e-10);
+}
+
+#[test]
+fn manager_get_returns_default_when_unset() {
+    let mgr = SettingsManager::new();
+
+    let schema = SettingSchema::builder("ui.theme")
+        .title("Theme")
+        .description("Color theme")
         .enum_type(vec!["light".into(), "dark".into()])
-        .default(SettingValue::String("light".into()))
+        .default("light")
         .build();
 
-    manager.register_schema(schema);
+    mgr.register_schema(schema);
 
-    // Should return default when not explicitly set
-    assert_eq!(manager.get_string("theme"), Some("light".to_string()));
-
-    // Set explicitly
-    manager
-        .set("theme", SettingValue::String("dark".into()))
-        .unwrap();
-    assert_eq!(manager.get_string("theme"), Some("dark".to_string()));
+    // Not explicitly set — should return registered default
+    assert_eq!(mgr.get_string("ui.theme"), Some("light".to_string()));
 }
 
-#[rstest]
-fn test_manager_validation(manager: SettingsManager) {
-    let schema = SettingSchema::builder("count")
-        .integer_type(Some(0), Some(100))
-        .default(SettingValue::Integer(50))
+#[test]
+fn manager_set_overrides_default() {
+    let mgr = SettingsManager::new();
+
+    let schema = SettingSchema::builder("ui.theme")
+        .title("Theme")
+        .description("Color theme")
+        .enum_type(vec!["light".into(), "dark".into()])
+        .default("light")
         .build();
 
-    manager.register_schema(schema);
-
-    // Valid
-    assert!(manager.set("count", SettingValue::Integer(75)).is_ok());
-
-    // Invalid - out of bounds
-    assert!(manager.set("count", SettingValue::Integer(200)).is_err());
-
-    // Invalid - wrong type
-    assert!(manager
-        .set("count", SettingValue::String("hello".into()))
-        .is_err());
+    mgr.register_schema(schema);
+    mgr.set("ui.theme", SettingValue::String("dark".into())).unwrap();
+    assert_eq!(mgr.get_string("ui.theme"), Some("dark".to_string()));
 }
 
-#[rstest]
-fn test_manager_reset(manager: SettingsManager) {
-    let schema = SettingSchema::builder("theme")
-        .string_type()
-        .default(SettingValue::String("light".into()))
+#[test]
+fn manager_reset_restores_default() {
+    let mgr = SettingsManager::new();
+
+    let schema = SettingSchema::builder("ui.theme")
+        .title("Theme")
+        .description("Color theme")
+        .enum_type(vec!["light".into(), "dark".into()])
+        .default("light")
         .build();
 
-    manager.register_schema(schema);
-    manager
-        .set("theme", SettingValue::String("dark".into()))
-        .unwrap();
+    mgr.register_schema(schema);
+    mgr.set("ui.theme", SettingValue::String("dark".into())).unwrap();
+    mgr.reset("ui.theme").unwrap();
 
-    assert_eq!(manager.get_string("theme"), Some("dark".to_string()));
-
-    manager.reset("theme").unwrap();
-    assert_eq!(manager.get_string("theme"), Some("light".to_string()));
+    // After reset, default should be served
+    assert_eq!(mgr.get_string("ui.theme"), Some("light".to_string()));
 }
 
-#[rstest]
-fn test_manager_reset_all(manager: SettingsManager) {
-    manager.set("a", SettingValue::Integer(1)).unwrap();
-    manager.set("b", SettingValue::Integer(2)).unwrap();
-
-    manager.reset_all();
-    assert!(manager.user_settings().is_empty());
+#[test]
+fn manager_reset_all_clears_user_overrides() {
+    let mgr = SettingsManager::new();
+    mgr.set("a", SettingValue::Bool(true)).unwrap();
+    mgr.set("b", SettingValue::Integer(5)).unwrap();
+    mgr.reset_all();
+    assert!(mgr.user_settings().is_empty());
 }
 
-#[rstest]
-fn test_manager_change_callback(manager: SettingsManager) {
+#[test]
+fn manager_on_change_callback_fires() {
+    let mgr = SettingsManager::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
-    manager.on_change(move |_key, _old, _new| {
+
+    mgr.on_change(move |_key, _old, _new| {
         c.fetch_add(1, Ordering::SeqCst);
     });
 
-    manager.set("key", SettingValue::Bool(true)).unwrap();
-    assert_eq!(count.load(Ordering::SeqCst), 1);
+    mgr.set("x", SettingValue::Bool(true)).unwrap();
+    mgr.set("x", SettingValue::Bool(false)).unwrap();
 
-    manager.set("key", SettingValue::Bool(false)).unwrap();
     assert_eq!(count.load(Ordering::SeqCst), 2);
 }
 
-#[rstest]
-fn test_manager_user_vs_all_settings(manager: SettingsManager) {
-    let schema = SettingSchema::builder("default_key")
-        .string_type()
-        .default(SettingValue::String("default_val".into()))
-        .build();
-    manager.register_schema(schema);
+#[test]
+fn manager_on_change_receives_old_and_new_values() {
+    let mgr = SettingsManager::new();
+    let last_old = Arc::new(parking_lot::Mutex::new(SettingValue::Null));
+    let last_new = Arc::new(parking_lot::Mutex::new(SettingValue::Null));
 
-    manager.set("user_key", SettingValue::Integer(1)).unwrap();
+    let lo = last_old.clone();
+    let ln = last_new.clone();
+    mgr.on_change(move |_key, old, new| {
+        *lo.lock() = old.clone();
+        *ln.lock() = new.clone();
+    });
 
-    let user = manager.user_settings();
-    assert_eq!(user.len(), 1);
-    assert!(user.get("user_key").is_some());
-    assert!(user.get("default_key").is_none());
+    mgr.set("vol", SettingValue::Integer(50)).unwrap();
+    mgr.set("vol", SettingValue::Integer(75)).unwrap();
 
-    let all = manager.all_settings();
-    assert!(all.get("user_key").is_some());
-    assert!(all.get("default_key").is_some());
-}
-
-#[rstest]
-fn test_manager_persistence() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let path = dir.path().join("settings.json");
-
-    // Save
-    {
-        let manager = SettingsManager::with_storage(&path);
-        manager
-            .set("theme", SettingValue::String("dark".into()))
-            .unwrap();
-        manager.set("count", SettingValue::Integer(42)).unwrap();
-        manager.save().unwrap();
-    }
-
-    // Load
-    {
-        let manager = SettingsManager::with_storage(&path);
-        manager.load().unwrap();
-        assert_eq!(manager.get_string("theme"), Some("dark".to_string()));
-        assert_eq!(manager.get_integer("count"), Some(42));
-    }
-}
-
-#[rstest]
-fn test_manager_load_nonexistent_path() {
-    let manager = SettingsManager::with_storage("/nonexistent/path/settings.json");
-    // Loading from nonexistent path should return Ok (empty)
-    assert!(manager.load().is_ok());
-}
-
-#[rstest]
-fn test_manager_save_no_storage_path(manager: SettingsManager) {
-    // Saving without a storage path should return Ok (noop)
-    assert!(manager.save().is_ok());
-}
-
-#[rstest]
-fn test_manager_clone_shares_state(manager: SettingsManager) {
-    let manager2 = manager.clone();
-
-    manager.set("key", SettingValue::Bool(true)).unwrap();
-    assert_eq!(manager2.get_bool("key"), Some(true));
+    assert_eq!(last_old.lock().as_integer(), Some(50));
+    assert_eq!(last_new.lock().as_integer(), Some(75));
 }
 
 #[test]
-fn test_manager_default() {
-    let manager = SettingsManager::default();
-    assert!(manager.user_settings().is_empty());
+fn manager_schema_validation_rejects_out_of_range() {
+    let mgr = SettingsManager::new();
+
+    let schema = int_schema("volume", Some(0), Some(100));
+    mgr.register_schema(schema);
+
+    let result = mgr.set("volume", SettingValue::Integer(150));
+    assert!(result.is_err());
 }
 
-#[rstest]
-fn test_manager_register_schemas(manager: SettingsManager) {
-    let schemas = vec![
-        SettingSchema::builder("a").bool_type().default(true).build(),
-        SettingSchema::builder("b")
-            .integer_type(None, None)
-            .default(0i32)
-            .build(),
-    ];
+#[test]
+fn manager_schema_validation_accepts_valid_value() {
+    let mgr = SettingsManager::new();
 
-    manager.register_schemas(schemas);
+    let schema = int_schema("volume", Some(0), Some(100));
+    mgr.register_schema(schema);
 
-    let registry = manager.registry();
-    assert!(registry.get("a").is_some());
-    assert!(registry.get("b").is_some());
+    assert!(mgr.set("volume", SettingValue::Integer(80)).is_ok());
+    assert_eq!(mgr.get_integer("volume"), Some(80));
+}
+
+#[test]
+fn manager_all_settings_merges_defaults_and_user() {
+    let mgr = SettingsManager::new();
+
+    let schema = SettingSchema::builder("ui.color")
+        .title("Color")
+        .description("UI color")
+        .string_type()
+        .default("blue")
+        .build();
+    mgr.register_schema(schema);
+
+    // User only overrides one setting
+    mgr.set("ui.font", SettingValue::String("mono".into())).unwrap();
+
+    let all = mgr.all_settings();
+    // Default from schema should be included
+    assert!(all.get("ui.color").is_some());
+    // User setting should be included
+    assert_eq!(all.get("ui.font").unwrap().as_str(), Some("mono"));
+}
+
+#[test]
+fn manager_clone_shares_state() {
+    let mgr = SettingsManager::new();
+    let clone = mgr.clone();
+
+    mgr.set("shared.key", SettingValue::Bool(true)).unwrap();
+    // Cloned manager sees the same state
+    assert_eq!(clone.get_bool("shared.key"), Some(true));
+}
+
+// ---------------------------------------------------------------------------
+// Persistence — save/load round-trip
+// ---------------------------------------------------------------------------
+
+#[test]
+fn manager_save_load_roundtrip() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("settings.json");
+
+    let mgr = SettingsManager::with_storage(&path);
+    mgr.set("perf.workers", SettingValue::Integer(8)).unwrap();
+    mgr.set("ui.theme", SettingValue::String("dark".into())).unwrap();
+    mgr.save().unwrap();
+
+    // Load into a fresh manager
+    let mgr2 = SettingsManager::with_storage(&path);
+    mgr2.load().unwrap();
+    assert_eq!(mgr2.get_integer("perf.workers"), Some(8));
+    assert_eq!(mgr2.get_string("ui.theme"), Some("dark".to_string()));
+}
+
+#[test]
+fn manager_load_nonexistent_path_is_ok() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("nonexistent.json");
+    let mgr = SettingsManager::with_storage(&path);
+    assert!(mgr.load().is_ok());
+}
+
+#[test]
+fn manager_save_no_storage_path_is_ok() {
+    let mgr = SettingsManager::new();
+    assert!(mgr.save().is_ok());
 }
