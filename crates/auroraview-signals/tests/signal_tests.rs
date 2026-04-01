@@ -3,12 +3,13 @@
 //! Tests cover Signal, SignalRegistry, EventBus, and emit-path clone
 //! optimisations (last-handler move, bridge-path cloning).
 
-use auroraview_signals::prelude::*;
-use serde_json::json;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
+
+use auroraview_signals::prelude::*;
+use serde_json::json;
 
 // ---------------------------------------------------------------------------
 // Signal<T> — emit optimisation

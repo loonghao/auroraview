@@ -1,8 +1,9 @@
 //! Tests for IPC router
 
+use std::sync::{Arc, Mutex};
+
 use auroraview_dcc::{IpcMessage, IpcResponse, IpcRouter};
 use serde_json::json;
-use std::sync::{Arc, Mutex};
 
 #[test]
 fn test_ipc_router_new() {
