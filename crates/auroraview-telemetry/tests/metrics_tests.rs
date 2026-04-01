@@ -1,7 +1,7 @@
 //! Tests for auroraview-telemetry metrics module.
 
-use auroraview_telemetry::metrics_api;
-use auroraview_telemetry::WebViewMetrics;
+use auroraview_telemetry::{WebViewMetrics, metrics_api};
+
 
 // ────────────────────────────────────────────────────────────
 // WebViewMetrics struct API
