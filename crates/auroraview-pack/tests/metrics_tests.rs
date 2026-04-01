@@ -1,8 +1,9 @@
 //! Tests for auroraview-pack metrics module
 
-use auroraview_pack::PackedMetrics;
 use std::thread;
 use std::time::Duration;
+
+use auroraview_pack::PackedMetrics;
 
 #[test]
 fn test_metrics_basic() {

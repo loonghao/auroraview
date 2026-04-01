@@ -1,11 +1,12 @@
 //! Integration tests for the packer module:
 //! PackManager, PluginRegistry, PackContext, PackPlugin, PackHook, PackTarget, PackOutput, HookStage
 
+use std::sync::{Arc, Mutex};
+
 use auroraview_pack::{
     PackConfig, PackContext, PackHook, PackManager, PackOutput, PackPlugin, PackResult, PackTarget,
     PluginRegistry,
 };
-use std::sync::{Arc, Mutex};
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 

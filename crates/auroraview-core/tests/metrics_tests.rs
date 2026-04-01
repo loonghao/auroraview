@@ -1,8 +1,9 @@
 //! Metrics tests
 
-use auroraview_core::metrics::Metrics;
 use std::thread;
 use std::time::Duration as StdDuration;
+
+use auroraview_core::metrics::Metrics;
 
 #[test]
 fn test_metrics_creation() {

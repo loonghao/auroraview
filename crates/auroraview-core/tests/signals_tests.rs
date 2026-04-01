@@ -1,11 +1,12 @@
 //! Signal-slot system tests
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+
 use auroraview_core::signals::{
     CallbackBridge, ChannelBridge, ConnectionGuard, EventBridge, EventBus, FilterMiddleware,
     LogLevel, LoggingMiddleware, Signal, SignalRegistry, WebViewSignals,
 };
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 // ============================================================================
 // Signal core tests

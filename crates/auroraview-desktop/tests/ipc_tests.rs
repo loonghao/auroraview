@@ -1,9 +1,10 @@
 //! Tests for IPC router
 
-use auroraview_desktop::{IpcMessage, IpcResponse, IpcRouter};
-use serde_json::json;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+
+use auroraview_desktop::{IpcMessage, IpcResponse, IpcRouter};
+use serde_json::json;
 
 #[test]
 fn test_ipc_router_new() {

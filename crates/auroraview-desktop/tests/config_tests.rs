@@ -1,7 +1,8 @@
 //! Tests for desktop configuration
 
-use auroraview_desktop::{DesktopConfig, TrayConfig, TrayMenuItem};
 use std::path::PathBuf;
+
+use auroraview_desktop::{DesktopConfig, TrayConfig, TrayMenuItem};
 
 #[test]
 fn test_desktop_config_defaults() {

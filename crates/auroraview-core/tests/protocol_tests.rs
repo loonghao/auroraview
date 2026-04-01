@@ -1,11 +1,12 @@
 //! Protocol tests
 
+use std::path::Path;
+
 use auroraview_core::protocol::{
     extract_protocol_path, file_url_to_auroraview, guess_mime_type, is_auroraview_url,
     local_path_to_auroraview, normalize_url, strip_protocol_type, FileResponse, MemoryAssets,
     StartupError, AURORAVIEW_HOST, PROTOCOL_TYPE_FILE, PROTOCOL_TYPE_LOCAL,
 };
-use std::path::Path;
 
 // ============================================================================
 // URL Conversion Tests

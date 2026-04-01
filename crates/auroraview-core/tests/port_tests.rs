@@ -1,8 +1,9 @@
 //! Port allocation tests
 
+use std::net::TcpListener;
+
 use auroraview_core::port::{PortAllocator, PortError};
 use rstest::rstest;
-use std::net::TcpListener;
 
 // ---------------------------------------------------------------------------
 // find_any_port

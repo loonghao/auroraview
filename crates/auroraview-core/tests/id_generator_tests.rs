@@ -1,9 +1,10 @@
 //! ID generator tests
 
-use auroraview_core::id_generator::IdGenerator;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::thread;
+
+use auroraview_core::id_generator::IdGenerator;
 
 // ---------------------------------------------------------------------------
 // Basic sequential generation
