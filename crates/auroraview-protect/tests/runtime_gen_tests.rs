@@ -1,11 +1,10 @@
 //! Integration tests for RuntimeGenerator and generated Python code structure
 
-use auroraview_protect::{
-    ProtectConfig, ProtectionMethod, RuntimeGenerator,
-};
-use auroraview_protect::crypto::EccAlgorithm;
-use auroraview_protect::bytecode::EncryptedModule;
 use rstest::rstest;
+
+use auroraview_protect::bytecode::EncryptedModule;
+use auroraview_protect::crypto::EccAlgorithm;
+use auroraview_protect::{ProtectConfig, ProtectionMethod, RuntimeGenerator};
 
 // ─────────────────────────────────────────────────────────────
 // Helpers

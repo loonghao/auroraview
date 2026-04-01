@@ -1,9 +1,10 @@
 //! Tests for auroraview-telemetry metrics module.
 
-use auroraview_telemetry::metrics_api;
-use auroraview_telemetry::WebViewMetrics;
 use std::sync::Arc;
 use std::thread;
+
+use auroraview_telemetry::metrics_api;
+use auroraview_telemetry::WebViewMetrics;
 
 // ────────────────────────────────────────────────────────────
 // WebViewMetrics struct API
