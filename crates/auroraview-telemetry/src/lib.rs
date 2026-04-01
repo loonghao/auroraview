@@ -80,6 +80,14 @@ impl Telemetry {
         guard::set_enabled(true);
     }
 
+    /// Check if telemetry has been initialized.
+    ///
+    /// Returns `true` after a successful [`Telemetry::init`] call and before
+    /// the returned [`TelemetryGuard`] is dropped.
+    pub fn is_initialized() -> bool {
+        guard::is_initialized()
+    }
+
     /// Capture a message to Sentry when Sentry integration is enabled.
     ///
     /// Returns `true` if Sentry capture path is active, otherwise `false`.
