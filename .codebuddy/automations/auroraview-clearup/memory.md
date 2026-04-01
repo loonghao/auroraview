@@ -157,3 +157,38 @@
 ### Quality Gate
 - Workspace `cargo check`: PASS
 - Workspace `cargo clippy`: PASS (0 warnings)
+
+## 2026-04-01 06:31 — Round 6
+
+### Branch: `auto-improve` (HEAD: `e18cd63`)
+
+### Baseline
+- **Cargo check**: PASS
+- **Cargo clippy**: PASS (0 warnings)
+- **Ruff**: PASS (0 warnings)
+- Iterate Agent committed 3 features since Round 5: hot-reload (`--watch` flag), inject_js/inject_css from pack manifest, CSS injection via `<style>` element
+
+### Actions Taken (Commits: `8c23090`, `ee9e9ef`, `e18cd63`)
+1. **Fixed import ordering in `run.rs`** — `use std::path` was placed after `anyhow`/`clap`; moved to top
+2. **Fixed import ordering in `packed_tests.rs`** — `use std::*` appeared after `auroraview_cli`/`auroraview_core`; moved to top
+3. **Fixed import ordering in `config_tests.rs`** — `use std::path::PathBuf` appeared after `auroraview_pack`; moved to top
+4. **Fixed import ordering in `packed/mod.rs`** — `use std::time::Instant` appeared after two external crates; moved to top
+
+### Code Review Findings (Iterate Agent's 3 commits)
+- **hot-reload design**: `RunEvent` enum with `Reload` variant is correct future-proof pattern; RAII watcher handle correct
+- **`canonicalize().unwrap_or_else(|_| html_path.clone())`** in `run.rs:307` — safe fallback (file existence pre-validated); acceptable
+- **`build_css_injection_script`**: correct JS template literal escaping (backtick + backslash); consistent with existing escape utilities
+- **`notify = "8.0"`**: used only in `auroraview-cli`; no duplication in dep tree; version constraint appropriate
+- **GitHub dep vulnerabilities**: now 47 (25 high) — pending dedicated deps round
+
+### Metrics
+- Import ordering violations fixed: 4
+- Clippy warnings: 0 (unchanged)
+- Ruff warnings: 0 (unchanged)
+- `unsafe impl Send/Sync`: 2 (unchanged)
+- `#[allow(dead_code)]`: ~95 (structural)
+
+### Quality Gate
+- Workspace `cargo check`: PASS
+- Workspace `cargo clippy`: PASS (0 new warnings)
+- `uv run ruff check`: PASS (0 warnings)

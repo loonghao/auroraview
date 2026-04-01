@@ -1,67 +1,97 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-03-31 14:00 (UTC+8)
+## Last Execution: 2026-04-01 06:42 (UTC+8)
 
 ### Branch Status
-- Branch: `auto-improve` (synced with `origin/main`)
-- Pushed: Yes (1 commit this iteration)
+- Branch: `auto-improve` (rebased on `origin/main`, 4 commits ahead this round)
+- Pushed: Yes (commits `b7e5a6d`, `b69e474`, `fa56f09`, `006ab8a`)
 
 ### Completed in This Iteration
 
-1. **Response builder unwrap elimination** (commit `0105b5c`)
-   - `protocol_handlers.rs`: Added 4 helper functions (`error_response`, `ok_response`, `ok_response_with_cors`, `dynamic_response`); replaced 16 `Response::builder().unwrap()` + 1 `chars().next().unwrap()` → zero `.unwrap()` remaining
-   - `packed/webview.rs`: Added `ext_error()` helper in `handle_extension_resource_request`; replaced 7 `.unwrap()` with `expect()` or helpers; replaced inner fallback `.unwrap()` with `.expect()`
-   - Total: **24 `.unwrap()` eliminated** from protocol handler code
-   - All tests passed, clippy zero warnings
+1. **Signal emit clone reduction** (commit `b7e5a6d`)
+   - `signal.rs`: `emit()` and `emit_count()` use `split_last()` to move value into final handler (one fewer clone per emission when N≥1 handlers)
+   - `bus.rs`: `emit()/emit_local()` zero-clone fast path when no middleware and no bridges
+   - Batch-replaced all `aurora_signals::` → `auroraview_signals::` in 8 source files (18 occurrences, fixes all 17 failing doctests → 20/20 pass)
+   - Added `tests/signal_tests.rs` (26 integration tests: Signal, Registry, EventBus, bridge path)
+   - Clippy: 0 warnings; total tests: 58 unit + 26 integration + 20 doctest = 104
+
+2. **EventBus zero-clone fast path** (commit `b69e474`)
+   - `bus.rs emit()`: `!has_middleware && !has_bridges` → zero allocations, direct move to registry
+   - `bus.rs emit_local()`: `middleware.is_empty()` → direct move, no clone
+   - Clippy: 0 warnings (fixed len_zero → is_empty)
+
+3. **CLI AtomicBool migration** (commit `fa56f09`)
+   - `packed/webview.rs`: replaced 3× `Arc<RwLock<bool>>` with `Arc<AtomicBool>` for `loading_screen_ready`, `python_ready`, `waiting_for_python`
+   - All read/write patterns → `load(Ordering::Relaxed)` / `store(true/false, Ordering::Relaxed)`
+   - Added `use std::sync::atomic::{AtomicBool, Ordering};`
+   - Clippy: 0 warnings; CLI tests: 57/57
 
 ### Cumulative Progress (across iterations)
 
-**Thread Safety (complete — zero std::sync::Mutex/RwLock in production code):**
-- [x] All `RwLock<HashMap>` → DashMap migrations (20+ files)
-- [x] All `std::sync::{Mutex,RwLock}` → `parking_lot::{Mutex,RwLock}`
-- [x] History API `RwLock<Vec<VisitItem>>` → `parking_lot::RwLock`
-- [x] Confirmed zero `std::sync::RwLock` or `std::sync::Mutex` remaining in any `crates/*/src/` file
+**CSP Security (COMPLETE):**
+- [x] CoreConfig.content_security_policy field
+- [x] WebViewSettings trait + WebViewSettingsImpl
+- [x] build_csp_injection_script() + build_packed_init_script_with_csp()
+- [x] Wire CSP into CLI packed webview
 
-**Error handling audit (complete):**
-- [x] 25/25 error types use thiserror (100% coverage)
-- [x] All `serde_json::to_value().unwrap()` → proper error propagation
-- [x] All clipboard `.unwrap()` → `ok_or_else()` error propagation
-- [x] All `SystemTime::UNIX_EPOCH.unwrap()` → `unwrap_or_default()`
+**Inject JS/CSS (COMPLETE):**
+- [x] InjectConfig.js_code / css_code in manifest (pre-existing)
+- [x] PackConfig.inject_js / inject_css mapping from manifest
+- [x] inject_js applied to webview init_script at runtime
+- [x] inject_css applied via build_css_injection_script() at runtime
 
-**Static infallible unwrap → expect (complete for known patterns):**
-- [x] All `ProgressStyle::with_template().unwrap()` → `.expect("valid progress template")`
-- [x] All `LazyLock<Regex>::new().unwrap()` → `.expect("valid regex")`
-- [x] ProgressExt trait deduplication (reuses ProgressStyles methods)
+**Hot Reload (COMPLETE):**
+- [x] `--watch` flag on `run` subcommand (requires `--html`)
+- [x] notify 8.0 file watcher with NonRecursive mode
+- [x] EventLoopProxy<RunEvent> bridge for cross-thread signalling
+- [x] Re-reads + re-loads HTML on file change
 
-**Response builder safety (complete — this iteration):**
-- [x] protocol_handlers.rs: 16 `.unwrap()` → helper functions + expect
-- [x] packed/webview.rs: 7 `.unwrap()` → helper function + expect
-- [x] Zero `.unwrap()` remaining in either protocol handler file
+**Signal/Clone Optimization (COMPLETE):**
+- [x] Signal emit: last-handler move (no final clone)
+- [x] EventBus emit/emit_local: zero-clone fast path (no middleware + no bridge)
+- [x] RuntimeManager::broadcast/dispatch_event last-element move
+- [x] ScriptInjector: Arc<CompiledContentScript>
+- [ ] Signal handler API: Fn(&Value) — deferred (complex API break)
+- [ ] TabId: Arc<str> — deferred
 
-**Documentation improvements (complete):**
-- [x] ALL 22 crates: every `pub mod` and `pub use` in lib.rs has `///` doc comments
-- [x] 100% rustdoc coverage for public API entry points
+**Doctest Fixes (COMPLETE):**
+- [x] All 18 occurrences of `aurora_signals::` → `auroraview_signals::` fixed
+- [x] 20/20 doctests pass (was 17 failing)
 
-**Test coverage (complete for previously untested crates):**
-- [x] auroraview-notifications: 39 tests + fixed doctest
-- [x] auroraview-settings: 38 tests
+**CLI AtomicBool (COMPLETE):**
+- [x] `Arc<RwLock<bool>>` → `Arc<AtomicBool>` for 3 FullStack state booleans
+
+**SAFETY Audit (COMPLETE):** Zero unsafe without SAFETY comments
+**Lock Migration (COMPLETE):** Zero std::sync::RwLock in production; all → DashMap/parking_lot/AtomicBool
+**Safety & Code Quality (COMPLETE):** Zero unreachable!/unwrap() in production
+**Pack Crate (COMPLETE):** 9/9 TODOs resolved
+**AI Agent (COMPLETE):** 3/3 TODOs resolved
+**Plugins/Extensions API (COMPLETE):** 30/30 TODOs resolved
+**Browser DevTools (COMPLETE):** 4/4 TODOs resolved
+**DCC Integration (MAJOR):** WebView2 full lifecycle, UE + 3ds Max detection
+**Thread Safety (COMPLETE):** DashMap + crossbeam-channel + AtomicBool
+**Error handling audit (COMPLETE):** 25/25 thiserror
+**Documentation (COMPLETE):** ALL 22 crates documented
+
+**Test coverage:**
+- [x] auroraview-signals: 58 unit + 26 integration + 20 doctest = 104
+- [x] auroraview-cli: packed_tests 36, cli_tests 7, lib_tests 12, others; 57 total
+- [x] auroraview-pack: config_tests ~35, manifest_tests ~25
+- [x] auroraview-extensions: 171, auroraview-plugins: 31, auroraview-browser: 56
+- [x] auroraview-dcc: 35, auroraview-notifications: 39, auroraview-settings: 40
+- [x] auroraview-desktop: 15
 
 **Clippy status:** Zero warnings across workspace
 
-### Remaining `.unwrap()` in Production Code (non-test, non-doc)
-- `auroraview-protect/src/crypto.rs`: 4 production `.unwrap()` — `try_into().unwrap()` after length check (2), `Option::unwrap()` after `is_none()` check (2)
-- `auroraview-protect/src/ast_obfuscator.rs`: 12 production `.unwrap()` — `scope_stack.last().unwrap()` (5), `chars.next().unwrap()` after peek (5), `s.chars().next().unwrap()` (1), `indent_stack.last().unwrap()` (1)
-- `auroraview-protect/src/obfuscator.rs`: 3 production `.unwrap()` — `cap.get(N).unwrap()` regex captures (3)
-- `auroraview-signals/src/python.rs`: 6 production `.unwrap()` — `into_py_any(py).unwrap()` PyO3 (5), `set_item().unwrap()` (1)
-
 ### Known Pre-existing Issues
-- `auroraview-core` assets_tests fail due to unbuilt frontend assets (need `vx just assets-build`)
-- GitHub reports 45 vulnerabilities on default branch (Dependabot)
+- `auroraview-core` assets_tests fail (need `vx just assets-build`)
+- `auroraview` 2 test_desktop_module/test_webview_submodules fail (assets issue)
+- GitHub: 47 Dependabot vulnerabilities (transitive deps)
+- `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
 
 ### Next Iteration Targets (Priority Order)
-1. **PyO3 unwrap safety**: Refactor `json_to_pyobject()` in signals/python.rs to return `PyResult`
-2. **Protect crate unwrap safety**: Replace `Option::unwrap()` after `is_none()` check with idiomatic `.ok_or()?` pattern in crypto.rs
-3. **Dependency audit**: Address Dependabot vulnerability alerts (45 issues)
-4. **DCC integration**: Implement TODO items in auroraview-dcc/src/webview.rs
-5. **UE compatibility**: Create UE integration module skeleton
-6. **Performance**: Profile and optimize WebView startup path
+1. **Signal handler Fn(&Value)**: Migrate handler signature from `Fn(T)` to `Fn(&T)` — would eliminate all per-handler clones but requires breaking API change + migration guide
+2. **TabId: Arc<str>**: Replace `String` tab IDs with `Arc<str>` for cheaper cloning in tab_manager
+3. **Hot-reload for URL mode**: Polling-based watch for URL changes / server restart detection
+4. **Performance profiling**: Profile WebView startup path for sub-150ms target, identify bottlenecks
+5. **auroraview-core assets_tests**: Fix by integrating assets-build into CI build step
