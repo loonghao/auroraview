@@ -1,11 +1,12 @@
 //! Integration tests for Protector struct, CompileOutput, CompileResult,
 //! and related bytecode helpers that do not require a live Python runtime.
 
+use std::fs;
+use std::path::Path;
+
 use auroraview_protect::{
     CompileResult, EncryptionConfig, ProtectConfig, ProtectError, Protector, ProtectionMethod,
 };
-use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
 
 // ─────────────────────────────────────────────────────────────
