@@ -100,8 +100,12 @@ impl IpcRouter {
         let detail = message.detail.clone().unwrap_or(serde_json::Value::Null);
 
         if let Some(handlers) = self.event_listeners.get(event_name) {
-            for handler in handlers.value() {
-                handler(detail.clone());
+            let listeners = handlers.value();
+            if let Some((last, rest)) = listeners.split_last() {
+                for handler in rest {
+                    handler(detail.clone());
+                }
+                last(detail);
             }
         }
     }
