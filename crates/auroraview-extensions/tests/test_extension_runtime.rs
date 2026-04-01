@@ -1,7 +1,9 @@
 //! Integration tests for ExtensionRuntime and RuntimeManager (src/runtime.rs)
 
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 use serde_json::json;
 
