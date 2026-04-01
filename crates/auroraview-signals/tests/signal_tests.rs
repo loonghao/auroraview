@@ -186,6 +186,90 @@ fn registry_remove_clears_handlers() {
 }
 
 // ---------------------------------------------------------------------------
+// connect_ref / emit_ref — zero-clone path
+// ---------------------------------------------------------------------------
+
+#[test]
+fn connect_ref_zero_clone_path_receives_value() {
+    let signal: Signal<String> = Signal::new();
+    let results = Arc::new(parking_lot::Mutex::new(Vec::<String>::new()));
+    let r = results.clone();
+    signal.connect_ref(move |s| r.lock().push(s.clone()));
+
+    signal.emit("alpha".to_string());
+    signal.emit("beta".to_string());
+
+    let r = results.lock();
+    assert_eq!(*r, vec!["alpha", "beta"]);
+}
+
+#[test]
+fn connect_ref_and_connect_both_called_on_emit() {
+    let signal: Signal<i32> = Signal::new();
+    let ref_sum = Arc::new(AtomicUsize::new(0));
+    let val_sum = Arc::new(AtomicUsize::new(0));
+
+    let rs = ref_sum.clone();
+    signal.connect_ref(move |x| { rs.fetch_add(*x as usize, Ordering::SeqCst); });
+
+    let vs = val_sum.clone();
+    signal.connect(move |x| { vs.fetch_add(x as usize, Ordering::SeqCst); });
+
+    signal.emit(5);
+    assert_eq!(ref_sum.load(Ordering::SeqCst), 5);
+    assert_eq!(val_sum.load(Ordering::SeqCst), 5);
+}
+
+#[test]
+fn emit_ref_does_not_call_value_handlers() {
+    let signal: Signal<i32> = Signal::new();
+    let ref_hit = Arc::new(AtomicUsize::new(0));
+    let val_hit = Arc::new(AtomicUsize::new(0));
+
+    let rh = ref_hit.clone();
+    signal.connect_ref(move |_| { rh.fetch_add(1, Ordering::SeqCst); });
+
+    let vh = val_hit.clone();
+    signal.connect(move |_| { vh.fetch_add(1, Ordering::SeqCst); });
+
+    let n = signal.emit_ref(&99);
+    assert_eq!(n, 1);
+    assert_eq!(ref_hit.load(Ordering::SeqCst), 1);
+    assert_eq!(val_hit.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn connect_ref_guard_auto_disconnects() {
+    let signal = Arc::new(Signal::<i32>::new());
+    let count = Arc::new(AtomicUsize::new(0));
+    let c = count.clone();
+
+    {
+        let _guard = signal.connect_ref_guard(move |_| { c.fetch_add(1, Ordering::SeqCst); });
+        signal.emit(1);
+        assert_eq!(count.load(Ordering::SeqCst), 1);
+    } // guard dropped → disconnected
+
+    signal.emit(1);
+    assert_eq!(count.load(Ordering::SeqCst), 1); // still 1
+}
+
+#[test]
+fn disconnect_all_removes_ref_handlers() {
+    let signal: Signal<i32> = Signal::new();
+    signal.connect_ref(|_| {});
+    signal.connect_ref(|_| {});
+    signal.connect(|_| {});
+    assert_eq!(signal.handler_count(), 3);
+
+    signal.disconnect_all();
+    assert_eq!(signal.handler_count(), 0);
+
+    let n = signal.emit_ref(&0);
+    assert_eq!(n, 0);
+}
+
+// ---------------------------------------------------------------------------
 // EventBus
 // ---------------------------------------------------------------------------
 
