@@ -63,3 +63,108 @@ fn test_machine_id() {
     let id = get_machine_id();
     assert!(!id.is_empty());
 }
+
+#[test]
+fn test_token_too_short_is_invalid() {
+    let config = LicenseConfig::token_required();
+    let validator = LicenseValidator::new(config);
+
+    // Token with fewer than 8 chars should fail format check
+    let status = validator.validate(Some("short"));
+    assert!(!status.valid);
+    assert_eq!(status.reason, LicenseReason::InvalidToken);
+}
+
+#[test]
+fn test_empty_token_is_missing() {
+    let config = LicenseConfig::token_required();
+    let validator = LicenseValidator::new(config);
+
+    // Empty string is treated as no token by the format check
+    let status = validator.validate(Some(""));
+    assert!(!status.valid);
+    // Either TokenRequired or InvalidToken is acceptable
+    assert!(matches!(
+        status.reason,
+        LicenseReason::TokenRequired | LicenseReason::InvalidToken
+    ));
+}
+
+#[test]
+fn test_embedded_token_used_when_no_provided() {
+    let mut config = LicenseConfig::token_required();
+    config.embedded_token = Some("embedded-token-xyz".to_string());
+    let validator = LicenseValidator::new(config);
+
+    // No token provided but embedded token should satisfy requirement
+    let status = validator.validate(None);
+    assert!(status.valid);
+}
+
+#[test]
+fn test_full_config_requires_token_and_expiry() {
+    let config = LicenseConfig::full("2099-12-31");
+    let validator = LicenseValidator::new(config);
+
+    // No token: should fail
+    let status = validator.validate(None);
+    assert!(!status.valid);
+    assert_eq!(status.reason, LicenseReason::TokenRequired);
+
+    // With valid token and future expiry: should pass
+    let config2 = LicenseConfig::full("2099-12-31");
+    let validator2 = LicenseValidator::new(config2);
+    let status2 = validator2.validate(Some("my-valid-token-abc123"));
+    assert!(status2.valid);
+    assert!(matches!(
+        status2.reason,
+        LicenseReason::Valid | LicenseReason::GracePeriod
+    ));
+}
+
+#[test]
+fn test_is_active_with_expiry() {
+    let config = LicenseConfig::time_limited("2099-01-01");
+    assert!(config.is_active());
+}
+
+#[test]
+fn test_is_active_with_token() {
+    let config = LicenseConfig::token_required();
+    assert!(config.is_active());
+}
+
+#[test]
+fn test_is_not_active_when_disabled() {
+    let config = LicenseConfig::default();
+    assert!(!config.is_active());
+}
+
+#[test]
+fn test_invalid_date_format_returns_config_error() {
+    let config = LicenseConfig::time_limited("not-a-date");
+    let validator = LicenseValidator::new(config);
+    let status = validator.validate(None);
+    assert!(!status.valid);
+    assert_eq!(status.reason, LicenseReason::ConfigError);
+}
+
+#[test]
+fn test_custom_expiration_message() {
+    let mut config = LicenseConfig::time_limited("2020-01-01");
+    config.expiration_message = Some("Custom expired message".to_string());
+    let validator = LicenseValidator::new(config);
+    let status = validator.validate(None);
+    assert!(!status.valid);
+    assert_eq!(
+        status.message.as_deref(),
+        Some("Custom expired message")
+    );
+}
+
+#[test]
+fn test_machine_id_is_consistent() {
+    let id1 = get_machine_id();
+    let id2 = get_machine_id();
+    assert_eq!(id1, id2, "machine ID should be consistent across calls");
+}

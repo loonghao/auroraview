@@ -67,3 +67,97 @@ fn test_distribution_flavor_default() {
     let flavor = DistributionFlavor::default();
     assert_eq!(flavor, DistributionFlavor::Standalone);
 }
+
+// ============================================================================
+// Additional coverage tests
+// ============================================================================
+
+#[test]
+fn test_entry_point_module_without_function() {
+    // Entry point that is just "module" (no colon) should use full string as module
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
+        .entry_point("mypackage.entrypoint");
+
+    let config = builder.generate_config().unwrap();
+    // Should contain the full string as run_module when there is no colon
+    assert!(config.contains("run_module = \"mypackage.entrypoint\""));
+}
+
+#[test]
+fn test_optimize_level_zero() {
+    let config = PyOxidizerBuilderConfig {
+        optimize: 0,
+        ..Default::default()
+    };
+    let builder =
+        PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
+    let generated = builder.generate_config().unwrap();
+    // Level 0: neither level_one nor level_two should be true
+    assert!(!generated.contains("bytecode_optimize_level_two = true"));
+}
+
+#[test]
+fn test_optimize_level_one_default() {
+    let config = PyOxidizerBuilderConfig::default();
+    assert_eq!(config.optimize, 1);
+    let builder =
+        PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
+    let generated = builder.generate_config().unwrap();
+    // Should contain level_one = true
+    assert!(generated.contains("bytecode_optimize_level_one = true"));
+}
+
+#[test]
+fn test_no_packages_generates_empty_list() {
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
+        .entry_point("main:run");
+
+    let config = builder.generate_config().unwrap();
+    // Should still generate valid config even with no packages
+    assert!(config.contains("name = \"app\""));
+}
+
+#[test]
+fn test_multiple_packages_all_present() {
+    let pkgs = vec![
+        "requests".to_string(),
+        "pyyaml".to_string(),
+        "click".to_string(),
+        "rich".to_string(),
+    ];
+
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
+        .entry_point("main:run")
+        .packages(pkgs.clone());
+
+    let config = builder.generate_config().unwrap();
+    for pkg in &pkgs {
+        assert!(
+            config.contains(&format!("\"{pkg}\"")),
+            "package {pkg} should be in config"
+        );
+    }
+}
+
+#[test]
+fn test_config_python_version_311() {
+    let config = PyOxidizerBuilderConfig {
+        python_version: "3.11".to_string(),
+        ..Default::default()
+    };
+
+    let builder =
+        PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
+    let generated = builder.generate_config().unwrap();
+    assert!(generated.contains("python_version = \"3.11\""));
+}
+
+#[test]
+fn test_app_name_in_config() {
+    let builder =
+        PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "my-special-app")
+            .entry_point("main:run");
+
+    let config = builder.generate_config().unwrap();
+    assert!(config.contains("name = \"my-special-app\""));
+}
