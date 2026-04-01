@@ -229,3 +229,35 @@
 - Workspace `cargo check`: PASS
 - Workspace `cargo clippy`: PASS (0 new warnings)
 - `uv run ruff check`: PASS (0 warnings)
+
+## 2026-04-01 22:07 — Round 11
+
+### Branch: `auto-improve` (HEAD: `0ad3f22`)
+
+### Baseline
+- **Cargo check**: PASS
+- **Cargo clippy**: PASS (0 warnings)
+- **Ruff**: PASS (0 warnings)
+- Iterate Agent committed 9 test batch commits since Round 10 (browser/protect/ai-agent/telemetry tests)
+
+### Actions Taken (Commits: `8787f85`, `7ce0f10`, `b8e740a`, `0ad3f22`)
+1. **Import ordering in `metrics_tests.rs`** — `std` imports after external crates; moved to top
+2. **Import consolidation in `runtime_gen_tests.rs`** — merged split `auroraview_protect::` imports
+3. **Removed `test_` prefix from `session_tests.rs`** (48 fns) — project convention
+4. **Removed `test_` prefix from `metrics_tests.rs`** (37 fns) — project convention
+5. **Import ordering in `dcc/ipc/handler.rs`** — `std::sync::Arc` after external crates; moved to top
+
+### Findings for Future Rounds
+- **`fd96da1` regression**: `TabListenerMap`/`on_event`/`off_event` removed from `TabManager` and `ListenerId`/`off()`/`listener_count()` removed from `IpcRouter` (functional revert, not cleanup scope)
+- **GitHub dep vulnerabilities**: 48 (1 critical, 25 high) — pending dedicated deps round
+- **`#[allow(dead_code)]`**: ~95 (structural, unchanged)
+
+### Metrics
+- Import ordering violations fixed: 3
+- `test_` prefix violations removed: 85 fns (2 files)
+- Clippy warnings: 0 / Ruff warnings: 0
+
+### Quality Gate
+- Workspace `cargo check`: PASS
+- Workspace `cargo clippy`: PASS (0 new warnings)
+- `uv run ruff check`: PASS (0 warnings)

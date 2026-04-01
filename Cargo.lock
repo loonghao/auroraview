@@ -1039,6 +1039,7 @@ dependencies = [
  "py2pyd",
  "rand 0.8.5",
  "regex",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "tempfile",
