@@ -1,35 +1,33 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-02 01:14 (UTC+8)
+## Last Execution: 2026-04-02 05:00 (UTC+8)
 
 ### Branch Status
-- Branch: `auto-improve` (4 new commits this round)
-- Pushed: Yes (commits `aef66cd`, `10f0e44`, `51f6fc1`, `b74c663` pushed to remote)
+- Branch: `auto-improve` (2 new commits this round: `3188641`, `10541ba`)
+- Pushed: Yes (pushed to remote `353807e..10541ba`)
 - Workspace compiles cleanly: all new tests pass, clippy 0 warnings
 
 ### Completed in This Iteration
 
-1. **test(pack): add 68 packer/progress integration tests and expose packer types** (commit `aef66cd`)
-   - Created `tests/packer_tests.rs` (40 tests): PackTarget all variants/display/hash, PackOutput builder chain/clone, PackHook all/display/eq, PackContext new/add_asset/metadata/overlay, PluginRegistry new/with_defaults/get_packer/available_targets, custom RecordingPlugin tests (init/cleanup/hook invoke/skip/multiple/version), PackManager new/default/with_registry/registry/available_targets/format_targets/register_plugin/unsupported_target_error
-   - Created `tests/progress_tests.rs` (28 tests): ProgressStyles all 8 variants, PackProgress new/default/spinner/files/bytes/compile/encrypt/download/success/error/info/warn/set_main/multi, ProgressExt finish_success/finish_error/tick_with_message, standalone spinner/progress_bar helpers
-   - `src/lib.rs`: added public re-exports for PackContext, PackHook, PackOutput, PackPlugin, PackTarget, PluginRegistry, TargetPacker
+1. **test(pack): expand bundle/license/deps_collector/pyoxidizer tests** (commit `3188641`)
+   - `bundle_tests.rs`: 3 → 12 tests (nonexistent path error, empty dir error, extensions filter,
+     custom exclude pattern, nested directories, total_size accumulation, into_assets, path separator normalization)
+   - `license_tests.rs`: 5 → 15 tests (short token invalid, empty token, embedded token fallback,
+     full config token+expiry, is_active checks x3, invalid date format → ConfigError, custom expiration
+     message, machine_id consistency)
+   - `deps_collector_tests.rs`: 6 → 16 tests (FileHashCache new/save/load round-trip, compute_hash
+     consistency, different content → different hashes, has_changed new/unchanged/modified, update, remove,
+     parent dir auto-creation)
+   - `pyoxidizer_tests.rs`: 6 → 13 tests (entry_point without colon, optimize level 0/1, no packages,
+     multiple packages, python version 3.11, app name)
 
-2. **feat(telemetry): expose Telemetry::is_initialized and add guard lifecycle tests** (commit `10f0e44`)
-   - Added `Telemetry::is_initialized()` method to `src/lib.rs` wrapping `guard::is_initialized()`
-   - Expanded `tests/guard_tests.rs` with 4 new tests: is_initialized_false_before_init, is_initialized_true_after_disabled_config_init, double_init_returns_already_initialized_error, guard_drop_resets_initialized
-   - 13 total guard tests (was 9)
-
-3. **test(core): expand utils_tests with 30 additional tests** (commit `51f6fc1`)
-   - Expanded `tests/utils_tests.rs` from 2 to 32 tests
-   - Covers: escape_js_string (10 cases: plain/double-quote/newline/backslash/single-quote/cr/tab/all-special/empty/unicode), escape_json_for_js (6 cases), parse_size (7 cases), get_webview_data_dir/get_extensions_dir/get_cache_dir, ensure_dir_exists (create+existing), is_process_alive (current process + nonexistent pid)
-
-4. **chore(iteration): done** (commit `b74c663`)
+2. **chore(iteration): done** (commit `10541ba`)
 
 ### Cumulative Progress (across iterations)
 
 **CSP Security (COMPLETE)**
 **Inject JS/CSS (COMPLETE)**
-**Hot Reload (COMPLETE):** HTML mode + URL-mode polling
+**Hot Reload (COMPLETE)**
 **Signal/Clone Optimization (COMPLETE)**
 **Doctest Fixes (COMPLETE)**
 **CLI AtomicBool (COMPLETE)**
@@ -56,38 +54,37 @@
 **AI Agent actions/providers coverage (COMPLETE):** 85 tests
 **Protect RuntimeGenerator coverage (COMPLETE):** 46 tests
 **Telemetry concurrent metrics coverage (COMPLETE):** 8 concurrent tests
-**Protect obfuscator integration (COMPLETE):** ObfuscationLevel + 33 tests
-**AI Agent protocol deep coverage (COMPLETE):** 54 tests (was 9)
-**DCC compile error fix (COMPLETE):** ListenerId E0432
-**Protect Protector integration (COMPLETE):** 33 new tests
-**Pack Builder system coverage (COMPLETE):** 50 new tests
-**Pack packer/progress coverage (COMPLETE):** 68 new tests
-**Telemetry is_initialized coverage (COMPLETE):** 4 new tests, Telemetry::is_initialized() exposed
-**Core utils comprehensive coverage (COMPLETE):** 30 new tests (was 2, now 32)
+**Protect obfuscator integration (COMPLETE):** 33 tests
+**AI Agent protocol deep coverage (COMPLETE):** 54 tests
+**DCC compile error fix (COMPLETE)**
+**Protect Protector integration (COMPLETE):** 33 tests
+**Pack Builder system coverage (COMPLETE):** 50 tests
+**Pack packer/progress coverage (COMPLETE):** 68 tests
+**Telemetry is_initialized coverage (COMPLETE):** 4 tests
+**Core utils comprehensive coverage (COMPLETE):** 32 tests
+**Core json/port/id_generator comprehensive coverage (COMPLETE):** 35+12+17 tests
+**Pack HooksConfig coverage (COMPLETE):** 19 tests
+**Core bom_tests comprehensive coverage (COMPLETE):** 59 tests
+**Core config_tests comprehensive coverage (COMPLETE):** 35 tests
+**Core metrics_tests comprehensive (COMPLETE):** 17 tests
+**Core templates_tests comprehensive (COMPLETE):** 14 tests
+**Core signals_tests comprehensive (COMPLETE):** 43 tests (EventBus, ChannelBridge, ConnectionGuard, concurrent)
+**Core protocol_tests comprehensive (COMPLETE):** 32 tests (MemoryAssets, StartupError, MIME coverage)
+**Desktop config_tests comprehensive (COMPLETE):** 22 tests
+**Desktop ipc_tests comprehensive (COMPLETE):** 27 tests
+**Pack metrics_tests comprehensive (COMPLETE):** 13 tests
+**Pack overlay_tests comprehensive (COMPLETE):** 8 tests
+**Pack lib_tests (COMPLETE):** 5 tests
+**Pack bundle_tests comprehensive (COMPLETE):** 12 tests
+**Pack license_tests comprehensive (COMPLETE):** 15 tests
+**Pack deps_collector/FileHashCache (COMPLETE):** 16 tests
+**Pack pyoxidizer_tests comprehensive (COMPLETE):** 13 tests
 
-**Test counts (updated):**
-- auroraview-pack/packer_tests: 40 (NEW)
-- auroraview-pack/progress_tests: 28 (NEW)
-- auroraview-pack/builder_tests: 50
-- auroraview-protect/protector_tests: 33
-- auroraview-ai-agent/protocol_tests: 54 (was 9, +45 new)
-- auroraview-protect/obfuscator_tests: 33
-- auroraview-ai-agent/actions_tests: 85
-- auroraview-protect/runtime_gen_tests: 46
-- auroraview-telemetry/guard_tests: 13 (was 9, +4 new)
-- auroraview-telemetry/metrics_tests: 37
-- auroraview-ai-agent/session_tests: 51
-- auroraview-protect/crypto_tests: 29
-- auroraview-protect/config_tests: 25
-- auroraview-extensions/test_extension_host: 45
-- auroraview-browser/navigation_tests: 32
-- auroraview-extensions/test_extension_runtime: 38
-- auroraview-extensions/test_installer: 29
-- auroraview-browser/tab_tests: 25
-- auroraview-dcc/ipc_tests: 23 (plus config/webview/window_manager tests = 42 total)
-- auroraview-devtools/devtools_tests: 84
-- auroraview-pack (all tests): 180+68 = 248
-- auroraview-core/utils_tests: 32 (was 2, +30 new)
+**Updated test counts:**
+- auroraview-pack/bundle_tests: 12 (was 3)
+- auroraview-pack/license_tests: 15 (was 5)
+- auroraview-pack/deps_collector_tests: 16 (was 6)
+- auroraview-pack/pyoxidizer_tests: 13 (was 6)
 
 **Clippy status:** Zero warnings across all modified crates
 
@@ -98,8 +95,8 @@
 - `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
 
 ### Next Iteration Targets (Priority Order)
-1. **auroraview-core: json_tests expansion** — `json_tests.rs` likely has limited coverage; `from_str/from_slice/from_bytes/to_string/to_string_pretty/from_value/to_value/to_js_literal/serialize_to_js_literal` all testable
-2. **auroraview-core: port_tests expansion** — `port.rs` has free port finding logic; test edge cases
-3. **auroraview-core: id_generator_tests expansion** — `id_generator.rs` likely has basic tests; can add uniqueness/concurrency/format tests
-4. **auroraview-pack: HooksConfig integration** — test HooksConfig builder (add_command, add_vx_command, has_commands, working_dir, env, fail_on_error)
-5. **auroraview-pack: progress deeper coverage** — expand tick/increment behavior under concurrent load
+1. **auroraview-signals: signal_tests expansion** — currently ~20 tests, add concurrent emit, bridge error handling, registry guard, WeakRef patterns
+2. **auroraview-core: error_tests expansion** — check current coverage and add edge cases
+3. **auroraview-desktop: full test suite coverage** — check remaining uncovered modules
+4. **auroraview-pack: manifest_tests expansion** — currently 16 tests; add edge cases for all backend types, inject combinations, full validation matrix
+5. **Performance optimization** — profile and document WebView startup paths
