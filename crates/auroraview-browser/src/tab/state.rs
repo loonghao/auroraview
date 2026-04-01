@@ -84,8 +84,6 @@ impl TabState {
 
     /// Update URL
     pub fn set_url(&mut self, url: String) {
-        self.url = url.clone();
-        // Update security state based on URL
         self.security_state = Some(if url.starts_with("https://") {
             SecurityState::Secure
         } else if url.starts_with("http://") {
@@ -93,6 +91,7 @@ impl TabState {
         } else {
             SecurityState::Neutral
         });
+        self.url = url;
     }
 
     /// Update loading state

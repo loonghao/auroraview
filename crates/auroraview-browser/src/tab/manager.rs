@@ -309,7 +309,7 @@ impl TabManager {
 
     /// Navigate to home page
     pub fn home(&self) -> crate::Result<()> {
-        self.navigate(&self.config.home_url.clone())
+        self.navigate(&self.config.home_url)
     }
 
     /// Resize all tab WebViews
