@@ -9,25 +9,25 @@ use rstest::*;
 // ─────────────────────────────────────────────────────────────
 
 #[test]
-fn test_message_content_text_roundtrip() {
+fn message_content_text_roundtrip() {
     let content = MessageContent::text("hello");
     assert_eq!(content.as_text(), "hello");
 }
 
 #[test]
-fn test_message_content_from_str() {
+fn message_content_from_str() {
     let content: MessageContent = "world".into();
     assert_eq!(content.as_text(), "world");
 }
 
 #[test]
-fn test_message_content_from_string() {
+fn message_content_from_string() {
     let content: MessageContent = String::from("owned").into();
     assert_eq!(content.as_text(), "owned");
 }
 
 #[test]
-fn test_message_content_parts_concatenates_text() {
+fn message_content_parts_concatenates_text() {
     let content = MessageContent::parts(vec![
         ContentPart::text("Hello, "),
         ContentPart::text("World!"),
@@ -36,7 +36,7 @@ fn test_message_content_parts_concatenates_text() {
 }
 
 #[test]
-fn test_message_content_parts_skips_images() {
+fn message_content_parts_skips_images() {
     let content = MessageContent::parts(vec![
         ContentPart::text("before"),
         ContentPart::image_url("https://example.com/img.png"),
@@ -47,13 +47,13 @@ fn test_message_content_parts_skips_images() {
 }
 
 #[test]
-fn test_message_content_empty_parts() {
+fn message_content_empty_parts() {
     let content = MessageContent::parts(vec![]);
     assert_eq!(content.as_text(), "");
 }
 
 #[test]
-fn test_content_part_image_base64() {
+fn content_part_image_base64() {
     let part = ContentPart::image_base64("abc123", "image/png");
     let json = serde_json::to_string(&part).unwrap();
     assert!(json.contains("image_url"));
@@ -69,14 +69,14 @@ fn test_content_part_image_base64() {
 #[case(MessageRole::User)]
 #[case(MessageRole::Assistant)]
 #[case(MessageRole::Tool)]
-fn test_message_roles(#[case] role: MessageRole) {
+fn message_roles(#[case] role: MessageRole) {
     let msg = Message::new(role, "test content");
     assert_eq!(msg.role, role);
     assert!(!msg.id.is_empty());
 }
 
 #[test]
-fn test_message_system() {
+fn message_system() {
     let msg = Message::system("Be helpful");
     assert_eq!(msg.role, MessageRole::System);
     assert_eq!(msg.content.as_text(), "Be helpful");
@@ -85,21 +85,21 @@ fn test_message_system() {
 }
 
 #[test]
-fn test_message_user() {
+fn message_user() {
     let msg = Message::user("Hello AI");
     assert_eq!(msg.role, MessageRole::User);
     assert_eq!(msg.content.as_text(), "Hello AI");
 }
 
 #[test]
-fn test_message_assistant() {
+fn message_assistant() {
     let msg = Message::assistant("Hello human");
     assert_eq!(msg.role, MessageRole::Assistant);
     assert_eq!(msg.content.as_text(), "Hello human");
 }
 
 #[test]
-fn test_message_tool_result() {
+fn message_tool_result() {
     let msg = Message::tool_result("call-123", "42");
     assert_eq!(msg.role, MessageRole::Tool);
     assert_eq!(msg.content.as_text(), "42");
@@ -107,13 +107,13 @@ fn test_message_tool_result() {
 }
 
 #[test]
-fn test_message_with_name() {
+fn message_with_name() {
     let msg = Message::user("hi").with_name("alice");
     assert_eq!(msg.name, Some("alice".to_string()));
 }
 
 #[test]
-fn test_message_with_tool_calls() {
+fn message_with_tool_calls() {
     let calls = vec![
         ToolCall::new("navigate", r#"{"url":"https://rust-lang.org"}"#),
     ];
@@ -124,14 +124,14 @@ fn test_message_with_tool_calls() {
 }
 
 #[test]
-fn test_message_unique_ids() {
+fn message_unique_ids() {
     let m1 = Message::user("a");
     let m2 = Message::user("b");
     assert_ne!(m1.id, m2.id);
 }
 
 #[test]
-fn test_message_serialization_roundtrip() {
+fn message_serialization_roundtrip() {
     let msg = Message::assistant("Hello!").with_name("bot");
     let json = serde_json::to_string(&msg).unwrap();
     let restored: Message = serde_json::from_str(&json).unwrap();
@@ -145,21 +145,21 @@ fn test_message_serialization_roundtrip() {
 // ─────────────────────────────────────────────────────────────
 
 #[test]
-fn test_tool_call_new() {
+fn tool_call_new() {
     let call = ToolCall::new("search", r#"{"query":"rust"}"#);
     assert_eq!(call.name, "search");
     assert!(!call.id.is_empty());
 }
 
 #[test]
-fn test_tool_call_unique_ids() {
+fn tool_call_unique_ids() {
     let c1 = ToolCall::new("fn", "{}");
     let c2 = ToolCall::new("fn", "{}");
     assert_ne!(c1.id, c2.id);
 }
 
 #[test]
-fn test_tool_call_parse_arguments() {
+fn tool_call_parse_arguments() {
     #[derive(serde::Deserialize)]
     struct Args {
         url: String,
@@ -171,7 +171,7 @@ fn test_tool_call_parse_arguments() {
 }
 
 #[test]
-fn test_tool_call_parse_invalid_json_returns_err() {
+fn tool_call_parse_invalid_json_returns_err() {
     #[derive(serde::Deserialize)]
     struct Args {
         _x: String,
@@ -186,7 +186,7 @@ fn test_tool_call_parse_invalid_json_returns_err() {
 // ─────────────────────────────────────────────────────────────
 
 #[test]
-fn test_chat_session_new() {
+fn chat_session_new() {
     let s = ChatSession::new();
     assert_eq!(s.title, "New Chat");
     assert!(s.messages.is_empty());
@@ -195,20 +195,20 @@ fn test_chat_session_new() {
 }
 
 #[test]
-fn test_chat_session_default() {
+fn chat_session_default() {
     let s = ChatSession::default();
     assert_eq!(s.title, "New Chat");
 }
 
 #[test]
-fn test_chat_session_with_system_prompt() {
+fn chat_session_with_system_prompt() {
     let s = ChatSession::with_system_prompt("You are a Rust expert.");
     assert_eq!(s.system_prompt, Some("You are a Rust expert.".to_string()));
     assert_eq!(s.title, "New Chat");
 }
 
 #[test]
-fn test_session_add_user_message_sets_title() {
+fn session_add_user_message_sets_title() {
     let mut s = ChatSession::new();
     s.add_user_message("What is Rust?");
     assert_eq!(s.title, "What is Rust?");
@@ -216,7 +216,7 @@ fn test_session_add_user_message_sets_title() {
 }
 
 #[test]
-fn test_session_title_truncated_at_50_chars() {
+fn session_title_truncated_at_50_chars() {
     let mut s = ChatSession::new();
     let long_msg = "A".repeat(60);
     s.add_user_message(&long_msg);
@@ -225,7 +225,7 @@ fn test_session_title_truncated_at_50_chars() {
 }
 
 #[test]
-fn test_session_title_not_overwritten_by_second_user_message() {
+fn session_title_not_overwritten_by_second_user_message() {
     let mut s = ChatSession::new();
     s.add_user_message("First message");
     s.add_user_message("Second message");
@@ -233,7 +233,7 @@ fn test_session_title_not_overwritten_by_second_user_message() {
 }
 
 #[test]
-fn test_session_add_assistant_message() {
+fn session_add_assistant_message() {
     let mut s = ChatSession::new();
     s.add_assistant_message("Hello!");
     assert_eq!(s.message_count(), 1);
@@ -241,7 +241,7 @@ fn test_session_add_assistant_message() {
 }
 
 #[test]
-fn test_session_add_tool_result() {
+fn session_add_tool_result() {
     let mut s = ChatSession::new();
     s.add_tool_result("call-1", "result-data");
     let msg = &s.messages[0];
@@ -250,7 +250,7 @@ fn test_session_add_tool_result() {
 }
 
 #[test]
-fn test_session_add_assistant_with_tools() {
+fn session_add_assistant_with_tools() {
     let mut s = ChatSession::new();
     let calls = vec![ToolCall::new("click", r##"{"selector":"#btn"}"##)];
     s.add_assistant_with_tools("Using tool", calls);
@@ -259,7 +259,7 @@ fn test_session_add_assistant_with_tools() {
 }
 
 #[test]
-fn test_session_last_message() {
+fn session_last_message() {
     let mut s = ChatSession::new();
     assert!(s.last_message().is_none());
     s.add_user_message("Hi");
@@ -269,7 +269,7 @@ fn test_session_last_message() {
 }
 
 #[test]
-fn test_session_last_assistant_message() {
+fn session_last_assistant_message() {
     let mut s = ChatSession::new();
     s.add_user_message("Hi");
     assert!(s.last_assistant_message().is_none());
@@ -283,7 +283,7 @@ fn test_session_last_assistant_message() {
 }
 
 #[test]
-fn test_session_get_messages_for_api_with_system_prompt() {
+fn session_get_messages_for_api_with_system_prompt() {
     let mut s = ChatSession::with_system_prompt("Be concise.");
     s.add_user_message("Hello");
     s.add_assistant_message("Hi!");
@@ -296,7 +296,7 @@ fn test_session_get_messages_for_api_with_system_prompt() {
 }
 
 #[test]
-fn test_session_get_messages_for_api_without_system_prompt() {
+fn session_get_messages_for_api_without_system_prompt() {
     let mut s = ChatSession::new();
     s.add_user_message("Hello");
     let msgs = s.get_messages_for_api();
@@ -305,7 +305,7 @@ fn test_session_get_messages_for_api_without_system_prompt() {
 }
 
 #[test]
-fn test_session_clear() {
+fn session_clear() {
     let mut s = ChatSession::with_system_prompt("Be helpful.");
     s.add_user_message("First");
     s.add_assistant_message("Response");
@@ -319,7 +319,7 @@ fn test_session_clear() {
 }
 
 #[test]
-fn test_session_estimate_tokens() {
+fn session_estimate_tokens() {
     let mut s = ChatSession::with_system_prompt("short");
     s.add_user_message("four char"); // 9 chars
     // "short" (5) + "four char" (9) = 14 chars / 4 ≈ 3 tokens
@@ -328,7 +328,7 @@ fn test_session_estimate_tokens() {
 }
 
 #[test]
-fn test_session_truncate_to_fit() {
+fn session_truncate_to_fit() {
     let mut s = ChatSession::new();
     // Add many messages
     for i in 0..20 {
@@ -343,7 +343,7 @@ fn test_session_truncate_to_fit() {
 }
 
 #[test]
-fn test_session_serialization_roundtrip() {
+fn session_serialization_roundtrip() {
     let mut s = ChatSession::with_system_prompt("test");
     s.add_user_message("hello");
     s.add_assistant_message("world");
@@ -362,14 +362,14 @@ fn test_session_serialization_roundtrip() {
 // ─────────────────────────────────────────────────────────────
 
 #[test]
-fn test_session_manager_new_starts_empty() {
+fn session_manager_new_starts_empty() {
     let mgr = SessionManager::new();
     assert!(mgr.active_session().is_none());
     assert_eq!(mgr.all_sessions().len(), 0);
 }
 
 #[test]
-fn test_session_manager_new_session_becomes_active() {
+fn session_manager_new_session_becomes_active() {
     let mut mgr = SessionManager::new();
     let session = mgr.new_session();
     let id = session.id.clone();
@@ -379,7 +379,7 @@ fn test_session_manager_new_session_becomes_active() {
 }
 
 #[test]
-fn test_session_manager_get_session() {
+fn session_manager_get_session() {
     let mut mgr = SessionManager::new();
     let session = mgr.new_session();
     let id = session.id.clone();
@@ -389,7 +389,7 @@ fn test_session_manager_get_session() {
 }
 
 #[test]
-fn test_session_manager_set_active() {
+fn session_manager_set_active() {
     let mut mgr = SessionManager::new();
     let s1 = mgr.new_session();
     let id1 = s1.id.clone();
@@ -405,13 +405,13 @@ fn test_session_manager_set_active() {
 }
 
 #[test]
-fn test_session_manager_set_active_nonexistent_returns_false() {
+fn session_manager_set_active_nonexistent_returns_false() {
     let mut mgr = SessionManager::new();
     assert!(!mgr.set_active("ghost-id"));
 }
 
 #[test]
-fn test_session_manager_delete_session() {
+fn session_manager_delete_session() {
     let mut mgr = SessionManager::new();
     let s1 = mgr.new_session();
     let id1 = s1.id.clone();
@@ -422,7 +422,7 @@ fn test_session_manager_delete_session() {
 }
 
 #[test]
-fn test_session_manager_delete_active_switches_to_another() {
+fn session_manager_delete_active_switches_to_another() {
     let mut mgr = SessionManager::new();
     let s1 = mgr.new_session();
     let id1 = s1.id.clone();
@@ -438,13 +438,13 @@ fn test_session_manager_delete_active_switches_to_another() {
 }
 
 #[test]
-fn test_session_manager_delete_nonexistent_returns_false() {
+fn session_manager_delete_nonexistent_returns_false() {
     let mut mgr = SessionManager::new();
     assert!(!mgr.delete_session("ghost"));
 }
 
 #[test]
-fn test_session_manager_sessions_by_recent_sorted() {
+fn session_manager_sessions_by_recent_sorted() {
     let mut mgr = SessionManager::new();
     let s1 = mgr.new_session();
     let id1 = s1.id.clone();
@@ -468,7 +468,7 @@ fn test_session_manager_sessions_by_recent_sorted() {
 }
 
 #[test]
-fn test_session_manager_active_session_mut() {
+fn session_manager_active_session_mut() {
     let mut mgr = SessionManager::new();
     mgr.new_session();
 
@@ -484,7 +484,7 @@ fn test_session_manager_active_session_mut() {
 }
 
 #[test]
-fn test_session_manager_multiple_sessions_all() {
+fn session_manager_multiple_sessions_all() {
     let mut mgr = SessionManager::new();
     mgr.new_session();
     mgr.new_session();

@@ -11,7 +11,7 @@ use auroraview_telemetry::WebViewMetrics;
 // ────────────────────────────────────────────────────────────
 
 #[test]
-fn test_webview_metrics_creation() {
+fn webview_metrics_creation() {
     let metrics = WebViewMetrics::new();
     // Should not panic
     metrics.webview_created("test-window");
@@ -19,70 +19,70 @@ fn test_webview_metrics_creation() {
 }
 
 #[test]
-fn test_webview_metrics_default() {
+fn webview_metrics_default() {
     // Default should use new() internally
     let metrics = WebViewMetrics::default();
     metrics.webview_created("default-window");
 }
 
 #[test]
-fn test_webview_metrics_record_load_time() {
+fn webview_metrics_record_load_time() {
     let metrics = WebViewMetrics::new();
     metrics.record_load_time("test-window", 250.0);
 }
 
 #[test]
-fn test_webview_metrics_record_load_time_zero() {
+fn webview_metrics_record_load_time_zero() {
     let metrics = WebViewMetrics::new();
     metrics.record_load_time("fast-window", 0.0);
 }
 
 #[test]
-fn test_webview_metrics_record_load_time_large() {
+fn webview_metrics_record_load_time_large() {
     let metrics = WebViewMetrics::new();
     metrics.record_load_time("slow-window", 9999.9);
 }
 
 #[test]
-fn test_webview_metrics_record_ipc() {
+fn webview_metrics_record_ipc() {
     let metrics = WebViewMetrics::new();
     metrics.record_ipc_message("test-window", "js_to_rust");
     metrics.record_ipc_latency("test-window", "js_to_rust", 5.2);
 }
 
 #[test]
-fn test_webview_metrics_record_ipc_rust_to_js() {
+fn webview_metrics_record_ipc_rust_to_js() {
     let metrics = WebViewMetrics::new();
     metrics.record_ipc_message("test-window", "rust_to_js");
     metrics.record_ipc_latency("test-window", "rust_to_js", 1.0);
 }
 
 #[test]
-fn test_webview_metrics_record_ipc_zero_latency() {
+fn webview_metrics_record_ipc_zero_latency() {
     let metrics = WebViewMetrics::new();
     metrics.record_ipc_latency("test-window", "js_to_rust", 0.0);
 }
 
 #[test]
-fn test_webview_metrics_record_js_eval() {
+fn webview_metrics_record_js_eval() {
     let metrics = WebViewMetrics::new();
     metrics.record_js_eval("test-window", 12.5);
 }
 
 #[test]
-fn test_webview_metrics_record_js_eval_zero() {
+fn webview_metrics_record_js_eval_zero() {
     let metrics = WebViewMetrics::new();
     metrics.record_js_eval("test-window", 0.0);
 }
 
 #[test]
-fn test_webview_metrics_record_error() {
+fn webview_metrics_record_error() {
     let metrics = WebViewMetrics::new();
     metrics.record_error("test-window", "timeout");
 }
 
 #[test]
-fn test_webview_metrics_record_error_types() {
+fn webview_metrics_record_error_types() {
     let metrics = WebViewMetrics::new();
     metrics.record_error("w1", "ipc_error");
     metrics.record_error("w1", "navigation_error");
@@ -91,31 +91,31 @@ fn test_webview_metrics_record_error_types() {
 }
 
 #[test]
-fn test_webview_metrics_record_navigation() {
+fn webview_metrics_record_navigation() {
     let metrics = WebViewMetrics::new();
     metrics.record_navigation("test-window", "https://example.com");
 }
 
 #[test]
-fn test_webview_metrics_record_navigation_file_url() {
+fn webview_metrics_record_navigation_file_url() {
     let metrics = WebViewMetrics::new();
     metrics.record_navigation("test-window", "file:///index.html");
 }
 
 #[test]
-fn test_webview_metrics_record_navigation_empty() {
+fn webview_metrics_record_navigation_empty() {
     let metrics = WebViewMetrics::new();
     metrics.record_navigation("test-window", "");
 }
 
 #[test]
-fn test_webview_metrics_record_event_emit() {
+fn webview_metrics_record_event_emit() {
     let metrics = WebViewMetrics::new();
     metrics.record_event_emit("test-window", "data_update");
 }
 
 #[test]
-fn test_webview_metrics_record_event_emit_multiple() {
+fn webview_metrics_record_event_emit_multiple() {
     let metrics = WebViewMetrics::new();
     metrics.record_event_emit("w1", "echo_result");
     metrics.record_event_emit("w1", "scene_loaded");
@@ -123,26 +123,26 @@ fn test_webview_metrics_record_event_emit_multiple() {
 }
 
 #[test]
-fn test_webview_metrics_record_memory() {
+fn webview_metrics_record_memory() {
     let metrics = WebViewMetrics::new();
     metrics.record_memory("test-window", 1024 * 1024);
 }
 
 #[test]
-fn test_webview_metrics_record_memory_zero() {
+fn webview_metrics_record_memory_zero() {
     let metrics = WebViewMetrics::new();
     metrics.record_memory("test-window", 0);
 }
 
 #[test]
-fn test_webview_metrics_record_memory_large() {
+fn webview_metrics_record_memory_large() {
     let metrics = WebViewMetrics::new();
     // 200 MB
     metrics.record_memory("large-window", 200 * 1024 * 1024);
 }
 
 #[test]
-fn test_webview_metrics_multiple_instances() {
+fn webview_metrics_multiple_instances() {
     let m1 = WebViewMetrics::new();
     let m2 = WebViewMetrics::new();
     m1.webview_created("win-1");
@@ -154,7 +154,7 @@ fn test_webview_metrics_multiple_instances() {
 }
 
 #[test]
-fn test_webview_metrics_lifecycle_sequence() {
+fn webview_metrics_lifecycle_sequence() {
     let m = WebViewMetrics::new();
     m.webview_created("maya-panel");
     m.record_load_time("maya-panel", 120.0);
@@ -172,39 +172,39 @@ fn test_webview_metrics_lifecycle_sequence() {
 // ────────────────────────────────────────────────────────────
 
 #[test]
-fn test_api_record_webview_load_time() {
+fn api_record_webview_load_time() {
     metrics_api::record_webview_load_time("api-window", 180.0);
 }
 
 #[test]
-fn test_api_record_webview_load_time_zero() {
+fn api_record_webview_load_time_zero() {
     metrics_api::record_webview_load_time("api-window", 0.0);
 }
 
 #[test]
-fn test_api_record_ipc_message_js_to_rust() {
+fn api_record_ipc_message_js_to_rust() {
     metrics_api::record_ipc_message("api-window", "js_to_rust", 4.2);
 }
 
 #[test]
-fn test_api_record_ipc_message_rust_to_js() {
+fn api_record_ipc_message_rust_to_js() {
     metrics_api::record_ipc_message("api-window", "rust_to_js", 1.1);
 }
 
 #[test]
-fn test_api_record_error() {
+fn api_record_error() {
     metrics_api::record_error("api-window", "navigation_failed");
 }
 
 #[test]
-fn test_api_record_error_multiple_types() {
+fn api_record_error_multiple_types() {
     metrics_api::record_error("api-window", "timeout");
     metrics_api::record_error("api-window", "crash");
     metrics_api::record_error("api-window", "ipc_error");
 }
 
 #[test]
-fn test_api_multiple_webviews() {
+fn api_multiple_webviews() {
     for i in 0..5 {
         let id = format!("window-{i}");
         metrics_api::record_webview_load_time(&id, (i * 50) as f64);
@@ -217,14 +217,14 @@ fn test_api_multiple_webviews() {
 // ────────────────────────────────────────────────────────────
 
 #[test]
-fn test_webview_metrics_send_sync() {
+fn webview_metrics_send_sync() {
     // Verify WebViewMetrics can be shared across threads
     fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<WebViewMetrics>();
 }
 
 #[test]
-fn test_concurrent_load_time_recording() {
+fn concurrent_load_time_recording() {
     let metrics = Arc::new(WebViewMetrics::new());
     let mut handles = vec![];
 
@@ -246,7 +246,7 @@ fn test_concurrent_load_time_recording() {
 }
 
 #[test]
-fn test_concurrent_ipc_recording() {
+fn concurrent_ipc_recording() {
     let metrics = Arc::new(WebViewMetrics::new());
     let mut handles = vec![];
 
@@ -269,7 +269,7 @@ fn test_concurrent_ipc_recording() {
 }
 
 #[test]
-fn test_concurrent_error_recording() {
+fn concurrent_error_recording() {
     let metrics = Arc::new(WebViewMetrics::new());
     let mut handles = vec![];
     let error_types = ["timeout", "crash", "ipc_error", "js_error", "navigation_error"];
@@ -290,7 +290,7 @@ fn test_concurrent_error_recording() {
 }
 
 #[test]
-fn test_concurrent_mixed_operations() {
+fn concurrent_mixed_operations() {
     let metrics = Arc::new(WebViewMetrics::new());
     let mut handles = vec![];
 
@@ -317,7 +317,7 @@ fn test_concurrent_mixed_operations() {
 }
 
 #[test]
-fn test_concurrent_metrics_api() {
+fn concurrent_metrics_api() {
     let mut handles = vec![];
 
     for i in 0..8 {
@@ -337,7 +337,7 @@ fn test_concurrent_metrics_api() {
 }
 
 #[test]
-fn test_concurrent_many_windows_creation_destruction() {
+fn concurrent_many_windows_creation_destruction() {
     let metrics = Arc::new(WebViewMetrics::new());
     let mut handles = vec![];
 
@@ -359,7 +359,7 @@ fn test_concurrent_many_windows_creation_destruction() {
 }
 
 #[test]
-fn test_concurrent_memory_recording() {
+fn concurrent_memory_recording() {
     let metrics = Arc::new(WebViewMetrics::new());
     let mut handles = vec![];
 
