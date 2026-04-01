@@ -3,87 +3,78 @@
 //! Unified error handling for WebView operations, inspired by Qt WebView's
 //! detailed error state mapping.
 
-use std::fmt;
+use thiserror::Error;
 
 /// Result type alias for WebView operations
 pub type WebViewResult<T> = Result<T, WebViewError>;
 
 /// Unified error type for WebView operations
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum WebViewError {
     /// Backend initialization failed
+    #[error("Initialization error: {0}")]
     Initialization(String),
 
     /// Navigation failed
+    #[error("Navigation error: {0}")]
     Navigation(String),
 
     /// JavaScript execution failed
+    #[error("JavaScript error: {0}")]
     JavaScript(String),
 
     /// Cookie operation failed
+    #[error("Cookie error: {0}")]
     Cookie(String),
 
     /// Settings operation failed
+    #[error("Settings error: {0}")]
     Settings(String),
 
     /// Backend not supported on current platform
+    #[error("Unsupported platform: {0}")]
     UnsupportedPlatform(String),
 
     /// Backend type not available
+    #[error("Unsupported backend: {0}")]
     UnsupportedBackend(String),
 
     /// WebView is already closed
+    #[error("WebView is closed")]
     Closed,
 
     /// Resource not found
+    #[error("Not found: {0}")]
     NotFound(String),
 
     /// Permission denied
+    #[error("Permission denied: {0}")]
     PermissionDenied(String),
 
     /// Network error
+    #[error("Network error: {0}")]
     Network(String),
 
     /// Timeout error
+    #[error("Timeout: {0}")]
     Timeout(String),
 
     /// Invalid argument
+    #[error("Invalid argument: {0}")]
     InvalidArgument(String),
 
     /// Internal error
+    #[error("Internal error: {0}")]
     Internal(String),
 
     /// Operation not supported by this backend
+    #[error("Unsupported operation: {0}")]
     Unsupported(String),
 
     /// Icon loading/conversion error
+    #[error("Icon error: {0}")]
     Icon(String),
 }
-
-impl fmt::Display for WebViewError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Initialization(msg) => write!(f, "Initialization error: {}", msg),
-            Self::Navigation(msg) => write!(f, "Navigation error: {}", msg),
-            Self::JavaScript(msg) => write!(f, "JavaScript error: {}", msg),
-            Self::Cookie(msg) => write!(f, "Cookie error: {}", msg),
-            Self::Settings(msg) => write!(f, "Settings error: {}", msg),
-            Self::UnsupportedPlatform(msg) => write!(f, "Unsupported platform: {}", msg),
-            Self::UnsupportedBackend(msg) => write!(f, "Unsupported backend: {}", msg),
-            Self::Closed => write!(f, "WebView is closed"),
-            Self::NotFound(msg) => write!(f, "Not found: {}", msg),
-            Self::PermissionDenied(msg) => write!(f, "Permission denied: {}", msg),
-            Self::Network(msg) => write!(f, "Network error: {}", msg),
-            Self::Timeout(msg) => write!(f, "Timeout: {}", msg),
-            Self::InvalidArgument(msg) => write!(f, "Invalid argument: {}", msg),
-            Self::Internal(msg) => write!(f, "Internal error: {}", msg),
-            Self::Unsupported(msg) => write!(f, "Unsupported operation: {}", msg),
-            Self::Icon(msg) => write!(f, "Icon error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for WebViewError {}
 
 impl WebViewError {
     /// Create an initialization error

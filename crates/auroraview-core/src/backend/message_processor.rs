@@ -237,7 +237,7 @@ impl AtomicProcessorStats {
 /// Addresses P0: Message queue wake-up batching latency
 pub struct WakeController {
     /// Last wake time
-    last_wake: std::sync::Mutex<Option<Instant>>,
+    last_wake: parking_lot::Mutex<Option<Instant>>,
     /// Batch interval
     batch_interval: Duration,
     /// Whether immediate wake is enabled
@@ -250,7 +250,7 @@ impl WakeController {
     /// Create a new wake controller
     pub fn new(config: &ProcessorConfig, stats: Arc<AtomicProcessorStats>) -> Self {
         Self {
-            last_wake: std::sync::Mutex::new(None),
+            last_wake: parking_lot::Mutex::new(None),
             batch_interval: Duration::from_millis(config.batch_interval_ms),
             immediate_wake_enabled: AtomicBool::new(config.immediate_wake),
             stats,
@@ -272,26 +272,20 @@ impl WakeController {
         }
 
         // Check batch interval
-        if let Ok(mut last_wake) = self.last_wake.lock() {
-            let now = Instant::now();
-            match *last_wake {
-                Some(last) if now.duration_since(last) < self.batch_interval => false,
-                _ => {
-                    *last_wake = Some(now);
-                    true
-                }
+        let mut last_wake = self.last_wake.lock();
+        let now = Instant::now();
+        match *last_wake {
+            Some(last) if now.duration_since(last) < self.batch_interval => false,
+            _ => {
+                *last_wake = Some(now);
+                true
             }
-        } else {
-            // Lock poisoned, wake anyway
-            true
         }
     }
 
     /// Force a wake-up (bypasses batching)
     pub fn force_wake(&self) {
-        if let Ok(mut last_wake) = self.last_wake.lock() {
-            *last_wake = Some(Instant::now());
-        }
+        *self.last_wake.lock() = Some(Instant::now());
     }
 
     /// Enable or disable immediate wake for high priority messages

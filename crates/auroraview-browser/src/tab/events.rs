@@ -86,17 +86,73 @@ impl TabEvent {
     }
 
     /// Create a close tab event
-    pub fn close_tab(tab_id: TabId) -> Self {
-        Self::CloseTab { tab_id }
+    pub fn close_tab(tab_id: impl Into<TabId>) -> Self {
+        Self::CloseTab {
+            tab_id: tab_id.into(),
+        }
     }
 
     /// Create an activate tab event
-    pub fn activate_tab(tab_id: TabId) -> Self {
-        Self::ActivateTab { tab_id }
+    pub fn activate_tab(tab_id: impl Into<TabId>) -> Self {
+        Self::ActivateTab {
+            tab_id: tab_id.into(),
+        }
     }
 
     /// Create a navigate event
     pub fn navigate(url: impl Into<String>) -> Self {
         Self::Navigate { url: url.into() }
+    }
+
+    /// Create a pin/unpin tab event
+    pub fn pin_tab(tab_id: impl Into<TabId>, pinned: bool) -> Self {
+        Self::PinTab {
+            tab_id: tab_id.into(),
+            pinned,
+        }
+    }
+
+    /// Create a mute/unmute tab event
+    pub fn mute_tab(tab_id: impl Into<TabId>, muted: bool) -> Self {
+        Self::MuteTab {
+            tab_id: tab_id.into(),
+            muted,
+        }
+    }
+
+    /// Create a reorder tab event
+    pub fn reorder_tab(tab_id: impl Into<TabId>, new_index: usize) -> Self {
+        Self::ReorderTab {
+            tab_id: tab_id.into(),
+            new_index,
+        }
+    }
+
+    /// Create a duplicate tab event
+    pub fn duplicate_tab(tab_id: impl Into<TabId>) -> Self {
+        Self::DuplicateTab {
+            tab_id: tab_id.into(),
+        }
+    }
+
+    /// Create a toggle DevTools event for a specific tab
+    pub fn toggle_devtools(tab_id: Option<impl Into<TabId>>) -> Self {
+        Self::ToggleDevTools {
+            tab_id: tab_id.map(|id| id.into()),
+        }
+    }
+
+    /// Create an open DevTools event for a specific tab
+    pub fn open_devtools(tab_id: Option<impl Into<TabId>>) -> Self {
+        Self::OpenDevTools {
+            tab_id: tab_id.map(|id| id.into()),
+        }
+    }
+
+    /// Create a close DevTools event for a specific tab
+    pub fn close_devtools(tab_id: Option<impl Into<TabId>>) -> Self {
+        Self::CloseDevTools {
+            tab_id: tab_id.map(|id| id.into()),
+        }
     }
 }

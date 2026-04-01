@@ -2,14 +2,16 @@
 //!
 //! Handles creating the WebView window and running the main event loop.
 
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
+
 use anyhow::{Context, Result};
-use auroraview_core::assets::{build_error_page, build_packed_init_script, get_loading_html};
+use auroraview_core::assets::{build_error_page, build_packed_init_script_with_csp, get_loading_html};
 use auroraview_core::plugins::{PathScope, PluginRequest, ScopeConfig, ShellScope};
 use auroraview_core::protocol::MemoryAssets;
 use auroraview_pack::{OverlayData, PackMode, PackedMetrics};
 use auroraview_plugins::PluginRouter;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 #[cfg(target_os = "windows")]
 use tao::platform::windows::EventLoopBuilderExtWindows;
@@ -21,14 +23,16 @@ use crate::{load_window_icon, load_window_icon_from_bytes, normalize_url};
 
 use super::backend::{start_python_backend_with_ipc, PythonBackend};
 use super::events::UserEvent;
-use super::utils::{escape_json_for_js, get_webview_data_dir};
+use super::utils::{
+    build_css_injection_script, escape_js_string, escape_json_for_js, get_webview_data_dir,
+};
 #[cfg(target_os = "windows")]
 use super::utils::{get_extensions_dir, has_extensions_in_dir, prepare_active_extensions_dir};
 
 /// Regex pattern for valid handler names: alphanumeric, underscore, dot, colon, hyphen
 /// This prevents injection attacks via malicious handler names
 static VALID_HANDLER_PATTERN: std::sync::LazyLock<regex::Regex> =
-    std::sync::LazyLock::new(|| regex::Regex::new(r"^[A-Za-z0-9_\.:\-]+$").unwrap());
+    std::sync::LazyLock::new(|| regex::Regex::new(r"^[A-Za-z0-9_\.:\-]+$").expect("valid regex"));
 
 /// Build JavaScript to register API methods in frontend
 ///
@@ -156,6 +160,14 @@ fn handle_extension_resource_request(
     use mime_guess::from_path;
     use std::borrow::Cow;
 
+    /// Build an error response for extension protocol handlers.
+    fn ext_error(status: u16, body: &'static [u8]) -> wry::http::Response<Cow<'static, [u8]>> {
+        wry::http::Response::builder()
+            .status(status)
+            .body(Cow::Borrowed(body))
+            .expect("hardcoded status/body should always produce a valid response")
+    }
+
     tracing::debug!("[Protocol] extension resource request: {}", ext_path);
 
     // Parse extension ID and resource path
@@ -163,12 +175,7 @@ fn handle_extension_resource_request(
     let parts: Vec<&str> = ext_path.splitn(2, '/').collect();
     if parts.is_empty() {
         tracing::warn!("[Protocol] Invalid extension path: {}", ext_path);
-        return wry::http::Response::builder()
-            .status(400)
-            .body(Cow::Borrowed(
-                b"Bad Request: Invalid extension path" as &[u8],
-            ))
-            .unwrap();
+        return ext_error(400, b"Bad Request: Invalid extension path");
     }
 
     let extension_id = parts[0];
@@ -199,10 +206,7 @@ fn handle_extension_resource_request(
                 extension_id,
                 e
             );
-            return wry::http::Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Extension not found" as &[u8]))
-                .unwrap();
+            return ext_error(404, b"Extension not found");
         }
     };
 
@@ -214,10 +218,7 @@ fn handle_extension_resource_request(
                 full_path,
                 e
             );
-            return wry::http::Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
-                .unwrap();
+            return ext_error(404, b"Resource not found");
         }
     };
 
@@ -227,10 +228,7 @@ fn handle_extension_resource_request(
             "[Protocol] Directory traversal attempt in extension: {:?}",
             full_path
         );
-        return wry::http::Response::builder()
-            .status(403)
-            .body(Cow::Borrowed(b"Forbidden: Directory traversal" as &[u8]))
-            .unwrap();
+        return ext_error(403, b"Forbidden: Directory traversal");
     }
 
     // Read and serve the file
@@ -249,7 +247,7 @@ fn handle_extension_resource_request(
                 .header("Content-Type", mime_type)
                 .header("Access-Control-Allow-Origin", allowed_origin)
                 .body(Cow::Owned(data))
-                .unwrap()
+                .expect("valid 200 response with content-type and CORS headers")
         }
         Err(e) => {
             tracing::warn!(
@@ -257,10 +255,7 @@ fn handle_extension_resource_request(
                 full_path,
                 e
             );
-            wry::http::Response::builder()
-                .status(404)
-                .body(Cow::Borrowed(b"Resource not found" as &[u8]))
-                .unwrap()
+            ext_error(404, b"Resource not found")
         }
     }
 }
@@ -710,9 +705,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
     // Track loading state for FullStack mode
     // We need both loading screen ready AND Python ready before navigating
-    let loading_screen_ready = Arc::new(RwLock::new(false));
-    let python_ready = Arc::new(RwLock::new(false));
-    let waiting_for_python = Arc::new(RwLock::new(needs_python_backend));
+    let loading_screen_ready = Arc::new(AtomicBool::new(false));
+    let python_ready = Arc::new(AtomicBool::new(false));
+    let waiting_for_python = Arc::new(AtomicBool::new(needs_python_backend));
     // Store registered handlers for API method registration
     let registered_handlers: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
 
@@ -726,7 +721,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
         std::thread::spawn(move || {
             // First timeout: 10 seconds
             std::thread::sleep(std::time::Duration::from_secs(10));
-            let is_ready = python_ready_for_timeout.read().map(|r| *r).unwrap_or(false);
+            let is_ready = python_ready_for_timeout.load(Ordering::Relaxed);
             if !is_ready {
                 tracing::warn!("[Rust] Python backend not ready after 10s, showing warning...");
                 let _ = proxy_for_timeout.send_event(UserEvent::BackendError {
@@ -744,7 +739,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
                 // Second timeout: additional 20 seconds (total 30s)
                 std::thread::sleep(std::time::Duration::from_secs(20));
-                let is_ready_final = python_ready_for_timeout.read().map(|r| *r).unwrap_or(false);
+                let is_ready_final = python_ready_for_timeout.load(Ordering::Relaxed);
                 if !is_ready_final {
                     tracing::error!(
                         "[Rust] Python backend ready timeout after 30s, showing error page"
@@ -805,9 +800,30 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     let data_dir = get_webview_data_dir();
     let mut web_context = WebContext::new(Some(data_dir));
 
-    // Build initialization script with JS bridge
-    // Note: API methods are registered dynamically by Python backend
-    let init_script = build_packed_init_script();
+    // Build initialization script with JS bridge and optional CSP policy
+    // CSP is injected as a <meta> tag before any page scripts run
+    let mut init_script =
+        build_packed_init_script_with_csp(config.content_security_policy.as_deref());
+
+    // Append user-defined JavaScript injection (from [inject] js_code in manifest)
+    if let Some(ref js_code) = config.inject_js {
+        if !js_code.trim().is_empty() {
+            tracing::info!("[packed] Injecting custom JS ({} bytes)", js_code.len());
+            init_script.push('\n');
+            init_script.push_str(js_code);
+        }
+    }
+
+    // Append user-defined CSS injection (from [inject] css_code in manifest)
+    // CSS is injected as a <style> element via JavaScript so it runs as an init script
+    if let Some(ref css_code) = config.inject_css {
+        if !css_code.trim().is_empty() {
+            tracing::info!("[packed] Injecting custom CSS ({} bytes)", css_code.len());
+            let css_script = build_css_injection_script(css_code);
+            init_script.push('\n');
+            init_script.push_str(&css_script);
+        }
+    }
 
     // Clone for IPC handler
     let python_backend_for_ipc = python_backend_state.clone();
@@ -1010,7 +1026,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                             wry::http::Response::builder()
                                 .status(500)
                                 .body(Vec::new().into())
-                                .unwrap()
+                                .expect("fallback 500 response with empty body")
                         })
                 })
                 .with_initialization_script(&init_script)
@@ -1131,7 +1147,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     let exit_code = backend.get_exit_code();
                     let stderr_output = backend.get_last_stderr();
                     let during_startup =
-                        !python_ready_for_monitor.read().map(|r| *r).unwrap_or(false);
+                        !python_ready_for_monitor.load(Ordering::Relaxed);
 
                     tracing::error!(
                         "[ProcessMonitor] Python process crashed! exit_code={:?}, during_startup={}, stderr_len={}",
@@ -1215,11 +1231,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     match user_event {
                         UserEvent::LoadingScreenReady => {
                             tracing::info!("[Rust] Loading screen is ready (DOM rendered)");
-                            if let Ok(mut ready) = loading_screen_ready.write() {
-                                *ready = true;
-                            }
+                            loading_screen_ready.store(true, Ordering::Relaxed);
                             // If Python is already ready, send backend_ready event to frontend
-                            let is_python_ready = python_ready.read().map(|r| *r).unwrap_or(false);
+                            let is_python_ready = python_ready.load(Ordering::Relaxed);
                             if is_python_ready {
                                 tracing::info!(
                                     "[Rust] Python already ready, sending backend_ready to frontend"
@@ -1241,9 +1255,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 "[Rust] Python backend ready with {} handlers",
                                 handlers.len()
                             );
-                            if let Ok(mut ready) = python_ready.write() {
-                                *ready = true;
-                            }
+                            python_ready.store(true, Ordering::Relaxed);
 
                             // Store handlers for later use (e.g., after navigation)
                             if let Ok(mut stored) = registered_handlers.write() {
@@ -1257,7 +1269,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                             }
 
                             // If loading screen is ready, send backend_ready event to frontend
-                            let is_loading_ready = loading_screen_ready.read().map(|r| *r).unwrap_or(false);
+                            let is_loading_ready = loading_screen_ready.load(Ordering::Relaxed);
                             if is_loading_ready {
                                 tracing::info!(
                                     "[Rust] Loading screen ready, sending backend_ready to frontend"
@@ -1275,9 +1287,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                         UserEvent::NavigateToApp => {
                             // Frontend requested navigation to app
                             tracing::info!("[Rust] Frontend requested navigation to app");
-                            if let Ok(mut w) = waiting_for_python.write() {
-                                *w = false;
-                            }
+                            waiting_for_python.store(false, Ordering::Relaxed);
                             do_navigate(&wv);
                         }
                         UserEvent::PageReady => {
@@ -1386,7 +1396,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                                 updates.push(format!("window.auroraLoading.setProgress({});", p));
                             }
                             if let Some(t) = text {
-                                let escaped_text = t.replace('\\', "\\\\").replace('\'', "\\'");
+                                let escaped_text = escape_js_string(&t);
                                 updates.push(format!(
                                     "window.auroraLoading.setText('{}');",
                                     escaped_text
@@ -1395,10 +1405,9 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                             if let (Some(id), Some(txt), Some(status)) =
                                 (step_id, step_text, step_status)
                             {
-                                let escaped_id = id.replace('\\', "\\\\").replace('\'', "\\'");
-                                let escaped_txt = txt.replace('\\', "\\\\").replace('\'', "\\'");
-                                let escaped_status =
-                                    status.replace('\\', "\\\\").replace('\'', "\\'");
+                                let escaped_id = escape_js_string(&id);
+                                let escaped_txt = escape_js_string(&txt);
+                                let escaped_status = escape_js_string(&status);
                                 updates.push(format!(
                                     "window.auroraLoading.setStep('{}', '{}', '{}');",
                                     escaped_id, escaped_txt, escaped_status
@@ -1415,12 +1424,8 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                         }
                         UserEvent::BackendError { message, source } => {
                             // Send backend error to frontend for display
-                            let escaped_msg = message
-                                .replace('\\', "\\\\")
-                                .replace('\'', "\\'")
-                                .replace('\n', "\\n")
-                                .replace('\r', "");
-                            let escaped_source = source.replace('\\', "\\\\").replace('\'', "\\'");
+                            let escaped_msg = escape_js_string(&message);
+                            let escaped_source = escape_js_string(&source);
                             let script = format!(
                                 r#"(function() {{
                                     if (window.auroraLoading && window.auroraLoading.addError) {{

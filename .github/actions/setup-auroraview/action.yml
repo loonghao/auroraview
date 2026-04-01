@@ -31,7 +31,7 @@ runs:
   using: 'composite'
   steps:
     - name: Install vx
-      uses: loonghao/vx@vx-v0.8.4
+      uses: loonghao/vx@vx-v0.8.15
       with:
         github-token: ${{ github.token }}
         cache: false

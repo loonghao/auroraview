@@ -2,12 +2,11 @@
 
 use super::extension::{Extension, ExtensionManifest};
 use crate::browser::BrowserEvent;
-use parking_lot::RwLock;
-use std::collections::HashMap;
+use dashmap::DashMap;
 
 /// Extension registry - manages loaded extensions
 pub struct ExtensionRegistry {
-    extensions: RwLock<HashMap<String, Box<dyn Extension>>>,
+    extensions: DashMap<String, Box<dyn Extension>>,
     enabled: bool,
 }
 
@@ -15,7 +14,7 @@ impl ExtensionRegistry {
     /// Create a new extension registry
     pub fn new(enabled: bool) -> Self {
         Self {
-            extensions: RwLock::new(HashMap::new()),
+            extensions: DashMap::new(),
             enabled,
         }
     }
@@ -39,28 +38,23 @@ impl ExtensionRegistry {
         // Call on_load before inserting
         extension.on_load();
 
-        {
-            let mut extensions = self.extensions.write();
-            if extensions.contains_key(&id) {
-                return Err(crate::BrowserError::Extension(format!(
-                    "Extension already registered: {}",
-                    id
-                )));
-            }
-            extensions.insert(id, extension);
+        if self.extensions.contains_key(&id) {
+            return Err(crate::BrowserError::Extension(format!(
+                "Extension already registered: {}",
+                id
+            )));
         }
+        self.extensions.insert(id, extension);
 
         Ok(())
     }
 
     /// Unregister an extension
     pub fn unregister(&self, id: &str) -> crate::Result<()> {
-        let mut extension = {
-            let mut extensions = self.extensions.write();
-            extensions
-                .remove(id)
-                .ok_or_else(|| crate::BrowserError::ExtensionNotFound(id.to_string()))?
-        };
+        let (_, mut extension) = self
+            .extensions
+            .remove(id)
+            .ok_or_else(|| crate::BrowserError::ExtensionNotFound(id.to_string()))?;
 
         tracing::info!("[ExtensionRegistry] Unregistering extension: {}", id);
         extension.on_unload();
@@ -70,37 +64,34 @@ impl ExtensionRegistry {
     /// Get extension by ID
     pub fn get(&self, id: &str) -> Option<ExtensionManifest> {
         self.extensions
-            .read()
             .get(id)
-            .map(|ext| manifest_from_extension(ext.as_ref()))
+            .map(|ext| manifest_from_extension(ext.value().as_ref()))
     }
 
     /// List all extensions
     pub fn list(&self) -> Vec<ExtensionManifest> {
         self.extensions
-            .read()
-            .values()
-            .map(|ext| manifest_from_extension(ext.as_ref()))
+            .iter()
+            .map(|entry| manifest_from_extension(entry.value().as_ref()))
             .collect()
     }
 
     /// Get enabled extensions
     pub fn enabled(&self) -> Vec<ExtensionManifest> {
         self.extensions
-            .read()
-            .values()
-            .filter(|ext| ext.enabled())
-            .map(|ext| manifest_from_extension(ext.as_ref()))
+            .iter()
+            .filter(|entry| entry.value().enabled())
+            .map(|entry| manifest_from_extension(entry.value().as_ref()))
             .collect()
     }
 
     /// Enable/disable an extension
     pub fn set_enabled(&self, id: &str, enabled: bool) -> crate::Result<()> {
-        let mut extensions = self.extensions.write();
-        let ext = extensions
+        let mut entry = self
+            .extensions
             .get_mut(id)
             .ok_or_else(|| crate::BrowserError::ExtensionNotFound(id.to_string()))?;
-        ext.set_enabled(enabled);
+        entry.value_mut().set_enabled(enabled);
         Ok(())
     }
 
@@ -110,51 +101,51 @@ impl ExtensionRegistry {
             return;
         }
 
-        let mut extensions = self.extensions.write();
-        for ext in extensions.values_mut() {
-            if ext.enabled() {
-                ext.on_event(event);
+        for mut entry in self.extensions.iter_mut() {
+            if entry.value().enabled() {
+                entry.value_mut().on_event(event);
             }
         }
     }
 
     /// Handle toolbar click for an extension
     pub fn on_toolbar_click(&self, id: &str) -> crate::Result<()> {
-        let mut extensions = self.extensions.write();
-        let ext = extensions
+        let mut entry = self
+            .extensions
             .get_mut(id)
             .ok_or_else(|| crate::BrowserError::ExtensionNotFound(id.to_string()))?;
-        ext.on_toolbar_click();
+        entry.value_mut().on_toolbar_click();
         Ok(())
     }
 
     /// Get popup HTML for an extension
     pub fn popup_html(&self, id: &str) -> crate::Result<Option<String>> {
-        let extensions = self.extensions.read();
-        let ext = extensions
+        let entry = self
+            .extensions
             .get(id)
             .ok_or_else(|| crate::BrowserError::ExtensionNotFound(id.to_string()))?;
-        Ok(ext.popup_html().map(String::from))
+        Ok(entry.value().popup_html().map(String::from))
     }
 
     /// Get content scripts for a URL
     pub fn content_scripts_for_url(&self, url: &str) -> Vec<String> {
-        let extensions = self.extensions.read();
-        extensions
-            .values()
-            .filter(|ext| ext.enabled())
-            .filter(|ext| {
-                ext.content_script_matches()
+        self.extensions
+            .iter()
+            .filter(|entry| entry.value().enabled())
+            .filter(|entry| {
+                entry
+                    .value()
+                    .content_script_matches()
                     .iter()
                     .any(|pattern| url_matches_pattern(url, pattern))
             })
-            .filter_map(|ext| ext.content_script().map(String::from))
+            .filter_map(|entry| entry.value().content_script().map(String::from))
             .collect()
     }
 
     /// Get extension count
     pub fn count(&self) -> usize {
-        self.extensions.read().len()
+        self.extensions.len()
     }
 
     /// Check if extensions are enabled

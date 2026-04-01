@@ -43,7 +43,7 @@ impl From<serde_json::Error> for BridgeError {
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::bridge::{EventBridge, BridgeError};
+/// use auroraview_signals::bridge::{EventBridge, BridgeError};
 /// use serde_json::Value;
 ///
 /// struct ConsoleBridge;

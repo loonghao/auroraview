@@ -237,7 +237,7 @@ pub trait LifecycleObserver: Send + Sync {
 /// Observable lifecycle that notifies observers of state changes
 pub struct ObservableLifecycle {
     inner: AtomicLifecycle,
-    observers: std::sync::RwLock<Vec<std::sync::Arc<dyn LifecycleObserver>>>,
+    observers: parking_lot::RwLock<Vec<std::sync::Arc<dyn LifecycleObserver>>>,
 }
 
 impl Default for ObservableLifecycle {
@@ -251,7 +251,7 @@ impl ObservableLifecycle {
     pub fn new() -> Self {
         Self {
             inner: AtomicLifecycle::new(),
-            observers: std::sync::RwLock::new(Vec::new()),
+            observers: parking_lot::RwLock::new(Vec::new()),
         }
     }
 
@@ -272,9 +272,7 @@ impl ObservableLifecycle {
 
     /// Add an observer
     pub fn add_observer(&self, observer: std::sync::Arc<dyn LifecycleObserver>) {
-        if let Ok(mut observers) = self.observers.write() {
-            observers.push(observer);
-        }
+        self.observers.write().push(observer);
     }
 
     /// Activate and notify observers
@@ -314,10 +312,9 @@ impl ObservableLifecycle {
     }
 
     fn notify(&self, event: LifecycleEvent) {
-        if let Ok(observers) = self.observers.read() {
-            for observer in observers.iter() {
-                observer.on_lifecycle_event(event);
-            }
+        let observers = self.observers.read();
+        for observer in observers.iter() {
+            observer.on_lifecycle_event(event);
         }
     }
 }

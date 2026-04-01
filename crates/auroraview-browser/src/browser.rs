@@ -1,14 +1,9 @@
 //! Browser main structure
 
-use crate::config::BrowserConfig;
-use crate::devtools::DevToolsManager;
-use crate::extensions::ExtensionRegistry;
-use crate::navigation::{BookmarkManager, HistoryManager};
-use crate::tab::{TabEvent, TabId, TabManager, TabState};
-use crate::{BrowserError, Extension, Result};
+use std::rc::Rc;
+
 use auroraview_core::assets::{get_browser_controller_html, get_event_bridge_js};
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
 use tao::dpi::LogicalSize;
 use tao::event::{Event, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
@@ -18,6 +13,13 @@ use wry::WebView as WryWebView;
 use wry::WebViewBuilder;
 #[cfg(target_os = "windows")]
 use wry::WebViewExtWindows;
+
+use crate::config::BrowserConfig;
+use crate::devtools::DevToolsManager;
+use crate::extensions::ExtensionRegistry;
+use crate::navigation::{BookmarkManager, HistoryManager};
+use crate::tab::{TabEvent, TabId, TabManager, TabState};
+use crate::{BrowserError, Extension, Result};
 
 /// Height of the browser header (tab bar + toolbar)
 const HEADER_HEIGHT: u32 = 88;
@@ -410,7 +412,7 @@ impl Browser {
             .expect("Failed to create window");
 
         self.window = Some(window);
-        let window_ref = self.window.as_ref().unwrap();
+        let window_ref = self.window.as_ref().expect("window was just set to Some");
 
         // Create controller WebView
         let controller_html = get_browser_controller_html();

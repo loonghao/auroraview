@@ -204,7 +204,7 @@ impl PluginHandler for ShellPlugin {
                     stderr: String::from_utf8_lossy(&output.stderr).to_string(),
                 };
 
-                Ok(serde_json::to_value(result).unwrap())
+                serde_json::to_value(result).map_err(PluginError::serialization_error)
             }
             "which" => {
                 let opts: WhichOptions = serde_json::from_value(args)

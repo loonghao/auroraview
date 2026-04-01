@@ -27,13 +27,15 @@
 //! - Conflict avoidance: Different content → different hash → new directory
 //! - Multi-version support: Multiple versions can coexist
 
-use crate::metrics::PackedMetrics;
-use crate::{PackConfig, PackError, PackResult};
-use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::Instant;
+
+use serde::{Deserialize, Serialize};
+
+use crate::metrics::PackedMetrics;
+use crate::{PackConfig, PackError, PackResult};
 
 /// Magic bytes for overlay identification
 pub const OVERLAY_MAGIC: &[u8; 4] = b"AVPK";
@@ -101,7 +103,7 @@ impl OverlayData {
         let hash = hasher.finalize();
         let short_hash = format!(
             "{:016x}",
-            u64::from_le_bytes(hash.as_bytes()[..8].try_into().unwrap())
+            u64::from_le_bytes(hash.as_bytes()[..8].try_into().expect("blake3 hash is 32 bytes"))
         );
 
         self.content_hash = short_hash.clone();

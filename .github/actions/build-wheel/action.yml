@@ -90,7 +90,7 @@ runs:
           pkg-config
 
     - name: Setup vx helpers
-      uses: loonghao/vx@main
+      uses: loonghao/vx@vx-v0.8.15
       with:
         github-token: ${{ github.token }}
         tools: 'just bun'

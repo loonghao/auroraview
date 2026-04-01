@@ -34,9 +34,15 @@ mod router;
 mod scope;
 mod types;
 
+/// Plugin error types and error codes.
 pub use error::{PluginError, PluginErrorCode, PluginResult};
+/// Trait for implementing plugin command handlers.
 pub use handler::PluginHandler;
+/// Plugin request/response types for command invocation.
 pub use request::{PluginRequest, PluginResponse};
+/// Plugin command router and event callback registration.
 pub use router::{PluginEventCallback, PluginRouter};
+/// Security scope types for filesystem and shell access control.
 pub use scope::{PathScope, ScopeConfig, ScopeError, ShellScope};
+/// Plugin command descriptor type.
 pub use types::PluginCommand;

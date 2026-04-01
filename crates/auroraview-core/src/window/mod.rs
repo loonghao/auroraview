@@ -131,6 +131,9 @@ pub fn close_window_by_hwnd(hwnd: u64) -> bool {
 
     let hwnd_ptr = HWND(hwnd as *mut c_void);
 
+    // SAFETY: PostMessageW is a safe Win32 API that posts a message to a
+    // window's message queue. If the HWND is invalid, the call simply fails
+    // (returns an error) without causing UB.
     unsafe {
         let result = PostMessageW(Some(hwnd_ptr), WM_CLOSE, WPARAM(0), LPARAM(0));
         if result.is_ok() {
@@ -164,6 +167,9 @@ pub fn destroy_window_by_hwnd(hwnd: u64) -> bool {
 
     let hwnd_ptr = HWND(hwnd as *mut c_void);
 
+    // SAFETY: DestroyWindow is a Win32 API that destroys the specified window.
+    // If the HWND is invalid, the call fails with an error. The caller is
+    // responsible for ensuring this is called from the window's owning thread.
     unsafe {
         let result = DestroyWindow(hwnd_ptr);
         if result.is_ok() {

@@ -24,7 +24,7 @@ pub(crate) fn next_connection_id() -> ConnectionId {
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::prelude::*;
+/// use auroraview_signals::prelude::*;
 ///
 /// let signal: Signal<i32> = Signal::new();
 /// let conn_id = signal.connect(|x| println!("{}", x));
@@ -61,7 +61,7 @@ impl std::fmt::Display for ConnectionId {
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::prelude::*;
+/// use auroraview_signals::prelude::*;
 /// use std::sync::Arc;
 ///
 /// let signal = Arc::new(Signal::<String>::new());

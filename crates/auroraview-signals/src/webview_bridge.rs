@@ -29,7 +29,7 @@ pub type WebViewSender = Arc<dyn Fn(WebViewEventMessage) -> Result<(), String> +
 /// # Example
 ///
 /// ```ignore
-/// use aurora_signals::{EventBus, WebViewBridge};
+/// use auroraview_signals::{EventBus, WebViewBridge};
 ///
 /// // Create a bridge with a sender callback
 /// let bridge = WebViewBridge::new("webview", |msg| {

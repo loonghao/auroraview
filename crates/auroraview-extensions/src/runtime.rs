@@ -3,11 +3,13 @@
 //! Manages the execution of extension background scripts (service workers)
 //! and provides the message passing infrastructure for chrome.runtime API.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::error::{ExtensionError, ExtensionResult};
 use crate::ExtensionId;
@@ -223,13 +225,13 @@ pub struct ExtensionRuntime {
     /// Pending messages
     pending_messages: Arc<RwLock<Vec<ExtensionMessage>>>,
     /// Message handlers
-    message_handlers: Arc<RwLock<HashMap<String, MessageHandler>>>,
+    message_handlers: DashMap<String, MessageHandler>,
     /// Active ports
-    ports: Arc<RwLock<HashMap<String, Port>>>,
-    /// Pending responses
+    ports: DashMap<String, Port>,
+    /// Pending responses (kept as RwLock — PendingResponse contains FnOnce which is !Sync for DashMap)
     pending_responses: Arc<RwLock<HashMap<String, PendingResponse>>>,
     /// Event listeners
-    event_listeners: Arc<RwLock<HashMap<String, Vec<String>>>>,
+    event_listeners: DashMap<String, Vec<String>>,
 }
 
 impl ExtensionRuntime {
@@ -239,10 +241,10 @@ impl ExtensionRuntime {
             extension_id,
             state: Arc::new(RwLock::new(RuntimeState::Stopped)),
             pending_messages: Arc::new(RwLock::new(Vec::new())),
-            message_handlers: Arc::new(RwLock::new(HashMap::new())),
-            ports: Arc::new(RwLock::new(HashMap::new())),
+            message_handlers: DashMap::new(),
+            ports: DashMap::new(),
             pending_responses: Arc::new(RwLock::new(HashMap::new())),
-            event_listeners: Arc::new(RwLock::new(HashMap::new())),
+            event_listeners: DashMap::new(),
         }
     }
 
@@ -293,11 +295,10 @@ impl ExtensionRuntime {
         *state = RuntimeState::Stopped;
 
         // Disconnect all ports
-        let mut ports = self.ports.write();
-        for port in ports.values_mut() {
-            port.connected = false;
+        for mut entry in self.ports.iter_mut() {
+            entry.value_mut().connected = false;
         }
-        ports.clear();
+        self.ports.clear();
 
         tracing::info!("Extension runtime stopped: {}", self.extension_id);
         Ok(())
@@ -315,14 +316,13 @@ impl ExtensionRuntime {
         drop(state);
 
         // Dispatch to handlers
-        let handlers = self.message_handlers.read();
         let sender = MessageSender {
             id: Some(message.source.clone()),
             ..Default::default()
         };
 
-        for handler in handlers.values() {
-            if let Some(response) = handler(&message, &sender) {
+        for entry in self.message_handlers.iter() {
+            if let Some(response) = entry.value()(&message, &sender) {
                 return Ok(Some(response));
             }
         }
@@ -371,14 +371,13 @@ impl ExtensionRuntime {
     where
         F: Fn(&ExtensionMessage, &MessageSender) -> Option<Value> + Send + Sync + 'static,
     {
-        let mut handlers = self.message_handlers.write();
-        handlers.insert(handler_id.to_string(), Box::new(handler));
+        self.message_handlers
+            .insert(handler_id.to_string(), Box::new(handler));
     }
 
     /// Remove a message handler
     pub fn remove_handler(&self, handler_id: &str) {
-        let mut handlers = self.message_handlers.write();
-        handlers.remove(handler_id);
+        self.message_handlers.remove(handler_id);
     }
 
     /// Create a port connection
@@ -387,22 +386,22 @@ impl ExtensionRuntime {
         port.target_extension_id = target_extension_id.map(String::from);
 
         let port_id = port.id.clone();
-        self.ports.write().insert(port_id, port.clone());
+        self.ports.insert(port_id, port.clone());
 
         port
     }
 
     /// Disconnect a port
     pub fn disconnect(&self, port_id: &str) {
-        if let Some(port) = self.ports.write().get_mut(port_id) {
-            port.connected = false;
+        if let Some(mut entry) = self.ports.get_mut(port_id) {
+            entry.connected = false;
         }
     }
 
     /// Send a message through a port
     pub fn port_post_message(&self, port_id: &str, message: Value) -> ExtensionResult<()> {
-        let ports = self.ports.read();
-        let port = ports
+        let port = self
+            .ports
             .get(port_id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Port not found: {}", port_id)))?;
 
@@ -423,7 +422,7 @@ impl ExtensionRuntime {
             timestamp: chrono::Utc::now().timestamp_millis(),
         };
 
-        drop(ports);
+        drop(port);
         self.send_message(ext_message)?;
 
         Ok(())
@@ -431,23 +430,24 @@ impl ExtensionRuntime {
 
     /// Get a port by ID
     pub fn get_port(&self, port_id: &str) -> Option<Port> {
-        self.ports.read().get(port_id).cloned()
+        self.ports.get(port_id).map(|entry| entry.value().clone())
     }
 
     /// Add an event listener
     pub fn add_event_listener(&self, event: &str, listener_id: &str) {
-        let mut listeners = self.event_listeners.write();
-        let event_listeners = listeners.entry(event.to_string()).or_default();
-        if !event_listeners.contains(&listener_id.to_string()) {
-            event_listeners.push(listener_id.to_string());
+        let mut entry = self
+            .event_listeners
+            .entry(event.to_string())
+            .or_default();
+        if !entry.contains(&listener_id.to_string()) {
+            entry.push(listener_id.to_string());
         }
     }
 
     /// Remove an event listener
     pub fn remove_event_listener(&self, event: &str, listener_id: &str) {
-        let mut listeners = self.event_listeners.write();
-        if let Some(event_listeners) = listeners.get_mut(event) {
-            event_listeners.retain(|id| id != listener_id);
+        if let Some(mut entry) = self.event_listeners.get_mut(event) {
+            entry.retain(|id| id != listener_id);
         }
     }
 
@@ -493,14 +493,14 @@ impl ExtensionRuntime {
 /// Runtime manager - coordinates multiple extension runtimes
 pub struct RuntimeManager {
     /// Active runtimes
-    runtimes: Arc<RwLock<HashMap<ExtensionId, Arc<ExtensionRuntime>>>>,
+    runtimes: DashMap<ExtensionId, Arc<ExtensionRuntime>>,
 }
 
 impl RuntimeManager {
     /// Create a new runtime manager
     pub fn new() -> Self {
         Self {
-            runtimes: Arc::new(RwLock::new(HashMap::new())),
+            runtimes: DashMap::new(),
         }
     }
 
@@ -509,49 +509,51 @@ impl RuntimeManager {
         &self,
         extension_id: ExtensionId,
     ) -> ExtensionResult<Arc<ExtensionRuntime>> {
-        let mut runtimes = self.runtimes.write();
-        if runtimes.contains_key(&extension_id) {
+        if self.runtimes.contains_key(&extension_id) {
             return Err(ExtensionError::AlreadyLoaded(extension_id));
         }
 
         let runtime = Arc::new(ExtensionRuntime::new(extension_id.clone()));
-        runtimes.insert(extension_id, runtime.clone());
+        self.runtimes.insert(extension_id, runtime.clone());
         Ok(runtime)
     }
 
     /// Get a runtime
     pub fn get_runtime(&self, extension_id: &str) -> Option<Arc<ExtensionRuntime>> {
-        self.runtimes.read().get(extension_id).cloned()
+        self.runtimes.get(extension_id).map(|r| r.value().clone())
     }
 
     /// Remove a runtime
     pub fn remove_runtime(&self, extension_id: &str) -> Option<Arc<ExtensionRuntime>> {
-        self.runtimes.write().remove(extension_id)
+        self.runtimes.remove(extension_id).map(|(_, v)| v)
     }
 
     /// Start all runtimes
     pub fn start_all(&self) -> ExtensionResult<()> {
-        let runtimes = self.runtimes.read();
-        for runtime in runtimes.values() {
-            runtime.start()?;
+        for entry in self.runtimes.iter() {
+            entry.value().start()?;
         }
         Ok(())
     }
 
     /// Stop all runtimes
     pub fn stop_all(&self) -> ExtensionResult<()> {
-        let runtimes = self.runtimes.read();
-        for runtime in runtimes.values() {
-            runtime.stop()?;
+        for entry in self.runtimes.iter() {
+            entry.value().stop()?;
         }
         Ok(())
     }
 
     /// Broadcast a message to all extensions
     pub fn broadcast(&self, message: ExtensionMessage) -> ExtensionResult<()> {
-        let runtimes = self.runtimes.read();
-        for runtime in runtimes.values() {
-            runtime.send_message(message.clone())?;
+        let mut iter = self.runtimes.iter().peekable();
+        while let Some(entry) = iter.next() {
+            if iter.peek().is_some() {
+                entry.value().send_message(message.clone())?;
+            } else {
+                entry.value().send_message(message)?;
+                break;
+            }
         }
         Ok(())
     }
@@ -562,23 +564,31 @@ impl RuntimeManager {
         extension_id: &str,
         message: ExtensionMessage,
     ) -> ExtensionResult<Option<Value>> {
-        let runtimes = self.runtimes.read();
-        let runtime = runtimes
+        let runtime = self
+            .runtimes
             .get(extension_id)
             .ok_or_else(|| ExtensionError::NotFound(extension_id.to_string()))?;
-        runtime.send_message(message)
+        runtime.value().send_message(message)
     }
 
     /// Get all extension IDs
     pub fn extension_ids(&self) -> Vec<ExtensionId> {
-        self.runtimes.read().keys().cloned().collect()
+        self.runtimes
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect()
     }
 
     /// Dispatch an event to all extensions
     pub fn dispatch_event(&self, event: &str, data: Value) -> ExtensionResult<()> {
-        let runtimes = self.runtimes.read();
-        for runtime in runtimes.values() {
-            runtime.dispatch_event(event, data.clone())?;
+        let mut iter = self.runtimes.iter().peekable();
+        while let Some(entry) = iter.next() {
+            if iter.peek().is_some() {
+                entry.value().dispatch_event(event, data.clone())?;
+            } else {
+                entry.value().dispatch_event(event, data)?;
+                break;
+            }
         }
         Ok(())
     }

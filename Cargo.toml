@@ -154,9 +154,6 @@ dashmap = "6.1"
 ipc-channel = { version = "0.20", optional = true }
 ipckit = "0.1"
 
-# Window utilities
-active-win-pos-rs = "0.9"
-
 # File dialogs
 rfd = "0.16"
 

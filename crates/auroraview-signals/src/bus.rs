@@ -24,7 +24,7 @@ use crate::registry::SignalRegistry;
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::prelude::*;
+/// use auroraview_signals::prelude::*;
 /// use serde_json::json;
 ///
 /// let bus = EventBus::new();
@@ -140,7 +140,7 @@ impl EventBus {
     /// # Example
     ///
     /// ```rust
-    /// use aurora_signals::prelude::*;
+    /// use auroraview_signals::prelude::*;
     ///
     /// let bus = EventBus::new();
     /// let conn = bus.on("user:login", |data| {
@@ -189,13 +189,21 @@ impl EventBus {
     /// # Example
     ///
     /// ```rust
-    /// use aurora_signals::prelude::*;
+    /// use auroraview_signals::prelude::*;
     /// use serde_json::json;
     ///
     /// let bus = EventBus::new();
     /// bus.emit("app:start", json!({"timestamp": 1234567890}));
     /// ```
     pub fn emit(&self, event: &str, data: Value) -> usize {
+        let has_middleware = !self.middleware.is_empty();
+        let has_bridges = !self.bridges.is_empty();
+
+        // Fast path: no middleware, no bridges — zero allocations.
+        if !has_middleware && !has_bridges {
+            return self.registry.emit(event, data);
+        }
+
         let mut data = data;
 
         // Process through middleware
@@ -210,11 +218,10 @@ impl EventBus {
             return 0;
         }
 
-        // Emit to local handlers
-        let handler_count = self.registry.emit(event, data.clone());
-
-        // Emit to bridges
-        if !self.bridges.is_empty() {
+        // Clone only when both local handlers AND bridges need the data.
+        let handler_count = if has_bridges {
+            let local_data = data.clone();
+            let count = self.registry.emit(event, local_data);
             if let Err(e) = self.bridges.emit(event, data.clone()) {
                 tracing::warn!(
                     bus_name = ?self.name,
@@ -223,7 +230,10 @@ impl EventBus {
                     "Bridge emit failed"
                 );
             }
-        }
+            count
+        } else {
+            self.registry.emit(event, data.clone())
+        };
 
         // Notify middleware after emit
         self.middleware.process_after(event, &data, handler_count);
@@ -233,6 +243,11 @@ impl EventBus {
 
     /// Emit an event only to local handlers (skip bridges)
     pub fn emit_local(&self, event: &str, data: Value) -> usize {
+        // Fast path: no middleware — zero allocations.
+        if self.middleware.is_empty() {
+            return self.registry.emit(event, data);
+        }
+
         let mut data = data;
 
         let result = self.middleware.process_before(event, &mut data);
@@ -331,9 +346,10 @@ impl std::fmt::Debug for EventBus {
     }
 }
 
-// EventBus is Send + Sync
-unsafe impl Send for EventBus {}
-unsafe impl Sync for EventBus {}
+
+// EventBus is automatically Send + Sync because all fields
+// (SignalRegistry, MiddlewareChain, MultiBridge, Option<String>) satisfy the bounds.
+
 
 // ============================================================================
 // Global Event Bus
@@ -349,7 +365,7 @@ use std::sync::LazyLock;
 /// # Example
 ///
 /// ```rust
-/// use aurora_signals::bus::global_bus;
+/// use auroraview_signals::bus::global_bus;
 /// use serde_json::json;
 ///
 /// global_bus().on("app:event", |data| {

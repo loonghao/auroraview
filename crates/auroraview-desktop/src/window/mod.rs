@@ -5,20 +5,21 @@ mod state;
 
 pub use builder::{create_window, create_window_with_router};
 
-use crate::config::DesktopConfig;
-use crate::error::{DesktopError, Result};
-use crate::ipc::IpcRouter;
 use std::sync::{Arc, Mutex};
+
 use tao::event_loop::EventLoopProxy;
 use tao::window::Window;
 use wry::WebView;
 
+use crate::config::DesktopConfig;
+use crate::error::{DesktopError, Result};
 use crate::event_loop::UserEvent;
+use crate::ipc::IpcRouter;
 
 /// Desktop window with WebView
 pub struct DesktopWindow {
-    /// The WebView instance
-    pub(crate) webview: Arc<Mutex<WebView>>,
+    /// The WebView instance (Option for deferred initialization in IPC handler)
+    pub(crate) webview: Arc<Mutex<Option<WebView>>>,
 
     /// The window instance
     pub(crate) window: Window,
@@ -115,30 +116,36 @@ impl DesktopWindow {
 
     /// Navigate to URL
     pub fn navigate(&self, url: &str) -> Result<()> {
-        if let Ok(webview) = self.webview.lock() {
-            webview
-                .load_url(url)
-                .map_err(|e| DesktopError::WebViewCreation(e.to_string()))?;
+        if let Ok(guard) = self.webview.lock() {
+            if let Some(ref webview) = *guard {
+                webview
+                    .load_url(url)
+                    .map_err(|e| DesktopError::WebViewCreation(e.to_string()))?;
+            }
         }
         Ok(())
     }
 
     /// Load HTML content
     pub fn load_html(&self, html: &str) -> Result<()> {
-        if let Ok(webview) = self.webview.lock() {
-            webview
-                .load_html(html)
-                .map_err(|e| DesktopError::WebViewCreation(e.to_string()))?;
+        if let Ok(guard) = self.webview.lock() {
+            if let Some(ref webview) = *guard {
+                webview
+                    .load_html(html)
+                    .map_err(|e| DesktopError::WebViewCreation(e.to_string()))?;
+            }
         }
         Ok(())
     }
 
     /// Evaluate JavaScript
     pub fn eval(&self, script: &str) -> Result<()> {
-        if let Ok(webview) = self.webview.lock() {
-            webview
-                .evaluate_script(script)
-                .map_err(|e| DesktopError::WebViewCreation(e.to_string()))?;
+        if let Ok(guard) = self.webview.lock() {
+            if let Some(ref webview) = *guard {
+                webview
+                    .evaluate_script(script)
+                    .map_err(|e| DesktopError::WebViewCreation(e.to_string()))?;
+            }
         }
         Ok(())
     }

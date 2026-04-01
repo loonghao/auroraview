@@ -12,9 +12,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, info};
+
+use parking_lot::Mutex;
 
 use super::{Result, ServiceDiscoveryError};
 
@@ -157,10 +158,7 @@ impl InstanceRegistry {
     pub fn register(&self, info: &InstanceInfo) -> Result<()> {
         self.write_file(info)?;
 
-        let mut ids = self
-            .registered_ids
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut ids = self.registered_ids.lock();
         if !ids.contains(&info.window_id) {
             ids.push(info.window_id.clone());
         }
@@ -176,10 +174,7 @@ impl InstanceRegistry {
     pub fn unregister(&self, window_id: &str) -> Result<()> {
         self.delete_file(window_id)?;
 
-        let mut ids = self
-            .registered_ids
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut ids = self.registered_ids.lock();
         ids.retain(|id| id != window_id);
 
         info!("Instance unregistered: {}", window_id);
@@ -236,13 +231,7 @@ impl InstanceRegistry {
 
     /// Cleanup all instances registered by this process
     pub fn cleanup(&self) {
-        let ids: Vec<String> = {
-            let ids = self
-                .registered_ids
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            ids.clone()
-        };
+        let ids: Vec<String> = self.registered_ids.lock().clone();
 
         for window_id in ids {
             if let Err(e) = self.delete_file(&window_id) {
@@ -358,32 +347,11 @@ fn get_instances_dir() -> Result<PathBuf> {
     Ok(instances_dir)
 }
 
-/// Check if a process is still running
-#[cfg(target_os = "windows")]
+/// Check if a process is still running.
+///
+/// Delegates to [`crate::utils::is_process_alive`].
 fn is_process_alive(pid: u32) -> bool {
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
-
-    unsafe {
-        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-        if let Ok(h) = handle {
-            let _ = CloseHandle(h);
-            true
-        } else {
-            false
-        }
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn is_process_alive(pid: u32) -> bool {
-    use std::process::Command;
-
-    Command::new("kill")
-        .args(["-0", &pid.to_string()])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    crate::utils::is_process_alive(pid)
 }
 
 /// Global registry instance

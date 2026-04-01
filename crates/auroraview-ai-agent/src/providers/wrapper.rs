@@ -1,13 +1,14 @@
 //! Wrapper around genai crate for unified AI provider access
 
-use crate::error::{AIError, AIResult};
-use crate::providers::types::*;
+use std::sync::Arc;
 
 use genai::chat::{ChatMessage, ChatOptions as GenaiChatOptions, ChatRequest};
 use genai::Client;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
+
+use crate::error::{AIError, AIResult};
+use crate::providers::types::*;
 
 /// AI Client wrapper around genai crate
 ///
@@ -158,6 +159,28 @@ impl AIClient {
         // Extract content using new genai 0.5 API
         let content = chat_res.first_text().map(|s| s.to_string());
 
+        // Extract tool calls from response
+        let tool_calls = {
+            let genai_calls = chat_res.tool_calls();
+            if genai_calls.is_empty() {
+                None
+            } else {
+                Some(
+                    genai_calls
+                        .into_iter()
+                        .map(|tc| ToolCall {
+                            id: tc.call_id.clone(),
+                            name: tc.fn_name.clone(),
+                            arguments: tc.fn_arguments.to_string(),
+                        })
+                        .collect(),
+                )
+            }
+        };
+
+        // Extract reasoning content (DeepSeek R1, Anthropic thinking, etc.)
+        let reasoning_content = chat_res.reasoning_content.clone();
+
         // Extract usage if available
         let usage = {
             let u = &chat_res.usage;
@@ -175,8 +198,8 @@ impl AIClient {
 
         Ok(CompletionResponse {
             content,
-            tool_calls: None, // TODO: Extract tool calls when genai supports it
-            reasoning_content: None, // TODO: Extract reasoning for DeepSeek R1
+            tool_calls,
+            reasoning_content,
             finish_reason: None,
             usage,
         })

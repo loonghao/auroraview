@@ -998,11 +998,39 @@
         }
 
         function toggleModelMenu() {
-            // TODO: Show model selector dropdown
             const models = ['gpt-4o', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'deepseek-chat'];
-            const idx = models.indexOf(currentModel);
-            currentModel = models[(idx + 1) % models.length];
-            document.getElementById('currentModel').textContent = currentModel.split('-').slice(0, 2).join('-');
+            const btn = document.getElementById('currentModel');
+            const existing = document.getElementById('model-dropdown');
+            if (existing) { existing.remove(); return; }
+
+            const dropdown = document.createElement('div');
+            dropdown.id = 'model-dropdown';
+            dropdown.style.cssText = 'position:absolute;bottom:100%;left:0;background:var(--bg-secondary,#1e1e1e);border:1px solid var(--border-color,#333);border-radius:8px;padding:4px;min-width:200px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.3);margin-bottom:4px;';
+
+            models.forEach(function(model) {
+                var item = document.createElement('div');
+                item.textContent = model;
+                item.style.cssText = 'padding:8px 12px;cursor:pointer;border-radius:4px;font-size:13px;color:var(--text-primary,#e0e0e0);';
+                if (model === currentModel) item.style.fontWeight = 'bold';
+                item.onmouseenter = function() { item.style.background = 'var(--bg-hover,#2d2d2d)'; };
+                item.onmouseleave = function() { item.style.background = 'none'; };
+                item.onclick = function() {
+                    currentModel = model;
+                    btn.textContent = model.split('-').slice(0, 2).join('-');
+                    dropdown.remove();
+                };
+                dropdown.appendChild(item);
+            });
+
+            btn.parentElement.style.position = 'relative';
+            btn.parentElement.appendChild(dropdown);
+
+            document.addEventListener('click', function handler(e) {
+                if (!dropdown.contains(e.target) && e.target !== btn) {
+                    dropdown.remove();
+                    document.removeEventListener('click', handler);
+                }
+            });
         }
 
         // Utilities

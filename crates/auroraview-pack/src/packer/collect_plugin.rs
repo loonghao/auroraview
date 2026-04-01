@@ -3,11 +3,13 @@
 //! This plugin handles resource collection configured in [hooks.collect] sections
 //! of auroraview.pack.toml manifest files.
 
+use std::path::{Path, PathBuf};
+
+use glob::glob;
+
 use super::traits::{PackContext, PackHook, PackPlugin, PackResult};
 use crate::common::CollectPattern;
 use crate::PackError;
-use glob::glob;
-use std::path::{Path, PathBuf};
 
 /// Collect plugin for gathering additional files
 pub struct CollectPlugin {
@@ -151,7 +153,8 @@ impl CollectPlugin {
                         let dest_file = if pattern.preserve_structure {
                             dest_ref.join(&relative)
                         } else {
-                            dest_ref.join(entry.file_name().unwrap())
+                            let name = entry.file_name().unwrap_or(entry.as_os_str());
+                            dest_ref.join(name)
                         };
 
                         // Add to context assets
@@ -245,7 +248,7 @@ impl CollectPlugin {
                         let dest_file = if pattern.preserve_structure {
                             dest.join(&relative)
                         } else {
-                            dest.join(path.file_name().unwrap())
+                            dest.join(path.file_name().unwrap_or(path.as_os_str()))
                         };
 
                         let asset_path = dest_file.to_string_lossy().to_string();

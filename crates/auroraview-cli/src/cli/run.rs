@@ -1,9 +1,13 @@
 //! Run command - Launch a WebView window
 
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::path::{Path, PathBuf};
-use tao::event_loop::{ControlFlow, EventLoop};
+use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
 
 use auroraview_core::cli::rewrite_html_for_custom_protocol;
@@ -52,6 +56,141 @@ pub struct RunArgs {
     /// Keep window always on top
     #[arg(long)]
     pub always_on_top: bool,
+
+    /// Watch for changes and reload automatically.
+    /// For --html: watches the file on disk.
+    /// For --url: polls the server and reloads when it comes back online.
+    #[arg(long)]
+    pub watch: bool,
+
+    /// Poll interval in milliseconds for URL-mode hot reload (default: 1500)
+    #[arg(long, default_value = "1500", requires = "watch")]
+    pub poll_interval_ms: u64,
+}
+
+/// User event sent from the file watcher thread to the event loop
+#[derive(Debug, Clone)]
+pub enum RunEvent {
+    /// Reload the current page
+    Reload,
+}
+
+/// Spawn a background thread that polls `url` (HTTP HEAD) every `interval`.
+///
+/// When the server transitions from unreachable → reachable, a
+/// [`RunEvent::Reload`] is sent through `proxy`.
+/// The `stop` flag lets the caller terminate the thread gracefully.
+fn start_url_watcher(
+    url: String,
+    proxy: EventLoopProxy<RunEvent>,
+    interval: Duration,
+    stop: Arc<AtomicBool>,
+) {
+    std::thread::Builder::new()
+        .name("url-hot-reload".into())
+        .spawn(move || {
+            // Determine the probe URL: for non-http(s) fall back to a no-op check.
+            let probe_url = if url.starts_with("http://") || url.starts_with("https://") {
+                url.clone()
+            } else {
+                tracing::debug!("[hot-reload] Non-HTTP URL, URL watcher is a no-op");
+                return;
+            };
+
+            tracing::info!(
+                "[hot-reload] URL watcher started for {} (poll interval: {:?})",
+                probe_url,
+                interval
+            );
+
+            // Track last reachability so we only reload on transitions.
+            let mut last_reachable = probe_url_reachable(&probe_url);
+
+            loop {
+                if stop.load(Ordering::Relaxed) {
+                    tracing::debug!("[hot-reload] URL watcher stopping");
+                    break;
+                }
+
+                std::thread::sleep(interval);
+
+                if stop.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                let now_reachable = probe_url_reachable(&probe_url);
+                if now_reachable && !last_reachable {
+                    tracing::info!("[hot-reload] Server back online, reloading: {}", probe_url);
+                    if proxy.send_event(RunEvent::Reload).is_err() {
+                        // Event loop has closed.
+                        break;
+                    }
+                }
+                last_reachable = now_reachable;
+            }
+        })
+        .expect("failed to spawn url-hot-reload thread");
+}
+
+/// Issue an HTTP HEAD request and return `true` if the server responds with
+/// any HTTP status code (we treat any response as "reachable").
+fn probe_url_reachable(url: &str) -> bool {
+    use std::io::{Read, Write};
+    use std::net::TcpStream;
+
+    // Parse host:port from URL
+    let (host, port, path) = match parse_http_url(url) {
+        Some(parts) => parts,
+        None => return false,
+    };
+
+    let addr = format!("{}:{}", host, port);
+    let sock_addr = match addr.parse() {
+        Ok(a) => a,
+        Err(_) => return false,
+    };
+    let stream = TcpStream::connect_timeout(&sock_addr, Duration::from_millis(800));
+
+    let mut stream = match stream {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(800)));
+    let request = format!("HEAD {} HTTP/1.0\r\nHost: {}\r\nConnection: close\r\n\r\n", path, host);
+    if stream.write_all(request.as_bytes()).is_err() {
+        return false;
+    }
+
+    let mut buf = [0u8; 16];
+    // Any bytes back means the server is alive.
+    matches!(stream.read(&mut buf), Ok(n) if n > 0)
+}
+
+/// Parse an HTTP/HTTPS URL into (host, port, path).
+fn parse_http_url(url: &str) -> Option<(String, u16, String)> {
+    let (scheme, rest) = if let Some(s) = url.strip_prefix("https://") {
+        ("https", s)
+    } else if let Some(s) = url.strip_prefix("http://") {
+        ("http", s)
+    } else {
+        return None;
+    };
+
+    let (authority, path) = match rest.find('/') {
+        Some(i) => (&rest[..i], rest[i..].to_string()),
+        None => (rest, "/".to_string()),
+    };
+
+    let (host, port) = if let Some(i) = authority.rfind(':') {
+        let p: u16 = authority[i + 1..].parse().ok()?;
+        (authority[..i].to_string(), p)
+    } else {
+        let p = if scheme == "https" { 443 } else { 80 };
+        (authority.to_string(), p)
+    };
+
+    Some((host, port, path))
 }
 
 /// Detect assets root directory based on browser save patterns
@@ -93,6 +232,52 @@ fn detect_assets_root(html_path: &Path) -> Result<PathBuf> {
     Ok(parent.to_path_buf())
 }
 
+/// Spawn a background thread that watches `path` for modifications.
+///
+/// When a change is detected, a [`RunEvent::Reload`] is sent through `proxy`.
+/// The watcher is kept alive for the lifetime of the returned handle; dropping
+/// it stops the watch.
+fn start_file_watcher(
+    path: PathBuf,
+    proxy: EventLoopProxy<RunEvent>,
+) -> Result<notify::RecommendedWatcher> {
+    use notify::{Config, EventKind, RecursiveMode, Watcher};
+
+    let mut watcher = notify::RecommendedWatcher::new(
+        move |result: notify::Result<notify::Event>| match result {
+            Ok(event) => {
+                if matches!(
+                    event.kind,
+                    EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)
+                ) {
+                    tracing::debug!("[hot-reload] Change detected: {:?}", event.paths);
+                    if proxy.send_event(RunEvent::Reload).is_err() {
+                        // Event loop has closed; watcher will be dropped soon
+                        tracing::debug!("[hot-reload] Event loop closed, stopping watcher");
+                    }
+                }
+            }
+            Err(e) => tracing::warn!("[hot-reload] Watch error: {}", e),
+        },
+        Config::default(),
+    )
+    .context("Failed to create file watcher")?;
+
+    watcher
+        .watch(&path, RecursiveMode::NonRecursive)
+        .with_context(|| format!("Failed to watch path: {}", path.display()))?;
+
+    tracing::info!("[hot-reload] Watching: {}", path.display());
+    Ok(watcher)
+}
+
+/// Read and rewrite an HTML file for the auroraview:// custom protocol
+fn load_html_file(path: &Path) -> Result<String> {
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read HTML file: {}", path.display()))?;
+    Ok(rewrite_html_for_custom_protocol(&content))
+}
+
 /// Run the WebView window
 pub fn run_webview(args: RunArgs) -> Result<()> {
     // Validate that at least one of url or html is provided
@@ -124,24 +309,19 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
         };
 
         // Read HTML content
-        let html_content = std::fs::read_to_string(html_path)
-            .with_context(|| format!("Failed to read HTML file: {}", html_path.display()))?;
-
+        let html_content = load_html_file(html_path)?;
         tracing::info!("Read HTML file ({} bytes)", html_content.len());
-
-        // Rewrite HTML to use auroraview:// protocol for relative paths
-        let rewritten_html = rewrite_html_for_custom_protocol(&html_content);
-
-        tracing::info!("Rewrote HTML for auroraview:// protocol");
         tracing::info!("Assets root: {}", assets_root.display());
 
-        (Some(rewritten_html), Some(assets_root))
+        (Some(html_content), Some(assets_root))
     } else {
-        unreachable!("Either url or html must be provided");
+        anyhow::bail!("Either --url or --html must be provided");
     };
 
-    // Create event loop and window
-    let event_loop = EventLoop::new();
+    // Create event loop — generic over RunEvent for hot-reload signalling
+    let event_loop: EventLoop<RunEvent> = EventLoopBuilder::<RunEvent>::with_user_event().build();
+    let proxy = event_loop.create_proxy();
+
     let mut window_builder = tao::window::WindowBuilder::new()
         .with_title(&args.title)
         .with_visible(false); // Start hidden to avoid white flash
@@ -241,29 +421,142 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
             .build(&window)
             .context("Failed to create WebView with URL")?
     } else {
-        unreachable!("Either html_content or url must be set");
+        anyhow::bail!("Either html_content or url must be set");
     };
 
     tracing::info!("WebView created successfully");
+
+    // Start hot reload watcher (--watch):
+    //   --html: filesystem watcher via notify
+    //   --url:  polling thread that detects server restart
+    let url_watcher_stop = Arc::new(AtomicBool::new(false));
+    let _watcher = if args.watch {
+        if let Some(ref html_path) = args.html {
+            let canonical = html_path
+                .canonicalize()
+                .unwrap_or_else(|_| html_path.clone());
+            match start_file_watcher(canonical, proxy) {
+                Ok(w) => {
+                    tracing::info!("[hot-reload] File watcher started");
+                    Some(w)
+                }
+                Err(e) => {
+                    tracing::warn!("[hot-reload] Failed to start file watcher: {}", e);
+                    None
+                }
+            }
+        } else if let Some(ref url_str) = args.url {
+            let normalized = normalize_url(url_str).unwrap_or_else(|_| url_str.clone());
+            let poll_ms = args.poll_interval_ms.max(200); // min 200 ms
+            start_url_watcher(
+                normalized,
+                proxy,
+                Duration::from_millis(poll_ms),
+                Arc::clone(&url_watcher_stop),
+            );
+            tracing::info!("[hot-reload] URL watcher started (poll: {}ms)", poll_ms);
+            None
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // The html_path is captured for reload; clone it outside the closure
+    let html_path_for_reload = args.html.clone();
 
     // Show window immediately
     window.set_visible(true);
     tracing::info!("Window shown");
 
-    // Run event loop
+    // Run event loop — never returns; process exits when window closes.
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
         // Keep webview alive
         let _ = &webview;
 
-        if let tao::event::Event::WindowEvent {
-            event: tao::event::WindowEvent::CloseRequested,
-            ..
-        } = event
-        {
-            tracing::info!("Window close requested");
-            *control_flow = ControlFlow::Exit;
+        match event {
+            tao::event::Event::WindowEvent {
+                event: tao::event::WindowEvent::CloseRequested,
+                ..
+            } => {
+                tracing::info!("Window close requested");
+                url_watcher_stop.store(true, Ordering::Relaxed);
+                *control_flow = ControlFlow::Exit;
+            }
+            tao::event::Event::UserEvent(RunEvent::Reload) => {
+                tracing::info!("[hot-reload] Reloading WebView");
+                if let Some(ref path) = html_path_for_reload {
+                    match load_html_file(path) {
+                        Ok(html) => {
+                            if let Err(e) = webview.load_html(&html) {
+                                tracing::warn!("[hot-reload] load_html failed: {}", e);
+                                // Fall back to location.reload()
+                                let _ = webview.evaluate_script("location.reload();");
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("[hot-reload] Failed to read HTML: {}", e);
+                        }
+                    }
+                } else {
+                    let _ = webview.evaluate_script("location.reload();");
+                }
+            }
+            _ => {}
         }
     });
+
+    // Unreachable: event_loop.run() never returns on most platforms.
+    #[allow(unreachable_code)]
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_http_url_basic() {
+        let result = parse_http_url("http://localhost:3000/");
+        assert_eq!(result, Some(("localhost".into(), 3000, "/".into())));
+    }
+
+    #[test]
+    fn test_parse_http_url_https_default_port() {
+        let result = parse_http_url("https://example.com");
+        assert_eq!(result, Some(("example.com".into(), 443, "/".into())));
+    }
+
+    #[test]
+    fn test_parse_http_url_http_default_port() {
+        let result = parse_http_url("http://example.com/path");
+        assert_eq!(result, Some(("example.com".into(), 80, "/path".into())));
+    }
+
+    #[test]
+    fn test_parse_http_url_explicit_port_https() {
+        let result = parse_http_url("https://example.com:8443/api");
+        assert_eq!(result, Some(("example.com".into(), 8443, "/api".into())));
+    }
+
+    #[test]
+    fn test_parse_http_url_non_http_scheme() {
+        assert_eq!(parse_http_url("file:///path/to/file"), None);
+        assert_eq!(parse_http_url("auroraview://app/index.html"), None);
+        assert_eq!(parse_http_url("ws://localhost:8080"), None);
+    }
+
+    #[test]
+    fn test_parse_http_url_empty() {
+        assert_eq!(parse_http_url(""), None);
+    }
+
+    #[test]
+    fn test_probe_unreachable_address() {
+        // Port 1 is almost certainly not in use.
+        assert!(!probe_url_reachable("http://127.0.0.1:1/"));
+    }
 }

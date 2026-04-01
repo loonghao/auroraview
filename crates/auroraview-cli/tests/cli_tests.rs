@@ -69,6 +69,33 @@ fn test_cli_run_help() {
     assert!(stdout.contains("--url"));
     assert!(stdout.contains("--html"));
     assert!(stdout.contains("--title"));
+    // Hot reload flag must be present
+    assert!(
+        stdout.contains("--watch"),
+        "--watch flag missing from run --help output"
+    );
+    // URL-mode polling interval flag must be present
+    assert!(
+        stdout.contains("--poll-interval-ms"),
+        "--poll-interval-ms flag missing from run --help output"
+    );
+}
+
+/// Verify that --watch is not rejected when used with --url (URL-mode hot reload).
+/// Previously --watch required --html; now it should be accepted for --url too.
+#[test]
+fn test_cli_watch_accepts_url_mode() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--url", "http://localhost:9999", "--watch", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+
+    // --help always succeeds; this verifies clap doesn't reject the combination
+    assert!(
+        output.status.success(),
+        "run --url --watch --help should succeed, got stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]

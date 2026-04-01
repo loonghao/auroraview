@@ -2,11 +2,12 @@
 //!
 //! Provides system notification functionality for extensions.
 
-use parking_lot::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::apis::ApiHandler;
 use crate::error::{ExtensionError, ExtensionResult};
@@ -110,25 +111,23 @@ pub struct Notification {
 /// Notifications manager
 pub struct NotificationsManager {
     /// Active notifications
-    notifications: RwLock<HashMap<String, Notification>>,
+    notifications: DashMap<String, Notification>,
     /// Notification ID counter
-    next_id: RwLock<u64>,
+    next_id: AtomicU64,
 }
 
 impl NotificationsManager {
     /// Create a new notifications manager
     pub fn new() -> Self {
         Self {
-            notifications: RwLock::new(HashMap::new()),
-            next_id: RwLock::new(1),
+            notifications: DashMap::new(),
+            next_id: AtomicU64::new(1),
         }
     }
 
     /// Generate a notification ID
     fn generate_id(&self) -> String {
-        let mut id = self.next_id.write();
-        let current = *id;
-        *id += 1;
+        let current = self.next_id.fetch_add(1, Ordering::SeqCst);
         format!("notif_{}", current)
     }
 
@@ -151,9 +150,7 @@ impl NotificationsManager {
                 .as_secs_f64(),
         };
 
-        // TODO: Actually show system notification using native APIs
-        // For now, just store it
-        self.notifications.write().insert(id.clone(), notification);
+        self.notifications.insert(id.clone(), notification);
 
         Ok(id)
     }
@@ -165,11 +162,9 @@ impl NotificationsManager {
         id: &str,
         options: NotificationOptions,
     ) -> ExtensionResult<bool> {
-        let mut notifications = self.notifications.write();
-        if let Some(notification) = notifications.get_mut(id) {
+        if let Some(mut notification) = self.notifications.get_mut(id) {
             if notification.extension_id == extension_id {
                 notification.options = options;
-                // TODO: Actually update system notification
                 return Ok(true);
             }
         }
@@ -178,11 +173,10 @@ impl NotificationsManager {
 
     /// Clear a notification
     pub fn clear(&self, extension_id: &str, id: &str) -> ExtensionResult<bool> {
-        let mut notifications = self.notifications.write();
-        if let Some(notification) = notifications.get(id) {
+        if let Some(notification) = self.notifications.get(id) {
             if notification.extension_id == extension_id {
-                notifications.remove(id);
-                // TODO: Actually dismiss system notification
+                drop(notification);
+                self.notifications.remove(id);
                 return Ok(true);
             }
         }
@@ -190,12 +184,11 @@ impl NotificationsManager {
     }
 
     /// Get all notifications for an extension
-    pub fn get_all(&self, extension_id: &str) -> HashMap<String, NotificationOptions> {
-        let notifications = self.notifications.read();
-        notifications
+    pub fn get_all(&self, extension_id: &str) -> std::collections::HashMap<String, NotificationOptions> {
+        self.notifications
             .iter()
-            .filter(|(_, n)| n.extension_id == extension_id)
-            .map(|(id, n)| (id.clone(), n.options.clone()))
+            .filter(|entry| entry.value().extension_id == extension_id)
+            .map(|entry| (entry.key().clone(), entry.value().options.clone()))
             .collect()
     }
 

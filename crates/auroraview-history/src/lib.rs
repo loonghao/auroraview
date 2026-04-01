@@ -33,9 +33,13 @@ mod error;
 mod manager;
 mod search;
 
+/// Single history entry with URL, title, and visit metadata.
 pub use entry::HistoryEntry;
+/// Error and result types for history operations.
 pub use error::{HistoryError, Result};
+/// History manager for recording, querying, and persisting browsing history.
 pub use manager::HistoryManager;
+/// Search configuration and result types for history queries.
 pub use search::{SearchOptions, SearchResult};
 
 /// Unique identifier for history entries

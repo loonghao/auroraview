@@ -10,10 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set
-
-if TYPE_CHECKING:
-    pass
+from typing import Any, Callable, Dict, Optional, Set
 
 logger = logging.getLogger(__name__)
 

@@ -29,18 +29,20 @@ mod utils;
 mod warmup;
 mod webview;
 
+use std::time::Instant;
+
 use anyhow::{Context, Result};
 use auroraview_pack::{OverlayReader, PackedMetrics};
-use std::time::Instant;
 
 // Re-export public items
 pub use utils::{
-    build_module_search_paths, escape_json_for_js, get_python_exe_path,
-    get_runtime_cache_dir_with_hash, get_webview_data_dir, inject_environment_variables,
+    build_css_injection_script, build_module_search_paths, escape_json_for_js,
+    get_python_exe_path, get_runtime_cache_dir_with_hash, get_webview_data_dir,
+    inject_environment_variables,
 };
 
 // Re-export from auroraview-core
-pub use auroraview_core::assets::build_packed_init_script;
+pub use auroraview_core::assets::build_packed_init_script_with_csp;
 
 /// Check if debug mode is enabled via environment variable
 fn is_debug_env() -> bool {

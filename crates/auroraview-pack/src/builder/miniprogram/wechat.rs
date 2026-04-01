@@ -3,10 +3,11 @@
 //! Builds WeChat Mini Programs from web assets.
 //! Requires WeChat DevTools installed.
 
+use std::path::PathBuf;
+
 use crate::builder::common::{BuildContext, BuildOutput, BuildResult};
 use crate::builder::traits::{Builder, BuilderCapability};
 use crate::PackError;
-use std::path::PathBuf;
 
 /// WeChat MiniProgram builder
 pub struct WeChatBuilder {
@@ -129,23 +130,95 @@ impl Builder for WeChatBuilder {
 
     fn build(&self, ctx: &mut BuildContext) -> BuildResult<BuildOutput> {
         self.check_tools()?;
-        let _cli = self.get_cli()?;
+        let cli = self.get_cli()?;
+
+        let app_id = self
+            .app_id
+            .clone()
+            .or_else(|| ctx.config.app.identifier.clone())
+            .ok_or_else(|| PackError::Config("WeChat App ID is required".into()))?;
 
         let output_dir = ctx.output_dir.join("wechat-miniprogram");
         std::fs::create_dir_all(&output_dir)?;
 
-        // TODO: Implement WeChat MiniProgram build
         // 1. Generate project.config.json
+        let project_config = WeChatProjectConfig {
+            app_id: app_id.clone(),
+            project_name: if ctx.config.app.name.is_empty() {
+                "AuroraView App".into()
+            } else {
+                ctx.config.app.name.clone()
+            },
+            miniprogramroot: "./".into(),
+            setting: WeChatProjectSetting {
+                url_check: true,
+                es6: true,
+                enhance: true,
+                postcss: true,
+                preload_background_data: false,
+                minified: true,
+                auto_audit: false,
+            },
+        };
+
+        let config_json = serde_json::to_string_pretty(&project_config)
+            .map_err(|e| PackError::Build(format!("Failed to serialize project.config.json: {}", e)))?;
+        std::fs::write(output_dir.join("project.config.json"), &config_json)?;
+
         // 2. Generate app.json with pages
-        // 3. Transform web components to WXML/WXSS
-        // 4. Copy assets
-        // 5. Run CLI build/upload
+        let app_json = serde_json::json!({
+            "pages": ["pages/index/index"],
+            "window": {
+                "backgroundTextStyle": "light",
+                "navigationBarBackgroundColor": "#fff",
+                "navigationBarTitleText": project_config.project_name,
+                "navigationBarTextStyle": "black"
+            }
+        });
+        let app_json_str = serde_json::to_string_pretty(&app_json)
+            .map_err(|e| PackError::Build(format!("Failed to serialize app.json: {}", e)))?;
+        std::fs::write(output_dir.join("app.json"), &app_json_str)?;
 
-        tracing::warn!("WeChat MiniProgram builder is not yet fully implemented");
+        // 3. Generate minimal app.js / app.wxss
+        std::fs::write(output_dir.join("app.js"), "App({})")?;
+        std::fs::write(output_dir.join("app.wxss"), "")?;
 
-        Err(PackError::Build(
-            "WeChat MiniProgram builder not yet implemented".into(),
-        ))
+        // 4. Create pages/index directory and copy frontend assets as web-view
+        let index_dir = output_dir.join("pages").join("index");
+        std::fs::create_dir_all(&index_dir)?;
+
+        // If frontend bundle exists, embed via <web-view>
+        let index_wxml = if ctx.frontend.is_some() {
+            "<web-view src=\"/index.html\"></web-view>".into()
+        } else {
+            "<view class=\"container\"><text>AuroraView App</text></view>".to_string()
+        };
+
+        std::fs::write(index_dir.join("index.wxml"), &index_wxml)?;
+        std::fs::write(index_dir.join("index.wxss"), "")?;
+        std::fs::write(index_dir.join("index.js"), "Page({})")?;
+        std::fs::write(index_dir.join("index.json"), "{}")?;
+
+        // 5. Copy additional assets from build context
+        for (path, content) in &ctx.assets {
+            let dest = output_dir.join(path);
+            if let Some(parent) = dest.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&dest, content)?;
+        }
+
+        tracing::info!(
+            "WeChat MiniProgram project generated at {}",
+            output_dir.display()
+        );
+        tracing::info!("Use '{}' to preview or upload", cli.display());
+
+        Ok(BuildOutput::new(output_dir, "wechat-miniprogram")
+            .with_assets(ctx.assets.len())
+            .with_duration(ctx.start_time.elapsed())
+            .with_info("app_id", &app_id)
+            .with_info("cli_path", &cli.to_string_lossy()))
     }
 }
 

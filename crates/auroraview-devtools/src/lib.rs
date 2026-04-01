@@ -31,12 +31,18 @@ mod error;
 mod manager;
 mod network;
 
+/// Chrome DevTools Protocol (CDP) client and session management.
 pub mod cdp;
 
+/// DevTools panel configuration and dock position types.
 pub use config::{DevToolsConfig, DockSide};
+/// Console message capture types.
 pub use console::{ConsoleMessage, ConsoleMessageType};
+/// Error and result types for DevTools operations.
 pub use error::{DevToolsError, Result};
+/// DevTools manager and panel state.
 pub use manager::{DevToolsManager, DevToolsState};
+/// Network request/response inspection types.
 pub use network::{NetworkRequestInfo, NetworkResponseInfo};
 
 /// CDP session info

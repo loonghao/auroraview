@@ -39,6 +39,10 @@ pub enum ComInitResult {
 pub fn init_com_sta() -> ComInitResult {
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
 
+    // SAFETY: CoInitializeEx is a well-defined Win32 COM API.
+    // Calling it with COINIT_APARTMENTTHREADED sets the current thread
+    // to STA mode. It returns S_FALSE if already initialized, which we
+    // handle gracefully. No memory safety issues.
     unsafe {
         // COINIT_APARTMENTTHREADED = STA mode required by WebView2
         // Ignore errors if already initialized (e.g., by Qt on main thread)

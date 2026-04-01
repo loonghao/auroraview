@@ -32,9 +32,13 @@ mod error;
 mod folder;
 mod manager;
 
+/// Single bookmark entry with URL, title, and metadata.
 pub use bookmark::Bookmark;
+/// Error and result types for bookmark operations.
 pub use error::{BookmarkError, Result};
+/// Bookmark folder for hierarchical organization.
 pub use folder::BookmarkFolder;
+/// Bookmark manager for CRUD operations and persistence.
 pub use manager::BookmarkManager;
 
 /// Unique identifier for bookmarks and folders

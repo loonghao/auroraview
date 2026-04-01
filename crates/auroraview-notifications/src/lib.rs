@@ -12,19 +12,19 @@
 //! ```rust
 //! use auroraview_notifications::{NotificationManager, Notification, NotificationType};
 //!
-//! let mut manager = NotificationManager::new();
+//! let manager = NotificationManager::new();
 //!
 //! // Show a simple notification
-//! let id = manager.notify(Notification::new("Hello", "Welcome to AuroraView"));
+//! let id = manager.notify(Notification::new("Hello", "Welcome to AuroraView")).unwrap();
 //!
 //! // Show a notification with type
 //! manager.notify(
 //!     Notification::new("Success", "Operation completed")
 //!         .with_type(NotificationType::Success)
-//! );
+//! ).unwrap();
 //!
 //! // Dismiss a notification
-//! manager.dismiss(id);
+//! manager.dismiss(id).unwrap();
 //! ```
 
 mod error;
@@ -32,7 +32,11 @@ mod manager;
 mod notification;
 mod permission;
 
+/// Error and result types for notification operations.
 pub use error::{NotificationError, Result};
+/// Notification manager for dispatching, dismissing, and querying notifications.
 pub use manager::NotificationManager;
+/// Notification types: content, actions, and severity levels.
 pub use notification::{Notification, NotificationAction, NotificationType};
+/// Permission model for Web Notifications API compatibility.
 pub use permission::{Permission, PermissionState};

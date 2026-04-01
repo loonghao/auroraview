@@ -70,9 +70,21 @@ impl SettingsStore {
         self.values.extend(other.values);
     }
 
+    /// Merges values from a borrowed store into this one.
+    pub fn merge_ref(&mut self, other: &SettingsStore) {
+        for (k, v) in &other.values {
+            self.values.insert(k.clone(), v.clone());
+        }
+    }
+
     /// Converts to a HashMap.
     pub fn into_map(self) -> HashMap<String, SettingValue> {
         self.values
+    }
+
+    /// Returns a reference to the internal HashMap.
+    pub fn as_map(&self) -> &HashMap<String, SettingValue> {
+        &self.values
     }
 
     /// Creates from a HashMap.

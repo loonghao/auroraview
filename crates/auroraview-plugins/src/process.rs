@@ -84,27 +84,30 @@
 //! });
 //! ```
 
-use auroraview_plugin_core::{
-    PluginError, PluginEventCallback, PluginHandler, PluginResult, ScopeConfig,
-};
-use ipckit::graceful::ShutdownState;
-use ipckit::local_socket::{LocalSocketListener, LocalSocketStream};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
 use std::thread;
+
+use auroraview_plugin_core::{
+    PluginError, PluginEventCallback, PluginHandler, PluginResult, ScopeConfig,
+};
+use dashmap::DashMap;
+use ipckit::graceful::ShutdownState;
+use ipckit::local_socket::{LocalSocketListener, LocalSocketStream};
+use parking_lot::{Mutex, RwLock};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Callback type for process events (deprecated, use PluginEventCallback)
 pub type ProcessEventCallback = PluginEventCallback;
 
-/// Type alias for the process registry to reduce type complexity
-type ProcessRegistry = Arc<RwLock<HashMap<u32, Arc<Mutex<ManagedProcess>>>>>;
+/// Type alias for the process registry (lock-free concurrent map)
+type ProcessRegistry = Arc<DashMap<u32, Arc<Mutex<ManagedProcess>>>>;
 
-/// Type alias for the IPC channel registry
-type ChannelRegistry = Arc<RwLock<HashMap<u32, Arc<Mutex<IpcChannelHandle>>>>>;
+/// Type alias for the IPC channel registry (lock-free concurrent map)
+type ChannelRegistry = Arc<DashMap<u32, Arc<Mutex<IpcChannelHandle>>>>;
 
 /// IPC mode for spawned processes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,8 +160,8 @@ impl ProcessPlugin {
     pub fn new() -> Self {
         Self {
             name: "process".to_string(),
-            processes: Arc::new(RwLock::new(HashMap::new())),
-            channels: Arc::new(RwLock::new(HashMap::new())),
+            processes: Arc::new(DashMap::new()),
+            channels: Arc::new(DashMap::new()),
             event_callback: Arc::new(RwLock::new(None)),
             shutdown_state: Arc::new(ShutdownState::new()),
         }
@@ -170,8 +173,8 @@ impl ProcessPlugin {
     pub fn with_event_callback(callback: Arc<RwLock<Option<PluginEventCallback>>>) -> Self {
         Self {
             name: "process".to_string(),
-            processes: Arc::new(RwLock::new(HashMap::new())),
-            channels: Arc::new(RwLock::new(HashMap::new())),
+            processes: Arc::new(DashMap::new()),
+            channels: Arc::new(DashMap::new()),
             event_callback: callback,
             shutdown_state: Arc::new(ShutdownState::new()),
         }
@@ -179,7 +182,7 @@ impl ProcessPlugin {
 
     /// Set the event callback for emitting events to frontend
     pub fn set_event_callback(&self, callback: PluginEventCallback) {
-        let mut cb = self.event_callback.write().unwrap();
+        let mut cb = self.event_callback.write();
         *cb = Some(callback);
     }
 
@@ -392,10 +395,7 @@ impl ProcessPlugin {
             stdin,
             ipc_mode: IpcMode::Pipe,
         }));
-        {
-            let mut processes = self.processes.write().unwrap();
-            processes.insert(pid, managed.clone());
-        }
+        self.processes.insert(pid, managed.clone());
 
         // Spawn stdout reader thread with graceful shutdown support
         if let Some(stdout) = stdout {
@@ -424,7 +424,7 @@ impl ProcessPlugin {
                                 pid,
                                 data
                             );
-                            let cb_guard = event_cb.read().unwrap();
+                            let cb_guard = event_cb.read();
                             if let Some(cb) = cb_guard.as_ref() {
                                 tracing::debug!(
                                     "[Rust:ProcessPlugin] Emitting process:stdout event for PID {}",
@@ -478,7 +478,7 @@ impl ProcessPlugin {
                         Ok(data) => {
                             // Always log stderr for debugging
                             tracing::info!("[Rust:ProcessPlugin] Process {} stderr: {}", pid, data);
-                            let cb_guard = event_cb.read().unwrap();
+                            let cb_guard = event_cb.read();
                             if let Some(cb) = cb_guard.as_ref() {
                                 tracing::debug!(
                                     "[Rust:ProcessPlugin] Emitting process:stderr event for PID {}",
@@ -614,10 +614,7 @@ impl ProcessPlugin {
             stdin: None,
             ipc_mode: IpcMode::Channel,
         }));
-        {
-            let mut processes = self.processes.write().unwrap();
-            processes.insert(pid, managed.clone());
-        }
+        self.processes.insert(pid, managed.clone());
 
         // Spawn thread to accept connection from child process
         let event_cb = self.event_callback.clone();
@@ -643,22 +640,16 @@ impl ProcessPlugin {
 
                     // Store channel handle for sending (stream is used for both read and write)
                     // We'll read in this thread and write via send_json_to_process
-                    {
-                        let mut chans = channels.write().unwrap();
-                        chans.insert(
-                            pid,
-                            Arc::new(Mutex::new(IpcChannelHandle {
-                                stream,
-                                channel_name: channel_name_clone.clone(),
-                            })),
-                        );
-                    }
+                    channels.insert(
+                        pid,
+                        Arc::new(Mutex::new(IpcChannelHandle {
+                            stream,
+                            channel_name: channel_name_clone.clone(),
+                        })),
+                    );
 
                     // Get the stream back for reading
-                    let read_handle = {
-                        let chans = channels.read().unwrap();
-                        chans.get(&pid).cloned()
-                    };
+                    let read_handle = channels.get(&pid).map(|e| e.value().clone());
 
                     if let Some(handle) = read_handle {
                         // Read messages from child using the stored stream
@@ -675,7 +666,7 @@ impl ProcessPlugin {
 
                             // Lock the handle to read
                             let read_result = {
-                                let mut h = handle.lock().unwrap();
+                                let mut h = handle.lock();
                                 let mut reader = BufReader::new(&mut h.stream);
                                 line.clear();
                                 reader.read_line(&mut line)
@@ -703,7 +694,7 @@ impl ProcessPlugin {
                                                     pid,
                                                     trimmed
                                                 );
-                                                let cb_guard = event_cb.read().unwrap();
+                                                let cb_guard = event_cb.read();
                                                 if let Some(cb) = cb_guard.as_ref() {
                                                     cb(
                                                         "process:message",
@@ -716,7 +707,7 @@ impl ProcessPlugin {
                                             }
                                             Err(_) => {
                                                 // Not valid JSON, emit as raw data
-                                                let cb_guard = event_cb.read().unwrap();
+                                                let cb_guard = event_cb.read();
                                                 if let Some(cb) = cb_guard.as_ref() {
                                                     cb(
                                                         "process:message",
@@ -743,10 +734,7 @@ impl ProcessPlugin {
                     }
 
                     // Cleanup channel
-                    {
-                        let mut chans = channels.write().unwrap();
-                        chans.remove(&pid);
-                    }
+                    channels.remove(&pid);
                 }
                 Err(e) => {
                     tracing::error!(
@@ -771,7 +759,7 @@ impl ProcessPlugin {
                     }
                     let _guard = shutdown_state.begin_operation();
                     tracing::debug!("[Rust:ProcessPlugin] Process {} stdout: {}", pid, line);
-                    let cb_guard = event_cb.read().unwrap();
+                    let cb_guard = event_cb.read();
                     if let Some(cb) = cb_guard.as_ref() {
                         cb(
                             "process:stdout",
@@ -799,7 +787,7 @@ impl ProcessPlugin {
                     }
                     let _guard = shutdown_state.begin_operation();
                     tracing::info!("[Rust:ProcessPlugin] Process {} stderr: {}", pid, line);
-                    let cb_guard = event_cb.read().unwrap();
+                    let cb_guard = event_cb.read();
                     if let Some(cb) = cb_guard.as_ref() {
                         cb(
                             "process:stderr",
@@ -862,14 +850,11 @@ impl ProcessPlugin {
 
     /// Send JSON message to process via ipckit channel
     fn send_json_to_process(&self, pid: u32, data: &Value) -> PluginResult<Value> {
-        let channel = {
-            let channels = self.channels.read().unwrap();
-            channels.get(&pid).cloned()
-        };
+        let channel = self.channels.get(&pid).map(|e| e.value().clone());
 
         match channel {
             Some(ch) => {
-                let mut handle = ch.lock().unwrap();
+                let mut handle = ch.lock();
                 let json_str = serde_json::to_string(data)
                     .map_err(|e| PluginError::shell_error(format!("Failed to serialize: {}", e)))?;
 
@@ -886,14 +871,11 @@ impl ProcessPlugin {
             }
             None => {
                 // Check if process exists but in pipe mode
-                let proc = {
-                    let processes = self.processes.read().unwrap();
-                    processes.get(&pid).cloned()
-                };
+                let proc = self.processes.get(&pid).map(|e| e.value().clone());
 
                 match proc {
                     Some(p) => {
-                        let managed = p.lock().unwrap();
+                        let managed = p.lock();
                         if managed.ipc_mode == IpcMode::Pipe {
                             Err(PluginError::shell_error(format!(
                                 "Process {} is in pipe mode, use 'send' instead of 'send_json'",
@@ -920,9 +902,8 @@ impl ProcessPlugin {
         pid: u32,
     ) {
         let exit_code = {
-            let procs = processes.read().unwrap();
-            if let Some(proc) = procs.get(&pid) {
-                let mut p = proc.lock().unwrap();
+            if let Some(proc) = processes.get(&pid) {
+                let mut p = proc.lock();
                 p.child.try_wait().ok().flatten().map(|s| s.code())
             } else {
                 None
@@ -931,13 +912,10 @@ impl ProcessPlugin {
 
         if let Some(code) = exit_code {
             // Remove from managed processes
-            {
-                let mut procs = processes.write().unwrap();
-                procs.remove(&pid);
-            }
+            processes.remove(&pid);
 
             // Emit exit event
-            if let Some(cb) = event_cb.read().unwrap().as_ref() {
+            if let Some(cb) = event_cb.read().as_ref() {
                 cb(
                     "process:exit",
                     serde_json::json!({
@@ -951,14 +929,11 @@ impl ProcessPlugin {
 
     /// Kill a managed process
     fn kill_process(&self, pid: u32) -> PluginResult<Value> {
-        let proc = {
-            let processes = self.processes.read().unwrap();
-            processes.get(&pid).cloned()
-        };
+        let proc = self.processes.get(&pid).map(|e| e.value().clone());
 
         match proc {
             Some(p) => {
-                let mut managed = p.lock().unwrap();
+                let mut managed = p.lock();
 
                 // Kill the process
                 if let Err(e) = managed.child.kill() {
@@ -981,11 +956,11 @@ impl ProcessPlugin {
                     }
                 }
 
+                // Release the Mutex lock before removing from DashMap
+                drop(managed);
+
                 // Remove from managed (even if process hasn't fully exited)
-                {
-                    let mut processes = self.processes.write().unwrap();
-                    processes.remove(&pid);
-                }
+                self.processes.remove(&pid);
 
                 Ok(serde_json::json!({ "success": true }))
             }
@@ -1018,16 +993,10 @@ impl ProcessPlugin {
         }
 
         // Clear all IPC channels
-        {
-            let mut channels = self.channels.write().unwrap();
-            channels.clear();
-            tracing::debug!("[Rust:ProcessPlugin] Cleared all IPC channels");
-        }
+        self.channels.clear();
+        tracing::debug!("[Rust:ProcessPlugin] Cleared all IPC channels");
 
-        let pids: Vec<u32> = {
-            let processes = self.processes.read().unwrap();
-            processes.keys().copied().collect()
-        };
+        let pids: Vec<u32> = self.processes.iter().map(|e| *e.key()).collect();
 
         let mut killed = 0;
         for pid in pids {
@@ -1044,14 +1013,11 @@ impl ProcessPlugin {
 
     /// Send data to process stdin
     fn send_to_process(&self, pid: u32, data: &str) -> PluginResult<Value> {
-        let proc = {
-            let processes = self.processes.read().unwrap();
-            processes.get(&pid).cloned()
-        };
+        let proc = self.processes.get(&pid).map(|e| e.value().clone());
 
         match proc {
             Some(p) => {
-                let mut managed = p.lock().unwrap();
+                let mut managed = p.lock();
                 if let Some(ref mut stdin) = managed.stdin {
                     stdin
                         .write_all(data.as_bytes())
@@ -1073,8 +1039,7 @@ impl ProcessPlugin {
 
     /// List all managed processes
     fn list_processes(&self) -> PluginResult<Value> {
-        let processes = self.processes.read().unwrap();
-        let pids: Vec<u32> = processes.keys().copied().collect();
+        let pids: Vec<u32> = self.processes.iter().map(|e| *e.key()).collect();
         Ok(serde_json::json!({
             "processes": pids
         }))

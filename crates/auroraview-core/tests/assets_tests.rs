@@ -222,3 +222,35 @@ fn test_build_packed_init_script() {
     // Should contain event bridge code
     assert!(script.contains("auroraview") || script.is_empty());
 }
+
+#[test]
+fn test_build_csp_injection_script_contains_policy() {
+    let policy = "default-src 'self'";
+    let script = auroraview_core::assets::build_csp_injection_script(policy);
+    assert!(script.contains("Content-Security-Policy"));
+    assert!(script.contains("default-src"));
+}
+
+#[test]
+fn test_build_csp_injection_script_escapes_backslash() {
+    let policy = r"default-src 'self'\test";
+    let script = auroraview_core::assets::build_csp_injection_script(policy);
+    // backslash should be escaped to \\
+    assert!(script.contains(r"\\"));
+}
+
+#[test]
+fn test_build_packed_init_script_with_csp_none() {
+    let without_csp = auroraview_core::assets::build_packed_init_script();
+    let with_none = auroraview_core::assets::build_packed_init_script_with_csp(None);
+    assert_eq!(without_csp, with_none);
+}
+
+#[test]
+fn test_build_packed_init_script_with_csp_some() {
+    let policy = "default-src 'self'; img-src *";
+    let script = auroraview_core::assets::build_packed_init_script_with_csp(Some(policy));
+    // Should start with CSP injection, then event bridge
+    assert!(script.contains("Content-Security-Policy"));
+    assert!(script.contains("auroraview") || script.contains("document.createElement"));
+}

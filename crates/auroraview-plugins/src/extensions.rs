@@ -35,19 +35,97 @@
 //! });
 //! ```
 
-use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
+
+/// Callback for navigating to a URL (tabs.create, tabs.update)
+pub type NavigateCallback = Box<dyn Fn(&str) + Send + Sync>;
+
+/// Callback for sending messages to content scripts
+pub type SendMessageCallback = Box<dyn Fn(i32, Value) -> Option<Value> + Send + Sync>;
+
+/// Callback for opening a popup
+pub type OpenPopupCallback = Box<dyn Fn(&str, Option<&str>) + Send + Sync>;
+
+/// Callback for opening an options page
+pub type OpenOptionsPageCallback = Box<dyn Fn(&str, &str) + Send + Sync>;
+
+/// Callback for reloading a page
+pub type ReloadPageCallback = Box<dyn Fn() + Send + Sync>;
+
+/// Callback for reloading an extension
+pub type ReloadExtensionCallback = Box<dyn Fn(&str) + Send + Sync>;
+
+/// Callback for executing a script
+pub type ExecuteScriptCallback =
+    Box<dyn Fn(&str, &Value) -> Vec<Value> + Send + Sync>;
+
+/// Callback for injecting/removing CSS
+pub type CssCallback = Box<dyn Fn(&str, &Value) + Send + Sync>;
+
+/// Callback for showing a system notification
+pub type NotificationCallback = Box<dyn Fn(&NotificationInfo) + Send + Sync>;
+
+/// Callback for creating a window
+pub type CreateWindowCallback = Box<dyn Fn(&Value) -> Value + Send + Sync>;
+
+/// Callback for dispatching an event to an extension
+pub type EventDispatchCallback = Box<dyn Fn(&str, &str, &str, &[Value]) + Send + Sync>;
+
+/// Callback for persisting storage data
+pub type StoragePersistCallback =
+    Box<dyn Fn(&str, &str, &HashMap<String, Value>) + Send + Sync>;
+
+/// Callback for runtime message routing
+pub type RuntimeMessageCallback = Box<dyn Fn(&str, Value) -> Option<Value> + Send + Sync>;
+
+/// Callbacks for the extensions plugin
+#[derive(Default)]
+pub struct ExtensionsCallbacks {
+    /// Navigation callback (tabs.create, tabs.update)
+    pub on_navigate: Option<NavigateCallback>,
+    /// Send message to content scripts
+    pub on_send_message: Option<SendMessageCallback>,
+    /// Open popup
+    pub on_open_popup: Option<OpenPopupCallback>,
+    /// Open options page
+    pub on_open_options_page: Option<OpenOptionsPageCallback>,
+    /// Reload the current page
+    pub on_reload_page: Option<ReloadPageCallback>,
+    /// Reload an extension
+    pub on_reload_extension: Option<ReloadExtensionCallback>,
+    /// Execute script
+    pub on_execute_script: Option<ExecuteScriptCallback>,
+    /// Insert CSS
+    pub on_insert_css: Option<CssCallback>,
+    /// Remove CSS
+    pub on_remove_css: Option<CssCallback>,
+    /// Show system notification
+    pub on_notification: Option<NotificationCallback>,
+    /// Create window
+    pub on_create_window: Option<CreateWindowCallback>,
+    /// Dispatch event to extension
+    pub on_event_dispatch: Option<EventDispatchCallback>,
+    /// Persist storage data
+    pub on_storage_persist: Option<StoragePersistCallback>,
+    /// Runtime message routing
+    pub on_runtime_message: Option<RuntimeMessageCallback>,
+}
 
 /// Extensions plugin
 pub struct ExtensionsPlugin {
     name: String,
     /// Extension host state (shared with the application)
     state: Arc<RwLock<ExtensionsState>>,
+    /// Registered callbacks for host integration
+    callbacks: Arc<RwLock<ExtensionsCallbacks>>,
 }
 
 /// State for the extensions plugin
@@ -275,6 +353,7 @@ impl ExtensionsPlugin {
         Self {
             name: "extensions".to_string(),
             state: Arc::new(RwLock::new(ExtensionsState::default())),
+            callbacks: Arc::new(RwLock::new(ExtensionsCallbacks::default())),
         }
     }
 
@@ -283,12 +362,130 @@ impl ExtensionsPlugin {
         Self {
             name: "extensions".to_string(),
             state,
+            callbacks: Arc::new(RwLock::new(ExtensionsCallbacks::default())),
         }
     }
 
     /// Get the shared state
     pub fn state(&self) -> Arc<RwLock<ExtensionsState>> {
         self.state.clone()
+    }
+
+    /// Get the callbacks reference
+    pub fn callbacks(&self) -> Arc<RwLock<ExtensionsCallbacks>> {
+        self.callbacks.clone()
+    }
+
+    /// Set the navigation callback
+    pub fn set_on_navigate<F>(&self, callback: F)
+    where
+        F: Fn(&str) + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_navigate = Some(Box::new(callback));
+    }
+
+    /// Set the send message callback
+    pub fn set_on_send_message<F>(&self, callback: F)
+    where
+        F: Fn(i32, Value) -> Option<Value> + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_send_message = Some(Box::new(callback));
+    }
+
+    /// Set the open popup callback
+    pub fn set_on_open_popup<F>(&self, callback: F)
+    where
+        F: Fn(&str, Option<&str>) + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_open_popup = Some(Box::new(callback));
+    }
+
+    /// Set the open options page callback
+    pub fn set_on_open_options_page<F>(&self, callback: F)
+    where
+        F: Fn(&str, &str) + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_open_options_page = Some(Box::new(callback));
+    }
+
+    /// Set the page reload callback
+    pub fn set_on_reload_page<F>(&self, callback: F)
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_reload_page = Some(Box::new(callback));
+    }
+
+    /// Set the extension reload callback
+    pub fn set_on_reload_extension<F>(&self, callback: F)
+    where
+        F: Fn(&str) + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_reload_extension = Some(Box::new(callback));
+    }
+
+    /// Set the execute script callback
+    pub fn set_on_execute_script<F>(&self, callback: F)
+    where
+        F: Fn(&str, &Value) -> Vec<Value> + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_execute_script = Some(Box::new(callback));
+    }
+
+    /// Set the insert CSS callback
+    pub fn set_on_insert_css<F>(&self, callback: F)
+    where
+        F: Fn(&str, &Value) + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_insert_css = Some(Box::new(callback));
+    }
+
+    /// Set the remove CSS callback
+    pub fn set_on_remove_css<F>(&self, callback: F)
+    where
+        F: Fn(&str, &Value) + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_remove_css = Some(Box::new(callback));
+    }
+
+    /// Set the notification callback
+    pub fn set_on_notification<F>(&self, callback: F)
+    where
+        F: Fn(&NotificationInfo) + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_notification = Some(Box::new(callback));
+    }
+
+    /// Set the create window callback
+    pub fn set_on_create_window<F>(&self, callback: F)
+    where
+        F: Fn(&Value) -> Value + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_create_window = Some(Box::new(callback));
+    }
+
+    /// Set the event dispatch callback
+    pub fn set_on_event_dispatch<F>(&self, callback: F)
+    where
+        F: Fn(&str, &str, &str, &[Value]) + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_event_dispatch = Some(Box::new(callback));
+    }
+
+    /// Set the storage persist callback
+    pub fn set_on_storage_persist<F>(&self, callback: F)
+    where
+        F: Fn(&str, &str, &HashMap<String, Value>) + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_storage_persist = Some(Box::new(callback));
+    }
+
+    /// Set the runtime message callback
+    pub fn set_on_runtime_message<F>(&self, callback: F)
+    where
+        F: Fn(&str, Value) -> Option<Value> + Send + Sync + 'static,
+    {
+        self.callbacks.write().on_runtime_message = Some(Box::new(callback));
     }
 
     /// Register an extension
@@ -367,7 +564,7 @@ impl ExtensionsPlugin {
                     _ => data,
                 };
 
-                Ok(serde_json::to_value(result).unwrap())
+                serde_json::to_value(result).map_err(PluginError::serialization_error)
             }
             "set" => {
                 let items: HashMap<String, Value> = params
@@ -392,7 +589,19 @@ impl ExtensionsPlugin {
                     data.insert(key, new_value);
                 }
 
-                // TODO: Persist to disk and emit onChanged event
+                // Persist to disk via callback
+                let cbs = self.callbacks.read();
+                if let Some(ref persist_cb) = cbs.on_storage_persist {
+                    persist_cb(extension_id, &storage_key, data);
+                }
+                drop(cbs);
+
+                tracing::debug!(
+                    "storage.set: {} keys updated for {}",
+                    changes.len(),
+                    storage_key
+                );
+
                 Ok(serde_json::json!({}))
             }
             "remove" => {
@@ -468,8 +677,12 @@ impl ExtensionsPlugin {
                 // In AuroraView, "creating a tab" might open a new window or navigate
                 let url = params.get("url").and_then(|v| v.as_str());
                 if let Some(url) = url {
-                    // TODO: Implement navigation or window opening
-                    tracing::info!("tabs.create requested for URL: {}", url);
+                    let cbs = self.callbacks.read();
+                    if let Some(ref navigate_cb) = cbs.on_navigate {
+                        navigate_cb(url);
+                    } else {
+                        tracing::info!("tabs.create: no navigate callback, URL: {}", url);
+                    }
                 }
                 Ok(default_tab)
             }
@@ -485,16 +698,32 @@ impl ExtensionsPlugin {
                 Ok(serde_json::json!({}))
             }
             "reload" => {
-                // TODO: Implement page reload
+                let cbs = self.callbacks.read();
+                if let Some(ref reload_cb) = cbs.on_reload_page {
+                    reload_cb();
+                } else {
+                    tracing::info!("tabs.reload: no reload callback registered");
+                }
                 Ok(serde_json::json!({}))
             }
             "sendMessage" => {
                 let message = params.get("message").cloned().unwrap_or(Value::Null);
-                // TODO: Implement message passing to content scripts
-                Ok(message)
+                let tab_id = params
+                    .get("tabId")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(1) as i32;
+                let cbs = self.callbacks.read();
+                if let Some(ref send_cb) = cbs.on_send_message {
+                    let response = send_cb(tab_id, message);
+                    Ok(response.unwrap_or(Value::Null))
+                } else {
+                    tracing::debug!("tabs.sendMessage: no send_message callback");
+                    Ok(message)
+                }
             }
             "captureVisibleTab" => {
-                // TODO: Implement screenshot
+                // Screenshot capture requires platform-specific implementation
+                tracing::debug!("tabs.captureVisibleTab: not yet supported");
                 Ok(serde_json::json!(""))
             }
             "executeScript" | "insertCSS" | "removeCSS" => {
@@ -634,29 +863,51 @@ impl ExtensionsPlugin {
             }
             "sendMessage" => {
                 let message = params.get("message").cloned().unwrap_or(Value::Null);
-                // TODO: Implement message routing to background/content scripts
-                // For now, just acknowledge the message
-                Ok(message)
+                let cbs = self.callbacks.read();
+                if let Some(ref msg_cb) = cbs.on_runtime_message {
+                    let response = msg_cb(extension_id, message);
+                    Ok(response.unwrap_or(Value::Null))
+                } else {
+                    tracing::debug!(
+                        "runtime.sendMessage: no message callback for {}",
+                        extension_id
+                    );
+                    Ok(message)
+                }
             }
             "connect" => {
                 let port_id = params.get("portId").and_then(|v| v.as_str());
                 let name = params.get("name").and_then(|v| v.as_str());
-                // TODO: Implement port connections
+                // Port connections require persistent bidirectional channels
+                tracing::debug!(
+                    "runtime.connect: port={:?}, name={:?} for {}",
+                    port_id,
+                    name,
+                    extension_id
+                );
                 Ok(serde_json::json!({
                     "portId": port_id,
                     "name": name
                 }))
             }
             "portPostMessage" | "portDisconnect" => {
-                // TODO: Implement port messaging
+                // Port messaging requires persistent channels (not yet available)
+                tracing::debug!("runtime.{}: port messaging stub", method);
                 Ok(serde_json::json!({}))
             }
             "openOptionsPage" => {
                 let state = self.state.read();
                 if let Some(ext) = state.extensions.get(extension_id) {
                     if let Some(options_page) = &ext.options_page {
-                        // TODO: Open options page
-                        tracing::info!("Opening options page: {}", options_page);
+                        let cbs = self.callbacks.read();
+                        if let Some(ref options_cb) = cbs.on_open_options_page {
+                            options_cb(extension_id, options_page);
+                        } else {
+                            tracing::info!(
+                                "runtime.openOptionsPage: no callback, page: {}",
+                                options_page
+                            );
+                        }
                     }
                 }
                 Ok(serde_json::json!({}))
@@ -666,7 +917,15 @@ impl ExtensionsPlugin {
                 Ok(serde_json::json!({}))
             }
             "reload" => {
-                // TODO: Implement extension reload
+                let cbs = self.callbacks.read();
+                if let Some(ref reload_cb) = cbs.on_reload_extension {
+                    reload_cb(extension_id);
+                } else {
+                    tracing::info!(
+                        "runtime.reload: no reload callback for {}",
+                        extension_id
+                    );
+                }
                 Ok(serde_json::json!({}))
             }
             "requestUpdateCheck" => Ok(serde_json::json!({
@@ -817,7 +1076,21 @@ impl ExtensionsPlugin {
                 Ok(serde_json::json!(enabled))
             }
             "openPopup" => {
-                // TODO: Implement popup opening
+                let state = self.state.read();
+                let popup_path = state
+                    .actions
+                    .get(extension_id)
+                    .and_then(|a| a.popup.clone());
+                drop(state);
+                let cbs = self.callbacks.read();
+                if let Some(ref popup_cb) = cbs.on_open_popup {
+                    popup_cb(extension_id, popup_path.as_deref());
+                } else {
+                    tracing::debug!(
+                        "action.openPopup: no popup callback for {}",
+                        extension_id
+                    );
+                }
                 Ok(serde_json::json!({}))
             }
             "getUserSettings" => Ok(serde_json::json!({
@@ -839,24 +1112,45 @@ impl ExtensionsPlugin {
     ) -> PluginResult<Value> {
         match method {
             "executeScript" => {
-                // TODO: Implement actual script execution
-                let func = params.get("func");
-                let files = params.get("files");
-
-                tracing::info!(
-                    "scripting.executeScript: func={:?}, files={:?}",
-                    func.is_some(),
-                    files
-                );
-
-                Ok(serde_json::json!([{ "frameId": 0, "result": null }]))
+                let cbs = self.callbacks.read();
+                if let Some(ref exec_cb) = cbs.on_execute_script {
+                    let results = exec_cb(extension_id, params);
+                    let injection_results: Vec<Value> = results
+                        .into_iter()
+                        .map(|r| serde_json::json!({ "frameId": 0, "result": r }))
+                        .collect();
+                    if injection_results.is_empty() {
+                        Ok(serde_json::json!([{ "frameId": 0, "result": null }]))
+                    } else {
+                        Ok(Value::Array(injection_results))
+                    }
+                } else {
+                    let func = params.get("func");
+                    let files = params.get("files");
+                    tracing::info!(
+                        "scripting.executeScript: no callback, func={:?}, files={:?}",
+                        func.is_some(),
+                        files
+                    );
+                    Ok(serde_json::json!([{ "frameId": 0, "result": null }]))
+                }
             }
             "insertCSS" => {
-                // TODO: Implement CSS injection
+                let cbs = self.callbacks.read();
+                if let Some(ref css_cb) = cbs.on_insert_css {
+                    css_cb(extension_id, params);
+                } else {
+                    tracing::debug!("scripting.insertCSS: no callback for {}", extension_id);
+                }
                 Ok(serde_json::json!({}))
             }
             "removeCSS" => {
-                // TODO: Implement CSS removal
+                let cbs = self.callbacks.read();
+                if let Some(ref css_cb) = cbs.on_remove_css {
+                    css_cb(extension_id, params);
+                } else {
+                    tracing::debug!("scripting.removeCSS: no callback for {}", extension_id);
+                }
                 Ok(serde_json::json!({}))
             }
             "registerContentScripts" => {
@@ -898,10 +1192,27 @@ impl ExtensionsPlugin {
                     .get(extension_id)
                     .cloned()
                     .unwrap_or_default();
-                Ok(serde_json::to_value(scripts).unwrap())
+                serde_json::to_value(scripts).map_err(PluginError::serialization_error)
             }
             "updateContentScripts" => {
-                // TODO: Implement script updates
+                // Update registered content scripts by merging with existing
+                let updates: Vec<ContentScriptInfo> = params
+                    .get("scripts")
+                    .and_then(|v| serde_json::from_value(v.clone()).ok())
+                    .unwrap_or_default();
+
+                let mut state = self.state.write();
+                let ext_scripts = state
+                    .content_scripts
+                    .entry(extension_id.to_string())
+                    .or_default();
+
+                for update in updates {
+                    if let Some(existing) = ext_scripts.iter_mut().find(|s| s.id == update.id) {
+                        *existing = update;
+                    }
+                }
+
                 Ok(serde_json::json!({}))
             }
             _ => Err(PluginError::command_not_found(&format!(
@@ -937,7 +1248,7 @@ impl ExtensionsPlugin {
                 let scheduled_time = when.unwrap_or_else(|| {
                     let now = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
+                        .unwrap_or_default()
                         .as_millis() as f64;
                     now + (delay_in_minutes * 60.0 * 1000.0)
                 });
@@ -962,7 +1273,7 @@ impl ExtensionsPlugin {
                     .get(extension_id)
                     .and_then(|a| a.get(name))
                     .cloned();
-                Ok(serde_json::to_value(alarm).unwrap())
+                serde_json::to_value(alarm).map_err(PluginError::serialization_error)
             }
             "getAll" => {
                 let state = self.state.read();
@@ -971,7 +1282,7 @@ impl ExtensionsPlugin {
                     .get(extension_id)
                     .map(|a| a.values().cloned().collect())
                     .unwrap_or_default();
-                Ok(serde_json::to_value(alarms).unwrap())
+                serde_json::to_value(alarms).map_err(PluginError::serialization_error)
             }
             "clear" => {
                 let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
@@ -1021,7 +1332,7 @@ impl ExtensionsPlugin {
                             "notif_{}",
                             std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
+                                .unwrap_or_default()
                                 .as_nanos()
                         )
                     });
@@ -1055,12 +1366,17 @@ impl ExtensionsPlugin {
                     notification_type,
                     created_at: std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
+                        .unwrap_or_default()
                         .as_millis() as i64,
                 };
 
-                // TODO: Show actual system notification
-                tracing::info!("Creating notification: {:?}", notification);
+                // Show system notification via callback
+                let cbs = self.callbacks.read();
+                if let Some(ref notif_cb) = cbs.on_notification {
+                    notif_cb(&notification);
+                } else {
+                    tracing::info!("Creating notification: {:?}", notification);
+                }
 
                 let mut state = self.state.write();
                 let ext_notifs = state
@@ -1108,7 +1424,7 @@ impl ExtensionsPlugin {
                     .get(extension_id)
                     .map(|n| n.keys().map(|k| (k.clone(), true)).collect())
                     .unwrap_or_default();
-                Ok(serde_json::to_value(notifs).unwrap())
+                serde_json::to_value(notifs).map_err(PluginError::serialization_error)
             }
             "getPermissionLevel" => Ok(serde_json::json!("granted")),
             _ => Err(PluginError::command_not_found(&format!(
@@ -1136,7 +1452,7 @@ impl ExtensionsPlugin {
                             "menu_{}",
                             std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
+                                .unwrap_or_default()
                                 .as_nanos()
                         )
                     });
@@ -1253,8 +1569,14 @@ impl ExtensionsPlugin {
             "get" | "getCurrent" | "getLastFocused" => Ok(default_window),
             "getAll" => Ok(serde_json::json!([default_window])),
             "create" => {
-                // TODO: Implement window creation
-                Ok(default_window)
+                let cbs = self.callbacks.read();
+                if let Some(ref create_cb) = cbs.on_create_window {
+                    let result = create_cb(_params);
+                    Ok(result)
+                } else {
+                    tracing::debug!("windows.create: no callback, returning default window");
+                    Ok(default_window)
+                }
             }
             "update" | "remove" => Ok(serde_json::json!({})),
             _ => Err(PluginError::command_not_found(&format!(
@@ -1346,15 +1668,16 @@ impl ExtensionsPlugin {
     ) -> PluginResult<Value> {
         match method {
             "getAuthToken" => {
-                // TODO: Implement OAuth flow
+                // OAuth flow requires platform-specific browser integration
+                tracing::debug!("identity.getAuthToken: OAuth not available for {}", extension_id);
                 Err(PluginError::shell_error("OAuth not implemented"))
             }
             "removeCachedAuthToken" => Ok(serde_json::json!({})),
             "launchWebAuthFlow" => {
                 let url = params.get("url").and_then(|v| v.as_str());
                 if let Some(url) = url {
-                    tracing::info!("launchWebAuthFlow: {}", url);
-                    // TODO: Implement web auth flow
+                    // Web auth flow requires opening an external browser window
+                    tracing::debug!("identity.launchWebAuthFlow: {} for {}", url, extension_id);
                 }
                 Err(PluginError::shell_error("Web auth flow not implemented"))
             }
@@ -1385,7 +1708,8 @@ impl ExtensionsPlugin {
     ) -> PluginResult<Value> {
         match method {
             "addListener" | "removeListener" => {
-                // TODO: Implement request interception
+                // Request interception is handled at the WebView level, not in the plugin
+                tracing::debug!("webRequest.{}: stub acknowledgement", method);
                 Ok(serde_json::json!({}))
             }
             "handlerBehaviorChanged" => Ok(serde_json::json!({})),
@@ -1469,7 +1793,7 @@ impl ExtensionsPlugin {
                         })
                     })
                     .collect();
-                Ok(serde_json::to_value(extensions).unwrap())
+                serde_json::to_value(extensions).map_err(PluginError::serialization_error)
             }
             "get" => {
                 let id = params
@@ -1568,7 +1892,7 @@ impl ExtensionsPlugin {
                                 _ => None,
                             })
                             .collect();
-                        Ok(serde_json::to_value(warnings).unwrap())
+                        serde_json::to_value(warnings).map_err(PluginError::serialization_error)
                     }
                     // Return empty array if extension not found in our state
                     // (it might be managed by WebView2 directly)
@@ -1682,7 +2006,7 @@ impl PluginHandler for ExtensionsPlugin {
             "list_extensions" => {
                 let state = self.state.read();
                 let extensions: Vec<&ExtensionInfo> = state.extensions.values().collect();
-                Ok(serde_json::to_value(extensions).unwrap())
+                serde_json::to_value(extensions).map_err(PluginError::serialization_error)
             }
             "get_extension" => {
                 let req: ExtensionIdRequest = serde_json::from_value(args)
@@ -1690,7 +2014,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let state = self.state.read();
                 match state.extensions.get(&req.extension_id) {
-                    Some(ext) => Ok(serde_json::to_value(ext).unwrap()),
+                    Some(ext) => serde_json::to_value(ext).map_err(PluginError::serialization_error),
                     None => Err(PluginError::invalid_args(format!(
                         "Extension not found: {}",
                         req.extension_id
@@ -1761,7 +2085,7 @@ impl PluginHandler for ExtensionsPlugin {
                     .cloned()
                     .unwrap_or_default();
 
-                Ok(serde_json::to_value(panel_state).unwrap())
+                serde_json::to_value(panel_state).map_err(PluginError::serialization_error)
             }
             "get_polyfill" => {
                 let req: ExtensionIdRequest = serde_json::from_value(args)
@@ -1776,12 +2100,27 @@ impl PluginHandler for ExtensionsPlugin {
                     .unwrap_or_else(|| (String::new(), None));
                 drop(state);
 
+                // Attempt to load _locales messages from extension directory
+                let messages = if !extension_path.is_empty() {
+                    let locales_path =
+                        PathBuf::from(&extension_path).join("_locales/en/messages.json");
+                    if locales_path.exists() {
+                        std::fs::read_to_string(&locales_path)
+                            .ok()
+                            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 // Generate the polyfill script using SDK
                 let polyfill = auroraview_extensions::generate_polyfill_from_sdk(
                     &req.extension_id.clone(),
                     &extension_path,
                     manifest.as_ref(),
-                    None, // messages - TODO: load from _locales if needed
+                    messages.as_ref(),
                 );
                 let wxt_shim = auroraview_extensions::generate_wxt_shim();
 
@@ -1794,13 +2133,23 @@ impl PluginHandler for ExtensionsPlugin {
                 let req: EventDispatchRequest = serde_json::from_value(args)
                     .map_err(|e| PluginError::invalid_args(e.to_string()))?;
 
-                // TODO: Implement event dispatching to extension
-                tracing::info!(
-                    "Dispatching event {}.{} to {}",
-                    req.api,
-                    req.event,
-                    req.extension_id
-                );
+                // Dispatch event to extension via callback
+                let cbs = self.callbacks.read();
+                if let Some(ref dispatch_cb) = cbs.on_event_dispatch {
+                    dispatch_cb(
+                        &req.extension_id,
+                        &req.api,
+                        &req.event,
+                        &req.args,
+                    );
+                } else {
+                    tracing::info!(
+                        "Dispatching event {}.{} to {} (no callback registered)",
+                        req.api,
+                        req.event,
+                        req.extension_id
+                    );
+                }
 
                 Ok(serde_json::json!({ "success": true }))
             }
@@ -1826,7 +2175,7 @@ impl PluginHandler for ExtensionsPlugin {
                 };
 
                 match view_manager.create_view(config) {
-                    Ok(info) => Ok(serde_json::to_value(info).unwrap()),
+                    Ok(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
                     Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
@@ -1836,7 +2185,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_view(&req.view_id) {
-                    Some(info) => Ok(serde_json::to_value(info).unwrap()),
+                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id
@@ -1849,12 +2198,12 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 let views = view_manager.get_extension_views(&req.extension_id);
-                Ok(serde_json::to_value(views).unwrap())
+                serde_json::to_value(views).map_err(PluginError::serialization_error)
             }
             "get_all_views" => {
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 let views = view_manager.get_all_views();
-                Ok(serde_json::to_value(views).unwrap())
+                serde_json::to_value(views).map_err(PluginError::serialization_error)
             }
             "open_devtools" => {
                 let req: ViewIdRequest = serde_json::from_value(args)
@@ -1912,7 +2261,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_cdp_info(&req.view_id) {
-                    Some(info) => Ok(serde_json::to_value(info).unwrap()),
+                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id
@@ -1922,7 +2271,7 @@ impl PluginHandler for ExtensionsPlugin {
             "get_all_cdp_connections" => {
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 let connections = view_manager.get_all_cdp_connections();
-                Ok(serde_json::to_value(connections).unwrap())
+                serde_json::to_value(connections).map_err(PluginError::serialization_error)
             }
             _ => Err(PluginError::command_not_found(command)),
         }

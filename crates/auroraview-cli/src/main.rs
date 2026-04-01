@@ -150,6 +150,8 @@ fn main() -> Result<()> {
                 allow_new_window: cli.allow_new_window,
                 allow_file_protocol: cli.allow_file_protocol,
                 always_on_top: cli.always_on_top,
+                watch: false,
+                poll_interval_ms: 1500,
             };
             run_webview(args)
         }

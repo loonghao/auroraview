@@ -3,15 +3,17 @@
 //! This module provides runtime configuration types for the packer.
 //! Common types are re-exported from the `common` module for consistency.
 
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
 use crate::common::{
     default_module_search_paths, default_optimize, default_python_version, HooksConfig,
 };
 use crate::error::PackResult;
 use crate::manifest::Manifest;
 use crate::protection::ProtectionConfig;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 
 // Re-export common types
 pub use crate::common::{
@@ -378,6 +380,18 @@ pub struct PackConfig {
     /// Extensions behavior (runtime + pack-time bundle inputs)
     #[serde(default)]
     pub extensions: ExtensionsRuntimeConfig,
+
+    /// Content Security Policy injected as a `<meta>` tag before page scripts run.
+    ///
+    /// When set, the CSP policy string is injected into every page via a `<meta
+    /// http-equiv="Content-Security-Policy">` element inserted by the WebView
+    /// initialization script.
+    ///
+    /// Example: `"default-src 'self'; script-src 'self' 'unsafe-inline'"`
+    ///
+    /// Set to `None` (default) to disable CSP injection.
+    #[serde(default)]
+    pub content_security_policy: Option<String>,
 }
 
 /// Default compression level (19 = high compression, good for releases)
@@ -450,10 +464,9 @@ impl PackConfig {
             downloads: vec![],
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
+            content_security_policy: None,
         }
     }
-
-    /// Create a frontend mode configuration
     pub fn frontend(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
         let output_name = path
@@ -484,6 +497,7 @@ impl PackConfig {
             downloads: vec![],
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
+            content_security_policy: None,
         }
     }
 
@@ -521,6 +535,7 @@ impl PackConfig {
             downloads: vec![],
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
+            content_security_policy: None,
         }
     }
 
@@ -561,6 +576,7 @@ impl PackConfig {
             downloads: vec![],
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
+            content_security_policy: None,
         }
     }
 
@@ -763,8 +779,14 @@ impl PackConfig {
             debug: manifest.debug.enabled,
             allow_new_window: manifest.package.allow_new_window,
             user_agent: manifest.get_user_agent(),
-            inject_js: None,
-            inject_css: None,
+            inject_js: manifest
+                .inject
+                .as_ref()
+                .and_then(|inj| inj.js_code.clone()),
+            inject_css: manifest
+                .inject
+                .as_ref()
+                .and_then(|inj| inj.css_code.clone()),
             icon_path: manifest.get_icon_path().cloned().map(|p| resolve_path(&p)),
             window_icon: None,
             env: manifest
@@ -798,6 +820,10 @@ impl PackConfig {
                         .collect(),
                 })
                 .unwrap_or_default(),
+            content_security_policy: manifest
+                .security
+                .as_ref()
+                .and_then(|s| s.content_security_policy.clone()),
         };
 
         Ok(config)
