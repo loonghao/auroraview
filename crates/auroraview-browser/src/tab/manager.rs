@@ -9,7 +9,7 @@ use tao::event_loop::EventLoopProxy;
 use tao::window::Window;
 use wry::WebViewBuilder;
 
-use super::{Tab, TabEvent, TabId, TabState};
+use super::{Tab, TabEvent, TabEventKind, TabId, TabListenerId, TabListenerMap, TabState};
 use crate::config::BrowserConfig;
 use crate::BrowserError;
 
@@ -34,6 +34,8 @@ pub struct TabManager {
     config: Rc<BrowserConfig>,
     /// Event loop proxy for sending events
     event_proxy: RwLock<Option<EventLoopProxy<TabEvent>>>,
+    /// Tab event listeners (on_event / off_event)
+    listeners: TabListenerMap,
 }
 
 impl TabManager {
@@ -46,6 +48,7 @@ impl TabManager {
             tab_counter: AtomicU32::new(0),
             config,
             event_proxy: RwLock::new(None),
+            listeners: TabListenerMap::new(),
         }
     }
 
@@ -426,6 +429,54 @@ impl TabManager {
     /// Check if any tabs exist
     pub fn is_empty(&self) -> bool {
         self.tabs.read().is_empty()
+    }
+
+    // === Event Listener API ===
+
+    /// Subscribe a handler to tab events of the given `kind`.
+    ///
+    /// Returns a [`TabListenerId`] that can be passed to [`off_event`](Self::off_event)
+    /// to cancel this specific subscription.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let id = manager.on_event(TabEventKind::Activated, |state| {
+    ///     println!("activated: {}", state.id);
+    /// });
+    /// manager.off_event(&TabEventKind::Activated, id);
+    /// ```
+    pub fn on_event<F>(&self, kind: TabEventKind, handler: F) -> TabListenerId
+    where
+        F: Fn(&TabState) + Send + Sync + 'static,
+    {
+        self.listeners.on(kind, handler)
+    }
+
+    /// Unsubscribe the listener identified by `id` from events of `kind`.
+    ///
+    /// Returns `true` if the listener was found and removed.
+    pub fn off_event(&self, kind: &TabEventKind, id: TabListenerId) -> bool {
+        self.listeners.off(kind, id)
+    }
+
+    /// Remove all listeners for the given `kind`.
+    ///
+    /// Returns the count of listeners that were removed.
+    pub fn off_event_all(&self, kind: &TabEventKind) -> usize {
+        self.listeners.off_all(kind)
+    }
+
+    /// Return the number of listeners registered for `kind`.
+    pub fn listener_count(&self, kind: &TabEventKind) -> usize {
+        self.listeners.listener_count(kind)
+    }
+
+    /// Dispatch a tab state snapshot to all listeners registered for `kind`.
+    ///
+    /// Call this internally after mutating tab state to notify subscribers.
+    pub fn emit_tab_event(&self, kind: TabEventKind, state: &TabState) {
+        self.listeners.emit(&kind, state);
     }
 
     // === DevTools Methods ===
