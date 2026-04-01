@@ -5,6 +5,6 @@
 mod handler;
 mod message;
 
-pub use handler::{IpcRouter, ListenerId};
+pub use handler::IpcRouter;
 pub use message::{IpcError, IpcMessage, IpcResponse};
 
