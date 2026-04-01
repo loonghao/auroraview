@@ -1,8 +1,8 @@
 //! Tests for SpanExt trait on tracing spans.
 
 use auroraview_telemetry::SpanExt;
-use tracing::{Level, span};
-
+use tracing::span;
+use tracing::Level;
 
 #[test]
 fn test_set_webview_id() {

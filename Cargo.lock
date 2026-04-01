@@ -637,7 +637,7 @@ dependencies = [
  "regex",
  "reqwest 0.12.28",
  "rfd",
- "rstest",
+ "rstest 0.26.1",
  "rust-embed",
  "scopeguard",
  "serde",
@@ -671,7 +671,7 @@ dependencies = [
  "chrono",
  "futures",
  "genai",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -700,7 +700,7 @@ dependencies = [
  "auroraview-workspace-hack",
  "chrono",
  "parking_lot",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -728,7 +728,7 @@ dependencies = [
  "dashmap",
  "dirs",
  "parking_lot",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "tao",
@@ -766,7 +766,7 @@ dependencies = [
  "rayon",
  "regex",
  "reqwest 0.12.28",
- "rstest",
+ "rstest 0.26.1",
  "self-replace",
  "serde",
  "serde_json",
@@ -804,7 +804,7 @@ dependencies = [
  "parking_lot",
  "path-clean",
  "regex",
- "rstest",
+ "rstest 0.26.1",
  "rust-embed",
  "serde",
  "serde_json",
@@ -828,7 +828,7 @@ dependencies = [
  "auroraview-workspace-hack",
  "crossbeam-channel",
  "dashmap",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -848,7 +848,7 @@ dependencies = [
  "dashmap",
  "image",
  "raw-window-handle",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "tao",
@@ -864,6 +864,7 @@ name = "auroraview-devtools"
 version = "0.4.17"
 dependencies = [
  "auroraview-workspace-hack",
+ "rstest 0.18.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -876,7 +877,7 @@ dependencies = [
  "auroraview-workspace-hack",
  "chrono",
  "parking_lot",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -894,7 +895,7 @@ dependencies = [
  "dunce",
  "parking_lot",
  "regex",
- "rstest",
+ "rstest 0.26.1",
  "rust-embed",
  "serde",
  "serde_json",
@@ -917,7 +918,7 @@ dependencies = [
  "auroraview-workspace-hack",
  "chrono",
  "parking_lot",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -932,7 +933,7 @@ dependencies = [
  "auroraview-workspace-hack",
  "chrono",
  "parking_lot",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -959,7 +960,7 @@ dependencies = [
  "insta",
  "rand 0.8.5",
  "rayon",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "sha2",
@@ -1016,7 +1017,7 @@ dependencies = [
  "open",
  "parking_lot",
  "rfd",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -1053,7 +1054,7 @@ version = "0.4.17"
 dependencies = [
  "auroraview-workspace-hack",
  "parking_lot",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -1070,7 +1071,7 @@ dependencies = [
  "parking_lot",
  "pyo3",
  "regex",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -1085,7 +1086,7 @@ dependencies = [
  "auroraview-workspace-hack",
  "dashmap",
  "parking_lot",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -1102,7 +1103,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "pyo3",
- "rstest",
+ "rstest 0.26.1",
  "sentry",
  "serde",
  "serde_json",
@@ -1130,7 +1131,7 @@ dependencies = [
  "pyo3",
  "regex",
  "reqwest 0.12.28",
- "rstest",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -6889,13 +6890,42 @@ dependencies = [
 
 [[package]]
 name = "rstest"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97eeab2f3c0a199bc4be135c36c924b6590b88c377d416494288c14f2db30199"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "rstest_macros 0.18.2",
+ "rustc_version",
+]
+
+[[package]]
+name = "rstest"
 version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5a3193c063baaa2a95a33f03035c8a72b83d97a54916055ba22d35ed3839d49"
 dependencies = [
  "futures-timer",
  "futures-util",
- "rstest_macros",
+ "rstest_macros 0.26.1",
+]
+
+[[package]]
+name = "rstest_macros"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d428f8247852f894ee1be110b375111b586d4fa431f6c46e64ba5a0dcccbe605"
+dependencies = [
+ "cfg-if",
+ "glob",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "relative-path",
+ "rustc_version",
+ "syn 2.0.117",
+ "unicode-ident",
 ]
 
 [[package]]

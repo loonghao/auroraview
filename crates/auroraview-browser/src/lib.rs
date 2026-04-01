@@ -124,8 +124,8 @@ pub use extensions::{
 };
 /// Built-in navigation types: bookmarks and history entries.
 pub use navigation::{Bookmark, BookmarkId, BookmarkManager, HistoryEntry, HistoryManager};
-/// Tab management types: tab state, identifiers, manager, and event listener API.
-pub use tab::{Tab, TabEventKind, TabId, TabListenerId, TabListenerMap, TabManager, TabState};
+/// Tab management types: tab state, identifiers, and manager.
+pub use tab::{Tab, TabId, TabManager, TabState};
 
 /// Browser event types
 pub mod events {
