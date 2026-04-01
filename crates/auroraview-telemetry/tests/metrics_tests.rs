@@ -2,6 +2,8 @@
 
 use auroraview_telemetry::metrics_api;
 use auroraview_telemetry::WebViewMetrics;
+use std::sync::Arc;
+use std::thread;
 
 // ────────────────────────────────────────────────────────────
 // WebViewMetrics struct API
@@ -206,5 +208,172 @@ fn test_api_multiple_webviews() {
         let id = format!("window-{i}");
         metrics_api::record_webview_load_time(&id, (i * 50) as f64);
         metrics_api::record_ipc_message(&id, "js_to_rust", (i as f64) * 2.0);
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+// Concurrent metrics recording
+// ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_webview_metrics_send_sync() {
+    // Verify WebViewMetrics can be shared across threads
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<WebViewMetrics>();
+}
+
+#[test]
+fn test_concurrent_load_time_recording() {
+    let metrics = Arc::new(WebViewMetrics::new());
+    let mut handles = vec![];
+
+    for i in 0..8 {
+        let m = Arc::clone(&metrics);
+        let window = format!("thread-window-{i}");
+        handles.push(thread::spawn(move || {
+            m.webview_created(&window);
+            for j in 0..10 {
+                m.record_load_time(&window, (j * 10 + i * 100) as f64);
+            }
+            m.webview_destroyed(&window);
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread should not panic");
+    }
+}
+
+#[test]
+fn test_concurrent_ipc_recording() {
+    let metrics = Arc::new(WebViewMetrics::new());
+    let mut handles = vec![];
+
+    for i in 0..4 {
+        let m = Arc::clone(&metrics);
+        let window = format!("ipc-window-{i}");
+        handles.push(thread::spawn(move || {
+            for _ in 0..20 {
+                m.record_ipc_message(&window, "js_to_rust");
+                m.record_ipc_latency(&window, "js_to_rust", 2.5);
+                m.record_ipc_message(&window, "rust_to_js");
+                m.record_ipc_latency(&window, "rust_to_js", 1.2);
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread should not panic");
+    }
+}
+
+#[test]
+fn test_concurrent_error_recording() {
+    let metrics = Arc::new(WebViewMetrics::new());
+    let mut handles = vec![];
+    let error_types = ["timeout", "crash", "ipc_error", "js_error", "navigation_error"];
+
+    for (i, &err) in error_types.iter().enumerate() {
+        let m = Arc::clone(&metrics);
+        let window = format!("err-window-{i}");
+        handles.push(thread::spawn(move || {
+            for _ in 0..15 {
+                m.record_error(&window, err);
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread should not panic");
+    }
+}
+
+#[test]
+fn test_concurrent_mixed_operations() {
+    let metrics = Arc::new(WebViewMetrics::new());
+    let mut handles = vec![];
+
+    for i in 0..6 {
+        let m = Arc::clone(&metrics);
+        let window = format!("mixed-window-{i}");
+        handles.push(thread::spawn(move || {
+            m.webview_created(&window);
+            m.record_load_time(&window, (50 + i * 30) as f64);
+            m.record_navigation(&window, "https://example.com");
+            m.record_ipc_message(&window, "js_to_rust");
+            m.record_ipc_latency(&window, "js_to_rust", (i as f64) * 1.5);
+            m.record_js_eval(&window, (i as f64) * 5.0);
+            m.record_event_emit(&window, "data_ready");
+            m.record_memory(&window, (i as u64 + 1) * 10 * 1024 * 1024);
+            m.record_error(&window, "none"); // record a no-op error type
+            m.webview_destroyed(&window);
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread should not panic");
+    }
+}
+
+#[test]
+fn test_concurrent_metrics_api() {
+    let mut handles = vec![];
+
+    for i in 0..8 {
+        handles.push(thread::spawn(move || {
+            let window = format!("api-concurrent-{i}");
+            for j in 0..10 {
+                metrics_api::record_webview_load_time(&window, (j * 15 + i) as f64);
+                metrics_api::record_ipc_message(&window, "js_to_rust", (j as f64) * 0.5);
+                metrics_api::record_error(&window, "test_error");
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread should not panic");
+    }
+}
+
+#[test]
+fn test_concurrent_many_windows_creation_destruction() {
+    let metrics = Arc::new(WebViewMetrics::new());
+    let mut handles = vec![];
+
+    for i in 0..16 {
+        let m = Arc::clone(&metrics);
+        handles.push(thread::spawn(move || {
+            for j in 0..5 {
+                let id = format!("window-{i}-{j}");
+                m.webview_created(&id);
+                m.record_load_time(&id, (i * 10 + j * 5) as f64);
+                m.webview_destroyed(&id);
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread should not panic");
+    }
+}
+
+#[test]
+fn test_concurrent_memory_recording() {
+    let metrics = Arc::new(WebViewMetrics::new());
+    let mut handles = vec![];
+
+    for i in 0..4 {
+        let m = Arc::clone(&metrics);
+        let window = format!("mem-window-{i}");
+        handles.push(thread::spawn(move || {
+            for j in 0..10 {
+                let bytes = ((i + 1) as u64) * 1024 * 1024 * (j + 1) as u64;
+                m.record_memory(&window, bytes);
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread should not panic");
     }
 }
