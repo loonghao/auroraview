@@ -1,12 +1,14 @@
 //! IPC handler and router
 
-use super::message::{IpcMessage, IpcResponse};
-use dashmap::DashMap;
 use std::sync::{
     Arc,
     atomic::{AtomicU64, Ordering},
 };
+
+use dashmap::DashMap;
 use tracing::{debug, warn};
+
+use super::message::{IpcMessage, IpcResponse};
 
 /// Unique ID returned by [`IpcRouter::on`] and consumed by [`IpcRouter::off`].
 pub type ListenerId = u64;

@@ -103,7 +103,7 @@ fn state_serde_round_trip() {
     };
     let json = serde_json::to_string(&state).unwrap();
     let back: DevToolsState = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.is_open, true);
+    assert!(back.is_open);
     assert_eq!(back.dock_side, Some(DockSide::Left));
     assert_eq!(back.selected_panel.as_deref(), Some("console"));
 }
