@@ -232,7 +232,7 @@ impl WindowManager {
 
     /// Get window info (alias for get())
     pub fn get_info(&self, id: &str) -> Option<WindowInfo> {
-        self.get(&id.to_string())
+        self.windows.get(id).map(|s| s.info.clone())
     }
 
     /// Check if a window exists

@@ -318,11 +318,11 @@ impl ExtensionViewManager {
         extension_id: &str,
         view_type: ExtensionViewType,
     ) -> Option<ExtensionViewInfo> {
-        let view_id = self
-            .views_by_extension
-            .get(&(extension_id.to_string(), view_type))?
-            .value()
-            .clone();
+        // DashMap supports lookup by borrowed key when K: Borrow<Q>
+        // (String, ExtensionViewType): Borrow<(String, ExtensionViewType)> but not &(&str, …)
+        // so we construct the owned key here — only one small alloc on the lookup path.
+        let key = (extension_id.to_string(), view_type);
+        let view_id = self.views_by_extension.get(&key)?.value().clone();
         self.get_view(&view_id)
     }
 
