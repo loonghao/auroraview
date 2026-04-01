@@ -75,9 +75,9 @@ impl NameObfuscator {
 
     /// Check if a name should be obfuscated
     pub fn should_obfuscate(&self, name: &str) -> bool {
-        !self.preserved.contains(name)
-            && !(name.starts_with("__") && name.ends_with("__"))
-            && !name.starts_with("_0x") // Already obfuscated
+        !(self.preserved.contains(name)
+            || (name.starts_with("__") && name.ends_with("__"))
+            || name.starts_with("_0x")) // Already obfuscated
     }
 }
 
@@ -379,7 +379,7 @@ impl Obfuscator {
 
         // Pattern for Python identifiers
         // This is a simplified approach - production code should use a proper Python parser
-        let identifier_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b")
+        let _identifier_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b")
             .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
 
         // First pass: collect all identifiers to obfuscate
@@ -472,9 +472,8 @@ impl Obfuscator {
             .string_key
             .ok_or_else(|| ProtectError::Obfuscation("String encryption key not set".to_string()))?;
 
-        // Pattern for string literals (simplified - doesn't handle all edge cases)
-        let string_pattern = Regex::new(r#"(['"])([^'"\\]|\\.)*\1"#)
-            .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
+        // Pattern for string literals: simplified placeholder for future implementation
+        // TODO: replace with a proper Python string parser
 
         let mut result = source.to_string();
 

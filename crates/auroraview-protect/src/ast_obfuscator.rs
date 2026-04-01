@@ -332,9 +332,9 @@ impl AstObfuscator {
 
     /// Parse import statement
     fn parse_import(&mut self, line: &str) -> ProtectResult<()> {
-        if line.starts_with("import ") {
+        if let Some(stripped) = line.strip_prefix("import ") {
             // import module1, module2
-            let modules = line[7..].trim();
+            let modules = stripped.trim();
             for module in modules.split(',') {
                 let module = module.trim().split(" as ").next().unwrap_or("").trim();
                 let module = module.split('.').next().unwrap_or("");
@@ -387,8 +387,8 @@ impl AstObfuscator {
 
     /// Parse function definition and return function name
     fn parse_function_def(&self, line: &str) -> ProtectResult<String> {
-        let line = if line.starts_with("async ") {
-            &line[6..]
+        let line = if let Some(stripped) = line.strip_prefix("async ") {
+            stripped
         } else {
             line
         };
@@ -650,7 +650,6 @@ impl AstObfuscator {
     ) -> ProtectResult<String> {
         let mut result = String::new();
         let mut chars = source.chars().peekable();
-        let mut current_pos = 0;
         let mut in_string = false;
         let mut string_char = '"';
         let mut in_comment = false;
@@ -662,7 +661,6 @@ impl AstObfuscator {
                 if c == '\n' {
                     in_comment = false;
                 }
-                current_pos += c.len_utf8();
                 continue;
             }
             
@@ -672,17 +670,14 @@ impl AstObfuscator {
                     // Escape sequence
                     if let Some(next) = chars.next() {
                         result.push(next);
-                        current_pos += next.len_utf8();
                     }
                 } else if c == string_char {
                     if triple_quote {
                         // Check for closing triple quote
                         if chars.peek() == Some(&string_char) {
                             result.push(chars.next().unwrap());
-                            current_pos += 1;
                             if chars.peek() == Some(&string_char) {
                                 result.push(chars.next().unwrap());
-                                current_pos += 1;
                                 in_string = false;
                                 triple_quote = false;
                             }
@@ -691,7 +686,6 @@ impl AstObfuscator {
                         in_string = false;
                     }
                 }
-                current_pos += c.len_utf8();
                 continue;
             }
             
@@ -699,7 +693,6 @@ impl AstObfuscator {
             if c == '#' {
                 in_comment = true;
                 result.push(c);
-                current_pos += c.len_utf8();
                 continue;
             }
             
@@ -711,16 +704,13 @@ impl AstObfuscator {
                 // Check for triple quote
                 if chars.peek() == Some(&c) {
                     result.push(chars.next().expect("peeked Some"));
-                    current_pos += 1;
                     if chars.peek() == Some(&c) {
                         result.push(chars.next().expect("peeked Some"));
-                        current_pos += 1;
                         triple_quote = true;
                     }
                 }
                 
                 in_string = true;
-                current_pos += c.len_utf8();
                 continue;
             }
             
@@ -748,8 +738,6 @@ impl AstObfuscator {
             } else {
                 result.push(c);
             }
-            
-            current_pos += c.len_utf8();
         }
         
         Ok(result)
