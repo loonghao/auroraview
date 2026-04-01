@@ -1,6 +1,7 @@
+use std::path::Path;
+
 use auroraview_downloads::{DownloadError, DownloadItem, DownloadManager, DownloadQueue, DownloadState};
 use rstest::*;
-use std::path::Path;
 use tempfile::TempDir;
 
 // ========== DownloadItem Struct Tests ==========

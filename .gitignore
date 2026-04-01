@@ -104,6 +104,8 @@ target/wheels/
 local-test.py
 test_*.txt
 build_output.txt
+check_err.txt
+clippy_out.txt
 scripts/cdp_*.py
 scripts/run_cdp_test.ps1
 

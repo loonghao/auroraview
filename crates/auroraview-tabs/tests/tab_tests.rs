@@ -1,9 +1,10 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+
 use auroraview_tabs::{
     Result, Session, SessionManager, TabError, TabEvent, TabManager, TabState,
 };
 use rstest::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use tempfile::TempDir;
 
 // ========== TabState Tests ==========
