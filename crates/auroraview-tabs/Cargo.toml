@@ -21,6 +21,7 @@ dashmap = "6.1"
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [dev-dependencies]
+rstest = "0.26"
 tempfile = "3"
 
 [features]
