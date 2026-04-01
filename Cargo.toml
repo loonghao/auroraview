@@ -155,7 +155,7 @@ ipc-channel = { version = "0.20", optional = true }
 ipckit = "0.1"
 
 # File dialogs
-rfd = "0.16"
+rfd = "0.17"
 
 # Open URLs/files in system default application
 open = "5.3"
