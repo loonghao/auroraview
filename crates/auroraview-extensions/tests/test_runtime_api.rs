@@ -1,7 +1,9 @@
 //! Tests for chrome.runtime API
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use serde_json::json;
 
