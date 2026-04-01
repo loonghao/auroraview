@@ -39,17 +39,30 @@
 //! manager.show(&main)?;
 //! ```
 
+/// Desktop window and tray configuration.
 pub mod config;
+/// Desktop-specific error types.
 pub mod error;
+/// Event loop management and application entry points.
 pub mod event_loop;
+/// Inter-process communication message routing.
 pub mod ipc;
+/// System tray icon and menu support.
 pub mod tray;
+/// Window creation and management.
 pub mod window;
+/// Multi-window lifecycle and coordination.
 pub mod window_manager;
 
+/// Configuration types for desktop windows and system tray.
 pub use config::{DesktopConfig, TrayConfig, TrayMenuItem};
+/// Error and result types for desktop operations.
 pub use error::{DesktopError, Result};
+/// Application entry points and event loop types.
 pub use event_loop::{run, run_with_router, UserEvent};
+/// IPC message and routing types.
 pub use ipc::{IpcMessage, IpcResponse, IpcRouter};
+/// Window creation helpers and desktop window type.
 pub use window::{create_window, create_window_with_router, DesktopWindow};
+/// Window identifier, info, and manager for multi-window support.
 pub use window_manager::{WindowId, WindowInfo, WindowManager};

@@ -1,17 +1,19 @@
 //! Event loop handler for desktop mode
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use tao::event::{Event, WindowEvent};
+use tao::event_loop::{ControlFlow, EventLoopBuilder};
+use tao::platform::run_return::EventLoopExtRunReturn;
+use tracing::info;
+
 use crate::config::DesktopConfig;
 use crate::error::Result;
 use crate::event_loop::UserEvent;
 use crate::ipc::IpcRouter;
 use crate::tray::TrayManager;
 use crate::window::create_window_with_router;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use tao::event::{Event, WindowEvent};
-use tao::event_loop::{ControlFlow, EventLoopBuilder};
-use tao::platform::run_return::EventLoopExtRunReturn;
-use tracing::info;
 
 /// Run the desktop event loop (blocking)
 ///
@@ -115,21 +117,25 @@ pub fn run_with_router(config: DesktopConfig, router: Option<Arc<IpcRouter>>) ->
                     let _ = window.drag_window();
                 }
                 UserEvent::EvalJs(script) => {
-                    if let Ok(wv) = webview.lock() {
-                        let _ = wv.evaluate_script(&script);
+                    if let Ok(guard) = webview.lock() {
+                        if let Some(ref wv) = *guard {
+                            let _ = wv.evaluate_script(&script);
+                        }
                     }
                 }
                 UserEvent::PluginEvent { event, data } => {
-                    if let Ok(wv) = webview.lock() {
-                        let js = format!(
-                            r#"(function() {{
+                    if let Ok(guard) = webview.lock() {
+                        if let Some(ref wv) = *guard {
+                            let js = format!(
+                                r#"(function() {{
                                 if (window.auroraview && window.auroraview.trigger) {{
                                     window.auroraview.trigger('{}', {});
                                 }}
                             }})()"#,
-                            event, data
-                        );
-                        let _ = wv.evaluate_script(&js);
+                                event, data
+                            );
+                            let _ = wv.evaluate_script(&js);
+                        }
                     }
                 }
                 UserEvent::WakeUp => {}

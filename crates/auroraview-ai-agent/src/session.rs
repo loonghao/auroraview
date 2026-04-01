@@ -1,6 +1,7 @@
 //! Chat session management
 
 use crate::message::{Message, MessageRole, ToolCall};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -203,7 +204,8 @@ impl SessionManager {
         let id = session.id.clone();
         self.sessions.push(session);
         self.active_session_id = Some(id.clone());
-        self.get_session_mut(&id).unwrap()
+        self.get_session_mut(&id)
+            .expect("session was just inserted")
     }
 
     /// Get a session by ID

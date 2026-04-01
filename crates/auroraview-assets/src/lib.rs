@@ -113,7 +113,7 @@ pub fn asset_exists(path: &str) -> bool {
     Assets::get(path).is_some()
 }
 
-// Re-export for convenience
+/// Re-export `rust_embed` for downstream asset embedding.
 pub use rust_embed;
 
 #[cfg(test)]

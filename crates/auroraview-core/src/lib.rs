@@ -22,29 +22,52 @@
 //! - `auroraview-cli` (Command-line interface)
 //! - `auroraview` (Python bindings, re-exports)
 
+/// Static assets (HTML, JavaScript) embedded at compile time.
 pub mod assets;
-pub mod backend; // WebView backend abstraction (traits, factory, settings)
-pub mod bom; // Browser Object Model APIs (navigation, zoom, window control)
-pub mod builder; // WebView builder extensions (drag-drop, IPC, protocols)
-pub mod cleanup; // WebView user data directory cleanup (cross-platform)
-pub mod cli; // CLI utilities (URL normalization, HTML rewriting)
+/// WebView backend abstraction (traits, factory, settings).
+pub mod backend;
+/// Browser Object Model APIs (navigation, zoom, window control).
+pub mod bom;
+/// WebView builder extensions (drag-drop, IPC, protocols).
+pub mod builder;
+/// WebView user data directory cleanup (cross-platform).
+pub mod cleanup;
+/// CLI utilities (URL normalization, HTML rewriting).
+pub mod cli;
+/// WebView configuration structures.
 pub mod config;
-pub mod dom; // DOM manipulation primitives (DomOp, DomBatch)
-pub mod events; // Unified user event types (CoreUserEvent, ExtendedUserEvent)
-pub mod icon; // Icon utilities (PNG loading, ICO conversion, compression)
+/// DOM manipulation primitives (DomOp, DomBatch).
+pub mod dom;
+/// Unified user event types (CoreUserEvent, ExtendedUserEvent).
+pub mod events;
+/// Icon utilities (PNG loading, ICO conversion, compression).
+pub mod icon;
+/// Unique ID generation utilities.
 pub mod id_generator;
-pub mod ipc; // IPC abstractions (message, metrics, WebViewMessage) - platform-agnostic
+/// IPC abstractions (message, metrics, WebViewMessage) - platform-agnostic.
+pub mod ipc;
+/// High-performance JSON operations.
 pub mod json;
-pub mod menu; // Native menu bar support
-pub mod metrics; // Timing metrics for WebView lifecycle
+/// Native menu bar support.
+pub mod menu;
+/// Timing metrics for WebView lifecycle.
+pub mod metrics;
+/// Dynamic port allocation utilities.
 pub mod port;
+/// Protocol handling utilities.
 pub mod protocol;
-pub mod service_discovery; // Service discovery (port allocation, service info)
-pub mod signals; // Qt-inspired signal-slot event system
-pub mod templates; // JavaScript templates (Askama)
-pub mod thread_safety; // Thread safety utilities (lock ordering, deadlock prevention)
+/// Service discovery (port allocation, mDNS, HTTP discovery).
+pub mod service_discovery;
+/// Qt-inspired signal-slot event system.
+pub mod signals;
+/// JavaScript templates (Askama).
+pub mod templates;
+/// Thread safety utilities (lock ordering, deadlock prevention).
+pub mod thread_safety;
+/// Common utility functions.
 pub mod utils;
-pub mod window; // Window information structures
+/// Window information structures.
+pub mod window;
 
-// Re-export plugin system from auroraview-plugins crate
+/// Plugin system for native desktop capabilities (re-exported from `auroraview-plugins`).
 pub use auroraview_plugins as plugins;

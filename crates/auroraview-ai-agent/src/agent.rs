@@ -202,7 +202,9 @@ impl AIAgent {
             }
         }
 
-        let session = sessions.active_session_mut().unwrap();
+        let session = sessions
+            .active_session_mut()
+            .expect("active session was just ensured");
         session.add_user_message(message);
 
         // Generate run and message IDs

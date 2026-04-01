@@ -50,6 +50,7 @@ thiserror = "2.0"
 
 # Thread safety
 parking_lot = "0.12"
+dashmap = "6.1"
 
 # Unique IDs
 uuid = { version = "1.11", features = ["v4"] }
@@ -66,7 +67,7 @@ windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsA
 
 [dev-dependencies]
 rstest = "0.26"
-tempfile = "3.14"
+tempfile = "3.20"
 
 [features]
 default = []

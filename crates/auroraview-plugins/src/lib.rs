@@ -42,21 +42,26 @@
 //!
 //! Example: `plugin:fs|read_file`
 
-// Re-export core types
+/// Core plugin framework types re-exported from `auroraview-plugin-core`.
 pub use auroraview_plugin_core::{
     PathScope, PluginCommand, PluginError, PluginErrorCode, PluginEventCallback, PluginHandler,
     PluginRequest, PluginResponse, PluginResult, PluginRouter, ScopeConfig, ScopeError, ShellScope,
 };
 
-// Re-export fs plugin
+/// File system plugin providing read, write, list, and metadata operations.
 pub use auroraview_plugin_fs as fs;
 
-// Built-in plugins (still in this crate for now)
+/// WebSocket bridge for browser extension communication.
 pub mod browser_bridge;
+/// System clipboard access (read/write text and images).
 pub mod clipboard;
+/// Native file and folder dialog support.
 pub mod dialog;
+/// Chrome Extension API compatibility layer.
 pub mod extensions;
+/// Process spawning with stdin/stdout IPC.
 pub mod process;
+/// Shell command execution and URL/file opening.
 pub mod shell;
 
 use std::sync::Arc;

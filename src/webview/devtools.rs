@@ -29,9 +29,9 @@
 //! └─────────────────────────────────────────────────────────────────┘
 //! ```
 
+use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// DevTools window information
@@ -98,9 +98,9 @@ pub type CloseDevToolsWindowCallback = Arc<dyn Fn(&str) -> Result<(), String> + 
 /// Manages independent DevTools windows for debugging extension views.
 pub struct DevToolsManager {
     /// All DevTools windows by window_id
-    windows: RwLock<HashMap<String, DevToolsWindowInfo>>,
+    windows: DashMap<String, DevToolsWindowInfo>,
     /// Windows by target view_id
-    windows_by_target: RwLock<HashMap<String, String>>,
+    windows_by_target: DashMap<String, String>,
     /// Callback for creating DevTools windows
     create_callback: RwLock<Option<CreateDevToolsWindowCallback>>,
     /// Callback for closing DevTools windows
@@ -113,8 +113,8 @@ impl DevToolsManager {
     /// Create a new DevTools manager
     pub fn new() -> Self {
         Self {
-            windows: RwLock::new(HashMap::new()),
-            windows_by_target: RwLock::new(HashMap::new()),
+            windows: DashMap::new(),
+            windows_by_target: DashMap::new(),
             create_callback: RwLock::new(None),
             close_callback: RwLock::new(None),
             window_counter: std::sync::atomic::AtomicU32::new(0),
@@ -157,18 +157,13 @@ impl DevToolsManager {
         config: DevToolsWindowConfig,
     ) -> Result<DevToolsWindowInfo, String> {
         // Check if already open for this target
-        {
-            let by_target = self.windows_by_target.read();
-            if let Some(window_id) = by_target.get(&config.target_view_id) {
-                let windows = self.windows.read();
-                if let Some(info) = windows.get(window_id) {
-                    tracing::info!(
-                        "DevTools already open for {}, bringing to front",
-                        config.target_view_id
-                    );
-                    // TODO: Bring window to front
-                    return Ok(info.clone());
-                }
+        if let Some(window_id) = self.windows_by_target.get(&config.target_view_id) {
+            if let Some(info) = self.windows.get(window_id.value()) {
+                tracing::info!(
+                    "DevTools already open for {}, bringing to front",
+                    config.target_view_id
+                );
+                return Ok(info.value().clone());
             }
         }
 
@@ -206,16 +201,9 @@ impl DevToolsManager {
             hwnd,
         };
 
-        // Store window info
-        {
-            let mut windows = self.windows.write();
-            windows.insert(window_id.clone(), info.clone());
-        }
-
-        {
-            let mut by_target = self.windows_by_target.write();
-            by_target.insert(config.target_view_id.clone(), window_id.clone());
-        }
+        self.windows.insert(window_id.clone(), info.clone());
+        self.windows_by_target
+            .insert(config.target_view_id.clone(), window_id.clone());
 
         tracing::info!(
             "Opened DevTools window {} for target {} (port: {})",
@@ -229,30 +217,23 @@ impl DevToolsManager {
 
     /// Close DevTools for a target view
     pub fn close_devtools(&self, target_view_id: &str) -> Result<(), String> {
-        let window_id = {
-            let by_target = self.windows_by_target.read();
-            by_target
-                .get(target_view_id)
-                .cloned()
-                .ok_or_else(|| format!("No DevTools open for: {}", target_view_id))?
-        };
+        let window_id = self
+            .windows_by_target
+            .get(target_view_id)
+            .map(|e| e.value().clone())
+            .ok_or_else(|| format!("No DevTools open for: {}", target_view_id))?;
 
         self.close_window(&window_id)
     }
 
     /// Close a DevTools window by ID
     pub fn close_window(&self, window_id: &str) -> Result<(), String> {
-        let info = {
-            let mut windows = self.windows.write();
-            windows
-                .remove(window_id)
-                .ok_or_else(|| format!("DevTools window not found: {}", window_id))?
-        };
+        let (_, info) = self
+            .windows
+            .remove(window_id)
+            .ok_or_else(|| format!("DevTools window not found: {}", window_id))?;
 
-        {
-            let mut by_target = self.windows_by_target.write();
-            by_target.remove(&info.target_view_id);
-        }
+        self.windows_by_target.remove(&info.target_view_id);
 
         // Close window via callback
         {
@@ -275,35 +256,31 @@ impl DevToolsManager {
 
     /// Get DevTools window info by window ID
     pub fn get_window(&self, window_id: &str) -> Option<DevToolsWindowInfo> {
-        let windows = self.windows.read();
-        windows.get(window_id).cloned()
+        self.windows.get(window_id).map(|e| e.value().clone())
     }
 
     /// Get DevTools window for a target view
     pub fn get_window_for_target(&self, target_view_id: &str) -> Option<DevToolsWindowInfo> {
-        let by_target = self.windows_by_target.read();
-        let window_id = by_target.get(target_view_id)?;
-        self.get_window(window_id)
+        let window_id = self
+            .windows_by_target
+            .get(target_view_id)
+            .map(|e| e.value().clone())?;
+        self.get_window(&window_id)
     }
 
     /// Check if DevTools is open for a target
     pub fn is_devtools_open(&self, target_view_id: &str) -> bool {
-        let by_target = self.windows_by_target.read();
-        by_target.contains_key(target_view_id)
+        self.windows_by_target.contains_key(target_view_id)
     }
 
     /// Get all open DevTools windows
     pub fn get_all_windows(&self) -> Vec<DevToolsWindowInfo> {
-        let windows = self.windows.read();
-        windows.values().cloned().collect()
+        self.windows.iter().map(|e| e.value().clone()).collect()
     }
 
     /// Close all DevTools windows
     pub fn close_all(&self) {
-        let window_ids: Vec<String> = {
-            let windows = self.windows.read();
-            windows.keys().cloned().collect()
-        };
+        let window_ids: Vec<String> = self.windows.iter().map(|e| e.key().clone()).collect();
 
         for window_id in window_ids {
             if let Err(e) = self.close_window(&window_id) {

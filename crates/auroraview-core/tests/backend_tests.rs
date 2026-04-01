@@ -340,6 +340,29 @@ fn test_settings_mutation() {
     assert_eq!(settings.user_agent(), Some("CustomAgent/1.0".into()));
 }
 
+#[test]
+fn test_settings_csp_default_none() {
+    let settings = WebViewSettingsImpl::default();
+    assert!(settings.content_security_policy().is_none());
+}
+
+#[test]
+fn test_settings_csp_set_and_get() {
+    let mut settings = WebViewSettingsImpl::default();
+    let policy = "default-src 'self'; script-src 'self' 'unsafe-inline'";
+    settings.set_content_security_policy(Some(policy.to_string()));
+    assert_eq!(settings.content_security_policy(), Some(policy));
+}
+
+#[test]
+fn test_settings_csp_clear() {
+    let mut settings = WebViewSettingsImpl::default();
+    settings.set_content_security_policy(Some("default-src 'none'".to_string()));
+    assert!(settings.content_security_policy().is_some());
+    settings.set_content_security_policy(None);
+    assert!(settings.content_security_policy().is_none());
+}
+
 // ============================================================================
 // Error Tests (from error.rs)
 // ============================================================================

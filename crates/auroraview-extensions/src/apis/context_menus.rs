@@ -2,11 +2,12 @@
 //!
 //! Provides context menu (right-click menu) functionality for extensions.
 
-use parking_lot::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::apis::ApiHandler;
 use crate::error::{ExtensionError, ExtensionResult};
@@ -155,29 +156,27 @@ type ClickHandler = Box<dyn Fn(OnClickData) + Send + Sync>;
 /// Context menus manager
 pub struct ContextMenusManager {
     /// Menu items by extension
-    items: RwLock<HashMap<ExtensionId, Vec<MenuItem>>>,
+    items: DashMap<ExtensionId, Vec<MenuItem>>,
     /// Item ID counter
-    next_id: RwLock<u64>,
+    next_id: AtomicU64,
     /// Click handlers (extension_id -> callback)
     #[allow(dead_code)]
-    click_handlers: RwLock<HashMap<ExtensionId, Vec<ClickHandler>>>,
+    click_handlers: DashMap<ExtensionId, Vec<ClickHandler>>,
 }
 
 impl ContextMenusManager {
     /// Create a new context menus manager
     pub fn new() -> Self {
         Self {
-            items: RwLock::new(HashMap::new()),
-            next_id: RwLock::new(1),
-            click_handlers: RwLock::new(HashMap::new()),
+            items: DashMap::new(),
+            next_id: AtomicU64::new(1),
+            click_handlers: DashMap::new(),
         }
     }
 
     /// Generate a new item ID
     fn generate_id(&self) -> String {
-        let mut id = self.next_id.write();
-        let current = *id;
-        *id += 1;
+        let current = self.next_id.fetch_add(1, Ordering::SeqCst);
         format!("menu_{}", current)
     }
 
@@ -195,8 +194,7 @@ impl ContextMenusManager {
             properties,
         };
 
-        let mut items = self.items.write();
-        let ext_items = items.entry(extension_id.to_string()).or_default();
+        let mut ext_items = self.items.entry(extension_id.to_string()).or_default();
         ext_items.push(item);
 
         Ok(id)
@@ -209,8 +207,7 @@ impl ContextMenusManager {
         id: &str,
         properties: CreateProperties,
     ) -> ExtensionResult<()> {
-        let mut items = self.items.write();
-        if let Some(ext_items) = items.get_mut(extension_id) {
+        if let Some(mut ext_items) = self.items.get_mut(extension_id) {
             for item in ext_items.iter_mut() {
                 if item.id == id {
                     item.properties = properties;
@@ -226,8 +223,7 @@ impl ContextMenusManager {
 
     /// Remove a menu item
     pub fn remove(&self, extension_id: &str, id: &str) -> ExtensionResult<()> {
-        let mut items = self.items.write();
-        if let Some(ext_items) = items.get_mut(extension_id) {
+        if let Some(mut ext_items) = self.items.get_mut(extension_id) {
             let len_before = ext_items.len();
             ext_items.retain(|item| item.id != id);
             if ext_items.len() < len_before {
@@ -242,23 +238,23 @@ impl ContextMenusManager {
 
     /// Remove all menu items for an extension
     pub fn remove_all(&self, extension_id: &str) {
-        let mut items = self.items.write();
-        items.remove(extension_id);
+        self.items.remove(extension_id);
     }
 
     /// Get all menu items for an extension
     pub fn get_items(&self, extension_id: &str) -> Vec<MenuItem> {
-        let items = self.items.read();
-        items.get(extension_id).cloned().unwrap_or_default()
+        self.items
+            .get(extension_id)
+            .map(|r| r.value().clone())
+            .unwrap_or_default()
     }
 
     /// Get all menu items for a context
     pub fn get_items_for_context(&self, context: &ContextType, url: Option<&str>) -> Vec<MenuItem> {
-        let items = self.items.read();
         let mut result = Vec::new();
 
-        for ext_items in items.values() {
-            for item in ext_items {
+        for entry in self.items.iter() {
+            for item in entry.value() {
                 // Check if context matches
                 let contexts = &item.properties.contexts;
                 if contexts.is_empty()

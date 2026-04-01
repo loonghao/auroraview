@@ -234,7 +234,9 @@ fn encrypt_key_x25519(
             recipient_bytes.len()
         )));
     }
-    let recipient_public: [u8; 32] = recipient_bytes.try_into().unwrap();
+    let recipient_public: [u8; 32] = recipient_bytes
+        .try_into()
+        .map_err(|_| ProtectError::InvalidKey("X25519 public key conversion failed".to_string()))?;
     let recipient_public = X25519PublicKey::from(recipient_public);
 
     // Generate ephemeral key pair
@@ -276,12 +278,10 @@ fn encrypt_key_p256(
     let recipient_point = p256::EncodedPoint::from_bytes(&recipient_bytes)
         .map_err(|e| ProtectError::InvalidKey(format!("Invalid P-256 public key: {}", e)))?;
     let recipient_public = P256PublicKey::from_encoded_point(&recipient_point);
-    if recipient_public.is_none().into() {
-        return Err(ProtectError::InvalidKey(
-            "Invalid P-256 public key point".to_string(),
-        ));
-    }
-    let recipient_public = recipient_public.unwrap();
+    let recipient_public: P256PublicKey =
+        Option::from(recipient_public).ok_or_else(|| {
+            ProtectError::InvalidKey("Invalid P-256 public key point".to_string())
+        })?;
 
     // Generate ephemeral key pair
     let ephemeral_secret = P256EphemeralSecret::random(&mut OsRng);
@@ -425,12 +425,10 @@ fn decrypt_key_p256(
     let ephemeral_point = p256::EncodedPoint::from_bytes(&ephemeral_bytes)
         .map_err(|e| ProtectError::InvalidKey(format!("Invalid ephemeral public key: {}", e)))?;
     let ephemeral_public = P256PublicKey::from_encoded_point(&ephemeral_point);
-    if ephemeral_public.is_none().into() {
-        return Err(ProtectError::InvalidKey(
-            "Invalid ephemeral public key point".to_string(),
-        ));
-    }
-    let ephemeral_public = ephemeral_public.unwrap();
+    let ephemeral_public: P256PublicKey =
+        Option::from(ephemeral_public).ok_or_else(|| {
+            ProtectError::InvalidKey("Invalid ephemeral public key point".to_string())
+        })?;
 
     // Parse private key
     let private_bytes = hex_decode(private_key)?;
@@ -538,7 +536,9 @@ impl KeyObfuscator {
 
         for i in 0..num_parts {
             let start = i * 8;
-            let mut part: [u8; 8] = padded_key[start..start + 8].try_into().unwrap();
+            let mut part: [u8; 8] = padded_key[start..start + 8]
+                .try_into()
+                .expect("slice length is always 8");
             let xor_key: [u8; 8] = rng.gen();
 
             // XOR the part with the key

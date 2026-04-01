@@ -201,8 +201,7 @@ impl SettingsManager {
         };
 
         let state = self.inner.read();
-        let map = state.store.clone().into_map();
-        let content = serde_json::to_string_pretty(&map)?;
+        let content = serde_json::to_string_pretty(&state.store.as_map())?;
 
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -223,7 +222,7 @@ impl SettingsManager {
     pub fn all_settings(&self) -> SettingsStore {
         let state = self.inner.read();
         let mut result = state.defaults.clone();
-        result.merge(state.store.clone());
+        result.merge_ref(&state.store);
         result
     }
 }

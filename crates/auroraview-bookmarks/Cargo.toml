@@ -28,8 +28,11 @@ chrono = { version = "0.4", features = ["serde"] }
 # Unique IDs
 uuid = { version = "1.11", features = ["v4"] }
 
+# Concurrency
+parking_lot = "0.12"
+
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [dev-dependencies]
 rstest = "0.26"
-tempfile = "3.14"
+tempfile = "3.20"

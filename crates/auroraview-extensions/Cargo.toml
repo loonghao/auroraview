@@ -40,6 +40,7 @@ uuid = { version = "1.11", features = ["v4"] }
 
 # Thread safety
 parking_lot = "0.12"
+dashmap = "6.1"
 
 # URL handling
 url = "2.5"
@@ -59,6 +60,6 @@ rust-embed = { version = "8.5", features = ["include-exclude"] }
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [dev-dependencies]
-tempfile = "3.14"
+tempfile = "3.20"
 tokio-test = "0.4"
 rstest = "0.26"

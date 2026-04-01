@@ -40,6 +40,8 @@ pub struct TabState {
     pub muted: bool,
     /// Whether this tab is playing audio
     pub audible: bool,
+    /// Whether DevTools is open for this tab
+    pub devtools_open: bool,
 }
 
 /// Security state of the current page
@@ -69,6 +71,7 @@ impl TabState {
             pinned: false,
             muted: false,
             audible: false,
+            devtools_open: false,
         }
     }
 
@@ -81,8 +84,6 @@ impl TabState {
 
     /// Update URL
     pub fn set_url(&mut self, url: String) {
-        self.url = url.clone();
-        // Update security state based on URL
         self.security_state = Some(if url.starts_with("https://") {
             SecurityState::Secure
         } else if url.starts_with("http://") {
@@ -90,6 +91,7 @@ impl TabState {
         } else {
             SecurityState::Neutral
         });
+        self.url = url;
     }
 
     /// Update loading state
@@ -195,5 +197,31 @@ impl Tab {
         self.webview
             .set_visible(visible)
             .map_err(|e| crate::BrowserError::WebViewCreation(e.to_string()))
+    }
+
+    /// Open DevTools for this tab
+    pub fn open_devtools(&mut self) {
+        self.webview.open_devtools();
+        self.state.devtools_open = true;
+    }
+
+    /// Close DevTools for this tab
+    pub fn close_devtools(&mut self) {
+        self.webview.close_devtools();
+        self.state.devtools_open = false;
+    }
+
+    /// Toggle DevTools for this tab
+    pub fn toggle_devtools(&mut self) {
+        if self.is_devtools_open() {
+            self.close_devtools();
+        } else {
+            self.open_devtools();
+        }
+    }
+
+    /// Check if DevTools is open for this tab
+    pub fn is_devtools_open(&self) -> bool {
+        self.webview.is_devtools_open()
     }
 }

@@ -14,7 +14,7 @@ impl ProgressStyles {
         ProgressStyle::with_template(
             "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({per_sec}) {msg}",
         )
-        .unwrap()
+        .expect("valid progress template")
         .progress_chars("█▓▒░  ")
     }
 
@@ -23,14 +23,14 @@ impl ProgressStyles {
         ProgressStyle::with_template(
             "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) {msg}",
         )
-        .unwrap()
+        .expect("valid progress template")
         .progress_chars("█▓▒░  ")
     }
 
     /// Style for indeterminate operations (spinner only)
     pub fn spinner() -> ProgressStyle {
         ProgressStyle::with_template("{spinner:.green} {msg} [{elapsed_precise}]")
-            .unwrap()
+            .expect("valid progress template")
             .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
     }
 
@@ -39,7 +39,7 @@ impl ProgressStyles {
         ProgressStyle::with_template(
             "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ETA: {eta} {msg}",
         )
-        .unwrap()
+        .expect("valid progress template")
         .progress_chars("█▓▒░  ")
     }
 
@@ -48,7 +48,7 @@ impl ProgressStyles {
         ProgressStyle::with_template(
             "{spinner:.yellow} [{elapsed_precise}] [{bar:40.yellow/white}] {pos}/{len} {msg}",
         )
-        .unwrap()
+        .expect("valid progress template")
         .progress_chars("▰▰▱")
     }
 
@@ -57,18 +57,18 @@ impl ProgressStyles {
         ProgressStyle::with_template(
             "{spinner:.magenta} [{elapsed_precise}] [{bar:40.magenta/white}] {pos}/{len} {msg}",
         )
-        .unwrap()
+        .expect("valid progress template")
         .progress_chars("🔒🔐🔓")
     }
 
     /// Style for success message
     pub fn success() -> ProgressStyle {
-        ProgressStyle::with_template("{prefix:.green} {msg}").unwrap()
+        ProgressStyle::with_template("{prefix:.green} {msg}").expect("valid progress template")
     }
 
     /// Style for error message
     pub fn error() -> ProgressStyle {
-        ProgressStyle::with_template("{prefix:.red} {msg}").unwrap()
+        ProgressStyle::with_template("{prefix:.red} {msg}").expect("valid progress template")
     }
 }
 
@@ -193,13 +193,13 @@ pub trait ProgressExt {
 
 impl ProgressExt for ProgressBar {
     fn finish_success(&self, msg: &str) {
-        self.set_style(ProgressStyle::with_template("{prefix:.green} {msg}").unwrap());
+        self.set_style(ProgressStyles::success());
         self.set_prefix("✓");
         self.finish_with_message(msg.to_string());
     }
 
     fn finish_error(&self, msg: &str) {
-        self.set_style(ProgressStyle::with_template("{prefix:.red} {msg}").unwrap());
+        self.set_style(ProgressStyles::error());
         self.set_prefix("✗");
         self.finish_with_message(msg.to_string());
     }

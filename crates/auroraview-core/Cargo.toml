@@ -38,7 +38,6 @@ rust-embed = "8.5"
 # Serialization (for config and JSON)
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-# Note: Using 0.13 for compatibility with Rust 1.80 (0.15+ requires edition2024)
 simd-json = "0.17"
 
 # MIME type detection
@@ -55,6 +54,7 @@ thiserror = "2.0"
 # Service Discovery
 mdns-sd = "0.17"
 parking_lot = "0.12"
+dashmap = "6.1"
 tokio = { version = "1", features = ["sync", "net", "rt-multi-thread", "macros"] }
 warp = { version = "0.4", features = ["server"] }
 dirs = "6.0"
@@ -66,7 +66,6 @@ askama = "0.15"
 active-win-pos-rs = "0.9"
 
 # Image processing (for icon utilities)
-# Note: Using 0.24 for compatibility with Rust 1.77+ (0.25+ requires edition2024 via pxfm)
 image = { version = "0.25", default-features = false, features = ["png", "ico"] }
 
 # WebView (optional, for builder extensions)
@@ -83,5 +82,5 @@ wry-builder = ["wry"]
 
 [dev-dependencies]
 rstest = "0.26"
-tempfile = "3.15"
+tempfile = "3.20"
 insta = { version = "1.42", features = ["json", "redactions"] }

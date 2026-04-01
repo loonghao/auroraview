@@ -2,10 +2,11 @@
 //!
 //! Implements runtime messaging and lifecycle APIs.
 
+use std::sync::Arc;
+
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
 
 use crate::apis::ApiHandler;
 use crate::error::{ExtensionError, ExtensionResult};
@@ -71,6 +72,12 @@ pub struct OnInstalledDetails {
 /// Message handler type
 pub type MessageHandler = Box<dyn Fn(&str, Value, MessageSender) -> Option<Value> + Send + Sync>;
 
+/// Callback for opening an options page
+pub type OptionsPageCallback = Box<dyn Fn(&str, &str) + Send + Sync>;
+
+/// Callback for extension reload
+pub type ReloadCallback = Box<dyn Fn(&str) + Send + Sync>;
+
 /// Runtime manager
 pub struct RuntimeManager {
     /// Message handlers per extension
@@ -78,6 +85,12 @@ pub struct RuntimeManager {
     /// Pending messages (for extensions not yet loaded)
     #[allow(dead_code)]
     pending_messages: RwLock<Vec<(ExtensionId, Value, MessageSender)>>,
+    /// Uninstall URLs per extension
+    uninstall_urls: RwLock<std::collections::HashMap<ExtensionId, String>>,
+    /// Options page open callback
+    on_open_options_page: RwLock<Option<OptionsPageCallback>>,
+    /// Extension reload callback
+    on_reload: RwLock<Option<ReloadCallback>>,
 }
 
 impl RuntimeManager {
@@ -86,7 +99,28 @@ impl RuntimeManager {
         Self {
             message_handlers: RwLock::new(std::collections::HashMap::new()),
             pending_messages: RwLock::new(Vec::new()),
+            uninstall_urls: RwLock::new(std::collections::HashMap::new()),
+            on_open_options_page: RwLock::new(None),
+            on_reload: RwLock::new(None),
         }
+    }
+
+    /// Set the options page callback
+    pub fn set_on_open_options_page<F>(&self, callback: F)
+    where
+        F: Fn(&str, &str) + Send + Sync + 'static,
+    {
+        let mut cb = self.on_open_options_page.write();
+        *cb = Some(Box::new(callback));
+    }
+
+    /// Set the reload callback
+    pub fn set_on_reload<F>(&self, callback: F)
+    where
+        F: Fn(&str) + Send + Sync + 'static,
+    {
+        let mut cb = self.on_reload.write();
+        *cb = Some(Box::new(callback));
     }
 
     /// Register a message handler for an extension
@@ -121,6 +155,44 @@ impl RuntimeManager {
             for handler in ext_handlers {
                 handler("", message.clone(), sender.clone());
             }
+        }
+    }
+
+    /// Store uninstall URL for an extension
+    pub fn set_uninstall_url(&self, extension_id: &str, url: &str) {
+        let mut urls = self.uninstall_urls.write();
+        urls.insert(extension_id.to_string(), url.to_string());
+    }
+
+    /// Get uninstall URL for an extension
+    pub fn get_uninstall_url(&self, extension_id: &str) -> Option<String> {
+        let urls = self.uninstall_urls.read();
+        urls.get(extension_id).cloned()
+    }
+
+    /// Open options page for an extension
+    pub fn open_options_page(&self, extension_id: &str, options_page: &str) {
+        let cb = self.on_open_options_page.read();
+        if let Some(callback) = cb.as_ref() {
+            callback(extension_id, options_page);
+        } else {
+            tracing::info!(
+                "No options page callback registered, ignoring openOptionsPage for {}",
+                extension_id
+            );
+        }
+    }
+
+    /// Reload an extension
+    pub fn reload_extension(&self, extension_id: &str) {
+        let cb = self.on_reload.read();
+        if let Some(callback) = cb.as_ref() {
+            callback(extension_id);
+        } else {
+            tracing::info!(
+                "No reload callback registered, ignoring reload for {}",
+                extension_id
+            );
         }
     }
 }
@@ -200,15 +272,23 @@ impl ApiHandler for RuntimeApiHandler {
                 Ok(Value::Null)
             }
             "openOptionsPage" => {
-                // TODO: Implement options page opening
+                let options_url = format!(
+                    "auroraview-extension://{}/options.html",
+                    extension_id
+                );
+                self.manager.open_options_page(extension_id, &options_url);
                 Ok(serde_json::json!({}))
             }
             "setUninstallURL" => {
-                // TODO: Store uninstall URL
+                let url = params
+                    .get("url")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                self.manager.set_uninstall_url(extension_id, url);
                 Ok(serde_json::json!({}))
             }
             "reload" => {
-                // TODO: Implement extension reload
+                self.manager.reload_extension(extension_id);
                 Ok(serde_json::json!({}))
             }
             "requestUpdateCheck" => {

@@ -1,9 +1,12 @@
 //! Plugin router for dispatching commands to plugins
 
-use crate::{PluginHandler, PluginRequest, PluginResponse, ScopeConfig};
-use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+
+use parking_lot::RwLock;
+use serde_json::Value;
+
+use crate::{PluginHandler, PluginRequest, PluginResponse, ScopeConfig};
 
 /// Event callback type for plugins to emit events
 pub type PluginEventCallback = Arc<dyn Fn(&str, Value) + Send + Sync>;
@@ -52,20 +55,20 @@ impl PluginRouter {
     /// to send events to the frontend (e.g., process stdout/stderr output).
     pub fn set_event_callback(&self, callback: PluginEventCallback) {
         tracing::info!("[PluginRouter] Setting event callback");
-        let mut cb = self.event_callback.write().unwrap();
+        let mut cb = self.event_callback.write();
         *cb = Some(callback);
         tracing::info!("[PluginRouter] Event callback set successfully");
     }
 
     /// Clear the event callback
     pub fn clear_event_callback(&self) {
-        let mut cb = self.event_callback.write().unwrap();
+        let mut cb = self.event_callback.write();
         *cb = None;
     }
 
     /// Emit an event through the callback (if set)
     pub fn emit_event(&self, event_name: &str, data: Value) {
-        if let Some(callback) = self.event_callback.read().unwrap().as_ref() {
+        if let Some(callback) = self.event_callback.read().as_ref() {
             callback(event_name, data);
         }
     }

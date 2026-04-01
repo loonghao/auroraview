@@ -338,7 +338,7 @@ fn download_file(url: &str, path: &Path, size: u64, token: Option<&str>) -> Resu
     pb.set_style(
         ProgressStyle::default_bar()
             .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-            .unwrap()
+            .expect("valid progress template")
             .progress_chars("#>-"),
     );
 

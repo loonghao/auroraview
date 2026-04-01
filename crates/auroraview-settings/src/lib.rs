@@ -30,8 +30,13 @@ mod schema;
 mod store;
 mod value;
 
+/// Error and result types for settings operations.
 pub use error::{Result, SettingsError};
+/// High-level settings manager with type-safe access and persistence.
 pub use manager::SettingsManager;
+/// Schema registry and validation types for setting definitions.
 pub use schema::{SchemaRegistry, SchemaType, SettingSchema};
+/// Low-level key-value settings store with JSON persistence.
 pub use store::SettingsStore;
+/// Typed setting value enum supporting string, bool, integer, float, and array.
 pub use value::SettingValue;

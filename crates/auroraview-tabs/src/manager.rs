@@ -1,9 +1,11 @@
 //! Tab manager implementation
 
-use crate::{Result, TabError, TabEvent, TabGroup, TabGroupId, TabId, TabState};
-use parking_lot::RwLock;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+use dashmap::DashMap;
+use parking_lot::RwLock;
+
+use crate::{Result, TabError, TabEvent, TabGroup, TabGroupId, TabId, TabState};
 
 /// Tab manager - manages tab states without WebView dependency
 ///
@@ -15,14 +17,14 @@ use std::sync::atomic::{AtomicU32, Ordering};
 ///
 /// The actual WebView instances are managed by the Browser or application layer.
 pub struct TabManager {
-    /// All tab states indexed by ID
-    tabs: RwLock<HashMap<TabId, TabState>>,
+    /// All tab states indexed by ID (lock-free concurrent map)
+    tabs: DashMap<TabId, TabState>,
     /// Currently active tab ID
     active_tab_id: RwLock<Option<TabId>>,
     /// Order of tabs for UI display
     tab_order: RwLock<Vec<TabId>>,
-    /// Tab groups
-    groups: RwLock<HashMap<TabGroupId, TabGroup>>,
+    /// Tab groups (lock-free concurrent map)
+    groups: DashMap<TabGroupId, TabGroup>,
     /// Counter for generating unique tab IDs
     tab_counter: AtomicU32,
     /// Event handlers
@@ -34,10 +36,10 @@ impl TabManager {
     /// Create a new tab manager
     pub fn new() -> Self {
         Self {
-            tabs: RwLock::new(HashMap::new()),
+            tabs: DashMap::new(),
             active_tab_id: RwLock::new(None),
             tab_order: RwLock::new(Vec::new()),
-            groups: RwLock::new(HashMap::new()),
+            groups: DashMap::new(),
             tab_counter: AtomicU32::new(0),
             event_handlers: RwLock::new(Vec::new()),
         }
@@ -65,18 +67,13 @@ impl TabManager {
         let state = TabState::new(tab_id.clone(), url);
 
         // Insert tab
-        {
-            let mut tabs = self.tabs.write();
-            tabs.insert(tab_id.clone(), state);
-        }
+        self.tabs.insert(tab_id.clone(), state);
 
-        // Add to order
+        // Add to order and optionally set as active
         {
             let mut order = self.tab_order.write();
             order.push(tab_id.clone());
         }
-
-        // If first tab, make active
         {
             let mut active = self.active_tab_id.write();
             if active.is_none() {
@@ -84,9 +81,7 @@ impl TabManager {
             }
         }
 
-        self.emit(&TabEvent::Created {
-            tab_id: tab_id.clone(),
-        });
+        self.emit(&TabEvent::Created { tab_id: tab_id.clone() });
 
         tab_id
     }
@@ -96,18 +91,13 @@ impl TabManager {
         let tab_id = state.id.clone();
 
         // Insert tab
-        {
-            let mut tabs = self.tabs.write();
-            tabs.insert(tab_id.clone(), state);
-        }
+        self.tabs.insert(tab_id.clone(), state);
 
-        // Add to order
+        // Add to order and optionally set as active
         {
             let mut order = self.tab_order.write();
             order.push(tab_id.clone());
         }
-
-        // If first tab, make active
         {
             let mut active = self.active_tab_id.write();
             if active.is_none() {
@@ -115,9 +105,7 @@ impl TabManager {
             }
         }
 
-        self.emit(&TabEvent::Created {
-            tab_id: tab_id.clone(),
-        });
+        self.emit(&TabEvent::Created { tab_id: tab_id.clone() });
 
         tab_id
     }
@@ -125,19 +113,13 @@ impl TabManager {
     /// Close a tab
     pub fn close(&self, tab_id: &TabId) -> Result<()> {
         // Check if tab exists
-        {
-            let tabs = self.tabs.read();
-            if !tabs.contains_key(tab_id) {
-                return Err(TabError::NotFound(tab_id.clone()));
-            }
+        if !self.tabs.contains_key(tab_id) {
+            return Err(TabError::NotFound(tab_id.clone()));
         }
 
         // Remove from groups
-        {
-            let mut groups = self.groups.write();
-            for group in groups.values_mut() {
-                group.remove_tab(tab_id);
-            }
+        for mut group in self.groups.iter_mut() {
+            group.remove_tab(tab_id);
         }
 
         // Remove from order
@@ -147,10 +129,7 @@ impl TabManager {
         }
 
         // Remove tab
-        {
-            let mut tabs = self.tabs.write();
-            tabs.remove(tab_id);
-        }
+        self.tabs.remove(tab_id);
 
         // Update active tab
         {
@@ -170,11 +149,9 @@ impl TabManager {
 
     /// Activate a tab
     pub fn activate(&self, tab_id: &TabId) -> Result<()> {
-        let tabs = self.tabs.read();
-        if !tabs.contains_key(tab_id) {
+        if !self.tabs.contains_key(tab_id) {
             return Err(TabError::NotFound(tab_id.clone()));
         }
-        drop(tabs);
 
         let old_active = {
             let mut active = self.active_tab_id.write();
@@ -198,8 +175,7 @@ impl TabManager {
 
     /// Get a tab state
     pub fn get(&self, tab_id: &TabId) -> Option<TabState> {
-        let tabs = self.tabs.read();
-        tabs.get(tab_id).cloned()
+        self.tabs.get(tab_id).map(|entry| entry.clone())
     }
 
     /// Get mutable access to tab state
@@ -207,28 +183,26 @@ impl TabManager {
     where
         F: FnOnce(&mut TabState) -> R,
     {
-        let mut tabs = self.tabs.write();
-        tabs.get_mut(tab_id).map(f)
+        self.tabs.get_mut(tab_id).map(|mut entry| f(entry.value_mut()))
     }
 
     /// Get all tabs in order
     pub fn all(&self) -> Vec<TabState> {
-        let tabs = self.tabs.read();
         let order = self.tab_order.read();
         order
             .iter()
-            .filter_map(|id| tabs.get(id).cloned())
+            .filter_map(|id| self.tabs.get(id).map(|e| e.clone()))
             .collect()
     }
 
     /// Get tab count
     pub fn count(&self) -> usize {
-        self.tabs.read().len()
+        self.tabs.len()
     }
 
     /// Check if empty
     pub fn is_empty(&self) -> bool {
-        self.tabs.read().is_empty()
+        self.tabs.is_empty()
     }
 
     /// Get active tab ID
@@ -239,8 +213,7 @@ impl TabManager {
     /// Get active tab state
     pub fn active(&self) -> Option<TabState> {
         let active_id = self.active_tab_id.read().clone()?;
-        let tabs = self.tabs.read();
-        tabs.get(&active_id).cloned()
+        self.tabs.get(&active_id).map(|e| e.clone())
     }
 
     /// Get tab order
@@ -253,11 +226,9 @@ impl TabManager {
     /// Update tab title
     pub fn update_title(&self, tab_id: &TabId, title: impl Into<String>) {
         let title = title.into();
-        let mut tabs = self.tabs.write();
-        if let Some(tab) = tabs.get_mut(tab_id) {
+        if let Some(mut tab) = self.tabs.get_mut(tab_id) {
             tab.set_title(&title);
         }
-        drop(tabs);
 
         self.emit(&TabEvent::TitleChanged {
             tab_id: tab_id.clone(),
@@ -268,11 +239,9 @@ impl TabManager {
     /// Update tab URL
     pub fn update_url(&self, tab_id: &TabId, url: impl Into<String>) {
         let url = url.into();
-        let mut tabs = self.tabs.write();
-        if let Some(tab) = tabs.get_mut(tab_id) {
+        if let Some(mut tab) = self.tabs.get_mut(tab_id) {
             tab.set_url(&url);
         }
-        drop(tabs);
 
         self.emit(&TabEvent::UrlChanged {
             tab_id: tab_id.clone(),
@@ -282,11 +251,9 @@ impl TabManager {
 
     /// Update tab loading state
     pub fn update_loading(&self, tab_id: &TabId, is_loading: bool) {
-        let mut tabs = self.tabs.write();
-        if let Some(tab) = tabs.get_mut(tab_id) {
+        if let Some(mut tab) = self.tabs.get_mut(tab_id) {
             tab.set_loading(is_loading);
         }
-        drop(tabs);
 
         self.emit(&TabEvent::LoadingChanged {
             tab_id: tab_id.clone(),
@@ -296,11 +263,9 @@ impl TabManager {
 
     /// Update tab history state
     pub fn update_history(&self, tab_id: &TabId, can_go_back: bool, can_go_forward: bool) {
-        let mut tabs = self.tabs.write();
-        if let Some(tab) = tabs.get_mut(tab_id) {
+        if let Some(mut tab) = self.tabs.get_mut(tab_id) {
             tab.set_history_state(can_go_back, can_go_forward);
         }
-        drop(tabs);
 
         self.emit(&TabEvent::HistoryChanged {
             tab_id: tab_id.clone(),
@@ -312,11 +277,9 @@ impl TabManager {
     /// Update tab favicon
     pub fn update_favicon(&self, tab_id: &TabId, favicon_url: impl Into<String>) {
         let favicon_url = favicon_url.into();
-        let mut tabs = self.tabs.write();
-        if let Some(tab) = tabs.get_mut(tab_id) {
+        if let Some(mut tab) = self.tabs.get_mut(tab_id) {
             tab.set_favicon(Some(favicon_url.clone()));
         }
-        drop(tabs);
 
         self.emit(&TabEvent::FaviconChanged {
             tab_id: tab_id.clone(),
@@ -328,16 +291,14 @@ impl TabManager {
 
     /// Pin/unpin a tab
     pub fn set_pinned(&self, tab_id: &TabId, pinned: bool) {
-        let mut tabs = self.tabs.write();
-        if let Some(tab) = tabs.get_mut(tab_id) {
+        if let Some(mut tab) = self.tabs.get_mut(tab_id) {
             tab.set_pinned(pinned);
         }
     }
 
     /// Mute/unmute a tab
     pub fn set_muted(&self, tab_id: &TabId, muted: bool) {
-        let mut tabs = self.tabs.write();
-        if let Some(tab) = tabs.get_mut(tab_id) {
+        if let Some(mut tab) = self.tabs.get_mut(tab_id) {
             tab.set_muted(muted);
         }
     }
@@ -354,12 +315,9 @@ impl TabManager {
 
     /// Duplicate a tab (returns new tab ID)
     pub fn duplicate(&self, tab_id: &TabId) -> Result<TabId> {
-        let url = {
-            let tabs = self.tabs.read();
-            tabs.get(tab_id)
-                .map(|t| t.url.clone())
-                .ok_or_else(|| TabError::NotFound(tab_id.clone()))?
-        };
+        let url = self.tabs.get(tab_id)
+            .map(|t| t.url.clone())
+            .ok_or_else(|| TabError::NotFound(tab_id.clone()))?;
 
         Ok(self.create(url))
     }
@@ -370,10 +328,7 @@ impl TabManager {
     pub fn create_group(&self, name: impl Into<String>) -> TabGroupId {
         let group = TabGroup::new(name);
         let group_id = group.id.clone();
-
-        let mut groups = self.groups.write();
-        groups.insert(group_id.clone(), group);
-
+        self.groups.insert(group_id.clone(), group);
         group_id
     }
 
@@ -395,23 +350,17 @@ impl TabManager {
     /// Add a tab to a group
     pub fn add_to_group(&self, tab_id: &TabId, group_id: &TabGroupId) -> Result<()> {
         // Update tab state
-        {
-            let mut tabs = self.tabs.write();
-            if let Some(tab) = tabs.get_mut(tab_id) {
-                tab.set_group(Some(group_id.clone()));
-            } else {
-                return Err(TabError::NotFound(tab_id.clone()));
-            }
+        if let Some(mut tab) = self.tabs.get_mut(tab_id) {
+            tab.set_group(Some(group_id.clone()));
+        } else {
+            return Err(TabError::NotFound(tab_id.clone()));
         }
 
         // Update group
-        {
-            let mut groups = self.groups.write();
-            if let Some(group) = groups.get_mut(group_id) {
-                group.add_tab(tab_id.clone());
-            } else {
-                return Err(TabError::GroupNotFound(group_id.clone()));
-            }
+        if let Some(mut group) = self.groups.get_mut(group_id) {
+            group.add_tab(tab_id.clone());
+        } else {
+            return Err(TabError::GroupNotFound(group_id.clone()));
         }
 
         self.emit(&TabEvent::AddedToGroup {
@@ -424,18 +373,14 @@ impl TabManager {
 
     /// Remove a tab from its group
     pub fn remove_from_group(&self, tab_id: &TabId) -> Result<()> {
-        let group_id = {
-            let mut tabs = self.tabs.write();
-            if let Some(tab) = tabs.get_mut(tab_id) {
-                tab.group_id.take()
-            } else {
-                return Err(TabError::NotFound(tab_id.clone()));
-            }
+        let group_id = if let Some(mut tab) = self.tabs.get_mut(tab_id) {
+            tab.group_id.take()
+        } else {
+            return Err(TabError::NotFound(tab_id.clone()));
         };
 
         if let Some(group_id) = group_id {
-            let mut groups = self.groups.write();
-            if let Some(group) = groups.get_mut(&group_id) {
+            if let Some(mut group) = self.groups.get_mut(&group_id) {
                 group.remove_tab(tab_id);
             }
 
@@ -450,41 +395,29 @@ impl TabManager {
 
     /// Get a group
     pub fn get_group(&self, group_id: &TabGroupId) -> Option<TabGroup> {
-        let groups = self.groups.read();
-        groups.get(group_id).cloned()
+        self.groups.get(group_id).map(|e| e.clone())
     }
 
     /// Get all groups
     pub fn all_groups(&self) -> Vec<TabGroup> {
-        let groups = self.groups.read();
-        groups.values().cloned().collect()
+        self.groups.iter().map(|e| e.value().clone()).collect()
     }
 
     /// Delete a group (tabs are ungrouped)
     pub fn delete_group(&self, group_id: &TabGroupId) -> Result<()> {
-        let tab_ids = {
-            let groups = self.groups.read();
-            groups
-                .get(group_id)
-                .map(|g| g.tab_ids.clone())
-                .ok_or_else(|| TabError::GroupNotFound(group_id.clone()))?
-        };
+        let tab_ids = self.groups.get(group_id)
+            .map(|g| g.tab_ids.clone())
+            .ok_or_else(|| TabError::GroupNotFound(group_id.clone()))?;
 
         // Ungroup all tabs
-        {
-            let mut tabs = self.tabs.write();
-            for tab_id in &tab_ids {
-                if let Some(tab) = tabs.get_mut(tab_id) {
-                    tab.set_group(None);
-                }
+        for tab_id in &tab_ids {
+            if let Some(mut tab) = self.tabs.get_mut(tab_id) {
+                tab.set_group(None);
             }
         }
 
         // Remove group
-        {
-            let mut groups = self.groups.write();
-            groups.remove(group_id);
-        }
+        self.groups.remove(group_id);
 
         self.emit(&TabEvent::GroupDeleted {
             group_id: group_id.clone(),
@@ -495,10 +428,9 @@ impl TabManager {
 
     /// Collapse/expand a group
     pub fn set_group_collapsed(&self, group_id: &TabGroupId, collapsed: bool) -> Result<()> {
-        let mut groups = self.groups.write();
-        if let Some(group) = groups.get_mut(group_id) {
+        if let Some(mut group) = self.groups.get_mut(group_id) {
             group.set_collapsed(collapsed);
-            drop(groups);
+            drop(group);
 
             self.emit(&TabEvent::GroupCollapsed {
                 group_id: group_id.clone(),
@@ -529,9 +461,6 @@ impl Default for TabManager {
     }
 }
 
-// TabManager is Send + Sync because all fields are protected
-unsafe impl Send for TabManager {}
-unsafe impl Sync for TabManager {}
 
 #[cfg(test)]
 mod tests {

@@ -22,7 +22,9 @@
 mod operations;
 mod types;
 
+/// File system operation functions (read, write, copy, rename, stat, etc.).
 pub use operations::*;
+/// Request/response types and options for file system commands.
 pub use types::*;
 
 use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
@@ -60,13 +62,13 @@ impl PluginHandler for FsPlugin {
                 let opts: ReadFileOptions = serde_json::from_value(args)
                     .map_err(|e| PluginError::invalid_args(e.to_string()))?;
                 let result = read_file(&opts.path, opts.encoding.as_deref(), &scope.fs)?;
-                Ok(serde_json::to_value(result).unwrap())
+                serde_json::to_value(result).map_err(PluginError::serialization_error)
             }
             "read_file_binary" => {
                 let opts: ReadFileOptions = serde_json::from_value(args)
                     .map_err(|e| PluginError::invalid_args(e.to_string()))?;
                 let result = read_file_binary(&opts.path, &scope.fs)?;
-                Ok(serde_json::to_value(result).unwrap())
+                serde_json::to_value(result).map_err(PluginError::serialization_error)
             }
             "write_file" => {
                 let opts: WriteFileOptions = serde_json::from_value(args)
@@ -84,7 +86,7 @@ impl PluginHandler for FsPlugin {
                 let opts: ReadDirOptions = serde_json::from_value(args)
                     .map_err(|e| PluginError::invalid_args(e.to_string()))?;
                 let result = read_dir(&opts.path, opts.recursive, &scope.fs)?;
-                Ok(serde_json::to_value(result).unwrap())
+                serde_json::to_value(result).map_err(PluginError::serialization_error)
             }
             "create_dir" => {
                 let opts: CreateDirOptions = serde_json::from_value(args)
@@ -120,7 +122,7 @@ impl PluginHandler for FsPlugin {
                 let opts: StatOptions = serde_json::from_value(args)
                     .map_err(|e| PluginError::invalid_args(e.to_string()))?;
                 let result = stat(&opts.path, &scope.fs)?;
-                Ok(serde_json::to_value(result).unwrap())
+                serde_json::to_value(result).map_err(PluginError::serialization_error)
             }
             _ => Err(PluginError::command_not_found(command)),
         }

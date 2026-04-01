@@ -54,36 +54,45 @@
 //! let response = client.chat("claude-3-5-sonnet-20241022", "What is Rust?").await?;
 //! ```
 
+/// Browser control and custom action definitions.
 pub mod actions;
+/// AI agent core: configuration, execution, and lifecycle.
 pub mod agent;
+/// AI-specific error types and result aliases.
 pub mod error;
+/// Chat message types and roles.
 pub mod message;
+/// AG-UI and A2UI protocol definitions.
 pub mod protocol;
+/// Multi-provider AI client (OpenAI, Anthropic, Gemini, etc.).
 pub mod providers;
+/// Chat session persistence and management.
 pub mod session;
+/// AI-generated UI component types.
 pub mod ui;
 
-// Re-exports - Core types
+/// Core agent and configuration types.
 pub use agent::{AIAgent, AIConfig};
+/// Error and result types for AI operations.
 pub use error::{AIError, AIResult};
 
-// Re-exports - Message types
+/// Chat message content and role types.
 pub use message::{Message, MessageContent, MessageRole};
 
-// Re-exports - Provider types
+/// AI client, provider types, streaming events, and tool definitions.
 pub use providers::{
     AIClient, ChatOptions, CompletionResponse, ModelInfo, ProviderType, StreamEvent, ToolCall,
     ToolDef, UsageStats,
 };
 
-// Re-exports - Session management
+/// Session persistence and management types.
 pub use session::{ChatSession, SessionManager};
 
-// Re-exports - Actions
+/// Browser control action types and registry.
 pub use actions::{Action, ActionContext, ActionRegistry, ActionResult};
 
-// Re-exports - AG-UI Protocol
+/// AG-UI protocol types for AI-UI streaming interaction.
 pub use protocol::agui::{AGUIEmitter, AGUIEvent, AGUIMessage, AGUITool, AGUIToolCall};
 
-// Re-exports - A2UI Protocol
+/// A2UI protocol types for dynamic UI generation.
 pub use protocol::a2ui::{NotifyLevel, UIAction, UIComponentSpec, UIComponentType};

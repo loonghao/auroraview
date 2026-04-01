@@ -18,11 +18,13 @@
 //! let ext_path = downloader.download("bpoadfkcbjbfhfodiogcnhhhpibjhbnh", None)?;
 //! ```
 
-use crate::error::{PackError, PackResult};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+
 use tracing::{debug, info};
+
+use crate::error::{PackError, PackResult};
 
 /// Chrome Web Store CRX download URL template
 /// Uses the "update" API endpoint which returns CRX files
@@ -353,7 +355,7 @@ impl ExtensionDownloader {
                 let hash = format!("{:x}", md5::compute(path_str.as_bytes()));
                 Some(hash[..32].to_string())
             })
-            .unwrap();
+            .expect("or_else always returns Some");
 
         let ext_dir = self.output_dir.join(&id);
 

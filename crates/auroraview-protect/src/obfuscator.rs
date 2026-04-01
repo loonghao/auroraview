@@ -391,7 +391,7 @@ impl Obfuscator {
                 .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
 
             for cap in def_pattern.captures_iter(source) {
-                let name = cap.get(2).unwrap().as_str();
+                let name = cap.get(2).expect("capture group 2 in def pattern").as_str();
                 if self.name_obfuscator.should_obfuscate(name) {
                     identifiers_to_rename.push(name.to_string());
                 }
@@ -403,7 +403,7 @@ impl Obfuscator {
             .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
 
         for cap in assign_pattern.captures_iter(source) {
-            let name = cap.get(1).unwrap().as_str();
+            let name = cap.get(1).expect("capture group 1 in assign pattern").as_str();
             if self.name_obfuscator.should_obfuscate(name) {
                 identifiers_to_rename.push(name.to_string());
             }
@@ -414,7 +414,7 @@ impl Obfuscator {
             .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
 
         for cap in param_pattern.captures_iter(source) {
-            let params = cap.get(1).unwrap().as_str();
+            let params = cap.get(1).expect("capture group 1 in param pattern").as_str();
             for param in params.split(',') {
                 let param = param.trim().split(':').next().unwrap_or("").trim();
                 let param = param.split('=').next().unwrap_or("").trim();

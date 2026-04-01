@@ -68,48 +68,16 @@ pub fn get_webview_base_dir() -> Option<PathBuf> {
     }
 }
 
-/// Check if a process with the given PID is still running
-#[cfg(target_os = "windows")]
+/// Check if a process with the given PID is still running.
+///
+/// Delegates to [`crate::utils::is_process_alive`] but also skips the
+/// current process (always returns `true` for own PID).
 fn is_process_alive(pid: u32) -> bool {
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
-
     // Skip checking current process
     if pid == std::process::id() {
         return true;
     }
-
-    unsafe {
-        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-        if let Ok(h) = handle {
-            let _ = CloseHandle(h);
-            true
-        } else {
-            false
-        }
-    }
-}
-
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-fn is_process_alive(pid: u32) -> bool {
-    use std::process::Command;
-
-    // Skip checking current process
-    if pid == std::process::id() {
-        return true;
-    }
-
-    // Use kill -0 to check if process exists (doesn't actually send a signal)
-    Command::new("kill")
-        .args(["-0", &pid.to_string()])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
-#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-fn is_process_alive(_pid: u32) -> bool {
-    true // Always return true on unsupported platforms to prevent accidental cleanup
+    crate::utils::is_process_alive(pid)
 }
 
 /// Extract PID from a directory name like "process_12345"

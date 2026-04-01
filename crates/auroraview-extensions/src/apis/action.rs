@@ -3,10 +3,11 @@
 //! Implements the Action API (toolbar button) for extensions.
 //! In AuroraView, actions can be triggered programmatically or through UI.
 
+use std::sync::Arc;
+
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
 
 use crate::apis::ApiHandler;
 use crate::error::{ExtensionError, ExtensionResult};
@@ -48,6 +49,9 @@ pub struct ActionManager {
     /// Callback for action clicks
     #[allow(clippy::type_complexity)]
     on_clicked: RwLock<Option<Box<dyn Fn(&str, i32) + Send + Sync>>>,
+    /// Callback for opening the popup
+    #[allow(clippy::type_complexity)]
+    on_open_popup: RwLock<Option<Box<dyn Fn(&str, Option<&str>) + Send + Sync>>>,
 }
 
 impl ActionManager {
@@ -57,6 +61,7 @@ impl ActionManager {
             global_states: RwLock::new(std::collections::HashMap::new()),
             tab_states: RwLock::new(std::collections::HashMap::new()),
             on_clicked: RwLock::new(None),
+            on_open_popup: RwLock::new(None),
         }
     }
 
@@ -69,11 +74,35 @@ impl ActionManager {
         *on_clicked = Some(Box::new(callback));
     }
 
+    /// Set the popup open callback
+    pub fn set_on_open_popup<F>(&self, callback: F)
+    where
+        F: Fn(&str, Option<&str>) + Send + Sync + 'static,
+    {
+        let mut cb = self.on_open_popup.write();
+        *cb = Some(Box::new(callback));
+    }
+
     /// Trigger action click
     pub fn trigger_click(&self, extension_id: &str, tab_id: i32) {
         let on_clicked = self.on_clicked.read();
         if let Some(callback) = on_clicked.as_ref() {
             callback(extension_id, tab_id);
+        }
+    }
+
+    /// Open the popup for an extension
+    pub fn open_popup(&self, extension_id: &str) {
+        let state = self.get_state(extension_id, None);
+        let popup_path = state.popup.as_deref();
+        let cb = self.on_open_popup.read();
+        if let Some(callback) = cb.as_ref() {
+            callback(extension_id, popup_path);
+        } else {
+            tracing::debug!(
+                "No popup callback registered for extension {}",
+                extension_id
+            );
         }
     }
 
@@ -318,7 +347,7 @@ impl ApiHandler for ActionApiHandler {
                 Ok(serde_json::json!(state.enabled))
             }
             "openPopup" => {
-                // TODO: Trigger popup opening
+                self.manager.open_popup(extension_id);
                 Ok(serde_json::json!({}))
             }
             _ => Err(ExtensionError::ApiNotSupported(format!(

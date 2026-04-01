@@ -29,6 +29,9 @@ tracing = "0.1"
 # Error handling
 thiserror = "2.0"
 
+# Concurrent map (replaces RwLock<HashMap>)
+dashmap = "6.1"
+
 # Image loading
 image = "0.25"
 

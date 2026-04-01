@@ -101,6 +101,11 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
     static ORIGINAL_WNDPROCS: Mutex<Option<HashMap<isize, isize>>> = Mutex::new(None);
 
     /// Custom WndProc that zeroes out the NC area.
+    ///
+    // SAFETY: This function is registered as a window procedure via SetWindowLongPtrW.
+    // It is called by Windows with valid HWND/WPARAM/LPARAM for the subclassed window.
+    // The original WndProc stored in ORIGINAL_WNDPROCS is guaranteed valid because
+    // it was obtained from GetWindowLongPtrW on a live window.
     unsafe extern "system" fn nc_subclass_wndproc(
         hwnd: HWND,
         msg: u32,
@@ -130,6 +135,10 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
         }
     }
 
+    // SAFETY: hwnd is a valid window handle provided by the caller (guaranteed by
+    // the `# Safety` contract). Win32 APIs (GetWindowLongPtrW, SetWindowLongPtrW,
+    // SetWindowPos) are called with this valid HWND. The transmute of the original
+    // WndProc pointer to WNDPROC is safe because it was obtained from the same HWND.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
@@ -216,6 +225,9 @@ pub fn apply_child_window_style(
     parent_hwnd: isize,
     options: ChildWindowStyleOptions,
 ) -> Result<ChildWindowStyleResult, String> {
+    // SAFETY: Both hwnd and parent_hwnd are valid window handles provided by the caller
+    // (guaranteed by the `# Safety` contract). All Win32 APIs (GetWindowLongW,
+    // SetWindowLongW, SetParent, SetWindowPos) operate on these valid handles.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
         let parent_hwnd_win = HWND(parent_hwnd as *mut _);
@@ -346,6 +358,10 @@ pub fn apply_owner_window_style(
     owner_hwnd: u64,
     tool_window: bool,
 ) -> OwnerWindowStyleResult {
+    // SAFETY: hwnd is a valid window handle and owner_hwnd is a valid owner handle,
+    // both provided by the caller (guaranteed by the `# Safety` contract).
+    // Win32 APIs (GetWindowLongW, SetWindowLongW, SetWindowLongPtrW, SetWindowPos)
+    // operate on these valid handles.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
@@ -427,6 +443,8 @@ pub fn apply_owner_window_style(
 /// - [WS_EX_TOOLWINDOW](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles)
 #[cfg(target_os = "windows")]
 pub fn apply_tool_window_style(hwnd: isize) {
+    // SAFETY: hwnd is a valid window handle. GetWindowLongW, SetWindowLongW,
+    // and SetWindowPos are called with this valid HWND.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
@@ -535,6 +553,8 @@ pub fn compute_frameless_window_styles(style: i32, ex_style: i32) -> (i32, i32) 
 /// also applying tool-window/owner styles that might affect WebView2 creation).
 #[cfg(target_os = "windows")]
 pub fn apply_frameless_window_style(hwnd: isize) -> Result<FramelessWindowStyleResult, String> {
+    // SAFETY: hwnd is a valid window handle. GetWindowLongW, SetWindowLongW,
+    // and SetWindowPos are called with this valid HWND.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
@@ -610,6 +630,8 @@ pub fn compute_frameless_popup_window_styles(style: i32, ex_style: i32) -> (i32,
 pub fn apply_frameless_popup_window_style(
     hwnd: isize,
 ) -> Result<FramelessWindowStyleResult, String> {
+    // SAFETY: hwnd is a valid window handle. GetWindowLongW, SetWindowLongW,
+    // and SetWindowPos are called with this valid HWND.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
@@ -675,6 +697,9 @@ pub fn apply_frameless_popup_window_style(
 /// - [DWMWA_NCRENDERING_POLICY](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute)
 #[cfg(target_os = "windows")]
 pub fn disable_window_shadow(hwnd: isize) {
+    // SAFETY: hwnd is a valid window handle. DwmSetWindowAttribute is called with
+    // this valid HWND and correctly-sized value buffers (u32). The DWMWINDOWATTRIBUTE
+    // numeric values (33-37) are stable Win11 constants.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
@@ -773,6 +798,9 @@ pub fn set_window_class_dark_background(hwnd: isize) {
 
     static DARK_BACKGROUND_BRUSH: OnceLock<isize> = OnceLock::new();
 
+    // SAFETY: hwnd is a valid window handle. CreateSolidBrush returns a valid GDI brush
+    // handle (stored in OnceLock for reuse). SetClassLongPtrW is called with a valid
+    // HWND and the brush handle to set GCLP_HBRBACKGROUND (-10).
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
         // COLORREF uses 0x00bbggrr layout. #020617 => 0x00170602.
@@ -814,6 +842,8 @@ pub fn extend_frame_into_client_area(hwnd: isize) {
         "[extend_frame_into_client_area] Called with HWND 0x{:X}",
         hwnd
     );
+    // SAFETY: hwnd is a valid window handle. DwmExtendFrameIntoClientArea is called
+    // with this valid HWND and a stack-allocated MARGINS struct with well-defined values.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
@@ -867,6 +897,8 @@ pub fn extend_frame_into_client_area(_hwnd: isize) {
 #[cfg(target_os = "windows")]
 #[allow(dead_code)]
 pub fn apply_layered_window_style(hwnd: isize) {
+    // SAFETY: hwnd is a valid window handle. GetWindowLongW, SetWindowLongW,
+    // and SetWindowPos are called with this valid HWND.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
@@ -936,6 +968,8 @@ pub fn optimize_transparent_window_resize(hwnd: isize) {
         hwnd
     );
 
+    // SAFETY: hwnd is a valid window handle. GetClassLongPtrW, SetClassLongPtrW,
+    // GetWindowLongW, SetWindowLongW, and SetWindowPos are called with this valid HWND.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
@@ -1019,6 +1053,8 @@ pub fn optimize_transparent_window_resize(_hwnd: isize) {
 /// - [wry issue #1212](https://github.com/tauri-apps/wry/issues/1212)
 #[cfg(target_os = "windows")]
 pub fn remove_clip_children_style(hwnd: isize) {
+    // SAFETY: hwnd is a valid window handle. GetWindowLongW, SetWindowLongW,
+    // and SetWindowPos are called with this valid HWND.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 

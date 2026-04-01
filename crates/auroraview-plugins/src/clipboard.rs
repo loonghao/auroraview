@@ -20,9 +20,9 @@
 
 use arboard::Clipboard;
 use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Mutex;
 
 /// Clipboard plugin
 pub struct ClipboardPlugin {
@@ -39,11 +39,8 @@ impl ClipboardPlugin {
         }
     }
 
-    fn get_clipboard(&self) -> PluginResult<std::sync::MutexGuard<'_, Option<Clipboard>>> {
-        let mut guard = self
-            .clipboard
-            .lock()
-            .map_err(|_| PluginError::clipboard_error("Failed to acquire clipboard lock"))?;
+    fn get_clipboard(&self) -> PluginResult<parking_lot::MutexGuard<'_, Option<Clipboard>>> {
+        let mut guard = self.clipboard.lock();
 
         if guard.is_none() {
             *guard = Some(Clipboard::new().map_err(|e| {
@@ -78,7 +75,9 @@ impl PluginHandler for ClipboardPlugin {
         match command {
             "read_text" => {
                 let mut guard = self.get_clipboard()?;
-                let clipboard = guard.as_mut().unwrap();
+                let clipboard = guard
+                    .as_mut()
+                    .ok_or_else(|| PluginError::clipboard_error("Clipboard not initialized"))?;
 
                 let text = clipboard.get_text().map_err(|e| {
                     PluginError::clipboard_error(format!("Failed to read clipboard: {}", e))
@@ -91,7 +90,9 @@ impl PluginHandler for ClipboardPlugin {
                     .map_err(|e| PluginError::invalid_args(e.to_string()))?;
 
                 let mut guard = self.get_clipboard()?;
-                let clipboard = guard.as_mut().unwrap();
+                let clipboard = guard
+                    .as_mut()
+                    .ok_or_else(|| PluginError::clipboard_error("Clipboard not initialized"))?;
 
                 clipboard.set_text(&opts.text).map_err(|e| {
                     PluginError::clipboard_error(format!("Failed to write clipboard: {}", e))
@@ -101,7 +102,9 @@ impl PluginHandler for ClipboardPlugin {
             }
             "clear" => {
                 let mut guard = self.get_clipboard()?;
-                let clipboard = guard.as_mut().unwrap();
+                let clipboard = guard
+                    .as_mut()
+                    .ok_or_else(|| PluginError::clipboard_error("Clipboard not initialized"))?;
 
                 clipboard.clear().map_err(|e| {
                     PluginError::clipboard_error(format!("Failed to clear clipboard: {}", e))
@@ -111,7 +114,9 @@ impl PluginHandler for ClipboardPlugin {
             }
             "has_text" => {
                 let mut guard = self.get_clipboard()?;
-                let clipboard = guard.as_mut().unwrap();
+                let clipboard = guard
+                    .as_mut()
+                    .ok_or_else(|| PluginError::clipboard_error("Clipboard not initialized"))?;
 
                 // Try to get text, if it succeeds and is not empty, we have text
                 let has_text = clipboard.get_text().map(|t| !t.is_empty()).unwrap_or(false);

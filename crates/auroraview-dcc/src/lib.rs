@@ -56,18 +56,28 @@
 //! manager.process_events();
 //! ```
 
+/// DCC integration configuration and host type detection.
 pub mod config;
+/// DCC-specific error types.
 pub mod error;
+/// IPC message routing for DCC-embedded WebViews.
 pub mod ipc;
+/// Multi-window management within DCC host applications.
 pub mod window_manager;
 
+/// WebView2-based DCC WebView implementation (Windows only).
 #[cfg(target_os = "windows")]
 pub mod webview;
 
+/// Configuration types for DCC integration and host type enumeration.
 pub use config::{DccConfig, DccType};
+/// Error and result types for DCC operations.
 pub use error::{DccError, Result};
+/// IPC types for DCC-embedded WebView communication.
 pub use ipc::{IpcError, IpcMessage, IpcResponse, IpcRouter};
+/// Window identifier, info, and manager for multi-WebView DCC panels.
 pub use window_manager::{WindowId, WindowInfo, WindowManager};
 
+/// DCC WebView message and window types (Windows only).
 #[cfg(target_os = "windows")]
 pub use webview::{DccMessage, DccWebView};

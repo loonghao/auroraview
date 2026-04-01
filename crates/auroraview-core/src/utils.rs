@@ -115,3 +115,48 @@ pub fn ensure_dir_exists(path: &PathBuf) -> std::io::Result<()> {
     }
     Ok(())
 }
+
+/// Check if a process with the given PID is still running.
+///
+/// On Windows, uses `OpenProcess` with `PROCESS_QUERY_LIMITED_INFORMATION`.
+/// On macOS/Linux, uses `kill -0` to probe without sending a signal.
+///
+/// Returns `true` if the process exists.
+#[cfg(target_os = "windows")]
+pub fn is_process_alive(pid: u32) -> bool {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+
+    // SAFETY: OpenProcess and CloseHandle are safe Win32 calls.
+    // OpenProcess returns an error if the process doesn't exist, and
+    // CloseHandle releases the kernel handle. No UB possible here.
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if let Ok(h) = handle {
+            let _ = CloseHandle(h);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Check if a process with the given PID is still running.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub fn is_process_alive(pid: u32) -> bool {
+    use std::process::Command;
+
+    // `kill -0` checks if the process exists without sending a signal
+    Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Check if a process with the given PID is still running (unsupported platform stub).
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+pub fn is_process_alive(_pid: u32) -> bool {
+    // Cannot determine on this platform; assume alive
+    true
+}

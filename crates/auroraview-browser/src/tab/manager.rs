@@ -1,15 +1,17 @@
 //! Tab Manager implementation
 
-use super::{Tab, TabEvent, TabId, TabState};
-use crate::config::BrowserConfig;
-use crate::BrowserError;
-use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+use parking_lot::RwLock;
 use tao::event_loop::EventLoopProxy;
 use tao::window::Window;
 use wry::WebViewBuilder;
+
+use super::{Tab, TabEvent, TabId, TabState};
+use crate::config::BrowserConfig;
+use crate::BrowserError;
 
 /// Tab Manager - manages multiple WebViews in a single window
 ///
@@ -307,7 +309,7 @@ impl TabManager {
 
     /// Navigate to home page
     pub fn home(&self) -> crate::Result<()> {
-        self.navigate(&self.config.home_url.clone())
+        self.navigate(&self.config.home_url)
     }
 
     /// Resize all tab WebViews
@@ -431,11 +433,11 @@ impl TabManager {
     /// Toggle DevTools for a tab
     /// Note: DevTools API requires wry's devtools feature and platform support
     pub fn toggle_devtools(&self, tab_id: &TabId) {
-        let tabs = self.tabs.read();
-        if let Some(_tab) = tabs.get(tab_id) {
-            // TODO: Implement using CDP or WebView2 native DevTools API
+        let mut tabs = self.tabs.write();
+        if let Some(tab) = tabs.get_mut(tab_id) {
+            tab.toggle_devtools();
             tracing::debug!(
-                "[TabManagerNested] DevTools toggle requested for tab {}",
+                "[TabManagerNested] DevTools toggled for tab {}",
                 tab_id
             );
         }
@@ -443,11 +445,11 @@ impl TabManager {
 
     /// Open DevTools for a tab
     pub fn open_devtools(&self, tab_id: &TabId) {
-        let tabs = self.tabs.read();
-        if let Some(_tab) = tabs.get(tab_id) {
-            // TODO: Implement using CDP or WebView2 native DevTools API
+        let mut tabs = self.tabs.write();
+        if let Some(tab) = tabs.get_mut(tab_id) {
+            tab.open_devtools();
             tracing::debug!(
-                "[TabManagerNested] DevTools open requested for tab {}",
+                "[TabManagerNested] DevTools opened for tab {}",
                 tab_id
             );
         }
@@ -455,20 +457,22 @@ impl TabManager {
 
     /// Close DevTools for a tab
     pub fn close_devtools(&self, tab_id: &TabId) {
-        let tabs = self.tabs.read();
-        if let Some(_tab) = tabs.get(tab_id) {
-            // TODO: Implement using CDP or WebView2 native DevTools API
+        let mut tabs = self.tabs.write();
+        if let Some(tab) = tabs.get_mut(tab_id) {
+            tab.close_devtools();
             tracing::debug!(
-                "[TabManagerNested] DevTools close requested for tab {}",
+                "[TabManagerNested] DevTools closed for tab {}",
                 tab_id
             );
         }
     }
 
     /// Check if DevTools is open for a tab
-    pub fn is_devtools_open(&self, _tab_id: &TabId) -> bool {
-        // TODO: Track DevTools state
-        false
+    pub fn is_devtools_open(&self, tab_id: &TabId) -> bool {
+        let tabs = self.tabs.read();
+        tabs.get(tab_id)
+            .map(|tab| tab.is_devtools_open())
+            .unwrap_or(false)
     }
 }
 

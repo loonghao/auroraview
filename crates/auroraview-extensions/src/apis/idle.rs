@@ -7,9 +7,11 @@
 //! - Set detection interval
 //! - Event notifications for state changes
 
+use std::sync::Arc;
+
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::{Arc, RwLock};
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -64,7 +66,7 @@ impl IdleApi {
 
     /// Query idle state
     pub fn query_state(&self, detection_interval_in_seconds: u32) -> ExtensionResult<Value> {
-        let state = self.state.read().unwrap();
+        let state = self.state.read();
 
         // In a real implementation, this would check actual system idle time
         // For now, we return the current state
@@ -79,7 +81,7 @@ impl IdleApi {
 
     /// Set detection interval
     pub fn set_detection_interval(&self, interval_in_seconds: u32) -> ExtensionResult<Value> {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         state.detection_interval = interval_in_seconds;
         Ok(json!(null))
     }
@@ -93,7 +95,7 @@ impl IdleApi {
     /// Set state for testing
     #[cfg(test)]
     pub fn set_state(&self, new_state: IdleState) {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         state.state = new_state;
     }
 

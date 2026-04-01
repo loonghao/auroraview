@@ -4,7 +4,7 @@ use crate::DownloadId;
 use std::collections::VecDeque;
 
 /// Download queue - manages concurrent downloads
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct DownloadQueue {
     /// Pending downloads
     pending: VecDeque<DownloadId>,
@@ -200,6 +200,12 @@ impl DownloadQueue {
                 self.pending.swap(pos, pos + 1);
             }
         }
+    }
+}
+
+impl Default for DownloadQueue {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

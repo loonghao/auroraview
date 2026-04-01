@@ -1,6 +1,6 @@
 //! Tests for tab module
 
-use auroraview_browser::tab::{SecurityState, TabState};
+use auroraview_browser::tab::{SecurityState, TabEvent, TabState};
 
 #[test]
 fn test_tab_state_new() {
@@ -70,3 +70,88 @@ fn test_tab_state_empty_title_not_updated() {
     state.set_title("".to_string());
     assert_eq!(state.title, "Original Title");
 }
+
+// === TabEvent builder tests ===
+
+#[test]
+fn test_tab_event_new_tab_with_url() {
+    let ev = TabEvent::new_tab(Some("https://example.com".to_string()));
+    assert!(matches!(ev, TabEvent::NewTab { url: Some(ref u) } if u == "https://example.com"));
+}
+
+#[test]
+fn test_tab_event_new_tab_without_url() {
+    let ev = TabEvent::new_tab(None);
+    assert!(matches!(ev, TabEvent::NewTab { url: None }));
+}
+
+#[test]
+fn test_tab_event_close_tab_str_literal() {
+    let ev = TabEvent::close_tab("tab_42");
+    assert!(matches!(ev, TabEvent::CloseTab { ref tab_id } if tab_id == "tab_42"));
+}
+
+#[test]
+fn test_tab_event_activate_tab() {
+    let ev = TabEvent::activate_tab("tab_1");
+    assert!(matches!(ev, TabEvent::ActivateTab { ref tab_id } if tab_id == "tab_1"));
+}
+
+#[test]
+fn test_tab_event_navigate() {
+    let ev = TabEvent::navigate("https://rust-lang.org");
+    assert!(matches!(ev, TabEvent::Navigate { ref url } if url == "https://rust-lang.org"));
+}
+
+#[test]
+fn test_tab_event_pin_tab() {
+    let ev = TabEvent::pin_tab("tab_3", true);
+    assert!(matches!(ev, TabEvent::PinTab { ref tab_id, pinned: true } if tab_id == "tab_3"));
+
+    let ev2 = TabEvent::pin_tab("tab_3", false);
+    assert!(matches!(ev2, TabEvent::PinTab { pinned: false, .. }));
+}
+
+#[test]
+fn test_tab_event_mute_tab() {
+    let ev = TabEvent::mute_tab("tab_5", true);
+    assert!(matches!(ev, TabEvent::MuteTab { ref tab_id, muted: true } if tab_id == "tab_5"));
+}
+
+#[test]
+fn test_tab_event_reorder_tab() {
+    let ev = TabEvent::reorder_tab("tab_2", 0);
+    assert!(matches!(ev, TabEvent::ReorderTab { ref tab_id, new_index: 0 } if tab_id == "tab_2"));
+}
+
+#[test]
+fn test_tab_event_duplicate_tab() {
+    let ev = TabEvent::duplicate_tab("tab_7");
+    assert!(matches!(ev, TabEvent::DuplicateTab { ref tab_id } if tab_id == "tab_7"));
+}
+
+#[test]
+fn test_tab_event_toggle_devtools_with_id() {
+    let ev = TabEvent::toggle_devtools(Some("tab_1"));
+    assert!(matches!(ev, TabEvent::ToggleDevTools { tab_id: Some(ref id) } if id == "tab_1"));
+}
+
+#[test]
+fn test_tab_event_toggle_devtools_active() {
+    // None means "use active tab"
+    let ev = TabEvent::toggle_devtools(Option::<String>::None);
+    assert!(matches!(ev, TabEvent::ToggleDevTools { tab_id: None }));
+}
+
+#[test]
+fn test_tab_event_open_devtools() {
+    let ev = TabEvent::open_devtools(Some("tab_2"));
+    assert!(matches!(ev, TabEvent::OpenDevTools { tab_id: Some(ref id) } if id == "tab_2"));
+}
+
+#[test]
+fn test_tab_event_close_devtools() {
+    let ev = TabEvent::close_devtools(Some("tab_3"));
+    assert!(matches!(ev, TabEvent::CloseDevTools { tab_id: Some(ref id) } if id == "tab_3"));
+}
+

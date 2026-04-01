@@ -8,10 +8,13 @@
 //! - Tree structure navigation
 //! - Event notifications for changes
 
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -116,9 +119,9 @@ pub struct SearchQuery {
 /// Bookmarks API handler
 pub struct BookmarksApi {
     /// In-memory bookmark storage
-    bookmarks: Arc<RwLock<HashMap<String, BookmarkTreeNode>>>,
+    bookmarks: Arc<DashMap<String, BookmarkTreeNode>>,
     /// Next ID counter
-    next_id: Arc<RwLock<u64>>,
+    next_id: AtomicU64,
 }
 
 impl Default for BookmarksApi {
@@ -131,8 +134,8 @@ impl BookmarksApi {
     /// Create a new BookmarksApi instance
     pub fn new() -> Self {
         let api = Self {
-            bookmarks: Arc::new(RwLock::new(HashMap::new())),
-            next_id: Arc::new(RwLock::new(1)),
+            bookmarks: Arc::new(DashMap::new()),
+            next_id: AtomicU64::new(1),
         };
         api.init_default_folders();
         api
@@ -140,16 +143,8 @@ impl BookmarksApi {
 
     /// Initialize default bookmark folders
     fn init_default_folders(&self) {
-        let mut bookmarks = match self.bookmarks.write() {
-            Ok(guard) => guard,
-            Err(e) => {
-                tracing::error!("Failed to acquire bookmarks lock: {}", e);
-                return;
-            }
-        };
-
         // Root node
-        bookmarks.insert(
+        self.bookmarks.insert(
             "0".to_string(),
             BookmarkTreeNode {
                 id: "0".to_string(),
@@ -166,7 +161,7 @@ impl BookmarksApi {
         );
 
         // Bookmarks Bar
-        bookmarks.insert(
+        self.bookmarks.insert(
             "1".to_string(),
             BookmarkTreeNode {
                 id: "1".to_string(),
@@ -183,7 +178,7 @@ impl BookmarksApi {
         );
 
         // Other Bookmarks
-        bookmarks.insert(
+        self.bookmarks.insert(
             "2".to_string(),
             BookmarkTreeNode {
                 id: "2".to_string(),
@@ -201,23 +196,14 @@ impl BookmarksApi {
     }
 
     /// Generate next ID
-    fn next_id(&self) -> ExtensionResult<String> {
-        let mut id = self
-            .next_id
-            .write()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
-        let current = *id;
-        *id += 1;
+    fn next_id(&self) -> String {
+        let current = self.next_id.fetch_add(1, Ordering::Relaxed);
         // Start from 100 to avoid conflicts with default folders
-        Ok(format!("{}", current + 100))
+        format!("{}", current + 100)
     }
 
     /// Get bookmark by ID
     pub fn get(&self, id_or_ids: Value) -> ExtensionResult<Value> {
-        let bookmarks = self
-            .bookmarks
-            .read()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
         let ids: Vec<String> = match id_or_ids {
             Value::String(s) => vec![s],
             Value::Array(arr) => arr
@@ -227,22 +213,21 @@ impl BookmarksApi {
             _ => return Err(ExtensionError::InvalidParams("Invalid id parameter".into())),
         };
 
-        let results: Vec<&BookmarkTreeNode> =
-            ids.iter().filter_map(|id| bookmarks.get(id)).collect();
+        let results: Vec<BookmarkTreeNode> = ids
+            .iter()
+            .filter_map(|id| self.bookmarks.get(id).map(|e| e.value().clone()))
+            .collect();
 
         Ok(serde_json::to_value(results)?)
     }
 
     /// Get children of a bookmark folder
     pub fn get_children(&self, id: &str) -> ExtensionResult<Value> {
-        let bookmarks = self
+        let children: Vec<BookmarkTreeNode> = self
             .bookmarks
-            .read()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
-
-        let children: Vec<&BookmarkTreeNode> = bookmarks
-            .values()
-            .filter(|b| b.parent_id.as_deref() == Some(id))
+            .iter()
+            .filter(|entry| entry.value().parent_id.as_deref() == Some(id))
+            .map(|entry| entry.value().clone())
             .collect();
 
         Ok(serde_json::to_value(children)?)
@@ -250,35 +235,33 @@ impl BookmarksApi {
 
     /// Get recent bookmarks
     pub fn get_recent(&self, number_of_items: usize) -> ExtensionResult<Value> {
-        let bookmarks = self
+        let mut recent: Vec<BookmarkTreeNode> = self
             .bookmarks
-            .read()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
-
-        let mut recent: Vec<&BookmarkTreeNode> = bookmarks
-            .values()
-            .filter(|b| b.url.is_some()) // Only actual bookmarks, not folders
+            .iter()
+            .filter(|entry| entry.value().url.is_some())
+            .map(|entry| entry.value().clone())
             .collect();
 
-        // Sort by date_added descending
         recent.sort_by(|a, b| b.date_added.unwrap_or(0).cmp(&a.date_added.unwrap_or(0)));
-
         recent.truncate(number_of_items);
         Ok(serde_json::to_value(recent)?)
     }
 
     /// Get subtree starting from a node
     pub fn get_sub_tree(&self, id: &str) -> ExtensionResult<Value> {
-        let bookmarks = self
+        let node = self
             .bookmarks
-            .read()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
-
-        let node = bookmarks
             .get(id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Bookmark {} not found", id)))?;
 
-        let tree = self.build_tree(node, &bookmarks);
+        // Take a snapshot for tree building
+        let snapshot: HashMap<String, BookmarkTreeNode> = self
+            .bookmarks
+            .iter()
+            .map(|entry| (entry.key().clone(), entry.value().clone()))
+            .collect();
+
+        let tree = Self::build_tree(&node, &snapshot);
         Ok(serde_json::to_value(vec![tree])?)
     }
 
@@ -288,9 +271,7 @@ impl BookmarksApi {
     }
 
     /// Build tree structure recursively
-    #[allow(clippy::only_used_in_recursion)]
     fn build_tree(
-        &self,
         node: &BookmarkTreeNode,
         bookmarks: &HashMap<String, BookmarkTreeNode>,
     ) -> BookmarkTreeNode {
@@ -300,7 +281,7 @@ impl BookmarksApi {
             let children: Vec<BookmarkTreeNode> = bookmarks
                 .values()
                 .filter(|b| b.parent_id.as_deref() == Some(&node.id))
-                .map(|b| self.build_tree(b, bookmarks))
+                .map(|b| Self::build_tree(b, bookmarks))
                 .collect();
             result.children = Some(children);
         }
@@ -310,8 +291,8 @@ impl BookmarksApi {
 
     /// Create a bookmark or folder
     pub fn create(&self, details: CreateDetails) -> ExtensionResult<Value> {
-        let id = self.next_id()?;
-        let parent_id = details.parent_id.unwrap_or_else(|| "2".to_string()); // Default to "Other Bookmarks"
+        let id = self.next_id();
+        let parent_id = details.parent_id.unwrap_or_else(|| "2".to_string());
         let is_folder = details.url.is_none();
 
         let node = BookmarkTreeNode {
@@ -327,23 +308,15 @@ impl BookmarksApi {
             unmodifiable: None,
         };
 
-        let mut bookmarks = self
-            .bookmarks
-            .write()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
-        bookmarks.insert(id, node.clone());
+        self.bookmarks.insert(id, node.clone());
 
         Ok(serde_json::to_value(node)?)
     }
 
     /// Move a bookmark
     pub fn move_bookmark(&self, id: &str, destination: MoveDestination) -> ExtensionResult<Value> {
-        let mut bookmarks = self
+        let mut node = self
             .bookmarks
-            .write()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
-
-        let node = bookmarks
             .get_mut(id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Bookmark {} not found", id)))?;
 
@@ -365,12 +338,8 @@ impl BookmarksApi {
 
     /// Update a bookmark
     pub fn update(&self, id: &str, changes: UpdateChanges) -> ExtensionResult<Value> {
-        let mut bookmarks = self
+        let mut node = self
             .bookmarks
-            .write()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
-
-        let node = bookmarks
             .get_mut(id)
             .ok_or_else(|| ExtensionError::NotFound(format!("Bookmark {} not found", id)))?;
 
@@ -392,88 +361,82 @@ impl BookmarksApi {
 
     /// Remove a bookmark
     pub fn remove(&self, id: &str) -> ExtensionResult<Value> {
-        let mut bookmarks = self
-            .bookmarks
-            .write()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
+        // Check properties first via read ref
+        {
+            let node = self
+                .bookmarks
+                .get(id)
+                .ok_or_else(|| ExtensionError::NotFound(format!("Bookmark {} not found", id)))?;
 
-        let node = bookmarks
-            .get(id)
-            .ok_or_else(|| ExtensionError::NotFound(format!("Bookmark {} not found", id)))?;
-
-        if node.unmodifiable.is_some() {
-            return Err(ExtensionError::PermissionDenied(
-                "Cannot remove managed bookmark".into(),
-            ));
-        }
-
-        // Check if folder has children
-        if node.is_folder() {
-            let has_children = bookmarks
-                .values()
-                .any(|b| b.parent_id.as_deref() == Some(id));
-            if has_children {
-                return Err(ExtensionError::InvalidParams(
-                    "Cannot remove non-empty folder. Use removeTree instead.".into(),
+            if node.unmodifiable.is_some() {
+                return Err(ExtensionError::PermissionDenied(
+                    "Cannot remove managed bookmark".into(),
                 ));
+            }
+
+            if node.is_folder() {
+                let has_children = self
+                    .bookmarks
+                    .iter()
+                    .any(|entry| entry.value().parent_id.as_deref() == Some(id));
+                if has_children {
+                    return Err(ExtensionError::InvalidParams(
+                        "Cannot remove non-empty folder. Use removeTree instead.".into(),
+                    ));
+                }
             }
         }
 
-        bookmarks.remove(id);
+        self.bookmarks.remove(id);
         Ok(json!(null))
     }
 
     /// Remove a bookmark tree
     pub fn remove_tree(&self, id: &str) -> ExtensionResult<Value> {
-        let mut bookmarks = self
-            .bookmarks
-            .write()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
+        {
+            let node = self
+                .bookmarks
+                .get(id)
+                .ok_or_else(|| ExtensionError::NotFound(format!("Bookmark {} not found", id)))?;
 
-        let node = bookmarks
-            .get(id)
-            .ok_or_else(|| ExtensionError::NotFound(format!("Bookmark {} not found", id)))?;
-
-        if node.unmodifiable.is_some() {
-            return Err(ExtensionError::PermissionDenied(
-                "Cannot remove managed bookmark".into(),
-            ));
+            if node.unmodifiable.is_some() {
+                return Err(ExtensionError::PermissionDenied(
+                    "Cannot remove managed bookmark".into(),
+                ));
+            }
         }
 
         // Collect all IDs to remove
         let mut ids_to_remove = vec![id.to_string()];
-        self.collect_children_ids(id, &bookmarks, &mut ids_to_remove);
+        Self::collect_children_ids(id, &self.bookmarks, &mut ids_to_remove);
 
         for id in ids_to_remove {
-            bookmarks.remove(&id);
+            self.bookmarks.remove(&id);
         }
 
         Ok(json!(null))
     }
 
     /// Recursively collect child IDs
-    #[allow(clippy::only_used_in_recursion)]
     fn collect_children_ids(
-        &self,
         parent_id: &str,
-        bookmarks: &HashMap<String, BookmarkTreeNode>,
+        bookmarks: &DashMap<String, BookmarkTreeNode>,
         ids: &mut Vec<String>,
     ) {
-        for (id, node) in bookmarks {
-            if node.parent_id.as_deref() == Some(parent_id) {
-                ids.push(id.clone());
-                self.collect_children_ids(id, bookmarks, ids);
-            }
+        let children: Vec<String> = bookmarks
+            .iter()
+            .filter(|entry| entry.value().parent_id.as_deref() == Some(parent_id))
+            .map(|entry| entry.key().clone())
+            .collect();
+
+        for child_id in children {
+            ids.push(child_id.clone());
+            Self::collect_children_ids(&child_id, bookmarks, ids);
         }
     }
 
     /// Search bookmarks
     pub fn search(&self, query: Value) -> ExtensionResult<Value> {
-        let bookmarks = self
-            .bookmarks
-            .read()
-            .map_err(|e| ExtensionError::LockPoisoned(e.to_string()))?;
-
         let search_query: SearchQuery = if query.is_string() {
             SearchQuery {
                 query: query.as_str().map(|s| s.to_string()),
@@ -484,10 +447,11 @@ impl BookmarksApi {
             serde_json::from_value(query)?
         };
 
-        let results: Vec<&BookmarkTreeNode> = bookmarks
-            .values()
-            .filter(|b| {
-                // Only search actual bookmarks, not folders
+        let results: Vec<BookmarkTreeNode> = self
+            .bookmarks
+            .iter()
+            .filter(|entry| {
+                let b = entry.value();
                 if b.url.is_none() {
                     return false;
                 }
@@ -519,6 +483,7 @@ impl BookmarksApi {
 
                 true
             })
+            .map(|entry| entry.value().clone())
             .collect();
 
         Ok(serde_json::to_value(results)?)

@@ -180,4 +180,5 @@ pub fn read_overlay() -> PackResult<Option<OverlayData>> {
     OverlayReader::read(&exe_path)
 }
 
+/// Platform-specific builders (Windows, macOS, Linux, mobile, web, mini-programs).
 pub mod builder;

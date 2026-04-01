@@ -341,7 +341,7 @@ impl PyOxidizerBuilder {
                 binary
                     .source
                     .file_name()
-                    .unwrap()
+                    .unwrap_or_else(|| std::ffi::OsStr::new("unknown"))
                     .to_string_lossy()
                     .to_string()
             });

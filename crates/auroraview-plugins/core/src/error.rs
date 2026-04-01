@@ -31,6 +31,8 @@ pub enum PluginErrorCode {
     ShellError,
     /// Dialog cancelled
     DialogCancelled,
+    /// Serialization error
+    SerializationError,
     /// Unknown error
     Unknown,
 }
@@ -50,6 +52,7 @@ impl PluginErrorCode {
             Self::ClipboardError => "CLIPBOARD_ERROR",
             Self::ShellError => "SHELL_ERROR",
             Self::DialogCancelled => "DIALOG_CANCELLED",
+            Self::SerializationError => "SERIALIZATION_ERROR",
             Self::Unknown => "UNKNOWN",
         }
     }
@@ -141,6 +144,14 @@ impl PluginError {
     /// Create a dialog cancelled error
     pub fn dialog_cancelled() -> Self {
         Self::new(PluginErrorCode::DialogCancelled, "Dialog was cancelled")
+    }
+
+    /// Create a serialization error
+    pub fn serialization_error(err: impl std::fmt::Display) -> Self {
+        Self::new(
+            PluginErrorCode::SerializationError,
+            format!("Serialization failed: {}", err),
+        )
     }
 
     /// Create a generic plugin error (for plugin-specific errors)

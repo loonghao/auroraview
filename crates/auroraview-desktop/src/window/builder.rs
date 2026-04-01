@@ -1,15 +1,17 @@
 //! Window builder for desktop mode
 
+use std::sync::{Arc, Mutex};
+
+use tao::event_loop::EventLoop;
+use tao::window::WindowBuilder;
+use tracing::{debug, info};
+use wry::{WebView, WebViewBuilder};
+
 use crate::config::DesktopConfig;
 use crate::error::{DesktopError, Result};
 use crate::event_loop::UserEvent;
 use crate::ipc::IpcRouter;
 use crate::window::DesktopWindow;
-use std::sync::{Arc, Mutex};
-use tao::event_loop::EventLoop;
-use tao::window::WindowBuilder;
-use tracing::{debug, info};
-use wry::WebViewBuilder;
 
 #[cfg(target_os = "windows")]
 use wry::WebViewBuilderExtWindows;
@@ -119,6 +121,12 @@ pub fn create_window_with_router(
     let ipc_router = router.unwrap_or_else(|| Arc::new(IpcRouter::new()));
     let router_for_ipc = ipc_router.clone();
 
+    // Shared WebView reference for IPC response callback.
+    // Starts as None; set to Some after WebView is built.
+    #[allow(clippy::arc_with_non_send_sync)]
+    let webview_ref: Arc<Mutex<Option<WebView>>> = Arc::new(Mutex::new(None));
+    let webview_for_ipc = webview_ref.clone();
+
     // Add IPC handler to WebView
     webview_builder = webview_builder.with_ipc_handler(move |request| {
         let body = request.body();
@@ -126,7 +134,18 @@ pub fn create_window_with_router(
 
         if let Some(response) = router_for_ipc.handle(body) {
             debug!("[IPC] Response: {}", response);
-            // TODO: Send response back to JS via eval
+            // Send response back to JS via eval
+            let script = format!(
+                "window.__auroraview_ipc_recv && window.__auroraview_ipc_recv({});",
+                response
+            );
+            if let Ok(guard) = webview_for_ipc.lock() {
+                if let Some(ref wv) = *guard {
+                    if let Err(e) = wv.evaluate_script(&script) {
+                        tracing::warn!("[IPC] Failed to send response to JS: {}", e);
+                    }
+                }
+            }
         }
     });
 
@@ -135,11 +154,15 @@ pub fn create_window_with_router(
         .build(&window)
         .map_err(|e| DesktopError::WebViewCreation(e.to_string()))?;
 
+    // Store WebView into the shared reference so IPC handler can use it
+    if let Ok(mut guard) = webview_ref.lock() {
+        *guard = Some(webview);
+    }
+
     let event_loop_proxy = event_loop.create_proxy();
 
     Ok(DesktopWindow {
-        #[allow(clippy::arc_with_non_send_sync)]
-        webview: Arc::new(Mutex::new(webview)),
+        webview: webview_ref,
         window,
         event_loop_proxy,
         config,
@@ -153,6 +176,8 @@ pub fn create_window_with_router(
 #[cfg(target_os = "windows")]
 fn init_com() {
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+    // SAFETY: CoInitializeEx is a well-defined Win32 COM API.
+    // Returns S_FALSE if already initialized, which is harmless.
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
     }

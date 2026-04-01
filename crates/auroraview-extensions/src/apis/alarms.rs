@@ -2,11 +2,11 @@
 //!
 //! Provides scheduled task functionality for extensions.
 
-use parking_lot::RwLock;
+use std::sync::Arc;
+
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::apis::ApiHandler;
 use crate::error::{ExtensionError, ExtensionResult};
@@ -52,14 +52,14 @@ struct StoredAlarm {
 /// Alarms manager
 pub struct AlarmsManager {
     /// Active alarms
-    alarms: RwLock<HashMap<(ExtensionId, String), StoredAlarm>>,
+    alarms: DashMap<(ExtensionId, String), StoredAlarm>,
 }
 
 impl AlarmsManager {
     /// Create a new alarms manager
     pub fn new() -> Self {
         Self {
-            alarms: RwLock::new(HashMap::new()),
+            alarms: DashMap::new(),
         }
     }
 
@@ -97,10 +97,7 @@ impl AlarmsManager {
         };
 
         let key = (extension_id.to_string(), name.to_string());
-        self.alarms.write().insert(key, stored);
-
-        // TODO: Actually schedule the alarm using a timer
-        // For now, we just store it
+        self.alarms.insert(key, stored);
 
         Ok(())
     }
@@ -108,29 +105,27 @@ impl AlarmsManager {
     /// Get an alarm
     pub fn get(&self, extension_id: &str, name: &str) -> Option<Alarm> {
         let key = (extension_id.to_string(), name.to_string());
-        self.alarms.read().get(&key).map(|s| s.alarm.clone())
+        self.alarms.get(&key).map(|s| s.alarm.clone())
     }
 
     /// Get all alarms for an extension
     pub fn get_all(&self, extension_id: &str) -> Vec<Alarm> {
         self.alarms
-            .read()
             .iter()
-            .filter(|(_, s)| s.extension_id == extension_id)
-            .map(|(_, s)| s.alarm.clone())
+            .filter(|entry| entry.value().extension_id == extension_id)
+            .map(|entry| entry.value().alarm.clone())
             .collect()
     }
 
     /// Clear an alarm
     pub fn clear(&self, extension_id: &str, name: &str) -> bool {
         let key = (extension_id.to_string(), name.to_string());
-        self.alarms.write().remove(&key).is_some()
+        self.alarms.remove(&key).is_some()
     }
 
     /// Clear all alarms for an extension
     pub fn clear_all(&self, extension_id: &str) {
         self.alarms
-            .write()
             .retain(|(ext_id, _), _| ext_id != extension_id);
     }
 }

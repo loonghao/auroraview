@@ -213,6 +213,24 @@ impl SchemaBuilder {
         self
     }
 
+    /// Sets the maximum length for string-type settings.
+    ///
+    /// If the current type is not `String`, this method switches the type to
+    /// `String` with only the max_length constraint set.
+    pub fn max_length(mut self, max: usize) -> Self {
+        self.schema_type = match self.schema_type {
+            SchemaType::String { pattern, .. } => SchemaType::String {
+                pattern,
+                max_length: Some(max),
+            },
+            _ => SchemaType::String {
+                pattern: None,
+                max_length: Some(max),
+            },
+        };
+        self
+    }
+
     /// Sets the type as enum with allowed values.
     pub fn enum_type(mut self, values: Vec<String>) -> Self {
         self.schema_type = SchemaType::Enum { values };

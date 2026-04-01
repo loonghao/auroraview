@@ -6,10 +6,12 @@
 //! - Request system to stay awake
 //! - Release wake lock
 
+use std::collections::HashSet;
+use std::sync::Arc;
+
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashSet;
-use std::sync::{Arc, RwLock};
 
 use crate::error::{ExtensionError, ExtensionResult};
 
@@ -45,7 +47,7 @@ impl PowerApi {
 
     /// Request power level
     pub fn request_keep_awake(&self, extension_id: &str, level: Level) -> ExtensionResult<Value> {
-        let mut requests = self.requests.write().unwrap();
+        let mut requests = self.requests.write();
         requests.insert((extension_id.to_string(), level));
 
         // In a real implementation, this would call system APIs to prevent sleep
@@ -58,7 +60,7 @@ impl PowerApi {
 
     /// Release power request
     pub fn release_keep_awake(&self, extension_id: &str) -> ExtensionResult<Value> {
-        let mut requests = self.requests.write().unwrap();
+        let mut requests = self.requests.write();
         requests.retain(|(id, _)| id != extension_id);
 
         // In a real implementation, this would release the system wake lock
