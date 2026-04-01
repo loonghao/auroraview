@@ -3,7 +3,7 @@
 use auroraview_pack::{DistributionFlavor, PyOxidizerBuilder, PyOxidizerBuilderConfig};
 
 #[test]
-fn test_distribution_flavor() {
+fn distribution_flavor() {
     assert_eq!(DistributionFlavor::Standalone.as_str(), "standalone");
     assert_eq!(
         DistributionFlavor::StandaloneDynamic.as_str(),
@@ -13,7 +13,7 @@ fn test_distribution_flavor() {
 }
 
 #[test]
-fn test_default_config() {
+fn default_config() {
     let config = PyOxidizerBuilderConfig::default();
     assert_eq!(config.executable, "pyoxidizer");
     assert_eq!(config.python_version, "3.10");
@@ -22,7 +22,7 @@ fn test_default_config() {
 }
 
 #[test]
-fn test_generate_config() {
+fn generate_config() {
     let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp/test", "myapp")
         .entry_point("myapp.main:run")
         .packages(vec!["requests".to_string(), "pyyaml".to_string()]);
@@ -35,7 +35,7 @@ fn test_generate_config() {
 }
 
 #[test]
-fn test_get_run_module() {
+fn get_run_module() {
     let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
         .entry_point("myapp.main:run_server");
 
@@ -45,7 +45,7 @@ fn test_get_run_module() {
 }
 
 #[test]
-fn test_config_with_options() {
+fn config_with_options() {
     let config = PyOxidizerBuilderConfig {
         python_version: "3.12".to_string(),
         optimize: 2,
@@ -63,7 +63,7 @@ fn test_config_with_options() {
 }
 
 #[test]
-fn test_distribution_flavor_default() {
+fn distribution_flavor_default() {
     let flavor = DistributionFlavor::default();
     assert_eq!(flavor, DistributionFlavor::Standalone);
 }
@@ -73,7 +73,7 @@ fn test_distribution_flavor_default() {
 // ============================================================================
 
 #[test]
-fn test_entry_point_module_without_function() {
+fn entry_point_module_without_function() {
     // Entry point that is just "module" (no colon) should use full string as module
     let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
         .entry_point("mypackage.entrypoint");
@@ -84,31 +84,29 @@ fn test_entry_point_module_without_function() {
 }
 
 #[test]
-fn test_optimize_level_zero() {
+fn optimize_level_zero() {
     let config = PyOxidizerBuilderConfig {
         optimize: 0,
         ..Default::default()
     };
-    let builder =
-        PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
+    let builder = PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
     let generated = builder.generate_config().unwrap();
     // Level 0: neither level_one nor level_two should be true
     assert!(!generated.contains("bytecode_optimize_level_two = true"));
 }
 
 #[test]
-fn test_optimize_level_one_default() {
+fn optimize_level_one_default() {
     let config = PyOxidizerBuilderConfig::default();
     assert_eq!(config.optimize, 1);
-    let builder =
-        PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
+    let builder = PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
     let generated = builder.generate_config().unwrap();
     // Should contain level_one = true
     assert!(generated.contains("bytecode_optimize_level_one = true"));
 }
 
 #[test]
-fn test_no_packages_generates_empty_list() {
+fn no_packages_generates_empty_list() {
     let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
         .entry_point("main:run");
 
@@ -118,7 +116,7 @@ fn test_no_packages_generates_empty_list() {
 }
 
 #[test]
-fn test_multiple_packages_all_present() {
+fn multiple_packages_all_present() {
     let pkgs = vec![
         "requests".to_string(),
         "pyyaml".to_string(),
@@ -140,20 +138,19 @@ fn test_multiple_packages_all_present() {
 }
 
 #[test]
-fn test_config_python_version_311() {
+fn config_python_version_311() {
     let config = PyOxidizerBuilderConfig {
         python_version: "3.11".to_string(),
         ..Default::default()
     };
 
-    let builder =
-        PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
+    let builder = PyOxidizerBuilder::new(config, "/tmp", "app").entry_point("main:run");
     let generated = builder.generate_config().unwrap();
     assert!(generated.contains("python_version = \"3.11\""));
 }
 
 #[test]
-fn test_app_name_in_config() {
+fn app_name_in_config() {
     let builder =
         PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "my-special-app")
             .entry_point("main:run");

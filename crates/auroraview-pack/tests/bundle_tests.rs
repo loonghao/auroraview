@@ -1,11 +1,12 @@
 //! Tests for auroraview-pack bundle module
 
-use auroraview_pack::BundleBuilder;
 use std::fs;
+
+use auroraview_pack::BundleBuilder;
 use tempfile::TempDir;
 
 #[test]
-fn test_bundle_builder() {
+fn bundle_builder() {
     let temp = TempDir::new().unwrap();
 
     // Create test files
@@ -21,7 +22,7 @@ fn test_bundle_builder() {
 }
 
 #[test]
-fn test_bundle_single_file() {
+fn bundle_single_file() {
     let temp = TempDir::new().unwrap();
     let html_path = temp.path().join("page.html");
     fs::write(&html_path, "<html>test</html>").unwrap();
@@ -33,7 +34,7 @@ fn test_bundle_single_file() {
 }
 
 #[test]
-fn test_bundle_excludes() {
+fn bundle_excludes() {
     let temp = TempDir::new().unwrap();
 
     fs::write(temp.path().join("index.html"), "<html></html>").unwrap();
@@ -48,13 +49,13 @@ fn test_bundle_excludes() {
 }
 
 #[test]
-fn test_bundle_nonexistent_path_returns_error() {
+fn bundle_nonexistent_path_returns_error() {
     let result = BundleBuilder::new("/this/path/does/not/exist/at/all").build();
     assert!(result.is_err());
 }
 
 #[test]
-fn test_bundle_empty_dir_returns_error() {
+fn bundle_empty_dir_returns_error() {
     let temp = TempDir::new().unwrap();
     // No files created — bundle should fail with empty error
     let result = BundleBuilder::new(temp.path()).build();
@@ -62,7 +63,7 @@ fn test_bundle_empty_dir_returns_error() {
 }
 
 #[test]
-fn test_bundle_with_extensions_filter() {
+fn bundle_with_extensions_filter() {
     let temp = TempDir::new().unwrap();
 
     fs::write(temp.path().join("index.html"), "<html></html>").unwrap();
@@ -84,7 +85,7 @@ fn test_bundle_with_extensions_filter() {
 }
 
 #[test]
-fn test_bundle_custom_exclude_pattern() {
+fn bundle_custom_exclude_pattern() {
     let temp = TempDir::new().unwrap();
 
     fs::write(temp.path().join("index.html"), "<html></html>").unwrap();
@@ -103,7 +104,7 @@ fn test_bundle_custom_exclude_pattern() {
 }
 
 #[test]
-fn test_bundle_nested_directories() {
+fn bundle_nested_directories() {
     let temp = TempDir::new().unwrap();
 
     fs::create_dir_all(temp.path().join("assets/images")).unwrap();
@@ -121,7 +122,7 @@ fn test_bundle_nested_directories() {
 }
 
 #[test]
-fn test_bundle_total_size_accumulates() {
+fn bundle_total_size_accumulates() {
     let temp = TempDir::new().unwrap();
 
     let content1 = "a".repeat(100);
@@ -135,7 +136,7 @@ fn test_bundle_total_size_accumulates() {
 }
 
 #[test]
-fn test_bundle_into_assets() {
+fn bundle_into_assets() {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("index.html"), "<html></html>").unwrap();
 
@@ -147,7 +148,7 @@ fn test_bundle_into_assets() {
 }
 
 #[test]
-fn test_bundle_path_separators_normalized() {
+fn bundle_path_separators_normalized() {
     let temp = TempDir::new().unwrap();
     fs::create_dir_all(temp.path().join("sub/dir")).unwrap();
     fs::write(temp.path().join("sub/dir/file.js"), "x").unwrap();
@@ -161,8 +162,7 @@ fn test_bundle_path_separators_normalized() {
 }
 
 #[test]
-fn test_bundle_is_empty_check() {
-    use auroraview_pack::BundleBuilder;
+fn bundle_is_empty_check() {
     // AssetBundle::new() directly — use a path that won't have files
     // We test through BundleBuilder returning an error on empty dir
     let temp = TempDir::new().unwrap();

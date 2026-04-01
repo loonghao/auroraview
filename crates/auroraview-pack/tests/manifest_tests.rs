@@ -7,7 +7,7 @@ use auroraview_pack::{Manifest, StartPosition};
 // ============================================================================
 
 #[test]
-fn test_parse_minimal_manifest() {
+fn parse_minimal_manifest() {
     let toml = r#"
 [package]
 name = "test-app"
@@ -27,7 +27,7 @@ url = "https://example.com"
 }
 
 #[test]
-fn test_parse_frontend_path() {
+fn parse_frontend_path() {
     let toml = r#"
 [package]
 name = "test-app"
@@ -42,7 +42,7 @@ path = "./dist"
 }
 
 #[test]
-fn test_parse_full_manifest() {
+fn parse_full_manifest() {
     let toml = r#"
 [package]
 name = "my-app"
@@ -104,7 +104,7 @@ devtools = true
 // ============================================================================
 
 #[test]
-fn test_validate_missing_frontend() {
+fn validate_missing_frontend() {
     let toml = r#"
 [package]
 name = "test"
@@ -115,7 +115,7 @@ title = "Test"
 }
 
 #[test]
-fn test_validate_both_path_and_url() {
+fn validate_both_path_and_url() {
     let toml = r#"
 [package]
 name = "test"
@@ -130,7 +130,7 @@ url = "https://example.com"
 }
 
 #[test]
-fn test_validate_valid_config() {
+fn validate_valid_config() {
     let toml = r#"
 [package]
 name = "test"
@@ -148,7 +148,7 @@ path = "./dist"
 // ============================================================================
 
 #[test]
-fn test_start_position_center() {
+fn start_position_center() {
     let toml = r#"
 [package]
 name = "test"
@@ -165,7 +165,7 @@ start_position = "center"
 }
 
 #[test]
-fn test_start_position_specific() {
+fn start_position_specific() {
     let toml = r#"
 [package]
 name = "test"
@@ -191,7 +191,7 @@ start_position = { x = 100, y = 200 }
 // ============================================================================
 
 #[test]
-fn test_backend_type_none() {
+fn backend_type_none() {
     // No backend section = frontend-only
     let toml = r#"
 [package]
@@ -207,7 +207,7 @@ path = "./dist"
 }
 
 #[test]
-fn test_backend_type_python() {
+fn backend_type_python() {
     let toml = r#"
 [package]
 name = "test"
@@ -229,7 +229,7 @@ entry_point = "main:run"
 }
 
 #[test]
-fn test_backend_type_go() {
+fn backend_type_go() {
     let toml = r#"
 [package]
 name = "test"
@@ -254,7 +254,7 @@ entry_point = "./cmd/server"
 // ============================================================================
 
 #[test]
-fn test_inject_js_code_parsed() {
+fn inject_js_code_parsed() {
     let toml = r#"
 [package]
 name = "test-app"
@@ -275,7 +275,7 @@ js_code = "console.log('injected');"
 }
 
 #[test]
-fn test_inject_css_code_parsed() {
+fn inject_css_code_parsed() {
     let toml = r#"
 [package]
 name = "test-app"
@@ -296,7 +296,7 @@ css_code = "body { background: red; }"
 }
 
 #[test]
-fn test_inject_absent_is_none() {
+fn inject_absent_is_none() {
     let toml = r#"
 [package]
 name = "test-app"
@@ -310,7 +310,7 @@ url = "https://example.com"
 }
 
 #[test]
-fn test_backend_type_rust() {
+fn backend_type_rust() {
     let toml = r#"
 [package]
 name = "test"
@@ -331,7 +331,7 @@ binary = "server"
 }
 
 #[test]
-fn test_backend_type_node() {
+fn backend_type_node() {
     let toml = r#"
 [package]
 name = "test"
@@ -356,7 +356,7 @@ entry_point = "./server/index.js"
 // ============================================================================
 
 #[test]
-fn test_get_title_falls_back_to_name() {
+fn get_title_falls_back_to_name() {
     let toml = r#"
 [package]
 name = "fallback-app"
@@ -370,7 +370,7 @@ url = "https://example.com"
 }
 
 #[test]
-fn test_package_authors_and_description() {
+fn package_authors_and_description() {
     let toml = r#"
 [package]
 name = "pkg"
@@ -391,7 +391,7 @@ url = "https://example.com"
 }
 
 #[test]
-fn test_package_license_homepage_repository() {
+fn package_license_homepage_repository() {
     let toml = r#"
 [package]
 name = "pkg"
@@ -416,7 +416,7 @@ url = "https://example.com"
 }
 
 #[test]
-fn test_package_user_agent_and_allow_new_window() {
+fn package_user_agent_and_allow_new_window() {
     let toml = r#"
 [package]
 name = "pkg"
@@ -436,7 +436,7 @@ url = "https://example.com"
 }
 
 #[test]
-fn test_package_default_version() {
+fn package_default_version() {
     let toml = r#"
 [package]
 name = "no-version"
@@ -454,7 +454,7 @@ url = "https://example.com"
 // ============================================================================
 
 #[test]
-fn test_backend_type_parse_variants() {
+fn backend_type_parse_variants() {
     use auroraview_pack::BackendType;
 
     assert_eq!(BackendType::parse("python"), BackendType::Python);
@@ -470,7 +470,7 @@ fn test_backend_type_parse_variants() {
 }
 
 #[test]
-fn test_get_backend_type_when_no_backend() {
+fn get_backend_type_when_no_backend() {
     let toml = r#"
 [package]
 name = "fe-only"
@@ -489,7 +489,7 @@ path = "./dist"
 // ============================================================================
 
 #[test]
-fn test_validate_python_invalid_version_format() {
+fn validate_python_invalid_version_format() {
     let toml = r#"
 [package]
 name = "test"
@@ -510,7 +510,7 @@ entry_point = "main:run"
 }
 
 #[test]
-fn test_validate_go_missing_entry_and_module() {
+fn validate_go_missing_entry_and_module() {
     let toml = r#"
 [package]
 name = "test"
@@ -531,7 +531,7 @@ type = "go"
 }
 
 #[test]
-fn test_validate_node_missing_entry_and_package_json() {
+fn validate_node_missing_entry_and_package_json() {
     let toml = r#"
 [package]
 name = "test"
@@ -556,7 +556,7 @@ version = "20"
 // ============================================================================
 
 #[test]
-fn test_window_defaults() {
+fn window_defaults() {
     let toml = r#"
 [package]
 name = "test"
@@ -579,7 +579,7 @@ url = "https://example.com"
 }
 
 #[test]
-fn test_window_custom_size_and_flags() {
+fn window_custom_size_and_flags() {
     let toml = r#"
 [package]
 name = "test"
@@ -609,7 +609,7 @@ visible = false
 }
 
 #[test]
-fn test_window_min_max_constraints() {
+fn window_min_max_constraints() {
     let toml = r#"
 [package]
 name = "test"
@@ -632,7 +632,7 @@ max_height = 1440
 }
 
 #[test]
-fn test_get_window_config_title_from_package() {
+fn get_window_config_title_from_package() {
     let toml = r#"
 [package]
 name = "app"
@@ -657,13 +657,13 @@ height = 768
 // ============================================================================
 
 #[test]
-fn test_start_position_default_is_center() {
+fn start_position_default_is_center() {
     let pos = StartPosition::default();
     assert!(pos.is_center());
 }
 
 #[test]
-fn test_start_position_named_non_center_is_not_center() {
+fn start_position_named_non_center_is_not_center() {
     let pos = StartPosition::Named("top-left".to_string());
     assert!(!pos.is_center());
 }
@@ -673,7 +673,7 @@ fn test_start_position_named_non_center_is_not_center() {
 // ============================================================================
 
 #[test]
-fn test_bundle_copyright_and_identifier() {
+fn bundle_copyright_and_identifier() {
     let toml = r#"
 [package]
 name = "test"
@@ -694,7 +694,7 @@ identifier = "com.example.bundle"
 }
 
 #[test]
-fn test_bundle_identifier_falls_back_to_bundle_section() {
+fn bundle_identifier_falls_back_to_bundle_section() {
     let toml = r#"
 [package]
 name = "test"
@@ -712,7 +712,7 @@ identifier = "com.example.bundle-only"
 }
 
 #[test]
-fn test_windows_platform_copyright_fallback() {
+fn windows_platform_copyright_fallback() {
     let toml = r#"
 [package]
 name = "test"
@@ -735,7 +735,7 @@ copyright = "© 2025 Global"
 // ============================================================================
 
 #[test]
-fn test_build_config_fields() {
+fn build_config_fields() {
     let toml = r#"
 [package]
 name = "test"
@@ -761,7 +761,7 @@ compression_level = 3
 }
 
 #[test]
-fn test_build_config_default_compression_with_build_section() {
+fn build_config_default_compression_with_build_section() {
     // When [build] section is present but compression_level not set,
     // serde uses default_compression_level() = 19
     let toml = r#"
@@ -779,7 +779,7 @@ path = "./dist"
 }
 
 #[test]
-fn test_build_config_default_no_section_compression_zero() {
+fn build_config_default_no_section_compression_zero() {
     // When [build] section is absent, BuildConfig::default() gives compression_level = 0
     let toml = r#"
 [package]
@@ -799,7 +799,7 @@ path = "./dist"
 // ============================================================================
 
 #[test]
-fn test_security_csp_parsed() {
+fn security_csp_parsed() {
     let toml = r#"
 [package]
 name = "test"
@@ -820,7 +820,7 @@ content_security_policy = "default-src 'self'"
 }
 
 #[test]
-fn test_security_absent_is_none() {
+fn security_absent_is_none() {
     let toml = r#"
 [package]
 name = "test"
@@ -838,7 +838,7 @@ url = "https://example.com"
 // ============================================================================
 
 #[test]
-fn test_extensions_config_parsed() {
+fn extensions_config_parsed() {
     let toml = r#"
 [package]
 name = "test"
@@ -864,7 +864,7 @@ bundle = false
 // ============================================================================
 
 #[test]
-fn test_downloads_entries_parsed() {
+fn downloads_entries_parsed() {
     let toml = r#"
 [package]
 name = "test"
@@ -891,7 +891,7 @@ strip_components = 1
 // ============================================================================
 
 #[test]
-fn test_hooks_config_collect_entries() {
+fn hooks_config_collect_entries() {
     let toml = r#"
 [package]
 name = "test"
@@ -925,7 +925,7 @@ dest = "resources/scripts"
 // ============================================================================
 
 #[test]
-fn test_is_url_mode_true_when_frontend_url() {
+fn is_url_mode_true_when_frontend_url() {
     let toml = r#"
 [package]
 name = "test"
@@ -940,7 +940,7 @@ url = "https://example.com"
 }
 
 #[test]
-fn test_fullstack_requires_path_not_url() {
+fn fullstack_requires_path_not_url() {
     // fullstack: backend + path
     let toml = r#"
 [package]

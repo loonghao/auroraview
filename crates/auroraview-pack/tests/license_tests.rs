@@ -3,7 +3,7 @@
 use auroraview_pack::{get_machine_id, LicenseConfig, LicenseReason, LicenseValidator};
 
 #[test]
-fn test_no_license_required() {
+fn no_license_required() {
     let config = LicenseConfig::default();
     let validator = LicenseValidator::new(config);
     let status = validator.validate(None);
@@ -13,7 +13,7 @@ fn test_no_license_required() {
 }
 
 #[test]
-fn test_token_required() {
+fn token_required() {
     let config = LicenseConfig::token_required();
     let validator = LicenseValidator::new(config);
 
@@ -28,7 +28,7 @@ fn test_token_required() {
 }
 
 #[test]
-fn test_expiration() {
+fn expiration() {
     // Future date
     let config = LicenseConfig::time_limited("2099-12-31");
     let validator = LicenseValidator::new(config);
@@ -45,7 +45,7 @@ fn test_expiration() {
 }
 
 #[test]
-fn test_grace_period() {
+fn grace_period() {
     // Create a config with grace period
     let mut config = LicenseConfig::time_limited("2020-01-01");
     config.grace_period_days = 36500; // 100 years grace period for testing
@@ -59,13 +59,13 @@ fn test_grace_period() {
 }
 
 #[test]
-fn test_machine_id() {
+fn machine_id() {
     let id = get_machine_id();
     assert!(!id.is_empty());
 }
 
 #[test]
-fn test_token_too_short_is_invalid() {
+fn token_too_short_is_invalid() {
     let config = LicenseConfig::token_required();
     let validator = LicenseValidator::new(config);
 
@@ -76,7 +76,7 @@ fn test_token_too_short_is_invalid() {
 }
 
 #[test]
-fn test_empty_token_is_missing() {
+fn empty_token_is_missing() {
     let config = LicenseConfig::token_required();
     let validator = LicenseValidator::new(config);
 
@@ -91,7 +91,7 @@ fn test_empty_token_is_missing() {
 }
 
 #[test]
-fn test_embedded_token_used_when_no_provided() {
+fn embedded_token_used_when_no_provided() {
     let mut config = LicenseConfig::token_required();
     config.embedded_token = Some("embedded-token-xyz".to_string());
     let validator = LicenseValidator::new(config);
@@ -102,7 +102,7 @@ fn test_embedded_token_used_when_no_provided() {
 }
 
 #[test]
-fn test_full_config_requires_token_and_expiry() {
+fn full_config_requires_token_and_expiry() {
     let config = LicenseConfig::full("2099-12-31");
     let validator = LicenseValidator::new(config);
 
@@ -123,25 +123,25 @@ fn test_full_config_requires_token_and_expiry() {
 }
 
 #[test]
-fn test_is_active_with_expiry() {
+fn is_active_with_expiry() {
     let config = LicenseConfig::time_limited("2099-01-01");
     assert!(config.is_active());
 }
 
 #[test]
-fn test_is_active_with_token() {
+fn is_active_with_token() {
     let config = LicenseConfig::token_required();
     assert!(config.is_active());
 }
 
 #[test]
-fn test_is_not_active_when_disabled() {
+fn is_not_active_when_disabled() {
     let config = LicenseConfig::default();
     assert!(!config.is_active());
 }
 
 #[test]
-fn test_invalid_date_format_returns_config_error() {
+fn invalid_date_format_returns_config_error() {
     let config = LicenseConfig::time_limited("not-a-date");
     let validator = LicenseValidator::new(config);
     let status = validator.validate(None);
@@ -150,7 +150,7 @@ fn test_invalid_date_format_returns_config_error() {
 }
 
 #[test]
-fn test_custom_expiration_message() {
+fn custom_expiration_message() {
     let mut config = LicenseConfig::time_limited("2020-01-01");
     config.expiration_message = Some("Custom expired message".to_string());
     let validator = LicenseValidator::new(config);
@@ -163,7 +163,7 @@ fn test_custom_expiration_message() {
 }
 
 #[test]
-fn test_machine_id_is_consistent() {
+fn machine_id_is_consistent() {
     let id1 = get_machine_id();
     let id2 = get_machine_id();
     assert_eq!(id1, id2, "machine ID should be consistent across calls");

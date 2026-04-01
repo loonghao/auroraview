@@ -1,14 +1,15 @@
 //! Tests for auroraview-pack deps_collector module
 
-use auroraview_pack::{DepsCollector, FileHashCache};
 use std::path::PathBuf;
+
+use auroraview_pack::{DepsCollector, FileHashCache};
 use tempfile::TempDir;
 
 // Note: is_stdlib and default_excludes are private functions,
 // so we test through the public DepsCollector API
 
 #[test]
-fn test_collector_builder() {
+fn collector_builder() {
     let collector = DepsCollector::new()
         .python_exe("python3")
         .exclude(["test_pkg"])
@@ -19,32 +20,32 @@ fn test_collector_builder() {
 }
 
 #[test]
-fn test_collector_default() {
+fn collector_default() {
     let collector = DepsCollector::default();
     // Default collector should be constructible
     let _ = collector;
 }
 
 #[test]
-fn test_collector_with_python_exe() {
+fn collector_with_python_exe() {
     let collector = DepsCollector::new().python_exe(PathBuf::from("/usr/bin/python3"));
     let _ = collector;
 }
 
 #[test]
-fn test_collector_with_multiple_excludes() {
+fn collector_with_multiple_excludes() {
     let collector = DepsCollector::new().exclude(["pkg1", "pkg2", "pkg3"]);
     let _ = collector;
 }
 
 #[test]
-fn test_collector_with_multiple_includes() {
+fn collector_with_multiple_includes() {
     let collector = DepsCollector::new().include(["requests", "pyyaml", "auroraview"]);
     let _ = collector;
 }
 
 #[test]
-fn test_collector_chained_config() {
+fn collector_chained_config() {
     let collector = DepsCollector::new()
         .python_exe("python")
         .exclude(["pytest", "coverage"])
@@ -57,14 +58,14 @@ fn test_collector_chained_config() {
 // ============================================================================
 
 #[test]
-fn test_file_hash_cache_new_is_empty() {
+fn file_hash_cache_new_is_empty() {
     let cache = FileHashCache::new();
     assert!(cache.hashes.is_empty());
     assert_eq!(cache.version, 1);
 }
 
 #[test]
-fn test_file_hash_cache_load_nonexistent_returns_empty() {
+fn file_hash_cache_load_nonexistent_returns_empty() {
     let result = FileHashCache::load(std::path::Path::new("/nonexistent/path/cache.json"));
     assert!(result.is_ok());
     let cache = result.unwrap();
@@ -72,7 +73,7 @@ fn test_file_hash_cache_load_nonexistent_returns_empty() {
 }
 
 #[test]
-fn test_file_hash_cache_save_and_load() {
+fn file_hash_cache_save_and_load() {
     let temp = TempDir::new().unwrap();
     let cache_path = temp.path().join("cache.json");
 
@@ -89,7 +90,7 @@ fn test_file_hash_cache_save_and_load() {
 }
 
 #[test]
-fn test_file_hash_cache_compute_hash_is_consistent() {
+fn file_hash_cache_compute_hash_is_consistent() {
     let temp = TempDir::new().unwrap();
     let file = temp.path().join("test.txt");
     std::fs::write(&file, b"hello world").unwrap();
@@ -102,7 +103,7 @@ fn test_file_hash_cache_compute_hash_is_consistent() {
 }
 
 #[test]
-fn test_file_hash_cache_different_contents_different_hashes() {
+fn file_hash_cache_different_contents_different_hashes() {
     let temp = TempDir::new().unwrap();
     let file1 = temp.path().join("a.txt");
     let file2 = temp.path().join("b.txt");
@@ -116,7 +117,7 @@ fn test_file_hash_cache_different_contents_different_hashes() {
 }
 
 #[test]
-fn test_file_hash_cache_has_changed_new_file() {
+fn file_hash_cache_has_changed_new_file() {
     let temp = TempDir::new().unwrap();
     let file = temp.path().join("file.py");
     std::fs::write(&file, b"import os").unwrap();
@@ -128,7 +129,7 @@ fn test_file_hash_cache_has_changed_new_file() {
 }
 
 #[test]
-fn test_file_hash_cache_has_changed_same_content() {
+fn file_hash_cache_has_changed_same_content() {
     let temp = TempDir::new().unwrap();
     let file = temp.path().join("file.py");
     std::fs::write(&file, b"import sys").unwrap();
@@ -142,7 +143,7 @@ fn test_file_hash_cache_has_changed_same_content() {
 }
 
 #[test]
-fn test_file_hash_cache_update_then_changed() {
+fn file_hash_cache_update_then_changed() {
     let temp = TempDir::new().unwrap();
     let file = temp.path().join("script.py");
     std::fs::write(&file, b"x = 1").unwrap();
@@ -158,7 +159,7 @@ fn test_file_hash_cache_update_then_changed() {
 }
 
 #[test]
-fn test_file_hash_cache_remove() {
+fn file_hash_cache_remove() {
     let temp = TempDir::new().unwrap();
     let file = temp.path().join("x.py");
     std::fs::write(&file, b"pass").unwrap();
@@ -172,7 +173,7 @@ fn test_file_hash_cache_remove() {
 }
 
 #[test]
-fn test_file_hash_cache_save_creates_parent_dirs() {
+fn file_hash_cache_save_creates_parent_dirs() {
     let temp = TempDir::new().unwrap();
     let nested = temp.path().join("a/b/c/cache.json");
 
