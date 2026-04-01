@@ -74,7 +74,7 @@ pub use config::{DccConfig, DccType};
 /// Error and result types for DCC operations.
 pub use error::{DccError, Result};
 /// IPC types for DCC-embedded WebView communication.
-pub use ipc::{IpcError, IpcMessage, IpcResponse, IpcRouter};
+pub use ipc::{IpcError, IpcMessage, IpcResponse, IpcRouter, ListenerId};
 /// Window identifier, info, and manager for multi-WebView DCC panels.
 pub use window_manager::{WindowId, WindowInfo, WindowManager};
 

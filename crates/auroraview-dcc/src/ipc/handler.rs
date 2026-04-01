@@ -2,11 +2,30 @@
 
 use super::message::{IpcMessage, IpcResponse};
 use dashmap::DashMap;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 use tracing::{debug, warn};
+
+/// Unique ID returned by [`IpcRouter::on`] and consumed by [`IpcRouter::off`].
+pub type ListenerId = u64;
 
 /// Callback type for IPC handlers
 pub type IpcCallback = Box<dyn Fn(serde_json::Value) -> serde_json::Value + Send + Sync>;
+
+/// Entry stored per event listener
+struct ListenerEntry {
+    id: ListenerId,
+    handler: Arc<dyn Fn(serde_json::Value) + Send + Sync>,
+}
+
+/// Global counter for listener IDs
+static NEXT_LISTENER_ID: AtomicU64 = AtomicU64::new(1);
+
+fn next_listener_id() -> ListenerId {
+    NEXT_LISTENER_ID.fetch_add(1, Ordering::Relaxed)
+}
 
 /// IPC router for handling messages from JavaScript
 ///
@@ -16,9 +35,8 @@ pub struct IpcRouter {
     /// Registered handlers by method name
     handlers: DashMap<String, IpcCallback>,
 
-    /// Event listeners
-    #[allow(clippy::type_complexity)]
-    event_listeners: DashMap<String, Vec<Arc<dyn Fn(serde_json::Value) + Send + Sync>>>,
+    /// Event listeners — each entry carries an ID for targeted removal via `off()`
+    event_listeners: DashMap<String, Vec<ListenerEntry>>,
 }
 
 impl IpcRouter {
@@ -55,15 +73,56 @@ impl IpcRouter {
     }
 
     /// Subscribe to an event
-    pub fn on<F>(&self, event: &str, handler: F)
+    ///
+    /// Returns a [`ListenerId`] that can be passed to [`off`](IpcRouter::off)
+    /// to remove this specific listener.
+    pub fn on<F>(&self, event: &str, handler: F) -> ListenerId
     where
         F: Fn(serde_json::Value) + Send + Sync + 'static,
     {
+        let id = next_listener_id();
         self.event_listeners
             .entry(event.to_string())
             .or_default()
-            .push(Arc::new(handler));
-        debug!("[IPC] Subscribed to event: {}", event);
+            .push(ListenerEntry { id, handler: Arc::new(handler) });
+        debug!("[IPC] Subscribed to event: {} (id={})", event, id);
+        id
+    }
+
+    /// Unsubscribe a specific event listener by its [`ListenerId`]
+    ///
+    /// Returns `true` if the listener was found and removed, `false` otherwise.
+    pub fn off(&self, event: &str, id: ListenerId) -> bool {
+        if let Some(mut entry) = self.event_listeners.get_mut(event) {
+            let before = entry.len();
+            entry.retain(|e| e.id != id);
+            let removed = entry.len() < before;
+            if removed {
+                debug!("[IPC] Unsubscribed from event: {} (id={})", event, id);
+            }
+            return removed;
+        }
+        false
+    }
+
+    /// Unsubscribe all listeners for an event
+    pub fn off_all(&self, event: &str) -> usize {
+        if let Some(mut entry) = self.event_listeners.get_mut(event) {
+            let count = entry.len();
+            entry.clear();
+            debug!("[IPC] Cleared all listeners for event: {} ({})", event, count);
+            count
+        } else {
+            0
+        }
+    }
+
+    /// Get the number of listeners registered for an event
+    pub fn listener_count(&self, event: &str) -> usize {
+        self.event_listeners
+            .get(event)
+            .map(|e| e.len())
+            .unwrap_or(0)
     }
 
     /// Handle incoming IPC message
@@ -100,7 +159,8 @@ impl IpcRouter {
         let detail = message.detail.clone().unwrap_or(serde_json::Value::Null);
 
         if let Some(handlers) = self.event_listeners.get(event_name) {
-            let listeners = handlers.value();
+            let listeners: Vec<Arc<dyn Fn(serde_json::Value) + Send + Sync>> =
+                handlers.iter().map(|e| e.handler.clone()).collect();
             if let Some((last, rest)) = listeners.split_last() {
                 for handler in rest {
                     handler(detail.clone());
