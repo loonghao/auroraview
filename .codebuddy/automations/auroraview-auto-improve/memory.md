@@ -1,36 +1,49 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-02 19:53 (UTC+8)
+## Last Execution: 2026-04-03 04:01 (UTC+8)
 
 ### Branch Status
-- Branch: `auto-improve` (3 new commits: `e0bee90`, `03f4f3a`, iteration `19c0149`)
+- Branch: `auto-improve` (5 new commits: `7859981`, `ef7ee89`, `65a2a92`, `b667613` iteration)
 - Pushed: Yes (pushed to remote)
-- All new tests pass, clippy 0 warnings
+- All new tests pass, 0 failures
 
 ### Completed in This Iteration
 
-1. **test(browser): add error_tests with 29 tests** (commit `e0bee90`)
-   - File: `crates/auroraview-browser/tests/error_tests.rs`
-   - Coverage: BrowserError (8 variants): Display, Debug, From<io::Error>, From<serde_json::Error>,
-     Result alias, Send+Sync, rstest parametrized inner-string check (8 cases),
-     error source chain, empty/long payloads, variant distinction
+1. **test(notifications,bookmarks,history): expand test coverage** (commit `7859981`)
+   - `auroraview-notifications/tests/notification_tests.rs`: 35 → 70 tests
+     - serde roundtrip (NotificationType, Notification, NotificationAction, Permission, PermissionState)
+     - error variants display (NotFound, PermissionDenied, PermissionNotRequested, InvalidNotification, MaxNotificationsReached)
+     - concurrent: 8-thread notify no panic, notify+dismiss no deadlock, permission reads
+     - edge cases: with_type override duration, multiple actions, custom duration overrides type
+     - manager: action callback, dismiss_all callbacks, max_history trim, tag replacement
+   - `auroraview-bookmarks/tests/bookmark_tests.rs`: 40 → 69 tests
+     - serde roundtrip (Bookmark basic/full, omits optional fields, BookmarkFolder)
+     - error variants display (NotFound, FolderNotFound, InvalidUrl, Storage)
+     - concurrent: 8-thread add (80 items), add+search no deadlock, concurrent remove
+     - position edge cases, search by tag via import, is_bookmarked case sensitivity
+   - `auroraview-history/tests/history_tests.rs`: 45 → 81 tests
+     - serde roundtrip (HistoryEntry basic/full, omits favicon, export/import preserves visit counts)
+     - error variants display (NotFound, InvalidUrl, Storage)
+     - SearchOptions field tests (no serde since not derived)
+     - entry edge cases: relevance score variants, typed_count accumulation, domain extraction
+     - manager: visit updates last_visit, frequent(0) empty, delete_domain none matching
+     - concurrent: same URL no deadlock, different URLs 80 entries, visit+search, delete+visit
 
-2. **test(cli): add args_tests with 45 tests** (commit `e0bee90`)
-   - File: `crates/auroraview-cli/tests/args_tests.rs`
-   - Coverage: RunArgs – url/html/title/size/debug/watch/poll-interval/always-on-top/allow-*
-     flags and conflicts; PackArgs – config/url/frontend/backend/output/size/frameless/
-     always-on-top/no-resize/user-agent/console/no-console/clean/icon flags and conflicts;
-     rstest parametrized dimension cases
+2. **test(downloads): expand download_tests from 49 to 88 tests** (commit `ef7ee89`)
+   - serde roundtrip (DownloadState all variants, DownloadItem basic/full/failed/completed)
+   - rstest parametric JSON values for all 6 DownloadState variants
+   - error display (NotFound, AlreadyExists, InvalidState, Storage)
+   - item edge cases: zero total, eta no remaining, complete without total, fail keeps first error
+   - manager: fail/complete nonexistent return error, update_progress nonexistent no panic
+   - concurrent: 40-item add, start+complete parallel, clone shares state read
 
-3. **test(assets): add assets_tests with 28 tests** (commit `03f4f3a`)
-   - New dir/file: `crates/auroraview-assets/tests/assets_tests.rs`
-   - Added `rstest = "0.26"` to dev-dependencies
-   - Coverage: Page (enum/clone/debug/eq/hash/all/html_path), AssetError
-     (NotFound/InvalidUtf8 Display+Debug, Send+Sync), get_mime_type (7 parametrized
-     types + unknown + no-ext + uppercase), get_asset/asset_exists (missing returns
-     None/false), list_assets (no panic)
-
-4. **chore(iteration): done** (commit `19c0149`)
+3. **test(settings): expand settings_tests from 45 to 81 tests** (commit `65a2a92`)
+   - serde roundtrip (SettingValue all types: bool/int/float/string/array/null, rstest parametric)
+   - error display (NotFound, TypeMismatch, ValidationFailed, InvalidKey, SchemaNotFound)
+   - SettingValue edge cases: wrong type accessors return None, integer→float coerces, float→integer None
+   - store: remove nonexistent, overwrite key, keys_with_prefix no match, merge doesn't affect source
+   - manager: get nonexistent all types, schema wrong type rejection, user_settings exclusive set
+   - concurrent: 8-thread set, get+set no deadlock, clone shares state
 
 ### Cumulative Progress (across iterations)
 
@@ -100,6 +113,33 @@
 **Browser error_tests (COMPLETE):** 29 tests
 **CLI args_tests (COMPLETE):** 45 tests
 **Assets assets_tests (COMPLETE):** 28 tests
+**PluginCore error_tests + scope_tests (COMPLETE):** 41 + 32 = 73 tests
+**PluginCore request_tests + router_tests (COMPLETE):** 28 + 18 = 46 tests
+**PluginCore types_tests (COMPLETE):** 27 tests
+**PluginFs operations_tests (COMPLETE):** 51 tests
+**Browser bookmarks_tests expansion (COMPLETE):** 7 → 36 tests
+**Browser history_tests expansion (COMPLETE):** 12 → 40 tests
+**DCC webview_thread_safety_tests expansion (COMPLETE):** 9 → 45 tests
+**Browser config_tests expansion (COMPLETE):** 5 → 39 tests
+**Browser theme_tests expansion (COMPLETE):** 6 → 33 tests
+**Core cli_tests expansion (COMPLETE):** 9 → 41 tests
+**Plugins router_tests expansion (COMPLETE):** 18 → 39 tests
+**Browser devtools_tests expansion (COMPLETE):** 18 → 51 tests
+**DCC window_manager_tests expansion (COMPLETE):** 8 → 43 tests
+**Core ipc_tests expansion (COMPLETE):** 8 → 68 tests
+**Core protocol_tests expansion (COMPLETE):** ~37 → 59 tests
+**Core thread_safety_tests expansion (COMPLETE):** 19 → 39 tests
+**DCC ipc_tests expansion (COMPLETE):** 15 → 31 tests
+**Plugins fs_plugin_tests expansion (COMPLETE):** 15 → 25 tests
+**Browser tab_tests expansion (COMPLETE):** 17 → 34 tests
+**Browser navigation_tests expansion (COMPLETE):** 36 → 61 tests
+**Plugins scope_tests expansion (COMPLETE):** 15 → 47 tests
+**DCC config_tests expansion (COMPLETE):** 11 → 50 tests
+**Notifications notification_tests expansion (COMPLETE):** 35 → 70 tests
+**Bookmarks bookmark_tests expansion (COMPLETE):** 40 → 69 tests
+**History history_tests expansion (COMPLETE):** 45 → 81 tests
+**Downloads download_tests expansion (COMPLETE):** 49 → 88 tests
+**Settings settings_tests expansion (COMPLETE):** 45 → 81 tests
 
 ### Known Pre-existing Issues
 - `auroraview-core` assets_tests fail (need `vx just assets-build`)
@@ -108,8 +148,8 @@
 - `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
 
 ### Next Iteration Targets (Priority Order)
-1. **auroraview-dcc: more coverage** — webview_thread_safety tests expansion
-2. **auroraview-plugins: error_tests** — PluginError/PluginErrorCode deep coverage (rstest)
-3. **auroraview-browser: history_tests expansion** — HistoryManager edge cases
-4. **auroraview-core: normalize_url edge cases** — more URL normalization tests
-5. **Performance profiling** — Document WebView startup paths and memory baselines
+1. **auroraview-core: service_discovery_tests expansion** — concurrent service registration/deregistration
+2. **auroraview-plugins: shell_tests expansion** — process spawning, stdout capture edge cases
+3. **auroraview-dcc: error_tests expansion** — more DccError variants, error context
+4. **auroraview-ai-agent: more edge cases** — session lifecycle, provider error handling
+5. **auroraview-telemetry: additional coverage** — event flush, metrics aggregation
