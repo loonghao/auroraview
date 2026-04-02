@@ -389,3 +389,367 @@ fn test_manager_default() {
     let manager = NotificationManager::default();
     assert_eq!(manager.active_count(), 0);
 }
+
+// ========== Serde Roundtrip Tests ==========
+
+#[test]
+fn serde_notification_type_info() {
+    let kind = NotificationType::Info;
+    let json = serde_json::to_string(&kind).unwrap();
+    assert_eq!(json, r#""info""#);
+    let back: NotificationType = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, kind);
+}
+
+#[rstest]
+#[case(NotificationType::Info, r#""info""#)]
+#[case(NotificationType::Success, r#""success""#)]
+#[case(NotificationType::Warning, r#""warning""#)]
+#[case(NotificationType::Error, r#""error""#)]
+fn serde_notification_type_variants(
+    #[case] kind: NotificationType,
+    #[case] expected_json: &str,
+) {
+    let json = serde_json::to_string(&kind).unwrap();
+    assert_eq!(json, expected_json);
+    let back: NotificationType = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, kind);
+}
+
+#[test]
+fn serde_notification_roundtrip_basic() {
+    let n = Notification::new("Title", "Body");
+    let json = serde_json::to_string(&n).unwrap();
+    let back: Notification = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(back.id, n.id);
+    assert_eq!(back.title, n.title);
+    assert_eq!(back.body, n.body);
+    assert_eq!(back.notification_type, n.notification_type);
+    assert_eq!(back.duration, n.duration);
+    assert_eq!(back.require_interaction, n.require_interaction);
+}
+
+#[test]
+fn serde_notification_roundtrip_full() {
+    let n = Notification::new("Alert", "Something happened")
+        .with_type(NotificationType::Error)
+        .with_icon("error-icon")
+        .with_image("https://example.com/img.png")
+        .with_tag("alert-group")
+        .with_data(serde_json::json!({"key": "value", "count": 42}))
+        .with_action(NotificationAction::new("ok", "OK").with_icon("check"))
+        .with_action(NotificationAction::new("cancel", "Cancel"))
+        .persistent();
+
+    let json = serde_json::to_string(&n).unwrap();
+    let back: Notification = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(back.title, "Alert");
+    assert_eq!(back.notification_type, NotificationType::Error);
+    assert_eq!(back.icon, Some("error-icon".to_string()));
+    assert_eq!(back.tag, Some("alert-group".to_string()));
+    assert_eq!(back.require_interaction, true);
+    assert_eq!(back.actions.len(), 2);
+    assert_eq!(back.actions[0].id, "ok");
+    assert_eq!(back.actions[0].icon, Some("check".to_string()));
+    assert_eq!(back.actions[1].icon, None);
+    assert!(back.data.is_some());
+}
+
+#[test]
+fn serde_notification_simple_omits_body() {
+    let n = Notification::simple("No Body");
+    let json = serde_json::to_string(&n).unwrap();
+    // body should be absent (skip_serializing_if = Option::is_none)
+    assert!(!json.contains(r#""body""#));
+    let back: Notification = serde_json::from_str(&json).unwrap();
+    assert!(back.body.is_none());
+}
+
+#[test]
+fn serde_notification_action_roundtrip() {
+    let action = NotificationAction::new("btn1", "Click me").with_icon("check");
+    let json = serde_json::to_string(&action).unwrap();
+    let back: NotificationAction = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.id, "btn1");
+    assert_eq!(back.label, "Click me");
+    assert_eq!(back.icon, Some("check".to_string()));
+}
+
+#[test]
+fn serde_permission_state_roundtrip() {
+    for state in [
+        PermissionState::Default,
+        PermissionState::Granted,
+        PermissionState::Denied,
+    ] {
+        let json = serde_json::to_string(&state).unwrap();
+        let back: PermissionState = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, state);
+    }
+}
+
+#[test]
+fn serde_permission_roundtrip() {
+    let p = Permission::granted("https://example.com");
+    let json = serde_json::to_string(&p).unwrap();
+    let back: Permission = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.origin, "https://example.com");
+    assert_eq!(back.state, PermissionState::Granted);
+    assert!(back.updated_at.is_some());
+}
+
+// ========== NotificationError Tests ==========
+
+use auroraview_notifications::NotificationError;
+
+#[test]
+fn error_not_found_display() {
+    let id = uuid::Uuid::new_v4();
+    let err = NotificationError::NotFound(id);
+    let msg = err.to_string();
+    assert!(msg.contains("not found"), "expected 'not found' in: {msg}");
+    assert!(msg.contains(&id.to_string()));
+}
+
+#[test]
+fn error_permission_denied_display() {
+    let err = NotificationError::PermissionDenied;
+    let msg = err.to_string();
+    assert!(msg.to_lowercase().contains("permission") || msg.to_lowercase().contains("denied"), "got: {msg}");
+}
+
+#[test]
+fn error_permission_not_requested_display() {
+    let err = NotificationError::PermissionNotRequested;
+    let msg = err.to_string();
+    assert!(!msg.is_empty());
+}
+
+#[test]
+fn error_invalid_notification_display() {
+    let err = NotificationError::InvalidNotification("bad action".to_string());
+    let msg = err.to_string();
+    assert!(msg.contains("bad action"), "got: {msg}");
+}
+
+#[test]
+fn error_max_notifications_reached_display() {
+    let err = NotificationError::MaxNotificationsReached(5);
+    let msg = err.to_string();
+    assert!(msg.contains('5'), "got: {msg}");
+}
+
+// ========== Notification Edge Cases ==========
+
+#[test]
+fn notification_with_type_error_has_no_duration() {
+    let n = Notification::new("T", "B").with_type(NotificationType::Error);
+    assert!(n.duration.is_none());
+    assert!(!n.require_interaction); // with_type does not set require_interaction
+}
+
+#[test]
+fn notification_with_type_success_duration() {
+    let n = Notification::new("T", "B").with_type(NotificationType::Success);
+    assert_eq!(n.duration, Some(3000));
+}
+
+#[test]
+fn notification_multiple_actions() {
+    let n = Notification::new("T", "B")
+        .with_action(NotificationAction::new("a1", "Action 1"))
+        .with_action(NotificationAction::new("a2", "Action 2"))
+        .with_action(NotificationAction::new("a3", "Action 3"));
+    assert_eq!(n.actions.len(), 3);
+    assert_eq!(n.actions[2].id, "a3");
+}
+
+#[test]
+fn notification_custom_duration_overrides_type() {
+    let n = Notification::new("T", "B")
+        .with_type(NotificationType::Error)
+        .with_duration(2000);
+    assert_eq!(n.duration, Some(2000));
+}
+
+#[test]
+fn notification_zero_duration() {
+    let n = Notification::new("T", "B").with_duration(0);
+    assert_eq!(n.duration, Some(0));
+}
+
+// ========== Manager Edge Cases ==========
+
+#[rstest]
+fn test_manager_action_callback_triggered(manager: NotificationManager) {
+    let action_count = Arc::new(AtomicUsize::new(0));
+    let ac = action_count.clone();
+
+    manager.on_action(move |_, _action_id| {
+        ac.fetch_add(1, Ordering::SeqCst);
+    });
+
+    let n = Notification::new("Alert", "body")
+        .with_action(NotificationAction::new("ok", "OK"));
+    let id = manager.notify(n).unwrap();
+
+    manager.trigger_action(id, "ok").unwrap();
+    assert_eq!(action_count.load(Ordering::SeqCst), 1);
+}
+
+#[rstest]
+fn test_manager_notify_granted_origin_succeeds(manager: NotificationManager) {
+    manager.set_permission("https://trusted.com", true);
+    let n = Notification::new("T", "B");
+    let result = manager.notify_for_origin(n, "https://trusted.com");
+    assert!(result.is_ok());
+}
+
+#[rstest]
+fn test_manager_default_origin_auto_granted(manager: NotificationManager) {
+    // Unset origins are auto-granted for standalone
+    let n = Notification::new("T", "B");
+    let result = manager.notify_for_origin(n, "https://unknown-origin.com");
+    assert!(result.is_ok());
+}
+
+#[rstest]
+fn test_manager_history_entries_are_dismissed(manager: NotificationManager) {
+    let id = manager.notify(Notification::new("T", "B")).unwrap();
+    manager.dismiss(id).unwrap();
+
+    let history = manager.history();
+    assert_eq!(history.len(), 1);
+    assert!(!history[0].is_active()); // must be dismissed
+}
+
+#[rstest]
+fn test_manager_dismiss_all_callbacks_called(manager: NotificationManager) {
+    let close_count = Arc::new(AtomicUsize::new(0));
+    let cc = close_count.clone();
+    manager.on_close(move |_| {
+        cc.fetch_add(1, Ordering::SeqCst);
+    });
+
+    for i in 0..4 {
+        manager.notify(Notification::new(format!("N{i}"), "body")).unwrap();
+    }
+    manager.dismiss_all();
+    assert_eq!(close_count.load(Ordering::SeqCst), 4);
+}
+
+#[rstest]
+fn test_manager_set_max_history_trims_existing(manager: NotificationManager) {
+    // Add 5 dismissed notifications
+    for i in 0..5 {
+        let id = manager.notify(Notification::new(format!("N{i}"), "body")).unwrap();
+        manager.dismiss(id).unwrap();
+    }
+    assert_eq!(manager.history().len(), 5);
+
+    // Setting max_history to 2 should trim on next dismiss
+    manager.set_max_history(2);
+    let id = manager.notify(Notification::new("Extra", "body")).unwrap();
+    manager.dismiss(id).unwrap();
+    // After one more dismiss the history is trimmed to max 2
+    assert!(manager.history().len() <= 2);
+}
+
+#[rstest]
+fn test_manager_max_active_zero_evicts_immediately(manager: NotificationManager) {
+    manager.set_max_active(1);
+    let _id1 = manager.notify(Notification::new("N1", "body")).unwrap();
+    let _id2 = manager.notify(Notification::new("N2", "body")).unwrap();
+    // Only 1 active allowed, so oldest is evicted
+    assert_eq!(manager.active_count(), 1);
+}
+
+// ========== Concurrent Tests ==========
+
+#[test]
+fn concurrent_notify_no_panic() {
+    use std::sync::Arc;
+    use std::thread;
+
+    let manager = Arc::new(NotificationManager::new());
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let m = Arc::clone(&manager);
+            thread::spawn(move || {
+                for j in 0..10 {
+                    let n = Notification::new(format!("T{i}-{j}"), "body");
+                    let _ = m.notify(n);
+                }
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    // All notifications were created concurrently without panic
+    assert!(manager.active_count() > 0);
+}
+
+#[test]
+fn concurrent_notify_and_dismiss_no_deadlock() {
+    use std::sync::Arc;
+    use std::thread;
+
+    let manager = Arc::new(NotificationManager::new());
+
+    // Producer threads
+    let producer_handles: Vec<_> = (0..4)
+        .map(|i| {
+            let m = Arc::clone(&manager);
+            thread::spawn(move || {
+                for j in 0..5 {
+                    let n = Notification::new(format!("P{i}-{j}"), "body");
+                    let _ = m.notify(n);
+                }
+            })
+        })
+        .collect();
+
+    // Dismiss-all thread
+    let m2 = Arc::clone(&manager);
+    let dismisser = thread::spawn(move || {
+        for _ in 0..5 {
+            m2.dismiss_all();
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    });
+
+    for h in producer_handles {
+        h.join().unwrap();
+    }
+    dismisser.join().unwrap();
+}
+
+#[test]
+fn concurrent_permission_reads_no_panic() {
+    use std::sync::Arc;
+    use std::thread;
+
+    let manager = Arc::new(NotificationManager::new());
+    manager.set_permission("https://example.com", true);
+
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let m = Arc::clone(&manager);
+            thread::spawn(move || {
+                for _ in 0..20 {
+                    let _ = m.permission("https://example.com");
+                }
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+}
