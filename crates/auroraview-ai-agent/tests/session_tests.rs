@@ -491,3 +491,331 @@ fn session_manager_multiple_sessions_all() {
     mgr.new_session();
     assert_eq!(mgr.all_sessions().len(), 3);
 }
+
+// ─────────────────────────────────────────────────────────────
+// SessionMetadata
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn session_metadata_defaults() {
+    let s = ChatSession::new();
+    assert!(s.metadata.model.is_none());
+    assert!(s.metadata.provider.is_none());
+    assert_eq!(s.metadata.total_tokens, 0);
+    assert!(s.metadata.tags.is_empty());
+}
+
+#[test]
+fn session_metadata_set_model() {
+    let mut s = ChatSession::new();
+    s.metadata.model = Some("gpt-4o".to_string());
+    assert_eq!(s.metadata.model.as_deref(), Some("gpt-4o"));
+}
+
+#[test]
+fn session_metadata_set_provider() {
+    let mut s = ChatSession::new();
+    s.metadata.provider = Some("openai".to_string());
+    assert_eq!(s.metadata.provider.as_deref(), Some("openai"));
+}
+
+#[test]
+fn session_metadata_total_tokens_incremented() {
+    let mut s = ChatSession::new();
+    s.metadata.total_tokens += 500;
+    s.metadata.total_tokens += 300;
+    assert_eq!(s.metadata.total_tokens, 800);
+}
+
+#[test]
+fn session_metadata_tags() {
+    let mut s = ChatSession::new();
+    s.metadata.tags.push("maya".to_string());
+    s.metadata.tags.push("dcc".to_string());
+    assert_eq!(s.metadata.tags.len(), 2);
+    assert!(s.metadata.tags.contains(&"maya".to_string()));
+}
+
+#[test]
+fn session_metadata_roundtrip() {
+    let mut s = ChatSession::new();
+    s.metadata.model = Some("claude-3".to_string());
+    s.metadata.provider = Some("anthropic".to_string());
+    s.metadata.total_tokens = 1024;
+    s.metadata.tags = vec!["tag1".to_string(), "tag2".to_string()];
+
+    let json = serde_json::to_string(&s).unwrap();
+    let restored: ChatSession = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.metadata.model.as_deref(), Some("claude-3"));
+    assert_eq!(restored.metadata.provider.as_deref(), Some("anthropic"));
+    assert_eq!(restored.metadata.total_tokens, 1024);
+    assert_eq!(restored.metadata.tags.len(), 2);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Multiple ToolCalls in one assistant message
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn session_add_assistant_with_multiple_tool_calls() {
+    let mut s = ChatSession::new();
+    let calls = vec![
+        ToolCall::new("navigate", r#"{"url":"https://rust-lang.org"}"#),
+        ToolCall::new("click", r##"{"selector":"#download-btn"}"##),
+        ToolCall::new("screenshot", "{}"),
+    ];
+    s.add_assistant_with_tools("Executing multiple tools", calls);
+    let msg = s.last_assistant_message().unwrap();
+    let tool_calls = msg.tool_calls.as_ref().unwrap();
+    assert_eq!(tool_calls.len(), 3);
+    assert_eq!(tool_calls[0].name, "navigate");
+    assert_eq!(tool_calls[1].name, "click");
+    assert_eq!(tool_calls[2].name, "screenshot");
+}
+
+#[test]
+fn session_tool_calls_all_have_unique_ids() {
+    let mut s = ChatSession::new();
+    let calls = vec![
+        ToolCall::new("fn_a", "{}"),
+        ToolCall::new("fn_b", "{}"),
+        ToolCall::new("fn_c", "{}"),
+    ];
+    s.add_assistant_with_tools("multi-tool", calls);
+    let msg = s.last_assistant_message().unwrap();
+    let ids: Vec<_> = msg
+        .tool_calls
+        .as_ref()
+        .unwrap()
+        .iter()
+        .map(|tc| tc.id.as_str())
+        .collect();
+    // All IDs must be unique
+    let mut deduped = ids.clone();
+    deduped.dedup();
+    assert_eq!(ids.len(), deduped.len());
+}
+
+#[test]
+fn session_interleaved_user_tool_assistant() {
+    let mut s = ChatSession::new();
+    s.add_user_message("Run tool");
+    let calls = vec![ToolCall::new("click", r#"{"selector":"btn"}"#)];
+    s.add_assistant_with_tools("Calling click", calls);
+    s.add_tool_result("call-id", "success");
+    s.add_assistant_message("Done!");
+
+    assert_eq!(s.message_count(), 4);
+    assert_eq!(s.messages[0].role, MessageRole::User);
+    assert_eq!(s.messages[1].role, MessageRole::Assistant);
+    assert_eq!(s.messages[2].role, MessageRole::Tool);
+    assert_eq!(s.messages[3].role, MessageRole::Assistant);
+}
+
+// ─────────────────────────────────────────────────────────────
+// SessionManager edge cases
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn session_manager_no_active_after_all_deleted() {
+    let mut mgr = SessionManager::new();
+    let s = mgr.new_session();
+    let id = s.id.clone();
+    mgr.delete_session(&id);
+    assert!(mgr.active_session().is_none());
+}
+
+#[test]
+fn session_manager_delete_last_session() {
+    let mut mgr = SessionManager::new();
+    let s = mgr.new_session();
+    let id = s.id.clone();
+    assert!(mgr.delete_session(&id));
+    assert_eq!(mgr.all_sessions().len(), 0);
+    assert!(mgr.active_session().is_none());
+}
+
+#[test]
+fn session_manager_new_session_with_system_prompt_via_mut() {
+    let mut mgr = SessionManager::new();
+    {
+        let s = mgr.new_session();
+        s.system_prompt = Some("Be concise.".to_string());
+    }
+    assert_eq!(
+        mgr.active_session().unwrap().system_prompt.as_deref(),
+        Some("Be concise.")
+    );
+}
+
+#[test]
+fn session_manager_sessions_by_recent_order() {
+    let mut mgr = SessionManager::new();
+    let s1 = mgr.new_session();
+    let id1 = s1.id.clone();
+    let s2 = mgr.new_session();
+    let id2 = s2.id.clone();
+    let s3 = mgr.new_session();
+    let id3 = s3.id.clone();
+
+    std::thread::sleep(std::time::Duration::from_millis(5));
+
+    // Modify s1 to make it most recent
+    if let Some(s) = mgr.get_session_mut(&id1) {
+        s.add_user_message("latest");
+    }
+
+    let recent = mgr.sessions_by_recent();
+    assert_eq!(recent.len(), 3);
+    assert_eq!(recent[0].id, id1);
+    let _ = (id2, id3);
+}
+
+#[test]
+fn session_manager_get_session_mut_updates_title() {
+    let mut mgr = SessionManager::new();
+    let s = mgr.new_session();
+    let id = s.id.clone();
+
+    if let Some(sess) = mgr.get_session_mut(&id) {
+        sess.add_user_message("Hello from manager");
+    }
+
+    let sess = mgr.get_session(&id).unwrap();
+    assert_eq!(sess.title, "Hello from manager");
+}
+
+#[rstest]
+#[case(1)]
+#[case(5)]
+#[case(10)]
+fn session_manager_n_sessions(#[case] n: usize) {
+    let mut mgr = SessionManager::new();
+    for _ in 0..n {
+        mgr.new_session();
+    }
+    assert_eq!(mgr.all_sessions().len(), n);
+}
+
+// ─────────────────────────────────────────────────────────────
+// ChatSession: timestamp and ID invariants
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn session_created_at_le_last_modified() {
+    let mut s = ChatSession::new();
+    assert!(s.created_at <= s.last_modified);
+    s.add_user_message("message");
+    assert!(s.created_at <= s.last_modified);
+}
+
+#[test]
+fn session_last_modified_advances_on_message() {
+    let mut s = ChatSession::new();
+    let initial = s.last_modified;
+    std::thread::sleep(std::time::Duration::from_millis(2));
+    s.add_user_message("updates timestamp");
+    assert!(s.last_modified >= initial);
+}
+
+#[test]
+fn session_id_is_uuid_format() {
+    let s = ChatSession::new();
+    // UUID v4 has 5 groups separated by hyphens
+    let parts: Vec<_> = s.id.split('-').collect();
+    assert_eq!(parts.len(), 5, "id should be UUID format: {}", s.id);
+}
+
+#[test]
+fn session_unique_ids_across_multiple() {
+    let sessions: Vec<_> = (0..20).map(|_| ChatSession::new()).collect();
+    let mut ids: Vec<_> = sessions.iter().map(|s| s.id.as_str()).collect();
+    ids.sort();
+    ids.dedup();
+    assert_eq!(ids.len(), 20, "all session IDs must be unique");
+}
+
+// ─────────────────────────────────────────────────────────────
+// ChatSession: truncate edge cases
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn session_truncate_zero_limit_keeps_one() {
+    let mut s = ChatSession::new();
+    for i in 0..5 {
+        s.add_user_message(format!("msg {i}"));
+    }
+    s.truncate_to_fit(0);
+    assert_eq!(s.message_count(), 1);
+}
+
+#[test]
+fn session_truncate_large_limit_keeps_all() {
+    let mut s = ChatSession::new();
+    for i in 0..5 {
+        s.add_user_message(format!("x {i}"));
+    }
+    let before = s.message_count();
+    s.truncate_to_fit(100_000);
+    assert_eq!(s.message_count(), before);
+}
+
+// ─────────────────────────────────────────────────────────────
+// ToolCall: parametric argument parsing
+// ─────────────────────────────────────────────────────────────
+
+#[rstest]
+#[case("navigate", r#"{"url":"https://rust-lang.org","timeout":5000}"#)]
+#[case("click", r##"{"selector":"#submit-btn","double":false}"##)]
+#[case("type_text", r#"{"selector":"input","text":"hello"}"#)]
+fn tool_call_parse_various_args(#[case] name: &str, #[case] args: &str) {
+    let call = ToolCall::new(name, args);
+    assert_eq!(call.name, name);
+    // Should be valid JSON
+    let val: serde_json::Value = serde_json::from_str(&call.arguments).unwrap();
+    assert!(val.is_object());
+}
+
+#[test]
+fn tool_call_serialization_roundtrip() {
+    let call = ToolCall::new("search", r#"{"query":"auroraview","limit":10}"#);
+    let id = call.id.clone();
+    let json = serde_json::to_string(&call).unwrap();
+    let restored: ToolCall = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.id, id);
+    assert_eq!(restored.name, "search");
+}
+
+#[test]
+fn tool_call_empty_arguments() {
+    let call = ToolCall::new("ping", "{}");
+    let val: serde_json::Value = serde_json::from_str(&call.arguments).unwrap();
+    assert!(val.as_object().unwrap().is_empty());
+}
+
+// ─────────────────────────────────────────────────────────────
+// ContentPart: parametric image URL formats
+// ─────────────────────────────────────────────────────────────
+
+#[rstest]
+#[case("https://example.com/img.png")]
+#[case("https://cdn.example.com/photo.jpg")]
+#[case("https://storage.maya.com/texture.exr")]
+fn content_part_image_url_various(#[case] url: &str) {
+    let part = ContentPart::image_url(url);
+    let json = serde_json::to_string(&part).unwrap();
+    assert!(json.contains("image_url"));
+    assert!(json.contains(url));
+}
+
+#[rstest]
+#[case("image/png")]
+#[case("image/jpeg")]
+#[case("image/webp")]
+fn content_part_image_base64_media_types(#[case] media_type: &str) {
+    let part = ContentPart::image_base64("abc123", media_type);
+    let json = serde_json::to_string(&part).unwrap();
+    assert!(json.contains(media_type));
+    assert!(json.contains("data:"));
+    assert!(json.contains(";base64,abc123"));
+}
