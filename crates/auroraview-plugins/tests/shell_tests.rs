@@ -14,7 +14,7 @@ use std::sync::Arc;
 // ============================================================================
 
 #[rstest]
-fn test_shell_plugin_commands() {
+fn shell_plugin_commands() {
     let plugin = ShellPlugin::new();
     let commands = plugin.commands();
     assert!(commands.contains(&"open"));
@@ -28,19 +28,19 @@ fn test_shell_plugin_commands() {
 }
 
 #[rstest]
-fn test_shell_plugin_name() {
+fn shell_plugin_name() {
     let plugin = ShellPlugin::new();
     assert_eq!(plugin.name(), "shell");
 }
 
 #[rstest]
-fn test_shell_plugin_default() {
+fn shell_plugin_default() {
     let plugin = ShellPlugin::default();
     assert_eq!(plugin.name(), "shell");
 }
 
 #[rstest]
-fn test_shell_plugin_commands_count() {
+fn shell_plugin_commands_count() {
     let plugin = ShellPlugin::new();
     // At least 8 base commands + restart_app
     assert!(plugin.commands().len() >= 8);
@@ -51,7 +51,7 @@ fn test_shell_plugin_commands_count() {
 // ============================================================================
 
 #[rstest]
-fn test_which_command() {
+fn which_command() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -67,7 +67,7 @@ fn test_which_command() {
 }
 
 #[rstest]
-fn test_which_nonexistent_command() {
+fn which_nonexistent_command() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -82,7 +82,7 @@ fn test_which_nonexistent_command() {
 }
 
 #[rstest]
-fn test_which_invalid_args() {
+fn which_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -98,7 +98,7 @@ fn test_which_invalid_args() {
 #[case("nonexistent_a")]
 #[case("nonexistent_b")]
 #[case("nonexistent_c")]
-fn test_which_parametrized_nonexistent(#[case] cmd: &str) {
+fn which_parametrized_nonexistent(#[case] cmd: &str) {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -112,7 +112,7 @@ fn test_which_parametrized_nonexistent(#[case] cmd: &str) {
 // ============================================================================
 
 #[rstest]
-fn test_get_env() {
+fn get_env() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -123,7 +123,7 @@ fn test_get_env() {
 }
 
 #[rstest]
-fn test_get_env_nonexistent() {
+fn get_env_nonexistent() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -138,7 +138,7 @@ fn test_get_env_nonexistent() {
 }
 
 #[rstest]
-fn test_get_env_invalid_args() {
+fn get_env_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -151,7 +151,7 @@ fn test_get_env_invalid_args() {
 }
 
 #[rstest]
-fn test_get_env_all() {
+fn get_env_all() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -164,7 +164,7 @@ fn test_get_env_all() {
 }
 
 #[rstest]
-fn test_get_env_all_nonempty() {
+fn get_env_all_nonempty() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -177,7 +177,7 @@ fn test_get_env_all_nonempty() {
 #[cfg(windows)]
 #[case("SYSTEMROOT")]
 #[case("WINDIR")]
-fn test_get_env_windows_vars(#[case] var: &str) {
+fn get_env_windows_vars(#[case] var: &str) {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -193,7 +193,7 @@ fn test_get_env_windows_vars(#[case] var: &str) {
 // ============================================================================
 
 #[rstest]
-fn test_execute_blocked_by_scope() {
+fn execute_blocked_by_scope() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -209,7 +209,7 @@ fn test_execute_blocked_by_scope() {
 }
 
 #[rstest]
-fn test_execute_allowed_by_scope() {
+fn execute_allowed_by_scope() {
     let plugin = ShellPlugin::new();
     let mut scope = ScopeConfig::permissive();
     scope.shell = scope.shell.allow_command("echo");
@@ -236,7 +236,7 @@ fn test_execute_allowed_by_scope() {
 }
 
 #[rstest]
-fn test_execute_invalid_args() {
+fn execute_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::permissive();
 
@@ -252,7 +252,7 @@ fn test_execute_invalid_args() {
 #[case("rm", &["-rf", "/"])]
 #[case("format", &["c:"])]
 #[case("deltree", &["/y", "c:\\"])]
-fn test_execute_dangerous_cmds_blocked_by_default(#[case] cmd: &str, #[case] _args: &[&str]) {
+fn execute_dangerous_cmds_blocked_by_default(#[case] cmd: &str, #[case] _args: &[&str]) {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new(); // Default: block all commands
 
@@ -269,7 +269,7 @@ fn test_execute_dangerous_cmds_blocked_by_default(#[case] cmd: &str, #[case] _ar
 // ============================================================================
 
 #[rstest]
-fn test_open_url_blocked_by_scope() {
+fn open_url_blocked_by_scope() {
     let plugin = ShellPlugin::new();
     let mut scope = ScopeConfig::new();
     scope.shell.allow_open_url = false;
@@ -283,7 +283,7 @@ fn test_open_url_blocked_by_scope() {
 }
 
 #[rstest]
-fn test_open_mailto_blocked_by_scope() {
+fn open_mailto_blocked_by_scope() {
     let plugin = ShellPlugin::new();
     let mut scope = ScopeConfig::new();
     scope.shell.allow_open_url = false;
@@ -297,7 +297,7 @@ fn test_open_mailto_blocked_by_scope() {
 }
 
 #[rstest]
-fn test_open_file_blocked_by_scope() {
+fn open_file_blocked_by_scope() {
     let plugin = ShellPlugin::new();
     let mut scope = ScopeConfig::new();
     scope.shell.allow_open_file = false;
@@ -311,7 +311,7 @@ fn test_open_file_blocked_by_scope() {
 }
 
 #[rstest]
-fn test_open_invalid_args() {
+fn open_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::permissive();
 
@@ -327,7 +327,7 @@ fn test_open_invalid_args() {
 #[case("https://example.com")]
 #[case("http://example.com")]
 #[case("mailto:user@example.com")]
-fn test_open_url_schemes_blocked(#[case] url: &str) {
+fn open_url_schemes_blocked(#[case] url: &str) {
     let plugin = ShellPlugin::new();
     let mut scope = ScopeConfig::new();
     scope.shell.allow_open_url = false;
@@ -341,7 +341,7 @@ fn test_open_url_schemes_blocked(#[case] url: &str) {
 // ============================================================================
 
 #[rstest]
-fn test_open_path_blocked_by_scope() {
+fn open_path_blocked_by_scope() {
     let plugin = ShellPlugin::new();
     let mut scope = ScopeConfig::new();
     scope.shell.allow_open_file = false;
@@ -355,7 +355,7 @@ fn test_open_path_blocked_by_scope() {
 }
 
 #[rstest]
-fn test_show_in_folder_blocked_by_scope() {
+fn show_in_folder_blocked_by_scope() {
     let plugin = ShellPlugin::new();
     let mut scope = ScopeConfig::new();
     scope.shell.allow_open_file = false;
@@ -369,7 +369,7 @@ fn test_show_in_folder_blocked_by_scope() {
 }
 
 #[rstest]
-fn test_open_path_invalid_args() {
+fn open_path_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::permissive();
 
@@ -382,7 +382,7 @@ fn test_open_path_invalid_args() {
 }
 
 #[rstest]
-fn test_show_in_folder_invalid_args() {
+fn show_in_folder_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::permissive();
 
@@ -399,7 +399,7 @@ fn test_show_in_folder_invalid_args() {
 // ============================================================================
 
 #[rstest]
-fn test_spawn_blocked_by_scope() {
+fn spawn_blocked_by_scope() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -415,7 +415,7 @@ fn test_spawn_blocked_by_scope() {
 }
 
 #[rstest]
-fn test_spawn_invalid_args() {
+fn spawn_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::permissive();
 
@@ -432,7 +432,7 @@ fn test_spawn_invalid_args() {
 // ============================================================================
 
 #[rstest]
-fn test_restart_app_blocked_by_scope() {
+fn restart_app_blocked_by_scope() {
     // restart_app does NOT check scope by default — test it doesn't panic
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
@@ -450,7 +450,7 @@ fn test_restart_app_blocked_by_scope() {
 // ============================================================================
 
 #[rstest]
-fn test_command_not_found() {
+fn command_not_found() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -463,7 +463,7 @@ fn test_command_not_found() {
 #[case("__invalid__")]
 #[case("open2")]
 #[case("exec")]
-fn test_unknown_commands_err(#[case] cmd: &str) {
+fn unknown_commands_err(#[case] cmd: &str) {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
@@ -476,7 +476,7 @@ fn test_unknown_commands_err(#[case] cmd: &str) {
 // ============================================================================
 
 #[rstest]
-fn test_open_options_deserialization() {
+fn open_options_deserialization() {
     let json = serde_json::json!({
         "path": "https://example.com",
         "with": "firefox"
@@ -487,7 +487,7 @@ fn test_open_options_deserialization() {
 }
 
 #[rstest]
-fn test_open_options_without_with() {
+fn open_options_without_with() {
     let json = serde_json::json!({
         "path": "/tmp/file.txt"
     });
@@ -500,7 +500,7 @@ fn test_open_options_without_with() {
 #[case("https://example.com", Some("firefox"))]
 #[case("https://test.org", Some("chrome"))]
 #[case("/tmp/doc.pdf", None)]
-fn test_open_options_parametrized(#[case] path: &str, #[case] with_app: Option<&str>) {
+fn open_options_parametrized(#[case] path: &str, #[case] with_app: Option<&str>) {
     let json = if let Some(app) = with_app {
         serde_json::json!({ "path": path, "with": app })
     } else {
@@ -512,7 +512,7 @@ fn test_open_options_parametrized(#[case] path: &str, #[case] with_app: Option<&
 }
 
 #[rstest]
-fn test_execute_options_deserialization() {
+fn execute_options_deserialization() {
     let json = serde_json::json!({
         "command": "echo",
         "args": ["hello", "world"],
@@ -529,7 +529,7 @@ fn test_execute_options_deserialization() {
 }
 
 #[rstest]
-fn test_execute_options_defaults() {
+fn execute_options_defaults() {
     let json = serde_json::json!({
         "command": "ls"
     });
@@ -543,14 +543,14 @@ fn test_execute_options_defaults() {
 }
 
 #[rstest]
-fn test_execute_options_show_console_default_false() {
+fn execute_options_show_console_default_false() {
     let json = serde_json::json!({ "command": "cmd" });
     let opts: ExecuteOptions = serde_json::from_value(json).unwrap();
     assert!(!opts.show_console);
 }
 
 #[rstest]
-fn test_execute_options_show_console_true() {
+fn execute_options_show_console_true() {
     let json = serde_json::json!({ "command": "cmd", "showConsole": true });
     let opts: ExecuteOptions = serde_json::from_value(json).unwrap();
     assert!(opts.show_console);
@@ -559,7 +559,7 @@ fn test_execute_options_show_console_true() {
 #[rstest]
 #[case("git", &["status"], None, false)]
 #[case("python", &["-c", "print('hi')"], Some("/tmp"), true)]
-fn test_execute_options_various(
+fn execute_options_various(
     #[case] cmd: &str,
     #[case] args: &[&str],
     #[case] cwd: Option<&str>,
@@ -582,7 +582,7 @@ fn test_execute_options_various(
 }
 
 #[rstest]
-fn test_which_options_deserialization() {
+fn which_options_deserialization() {
     let json = serde_json::json!({
         "command": "git"
     });
@@ -591,7 +591,7 @@ fn test_which_options_deserialization() {
 }
 
 #[rstest]
-fn test_path_options_deserialization() {
+fn path_options_deserialization() {
     let json = serde_json::json!({
         "path": "/home/user/documents"
     });
@@ -600,7 +600,7 @@ fn test_path_options_deserialization() {
 }
 
 #[rstest]
-fn test_env_options_deserialization() {
+fn env_options_deserialization() {
     let json = serde_json::json!({
         "name": "HOME"
     });
@@ -613,7 +613,7 @@ fn test_env_options_deserialization() {
 // ============================================================================
 
 #[rstest]
-fn test_execute_result_serialization() {
+fn execute_result_serialization() {
     let result = ExecuteResult {
         code: Some(0),
         stdout: "output".to_string(),
@@ -626,7 +626,7 @@ fn test_execute_result_serialization() {
 }
 
 #[rstest]
-fn test_execute_result_with_none_code() {
+fn execute_result_with_none_code() {
     let result = ExecuteResult {
         code: None,
         stdout: "".to_string(),
@@ -642,7 +642,7 @@ fn test_execute_result_with_none_code() {
 #[case(Some(1), "", "fail")]
 #[case(Some(127), "", "command not found")]
 #[case(None, "", "killed")]
-fn test_execute_result_parametrized(
+fn execute_result_parametrized(
     #[case] code: Option<i32>,
     #[case] stdout: &str,
     #[case] stderr: &str,
@@ -663,7 +663,7 @@ fn test_execute_result_parametrized(
 }
 
 #[rstest]
-fn test_execute_result_clone() {
+fn execute_result_clone() {
     let result = ExecuteResult {
         code: Some(0),
         stdout: "hello".to_string(),
@@ -675,7 +675,7 @@ fn test_execute_result_clone() {
 }
 
 #[rstest]
-fn test_execute_result_debug() {
+fn execute_result_debug() {
     let result = ExecuteResult {
         code: Some(42),
         stdout: "out".to_string(),
@@ -690,7 +690,7 @@ fn test_execute_result_debug() {
 // ============================================================================
 
 #[rstest]
-fn test_get_env_concurrent_no_panic() {
+fn get_env_concurrent_no_panic() {
     let plugin = Arc::new(ShellPlugin::new());
     let handles: Vec<_> = (0..8)
         .map(|_| {
@@ -707,7 +707,7 @@ fn test_get_env_concurrent_no_panic() {
 }
 
 #[rstest]
-fn test_which_concurrent_no_panic() {
+fn which_concurrent_no_panic() {
     let plugin = Arc::new(ShellPlugin::new());
     #[cfg(windows)]
     let cmd = "cmd";
@@ -729,7 +729,7 @@ fn test_which_concurrent_no_panic() {
 }
 
 #[rstest]
-fn test_get_env_all_concurrent_no_panic() {
+fn get_env_all_concurrent_no_panic() {
     let plugin = Arc::new(ShellPlugin::new());
     let handles: Vec<_> = (0..6)
         .map(|_| {
@@ -746,7 +746,7 @@ fn test_get_env_all_concurrent_no_panic() {
 }
 
 #[rstest]
-fn test_blocked_commands_concurrent_no_panic() {
+fn blocked_commands_concurrent_no_panic() {
     let plugin = Arc::new(ShellPlugin::new());
     let handles: Vec<_> = (0..8)
         .map(|i| {

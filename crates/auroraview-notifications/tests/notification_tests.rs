@@ -1,10 +1,12 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::thread;
+
 use auroraview_notifications::{
     Notification, NotificationAction, NotificationManager, NotificationType, Permission,
     PermissionState,
 };
 use rstest::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 // ========== NotificationType Tests ==========
 
@@ -13,38 +15,38 @@ use std::sync::Arc;
 #[case(NotificationType::Success, Some(3000))]
 #[case(NotificationType::Warning, Some(8000))]
 #[case(NotificationType::Error, None)]
-fn test_notification_type_duration(
+fn notification_type_duration(
     #[case] kind: NotificationType,
     #[case] expected: Option<u64>,
 ) {
     assert_eq!(kind.default_duration(), expected);
 }
 
-#[test]
-fn test_notification_type_default_is_info() {
+#[rstest]
+fn notification_type_default_is_info() {
     assert_eq!(NotificationType::default(), NotificationType::Info);
 }
 
 // ========== NotificationAction Tests ==========
 
-#[test]
-fn test_action_new() {
+#[rstest]
+fn action_new() {
     let action = NotificationAction::new("btn1", "Click me");
     assert_eq!(action.id, "btn1");
     assert_eq!(action.label, "Click me");
     assert!(action.icon.is_none());
 }
 
-#[test]
-fn test_action_with_icon() {
+#[rstest]
+fn action_with_icon() {
     let action = NotificationAction::new("btn1", "Click me").with_icon("check");
     assert_eq!(action.icon, Some("check".to_string()));
 }
 
 // ========== Notification Tests ==========
 
-#[test]
-fn test_notification_new() {
+#[rstest]
+fn notification_new() {
     let n = Notification::new("Title", "Body");
     assert_eq!(n.title, "Title");
     assert_eq!(n.body, Some("Body".to_string()));
@@ -55,15 +57,15 @@ fn test_notification_new() {
     assert!(!n.is_shown());
 }
 
-#[test]
-fn test_notification_simple() {
+#[rstest]
+fn notification_simple() {
     let n = Notification::simple("Title only");
     assert_eq!(n.title, "Title only");
     assert!(n.body.is_none());
 }
 
-#[test]
-fn test_notification_builder() {
+#[rstest]
+fn notification_builder() {
     let n = Notification::new("Alert", "Something happened")
         .with_type(NotificationType::Warning)
         .with_icon("warning")
@@ -81,21 +83,21 @@ fn test_notification_builder() {
     assert_eq!(n.actions.len(), 1);
 }
 
-#[test]
-fn test_notification_persistent() {
+#[rstest]
+fn notification_persistent() {
     let n = Notification::new("Error", "Critical failure").persistent();
     assert!(n.duration.is_none());
     assert!(n.require_interaction);
 }
 
-#[test]
-fn test_notification_with_duration() {
+#[rstest]
+fn notification_with_duration() {
     let n = Notification::new("Custom", "msg").with_duration(10000);
     assert_eq!(n.duration, Some(10000));
 }
 
-#[test]
-fn test_notification_mark_shown() {
+#[rstest]
+fn notification_mark_shown() {
     let mut n = Notification::new("T", "B");
     assert!(!n.is_shown());
 
@@ -109,8 +111,8 @@ fn test_notification_mark_shown() {
     assert_eq!(n.shown_at, first_shown);
 }
 
-#[test]
-fn test_notification_mark_dismissed() {
+#[rstest]
+fn notification_mark_dismissed() {
     let mut n = Notification::new("T", "B");
     assert!(n.is_active());
 
@@ -123,8 +125,8 @@ fn test_notification_mark_dismissed() {
     assert_eq!(n.dismissed_at, first_dismissed);
 }
 
-#[test]
-fn test_notification_display() {
+#[rstest]
+fn notification_display() {
     let n1 = Notification::new("Title", "Body");
     assert_eq!(format!("{}", n1), "Title: Body");
 
@@ -138,7 +140,7 @@ fn test_notification_display() {
 #[case(PermissionState::Default, false, false, true)]
 #[case(PermissionState::Granted, true, false, false)]
 #[case(PermissionState::Denied, false, true, false)]
-fn test_permission_state(
+fn permission_state(
     #[case] state: PermissionState,
     #[case] granted: bool,
     #[case] denied: bool,
@@ -149,8 +151,8 @@ fn test_permission_state(
     assert_eq!(state.is_default(), default);
 }
 
-#[test]
-fn test_permission_state_display() {
+#[rstest]
+fn permission_state_display() {
     assert_eq!(PermissionState::Default.to_string(), "default");
     assert_eq!(PermissionState::Granted.to_string(), "granted");
     assert_eq!(PermissionState::Denied.to_string(), "denied");
@@ -158,30 +160,30 @@ fn test_permission_state_display() {
 
 // ========== Permission Tests ==========
 
-#[test]
-fn test_permission_new() {
+#[rstest]
+fn permission_new() {
     let p = Permission::new("https://example.com");
     assert_eq!(p.origin, "https://example.com");
     assert_eq!(p.state, PermissionState::Default);
     assert!(p.updated_at.is_none());
 }
 
-#[test]
-fn test_permission_granted() {
+#[rstest]
+fn permission_granted() {
     let p = Permission::granted("https://example.com");
     assert_eq!(p.state, PermissionState::Granted);
     assert!(p.updated_at.is_some());
 }
 
-#[test]
-fn test_permission_denied() {
+#[rstest]
+fn permission_denied() {
     let p = Permission::denied("https://example.com");
     assert_eq!(p.state, PermissionState::Denied);
     assert!(p.updated_at.is_some());
 }
 
-#[test]
-fn test_permission_grant_deny_reset() {
+#[rstest]
+fn permission_grant_deny_reset() {
     let mut p = Permission::new("origin");
     assert!(p.state.is_default());
 
@@ -204,7 +206,7 @@ fn manager() -> NotificationManager {
 }
 
 #[rstest]
-fn test_manager_notify(manager: NotificationManager) {
+fn manager_notify(manager: NotificationManager) {
     let n = Notification::new("Hello", "World");
     let id = manager.notify(n).unwrap();
 
@@ -215,7 +217,7 @@ fn test_manager_notify(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_dismiss(manager: NotificationManager) {
+fn manager_dismiss(manager: NotificationManager) {
     let n = Notification::new("Hello", "World");
     let id = manager.notify(n).unwrap();
 
@@ -226,13 +228,13 @@ fn test_manager_dismiss(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_dismiss_not_found(manager: NotificationManager) {
+fn manager_dismiss_not_found(manager: NotificationManager) {
     let result = manager.dismiss(uuid::Uuid::new_v4());
     assert!(result.is_err());
 }
 
 #[rstest]
-fn test_manager_dismiss_all(manager: NotificationManager) {
+fn manager_dismiss_all(manager: NotificationManager) {
     for i in 0..3 {
         manager
             .notify(Notification::new(format!("N{}", i), "body"))
@@ -246,7 +248,7 @@ fn test_manager_dismiss_all(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_max_active(manager: NotificationManager) {
+fn manager_max_active(manager: NotificationManager) {
     manager.set_max_active(2);
 
     let _id1 = manager.notify(Notification::new("N1", "body")).unwrap();
@@ -259,7 +261,7 @@ fn test_manager_max_active(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_tag_replacement(manager: NotificationManager) {
+fn manager_tag_replacement(manager: NotificationManager) {
     let n1 = Notification::new("V1", "body").with_tag("update");
     let n2 = Notification::new("V2", "body").with_tag("update");
 
@@ -276,7 +278,7 @@ fn test_manager_tag_replacement(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_history_limit(manager: NotificationManager) {
+fn manager_history_limit(manager: NotificationManager) {
     manager.set_max_history(3);
 
     for i in 0..5 {
@@ -289,7 +291,7 @@ fn test_manager_history_limit(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_clear_history(manager: NotificationManager) {
+fn manager_clear_history(manager: NotificationManager) {
     let id = manager.notify(Notification::new("N1", "body")).unwrap();
     manager.dismiss(id).unwrap();
     assert_eq!(manager.history().len(), 1);
@@ -299,7 +301,7 @@ fn test_manager_clear_history(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_permission_default(manager: NotificationManager) {
+fn manager_permission_default(manager: NotificationManager) {
     assert_eq!(
         manager.permission("https://example.com"),
         PermissionState::Default
@@ -307,7 +309,7 @@ fn test_manager_permission_default(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_set_permission(manager: NotificationManager) {
+fn manager_set_permission(manager: NotificationManager) {
     manager.set_permission("https://example.com", true);
     assert_eq!(
         manager.permission("https://example.com"),
@@ -322,7 +324,7 @@ fn test_manager_set_permission(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_request_permission(manager: NotificationManager) {
+fn manager_request_permission(manager: NotificationManager) {
     let state = manager.request_permission("https://example.com");
     assert_eq!(state, PermissionState::Granted); // Auto-grant
 
@@ -332,7 +334,7 @@ fn test_manager_request_permission(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_permission_denied_blocks_notify(manager: NotificationManager) {
+fn manager_permission_denied_blocks_notify(manager: NotificationManager) {
     manager.set_permission("https://evil.com", false);
 
     let n = Notification::new("Spam", "body");
@@ -341,7 +343,7 @@ fn test_manager_permission_denied_blocks_notify(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_trigger_action(manager: NotificationManager) {
+fn manager_trigger_action(manager: NotificationManager) {
     let n = Notification::new("Alert", "body")
         .with_action(NotificationAction::new("ok", "OK"))
         .with_action(NotificationAction::new("cancel", "Cancel"));
@@ -352,7 +354,7 @@ fn test_manager_trigger_action(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_callbacks(manager: NotificationManager) {
+fn manager_callbacks(manager: NotificationManager) {
     let show_count = Arc::new(AtomicUsize::new(0));
     let close_count = Arc::new(AtomicUsize::new(0));
 
@@ -374,7 +376,7 @@ fn test_manager_callbacks(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_clone_shares_state(manager: NotificationManager) {
+fn manager_clone_shares_state(manager: NotificationManager) {
     let manager2 = manager.clone();
 
     let id = manager.notify(Notification::new("T", "B")).unwrap();
@@ -384,8 +386,8 @@ fn test_manager_clone_shares_state(manager: NotificationManager) {
     assert_eq!(manager.active_count(), 0);
 }
 
-#[test]
-fn test_manager_default() {
+#[rstest]
+fn manager_default() {
     let manager = NotificationManager::default();
     assert_eq!(manager.active_count(), 0);
 }
@@ -583,7 +585,7 @@ fn notification_zero_duration() {
 // ========== Manager Edge Cases ==========
 
 #[rstest]
-fn test_manager_action_callback_triggered(manager: NotificationManager) {
+fn manager_action_callback_triggered(manager: NotificationManager) {
     let action_count = Arc::new(AtomicUsize::new(0));
     let ac = action_count.clone();
 
@@ -600,7 +602,7 @@ fn test_manager_action_callback_triggered(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_notify_granted_origin_succeeds(manager: NotificationManager) {
+fn manager_notify_granted_origin_succeeds(manager: NotificationManager) {
     manager.set_permission("https://trusted.com", true);
     let n = Notification::new("T", "B");
     let result = manager.notify_for_origin(n, "https://trusted.com");
@@ -608,7 +610,7 @@ fn test_manager_notify_granted_origin_succeeds(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_default_origin_auto_granted(manager: NotificationManager) {
+fn manager_default_origin_auto_granted(manager: NotificationManager) {
     // Unset origins are auto-granted for standalone
     let n = Notification::new("T", "B");
     let result = manager.notify_for_origin(n, "https://unknown-origin.com");
@@ -616,7 +618,7 @@ fn test_manager_default_origin_auto_granted(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_history_entries_are_dismissed(manager: NotificationManager) {
+fn manager_history_entries_are_dismissed(manager: NotificationManager) {
     let id = manager.notify(Notification::new("T", "B")).unwrap();
     manager.dismiss(id).unwrap();
 
@@ -626,7 +628,7 @@ fn test_manager_history_entries_are_dismissed(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_dismiss_all_callbacks_called(manager: NotificationManager) {
+fn manager_dismiss_all_callbacks_called(manager: NotificationManager) {
     let close_count = Arc::new(AtomicUsize::new(0));
     let cc = close_count.clone();
     manager.on_close(move |_| {
@@ -641,7 +643,7 @@ fn test_manager_dismiss_all_callbacks_called(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_set_max_history_trims_existing(manager: NotificationManager) {
+fn manager_set_max_history_trims_existing(manager: NotificationManager) {
     // Add 5 dismissed notifications
     for i in 0..5 {
         let id = manager.notify(Notification::new(format!("N{i}"), "body")).unwrap();
@@ -658,7 +660,7 @@ fn test_manager_set_max_history_trims_existing(manager: NotificationManager) {
 }
 
 #[rstest]
-fn test_manager_max_active_zero_evicts_immediately(manager: NotificationManager) {
+fn manager_max_active_zero_evicts_immediately(manager: NotificationManager) {
     manager.set_max_active(1);
     let _id1 = manager.notify(Notification::new("N1", "body")).unwrap();
     let _id2 = manager.notify(Notification::new("N2", "body")).unwrap();
@@ -670,8 +672,6 @@ fn test_manager_max_active_zero_evicts_immediately(manager: NotificationManager)
 
 #[test]
 fn concurrent_notify_no_panic() {
-    use std::sync::Arc;
-    use std::thread;
 
     let manager = Arc::new(NotificationManager::new());
 
@@ -697,8 +697,6 @@ fn concurrent_notify_no_panic() {
 
 #[test]
 fn concurrent_notify_and_dismiss_no_deadlock() {
-    use std::sync::Arc;
-    use std::thread;
 
     let manager = Arc::new(NotificationManager::new());
 
@@ -732,8 +730,6 @@ fn concurrent_notify_and_dismiss_no_deadlock() {
 
 #[test]
 fn concurrent_permission_reads_no_panic() {
-    use std::sync::Arc;
-    use std::thread;
 
     let manager = Arc::new(NotificationManager::new());
     manager.set_permission("https://example.com", true);

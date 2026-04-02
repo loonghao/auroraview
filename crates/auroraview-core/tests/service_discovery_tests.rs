@@ -1,12 +1,13 @@
 //! Tests for service discovery module
 
+use std::collections::HashMap;
+use std::net::TcpListener;
+
 use auroraview_core::service_discovery::{
     HttpDiscovery, InstanceInfo, InstanceRegistry, MdnsService, PortAllocator, ServiceInfo,
     SERVICE_TYPE,
 };
 use rstest::rstest;
-use std::collections::HashMap;
-use std::net::TcpListener;
 
 // ============================================================================
 // ServiceInfo tests

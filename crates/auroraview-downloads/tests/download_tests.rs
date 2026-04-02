@@ -1,4 +1,6 @@
 use std::path::Path;
+use std::sync::Arc;
+use std::thread;
 
 use auroraview_downloads::{DownloadError, DownloadItem, DownloadManager, DownloadQueue, DownloadState};
 use rstest::*;
@@ -6,8 +8,8 @@ use tempfile::TempDir;
 
 // ========== DownloadItem Struct Tests ==========
 
-#[test]
-fn test_item_new() {
+#[rstest]
+fn item_new() {
     let item = DownloadItem::new("https://example.com/file.zip", "file.zip");
     assert_eq!(item.filename, "file.zip");
     assert_eq!(item.url, "https://example.com/file.zip");
@@ -18,14 +20,14 @@ fn test_item_new() {
     assert!(item.error.is_none());
 }
 
-#[test]
-fn test_item_with_id() {
+#[rstest]
+fn item_with_id() {
     let item = DownloadItem::with_id("custom-id", "https://example.com/f.zip", "f.zip");
     assert_eq!(item.id, "custom-id");
 }
 
-#[test]
-fn test_item_builder_methods() {
+#[rstest]
+fn item_builder_methods() {
     let item = DownloadItem::new("https://example.com/file.zip", "file.zip")
         .with_save_path("/tmp/file.zip")
         .with_mime_type("application/zip")
@@ -38,15 +40,15 @@ fn test_item_builder_methods() {
 
 // ========== State Transition Tests ==========
 
-#[test]
-fn test_item_start_from_pending() {
+#[rstest]
+fn item_start_from_pending() {
     let mut item = DownloadItem::new("https://a.com/f", "f");
     item.start();
     assert_eq!(item.state, DownloadState::Downloading);
 }
 
-#[test]
-fn test_item_start_from_paused() {
+#[rstest]
+fn item_start_from_paused() {
     let mut item = DownloadItem::new("https://a.com/f", "f");
     item.start();
     item.pause();
@@ -54,8 +56,8 @@ fn test_item_start_from_paused() {
     assert_eq!(item.state, DownloadState::Downloading);
 }
 
-#[test]
-fn test_item_pause() {
+#[rstest]
+fn item_pause() {
     let mut item = DownloadItem::new("https://a.com/f", "f");
     item.start();
     item.update_speed(500);
@@ -65,8 +67,8 @@ fn test_item_pause() {
     assert!(item.speed.is_none()); // speed cleared on pause
 }
 
-#[test]
-fn test_item_resume() {
+#[rstest]
+fn item_resume() {
     let mut item = DownloadItem::new("https://a.com/f", "f");
     item.start();
     item.pause();
@@ -74,8 +76,8 @@ fn test_item_resume() {
     assert_eq!(item.state, DownloadState::Downloading);
 }
 
-#[test]
-fn test_item_complete() {
+#[rstest]
+fn item_complete() {
     let mut item = DownloadItem::new("https://a.com/f", "f").with_total_bytes(1000);
     item.start();
     item.update_speed(100);
@@ -87,8 +89,8 @@ fn test_item_complete() {
     assert_eq!(item.received_bytes, 1000); // set to total on complete
 }
 
-#[test]
-fn test_item_fail() {
+#[rstest]
+fn item_fail() {
     let mut item = DownloadItem::new("https://a.com/f", "f");
     item.start();
     item.fail("Connection timeout");
@@ -97,8 +99,8 @@ fn test_item_fail() {
     assert_eq!(item.error, Some("Connection timeout".to_string()));
 }
 
-#[test]
-fn test_item_cancel() {
+#[rstest]
+fn item_cancel() {
     let mut item = DownloadItem::new("https://a.com/f", "f");
     item.start();
     item.cancel();
@@ -146,14 +148,14 @@ fn test_item_progress(#[case] received: u64, #[case] total: u64, #[case] expecte
     assert_eq!(item.progress(), Some(expected_pct));
 }
 
-#[test]
-fn test_item_progress_unknown_total() {
+#[rstest]
+fn item_progress_unknown_total() {
     let item = DownloadItem::new("https://a.com/f", "f");
     assert!(item.progress().is_none());
 }
 
-#[test]
-fn test_item_eta_calculation() {
+#[rstest]
+fn item_eta_calculation() {
     let mut item = DownloadItem::new("https://a.com/f", "f").with_total_bytes(1000);
     item.update_progress(500, None);
     item.update_speed(100); // 100 bytes/sec
@@ -162,8 +164,8 @@ fn test_item_eta_calculation() {
     assert_eq!(item.eta(), Some(5));
 }
 
-#[test]
-fn test_item_eta_no_speed() {
+#[rstest]
+fn item_eta_no_speed() {
     let mut item = DownloadItem::new("https://a.com/f", "f").with_total_bytes(1000);
     item.update_progress(500, None);
     assert!(item.eta().is_none());
@@ -190,8 +192,8 @@ fn test_item_extension(#[case] filename: &str, #[case] expected: Option<&str>) {
 
 // ========== DownloadManager CRUD Tests ==========
 
-#[test]
-fn test_manager_add() {
+#[rstest]
+fn manager_add() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://example.com/file.zip", "file.zip");
 
@@ -200,8 +202,8 @@ fn test_manager_add() {
     assert_eq!(item.state, DownloadState::Pending);
 }
 
-#[test]
-fn test_manager_add_item() {
+#[rstest]
+fn manager_add_item() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let custom = DownloadItem::with_id("my-id", "https://a.com/f.zip", "f.zip");
     let id = manager.add_item(custom);
@@ -210,8 +212,8 @@ fn test_manager_add_item() {
     assert!(manager.get(&id).is_some());
 }
 
-#[test]
-fn test_manager_remove() {
+#[rstest]
+fn manager_remove() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
 
@@ -220,8 +222,8 @@ fn test_manager_remove() {
     assert!(!manager.remove(&id)); // second time = false
 }
 
-#[test]
-fn test_manager_all() {
+#[rstest]
+fn manager_all() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     manager.add("https://a.com/1", "1");
     manager.add("https://a.com/2", "2");
@@ -233,8 +235,8 @@ fn test_manager_all() {
 
 // ========== Download Control Tests ==========
 
-#[test]
-fn test_manager_start() {
+#[rstest]
+fn manager_start() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
 
@@ -242,8 +244,8 @@ fn test_manager_start() {
     assert_eq!(manager.get(&id).unwrap().state, DownloadState::Downloading);
 }
 
-#[test]
-fn test_manager_pause_resume() {
+#[rstest]
+fn manager_pause_resume() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
 
@@ -255,8 +257,8 @@ fn test_manager_pause_resume() {
     assert_eq!(manager.get(&id).unwrap().state, DownloadState::Downloading);
 }
 
-#[test]
-fn test_manager_cancel() {
+#[rstest]
+fn manager_cancel() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
     manager.start(&id).unwrap();
@@ -265,8 +267,8 @@ fn test_manager_cancel() {
     assert_eq!(manager.get(&id).unwrap().state, DownloadState::Cancelled);
 }
 
-#[test]
-fn test_manager_complete() {
+#[rstest]
+fn manager_complete() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
     manager.start(&id).unwrap();
@@ -275,8 +277,8 @@ fn test_manager_complete() {
     assert_eq!(manager.get(&id).unwrap().state, DownloadState::Completed);
 }
 
-#[test]
-fn test_manager_fail() {
+#[rstest]
+fn manager_fail() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
     manager.start(&id).unwrap();
@@ -289,15 +291,15 @@ fn test_manager_fail() {
 
 // ========== Error State Tests ==========
 
-#[test]
-fn test_manager_start_nonexistent_returns_error() {
+#[rstest]
+fn manager_start_nonexistent_returns_error() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let result = manager.start(&"bad-id".to_string());
     assert!(matches!(result, Err(DownloadError::NotFound(_))));
 }
 
-#[test]
-fn test_manager_pause_nondownloading_returns_error() {
+#[rstest]
+fn manager_pause_nondownloading_returns_error() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
     // Still Pending, cannot pause
@@ -305,8 +307,8 @@ fn test_manager_pause_nondownloading_returns_error() {
     assert!(matches!(result, Err(DownloadError::InvalidState(_))));
 }
 
-#[test]
-fn test_manager_resume_nonpaused_returns_error() {
+#[rstest]
+fn manager_resume_nonpaused_returns_error() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
     manager.start(&id).unwrap();
@@ -315,8 +317,8 @@ fn test_manager_resume_nonpaused_returns_error() {
     assert!(matches!(result, Err(DownloadError::InvalidState(_))));
 }
 
-#[test]
-fn test_manager_cancel_finished_returns_error() {
+#[rstest]
+fn manager_cancel_finished_returns_error() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
     manager.start(&id).unwrap();
@@ -328,8 +330,8 @@ fn test_manager_cancel_finished_returns_error() {
 
 // ========== Progress & Speed Tests ==========
 
-#[test]
-fn test_manager_update_progress() {
+#[rstest]
+fn manager_update_progress() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
     manager.start(&id).unwrap();
@@ -341,8 +343,8 @@ fn test_manager_update_progress() {
     assert_eq!(item.progress(), Some(75));
 }
 
-#[test]
-fn test_manager_update_speed() {
+#[rstest]
+fn manager_update_speed() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
     manager.start(&id).unwrap();
@@ -354,8 +356,8 @@ fn test_manager_update_speed() {
 
 // ========== Filter Tests ==========
 
-#[test]
-fn test_manager_by_state() {
+#[rstest]
+fn manager_by_state() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id1 = manager.add("https://a.com/1", "1");
     let id2 = manager.add("https://a.com/2", "2");
@@ -370,8 +372,8 @@ fn test_manager_by_state() {
     assert_eq!(manager.pending().len(), 1);
 }
 
-#[test]
-fn test_manager_clear_completed() {
+#[rstest]
+fn manager_clear_completed() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id1 = manager.add("https://a.com/1", "1");
     let _id2 = manager.add("https://a.com/2", "2");
@@ -384,8 +386,8 @@ fn test_manager_clear_completed() {
     assert_eq!(manager.count(), 1);
 }
 
-#[test]
-fn test_manager_clear() {
+#[rstest]
+fn manager_clear() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     manager.add("https://a.com/1", "1");
     manager.add("https://a.com/2", "2");
@@ -396,8 +398,8 @@ fn test_manager_clear() {
 
 // ========== Statistics Tests ==========
 
-#[test]
-fn test_manager_total_bytes_downloaded() {
+#[rstest]
+fn manager_total_bytes_downloaded() {
     let manager = DownloadManager::new(Some(Path::new(".")));
 
     let id1 = manager.add("https://a.com/1", "1");
@@ -418,8 +420,8 @@ fn test_manager_total_bytes_downloaded() {
 
 // ========== Queue Tests ==========
 
-#[test]
-fn test_manager_queue_stats() {
+#[rstest]
+fn manager_queue_stats() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id1 = manager.add("https://a.com/1", "1");
     manager.add("https://a.com/2", "2");
@@ -436,15 +438,15 @@ fn test_manager_queue_stats() {
     assert_eq!(total, 2);
 }
 
-#[test]
-fn test_manager_can_start_new() {
+#[rstest]
+fn manager_can_start_new() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     manager.add("https://a.com/1", "1");
     assert!(manager.can_start_new());
 }
 
-#[test]
-fn test_manager_next_to_start() {
+#[rstest]
+fn manager_next_to_start() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/1", "1");
 
@@ -452,8 +454,8 @@ fn test_manager_next_to_start() {
     assert_eq!(next, Some(id));
 }
 
-#[test]
-fn test_manager_set_max_concurrent() {
+#[rstest]
+fn manager_set_max_concurrent() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     manager.set_max_concurrent(1);
 
@@ -470,8 +472,8 @@ fn test_manager_set_max_concurrent() {
 
 // ========== Persistence Tests ==========
 
-#[test]
-fn test_manager_export() {
+#[rstest]
+fn manager_export() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     manager.add("https://a.com/1", "1");
 
@@ -479,8 +481,8 @@ fn test_manager_export() {
     assert!(json.contains("https://a.com/1"));
 }
 
-#[test]
-fn test_manager_persistence_round_trip() {
+#[rstest]
+fn manager_persistence_round_trip() {
     let dir = TempDir::new().unwrap();
     let dl_dir = dir.path().join("downloads");
     let data_dir = dir.path().join("data");
@@ -504,8 +506,8 @@ fn test_manager_persistence_round_trip() {
 
 // ========== Clone Tests ==========
 
-#[test]
-fn test_manager_clone_shares_state() {
+#[rstest]
+fn manager_clone_shares_state() {
     let m1 = DownloadManager::new(Some(Path::new(".")));
     let m2 = m1.clone();
 
@@ -515,16 +517,16 @@ fn test_manager_clone_shares_state() {
 
 // ========== DownloadQueue Unit Tests ==========
 
-#[test]
-fn test_queue_enqueue_dedup() {
+#[rstest]
+fn queue_enqueue_dedup() {
     let mut q = DownloadQueue::new();
     q.enqueue("d1".to_string());
     q.enqueue("d1".to_string()); // duplicate
     assert_eq!(q.pending_count(), 1);
 }
 
-#[test]
-fn test_queue_priority_goes_to_front() {
+#[rstest]
+fn queue_priority_goes_to_front() {
     let mut q = DownloadQueue::new();
     q.enqueue("d1".to_string());
     q.enqueue("d2".to_string());
@@ -533,8 +535,8 @@ fn test_queue_priority_goes_to_front() {
     assert_eq!(q.next_pending(), Some("d3".to_string()));
 }
 
-#[test]
-fn test_queue_respects_max_concurrent() {
+#[rstest]
+fn queue_respects_max_concurrent() {
     let mut q = DownloadQueue::with_max_concurrent(2);
     q.enqueue("d1".to_string());
     q.enqueue("d2".to_string());
@@ -545,8 +547,8 @@ fn test_queue_respects_max_concurrent() {
     assert_eq!(q.next_pending(), None); // slots full
 }
 
-#[test]
-fn test_queue_mark_finished_frees_slot() {
+#[rstest]
+fn queue_mark_finished_frees_slot() {
     let mut q = DownloadQueue::with_max_concurrent(1);
     q.enqueue("d1".to_string());
     q.enqueue("d2".to_string());
@@ -558,8 +560,8 @@ fn test_queue_mark_finished_frees_slot() {
     assert_eq!(q.next_pending(), Some("d2".to_string()));
 }
 
-#[test]
-fn test_queue_next_batch() {
+#[rstest]
+fn queue_next_batch() {
     let mut q = DownloadQueue::with_max_concurrent(3);
     for i in 0..5 {
         q.enqueue(format!("d{}", i));
@@ -571,8 +573,8 @@ fn test_queue_next_batch() {
     assert_eq!(q.pending_count(), 2);
 }
 
-#[test]
-fn test_queue_move_up_down() {
+#[rstest]
+fn queue_move_up_down() {
     let mut q = DownloadQueue::new();
     q.enqueue("d1".to_string());
     q.enqueue("d2".to_string());
@@ -768,29 +770,29 @@ fn item_speed_cleared_on_complete() {
 
 // ========== Manager Edge Cases ==========
 
-#[test]
-fn test_manager_fail_nonexistent_returns_error() {
+#[rstest]
+fn manager_fail_nonexistent_returns_error() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let result = manager.fail(&"nonexistent".to_string(), "err");
     assert!(matches!(result, Err(DownloadError::NotFound(_))));
 }
 
-#[test]
-fn test_manager_complete_nonexistent_returns_error() {
+#[rstest]
+fn manager_complete_nonexistent_returns_error() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let result = manager.complete(&"nonexistent".to_string());
     assert!(matches!(result, Err(DownloadError::NotFound(_))));
 }
 
-#[test]
-fn test_manager_update_progress_nonexistent_no_panic() {
+#[rstest]
+fn manager_update_progress_nonexistent_no_panic() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     // update_progress on non-existent id should not panic
     manager.update_progress(&"nonexistent".to_string(), 100, Some(200));
 }
 
-#[test]
-fn test_manager_failed_items_not_in_active() {
+#[rstest]
+fn manager_failed_items_not_in_active() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     let id = manager.add("https://a.com/f", "f");
     manager.start(&id).unwrap();
@@ -799,8 +801,8 @@ fn test_manager_failed_items_not_in_active() {
     assert_eq!(manager.active().len(), 0);
 }
 
-#[test]
-fn test_manager_pending_after_add() {
+#[rstest]
+fn manager_pending_after_add() {
     let manager = DownloadManager::new(Some(Path::new(".")));
     manager.add("https://a.com/1", "1");
     manager.add("https://a.com/2", "2");
@@ -813,8 +815,6 @@ fn test_manager_pending_after_add() {
 
 #[test]
 fn concurrent_add_no_panic() {
-    use std::sync::Arc;
-    use std::thread;
 
     let manager = Arc::new(DownloadManager::new(Some(Path::new("."))));
 
@@ -841,8 +841,6 @@ fn concurrent_add_no_panic() {
 
 #[test]
 fn concurrent_add_start_complete_no_deadlock() {
-    use std::sync::Arc;
-    use std::thread;
 
     let manager = Arc::new(DownloadManager::new(Some(Path::new("."))));
 
@@ -873,8 +871,6 @@ fn concurrent_add_start_complete_no_deadlock() {
 
 #[test]
 fn concurrent_clone_shares_state() {
-    use std::sync::Arc;
-    use std::thread;
 
     let manager = DownloadManager::new(Some(Path::new(".")));
     let manager2 = manager.clone();
