@@ -1,5 +1,7 @@
 //! Tests for TrayConfig and TrayMenuItem
 
+use std::path::PathBuf;
+
 use auroraview_desktop::config::{TrayConfig, TrayMenuItem};
 use rstest::rstest;
 
@@ -8,7 +10,7 @@ use rstest::rstest;
 // ============================================================================
 
 #[rstest]
-fn test_tray_config_default() {
+fn tray_config_default() {
     let config = TrayConfig::default();
     assert!(config.icon.is_none());
     assert!(config.tooltip.is_none());
@@ -17,7 +19,7 @@ fn test_tray_config_default() {
 }
 
 #[rstest]
-fn test_tray_config_default_menu_show_item() {
+fn tray_config_default_menu_show_item() {
     let config = TrayConfig::default();
     match &config.menu[0] {
         TrayMenuItem::Item { id, label, enabled } => {
@@ -30,13 +32,13 @@ fn test_tray_config_default_menu_show_item() {
 }
 
 #[rstest]
-fn test_tray_config_default_menu_separator() {
+fn tray_config_default_menu_separator() {
     let config = TrayConfig::default();
     assert!(matches!(config.menu[1], TrayMenuItem::Separator));
 }
 
 #[rstest]
-fn test_tray_config_default_menu_quit_item() {
+fn tray_config_default_menu_quit_item() {
     let config = TrayConfig::default();
     match &config.menu[2] {
         TrayMenuItem::Item { id, label, enabled } => {
@@ -49,7 +51,7 @@ fn test_tray_config_default_menu_quit_item() {
 }
 
 #[rstest]
-fn test_tray_config_clone() {
+fn tray_config_clone() {
     let config = TrayConfig::default();
     let cloned = config.clone();
     assert_eq!(cloned.menu.len(), config.menu.len());
@@ -58,7 +60,7 @@ fn test_tray_config_clone() {
 }
 
 #[rstest]
-fn test_tray_config_with_tooltip() {
+fn tray_config_with_tooltip() {
     let config = TrayConfig {
         icon: None,
         tooltip: Some("My App".to_string()),
@@ -68,8 +70,7 @@ fn test_tray_config_with_tooltip() {
 }
 
 #[rstest]
-fn test_tray_config_with_icon_path() {
-    use std::path::PathBuf;
+fn tray_config_with_icon_path() {
     let config = TrayConfig {
         icon: Some(PathBuf::from("/tmp/icon.png")),
         tooltip: None,
@@ -80,7 +81,7 @@ fn test_tray_config_with_icon_path() {
 }
 
 #[rstest]
-fn test_tray_config_empty_menu() {
+fn tray_config_empty_menu() {
     let config = TrayConfig {
         icon: None,
         tooltip: None,
@@ -94,7 +95,7 @@ fn test_tray_config_empty_menu() {
 // ============================================================================
 
 #[rstest]
-fn test_tray_menu_item_item_variant() {
+fn tray_menu_item_item_variant() {
     let item = TrayMenuItem::Item {
         id: "open".to_string(),
         label: "Open".to_string(),
@@ -111,7 +112,7 @@ fn test_tray_menu_item_item_variant() {
 }
 
 #[rstest]
-fn test_tray_menu_item_disabled() {
+fn tray_menu_item_disabled() {
     let item = TrayMenuItem::Item {
         id: "grayed".to_string(),
         label: "Grayed Out".to_string(),
@@ -124,13 +125,13 @@ fn test_tray_menu_item_disabled() {
 }
 
 #[rstest]
-fn test_tray_menu_item_separator_variant() {
+fn tray_menu_item_separator_variant() {
     let sep = TrayMenuItem::Separator;
     assert!(matches!(sep, TrayMenuItem::Separator));
 }
 
 #[rstest]
-fn test_tray_menu_item_clone_item() {
+fn tray_menu_item_clone_item() {
     let item = TrayMenuItem::Item {
         id: "x".to_string(),
         label: "X".to_string(),
@@ -148,14 +149,14 @@ fn test_tray_menu_item_clone_item() {
 }
 
 #[rstest]
-fn test_tray_menu_item_clone_separator() {
+fn tray_menu_item_clone_separator() {
     let sep = TrayMenuItem::Separator;
     let cloned = sep.clone();
     assert!(matches!(cloned, TrayMenuItem::Separator));
 }
 
 #[rstest]
-fn test_tray_menu_item_debug_item() {
+fn tray_menu_item_debug_item() {
     let item = TrayMenuItem::Item {
         id: "test".to_string(),
         label: "Test".to_string(),
@@ -167,7 +168,7 @@ fn test_tray_menu_item_debug_item() {
 }
 
 #[rstest]
-fn test_tray_menu_item_debug_separator() {
+fn tray_menu_item_debug_separator() {
     let sep = TrayMenuItem::Separator;
     let debug = format!("{:?}", sep);
     assert!(debug.contains("Separator"));
@@ -178,7 +179,7 @@ fn test_tray_menu_item_debug_separator() {
 // ============================================================================
 
 #[rstest]
-fn test_tray_config_serialize_default() {
+fn tray_config_serialize_default() {
     let config = TrayConfig::default();
     let json = serde_json::to_string(&config).unwrap();
     assert!(json.contains("\"menu\""));
@@ -187,7 +188,7 @@ fn test_tray_config_serialize_default() {
 }
 
 #[rstest]
-fn test_tray_config_round_trip() {
+fn tray_config_round_trip() {
     let config = TrayConfig {
         icon: None,
         tooltip: Some("Hello".to_string()),
@@ -207,7 +208,7 @@ fn test_tray_config_round_trip() {
 }
 
 #[rstest]
-fn test_tray_menu_item_serialize_item() {
+fn tray_menu_item_serialize_item() {
     let item = TrayMenuItem::Item {
         id: "save".to_string(),
         label: "Save".to_string(),
@@ -218,7 +219,7 @@ fn test_tray_menu_item_serialize_item() {
 }
 
 #[rstest]
-fn test_tray_menu_item_serialize_separator() {
+fn tray_menu_item_serialize_separator() {
     let sep = TrayMenuItem::Separator;
     let json = serde_json::to_string(&sep).unwrap();
     assert!(json.contains("Separator"));
@@ -232,7 +233,7 @@ fn test_tray_menu_item_serialize_separator() {
 #[case(0, "file", "File", true)]
 #[case(1, "edit", "Edit", true)]
 #[case(2, "help", "Help", false)]
-fn test_tray_menu_custom_items(
+fn tray_menu_custom_items(
     #[case] idx: usize,
     #[case] id: &str,
     #[case] label: &str,
@@ -274,7 +275,7 @@ fn test_tray_menu_custom_items(
 }
 
 #[rstest]
-fn test_tray_config_menu_all_separators() {
+fn tray_config_menu_all_separators() {
     let config = TrayConfig {
         icon: None,
         tooltip: None,
