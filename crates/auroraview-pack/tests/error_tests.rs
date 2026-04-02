@@ -1,8 +1,9 @@
 //! Tests for PackError variants, Display, Clone, and From conversions
 
+use std::path::PathBuf;
+
 use auroraview_pack::{PackError, PackResult};
 use rstest::rstest;
-use std::path::PathBuf;
 
 // ============================================================================
 // Display tests for each variant
