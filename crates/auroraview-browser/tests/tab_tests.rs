@@ -1,6 +1,7 @@
 //! Tests for tab module
 
 use auroraview_browser::tab::{SecurityState, TabEvent, TabState};
+use rstest::rstest;
 
 #[test]
 fn test_tab_state_new() {
@@ -155,3 +156,138 @@ fn test_tab_event_close_devtools() {
     assert!(matches!(ev, TabEvent::CloseDevTools { tab_id: Some(ref id) } if id == "tab_3"));
 }
 
+// === Extended tests ===
+
+#[test]
+fn test_tab_state_default_security_is_none() {
+    let state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    // Security state is None until set_url is called
+    assert!(state.security_state.is_none());
+}
+
+#[test]
+fn test_tab_state_security_after_set_url_https() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    state.set_url("https://example.com".to_string());
+    assert_eq!(state.security_state, Some(SecurityState::Secure));
+}
+
+#[test]
+fn test_tab_state_set_audible() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    assert!(!state.audible);
+    state.set_audible(true);
+    assert!(state.audible);
+    state.set_audible(false);
+    assert!(!state.audible);
+}
+
+#[test]
+fn test_tab_state_set_favicon() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    assert!(state.favicon.is_none());
+
+    state.set_favicon(Some("https://example.com/favicon.ico".to_string()));
+    assert_eq!(
+        state.favicon,
+        Some("https://example.com/favicon.ico".to_string())
+    );
+
+    state.set_favicon(None);
+    assert!(state.favicon.is_none());
+}
+
+#[test]
+fn test_tab_state_set_loading_toggle() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    assert!(state.is_loading);
+    state.set_loading(false);
+    assert!(!state.is_loading);
+    state.set_loading(true);
+    assert!(state.is_loading);
+}
+
+#[test]
+fn test_tab_state_history_both_directions() {
+    let mut state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    state.set_history_state(true, true);
+    assert!(state.can_go_back);
+    assert!(state.can_go_forward);
+
+    state.set_history_state(false, false);
+    assert!(!state.can_go_back);
+    assert!(!state.can_go_forward);
+}
+
+#[test]
+fn test_tab_state_serde_roundtrip() {
+    let mut state = TabState::new("tab_serde".to_string(), "https://example.com".to_string());
+    state.set_title("Serde Test".to_string());
+    state.set_loading(false);
+    state.set_pinned(true);
+    state.set_url("https://example.com".to_string());
+
+    let json = serde_json::to_string(&state).unwrap();
+    let deserialized: TabState = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(deserialized.id, state.id);
+    assert_eq!(deserialized.title, state.title);
+    assert_eq!(deserialized.url, state.url);
+    assert_eq!(deserialized.is_loading, state.is_loading);
+    assert_eq!(deserialized.pinned, state.pinned);
+    assert_eq!(deserialized.security_state, state.security_state);
+}
+
+#[test]
+fn test_security_state_serde_roundtrip() {
+    for variant in &[SecurityState::Secure, SecurityState::Insecure, SecurityState::Neutral] {
+        let json = serde_json::to_string(variant).unwrap();
+        let deser: SecurityState = serde_json::from_str(&json).unwrap();
+        assert_eq!(&deser, variant);
+    }
+}
+
+#[test]
+fn test_security_state_clone_and_eq() {
+    let s = SecurityState::Secure;
+    let s2 = s.clone();
+    assert_eq!(s, s2);
+    assert_ne!(SecurityState::Secure, SecurityState::Insecure);
+    assert_ne!(SecurityState::Insecure, SecurityState::Neutral);
+}
+
+// rstest: security state for various URL schemes
+#[rstest]
+#[case("https://secure.com", SecurityState::Secure)]
+#[case("http://insecure.com", SecurityState::Insecure)]
+#[case("file:///local/file.html", SecurityState::Neutral)]
+#[case("ftp://ftp.example.com", SecurityState::Neutral)]
+#[case("auroraview://localhost/index.html", SecurityState::Neutral)]
+fn test_tab_state_security_by_url(#[case] url: &str, #[case] expected: SecurityState) {
+    let mut state = TabState::new("t1".to_string(), "about:blank".to_string());
+    state.set_url(url.to_string());
+    assert_eq!(state.security_state, Some(expected));
+}
+
+#[test]
+fn test_tab_state_title_updates_multiple_times() {
+    let mut state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    for i in 0..10 {
+        state.set_title(format!("Title {i}"));
+        assert_eq!(state.title, format!("Title {i}"));
+    }
+}
+
+#[test]
+fn test_tab_event_reorder_large_index() {
+    let ev = TabEvent::reorder_tab("tab_x", 999);
+    assert!(matches!(ev, TabEvent::ReorderTab { new_index: 999, .. }));
+}
+
+#[test]
+fn test_tab_event_mute_then_unmute() {
+    let mute_ev = TabEvent::mute_tab("tab_1", true);
+    let unmute_ev = TabEvent::mute_tab("tab_1", false);
+    assert!(matches!(mute_ev, TabEvent::MuteTab { muted: true, .. }));
+    assert!(matches!(unmute_ev, TabEvent::MuteTab { muted: false, .. }));
+}
