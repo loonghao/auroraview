@@ -13,7 +13,7 @@ use auroraview_core::protocol::{
 // ============================================================================
 
 #[test]
-fn test_file_url_to_auroraview() {
+fn file_url_to_auroraview() {
     assert_eq!(
         file_url_to_auroraview("file:///C:/path/to/file.html"),
         "https://auroraview.localhost/type:file/C:/path/to/file.html"
@@ -29,7 +29,7 @@ fn test_file_url_to_auroraview() {
 }
 
 #[test]
-fn test_local_path_to_auroraview() {
+fn local_path_to_auroraview() {
     assert_eq!(
         local_path_to_auroraview("C:/path/to/file.html"),
         "https://auroraview.localhost/type:local/C:/path/to/file.html"
@@ -45,7 +45,7 @@ fn test_local_path_to_auroraview() {
 }
 
 #[test]
-fn test_strip_protocol_type() {
+fn strip_protocol_type() {
     assert_eq!(
         strip_protocol_type("type:file/C:/path/to/file.html", PROTOCOL_TYPE_FILE),
         Some("C:/path/to/file.html")
@@ -65,7 +65,7 @@ fn test_strip_protocol_type() {
 }
 
 #[test]
-fn test_is_auroraview_url() {
+fn is_auroraview_url() {
     assert!(is_auroraview_url(
         "https://auroraview.localhost/type:file/C:/path"
     ));
@@ -76,7 +76,7 @@ fn test_is_auroraview_url() {
 }
 
 #[test]
-fn test_protocol_constants() {
+fn protocol_constants() {
     assert_eq!(AURORAVIEW_HOST, "auroraview.localhost");
     assert_eq!(PROTOCOL_TYPE_FILE, "type:file");
     assert_eq!(PROTOCOL_TYPE_LOCAL, "type:local");
@@ -87,7 +87,7 @@ fn test_protocol_constants() {
 // ============================================================================
 
 #[test]
-fn test_normalize_url() {
+fn normalize_url() {
     assert_eq!(normalize_url("example.com"), "https://example.com");
     assert_eq!(normalize_url("https://example.com"), "https://example.com");
     assert_eq!(normalize_url("http://example.com"), "http://example.com");
@@ -96,7 +96,7 @@ fn test_normalize_url() {
 }
 
 #[test]
-fn test_extract_protocol_path() {
+fn extract_protocol_path() {
     assert_eq!(
         extract_protocol_path("auroraview://localhost/index.html", "auroraview"),
         Some("index.html".to_string())
@@ -120,7 +120,7 @@ fn test_extract_protocol_path() {
 }
 
 #[test]
-fn test_guess_mime_type() {
+fn guess_mime_type() {
     assert_eq!(guess_mime_type(Path::new("style.css")), "text/css");
     assert_eq!(guess_mime_type(Path::new("script.js")), "text/javascript");
     assert_eq!(guess_mime_type(Path::new("index.html")), "text/html");
@@ -128,7 +128,7 @@ fn test_guess_mime_type() {
 }
 
 #[test]
-fn test_file_response() {
+fn file_response() {
     let resp = FileResponse::ok(b"hello".to_vec(), "text/plain".to_string());
     assert_eq!(resp.status, 200);
 
@@ -146,7 +146,7 @@ fn test_file_response() {
 // ---- FileResponse ----
 
 #[test]
-fn test_file_response_internal_error() {
+fn file_response_internal_error() {
     let resp = FileResponse::internal_error("Something went wrong");
     assert_eq!(resp.status, 500);
     assert_eq!(resp.mime_type, "text/plain");
@@ -154,7 +154,7 @@ fn test_file_response_internal_error() {
 }
 
 #[test]
-fn test_file_response_ok_content() {
+fn file_response_ok_content() {
     let data = b"<html><body>Hello</body></html>".to_vec();
     let resp = FileResponse::ok(data.clone(), "text/html".to_string());
     assert_eq!(resp.status, 200);
@@ -163,13 +163,13 @@ fn test_file_response_ok_content() {
 }
 
 #[test]
-fn test_file_response_not_found_mime() {
+fn file_response_not_found_mime() {
     let resp = FileResponse::not_found();
     assert_eq!(resp.mime_type, "text/plain");
 }
 
 #[test]
-fn test_file_response_forbidden_mime() {
+fn file_response_forbidden_mime() {
     let resp = FileResponse::forbidden();
     assert_eq!(resp.mime_type, "text/plain");
 }
@@ -177,7 +177,7 @@ fn test_file_response_forbidden_mime() {
 // ---- MIME type coverage ----
 
 #[test]
-fn test_guess_mime_type_more_types() {
+fn guess_mime_type_more_types() {
     assert_eq!(guess_mime_type(Path::new("image.jpg")), "image/jpeg");
     assert_eq!(guess_mime_type(Path::new("image.jpeg")), "image/jpeg");
     assert_eq!(guess_mime_type(Path::new("image.gif")), "image/gif");
@@ -202,14 +202,14 @@ fn test_guess_mime_type_more_types() {
 // ---- MemoryAssets ----
 
 #[test]
-fn test_memory_assets_new_empty() {
+fn memory_assets_new_empty() {
     let assets = MemoryAssets::new();
     assert!(assets.is_empty());
     assert_eq!(assets.len(), 0);
 }
 
 #[test]
-fn test_memory_assets_insert_and_retrieve() {
+fn memory_assets_insert_and_retrieve() {
     let mut assets = MemoryAssets::new();
     assets.insert("index.html".to_string(), b"<html/>".to_vec());
 
@@ -223,7 +223,7 @@ fn test_memory_assets_insert_and_retrieve() {
 }
 
 #[test]
-fn test_memory_assets_default_to_index_html() {
+fn memory_assets_default_to_index_html() {
     let mut assets = MemoryAssets::new();
     assets.insert("index.html".to_string(), b"root page".to_vec());
 
@@ -238,14 +238,14 @@ fn test_memory_assets_default_to_index_html() {
 }
 
 #[test]
-fn test_memory_assets_not_found() {
+fn memory_assets_not_found() {
     let assets = MemoryAssets::new();
     let resp = assets.handle_request("nonexistent.html");
     assert_eq!(resp.status, 404);
 }
 
 #[test]
-fn test_memory_assets_from_map() {
+fn memory_assets_from_map() {
     let mut map = std::collections::HashMap::new();
     map.insert("a.js".to_string(), b"var a=1;".to_vec());
     map.insert("b.css".to_string(), b"body{}".to_vec());
@@ -258,7 +258,7 @@ fn test_memory_assets_from_map() {
 }
 
 #[test]
-fn test_memory_assets_from_vec() {
+fn memory_assets_from_vec() {
     let vec = vec![
         ("x.html".to_string(), b"<x/>".to_vec()),
         ("y.html".to_string(), b"<y/>".to_vec()),
@@ -272,7 +272,7 @@ fn test_memory_assets_from_vec() {
 }
 
 #[test]
-fn test_memory_assets_with_loading_html() {
+fn memory_assets_with_loading_html() {
     let assets = MemoryAssets::new().with_loading_html("<h1>Loading...</h1>".to_string());
     let resp = assets.handle_request("__loading__");
     assert_eq!(resp.status, 200);
@@ -281,7 +281,7 @@ fn test_memory_assets_with_loading_html() {
 }
 
 #[test]
-fn test_memory_assets_loading_not_set() {
+fn memory_assets_loading_not_set() {
     let assets = MemoryAssets::new();
     // No loading HTML set — should return 404
     let resp = assets.handle_request("__loading__");
@@ -289,7 +289,7 @@ fn test_memory_assets_loading_not_set() {
 }
 
 #[test]
-fn test_memory_assets_startup_error() {
+fn memory_assets_startup_error() {
     let mut assets = MemoryAssets::new();
     assets.set_startup_error(StartupError {
         message: "Python import failed".to_string(),
@@ -305,7 +305,7 @@ fn test_memory_assets_startup_error() {
 }
 
 #[test]
-fn test_memory_assets_clear_startup_error() {
+fn memory_assets_clear_startup_error() {
     let mut assets = MemoryAssets::new();
     assets.set_startup_error(StartupError {
         message: "err".to_string(),
@@ -320,7 +320,7 @@ fn test_memory_assets_clear_startup_error() {
 }
 
 #[test]
-fn test_memory_assets_list_paths() {
+fn memory_assets_list_paths() {
     let mut assets = MemoryAssets::new();
     assets.insert("p1.html".to_string(), vec![]);
     assets.insert("p2.js".to_string(), vec![]);
@@ -332,7 +332,7 @@ fn test_memory_assets_list_paths() {
 }
 
 #[test]
-fn test_memory_assets_default() {
+fn memory_assets_default() {
     let assets = MemoryAssets::default();
     assert!(assets.is_empty());
 }
@@ -340,7 +340,7 @@ fn test_memory_assets_default() {
 // ---- MemoryAssets frontend/ prefix fallback ----
 
 #[test]
-fn test_memory_assets_frontend_prefix_fallback() {
+fn memory_assets_frontend_prefix_fallback() {
     let mut assets = MemoryAssets::new();
     assets.insert("frontend/index.html".to_string(), b"frontend page".to_vec());
 
@@ -353,12 +353,12 @@ fn test_memory_assets_frontend_prefix_fallback() {
 // ---- normalize_url edge cases ----
 
 #[test]
-fn test_normalize_url_with_whitespace() {
+fn normalize_url_with_whitespace() {
     assert_eq!(normalize_url("  example.com  "), "https://example.com");
 }
 
 #[test]
-fn test_normalize_url_auroraview_protocol() {
+fn normalize_url_auroraview_protocol() {
     let url = "auroraview://localhost/index.html";
     // Has "://" so should be kept as-is
     assert_eq!(normalize_url(url), url);
@@ -367,13 +367,13 @@ fn test_normalize_url_auroraview_protocol() {
 // ---- is_auroraview_url edge cases ----
 
 #[test]
-fn test_is_auroraview_url_http_localhost() {
+fn is_auroraview_url_http_localhost() {
     // http://localhost is NOT an auroraview URL
     assert!(!is_auroraview_url("http://localhost:3000"));
 }
 
 #[test]
-fn test_is_auroraview_url_type_local() {
+fn is_auroraview_url_type_local() {
     assert!(is_auroraview_url(
         "https://auroraview.localhost/type:local/dist/index.html"
     ));
@@ -382,7 +382,7 @@ fn test_is_auroraview_url_type_local() {
 // ---- file_url_to_auroraview edge cases ----
 
 #[test]
-fn test_file_url_to_auroraview_without_triple_slash() {
+fn file_url_to_auroraview_without_triple_slash() {
     // file:// (without extra slash for UNC paths)
     let result = file_url_to_auroraview("file://server/share/file.html");
     assert!(result.contains("auroraview.localhost"));
@@ -392,7 +392,7 @@ fn test_file_url_to_auroraview_without_triple_slash() {
 // ---- normalize_url additional edge cases ----
 
 #[test]
-fn test_normalize_url_data_uri_gets_https_prefix() {
+fn normalize_url_data_uri_gets_https_prefix() {
     // normalize_url only checks for "://" — "data:" has no "://" so gets https:// prefix
     let data_uri = "data:text/html,<h1>test</h1>";
     let result = normalize_url(data_uri);
@@ -400,7 +400,7 @@ fn test_normalize_url_data_uri_gets_https_prefix() {
 }
 
 #[test]
-fn test_normalize_url_javascript_scheme_gets_https_prefix() {
+fn normalize_url_javascript_scheme_gets_https_prefix() {
     // "javascript:" has no "://" so gets https:// prefix
     let js_uri = "javascript:void(0)";
     let result = normalize_url(js_uri);
@@ -408,7 +408,7 @@ fn test_normalize_url_javascript_scheme_gets_https_prefix() {
 }
 
 #[test]
-fn test_normalize_url_about_blank_gets_https_prefix() {
+fn normalize_url_about_blank_gets_https_prefix() {
     // "about:" has no "://" so gets https:// prefix
     let about = "about:blank";
     let result = normalize_url(about);
@@ -416,7 +416,7 @@ fn test_normalize_url_about_blank_gets_https_prefix() {
 }
 
 #[test]
-fn test_normalize_url_uppercase_http() {
+fn normalize_url_uppercase_http() {
     // URLs already containing "://" should pass through unchanged
     let url = "HTTP://example.com/page";
     let result = normalize_url(url);
@@ -427,7 +427,7 @@ fn test_normalize_url_uppercase_http() {
 // ---- file_url_to_auroraview: percent-encoded path ----
 
 #[test]
-fn test_file_url_to_auroraview_percent_encoded_spaces() {
+fn file_url_to_auroraview_percent_encoded_spaces() {
     let result = file_url_to_auroraview("file:///C:/My%20Documents/file.html");
     assert!(result.contains("auroraview.localhost"));
     assert!(result.contains("type:file"));
@@ -436,7 +436,7 @@ fn test_file_url_to_auroraview_percent_encoded_spaces() {
 // ---- local_path_to_auroraview: UNC / edge cases ----
 
 #[test]
-fn test_local_path_to_auroraview_trailing_slash() {
+fn local_path_to_auroraview_trailing_slash() {
     // Trailing slash should still produce a valid URL
     let result = local_path_to_auroraview("C:/path/to/dir/");
     assert!(result.contains("auroraview.localhost"));
@@ -444,7 +444,7 @@ fn test_local_path_to_auroraview_trailing_slash() {
 }
 
 #[test]
-fn test_local_path_to_auroraview_deep_path() {
+fn local_path_to_auroraview_deep_path() {
     let result = local_path_to_auroraview("C:/a/b/c/d/e/f/index.html");
     assert_eq!(
         result,
@@ -455,14 +455,14 @@ fn test_local_path_to_auroraview_deep_path() {
 // ---- strip_protocol_type: exhaustive ----
 
 #[test]
-fn test_strip_protocol_type_empty_path_after_prefix() {
+fn strip_protocol_type_empty_path_after_prefix() {
     // "type:file/" with nothing after → empty string
     let result = strip_protocol_type("type:file/", PROTOCOL_TYPE_FILE);
     assert_eq!(result, Some(""));
 }
 
 #[test]
-fn test_strip_protocol_type_wrong_prefix_partial_match() {
+fn strip_protocol_type_wrong_prefix_partial_match() {
     // "type:filee/path" is not a valid file prefix
     let result = strip_protocol_type("type:filee/path", PROTOCOL_TYPE_FILE);
     assert_eq!(result, None);
@@ -471,19 +471,19 @@ fn test_strip_protocol_type_wrong_prefix_partial_match() {
 // ---- is_auroraview_url: more variants ----
 
 #[test]
-fn test_is_auroraview_url_with_query_and_fragment() {
+fn is_auroraview_url_with_query_and_fragment() {
     assert!(is_auroraview_url(
         "https://auroraview.localhost/index.html?v=1#section"
     ));
 }
 
 #[test]
-fn test_is_auroraview_url_empty_string() {
+fn is_auroraview_url_empty_string() {
     assert!(!is_auroraview_url(""));
 }
 
 #[test]
-fn test_is_auroraview_url_localhost_no_scheme() {
+fn is_auroraview_url_localhost_no_scheme() {
     // Contains "auroraview.localhost" string → returns true even without scheme
     assert!(is_auroraview_url("auroraview.localhost/index.html"));
 }
@@ -491,7 +491,7 @@ fn test_is_auroraview_url_localhost_no_scheme() {
 // ---- MemoryAssets concurrent access ----
 
 #[test]
-fn test_memory_assets_concurrent_insert_and_read() {
+fn memory_assets_concurrent_insert_and_read() {
     use std::sync::{Arc, RwLock};
     use std::thread;
 
@@ -528,7 +528,7 @@ fn test_memory_assets_concurrent_insert_and_read() {
 // ---- MemoryAssets mime-type edge cases ----
 
 #[test]
-fn test_memory_assets_binary_file_mime() {
+fn memory_assets_binary_file_mime() {
     let mut assets = MemoryAssets::new();
     assets.insert("img.png".to_string(), vec![0x89, 0x50, 0x4E, 0x47]);
     let resp = assets.handle_request("img.png");
@@ -537,7 +537,7 @@ fn test_memory_assets_binary_file_mime() {
 }
 
 #[test]
-fn test_memory_assets_woff2_mime() {
+fn memory_assets_woff2_mime() {
     let mut assets = MemoryAssets::new();
     assets.insert("font.woff2".to_string(), b"fake_woff2".to_vec());
     let resp = assets.handle_request("font.woff2");
@@ -551,7 +551,7 @@ fn test_memory_assets_woff2_mime() {
 }
 
 #[test]
-fn test_memory_assets_unknown_ext_octet_stream() {
+fn memory_assets_unknown_ext_octet_stream() {
     let mut assets = MemoryAssets::new();
     assets.insert("data.bin99".to_string(), b"binary".to_vec());
     let resp = assets.handle_request("data.bin99");
@@ -562,7 +562,7 @@ fn test_memory_assets_unknown_ext_octet_stream() {
 // ---- extract_protocol_path: additional patterns ----
 
 #[test]
-fn test_extract_protocol_path_trailing_slash() {
+fn extract_protocol_path_trailing_slash() {
     // "https://auroraview.localhost/" → strip_prefix returns empty string ""
     // (only "auroraview://localhost" without trailing slash maps to "index.html")
     let result = extract_protocol_path("https://auroraview.localhost/", "auroraview");
@@ -570,7 +570,7 @@ fn test_extract_protocol_path_trailing_slash() {
 }
 
 #[test]
-fn test_extract_protocol_path_nested_segments() {
+fn extract_protocol_path_nested_segments() {
     let result = extract_protocol_path(
         "https://auroraview.localhost/static/icons/arrow.svg",
         "auroraview",
@@ -579,7 +579,7 @@ fn test_extract_protocol_path_nested_segments() {
 }
 
 #[test]
-fn test_extract_protocol_path_query_string_included() {
+fn extract_protocol_path_query_string_included() {
     // Query strings are part of the path string
     let result = extract_protocol_path(
         "https://auroraview.localhost/api/data?v=1",
@@ -592,14 +592,14 @@ fn test_extract_protocol_path_query_string_included() {
 // ---- FileResponse: edge byte content ----
 
 #[test]
-fn test_file_response_empty_body() {
+fn file_response_empty_body() {
     let resp = FileResponse::ok(vec![], "text/html".to_string());
     assert_eq!(resp.status, 200);
     assert!(resp.data.is_empty());
 }
 
 #[test]
-fn test_file_response_large_body() {
+fn file_response_large_body() {
     let data = vec![b'A'; 1024 * 1024]; // 1 MiB
     let resp = FileResponse::ok(data.clone(), "application/octet-stream".to_string());
     assert_eq!(resp.status, 200);
@@ -609,7 +609,7 @@ fn test_file_response_large_body() {
 // ---- StartupError: python_output and entry_point variation ----
 
 #[test]
-fn test_memory_assets_startup_error_with_all_fields() {
+fn memory_assets_startup_error_with_all_fields() {
     let mut assets = MemoryAssets::new();
     assets.set_startup_error(StartupError {
         message: "Module not found".to_string(),
@@ -624,7 +624,7 @@ fn test_memory_assets_startup_error_with_all_fields() {
 }
 
 #[test]
-fn test_memory_assets_startup_error_no_python_output() {
+fn memory_assets_startup_error_no_python_output() {
     let mut assets = MemoryAssets::new();
     assets.set_startup_error(StartupError {
         message: "Init failed".to_string(),
@@ -641,7 +641,7 @@ fn test_memory_assets_startup_error_no_python_output() {
 // ---- MemoryAssets list_paths after operations ----
 
 #[test]
-fn test_memory_assets_list_paths_after_overwrite() {
+fn memory_assets_list_paths_after_overwrite() {
     let mut assets = MemoryAssets::new();
     assets.insert("file.txt".to_string(), b"v1".to_vec());
     assets.insert("file.txt".to_string(), b"v2".to_vec()); // overwrite
@@ -655,7 +655,7 @@ fn test_memory_assets_list_paths_after_overwrite() {
 // ---- guess_mime_type: more types ----
 
 #[test]
-fn test_guess_mime_type_ico() {
+fn guess_mime_type_ico() {
     let mt = guess_mime_type(Path::new("favicon.ico"));
     // Accepts both common values
     assert!(
@@ -666,13 +666,13 @@ fn test_guess_mime_type_ico() {
 }
 
 #[test]
-fn test_guess_mime_type_mp4() {
+fn guess_mime_type_mp4() {
     let mt = guess_mime_type(Path::new("video.mp4"));
     assert!(mt.contains("video"), "unexpected mp4 mime: {}", mt);
 }
 
 #[test]
-fn test_guess_mime_type_wasm() {
+fn guess_mime_type_wasm() {
     let mt = guess_mime_type(Path::new("module.wasm"));
     assert!(
         mt.contains("wasm") || mt.contains("octet-stream"),

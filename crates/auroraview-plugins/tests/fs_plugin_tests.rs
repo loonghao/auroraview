@@ -2,6 +2,9 @@
 //!
 //! Tests for FsPlugin commands and operations.
 
+use std::sync::Arc;
+use std::thread;
+
 use auroraview_plugins::fs::FsPlugin;
 use auroraview_plugins::{
     create_router_with_scope, PathScope, PluginHandler, PluginRequest, ScopeConfig,
@@ -9,7 +12,7 @@ use auroraview_plugins::{
 use tempfile::tempdir;
 
 #[test]
-fn test_fs_plugin_commands() {
+fn fs_plugin_commands() {
     let plugin = FsPlugin::new();
     let commands = plugin.commands();
     assert!(commands.contains(&"read_file"));
@@ -26,19 +29,19 @@ fn test_fs_plugin_commands() {
 }
 
 #[test]
-fn test_fs_plugin_name() {
+fn fs_plugin_name() {
     let plugin = FsPlugin::new();
     assert_eq!(plugin.name(), "fs");
 }
 
 #[test]
-fn test_fs_plugin_default() {
+fn fs_plugin_default() {
     let plugin = FsPlugin::default();
     assert_eq!(plugin.name(), "fs");
 }
 
 #[test]
-fn test_write_and_read_file() {
+fn write_and_read_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -70,7 +73,7 @@ fn test_write_and_read_file() {
 }
 
 #[test]
-fn test_exists_command() {
+fn exists_command() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -92,7 +95,7 @@ fn test_exists_command() {
 }
 
 #[test]
-fn test_exists_nonexistent() {
+fn exists_nonexistent() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -111,7 +114,7 @@ fn test_exists_nonexistent() {
 }
 
 #[test]
-fn test_scope_violation() {
+fn scope_violation() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -128,7 +131,7 @@ fn test_scope_violation() {
 }
 
 #[test]
-fn test_create_and_read_dir() {
+fn create_and_read_dir() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -161,7 +164,7 @@ fn test_create_and_read_dir() {
 }
 
 #[test]
-fn test_stat_file() {
+fn stat_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -185,7 +188,7 @@ fn test_stat_file() {
 }
 
 #[test]
-fn test_copy_file() {
+fn copy_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -214,7 +217,7 @@ fn test_copy_file() {
 }
 
 #[test]
-fn test_rename_file() {
+fn rename_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -244,7 +247,7 @@ fn test_rename_file() {
 }
 
 #[test]
-fn test_remove_file() {
+fn remove_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -268,7 +271,7 @@ fn test_remove_file() {
 }
 
 #[test]
-fn test_command_not_found() {
+fn command_not_found() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
 
@@ -277,7 +280,7 @@ fn test_command_not_found() {
 }
 
 #[test]
-fn test_read_file_invalid_args() {
+fn read_file_invalid_args() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
 
@@ -290,7 +293,7 @@ fn test_read_file_invalid_args() {
 }
 
 #[test]
-fn test_write_file_invalid_args() {
+fn write_file_invalid_args() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
 
@@ -305,7 +308,7 @@ fn test_write_file_invalid_args() {
 // === Extended edge case tests ===
 
 #[test]
-fn test_write_and_read_binary_file() {
+fn write_and_read_binary_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -344,7 +347,7 @@ fn test_write_and_read_binary_file() {
 }
 
 #[test]
-fn test_write_and_read_empty_file() {
+fn write_and_read_empty_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -371,7 +374,7 @@ fn test_write_and_read_empty_file() {
 }
 
 #[test]
-fn test_deep_path_create_and_read() {
+fn deep_path_create_and_read() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -401,7 +404,7 @@ fn test_deep_path_create_and_read() {
 }
 
 #[test]
-fn test_stat_directory() {
+fn stat_directory() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -422,7 +425,7 @@ fn test_stat_directory() {
 }
 
 #[test]
-fn test_overwrite_existing_file() {
+fn overwrite_existing_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -458,7 +461,7 @@ fn test_overwrite_existing_file() {
 }
 
 #[test]
-fn test_read_dir_multiple_files() {
+fn read_dir_multiple_files() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -481,7 +484,7 @@ fn test_read_dir_multiple_files() {
 }
 
 #[test]
-fn test_copy_then_modify_independent() {
+fn copy_then_modify_independent() {
     // Verify copy creates an independent file
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
@@ -517,11 +520,9 @@ fn test_copy_then_modify_independent() {
     assert_eq!(resp.data.unwrap(), "original");
 }
 
-#[test]
-fn test_concurrent_writes_to_different_files() {
-    use std::sync::Arc;
-    use std::thread;
 
+#[test]
+fn concurrent_writes_to_different_files() {
     let temp = Arc::new(tempdir().unwrap());
 
     let handles: Vec<_> = (0..8)
@@ -564,7 +565,7 @@ fn test_concurrent_writes_to_different_files() {
 }
 
 #[test]
-fn test_remove_directory() {
+fn remove_directory() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);
@@ -584,7 +585,7 @@ fn test_remove_directory() {
 }
 
 #[test]
-fn test_write_large_file() {
+fn write_large_file() {
     let temp = tempdir().unwrap();
     let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
     let router = create_router_with_scope(scope);

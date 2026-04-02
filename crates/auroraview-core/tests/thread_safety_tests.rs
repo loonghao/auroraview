@@ -17,7 +17,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_lock_level_ordering() {
+    fn lock_level_ordering() {
         assert!(LockLevel::Global < LockLevel::Registry);
         assert!(LockLevel::Registry < LockLevel::Resource);
         assert!(LockLevel::Resource < LockLevel::State);
@@ -25,7 +25,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_lock_level_values() {
+    fn lock_level_values() {
         assert_eq!(LockLevel::Global.as_u8(), 1);
         assert_eq!(LockLevel::Registry.as_u8(), 2);
         assert_eq!(LockLevel::Resource.as_u8(), 3);
@@ -34,7 +34,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_lock_level_names() {
+    fn lock_level_names() {
         assert_eq!(LockLevel::Global.name(), "Global");
         assert_eq!(LockLevel::Registry.name(), "Registry");
         assert_eq!(LockLevel::Resource.name(), "Resource");
@@ -43,7 +43,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_lock_level_display() {
+    fn lock_level_display() {
         assert_eq!(format!("{}", LockLevel::Global), "Global(1)");
         assert_eq!(format!("{}", LockLevel::Registry), "Registry(2)");
         assert_eq!(format!("{}", LockLevel::Resource), "Resource(3)");
@@ -52,7 +52,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_valid_lock_order_ascending() {
+    fn valid_lock_order_ascending() {
         setup();
 
         {
@@ -87,7 +87,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_skipping_levels_is_valid() {
+    fn skipping_levels_is_valid() {
         setup();
 
         // It's valid to skip levels (e.g., Global -> Resource)
@@ -102,7 +102,7 @@ mod lock_order_tests {
 
     #[test]
     #[should_panic(expected = "Lock order violation")]
-    fn test_invalid_lock_order_descending() {
+    fn invalid_lock_order_descending() {
         setup();
 
         let _g1 = LockOrderGuard::new(LockLevel::Resource, "resource");
@@ -111,7 +111,7 @@ mod lock_order_tests {
 
     #[test]
     #[should_panic(expected = "Lock order violation")]
-    fn test_same_level_violation() {
+    fn same_level_violation() {
         setup();
 
         let _g1 = LockOrderGuard::new(LockLevel::Registry, "registry1");
@@ -119,7 +119,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_verification_disabled() {
+    fn verification_disabled() {
         setup();
         set_verification_enabled(false);
 
@@ -132,7 +132,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_verification_toggle() {
+    fn verification_toggle() {
         setup();
 
         assert!(is_verification_enabled());
@@ -143,7 +143,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_unchecked_guard() {
+    fn unchecked_guard() {
         setup();
 
         let _g1 = LockOrderGuard::new(LockLevel::Resource, "resource");
@@ -155,13 +155,13 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_guard_level_accessor() {
+    fn guard_level_accessor() {
         let guard = LockOrderGuard::new_unchecked(LockLevel::State, "test");
         assert_eq!(guard.level(), LockLevel::State);
     }
 
     #[test]
-    fn test_multiple_same_level_with_release() {
+    fn multiple_same_level_with_release() {
         setup();
 
         // Acquire and release, then acquire same level again - should be OK
@@ -182,7 +182,7 @@ mod lock_order_tests {
     // --- Additional lock-order tests ---
 
     #[test]
-    fn test_full_chain_global_to_callback() {
+    fn full_chain_global_to_callback() {
         setup();
         {
             let _g1 = LockOrderGuard::new(LockLevel::Global, "g");
@@ -196,7 +196,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_state_then_callback_valid() {
+    fn state_then_callback_valid() {
         setup();
         {
             let _g1 = LockOrderGuard::new(LockLevel::State, "state");
@@ -208,7 +208,7 @@ mod lock_order_tests {
 
     #[test]
     #[should_panic(expected = "Lock order violation")]
-    fn test_callback_then_state_violation() {
+    fn callback_then_state_violation() {
         setup();
         let _g1 = LockOrderGuard::new(LockLevel::Callback, "cb");
         let _g2 = LockOrderGuard::new(LockLevel::State, "state");
@@ -216,14 +216,14 @@ mod lock_order_tests {
 
     #[test]
     #[should_panic(expected = "Lock order violation")]
-    fn test_resource_then_global_violation() {
+    fn resource_then_global_violation() {
         setup();
         let _g1 = LockOrderGuard::new(LockLevel::Resource, "res");
         let _g2 = LockOrderGuard::new(LockLevel::Global, "global");
     }
 
     #[test]
-    fn test_repeated_acquire_release_cycles() {
+    fn repeated_acquire_release_cycles() {
         setup();
         for _ in 0..10 {
             let _g = LockOrderGuard::new(LockLevel::State, "state");
@@ -233,7 +233,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_deep_nesting_all_levels_repeated() {
+    fn deep_nesting_all_levels_repeated() {
         setup();
         for iteration in 0..5 {
             {
@@ -247,7 +247,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_lock_level_clone_and_copy() {
+    fn lock_level_clone_and_copy() {
         let lvl = LockLevel::Resource;
         let lvl2 = lvl;
         let lvl3 = lvl;
@@ -256,13 +256,13 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_lock_level_debug_format() {
+    fn lock_level_debug_format() {
         let dbg = format!("{:?}", LockLevel::State);
         assert!(dbg.contains("State"));
     }
 
     #[test]
-    fn test_lock_level_hash() {
+    fn lock_level_hash() {
         use std::collections::HashSet;
         let mut set = HashSet::new();
         set.insert(LockLevel::Global);
@@ -277,7 +277,7 @@ mod lock_order_tests {
     }
 
     #[test]
-    fn test_clear_held_locks_mid_scope() {
+    fn clear_held_locks_mid_scope() {
         setup();
         let _g1 = LockOrderGuard::new(LockLevel::Global, "g");
         let _g2 = LockOrderGuard::new(LockLevel::Registry, "r");
@@ -296,7 +296,7 @@ mod config_tests {
     use super::*;
 
     #[test]
-    fn test_default_config() {
+    fn default_config() {
         let config = ThreadSafetyConfig::default();
         assert_eq!(config.js_eval_timeout_ms, 5000);
         assert_eq!(config.main_thread_timeout_ms, 30000);
@@ -305,7 +305,7 @@ mod config_tests {
     }
 
     #[test]
-    fn test_config_builder() {
+    fn config_builder() {
         let config = ThreadSafetyConfig::new()
             .with_js_eval_timeout(10000)
             .with_main_thread_timeout(60000)
@@ -321,7 +321,7 @@ mod config_tests {
     }
 
     #[test]
-    fn test_config_chaining() {
+    fn config_chaining() {
         let config = ThreadSafetyConfig::new()
             .with_js_eval_timeout(1000)
             .with_js_eval_timeout(2000); // Override
@@ -330,7 +330,7 @@ mod config_tests {
     }
 
     #[test]
-    fn test_config_clone() {
+    fn config_clone() {
         let original = ThreadSafetyConfig::new()
             .with_js_eval_timeout(9999)
             .with_max_retries(7);
@@ -340,7 +340,7 @@ mod config_tests {
     }
 
     #[test]
-    fn test_config_debug_format() {
+    fn config_debug_format() {
         let config = ThreadSafetyConfig::default();
         let dbg = format!("{:?}", config);
         assert!(dbg.contains("ThreadSafetyConfig"));
@@ -348,7 +348,7 @@ mod config_tests {
     }
 
     #[test]
-    fn test_config_lock_order_verification_toggle() {
+    fn config_lock_order_verification_toggle() {
         let with_lock = ThreadSafetyConfig::new().with_lock_order_verification(true);
         let without_lock = ThreadSafetyConfig::new().with_lock_order_verification(false);
         assert!(with_lock.debug_lock_order);
@@ -356,7 +356,7 @@ mod config_tests {
     }
 
     #[test]
-    fn test_config_zero_values() {
+    fn config_zero_values() {
         let config = ThreadSafetyConfig::new()
             .with_js_eval_timeout(0)
             .with_main_thread_timeout(0)
@@ -369,7 +369,7 @@ mod config_tests {
     }
 
     #[test]
-    fn test_config_max_values() {
+    fn config_max_values() {
         let config = ThreadSafetyConfig::new()
             .with_js_eval_timeout(u64::MAX)
             .with_main_thread_timeout(u64::MAX)
@@ -387,7 +387,7 @@ mod concurrent_arc_mutex_tests {
     use std::thread;
 
     #[test]
-    fn test_arc_mutex_concurrent_counter() {
+    fn arc_mutex_concurrent_counter() {
         let counter = Arc::new(Mutex::new(0u64));
         let threads: Vec<_> = (0..16)
             .map(|_| {
@@ -406,7 +406,7 @@ mod concurrent_arc_mutex_tests {
     }
 
     #[test]
-    fn test_arc_rwlock_concurrent_readers() {
+    fn arc_rwlock_concurrent_readers() {
         let data = Arc::new(RwLock::new(vec![1u32, 2, 3, 4, 5]));
         let threads: Vec<_> = (0..20)
             .map(|_| {
@@ -425,7 +425,7 @@ mod concurrent_arc_mutex_tests {
     }
 
     #[test]
-    fn test_arc_mutex_nested_collections() {
+    fn arc_mutex_nested_collections() {
         // Simulates registry → resource pattern without LockOrderGuard (pure Rust)
         let registry = Arc::new(Mutex::new(Vec::<Arc<Mutex<String>>>::new()));
 
@@ -444,7 +444,7 @@ mod concurrent_arc_mutex_tests {
     }
 
     #[test]
-    fn test_arc_mutex_concurrent_insert_delete() {
+    fn arc_mutex_concurrent_insert_delete() {
         use std::collections::HashMap;
 
         let map = Arc::new(Mutex::new(HashMap::<String, u32>::new()));
@@ -468,7 +468,7 @@ mod concurrent_arc_mutex_tests {
     }
 
     #[test]
-    fn test_arc_mutex_stress_contention() {
+    fn arc_mutex_stress_contention() {
         // High-contention: 32 threads all hitting a single Mutex
         let shared = Arc::new(Mutex::new(0u64));
         let threads: Vec<_> = (0..32)
@@ -490,7 +490,7 @@ mod concurrent_arc_mutex_tests {
     }
 
     #[test]
-    fn test_arc_rwlock_mixed_read_write() {
+    fn arc_rwlock_mixed_read_write() {
         let data = Arc::new(RwLock::new(0u64));
 
         // 4 writers + 8 readers
@@ -522,7 +522,7 @@ mod concurrent_arc_mutex_tests {
     }
 
     #[test]
-    fn test_lock_order_guards_independent_per_thread() {
+    fn lock_order_guards_independent_per_thread() {
         use super::*;
 
         // Each thread has its own lock stack (thread_local)
@@ -545,7 +545,7 @@ mod concurrent_arc_mutex_tests {
     }
 
     #[test]
-    fn test_multiple_threads_no_shared_lock_state() {
+    fn multiple_threads_no_shared_lock_state() {
         use super::*;
 
         // Verify thread_local isolation: each thread can violate independently

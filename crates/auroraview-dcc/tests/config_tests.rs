@@ -8,7 +8,7 @@ use rstest::*;
 // ===========================================================================
 
 #[test]
-fn test_dcc_config_defaults() {
+fn dcc_config_defaults() {
     let config = DccConfig::default();
     assert_eq!(config.title, "AuroraView");
     assert_eq!(config.width, 400);
@@ -19,7 +19,7 @@ fn test_dcc_config_defaults() {
 }
 
 #[test]
-fn test_dcc_config_builder() {
+fn dcc_config_builder() {
     let config = DccConfig::new()
         .title("Maya Tool")
         .size(500, 700)
@@ -38,7 +38,7 @@ fn test_dcc_config_builder() {
 }
 
 #[test]
-fn test_dcc_type_names() {
+fn dcc_type_names() {
     assert_eq!(DccType::Maya.name(), "Maya");
     assert_eq!(DccType::Houdini.name(), "Houdini");
     assert_eq!(DccType::Nuke.name(), "Nuke");
@@ -49,25 +49,25 @@ fn test_dcc_type_names() {
 }
 
 #[test]
-fn test_dcc_type_default() {
+fn dcc_type_default() {
     let dcc = DccType::default();
     assert_eq!(dcc, DccType::Unknown);
 }
 
 #[test]
-fn test_dcc_config_panel_name() {
+fn dcc_config_panel_name() {
     let config = DccConfig::new().panel_name("MyToolPanel");
     assert_eq!(config.panel_name, Some("MyToolPanel".to_string()));
 }
 
 #[test]
-fn test_dcc_config_debug_port() {
+fn dcc_config_debug_port() {
     let config = DccConfig::new().debug_port(9222);
     assert_eq!(config.debug_port, 9222);
 }
 
 #[test]
-fn test_dcc_type_env_var() {
+fn dcc_type_env_var() {
     assert_eq!(DccType::Maya.env_var(), Some("MAYA_LOCATION"));
     assert_eq!(DccType::Houdini.env_var(), Some("HFS"));
     assert_eq!(DccType::Nuke.env_var(), Some("NUKE_PATH"));
@@ -78,7 +78,7 @@ fn test_dcc_type_env_var() {
 }
 
 #[test]
-fn test_dcc_type_uses_qt() {
+fn dcc_type_uses_qt() {
     assert!(DccType::Maya.uses_qt());
     assert!(DccType::Houdini.uses_qt());
     assert!(DccType::Nuke.uses_qt());
@@ -89,14 +89,14 @@ fn test_dcc_type_uses_qt() {
 }
 
 #[test]
-fn test_dcc_type_requires_main_thread() {
+fn dcc_type_requires_main_thread() {
     assert!(DccType::Maya.requires_main_thread());
     assert!(DccType::Unreal.requires_main_thread());
     assert!(!DccType::Unknown.requires_main_thread());
 }
 
 #[test]
-fn test_dcc_config_builder_extended() {
+fn dcc_config_builder_extended() {
     let config = DccConfig::new()
         .dcc_version("2025.1")
         .data_dir("/tmp/auroraview")

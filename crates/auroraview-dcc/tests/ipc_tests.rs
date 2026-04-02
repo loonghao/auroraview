@@ -1,18 +1,19 @@
 //! Tests for IPC router
 
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 use auroraview_dcc::{IpcMessage, IpcResponse, IpcRouter};
 use serde_json::json;
 
 #[test]
-fn test_ipc_router_new() {
+fn ipc_router_new() {
     let router = IpcRouter::new();
     assert!(!router.has_handler("test"));
 }
 
 #[test]
-fn test_ipc_router_register_and_check() {
+fn ipc_router_register_and_check() {
     let router = IpcRouter::new();
 
     router.register("test.echo", |params| params);
@@ -22,7 +23,7 @@ fn test_ipc_router_register_and_check() {
 }
 
 #[test]
-fn test_ipc_router_unregister() {
+fn ipc_router_unregister() {
     let router = IpcRouter::new();
 
     router.register("test.method", |_| json!({}));
@@ -38,7 +39,7 @@ fn test_ipc_router_unregister() {
 }
 
 #[test]
-fn test_ipc_router_handle_call() {
+fn ipc_router_handle_call() {
     let router = IpcRouter::new();
 
     router.register("test.echo", |params| params);
@@ -59,7 +60,7 @@ fn test_ipc_router_handle_call() {
 }
 
 #[test]
-fn test_ipc_router_method_not_found() {
+fn ipc_router_method_not_found() {
     let router = IpcRouter::new();
 
     let message = json!({
@@ -78,7 +79,7 @@ fn test_ipc_router_method_not_found() {
 }
 
 #[test]
-fn test_ipc_message_parsing() {
+fn ipc_message_parsing() {
     let json_str = r#"{"type":"call","id":"123","method":"test","params":null}"#;
     let msg: IpcMessage = serde_json::from_str(json_str).unwrap();
 
@@ -88,7 +89,7 @@ fn test_ipc_message_parsing() {
 }
 
 #[test]
-fn test_ipc_response_ok() {
+fn ipc_response_ok() {
     let response = IpcResponse::ok("1".to_string(), json!({"result": "success"}));
     assert!(response.ok);
     assert_eq!(response.id, "1");
@@ -97,7 +98,7 @@ fn test_ipc_response_ok() {
 }
 
 #[test]
-fn test_ipc_response_err() {
+fn ipc_response_err() {
     let response = IpcResponse::err("2".to_string(), "TestError", "Something went wrong");
     assert!(!response.ok);
     assert_eq!(response.id, "2");
@@ -112,7 +113,7 @@ fn test_ipc_response_err() {
 // === Event listener tests ===
 
 #[test]
-fn test_ipc_router_on_event() {
+fn ipc_router_on_event() {
     let router = IpcRouter::new();
     let received = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
     let received_clone = received.clone();
@@ -137,7 +138,7 @@ fn test_ipc_router_on_event() {
 }
 
 #[test]
-fn test_ipc_router_on_event_multiple_listeners() {
+fn ipc_router_on_event_multiple_listeners() {
     let router = IpcRouter::new();
     let count = Arc::new(Mutex::new(0u32));
 
@@ -159,7 +160,7 @@ fn test_ipc_router_on_event_multiple_listeners() {
 }
 
 #[test]
-fn test_ipc_router_event_unknown_type_returns_none() {
+fn ipc_router_event_unknown_type_returns_none() {
     let router = IpcRouter::new();
 
     let message = json!({
@@ -172,7 +173,7 @@ fn test_ipc_router_event_unknown_type_returns_none() {
 }
 
 #[test]
-fn test_ipc_router_invalid_json_returns_none() {
+fn ipc_router_invalid_json_returns_none() {
     let router = IpcRouter::new();
     let result = router.handle("not valid json {{");
     assert!(result.is_none());
@@ -181,7 +182,7 @@ fn test_ipc_router_invalid_json_returns_none() {
 // === invoke tests ===
 
 #[test]
-fn test_ipc_router_handle_invoke() {
+fn ipc_router_handle_invoke() {
     let router = IpcRouter::new();
     router.register("plugin.init", |_| json!({"status": "ok"}));
 
@@ -202,7 +203,7 @@ fn test_ipc_router_handle_invoke() {
 }
 
 #[test]
-fn test_ipc_router_invoke_not_found() {
+fn ipc_router_invoke_not_found() {
     let router = IpcRouter::new();
 
     let message = json!({
@@ -223,7 +224,7 @@ fn test_ipc_router_invoke_not_found() {
 // === methods() listing ===
 
 #[test]
-fn test_ipc_router_methods_listing() {
+fn ipc_router_methods_listing() {
     let router = IpcRouter::new();
     router.register("a.foo", |p| p);
     router.register("b.bar", |p| p);
@@ -239,13 +240,13 @@ fn test_ipc_router_methods_listing() {
 // === Extended DCC-specific tests ===
 
 #[test]
-fn test_ipc_router_default() {
+fn ipc_router_default() {
     let router = IpcRouter::default();
     assert!(router.methods().is_empty());
 }
 
 #[test]
-fn test_ipc_router_call_null_params() {
+fn ipc_router_call_null_params() {
     let router = IpcRouter::new();
     router.register("tool.apply", |params| {
         if params.is_null() {
@@ -263,7 +264,7 @@ fn test_ipc_router_call_null_params() {
 }
 
 #[test]
-fn test_ipc_router_call_array_params() {
+fn ipc_router_call_array_params() {
     let router = IpcRouter::new();
     router.register("scene.select", |params| {
         let count = params.as_array().map(|a| a.len()).unwrap_or(0);
@@ -278,7 +279,7 @@ fn test_ipc_router_call_array_params() {
 }
 
 #[test]
-fn test_ipc_router_overwrite_handler() {
+fn ipc_router_overwrite_handler() {
     let router = IpcRouter::new();
     router.register("cmd", |_| json!({"version": 1}));
     router.register("cmd", |_| json!({"version": 2})); // overwrite
@@ -290,7 +291,7 @@ fn test_ipc_router_overwrite_handler() {
 }
 
 #[test]
-fn test_ipc_router_event_no_listeners_no_panic() {
+fn ipc_router_event_no_listeners_no_panic() {
     let router = IpcRouter::new();
     let msg = json!({"type": "event", "event": "unregistered.event", "detail": {"x": 1}});
     let result = router.handle(&msg.to_string());
@@ -298,7 +299,7 @@ fn test_ipc_router_event_no_listeners_no_panic() {
 }
 
 #[test]
-fn test_ipc_router_event_null_detail() {
+fn ipc_router_event_null_detail() {
     let router = IpcRouter::new();
     let received = Arc::new(Mutex::new(serde_json::Value::Bool(false)));
     let r = received.clone();
@@ -314,14 +315,14 @@ fn test_ipc_router_event_null_detail() {
 }
 
 #[test]
-fn test_ipc_response_ok_null_result() {
+fn ipc_response_ok_null_result() {
     let resp = IpcResponse::ok("id1".to_string(), serde_json::Value::Null);
     assert!(resp.ok);
     assert!(resp.result.unwrap().is_null());
 }
 
 #[test]
-fn test_ipc_response_err_fields() {
+fn ipc_response_err_fields() {
     let resp = IpcResponse::err("err1".to_string(), "NotFound", "Resource missing");
     assert!(!resp.ok);
     let e = resp.error.unwrap();
@@ -330,7 +331,7 @@ fn test_ipc_response_err_fields() {
 }
 
 #[test]
-fn test_ipc_message_missing_optional_fields() {
+fn ipc_message_missing_optional_fields() {
     // Minimal valid message
     let json_str = r#"{"type":"event"}"#;
     let msg: IpcMessage = serde_json::from_str(json_str).unwrap();
@@ -340,9 +341,7 @@ fn test_ipc_message_missing_optional_fields() {
 }
 
 #[test]
-fn test_ipc_router_concurrent_register_and_call() {
-    use std::thread;
-
+fn ipc_router_concurrent_register_and_call() {
     let router = Arc::new(IpcRouter::new());
     // Pre-register handlers
     for i in 0..10 {
@@ -374,9 +373,7 @@ fn test_ipc_router_concurrent_register_and_call() {
 }
 
 #[test]
-fn test_ipc_router_concurrent_events() {
-    use std::thread;
-
+fn ipc_router_concurrent_events() {
     let router = Arc::new(IpcRouter::new());
     let counter = Arc::new(Mutex::new(0u32));
 
@@ -408,7 +405,7 @@ fn test_ipc_router_concurrent_events() {
 }
 
 #[test]
-fn test_ipc_router_dcc_maya_workflow() {
+fn ipc_router_dcc_maya_workflow() {
     // Simulate a Maya DCC IPC workflow: select, query, deselect
     let router = IpcRouter::new();
     let selected = Arc::new(Mutex::new(Vec::<String>::new()));
@@ -455,7 +452,7 @@ fn test_ipc_router_dcc_maya_workflow() {
 }
 
 #[test]
-fn test_ipc_router_dcc_houdini_workflow() {
+fn ipc_router_dcc_houdini_workflow() {
     // Simulate Houdini cook/export workflow
     let router = IpcRouter::new();
     let cooked = Arc::new(Mutex::new(false));
@@ -489,7 +486,7 @@ fn test_ipc_router_dcc_houdini_workflow() {
 }
 
 #[test]
-fn test_ipc_router_blender_addon_workflow() {
+fn ipc_router_blender_addon_workflow() {
     let router = IpcRouter::new();
 
     router.register("bpy.apply_modifier", |params| {
@@ -515,7 +512,7 @@ fn test_ipc_router_blender_addon_workflow() {
 }
 
 #[test]
-fn test_ipc_router_call_response_echoes_id() {
+fn ipc_router_call_response_echoes_id() {
     let router = IpcRouter::new();
     router.register("echo", |p| p);
 
@@ -528,7 +525,7 @@ fn test_ipc_router_call_response_echoes_id() {
 }
 
 #[test]
-fn test_ipc_router_register_then_unregister_then_call() {
+fn ipc_router_register_then_unregister_then_call() {
     let router = IpcRouter::new();
     router.register("transient", |_| json!({"ok": true}));
     router.unregister("transient");
