@@ -19,7 +19,7 @@ python_dir = project_root / "python"
 if str(python_dir) not in sys.path:
     sys.path.insert(0, str(python_dir))
 
-from agent_browser import main
+from agent_browser import main  # noqa: E402
 
 if __name__ == "__main__":
     main()

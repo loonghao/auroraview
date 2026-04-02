@@ -120,10 +120,10 @@ def get_auroraview_bridge_script() -> str:
     return f"""
     (function() {{
         if (window.auroraview) return;
-        
+
         const eventHandlers = {{}};
         let callId = 0;
-        
+
         // Mock API responses
         const mockResponses = {{
             'api.get_categories': {json.dumps(MOCK_CATEGORIES)},
@@ -132,12 +132,12 @@ def get_auroraview_bridge_script() -> str:
             'api.run_sample': {json.dumps({"pid": 12345, "sample_id": "simple_decorator"})},
             'api.kill_process': {json.dumps({"success": True})},
         }};
-        
+
         window.auroraview = {{
             call: function(method, params) {{
                 return new Promise((resolve, reject) => {{
                     console.log('[AuroraView Mock] call:', method, params);
-                    
+
                     // Return mock response if available
                     if (mockResponses[method]) {{
                         setTimeout(() => resolve(mockResponses[method]), 50);
@@ -146,7 +146,7 @@ def get_auroraview_bridge_script() -> str:
                     }}
                 }});
             }},
-            
+
             on: function(event, handler) {{
                 if (!eventHandlers[event]) {{
                     eventHandlers[event] = [];
@@ -157,21 +157,21 @@ def get_auroraview_bridge_script() -> str:
                     if (idx >= 0) eventHandlers[event].splice(idx, 1);
                 }};
             }},
-            
+
             off: function(event, handler) {{
                 if (eventHandlers[event]) {{
                     const idx = eventHandlers[event].indexOf(handler);
                     if (idx >= 0) eventHandlers[event].splice(idx, 1);
                 }}
             }},
-            
+
             trigger: function(event, data) {{
                 console.log('[AuroraView Mock] trigger:', event, data);
                 if (eventHandlers[event]) {{
                     eventHandlers[event].forEach(h => h(data));
                 }}
             }},
-            
+
             api: new Proxy({{}}, {{
                 get: function(target, prop) {{
                     return function(...args) {{
@@ -179,11 +179,11 @@ def get_auroraview_bridge_script() -> str:
                     }};
                 }}
             }}),
-            
+
             platform: 'test',
             version: '1.0.0-test'
         }};
-        
+
         // Dispatch ready event
         window.dispatchEvent(new CustomEvent('auroraviewready'));
         console.log('[AuroraView Mock] Bridge initialized');
@@ -199,16 +199,16 @@ def get_live_bridge_script(api_port: int = PYTHON_API_PORT) -> str:
     return f"""
     (function() {{
         if (window.auroraview) return;
-        
+
         const eventHandlers = {{}};
         let callId = 0;
         const API_BASE = 'http://localhost:{api_port}';
-        
+
         window.auroraview = {{
             call: async function(method, params) {{
                 const id = `av_call_${{Date.now()}}_${{++callId}}`;
                 console.log('[AuroraView Live] call:', method, params);
-                
+
                 try {{
                     const response = await fetch(`${{API_BASE}}/api`, {{
                         method: 'POST',
@@ -219,10 +219,10 @@ def get_live_bridge_script(api_port: int = PYTHON_API_PORT) -> str:
                             params: params
                         }})
                     }});
-                    
+
                     const result = await response.json();
                     console.log('[AuroraView Live] response:', result);
-                    
+
                     if (result.ok) {{
                         return result.result;
                     }} else {{
@@ -233,7 +233,7 @@ def get_live_bridge_script(api_port: int = PYTHON_API_PORT) -> str:
                     throw e;
                 }}
             }},
-            
+
             on: function(event, handler) {{
                 if (!eventHandlers[event]) {{
                     eventHandlers[event] = [];
@@ -244,21 +244,21 @@ def get_live_bridge_script(api_port: int = PYTHON_API_PORT) -> str:
                     if (idx >= 0) eventHandlers[event].splice(idx, 1);
                 }};
             }},
-            
+
             off: function(event, handler) {{
                 if (eventHandlers[event]) {{
                     const idx = eventHandlers[event].indexOf(handler);
                     if (idx >= 0) eventHandlers[event].splice(idx, 1);
                 }}
             }},
-            
+
             trigger: function(event, data) {{
                 console.log('[AuroraView Live] trigger:', event, data);
                 if (eventHandlers[event]) {{
                     eventHandlers[event].forEach(h => h(data));
                 }}
             }},
-            
+
             api: new Proxy({{}}, {{
                 get: function(target, prop) {{
                     return function(...args) {{
@@ -266,11 +266,11 @@ def get_live_bridge_script(api_port: int = PYTHON_API_PORT) -> str:
                     }};
                 }}
             }}),
-            
+
             platform: 'test-live',
             version: '1.0.0-test'
         }};
-        
+
         // Dispatch ready event
         window.dispatchEvent(new CustomEvent('auroraviewready'));
         console.log('[AuroraView Live] Bridge initialized, API at {api_port}');
@@ -313,28 +313,28 @@ class APIHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
-    
+
     def do_POST(self):
         if self.path != "/api":
             self.send_error(404)
             return
-        
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
-        
+
         try:
             request = json.loads(body)
             method = request.get("method", "")
             params = request.get("params")
             call_id = request.get("id", "")
-            
+
             # Route to appropriate handler
             handlers = {
                 "get_samples": get_samples,
                 "get_categories": get_categories,
                 "get_source": lambda p: get_source(p.get("sample_id") if isinstance(p, dict) else p[0] if p else None),
             }
-            
+
             handler = handlers.get(method)
             if handler:
                 try:
@@ -346,22 +346,22 @@ class APIHandler(BaseHTTPRequestHandler):
                         result = handler(params[0])
                     else:
                         result = handler(params)
-                    
+
                     response = {"id": call_id, "ok": True, "result": result}
                 except Exception as e:
                     response = {"id": call_id, "ok": False, "error": {"name": type(e).__name__, "message": str(e)}}
             else:
                 response = {"id": call_id, "ok": False, "error": {"name": "MethodNotFound", "message": f"Unknown method: {method}"}}
-            
+
         except Exception as e:
             response = {"id": "", "ok": False, "error": {"name": "ParseError", "message": str(e)}}
-        
+
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(json.dumps(response).encode())
-    
+
     def log_message(self, format, *args):
         pass  # Suppress logging
 

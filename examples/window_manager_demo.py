@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import sys
-import threading
 import time
 from pathlib import Path
 
@@ -26,7 +25,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "python"))
 
-from auroraview import (
+from auroraview import (  # noqa: E402
     WebView,
     broadcast_event,
     get_active_window,

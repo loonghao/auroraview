@@ -23,7 +23,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 PROJECT_ROOT = Path(__file__).parent.parent
 EXAMPLES_DIR = PROJECT_ROOT / "examples"
@@ -251,7 +250,7 @@ def run_example_and_screenshot(
         # Wait for CDP to be ready
         print(f"    Waiting for CDP on port {cdp_port}...")
         if not wait_for_cdp(cdp_port, timeout=15.0):
-            print(f"    [WARN] CDP not available after 15s")
+            print("    [WARN] CDP not available after 15s")
             return False
 
         # Additional wait for app to render
@@ -265,7 +264,7 @@ def run_example_and_screenshot(
             print(f"    [OK] Screenshot: {output_path.name}")
             return True
         else:
-            print(f"    [FAIL] Could not capture screenshot")
+            print("    [FAIL] Could not capture screenshot")
             return False
 
     finally:
