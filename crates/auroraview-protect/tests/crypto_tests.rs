@@ -4,9 +4,11 @@
 //! integrity verification, and error paths.
 
 use auroraview_protect::crypto::{
-    decrypt_hybrid, encrypt_hybrid, EccAlgorithm, EccKeyPair, AES_KEY_SIZE, P256_PUBLIC_KEY_SIZE,
-    X25519_PUBLIC_KEY_SIZE,
+    base64_decode, base64_encode, decrypt_aes_gcm, decrypt_hybrid, encrypt_aes_gcm, encrypt_hybrid,
+    hex_decode, hex_encode, EccAlgorithm, EccKeyPair, KeyObfuscator, AES_KEY_SIZE,
+    P256_PUBLIC_KEY_SIZE, X25519_PUBLIC_KEY_SIZE,
 };
+use rstest::*;
 
 // ─────────────────────────────────────────────────────────────
 // EccAlgorithm
@@ -301,3 +303,349 @@ fn package_serialization_roundtrip() {
     let decrypted = decrypt_hybrid(&restored, &kp.private_key).unwrap();
     assert_eq!(decrypted, b"test bytes");
 }
+
+// ─────────────────────────────────────────────────────────────
+// AES-256-GCM direct interface
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn aes_gcm_empty_plaintext_roundtrip() {
+    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let plaintext: &[u8] = b"";
+    let encrypted = encrypt_aes_gcm(plaintext, &key).unwrap();
+    let decrypted = decrypt_aes_gcm(&encrypted, &key).unwrap();
+    assert_eq!(decrypted, plaintext);
+}
+
+#[test]
+fn aes_gcm_single_byte_roundtrip() {
+    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let encrypted = encrypt_aes_gcm(b"\x00", &key).unwrap();
+    let decrypted = decrypt_aes_gcm(&encrypted, &key).unwrap();
+    assert_eq!(decrypted, b"\x00");
+}
+
+#[test]
+fn aes_gcm_large_data_roundtrip() {
+    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let plaintext: Vec<u8> = (0u8..=255).cycle().take(1_024 * 1024).collect(); // 1 MiB
+    let encrypted = encrypt_aes_gcm(&plaintext, &key).unwrap();
+    let decrypted = decrypt_aes_gcm(&encrypted, &key).unwrap();
+    assert_eq!(decrypted, plaintext);
+}
+
+#[test]
+fn aes_gcm_each_encryption_unique_nonce() {
+    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let e1 = encrypt_aes_gcm(b"same", &key).unwrap();
+    let e2 = encrypt_aes_gcm(b"same", &key).unwrap();
+    assert_ne!(e1, e2); // different nonces
+}
+
+#[test]
+fn aes_gcm_decrypt_wrong_key_fails() {
+    let key1: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let key2: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let encrypted = encrypt_aes_gcm(b"secret", &key1).unwrap();
+    let result = decrypt_aes_gcm(&encrypted, &key2);
+    assert!(result.is_err());
+}
+
+#[test]
+fn aes_gcm_decrypt_truncated_data_fails() {
+    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    // too short to even contain nonce + tag
+    let short: Vec<u8> = vec![0u8; 10];
+    let result = decrypt_aes_gcm(&short, &key);
+    assert!(result.is_err());
+}
+
+#[test]
+fn aes_gcm_decrypt_tampered_ciphertext_fails() {
+    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let mut encrypted = encrypt_aes_gcm(b"payload", &key).unwrap();
+    // Flip a byte in the ciphertext region
+    let last = encrypted.len() - 1;
+    encrypted[last] ^= 0xFF;
+    let result = decrypt_aes_gcm(&encrypted, &key);
+    assert!(result.is_err());
+}
+
+#[rstest]
+#[case(1)]
+#[case(15)]
+#[case(16)]
+#[case(100)]
+#[case(1023)]
+fn aes_gcm_various_plaintext_lengths(#[case] len: usize) {
+    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let plaintext: Vec<u8> = (0u8..=255).cycle().take(len).collect();
+    let encrypted = encrypt_aes_gcm(&plaintext, &key).unwrap();
+    let decrypted = decrypt_aes_gcm(&encrypted, &key).unwrap();
+    assert_eq!(decrypted, plaintext);
+}
+
+// ─────────────────────────────────────────────────────────────
+// KeyObfuscator edge cases
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn key_obfuscator_empty_key_roundtrip() {
+    let key: &[u8] = b"";
+    let obf = KeyObfuscator::new(key);
+    let rec = obf.reconstruct(0);
+    assert_eq!(rec, key);
+}
+
+#[test]
+fn key_obfuscator_single_byte() {
+    let key = [0xABu8];
+    let obf = KeyObfuscator::new(&key);
+    let rec = obf.reconstruct(1);
+    assert_eq!(&rec, &key);
+}
+
+#[test]
+fn key_obfuscator_all_zeros() {
+    let key = [0u8; 32];
+    let obf = KeyObfuscator::new(&key);
+    let rec = obf.reconstruct(32);
+    assert_eq!(&rec, &key);
+}
+
+#[test]
+fn key_obfuscator_all_ones() {
+    let key = [0xFFu8; 32];
+    let obf = KeyObfuscator::new(&key);
+    let rec = obf.reconstruct(32);
+    assert_eq!(&rec, &key);
+}
+
+#[rstest]
+#[case(7)]
+#[case(8)]
+#[case(9)]
+#[case(31)]
+#[case(32)]
+#[case(33)]
+#[case(64)]
+fn key_obfuscator_various_lengths(#[case] len: usize) {
+    let key: Vec<u8> = (0u8..=255).cycle().take(len).collect();
+    let obf = KeyObfuscator::new(&key);
+    let rec = obf.reconstruct(len);
+    assert_eq!(rec, key);
+}
+
+#[test]
+fn key_obfuscator_rust_code_is_non_empty() {
+    let key = b"test-key-32-bytes-long__________";
+    let obf = KeyObfuscator::new(key);
+    let code = obf.generate_rust_code(key.len());
+    assert!(code.contains("KEY_PARTS"));
+    assert!(code.contains("XOR_KEYS"));
+    assert!(code.contains("KEY_LEN"));
+    assert!(code.contains("reconstruct_key"));
+}
+
+#[test]
+fn key_obfuscator_python_code_is_non_empty() {
+    let key = b"test-key-32-bytes-long__________";
+    let obf = KeyObfuscator::new(key);
+    let code = obf.generate_python_code(key.len());
+    assert!(code.contains("_KP"));
+    assert!(code.contains("_XK"));
+    assert!(code.contains("_KL"));
+    assert!(code.contains("_rk()"));
+}
+
+// ─────────────────────────────────────────────────────────────
+// hex_encode / hex_decode utilities
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn hex_roundtrip_empty() {
+    let bytes: &[u8] = b"";
+    assert_eq!(hex_decode(&hex_encode(bytes)).unwrap(), bytes);
+}
+
+#[test]
+fn hex_roundtrip_all_byte_values() {
+    let bytes: Vec<u8> = (0u8..=255).collect();
+    let encoded = hex_encode(&bytes);
+    let decoded = hex_decode(&encoded).unwrap();
+    assert_eq!(decoded, bytes);
+}
+
+#[test]
+fn hex_decode_odd_length_returns_err() {
+    let result = hex_decode("abc");
+    assert!(result.is_err());
+}
+
+#[test]
+fn hex_decode_invalid_char_returns_err() {
+    let result = hex_decode("zz");
+    assert!(result.is_err());
+}
+
+#[test]
+fn hex_encode_known_value() {
+    assert_eq!(hex_encode(&[0xDE, 0xAD, 0xBE, 0xEF]), "deadbeef");
+}
+
+// ─────────────────────────────────────────────────────────────
+// base64_encode / base64_decode utilities
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn base64_roundtrip_empty() {
+    let bytes: &[u8] = b"";
+    assert_eq!(base64_decode(&base64_encode(bytes)).unwrap(), bytes);
+}
+
+#[test]
+fn base64_roundtrip_binary() {
+    let bytes: Vec<u8> = (0u8..=255).collect();
+    assert_eq!(base64_decode(&base64_encode(&bytes)).unwrap(), bytes);
+}
+
+#[test]
+fn base64_decode_invalid_returns_err() {
+    let result = base64_decode("not-valid-base64!!!");
+    assert!(result.is_err());
+}
+
+// ─────────────────────────────────────────────────────────────
+// Cross-algorithm decryption must fail
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn cross_algorithm_decrypt_x25519_pkg_with_p256_key_fails() {
+    let x_kp = EccKeyPair::generate(EccAlgorithm::X25519);
+    let p_kp = EccKeyPair::generate(EccAlgorithm::P256);
+    let pkg = encrypt_hybrid(b"data", &x_kp.public_key, EccAlgorithm::X25519).unwrap();
+    // Trying to decrypt with P-256 private key (algorithm mismatch)
+    let result = decrypt_hybrid(&pkg, &p_kp.private_key);
+    assert!(result.is_err());
+}
+
+// ─────────────────────────────────────────────────────────────
+// Concurrent encryption — no data races
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn concurrent_x25519_encrypt_no_panic() {
+    use std::thread;
+
+    let kp = EccKeyPair::generate(EccAlgorithm::X25519);
+    let pub_key = kp.public_key.clone();
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let pk = pub_key.clone();
+            thread::spawn(move || {
+                let data: Vec<u8> = (0u8..64).map(|b| b ^ (i as u8)).collect();
+                let pkg = encrypt_hybrid(&data, &pk, EccAlgorithm::X25519).unwrap();
+                assert_eq!(pkg.version, 1);
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+#[test]
+fn concurrent_p256_encrypt_no_panic() {
+    use std::thread;
+
+    let kp = EccKeyPair::generate(EccAlgorithm::P256);
+    let pub_key = kp.public_key.clone();
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let pk = pub_key.clone();
+            thread::spawn(move || {
+                let data: Vec<u8> = (0u8..64).map(|b| b.wrapping_add(i as u8)).collect();
+                let pkg = encrypt_hybrid(&data, &pk, EccAlgorithm::P256).unwrap();
+                assert_eq!(pkg.algorithm, EccAlgorithm::P256);
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+#[test]
+fn concurrent_key_generation_unique_keys() {
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+
+    let keys: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let k = Arc::clone(&keys);
+            thread::spawn(move || {
+                let kp = EccKeyPair::generate(EccAlgorithm::X25519);
+                k.lock().unwrap().push(kp.public_key);
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+
+    let collected = keys.lock().unwrap();
+    let mut sorted = collected.clone();
+    sorted.dedup();
+    assert_eq!(sorted.len(), collected.len(), "all public keys must be unique");
+}
+
+// ─────────────────────────────────────────────────────────────
+// EccAlgorithm display / debug
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn ecc_algorithm_debug_output() {
+    assert!(format!("{:?}", EccAlgorithm::X25519).contains("X25519"));
+    assert!(format!("{:?}", EccAlgorithm::P256).contains("P256"));
+}
+
+#[test]
+fn ecc_algorithm_clone_equality() {
+    let a = EccAlgorithm::X25519;
+    let b = a;
+    assert_eq!(a, b);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tamper: corrupt ephemeral public key
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn decrypt_with_tampered_ephemeral_key_fails() {
+    let kp = EccKeyPair::generate(EccAlgorithm::X25519);
+    let mut pkg = encrypt_hybrid(b"payload", &kp.public_key, EccAlgorithm::X25519).unwrap();
+    // Replace with all-zeros hex (32 bytes)
+    pkg.ephemeral_public_key = "00".repeat(32);
+    let result = decrypt_hybrid(&pkg, &kp.private_key);
+    assert!(result.is_err());
+}
+
+#[test]
+fn decrypt_with_tampered_encrypted_key_fails() {
+    let kp = EccKeyPair::generate(EccAlgorithm::X25519);
+    let mut pkg = encrypt_hybrid(b"payload", &kp.public_key, EccAlgorithm::X25519).unwrap();
+    // Corrupt the encrypted key
+    pkg.encrypted_key = "deadbeef".repeat(10);
+    let result = decrypt_hybrid(&pkg, &kp.private_key);
+    assert!(result.is_err());
+}
+
+// use rand for key generation in AES tests
+use rand::Rng;
