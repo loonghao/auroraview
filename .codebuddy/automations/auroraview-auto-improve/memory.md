@@ -1,49 +1,41 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-03 04:01 (UTC+8)
+## Last Execution: 2026-04-03 05:25 (UTC+8)
 
 ### Branch Status
-- Branch: `auto-improve` (5 new commits: `7859981`, `ef7ee89`, `65a2a92`, `b667613` iteration)
+- Branch: `auto-improve` (4 new commits: `dc9816b`, `5c46f3c`, `250fd75`, `a542b1c` iteration)
 - Pushed: Yes (pushed to remote)
 - All new tests pass, 0 failures
 
 ### Completed in This Iteration
 
-1. **test(notifications,bookmarks,history): expand test coverage** (commit `7859981`)
-   - `auroraview-notifications/tests/notification_tests.rs`: 35 → 70 tests
-     - serde roundtrip (NotificationType, Notification, NotificationAction, Permission, PermissionState)
-     - error variants display (NotFound, PermissionDenied, PermissionNotRequested, InvalidNotification, MaxNotificationsReached)
-     - concurrent: 8-thread notify no panic, notify+dismiss no deadlock, permission reads
-     - edge cases: with_type override duration, multiple actions, custom duration overrides type
-     - manager: action callback, dismiss_all callbacks, max_history trim, tag replacement
-   - `auroraview-bookmarks/tests/bookmark_tests.rs`: 40 → 69 tests
-     - serde roundtrip (Bookmark basic/full, omits optional fields, BookmarkFolder)
-     - error variants display (NotFound, FolderNotFound, InvalidUrl, Storage)
-     - concurrent: 8-thread add (80 items), add+search no deadlock, concurrent remove
-     - position edge cases, search by tag via import, is_bookmarked case sensitivity
-   - `auroraview-history/tests/history_tests.rs`: 45 → 81 tests
-     - serde roundtrip (HistoryEntry basic/full, omits favicon, export/import preserves visit counts)
-     - error variants display (NotFound, InvalidUrl, Storage)
-     - SearchOptions field tests (no serde since not derived)
-     - entry edge cases: relevance score variants, typed_count accumulation, domain extraction
-     - manager: visit updates last_visit, frequent(0) empty, delete_domain none matching
-     - concurrent: same URL no deadlock, different URLs 80 entries, visit+search, delete+visit
+1. **test(shell): expand shell_tests from 38 to 68 tests** (commit `dc9816b`)
+   - Converted all `#[test]` to `#[rstest]`
+   - Added rstest parametric tests: `test_which_parametrized_nonexistent`, `test_execute_dangerous_cmds_blocked_by_default`, `test_open_url_schemes_blocked`, `test_unknown_commands_err`
+   - Added `ExecuteOptions::show_console` field tests (default false, true via camelCase JSON)
+   - Added `test_execute_options_various` (#[case] with cmd/args/cwd/show_console combos)
+   - Added `test_open_options_parametrized` with `with_app` Option variants
+   - Added `test_execute_result_parametrized` (code Some(0)/Some(1)/Some(127)/None)
+   - Added `test_restart_app_blocked_by_scope` (verifies command is registered, no actual restart)
+   - Added `test_shell_plugin_commands_count` (≥8)
+   - Added concurrent tests: `test_get_env_concurrent_no_panic`, `test_which_concurrent_no_panic`, `test_get_env_all_concurrent_no_panic`, `test_blocked_commands_concurrent_no_panic`
+   - Added `test_execute_result_clone`, `test_execute_result_debug`
 
-2. **test(downloads): expand download_tests from 49 to 88 tests** (commit `ef7ee89`)
-   - serde roundtrip (DownloadState all variants, DownloadItem basic/full/failed/completed)
-   - rstest parametric JSON values for all 6 DownloadState variants
-   - error display (NotFound, AlreadyExists, InvalidState, Storage)
-   - item edge cases: zero total, eta no remaining, complete without total, fail keeps first error
-   - manager: fail/complete nonexistent return error, update_progress nonexistent no panic
-   - concurrent: 40-item add, start+complete parallel, clone shares state read
+2. **test(service_discovery): expand tests from 55 to 79** (commit `5c46f3c`)
+   - `ServiceDiscoveryError` display: `NoFreePort`, `PortInUse`, `MdnsError`, `HttpError`, `IoError`, `debug NoFreePort`
+   - `InstanceRegistry` concurrent: `concurrent_register`, `concurrent_register_unregister`, `concurrent_get`, `concurrent_get_all`, `register_multiple_then_get_all`
+   - `PortAllocator` concurrent: `concurrent_no_panic`, `is_port_available_concurrent`
+   - `InstanceInfo` fields: `pid_is_current_process`, `start_time_nonzero`, `app_version_nonempty`, `url_html_title_defaults`
+   - `DiscoveryResponse` serde roundtrip + parametric `#[case]` (3 ports/services/versions)
 
-3. **test(settings): expand settings_tests from 45 to 81 tests** (commit `65a2a92`)
-   - serde roundtrip (SettingValue all types: bool/int/float/string/array/null, rstest parametric)
-   - error display (NotFound, TypeMismatch, ValidationFailed, InvalidKey, SchemaNotFound)
-   - SettingValue edge cases: wrong type accessors return None, integer→float coerces, float→integer None
-   - store: remove nonexistent, overwrite key, keys_with_prefix no match, merge doesn't affect source
-   - manager: get nonexistent all types, schema wrong type rejection, user_settings exclusive set
-   - concurrent: 8-thread set, get+set no deadlock, clone shares state
+3. **test(dcc): expand error_tests from 22 to 50** (commit `250fd75`)
+   - `Com` variant (Windows): display, debug, `#[case]` parametric messages
+   - Error source chain: `webview_creation_no_source`, `invalid_parent_no_source`, `unsupported_dcc_no_source`
+   - Display prefix correctness: `webview_creation_display_prefix`, `window_not_found_display_prefix`, `unsupported_dcc_display_prefix`, `threading_display_prefix`
+   - Parametric messages: `webview_creation_messages`, `window_not_found_ids`, `threading_messages`
+   - `error_as_box_dyn_error`, `error_in_result_chain`, `dcc_error_in_arc`
+   - Concurrent error construction (8 threads, no panic)
+   - `result_ok_value`, `result_err_value`, `result_map_err`
 
 ### Cumulative Progress (across iterations)
 
@@ -140,6 +132,9 @@
 **History history_tests expansion (COMPLETE):** 45 → 81 tests
 **Downloads download_tests expansion (COMPLETE):** 49 → 88 tests
 **Settings settings_tests expansion (COMPLETE):** 45 → 81 tests
+**Plugins shell_tests expansion (COMPLETE):** 38 → 68 tests
+**Core service_discovery_tests expansion (COMPLETE):** 55 → 79 tests
+**DCC error_tests expansion (COMPLETE):** 22 → 50 tests
 
 ### Known Pre-existing Issues
 - `auroraview-core` assets_tests fail (need `vx just assets-build`)
@@ -148,8 +143,8 @@
 - `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
 
 ### Next Iteration Targets (Priority Order)
-1. **auroraview-core: service_discovery_tests expansion** — concurrent service registration/deregistration
-2. **auroraview-plugins: shell_tests expansion** — process spawning, stdout capture edge cases
-3. **auroraview-dcc: error_tests expansion** — more DccError variants, error context
-4. **auroraview-ai-agent: more edge cases** — session lifecycle, provider error handling
-5. **auroraview-telemetry: additional coverage** — event flush, metrics aggregation
+1. **auroraview-ai-agent: session_tests additional concurrent/edge** — concurrent session creation, multiple tools in one message
+2. **auroraview-telemetry: span_ext_tests expansion** — concurrent span attribute setting, multiple error types in span
+3. **auroraview-protect: crypto_tests expansion** — edge cases: empty plaintext, large data, wrong key length
+4. **auroraview-plugins: process_tests expansion** — process spawn/kill lifecycle, IPC edge cases
+5. **auroraview-desktop: tray_tests expansion** — more tray menu item edge cases, concurrent tray operations
