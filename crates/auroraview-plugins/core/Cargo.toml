@@ -31,3 +31,7 @@ parking_lot = "0.12"
 # Error handling
 thiserror = "2.0"
 auroraview-workspace-hack = { version = "0.1", path = "../../auroraview-workspace-hack" }
+
+[dev-dependencies]
+rstest = "0.26"
+tempfile = "3.20"
