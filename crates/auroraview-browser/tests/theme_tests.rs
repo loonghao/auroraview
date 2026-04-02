@@ -1,6 +1,11 @@
-//! Tests for theme module
+//! Tests for Theme, ThemeColors, and CustomTheme
 
 use auroraview_browser::ui::{CustomTheme, Theme, ThemeColors};
+use rstest::rstest;
+
+// -------------------------------------------------------------------------
+// Theme enum — basic
+// -------------------------------------------------------------------------
 
 #[test]
 fn test_theme_default() {
@@ -72,4 +77,276 @@ fn test_theme_colors_equality() {
 
     assert_eq!(light1, light2);
     assert_ne!(light1, dark);
+}
+
+// -------------------------------------------------------------------------
+// ThemeColors — full field coverage
+// -------------------------------------------------------------------------
+
+#[test]
+fn test_light_colors_all_fields() {
+    let c = ThemeColors::light();
+    assert_eq!(c.bg_primary, "#ffffff");
+    assert_eq!(c.bg_secondary, "#f3f3f3");
+    assert_eq!(c.bg_tertiary, "#f9f9f9");
+    assert_eq!(c.bg_hover, "rgba(0,0,0,0.04)");
+    assert_eq!(c.bg_active, "rgba(0,0,0,0.08)");
+    assert_eq!(c.text_primary, "#1a1a1a");
+    assert_eq!(c.text_secondary, "#444444");
+    assert_eq!(c.text_disabled, "#888888");
+    assert_eq!(c.border_color, "#e5e5e5");
+    assert_eq!(c.accent_color, "#0078d4");
+    assert_eq!(c.accent_hover, "#106ebe");
+    assert_eq!(c.error_color, "#d13438");
+    assert_eq!(c.success_color, "#107c10");
+    assert_eq!(c.warning_color, "#ffb900");
+}
+
+#[test]
+fn test_dark_colors_all_fields() {
+    let c = ThemeColors::dark();
+    assert_eq!(c.bg_primary, "#202020");
+    assert_eq!(c.bg_secondary, "#2d2d2d");
+    assert_eq!(c.bg_tertiary, "#383838");
+    assert_eq!(c.bg_hover, "rgba(255,255,255,0.08)");
+    assert_eq!(c.bg_active, "rgba(255,255,255,0.12)");
+    assert_eq!(c.text_primary, "#ffffff");
+    assert_eq!(c.text_secondary, "#b0b0b0");
+    assert_eq!(c.text_disabled, "#666666");
+    assert_eq!(c.border_color, "#3d3d3d");
+    assert_eq!(c.accent_color, "#60cdff");
+    assert_eq!(c.accent_hover, "#4cc2ff");
+    assert_eq!(c.error_color, "#ff6b6b");
+    assert_eq!(c.success_color, "#6ccb5f");
+    assert_eq!(c.warning_color, "#ffc107");
+}
+
+#[test]
+fn test_theme_colors_default_is_light() {
+    let default = ThemeColors::default();
+    let light = ThemeColors::light();
+    assert_eq!(default, light);
+}
+
+#[test]
+fn test_theme_colors_clone() {
+    let original = ThemeColors::dark();
+    let cloned = original.clone();
+    assert_eq!(original, cloned);
+    assert_eq!(cloned.bg_primary, "#202020");
+}
+
+// -------------------------------------------------------------------------
+// Theme Clone
+// -------------------------------------------------------------------------
+
+#[test]
+fn test_theme_light_clone() {
+    let t = Theme::Light;
+    let c = t.clone();
+    assert!(matches!(c, Theme::Light));
+}
+
+#[test]
+fn test_theme_dark_clone() {
+    let t = Theme::Dark;
+    let c = t.clone();
+    assert!(matches!(c, Theme::Dark));
+}
+
+#[test]
+fn test_theme_system_clone() {
+    let t = Theme::System;
+    let c = t.clone();
+    assert!(matches!(c, Theme::System));
+}
+
+#[test]
+fn test_theme_custom_clone() {
+    let colors = ThemeColors::dark();
+    let custom = CustomTheme::new("MyTheme", colors);
+    let theme = Theme::Custom(Box::new(custom));
+    let cloned = theme.clone();
+    if let Theme::Custom(ct) = cloned {
+        assert_eq!(ct.name, "MyTheme");
+    } else {
+        panic!("Expected Custom theme after clone");
+    }
+}
+
+// -------------------------------------------------------------------------
+// Theme serde roundtrip
+// -------------------------------------------------------------------------
+
+#[test]
+fn test_theme_light_serde_roundtrip() {
+    let theme = Theme::Light;
+    let json = serde_json::to_string(&theme).unwrap();
+    let restored: Theme = serde_json::from_str(&json).unwrap();
+    assert!(matches!(restored, Theme::Light));
+}
+
+#[test]
+fn test_theme_dark_serde_roundtrip() {
+    let theme = Theme::Dark;
+    let json = serde_json::to_string(&theme).unwrap();
+    let restored: Theme = serde_json::from_str(&json).unwrap();
+    assert!(matches!(restored, Theme::Dark));
+}
+
+#[test]
+fn test_theme_system_serde_roundtrip() {
+    let theme = Theme::System;
+    let json = serde_json::to_string(&theme).unwrap();
+    let restored: Theme = serde_json::from_str(&json).unwrap();
+    assert!(matches!(restored, Theme::System));
+}
+
+#[test]
+fn test_theme_colors_serde_roundtrip() {
+    let colors = ThemeColors::dark();
+    let json = serde_json::to_string(&colors).unwrap();
+    let restored: ThemeColors = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.bg_primary, "#202020");
+    assert_eq!(restored.accent_color, "#60cdff");
+}
+
+#[test]
+fn test_custom_theme_serde_roundtrip() {
+    let colors = ThemeColors::light();
+    let custom = CustomTheme::new("Roundtrip Theme", colors);
+    let json = serde_json::to_string(&custom).unwrap();
+    let restored: CustomTheme = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.name, "Roundtrip Theme");
+    assert_eq!(restored.colors.bg_primary, "#ffffff");
+}
+
+// -------------------------------------------------------------------------
+// CSS output — dark and system
+// -------------------------------------------------------------------------
+
+#[test]
+fn test_dark_theme_css_generation() {
+    let theme = Theme::Dark;
+    let css = theme.css();
+
+    assert!(css.contains("--bg-primary"));
+    assert!(css.contains("--accent-color"));
+    assert!(css.contains("#202020")); // Dark theme bg
+    assert!(css.contains("#60cdff")); // Dark theme accent
+}
+
+#[test]
+fn test_css_contains_all_variables() {
+    let css = Theme::Light.css();
+
+    let expected_vars = [
+        "--bg-primary",
+        "--bg-secondary",
+        "--bg-tertiary",
+        "--bg-hover",
+        "--bg-active",
+        "--text-primary",
+        "--text-secondary",
+        "--text-disabled",
+        "--border-color",
+        "--accent-color",
+        "--accent-hover",
+        "--error-color",
+        "--success-color",
+        "--warning-color",
+    ];
+
+    for var in expected_vars {
+        assert!(
+            css.contains(var),
+            "CSS should contain variable: {}",
+            var
+        );
+    }
+}
+
+#[test]
+fn test_css_starts_with_root() {
+    let css = Theme::Light.css();
+    assert!(css.trim_start().starts_with(":root"));
+}
+
+// -------------------------------------------------------------------------
+// CustomTheme
+// -------------------------------------------------------------------------
+
+#[test]
+fn test_custom_theme_new() {
+    let colors = ThemeColors::dark();
+    let custom = CustomTheme::new("Test Theme", colors.clone());
+    assert_eq!(custom.name, "Test Theme");
+    assert_eq!(custom.colors, colors);
+}
+
+#[test]
+fn test_custom_theme_clone() {
+    let colors = ThemeColors::light();
+    let custom = CustomTheme::new("Cloneable", colors);
+    let cloned = custom.clone();
+    assert_eq!(cloned.name, "Cloneable");
+}
+
+#[test]
+fn test_custom_theme_equality() {
+    let colors = ThemeColors::light();
+    let ct1 = CustomTheme::new("Same", colors.clone());
+    let ct2 = CustomTheme::new("Same", colors);
+    assert_eq!(ct1, ct2);
+}
+
+#[test]
+fn test_custom_theme_inequality_by_name() {
+    let colors = ThemeColors::light();
+    let ct1 = CustomTheme::new("A", colors.clone());
+    let ct2 = CustomTheme::new("B", colors);
+    assert_ne!(ct1, ct2);
+}
+
+#[test]
+fn test_custom_theme_css_reflects_colors() {
+    let mut colors = ThemeColors::light();
+    colors.accent_color = "#deadbe".to_string();
+    let custom = CustomTheme::new("Custom Accent", colors);
+    let theme = Theme::Custom(Box::new(custom));
+    let css = theme.css();
+    assert!(css.contains("#deadbe"));
+}
+
+// -------------------------------------------------------------------------
+// Theme::colors() for all variants
+// -------------------------------------------------------------------------
+
+#[rstest]
+#[case(Theme::Light, "#ffffff")]
+#[case(Theme::Dark, "#202020")]
+fn test_theme_colors_bg_primary(#[case] theme: Theme, #[case] expected_bg: &str) {
+    let colors = theme.colors();
+    assert_eq!(colors.bg_primary, expected_bg);
+}
+
+// -------------------------------------------------------------------------
+// rstest parametrized
+// -------------------------------------------------------------------------
+
+#[rstest]
+#[case("Midnight Blue", "#0a0a2e")]
+#[case("Ocean", "#003366")]
+#[case("Forest", "#1a3a1a")]
+#[case("Warm Sand", "#f5e6d3")]
+fn test_custom_theme_names_and_bg(#[case] name: &str, #[case] bg: &str) {
+    let mut colors = ThemeColors::light();
+    colors.bg_primary = bg.to_string();
+    let custom = CustomTheme::new(name, colors);
+    assert_eq!(custom.name, name);
+    assert_eq!(custom.colors.bg_primary, bg);
+
+    let theme = Theme::Custom(Box::new(custom));
+    let css = theme.css();
+    assert!(css.contains(bg));
 }
