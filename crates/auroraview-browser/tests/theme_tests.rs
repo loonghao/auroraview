@@ -8,13 +8,13 @@ use rstest::rstest;
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_theme_default() {
+fn theme_default() {
     let theme = Theme::default();
     assert!(matches!(theme, Theme::System));
 }
 
 #[test]
-fn test_theme_light_colors() {
+fn theme_light_colors() {
     let colors = ThemeColors::light();
 
     assert_eq!(colors.bg_primary, "#ffffff");
@@ -23,7 +23,7 @@ fn test_theme_light_colors() {
 }
 
 #[test]
-fn test_theme_dark_colors() {
+fn theme_dark_colors() {
     let colors = ThemeColors::dark();
 
     assert_eq!(colors.bg_primary, "#202020");
@@ -32,7 +32,7 @@ fn test_theme_dark_colors() {
 }
 
 #[test]
-fn test_theme_css_generation() {
+fn theme_css_generation() {
     let theme = Theme::Light;
     let css = theme.css();
 
@@ -43,7 +43,7 @@ fn test_theme_css_generation() {
 }
 
 #[test]
-fn test_custom_theme() {
+fn custom_theme() {
     let colors = ThemeColors {
         bg_primary: "#1a1a2e".to_string(),
         bg_secondary: "#16213e".to_string(),
@@ -70,7 +70,7 @@ fn test_custom_theme() {
 }
 
 #[test]
-fn test_theme_colors_equality() {
+fn theme_colors_equality() {
     let light1 = ThemeColors::light();
     let light2 = ThemeColors::light();
     let dark = ThemeColors::dark();
@@ -84,7 +84,7 @@ fn test_theme_colors_equality() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_light_colors_all_fields() {
+fn light_colors_all_fields() {
     let c = ThemeColors::light();
     assert_eq!(c.bg_primary, "#ffffff");
     assert_eq!(c.bg_secondary, "#f3f3f3");
@@ -103,7 +103,7 @@ fn test_light_colors_all_fields() {
 }
 
 #[test]
-fn test_dark_colors_all_fields() {
+fn dark_colors_all_fields() {
     let c = ThemeColors::dark();
     assert_eq!(c.bg_primary, "#202020");
     assert_eq!(c.bg_secondary, "#2d2d2d");
@@ -122,14 +122,14 @@ fn test_dark_colors_all_fields() {
 }
 
 #[test]
-fn test_theme_colors_default_is_light() {
+fn theme_colors_default_is_light() {
     let default = ThemeColors::default();
     let light = ThemeColors::light();
     assert_eq!(default, light);
 }
 
 #[test]
-fn test_theme_colors_clone() {
+fn theme_colors_clone() {
     let original = ThemeColors::dark();
     let cloned = original.clone();
     assert_eq!(original, cloned);
@@ -141,28 +141,28 @@ fn test_theme_colors_clone() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_theme_light_clone() {
+fn theme_light_clone() {
     let t = Theme::Light;
     let c = t.clone();
     assert!(matches!(c, Theme::Light));
 }
 
 #[test]
-fn test_theme_dark_clone() {
+fn theme_dark_clone() {
     let t = Theme::Dark;
     let c = t.clone();
     assert!(matches!(c, Theme::Dark));
 }
 
 #[test]
-fn test_theme_system_clone() {
+fn theme_system_clone() {
     let t = Theme::System;
     let c = t.clone();
     assert!(matches!(c, Theme::System));
 }
 
 #[test]
-fn test_theme_custom_clone() {
+fn theme_custom_clone() {
     let colors = ThemeColors::dark();
     let custom = CustomTheme::new("MyTheme", colors);
     let theme = Theme::Custom(Box::new(custom));
@@ -179,7 +179,7 @@ fn test_theme_custom_clone() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_theme_light_serde_roundtrip() {
+fn theme_light_serde_roundtrip() {
     let theme = Theme::Light;
     let json = serde_json::to_string(&theme).unwrap();
     let restored: Theme = serde_json::from_str(&json).unwrap();
@@ -187,7 +187,7 @@ fn test_theme_light_serde_roundtrip() {
 }
 
 #[test]
-fn test_theme_dark_serde_roundtrip() {
+fn theme_dark_serde_roundtrip() {
     let theme = Theme::Dark;
     let json = serde_json::to_string(&theme).unwrap();
     let restored: Theme = serde_json::from_str(&json).unwrap();
@@ -195,7 +195,7 @@ fn test_theme_dark_serde_roundtrip() {
 }
 
 #[test]
-fn test_theme_system_serde_roundtrip() {
+fn theme_system_serde_roundtrip() {
     let theme = Theme::System;
     let json = serde_json::to_string(&theme).unwrap();
     let restored: Theme = serde_json::from_str(&json).unwrap();
@@ -203,7 +203,7 @@ fn test_theme_system_serde_roundtrip() {
 }
 
 #[test]
-fn test_theme_colors_serde_roundtrip() {
+fn theme_colors_serde_roundtrip() {
     let colors = ThemeColors::dark();
     let json = serde_json::to_string(&colors).unwrap();
     let restored: ThemeColors = serde_json::from_str(&json).unwrap();
@@ -212,7 +212,7 @@ fn test_theme_colors_serde_roundtrip() {
 }
 
 #[test]
-fn test_custom_theme_serde_roundtrip() {
+fn custom_theme_serde_roundtrip() {
     let colors = ThemeColors::light();
     let custom = CustomTheme::new("Roundtrip Theme", colors);
     let json = serde_json::to_string(&custom).unwrap();
@@ -226,7 +226,7 @@ fn test_custom_theme_serde_roundtrip() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_dark_theme_css_generation() {
+fn dark_theme_css_generation() {
     let theme = Theme::Dark;
     let css = theme.css();
 
@@ -237,7 +237,7 @@ fn test_dark_theme_css_generation() {
 }
 
 #[test]
-fn test_css_contains_all_variables() {
+fn css_contains_all_variables() {
     let css = Theme::Light.css();
 
     let expected_vars = [
@@ -267,7 +267,7 @@ fn test_css_contains_all_variables() {
 }
 
 #[test]
-fn test_css_starts_with_root() {
+fn css_starts_with_root() {
     let css = Theme::Light.css();
     assert!(css.trim_start().starts_with(":root"));
 }
@@ -277,7 +277,7 @@ fn test_css_starts_with_root() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_custom_theme_new() {
+fn custom_theme_new() {
     let colors = ThemeColors::dark();
     let custom = CustomTheme::new("Test Theme", colors.clone());
     assert_eq!(custom.name, "Test Theme");
@@ -285,7 +285,7 @@ fn test_custom_theme_new() {
 }
 
 #[test]
-fn test_custom_theme_clone() {
+fn custom_theme_clone() {
     let colors = ThemeColors::light();
     let custom = CustomTheme::new("Cloneable", colors);
     let cloned = custom.clone();
@@ -293,7 +293,7 @@ fn test_custom_theme_clone() {
 }
 
 #[test]
-fn test_custom_theme_equality() {
+fn custom_theme_equality() {
     let colors = ThemeColors::light();
     let ct1 = CustomTheme::new("Same", colors.clone());
     let ct2 = CustomTheme::new("Same", colors);
@@ -301,7 +301,7 @@ fn test_custom_theme_equality() {
 }
 
 #[test]
-fn test_custom_theme_inequality_by_name() {
+fn custom_theme_inequality_by_name() {
     let colors = ThemeColors::light();
     let ct1 = CustomTheme::new("A", colors.clone());
     let ct2 = CustomTheme::new("B", colors);
@@ -309,7 +309,7 @@ fn test_custom_theme_inequality_by_name() {
 }
 
 #[test]
-fn test_custom_theme_css_reflects_colors() {
+fn custom_theme_css_reflects_colors() {
     let mut colors = ThemeColors::light();
     colors.accent_color = "#deadbe".to_string();
     let custom = CustomTheme::new("Custom Accent", colors);
@@ -325,7 +325,7 @@ fn test_custom_theme_css_reflects_colors() {
 #[rstest]
 #[case(Theme::Light, "#ffffff")]
 #[case(Theme::Dark, "#202020")]
-fn test_theme_colors_bg_primary(#[case] theme: Theme, #[case] expected_bg: &str) {
+fn theme_colors_bg_primary(#[case] theme: Theme, #[case] expected_bg: &str) {
     let colors = theme.colors();
     assert_eq!(colors.bg_primary, expected_bg);
 }
@@ -339,7 +339,7 @@ fn test_theme_colors_bg_primary(#[case] theme: Theme, #[case] expected_bg: &str)
 #[case("Ocean", "#003366")]
 #[case("Forest", "#1a3a1a")]
 #[case("Warm Sand", "#f5e6d3")]
-fn test_custom_theme_names_and_bg(#[case] name: &str, #[case] bg: &str) {
+fn custom_theme_names_and_bg(#[case] name: &str, #[case] bg: &str) {
     let mut colors = ThemeColors::light();
     colors.bg_primary = bg.to_string();
     let custom = CustomTheme::new(name, colors);

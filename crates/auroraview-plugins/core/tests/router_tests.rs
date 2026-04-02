@@ -1,11 +1,13 @@
 //! Tests for PluginRouter
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+
 use auroraview_plugin_core::{
     PluginError, PluginHandler, PluginRequest, PluginResult, PluginRouter,
     ScopeConfig,
 };
 use serde_json::{json, Value};
-use std::sync::Arc;
 
 // ── Minimal mock handler ──────────────────────────────────────────────────────
 
@@ -202,7 +204,6 @@ fn router_set_scope_replaces_scope() {
 
 #[test]
 fn router_event_callback_set_and_emit() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     let counter = Arc::new(AtomicUsize::new(0));
     let counter2 = counter.clone();
 
@@ -217,7 +218,6 @@ fn router_event_callback_set_and_emit() {
 
 #[test]
 fn router_clear_event_callback() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     let counter = Arc::new(AtomicUsize::new(0));
     let counter2 = counter.clone();
 

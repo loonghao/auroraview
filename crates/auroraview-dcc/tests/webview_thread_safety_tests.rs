@@ -10,10 +10,11 @@
 
 #[cfg(target_os = "windows")]
 mod tests {
-    use auroraview_dcc::config::{DccConfig, DccType};
-    use rstest::rstest;
     use std::sync::Arc;
     use std::thread;
+
+    use auroraview_dcc::config::{DccConfig, DccType};
+    use rstest::rstest;
 
     /// Helper to create a DccConfig with a fake parent HWND for testing
     fn test_config() -> DccConfig {

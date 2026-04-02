@@ -1,7 +1,7 @@
 //! Tests for BrowserConfig
 
-use auroraview_browser::{BrowserConfig, Theme};
 use auroraview_browser::devtools::DockSide;
+use auroraview_browser::{BrowserConfig, Theme};
 use rstest::rstest;
 
 // -------------------------------------------------------------------------
@@ -9,7 +9,7 @@ use rstest::rstest;
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_browser_config_default() {
+fn browser_config_default() {
     let config = BrowserConfig::default();
 
     assert_eq!(config.title, "AuroraView Browser");
@@ -21,20 +21,20 @@ fn test_browser_config_default() {
 }
 
 #[test]
-fn test_browser_config_default_frameless() {
+fn browser_config_default_frameless() {
     // Default config should be frameless (no native title bar)
     let config = BrowserConfig::default();
     assert!(config.frameless);
 }
 
 #[test]
-fn test_browser_config_default_remote_debugging_port_zero() {
+fn browser_config_default_remote_debugging_port_zero() {
     let config = BrowserConfig::default();
     assert_eq!(config.remote_debugging_port, 0);
 }
 
 #[test]
-fn test_browser_config_default_user_data_dir_none() {
+fn browser_config_default_user_data_dir_none() {
     let config = BrowserConfig::default();
     assert!(config.user_data_dir.is_none());
 }
@@ -44,7 +44,7 @@ fn test_browser_config_default_user_data_dir_none() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_browser_config_builder() {
+fn browser_config_builder() {
     let config = BrowserConfig::builder()
         .title("Custom Browser")
         .size(1400, 1000)
@@ -70,7 +70,7 @@ fn test_browser_config_builder() {
 }
 
 #[test]
-fn test_browser_config_builder_initial_urls() {
+fn browser_config_builder_initial_urls() {
     let config = BrowserConfig::builder()
         .initial_urls(vec![
             "https://google.com".to_string(),
@@ -84,7 +84,7 @@ fn test_browser_config_builder_initial_urls() {
 }
 
 #[test]
-fn test_browser_config_builder_user_data_dir() {
+fn browser_config_builder_user_data_dir() {
     let config = BrowserConfig::builder()
         .user_data_dir("/path/to/data")
         .build();
@@ -93,7 +93,7 @@ fn test_browser_config_builder_user_data_dir() {
 }
 
 #[test]
-fn test_browser_features_default() {
+fn browser_features_default() {
     let config = BrowserConfig::default();
 
     assert!(!config.features.bookmarks_bar);
@@ -109,7 +109,7 @@ fn test_browser_features_default() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_remote_debugging_port_enables_cdp() {
+fn remote_debugging_port_enables_cdp() {
     let config = BrowserConfig::builder()
         .remote_debugging_port(9222)
         .build();
@@ -119,7 +119,7 @@ fn test_remote_debugging_port_enables_cdp() {
 }
 
 #[test]
-fn test_remote_debugging_port_zero_no_cdp() {
+fn remote_debugging_port_zero_no_cdp() {
     let config = BrowserConfig::builder()
         .remote_debugging_port(0)
         .build();
@@ -130,7 +130,7 @@ fn test_remote_debugging_port_zero_no_cdp() {
 }
 
 #[test]
-fn test_devtools_auto_open() {
+fn devtools_auto_open() {
     let config = BrowserConfig::builder()
         .devtools_auto_open(true)
         .build();
@@ -139,7 +139,7 @@ fn test_devtools_auto_open() {
 }
 
 #[test]
-fn test_devtools_dock_side_bottom() {
+fn devtools_dock_side_bottom() {
     let config = BrowserConfig::builder()
         .devtools_dock_side(DockSide::Bottom)
         .build();
@@ -148,7 +148,7 @@ fn test_devtools_dock_side_bottom() {
 }
 
 #[test]
-fn test_devtools_dock_side_left() {
+fn devtools_dock_side_left() {
     let config = BrowserConfig::builder()
         .devtools_dock_side(DockSide::Left)
         .build();
@@ -157,7 +157,7 @@ fn test_devtools_dock_side_left() {
 }
 
 #[test]
-fn test_devtools_dock_side_undocked() {
+fn devtools_dock_side_undocked() {
     let config = BrowserConfig::builder()
         .devtools_dock_side(DockSide::Undocked)
         .build();
@@ -170,7 +170,7 @@ fn test_devtools_dock_side_undocked() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_frameless_can_be_disabled() {
+fn frameless_can_be_disabled() {
     let config = BrowserConfig::builder()
         .frameless(false)
         .build();
@@ -179,7 +179,7 @@ fn test_frameless_can_be_disabled() {
 }
 
 #[test]
-fn test_frameless_default_is_true() {
+fn frameless_default_is_true() {
     let config = BrowserConfig::builder().build();
     assert!(config.frameless);
 }
@@ -189,7 +189,7 @@ fn test_frameless_default_is_true() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_all_features_disabled() {
+fn all_features_disabled() {
     let config = BrowserConfig::builder()
         .bookmarks_bar(false)
         .history(false)
@@ -206,7 +206,7 @@ fn test_all_features_disabled() {
 }
 
 #[test]
-fn test_all_features_enabled() {
+fn all_features_enabled() {
     let config = BrowserConfig::builder()
         .bookmarks_bar(true)
         .history(true)
@@ -227,7 +227,7 @@ fn test_all_features_enabled() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_browser_config_clone() {
+fn browser_config_clone() {
     let config = BrowserConfig::builder()
         .title("Clone Test")
         .size(800, 600)
@@ -249,7 +249,7 @@ fn test_browser_config_clone() {
 #[case(2560, 1440)]
 #[case(3840, 2160)]
 #[case(800, 600)]
-fn test_browser_config_size_variants(#[case] w: u32, #[case] h: u32) {
+fn browser_config_size_variants(#[case] w: u32, #[case] h: u32) {
     let config = BrowserConfig::builder().size(w, h).build();
     assert_eq!(config.width, w);
     assert_eq!(config.height, h);
@@ -261,7 +261,7 @@ fn test_browser_config_size_variants(#[case] w: u32, #[case] h: u32) {
 #[case("https://rust-lang.org")]
 #[case("file:///index.html")]
 #[case("about:blank")]
-fn test_browser_config_home_url_variants(#[case] url: &str) {
+fn browser_config_home_url_variants(#[case] url: &str) {
     let config = BrowserConfig::builder().home_url(url).build();
     assert_eq!(config.home_url, url);
 }
@@ -271,7 +271,7 @@ fn test_browser_config_home_url_variants(#[case] url: &str) {
 #[case("AuroraView - Maya Panel")]
 #[case("Tool v2.0")]
 #[case("")]
-fn test_browser_config_title_variants(#[case] title: &str) {
+fn browser_config_title_variants(#[case] title: &str) {
     let config = BrowserConfig::builder().title(title).build();
     assert_eq!(config.title, title);
 }
@@ -285,7 +285,7 @@ fn test_browser_config_title_variants(#[case] title: &str) {
 #[case(1)]
 #[case(5)]
 #[case(20)]
-fn test_browser_config_initial_urls_count(#[case] count: usize) {
+fn browser_config_initial_urls_count(#[case] count: usize) {
     let urls: Vec<String> = (0..count)
         .map(|i| format!("https://tab{}.example.com", i))
         .collect();
@@ -301,7 +301,7 @@ fn test_browser_config_initial_urls_count(#[case] count: usize) {
 #[rstest]
 #[case(true)]
 #[case(false)]
-fn test_browser_config_debug_flag(#[case] debug: bool) {
+fn browser_config_debug_flag(#[case] debug: bool) {
     let config = BrowserConfig::builder().debug(debug).build();
     assert_eq!(config.debug, debug);
 }
