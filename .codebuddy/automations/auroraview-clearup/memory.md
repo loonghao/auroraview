@@ -301,6 +301,129 @@
 - Workspace `cargo clippy`: PASS (0 new warnings)
 - `uv run ruff check`: PASS (0 warnings)
 
+## 2026-04-02 16:52 — Round 16
+
+### Branch: `auto-improve` (HEAD: `1644e31`)
+
+### Baseline
+- **Cargo check**: PASS
+- **Cargo clippy**: PASS (0 warnings)
+- **Ruff (python/examples/scripts/gallery)**: PASS (0 warnings) — first time full Python scope is clean
+- Iterate Agent committed 1 test batch since Round 15:
+  - `6da160c` — desktop tray_tests (23) + event_loop_tests (27) for TrayConfig/TrayMenuItem/UserEvent
+
+### Actions Taken (Commits: `8ebc908`, `1644e31`)
+1. **Removed `test_` prefix from 50 test functions** in 2 new desktop test files:
+   - `tray_tests.rs` — 23 fns
+   - `event_loop_tests.rs` — 27 fns
+2. **Extracted inline `use std::path::PathBuf`** from `tray_config_with_icon_path` to file top
+3. **Fixed 220+ ruff violations** in examples/scripts/gallery scope (previously unscoped):
+   - W293/W291 × 118: trailing/blank-line whitespace (in HTML/CSS string literals)
+   - F821 × 8: undefined names in `ai_chat_demo.py` (missing `Optional`, `QMetaObject`, `Q_ARG` imports — real bugs)
+   - F401 × 6: unused imports in `qt_browser.py`, `ai_chat_demo.py`, `dependency_installer.py`
+   - I001 × 5: import ordering violations
+   - E402 × 4: module-level import not at top (added `# noqa: E402` for sys.path pattern)
+
+### Code Review Findings (Iterate Agent's commit)
+- **tray_tests.rs**: clean structure, serde round-trip tests, parametric `#[case]` well-applied
+- **event_loop_tests.rs**: clean structure, Clone/Debug/parametric coverage
+- **`ai_chat_demo.py` F821**: `QMetaObject` / `Q_ARG` / `Optional` were genuinely missing imports (not style — actual runtime bugs)
+
+### Metrics
+- `test_` prefix violations removed: 50 fns (2 files)
+- Ruff violations fixed: 220+ (across 17 files)
+- Real Python bugs fixed: 8 F821 undefined names
+- Clippy warnings: 0 / Ruff warnings: 0 (project code scope)
+
+### Quality Gate
+- Workspace `cargo check`: PASS
+- Workspace `cargo clippy`: PASS (0 warnings)
+- `uv run ruff check examples/ scripts/ gallery/ python/`: PASS (0 warnings)
+- `git push origin auto-improve`: PASS
+
+
+
+### Branch: `auto-improve` (HEAD: `c55ef8d`)
+
+### Baseline
+- **Cargo check**: PASS
+- **Cargo clippy**: Had 3 errors + 1 warning across 2 crates before fix
+- **Ruff**: PASS (0 warnings)
+- Iterate Agent committed 3 test batch commits since Round 14:
+  - `1bc7ac7` — core error_tests (52 tests for WebViewError/BomError/PortError/ServiceDiscoveryError)
+  - `ee49024` — desktop error_tests (13) + window_manager_tests (30)
+  - `573d161` — pack python_standalone_tests expanded 13→39
+
+### Actions Taken (Commit: `c55ef8d`)
+1. **Fixed `settings_tests.rs:42-43`** — `3.14f64` re-introduced by iterate Agent (clippy `approx_constant` error); replaced with `1.5f64`
+2. **Fixed `devtools_tests.rs:106`** — `assert_eq!(back.is_open, true)` → `assert!(back.is_open)` (clippy `bool_assert_comparison`)
+3. **Removed `test_` prefix from 12 fns** in `python_standalone_tests.rs`; changed `#[test]` → `#[rstest]`
+4. **Extracted inline `use` statements** from `concurrent_create_is_safe` in `window_manager_tests.rs` → file top
+
+### Code Review Findings (new test files)
+- **`core/error_tests.rs`**: clean — `std::io` before external crates, no `test_` prefix ✓
+- **`desktop/error_tests.rs`**: clean — same ✓
+- **`desktop/window_manager_tests.rs`**: inline `use` extracted (fixed this round) ✓
+- **`pack/python_standalone_tests.rs`**: 12 `test_` prefix violations fixed this round ✓
+
+### Findings for Future Rounds
+- **`settings_tests.rs` approx_constant recurring**: iterate Agent repeatedly re-introduces `3.14`; this is the 2nd fix (Round 5 + Round 15). May need to add `#![deny(clippy::approx_constant)]` to the test file.
+- **GitHub dep vulnerabilities**: ~48 (1 critical, 25 high) — still pending dedicated deps round
+- **`#[allow(dead_code)]`**: ~95 (structural, unchanged)
+
+### Metrics
+- Clippy errors/warnings fixed: 3 errors (approx_constant ×2) + 1 warning (bool_assert_comparison)
+- `test_` prefix violations removed: 12 fns (python_standalone_tests.rs)
+- Inline use statements extracted: 2 (window_manager_tests.rs)
+
+### Quality Gate
+- Workspace `cargo check`: PASS
+- Workspace `cargo clippy`: PASS (exit 0, 0 warnings)
+- `uv run ruff check`: PASS (0 warnings)
+- `git push origin auto-improve`: PASS
+
+
+
+### Branch: `auto-improve` (HEAD: `e54135b`)
+
+### Baseline
+- **Cargo check**: PASS
+- **Cargo clippy**: PASS (0 warnings)
+- **Ruff**: PASS (0 warnings)
+- Iterate Agent committed 3 test batch commits since Round 13:
+  - `3188641` — bundle/license/deps_collector/pyoxidizer tests (4 files)
+  - `b0120b2` — signal_tests expanded to 61 tests
+  - `1196041` — manifest_tests expanded to 45 tests
+
+### Actions Taken (Commits: `7a1a2b4`, `e54135b`)
+1. **Removed `test_` prefix from 101 test functions** across 5 new test files:
+   - `manifest_tests.rs` — 45 fns
+   - `bundle_tests.rs` — 12 fns
+   - `deps_collector_tests.rs` — 16 fns
+   - `license_tests.rs` — 15 fns
+   - `pyoxidizer_tests.rs` — 13 fns
+2. **Fixed import ordering in 2 files**:
+   - `bundle_tests.rs` — `use auroraview_pack` was before `use std::fs`
+   - `deps_collector_tests.rs` — `use auroraview_pack` was before `use std::path::PathBuf`
+3. **Removed stale inline `use auroraview_pack::BundleBuilder`** from `bundle_is_empty_check` (already imported at top)
+
+### Code Review Findings
+- **signal_tests.rs**: import ordering correct (std first); no `test_` prefix violations — CLEAN
+- **GitHub dep vulnerabilities**: 48 (1 critical, 25 high) — still pending dedicated deps round
+
+### Metrics
+- `test_` prefix violations removed: 101 fns (5 files)
+- Import ordering violations fixed: 2
+- Clippy warnings: 0 / Ruff warnings: 0
+- `unsafe impl Send/Sync`: 2 (WebViewProxy only, unchanged)
+- `#[allow(dead_code)]`: ~95 (structural, unchanged)
+
+### Quality Gate
+- Workspace `cargo check`: PASS
+- Workspace `cargo clippy`: PASS (0 new warnings)
+- `uv run ruff check`: PASS (0 warnings)
+- `git push origin auto-improve`: PASS
+
 ## 2026-04-02 01:15 — Round 12
 
 ### Branch: `auto-improve` (HEAD: `9057610`)
