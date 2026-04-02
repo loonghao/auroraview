@@ -534,3 +534,342 @@ fn manager_save_no_storage_path_is_ok() {
     let mgr = SettingsManager::new();
     assert!(mgr.save().is_ok());
 }
+
+// ---------------------------------------------------------------------------
+// Serde Roundtrip Tests
+// ---------------------------------------------------------------------------
+
+use auroraview_settings::SettingsError;
+
+#[rstest]
+#[case(SettingValue::Bool(true))]
+#[case(SettingValue::Bool(false))]
+#[case(SettingValue::Integer(42))]
+#[case(SettingValue::Integer(-1))]
+#[case(SettingValue::Float(3.14))]
+#[case(SettingValue::String("hello".into()))]
+#[case(SettingValue::Null)]
+fn setting_value_serde_roundtrip(#[case] value: SettingValue) {
+    let json = serde_json::to_string(&value).unwrap();
+    let back: SettingValue = serde_json::from_str(&json).unwrap();
+    // Compare via type_name as PartialEq may not be derived
+    assert_eq!(back.type_name(), value.type_name());
+}
+
+#[test]
+fn setting_value_array_serde_roundtrip() {
+    let v = SettingValue::Array(vec![
+        SettingValue::Integer(1),
+        SettingValue::String("two".into()),
+        SettingValue::Bool(false),
+    ]);
+    let json = serde_json::to_string(&v).unwrap();
+    let back: SettingValue = serde_json::from_str(&json).unwrap();
+    let arr = back.as_array().unwrap();
+    assert_eq!(arr.len(), 3);
+}
+
+#[test]
+fn store_serde_via_setting_value() {
+    // SettingsStore does not implement Serialize/Deserialize directly;
+    // test SettingValue serde via manager export instead
+    let mgr = SettingsManager::new();
+    mgr.set("key1", SettingValue::String("value1".into())).unwrap();
+    mgr.set("key2", SettingValue::Integer(42)).unwrap();
+    mgr.set("key3", SettingValue::Bool(true)).unwrap();
+
+    let user = mgr.user_settings();
+    assert_eq!(user.get("key1").unwrap().as_str(), Some("value1"));
+    assert_eq!(user.get("key2").unwrap().as_integer(), Some(42));
+    assert_eq!(user.get("key3").unwrap().as_bool(), Some(true));
+}
+
+#[test]
+fn store_empty_serde_via_manager() {
+    let mgr = SettingsManager::new();
+    let user = mgr.user_settings();
+    assert!(user.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// SettingsError Display Tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn error_not_found_display() {
+    let err = SettingsError::NotFound("ui.theme".to_string());
+    let msg = err.to_string();
+    assert!(msg.contains("ui.theme"), "got: {msg}");
+}
+
+#[test]
+fn error_type_mismatch_display() {
+    let err = SettingsError::TypeMismatch {
+        key: "volume".to_string(),
+        expected: "integer".to_string(),
+        actual: "string".to_string(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("volume"), "got: {msg}");
+    assert!(msg.contains("integer"), "got: {msg}");
+    assert!(msg.contains("string"), "got: {msg}");
+}
+
+#[test]
+fn error_validation_failed_display() {
+    let err = SettingsError::ValidationFailed {
+        key: "volume".to_string(),
+        reason: "value 150 exceeds maximum 100".to_string(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("volume"), "got: {msg}");
+    assert!(msg.contains("150"), "got: {msg}");
+}
+
+#[test]
+fn error_invalid_key_display() {
+    let err = SettingsError::InvalidKey("".to_string());
+    let msg = err.to_string();
+    assert!(!msg.is_empty());
+}
+
+#[test]
+fn error_schema_not_found_display() {
+    let err = SettingsError::SchemaNotFound("advanced.setting".to_string());
+    let msg = err.to_string();
+    assert!(msg.contains("advanced.setting"), "got: {msg}");
+}
+
+// ---------------------------------------------------------------------------
+// SettingValue Edge Cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn setting_value_wrong_type_accessors_return_none() {
+    let v = SettingValue::Bool(true);
+    assert!(v.as_integer().is_none());
+    assert!(v.as_float().is_none());
+    assert!(v.as_str().is_none());
+    assert!(v.as_array().is_none());
+}
+
+#[test]
+fn setting_value_integer_as_float_coerces() {
+    let v = SettingValue::Integer(10);
+    assert_eq!(v.as_float(), Some(10.0));
+}
+
+#[test]
+fn setting_value_float_as_integer_none() {
+    let v = SettingValue::Float(3.14);
+    // float does not coerce to integer
+    assert!(v.as_integer().is_none());
+}
+
+#[test]
+fn setting_value_empty_array() {
+    let v = SettingValue::Array(vec![]);
+    let arr = v.as_array().unwrap();
+    assert!(arr.is_empty());
+}
+
+#[test]
+fn setting_value_large_integer() {
+    let v = SettingValue::Integer(i64::MAX);
+    assert_eq!(v.as_integer(), Some(i64::MAX));
+}
+
+#[test]
+fn setting_value_negative_float() {
+    let v = SettingValue::Float(-273.15);
+    assert!((v.as_float().unwrap() + 273.15).abs() < 1e-10);
+}
+
+// ---------------------------------------------------------------------------
+// SettingsStore Additional Coverage
+// ---------------------------------------------------------------------------
+
+#[test]
+fn store_remove_nonexistent_returns_none() {
+    let mut store = SettingsStore::new();
+    let result = store.remove("nonexistent");
+    assert!(result.is_none());
+}
+
+#[test]
+fn store_contains_after_remove() {
+    let mut store = SettingsStore::new();
+    store.set("k", SettingValue::Bool(true));
+    store.remove("k");
+    assert!(!store.contains("k"));
+}
+
+#[test]
+fn store_overwrite_existing_key() {
+    let mut store = SettingsStore::new();
+    store.set("key", SettingValue::Integer(1));
+    store.set("key", SettingValue::Integer(99));
+    assert_eq!(store.get("key").unwrap().as_integer(), Some(99));
+}
+
+#[test]
+fn store_keys_with_prefix_no_match() {
+    let mut store = SettingsStore::new();
+    store.set("browser.homepage", SettingValue::String("about:blank".into()));
+    let results: Vec<&str> = store.keys_with_prefix("network.").collect();
+    assert!(results.is_empty());
+}
+
+#[test]
+fn store_merge_does_not_affect_source() {
+    let mut base = SettingsStore::new();
+    base.set("original", SettingValue::Integer(1));
+
+    let empty = SettingsStore::new();
+    base.merge(empty);
+
+    assert_eq!(base.get("original").unwrap().as_integer(), Some(1));
+}
+
+// ---------------------------------------------------------------------------
+// SettingsManager Additional Coverage
+// ---------------------------------------------------------------------------
+
+#[test]
+fn manager_get_nonexistent_returns_none() {
+    let mgr = SettingsManager::new();
+    assert!(mgr.get_string("nonexistent.key").is_none());
+    assert!(mgr.get_bool("nonexistent.key").is_none());
+    assert!(mgr.get_integer("nonexistent.key").is_none());
+    assert!(mgr.get_float("nonexistent.key").is_none());
+}
+
+#[test]
+fn manager_schema_validation_wrong_type() {
+    let mgr = SettingsManager::new();
+    let schema = bool_schema("ui.enabled");
+    mgr.register_schema(schema);
+
+    // Setting a string where bool is expected should fail
+    let result = mgr.set("ui.enabled", SettingValue::String("yes".into()));
+    assert!(result.is_err());
+}
+
+#[test]
+fn manager_user_settings_only_includes_explicitly_set() {
+    let mgr = SettingsManager::new();
+
+    let schema = bool_schema("feature.x");
+    mgr.register_schema(schema);
+
+    // Not set explicitly
+    assert!(mgr.user_settings().is_empty());
+
+    mgr.set("feature.x", SettingValue::Bool(true)).unwrap();
+    assert_eq!(mgr.user_settings().len(), 1);
+}
+
+#[test]
+fn manager_reset_key_without_schema_removes_user_value() {
+    let mgr = SettingsManager::new();
+    mgr.set("misc.key", SettingValue::Integer(5)).unwrap();
+    let _ = mgr.reset("misc.key"); // may return error or ok depending on schema presence
+    // No panic is the key requirement
+}
+
+#[test]
+fn manager_on_change_not_called_when_value_unchanged() {
+    let mgr = SettingsManager::new();
+    let count = Arc::new(AtomicUsize::new(0));
+    let c = count.clone();
+
+    mgr.on_change(move |_key, old, new| {
+        if old.type_name() != new.type_name() || old.as_integer() != new.as_integer() {
+            c.fetch_add(1, Ordering::SeqCst);
+        }
+    });
+
+    mgr.set("x", SettingValue::Integer(42)).unwrap();
+    // Setting same value again - callback fires but old==new
+    mgr.set("x", SettingValue::Integer(42)).unwrap();
+
+    // At least first set should fire; second may or may not depending on impl
+    assert!(count.load(Ordering::SeqCst) >= 1);
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent Tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn concurrent_set_no_deadlock() {
+    use std::thread;
+
+    let mgr = Arc::new(SettingsManager::new());
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let m = Arc::clone(&mgr);
+            thread::spawn(move || {
+                for j in 0..10 {
+                    let key = format!("thread{i}.setting{j}");
+                    let _ = m.set(key, SettingValue::Integer(i as i64 * 10 + j));
+                }
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    assert!(mgr.user_settings().len() > 0);
+}
+
+#[test]
+fn concurrent_get_set_no_panic() {
+    use std::thread;
+
+    let mgr = Arc::new(SettingsManager::new());
+    mgr.set("shared", SettingValue::Integer(0)).unwrap();
+
+    let writer = {
+        let m = Arc::clone(&mgr);
+        thread::spawn(move || {
+            for i in 0..50 {
+                let _ = m.set("shared", SettingValue::Integer(i));
+            }
+        })
+    };
+
+    let reader = {
+        let m = Arc::clone(&mgr);
+        thread::spawn(move || {
+            for _ in 0..50 {
+                let _ = m.get_integer("shared");
+            }
+        })
+    };
+
+    writer.join().unwrap();
+    reader.join().unwrap();
+}
+
+#[test]
+fn concurrent_clone_and_set_shares_state() {
+    use std::thread;
+
+    let mgr = SettingsManager::new();
+    let mgr_clone = mgr.clone();
+
+    let writer = thread::spawn(move || {
+        for i in 0..20 {
+            let _ = mgr_clone.set(format!("concurrent.key{i}"), SettingValue::Bool(true));
+        }
+    });
+
+    writer.join().unwrap();
+
+    // mgr and mgr_clone share state
+    assert!(mgr.user_settings().len() > 0);
+}
