@@ -999,8 +999,10 @@ dependencies = [
  "auroraview-plugin-core",
  "auroraview-workspace-hack",
  "base64",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
+ "tempfile",
  "tracing",
 ]
 
