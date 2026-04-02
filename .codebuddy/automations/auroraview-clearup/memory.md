@@ -424,6 +424,48 @@
 - `uv run ruff check`: PASS (0 warnings)
 - `git push origin auto-improve`: PASS
 
+## 2026-04-02 20:10 — Round 17
+
+### Branch: `auto-improve` (HEAD: `bcf04ba`)
+
+### Baseline
+- **Cargo check**: PASS
+- **Cargo clippy**: PASS (0 warnings)
+- **Ruff**: PASS (0 warnings)
+- Iterate Agent committed 4 test batch commits since Round 16:
+  - `03f4f3a` — cli args_tests (45) + assets assets_tests (28)
+  - `e0bee90` — browser error_tests (29)
+  - `c4af0d3` — dcc error_tests (22)
+  - `14821eb` — pack error_tests (50)
+  - `cf9e351` — testing unit_tests (78)
+
+### Actions Taken (Commits: `234dd4d`, `bcf04ba`)
+1. **Removed `test_` prefix from 97 test functions** across 3 files:
+   - `crates/auroraview-assets/tests/assets_tests.rs` — 19 fns; `#[test]` → `#[rstest]`
+   - `crates/auroraview-cli/tests/args_tests.rs` — 56 fns; `#[test]` → `#[rstest]`
+   - `crates/auroraview-browser/tests/error_tests.rs` — 22 fns; `#[test]` → `#[rstest]`
+2. **Fixed import ordering** in `crates/auroraview-pack/tests/error_tests.rs` — `use std::path::PathBuf` was after `use auroraview_pack`; moved to top
+3. **Clean files** (no violations): `dcc/error_tests.rs` (22 fns, no `test_` prefix), `testing/unit_tests.rs` (78 fns, already clean)
+
+### Code Review Findings (Iterate Agent's 5 commits)
+- **`testing/unit_tests.rs`**: Already follows project convention (no `test_` prefix, `#[rstest]` throughout) — CLEAN
+- **`dcc/error_tests.rs`**: Clean — no `test_` prefix violations, no std imports needed
+- **`pack/error_tests.rs`**: Import ordering fixed this round
+- **GitHub dep vulnerabilities**: 48 (1 critical, 25 high) — still pending dedicated deps round
+
+### Metrics
+- `test_` prefix violations removed: 97 fns (3 files)
+- Import ordering violations fixed: 1
+- Clippy warnings: 0 / Ruff warnings: 0
+- `unsafe impl Send/Sync`: 2 (WebViewProxy only, unchanged)
+- `#[allow(dead_code)]`: ~95 (structural, unchanged)
+
+### Quality Gate
+- Workspace `cargo check`: PASS
+- Workspace `cargo clippy`: PASS (0 new warnings)
+- `uv run ruff check python/ examples/ scripts/ gallery/`: PASS (0 warnings)
+- `git push origin auto-improve`: PASS
+
 ## 2026-04-02 01:15 — Round 12
 
 ### Branch: `auto-improve` (HEAD: `9057610`)

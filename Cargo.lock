@@ -688,6 +688,7 @@ version = "0.4.17"
 dependencies = [
  "auroraview-workspace-hack",
  "mime_guess",
+ "rstest 0.26.1",
  "rust-embed",
  "tempfile",
  "thiserror 2.0.18",
@@ -983,8 +984,10 @@ dependencies = [
  "auroraview-workspace-hack",
  "dunce",
  "parking_lot",
+ "rstest 0.26.1",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tracing",
 ]
