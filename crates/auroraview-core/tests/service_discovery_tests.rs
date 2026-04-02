@@ -584,3 +584,296 @@ fn test_port_allocator_parametrized_new(#[case] start: u16, #[case] max: u16) {
     assert_eq!(a.start_port(), start);
     assert_eq!(a.max_attempts(), max);
 }
+
+// ============================================================================
+// ServiceDiscoveryError display
+// ============================================================================
+
+#[rstest]
+fn test_error_no_free_port_display() {
+    use auroraview_core::service_discovery::ServiceDiscoveryError;
+    let e = ServiceDiscoveryError::NoFreePort {
+        start: 9001,
+        end: 9100,
+    };
+    let msg = format!("{}", e);
+    assert!(msg.contains("9001"));
+    assert!(msg.contains("9100"));
+}
+
+#[rstest]
+fn test_error_port_in_use_display() {
+    use auroraview_core::service_discovery::ServiceDiscoveryError;
+    let e = ServiceDiscoveryError::PortInUse(9999);
+    let msg = format!("{}", e);
+    assert!(msg.contains("9999"));
+}
+
+#[rstest]
+fn test_error_mdns_display() {
+    use auroraview_core::service_discovery::ServiceDiscoveryError;
+    let e = ServiceDiscoveryError::MdnsError("timeout".to_string());
+    let msg = format!("{}", e);
+    assert!(msg.contains("timeout"));
+}
+
+#[rstest]
+fn test_error_http_display() {
+    use auroraview_core::service_discovery::ServiceDiscoveryError;
+    let e = ServiceDiscoveryError::HttpError("connection refused".to_string());
+    let msg = format!("{}", e);
+    assert!(msg.contains("connection refused"));
+}
+
+#[rstest]
+fn test_error_io_display() {
+    use auroraview_core::service_discovery::ServiceDiscoveryError;
+    let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+    let e = ServiceDiscoveryError::IoError(io_err);
+    let msg = format!("{}", e);
+    assert!(msg.contains("file not found"));
+}
+
+#[rstest]
+fn test_error_no_free_port_debug() {
+    use auroraview_core::service_discovery::ServiceDiscoveryError;
+    let e = ServiceDiscoveryError::NoFreePort { start: 1, end: 2 };
+    let dbg = format!("{:?}", e);
+    assert!(dbg.contains("NoFreePort"));
+}
+
+// ============================================================================
+// InstanceRegistry concurrent operations
+// ============================================================================
+
+#[rstest]
+fn test_instance_registry_concurrent_register() {
+    use std::sync::Arc;
+    let registry = Arc::new(InstanceRegistry::new().unwrap());
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let reg = Arc::clone(&registry);
+            std::thread::spawn(move || {
+                let window_id = format!("concurrent-reg-{}-{}", std::process::id(), i);
+                let info = InstanceInfo::new(window_id.clone(), "ConcThread".to_string(), 19200 + i);
+                let _ = reg.register(&info);
+                let _ = reg.unregister(&window_id);
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+#[rstest]
+fn test_instance_registry_concurrent_register_unregister() {
+    use std::sync::Arc;
+    let registry = Arc::new(InstanceRegistry::new().unwrap());
+
+    // Pre-register some entries
+    let ids: Vec<String> = (0..4)
+        .map(|i| {
+            let wid = format!("conc-unreg-{}-{}", std::process::id(), i);
+            let info = InstanceInfo::new(wid.clone(), "Pre".to_string(), 19210 + i);
+            let _ = registry.register(&info);
+            wid
+        })
+        .collect();
+
+    let handles: Vec<_> = ids
+        .into_iter()
+        .map(|wid| {
+            let reg = Arc::clone(&registry);
+            std::thread::spawn(move || {
+                let _ = reg.unregister(&wid);
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+#[rstest]
+fn test_instance_registry_concurrent_get() {
+    use std::sync::Arc;
+    let registry = Arc::new(InstanceRegistry::new().unwrap());
+    let window_id = format!("conc-get-{}", std::process::id());
+    let info = InstanceInfo::new(window_id.clone(), "GetTest".to_string(), 19220);
+    registry.register(&info).unwrap();
+
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let reg = Arc::clone(&registry);
+            let wid = window_id.clone();
+            std::thread::spawn(move || {
+                let _ = reg.get(&wid);
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+
+    // Cleanup
+    let _ = registry.unregister(&window_id);
+}
+
+#[rstest]
+fn test_instance_registry_concurrent_get_all() {
+    use std::sync::Arc;
+    let registry = Arc::new(InstanceRegistry::new().unwrap());
+
+    let handles: Vec<_> = (0..6)
+        .map(|_| {
+            let reg = Arc::clone(&registry);
+            std::thread::spawn(move || {
+                let _ = reg.get_all();
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+#[rstest]
+fn test_instance_registry_register_multiple_then_get_all() {
+    let registry = InstanceRegistry::new().unwrap();
+    let pid = std::process::id();
+
+    let wids: Vec<String> = (0..4)
+        .map(|i| {
+            let wid = format!("multi-reg-{}-{}", pid, i);
+            let info = InstanceInfo::new(wid.clone(), format!("Win{}", i), 19230 + i);
+            registry.register(&info).unwrap();
+            wid
+        })
+        .collect();
+
+    let all = registry.get_all().unwrap();
+    // At least our 4 entries (may include stale from other tests)
+    assert!(all.len() >= 4);
+
+    // Cleanup
+    for wid in &wids {
+        let _ = registry.unregister(wid);
+    }
+}
+
+// ============================================================================
+// PortAllocator concurrent find_free_port
+// ============================================================================
+
+#[rstest]
+fn test_port_allocator_concurrent_no_panic() {
+    use std::sync::Arc;
+    let allocator = Arc::new(PortAllocator::new(51000, 200));
+
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let a = Arc::clone(&allocator);
+            std::thread::spawn(move || {
+                let _ = a.find_free_port();
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+#[rstest]
+fn test_port_allocator_is_port_available_concurrent() {
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            std::thread::spawn(|| {
+                let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+                let port = listener.local_addr().unwrap().port();
+                assert!(!PortAllocator::is_port_available(port));
+                drop(listener);
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+// ============================================================================
+// InstanceInfo pid and start_time fields
+// ============================================================================
+
+#[rstest]
+fn test_instance_info_pid_is_current_process() {
+    let info = InstanceInfo::new("pid-test".to_string(), "T".to_string(), 9222);
+    assert_eq!(info.pid, std::process::id());
+}
+
+#[rstest]
+fn test_instance_info_start_time_nonzero() {
+    let info = InstanceInfo::new("st-test".to_string(), "T".to_string(), 9222);
+    assert!(info.start_time > 0);
+}
+
+#[rstest]
+fn test_instance_info_app_version_nonempty() {
+    let info = InstanceInfo::new("ver-test".to_string(), "T".to_string(), 9222);
+    assert!(!info.app_version.is_empty());
+}
+
+#[rstest]
+fn test_instance_info_url_html_title_defaults() {
+    let info = InstanceInfo::new("url-test".to_string(), "T".to_string(), 9222);
+    assert_eq!(info.url, "");
+    assert_eq!(info.html_title, "");
+    assert!(!info.is_loading);
+}
+
+// ============================================================================
+// DiscoveryResponse serde roundtrip
+// ============================================================================
+
+#[rstest]
+fn test_discovery_response_serde_roundtrip() {
+    use auroraview_core::service_discovery::DiscoveryResponse;
+
+    let response = DiscoveryResponse {
+        service: "RoundTrip".to_string(),
+        port: 9001,
+        protocol: "websocket".to_string(),
+        version: "3.0.0".to_string(),
+        timestamp: 9999999,
+    };
+
+    let json = serde_json::to_string(&response).unwrap();
+    let decoded: DiscoveryResponse = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.service, "RoundTrip");
+    assert_eq!(decoded.port, 9001);
+    assert_eq!(decoded.protocol, "websocket");
+    assert_eq!(decoded.version, "3.0.0");
+    assert_eq!(decoded.timestamp, 9999999);
+}
+
+#[rstest]
+#[case(9001, "ws1", "1.0")]
+#[case(8080, "ws2", "2.0")]
+#[case(443, "wss", "3.0")]
+fn test_discovery_response_parametrized(#[case] port: u16, #[case] svc: &str, #[case] ver: &str) {
+    use auroraview_core::service_discovery::DiscoveryResponse;
+
+    let r = DiscoveryResponse {
+        service: svc.to_string(),
+        port,
+        protocol: "websocket".to_string(),
+        version: ver.to_string(),
+        timestamp: 0,
+    };
+    let json = serde_json::to_string(&r).unwrap();
+    let decoded: DiscoveryResponse = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.port, port);
+    assert_eq!(decoded.service, svc);
+    assert_eq!(decoded.version, ver);
+}
