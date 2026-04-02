@@ -1,9 +1,10 @@
 //! IPC module tests
 
-use auroraview_core::ipc::{IpcMessage, IpcMetrics, IpcMetricsSnapshot, IpcMode, WebViewMessage, WindowEventType};
-use rstest::rstest;
 use std::sync::Arc;
 use std::thread;
+
+use auroraview_core::ipc::{IpcMessage, IpcMetrics, IpcMetricsSnapshot, IpcMode, WebViewMessage, WindowEventType};
+use rstest::rstest;
 
 // ─── IpcMessage ──────────────────────────────────────────────────────────────
 

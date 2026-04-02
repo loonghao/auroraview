@@ -4,12 +4,13 @@
 //! including E2E request/response roundtrips, concurrent dispatch,
 //! and multi-plugin routing.
 
+use std::sync::{Arc, Mutex};
+use std::thread;
+
 use auroraview_plugins::{
     create_router, create_router_with_scope, PathScope, PluginRequest, PluginResponse, ScopeConfig,
 };
 use rstest::rstest;
-use std::sync::{Arc, Mutex};
-use std::thread;
 use tempfile::tempdir;
 
 // ─── PluginRequest parsing ────────────────────────────────────────────────────

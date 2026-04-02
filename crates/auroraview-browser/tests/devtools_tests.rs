@@ -1,5 +1,7 @@
 //! DevTools module tests
 
+use std::collections::HashMap;
+
 use auroraview_browser::devtools::cdp::{CdpError, CdpEvent, CdpRequest, CdpResponse};
 use auroraview_browser::{
     ConsoleMessage, ConsoleMessageType, DevToolsConfig, DevToolsManager, DockSide,
@@ -7,7 +9,6 @@ use auroraview_browser::{
 use auroraview_browser::devtools::{DevToolsState, NetworkRequestInfo, NetworkResponseInfo};
 use rstest::rstest;
 use serde_json::json;
-use std::collections::HashMap;
 
 // ─── DevToolsConfig ───────────────────────────────────────────────────────────
 

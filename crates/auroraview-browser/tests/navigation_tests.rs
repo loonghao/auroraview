@@ -1,10 +1,11 @@
 //! Navigation coverage: HistoryManager and BookmarkManager edge cases
 //! Complements history_tests.rs and bookmarks_tests.rs
 
+use std::sync::Arc;
+
 use auroraview_browser::navigation::{Bookmark, BookmarkFolder, BookmarkManager, HistoryManager};
 use chrono::{Duration, Utc};
 use rstest::*;
-use std::sync::Arc;
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
