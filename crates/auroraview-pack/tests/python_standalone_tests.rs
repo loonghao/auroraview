@@ -6,8 +6,8 @@ use auroraview_pack::{
 };
 use rstest::rstest;
 
-#[test]
-fn test_target_detection() {
+#[rstest]
+fn target_detection() {
     // Should not panic on supported platforms
     let result = PythonTarget::current();
     #[cfg(any(
@@ -19,8 +19,8 @@ fn test_target_detection() {
     assert!(result.is_ok());
 }
 
-#[test]
-fn test_download_url() {
+#[rstest]
+fn download_url() {
     let config = PythonStandaloneConfig {
         version: "3.11.11".to_string(),
         release: Some("20241206".to_string()),
@@ -36,32 +36,32 @@ fn test_download_url() {
     assert!(url.contains("x86_64-pc-windows-msvc"));
 }
 
-#[test]
-fn test_python_paths() {
+#[rstest]
+fn python_paths() {
     assert_eq!(PythonTarget::WindowsX64.python_exe(), "python.exe");
     assert_eq!(PythonTarget::LinuxX64.python_exe(), "python3");
     assert_eq!(PythonTarget::WindowsX64.python_path(), "python/python.exe");
     assert_eq!(PythonTarget::LinuxX64.python_path(), "python/bin/python3");
 }
 
-#[test]
-fn test_target_triples() {
+#[rstest]
+fn target_triples() {
     assert_eq!(PythonTarget::WindowsX64.triple(), "x86_64-pc-windows-msvc");
     assert_eq!(PythonTarget::LinuxX64.triple(), "x86_64-unknown-linux-gnu");
     assert_eq!(PythonTarget::MacOSX64.triple(), "x86_64-apple-darwin");
     assert_eq!(PythonTarget::MacOSArm64.triple(), "aarch64-apple-darwin");
 }
 
-#[test]
-fn test_macos_python_paths() {
+#[rstest]
+fn macos_python_paths() {
     assert_eq!(PythonTarget::MacOSX64.python_exe(), "python3");
     assert_eq!(PythonTarget::MacOSArm64.python_exe(), "python3");
     assert_eq!(PythonTarget::MacOSX64.python_path(), "python/bin/python3");
     assert_eq!(PythonTarget::MacOSArm64.python_path(), "python/bin/python3");
 }
 
-#[test]
-fn test_config_default() {
+#[rstest]
+fn config_default() {
     let config = PythonStandaloneConfig::default();
     assert_eq!(config.version, "3.11");
     assert!(config.release.is_none());
@@ -69,8 +69,8 @@ fn test_config_default() {
     assert!(config.cache_dir.is_none());
 }
 
-#[test]
-fn test_standalone_new_with_target() {
+#[rstest]
+fn standalone_new_with_target() {
     let config = PythonStandaloneConfig {
         version: "3.12".to_string(),
         release: Some("20241206".to_string()),
@@ -83,8 +83,8 @@ fn test_standalone_new_with_target() {
     assert_eq!(standalone.version(), "3.12");
 }
 
-#[test]
-fn test_standalone_invalid_target() {
+#[rstest]
+fn standalone_invalid_target() {
     let config = PythonStandaloneConfig {
         version: "3.11".to_string(),
         release: None,
@@ -96,8 +96,8 @@ fn test_standalone_invalid_target() {
     assert!(result.is_err());
 }
 
-#[test]
-fn test_cached_path() {
+#[rstest]
+fn cached_path() {
     let temp_dir = tempfile::tempdir().unwrap();
     let config = PythonStandaloneConfig {
         version: "3.11".to_string(),
@@ -114,8 +114,8 @@ fn test_cached_path() {
     assert!(cached.to_string_lossy().ends_with(".tar.gz"));
 }
 
-#[test]
-fn test_download_url_all_targets() {
+#[rstest]
+fn download_url_all_targets() {
     let targets = [
         ("x86_64-pc-windows-msvc", "x86_64-pc-windows-msvc"),
         ("x86_64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"),
@@ -145,8 +145,8 @@ fn test_download_url_all_targets() {
     }
 }
 
-#[test]
-fn test_runtime_meta_serialization() {
+#[rstest]
+fn runtime_meta_serialization() {
     let meta = PythonRuntimeMeta {
         version: "3.11.11".to_string(),
         target: "x86_64-pc-windows-msvc".to_string(),
@@ -164,16 +164,16 @@ fn test_runtime_meta_serialization() {
     assert_eq!(parsed.archive_size, meta.archive_size);
 }
 
-#[test]
-fn test_runtime_cache_dir() {
+#[rstest]
+fn runtime_cache_dir() {
     let cache_dir = get_runtime_cache_dir("test-app");
     assert!(cache_dir.to_string_lossy().contains("AuroraView"));
     assert!(cache_dir.to_string_lossy().contains("runtime"));
     assert!(cache_dir.to_string_lossy().contains("test-app"));
 }
 
-#[test]
-fn test_cache_dir_custom() {
+#[rstest]
+fn cache_dir_custom() {
     let temp_dir = tempfile::tempdir().unwrap();
     let config = PythonStandaloneConfig {
         version: "3.11".to_string(),

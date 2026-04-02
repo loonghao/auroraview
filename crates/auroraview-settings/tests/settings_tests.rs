@@ -39,8 +39,8 @@ fn setting_value_i32_converts_to_integer() {
 
 #[test]
 fn setting_value_float_roundtrip() {
-    let v: SettingValue = 3.14f64.into();
-    assert!((v.as_float().unwrap() - 3.14).abs() < 1e-10);
+    let v: SettingValue = 1.5f64.into();
+    assert!((v.as_float().unwrap() - 1.5).abs() < 1e-10);
     assert_eq!(v.type_name(), "float");
 }
 

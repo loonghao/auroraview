@@ -1,6 +1,7 @@
 //! Tests for WindowManager
 
 use std::sync::Arc;
+use std::thread;
 
 use auroraview_desktop::config::DesktopConfig;
 use auroraview_desktop::ipc::IpcRouter;
@@ -304,9 +305,6 @@ fn router_shared_across_windows() {
 
 #[rstest]
 fn concurrent_create_is_safe() {
-    use std::sync::Arc;
-    use std::thread;
-
     let mgr = Arc::new(WindowManager::new());
     let mut handles = vec![];
 
