@@ -147,7 +147,7 @@ fn test_pack_target_clone_and_copy() {
     let t1 = PackTarget::Windows;
     let _t2 = t1; // Copy
     let t3 = PackTarget::MacOS;
-    let _t4 = t3.clone(); // Clone
+    let _t4 = t3; // Copy (PackTarget implements Copy, clone is unnecessary)
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

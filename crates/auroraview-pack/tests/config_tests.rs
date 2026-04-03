@@ -627,8 +627,7 @@ fn test_license_config_is_active_conditions() {
     assert!(!LicenseConfig::default().is_active());
 
     // only enabled but no expires/token → still inactive per implementation
-    let mut l = LicenseConfig::default();
-    l.enabled = true;
+    let l = LicenseConfig { enabled: true, ..Default::default() };
     assert!(!l.is_active()); // requires expires_at OR require_token
 
     // has expires_at → active

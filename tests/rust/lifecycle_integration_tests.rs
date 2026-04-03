@@ -18,7 +18,7 @@ fn manager() -> LifecycleManager {
 }
 
 #[rstest]
-fn test_initial_state(manager: LifecycleManager) {
+fn initial_state(manager: LifecycleManager) {
     assert_eq!(manager.state(), LifecycleState::Creating);
 }
 
@@ -26,13 +26,13 @@ fn test_initial_state(manager: LifecycleManager) {
 #[case(LifecycleState::Active)]
 #[case(LifecycleState::Destroying)]
 #[case(LifecycleState::Destroyed)]
-fn test_set_state(manager: LifecycleManager, #[case] new_state: LifecycleState) {
+fn set_state(manager: LifecycleManager, #[case] new_state: LifecycleState) {
     manager.set_state(new_state);
     assert_eq!(manager.state(), new_state);
 }
 
 #[rstest]
-fn test_state_transition_sequence(manager: LifecycleManager) {
+fn state_transition_sequence(manager: LifecycleManager) {
     assert_eq!(manager.state(), LifecycleState::Creating);
 
     manager.set_state(LifecycleState::Active);
@@ -46,14 +46,14 @@ fn test_state_transition_sequence(manager: LifecycleManager) {
 }
 
 #[rstest]
-fn test_request_close_from_active(manager: LifecycleManager) {
+fn request_close_from_active(manager: LifecycleManager) {
     manager.set_state(LifecycleState::Active);
     assert!(manager.request_close(CloseReason::UserRequest).is_ok());
     assert_eq!(manager.state(), LifecycleState::CloseRequested);
 }
 
 #[rstest]
-fn test_request_close_on_destroyed_fails(manager: LifecycleManager) {
+fn request_close_on_destroyed_fails(manager: LifecycleManager) {
     manager.set_state(LifecycleState::Destroyed);
     let result = manager.request_close(CloseReason::UserRequest);
     assert!(result.is_err());
@@ -61,7 +61,7 @@ fn test_request_close_on_destroyed_fails(manager: LifecycleManager) {
 }
 
 #[rstest]
-fn test_request_close_when_destroying_is_noop(manager: LifecycleManager) {
+fn request_close_when_destroying_is_noop(manager: LifecycleManager) {
     manager.set_state(LifecycleState::Destroying);
     assert!(manager.request_close(CloseReason::SystemShutdown).is_ok());
     assert_eq!(manager.check_close_requested(), None);
@@ -74,14 +74,14 @@ fn test_request_close_when_destroying_is_noop(manager: LifecycleManager) {
 #[case(CloseReason::ParentClosed)]
 #[case(CloseReason::SystemShutdown)]
 #[case(CloseReason::Error)]
-fn test_check_close_requested(manager: LifecycleManager, #[case] reason: CloseReason) {
+fn check_close_requested(manager: LifecycleManager, #[case] reason: CloseReason) {
     manager.set_state(LifecycleState::Active);
     manager.request_close(reason).unwrap();
     assert_eq!(manager.check_close_requested(), Some(reason));
 }
 
 #[rstest]
-fn test_cleanup_handlers_execute(manager: LifecycleManager) {
+fn cleanup_handlers_execute(manager: LifecycleManager) {
     let counter = Arc::new(AtomicUsize::new(0));
     let c1 = counter.clone();
     let c2 = counter.clone();
@@ -104,14 +104,14 @@ fn test_cleanup_handlers_execute(manager: LifecycleManager) {
 }
 
 #[rstest]
-fn test_cleanup_transitions_state(manager: LifecycleManager) {
+fn cleanup_transitions_state(manager: LifecycleManager) {
     manager.set_state(LifecycleState::Active);
     manager.execute_cleanup();
     assert_eq!(manager.state(), LifecycleState::Destroyed);
 }
 
 #[rstest]
-fn test_wait_for_close_with_timeout(manager: LifecycleManager) {
+fn wait_for_close_with_timeout(manager: LifecycleManager) {
     let tx = manager.close_sender();
 
     thread::spawn(move || {
@@ -124,13 +124,13 @@ fn test_wait_for_close_with_timeout(manager: LifecycleManager) {
 }
 
 #[rstest]
-fn test_wait_for_close_timeout_expires(manager: LifecycleManager) {
+fn wait_for_close_timeout_expires(manager: LifecycleManager) {
     let reason = manager.wait_for_close(Duration::from_millis(10));
     assert_eq!(reason, None);
 }
 
 #[rstest]
-fn test_close_sender_can_be_cloned(manager: LifecycleManager) {
+fn close_sender_can_be_cloned(manager: LifecycleManager) {
     let tx1 = manager.close_sender();
     let tx2 = tx1.clone();
 
@@ -146,7 +146,7 @@ fn test_close_sender_can_be_cloned(manager: LifecycleManager) {
 }
 
 #[rstest]
-fn test_multiple_cleanup_handlers_execute_in_order(manager: LifecycleManager) {
+fn multiple_cleanup_handlers_execute_in_order(manager: LifecycleManager) {
     let order = Arc::new(parking_lot::Mutex::new(Vec::new()));
     let o1 = order.clone();
     let o2 = order.clone();

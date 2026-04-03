@@ -32,7 +32,7 @@ fn small_queue_with_retry() -> MessageQueue {
 }
 
 #[rstest]
-fn test_push_pop_and_metrics(small_queue_no_retry: MessageQueue) {
+fn push_pop_and_metrics(small_queue_no_retry: MessageQueue) {
     let q = small_queue_no_retry;
     q.push(WebViewMessage::EvalJs("1+1".into()));
 
@@ -54,7 +54,7 @@ fn test_push_pop_and_metrics(small_queue_no_retry: MessageQueue) {
 }
 
 #[rstest]
-fn test_backpressure_drop_and_retry(small_queue_with_retry: MessageQueue) {
+fn backpressure_drop_and_retry(small_queue_with_retry: MessageQueue) {
     let q = small_queue_with_retry;
 
     // Fill the queue
@@ -85,7 +85,7 @@ fn test_backpressure_drop_and_retry(small_queue_with_retry: MessageQueue) {
 }
 
 #[rstest]
-fn test_message_queue_creation() {
+fn message_queue_creation() {
     let cfg = MessageQueueConfig {
         capacity: 10,
         block_on_full: false,
@@ -107,7 +107,7 @@ fn test_message_queue_creation() {
 }
 
 #[rstest]
-fn test_multiple_message_types(small_queue_no_retry: MessageQueue) {
+fn multiple_message_types(small_queue_no_retry: MessageQueue) {
     let q = small_queue_no_retry;
 
     q.push(WebViewMessage::EvalJs("test".into()));
@@ -126,7 +126,7 @@ fn test_multiple_message_types(small_queue_no_retry: MessageQueue) {
 
 /// Test LoadUrl message type
 #[rstest]
-fn test_load_url_message() {
+fn load_url_message() {
     let cfg = MessageQueueConfig {
         capacity: 10,
         block_on_full: false,
@@ -162,7 +162,7 @@ fn test_load_url_message() {
 
 /// Test that event loop proxy warning is not triggered when proxy is set
 #[rstest]
-fn test_event_loop_proxy_not_set_initially() {
+fn event_loop_proxy_not_set_initially() {
     let cfg = MessageQueueConfig {
         capacity: 10,
         block_on_full: false,

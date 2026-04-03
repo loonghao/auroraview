@@ -22,7 +22,7 @@ fn builder() -> WebViewBuilder {
 }
 
 #[rstest]
-fn test_default_config_values(default_config: WebViewConfig) {
+fn default_config_values(default_config: WebViewConfig) {
     assert_eq!(default_config.title, "AuroraView");
     assert_eq!(default_config.width, 800);
     assert_eq!(default_config.height, 600);
@@ -42,7 +42,7 @@ fn test_default_config_values(default_config: WebViewConfig) {
 }
 
 #[rstest]
-fn test_builder_title(builder: WebViewBuilder) {
+fn builder_title(builder: WebViewBuilder) {
     let config = builder.title("Test Window").build();
     assert_eq!(config.title, "Test Window");
 }
@@ -51,20 +51,20 @@ fn test_builder_title(builder: WebViewBuilder) {
 #[case(1024, 768)]
 #[case(1920, 1080)]
 #[case(800, 600)]
-fn test_builder_size(builder: WebViewBuilder, #[case] width: u32, #[case] height: u32) {
+fn builder_size(builder: WebViewBuilder, #[case] width: u32, #[case] height: u32) {
     let config = builder.size(width, height).build();
     assert_eq!(config.width, width);
     assert_eq!(config.height, height);
 }
 
 #[rstest]
-fn test_builder_url(builder: WebViewBuilder) {
+fn builder_url(builder: WebViewBuilder) {
     let config = builder.url("https://example.com").build();
     assert_eq!(config.url.as_deref(), Some("https://example.com"));
 }
 
 #[rstest]
-fn test_builder_html(builder: WebViewBuilder) {
+fn builder_html(builder: WebViewBuilder) {
     let html = "<h1>Hello World</h1>";
     let config = builder.html(html).build();
     assert_eq!(config.html.as_deref(), Some(html));
@@ -73,7 +73,7 @@ fn test_builder_html(builder: WebViewBuilder) {
 #[rstest]
 #[case(true)]
 #[case(false)]
-fn test_builder_dev_tools(builder: WebViewBuilder, #[case] enabled: bool) {
+fn builder_dev_tools(builder: WebViewBuilder, #[case] enabled: bool) {
     let config = builder.dev_tools(enabled).build();
     assert_eq!(config.dev_tools, enabled);
 }
@@ -81,7 +81,7 @@ fn test_builder_dev_tools(builder: WebViewBuilder, #[case] enabled: bool) {
 #[rstest]
 #[case(true)]
 #[case(false)]
-fn test_builder_context_menu(builder: WebViewBuilder, #[case] enabled: bool) {
+fn builder_context_menu(builder: WebViewBuilder, #[case] enabled: bool) {
     let config = builder.context_menu(enabled).build();
     assert_eq!(config.context_menu, enabled);
 }
@@ -89,7 +89,7 @@ fn test_builder_context_menu(builder: WebViewBuilder, #[case] enabled: bool) {
 #[rstest]
 #[case(true)]
 #[case(false)]
-fn test_builder_resizable(builder: WebViewBuilder, #[case] resizable: bool) {
+fn builder_resizable(builder: WebViewBuilder, #[case] resizable: bool) {
     let config = builder.resizable(resizable).build();
     assert_eq!(config.resizable, resizable);
 }
@@ -97,7 +97,7 @@ fn test_builder_resizable(builder: WebViewBuilder, #[case] resizable: bool) {
 #[rstest]
 #[case(true)]
 #[case(false)]
-fn test_builder_decorations(builder: WebViewBuilder, #[case] decorations: bool) {
+fn builder_decorations(builder: WebViewBuilder, #[case] decorations: bool) {
     let config = builder.decorations(decorations).build();
     assert_eq!(config.decorations, decorations);
 }
@@ -105,7 +105,7 @@ fn test_builder_decorations(builder: WebViewBuilder, #[case] decorations: bool) 
 #[rstest]
 #[case(true)]
 #[case(false)]
-fn test_builder_always_on_top(builder: WebViewBuilder, #[case] always_on_top: bool) {
+fn builder_always_on_top(builder: WebViewBuilder, #[case] always_on_top: bool) {
     let config = builder.always_on_top(always_on_top).build();
     assert_eq!(config.always_on_top, always_on_top);
 }
@@ -113,20 +113,20 @@ fn test_builder_always_on_top(builder: WebViewBuilder, #[case] always_on_top: bo
 #[rstest]
 #[case(true)]
 #[case(false)]
-fn test_builder_transparent(builder: WebViewBuilder, #[case] transparent: bool) {
+fn builder_transparent(builder: WebViewBuilder, #[case] transparent: bool) {
     let config = builder.transparent(transparent).build();
     assert_eq!(config.transparent, transparent);
 }
 
 #[rstest]
-fn test_builder_asset_root(builder: WebViewBuilder) {
+fn builder_asset_root(builder: WebViewBuilder) {
     let path = PathBuf::from("/tmp/assets");
     let config = builder.asset_root(path.clone()).build();
     assert_eq!(config.asset_root, Some(path));
 }
 
 #[rstest]
-fn test_builder_register_protocol(builder: WebViewBuilder) {
+fn builder_register_protocol(builder: WebViewBuilder) {
     let handler = Arc::new(|uri: &str| {
         if uri.starts_with("test://") {
             Some((b"test data".to_vec(), "text/plain".to_string(), 200))
@@ -141,7 +141,7 @@ fn test_builder_register_protocol(builder: WebViewBuilder) {
 }
 
 #[rstest]
-fn test_builder_chain_multiple_settings(builder: WebViewBuilder) {
+fn builder_chain_multiple_settings(builder: WebViewBuilder) {
     let config = builder
         .title("Chained Test")
         .size(1280, 720)
@@ -160,13 +160,13 @@ fn test_builder_chain_multiple_settings(builder: WebViewBuilder) {
 
 #[rstest]
 #[cfg(target_os = "windows")]
-fn test_embed_mode_windows() {
+fn embed_mode_windows() {
     let config = WebViewConfig::default();
     assert_eq!(config.embed_mode, EmbedMode::None);
 }
 
 #[rstest]
-fn test_builder_ipc_batching(builder: WebViewBuilder) {
+fn builder_ipc_batching(builder: WebViewBuilder) {
     let config = builder.build();
     assert!(config.ipc_batching);
     assert_eq!(config.ipc_batch_size, 10);
@@ -174,7 +174,7 @@ fn test_builder_ipc_batching(builder: WebViewBuilder) {
 }
 
 #[rstest]
-fn test_builder_default_values(builder: WebViewBuilder) {
+fn builder_default_values(builder: WebViewBuilder) {
     let config = builder.build();
     assert_eq!(config.title, "AuroraView");
     assert_eq!(config.width, 800);
@@ -186,7 +186,7 @@ fn test_builder_default_values(builder: WebViewBuilder) {
 }
 
 #[rstest]
-fn test_builder_multiple_protocols(builder: WebViewBuilder) {
+fn builder_multiple_protocols(builder: WebViewBuilder) {
     let handler1 = Arc::new(|uri: &str| {
         if uri.starts_with("custom1://") {
             Some((b"data1".to_vec(), "text/plain".to_string(), 200))

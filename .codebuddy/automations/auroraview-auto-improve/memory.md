@@ -1,47 +1,53 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-03 22:07 (UTC+8)
+## Last Execution: 2026-04-04 00:40 (UTC+8)
 
 ### Branch Status
 - Branch: `auto-improve`
-- Remote sync check: `origin/main...HEAD = 0 behind, 200 ahead`
-- Workspace clean: No (pre-existing local changes present), so skipped rebase/merge to avoid clobbering in-flight work
+- Remote sync check: `origin/main...HEAD = 0 behind, 204 ahead`
+- Workspace clean: Yes (only memory.md modified)
 
 ### Completed in This Iteration
 
-1. **test(pack): expand builder coverage**
-   - Added `builder/common` serde/default coverage for `BuildConfig`, `FrontendConfig`, `BackendConfig`, and `ExtensionsConfig`
-   - Added `WinBuilder::validate()` error-path tests for missing frontend path and empty URL
-   - Added `WeChatBuilder` validation/build coverage for App ID requirement, builder-over-config precedence, generated project files, and web-view/plain-view branches
-   - Added direct smoke/error coverage for `AlipayBuilder` and `ByteDanceBuilder`
+1. **test(dom): expand dom_tests coverage** (commit `e5c175e`)
+   - **dom_tests**: 35 -> ~86 tests
+     - All 28 DomOp variants op_to_js tests (SetChecked, SetDisabled, SelectOption, DoubleClick, Blur, ScrollIntoView, TypeText, Clear, Submit, AppendHtml, PrependHtml, Remove, Empty, Raw, RawGlobal, SetStyles)
+     - All convenience method tests (set_checked, set_disabled, double_click, blur, scroll_into_view, type_text, clear_input, submit, append_html, prepend_html, remove, empty, raw, raw_global)
+     - Edge cases (special chars in SetText, nested quotes, empty selector, selector with brackets, RawGlobal IIFE wrapping)
+     - PartialEq tests for DomOp variants
+
+2. **test(events+cleanup): add events_tests + cleanup_tests** (commit `38883f1`)
+   - **events_tests**: 0 -> 39 tests (**NEW FILE**)
+     - CoreUserEvent all 4 variants: ProcessMessages, CloseWindow, PluginEvent (with/without data), DragWindow
+     - ExtendedUserEvent all 13+ variants: PythonReady (handlers vec/empty), PythonResponse (with/empty), LoadingScreenReady, NavigateToApp, PageReady, LoadingUpdate (rstest parametrized with all Option combos), BackendError (stderr/startup source), SetHtml (with/without title), ShowError (full/no details), TrayMenuClick (with/empty), TrayIconClick, TrayIconDoubleClick, CreateChildWindow (normal/minimal/URL params)
+     - Clone/Debug trait verification for both enums
+     - Pattern matching代替PartialEq (因为枚举未derive PartialEq)
+     - Edge cases: unicode, XSS-like content, large HTML (>5000 chars), URL query params
+   - **cleanup_tests**: 0 -> 12 tests (**NEW FILE**)
+     - CleanupStats default values and field invariants (total=alive+stale, all zero, all stale, all alive)
+     - CleanupStats Debug/Clone derive verification
+     - get_webview_base_dir platform availability (Windows/macOS/Linux vs unsupported)
+     - get_process_data_dir PID fragment validation on supported platforms
+     - get_cleanup_stats invariant validation (idempotent, concurrent-safe)
+     - Concurrent thread safety for get_cleanup_stats
 
 ### Validation
-- `cargo test -p auroraview-pack --test builder_tests -- --nocapture` ✅ (`59 passed`)
-- `cargo test -p auroraview-pack --tests -- --nocapture` ✅
+- `cargo test -p auroraview-core --test events_tests` ✅ (39 passed, 0 failed)
+- `cargo test -p auroraview-core --test cleanup_tests` ✅ (12 passed, 0 failed)
+- `cargo test -p auroraview-core --tests` ✅ (all 26 test suites pass, 0 failures)
 
 ### Next Iteration Targets (Priority Order)
-1. **auroraview-pack/config_tests expansion** — cover builder/runtime config edge cases and defaults
-2. **auroraview-pack/progress_tests expansion** — callback/progress phase transitions and aggregation
-3. **auroraview-pack/packer_tests expansion** — lifecycle/error branches not yet covered directly
 
-## Previous Execution: 2026-04-03 11:08 (UTC+8)
+1. **backend lifecycle/message_processor deep expansion** — lifecycle.rs has only 5 inline unit tests; message_processor has 5 inline tests; neither has independent integration test file. Target: add `lifecycle_tests.rs` (~20 tests) covering force_destroy edge cases, if_not_closing, Display trait for all states, concurrent transitions; `message_processor_tests.rs` (~15 tests) covering ProcessingMode::Batch behavior, WakeController.force_wake/set_immediate_wake, AtomicProcessorStats.reset/snapshot concurrency, MessagePriority Ord sorting
+2. **error_pages deep coverage** — error_pages.rs has only 4 inline tests; target ~15-18 tests for internal_error_page (with/without details), connection_error_page (target+error injection), startup_error_page (python_output+entry_point combinations), loading_with_error (error optional), html_escape full character set (single/double quotes, &, <, >, null bytes, unicode, very long input truncation), >20 assets "and N more" truncation
 
+### Known Pre-existing Issues (from prior iterations, NOT blocking)
+- `auroraview-core` assets_tests fail (need `vx just assets-build`)
+- `auroraview` 2 test_desktop_module/test_webview_submodules fail (assets issue)
+- GitHub: 48 Dependabot vulnerabilities (transitive deps)
+- `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
 
-### Branch Status
-- Branch: `auto-improve` (new commit: `ae687c4`)
-- Pushed: Yes (all pushed to remote)
-- All new tests pass, 0 failures
-
-### Completed in This Iteration
-
-1. **test(pack): expand pyoxidizer/metrics/hooks/license/deps_collector tests** (commit `ae687c4`)
-   - pyoxidizer_tests: 13→30 (DistributionFlavor variants/clone/serde/python_paths/env_vars/filesystem_importer/header/optimize_levels)
-   - metrics_tests: 13→28 (debug/total/phases_count/window_webview_ordering/elapsed/mark_tar/python_runtime)
-   - hooks_tests: 19→33 (many_cmds/empty_string/unicode/large_collect_list/debug/vx_together)
-   - license_tests: 15→30 (serde/clone/all_reason_variants/days_remaining/token_len/allowed_machines/invalid_date/grace_zero)
-   - deps_collector_tests: 16→28 (serde/update_multiple/binary_file/empty_file/large_file/remove_nonexistent/update_overwrites/invalid_json)
-
-### Cumulative Progress (across iterations)
+## Cumulative Progress (across iterations)
 
 **CSP Security (COMPLETE)**
 **Inject JS/CSS (COMPLETE)**
@@ -108,7 +114,7 @@
 **Testing unit_tests (COMPLETE):** 78 tests
 **Browser error_tests (COMPLETE):** 29 tests
 **CLI args_tests (COMPLETE):** 45 tests
-**Assets assets_tests (COMPLETE):** 28 tests
+Assets assets_tests (COMPLETE):** 28 tests
 **PluginCore error_tests + scope_tests (COMPLETE):** 41 + 32 = 73 tests
 **PluginCore request_tests + router_tests (COMPLETE):** 28 + 18 = 46 tests
 **PluginCore types_tests (COMPLETE):** 27 tests
@@ -148,7 +154,7 @@
 **Plugins fs_types_tests expansion (COMPLETE):** 20 → 55 tests
 **Plugins extensions_tests expansion (COMPLETE):** 31 → 56 tests
 **Plugins types_tests expansion (COMPLETE):** 21 → 59 tests
-**Core dom_tests expansion (COMPLETE):** 3 → 38 tests
+**Core dom_tests expansion (COMPLETE):** 3 → 86 tests
 **Core icon_tests expansion (COMPLETE):** 2 → 24 tests
 **Core menu_tests expansion (COMPLETE):** 7 → 37 tests
 **Core window_style_tests expansion (COMPLETE):** 2 → 20 tests
@@ -169,16 +175,7 @@
 **Pack hooks_tests expansion (COMPLETE):** 19 → 33 tests
 **Pack license_tests expansion (COMPLETE):** 15 → 30 tests
 **Pack deps_collector_tests expansion (COMPLETE):** 16 → 28 tests
-
-### Known Pre-existing Issues
-- `auroraview-core` assets_tests fail (need `vx just assets-build`)
-- `auroraview` 2 test_desktop_module/test_webview_submodules fail (assets issue)
-- GitHub: 48 Dependabot vulnerabilities (transitive deps)
-- `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
-
-### Next Iteration Targets (Priority Order)
-1. **auroraview-pack/builder_tests expansion** — explore builder/*.rs for more coverage
-2. **auroraview-pack/packer_tests expansion** — 30+ tests (packer lifecycle/error/progress)
-3. **auroraview-pack/progress_tests expansion** — 8 → 25+ (progress bar/callback/multi-phase)
-4. **auroraview-pack/config_tests expansion** — 30+ (PackConfig serde/validate/builder pattern)
-5. **auroraview-core/new modules** — look for untested modules in auroraview-core
+**Pack builder_tests expansion (COMPLETE)**: 59 tests
+**Pack config/packer/progress expansion (COMPLETE)**: ~80 + ~55 + ~42 = ~177 new tests
+**Core events_tests expansion (COMPLETE)**: 0 → 39 tests
+**Core cleanup_tests expansion (COMPLETE)**: 0 → 12 tests

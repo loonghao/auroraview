@@ -16,7 +16,7 @@ use _core::webview::protocol_handlers::{
 };
 
 #[rstest]
-fn test_handle_auroraview_protocol_security() {
+fn handle_auroraview_protocol_security() {
     // Create temporary directory structure
     let temp_dir = TempDir::new().unwrap();
     let asset_root = temp_dir.path();
@@ -75,7 +75,7 @@ fn test_handle_auroraview_protocol_security() {
 }
 
 #[rstest]
-fn test_handle_custom_protocol() {
+fn handle_custom_protocol() {
     // Create a simple callback
     // Note: The URI passed to callback is the full URI string from request.uri().to_string()
     let callback = Arc::new(|uri: &str| -> Option<(Vec<u8>, String, u16)> {
@@ -115,7 +115,7 @@ fn test_handle_custom_protocol() {
 }
 
 #[rstest]
-fn test_auroraview_protocol_with_subdirectories() {
+fn auroraview_protocol_with_subdirectories() {
     let temp_dir = TempDir::new().unwrap();
     let asset_root = temp_dir.path();
 
@@ -141,7 +141,7 @@ fn test_auroraview_protocol_with_subdirectories() {
 }
 
 #[rstest]
-fn test_custom_protocol_with_various_responses() {
+fn custom_protocol_with_various_responses() {
     let callback = Arc::new(|uri: &str| -> Option<(Vec<u8>, String, u16)> {
         // Match based on URI path/content, not exact string
         if uri.contains("ok") {
@@ -181,7 +181,7 @@ fn test_custom_protocol_with_various_responses() {
 // ============================================================================
 
 #[rstest]
-fn test_is_windows_absolute_path_without_colon() {
+fn is_windows_absolute_path_without_colon() {
     // Should detect Windows paths without colon
     assert!(is_windows_absolute_path_without_colon("c/users/test"));
     assert!(is_windows_absolute_path_without_colon("C/Users/test"));
@@ -202,7 +202,7 @@ fn test_is_windows_absolute_path_without_colon() {
 }
 
 #[rstest]
-fn test_normalize_windows_path_without_colon() {
+fn normalize_windows_path_without_colon() {
     assert_eq!(
         normalize_windows_path_without_colon("c/users/test"),
         "C:/users/test"
@@ -218,7 +218,7 @@ fn test_normalize_windows_path_without_colon() {
 }
 
 #[rstest]
-fn test_parse_protocol_path_relative() {
+fn parse_protocol_path_relative() {
     use std::path::PathBuf;
 
     let asset_root = PathBuf::from("/tmp/assets");
@@ -232,7 +232,7 @@ fn test_parse_protocol_path_relative() {
 }
 
 #[rstest]
-fn test_parse_protocol_path_windows_without_colon() {
+fn parse_protocol_path_windows_without_colon() {
     use std::path::PathBuf;
 
     let asset_root = PathBuf::from("/tmp/assets");
@@ -257,7 +257,7 @@ fn test_parse_protocol_path_windows_without_colon() {
 
 #[rstest]
 #[cfg(unix)]
-fn test_parse_protocol_path_absolute_unix() {
+fn parse_protocol_path_absolute_unix() {
     use std::path::PathBuf;
 
     let asset_root = PathBuf::from("/tmp/assets");
@@ -269,7 +269,7 @@ fn test_parse_protocol_path_absolute_unix() {
 
 #[rstest]
 #[cfg(windows)]
-fn test_parse_protocol_path_absolute_windows() {
+fn parse_protocol_path_absolute_windows() {
     use std::path::PathBuf;
 
     let asset_root = PathBuf::from("C:\\temp\\assets");
@@ -292,7 +292,7 @@ fn test_parse_protocol_path_absolute_windows() {
 }
 
 #[rstest]
-fn test_parse_protocol_path_with_dots() {
+fn parse_protocol_path_with_dots() {
     use std::path::PathBuf;
 
     let asset_root = PathBuf::from("/tmp/assets");
@@ -303,7 +303,7 @@ fn test_parse_protocol_path_with_dots() {
 }
 
 #[rstest]
-fn test_auroraview_protocol_with_windows_absolute_path() {
+fn auroraview_protocol_with_windows_absolute_path() {
     // This test simulates the real-world scenario from the bug report
     // URL: auroraview://c/users/username/projects/myapp/0.1.0/assets/images/logo.gif
 
@@ -352,7 +352,7 @@ fn test_auroraview_protocol_with_windows_absolute_path() {
 
 /// Test auroraview://localhost/ format (Windows wry converted format)
 #[rstest]
-fn test_auroraview_protocol_windows_localhost_format() {
+fn auroraview_protocol_windows_localhost_format() {
     let temp_dir = TempDir::new().unwrap();
     let asset_root = temp_dir.path();
 
@@ -396,7 +396,7 @@ fn test_auroraview_protocol_windows_localhost_format() {
 
 /// Test auroraview://localhost (root without trailing slash) format
 #[rstest]
-fn test_auroraview_protocol_windows_localhost_root() {
+fn auroraview_protocol_windows_localhost_root() {
     let temp_dir = TempDir::new().unwrap();
     let asset_root = temp_dir.path();
 
@@ -422,7 +422,7 @@ fn test_auroraview_protocol_windows_localhost_root() {
 
 /// Test https://auroraview.localhost/ format (before wry conversion)
 #[rstest]
-fn test_auroraview_protocol_https_localhost_format() {
+fn auroraview_protocol_https_localhost_format() {
     let temp_dir = TempDir::new().unwrap();
     let asset_root = temp_dir.path();
 
@@ -449,7 +449,7 @@ fn test_auroraview_protocol_https_localhost_format() {
 
 /// Test http://auroraview.localhost/ format (HTTP variant)
 #[rstest]
-fn test_auroraview_protocol_http_localhost_format() {
+fn auroraview_protocol_http_localhost_format() {
     let temp_dir = TempDir::new().unwrap();
     let asset_root = temp_dir.path();
 
@@ -476,7 +476,7 @@ fn test_auroraview_protocol_http_localhost_format() {
 
 /// Test directory traversal prevention with localhost format
 #[rstest]
-fn test_auroraview_protocol_localhost_security() {
+fn auroraview_protocol_localhost_security() {
     let temp_dir = TempDir::new().unwrap();
     let asset_root = temp_dir.path();
 
@@ -515,7 +515,7 @@ fn test_auroraview_protocol_localhost_security() {
 
 /// Test auroraview protocol with unusual URI formats for full branch coverage
 #[rstest]
-fn test_auroraview_protocol_uri_edge_cases() {
+fn auroraview_protocol_uri_edge_cases() {
     let temp_dir = TempDir::new().unwrap();
     let asset_root = temp_dir.path();
 
@@ -556,7 +556,7 @@ fn test_auroraview_protocol_uri_edge_cases() {
 
 /// Test auroraview protocol with URI that has no :// (fallback path)
 #[rstest]
-fn test_auroraview_protocol_fallback_path() {
+fn auroraview_protocol_fallback_path() {
     let temp_dir = TempDir::new().unwrap();
     let asset_root = temp_dir.path();
 

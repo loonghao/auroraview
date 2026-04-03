@@ -12,7 +12,7 @@ fn protocol_handler() -> ProtocolHandler {
 }
 
 #[rstest]
-fn test_register_and_handle_protocol(protocol_handler: ProtocolHandler) {
+fn register_and_handle_protocol(protocol_handler: ProtocolHandler) {
     protocol_handler.register("dcc", |uri| {
         if uri.contains("test") {
             Some(ProtocolResponse::text("Test response"))
@@ -34,7 +34,7 @@ fn test_register_and_handle_protocol(protocol_handler: ProtocolHandler) {
 }
 
 #[rstest]
-fn test_unregister_protocol(protocol_handler: ProtocolHandler) {
+fn unregister_protocol(protocol_handler: ProtocolHandler) {
     protocol_handler.register("test", |_| Some(ProtocolResponse::text("data")));
     assert!(
         protocol_handler.handle("test://resource").is_some(),
@@ -49,7 +49,7 @@ fn test_unregister_protocol(protocol_handler: ProtocolHandler) {
 }
 
 #[rstest]
-fn test_clear_all_protocols(protocol_handler: ProtocolHandler) {
+fn clear_all_protocols(protocol_handler: ProtocolHandler) {
     protocol_handler.register("proto1", |_| Some(ProtocolResponse::text("data1")));
     protocol_handler.register("proto2", |_| Some(ProtocolResponse::text("data2")));
 
@@ -69,7 +69,7 @@ fn test_clear_all_protocols(protocol_handler: ProtocolHandler) {
 }
 
 #[rstest]
-fn test_multiple_protocol_registrations(protocol_handler: ProtocolHandler) {
+fn multiple_protocol_registrations(protocol_handler: ProtocolHandler) {
     protocol_handler.register("api", |uri| {
         if uri.contains("users") {
             Some(ProtocolResponse::json(&serde_json::json!({"users": []})))
@@ -98,7 +98,7 @@ fn test_multiple_protocol_registrations(protocol_handler: ProtocolHandler) {
 }
 
 #[rstest]
-fn test_protocol_response_types() {
+fn protocol_response_types() {
     // Test different response types
     let text_resp = ProtocolResponse::text("Hello");
     assert_eq!(text_resp.mime_type, "text/plain");
@@ -115,7 +115,7 @@ fn test_protocol_response_types() {
 }
 
 #[rstest]
-fn test_protocol_handler_concurrent_access(protocol_handler: ProtocolHandler) {
+fn protocol_handler_concurrent_access(protocol_handler: ProtocolHandler) {
     use std::sync::Arc;
     use std::thread;
 
