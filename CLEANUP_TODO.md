@@ -32,9 +32,23 @@ that require larger effort or coordination before implementation.
   DCC and Desktop WindowManagers.
 - **Action**: Consolidate to one canonical name per operation and deprecate aliases.
 
+### `crates/auroraview-core/src/assets.rs` — browser controller fallback for source checkouts
+- **Status**: TODO (logged Round 22)
+- **Reason**: `get_browser_controller_html()` still hard-depends on built `frontend/dist/browser-controller/index.html`.
+  In source checkouts without built frontend assets, Python browser integration tests still hit a panic.
+- **Action**: Add a fallback HTML shell for the browser controller, similar to the new loading/error fallbacks,
+  or relax obsolete tests that assume built frontend assets are always present.
+
+### `pyproject.toml` / mypy toolchain — restore Python 3.7-compatible type-check gate
+- **Status**: TODO (logged Round 22)
+- **Reason**: The installed mypy no longer accepts `python_version = 3.7`, so `uv run mypy python tests`
+  fails before type analysis even starts.
+- **Action**: Pin a mypy version that still supports Python 3.7 targets or split legacy-target checks from modern dev-tool execution.
+
 ---
 
 ## Low Priority
+
 
 ### `issues.md` at repo root
 - **Status**: TODO (logged Round 1)

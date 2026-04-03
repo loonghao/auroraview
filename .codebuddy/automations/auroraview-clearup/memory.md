@@ -503,6 +503,55 @@
 - `uv run ruff check python/ examples/ scripts/ gallery/`: PASS (0 warnings)
 - `git push origin auto-improve`: PASS [cleanup-done]
 
+## 2026-04-03 07:32 — Round 20
+
+### Branch: `auto-improve` (HEAD: `2dd7f11`)
+
+### Baseline
+- **Cargo check**: PASS
+- **Cargo clippy**: PASS (0 warnings)
+- **Ruff**: PASS (0 warnings)
+- Iterate Agent committed 7 test expansion commits since Round 19:
+  - `7859981` — notifications/bookmarks/history expanded
+  - `ef7ee89` — download_tests 49→88
+  - `65a2a92` — settings_tests 45→81
+  - `dc9816b` — shell_tests 38→68
+  - `5c46f3c` — service_discovery_tests 55→79
+  - `250fd75` — dcc/error_tests 22→50
+  - `a542b1c` — chore(iteration): done
+
+### Actions Taken (Commit: `2dd7f11`)
+1. **Removed `test_` prefix from 257 test functions** across 6 files + fixed `#[test]` → `#[rstest]`:
+   - `bookmark_tests.rs` — 46 fns
+   - `download_tests.rs` — 50 fns
+   - `history_tests.rs` — 50+3 fns
+   - `notification_tests.rs` — 17+2 fns
+   - `shell_tests.rs` — 8 fn name renames (already `#[rstest]`)
+   - `settings_tests.rs` — 68 `#[test]` → `#[rstest]`
+2. **Fixed import ordering** in `service_discovery_tests.rs` — `use std::collections::HashMap` + `use std::net::TcpListener` moved before `auroraview_core::` and `rstest`
+3. **Fixed import ordering** in `notification_tests.rs` — `use std::sync::*` moved before `auroraview_notifications::` and `rstest`
+4. **Extracted inline `use std::sync::Arc` + `use std::thread`** to file top in `bookmark_tests.rs`, `download_tests.rs`, `history_tests.rs`, `notification_tests.rs`
+5. **Added `std::thread` to top-level imports** in `settings_tests.rs`
+6. **dcc/error_tests.rs**: Already clean (no `test_` prefix, no std imports) — no changes needed
+
+### Code Review Findings (Iterate Agent's commits)
+- **`service_discovery_tests.rs`**: std imports were after external crates — fixed this round
+- **`settings_tests.rs`**: used `#[test]` throughout instead of `#[rstest]` — fixed this round
+- **GitHub dep vulnerabilities**: 48 (1 critical, 25 high) — still pending dedicated deps round
+
+### Metrics
+- `test_` prefix violations removed: 257 fns (6 files)
+- `#[test]` → `#[rstest]` replacements: 68 (settings_tests.rs)
+- Import ordering violations fixed: 2 files
+- Inline use statements extracted: 4 files
+- Clippy warnings: 0 / Ruff warnings: 0
+
+### Quality Gate
+- Workspace `cargo check`: PASS
+- Workspace `cargo clippy`: PASS (0 warnings)
+- `uv run ruff check python/ examples/ scripts/ gallery/`: PASS (0 warnings)
+- `git push origin auto-improve`: PASS [cleanup-done]
+
 ## 2026-04-02 01:15 — Round 12
 
 ### Branch: `auto-improve` (HEAD: `9057610`)
@@ -530,3 +579,43 @@
 - Workspace `cargo check`: PASS
 - Workspace `cargo clippy`: PASS (0 new warnings)
 - `uv run ruff check`: PASS (0 warnings)
+
+## 2026-04-03 21:09 — Round 22
+
+### Branch: `auto-improve` (commits: `cda56b8`, `e0b5c74`)
+
+### Baseline
+- **Workspace cargo test**: initially blocked by missing built frontend pages (`loading/index.html`, `error/index.html`) in source checkout
+- **Workspace cargo clippy**: PASS before new fixes
+- **Python gates**: `mypy` blocked by toolchain/config mismatch (`python_version = 3.7` unsupported by installed mypy); `pytest` exposed a mix of stale assertions and optional-runtime assumptions
+
+### Actions Taken
+1. **Added safe source-checkout fallbacks in `crates/auroraview-core/src/assets.rs`**
+   - `get_loading_html()` now falls back to embedded loading HTML with `root` marker
+   - `get_error_html()` now falls back to an embedded error shell compatible with `build_error_page()` injection
+2. **Hardened process exit behavior in `crates/auroraview-plugins/src/process.rs`**
+   - Added a dedicated exit watcher so `process:exit` is not lost due to stdout timing races
+   - Made `check_exit()` idempotent so concurrent paths do not double-emit
+3. **Kept root Rust smoke tests compatible with source checkouts**
+   - Included existing `src/lib.rs` smoke-test cleanup in the round commit so built frontend assets are no longer assumed during root library tests
+4. **Cleaned Python integration tests that had drifted from current behavior**
+   - Replaced brittle fixed sleeps with polling in `test_gallery_plugin_api.py`
+   - Updated optional Playwright/Qt tests to skip cleanly when browser binaries or `qtpy` are absent
+   - Updated stale integration assertions in `test_standalone_runner.py` and `test_integration.py` to match current fallback/lifecycle behavior
+5. **Logged remaining follow-ups to `CLEANUP_TODO.md`**
+   - browser-controller page still lacks a source-checkout fallback
+   - mypy toolchain no longer supports the project’s Python 3.7 target setting
+
+### Verification
+- `cargo test -p auroraview-core --test assets_tests -- --nocapture`: PASS
+- `cargo test --test protocol_handlers_integration -- --nocapture`: PASS
+- `cargo test --test standalone_integration -- --nocapture`: PASS
+- `cargo test --workspace -- --nocapture`: PASS
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings`: PASS
+- `uv run maturin develop`: PASS (refreshed local `python/auroraview/_core.pyd`)
+- `uv run pytest tests/python/integration/test_gallery_plugin_api.py -q`: PASS
+- `uv run pytest tests/python/integration/test_standalone_runner.py -q`: PASS
+- `uv run pytest tests/python/integration/test_integration.py -q`: PASS
+- `uv run mypy python tests`: FAIL before analysis because installed mypy rejects `python_version = 3.7`
+- `uv run pytest tests/python/unit tests/python/integration --maxfail=1 -q`: still not fully green; latest remaining blocker is `browser-controller/index.html` missing in source checkout, which causes `Browser._get_browser_html()` to panic
+
