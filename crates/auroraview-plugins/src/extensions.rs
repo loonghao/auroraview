@@ -12,8 +12,10 @@
 //! - `get_extension` - Get details about a specific extension
 //! - `open_side_panel` - Open the side panel for an extension
 //! - `close_side_panel` - Close the side panel for an extension
+//! - `get_side_panel_state` - Get the current side panel visibility state
 //! - `get_polyfill` - Get the Chrome API polyfill script
 //! - `dispatch_event` - Dispatch an event to extension listeners
+
 //!
 //! ## Example
 //!

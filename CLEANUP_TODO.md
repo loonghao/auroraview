@@ -46,11 +46,18 @@ that require larger effort or coordination before implementation.
 - **Reason**: Most are BOM API stubs awaiting implementation or feature-gated code.
   Not actionable until features are implemented.
 
+### `crates/auroraview-pack/tests/metrics_tests.rs` — sleep-based timing assertions
+- **Status**: TODO (logged Round 21)
+- **Reason**: The suite relies on `thread::sleep(Duration::from_millis(...))`, which makes it slower
+  and more timing-sensitive than necessary.
+- **Action**: Introduce a controllable timing helper or loosen the test strategy to avoid wall-clock sleeps.
+
 ---
 
 ## Resolved
 
 - [x] `build_cli.py` deleted (Round 1)
+
 - [x] `active-win-pos-rs` unused dep removed (Round 1)
 - [x] Empty `if TYPE_CHECKING: pass` blocks removed (Round 2)
 - [x] Redundant `unsafe impl Send+Sync` for TabManager, SignalRegistry, EventBus (Rounds 2-3)
