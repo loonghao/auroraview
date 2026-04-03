@@ -1,11 +1,54 @@
 //! Integration tests for the builder module:
 //! BuilderRegistry, BuilderCapability, OutputFormat, and all platform builders.
 
+use std::fs;
+use std::path::PathBuf;
+
 use auroraview_pack::builder::{
-    AndroidBuilder, Builder, BuilderCapability, BuilderRegistry, IOSBuilder, LinuxBuilder,
-    MacBuilder, WebBuilder, WinBuilder,
+    common::{
+        AppConfig, BackendConfig, BuildConfig, BuildContext, DebugConfig, ExtensionsConfig,
+        FrontendBundle, FrontendConfig, PlatformConfig, PythonStrategy, TargetConfig,
+        WindowConfig,
+    },
+    traits::OutputFormat,
+    AlipayBuilder, AndroidBuilder, Builder, BuilderCapability, BuilderRegistry, ByteDanceBuilder,
+    IOSBuilder, LinuxBuilder, MacBuilder, WebBuilder, WeChatBuilder, WinBuilder,
 };
-use auroraview_pack::builder::traits::OutputFormat;
+use auroraview_pack::PackError;
+use tempfile::tempdir;
+
+fn minimal_build_config(platform: &str, output_dir: PathBuf) -> BuildConfig {
+    BuildConfig {
+        version: 1,
+        app: AppConfig {
+            name: "AuroraView".to_string(),
+            version: "1.0.0".to_string(),
+            description: None,
+            author: None,
+            copyright: None,
+            icon: None,
+            identifier: None,
+        },
+        target: TargetConfig {
+            platform: platform.to_string(),
+            format: None,
+            output_dir,
+            output_name: Some("auroraview-test".to_string()),
+        },
+        window: WindowConfig::default(),
+        frontend: None,
+        backend: None,
+        extensions: ExtensionsConfig::default(),
+        platform: PlatformConfig::default(),
+        debug: DebugConfig::default(),
+    }
+}
+
+fn minimal_build_context(platform: &str, output_dir: PathBuf) -> BuildContext {
+    let config = minimal_build_config(platform, output_dir.clone());
+    BuildContext::new(config, output_dir)
+}
+
 
 // ─────────────────────────────────────────────────────────────
 // BuilderCapability
@@ -435,3 +478,231 @@ fn builder_registry_available_subset_of_all() {
     let avail_count = registry.available().len();
     assert!(avail_count <= all_count);
 }
+
+#[test]
+fn builder_common_build_config_deserializes_defaults() {
+    let config: BuildConfig = serde_json::from_value(serde_json::json!({
+        "app": { "name": "Demo" },
+        "target": { "platform": "web", "output_dir": "dist" },
+        "window": {},
+        "frontend": { "url": "https://example.com" }
+    }))
+    .unwrap();
+
+    assert_eq!(config.version, 1);
+    assert_eq!(config.app.version, "1.0.0");
+    assert_eq!(config.window.width, 1280);
+    assert_eq!(config.window.height, 720);
+    assert!(config.window.resizable);
+    assert!(matches!(
+        config.frontend,
+        Some(FrontendConfig::Url { ref url }) if url == "https://example.com"
+    ));
+}
+
+#[test]
+fn builder_common_frontend_backend_serde_supports_variants() {
+    let url_frontend: FrontendConfig =
+        serde_json::from_value(serde_json::json!({ "url": "https://example.com" })).unwrap();
+    assert!(matches!(
+        url_frontend,
+        FrontendConfig::Url { ref url } if url == "https://example.com"
+    ));
+
+    let path_frontend: FrontendConfig =
+        serde_json::from_value(serde_json::json!({ "path": "./dist" })).unwrap();
+    assert!(matches!(
+        path_frontend,
+        FrontendConfig::Path { ref path } if path == &PathBuf::from("./dist")
+    ));
+
+    let backend: BackendConfig = serde_json::from_value(serde_json::json!({
+        "type": "python",
+        "entry": "main:run",
+        "strategy": "embedded"
+    }))
+    .unwrap();
+
+    match backend {
+        BackendConfig::Python(config) => {
+            assert_eq!(config.entry, "main:run");
+            assert_eq!(config.version, "3.11");
+            assert!(matches!(config.strategy, PythonStrategy::Embedded));
+
+        }
+        other => panic!("expected python backend, got {:?}", other),
+    }
+
+    let json = serde_json::to_string(&PythonStrategy::Standalone).unwrap();
+    assert_eq!(json, "\"standalone\"");
+}
+
+#[test]
+fn builder_common_extensions_helpers_follow_enabled_flag() {
+    let disabled: ExtensionsConfig = serde_json::from_value(serde_json::json!({
+        "enabled": false,
+        "local": [{ "path": "./ext-one" }]
+    }))
+    .unwrap();
+    assert_eq!(disabled.extension_count(), 1);
+    assert!(!disabled.has_extensions());
+
+    let enabled: ExtensionsConfig = serde_json::from_value(serde_json::json!({
+        "enabled": true,
+        "local": [{ "path": "./ext-one" }],
+        "store": [{ "id": "abcdefghijklmnop" }]
+    }))
+    .unwrap();
+    assert_eq!(enabled.extension_count(), 2);
+    assert!(enabled.has_extensions());
+}
+
+#[test]
+fn win_builder_validate_rejects_missing_frontend_path() {
+    let temp = tempdir().unwrap();
+    let mut config = minimal_build_config("win", temp.path().join("out"));
+    config.frontend = Some(FrontendConfig::Path {
+        path: temp.path().join("missing-dist"),
+    });
+    let ctx = BuildContext::new(config, temp.path().join("out"));
+
+    let err = WinBuilder::new().validate(&ctx).unwrap_err();
+    match err {
+        PackError::FrontendNotFound(path) => {
+            assert!(path.ends_with("missing-dist"));
+        }
+        other => panic!("expected FrontendNotFound, got {:?}", other),
+    }
+}
+
+#[test]
+fn win_builder_validate_rejects_empty_frontend_url() {
+    let temp = tempdir().unwrap();
+    let mut config = minimal_build_config("win", temp.path().join("out"));
+    config.frontend = Some(FrontendConfig::Url {
+        url: String::new(),
+    });
+    let ctx = BuildContext::new(config, temp.path().join("out"));
+
+    let err = WinBuilder::new().validate(&ctx).unwrap_err();
+    assert!(matches!(
+        err,
+        PackError::InvalidUrl(message) if message.contains("URL cannot be empty")
+    ));
+}
+
+#[test]
+fn wechat_builder_validate_requires_app_id() {
+    let temp = tempdir().unwrap();
+    let ctx = minimal_build_context("wechat", temp.path().join("out"));
+
+    let err = WeChatBuilder::new().validate(&ctx).unwrap_err();
+    assert!(matches!(
+        err,
+        PackError::Config(message) if message.contains("App ID")
+    ));
+}
+
+#[test]
+fn wechat_builder_build_generates_project_files_and_webview_page() {
+    let temp = tempdir().unwrap();
+    let cli_path = temp.path().join("cli.bat");
+    fs::write(&cli_path, "@echo off\r\n").unwrap();
+
+    let output_dir = temp.path().join("build");
+    let mut ctx = minimal_build_context("wechat", output_dir.clone());
+    ctx.config.app.name = "AuroraView Demo".to_string();
+    ctx.config.app.identifier = Some("wx1234567890".to_string());
+    ctx.frontend = Some(FrontendBundle {
+        root: temp.path().join("frontend"),
+        files: vec![("index.html".to_string(), b"<html></html>".to_vec())],
+    });
+    ctx.add_asset("assets/icon.png", b"icon".to_vec());
+
+    let output = WeChatBuilder::new()
+        .cli_path(cli_path.clone())
+        .build(&mut ctx)
+        .unwrap();
+
+    let project_dir = output_dir.join("wechat-miniprogram");
+    assert_eq!(output.path, project_dir);
+    assert_eq!(output.format, "wechat-miniprogram");
+    assert_eq!(output.asset_count, 1);
+    assert_eq!(output.info.get("app_id").map(String::as_str), Some("wx1234567890"));
+    assert_eq!(
+        output.info.get("cli_path").map(String::as_str),
+        Some(cli_path.to_string_lossy().as_ref())
+    );
+
+    let project_config = fs::read_to_string(project_dir.join("project.config.json")).unwrap();
+    assert!(project_config.contains("\"appId\": \"wx1234567890\""));
+    assert!(project_config.contains("\"projectName\": \"AuroraView Demo\""));
+
+    let app_json = fs::read_to_string(project_dir.join("app.json")).unwrap();
+    assert!(app_json.contains("pages/index/index"));
+
+    let index_wxml = fs::read_to_string(project_dir.join("pages/index/index.wxml")).unwrap();
+    assert_eq!(index_wxml, "<web-view src=\"/index.html\"></web-view>");
+
+    let copied_asset = fs::read(project_dir.join("assets/icon.png")).unwrap();
+    assert_eq!(copied_asset, b"icon");
+}
+
+#[test]
+fn wechat_builder_build_prefers_builder_app_id_and_plain_view_without_frontend() {
+    let temp = tempdir().unwrap();
+    let cli_path = temp.path().join("cli.bat");
+    fs::write(&cli_path, "@echo off\r\n").unwrap();
+
+    let output_dir = temp.path().join("plain-build");
+    let mut ctx = minimal_build_context("wechat", output_dir.clone());
+    ctx.config.app.name.clear();
+    ctx.config.app.identifier = Some("wx-config-id".to_string());
+
+    let output = WeChatBuilder::new()
+        .app_id("wx-builder-id")
+        .cli_path(cli_path)
+        .build(&mut ctx)
+        .unwrap();
+
+    assert_eq!(output.info.get("app_id").map(String::as_str), Some("wx-builder-id"));
+
+    let project_dir = output_dir.join("wechat-miniprogram");
+    let project_config = fs::read_to_string(project_dir.join("project.config.json")).unwrap();
+    assert!(project_config.contains("\"appId\": \"wx-builder-id\""));
+    assert!(project_config.contains("\"projectName\": \"AuroraView App\""));
+
+    let index_wxml = fs::read_to_string(project_dir.join("pages/index/index.wxml")).unwrap();
+    assert_eq!(
+        index_wxml,
+        "<view class=\"container\"><text>AuroraView App</text></view>"
+    );
+}
+
+#[test]
+fn miniprogram_stub_builders_report_tools_and_unimplemented_errors() {
+    let alipay = AlipayBuilder::new().app_id("ali123");
+    assert_eq!(alipay.required_tools(), vec!["alipay-devtools"]);
+    assert!(alipay.targets().contains(&"zhifubao"));
+
+    let bytedance = ByteDanceBuilder::new().app_id("tt123");
+    assert_eq!(bytedance.required_tools(), vec!["bytedance-devtools"]);
+    assert!(bytedance.targets().contains(&"douyin"));
+
+    let temp = tempdir().unwrap();
+    let mut alipay_ctx = minimal_build_context("alipay", temp.path().join("alipay-out"));
+    let mut bytedance_ctx = minimal_build_context("bytedance", temp.path().join("tt-out"));
+
+    let alipay_err = alipay.build(&mut alipay_ctx).unwrap_err();
+    let bytedance_err = bytedance.build(&mut bytedance_ctx).unwrap_err();
+
+    assert!(matches!(
+        alipay_err,
+        PackError::Build(message) if message.contains("Alipay MiniProgram builder not yet implemented")
+    ));
+    assert!(matches!(
+        bytedance_err,
+        PackError::Build(message) if message.contains("ByteDance MiniProgram builder not yet implemented")
+    ));
+}
+

@@ -1,41 +1,45 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-03 05:25 (UTC+8)
+## Last Execution: 2026-04-03 22:07 (UTC+8)
 
 ### Branch Status
-- Branch: `auto-improve` (4 new commits: `dc9816b`, `5c46f3c`, `250fd75`, `a542b1c` iteration)
-- Pushed: Yes (pushed to remote)
+- Branch: `auto-improve`
+- Remote sync check: `origin/main...HEAD = 0 behind, 200 ahead`
+- Workspace clean: No (pre-existing local changes present), so skipped rebase/merge to avoid clobbering in-flight work
+
+### Completed in This Iteration
+
+1. **test(pack): expand builder coverage**
+   - Added `builder/common` serde/default coverage for `BuildConfig`, `FrontendConfig`, `BackendConfig`, and `ExtensionsConfig`
+   - Added `WinBuilder::validate()` error-path tests for missing frontend path and empty URL
+   - Added `WeChatBuilder` validation/build coverage for App ID requirement, builder-over-config precedence, generated project files, and web-view/plain-view branches
+   - Added direct smoke/error coverage for `AlipayBuilder` and `ByteDanceBuilder`
+
+### Validation
+- `cargo test -p auroraview-pack --test builder_tests -- --nocapture` ✅ (`59 passed`)
+- `cargo test -p auroraview-pack --tests -- --nocapture` ✅
+
+### Next Iteration Targets (Priority Order)
+1. **auroraview-pack/config_tests expansion** — cover builder/runtime config edge cases and defaults
+2. **auroraview-pack/progress_tests expansion** — callback/progress phase transitions and aggregation
+3. **auroraview-pack/packer_tests expansion** — lifecycle/error branches not yet covered directly
+
+## Previous Execution: 2026-04-03 11:08 (UTC+8)
+
+
+### Branch Status
+- Branch: `auto-improve` (new commit: `ae687c4`)
+- Pushed: Yes (all pushed to remote)
 - All new tests pass, 0 failures
 
 ### Completed in This Iteration
 
-1. **test(shell): expand shell_tests from 38 to 68 tests** (commit `dc9816b`)
-   - Converted all `#[test]` to `#[rstest]`
-   - Added rstest parametric tests: `test_which_parametrized_nonexistent`, `test_execute_dangerous_cmds_blocked_by_default`, `test_open_url_schemes_blocked`, `test_unknown_commands_err`
-   - Added `ExecuteOptions::show_console` field tests (default false, true via camelCase JSON)
-   - Added `test_execute_options_various` (#[case] with cmd/args/cwd/show_console combos)
-   - Added `test_open_options_parametrized` with `with_app` Option variants
-   - Added `test_execute_result_parametrized` (code Some(0)/Some(1)/Some(127)/None)
-   - Added `test_restart_app_blocked_by_scope` (verifies command is registered, no actual restart)
-   - Added `test_shell_plugin_commands_count` (≥8)
-   - Added concurrent tests: `test_get_env_concurrent_no_panic`, `test_which_concurrent_no_panic`, `test_get_env_all_concurrent_no_panic`, `test_blocked_commands_concurrent_no_panic`
-   - Added `test_execute_result_clone`, `test_execute_result_debug`
-
-2. **test(service_discovery): expand tests from 55 to 79** (commit `5c46f3c`)
-   - `ServiceDiscoveryError` display: `NoFreePort`, `PortInUse`, `MdnsError`, `HttpError`, `IoError`, `debug NoFreePort`
-   - `InstanceRegistry` concurrent: `concurrent_register`, `concurrent_register_unregister`, `concurrent_get`, `concurrent_get_all`, `register_multiple_then_get_all`
-   - `PortAllocator` concurrent: `concurrent_no_panic`, `is_port_available_concurrent`
-   - `InstanceInfo` fields: `pid_is_current_process`, `start_time_nonzero`, `app_version_nonempty`, `url_html_title_defaults`
-   - `DiscoveryResponse` serde roundtrip + parametric `#[case]` (3 ports/services/versions)
-
-3. **test(dcc): expand error_tests from 22 to 50** (commit `250fd75`)
-   - `Com` variant (Windows): display, debug, `#[case]` parametric messages
-   - Error source chain: `webview_creation_no_source`, `invalid_parent_no_source`, `unsupported_dcc_no_source`
-   - Display prefix correctness: `webview_creation_display_prefix`, `window_not_found_display_prefix`, `unsupported_dcc_display_prefix`, `threading_display_prefix`
-   - Parametric messages: `webview_creation_messages`, `window_not_found_ids`, `threading_messages`
-   - `error_as_box_dyn_error`, `error_in_result_chain`, `dcc_error_in_arc`
-   - Concurrent error construction (8 threads, no panic)
-   - `result_ok_value`, `result_err_value`, `result_map_err`
+1. **test(pack): expand pyoxidizer/metrics/hooks/license/deps_collector tests** (commit `ae687c4`)
+   - pyoxidizer_tests: 13→30 (DistributionFlavor variants/clone/serde/python_paths/env_vars/filesystem_importer/header/optimize_levels)
+   - metrics_tests: 13→28 (debug/total/phases_count/window_webview_ordering/elapsed/mark_tar/python_runtime)
+   - hooks_tests: 19→33 (many_cmds/empty_string/unicode/large_collect_list/debug/vx_together)
+   - license_tests: 15→30 (serde/clone/all_reason_variants/days_remaining/token_len/allowed_machines/invalid_date/grace_zero)
+   - deps_collector_tests: 16→28 (serde/update_multiple/binary_file/empty_file/large_file/remove_nonexistent/update_overwrites/invalid_json)
 
 ### Cumulative Progress (across iterations)
 
@@ -135,6 +139,36 @@
 **Plugins shell_tests expansion (COMPLETE):** 38 → 68 tests
 **Core service_discovery_tests expansion (COMPLETE):** 55 → 79 tests
 **DCC error_tests expansion (COMPLETE):** 22 → 50 tests
+**AI Agent session_tests expansion (COMPLETE):** ~57 → 85 tests
+**Telemetry span_ext_tests expansion (COMPLETE):** ~12 → 39 tests
+**Protect crypto_tests expansion (COMPLETE):** 30 → 70 tests
+**Plugins process_tests expansion (COMPLETE):** 13 → 44 tests
+**Plugins clipboard_tests expansion (COMPLETE):** 4 → 27 tests
+**Plugins dialog_tests expansion (COMPLETE):** 11 → 52 tests
+**Plugins fs_types_tests expansion (COMPLETE):** 20 → 55 tests
+**Plugins extensions_tests expansion (COMPLETE):** 31 → 56 tests
+**Plugins types_tests expansion (COMPLETE):** 21 → 59 tests
+**Core dom_tests expansion (COMPLETE):** 3 → 38 tests
+**Core icon_tests expansion (COMPLETE):** 2 → 24 tests
+**Core menu_tests expansion (COMPLETE):** 7 → 37 tests
+**Core window_style_tests expansion (COMPLETE):** 2 → 20 tests
+**AI Agent agent_tests expansion (COMPLETE):** 5 → 35 tests
+**Core window_tests expansion (COMPLETE):** 5 → 19 tests
+**Core vibrancy_tests expansion (COMPLETE):** 22 → 43 tests
+**Core icon_converter_tests expansion (COMPLETE):** 7 → 42 tests
+**Telemetry sentry_tests expansion (COMPLETE):** 10 → 20 tests
+**Telemetry guard_tests expansion (COMPLETE):** 12 → 22 tests
+**Protect bytecode_integration_test expansion (COMPLETE):** 3 → 20 tests
+**Telemetry telemetry_init_tests expansion (COMPLETE):** 9 → 25 tests
+**Core click_through_tests expansion (COMPLETE):** 13 → 38 tests
+**Desktop error_tests expansion (COMPLETE):** 13 → 29 tests
+**Pack lib_tests expansion (COMPLETE):** 5 → 13 tests
+**Pack overlay_tests expansion (COMPLETE):** 8 → 18 tests
+**Pack pyoxidizer_tests expansion (COMPLETE):** 13 → 30 tests
+**Pack metrics_tests expansion (COMPLETE):** 13 → 28 tests
+**Pack hooks_tests expansion (COMPLETE):** 19 → 33 tests
+**Pack license_tests expansion (COMPLETE):** 15 → 30 tests
+**Pack deps_collector_tests expansion (COMPLETE):** 16 → 28 tests
 
 ### Known Pre-existing Issues
 - `auroraview-core` assets_tests fail (need `vx just assets-build`)
@@ -143,8 +177,8 @@
 - `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
 
 ### Next Iteration Targets (Priority Order)
-1. **auroraview-ai-agent: session_tests additional concurrent/edge** — concurrent session creation, multiple tools in one message
-2. **auroraview-telemetry: span_ext_tests expansion** — concurrent span attribute setting, multiple error types in span
-3. **auroraview-protect: crypto_tests expansion** — edge cases: empty plaintext, large data, wrong key length
-4. **auroraview-plugins: process_tests expansion** — process spawn/kill lifecycle, IPC edge cases
-5. **auroraview-desktop: tray_tests expansion** — more tray menu item edge cases, concurrent tray operations
+1. **auroraview-pack/builder_tests expansion** — explore builder/*.rs for more coverage
+2. **auroraview-pack/packer_tests expansion** — 30+ tests (packer lifecycle/error/progress)
+3. **auroraview-pack/progress_tests expansion** — 8 → 25+ (progress bar/callback/multi-phase)
+4. **auroraview-pack/config_tests expansion** — 30+ (PackConfig serde/validate/builder pattern)
+5. **auroraview-core/new modules** — look for untested modules in auroraview-core
