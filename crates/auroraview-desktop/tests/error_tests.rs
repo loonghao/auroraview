@@ -123,3 +123,127 @@ fn all_variants_have_non_empty_display() {
         assert!(!v.to_string().is_empty());
     }
 }
+
+// ============================================================================
+// Additional tests
+// ============================================================================
+
+#[rstest]
+fn window_creation_contains_msg() {
+    let msg = "CreateWindowEx returned NULL";
+    let e = DesktopError::WindowCreation(msg.into());
+    assert!(e.to_string().contains(msg));
+}
+
+#[rstest]
+fn webview_creation_contains_msg() {
+    let msg = "CoreWebView2Environment creation failed";
+    let e = DesktopError::WebViewCreation(msg.into());
+    assert!(e.to_string().contains(msg));
+}
+
+#[rstest]
+fn window_not_found_contains_id() {
+    let id = "maya_panel_001";
+    let e = DesktopError::WindowNotFound(id.into());
+    assert!(e.to_string().contains(id));
+}
+
+#[rstest]
+fn event_loop_contains_msg() {
+    let msg = "winit event loop terminated";
+    let e = DesktopError::EventLoop(msg.into());
+    assert!(e.to_string().contains(msg));
+}
+
+#[rstest]
+fn tray_contains_msg() {
+    let msg = "failed to create notification icon";
+    let e = DesktopError::Tray(msg.into());
+    assert!(e.to_string().contains(msg));
+}
+
+#[rstest]
+fn window_creation_debug_contains_variant() {
+    let e = DesktopError::WindowCreation("x".into());
+    let s = format!("{:?}", e);
+    assert!(s.contains("WindowCreation"));
+}
+
+#[rstest]
+fn webview_creation_debug_contains_variant() {
+    let e = DesktopError::WebViewCreation("y".into());
+    let s = format!("{:?}", e);
+    assert!(s.contains("WebViewCreation"));
+}
+
+#[rstest]
+fn window_not_found_debug_contains_variant() {
+    let e = DesktopError::WindowNotFound("z".into());
+    let s = format!("{:?}", e);
+    assert!(s.contains("WindowNotFound"));
+}
+
+#[rstest]
+fn event_loop_debug_contains_variant() {
+    let e = DesktopError::EventLoop("ev".into());
+    let s = format!("{:?}", e);
+    assert!(s.contains("EventLoop"));
+}
+
+#[rstest]
+fn tray_debug_contains_variant() {
+    let e = DesktopError::Tray("tr".into());
+    let s = format!("{:?}", e);
+    assert!(s.contains("Tray"));
+}
+
+#[rstest]
+fn window_creation_unicode_msg() {
+    let msg = "ウィンドウ作成失敗: HWNDがNULL";
+    let e = DesktopError::WindowCreation(msg.into());
+    assert!(e.to_string().contains(msg));
+}
+
+#[rstest]
+fn tray_unicode_msg() {
+    let msg = "トレイアイコンが見つかりません";
+    let e = DesktopError::Tray(msg.into());
+    assert!(e.to_string().contains(msg));
+}
+
+#[rstest]
+fn window_creation_long_msg() {
+    let msg = "x".repeat(512);
+    let e = DesktopError::WindowCreation(msg.clone());
+    assert!(e.to_string().contains(&msg));
+}
+
+#[rstest]
+fn io_various_kinds() {
+    let kinds = [
+        io::ErrorKind::NotFound,
+        io::ErrorKind::PermissionDenied,
+        io::ErrorKind::TimedOut,
+        io::ErrorKind::ConnectionRefused,
+    ];
+    for kind in &kinds {
+        let io_err = io::Error::new(*kind, "detail");
+        let e: DesktopError = io_err.into();
+        assert!(matches!(e, DesktopError::Io(_)));
+        assert!(!e.to_string().is_empty());
+    }
+}
+
+#[rstest]
+fn result_error_contains_window_not_found() {
+    let r: Result<()> = Err(DesktopError::WindowNotFound("panel_x".into()));
+    let err = r.unwrap_err();
+    assert!(err.to_string().contains("panel_x"));
+}
+
+#[rstest]
+fn result_ok_unit() {
+    let r: Result<()> = Ok(());
+    assert!(r.is_ok());
+}
