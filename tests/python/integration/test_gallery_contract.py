@@ -214,8 +214,14 @@ class TestAPIParameterFormats:
         ]
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            try:
+                browser = p.chromium.launch(headless=True)
+            except PlaywrightError as exc:
+                if "Executable doesn't exist" in str(exc):
+                    pytest.skip("Playwright browser not installed")
+                raise
             context = browser.new_context()
+
 
             # Inject bridge
             context.add_init_script("""

@@ -6,7 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("qtpy", reason="Qt backend requires qtpy and Qt bindings")
+
 from auroraview import WebView
+
 
 # Mark all tests as Qt tests and skip in CI (requires display)
 pytestmark = [
