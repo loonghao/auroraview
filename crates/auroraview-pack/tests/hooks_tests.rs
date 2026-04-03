@@ -256,3 +256,146 @@ fn hooks_config_full_integration() {
     assert_eq!(cfg.after_pack.len(), 1);
     assert!(!cfg.use_vx);
 }
+
+// ============================================================================
+// Extended coverage tests
+// ============================================================================
+
+#[test]
+fn hooks_config_many_before_collect_commands() {
+    let cmds: Vec<String> = (0..10).map(|i| format!("cmd_{i}")).collect();
+    let cfg = HooksConfig {
+        before_collect: cmds.clone(),
+        ..Default::default()
+    };
+    assert_eq!(cfg.before_collect.len(), 10);
+    assert_eq!(cfg.before_collect[9], "cmd_9");
+}
+
+#[test]
+fn hooks_config_many_after_pack_commands() {
+    let cmds: Vec<String> = (0..5).map(|i| format!("after_{i}")).collect();
+    let cfg = HooksConfig {
+        after_pack: cmds.clone(),
+        ..Default::default()
+    };
+    assert_eq!(cfg.after_pack.len(), 5);
+}
+
+#[test]
+fn hooks_config_empty_string_command() {
+    let cfg = HooksConfig {
+        before_collect: vec!["".to_string()],
+        ..Default::default()
+    };
+    assert_eq!(cfg.before_collect[0], "");
+}
+
+#[test]
+fn collect_pattern_no_dest_preserve_structure_default() {
+    let p = CollectPattern::new("*.py");
+    assert!(p.preserve_structure);
+    assert!(p.dest.is_none());
+    assert!(p.description.is_none());
+}
+
+#[test]
+fn collect_pattern_preserve_structure_false() {
+    let p = CollectPattern {
+        source: "src/**".to_string(),
+        dest: None,
+        preserve_structure: false,
+        description: None,
+    };
+    assert!(!p.preserve_structure);
+}
+
+#[test]
+fn collect_pattern_with_unicode_source() {
+    let p = CollectPattern::new("资源/**/*.png");
+    assert_eq!(p.source, "资源/**/*.png");
+}
+
+#[test]
+fn collect_pattern_with_unicode_dest() {
+    let p = CollectPattern::new("src/**").with_dest("目标/输出");
+    assert_eq!(p.dest.as_deref(), Some("目标/输出"));
+}
+
+#[test]
+fn hooks_config_use_vx_and_vx_commands_together() {
+    let cfg = HooksConfig {
+        use_vx: true,
+        vx: VxHooksConfig {
+            before_collect: vec!["vx node npm run build".to_string()],
+            after_pack: vec!["vx python sign.py".to_string()],
+        },
+        ..Default::default()
+    };
+    assert!(cfg.use_vx);
+    assert_eq!(cfg.vx.before_collect.len(), 1);
+    assert_eq!(cfg.vx.after_pack.len(), 1);
+}
+
+#[test]
+fn hooks_config_large_collect_list() {
+    let patterns: Vec<CollectPattern> = (0..20)
+        .map(|i| CollectPattern::new(format!("dir_{i}/**")))
+        .collect();
+    let cfg = HooksConfig {
+        collect: patterns,
+        ..Default::default()
+    };
+    assert_eq!(cfg.collect.len(), 20);
+    assert_eq!(cfg.collect[0].source, "dir_0/**");
+    assert_eq!(cfg.collect[19].source, "dir_19/**");
+}
+
+#[test]
+fn hooks_config_debug_contains_collect() {
+    let cfg = HooksConfig {
+        collect: vec![CollectPattern::new("src/**")],
+        ..Default::default()
+    };
+    let debug_str = format!("{cfg:?}");
+    assert!(debug_str.contains("collect") || debug_str.contains("source"));
+}
+
+#[test]
+fn vx_hooks_config_debug() {
+    let vx = VxHooksConfig {
+        before_collect: vec!["cmd".to_string()],
+        after_pack: vec![],
+    };
+    let debug_str = format!("{vx:?}");
+    assert!(debug_str.contains("before_collect") || debug_str.contains("VxHooks"));
+}
+
+#[test]
+fn collect_pattern_with_description_none_by_default() {
+    let p = CollectPattern::new("data/**");
+    assert!(p.description.is_none());
+}
+
+#[test]
+fn collect_pattern_with_description_set() {
+    let p = CollectPattern {
+        source: "data/**".to_string(),
+        dest: None,
+        preserve_structure: true,
+        description: Some("All data files".to_string()),
+    };
+    assert_eq!(p.description.as_deref(), Some("All data files"));
+}
+
+#[test]
+fn hooks_config_serde_with_empty_vx() {
+    let cfg = HooksConfig {
+        before_collect: vec!["cmd".to_string()],
+        ..Default::default()
+    };
+    let json = serde_json::to_string(&cfg).unwrap();
+    let parsed: HooksConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed.before_collect, cfg.before_collect);
+    assert!(parsed.vx.before_collect.is_empty());
+}
