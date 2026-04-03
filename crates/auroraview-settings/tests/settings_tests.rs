@@ -547,8 +547,9 @@ use auroraview_settings::SettingsError;
 #[case(SettingValue::Bool(false))]
 #[case(SettingValue::Integer(42))]
 #[case(SettingValue::Integer(-1))]
-#[case(SettingValue::Float(3.14))]
+#[case(SettingValue::Float(2.5))]
 #[case(SettingValue::String("hello".into()))]
+
 #[case(SettingValue::Null)]
 fn setting_value_serde_roundtrip(#[case] value: SettingValue) {
     let json = serde_json::to_string(&value).unwrap();
@@ -662,7 +663,8 @@ fn setting_value_integer_as_float_coerces() {
 
 #[rstest]
 fn setting_value_float_as_integer_none() {
-    let v = SettingValue::Float(3.14);
+    let v = SettingValue::Float(2.5);
+
     // float does not coerce to integer
     assert!(v.as_integer().is_none());
 }
@@ -823,13 +825,13 @@ fn concurrent_set_no_deadlock() {
         h.join().unwrap();
     }
 
-    assert!(mgr.user_settings().len() > 0);
+    assert!(!mgr.user_settings().is_empty());
 }
 
 #[rstest]
 fn concurrent_get_set_no_panic() {
-
     let mgr = Arc::new(SettingsManager::new());
+
     mgr.set("shared", SettingValue::Integer(0)).unwrap();
 
     let writer = {
@@ -869,5 +871,6 @@ fn concurrent_clone_and_set_shares_state() {
     writer.join().unwrap();
 
     // mgr and mgr_clone share state
-    assert!(mgr.user_settings().len() > 0);
+    assert!(!mgr.user_settings().is_empty());
 }
+

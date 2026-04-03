@@ -172,11 +172,11 @@ fn set_error_sentry_config() {
 
 #[test]
 fn concurrent_set_webview_id_no_panic() {
-    use std::sync::Arc;
     use std::thread;
 
     let handles: Vec<_> = (0..8)
         .map(|i| {
+
             thread::spawn(move || {
                 let span = span!(Level::INFO, "concurrent-span");
                 span.set_webview_id(&format!("panel-{i}"));

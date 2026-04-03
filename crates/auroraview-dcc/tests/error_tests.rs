@@ -224,9 +224,9 @@ fn error_as_box_dyn_error() {
 fn error_in_result_chain() {
     let result: std::result::Result<(), DccError> =
         Err(DccError::WebViewCreation("fail".to_string()));
-    let msg = result.unwrap_err().to_string();
-    assert!(msg.contains("fail"));
+    assert!(matches!(result, Err(DccError::WebViewCreation(message)) if message == "fail"));
 }
+
 
 // ============================================================================
 // Display prefix correctness
@@ -336,15 +336,16 @@ fn dcc_error_in_arc() {
 #[rstest]
 fn result_ok_value() {
     let r: Result<String> = Ok("hello".to_string());
-    assert_eq!(r.unwrap(), "hello");
+    assert!(matches!(r, Ok(value) if value == "hello"));
 }
+
 
 #[rstest]
 fn result_err_value() {
     let r: Result<()> = Err(DccError::UnsupportedDcc("Nuke".to_string()));
-    let msg = r.unwrap_err().to_string();
-    assert!(msg.contains("Nuke"));
+    assert!(matches!(r, Err(DccError::UnsupportedDcc(name)) if name == "Nuke"));
 }
+
 
 #[rstest]
 fn result_map_err() {

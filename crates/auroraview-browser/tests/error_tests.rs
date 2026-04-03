@@ -130,8 +130,9 @@ fn from_serde_json_error() {
 fn result_alias_ok() {
     use auroraview_browser::Result;
     let r: Result<u32> = Ok(42);
-    assert_eq!(r.unwrap(), 42);
+    assert!(matches!(r, Ok(42)));
 }
+
 
 #[rstest]
 fn result_alias_err() {

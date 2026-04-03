@@ -275,10 +275,13 @@ fn license_config_clone() {
 
 #[test]
 fn allowed_machines_blocks_unknown_machine() {
-    let mut config = LicenseConfig::default();
-    config.enabled = true;
-    config.allowed_machines = vec!["non-existent-machine-id-xyz-9999".to_string()];
+    let config = LicenseConfig {
+        enabled: true,
+        allowed_machines: vec!["non-existent-machine-id-xyz-9999".to_string()],
+        ..Default::default()
+    };
     let validator = LicenseValidator::new(config);
+
     let status = validator.validate(None);
     assert!(!status.valid);
     assert_eq!(status.reason, LicenseReason::MachineNotAllowed);
@@ -287,10 +290,13 @@ fn allowed_machines_blocks_unknown_machine() {
 #[test]
 fn allowed_machines_allows_current_machine() {
     let machine_id = get_machine_id();
-    let mut config = LicenseConfig::default();
-    config.enabled = true;
-    config.allowed_machines = vec![machine_id];
+    let config = LicenseConfig {
+        enabled: true,
+        allowed_machines: vec![machine_id],
+        ..Default::default()
+    };
     let validator = LicenseValidator::new(config);
+
     let status = validator.validate(None);
     // Current machine is in allowed list → should pass machine check and be valid
     assert!(status.valid);

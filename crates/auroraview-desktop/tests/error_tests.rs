@@ -238,9 +238,9 @@ fn io_various_kinds() {
 #[rstest]
 fn result_error_contains_window_not_found() {
     let r: Result<()> = Err(DesktopError::WindowNotFound("panel_x".into()));
-    let err = r.unwrap_err();
-    assert!(err.to_string().contains("panel_x"));
+    assert!(matches!(r, Err(DesktopError::WindowNotFound(name)) if name == "panel_x"));
 }
+
 
 #[rstest]
 fn result_ok_unit() {

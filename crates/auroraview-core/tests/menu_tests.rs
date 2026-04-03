@@ -216,10 +216,11 @@ fn menu_many_items() {
     let mut menu = Menu::new("Tools");
     for i in 0..10 {
         menu = menu.add_item(MenuItem::action(
-            &format!("Tool {}", i),
-            &format!("tools.t{}", i),
+            format!("Tool {}", i),
+            format!("tools.t{}", i),
             None,
         ));
+
     }
     assert_eq!(menu.items.len(), 10);
 }

@@ -105,8 +105,9 @@ fn test_png_to_ico_nonexistent_input() {
     let result = png_to_ico(&fake_path, &ico_path, &[32]);
     assert!(result.is_err());
     let err_msg = format!("{}", result.unwrap_err());
-    assert!(err_msg.contains("nonexistent") || err_msg.len() > 0);
+    assert!(err_msg.contains("nonexistent") || !err_msg.is_empty());
 }
+
 
 // ============================================================================
 // PNG bytes to ICO tests

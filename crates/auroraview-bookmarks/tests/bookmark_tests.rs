@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use auroraview_bookmarks::{Bookmark, BookmarkError, BookmarkFolder, BookmarkManager};
@@ -6,6 +6,7 @@ use rstest::*;
 use tempfile::TempDir;
 
 // ========== Bookmark Struct Tests ==========
+
 
 #[rstest]
 fn bookmark_new() {

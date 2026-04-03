@@ -54,8 +54,9 @@ fn message_data_complex() {
     let data = serde_json::json!({
         "list": [1, 2, 3],
         "nested": {"a": {"b": true}},
-        "float": 3.14
+        "float": 2.5
     });
+
     let msg = IpcMessage::new("complex", data.clone());
     let json = serde_json::to_string(&msg).unwrap();
     let parsed: IpcMessage = serde_json::from_str(&json).unwrap();

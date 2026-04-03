@@ -387,9 +387,10 @@ fn concurrent_plugin_command_creation() {
         .map(|i| {
             std::thread::spawn(move || {
                 let cmd = PluginCommand::new(
-                    &format!("cmd_{}", i),
-                    &format!("Command {}", i),
+                    format!("cmd_{}", i),
+                    format!("Command {}", i),
                 );
+
                 assert!(!cmd.name.is_empty());
             })
         })

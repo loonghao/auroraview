@@ -72,9 +72,10 @@ mod interactive_region_tests {
     #[rstest]
     fn test_region_clone() {
         let region = InteractiveRegion::new(10, 20, 100, 50);
-        let cloned = region.clone();
-        assert_eq!(region, cloned);
+        let copied = region;
+        assert_eq!(region, copied);
     }
+
 
     #[rstest]
     fn test_region_zero_size() {

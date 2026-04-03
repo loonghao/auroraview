@@ -451,10 +451,11 @@ fn serde_notification_roundtrip_full() {
     assert_eq!(back.notification_type, NotificationType::Error);
     assert_eq!(back.icon, Some("error-icon".to_string()));
     assert_eq!(back.tag, Some("alert-group".to_string()));
-    assert_eq!(back.require_interaction, true);
+    assert!(back.require_interaction);
     assert_eq!(back.actions.len(), 2);
     assert_eq!(back.actions[0].id, "ok");
     assert_eq!(back.actions[0].icon, Some("check".to_string()));
+
     assert_eq!(back.actions[1].icon, None);
     assert!(back.data.is_some());
 }

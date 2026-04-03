@@ -270,17 +270,18 @@ fn from_json_error() {
 #[rstest]
 fn pack_result_ok() {
     let r: PackResult<u32> = Ok(42);
-    assert_eq!(r.unwrap(), 42);
+    assert!(matches!(r, Ok(42)));
 }
+
 
 #[rstest]
 fn pack_result_err() {
     let r: PackResult<u32> = Err(PackError::Config("oops".to_string()));
-    assert!(r.is_err());
-    assert!(r.unwrap_err().to_string().contains("oops"));
+    assert!(matches!(r, Err(PackError::Config(message)) if message.contains("oops")));
 }
 
 // ============================================================================
+
 // Error source chain (thiserror integration)
 // ============================================================================
 

@@ -13,7 +13,8 @@ use auroraview_core::protocol::{
 // ============================================================================
 
 #[test]
-fn file_url_to_auroraview() {
+fn file_url_to_auroraview_converts_paths() {
+
     assert_eq!(
         file_url_to_auroraview("file:///C:/path/to/file.html"),
         "https://auroraview.localhost/type:file/C:/path/to/file.html"
@@ -29,7 +30,8 @@ fn file_url_to_auroraview() {
 }
 
 #[test]
-fn local_path_to_auroraview() {
+fn local_path_to_auroraview_converts_paths() {
+
     assert_eq!(
         local_path_to_auroraview("C:/path/to/file.html"),
         "https://auroraview.localhost/type:local/C:/path/to/file.html"
@@ -45,7 +47,7 @@ fn local_path_to_auroraview() {
 }
 
 #[test]
-fn strip_protocol_type() {
+fn strip_protocol_type_extracts_expected_prefix() {
     assert_eq!(
         strip_protocol_type("type:file/C:/path/to/file.html", PROTOCOL_TYPE_FILE),
         Some("C:/path/to/file.html")
@@ -65,8 +67,9 @@ fn strip_protocol_type() {
 }
 
 #[test]
-fn is_auroraview_url() {
+fn is_auroraview_url_detects_supported_urls() {
     assert!(is_auroraview_url(
+
         "https://auroraview.localhost/type:file/C:/path"
     ));
     assert!(is_auroraview_url("https://auroraview.localhost/index.html"));
@@ -87,7 +90,8 @@ fn protocol_constants() {
 // ============================================================================
 
 #[test]
-fn normalize_url() {
+fn normalize_url_handles_common_inputs() {
+
     assert_eq!(normalize_url("example.com"), "https://example.com");
     assert_eq!(normalize_url("https://example.com"), "https://example.com");
     assert_eq!(normalize_url("http://example.com"), "http://example.com");
@@ -96,7 +100,8 @@ fn normalize_url() {
 }
 
 #[test]
-fn extract_protocol_path() {
+fn extract_protocol_path_parses_supported_forms() {
+
     assert_eq!(
         extract_protocol_path("auroraview://localhost/index.html", "auroraview"),
         Some("index.html".to_string())
@@ -120,7 +125,8 @@ fn extract_protocol_path() {
 }
 
 #[test]
-fn guess_mime_type() {
+fn guess_mime_type_for_common_assets() {
+
     assert_eq!(guess_mime_type(Path::new("style.css")), "text/css");
     assert_eq!(guess_mime_type(Path::new("script.js")), "text/javascript");
     assert_eq!(guess_mime_type(Path::new("index.html")), "text/html");
