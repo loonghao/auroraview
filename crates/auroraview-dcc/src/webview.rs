@@ -47,9 +47,6 @@ pub struct DccWebView {
 }
 
 struct DccWebViewInner {
-    /// Parent HWND
-    #[allow(dead_code)]
-    parent_hwnd: isize,
     /// WebView HWND (created as child of parent)
     webview_hwnd: Option<isize>,
     /// WebView2 controller (owns the WebView lifecycle)
@@ -263,7 +260,6 @@ impl DccWebView {
 
         // Store inner state
         let inner = DccWebViewInner {
-            parent_hwnd: parent,
             webview_hwnd: None,
             controller: Some(controller),
             webview: Some(webview_core),

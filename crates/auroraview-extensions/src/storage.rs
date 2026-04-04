@@ -73,9 +73,6 @@ pub struct StorageBackend {
     storage_dir: PathBuf,
     /// In-memory cache for session storage
     session_cache: Arc<DashMap<ExtensionId, HashMap<String, Value>>>,
-    /// In-memory cache for local/sync storage (write-through)
-    #[allow(dead_code)]
-    local_cache: Arc<DashMap<ExtensionId, HashMap<String, Value>>>,
 }
 
 impl StorageBackend {
@@ -84,7 +81,6 @@ impl StorageBackend {
         Self {
             storage_dir,
             session_cache: Arc::new(DashMap::new()),
-            local_cache: Arc::new(DashMap::new()),
         }
     }
 

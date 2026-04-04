@@ -132,9 +132,6 @@ struct ManagedProcess {
 struct IpcChannelHandle {
     /// Socket stream for sending messages
     stream: LocalSocketStream,
-    /// Channel name (for cleanup)
-    #[allow(dead_code)]
-    channel_name: String,
 }
 
 /// Process plugin with IPC support
@@ -634,7 +631,6 @@ impl ProcessPlugin {
         let event_cb = self.event_callback.clone();
         let channels = self.channels.clone();
         let shutdown_state = Arc::clone(&self.shutdown_state);
-        let channel_name_clone = channel_name.clone();
 
         thread::spawn(move || {
             tracing::info!(
@@ -658,7 +654,6 @@ impl ProcessPlugin {
                         pid,
                         Arc::new(Mutex::new(IpcChannelHandle {
                             stream,
-                            channel_name: channel_name_clone.clone(),
                         })),
                     );
 

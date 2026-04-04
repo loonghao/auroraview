@@ -409,27 +409,6 @@ impl OverlayReader {
         }))
     }
 
-    /// Extract assets from a tar archive (parallel version)
-    ///
-    /// First pass: collect entry metadata and offsets
-    /// Second pass: parallel read of file contents
-    #[allow(dead_code)]
-    fn extract_assets_archive(data: &[u8]) -> PackResult<Vec<(String, Vec<u8>)>> {
-        let mut archive = tar::Archive::new(data);
-
-        // First pass: collect entries sequentially (tar requires sequential read)
-        let mut entries_data: Vec<(String, Vec<u8>)> = Vec::new();
-
-        for entry in archive.entries()? {
-            let mut entry = entry?;
-            let path = entry.path()?.to_string_lossy().to_string();
-            let mut content = Vec::with_capacity(entry.size() as usize);
-            entry.read_to_end(&mut content)?;
-            entries_data.push((path, content));
-        }
-
-        Ok(entries_data)
-    }
 
     /// Extract assets from a tar archive using streaming zstd decoder
     ///

@@ -36,7 +36,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SetWindowLongW, SetWindowPos, GWLP_HWNDPARENT, GWLP_WNDPROC, GWL_EXSTYLE, GWL_STYLE,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WNDPROC, WS_BORDER,
     WS_CAPTION, WS_CHILD, WS_CLIPCHILDREN, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_CONTEXTHELP,
-    WS_EX_DLGMODALFRAME, WS_EX_LAYERED, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE,
+    WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE,
     WS_POPUP, WS_THICKFRAME,
 };
 
@@ -893,53 +893,6 @@ pub fn extend_frame_into_client_area(_hwnd: isize) {
 ///
 /// # Official Documentation
 /// - [WS_EX_LAYERED](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles)
-/// - [Layered Windows](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features#layered-windows)
-#[cfg(target_os = "windows")]
-#[allow(dead_code)]
-pub fn apply_layered_window_style(hwnd: isize) {
-    // SAFETY: hwnd is a valid window handle. GetWindowLongW, SetWindowLongW,
-    // and SetWindowPos are called with this valid HWND.
-    unsafe {
-        let hwnd_win = HWND(hwnd as *mut _);
-
-        // Get current extended style
-        let ex_style = GetWindowLongW(hwnd_win, GWL_EXSTYLE);
-
-        // Add WS_EX_LAYERED for per-pixel alpha transparency
-        // Note: Do NOT add WS_EX_TRANSPARENT as it makes the window click-through
-        let new_ex_style = ex_style | (WS_EX_LAYERED.0 as i32);
-
-        if new_ex_style != ex_style {
-            SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
-
-            // Apply style changes
-            let _ = SetWindowPos(
-                hwnd_win,
-                None,
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
-            );
-
-            tracing::info!(
-                "Applied WS_EX_LAYERED: HWND 0x{:X} (ex_style 0x{:08X} -> 0x{:08X})",
-                hwnd,
-                ex_style,
-                new_ex_style
-            );
-        }
-    }
-}
-
-/// Stub for non-Windows platforms
-#[cfg(not(target_os = "windows"))]
-#[allow(dead_code)]
-pub fn apply_layered_window_style(_hwnd: isize) {
-    // No-op on non-Windows platforms
-}
-
 /// Optimize transparent window for better resize performance.
 ///
 /// This function applies several optimizations to reduce flickering and
