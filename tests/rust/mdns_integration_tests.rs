@@ -24,8 +24,8 @@ fn metadata() -> HashMap<String, String> {
 }
 
 #[rstest]
-fn register_service(mdns_service: MdnsService, test_metadata: HashMap<String, String>) {
-    let result = mdns_service.register("TestInstance", 9001, test_metadata);
+fn register_service(mdns_service: MdnsService, metadata: HashMap<String, String>) {
+    let result = mdns_service.register("TestInstance", 9001, metadata);
     assert!(result.is_ok(), "Service registration should succeed");
 }
 
