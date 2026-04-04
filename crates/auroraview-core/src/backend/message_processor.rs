@@ -94,15 +94,6 @@ impl ProcessorConfig {
         }
     }
 
-    /// Create config for legacy embedded mode
-    pub fn legacy_embedded() -> Self {
-        Self {
-            mode: ProcessingMode::Full,
-            immediate_wake: true,
-            batch_interval_ms: 0,
-            max_messages_per_tick: 50,
-        }
-    }
 }
 
 /// Message priority for wake-up decisions

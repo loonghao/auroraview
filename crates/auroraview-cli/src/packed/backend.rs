@@ -118,7 +118,6 @@ impl PythonBackend {
     }
 
     /// Check if shutdown has been initiated
-    #[allow(dead_code)]
     pub fn is_shutting_down(&self) -> bool {
         self.shutdown_state.is_shutdown()
     }
