@@ -5,7 +5,6 @@
 use auroraview_core::service_discovery::port_allocator::PortAllocator;
 use rstest::*;
 use std::net::TcpListener;
-use std::time::Duration;
 
 /// Fixture: Create a default port allocator
 #[fixture]
@@ -93,9 +92,9 @@ fn find_free_port_skips_occupied_ports() {
 }
 
 #[rstest]
-fn find_free_port_with_timeout() {
+fn find_free_port_basic() {
     let allocator = PortAllocator::new(57000, 50);
-    let port = allocator.find_free_port_with_timeout(Duration::from_millis(100));
+    let port = allocator.find_free_port();
     assert!(port.is_ok());
 }
 

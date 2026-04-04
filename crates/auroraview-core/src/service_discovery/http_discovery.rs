@@ -137,6 +137,11 @@ impl HttpDiscovery {
         info!("HTTP discovery server stopped");
         Ok(())
     }
+
+    /// Check if server is running
+    pub fn is_running(&self) -> bool {
+        self.server_handle.is_some()
+    }
 }
 
 impl Drop for HttpDiscovery {

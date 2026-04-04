@@ -6,6 +6,7 @@
 use crossbeam_channel::{Receiver, Sender};
 use parking_lot::Mutex;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{debug, info, trace, warn};
 
 /// Type alias for cleanup handlers to reduce complexity
@@ -112,6 +113,25 @@ impl LifecycleManager {
     /// Check if close has been requested (non-blocking)
     pub fn check_close_requested(&self) -> Option<CloseReason> {
         self.close_rx.try_recv().ok()
+    }
+
+    /// Register a cleanup handler to be executed during cleanup
+    pub fn register_cleanup<F>(&self, handler: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let mut handlers = self.cleanup_handlers.lock();
+        handlers.push(Box::new(handler));
+    }
+
+    /// Get the close signal sender (for external close triggering)
+    pub fn close_sender(&self) -> Sender<CloseReason> {
+        self.close_tx.clone()
+    }
+
+    /// Wait for close signal with timeout
+    pub fn wait_for_close(&self, timeout: Duration) -> Option<CloseReason> {
+        self.close_rx.recv_timeout(timeout).ok()
     }
 
     /// Execute all cleanup handlers
