@@ -416,9 +416,6 @@ except ImportError as e:
     _HAS_QT = False
     _QT_IMPORT_ERROR = str(e)
 
-# Import submodules for backward-compatibility aliases
-from . import core, integration, ui, utils
-
 # Backward-compatibility aliases for old import paths
 # These allow: from auroraview.webview import WebView
 # and: from auroraview.event_timer import EventTimer
