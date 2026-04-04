@@ -200,55 +200,6 @@ pub fn extract_resources_parallel(overlay: &OverlayData, base_dir: &Path) -> Res
     Ok(resources_dir)
 }
 
-#[allow(dead_code)]
-/// Extract resource directories from overlay assets (sequential version, kept for reference)
-pub fn extract_resources(overlay: &OverlayData, base_dir: &Path) -> Result<PathBuf> {
-    let resources_dir = base_dir.join("resources");
-    fs::create_dir_all(&resources_dir)?;
-
-    let mut resource_count = 0;
-
-    for (path, content) in &overlay.assets {
-        // Check for resources with "resources/" prefix (from hooks.collect)
-        if path.starts_with("resources/") {
-            let rel_path = path.strip_prefix("resources/").unwrap_or(path);
-            let dest_path = resources_dir.join(rel_path);
-
-            // Create parent directories
-            if let Some(parent) = dest_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-
-            fs::write(&dest_path, content)?;
-            resource_count += 1;
-            tracing::debug!("Extracted resource: {}", rel_path);
-        }
-        // Also check for "examples/" prefix directly (legacy support)
-        else if path.starts_with("examples/") {
-            let dest_path = resources_dir.join(path);
-
-            // Create parent directories
-            if let Some(parent) = dest_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-
-            fs::write(&dest_path, content)?;
-            resource_count += 1;
-            tracing::debug!("Extracted resource: {}", path);
-        }
-    }
-
-    if resource_count > 0 {
-        tracing::info!(
-            "Extracted {} resource files to: {}",
-            resource_count,
-            resources_dir.display()
-        );
-    }
-
-    Ok(resources_dir)
-}
-
 /// Extract third-party library files from overlay to site-packages
 ///
 /// Libraries are stored with prefix "lib/" or "python/site-packages/" in overlay.

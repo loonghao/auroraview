@@ -239,12 +239,6 @@ impl PackManager {
         }
         output
     }
-
-    /// Print available targets and their status to stdout
-    #[deprecated(note = "use format_targets() instead for library code")]
-    pub fn print_targets(&self) {
-        print!("{}", self.format_targets());
-    }
 }
 
 impl Default for PackManager {
