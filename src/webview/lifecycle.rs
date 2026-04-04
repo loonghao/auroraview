@@ -114,22 +114,6 @@ impl LifecycleManager {
         self.close_rx.try_recv().ok()
     }
 
-    /// Wait for close request (blocking with timeout)
-    #[allow(dead_code)]
-    pub fn wait_for_close(&self, timeout: std::time::Duration) -> Option<CloseReason> {
-        self.close_rx.recv_timeout(timeout).ok()
-    }
-
-    /// Register a cleanup handler
-    #[allow(dead_code)]
-    pub fn register_cleanup<F>(&self, handler: F)
-    where
-        F: FnOnce() + Send + 'static,
-    {
-        self.cleanup_handlers.lock().push(Box::new(handler));
-        trace!("[LifecycleManager] Cleanup handler registered");
-    }
-
     /// Execute all cleanup handlers
     pub fn execute_cleanup(&self) {
         self.set_state(LifecycleState::Destroying);
@@ -153,11 +137,6 @@ impl LifecycleManager {
         info!("[LifecycleManager] All cleanup handlers executed");
     }
 
-    /// Clone the close sender for sharing across threads
-    #[allow(dead_code)]
-    pub fn close_sender(&self) -> Sender<CloseReason> {
-        self.close_tx.clone()
-    }
 }
 
 impl Default for LifecycleManager {

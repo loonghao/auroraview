@@ -893,7 +893,8 @@ pub fn extend_frame_into_client_area(_hwnd: isize) {
 ///
 /// # Official Documentation
 /// - [WS_EX_LAYERED](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles)
-/// Optimize transparent window for better resize performance.
+///
+///   Optimize transparent window for better resize performance.
 ///
 /// This function applies several optimizations to reduce flickering and
 /// improve rendering performance during window resize operations:

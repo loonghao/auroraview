@@ -402,13 +402,6 @@ pub fn register_desktop_runner(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-/// Legacy alias for `register_desktop_runner` (backward compatibility)
-#[allow(dead_code)]
-#[inline]
-pub fn register_standalone_runner(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    register_desktop_runner(m)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
