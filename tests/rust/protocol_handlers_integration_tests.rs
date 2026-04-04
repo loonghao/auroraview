@@ -75,7 +75,7 @@ fn handle_auroraview_protocol_security() {
 }
 
 #[rstest]
-fn handle_custom_protocol() {
+fn test_handle_custom_protocol() {
     // Create a simple callback
     // Note: The URI passed to callback is the full URI string from request.uri().to_string()
     let callback = Arc::new(|uri: &str| -> Option<(Vec<u8>, String, u16)> {
@@ -181,7 +181,7 @@ fn custom_protocol_with_various_responses() {
 // ============================================================================
 
 #[rstest]
-fn is_windows_absolute_path_without_colon() {
+fn test_is_windows_absolute_path_without_colon() {
     // Should detect Windows paths without colon
     assert!(is_windows_absolute_path_without_colon("c/users/test"));
     assert!(is_windows_absolute_path_without_colon("C/Users/test"));
@@ -202,7 +202,7 @@ fn is_windows_absolute_path_without_colon() {
 }
 
 #[rstest]
-fn normalize_windows_path_without_colon() {
+fn test_normalize_windows_path_without_colon() {
     assert_eq!(
         normalize_windows_path_without_colon("c/users/test"),
         "C:/users/test"

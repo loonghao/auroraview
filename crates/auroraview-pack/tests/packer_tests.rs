@@ -411,7 +411,7 @@ fn test_pack_context_errors_push_and_read() {
 
 #[test]
 fn test_pack_context_downloads() {
-    let mut ctx = PackContext::new(minimal_config(), PackTarget::Windows);
+    let ctx = PackContext::new(minimal_config(), PackTarget::Windows);
     assert!(ctx.downloads.is_empty());
     // downloads is a public vec that can be pushed to
     assert_eq!(ctx.downloads.len(), 0);

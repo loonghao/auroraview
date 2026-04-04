@@ -204,7 +204,7 @@ fn test_pack_progress_multi_ref() {
     let progress = PackProgress::new();
     let multi = progress.multi();
     // MultiProgress can be used to add child bars
-    drop(multi); // just verify we can get a reference
+    let _ = multi; // just verify we can get a reference
 }
 
 #[test]
