@@ -107,6 +107,7 @@ use serde_json::Value;
 pub type ProcessEventCallback = PluginEventCallback;
 
 /// Type alias for the process registry (lock-free concurrent map)
+type ProcessRegistry = Arc<DashMap<u32, Arc<Mutex<ManagedProcess>>>>;
 
 /// Type alias for the IPC channel registry (lock-free concurrent map)
 type ChannelRegistry = Arc<DashMap<u32, Arc<Mutex<IpcChannelHandle>>>>;
@@ -1050,6 +1051,7 @@ impl ProcessPlugin {
             Some(p) => {
                 let mut managed = p.lock();
                 if let Some(ref mut stdin) = managed.stdin {
+                    use std::io::Write;
                     stdin
                         .write_all(data.as_bytes())
                         .map_err(|e| PluginError::shell_error(format!("Failed to write: {}", e)))?;

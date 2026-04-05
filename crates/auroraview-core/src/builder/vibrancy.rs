@@ -181,6 +181,7 @@ mod windows_impl {
     /// DWM_SYSTEMBACKDROP_TYPE values
     const DWMSBT_DISABLE: i32 = 1;
     const DWMSBT_MAINWINDOW: i32 = 2; // Mica
+    #[allow(dead_code)]
     const DWMSBT_TRANSIENTWINDOW: i32 = 3; // Acrylic (for future region-based backdrop)
     const DWMSBT_TABBEDWINDOW: i32 = 4; // Mica Alt
 

@@ -48,6 +48,7 @@ const FOOTER_SIZE: u64 = 12;
 
 /// Header size in bytes (magic: 4 + version: 4 + config_len: 8 + assets_len: 8)
 /// Reserved for future use in header validation and offset calculations.
+#[allow(dead_code)]
 const HEADER_SIZE: u64 = 24;
 
 /// Overlay data containing configuration and assets

@@ -178,10 +178,8 @@ pub fn extract_protocol_path(uri: &str, protocol_name: &str) -> Option<String> {
         Some(path.to_string())
     } else if let Some(path) = uri.strip_prefix(&prefix_http) {
         Some(path.to_string())
-    } else if let Some(path) = uri.strip_prefix(&prefix_simple) {
-        Some(path.to_string())
     } else {
-        None
+        uri.strip_prefix(&prefix_simple).map(|p| p.to_string())
     }
 }
 
