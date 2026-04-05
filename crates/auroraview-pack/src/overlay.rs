@@ -47,7 +47,7 @@ pub const OVERLAY_VERSION: u32 = 1;
 const FOOTER_SIZE: u64 = 12;
 
 /// Header size in bytes (magic: 4 + version: 4 + config_len: 8 + assets_len: 8)
-#[allow(dead_code)]
+/// Reserved for future use in header validation and offset calculations.
 const HEADER_SIZE: u64 = 24;
 
 /// Overlay data containing configuration and assets

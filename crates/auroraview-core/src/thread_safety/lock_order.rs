@@ -134,6 +134,8 @@ pub fn is_verification_enabled() -> bool {
 /// ```
 pub struct LockOrderGuard {
     level: LockLevel,
+    /// Lock name for debugging (available via Debug impl on HeldLock in panic messages).
+    /// Not directly exposed since the primary use is diagnostic output during lock violations.
     #[allow(dead_code)]
     name: String,
     /// Whether this guard was tracked (pushed to the lock stack)

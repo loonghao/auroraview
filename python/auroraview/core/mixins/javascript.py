@@ -99,7 +99,8 @@ class WebViewJSMixin:
         logger.debug(f"Executing JavaScript async: {script[:100]}...")
 
         # Wrap script to capture result
-        _callback_id = id(callback) if callback else 0  # noqa: F841
+        # Note: callback is invoked synchronously after eval_js completes.
+        # The callback_id pattern is reserved for future async bridge support.
 
         try:
             with self._async_core_lock:

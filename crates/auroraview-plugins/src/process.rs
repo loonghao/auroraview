@@ -100,11 +100,13 @@ use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Callback type for process events (deprecated, use PluginEventCallback)
+/// Type alias for the process event callback.
+///
+/// Use [`PluginEventCallback`] directly for new code.
+/// This alias is kept for backward compatibility with existing callers.
 pub type ProcessEventCallback = PluginEventCallback;
 
 /// Type alias for the process registry (lock-free concurrent map)
-type ProcessRegistry = Arc<DashMap<u32, Arc<Mutex<ManagedProcess>>>>;
 
 /// Type alias for the IPC channel registry (lock-free concurrent map)
 type ChannelRegistry = Arc<DashMap<u32, Arc<Mutex<IpcChannelHandle>>>>;
