@@ -54,10 +54,17 @@ that require larger effort or coordination before implementation.
 - **Reason**: Contains a code review report; should be moved to `docs/` or converted
   to GitHub Issues for proper tracking.
 
-### `#[allow(dead_code)]` annotations (~95 total)
+### `#[allow(dead_code)]` annotations (~58 total)
 - **Status**: Structural / Feature-gated
 - **Reason**: Most are BOM API stubs awaiting implementation or feature-gated code.
   Not actionable until features are implemented.
+- **Update (Round ~27)**: Count updated from 95 to 58. Major reductions from prior rounds:
+  - webview_inner.rs: still 12 (BOM API)
+  - backend/native.rs: 6
+  - ipc/*: 16 across handler, message_queue, threaded, backend
+  - event_loop.rs: 4
+  - message_pump.rs: 3
+  - Others: vibrancy.rs (1), overlay.rs (1), view_manager.rs (1)
 
 ### `crates/auroraview-pack/tests/metrics_tests.rs` — sleep-based timing assertions
 - **Status**: TODO (logged Round 21)
