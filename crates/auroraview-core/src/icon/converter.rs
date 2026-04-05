@@ -2,17 +2,16 @@
 //!
 //! Convert PNG images to ICO format for Windows executable icons.
 
-use std::fs::File;
-use std::io::BufWriter;
-use std::path::Path;
-
 use image::codecs::ico::{IcoEncoder, IcoFrame};
 use image::imageops::FilterType;
-use image::ImageReader;
-use image::{ColorType, DynamicImage};
+use image::{ColorType, DynamicImage, ImageReader};
 
 use super::DEFAULT_ICO_SIZES;
 use crate::backend::WebViewError;
+
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::Path;
 
 /// ICO conversion configuration
 #[derive(Debug, Clone)]

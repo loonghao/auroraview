@@ -2,15 +2,14 @@
 //!
 //! Compress PNG images with configurable quality levels.
 
+use image::codecs::png::{CompressionType, FilterType, PngEncoder};
+use image::{ColorType, ImageEncoder, ImageReader};
+
+use crate::backend::WebViewError;
+
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
-
-use image::codecs::png::{CompressionType, FilterType, PngEncoder};
-use image::ImageReader;
-use image::{ColorType, ImageEncoder};
-
-use crate::backend::WebViewError;
 
 /// PNG compression level
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
