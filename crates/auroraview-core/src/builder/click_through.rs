@@ -143,8 +143,7 @@ struct ClickThroughState {
     /// Original window procedure
     #[cfg(target_os = "windows")]
     original_wndproc: isize,
-    /// Click-through configuration (reserved for future region-based click-through)
-    #[allow(dead_code)]
+    /// Click-through configuration (region-based interactive areas)
     config: ClickThroughConfig,
 }
 

@@ -178,11 +178,10 @@ mod windows_impl {
     const DWMWA_SYSTEMBACKDROP_TYPE: u32 = 38;
     const DWMWA_MICA_EFFECT: u32 = 1029; // Undocumented, for Win11 < 22523
 
-    // DWM_SYSTEMBACKDROP_TYPE values
+    /// DWM_SYSTEMBACKDROP_TYPE values
     const DWMSBT_DISABLE: i32 = 1;
     const DWMSBT_MAINWINDOW: i32 = 2; // Mica
-    #[allow(dead_code)]
-    const DWMSBT_TRANSIENTWINDOW: i32 = 3; // Acrylic (reserved for future use)
+    const DWMSBT_TRANSIENTWINDOW: i32 = 3; // Acrylic (for future region-based backdrop)
     const DWMSBT_TABBEDWINDOW: i32 = 4; // Mica Alt
 
     type SetWindowCompositionAttributeFn =

@@ -1,63 +1,63 @@
 # AuroraView Cleanup Agent Memory
 
-## 2026-04-04 09:50 — Round ~24
+## 2026-04-05 05:14 — Round ~26
 
-### Branch: `auto-improve` (HEAD: `bc6765c`)
+### Branch: `auto-improve` (HEAD: `ace6278`)
 
 ### Baseline
 - **Cargo check**: PASS
 - **Cargo clippy**: PASS (0 warnings)
 - **Ruff**: PASS (0 warnings)
-- Iterate Agent committed ~15 test/expansion commits since Round 23 (same as last round)
+- **Tests**: All passing
+- Iterate Agent committed ~5 test/expansion commits since Round 25
 
 ### Actions Taken
 
-**Commit 1: `e809e5d` - [cleanup] rust-code**
-1. Removed unused `extract_resources()` function from `auroraview-cli/src/packed/extract.rs`
-   - Old sequential version, kept for reference; replaced by `extract_resources_parallel()`
-2. Removed deprecated `print_targets()` from `auroraview-pack/src/packer/mod.rs`
-   - Was `#[deprecated(note = "use format_targets() instead")]`, no callers found
-3. Removed unused `ScopedTimer` struct and impl from `auroraview-pack/src/metrics.rs`
-   - Complete scoped timer implementation (~25 lines) with no references
-
-**Commit 2: `9f306fc` - [cleanup] code-quality (Iterate Agent fixes)**
-4. Fixed test function name conflicts in `tests/rust/protocol_handlers_integration_tests.rs`:
-   - `handle_custom_protocol()` → `test_handle_custom_protocol()` (conflicted with import)
-   - `is_windows_absolute_path_without_colon()` → `test_is_windows_absolute_path_without_colon()`
-   - `normalize_windows_path_without_colon()` → `test_normalize_windows_path_without_colon()`
-5. Fixed `unused_mut` warning in `crates/auroraview-pack/tests/packer_tests.rs:414`
-6. Fixed `dropping_references` warning in `crates/auroraview-pack/tests/progress_tests.rs:207`
-
-**Commit 3: `bc6765c` - [cleanup] tests**
-7. Fixed mdns_integration_tests fixture parameter name:
-   - `test_metadata` → `metadata` to match the defined `#[fixture] fn metadata()`
+**Commit: `ace6278` - [cleanup] deprecated-api**
+1. Updated `examples/local_assets_example.py`:
+   - `run_standalone` → `run_desktop` (import and call sites, including HTML docstring examples)
+   - This was the only example file still using the legacy alias
+2. Removed deprecated `allow_new_window=True` from `gallery/main.py`:
+   - Already had `new_window_mode="child_webview"` set, so purely redundant deprecated param
+   - Updated log message to remove reference to removed parameter
+3. Fixed `ServiceInfo` placeholder class in `__init__.py`:
+   - Changed from empty `pass` body to raising `ImportError`
+   - Now consistent with `ServiceDiscovery` placeholder behavior (prevents silent no-op instances)
+4. Removed duplicate submodule import in `__init__.py` line 420:
+   - `from . import core, integration, ui, utils` was duplicated with lines 453-456
+   - The first import (line 420) only served for creating backward-compat aliases at lines 425-432
+   - Kept the second import (line 453) which is the organized access version with comments
 
 ### Code Review Findings (Iterate Agent's new commits)
-- **Recurring issue**: Iterate Agent keeps introducing test function names that conflict with imported functions
-- **Recommendation**: Consider adding a lint rule or documentation note about avoiding test names that shadow imports
+- No new structural issues found this round
+- Deprecated API usage is now fully cleaned from examples/ and gallery/
 
 ### Metrics
-- Dead code removed: 3 items (extract_resources, print_targets, ScopedTimer) = ~80 lines
-- Test compilation errors fixed: 5 (3 name conflicts + 1 fixture mismatch + 2 warnings)
-- Total `#[allow(dead_code)]`: 28 (down from 31 after removing ScopedTimer)
+- Files changed: 3 (examples/local_assets_example.py, gallery/main.py, python/__init__.py)
+- Net lines: +3 insertions, -6 deletions (-3 net)
+- Deprecated API references removed: 4 (run_standalone x3, allow_new_window x1)
 - Clippy warnings: 0 / Ruff warnings: 0
+- Total `#[allow(dead_code)]`: ~26 remaining (structural/feature-gated — low priority)
 
 ### Quality Gate
 - Workspace `cargo check`: PASS
 - Workspace `cargo clippy`: PASS (0 warnings)
-- `cargo test --workspace`: PASS (all tests compile and run)
 - `uv run ruff check python/ examples/ scripts/ gallery/`: PASS (0 warnings)
-- `git push origin auto-improve`: Everything up-to-date [cleanup-done]
+- `git push origin auto-improve`: Success [cleanup-done]
+
+### Security Notes
+- GitHub Dependabot reports 48 vulnerabilities (1 critical, 25 high) — still pending dedicated deps round
 
 ### Findings for Future Rounds
-- **GitHub dep vulnerabilities**: 48 (1 critical, 25 high) — still pending dedicated deps round
-- **`issues.md`** at root (392 lines) — should move to docs/ or convert to GitHub Issues
-- **`#[allow(dead_code)]`**: 28 remaining (structural/feature-gated — low priority)
-- **Test naming pattern**: Iterate Agent repeatedly creates tests with same names as imported functions
+- **GitHub dep vulnerabilities**: 48 (1 critical, 25 high) — pending dedicated deps round
+- **`#[allow(dead_code)]`**: ~26 remaining (mostly BOM API预留, standalone mode fields, feature-gated code)
+- **Legacy aliases still exported**: `run_standalone`, `run_tab_browser`, `create_for_dcc()` — kept for backward compat but could add stronger deprecation warnings
+- **Rust events.rs deprecated callbacks**: 4 DEPRECATED navigation callbacks (`on_navigation_started/completed/failed/load_progress`) — candidates for removal in v0.6+
+- **`ThemeColors::PartialEq`**: Only compares 3 of 14 fields — potential logic issue worth documenting or fixing
 
 ---
 
-## Previous Rounds Summary (Rounds 1-23)
+## Previous Rounds Summary (Rounds 1-25)
 
 ### Cumulative Achievements:
 - **Stale files removed**: build_cli.py, $null, pr_body.md, .gitcommitmsg, etc.
@@ -66,5 +66,8 @@
 - **Import ordering fixes**: ~30+ files across crates/
 - **`test_` prefix removals**: ~900+ functions
 - **Clippy fixes**: ~20+ errors/warnings across multiple rounds
-- **Dead code removal**: extract_resources, print_targets, ScopedTimer, and more
+- **Dead code removal**: extract_resources, print_targets, ScopedTimer, legacy_embedded, find_free_port_with_timeout, emit_event, MOBILE_BOOKMARKS, and more
+- **Deprecated API migration**: run_standalone→run_desktop in examples, allow_new_window removal in gallery
+- **ServiceInfo placeholder fixed**: now raises ImportError instead of silent pass
+- **Duplicate imports removed**: __init__.py redundant submodule import
 - **All rounds passed quality gates**: cargo check ✅, clippy ✅, ruff ✅, tests ✅
