@@ -49,7 +49,6 @@ that require larger effort or coordination before implementation.
 
 ## Low Priority
 
-
 ### `issues.md` at repo root
 - **Status**: TODO (logged Round 1)
 - **Reason**: Contains a code review report; should be moved to `docs/` or converted
@@ -65,6 +64,28 @@ that require larger effort or coordination before implementation.
 - **Reason**: The suite relies on `thread::sleep(Duration::from_millis(...))`, which makes it slower
   and more timing-sensitive than necessary.
 - **Action**: Introduce a controllable timing helper or loosen the test strategy to avoid wall-clock sleeps.
+
+---
+
+## Structural Assessment (Round 24)
+
+### Large module files (>500 lines) in `auroraview-core`
+| File | Lines | Recommendation |
+|------|-------|----------------|
+| `builder/window_style.rs` | **1056** | Win32 窗口样式操作 — 可拆分为 child/owner/frameless/shadow 子模块 |
+| `assets.rs` | **699** | 静态资源加载器（大量 getter 函数）— 考虑用 macro 生成重复的 JS getter |
+| `assets/html/error_pages.rs` | **602** | HTML 错误页面模板 — CSS 常量可提取到独立文件，模板函数可用 Askama 替代 |
+| `dom/ops.rs` | **597** | DOM 操作枚举 + JS 代码生成 — op_to_js match 可按类别拆分到子模块 |
+| `protocol.rs` | **513** | 协议工具 + MemoryAssets — 两个职责可分离为 `protocol_utils.rs` + `memory_assets.rs` |
+
+> **Note**: 以上均为观察性发现，当前不构成直接重构理由。各模块功能内聚性良好，拆分应在功能扩展时自然进行。
+
+### 循环依赖
+- **结论**: 未发现循环依赖。依赖方向为健康的有向无环图 (DAG)。
+
+### 极简模块 (<100 行有效代码)
+- `cli/mod.rs` (11行), `dom/mod.rs` (20行), `assets/html/mod.rs` (11行): 正常桶模块模式
+- `builder/common_config.rs` (30行), `builder/protocol.rs` (48行), `cli/url_utils.rs` (42行): 功能单一但独立性强
 
 ---
 
