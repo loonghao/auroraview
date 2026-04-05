@@ -54,17 +54,16 @@ that require larger effort or coordination before implementation.
 - **Reason**: Contains a code review report; should be moved to `docs/` or converted
   to GitHub Issues for proper tracking.
 
-### `#[allow(dead_code)]` annotations (~58 total)
+### `#[allow(dead_code)]` annotations (~5 total)
 - **Status**: Structural / Feature-gated
-- **Reason**: Most are BOM API stubs awaiting implementation or feature-gated code.
-  Not actionable until features are implemented.
-- **Update (Round ~27)**: Count updated from 95 to 58. Major reductions from prior rounds:
-  - webview_inner.rs: still 12 (BOM API)
-  - backend/native.rs: 6
-  - ipc/*: 16 across handler, message_queue, threaded, backend
-  - event_loop.rs: 4
-  - message_pump.rs: 3
-  - Others: vibrancy.rs (1), overlay.rs (1), view_manager.rs (1)
+- **Reason**: All have justified reasons (platform conditional, reserved API, debug use).
+- Not actionable until features are implemented.
+- **Update (Round ~28)**: Count updated from 58 to 5. Major reductions from prior rounds:
+  - view_manager.rs (1): hwnd field — Windows-only platform conditional
+  - lock_order.rs (1): name field — debug diagnostics
+  - overlay.rs (1): HEADER_SIZE — reserved for future header validation
+  - vibrancy.rs (1): DWMSBT_TRANSIENTWINDOW — Acrylic mode placeholder
+  - json_tests.rs (1): Strict struct — test-only deserialization helper
 
 ### `crates/auroraview-pack/tests/metrics_tests.rs` — sleep-based timing assertions
 - **Status**: TODO (logged Round 21)
