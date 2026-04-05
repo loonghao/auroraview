@@ -248,13 +248,10 @@ def diagnose_core_library() -> dict:
         dict: Diagnostic information including Python version, platform,
               import error details, and file locations.
     """
-    import sys
-    from pathlib import Path
-
     result = {
-        "python_version": sys.version,
-        "python_executable": sys.executable,
-        "platform": sys.platform,
+        "python_version": _sys.version,
+        "python_executable": _sys.executable,
+        "platform": _sys.platform,
         "core_import_error": _CORE_IMPORT_ERROR,
         "core_loaded": _CORE_IMPORT_ERROR is None,
     }
@@ -263,7 +260,7 @@ def diagnose_core_library() -> dict:
     try:
         import auroraview
 
-        pkg_dir = Path(auroraview.__file__).parent
+        pkg_dir = _Path(auroraview.__file__).parent
         pyd_path = pkg_dir / "_core.pyd"
         so_path = pkg_dir / "_core.so"
 

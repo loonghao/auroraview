@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from pathlib import Path
@@ -1387,8 +1388,6 @@ class WebView(
         if self._plugin_manager is None:
             logger.warning("Plugin invoke received but no plugin manager set")
             return
-
-        import json
 
         cmd = data.get("cmd", "")
         args = data.get("args", {})

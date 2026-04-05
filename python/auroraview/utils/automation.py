@@ -27,6 +27,7 @@ Example:
 
 from __future__ import annotations
 
+import base64
 import logging
 import sys
 from typing import TYPE_CHECKING, Any, Dict, Optional
@@ -251,8 +252,6 @@ class SteelBrowserBackend:
         # POST /v1/screenshot
         result = self._request("POST", "/v1/screenshot", {"url": url, **options})
         # Return base64 decoded data
-        import base64
-
         return base64.b64decode(result.get("data", ""))
 
     def pdf(self, url: Optional[str] = None, **options: Any) -> bytes:
@@ -264,8 +263,6 @@ class SteelBrowserBackend:
         """
         # POST /v1/pdf
         result = self._request("POST", "/v1/pdf", {"url": url, **options})
-        import base64
-
         return base64.b64decode(result.get("data", ""))
 
 
