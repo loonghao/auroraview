@@ -7857,7 +7857,7 @@ if __name__ == "__main__":
 
 ### Example: Loading HTML with local assets using file:// protocol
 
-This example demonstrates how to use file:// URLs in HTML content to load local files (images, GIFs, CSS, JS, etc.) in run_standalone().
+This example demonstrates how to use file:// URLs in HTML content to load local files (images, GIFs, CSS, JS, etc.) in run_desktop().
 
 ![Example: Loading HTML with local assets using file:// protocol](/examples/local_assets_example.png)
 
@@ -7866,16 +7866,16 @@ This example demonstrates how to use file:// URLs in HTML content to load local 
 """Example: Loading HTML with local assets using file:// protocol.
 
 This example demonstrates how to use file:// URLs in HTML content
-to load local files (images, GIFs, CSS, JS, etc.) in run_standalone().
+to load local files (images, GIFs, CSS, JS, etc.) in run_desktop().
 
 IMPORTANT: You must set allow_file_protocol=True to enable file:// support!
 """
 
-from auroraview import run_standalone
+from auroraview import run_desktop
 
 
 def main():
-    """Run standalone WebView with local assets using file:// URLs."""
+    """Run desktop WebView with local assets using file:// URLs."""
     # Create a simple example HTML with inline content
     # In real usage, you would load actual local files
 
@@ -8000,9 +8000,9 @@ html = '''
     </html>
     """
 
-    # Run standalone WebView
+    # Run desktop WebView
     # IMPORTANT: allow_file_protocol=True is required for file:// URLs!
-    run_standalone(
+    run_desktop(
         title="Local Assets Example - file:// Protocol",
         width=1024,
         height=768,
