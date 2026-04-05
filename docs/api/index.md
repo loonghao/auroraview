@@ -90,7 +90,7 @@ run_desktop(
 
 ### run_standalone
 
-Alias for `run_desktop`:
+> **Deprecated**: Use `run_desktop` instead. This alias is kept for backward compatibility.
 
 ```python
 from auroraview import run_standalone
