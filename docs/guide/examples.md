@@ -7949,9 +7949,9 @@ def main():
             <div class="asset-demo">
                 <h2>📁 How to Use file:// Protocol</h2>
                 <p>To enable <code>file://</code> protocol support:</p>
-                <div class="code">from auroraview import run_standalone
+                <div class="code">from auroraview import run_desktop
 
-run_standalone(
+run_desktop(
     title="My App",
     html=html_content,
     allow_file_protocol=True,  # ← Required!

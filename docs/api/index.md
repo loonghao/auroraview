@@ -93,9 +93,9 @@ run_desktop(
 > **Deprecated**: Use `run_desktop` instead. This alias is kept for backward compatibility.
 
 ```python
-from auroraview import run_standalone
+from auroraview import run_desktop
 
-run_standalone(
+run_desktop(
     title="My App",
     html="<h1>Hello</h1>"
 )

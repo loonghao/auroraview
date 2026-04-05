@@ -93,9 +93,9 @@ run_desktop(
 > **已废弃**: 请使用 `run_desktop`。此别名保留用于向后兼容。
 
 ```python
-from auroraview import run_standalone
+from auroraview import run_desktop
 
-run_standalone(
+run_desktop(
     title="我的应用",
     html="<h1>Hello</h1>"
 )
