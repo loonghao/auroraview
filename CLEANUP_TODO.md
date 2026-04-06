@@ -53,16 +53,17 @@ that require larger effort or coordination before implementation.
 - **Status**: RESOLVED (Round 33)
 - **Reason**: File no longer exists — likely deleted in a prior round or never created.
 
-### `#[allow(dead_code)]` annotations (~5 total)
-- **Status**: Structural / Feature-gated
-- **Reason**: All have justified reasons (platform conditional, reserved API, debug use).
-- Not actionable until features are implemented.
-- **Update (Round ~28)**: Count updated from 58 to 5. Major reductions from prior rounds:
-  - view_manager.rs (1): hwnd field — Windows-only platform conditional
-  - lock_order.rs (1): name field — debug diagnostics
-  - overlay.rs (1): HEADER_SIZE — reserved for future header validation
-  - vibrancy.rs (1): DWMSBT_TRANSIENTWINDOW — Acrylic mode placeholder
-  - json_tests.rs (1): Strict struct — test-only deserialization helper
+### `#[allow(dead_code)]` annotations (~36 total in src/ + 21 in crates/)
+- **Status**: Structural / Feature-gated / BOM API预留
+- **Reason**: Majority are justified:
+  - BOM API 预留方法 (webview_inner.rs: is_window_valid, toggle_fullscreen, hide, focus)
+  - Standalone mode fields (window, event_loop, auto_show, backend)
+  - Platform-conditional code (Windows-only NativeBackend, warmup stages)
+  - IPC internal structs (ThreadedConfig, MessageQueueConfig)
+  - Legacy wry-backend methods (create_embedded, create_standalone, create_desktop)
+- Not actionable until features are implemented or backend migration completes.
+- **Update (Round ~37)**: Full scan shows ~57 annotations across src/ and crates/.
+  Previous count of 5 was only tracking a specific subset. The majority are structural.
 
 ### `crates/auroraview-pack/tests/metrics_tests.rs` — sleep-based timing assertions
 - **Status**: TODO (logged Round 21)
@@ -120,3 +121,6 @@ that require larger effort or coordination before implementation.
 - [x] Duplicate `escape_js_string` in assets.rs removed (Round 6)
 - [x] Inline JS escaping in webview.rs replaced with `escape_js_string` (Round 6)
 - [x] `plugins.rs` parking_lot migration — 13 poison error handlers removed, -25 net lines (Round ~35)
+- [x] Unused `hyper` + `hyper-util` deps removed from root Cargo.toml (Round ~37, 58c0178)
+- [x] Temporary artifacts deleted: llms-full.txt, llms.txt (Round ~37, -29KB)
+- [x] `#[allow(dead_code)]` count updated to accurate ~57 across workspace (Round ~37)
