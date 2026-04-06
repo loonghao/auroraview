@@ -71,9 +71,21 @@ that require larger effort or coordination before implementation.
   and more timing-sensitive than necessary.
 - **Action**: Introduce a controllable timing helper or loosen the test strategy to avoid wall-clock sleeps.
 
+### Rust events.rs deprecated navigation callbacks (4 methods)
+- **Status**: TODO (logged Round ~31)
+- **Reason**: 4 DEPRECATED callbacks (`on_navigation_started/completed/failed`, `on_load_progress`)
+  have replacement APIs (`on_navigation`, `on_progress`). No external callers found in Python code.
+- **Risk**: Low — but requires confirming no external users depend on these before removal.
+- **Action**: Add `#[deprecated]` attribute or plan for removal in v0.6+.
+
+### Unused Python `deprecated()` decorator (CLEANED Round ~31)
+- **Status**: RESOLVED
+- **Reason**: `event_emitter.deprecated()` had 0 callers. Removed with unused `warnings` import.
+- **Net change**: -17 lines
+
 ---
 
-## Structural Assessment (Round 24)
+## Structural Assessment (Round ~31)
 
 ### Large module files (>500 lines) in `auroraview-core`
 | File | Lines | Recommendation |
