@@ -137,11 +137,9 @@ pub struct ProcessorStats {
 impl ProcessorStats {
     /// Get average processing time per tick in microseconds
     pub fn avg_tick_time_us(&self) -> u64 {
-        if self.ticks_processed == 0 {
-            0
-        } else {
-            self.total_processing_time_us / self.ticks_processed
-        }
+        self.total_processing_time_us
+            .checked_div(self.ticks_processed)
+            .unwrap_or(0)
     }
 
     /// Get average messages per tick

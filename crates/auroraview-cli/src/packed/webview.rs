@@ -7,7 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Result};
-use auroraview_core::assets::{build_error_page, build_packed_init_script_with_csp, get_loading_html};
+use auroraview_core::assets::{
+    build_error_page, build_packed_init_script_with_csp, get_loading_html,
+};
 use auroraview_core::plugins::{PathScope, PluginRequest, ScopeConfig, ShellScope};
 use auroraview_core::protocol::MemoryAssets;
 use auroraview_pack::{OverlayData, PackMode, PackedMetrics};
@@ -1146,8 +1148,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                 if !backend.is_alive() {
                     let exit_code = backend.get_exit_code();
                     let stderr_output = backend.get_last_stderr();
-                    let during_startup =
-                        !python_ready_for_monitor.load(Ordering::Relaxed);
+                    let during_startup = !python_ready_for_monitor.load(Ordering::Relaxed);
 
                     tracing::error!(
                         "[ProcessMonitor] Python process crashed! exit_code={:?}, during_startup={}, stderr_len={}",

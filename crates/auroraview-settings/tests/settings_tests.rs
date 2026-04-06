@@ -4,11 +4,13 @@
 //! SchemaRegistry validation, and SettingsManager lifecycle.
 
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
-use auroraview_settings::{SchemaRegistry, SettingValue, SettingsManager, SettingsStore, SettingSchema};
+use auroraview_settings::{
+    SchemaRegistry, SettingSchema, SettingValue, SettingsManager, SettingsStore,
+};
 use rstest::rstest;
 
 // ---------------------------------------------------------------------------
@@ -39,8 +41,8 @@ fn setting_value_i32_converts_to_integer() {
 
 #[test]
 fn setting_value_float_roundtrip() {
-    let v: SettingValue = 3.14f64.into();
-    assert!((v.as_float().unwrap() - 3.14).abs() < 1e-10);
+    let v: SettingValue = 3.15f64.into();
+    assert!((v.as_float().unwrap() - 3.15).abs() < 1e-10);
     assert_eq!(v.type_name(), "float");
 }
 
@@ -113,7 +115,10 @@ fn store_set_get_remove() {
 #[test]
 fn store_keys_with_prefix() {
     let mut store = SettingsStore::new();
-    store.set("browser.homepage", SettingValue::String("https://example.com".into()));
+    store.set(
+        "browser.homepage",
+        SettingValue::String("https://example.com".into()),
+    );
     store.set("browser.timeout", SettingValue::Integer(30));
     store.set("appearance.theme", SettingValue::String("light".into()));
 
@@ -249,9 +254,15 @@ fn schema_integer_no_bounds() {
 #[test]
 fn schema_enum_validates_allowed_value() {
     let schema = enum_schema("test.theme", vec!["light".into(), "dark".into()]);
-    assert!(schema.validate(&SettingValue::String("dark".into())).is_ok());
-    assert!(schema.validate(&SettingValue::String("light".into())).is_ok());
-    assert!(schema.validate(&SettingValue::String("solarized".into())).is_err());
+    assert!(schema
+        .validate(&SettingValue::String("dark".into()))
+        .is_ok());
+    assert!(schema
+        .validate(&SettingValue::String("light".into()))
+        .is_ok());
+    assert!(schema
+        .validate(&SettingValue::String("solarized".into()))
+        .is_err());
 }
 
 #[test]
@@ -263,8 +274,12 @@ fn schema_string_max_length() {
         .max_length(10)
         .default("")
         .build();
-    assert!(schema.validate(&SettingValue::String("short".into())).is_ok());
-    assert!(schema.validate(&SettingValue::String("this_is_too_long_string".into())).is_err());
+    assert!(schema
+        .validate(&SettingValue::String("short".into()))
+        .is_ok());
+    assert!(schema
+        .validate(&SettingValue::String("this_is_too_long_string".into()))
+        .is_err());
 }
 
 #[test]
@@ -323,7 +338,8 @@ fn registry_by_category() {
 #[test]
 fn manager_set_get_string() {
     let mgr = SettingsManager::new();
-    mgr.set("ui.theme", SettingValue::String("dark".into())).unwrap();
+    mgr.set("ui.theme", SettingValue::String("dark".into()))
+        .unwrap();
     assert_eq!(mgr.get_string("ui.theme"), Some("dark".to_string()));
 }
 
@@ -378,7 +394,8 @@ fn manager_set_overrides_default() {
         .build();
 
     mgr.register_schema(schema);
-    mgr.set("ui.theme", SettingValue::String("dark".into())).unwrap();
+    mgr.set("ui.theme", SettingValue::String("dark".into()))
+        .unwrap();
     assert_eq!(mgr.get_string("ui.theme"), Some("dark".to_string()));
 }
 
@@ -394,7 +411,8 @@ fn manager_reset_restores_default() {
         .build();
 
     mgr.register_schema(schema);
-    mgr.set("ui.theme", SettingValue::String("dark".into())).unwrap();
+    mgr.set("ui.theme", SettingValue::String("dark".into()))
+        .unwrap();
     mgr.reset("ui.theme").unwrap();
 
     // After reset, default should be served
@@ -481,7 +499,8 @@ fn manager_all_settings_merges_defaults_and_user() {
     mgr.register_schema(schema);
 
     // User only overrides one setting
-    mgr.set("ui.font", SettingValue::String("mono".into())).unwrap();
+    mgr.set("ui.font", SettingValue::String("mono".into()))
+        .unwrap();
 
     let all = mgr.all_settings();
     // Default from schema should be included
@@ -511,7 +530,8 @@ fn manager_save_load_roundtrip() {
 
     let mgr = SettingsManager::with_storage(&path);
     mgr.set("perf.workers", SettingValue::Integer(8)).unwrap();
-    mgr.set("ui.theme", SettingValue::String("dark".into())).unwrap();
+    mgr.set("ui.theme", SettingValue::String("dark".into()))
+        .unwrap();
     mgr.save().unwrap();
 
     // Load into a fresh manager

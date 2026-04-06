@@ -135,7 +135,11 @@ impl ScriptInjector {
     }
 
     /// Get scripts to inject for a URL
-    pub fn get_scripts_for_url(&self, url: &str, run_at: &RunAt) -> Vec<Arc<CompiledContentScript>> {
+    pub fn get_scripts_for_url(
+        &self,
+        url: &str,
+        run_at: &RunAt,
+    ) -> Vec<Arc<CompiledContentScript>> {
         let mut result = Vec::new();
 
         for entry in self.scripts.iter() {

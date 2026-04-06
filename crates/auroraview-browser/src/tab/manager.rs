@@ -436,10 +436,7 @@ impl TabManager {
         let mut tabs = self.tabs.write();
         if let Some(tab) = tabs.get_mut(tab_id) {
             tab.toggle_devtools();
-            tracing::debug!(
-                "[TabManagerNested] DevTools toggled for tab {}",
-                tab_id
-            );
+            tracing::debug!("[TabManagerNested] DevTools toggled for tab {}", tab_id);
         }
     }
 
@@ -448,10 +445,7 @@ impl TabManager {
         let mut tabs = self.tabs.write();
         if let Some(tab) = tabs.get_mut(tab_id) {
             tab.open_devtools();
-            tracing::debug!(
-                "[TabManagerNested] DevTools opened for tab {}",
-                tab_id
-            );
+            tracing::debug!("[TabManagerNested] DevTools opened for tab {}", tab_id);
         }
     }
 
@@ -460,10 +454,7 @@ impl TabManager {
         let mut tabs = self.tabs.write();
         if let Some(tab) = tabs.get_mut(tab_id) {
             tab.close_devtools();
-            tracing::debug!(
-                "[TabManagerNested] DevTools closed for tab {}",
-                tab_id
-            );
+            tracing::debug!("[TabManagerNested] DevTools closed for tab {}", tab_id);
         }
     }
 

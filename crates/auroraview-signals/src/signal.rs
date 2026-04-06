@@ -700,7 +700,9 @@ mod tests {
         let signal: Signal<i32> = Signal::new();
         let count = Arc::new(AtomicUsize::new(0));
         let c = count.clone();
-        let conn = signal.connect_ref(move |_| { c.fetch_add(1, Ordering::SeqCst); });
+        let conn = signal.connect_ref(move |_| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
 
         signal.emit(0);
         assert_eq!(count.load(Ordering::SeqCst), 1);
@@ -717,10 +719,14 @@ mod tests {
         let val_count = Arc::new(AtomicUsize::new(0));
 
         let rc = ref_count.clone();
-        signal.connect_ref(move |_| { rc.fetch_add(1, Ordering::SeqCst); });
+        signal.connect_ref(move |_| {
+            rc.fetch_add(1, Ordering::SeqCst);
+        });
 
         let vc = val_count.clone();
-        signal.connect(move |_| { vc.fetch_add(1, Ordering::SeqCst); });
+        signal.connect(move |_| {
+            vc.fetch_add(1, Ordering::SeqCst);
+        });
 
         let n = signal.emit_ref(&42);
         assert_eq!(n, 1);
@@ -736,10 +742,14 @@ mod tests {
         let val_count = Arc::new(AtomicUsize::new(0));
 
         let rc = ref_count.clone();
-        signal.connect_ref(move |_| { rc.fetch_add(1, Ordering::SeqCst); });
+        signal.connect_ref(move |_| {
+            rc.fetch_add(1, Ordering::SeqCst);
+        });
 
         let vc = val_count.clone();
-        signal.connect(move |_| { vc.fetch_add(1, Ordering::SeqCst); });
+        signal.connect(move |_| {
+            vc.fetch_add(1, Ordering::SeqCst);
+        });
 
         signal.emit(1);
         assert_eq!(ref_count.load(Ordering::SeqCst), 1);
@@ -779,4 +789,3 @@ mod tests {
         assert!(ids.contains(&c2));
     }
 }
-

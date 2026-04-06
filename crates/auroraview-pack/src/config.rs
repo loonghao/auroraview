@@ -779,10 +779,7 @@ impl PackConfig {
             debug: manifest.debug.enabled,
             allow_new_window: manifest.package.allow_new_window,
             user_agent: manifest.get_user_agent(),
-            inject_js: manifest
-                .inject
-                .as_ref()
-                .and_then(|inj| inj.js_code.clone()),
+            inject_js: manifest.inject.as_ref().and_then(|inj| inj.js_code.clone()),
             inject_css: manifest
                 .inject
                 .as_ref()

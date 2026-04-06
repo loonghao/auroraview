@@ -125,8 +125,7 @@ impl AlarmsManager {
 
     /// Clear all alarms for an extension
     pub fn clear_all(&self, extension_id: &str) {
-        self.alarms
-            .retain(|(ext_id, _), _| ext_id != extension_id);
+        self.alarms.retain(|(ext_id, _), _| ext_id != extension_id);
     }
 }
 

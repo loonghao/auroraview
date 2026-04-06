@@ -161,8 +161,9 @@ impl Builder for WeChatBuilder {
             },
         };
 
-        let config_json = serde_json::to_string_pretty(&project_config)
-            .map_err(|e| PackError::Build(format!("Failed to serialize project.config.json: {}", e)))?;
+        let config_json = serde_json::to_string_pretty(&project_config).map_err(|e| {
+            PackError::Build(format!("Failed to serialize project.config.json: {}", e))
+        })?;
         std::fs::write(output_dir.join("project.config.json"), &config_json)?;
 
         // 2. Generate app.json with pages

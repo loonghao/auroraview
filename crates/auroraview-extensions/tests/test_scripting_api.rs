@@ -139,8 +139,7 @@ fn test_get_registered_content_scripts_by_ids() {
         ],
     );
 
-    let scripts =
-        manager.get_registered_content_scripts("test-ext", Some(vec!["s2".to_string()]));
+    let scripts = manager.get_registered_content_scripts("test-ext", Some(vec!["s2".to_string()]));
     assert_eq!(scripts.len(), 1);
     assert_eq!(scripts[0].id, "s2");
 }

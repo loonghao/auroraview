@@ -1291,9 +1291,29 @@ pub fn run_desktop(
                     TrayIconEvent::Click {
                         button: tray_icon::MouseButton::Left,
                         ..
-                    } => {
-                        if show_on_click && !window_visible {
-                            tracing::debug!("[Standalone] Tray click - showing window");
+                    } if show_on_click && !window_visible => {
+                        tracing::debug!("[Standalone] Tray click - showing window");
+                        window.set_visible(true);
+                        #[cfg(target_os = "windows")]
+                        {
+                            if !decorations {
+                                if let Some(hwnd) = cached_hwnd {
+                                    let _ = apply_frameless_popup_window_style(hwnd as isize);
+                                }
+                            }
+                        }
+                        window.set_focus();
+                        window_visible = true;
+                    }
+                    TrayIconEvent::DoubleClick {
+                        button: tray_icon::MouseButton::Left,
+                        ..
+                    } if show_on_double_click => {
+                        tracing::debug!("[Standalone] Tray double-click - toggling window");
+                        if window_visible {
+                            window.set_visible(false);
+                            window_visible = false;
+                        } else {
                             window.set_visible(true);
                             #[cfg(target_os = "windows")]
                             {
@@ -1305,32 +1325,6 @@ pub fn run_desktop(
                             }
                             window.set_focus();
                             window_visible = true;
-
-                        }
-                    }
-                    TrayIconEvent::DoubleClick {
-                        button: tray_icon::MouseButton::Left,
-                        ..
-                    } => {
-                        if show_on_double_click {
-                            tracing::debug!("[Standalone] Tray double-click - toggling window");
-                            if window_visible {
-                                window.set_visible(false);
-                                window_visible = false;
-                            } else {
-                                window.set_visible(true);
-                                #[cfg(target_os = "windows")]
-                                {
-                                    if !decorations {
-                                        if let Some(hwnd) = cached_hwnd {
-                                            let _ = apply_frameless_popup_window_style(hwnd as isize);
-                                        }
-                                    }
-                                }
-                                window.set_focus();
-                                window_visible = true;
-
-                            }
                         }
                     }
                     _ => {}

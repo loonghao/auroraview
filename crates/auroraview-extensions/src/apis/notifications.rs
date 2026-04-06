@@ -184,7 +184,10 @@ impl NotificationsManager {
     }
 
     /// Get all notifications for an extension
-    pub fn get_all(&self, extension_id: &str) -> std::collections::HashMap<String, NotificationOptions> {
+    pub fn get_all(
+        &self,
+        extension_id: &str,
+    ) -> std::collections::HashMap<String, NotificationOptions> {
         self.notifications
             .iter()
             .filter(|entry| entry.value().extension_id == extension_id)

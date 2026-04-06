@@ -124,3 +124,10 @@ tests/report/
 tests/e2e/report/
 tests/e2e/screenshots/
 tests/e2e/test-results/
+
+# ProofShot artifacts (session recordings, screenshots, reports)
+proofshot-artifacts/
+e2e-report.json
+
+# Self-improvement learnings (local per-developer)
+.learnings/

@@ -242,7 +242,7 @@ impl BookmarksApi {
             .map(|entry| entry.value().clone())
             .collect();
 
-        recent.sort_by(|a, b| b.date_added.unwrap_or(0).cmp(&a.date_added.unwrap_or(0)));
+        recent.sort_by_key(|b| std::cmp::Reverse(b.date_added.unwrap_or(0)));
         recent.truncate(number_of_items);
         Ok(serde_json::to_value(recent)?)
     }

@@ -267,7 +267,7 @@ impl SessionManager {
     /// Get all sessions sorted by last modified
     pub fn sessions_by_recent(&self) -> Vec<&ChatSession> {
         let mut sessions: Vec<_> = self.sessions.iter().collect();
-        sessions.sort_by(|a, b| b.last_modified.cmp(&a.last_modified));
+        sessions.sort_by_key(|s| std::cmp::Reverse(s.last_modified));
         sessions
     }
 }
