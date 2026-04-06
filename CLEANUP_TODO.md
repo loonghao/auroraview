@@ -50,9 +50,8 @@ that require larger effort or coordination before implementation.
 ## Low Priority
 
 ### `issues.md` at repo root
-- **Status**: TODO (logged Round 1)
-- **Reason**: Contains a code review report; should be moved to `docs/` or converted
-  to GitHub Issues for proper tracking.
+- **Status**: RESOLVED (Round 33)
+- **Reason**: File no longer exists — likely deleted in a prior round or never created.
 
 ### `#[allow(dead_code)]` annotations (~5 total)
 - **Status**: Structural / Feature-gated
@@ -85,7 +84,7 @@ that require larger effort or coordination before implementation.
 
 ---
 
-## Structural Assessment (Round ~31)
+## Structural Assessment (Round 33)
 
 ### Large module files (>500 lines) in `auroraview-core`
 | File | Lines | Recommendation |
