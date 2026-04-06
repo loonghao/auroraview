@@ -119,3 +119,4 @@ that require larger effort or coordination before implementation.
 - [x] 5 `approx_constant` clippy errors in settings_tests.rs (Round 5)
 - [x] Duplicate `escape_js_string` in assets.rs removed (Round 6)
 - [x] Inline JS escaping in webview.rs replaced with `escape_js_string` (Round 6)
+- [x] `plugins.rs` parking_lot migration — 13 poison error handlers removed, -25 net lines (Round ~35)
