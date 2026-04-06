@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 import threading
-import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -381,20 +380,5 @@ class EventEmitter:
         return unsubscribe
 
 
-# Deprecated function wrappers for migration
-def deprecated(message: str) -> Callable:
-    """Decorator to mark functions as deprecated."""
 
-    def decorator(func: Callable) -> Callable:
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            warnings.warn(
-                f"{func.__name__} is deprecated: {message}",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            return func(*args, **kwargs)
 
-        wrapper.__doc__ = f"DEPRECATED: {message}\n\n{func.__doc__ or ''}"
-        return wrapper
-
-    return decorator

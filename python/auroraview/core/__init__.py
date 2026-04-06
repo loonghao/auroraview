@@ -40,7 +40,6 @@ from .event_emitter import (
     LoadEvent,
     NavigationEvent,
     WindowEvent as WindowEventData2,
-    deprecated,
 )
 from .events import EventHandler, WindowEvent, WindowEventData
 from .settings import DEFAULT_SETTINGS, WebViewSettings
