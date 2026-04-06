@@ -75,7 +75,9 @@ fn test_sentry_capture_without_sentry_feature() {
 #[test]
 fn test_sentry_capture_levels() {
     // All levels should not panic
-    for level in &["fatal", "error", "warning", "warn", "info", "debug", "unknown"] {
+    for level in &[
+        "fatal", "error", "warning", "warn", "info", "debug", "unknown",
+    ] {
         Telemetry::capture_sentry_message("test-msg", level);
     }
 }

@@ -211,7 +211,10 @@ fn test_config_serde_roundtrip_all_fields() {
     assert_eq!(restored.log_json, original.log_json);
     assert_eq!(restored.otlp_endpoint, original.otlp_endpoint);
     assert_eq!(restored.metrics_enabled, original.metrics_enabled);
-    assert_eq!(restored.metrics_interval_secs, original.metrics_interval_secs);
+    assert_eq!(
+        restored.metrics_interval_secs,
+        original.metrics_interval_secs
+    );
     assert_eq!(restored.traces_enabled, original.traces_enabled);
     assert!((restored.trace_sample_ratio - original.trace_sample_ratio).abs() < f64::EPSILON);
     assert_eq!(restored.sentry_dsn, original.sentry_dsn);

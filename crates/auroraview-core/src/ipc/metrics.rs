@@ -97,11 +97,7 @@ impl IpcMetrics {
         let peak_queue_length = self.peak_queue_length.load(Ordering::Relaxed);
         let messages_received = self.messages_received.load(Ordering::Relaxed);
 
-        let avg_latency_us = if latency_samples > 0 {
-            total_latency_us / latency_samples
-        } else {
-            0
-        };
+        let avg_latency_us = total_latency_us.checked_div(latency_samples).unwrap_or(0);
 
         let success_rate = if messages_sent + messages_failed > 0 {
             (messages_sent as f64) / ((messages_sent + messages_failed) as f64) * 100.0

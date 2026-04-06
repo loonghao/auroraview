@@ -154,4 +154,3 @@ fn test_tab_event_close_devtools() {
     let ev = TabEvent::close_devtools(Some("tab_3"));
     assert!(matches!(ev, TabEvent::CloseDevTools { tab_id: Some(ref id) } if id == "tab_3"));
 }
-

@@ -58,7 +58,10 @@ fn test_entry_set_title() {
 fn test_entry_set_favicon() {
     let mut entry = HistoryEntry::new("https://example.com", "T");
     entry.set_favicon(Some("https://example.com/fav.ico".to_string()));
-    assert_eq!(entry.favicon, Some("https://example.com/fav.ico".to_string()));
+    assert_eq!(
+        entry.favicon,
+        Some("https://example.com/fav.ico".to_string())
+    );
 
     entry.set_favicon(None);
     assert!(entry.favicon.is_none());
@@ -351,7 +354,10 @@ fn test_manager_search_results_sorted_by_score() {
 fn test_manager_search_with_limit() {
     let manager = HistoryManager::new(None);
     for i in 0..10 {
-        manager.visit(format!("https://github.com/{}", i), format!("GitHub Page {}", i));
+        manager.visit(
+            format!("https://github.com/{}", i),
+            format!("GitHub Page {}", i),
+        );
     }
 
     let opts = SearchOptions::new().limit(3);

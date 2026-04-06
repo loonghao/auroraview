@@ -435,10 +435,7 @@ impl ExtensionRuntime {
 
     /// Add an event listener
     pub fn add_event_listener(&self, event: &str, listener_id: &str) {
-        let mut entry = self
-            .event_listeners
-            .entry(event.to_string())
-            .or_default();
+        let mut entry = self.event_listeners.entry(event.to_string()).or_default();
         if !entry.contains(&listener_id.to_string()) {
             entry.push(listener_id.to_string());
         }

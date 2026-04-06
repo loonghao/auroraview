@@ -184,7 +184,13 @@ impl<'a> ExtensionBundler<'a> {
 fn sanitize_extension_id(name: &str) -> String {
     name.to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -252,10 +258,7 @@ mod tests {
     fn test_sanitize_extension_id() {
         assert_eq!(sanitize_extension_id("My Extension"), "my_extension");
         assert_eq!(sanitize_extension_id("dark-reader"), "dark-reader");
-        assert_eq!(
-            sanitize_extension_id("Extension@v2.0!"),
-            "extension_v2_0_"
-        );
+        assert_eq!(sanitize_extension_id("Extension@v2.0!"), "extension_v2_0_");
     }
 
     #[test]

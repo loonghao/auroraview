@@ -228,7 +228,9 @@ fn test_create_folder() {
 fn test_add_to_folder() {
     let manager = BookmarkManager::new(None);
     let folder_id = manager.create_folder("Work");
-    let bm_id = manager.add_to_folder("https://github.com", "GitHub", &folder_id).unwrap();
+    let bm_id = manager
+        .add_to_folder("https://github.com", "GitHub", &folder_id)
+        .unwrap();
 
     let b = manager.get(&bm_id).unwrap();
     assert_eq!(b.parent_id, Some(folder_id.clone()));
@@ -288,7 +290,9 @@ fn test_rename_nonexistent_folder_returns_error() {
 fn test_delete_folder_with_contents() {
     let manager = BookmarkManager::new(None);
     let folder_id = manager.create_folder("ToBe");
-    manager.add_to_folder("https://a.com", "A", &folder_id).unwrap();
+    manager
+        .add_to_folder("https://a.com", "A", &folder_id)
+        .unwrap();
 
     manager.delete_folder(&folder_id, true).unwrap();
 
@@ -301,7 +305,9 @@ fn test_delete_folder_with_contents() {
 fn test_delete_folder_moves_contents_to_root() {
     let manager = BookmarkManager::new(None);
     let folder_id = manager.create_folder("ToBe");
-    let bm_id = manager.add_to_folder("https://a.com", "A", &folder_id).unwrap();
+    let bm_id = manager
+        .add_to_folder("https://a.com", "A", &folder_id)
+        .unwrap();
 
     manager.delete_folder(&folder_id, false).unwrap();
 
@@ -335,7 +341,9 @@ fn test_move_bookmark_to_folder() {
 fn test_move_bookmark_to_root() {
     let manager = BookmarkManager::new(None);
     let folder_id = manager.create_folder("Src");
-    let bm_id = manager.add_to_folder("https://a.com", "A", &folder_id).unwrap();
+    let bm_id = manager
+        .add_to_folder("https://a.com", "A", &folder_id)
+        .unwrap();
 
     manager.move_to_folder(&bm_id, None).unwrap();
     let b = manager.get(&bm_id).unwrap();
@@ -358,7 +366,9 @@ fn test_root_bookmarks_excludes_folder_items() {
     let folder_id = manager.create_folder("Folder");
 
     manager.add("https://root.com", "Root");
-    manager.add_to_folder("https://in-folder.com", "InFolder", &folder_id).unwrap();
+    manager
+        .add_to_folder("https://in-folder.com", "InFolder", &folder_id)
+        .unwrap();
 
     let root = manager.root_bookmarks();
     assert_eq!(root.len(), 1);

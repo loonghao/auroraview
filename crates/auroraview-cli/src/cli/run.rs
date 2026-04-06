@@ -157,7 +157,10 @@ fn probe_url_reachable(url: &str) -> bool {
     };
 
     let _ = stream.set_read_timeout(Some(Duration::from_millis(800)));
-    let request = format!("HEAD {} HTTP/1.0\r\nHost: {}\r\nConnection: close\r\n\r\n", path, host);
+    let request = format!(
+        "HEAD {} HTTP/1.0\r\nHost: {}\r\nConnection: close\r\n\r\n",
+        path, host
+    );
     if stream.write_all(request.as_bytes()).is_err() {
         return false;
     }

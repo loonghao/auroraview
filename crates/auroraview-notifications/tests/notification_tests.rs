@@ -13,10 +13,7 @@ use std::sync::Arc;
 #[case(NotificationType::Success, Some(3000))]
 #[case(NotificationType::Warning, Some(8000))]
 #[case(NotificationType::Error, None)]
-fn test_notification_type_duration(
-    #[case] kind: NotificationType,
-    #[case] expected: Option<u64>,
-) {
+fn test_notification_type_duration(#[case] kind: NotificationType, #[case] expected: Option<u64>) {
     assert_eq!(kind.default_duration(), expected);
 }
 

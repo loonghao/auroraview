@@ -64,8 +64,7 @@ pub type ReloadPageCallback = Box<dyn Fn() + Send + Sync>;
 pub type ReloadExtensionCallback = Box<dyn Fn(&str) + Send + Sync>;
 
 /// Callback for executing a script
-pub type ExecuteScriptCallback =
-    Box<dyn Fn(&str, &Value) -> Vec<Value> + Send + Sync>;
+pub type ExecuteScriptCallback = Box<dyn Fn(&str, &Value) -> Vec<Value> + Send + Sync>;
 
 /// Callback for injecting/removing CSS
 pub type CssCallback = Box<dyn Fn(&str, &Value) + Send + Sync>;
@@ -80,8 +79,7 @@ pub type CreateWindowCallback = Box<dyn Fn(&Value) -> Value + Send + Sync>;
 pub type EventDispatchCallback = Box<dyn Fn(&str, &str, &str, &[Value]) + Send + Sync>;
 
 /// Callback for persisting storage data
-pub type StoragePersistCallback =
-    Box<dyn Fn(&str, &str, &HashMap<String, Value>) + Send + Sync>;
+pub type StoragePersistCallback = Box<dyn Fn(&str, &str, &HashMap<String, Value>) + Send + Sync>;
 
 /// Callback for runtime message routing
 pub type RuntimeMessageCallback = Box<dyn Fn(&str, Value) -> Option<Value> + Send + Sync>;
@@ -708,10 +706,7 @@ impl ExtensionsPlugin {
             }
             "sendMessage" => {
                 let message = params.get("message").cloned().unwrap_or(Value::Null);
-                let tab_id = params
-                    .get("tabId")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(1) as i32;
+                let tab_id = params.get("tabId").and_then(|v| v.as_i64()).unwrap_or(1) as i32;
                 let cbs = self.callbacks.read();
                 if let Some(ref send_cb) = cbs.on_send_message {
                     let response = send_cb(tab_id, message);
@@ -921,10 +916,7 @@ impl ExtensionsPlugin {
                 if let Some(ref reload_cb) = cbs.on_reload_extension {
                     reload_cb(extension_id);
                 } else {
-                    tracing::info!(
-                        "runtime.reload: no reload callback for {}",
-                        extension_id
-                    );
+                    tracing::info!("runtime.reload: no reload callback for {}", extension_id);
                 }
                 Ok(serde_json::json!({}))
             }
@@ -1086,10 +1078,7 @@ impl ExtensionsPlugin {
                 if let Some(ref popup_cb) = cbs.on_open_popup {
                     popup_cb(extension_id, popup_path.as_deref());
                 } else {
-                    tracing::debug!(
-                        "action.openPopup: no popup callback for {}",
-                        extension_id
-                    );
+                    tracing::debug!("action.openPopup: no popup callback for {}", extension_id);
                 }
                 Ok(serde_json::json!({}))
             }
@@ -1669,7 +1658,10 @@ impl ExtensionsPlugin {
         match method {
             "getAuthToken" => {
                 // OAuth flow requires platform-specific browser integration
-                tracing::debug!("identity.getAuthToken: OAuth not available for {}", extension_id);
+                tracing::debug!(
+                    "identity.getAuthToken: OAuth not available for {}",
+                    extension_id
+                );
                 Err(PluginError::shell_error("OAuth not implemented"))
             }
             "removeCachedAuthToken" => Ok(serde_json::json!({})),
@@ -2014,7 +2006,9 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let state = self.state.read();
                 match state.extensions.get(&req.extension_id) {
-                    Some(ext) => serde_json::to_value(ext).map_err(PluginError::serialization_error),
+                    Some(ext) => {
+                        serde_json::to_value(ext).map_err(PluginError::serialization_error)
+                    }
                     None => Err(PluginError::invalid_args(format!(
                         "Extension not found: {}",
                         req.extension_id
@@ -2136,12 +2130,7 @@ impl PluginHandler for ExtensionsPlugin {
                 // Dispatch event to extension via callback
                 let cbs = self.callbacks.read();
                 if let Some(ref dispatch_cb) = cbs.on_event_dispatch {
-                    dispatch_cb(
-                        &req.extension_id,
-                        &req.api,
-                        &req.event,
-                        &req.args,
-                    );
+                    dispatch_cb(&req.extension_id, &req.api, &req.event, &req.args);
                 } else {
                     tracing::info!(
                         "Dispatching event {}.{} to {} (no callback registered)",
@@ -2175,7 +2164,9 @@ impl PluginHandler for ExtensionsPlugin {
                 };
 
                 match view_manager.create_view(config) {
-                    Ok(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
+                    Ok(info) => {
+                        serde_json::to_value(info).map_err(PluginError::serialization_error)
+                    }
                     Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
@@ -2185,7 +2176,9 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_view(&req.view_id) {
-                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
+                    Some(info) => {
+                        serde_json::to_value(info).map_err(PluginError::serialization_error)
+                    }
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id
@@ -2261,7 +2254,9 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_cdp_info(&req.view_id) {
-                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
+                    Some(info) => {
+                        serde_json::to_value(info).map_err(PluginError::serialization_error)
+                    }
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id

@@ -130,15 +130,11 @@ impl DccWebView {
         let devtools = self.config.devtools;
 
         // Build user data directory path
-        let data_dir = self
-            .config
-            .data_dir
-            .clone()
-            .unwrap_or_else(|| {
-                let mut dir = std::env::temp_dir();
-                dir.push("auroraview_dcc");
-                dir
-            });
+        let data_dir = self.config.data_dir.clone().unwrap_or_else(|| {
+            let mut dir = std::env::temp_dir();
+            dir.push("auroraview_dcc");
+            dir
+        });
         let _ = std::fs::create_dir_all(&data_dir);
 
         let data_dir_wide: Vec<u16> = data_dir
@@ -230,27 +226,27 @@ impl DccWebView {
         // SAFETY: controller is a valid COM interface obtained from the
         // creation callback. SetBounds is a safe COM method call.
         unsafe {
-            controller.SetBounds(bounds).map_err(|e| {
-                DccError::WebViewCreation(format!("SetBounds failed: {e}"))
-            })?;
+            controller
+                .SetBounds(bounds)
+                .map_err(|e| DccError::WebViewCreation(format!("SetBounds failed: {e}")))?;
         }
 
         // Get the core WebView2 interface
         // SAFETY: controller is a valid COM interface. CoreWebView2() returns
         // the associated ICoreWebView2 interface.
         let webview_core: ICoreWebView2 = unsafe {
-            controller.CoreWebView2().map_err(|e| {
-                DccError::WebViewCreation(format!("CoreWebView2 failed: {e}"))
-            })?
+            controller
+                .CoreWebView2()
+                .map_err(|e| DccError::WebViewCreation(format!("CoreWebView2 failed: {e}")))?
         };
 
         // Configure settings
         // SAFETY: webview_core is a valid COM interface. Settings() and the
         // subsequent Set* calls are safe COM method invocations.
         let settings: ICoreWebView2Settings = unsafe {
-            webview_core.Settings().map_err(|e| {
-                DccError::WebViewCreation(format!("Settings failed: {e}"))
-            })?
+            webview_core
+                .Settings()
+                .map_err(|e| DccError::WebViewCreation(format!("Settings failed: {e}")))?
         };
         unsafe {
             let _ = settings.SetAreDevToolsEnabled(devtools);
@@ -413,9 +409,8 @@ impl DccWebView {
                             let url_wide: Vec<u16> =
                                 url.encode_utf16().chain(std::iter::once(0)).collect();
                             unsafe {
-                                wv.Navigate(PCWSTR(url_wide.as_ptr())).map_err(|e| {
-                                    DccError::Com(format!("Navigate failed: {e}"))
-                                })?;
+                                wv.Navigate(PCWSTR(url_wide.as_ptr()))
+                                    .map_err(|e| DccError::Com(format!("Navigate failed: {e}")))?;
                             }
                         }
                     }
@@ -429,9 +424,10 @@ impl DccWebView {
                             let html_wide: Vec<u16> =
                                 html.encode_utf16().chain(std::iter::once(0)).collect();
                             unsafe {
-                                wv.NavigateToString(PCWSTR(html_wide.as_ptr())).map_err(
-                                    |e| DccError::Com(format!("NavigateToString failed: {e}")),
-                                )?;
+                                wv.NavigateToString(PCWSTR(html_wide.as_ptr()))
+                                    .map_err(|e| {
+                                        DccError::Com(format!("NavigateToString failed: {e}"))
+                                    })?;
                             }
                         }
                     }
@@ -447,8 +443,8 @@ impl DccWebView {
                             unsafe {
                                 wv.ExecuteScript(
                                     PCWSTR(script_wide.as_ptr()),
-                                    &webview2_com::ExecuteScriptCompletedHandler::create(
-                                        Box::new(move |error_code, result| {
+                                    &webview2_com::ExecuteScriptCompletedHandler::create(Box::new(
+                                        move |error_code, result| {
                                             if let Err(e) = error_code {
                                                 error!("[DCC] ExecuteScript error: {e}");
                                             } else {
@@ -458,12 +454,10 @@ impl DccWebView {
                                                 );
                                             }
                                             Ok(())
-                                        }),
-                                    ),
+                                        },
+                                    )),
                                 )
-                                .map_err(|e| {
-                                    DccError::Com(format!("ExecuteScript failed: {e}"))
-                                })?;
+                                .map_err(|e| DccError::Com(format!("ExecuteScript failed: {e}")))?;
                             }
                         }
                     }

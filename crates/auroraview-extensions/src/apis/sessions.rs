@@ -145,7 +145,9 @@ impl SessionsApi {
             });
 
             if let Some(idx) = idx {
-                let session = sessions.remove(idx).expect("idx from position() must be valid");
+                let session = sessions
+                    .remove(idx)
+                    .expect("idx from position() must be valid");
                 return Ok(serde_json::to_value(session)?);
             }
 

@@ -235,4 +235,3 @@ fn test_ipc_router_methods_listing() {
     router.unregister("a.foo");
     assert_eq!(router.methods(), vec!["b.bar"]);
 }
-
