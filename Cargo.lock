@@ -617,8 +617,6 @@ dependencies = [
  "ctrlc",
  "dashmap",
  "dirs",
- "hyper",
- "hyper-util",
  "image",
  "insta",
  "ipc-channel",
