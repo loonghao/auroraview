@@ -46,12 +46,6 @@ pub const OVERLAY_VERSION: u32 = 1;
 /// Footer size in bytes (offset: 8 + magic: 4)
 const FOOTER_SIZE: u64 = 12;
 
-/// Header size in bytes (magic: 4 + version: 4 + config_len: 8 + assets_len: 8)
-/// Reserved for future use in header validation and offset calculations.
-// TODO(cleanup): integrate into validation logic or remove
-#[allow(dead_code)]
-const HEADER_SIZE_UNUSED: u64 = 24;
-
 /// Overlay data containing configuration and assets
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OverlayData {
