@@ -162,8 +162,7 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
         // Store original before replacing.
         let mut guard = ORIGINAL_WNDPROCS.lock();
         if let Some(map) = guard.as_mut() {
-                map.insert(hwnd, original);
-            }
+            map.insert(hwnd, original);
         }
 
         SetWindowLongPtrW(
