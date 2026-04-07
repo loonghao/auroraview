@@ -47,14 +47,6 @@ fn ok_response_with_cors(
 }
 
 
-/// Build a response with a dynamic status code, content-type, and owned body data.
-fn dynamic_response(status: u16, mime_type: &str, data: Vec<u8>) -> Response<Cow<'static, [u8]>> {
-    Response::builder()
-        .status(status)
-        .header("Content-Type", mime_type)
-        .body(Cow::Owned(data))
-        .expect("valid response with dynamic status and content-type")
-}
 
 /// Handle auroraview:// protocol requests
 ///
