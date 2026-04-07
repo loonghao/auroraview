@@ -4,11 +4,11 @@
 //! NetworkRequestInfo, NetworkResponseInfo, CdpRequest, CdpResponse, CdpEvent,
 //! DevToolsState, DevToolsError, serialization round-trips.
 
+use auroraview_devtools::cdp::{domains, methods, CdpEvent, CdpRequest, CdpResponse};
 use auroraview_devtools::{
     CdpSessionInfo, ConsoleMessage, ConsoleMessageType, DevToolsConfig, DevToolsError,
     DevToolsManager, DevToolsState, DockSide, NetworkRequestInfo, NetworkResponseInfo,
 };
-use auroraview_devtools::cdp::{CdpEvent, CdpRequest, CdpResponse, domains, methods};
 use rstest::*;
 use serde_json::{json, Value};
 
@@ -297,11 +297,11 @@ fn manager_config_accessor(debug_manager: DevToolsManager) {
 // ── ConsoleMessage ───────────────────────────────────────────────────────────
 
 #[rstest]
-#[case(ConsoleMessage::log("l"),     ConsoleMessageType::Log,     false, false)]
-#[case(ConsoleMessage::debug("d"),   ConsoleMessageType::Debug,   false, false)]
-#[case(ConsoleMessage::info("i"),    ConsoleMessageType::Info,    false, false)]
-#[case(ConsoleMessage::warning("w"), ConsoleMessageType::Warning, false, true )]
-#[case(ConsoleMessage::error("e"),   ConsoleMessageType::Error,   true,  false)]
+#[case(ConsoleMessage::log("l"), ConsoleMessageType::Log, false, false)]
+#[case(ConsoleMessage::debug("d"), ConsoleMessageType::Debug, false, false)]
+#[case(ConsoleMessage::info("i"), ConsoleMessageType::Info, false, false)]
+#[case(ConsoleMessage::warning("w"), ConsoleMessageType::Warning, false, true)]
+#[case(ConsoleMessage::error("e"), ConsoleMessageType::Error, true, false)]
 fn console_message_factories(
     #[case] msg: ConsoleMessage,
     #[case] expected_type: ConsoleMessageType,
@@ -358,13 +358,16 @@ fn network_request_with_header() {
         .with_header("Authorization", "Bearer token")
         .with_header("Accept", "application/json");
     assert_eq!(req.headers.len(), 2);
-    assert_eq!(req.headers.get("Authorization").map(|s| s.as_str()), Some("Bearer token"));
+    assert_eq!(
+        req.headers.get("Authorization").map(|s| s.as_str()),
+        Some("Bearer token")
+    );
 }
 
 #[test]
 fn network_request_with_post_data() {
-    let req = NetworkRequestInfo::new("r3", "https://x.com", "POST")
-        .with_post_data(r#"{"key":"value"}"#);
+    let req =
+        NetworkRequestInfo::new("r3", "https://x.com", "POST").with_post_data(r#"{"key":"value"}"#);
     assert!(req.post_data.is_some());
 }
 
@@ -386,8 +389,8 @@ fn network_request_domain_extraction(#[case] url: &str, #[case] expected: Option
 
 #[test]
 fn network_request_serde_round_trip() {
-    let req = NetworkRequestInfo::new("r5", "https://example.com", "DELETE")
-        .with_header("X-Auth", "abc");
+    let req =
+        NetworkRequestInfo::new("r5", "https://example.com", "DELETE").with_header("X-Auth", "abc");
     let json = serde_json::to_string(&req).unwrap();
     let back: NetworkRequestInfo = serde_json::from_str(&json).unwrap();
     assert_eq!(back.request_id, "r5");
@@ -398,14 +401,14 @@ fn network_request_serde_round_trip() {
 // ── NetworkResponseInfo ──────────────────────────────────────────────────────
 
 #[rstest]
-#[case(200, true,  false, false, false)]
-#[case(201, true,  false, false, false)]
-#[case(301, false, true,  false, false)]
-#[case(302, false, true,  false, false)]
-#[case(400, false, false, true,  false)]
-#[case(404, false, false, true,  false)]
-#[case(500, false, false, false, true )]
-#[case(503, false, false, false, true )]
+#[case(200, true, false, false, false)]
+#[case(201, true, false, false, false)]
+#[case(301, false, true, false, false)]
+#[case(302, false, true, false, false)]
+#[case(400, false, false, true, false)]
+#[case(404, false, false, true, false)]
+#[case(500, false, false, false, true)]
+#[case(503, false, false, false, true)]
 fn network_response_status_categories(
     #[case] status: u16,
     #[case] success: bool,
@@ -430,13 +433,15 @@ fn network_response_builder() {
     assert_eq!(resp.mime_type, "application/json");
     assert_eq!(resp.content_length, Some(2048));
     assert!(resp.from_cache);
-    assert_eq!(resp.headers.get("ETag").map(|s| s.as_str()), Some("\"abc\""));
+    assert_eq!(
+        resp.headers.get("ETag").map(|s| s.as_str()),
+        Some("\"abc\"")
+    );
 }
 
 #[test]
 fn network_response_serde_round_trip() {
-    let resp = NetworkResponseInfo::new("r2", 404, "Not Found")
-        .with_content_length(100);
+    let resp = NetworkResponseInfo::new("r2", 404, "Not Found").with_content_length(100);
     let json = serde_json::to_string(&resp).unwrap();
     let back: NetworkResponseInfo = serde_json::from_str(&json).unwrap();
     assert_eq!(back.status, 404);
@@ -548,10 +553,10 @@ fn cdp_response_serde_round_trip() {
 }
 
 #[rstest]
-#[case("Page.loadEventFired",        true,  false, false)]
-#[case("Network.requestWillBeSent",  false, true,  false)]
-#[case("Console.messageAdded",       false, false, true )]
-#[case("Debugger.paused",            false, false, false)]
+#[case("Page.loadEventFired", true, false, false)]
+#[case("Network.requestWillBeSent", false, true, false)]
+#[case("Console.messageAdded", false, false, true)]
+#[case("Debugger.paused", false, false, false)]
 fn cdp_event_domain_detection(
     #[case] method: &str,
     #[case] is_page: bool,

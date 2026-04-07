@@ -1,9 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use auroraview_tabs::{
-    Result, Session, SessionManager, TabError, TabEvent, TabManager, TabState,
-};
+use auroraview_tabs::{Result, Session, SessionManager, TabError, TabEvent, TabManager, TabState};
 use rstest::*;
 use tempfile::TempDir;
 
@@ -290,7 +288,10 @@ fn test_update_favicon() {
 
     manager.update_favicon(&id, "https://example.com/favicon.ico");
     let tab = manager.get(&id).unwrap();
-    assert_eq!(tab.favicon, Some("https://example.com/favicon.ico".to_string()));
+    assert_eq!(
+        tab.favicon,
+        Some("https://example.com/favicon.ico".to_string())
+    );
 }
 
 #[test]

@@ -79,7 +79,9 @@ fn test_storage_get_returns_set_values(plugin: ExtensionsPlugin) {
         "set",
         json!({ "area": "local", "items": { "foo": "bar" } }),
     );
-    plugin.handle("api_call", set_args, &Default::default()).unwrap();
+    plugin
+        .handle("api_call", set_args, &Default::default())
+        .unwrap();
 
     // Get it back
     let get_args = make_api_call(
@@ -87,7 +89,9 @@ fn test_storage_get_returns_set_values(plugin: ExtensionsPlugin) {
         "get",
         json!({ "area": "local", "keys": ["foo"] }),
     );
-    let result = plugin.handle("api_call", get_args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", get_args, &Default::default())
+        .unwrap();
     assert_eq!(result["foo"], "bar");
 }
 
@@ -137,7 +141,9 @@ fn test_tabs_send_message_triggers_callback(plugin: ExtensionsPlugin) {
         "sendMessage",
         json!({ "tabId": 1, "message": "hello" }),
     );
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     assert_eq!(result["response"], "ok");
     assert_eq!(result["received"], "hello");
 }
@@ -149,7 +155,9 @@ fn test_tabs_send_message_without_callback(plugin: ExtensionsPlugin) {
         "sendMessage",
         json!({ "tabId": 1, "message": "hello" }),
     );
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     // Without callback, returns the message itself
     assert_eq!(result, "hello");
 }
@@ -157,7 +165,9 @@ fn test_tabs_send_message_without_callback(plugin: ExtensionsPlugin) {
 #[rstest]
 fn test_tabs_capture_visible_tab(plugin: ExtensionsPlugin) {
     let args = make_api_call("tabs", "captureVisibleTab", json!({}));
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     assert_eq!(result, json!(""));
 }
 
@@ -177,7 +187,9 @@ fn test_runtime_send_message_triggers_callback(plugin: ExtensionsPlugin) {
     });
 
     let args = make_api_call("runtime", "sendMessage", json!({ "message": "test" }));
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     assert!(received.load(Ordering::SeqCst));
     assert_eq!(result, "ack");
 }
@@ -219,7 +231,9 @@ fn test_runtime_connect(plugin: ExtensionsPlugin) {
         "connect",
         json!({ "portId": "port1", "name": "myport" }),
     );
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     assert_eq!(result["portId"], "port1");
     assert_eq!(result["name"], "myport");
 }
@@ -239,7 +253,9 @@ fn test_runtime_port_post_message(plugin: ExtensionsPlugin) {
 fn test_action_open_popup_triggers_callback(plugin: ExtensionsPlugin) {
     // First set a popup path via action.setPopup
     let set_popup_args = make_api_call("action", "setPopup", json!({ "popup": "popup.html" }));
-    plugin.handle("api_call", set_popup_args, &Default::default()).unwrap();
+    plugin
+        .handle("api_call", set_popup_args, &Default::default())
+        .unwrap();
 
     let popup_opened = Arc::new(RwLock::new(String::new()));
     let popup_clone = popup_opened.clone();
@@ -259,10 +275,14 @@ fn test_action_open_popup_triggers_callback(plugin: ExtensionsPlugin) {
 #[rstest]
 fn test_action_set_and_get_title(plugin: ExtensionsPlugin) {
     let set_args = make_api_call("action", "setTitle", json!({ "title": "My Title" }));
-    plugin.handle("api_call", set_args, &Default::default()).unwrap();
+    plugin
+        .handle("api_call", set_args, &Default::default())
+        .unwrap();
 
     let get_args = make_api_call("action", "getTitle", json!({}));
-    let result = plugin.handle("api_call", get_args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", get_args, &Default::default())
+        .unwrap();
     assert_eq!(result, "My Title");
 }
 
@@ -280,12 +300,10 @@ fn test_scripting_execute_script_triggers_callback(plugin: ExtensionsPlugin) {
         vec![json!(42)]
     });
 
-    let args = make_api_call(
-        "scripting",
-        "executeScript",
-        json!({ "func": "() => 42" }),
-    );
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let args = make_api_call("scripting", "executeScript", json!({ "func": "() => 42" }));
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     assert_eq!(call_count.load(Ordering::SeqCst), 1);
     assert_eq!(result[0]["result"], 42);
 }
@@ -297,7 +315,9 @@ fn test_scripting_execute_script_without_callback(plugin: ExtensionsPlugin) {
         "executeScript",
         json!({ "func": "() => null" }),
     );
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     assert_eq!(result[0]["frameId"], 0);
 }
 
@@ -310,7 +330,11 @@ fn test_scripting_insert_css_triggers_callback(plugin: ExtensionsPlugin) {
         inserted_clone.store(true, Ordering::SeqCst);
     });
 
-    let args = make_api_call("scripting", "insertCSS", json!({ "css": "body { color: red; }" }));
+    let args = make_api_call(
+        "scripting",
+        "insertCSS",
+        json!({ "css": "body { color: red; }" }),
+    );
     let result = plugin.handle("api_call", args, &Default::default());
     assert!(result.is_ok());
     assert!(inserted.load(Ordering::SeqCst));
@@ -325,7 +349,11 @@ fn test_scripting_remove_css_triggers_callback(plugin: ExtensionsPlugin) {
         removed_clone.store(true, Ordering::SeqCst);
     });
 
-    let args = make_api_call("scripting", "removeCSS", json!({ "css": "body { color: red; }" }));
+    let args = make_api_call(
+        "scripting",
+        "removeCSS",
+        json!({ "css": "body { color: red; }" }),
+    );
     let result = plugin.handle("api_call", args, &Default::default());
     assert!(result.is_ok());
     assert!(removed.load(Ordering::SeqCst));
@@ -372,7 +400,9 @@ fn test_scripting_update_content_scripts(plugin: ExtensionsPlugin) {
 
     // Verify update
     let get_args = make_api_call("scripting", "getRegisteredContentScripts", json!({}));
-    let scripts = plugin.handle("api_call", get_args, &Default::default()).unwrap();
+    let scripts = plugin
+        .handle("api_call", get_args, &Default::default())
+        .unwrap();
     assert_eq!(scripts[0]["matches"][0], "*://*.updated.com/*");
     assert_eq!(scripts[0]["js"][0], "updated.js");
 }
@@ -402,7 +432,9 @@ fn test_notifications_create_triggers_callback(plugin: ExtensionsPlugin) {
             }
         }),
     );
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     assert_eq!(result, "notif1");
     assert_eq!(*notified.read(), "Test Notification");
 }
@@ -424,14 +456,18 @@ fn test_windows_create_triggers_callback(plugin: ExtensionsPlugin) {
     });
 
     let args = make_api_call("windows", "create", json!({ "url": "https://example.com" }));
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     assert_eq!(result["id"], 2);
 }
 
 #[rstest]
 fn test_windows_create_without_callback(plugin: ExtensionsPlugin) {
     let args = make_api_call("windows", "create", json!({}));
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     // Returns default window when no callback
     assert_eq!(result["id"], 1);
 }
@@ -474,7 +510,9 @@ fn test_identity_get_auth_token_returns_error(plugin: ExtensionsPlugin) {
 #[rstest]
 fn test_identity_get_redirect_url(plugin: ExtensionsPlugin) {
     let args = make_api_call("identity", "getRedirectURL", json!({ "path": "callback" }));
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     let url = result.as_str().unwrap();
     assert!(url.contains("test-ext"));
     assert!(url.contains("callback"));

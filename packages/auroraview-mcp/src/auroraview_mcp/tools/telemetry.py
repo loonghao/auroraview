@@ -74,8 +74,6 @@ async def get_telemetry(webview_id: str | None = None) -> dict[str, Any]:
             # Continue with local-module fallback if bridge call is unavailable
             bridge_error = str(exc)
 
-
-
     # Fallback: try to import from the Python telemetry module directly
     # (works when MCP server runs in the same process)
     try:
@@ -94,7 +92,6 @@ async def get_telemetry(webview_id: str | None = None) -> dict[str, Any]:
             "instances": [],
             "note": note,
         }
-
 
 
 @mcp.tool()
@@ -146,15 +143,11 @@ async def get_performance_summary() -> dict[str, Any]:
         # Check for performance issues
         ipc_p95 = histograms.get("ipc_latency_p95_ms")
         if ipc_p95 is not None and ipc_p95 > 50:
-            warnings.append(
-                f"{s['webview_id']}: IPC latency p95={ipc_p95}ms (>50ms threshold)"
-            )
+            warnings.append(f"{s['webview_id']}: IPC latency p95={ipc_p95}ms (>50ms threshold)")
 
         eval_p95 = histograms.get("eval_js_p95_ms")
         if eval_p95 is not None and eval_p95 > 100:
-            warnings.append(
-                f"{s['webview_id']}: JS eval p95={eval_p95}ms (>100ms threshold)"
-            )
+            warnings.append(f"{s['webview_id']}: JS eval p95={eval_p95}ms (>100ms threshold)")
 
         if counters.get("error_count", 0) > 0:
             warnings.append(

@@ -269,5 +269,7 @@ async def get_telemetry_resource() -> str:
         )
     except ImportError:
         return json.dumps(
-            {"error": "Telemetry module not available. Install auroraview with telemetry-python feature."}
+            {
+                "error": "Telemetry module not available. Install auroraview with telemetry-python feature."
+            }
         )

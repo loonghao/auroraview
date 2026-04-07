@@ -184,7 +184,7 @@ impl HistoryManager {
     pub fn recent(&self, limit: usize) -> Vec<HistoryEntry> {
         let store = self.inner.read();
         let mut entries: Vec<_> = store.entries.values().cloned().collect();
-        entries.sort_by(|a, b| b.last_visit.cmp(&a.last_visit));
+        entries.sort_by_key(|e| std::cmp::Reverse(e.last_visit));
         entries.truncate(limit);
         entries
     }
@@ -212,7 +212,7 @@ impl HistoryManager {
             .collect();
 
         // Sort by relevance
-        results.sort_by(|a, b| b.score.cmp(&a.score));
+        results.sort_by_key(|r| std::cmp::Reverse(r.score));
 
         // Apply limit
         if let Some(limit) = options.limit {
@@ -226,7 +226,7 @@ impl HistoryManager {
     pub fn frequent(&self, limit: usize) -> Vec<HistoryEntry> {
         let store = self.inner.read();
         let mut entries: Vec<_> = store.entries.values().cloned().collect();
-        entries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
+        entries.sort_by_key(|e| std::cmp::Reverse(e.visit_count));
         entries.truncate(limit);
         entries
     }

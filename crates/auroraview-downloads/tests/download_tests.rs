@@ -2,7 +2,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 
-use auroraview_downloads::{DownloadError, DownloadItem, DownloadManager, DownloadQueue, DownloadState};
+use auroraview_downloads::{
+    DownloadError, DownloadItem, DownloadManager, DownloadQueue, DownloadState,
+};
 use rstest::*;
 use tempfile::TempDir;
 
@@ -124,10 +126,22 @@ fn test_item_state_queries(
     let mut item = DownloadItem::new("https://a.com/f", "f");
     match state {
         DownloadState::Downloading => item.start(),
-        DownloadState::Paused => { item.start(); item.pause(); }
-        DownloadState::Completed => { item.start(); item.complete(); }
-        DownloadState::Failed => { item.start(); item.fail("err"); }
-        DownloadState::Cancelled => { item.start(); item.cancel(); }
+        DownloadState::Paused => {
+            item.start();
+            item.pause();
+        }
+        DownloadState::Completed => {
+            item.start();
+            item.complete();
+        }
+        DownloadState::Failed => {
+            item.start();
+            item.fail("err");
+        }
+        DownloadState::Cancelled => {
+            item.start();
+            item.cancel();
+        }
         DownloadState::Pending => {}
     }
     assert_eq!(item.is_active(), is_active);

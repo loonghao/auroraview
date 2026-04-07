@@ -268,10 +268,7 @@ js_code = "console.log('injected');"
 "#;
     let manifest = Manifest::parse(toml).unwrap();
     let inject = manifest.inject.as_ref().expect("inject should be present");
-    assert_eq!(
-        inject.js_code.as_deref(),
-        Some("console.log('injected');")
-    );
+    assert_eq!(inject.js_code.as_deref(), Some("console.log('injected');"));
 }
 
 #[test]

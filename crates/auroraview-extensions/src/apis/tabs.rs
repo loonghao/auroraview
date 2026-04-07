@@ -159,10 +159,7 @@ impl TabState {
         if let Some(callback) = cb.as_ref() {
             callback(tab_id, message)
         } else {
-            tracing::debug!(
-                "No send message callback registered for tab {}",
-                tab_id
-            );
+            tracing::debug!("No send message callback registered for tab {}", tab_id);
             None
         }
     }

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.18](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.17...auroraview-v0.4.18) (2026-04-06)
+
+
+### Features
+
+* **auto-improve:** squash 76 commits - perf, tests, cleanup, hot-reload, telemetry ([555bd0a](https://github.com/loonghao/auroraview/commit/555bd0a0132337f06082aa2feaaf6a519ea17052))
+* **e2e:** integrate ProofShot + agent-browser for E2E testing ([9c604d7](https://github.com/loonghao/auroraview/commit/9c604d74f0c793b51816d69b1dbbe5cf54cd5ea7))
+* **e2e:** integrate ProofShot + agent-browser for visual E2E testing and self-iteration ([636c6a7](https://github.com/loonghao/auroraview/commit/636c6a7c7e7199444c82c38d58633c0e0abfb321))
+* **e2e:** integrate ProofShot + agent-browser for visual E2E testing and self-iteration ([#329](https://github.com/loonghao/auroraview/issues/329)) ([636c6a7](https://github.com/loonghao/auroraview/commit/636c6a7c7e7199444c82c38d58633c0e0abfb321))
+
+
+### Bug Fixes
+
+* **ci:** remove blank line in sdk-ci.yml heredoc causing SDK Ready false failure ([1e7d98c](https://github.com/loonghao/auroraview/commit/1e7d98c526ee1f80e979e620388aa4fecaa52337))
+* **mcp:** apply ruff format to providers.py and telemetry.py ([c17a0ed](https://github.com/loonghao/auroraview/commit/c17a0ed1691c0c78beb3a62fb348c121195871b6))
+
 ## [0.4.17](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.16...auroraview-v0.4.17) (2026-03-28)
 
 

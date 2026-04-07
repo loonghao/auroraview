@@ -1900,3 +1900,267 @@ assets-clean:
 # Full assets CI check
 assets-ci: assets-install assets-typecheck assets-lint assets-build
     @echo "[OK] Assets CI check passed!"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ProofShot + agent-browser E2E Commands
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Install ProofShot and agent-browser (includes headless Chromium)
+e2e-install:
+    @echo "Installing ProofShot + agent-browser..."
+    vx npm install -g proofshot
+    @echo "[OK] ProofShot installed (includes agent-browser + Chromium)"
+
+# Start packed Gallery with CDP and wait for readiness
+[windows]
+e2e-start: gallery-pack-debug
+    @echo "Starting Gallery with CDP (port 9222)..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo "Waiting for CDP readiness..."
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo "[OK] Gallery running, CDP ready at http://127.0.0.1:9222"
+
+[unix]
+e2e-start: gallery-pack-debug
+    @echo "Starting Gallery with CDP (port 9222)..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @echo "Waiting for CDP readiness..."
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo "[OK] Gallery running, CDP ready at http://127.0.0.1:9222"
+
+# Wait for CDP port to become available
+[windows]
+e2e-wait-cdp:
+    @echo "Waiting for CDP port (9222)..."
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo "[OK] CDP ready"
+
+[unix]
+e2e-wait-cdp:
+    @echo "Waiting for CDP port (9222)..."
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo "[OK] CDP ready"
+
+# Stop Gallery E2E process
+[windows]
+e2e-stop:
+    @echo "Stopping Gallery..."
+    @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo "[OK] Gallery stopped"
+
+[unix]
+e2e-stop:
+    @echo "Stopping Gallery..."
+    @pkill -f "auroraview-gallery-debug" || true
+    @echo "[OK] Gallery stopped"
+
+# Capture interactive snapshot via agent-browser (element discovery)
+e2e-snapshot:
+    @echo "Capturing interactive snapshot..."
+    vx npx --yes agent-browser --cdp 9222 snapshot -i
+
+# Capture annotated screenshot via agent-browser
+e2e-screenshot:
+    @echo "Capturing annotated screenshot..."
+    vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+
+# Navigate to a URL via agent-browser
+e2e-open URL:
+    @echo "Navigating to {{URL}}..."
+    vx npx --yes agent-browser --cdp 9222 open "{{URL}}"
+
+# Click an element via agent-browser
+e2e-click ELEMENT:
+    @echo "Clicking element {{ELEMENT}}..."
+    vx npx --yes agent-browser --cdp 9222 click "{{ELEMENT}}"
+
+# Fill an input via agent-browser
+e2e-fill ELEMENT VALUE:
+    @echo "Filling {{ELEMENT}} with value..."
+    vx npx --yes agent-browser --cdp 9222 fill "{{ELEMENT}}" "{{VALUE}}"
+
+# Run a ProofShot exec command (wraps agent-browser with session logging)
+e2e-exec +ARGS:
+    @echo "Running ProofShot exec: {{ARGS}}..."
+    proofshot exec {{ARGS}}
+
+# Start a ProofShot recording session against CDP
+e2e-record-start DESCRIPTION="E2E verification":
+    @echo "Starting ProofShot recording session..."
+    proofshot start --description "{{DESCRIPTION}}"
+    @echo "[OK] ProofShot session started"
+
+# Stop ProofShot recording and generate artifacts
+e2e-record-stop:
+    @echo "Stopping ProofShot session and generating artifacts..."
+    proofshot stop
+    @echo "[OK] Artifacts in ./proofshot-artifacts/"
+
+# Compare screenshots against baseline (visual regression)
+e2e-diff:
+    @echo "Running visual diff against baseline..."
+    proofshot diff --baseline ./test-screenshots/baseline
+    @echo "[OK] Visual diff complete"
+
+# Upload ProofShot proof artifacts to current PR
+e2e-pr PR="":
+    @echo "Uploading proof artifacts to PR..."
+    proofshot pr {{PR}}
+    @echo "[OK] Proof uploaded to PR"
+
+# Clean ProofShot artifacts
+e2e-clean:
+    @echo "Cleaning ProofShot artifacts..."
+    proofshot clean
+    @echo "[OK] Artifacts cleaned"
+
+# Full ProofShot E2E workflow: pack + start + record + test + stop + cleanup
+[windows]
+e2e-proofshot: e2e-install gallery-pack-debug
+    @echo "==========================================="
+    @echo "ProofShot E2E Verification Suite"
+    @echo "==========================================="
+    @echo ""
+    @echo "[1/6] Starting Gallery with CDP..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo ""
+    @echo "[2/6] Starting ProofShot recording..."
+    -proofshot start --description "Gallery E2E verification"
+    @echo ""
+    @echo "[3/6] Capturing interactive snapshot..."
+    -vx npx --yes agent-browser --cdp 9222 snapshot -i
+    @echo ""
+    @echo "[4/6] Capturing annotated screenshot..."
+    -vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    @echo ""
+    @echo "[5/6] Running Playwright CDP tests..."
+    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
+    @echo ""
+    @echo "[6/6] Stopping ProofShot and collecting artifacts..."
+    -proofshot stop
+    @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "==========================================="
+    @echo "[OK] ProofShot E2E verification complete!"
+    @echo "Artifacts: ./proofshot-artifacts/"
+    @echo "==========================================="
+
+[unix]
+e2e-proofshot: e2e-install gallery-pack-debug
+    @echo "==========================================="
+    @echo "ProofShot E2E Verification Suite"
+    @echo "==========================================="
+    @echo ""
+    @echo "[1/6] Starting Gallery with CDP..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo ""
+    @echo "[2/6] Starting ProofShot recording..."
+    -proofshot start --description "Gallery E2E verification"
+    @echo ""
+    @echo "[3/6] Capturing interactive snapshot..."
+    -vx npx --yes agent-browser --cdp 9222 snapshot -i
+    @echo ""
+    @echo "[4/6] Capturing annotated screenshot..."
+    -vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    @echo ""
+    @echo "[5/6] Running Playwright CDP tests..."
+    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
+    @echo ""
+    @echo "[6/6] Stopping ProofShot and collecting artifacts..."
+    -proofshot stop
+    @bash -lc 'pkill -f auroraview-gallery-debug || true'
+    @echo ""
+    @echo "==========================================="
+    @echo "[OK] ProofShot E2E verification complete!"
+    @echo "Artifacts: ./proofshot-artifacts/"
+    @echo "==========================================="
+
+# Self-iteration loop: build → start → verify → analyze → report
+[windows]
+e2e-iterate: gallery-pack-debug
+    @echo "==========================================="
+    @echo "E2E Self-Iteration Loop"
+    @echo "==========================================="
+    @echo ""
+    @echo "[1/5] Starting Gallery with CDP..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    @echo ""
+    @echo "[2/5] Starting ProofShot recording..."
+    -proofshot start --description "Self-iteration verification"
+    @echo ""
+    @echo "[3/5] Capturing snapshot and screenshot..."
+    -vx npx --yes agent-browser --cdp 9222 snapshot -i
+    -vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    @echo ""
+    @echo "[4/5] Running E2E tests..."
+    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
+    @echo ""
+    @echo "[5/5] Stopping and collecting..."
+    -proofshot stop
+    @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo ""
+    @echo "==========================================="
+    @echo "[OK] Iteration complete. Review:"
+    @echo "  Artifacts: ./proofshot-artifacts/"
+    @echo "  Next: fix issues, then run 'vx just e2e-iterate' again"
+    @echo "==========================================="
+
+[unix]
+e2e-iterate: gallery-pack-debug
+    @echo "==========================================="
+    @echo "E2E Self-Iteration Loop"
+    @echo "==========================================="
+    @echo ""
+    @echo "[1/5] Starting Gallery with CDP..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    @echo ""
+    @echo "[2/5] Starting ProofShot recording..."
+    -proofshot start --description "Self-iteration verification"
+    @echo ""
+    @echo "[3/5] Capturing snapshot and screenshot..."
+    -vx npx --yes agent-browser --cdp 9222 snapshot -i
+    -vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    @echo ""
+    @echo "[4/5] Running E2E tests..."
+    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
+    @echo ""
+    @echo "[5/5] Stopping and collecting..."
+    -proofshot stop
+    @bash -lc 'pkill -f auroraview-gallery-debug || true'
+    @echo ""
+    @echo "==========================================="
+    @echo "[OK] Iteration complete. Review:"
+    @echo "  Artifacts: ./proofshot-artifacts/"
+    @echo "  Next: fix issues, then run 'vx just e2e-iterate' again"
+    @echo "==========================================="
+
+# CI E2E: full proof-based E2E suitable for CI pipelines
+[windows]
+e2e-ci: e2e-install gallery-pack-debug
+    @echo "Running CI E2E with ProofShot..."
+    @powershell -File scripts/gallery_cdp_start.ps1 -ExePath "{{justfile_directory()}}\gallery\pack-output\auroraview-gallery-debug.exe" -WorkDir "{{justfile_directory()}}\gallery\pack-output" -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @powershell -File scripts/gallery_cdp_wait.ps1
+    -proofshot start --description "CI E2E verification"
+    -vx npx --yes agent-browser --cdp 9222 snapshot -i
+    -vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short --json-report --json-report-file=e2e-report.json
+    -proofshot stop
+    @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
+    @echo "[OK] CI E2E complete. Artifacts: ./proofshot-artifacts/"
+
+[unix]
+e2e-ci: e2e-install gallery-pack-debug
+    @echo "Running CI E2E with ProofShot..."
+    cd gallery/pack-output && ./auroraview-gallery-debug &
+    @bash -lc 'for i in {1..60}; do curl -sf http://127.0.0.1:9222/json/version >/dev/null && exit 0; sleep 0.5; done; echo "ERROR: CDP not ready"; exit 1'
+    -proofshot start --description "CI E2E verification"
+    -vx npx --yes agent-browser --cdp 9222 snapshot -i
+    -vx npx --yes agent-browser --cdp 9222 screenshot --annotate
+    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short --json-report --json-report-file=e2e-report.json
+    -proofshot stop
+    @bash -lc 'pkill -f auroraview-gallery-debug || true'
+    @echo "[OK] CI E2E complete. Artifacts: ./proofshot-artifacts/"

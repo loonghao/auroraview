@@ -594,7 +594,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "anyhow",
  "askama",
@@ -662,7 +662,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-ai-agent"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "async-trait",
  "auroraview-workspace-hack",
@@ -682,7 +682,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-assets"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "mime_guess",
@@ -694,7 +694,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-bookmarks"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -709,7 +709,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-browser"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-bookmarks",
  "auroraview-core",
@@ -741,7 +741,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "anyhow",
  "auroraview-assets",
@@ -784,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -821,7 +821,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-dcc"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-core",
  "auroraview-workspace-hack",
@@ -838,7 +838,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-desktop"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-core",
  "auroraview-plugins",
@@ -860,7 +860,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-devtools"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "rstest 0.18.2",
@@ -871,7 +871,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-downloads"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -886,7 +886,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -912,7 +912,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-history"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -927,7 +927,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-notifications"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -941,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-extensions",
  "auroraview-protect",
@@ -977,7 +977,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "dunce",
@@ -992,7 +992,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-plugin-core",
  "auroraview-workspace-hack",
@@ -1006,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -1030,7 +1030,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-protect"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -1054,7 +1054,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-settings"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "parking_lot",
@@ -1067,7 +1067,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-signals"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "crossbeam-channel",
@@ -1085,7 +1085,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-tabs"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "dashmap",
@@ -1100,7 +1100,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-telemetry"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "auroraview-workspace-hack",
  "opentelemetry",
@@ -1121,7 +1121,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-testing"
-version = "0.4.17"
+version = "0.4.18"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1236,7 +1236,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "toml 0.8.2",
- "toml_datetime 1.0.1+spec-1.1.0",
+ "toml_datetime 1.1.0+spec-1.1.0",
  "toml_parser",
  "tower",
  "tower-http",
@@ -8334,7 +8334,7 @@ dependencies = [
  "indexmap 2.13.0",
  "serde_core",
  "serde_spanned 1.0.4",
- "toml_datetime 1.0.1+spec-1.1.0",
+ "toml_datetime 1.1.0+spec-1.1.0",
  "toml_parser",
  "toml_writer",
  "winnow 1.0.0",
@@ -8360,9 +8360,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "1.0.1+spec-1.1.0"
+version = "1.1.0+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b320e741db58cac564e26c607d3cc1fdc4a88fd36c879568c07856ed83ff3e9"
+checksum = "97251a7c317e03ad83774a8752a7e81fb6067740609f75ea2b585b569a59198f"
 dependencies = [
  "serde_core",
 ]
@@ -8398,7 +8398,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ca1a40644a28bce036923f6a431df0b34236949d111cc07cb6dca830c9ef2e1"
 dependencies = [
  "indexmap 2.13.0",
- "toml_datetime 1.0.1+spec-1.1.0",
+ "toml_datetime 1.1.0+spec-1.1.0",
  "toml_parser",
  "winnow 1.0.0",
 ]

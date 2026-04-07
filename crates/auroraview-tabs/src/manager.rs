@@ -81,7 +81,9 @@ impl TabManager {
             }
         }
 
-        self.emit(&TabEvent::Created { tab_id: tab_id.clone() });
+        self.emit(&TabEvent::Created {
+            tab_id: tab_id.clone(),
+        });
 
         tab_id
     }
@@ -105,7 +107,9 @@ impl TabManager {
             }
         }
 
-        self.emit(&TabEvent::Created { tab_id: tab_id.clone() });
+        self.emit(&TabEvent::Created {
+            tab_id: tab_id.clone(),
+        });
 
         tab_id
     }
@@ -183,7 +187,9 @@ impl TabManager {
     where
         F: FnOnce(&mut TabState) -> R,
     {
-        self.tabs.get_mut(tab_id).map(|mut entry| f(entry.value_mut()))
+        self.tabs
+            .get_mut(tab_id)
+            .map(|mut entry| f(entry.value_mut()))
     }
 
     /// Get all tabs in order
@@ -315,7 +321,9 @@ impl TabManager {
 
     /// Duplicate a tab (returns new tab ID)
     pub fn duplicate(&self, tab_id: &TabId) -> Result<TabId> {
-        let url = self.tabs.get(tab_id)
+        let url = self
+            .tabs
+            .get(tab_id)
             .map(|t| t.url.clone())
             .ok_or_else(|| TabError::NotFound(tab_id.clone()))?;
 
@@ -405,7 +413,9 @@ impl TabManager {
 
     /// Delete a group (tabs are ungrouped)
     pub fn delete_group(&self, group_id: &TabGroupId) -> Result<()> {
-        let tab_ids = self.groups.get(group_id)
+        let tab_ids = self
+            .groups
+            .get(group_id)
             .map(|g| g.tab_ids.clone())
             .ok_or_else(|| TabError::GroupNotFound(group_id.clone()))?;
 
@@ -460,7 +470,6 @@ impl Default for TabManager {
         Self::new()
     }
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -33,8 +33,7 @@ impl DccType {
         if std::env::var("BLENDER_SYSTEM_SCRIPTS").is_ok() {
             return Self::Blender;
         }
-        if std::env::var("ADSK_3DSMAX_X64_2025").is_ok()
-            || std::env::var("3DSMAX_LOCATION").is_ok()
+        if std::env::var("ADSK_3DSMAX_X64_2025").is_ok() || std::env::var("3DSMAX_LOCATION").is_ok()
         {
             return Self::Max3ds;
         }

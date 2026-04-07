@@ -196,11 +196,13 @@ impl HistoryApi {
     pub fn get_visits(&self, details: UrlDetails) -> ExtensionResult<Value> {
         let visits = self.visits.read();
 
-        let item = self.history.iter().find(|entry| entry.value().url == details.url);
+        let item = self
+            .history
+            .iter()
+            .find(|entry| entry.value().url == details.url);
 
         if let Some(item) = item {
-            let item_visits: Vec<&VisitItem> =
-                visits.iter().filter(|v| v.id == item.id).collect();
+            let item_visits: Vec<&VisitItem> = visits.iter().filter(|v| v.id == item.id).collect();
             Ok(serde_json::to_value(item_visits)?)
         } else {
             Ok(json!([]))

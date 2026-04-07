@@ -268,18 +268,12 @@ impl ApiHandler for RuntimeApiHandler {
                 Ok(Value::Null)
             }
             "openOptionsPage" => {
-                let options_url = format!(
-                    "auroraview-extension://{}/options.html",
-                    extension_id
-                );
+                let options_url = format!("auroraview-extension://{}/options.html", extension_id);
                 self.manager.open_options_page(extension_id, &options_url);
                 Ok(serde_json::json!({}))
             }
             "setUninstallURL" => {
-                let url = params
-                    .get("url")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let url = params.get("url").and_then(|v| v.as_str()).unwrap_or("");
                 self.manager.set_uninstall_url(extension_id, url);
                 Ok(serde_json::json!({}))
             }

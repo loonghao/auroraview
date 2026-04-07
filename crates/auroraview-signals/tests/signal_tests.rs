@@ -4,8 +4,8 @@
 //! optimisations (last-handler move, bridge-path cloning).
 
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 use auroraview_signals::prelude::*;
@@ -26,7 +26,9 @@ fn emit_single_handler_no_clone_needed() {
     let signal: Signal<i32> = Signal::new();
     let sum = Arc::new(AtomicUsize::new(0));
     let s = sum.clone();
-    signal.connect(move |x| { s.fetch_add(x as usize, Ordering::SeqCst); });
+    signal.connect(move |x| {
+        s.fetch_add(x as usize, Ordering::SeqCst);
+    });
     signal.emit(7);
     assert_eq!(sum.load(Ordering::SeqCst), 7);
 }
@@ -38,7 +40,9 @@ fn emit_multiple_handlers_all_receive_value() {
 
     for _ in 0..5 {
         let s = sum.clone();
-        signal.connect(move |x| { s.fetch_add(x as usize, Ordering::SeqCst); });
+        signal.connect(move |x| {
+            s.fetch_add(x as usize, Ordering::SeqCst);
+        });
     }
 
     signal.emit(10);
@@ -90,7 +94,9 @@ fn connect_once_fires_once() {
     let signal: Signal<i32> = Signal::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
-    signal.connect_once(move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    signal.connect_once(move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
 
     signal.emit(1);
     signal.emit(1);
@@ -109,7 +115,9 @@ fn connect_guard_auto_disconnects_on_drop() {
     let c = count.clone();
 
     {
-        let _guard = signal.connect_guard(move |_| { c.fetch_add(1, Ordering::SeqCst); });
+        let _guard = signal.connect_guard(move |_| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
         signal.emit(1);
         assert_eq!(count.load(Ordering::SeqCst), 1);
     } // guard dropped → handler disconnected
@@ -135,7 +143,9 @@ fn emit_handler_disconnect_all_no_deadlock() {
 fn emit_handler_connect_new_no_deadlock() {
     let signal = Arc::new(Signal::<i32>::new());
     let s = signal.clone();
-    signal.connect(move |_| { s.connect(|_| {}); });
+    signal.connect(move |_| {
+        s.connect(|_| {});
+    });
     signal.emit(1); // must not deadlock
     assert_eq!(signal.handler_count(), 2);
 }
@@ -151,7 +161,9 @@ fn registry_emit_delivers_to_all_handlers() {
 
     for _ in 0..4 {
         let c = count.clone();
-        reg.connect("ev", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+        reg.connect("ev", move |_| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
     }
 
     reg.emit("ev", json!(null));
@@ -169,7 +181,9 @@ fn registry_connect_once_fires_once() {
     let reg = SignalRegistry::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
-    reg.connect_once("once_ev", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    reg.connect_once("once_ev", move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
 
     reg.emit("once_ev", json!(null));
     reg.emit("once_ev", json!(null));
@@ -210,10 +224,14 @@ fn connect_ref_and_connect_both_called_on_emit() {
     let val_sum = Arc::new(AtomicUsize::new(0));
 
     let rs = ref_sum.clone();
-    signal.connect_ref(move |x| { rs.fetch_add(*x as usize, Ordering::SeqCst); });
+    signal.connect_ref(move |x| {
+        rs.fetch_add(*x as usize, Ordering::SeqCst);
+    });
 
     let vs = val_sum.clone();
-    signal.connect(move |x| { vs.fetch_add(x as usize, Ordering::SeqCst); });
+    signal.connect(move |x| {
+        vs.fetch_add(x as usize, Ordering::SeqCst);
+    });
 
     signal.emit(5);
     assert_eq!(ref_sum.load(Ordering::SeqCst), 5);
@@ -227,10 +245,14 @@ fn emit_ref_does_not_call_value_handlers() {
     let val_hit = Arc::new(AtomicUsize::new(0));
 
     let rh = ref_hit.clone();
-    signal.connect_ref(move |_| { rh.fetch_add(1, Ordering::SeqCst); });
+    signal.connect_ref(move |_| {
+        rh.fetch_add(1, Ordering::SeqCst);
+    });
 
     let vh = val_hit.clone();
-    signal.connect(move |_| { vh.fetch_add(1, Ordering::SeqCst); });
+    signal.connect(move |_| {
+        vh.fetch_add(1, Ordering::SeqCst);
+    });
 
     let n = signal.emit_ref(&99);
     assert_eq!(n, 1);
@@ -245,7 +267,9 @@ fn connect_ref_guard_auto_disconnects() {
     let c = count.clone();
 
     {
-        let _guard = signal.connect_ref_guard(move |_| { c.fetch_add(1, Ordering::SeqCst); });
+        let _guard = signal.connect_ref_guard(move |_| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
         signal.emit(1);
         assert_eq!(count.load(Ordering::SeqCst), 1);
     } // guard dropped → disconnected
@@ -278,7 +302,9 @@ fn bus_emit_reaches_local_handlers() {
     let bus = EventBus::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
-    bus.on("ev", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    bus.on("ev", move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
     bus.emit("ev", json!(null));
     assert_eq!(count.load(Ordering::SeqCst), 1);
 }
@@ -288,7 +314,9 @@ fn bus_emit_skips_bridges_when_no_bridge_registered() {
     let bus = EventBus::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
-    bus.on("ev", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    bus.on("ev", move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
     let n = bus.emit("ev", json!(null));
     assert_eq!(n, 1);
     assert_eq!(count.load(Ordering::SeqCst), 1);
@@ -307,7 +335,9 @@ fn bus_emit_local_skips_bridges() {
 
     let local_hit = Arc::new(AtomicUsize::new(0));
     let lh = local_hit.clone();
-    bus.on("ev", move |_| { lh.fetch_add(1, Ordering::SeqCst); });
+    bus.on("ev", move |_| {
+        lh.fetch_add(1, Ordering::SeqCst);
+    });
 
     bus.emit_local("ev", json!(null));
     assert_eq!(local_hit.load(Ordering::SeqCst), 1);
@@ -327,7 +357,9 @@ fn bus_emit_to_bridges_skips_local() {
 
     let local_hit = Arc::new(AtomicUsize::new(0));
     let lh = local_hit.clone();
-    bus.on("ev", move |_| { lh.fetch_add(1, Ordering::SeqCst); });
+    bus.on("ev", move |_| {
+        lh.fetch_add(1, Ordering::SeqCst);
+    });
 
     bus.emit_to_bridges("ev", json!(null)).unwrap();
     assert_eq!(local_hit.load(Ordering::SeqCst), 0);
@@ -339,7 +371,9 @@ fn bus_once_fires_once() {
     let bus = EventBus::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
-    bus.once("ev", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    bus.once("ev", move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
     bus.emit("ev", json!(null));
     bus.emit("ev", json!(null));
     assert_eq!(count.load(Ordering::SeqCst), 1);
@@ -350,7 +384,9 @@ fn bus_off_stops_handler() {
     let bus = EventBus::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
-    let id = bus.on("ev", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    let id = bus.on("ev", move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
     bus.emit("ev", json!(null));
     bus.off("ev", id);
     bus.emit("ev", json!(null));
@@ -365,7 +401,9 @@ fn bus_middleware_filter_blocks_event() {
 
     let hit = Arc::new(AtomicUsize::new(0));
     let h = hit.clone();
-    bus.on("private:data", move |_| { h.fetch_add(1, Ordering::SeqCst); });
+    bus.on("private:data", move |_| {
+        h.fetch_add(1, Ordering::SeqCst);
+    });
 
     let n = bus.emit("private:data", json!(null));
     assert_eq!(n, 0);
@@ -380,7 +418,9 @@ fn bus_middleware_allows_other_events() {
 
     let hit = Arc::new(AtomicUsize::new(0));
     let h = hit.clone();
-    bus.on("public:event", move |_| { h.fetch_add(1, Ordering::SeqCst); });
+    bus.on("public:event", move |_| {
+        h.fetch_add(1, Ordering::SeqCst);
+    });
 
     bus.emit("public:event", json!(null));
     assert_eq!(hit.load(Ordering::SeqCst), 1);

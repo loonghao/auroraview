@@ -17,6 +17,7 @@ Storage locations:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import sys
@@ -240,10 +241,8 @@ class InstanceDiscovery:
                 pid = data.get("pid")
                 if pid and not is_process_alive(pid):
                     # Remove stale file
-                    try:
+                    with contextlib.suppress(OSError):
                         file_path.unlink()
-                    except OSError:
-                        pass
                     continue
 
                 inst = self._instance_from_registry(data)

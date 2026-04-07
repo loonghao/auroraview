@@ -278,10 +278,8 @@ fn encrypt_key_p256(
     let recipient_point = p256::EncodedPoint::from_bytes(&recipient_bytes)
         .map_err(|e| ProtectError::InvalidKey(format!("Invalid P-256 public key: {}", e)))?;
     let recipient_public = P256PublicKey::from_encoded_point(&recipient_point);
-    let recipient_public: P256PublicKey =
-        Option::from(recipient_public).ok_or_else(|| {
-            ProtectError::InvalidKey("Invalid P-256 public key point".to_string())
-        })?;
+    let recipient_public: P256PublicKey = Option::from(recipient_public)
+        .ok_or_else(|| ProtectError::InvalidKey("Invalid P-256 public key point".to_string()))?;
 
     // Generate ephemeral key pair
     let ephemeral_secret = P256EphemeralSecret::random(&mut OsRng);
@@ -425,10 +423,9 @@ fn decrypt_key_p256(
     let ephemeral_point = p256::EncodedPoint::from_bytes(&ephemeral_bytes)
         .map_err(|e| ProtectError::InvalidKey(format!("Invalid ephemeral public key: {}", e)))?;
     let ephemeral_public = P256PublicKey::from_encoded_point(&ephemeral_point);
-    let ephemeral_public: P256PublicKey =
-        Option::from(ephemeral_public).ok_or_else(|| {
-            ProtectError::InvalidKey("Invalid ephemeral public key point".to_string())
-        })?;
+    let ephemeral_public: P256PublicKey = Option::from(ephemeral_public).ok_or_else(|| {
+        ProtectError::InvalidKey("Invalid ephemeral public key point".to_string())
+    })?;
 
     // Parse private key
     let private_bytes = hex_decode(private_key)?;
