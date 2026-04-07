@@ -91,7 +91,7 @@ pub struct ChildWindowStyleResult {
 #[cfg(target_os = "windows")]
 pub fn subclass_for_zero_nc_area(hwnd: isize) {
     use std::collections::HashMap;
-    use std::sync::Mutex;
+    use parking_lot::Mutex;
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::UI::WindowsAndMessaging::DefWindowProcW;
 
@@ -121,11 +121,9 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
         }
 
         // Forward everything else to the original WndProc.
-        let original = ORIGINAL_WNDPROCS.lock().ok().and_then(|guard| {
-            guard
-                .as_ref()
-                .and_then(|map| map.get(&(hwnd.0 as isize)).copied())
-        });
+        let original = ORIGINAL_WNDPROCS.lock()
+            .as_ref()
+            .and_then(|map| map.get(&(hwnd.0 as isize)).copied());
 
         if let Some(orig) = original {
             let wndproc: WNDPROC = std::mem::transmute(orig);
@@ -144,12 +142,11 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
 
         // Initialize the map if needed.
         {
-            if let Ok(mut guard) = ORIGINAL_WNDPROCS.lock() {
-                let map = guard.get_or_insert_with(HashMap::new);
-                if map.contains_key(&hwnd) {
-                    // Already subclassed — nothing to do.
-                    return;
-                }
+            let mut guard = ORIGINAL_WNDPROCS.lock();
+            let map = guard.get_or_insert_with(HashMap::new);
+            if map.contains_key(&hwnd) {
+                // Already subclassed — nothing to do.
+                return;
             }
         }
 
@@ -163,8 +160,8 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
         }
 
         // Store original before replacing.
-        if let Ok(mut guard) = ORIGINAL_WNDPROCS.lock() {
-            if let Some(map) = guard.as_mut() {
+        let mut guard = ORIGINAL_WNDPROCS.lock();
+        if let Some(map) = guard.as_mut() {
                 map.insert(hwnd, original);
             }
         }
