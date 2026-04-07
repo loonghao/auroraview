@@ -61,6 +61,11 @@ that require larger effort or coordination before implementation.
 - Not actionable until features are implemented or backend migration completes.
 - **Update (Round ~37)**: Full scan shows ~57 annotations across src/ and crates/.
   Previous count of 5 was only tracking a specific subset. The majority are structural.
+- **Update (Round 41)**: Reduced to 3 annotations in production code:
+  - `json_tests.rs`: test-local struct (normal pattern)
+  - `vibrancy.rs::DWMSBT_TRANSIENTWINDOW`: future Win11 acrylic constant
+  - `overlay.rs::HEADER_SIZE_UNUSED`: TODO(cleanup) reserved constant
+  LockOrderGuard.name field now uses Debug impl (dead_code removed).
 
 ### `crates/auroraview-pack/tests/metrics_tests.rs` — sleep-based timing assertions
 - **Status**: TODO (logged Round 21)
