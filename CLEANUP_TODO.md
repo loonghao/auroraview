@@ -66,6 +66,10 @@ that require larger effort or coordination before implementation.
   - `vibrancy.rs::DWMSBT_TRANSIENTWINDOW`: future Win11 acrylic constant
   - `overlay.rs::HEADER_SIZE_UNUSED`: TODO(cleanup) reserved constant
   LockOrderGuard.name field now uses Debug impl (dead_code removed).
+- **Update (Round 42)**: Reduced to 2 annotations in production code:
+  - `json_tests.rs`: test-local struct (normal pattern)
+  - `vibrancy.rs::DWMSBT_TRANSIENTWINDOW`: future Win11 acrylic constant
+  - `overlay.rs::HEADER_SIZE_UNUSED` removed — zero references, was reserved for future validation that never materialized.
 
 ### `crates/auroraview-pack/tests/metrics_tests.rs` — sleep-based timing assertions
 - **Status**: TODO (logged Round 21)
@@ -74,11 +78,9 @@ that require larger effort or coordination before implementation.
 - **Action**: Introduce a controllable timing helper or loosen the test strategy to avoid wall-clock sleeps.
 
 ### Rust events.rs deprecated navigation callbacks (4 methods)
-- **Status**: TODO (logged Round ~31)
-- **Reason**: 4 DEPRECATED callbacks (`on_navigation_started/completed/failed`, `on_load_progress`)
-  have replacement APIs (`on_navigation`, `on_progress`). No external callers found in Python code.
-- **Risk**: Low — but requires confirming no external users depend on these before removal.
-- **Action**: Add `#[deprecated]` attribute or plan for removal in v0.6+.
+- **Status**: **RESOLVED (Round 42)**
+- **Reason**: These methods no longer exist in the codebase — they were removed in a prior refactoring round.
+  No action needed.
 
 ### Unused Python `deprecated()` decorator (CLEANED Round ~31)
 - **Status**: RESOLVED
@@ -129,3 +131,6 @@ that require larger effort or coordination before implementation.
 - [x] `LockOrderGuard.name` field now uses Debug impl — dead_code removed (Round 41)
 - [x] `window_style.rs` Mutex migrated to parking_lot (Round 41)
 - [x] `telemetry/python.rs` Mutex migrated to parking_lot (Round 41)
+- [x] `window_style.rs` mismatched brace fix from Round 41 parking_lot migration (Round 42)
+- [x] `HEADER_SIZE_UNUSED` constant removed from overlay.rs — zero refs (Round 42)
+- [x] Deprecated navigation callbacks confirmed removed from events.rs (Round 42)
