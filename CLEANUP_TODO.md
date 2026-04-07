@@ -126,3 +126,6 @@ that require larger effort or coordination before implementation.
 - [x] Unused `hyper` + `hyper-util` deps removed from root Cargo.toml (Round ~37, 58c0178)
 - [x] Temporary artifacts deleted: llms-full.txt, llms.txt (Round ~37, -29KB)
 - [x] `#[allow(dead_code)]` count updated to accurate ~57 across workspace (Round ~37)
+- [x] `LockOrderGuard.name` field now uses Debug impl — dead_code removed (Round 41)
+- [x] `window_style.rs` Mutex migrated to parking_lot (Round 41)
+- [x] `telemetry/python.rs` Mutex migrated to parking_lot (Round 41)
