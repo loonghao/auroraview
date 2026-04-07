@@ -341,7 +341,7 @@ impl ExtensionViewManager {
             .ok_or_else(|| format!("View not found: {}", view_id))?;
 
         // Open DevTools via callback
-        #[allow(unused_variables)]
+        #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
         let devtools_hwnd = {
             let callback = self.open_devtools_callback.read();
             if let Some(ref cb) = *callback {
