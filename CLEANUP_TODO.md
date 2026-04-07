@@ -7,14 +7,11 @@ that require larger effort or coordination before implementation.
 
 ## High Priority
 
-### `crates/auroraview-cli/src/packed/webview.rs` — parking_lot migration
-- **Status**: TODO
-- **Reason**: File still uses `std::sync::RwLock` (poison-based API).
-  Migrating requires replacing every `match x.read() { Ok(g) => ... }` pattern (~16 call sites)
-  with direct `x.read()` guard access (parking_lot is non-poisoning).
-- **Risk**: Medium — all lock usage must be verified; the file is 1700+ lines.
-- **Action**: Migrate in a dedicated commit; ensure all `if let Ok(g) = x.read()` /
-  `match x.read() { Ok(g) => ..., Err(e) => ... }` patterns are updated.
+### `crates/auroraview-pack/src/packed/webview.rs` — parking_lot migration
+- **Status**: **RESOLVED (Round 41)**
+- **Reason**: File no longer exists — likely refactored into `packer/desktop.rs` or other modules.
+  The `auroraview-pack` crate no longer uses `std::sync::Mutex` or `std::sync::RwLock`.
+- **Action**: No action needed. Removed from TODO list.
 
 ---
 
