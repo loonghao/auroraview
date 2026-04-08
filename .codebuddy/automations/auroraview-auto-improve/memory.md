@@ -1,50 +1,61 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-04 00:40 (UTC+8)
+## Last Execution: 2026-04-08 22:16 (UTC+8)
 
 ### Branch Status
 - Branch: `auto-improve`
-- Remote sync check: `origin/main...HEAD = 0 behind, 204 ahead`
+- Remote sync check: `origin/main...HEAD = 0 behind, 264 ahead`
 - Workspace clean: Yes (only memory.md modified)
 
 ### Completed in This Iteration
 
-1. **test(dom): expand dom_tests coverage** (commit `e5c175e`)
-   - **dom_tests**: 35 -> ~86 tests
-     - All 28 DomOp variants op_to_js tests (SetChecked, SetDisabled, SelectOption, DoubleClick, Blur, ScrollIntoView, TypeText, Clear, Submit, AppendHtml, PrependHtml, Remove, Empty, Raw, RawGlobal, SetStyles)
-     - All convenience method tests (set_checked, set_disabled, double_click, blur, scroll_into_view, type_text, clear_input, submit, append_html, prepend_html, remove, empty, raw, raw_global)
-     - Edge cases (special chars in SetText, nested quotes, empty selector, selector with brackets, RawGlobal IIFE wrapping)
-     - PartialEq tests for DomOp variants
-
-2. **test(events+cleanup): add events_tests + cleanup_tests** (commit `38883f1`)
-   - **events_tests**: 0 -> 39 tests (**NEW FILE**)
-     - CoreUserEvent all 4 variants: ProcessMessages, CloseWindow, PluginEvent (with/without data), DragWindow
-     - ExtendedUserEvent all 13+ variants: PythonReady (handlers vec/empty), PythonResponse (with/empty), LoadingScreenReady, NavigateToApp, PageReady, LoadingUpdate (rstest parametrized with all Option combos), BackendError (stderr/startup source), SetHtml (with/without title), ShowError (full/no details), TrayMenuClick (with/empty), TrayIconClick, TrayIconDoubleClick, CreateChildWindow (normal/minimal/URL params)
-     - Clone/Debug trait verification for both enums
-     - Pattern matching代替PartialEq (因为枚举未derive PartialEq)
-     - Edge cases: unicode, XSS-like content, large HTML (>5000 chars), URL query params
-   - **cleanup_tests**: 0 -> 12 tests (**NEW FILE**)
-     - CleanupStats default values and field invariants (total=alive+stale, all zero, all stale, all alive)
-     - CleanupStats Debug/Clone derive verification
-     - get_webview_base_dir platform availability (Windows/macOS/Linux vs unsupported)
-     - get_process_data_dir PID fragment validation on supported platforms
-     - get_cleanup_stats invariant validation (idempotent, concurrent-safe)
-     - Concurrent thread safety for get_cleanup_stats
+1. **test(mcp): add comprehensive tests for resources/providers, discovery, and connection modules (124 new tests)** (commit `e0a15a9`)
+   - **test_resources.py** (NEW FILE): 34 tests
+     - `get_instances_resource`: empty list, multiple instances, JSON serialization
+     - `get_page_resource`: not_connected, found, not_found, multiple pages
+     - `get_samples_resource`: dir_not_found, returns_list, empty
+     - `get_sample_source_resource`: dir_not_found, py_file_found, _demo suffix, directory, not_found
+     - `get_logs_resource`: not_connected, no_page, returns_logs, none→[], exception→error
+     - `get_gallery_resource`: dir_not_found, not_running, running (with dist), terminated
+     - `get_project_resource`: dirs_not_found, returns_info, gallery_built
+     - `get_processes_resource`: empty, running, terminated, gallery_flagged
+     - `get_telemetry_resource`: module_not_available, returns_snapshots, empty_snapshots
+   - **test_discovery_extended.py** (NEW FILE): 44 tests
+     - `get_instances_dir`: windows/darwin/linux path logic
+     - `Instance` dataclass: defaults, `to_dict()`, all `display_name()` variants
+     - `_discover_via_registry`: empty dir, valid file, malformed JSON, stale removal, alive process
+     - `_instance_from_registry`: no cdp_port, full data
+     - `_probe_port`: WebView2/Chrome/non-WebView/connection_refused/non-200
+     - `_is_webview`: Edge, Chrome, Firefox, empty
+     - `_verify_instance`: reachable/unreachable
+     - `discover(verify_cdp=True)`: filters unreachable instances
+     - `get_instance_by_window_id/title/dcc`: found, not_found, case_insensitive, via_app_name
+     - `_enrich_dcc_context`: detects DCC from title, handles exception
+     - `discover_dcc_instances`: skips enrich for known DCC, enriches unknown
+     - `_detect_dcc_type`: all 6 DCC types, URL detection, unknown→None
+   - **test_connection_extended.py** (NEW FILE): 38 tests
+     - `Page`: creation, default_type, `to_dict()`
+     - `CDPError`: message/code, str repr, defaults, is_exception
+     - `JavaScriptError`: with_description, fallback_to_text, stores_details, is_exception
+     - `CDPConnection`: initial_state, connect, disconnect, send_command, raises CDPError, raises when not_connected, increments_message_id
+     - `PageConnection`: initial_state, connect, disconnect, evaluate returns value/None/raises JavaScriptError, raises when not connected
+     - `ConnectionManager`: initial_state, cached connection, creates new, raises no ws_url, disconnect removes, disconnect_all, get_pages raises/filters, select_page by id/url/auto/not_found/empty, get_page_connection raises/cached/creates/reconnects/explicit_page
 
 ### Validation
-- `cargo test -p auroraview-core --test events_tests` ✅ (39 passed, 0 failed)
-- `cargo test -p auroraview-core --test cleanup_tests` ✅ (12 passed, 0 failed)
-- `cargo test -p auroraview-core --tests` ✅ (all 26 test suites pass, 0 failures)
+- `auroraview-mcp: .venv\Scripts\python.exe -m pytest tests/` ✅ (346 passed, 0 failed, was 222)
+- `ruff check` on all 3 new files ✅ (no warnings)
 
 ### Next Iteration Targets (Priority Order)
 
-1. **backend lifecycle/message_processor deep expansion** — lifecycle.rs has only 5 inline unit tests; message_processor has 5 inline tests; neither has independent integration test file. Target: add `lifecycle_tests.rs` (~20 tests) covering force_destroy edge cases, if_not_closing, Display trait for all states, concurrent transitions; `message_processor_tests.rs` (~15 tests) covering ProcessingMode::Batch behavior, WakeController.force_wake/set_immediate_wake, AtomicProcessorStats.reset/snapshot concurrency, MessagePriority Ord sorting
-2. **error_pages deep coverage** — error_pages.rs has only 4 inline tests; target ~15-18 tests for internal_error_page (with/without details), connection_error_page (target+error injection), startup_error_page (python_output+entry_point combinations), loading_with_error (error optional), html_escape full character set (single/double quotes, &, <, >, null bytes, unicode, very long input truncation), >20 assets "and N more" truncation
+1. **auroraview-core deeper protocol_tests** — expand to ~80 tests (currently 59)
+2. **auroraview-mcp tools/discovery.py deeper tests** — `connect/disconnect/discover_instances` MCP tool functions
+3. **auroraview-desktop backend deeper coverage** — tray/event_loop/window_manager beyond existing tests
+4. **auroraview-mcp server.py** — module-level init, middleware, request handling
 
 ### Known Pre-existing Issues (from prior iterations, NOT blocking)
 - `auroraview-core` assets_tests fail (need `vx just assets-build`)
 - `auroraview` 2 test_desktop_module/test_webview_submodules fail (assets issue)
-- GitHub: 48 Dependabot vulnerabilities (transitive deps)
+- GitHub: 38 Dependabot vulnerabilities (transitive deps)
 - `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
 
 ## Cumulative Progress (across iterations)
@@ -179,3 +190,8 @@ Assets assets_tests (COMPLETE):** 28 tests
 **Pack config/packer/progress expansion (COMPLETE)**: ~80 + ~55 + ~42 = ~177 new tests
 **Core events_tests expansion (COMPLETE)**: 0 → 39 tests
 **Core cleanup_tests expansion (COMPLETE)**: 0 → 12 tests
+**Core lifecycle_tests (NEW, COMPLETE)**: 0 → 52 tests
+**Core message_processor_tests (NEW, COMPLETE)**: 0 → 47 tests
+**Core error_pages_tests (NEW, COMPLETE)**: 0 → 65 tests
+**MCP ui/api/page/debug/telemetry tool tests (NEW, COMPLETE)**: 108 → 222 tests (+114)
+**MCP resources/providers + discovery + connection extended (NEW, COMPLETE)**: 222 → 346 tests (+124)

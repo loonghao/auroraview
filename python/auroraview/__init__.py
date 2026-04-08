@@ -305,7 +305,6 @@ from .core import (
     WindowEventData,
     WindowManager,
     broadcast_event,
-    deprecated,
     get_active_window,
     get_available_backends,
     get_backend_type,
@@ -555,7 +554,6 @@ __all__ = [
     "EventEmitter",
     "NavigationEvent",
     "LoadEvent",
-    "deprecated",
     # Signals (Qt-inspired)
     "Signal",
     "SignalRegistry",

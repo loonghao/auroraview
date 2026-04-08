@@ -1006,44 +1006,6 @@ class WebView(
 
         return instance
 
-    @classmethod
-    def create_for_dcc(
-        cls,
-        parent_hwnd: int,
-        *,
-        title: str = "DCC WebView",
-        width: int = 800,
-        height: int = 600,
-        url: Optional[str] = None,
-        html: Optional[str] = None,
-        asset_root: Optional[str] = None,
-        debug: bool = True,
-    ) -> "WebView":
-        """Create a WebView for DCC integration (deprecated alias).
-
-        .. deprecated:: 0.4.0
-            Use :meth:`create_embedded` instead. This method will be removed in a future version.
-
-        This is an alias for :meth:`create_embedded` for backward compatibility.
-        """
-        import warnings
-
-        warnings.warn(
-            "create_for_dcc is deprecated, use create_embedded instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return cls.create_embedded(
-            parent_hwnd,
-            title=title,
-            width=width,
-            height=height,
-            url=url,
-            html=html,
-            asset_root=asset_root,
-            debug=debug,
-        )
-
     def show(self, *, wait: Optional[bool] = None) -> None:
         """Show the WebView window (smart mode).
 
