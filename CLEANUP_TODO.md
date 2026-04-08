@@ -80,6 +80,35 @@ that require larger effort or coordination before implementation.
 - **Reason**: Updated both EN and ZH API index docs to clearly mark `run_standalone` as removed.
 - **Action**: Changed from "Deprecated" to "Removed" with migration note pointing to `run_desktop`.
 
+### README stale tech stack versions (Rust/PyO3/Wry/Tao)
+- **Status**: **RESOLVED (Round 44)**
+- **Reason**: README.md and README_zh.md showed Rust 1.75+, PyO3 0.22, Wry 0.47, Tao 0.30;
+  actual values are Rust 1.90+, PyO3 0.27, Wry 0.54, Tao 0.34.
+- **Action**: Updated badges, tech stack section in both EN and ZH READMEs.
+
+### README broken link DCC_INTEGRATION.md
+- **Status**: **RESOLVED (Round 44)**
+- **Reason**: Both READMEs referenced `./docs/DCC_INTEGRATION.md` which does not exist.
+- **Action**: Changed link to point to `./docs/dcc/index.md`.
+
+### Missing parking_lot dependency in auroraview-telemetry
+- **Status**: **RESOLVED (Round 44)**
+- **Reason**: `telemetry/python.rs` was migrated to use `parking_lot::Mutex` in Round 43,
+  but `parking_lot` was never added to `auroraview-telemetry/Cargo.toml`.
+- **Action**: Added `parking_lot = "0.12"` to telemetry crate dependencies.
+
+### pytest-qt in wrong dependency group
+- **Status**: **RESOLVED (Round 44)**
+- **Reason**: `pytest-qt` was in `[project.optional-dependencies].qt` (runtime optional)
+  instead of `[dependency-groups].test` (test-only).
+- **Action**: Moved `pytest-qt` to test dependency group; removed from qt optional deps.
+
+### Stale coverage omit paths (pyproject.toml)
+- **Status**: **RESOLVED (Round 44)**
+- **Reason**: coverage omit referenced `*/auroraview/qt_integration.py` and
+  `*/auroraview/webview.py` which do not exist in the Python package.
+- **Action**: Removed nonexistent paths from coverage omit configuration.
+
 ### `crates/auroraview-pack/tests/metrics_tests.rs` — sleep-based timing assertions
 - **Status**: TODO (logged Round 21)
 - **Reason**: The suite relies on `thread::sleep(Duration::from_millis(...))`, which makes it slower
