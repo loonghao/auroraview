@@ -179,10 +179,12 @@ mod windows_impl {
     const DWMWA_MICA_EFFECT: u32 = 1029; // Undocumented, for Win11 < 22523
 
     /// DWM_SYSTEMBACKDROP_TYPE values
+    /// See: https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwm_systembackdrop_type
     const DWMSBT_DISABLE: i32 = 1;
     const DWMSBT_MAINWINDOW: i32 = 2; // Mica
+    /// Acrylic (transient window). Reserved for future region-based backdrop support.
     #[allow(dead_code)]
-    const DWMSBT_TRANSIENTWINDOW: i32 = 3; // Acrylic (for future region-based backdrop)
+    const DWMSBT_TRANSIENTWINDOW: i32 = 3;
     const DWMSBT_TABBEDWINDOW: i32 = 4; // Mica Alt
 
     type SetWindowCompositionAttributeFn =
