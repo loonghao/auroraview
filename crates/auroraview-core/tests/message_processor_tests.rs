@@ -181,8 +181,8 @@ fn test_message_priority_ge_for_high_priority_threshold() {
     // threshold for immediate wake is >= High
     assert!(MessagePriority::High >= MessagePriority::High);
     assert!(MessagePriority::Critical >= MessagePriority::High);
-    assert!(!(MessagePriority::Normal >= MessagePriority::High));
-    assert!(!(MessagePriority::Low >= MessagePriority::High));
+    assert!(MessagePriority::Normal < MessagePriority::High);
+    assert!(MessagePriority::Low < MessagePriority::High);
 }
 
 #[test]
