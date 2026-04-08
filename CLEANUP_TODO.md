@@ -42,6 +42,25 @@ that require larger effort or coordination before implementation.
   fails before type analysis even starts.
 - **Action**: Pin a mypy version that still supports Python 3.7 targets or split legacy-target checks from modern dev-tool execution.
 
+### `create_for_dcc` deprecated methods (webview.py + factory.py)
+- **Status**: **RESOLVED (Round 45)**
+- **Reason**: Deprecated since 0.4.0, current version 0.4.18 (18 minor versions later).
+  Zero callers found in codebase (no tests, examples, docs, or external usage).
+- **Action**: Removed `create_for_dcc()` from both `webview.py` and `factory.py`.
+  Net change: -60 lines.
+
+### Unused `deprecated` export from `__init__.py`
+- **Status**: **RESOLVED (Round 45)**
+- **Reason**: `deprecated` was imported and exported in `__init__.py` but never called
+  anywhere in the codebase. No definition found — likely a leftover from early development.
+- **Action**: Removed `deprecated` from both import and `__all__` export lists.
+  Net change: -2 lines.
+
+### Clippy `nonminimal_bool` warnings in test code
+- **Status**: **RESOLVED (Round 45)**
+- **Reason**: `message_processor_tests.rs:184-185` used `!(a >= b)` instead of `<`.
+- **Action**: Simplified to direct comparison operators.
+
 ---
 
 ## Low Priority

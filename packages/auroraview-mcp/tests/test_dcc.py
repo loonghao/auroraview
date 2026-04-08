@@ -510,3 +510,483 @@ class TestListDCCInstances:
 
             assert len(instances) == 1
             assert instances[0].dcc_type == "maya"
+
+
+# ============================================================================
+# Fallback/None return path tests
+# ============================================================================
+
+
+class TestGetDCCContextNonePath:
+    """Tests for get_dcc_context when evaluate returns None."""
+
+    @pytest.mark.asyncio
+    async def test_none_return_uses_fallback(self) -> None:
+        """Test that None evaluate result returns error fallback."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value=None)
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import get_dcc_context
+
+            fn = get_dcc_context.fn if hasattr(get_dcc_context, "fn") else get_dcc_context
+            result = await fn()
+
+            assert "error" in result
+            assert result["dcc_type"] is None
+
+    @pytest.mark.asyncio
+    async def test_connection_error_propagates(self) -> None:
+        """Test that connection manager errors propagate."""
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(
+            side_effect=RuntimeError("Not connected to any instance")
+        )
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import get_dcc_context
+
+            fn = get_dcc_context.fn if hasattr(get_dcc_context, "fn") else get_dcc_context
+            with pytest.raises(RuntimeError, match="Not connected"):
+                await fn()
+
+
+class TestExecuteDCCCommandNonePath:
+    """Tests for execute_dcc_command fallback paths."""
+
+    @pytest.mark.asyncio
+    async def test_none_return_uses_error_fallback(self) -> None:
+        """Test that None evaluate result gives error fallback."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value=None)
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import execute_dcc_command
+
+            fn = (
+                execute_dcc_command.fn
+                if hasattr(execute_dcc_command, "fn")
+                else execute_dcc_command
+            )
+            result = await fn(command="any.command")
+
+            assert result["success"] is False
+            assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_command_no_args_no_kwargs(self) -> None:
+        """Test executing command with default None args/kwargs."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value={"success": True, "result": "ok"})
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import execute_dcc_command
+
+            fn = (
+                execute_dcc_command.fn
+                if hasattr(execute_dcc_command, "fn")
+                else execute_dcc_command
+            )
+            result = await fn(command="hou.selectedNodes")
+            assert result["success"] is True
+
+
+class TestSyncSelectionNonePath:
+    """Tests for sync_selection fallback paths."""
+
+    @pytest.mark.asyncio
+    async def test_none_return_uses_default_fallback(self) -> None:
+        """Test that None evaluate result returns empty synced=False fallback."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value=None)
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import sync_selection
+
+            fn = sync_selection.fn if hasattr(sync_selection, "fn") else sync_selection
+            result = await fn()
+
+            assert result["synced"] is False
+            assert result["dcc_selection"] == []
+            assert result["webview_selection"] == []
+            assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_bridge_not_available_path(self) -> None:
+        """Test sync_selection when bridge returns error dict."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(
+            return_value={
+                "dcc_selection": [],
+                "webview_selection": [],
+                "synced": False,
+                "dcc_type": None,
+                "error": "AuroraView bridge not available",
+            }
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import sync_selection
+
+            fn = sync_selection.fn if hasattr(sync_selection, "fn") else sync_selection
+            result = await fn()
+
+            assert result["synced"] is False
+            assert "error" in result
+
+
+class TestSetDCCSelectionNonePath:
+    """Tests for set_dcc_selection fallback paths."""
+
+    @pytest.mark.asyncio
+    async def test_none_return_uses_error_fallback(self) -> None:
+        """Test that None evaluate result gives error fallback."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value=None)
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import set_dcc_selection
+
+            fn = set_dcc_selection.fn if hasattr(set_dcc_selection, "fn") else set_dcc_selection
+            result = await fn(objects=["pCube1"])
+
+            assert result["success"] is False
+            assert result["selected"] == []
+            assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_selection_failure_response(self) -> None:
+        """Test set_dcc_selection when bridge returns failure."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(
+            return_value={
+                "success": False,
+                "selected": [],
+                "error": "Object not found: nonexistent",
+            }
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import set_dcc_selection
+
+            fn = set_dcc_selection.fn if hasattr(set_dcc_selection, "fn") else set_dcc_selection
+            result = await fn(objects=["nonexistent"])
+
+            assert result["success"] is False
+            assert "nonexistent" in result["error"]
+
+
+class TestGetDCCSceneInfoNonePath:
+    """Tests for get_dcc_scene_info fallback paths."""
+
+    @pytest.mark.asyncio
+    async def test_none_return_uses_error_fallback(self) -> None:
+        """Test that None evaluate result returns error dict."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value=None)
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import get_dcc_scene_info
+
+            fn = get_dcc_scene_info.fn if hasattr(get_dcc_scene_info, "fn") else get_dcc_scene_info
+            result = await fn()
+
+            assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_bridge_unavailable_returns_error(self) -> None:
+        """Test get_dcc_scene_info when bridge returns error."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(
+            return_value={"error": "AuroraView bridge not available"}
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import get_dcc_scene_info
+
+            fn = get_dcc_scene_info.fn if hasattr(get_dcc_scene_info, "fn") else get_dcc_scene_info
+            result = await fn()
+
+            assert "error" in result
+
+
+class TestGetDCCTimelineNonePath:
+    """Tests for get_dcc_timeline fallback paths."""
+
+    @pytest.mark.asyncio
+    async def test_none_return_uses_error_fallback(self) -> None:
+        """Test that None evaluate result returns error dict."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value=None)
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import get_dcc_timeline
+
+            fn = get_dcc_timeline.fn if hasattr(get_dcc_timeline, "fn") else get_dcc_timeline
+            result = await fn()
+
+            assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_timeline_with_playing_animation(self) -> None:
+        """Test timeline info when animation is playing."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(
+            return_value={
+                "current_frame": 42,
+                "start_frame": 1,
+                "end_frame": 240,
+                "fps": 30,
+                "playing": True,
+                "time_unit": "frames",
+            }
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import get_dcc_timeline
+
+            fn = get_dcc_timeline.fn if hasattr(get_dcc_timeline, "fn") else get_dcc_timeline
+            result = await fn()
+
+            assert result["playing"] is True
+            assert result["current_frame"] == 42
+            assert result["fps"] == 30
+
+
+class TestSetDCCFrameNonePath:
+    """Tests for set_dcc_frame fallback paths."""
+
+    @pytest.mark.asyncio
+    async def test_none_return_uses_error_fallback(self) -> None:
+        """Test that None evaluate result returns failure dict."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value=None)
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import set_dcc_frame
+
+            fn = set_dcc_frame.fn if hasattr(set_dcc_frame, "fn") else set_dcc_frame
+            result = await fn(frame=100)
+
+            assert result["success"] is False
+            assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_set_frame_zero(self) -> None:
+        """Test setting frame to zero."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value={"success": True, "frame": 0})
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import set_dcc_frame
+
+            fn = set_dcc_frame.fn if hasattr(set_dcc_frame, "fn") else set_dcc_frame
+            result = await fn(frame=0)
+
+            assert result["success"] is True
+            assert result["frame"] == 0
+
+    @pytest.mark.asyncio
+    async def test_set_negative_frame(self) -> None:
+        """Test setting a negative frame (valid in some DCCs)."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(return_value={"success": True, "frame": -10})
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import set_dcc_frame
+
+            fn = set_dcc_frame.fn if hasattr(set_dcc_frame, "fn") else set_dcc_frame
+            result = await fn(frame=-10)
+
+            assert result["success"] is True
+            assert result["frame"] == -10
+
+
+# ============================================================================
+# Multi-DCC context tests
+# ============================================================================
+
+
+class TestDCCContextForMultipleDCCs:
+    """Tests for various DCC types in get_dcc_context."""
+
+    @pytest.mark.asyncio
+    async def test_houdini_context(self) -> None:
+        """Test DCC context for Houdini."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(
+            return_value={
+                "dcc_type": "houdini",
+                "dcc_version": "20.0.547",
+                "scene_path": "/home/artist/projects/shot.hip",
+                "selected_objects": ["/obj/geo1"],
+                "current_frame": 1001,
+                "fps": 24,
+            }
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import get_dcc_context
+
+            fn = get_dcc_context.fn if hasattr(get_dcc_context, "fn") else get_dcc_context
+            result = await fn()
+
+            assert result["dcc_type"] == "houdini"
+            assert result["current_frame"] == 1001
+
+    @pytest.mark.asyncio
+    async def test_unreal_context(self) -> None:
+        """Test DCC context for Unreal Engine."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(
+            return_value={
+                "dcc_type": "unreal",
+                "dcc_version": "5.3.2",
+                "scene_path": "/Game/Levels/MainLevel",
+                "selected_objects": ["StaticMeshActor_1"],
+                "current_frame": None,
+                "fps": 60,
+            }
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import get_dcc_context
+
+            fn = get_dcc_context.fn if hasattr(get_dcc_context, "fn") else get_dcc_context
+            result = await fn()
+
+            assert result["dcc_type"] == "unreal"
+            assert result["fps"] == 60
+
+    @pytest.mark.asyncio
+    async def test_3dsmax_context(self) -> None:
+        """Test DCC context for 3ds Max."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(
+            return_value={
+                "dcc_type": "3dsmax",
+                "dcc_version": "2025",
+                "scene_path": "C:/Projects/scene.max",
+                "selected_objects": ["Box001", "Sphere002"],
+                "current_frame": 0,
+                "fps": 30,
+                "units": "cm",
+            }
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import get_dcc_context
+
+            fn = get_dcc_context.fn if hasattr(get_dcc_context, "fn") else get_dcc_context
+            result = await fn()
+
+            assert result["dcc_type"] == "3dsmax"
+            assert result["units"] == "cm"
+
+
+class TestExecuteBlenderCommand:
+    """Tests for Blender-specific command execution."""
+
+    @pytest.mark.asyncio
+    async def test_blender_bpy_command(self) -> None:
+        """Test executing Blender bpy command."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(
+            return_value={
+                "success": True,
+                "result": None,
+            }
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import execute_dcc_command
+
+            fn = (
+                execute_dcc_command.fn
+                if hasattr(execute_dcc_command, "fn")
+                else execute_dcc_command
+            )
+            result = await fn(
+                command="bpy.ops.object.select_all", kwargs={"action": "SELECT"}
+            )
+            assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_nuke_command_with_args(self) -> None:
+        """Test executing Nuke command with args."""
+        mock_page_conn = MagicMock()
+        mock_page_conn.evaluate = AsyncMock(
+            return_value={
+                "success": True,
+                "result": {"name": "Grade1", "type": "Grade"},
+            }
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.get_page_connection = AsyncMock(return_value=mock_page_conn)
+
+        with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=mock_manager):
+            from auroraview_mcp.tools.dcc import execute_dcc_command
+
+            fn = (
+                execute_dcc_command.fn
+                if hasattr(execute_dcc_command, "fn")
+                else execute_dcc_command
+            )
+            result = await fn(command="nuke.createNode", args=["Grade"])
+            assert result["success"] is True
+            assert result["result"]["type"] == "Grade"
