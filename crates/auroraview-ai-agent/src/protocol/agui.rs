@@ -442,14 +442,6 @@ pub struct AGUITool {
     pub parameters: JsonValue,
 }
 
-/// Context item for AG-UI
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AGUIContext {
-    /// Context description
-    pub description: String,
-    /// Context value
-    pub value: JsonValue,
-}
 
 /// AG-UI Event emitter trait
 pub trait AGUIEmitter: Send + Sync {
