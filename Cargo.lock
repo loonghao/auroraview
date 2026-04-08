@@ -1106,6 +1106,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
+ "parking_lot",
  "pyo3",
  "rstest 0.26.1",
  "sentry",
