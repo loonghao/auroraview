@@ -1,73 +1,81 @@
 # AuroraView Cleanup Agent Memory
 
-## 2026-04-08 Round 43
+## 2026-04-08 Round 44
 
-### Branch: `auto-improve` (HEAD: `8c8d383`)
+### Branch: `auto-improve` (HEAD: `d56d9fb`)
 
 ### Baseline
 - **Cargo check**: PASS ✅
 - **Cargo clippy**: PASS (0 warnings) ✅
 - **Ruff**: PASS (0 warnings) ✅
-- **Tests**: All passing
+- **Tests**: All passing (95 tests)
 
 ### Actions Taken
 
-**Commit 1: `e86fc01` - [cleanup] docs: update deprecated run_standalone references in API documentation [cleanup-done]**
-1. `docs/api/index.md`: Updated `run_standalone` section from "Deprecated" to clearly mark as "Removed"
-2. `docs/zh/api/index.md`: Same update for Chinese documentation
-3. Changed wording to explicitly state the alias is no longer available and points to `run_desktop`
-4. Net change: +6 lines, -4 lines (more informative documentation)
+**Commit 1: `852304d` - [cleanup] docs+deps: fix stale README versions, broken link, missing parking_lot dep [cleanup-done]**
+1. `README.md`: Updated Rust badge from 1.75+ to 1.90+
+2. `README_zh.md`: Same badge update for Chinese documentation
+3. Both READMEs: Fixed tech stack versions (PyO3 0.22→0.27, Wry 0.47→0.54, Tao 0.30→0.34)
+4. Both READMEs: Fixed broken `docs/DCC_INTEGRATION.md` link → `docs/dcc/index.md`
+5. `pyproject.toml`: Moved `pytest-qt` from runtime optional deps to test group
+6. `pyproject.toml`: Removed nonexistent coverage omit paths (`qt_integration.py`, `webview.py`)
+7. `crates/auroraview-telemetry/Cargo.toml`: Added missing `parking_lot = "0.12"` dependency
 
-**Commit 2: `376b982` - [cleanup] rust-code: improve DWMSBT_TRANSIENTWINDOW documentation with MSFT reference [cleanup-done]**
-1. `vibrancy.rs`: Added Microsoft Docs URL to DWM_SYSTEMBACKDROP_TYPE constants section
-2. Improved DWMSBT_TRANSIENTWINDOW doc comment with clearer description of its reserved purpose
-3. Net change: +3 lines, -1 line
+**Commit 2: `d56d9fb` - [cleanup] docs: update CLEANUP_TODO.md with Round 44 achievements [cleanup-done]**
+1. Documented 6 new resolved items in CLEANUP_TODO.md
 
-**Commit 3: `8c8d383` - [cleanup] docs: update CLEANUP_TODO.md with Round 43 achievements [cleanup-done]**
-1. Updated dead_code count trend with Round 43 data
-2. Added new resolved item for run_standalone documentation cleanup
-3. Documented DWMSBT_TRANSIENTWINDOW documentation improvement
+### Key Fix: Missing parking_lot Dependency
+- Discovered during Ruff check (maturin build failure): `auroraview-telemetry` crate was missing
+  the `parking_lot` dependency after the Round 43 parking_lot migration in `telemetry/python.rs`
+- This was a build-breaking issue introduced by prior cleanup round, caught by CI pipeline
 
 ### Additional Discovery
 
-#### Confirmed Clean Areas (unchanged from Round 42)
-- **Clippy**: 0 warnings after cleanup
-- **Ruff**: 0 warnings across all Python code; import sorting clean; formatting clean
-- **Docs**: No stale API references (run_standalone now correctly marked as removed)
-- **Tests**: No `#[test]\n#[ignore]` instances; all skip reasons are valid
-- **Dependencies**: No duplicates in cargo tree; workspace deps well-organized
-- **Build system**: Only build.rs files are legitimate (CLI resource embedding + workspace hack)
+#### Confirmed Clean Areas (unchanged from Round 43):
+- **Clippy**: 0 warnings across workspace
+- **Ruff**: 0 warnings across all Python code; import sorting clean
+- **Dead code**: Only 2 justified `#[allow(dead_code)]` annotations remain:
+  - `json_tests.rs`: test-local struct (normal pattern)
+  - `vibrancy.rs::DWMSBT_TRANSIENTWINDOW`: Win11 DWM API reserved constant with MSFT doc reference
+- **No `#[test]\n#[ignore]` instances** — all skip reasons are valid
+- **No commented-out code blocks >3 lines** in Rust source
+- **No TODO(cleanup) markers in source code**: 0 remaining
 - **Production std::sync usage**: Zero Mutex/RwLock — fully migrated to parking_lot
-- **TODO(cleanup) markers in source code**: 0
-- **unused_imports/unused_variables/unused_mut allow annotations**: 0
 
 #### Metrics Summary
 | Metric | Count | Status |
 |--------|-------|--------|
 | `#[allow(dead_code)]` | 2 | Stable (both justified) |
-| `#[allow(clippy::*)` | ~11 | All type_complexity or platform-specific, justified |
+| `#[allow(clippy::*)]` | ~13 | All type_complexity or platform-specific, justified |
 | `TODO/FIXME/WARN` markers | 123+ | Active development indicators, not cleanup targets |
 
-#### Remaining 2 `#[allow(dead_code)]` Annotations:
-1. `json_tests.rs`: test-local struct (normal pattern, safe to keep)
-2. `vibrancy.rs::DWMSBT_TRANSIENTWINDOW`: Win11 DWM API constant with MSFT doc reference (justified reserve)
+#### New Observations from Deep Scan (Round 44):
+1. **31 bare `except Exception:` blocks** in Python code — most have valid fallback behavior,
+   but some (e.g., inspector.py:515,528,581) could benefit from debug logging
+2. **`create_for_dcc()` deprecated since 0.4.0** in webview.py and factory.py —
+   should plan removal timeline for next major version
+3. **Python 3.7 support inconsistency**: pyproject.toml declares >=3.7 but abi3-py38 builds only 3.8+
+4. **38 security vulnerabilities** reported by Dependabot (21 high, 15 moderate, 2 low) — HIGH PRIORITY
+5. **DCC + Desktop IpcRouter ~90% duplicate code** — Medium priority, needs coordination
 
 ### Quality Gate
 - Workspace `cargo check`: PASS ✅
 - Workspace `cargo clippy --all-targets`: PASS (0 warnings) ✅
-- `uv run ruff check python/ examples/ scripts/ gallery/`: PASS ✅
+- `uv run ruff check python/ examples/ scripts/ gallery/`: PASS ✅ (after parking_lot fix)
 - Pushed to remote: YES ✅
 
 ### Focus for Next Rounds
-1. **Dependency security audit** — 38 vulnerabilities (from Dependabot push output) — HIGH PRIORITY but requires careful version pinning
-2. **Large module assessment** — `window_style.rs` (1056 lines), `assets.rs` (699 lines) candidates for splitting
-3. **IpcRouter deduplication** — DCC + Desktop share ~90% identical code (Medium priority, needs coordination)
-4. **Consider evaluating test sleep-based assertions** — `metrics_tests.rs` uses thread::sleep for timing
+1. **Dependency security audit** — 38 vulnerabilities (from Dependabot push output) — HIGHEST PRIORITY
+   but requires careful version pinning to avoid breaking changes
+2. **Large module assessment** — `window_style.rs` (1056 lines), `assets.rs` (699 lines) candidates
+3. **IpcRouter deduplication** — DCC + Desktop share ~90% identical code (Medium priority)
+4. **Consider evaluating test sleep-based assertions** — `metrics_tests.rs` uses thread::sleep
 5. **Python mypy compatibility** — Pin a mypy version supporting Python 3.7 targets
+6. **31 bare except Exception blocks** — Add logging to highest-impact locations (inspector.py, webview.py)
 
 ---
 
-## Previous Rounds Summary (Rounds 1-42)
+## Previous Rounds Summary (Rounds 1-43)
 
 ### Cumulative Achievements:
 - **Stale files removed**: build_cli.py, $null, pr_body.md, .gitcommitmsg, llms*.txt
@@ -89,3 +97,8 @@
 - **Merge conflict resolution**: Round 38 resolved 6 test file conflicts from main branch integration
 - **Compilation fix** (Round 42): window_style.rs mismatched brace from prior round parking_lot migration
 - **Documentation updates** (Round 43): run_standalone marked as removed in EN/ZH API docs, DWMSBT_TRANSIENTWINDOW improved with MSFT reference
+- **README stale versions fixed** (Round 44): Rust 1.90+, PyO3 0.27, Wry 0.54, Tao 0.34
+- **README broken links fixed** (Round 44): DCC_INTEGRATION.md → dcc/index.md
+- **Missing dependency fixed** (Round 44): auroraview-telemetry parking_lot added
+- **pytest-qt moved to correct dep group** (Round 44)
+- **Stale coverage omit paths cleaned** (Round 44)
