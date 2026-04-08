@@ -70,6 +70,15 @@ that require larger effort or coordination before implementation.
   - `json_tests.rs`: test-local struct (normal pattern)
   - `vibrancy.rs::DWMSBT_TRANSIENTWINDOW`: future Win11 acrylic constant
   - `overlay.rs::HEADER_SIZE_UNUSED` removed — zero references, was reserved for future validation that never materialized.
+- **Update (Round 43)**: Improved DWMSBT_TRANSIENTWINDOW documentation with MSFT reference URL.
+  Count remains at 2. Both annotations are justified:
+  - `json_tests.rs`: test-local struct (normal pattern, safe to keep)
+  - `vibrancy.rs::DWMSBT_TRANSIENTWINDOW`: Win11 DWM API reserved constant with doc reference
+
+### Deprecated run_standalone in documentation
+- **Status**: **RESOLVED (Round 43)**
+- **Reason**: Updated both EN and ZH API index docs to clearly mark `run_standalone` as removed.
+- **Action**: Changed from "Deprecated" to "Removed" with migration note pointing to `run_desktop`.
 
 ### `crates/auroraview-pack/tests/metrics_tests.rs` — sleep-based timing assertions
 - **Status**: TODO (logged Round 21)
