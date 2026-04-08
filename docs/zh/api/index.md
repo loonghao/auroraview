@@ -88,9 +88,10 @@ run_desktop(
 )
 ```
 
-### run_standalone
+### 遗留别名
 
-> **已废弃**: 请使用 `run_desktop`。此别名保留用于向后兼容。
+> **注意**: 以下遗留别名已不再可用：
+> - `run_standalone`: 已移除。请使用 `run_desktop`。
 
 ```python
 from auroraview import run_desktop
