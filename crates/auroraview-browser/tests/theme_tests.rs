@@ -350,3 +350,103 @@ fn custom_theme_names_and_bg(#[case] name: &str, #[case] bg: &str) {
     let css = theme.css();
     assert!(css.contains(bg));
 }
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn theme_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Theme>();
+}
+
+#[test]
+fn theme_colors_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<ThemeColors>();
+}
+
+#[test]
+fn theme_light_debug() {
+    let theme = Theme::Light;
+    let debug_str = format!("{:?}", theme);
+    assert!(debug_str.contains("Light"));
+}
+
+#[test]
+fn theme_dark_debug() {
+    let theme = Theme::Dark;
+    let debug_str = format!("{:?}", theme);
+    assert!(debug_str.contains("Dark"));
+}
+
+#[test]
+fn theme_system_debug() {
+    let theme = Theme::System;
+    let debug_str = format!("{:?}", theme);
+    assert!(debug_str.contains("System"));
+}
+
+#[test]
+fn theme_colors_light_text_primary() {
+    let colors = ThemeColors::light();
+    assert_eq!(colors.text_primary, "#1a1a1a");
+}
+
+#[test]
+fn theme_colors_dark_text_primary() {
+    let colors = ThemeColors::dark();
+    assert_eq!(colors.text_primary, "#ffffff");
+}
+
+#[test]
+fn theme_colors_clone_independent() {
+    let colors = ThemeColors::light();
+    let mut cloned = colors.clone();
+    cloned.bg_primary = "#abcdef".to_string();
+    assert_eq!(colors.bg_primary, "#ffffff");
+    assert_eq!(cloned.bg_primary, "#abcdef");
+}
+
+#[test]
+fn custom_theme_with_dark_colors() {
+    let colors = ThemeColors::dark();
+    let custom = CustomTheme::new("Night", colors.clone());
+    assert_eq!(custom.colors.bg_primary, colors.bg_primary);
+}
+
+#[test]
+fn theme_css_not_empty() {
+    assert!(!Theme::Light.css().is_empty());
+    assert!(!Theme::Dark.css().is_empty());
+}
+
+#[test]
+fn theme_colors_light_equal_to_another_light() {
+    let c1 = ThemeColors::light();
+    let c2 = ThemeColors::light();
+    assert_eq!(c1, c2);
+}
+
+#[test]
+fn theme_colors_inequality_light_dark() {
+    let light = ThemeColors::light();
+    let dark = ThemeColors::dark();
+    assert_ne!(light, dark);
+}
+
+#[test]
+fn theme_system_css_not_empty() {
+    // System theme should resolve to a non-empty CSS (either light or dark)
+    let css = Theme::System.css();
+    assert!(!css.is_empty());
+    assert!(css.contains("--bg-primary"));
+}
+
+#[rstest]
+#[case(Theme::Light)]
+#[case(Theme::Dark)]
+fn theme_css_contains_colon(#[case] theme: Theme) {
+    // CSS variable declarations always use ':' for assignment
+    let css = theme.css();
+    assert!(css.contains(':'));
+}
