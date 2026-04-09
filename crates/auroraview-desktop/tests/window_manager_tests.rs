@@ -320,3 +320,147 @@ fn concurrent_create_is_safe() {
     }
     assert_eq!(mgr.count(), 8);
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[rstest]
+fn window_manager_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<WindowManager>();
+}
+
+#[rstest]
+fn create_10_windows_all_listed() {
+    let mgr = WindowManager::new();
+    for i in 0..10 {
+        mgr.create(DesktopConfig::new().title(format!("Win-{i}"))).unwrap();
+    }
+    assert_eq!(mgr.count(), 10);
+    assert_eq!(mgr.list().len(), 10);
+}
+
+#[rstest]
+fn close_all_windows_empties_manager() {
+    let mgr = WindowManager::new();
+    let ids: Vec<_> = (0..5)
+        .map(|i| mgr.create(DesktopConfig::new().title(format!("W{i}"))).unwrap())
+        .collect();
+    for id in &ids {
+        mgr.close(id).unwrap();
+    }
+    assert_eq!(mgr.count(), 0);
+}
+
+#[rstest]
+fn show_hide_cycle_multiple_times() {
+    let mgr = WindowManager::new();
+    let id = mgr.create(DesktopConfig::new()).unwrap();
+    for _ in 0..5 {
+        mgr.show(&id).unwrap();
+        assert!(mgr.get(&id).unwrap().visible);
+        mgr.hide(&id).unwrap();
+        assert!(!mgr.get(&id).unwrap().visible);
+    }
+}
+
+#[rstest]
+fn navigate_multiple_urls() {
+    let mgr = WindowManager::new();
+    let id = mgr.create(DesktopConfig::new()).unwrap();
+    let urls = [
+        "https://a.example.com",
+        "https://b.example.com",
+        "https://c.example.com",
+    ];
+    for url in &urls {
+        mgr.navigate(&id, url).unwrap();
+        assert_eq!(mgr.get(&id).unwrap().url.as_deref(), Some(*url));
+    }
+}
+
+#[rstest]
+fn resize_multiple_times() {
+    let mgr = WindowManager::new();
+    let id = mgr.create(DesktopConfig::new()).unwrap();
+    let sizes = [(800, 600), (1280, 720), (1920, 1080)];
+    for (w, h) in &sizes {
+        mgr.resize(&id, *w, *h).unwrap();
+        let info = mgr.get(&id).unwrap();
+        assert_eq!(info.width, *w);
+        assert_eq!(info.height, *h);
+    }
+}
+
+#[rstest]
+fn set_title_multiple_times() {
+    let mgr = WindowManager::new();
+    let id = mgr.create(DesktopConfig::new().title("Init")).unwrap();
+    let titles = ["Title A", "Title B", "Final Title"];
+    for title in &titles {
+        mgr.set_title(&id, title).unwrap();
+        assert_eq!(mgr.get(&id).unwrap().title, *title);
+    }
+}
+
+#[rstest]
+fn has_window_consistent_with_count() {
+    let mgr = WindowManager::new();
+    let id = mgr.create(DesktopConfig::new()).unwrap();
+    assert!(mgr.has_window(&id));
+    assert_eq!(mgr.count(), 1);
+    mgr.close(&id).unwrap();
+    assert!(!mgr.has_window(&id));
+    assert_eq!(mgr.count(), 0);
+}
+
+#[rstest]
+fn all_returns_all_window_titles() {
+    let mgr = WindowManager::new();
+    mgr.create(DesktopConfig::new().title("Maya")).unwrap();
+    mgr.create(DesktopConfig::new().title("Houdini")).unwrap();
+    let titles: Vec<String> = mgr.all().into_iter().map(|i| i.title).collect();
+    assert!(titles.contains(&"Maya".to_string()));
+    assert!(titles.contains(&"Houdini".to_string()));
+}
+
+#[rstest]
+fn window_ids_contains_created_id() {
+    let mgr = WindowManager::new();
+    let id = mgr.create(DesktopConfig::new().title("Test")).unwrap();
+    assert!(mgr.window_ids().contains(&id));
+}
+
+#[rstest]
+fn get_info_same_as_get() {
+    let mgr = WindowManager::new();
+    let id = mgr.create(DesktopConfig::new().title("Same")).unwrap();
+    let via_get = mgr.get(&id).unwrap();
+    let via_get_info = mgr.get_info(&id).unwrap();
+    assert_eq!(via_get.title, via_get_info.title);
+    assert_eq!(via_get.width, via_get_info.width);
+}
+
+#[rstest]
+fn concurrent_mixed_ops() {
+    let mgr = Arc::new(WindowManager::new());
+    let id = mgr.create(DesktopConfig::new().title("Main")).unwrap();
+
+    let handles: Vec<_> = (0..4)
+        .map(|_| {
+            let m = mgr.clone();
+            let i = id.clone();
+            thread::spawn(move || {
+                let _ = m.get(&i);
+                let _ = m.has_window(&i);
+                let _ = m.count();
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+    // Main window should still exist
+    assert!(mgr.has_window(&id));
+}

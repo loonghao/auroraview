@@ -284,3 +284,115 @@ fn menu_item_type_debug() {
         assert!(!debug.is_empty());
     }
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn menu_action_id_formats() {
+    let ids = ["file.new", "edit.copy", "dcc.maya.run_mel", "tool.apply_modifier"];
+    for id in ids {
+        let action = MenuAction::new(id, "Label");
+        assert_eq!(action.action_id, id);
+    }
+}
+
+#[test]
+fn menu_item_action_sends_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<MenuItem>();
+    assert_send_sync::<MenuBar>();
+    assert_send_sync::<Menu>();
+}
+
+#[rstest]
+#[case("Ctrl+Z", "edit.undo")]
+#[case("Ctrl+Y", "edit.redo")]
+#[case("Ctrl+Shift+S", "file.save_as")]
+#[case("F5", "view.refresh")]
+fn menu_item_with_various_accelerators(#[case] key: &str, #[case] action_id: &str) {
+    let item = MenuItem::action("Label", action_id, Some(key));
+    assert_eq!(item.action_id.as_deref(), Some(action_id));
+    assert!(item.accelerator.is_some());
+    assert_eq!(item.accelerator.unwrap().key, key);
+}
+
+#[test]
+fn menu_item_separator_label_empty() {
+    let item = MenuItem::separator();
+    assert!(item.label.is_empty());
+    assert!(item.action_id.is_none());
+    assert!(item.accelerator.is_none());
+}
+
+#[test]
+fn menu_item_checkbox_toggle() {
+    let item_on = MenuItem::checkbox("Feature", "feat.on", true, None);
+    let item_off = MenuItem::checkbox("Feature", "feat.on", false, None);
+    assert!(item_on.checked);
+    assert!(!item_off.checked);
+}
+
+#[test]
+fn menu_item_submenu_recursive() {
+    let inner = Menu::new("Inner").add_item(MenuItem::action("Nested", "n.action", None));
+    let outer_item = MenuItem::submenu("Outer", inner.items.clone());
+    assert!(matches!(outer_item.item_type, MenuItemType::Submenu));
+    assert!(!outer_item.children.is_empty());
+}
+
+#[test]
+fn menu_bar_with_file_menu_has_items() {
+    let bar = MenuBar::new().with_file_menu();
+    assert_eq!(bar.menus.len(), 1);
+    assert!(!bar.menus[0].items.is_empty());
+}
+
+#[test]
+fn menu_bar_with_edit_menu_has_items() {
+    let bar = MenuBar::new().with_edit_menu();
+    assert_eq!(bar.menus.len(), 1);
+    assert!(!bar.menus[0].items.is_empty());
+}
+
+#[test]
+fn menu_with_only_separators() {
+    let menu = Menu::new("Sep")
+        .add_separator()
+        .add_separator();
+    assert_eq!(menu.items.len(), 2);
+    for item in &menu.items {
+        assert!(matches!(item.item_type, MenuItemType::Separator));
+    }
+}
+
+#[test]
+fn accelerator_parse_whitespace() {
+    // Whitespace-only string: parse behavior depends on implementation.
+    // We only verify it does not panic.
+    let _ = Accelerator::parse("   ");
+}
+
+#[test]
+fn menu_action_checked_none_by_default() {
+    let action = MenuAction::new("test.id", "Test");
+    assert!(action.checked.is_none());
+}
+
+#[test]
+fn menu_item_action_enabled_by_default() {
+    let item = MenuItem::action("A", "a.a", None);
+    assert!(item.enabled);
+    assert!(!item.checked);
+}
+
+#[test]
+fn menu_item_clone_independence() {
+    let item = MenuItem::action("Original", "orig.id", Some("Ctrl+A"));
+    let mut cloned = item.clone();
+    // Flip enabled on clone; original should be unaffected
+    cloned = cloned.enabled(false);
+    assert!(item.enabled);
+    assert!(!cloned.enabled);
+}
