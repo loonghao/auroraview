@@ -1,7 +1,7 @@
 //! Icon loading tests
 
 use auroraview_core::icon::{
-    compress_and_resize, compress_png, load_icon_rgba, png_bytes_to_ico, png_to_ico,
+    compress_png, load_icon_rgba, png_bytes_to_ico, png_to_ico,
     CompressionLevel, CompressionResult, IcoConfig, IconData, DEFAULT_ICO_SIZES,
 };
 use rstest::rstest;
