@@ -1,56 +1,44 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-10 01:20 (UTC+8)
+## Last Execution: 2026-04-10 02:30 (UTC+8)
 
 ### Branch Status
 - Branch: `auto-improve`
-- Remote sync: pushed 6 commits in this session (R10 complete)
+- Remote sync: pushed 5 commits in this session (R11 complete)
 - Workspace clean: Yes
 
-### Completed in This Iteration (Round 10)
+### Completed in This Iteration (Round 11)
 
-**Round 10a: telemetry/sentry, telemetry/init, core/backend, core/events, core/lifecycle, cli/lib** (commit `c485b76`)
-- sentry_tests: 41 → 51 (+10): capture edge cases, config boundary, serde partial, DSN/env/release formats
-- telemetry_init_tests: 37 → 53 (+16): enable/disable idempotent, otlp endpoint, unicode service name, interval bounds
-- backend_tests: 37 → 58 (+21): html/url fields, dimensions, nav states, cookie flags, error messages, clone independence
-- events_tests: 37 → 52 (+15): Send+Sync, large data, all variants, unicode, common DCC method names
-- lifecycle_tests: 41 → 67 (+26): Send+Sync, is_closing states, if_active/if_not_closing, observable no-panic, concurrent safety
-- cli/lib_tests: 28 → 50 (+22): PNG magic/IEND, localhost/IPv4/DCC URLs, encoded chars, consistent calls
+**Round 11a: icon_tests, icon_converter_tests, ipc_integration_tests** (commit `d3a00bb`)
+- icon_tests: 32 → 66 (+34): Send+Sync, pixel value checks, IcoConfig edge, compress dimensions, reduction_percent boundary, DEFAULT_ICO_SIZES
+- icon_converter_tests: 37 → 74 (+37): ICO magic bytes, directory entry count, various max_sizes, compress level 0, aspect ratio, boundary reductions
+- ipc_integration_tests: 5 → 25 (+20): pure JSON-RPC format tests (no Python runtime), call/result/error message structure, method namespaces, ready signal variants
 
-**Round 10b: telemetry/span_ext, pack/lib** (commit `0a3d584`)
-- span_ext_tests: 26 → 57 (+31): DCC variants, sequential error overwrite, without-entering, UUID, whitespace, hierarchical ns
-- pack/lib_tests: 18 → 42 (+24): overlay magic bytes, version validation, config chain, scheme variants, compression level range
+**Round 11b: packed_tests** (commit `a1ad7a4`)
+- packed_tests: 31 → 58 (+27): escape_json edge cases (backslash, newline, carriage return, mixed), runtime cache dir hierarchy, python_exe_path variants, CSP script fields, CSS script content, env var overwrite/empty
 
-**Round 10c: telemetry/error, core/window, core/window_style** (commit `1cd718a`)
-- telemetry/error_tests: 30 → 44 (+14): all variants, boxed error, long message, source none, payload checks
-- core/window_tests: 26 → 46 (+20): DCC app variants, clone independence, large HWND, concurrent clone, HWND edge cases
-- core/window_style_tests: 25 → 47 (+22): all bits simultaneous, compose frameless+popup, parametric
+**Round 11c: port_tests fix + clipboard_tests expansion** (commit `b11c466`)
+- port_tests: fixed flaky `test_find_free_port_single_attempt` (hardcoded port 57000 sometimes occupied)
+- clipboard_tests: 27 → 55 (+28): Send+Sync, case-sensitive command lookup, command stability, WriteTextOptions various lengths/unicode/backslash/emoji/arabic, error code determinism, multiple instances
 
-**Round 10d: core/menu, desktop/window_manager** (commit `c7d78fa`)
-- core/menu_tests: 33 → 53 (+20): DCC menu IDs, Send+Sync, accelerator variants, toggle, clone independence
-- desktop/window_manager_tests: 30 → 42 (+12): close-all, show/hide cycle, multi-nav, concurrent mixed ops
-
-**Round 10e: desktop/error** (commit `90929cb`)
-- desktop/error_tests: 29 → 42 (+13): all variants unique display, empty message, source-is-none, prefix correctness
-
-### Key Learnings R10
-- `Accelerator::parse("   ")` returns `Some` (whitespace accepted) — don't assert None for whitespace
-- `ObservableLifecycle` does NOT have `is_destroyed()` or `force_destroy()` — only `AtomicLifecycle` does
-- `for item in &[...]` iterates as `&&str` — use `for item in [...]` (array, not reference) to avoid Into<String> issue
-- `anyhow` is not a dep of `auroraview-desktop` tests — check Cargo.toml before using
+### Key Learnings R11
+- PowerShell `Select-String` on `cargo test` output: use `$r | Where-Object {$_ -match "test result|FAILED|passed"}` not `Select-String`
+- Hardcoded port numbers in tests (57000, etc.) can be occupied → always use dynamic binding via `TcpListener::bind("127.0.0.1:0")`
+- ICO format magic: bytes [0,1,2,3] = [0x00, 0x00, 0x01, 0x00]; entry count at bytes [4,5] as u16 LE
+- `icon_converter_tests.rs` already had `test_compression_level_is_send_sync` — avoid duplicate names by checking existing content
+- `vibrancy_tests.rs` and `click_through_tests.rs` show "0 #[test] tags" in memory but use `#[rstest]` — they're actually well-covered (43+ and 30+ tests)
 
 ### Next Iteration Targets (Priority Order)
 
-1. **core/vibrancy_tests.rs** — has 0 #[test] tags (may use fn test_ prefix), needs expansion
-2. **core/click_through_tests.rs** — has 0 #[test] tags, needs expansion
-3. **core/icon_tests.rs** (10.74 KB) — verify count, likely needs expansion
-4. **core/error_pages_tests.rs** (15.56 KB) — verify count, may need expansion
-5. **core/builder_tests.rs** (25.84 KB) — larger coverage of builder API
-6. **core/dom_tests.rs** (20.83 KB) — DOM manipulation coverage
-7. **core/icon_converter_tests.rs** (17.17 KB) — icon conversion
-8. **core/service_discovery_tests.rs** (27.94 KB) — likely already large
-9. **auroraview-cli/packed_tests.rs** (19.45 KB) — packed app tests
-10. **auroraview-cli/ipc_integration_tests.rs** (10.84 KB) — IPC integration
+1. **clipboard_tests** more coverage for display-required (ignored) tests — can add more unit tests
+2. **fs_plugin_tests.rs** (25 tests) → expand to 45+
+3. **router_tests.rs** (27 tests, in plugins) → expand to 45+
+4. **python_standalone_tests.rs** (27 tests) → expand to 45+
+5. **pyoxidizer_tests.rs** (30 tests) → expand to 50+
+6. **cleanup_tests.rs** (30 tests) — already has good coverage; check if more needed
+7. **scope_tests.rs** (30 tests in plugins) → expand to 50+
+8. **agent_tests.rs** (31 tests) → expand to 50+
+9. **types_tests.rs** (31 tests) → expand to 50+
 
 ### Known Pre-existing Issues (from prior iterations, NOT blocking)
 - `auroraview-core` assets_tests fail in CI (need `vx just assets-build`)
@@ -161,3 +149,9 @@
 **Core menu_tests expansion (COMPLETE):** 33 → 53 tests R10
 **Desktop window_manager_tests expansion (COMPLETE):** 30 → 42 tests R10
 **Desktop error_tests expansion (COMPLETE):** 29 → 42 tests R10
+**Core icon_tests expansion (COMPLETE):** 32 → 66 tests R11
+**Core icon_converter_tests expansion (COMPLETE):** 37 → 74 tests R11
+**CLI ipc_integration_tests expansion (COMPLETE):** 5 → 25 tests R11
+**CLI packed_tests expansion (COMPLETE):** 31 → 58 tests R11
+**Core port_tests flaky fix (COMPLETE):** R11
+**Plugins clipboard_tests expansion (COMPLETE):** 27 → 55 tests R11
