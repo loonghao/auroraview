@@ -197,6 +197,7 @@ class TestAPIParameterFormats:
     def test_frontend_uses_correct_formats(self):
         """Test that frontend API calls use correct parameter formats."""
         try:
+            from playwright.sync_api import Error as PlaywrightError
             from playwright.sync_api import sync_playwright
         except ImportError:
             pytest.skip("Playwright not installed")
