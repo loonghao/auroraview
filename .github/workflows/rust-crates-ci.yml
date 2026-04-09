@@ -334,6 +334,11 @@ jobs:
           key: ${{ runner.os }}-cargo-plugins-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-plugins-
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config libwayland-dev
+
       - name: Test auroraview-plugin-fs
         if: needs.detect-changes.outputs.needs-plugin-fs == 'true'
         run: |
