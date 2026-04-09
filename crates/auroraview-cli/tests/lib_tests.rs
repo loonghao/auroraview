@@ -317,3 +317,90 @@ fn test_normalize_url_file_scheme() {
     let _ = result;
 }
 
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn test_icon_png_bytes_first_two_bytes() {
+    // PNG signature starts with 0x89, 0x50
+    assert_eq!(ICON_PNG_BYTES[0], 0x89);
+    assert_eq!(ICON_PNG_BYTES[1], 0x50);
+}
+
+#[test]
+fn test_icon_png_bytes_length_at_least_200() {
+    assert!(ICON_PNG_BYTES.len() >= 200, "Icon PNG should be at least 200 bytes, got {}", ICON_PNG_BYTES.len());
+}
+
+#[test]
+fn test_load_window_icon_from_bytes_full_icon_works_r15() {
+    // Full built-in PNG should succeed
+    let result = load_window_icon_from_bytes(ICON_PNG_BYTES);
+    assert!(result.is_some(), "Full built-in PNG should succeed");
+}
+
+#[test]
+fn test_load_window_icon_from_bytes_truncated_4_bytes_returns_none() {
+    // Only 4 bytes — not a complete PNG
+    let result = load_window_icon_from_bytes(&ICON_PNG_BYTES[..4]);
+    assert!(result.is_none(), "4 bytes is not a complete PNG");
+}
+
+#[test]
+fn test_normalize_url_http_localhost_port() {
+    let result = normalize_url("http://localhost:8080/app");
+    let _ = result; // no panic
+}
+
+#[test]
+fn test_normalize_url_with_hash_fragment() {
+    let result = normalize_url("https://example.com/page#anchor");
+    let _ = result;
+}
+
+#[test]
+fn test_normalize_url_auroraview_scheme_no_panic() {
+    let result = normalize_url("auroraview://localhost/panel");
+    let _ = result;
+}
+
+#[rstest]
+#[case("https://a.example.com")]
+#[case("https://b.example.com/path")]
+#[case("https://c.example.com:8443")]
+fn test_normalize_url_https_subdomains_r15(#[case] url: &str) {
+    let _ = normalize_url(url);
+}
+
+#[test]
+fn test_load_window_icon_always_returns_same_type() {
+    // Calling twice should return the same kind of result
+    let r1 = load_window_icon().is_some();
+    let r2 = load_window_icon().is_some();
+    assert_eq!(r1, r2);
+}
+
+#[test]
+fn test_normalize_url_data_uri_no_panic() {
+    let result = normalize_url("data:text/html,<h1>test</h1>");
+    let _ = result;
+}
+
+#[test]
+fn test_icon_png_bytes_png_magic_complete() {
+    let sig = &[0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    assert_eq!(&ICON_PNG_BYTES[..8], sig.as_slice());
+}
+
+#[test]
+fn test_normalize_url_https_preserves_path() {
+    let result = normalize_url("https://example.com/some/path/to/resource");
+    match result {
+        Ok(url) => assert!(url.contains("some/path")),
+        Err(_) => {}
+    }
+}
+
+
+

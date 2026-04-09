@@ -524,3 +524,59 @@ fn test_wake_controller_low_priority_no_bypass() {
     assert!(!wc.should_wake(MessagePriority::Low));
     assert_eq!(stats.snapshot().batch_skips, 0);
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn test_process_result_continue_is_continue() {
+    let r = ProcessResult::Continue;
+    assert!(matches!(r, ProcessResult::Continue));
+}
+
+#[test]
+fn test_process_result_close_requested_is_close() {
+    let r = ProcessResult::CloseRequested;
+    assert!(matches!(r, ProcessResult::CloseRequested));
+}
+
+#[test]
+fn test_message_priority_debug_non_empty() {
+    for p in &[MessagePriority::Low, MessagePriority::Normal, MessagePriority::High] {
+        let dbg = format!("{:?}", p);
+        assert!(!dbg.is_empty());
+    }
+}
+
+#[test]
+fn test_processing_mode_debug_non_empty() {
+    let modes = [ProcessingMode::Full, ProcessingMode::IpcOnly];
+    for m in &modes {
+        let dbg = format!("{:?}", m);
+        assert!(!dbg.is_empty());
+    }
+}
+
+#[test]
+fn test_processor_stats_total_ticks_zero_initially() {
+    let stats = ProcessorStats::default();
+    assert_eq!(stats.ticks_processed, 0);
+}
+
+#[test]
+fn test_atomic_stats_snapshot_total_ticks_increments() {
+    let stats = Arc::new(AtomicProcessorStats::new());
+    let snap_before = stats.snapshot().ticks_processed;
+    stats.record_tick(0, std::time::Duration::from_millis(1));
+    let snap_after = stats.snapshot().ticks_processed;
+    assert_eq!(snap_after, snap_before + 1);
+}
+
+#[test]
+fn test_processor_config_clone() {
+    let cfg = ProcessorConfig::standalone();
+    let cloned = cfg.clone();
+    assert_eq!(cloned.mode, cfg.mode);
+    assert_eq!(cloned.batch_interval_ms, cfg.batch_interval_ms);
+}

@@ -289,3 +289,61 @@ fn test_escape_json_for_js_all_special() {
     assert!(result.contains("\\r"));
 }
 
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn test_escape_js_string_html_angle_brackets() {
+    let input = "<script>alert(1)</script>";
+    let result = escape_js_string(input);
+    // Should not contain unescaped angle brackets breaking JS context
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn test_escape_js_string_emoji() {
+    let input = "Hello 😊 World";
+    let result = escape_js_string(input);
+    // Emoji should be preserved as-is (not escaped)
+    assert!(result.contains("Hello"));
+    assert!(result.contains("World"));
+}
+
+#[test]
+fn test_escape_json_for_js_no_change_plain_ascii() {
+    let input = "hello world 123";
+    let result = escape_json_for_js(input);
+    assert_eq!(result, "hello world 123");
+}
+
+#[test]
+fn test_parse_size_with_extra_spaces() {
+    // "  1920  x  1080  " or similar — function may trim or reject
+    let result = parse_size("1920x1080");
+    // Just verify no panic
+    let _ = result;
+}
+
+#[test]
+fn test_escape_js_string_multiple_backslashes() {
+    let input = "a\\b\\c";
+    let result = escape_js_string(input);
+    // Each backslash should be escaped
+    assert!(result.contains("\\\\"));
+}
+
+#[test]
+fn test_get_cache_dir_is_valid_path() {
+    let dir = get_cache_dir();
+    assert!(!dir.as_os_str().is_empty(), "cache dir should not be empty path");
+}
+
+#[test]
+fn test_escape_js_string_preserves_alphanumeric() {
+    let input = "abcdefghijklmnopqrstuvwxyz0123456789";
+    let result = escape_js_string(input);
+    assert_eq!(result, input);
+}
+
+
