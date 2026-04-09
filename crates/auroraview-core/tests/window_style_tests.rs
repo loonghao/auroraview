@@ -196,3 +196,76 @@ fn frameless_popup_idempotent() {
     assert_eq!(s1, s2);
     assert_eq!(e1, e2);
 }
+
+// ============================================================================
+// Additional edge case tests
+// ============================================================================
+
+#[test]
+fn frameless_window_only_ex_windowedge() {
+    let (_, new_ex) = compute_frameless_window_styles(0, WS_EX_WINDOWEDGE);
+    assert_eq!(new_ex & WS_EX_WINDOWEDGE, 0);
+}
+
+#[test]
+fn frameless_window_only_ex_clientedge() {
+    let (_, new_ex) = compute_frameless_window_styles(0, WS_EX_CLIENTEDGE);
+    assert_eq!(new_ex & WS_EX_CLIENTEDGE, 0);
+}
+
+#[test]
+fn frameless_window_only_ex_staticedge() {
+    let (_, new_ex) = compute_frameless_window_styles(0, WS_EX_STATICEDGE);
+    assert_eq!(new_ex & WS_EX_STATICEDGE, 0);
+}
+
+#[test]
+fn frameless_window_only_ex_dlgmodalframe() {
+    let (_, new_ex) = compute_frameless_window_styles(0, WS_EX_DLGMODALFRAME);
+    assert_eq!(new_ex & WS_EX_DLGMODALFRAME, 0);
+}
+
+#[rstest]
+#[case(WS_CAPTION)]
+#[case(WS_THICKFRAME)]
+#[case(WS_BORDER)]
+#[case(WS_DLGFRAME)]
+#[case(WS_SYSMENU)]
+#[case(WS_MINIMIZEBOX)]
+#[case(WS_MAXIMIZEBOX)]
+fn frameless_window_single_style_bit_removed(#[case] bit: i32) {
+    let (new_style, _) = compute_frameless_window_styles(bit, 0);
+    assert_eq!(new_style & bit, 0, "Bit {:#010x} should be cleared", bit);
+}
+
+#[test]
+fn frameless_popup_preserves_ex_style_unchanged() {
+    let ex_style = 0x00000008;
+    let (_, new_ex) = compute_frameless_popup_window_styles(0, ex_style);
+    // popup function should not modify ex_style
+    assert_eq!(new_ex, ex_style);
+}
+
+#[test]
+fn frameless_popup_no_child_input_still_sets_popup() {
+    // Input without WS_CHILD should still gain WS_POPUP
+    let style: i32 = 0x00000010; // some unrelated bit
+    let (new_style, _) = compute_frameless_popup_window_styles(style, 0);
+    assert_ne!(new_style & WS_POPUP, 0);
+}
+
+#[test]
+fn frameless_window_and_popup_compose_cleanly() {
+    // First apply frameless, then popup — result should have WS_POPUP and no frame bits
+    let style = WS_CAPTION | WS_THICKFRAME | WS_CHILD | 0x10;
+    let ex_style = WS_EX_WINDOWEDGE;
+
+    let (s1, e1) = compute_frameless_window_styles(style, ex_style);
+    let (s2, e2) = compute_frameless_popup_window_styles(s1, e1);
+
+    assert_eq!(s2 & WS_CAPTION, 0);
+    assert_eq!(s2 & WS_THICKFRAME, 0);
+    assert_ne!(s2 & WS_POPUP, 0);
+    assert_eq!(e1 & WS_EX_WINDOWEDGE, 0);
+    assert_eq!(e2, e1); // popup doesn't touch ex_style
+}

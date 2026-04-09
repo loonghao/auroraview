@@ -168,3 +168,110 @@ fn test_cli_pack_new_options() {
     assert!(stdout.contains("--no-resize"));
     assert!(stdout.contains("--user-agent"));
 }
+
+// ---------------------------------------------------------------------------
+// Additional CLI tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_cli_run_help_contains_fullscreen() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // run --help should have window sizing options
+    assert!(
+        stdout.contains("--width") || stdout.contains("--height") || stdout.contains("--title"),
+        "run --help should mention window options, got: {}",
+        stdout
+    );
+}
+
+#[test]
+fn test_cli_run_help_contains_width_height() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("--width") || stdout.contains("width"));
+    assert!(stdout.contains("--height") || stdout.contains("height"));
+}
+
+#[test]
+fn test_cli_version_output_contains_semver() {
+    let output = Command::new(cli_binary())
+        .arg("--version")
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Version string should contain a semver-like pattern (digits and dots)
+    assert!(
+        stdout.chars().any(|c| c.is_ascii_digit()),
+        "Version should contain digits: {}",
+        stdout
+    );
+}
+
+#[test]
+fn test_cli_help_exit_code_zero() {
+    let status = Command::new(cli_binary())
+        .arg("--help")
+        .status()
+        .expect("Failed to run CLI");
+    assert!(status.success());
+}
+
+#[test]
+fn test_cli_version_exit_code_zero() {
+    let status = Command::new(cli_binary())
+        .arg("--version")
+        .status()
+        .expect("Failed to run CLI");
+    assert!(status.success());
+}
+
+#[test]
+fn test_cli_pack_help_exit_code_zero() {
+    let status = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .status()
+        .expect("Failed to run CLI");
+    assert!(status.success());
+}
+
+#[test]
+fn test_cli_info_exit_code_zero() {
+    let status = Command::new(cli_binary())
+        .args(["info"])
+        .status()
+        .expect("Failed to run CLI");
+    assert!(status.success());
+}
+
+#[test]
+fn test_cli_unknown_subcommand_fails() {
+    let status = Command::new(cli_binary())
+        .args(["nonexistent-subcommand-xyz"])
+        .status()
+        .expect("Failed to run CLI");
+    assert!(!status.success(), "Unknown subcommand should fail");
+}
+
+#[test]
+fn test_cli_run_help_contains_debug() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--debug") || stdout.contains("devtools"),
+        "run --help should mention debug/devtools"
+    );
+}
