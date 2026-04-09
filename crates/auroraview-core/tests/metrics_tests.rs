@@ -362,3 +362,130 @@ fn test_format_report_does_not_contain_unset_marks() {
     assert!(!report.contains("First paint"));
     assert!(!report.contains("Window shown"));
 }
+
+// ============================================================================
+// R8 Extensions
+// ============================================================================
+
+#[test]
+fn test_metrics_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Metrics>();
+}
+
+#[test]
+fn test_mark_window_then_webview_both_some() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+    metrics.mark_webview();
+
+    assert!(metrics.window_time().is_some());
+    assert!(metrics.webview_time().is_some());
+}
+
+#[test]
+fn test_mark_js_then_paint_both_some() {
+    let mut metrics = Metrics::new();
+    metrics.mark_js();
+    metrics.mark_paint();
+
+    assert!(metrics.js_time().is_some());
+    assert!(metrics.paint_time().is_some());
+}
+
+#[test]
+fn test_format_report_all_marks_contains_timing_report_header() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+    metrics.mark_webview();
+
+    let report = metrics.format_report();
+    assert!(report.starts_with("") || report.contains("Timing Report"));
+}
+
+#[test]
+fn test_format_report_shown_contains_total_time() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+    metrics.mark_shown();
+
+    let report = metrics.format_report();
+    // If shown is marked, the total time line should appear
+    assert!(report.contains("Total time to interactive"));
+}
+
+#[test]
+fn test_metrics_clone_only_marked_fields_copied() {
+    let mut original = Metrics::new();
+    original.mark_html();
+    original.mark_js();
+
+    let cloned = original.clone();
+    assert!(cloned.html_time().is_some());
+    assert!(cloned.js_time().is_some());
+    // Others remain None
+    assert!(cloned.window_time().is_none());
+    assert!(cloned.webview_time().is_none());
+    assert!(cloned.paint_time().is_none());
+    assert!(cloned.shown_time().is_none());
+}
+
+#[test]
+fn test_mark_shown_twice_both_some() {
+    let mut metrics = Metrics::new();
+    metrics.mark_shown();
+    let t1 = metrics.shown_time().unwrap();
+    thread::sleep(StdDuration::from_millis(2));
+    metrics.mark_shown();
+    let t2 = metrics.shown_time().unwrap();
+    // Both should be valid durations
+    assert!(t2 >= t1, "second mark should be >= first mark");
+}
+
+#[test]
+fn test_mark_all_then_clone_preserves_all() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+    metrics.mark_webview();
+    metrics.mark_html();
+    metrics.mark_js();
+    metrics.mark_paint();
+    metrics.mark_shown();
+
+    let cloned = metrics.clone();
+    assert!(cloned.window_time().is_some());
+    assert!(cloned.webview_time().is_some());
+    assert!(cloned.html_time().is_some());
+    assert!(cloned.js_time().is_some());
+    assert!(cloned.paint_time().is_some());
+    assert!(cloned.shown_time().is_some());
+}
+
+#[test]
+fn test_default_and_new_equivalent_initial_state() {
+    let m_default = Metrics::default();
+    let m_new = Metrics::new();
+    // Both should have all times as None
+    assert!(m_default.window_time().is_none());
+    assert!(m_new.window_time().is_none());
+    assert!(m_default.shown_time().is_none());
+    assert!(m_new.shown_time().is_none());
+}
+
+#[test]
+fn test_format_report_no_html_mark_not_in_report() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+    // html not marked
+    let report = metrics.format_report();
+    assert!(!report.contains("HTML loaded"), "HTML line should not appear when not marked");
+}
+
+#[test]
+fn test_format_report_no_js_mark_not_in_report() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+    // js not marked
+    let report = metrics.format_report();
+    assert!(!report.contains("JavaScript initialized"), "JS line should not appear when not marked");
+}

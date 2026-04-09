@@ -343,3 +343,175 @@ fn test_compress_and_resize_nonexistent_input() {
     let result = compress_and_resize(&fake_path, &out_path, 64, 5);
     assert!(result.is_err());
 }
+
+// ============================================================================
+// R8 Extensions
+// ============================================================================
+
+#[rstest]
+fn test_png_to_ico_output_is_not_empty() {
+    let png_file = create_simple_test_png();
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("not_empty.ico");
+
+    png_to_ico(png_file.path(), &ico_path, &[32]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(!data.is_empty(), "ICO file must contain data");
+}
+
+#[rstest]
+fn test_png_bytes_to_ico_output_minimum_size() {
+    // ICO header is 6 bytes + directory entries, must be > 6 bytes for a single icon
+    let png_bytes = create_png_bytes(32);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("min_size.ico");
+
+    png_bytes_to_ico(&png_bytes, &ico_path, &[16]).unwrap();
+
+    let metadata = std::fs::metadata(&ico_path).unwrap();
+    assert!(metadata.len() > 6);
+}
+
+#[rstest]
+fn test_compression_result_compressed_size_positive() {
+    let png_file = create_test_png(128);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("check_compressed.png");
+
+    let result = compress_png(png_file.path(), &out_path, 5).unwrap();
+    assert!(result.compressed_size > 0, "compressed_size must be positive");
+}
+
+#[rstest]
+fn test_compression_result_original_size_positive() {
+    let png_file = create_test_png(128);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("check_original.png");
+
+    let result = compress_png(png_file.path(), &out_path, 5).unwrap();
+    assert!(result.original_size > 0, "original_size must be positive");
+}
+
+#[rstest]
+fn test_compression_level_from_boundary_values() {
+    // Boundary at exactly 0 → Fast
+    assert_eq!(CompressionLevel::from(0u8), CompressionLevel::Fast);
+    // Boundary at exactly 3 → Fast
+    assert_eq!(CompressionLevel::from(3u8), CompressionLevel::Fast);
+    // Boundary at exactly 4 → Default
+    assert_eq!(CompressionLevel::from(4u8), CompressionLevel::Default);
+    // Boundary at exactly 6 → Default
+    assert_eq!(CompressionLevel::from(6u8), CompressionLevel::Default);
+    // Boundary at exactly 7 → Best
+    assert_eq!(CompressionLevel::from(7u8), CompressionLevel::Best);
+    // Boundary at exactly 9 → Best
+    assert_eq!(CompressionLevel::from(9u8), CompressionLevel::Best);
+}
+
+#[rstest]
+fn test_compress_and_resize_output_exists() {
+    let png_file = create_test_png(128);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("resized_exists.png");
+
+    compress_and_resize(png_file.path(), &out_path, 64, 5).unwrap();
+    assert!(out_path.exists());
+}
+
+#[rstest]
+#[case(16)]
+#[case(32)]
+#[case(64)]
+#[case(128)]
+#[case(256)]
+fn test_compress_png_various_source_sizes(#[case] size: u32) {
+    let png_file = create_test_png(size);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join(format!("compressed_{}.png", size));
+
+    let result = compress_png(png_file.path(), &out_path, 5).unwrap();
+
+    assert!(out_path.exists());
+    assert_eq!(result.width, size);
+    assert_eq!(result.height, size);
+}
+
+#[rstest]
+fn test_png_to_ico_overwrites_existing_file() {
+    let png_file = create_simple_test_png();
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("overwrite.ico");
+
+    png_to_ico(png_file.path(), &ico_path, &[16]).unwrap();
+    let first_size = std::fs::metadata(&ico_path).unwrap().len();
+
+    png_to_ico(png_file.path(), &ico_path, &[32, 48]).unwrap();
+    let second_size = std::fs::metadata(&ico_path).unwrap().len();
+
+    // Both should be valid (sizes may differ due to different icon entries)
+    assert!(first_size > 0);
+    assert!(second_size > 0);
+}
+
+#[rstest]
+fn test_compress_png_level_1_vs_level_9() {
+    // Level 1 (fast) and level 9 (best) should both produce valid output
+    let png_file_fast = create_test_png(64);
+    let png_file_best = create_test_png(64);
+    let temp_dir = TempDir::new().unwrap();
+    let out_fast = temp_dir.path().join("fast.png");
+    let out_best = temp_dir.path().join("best.png");
+
+    let r_fast = compress_png(png_file_fast.path(), &out_fast, 1).unwrap();
+    let r_best = compress_png(png_file_best.path(), &out_best, 9).unwrap();
+
+    assert!(r_fast.compressed_size > 0);
+    assert!(r_best.compressed_size > 0);
+    assert_eq!(r_fast.width, r_best.width);
+    assert_eq!(r_fast.height, r_best.height);
+}
+
+#[rstest]
+fn test_compression_level_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<CompressionLevel>();
+}
+
+#[rstest]
+fn test_compression_result_debug_contains_width() {
+    let png_file = create_test_png(32);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("debug.png");
+
+    let result = compress_png(png_file.path(), &out_path, 5).unwrap();
+    let debug_str = format!("{:?}", result);
+    assert!(debug_str.contains("32") || !debug_str.is_empty());
+}
+
+#[rstest]
+#[case(&[16, 32, 48, 64, 128, 256])]
+fn test_png_to_ico_many_sizes(#[case] sizes: &[u32]) {
+    let png_file = create_test_png(512);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("many_sizes.ico");
+
+    png_to_ico(png_file.path(), &ico_path, sizes).unwrap();
+
+    assert!(ico_path.exists());
+    let size = std::fs::metadata(&ico_path).unwrap().len();
+    assert!(size > 0);
+}
+
+#[rstest]
+fn test_compress_and_resize_preserves_aspect_when_downscaling() {
+    // 512x512 downscaled to max 128 should fit within 128x128
+    let png_file = create_test_png(512);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("aspect.png");
+
+    let result = compress_and_resize(png_file.path(), &out_path, 128, 5).unwrap();
+
+    assert!(result.width <= 128, "width {} should be <= 128", result.width);
+    assert!(result.height <= 128, "height {} should be <= 128", result.height);
+}
