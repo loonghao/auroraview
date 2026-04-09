@@ -269,3 +269,124 @@ fn frameless_window_and_popup_compose_cleanly() {
     assert_eq!(e1 & WS_EX_WINDOWEDGE, 0);
     assert_eq!(e2, e1); // popup doesn't touch ex_style
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn frameless_window_all_style_bits_removed_simultaneously() {
+    let style = WS_CAPTION | WS_THICKFRAME | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+    let (new_style, _) = compute_frameless_window_styles(style, 0);
+    assert_eq!(new_style, 0, "All frame bits should be cleared");
+}
+
+#[test]
+fn frameless_window_all_ex_bits_removed_simultaneously() {
+    let ex_style = WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE;
+    let (_, new_ex) = compute_frameless_window_styles(0, ex_style);
+    assert_eq!(new_ex, 0, "All ex frame bits should be cleared");
+}
+
+#[test]
+fn frameless_window_high_bit_unrelated_preserved() {
+    let custom: i32 = 0x00100000;
+    let (new_style, _) = compute_frameless_window_styles(custom, 0);
+    assert_ne!(new_style & custom, 0);
+}
+
+#[test]
+fn frameless_popup_adds_popup_without_losing_custom_bit() {
+    let custom: i32 = 0x00100000;
+    let (new_style, _) = compute_frameless_popup_window_styles(custom, 0);
+    assert_ne!(new_style & WS_POPUP, 0);
+    assert_ne!(new_style & custom, 0);
+}
+
+#[test]
+fn frameless_popup_removes_all_caption_bits() {
+    let style = WS_CAPTION | WS_THICKFRAME | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CHILD;
+    let (new_style, _) = compute_frameless_popup_window_styles(style, 0);
+    assert_eq!(new_style & WS_CAPTION, 0);
+    assert_eq!(new_style & WS_THICKFRAME, 0);
+    assert_eq!(new_style & WS_BORDER, 0);
+    assert_eq!(new_style & WS_DLGFRAME, 0);
+    assert_eq!(new_style & WS_SYSMENU, 0);
+    assert_eq!(new_style & WS_MINIMIZEBOX, 0);
+    assert_eq!(new_style & WS_MAXIMIZEBOX, 0);
+    assert_eq!(new_style & WS_CHILD, 0);
+}
+
+#[rstest]
+#[case(0x00000010_i32, 0)]
+#[case(0x00000020_i32, 0)]
+#[case(0x00000040_i32, 0)]
+fn frameless_window_unrelated_bits_preserved_parametric(#[case] custom_bit: i32, #[case] _zero: i32) {
+    let (new_style, _) = compute_frameless_window_styles(custom_bit, 0);
+    assert_ne!(new_style & custom_bit, 0, "Custom bit {:#010x} should be preserved", custom_bit);
+}
+
+#[rstest]
+#[case(0x00000010_i32)]
+#[case(0x00000004_i32)]
+#[case(0x00000002_i32)]
+fn frameless_popup_unrelated_ex_bits_preserved(#[case] custom_ex: i32) {
+    let (_, new_ex) = compute_frameless_popup_window_styles(0, custom_ex);
+    assert_ne!(new_ex & custom_ex, 0, "Ex bit {:#010x} should survive popup transform", custom_ex);
+}
+
+#[test]
+fn frameless_window_multiple_applications_identical() {
+    let style = WS_CAPTION | WS_THICKFRAME | 0x00000010;
+    let ex = WS_EX_WINDOWEDGE | 0x00000008;
+    let (s1, e1) = compute_frameless_window_styles(style, ex);
+    let (s2, e2) = compute_frameless_window_styles(style, ex);
+    assert_eq!(s1, s2);
+    assert_eq!(e1, e2);
+}
+
+#[test]
+fn frameless_popup_multiple_applications_identical() {
+    let style = WS_CHILD | WS_CAPTION;
+    let (s1, e1) = compute_frameless_popup_window_styles(style, 0);
+    let (s2, e2) = compute_frameless_popup_window_styles(style, 0);
+    assert_eq!(s1, s2);
+    assert_eq!(e1, e2);
+}
+
+#[test]
+fn frameless_window_return_type_is_tuple_i32() {
+    let result: (i32, i32) = compute_frameless_window_styles(0, 0);
+    let _ = result;
+}
+
+#[test]
+fn frameless_popup_return_type_is_tuple_i32() {
+    let result: (i32, i32) = compute_frameless_popup_window_styles(0, 0);
+    let _ = result;
+}
+
+#[test]
+fn frameless_window_caption_and_border_removed_independently() {
+    let (s1, _) = compute_frameless_window_styles(WS_CAPTION, 0);
+    let (s2, _) = compute_frameless_window_styles(WS_BORDER, 0);
+    assert_eq!(s1 & WS_CAPTION, 0);
+    assert_eq!(s2 & WS_BORDER, 0);
+    // Each removal is independent
+    assert_eq!(s1 & WS_BORDER, 0); // not set in input
+    assert_eq!(s2 & WS_CAPTION, 0); // not set in input
+}
+
+#[test]
+fn frameless_window_not_equal_to_input_when_frame_bits_set() {
+    let style = WS_CAPTION | WS_THICKFRAME;
+    let (new_style, _) = compute_frameless_window_styles(style, 0);
+    assert_ne!(new_style, style, "Output should differ when frame bits are removed");
+}
+
+#[test]
+fn frameless_popup_not_equal_to_input() {
+    let style = WS_CHILD | WS_CAPTION;
+    let (new_style, _) = compute_frameless_popup_window_styles(style, 0);
+    assert_ne!(new_style, style, "Output should differ after adding WS_POPUP and removing WS_CHILD");
+}

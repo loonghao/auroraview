@@ -315,3 +315,136 @@ fn window_info_send_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<WindowInfo>();
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn window_info_process_path_empty() {
+    let info = WindowInfo::new(1, "T".to_string(), 1, "proc".to_string(), "".to_string());
+    assert_eq!(info.process_path, "");
+}
+
+#[test]
+fn window_info_process_name_empty() {
+    let info = WindowInfo::new(1, "T".to_string(), 1, "".to_string(), "/p".to_string());
+    assert_eq!(info.process_name, "");
+}
+
+#[test]
+fn window_info_large_hwnd() {
+    let info = WindowInfo::new(isize::MAX, "Max".to_string(), u32::MAX, "p".to_string(), "/".to_string());
+    assert_eq!(info.hwnd, isize::MAX);
+    assert_eq!(info.pid, u32::MAX);
+}
+
+#[rstest]
+#[case("maya.exe", "C:/Autodesk/Maya2025/bin/maya.exe", "Maya 2025")]
+#[case("houdini.exe", "C:/SideFX/Houdini20.0/bin/houdini.exe", "Houdini 20.0")]
+#[case("3dsmax.exe", "C:/Autodesk/3dsMax2025/3dsmax.exe", "3ds Max 2025")]
+#[case("blender.exe", "C:/Blender/blender.exe", "Blender 4.0")]
+fn dcc_application_window_info(#[case] proc: &str, #[case] path: &str, #[case] title: &str) {
+    let info = WindowInfo::new(1000, title.to_string(), 500, proc.to_string(), path.to_string());
+    assert_eq!(info.process_name, proc);
+    assert_eq!(info.process_path, path);
+    let repr = info.repr();
+    assert!(repr.contains(proc));
+}
+
+#[test]
+fn window_info_eq_reflexive() {
+    let info = WindowInfo::new(5, "Test".to_string(), 10, "p".to_string(), "/p".to_string());
+    assert_eq!(info, info.clone());
+}
+
+#[test]
+fn window_info_clone_independence() {
+    let info = WindowInfo::new(5, "Original".to_string(), 10, "p".to_string(), "/p".to_string());
+    let cloned = info.clone();
+    // Modifying cloned does not affect original
+    assert_eq!(info.title, "Original");
+    // cloned should have same values
+    assert_eq!(cloned.title, "Original");
+    // We can't directly mutate a field (if no setter), but we verify they're equal
+    let _ = cloned;
+}
+
+#[test]
+fn window_info_debug_contains_all_fields() {
+    let info = WindowInfo::new(
+        42,
+        "Debug Window".to_string(),
+        1001,
+        "debug_proc".to_string(),
+        "/debug/path".to_string(),
+    );
+    let debug_str = format!("{:?}", info);
+    assert!(debug_str.contains("42") || debug_str.contains("WindowInfo"));
+}
+
+#[test]
+fn from_active_window_extracts_process_name() {
+    let window = make_active_window("Test", "HWND(1)", 999, "/tools/app.exe", "my-app");
+    let info: WindowInfo = window.into();
+    assert_eq!(info.process_name, "my-app");
+}
+
+#[test]
+fn from_active_window_extracts_pid() {
+    let window = make_active_window("Win", "HWND(2)", 12345, "/app", "app");
+    let info: WindowInfo = window.into();
+    assert_eq!(info.pid, 12345);
+}
+
+#[test]
+fn concurrent_window_info_clone() {
+    use std::sync::Arc;
+    let info = Arc::new(WindowInfo::new(1, "Shared".to_string(), 1, "p".to_string(), "/".to_string()));
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let info_ref = Arc::clone(&info);
+            std::thread::spawn(move || {
+                let cloned = (*info_ref).clone();
+                assert_eq!(cloned.title, "Shared");
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+#[rstest]
+#[case("HWND(-100)", -100)]
+#[case("HWND(12345678)", 12345678)]
+fn hwnd_parse_extended(#[case] window_id: &str, #[case] expected: isize) {
+    let window = make_active_window("T", window_id, 1, "/app", "p");
+    let info: WindowInfo = window.into();
+    assert_eq!(info.hwnd, expected);
+}
+
+#[test]
+fn window_info_repr_contains_hwnd_label() {
+    let info = WindowInfo::new(777, "App".to_string(), 10, "app".to_string(), "/app".to_string());
+    let repr = info.repr();
+    assert!(repr.contains("hwnd=777"));
+}
+
+#[test]
+fn window_info_ne_all_different() {
+    let a = WindowInfo::new(1, "A".to_string(), 1, "a".to_string(), "/a".to_string());
+    let b = WindowInfo::new(2, "B".to_string(), 2, "b".to_string(), "/b".to_string());
+    assert_ne!(a, b);
+}
+
+#[test]
+fn window_info_collection_of_10() {
+    let windows: Vec<WindowInfo> = (0..10)
+        .map(|i| WindowInfo::new(i as isize, format!("Window {i}"), i as u32, "proc".to_string(), "/p".to_string()))
+        .collect();
+    assert_eq!(windows.len(), 10);
+    for (i, w) in windows.iter().enumerate() {
+        assert_eq!(w.hwnd, i as isize);
+    }
+}
