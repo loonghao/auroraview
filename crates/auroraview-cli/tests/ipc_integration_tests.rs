@@ -24,7 +24,7 @@ fn get_python_command() -> &'static str {
 /// Test that Python packed module sends ready signal on startup
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_python_sends_ready_signal() {
+fn python_sends_ready_signal() {
     // Create a minimal Python script that mimics packed mode behavior
     let python_code = r#"
 import json
@@ -100,7 +100,7 @@ if line:
 /// Test that Python handles multiple requests correctly
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_python_handles_multiple_requests() {
+fn python_handles_multiple_requests() {
     let python_code = r#"
 import json
 import sys
@@ -165,7 +165,7 @@ for _ in range(3):
 /// Test that closing stdin causes Python to exit gracefully
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_python_exits_on_stdin_close() {
+fn python_exits_on_stdin_close() {
     let python_code = r#"
 import json
 import sys
@@ -225,7 +225,7 @@ while True:
 /// Test error handling when Python returns an error
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_python_error_response() {
+fn python_error_response() {
     let python_code = r#"
 import json
 import sys
@@ -324,7 +324,7 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_call_message_fields() {
+    fn call_message_fields() {
         let msg = make_call("req_1", "api.echo", serde_json::json!({"text": "hello"}));
         assert_eq!(msg["type"], "call");
         assert_eq!(msg["id"], "req_1");
@@ -333,7 +333,7 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_result_ok_fields() {
+    fn result_ok_fields() {
         let r = make_result_ok("req_1", serde_json::json!(42));
         assert_eq!(r["id"], "req_1");
         assert_eq!(r["ok"], true);
@@ -341,7 +341,7 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_result_err_fields() {
+    fn result_err_fields() {
         let r = make_result_err("req_1", "NotFound", "method not found");
         assert_eq!(r["id"], "req_1");
         assert_eq!(r["ok"], false);
@@ -350,7 +350,7 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_call_id_roundtrip_in_response() {
+    fn call_id_roundtrip_in_response() {
         let call_id = "av_call_99887766_42";
         let call = make_call(call_id, "get_samples", serde_json::json!(null));
         let response = make_result_ok(call_id, serde_json::json!([]));
@@ -361,13 +361,13 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_params_null_is_valid() {
+    fn params_null_is_valid() {
         let msg = make_call("id1", "list_items", serde_json::json!(null));
         assert!(msg["params"].is_null());
     }
 
     #[test]
-    fn test_params_array_is_valid() {
+    fn params_array_is_valid() {
         let msg = make_call("id2", "add", serde_json::json!([1, 2]));
         assert!(msg["params"].is_array());
         assert_eq!(msg["params"][0], 1);
@@ -375,14 +375,14 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_params_object_is_valid() {
+    fn params_object_is_valid() {
         let msg = make_call("id3", "export", serde_json::json!({"path": "/tmp/out.fbx"}));
         assert!(msg["params"].is_object());
         assert_eq!(msg["params"]["path"], "/tmp/out.fbx");
     }
 
     #[test]
-    fn test_ready_signal_required_fields() {
+    fn ready_signal_required_fields() {
         let ready = serde_json::json!({
             "type": "ready",
             "handlers": ["get_samples", "run_sample"]
@@ -393,21 +393,21 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_ready_signal_empty_handlers() {
+    fn ready_signal_empty_handlers() {
         let ready = serde_json::json!({"type": "ready", "handlers": []});
         assert_eq!(ready["type"], "ready");
         assert_eq!(ready["handlers"].as_array().unwrap().len(), 0);
     }
 
     #[test]
-    fn test_ready_signal_multiple_handlers() {
+    fn ready_signal_multiple_handlers() {
         let handlers = vec!["get_samples", "get_categories", "run_sample", "get_config"];
         let ready = serde_json::json!({ "type": "ready", "handlers": handlers });
         assert_eq!(ready["handlers"].as_array().unwrap().len(), 4);
     }
 
     #[test]
-    fn test_error_response_with_code() {
+    fn error_response_with_code() {
         let r = serde_json::json!({
             "id": "x",
             "ok": false,
@@ -421,7 +421,7 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_call_method_namespace_dot() {
+    fn call_method_namespace_dot() {
         let namespaces = ["api.echo", "tool.apply", "scene.export", "dcc.maya.get_selection"];
         for ns in &namespaces {
             let msg = make_call("id", ns, serde_json::json!(null));
@@ -430,26 +430,26 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_result_can_be_object() {
+    fn result_can_be_object() {
         let r = make_result_ok("x", serde_json::json!({"items": [1, 2, 3], "total": 3}));
         assert_eq!(r["result"]["total"], 3);
         assert_eq!(r["result"]["items"].as_array().unwrap().len(), 3);
     }
 
     #[test]
-    fn test_result_can_be_string() {
+    fn result_can_be_string() {
         let r = make_result_ok("x", serde_json::json!("hello world"));
         assert_eq!(r["result"], "hello world");
     }
 
     #[test]
-    fn test_result_can_be_bool() {
+    fn result_can_be_bool() {
         let r = make_result_ok("x", serde_json::json!(false));
         assert_eq!(r["result"], false);
     }
 
     #[test]
-    fn test_ipc_serialized_parse() {
+    fn ipc_serialized_parse() {
         let raw = r#"{"type":"call","id":"1","method":"api.echo","params":{"message":"test"}}"#;
         let msg: serde_json::Value = serde_json::from_str(raw).unwrap();
         assert_eq!(msg["type"], "call");
@@ -459,7 +459,7 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_backend_exit_error_format() {
+    fn backend_exit_error_format() {
         let r = serde_json::json!({
             "id": "abc",
             "ok": false,
@@ -474,21 +474,21 @@ mod jsonrpc_format_tests {
     }
 
     #[test]
-    fn test_method_not_found_error() {
+    fn method_not_found_error() {
         let r = make_result_err("y", "MethodNotFound", "method 'unknown' not found");
         assert_eq!(r["error"]["name"], "MethodNotFound");
         assert!(r["error"]["message"].as_str().unwrap().contains("unknown"));
     }
 
     #[test]
-    fn test_unique_call_ids_sequential() {
+    fn unique_call_ids_sequential() {
         let ids: Vec<String> = (0..10).map(|i| format!("av_call_{}_1", i)).collect();
         let unique: std::collections::HashSet<_> = ids.iter().collect();
         assert_eq!(unique.len(), 10);
     }
 
     #[test]
-    fn test_call_serialize_compact() {
+    fn call_serialize_compact() {
         let msg = make_call("1", "echo", serde_json::json!(null));
         let s = serde_json::to_string(&msg).unwrap();
         // Should not contain pretty-print newlines at the top level
@@ -499,7 +499,7 @@ mod jsonrpc_format_tests {
 /// Test the actual packed.py module if available
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_real_packed_module() {
+fn real_packed_module() {
     // This test uses the actual packed.py module
     let project_root = std::env::current_dir()
         .unwrap()

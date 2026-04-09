@@ -254,9 +254,9 @@ fn error_code_all_variants_serde(#[case] code: PluginErrorCode) {
 
 #[test]
 fn plugin_result_ok_with_string() {
-    let r: PluginResult<String> = Ok("file contents".to_string());
-    assert!(r.is_ok());
-    assert_eq!(r.unwrap(), "file contents");
+    let contents = "file contents";
+    let r: PluginResult<&str> = Ok(contents);
+    assert!(matches!(r, Ok(s) if s == contents));
 }
 
 #[test]

@@ -262,7 +262,7 @@ fn png_to_ico_basic() {
     let dir = TempDir::new().unwrap();
     let ico_path = dir.path().join("out.ico");
     let result = png_to_ico(png_file.path(), &ico_path, &[16, 32]);
-    assert!(result.is_ok(), "png_to_ico failed: {:?}", result);
+    result.expect("png_to_ico failed");
     assert!(ico_path.exists());
 }
 
@@ -284,7 +284,7 @@ fn png_bytes_to_ico_basic() {
     let dir = TempDir::new().unwrap();
     let ico_path = dir.path().join("from_bytes.ico");
     let result = png_bytes_to_ico(&bytes, &ico_path, &[16, 32]);
-    assert!(result.is_ok(), "png_bytes_to_ico failed: {:?}", result);
+    result.expect("png_bytes_to_ico failed");
 }
 
 #[test]
@@ -305,8 +305,7 @@ fn compress_png_basic() {
     let dir = TempDir::new().unwrap();
     let out = dir.path().join("compressed.png");
     let result = compress_png(png_file.path(), &out, 6);
-    assert!(result.is_ok(), "compress_png failed: {:?}", result);
-    let cr = result.unwrap();
+    let cr = result.expect("compress_png failed");
     assert_eq!(cr.width, 8);
     assert_eq!(cr.height, 8);
 }
@@ -460,7 +459,7 @@ fn png_to_ico_large_image_succeeds() {
     let dir = TempDir::new().unwrap();
     let ico = dir.path().join("large.ico");
     let result = png_to_ico(png_file.path(), &ico, &[16, 32, 256]);
-    assert!(result.is_ok(), "should convert large PNG to ICO: {:?}", result);
+    result.expect("should convert large PNG to ICO");
 }
 
 // ============================================================================
@@ -473,7 +472,7 @@ fn png_bytes_to_ico_result_is_ok_for_valid_input() {
     let dir = TempDir::new().unwrap();
     let ico = dir.path().join("b.ico");
     let result = png_bytes_to_ico(&bytes, &ico, &[16, 32]);
-    assert!(result.is_ok());
+    result.unwrap();
 }
 
 // ============================================================================
@@ -529,7 +528,7 @@ fn compression_result_size_increase() {
     };
     // reduction_percent will be negative
     let pct = cr.reduction_percent();
-    assert!(pct < 0.0 || pct == 0.0 || pct.is_finite());
+    assert!(pct.is_finite());
 }
 
 // ============================================================================
@@ -556,7 +555,7 @@ fn default_ico_sizes_are_unique() {
 
 #[test]
 fn default_ico_sizes_all_positive() {
-    for s in DEFAULT_ICO_SIZES {
-        assert!(*s > 0, "ICO size must be positive, got {}", s);
+    for &s in DEFAULT_ICO_SIZES {
+        assert!(s > 0, "ICO size must be positive, got {}", s);
     }
 }

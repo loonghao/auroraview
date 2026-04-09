@@ -509,8 +509,10 @@ fn browser_config_clone_independence() {
 
 #[test]
 fn browser_features_clone_independence() {
-    let mut features = BrowserFeatures::default();
-    features.history = false;
+    let mut features = BrowserFeatures {
+        history: false,
+        ..BrowserFeatures::default()
+    };
     let cloned = features.clone();
     features.history = true;
     assert!(!cloned.history);

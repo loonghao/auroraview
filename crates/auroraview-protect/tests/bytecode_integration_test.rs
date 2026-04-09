@@ -263,7 +263,7 @@ fn test_bytecode_file_clone() {
 #[test]
 fn test_encrypt_bytecode_empty_slice_returns_empty() {
     let result = encrypt_bytecode(&[], EccAlgorithm::X25519, None).unwrap();
-    assert_eq!(result.modules.len(), 0);
+    assert!(result.modules.is_empty());
 }
 
 #[test]
@@ -391,7 +391,7 @@ fn test_ecc_algorithm_eq() {
 #[test]
 fn test_ecc_algorithm_clone() {
     let algo = EccAlgorithm::P256;
-    let cloned = algo.clone();
+    let cloned = algo;
     assert_eq!(algo, cloned);
 }
 

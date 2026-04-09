@@ -62,7 +62,7 @@ fn overlay_magic_length_is_4() {
 
 #[test]
 fn overlay_version_is_nonzero() {
-    assert!(OVERLAY_VERSION > 0, "OVERLAY_VERSION should be > 0");
+    const _: () = assert!(OVERLAY_VERSION > 0);
 }
 
 // =============================================================================
@@ -97,7 +97,7 @@ fn read_overlay_returns_none_in_test_env() {
 #[test]
 fn read_overlay_ok_variant_in_test_env() {
     // Should succeed (Ok) even if no overlay present
-    assert!(auroraview_pack::read_overlay().is_ok());
+    auroraview_pack::read_overlay().expect("read_overlay should not fail in test env");
 }
 
 // =============================================================================
@@ -306,8 +306,9 @@ fn pack_config_with_title_unicode() {
 fn version_major_numeric() {
     let parts: Vec<&str> = VERSION.split('.').collect();
     assert!(!parts.is_empty());
-    let major = parts[0].parse::<u64>();
-    assert!(major.is_ok(), "Major version '{}' should be numeric", parts[0]);
+    parts[0]
+        .parse::<u64>()
+        .unwrap_or_else(|_| panic!("Major version '{}' should be numeric", parts[0]));
 }
 
 #[test]

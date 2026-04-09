@@ -368,7 +368,7 @@ fn test_emit_event_template_result_is_valid_utf8() {
     };
     let result = template.render().unwrap();
     // Valid UTF-8 string means no panic on .len()
-    assert!(result.len() > 0);
+    assert!(!result.is_empty());
 }
 
 #[test]

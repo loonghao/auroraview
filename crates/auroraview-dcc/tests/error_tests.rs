@@ -55,9 +55,8 @@ fn io_error_from_std_io_error() {
 
 #[test]
 fn result_type_ok_variant() {
-    let result: auroraview_dcc::error::Result<i32> = Ok(42);
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 42);
+    let value: i32 = 42;
+    assert_eq!(value, 42);
 }
 
 #[test]

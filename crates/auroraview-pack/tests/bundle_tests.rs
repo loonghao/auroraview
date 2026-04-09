@@ -407,7 +407,7 @@ fn bundle_extension_filter_empty_allows_all() {
         .build()
         .unwrap();
     // With empty filter, should include all (html and js = 2)
-    assert!(bundle.len() >= 1);
+    assert!(!bundle.is_empty());
 }
 
 #[test]

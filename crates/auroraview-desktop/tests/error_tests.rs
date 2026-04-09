@@ -313,7 +313,7 @@ fn io_error_not_found_kind() {
 
 #[rstest]
 fn io_error_source_is_some() {
-    let io_err = io::Error::new(io::ErrorKind::Other, "chain");
+    let io_err = io::Error::other("chain");
     let e = DesktopError::Io(io_err);
     let e_ref: &dyn std::error::Error = &e;
     assert!(e_ref.source().is_some());
@@ -336,16 +336,14 @@ fn all_non_io_variants_source_is_none() {
 
 #[rstest]
 fn result_err_window_creation() {
-    let r: Result<i32> = Err(DesktopError::WindowCreation("hwnd null".into()));
-    assert!(r.is_err());
-    assert!(r.unwrap_err().to_string().contains("hwnd null"));
+    let e = DesktopError::WindowCreation("hwnd null".into());
+    assert!(e.to_string().contains("hwnd null"));
 }
 
 #[rstest]
 fn result_err_webview_creation() {
-    let r: Result<i32> = Err(DesktopError::WebViewCreation("env failed".into()));
-    assert!(r.is_err());
-    assert!(r.unwrap_err().to_string().contains("env failed"));
+    let e = DesktopError::WebViewCreation("env failed".into());
+    assert!(e.to_string().contains("env failed"));
 }
 
 #[rstest]
