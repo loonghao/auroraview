@@ -1,6 +1,7 @@
 //! Tests for auroraview-pack license module
 
 use auroraview_pack::{get_machine_id, LicenseConfig, LicenseReason, LicenseStatus, LicenseValidator};
+use rstest::rstest;
 
 #[test]
 fn no_license_required() {
@@ -328,4 +329,120 @@ fn grace_period_zero_means_no_grace() {
     let status = validator.validate(None);
     assert!(!status.valid);
     assert_eq!(status.reason, LicenseReason::Expired);
+}
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn license_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<LicenseConfig>();
+}
+
+#[test]
+fn license_status_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<LicenseStatus>();
+}
+
+#[test]
+fn license_validator_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<LicenseValidator>();
+}
+
+#[test]
+fn license_status_valid_has_no_message_by_default() {
+    let config = LicenseConfig::default();
+    let validator = LicenseValidator::new(config);
+    let status = validator.validate(None);
+    assert!(status.valid);
+    // no message required for valid status
+}
+
+#[test]
+fn license_config_default_not_require_token() {
+    let config = LicenseConfig::default();
+    assert!(!config.require_token);
+}
+
+#[test]
+fn license_config_token_required_sets_flag() {
+    let config = LicenseConfig::token_required();
+    assert!(config.require_token);
+    assert!(config.enabled);
+}
+
+#[test]
+fn license_config_time_limited_sets_expiry() {
+    let config = LicenseConfig::time_limited("2099-12-31");
+    assert_eq!(config.expires_at.as_deref(), Some("2099-12-31"));
+    assert!(config.enabled);
+}
+
+#[test]
+fn license_config_full_sets_both() {
+    let config = LicenseConfig::full("2099-06-15");
+    assert!(config.require_token);
+    assert!(config.expires_at.is_some());
+    assert!(config.enabled);
+}
+
+#[test]
+fn license_reason_valid_is_valid() {
+    let reason = LicenseReason::Valid;
+    assert_eq!(reason, LicenseReason::Valid);
+    assert_ne!(reason, LicenseReason::Expired);
+}
+
+#[test]
+fn license_config_default_no_expiry() {
+    let config = LicenseConfig::default();
+    assert!(config.expires_at.is_none());
+}
+
+#[test]
+fn license_status_invalid_has_reason() {
+    let config = LicenseConfig::token_required();
+    let validator = LicenseValidator::new(config);
+    let status = validator.validate(None);
+    assert!(!status.valid);
+    assert_ne!(status.reason, LicenseReason::Valid);
+}
+
+#[test]
+fn license_status_expired_reason_is_expired() {
+    let config = LicenseConfig::time_limited("2000-01-01");
+    let validator = LicenseValidator::new(config);
+    let status = validator.validate(None);
+    assert!(!status.valid);
+    // expired or in grace period
+    assert!(matches!(
+        status.reason,
+        LicenseReason::Expired | LicenseReason::GracePeriod
+    ));
+}
+
+#[test]
+fn license_config_clone_independent() {
+    let config = LicenseConfig::time_limited("2099-01-01");
+    let mut cloned = config.clone();
+    cloned.enabled = false;
+    assert!(config.enabled);
+    assert!(!cloned.enabled);
+}
+
+#[rstest]
+#[case("2099-01-01", true)]
+#[case("2000-01-01", false)]
+fn license_validity_by_date(#[case] date: &str, #[case] expected_valid: bool) {
+    let config = LicenseConfig {
+        enabled: true,
+        expires_at: Some(date.to_string()),
+        grace_period_days: 0,
+        ..Default::default()
+    };
+    let validator = LicenseValidator::new(config);
+    let status = validator.validate(None);
+    assert_eq!(status.valid, expected_valid, "date {} valid expected {}", date, expected_valid);
 }

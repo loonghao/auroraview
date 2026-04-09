@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use auroraview_pack::{DepsCollector, FileHashCache};
+use rstest::rstest;
 use tempfile::TempDir;
 
 // Note: is_stdlib and default_excludes are private functions,
@@ -336,4 +337,118 @@ fn file_hash_cache_load_invalid_json_returns_empty() {
     let cache = result.unwrap_or_else(|_| FileHashCache::new());
     // The key point: no crash
     let _ = cache;
+}
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn file_hash_cache_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<FileHashCache>();
+}
+
+#[test]
+fn deps_collector_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<DepsCollector>();
+}
+
+#[test]
+fn file_hash_cache_new_has_version_1() {
+    let cache = FileHashCache::new();
+    assert_eq!(cache.version, 1);
+}
+
+#[test]
+fn file_hash_cache_new_has_no_hashes() {
+    let cache = FileHashCache::new();
+    assert!(cache.hashes.is_empty());
+}
+
+#[test]
+fn file_hash_cache_insert_and_get() {
+    let mut cache = FileHashCache::new();
+    cache.hashes.insert("key.py".to_string(), "abc123".to_string());
+    assert_eq!(cache.hashes.get("key.py").map(String::as_str), Some("abc123"));
+}
+
+#[test]
+fn file_hash_cache_clone_independent() {
+    let mut cache1 = FileHashCache::new();
+    cache1.hashes.insert("k.py".to_string(), "v1".to_string());
+    let mut cache2 = cache1.clone();
+    cache2.hashes.insert("k2.py".to_string(), "v2".to_string());
+    assert!(!cache1.hashes.contains_key("k2.py"));
+    assert!(cache2.hashes.contains_key("k2.py"));
+}
+
+#[test]
+fn file_hash_cache_remove_existing_key() {
+    let mut cache = FileHashCache::new();
+    cache.hashes.insert("a.py".to_string(), "hash_a".to_string());
+    assert!(cache.hashes.contains_key("a.py"));
+    cache.remove("a.py");
+    assert!(!cache.hashes.contains_key("a.py"));
+}
+
+#[test]
+fn file_hash_cache_compute_hash_same_content_same_hash() {
+    let temp = TempDir::new().unwrap();
+    let f1 = temp.path().join("a.py");
+    let f2 = temp.path().join("b.py");
+    std::fs::write(&f1, b"x = 1\n").unwrap();
+    std::fs::write(&f2, b"x = 1\n").unwrap();
+
+    let h1 = FileHashCache::compute_hash(&f1).unwrap();
+    let h2 = FileHashCache::compute_hash(&f2).unwrap();
+    assert_eq!(h1, h2);
+}
+
+#[test]
+fn file_hash_cache_compute_hash_different_content_different_hash() {
+    let temp = TempDir::new().unwrap();
+    let f1 = temp.path().join("a.py");
+    let f2 = temp.path().join("b.py");
+    std::fs::write(&f1, b"x = 1\n").unwrap();
+    std::fs::write(&f2, b"x = 2\n").unwrap();
+
+    let h1 = FileHashCache::compute_hash(&f1).unwrap();
+    let h2 = FileHashCache::compute_hash(&f2).unwrap();
+    assert_ne!(h1, h2);
+}
+
+#[test]
+fn file_hash_cache_has_changed_missing_key_returns_true() {
+    let temp = TempDir::new().unwrap();
+    let file = temp.path().join("m.py");
+    std::fs::write(&file, b"pass").unwrap();
+
+    let cache = FileHashCache::new();
+    assert!(cache.has_changed(&file, "m.py").unwrap());
+}
+
+#[test]
+fn file_hash_cache_save_creates_file() {
+    let temp = TempDir::new().unwrap();
+    let path = temp.path().join("new_cache.json");
+    let cache = FileHashCache::new();
+    cache.save(&path).unwrap();
+    assert!(path.exists());
+}
+
+#[rstest]
+#[case("file_a.py", b"content_a" as &[u8])]
+#[case("file_b.rs", b"content_b" as &[u8])]
+#[case("file_c.js", b"content_c" as &[u8])]
+fn file_hash_cache_update_various_files(#[case] key: &str, #[case] content: &[u8]) {
+    let temp = TempDir::new().unwrap();
+    let file = temp.path().join(key);
+    std::fs::write(&file, content).unwrap();
+
+    let mut cache = FileHashCache::new();
+    cache.update(key, &file).unwrap();
+    assert!(cache.hashes.contains_key(key));
+    let hash = &cache.hashes[key];
+    assert!(!hash.is_empty());
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
 }
