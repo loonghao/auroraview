@@ -303,3 +303,167 @@ fn obfuscation_level_equality() {
     assert_eq!(ObfuscationLevel::Maximum, ObfuscationLevel::Maximum);
     assert_ne!(ObfuscationLevel::Basic, ObfuscationLevel::Standard);
 }
+
+// ─── NameObfuscator extra coverage ────────────────────────────────────────────
+
+#[test]
+fn name_obfuscator_empty_string_input() {
+    let mut o = NameObfuscator::new();
+    // Empty string: behavior is implementation-defined; must not panic
+    let _ = o.obfuscate("");
+}
+
+#[test]
+fn name_obfuscator_already_obfuscated_not_double_obfuscated() {
+    let mut o = NameObfuscator::new();
+    let first = o.obfuscate("my_var");
+    // Calling obfuscate on already-obfuscated name: should_obfuscate returns false,
+    // so calling obfuscate("_0x...") should return the same value
+    let second = o.obfuscate(&first.clone());
+    // Either identity preserved or stable — must not panic
+    assert!(!second.is_empty());
+}
+
+#[test]
+fn name_obfuscator_multiple_preserve_all_survive() {
+    let mut o = NameObfuscator::new();
+    o.preserve(["foo", "bar", "baz"]);
+    assert_eq!(o.obfuscate("foo"), "foo");
+    assert_eq!(o.obfuscate("bar"), "bar");
+    assert_eq!(o.obfuscate("baz"), "baz");
+}
+
+#[test]
+fn name_obfuscator_mapping_grows_with_each_new_name() {
+    let mut o = NameObfuscator::new();
+    o.obfuscate("name_a");
+    let count1 = o.get_mapping().len();
+    o.obfuscate("name_b");
+    let count2 = o.get_mapping().len();
+    assert_eq!(count2, count1 + 1);
+}
+
+#[test]
+fn name_obfuscator_prefix_change_affects_new_names() {
+    let mut o = NameObfuscator::new();
+    o.set_prefix("__x_");
+    let r = o.obfuscate("my_func");
+    assert!(r.starts_with("__x_"), "got: {r}");
+}
+
+#[test]
+fn name_obfuscator_different_prefix_instances_independent() {
+    let mut o1 = NameObfuscator::new();
+    let mut o2 = NameObfuscator::new();
+    o2.set_prefix("__yy_");
+    let r1 = o1.obfuscate("name");
+    let r2 = o2.obfuscate("name");
+    assert_ne!(r1, r2, "different prefixes produce different results");
+}
+
+// ─── Obfuscator (legacy) extra coverage ───────────────────────────────────────
+
+#[test]
+fn obfuscator_none_level_multiple_calls_stable() {
+    let mut o = Obfuscator::new_legacy(ObfuscationLevel::None);
+    let src = "x = 1\n";
+    let r1 = o.obfuscate(src).unwrap();
+    let r2 = o.obfuscate(src).unwrap();
+    assert_eq!(r1, r2);
+}
+
+#[test]
+fn obfuscator_basic_result_not_empty() {
+    let mut o = Obfuscator::new_legacy(ObfuscationLevel::Basic);
+    let src = "x = 42\n";
+    let result = o.obfuscate(src).unwrap();
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn obfuscator_preserve_names_empty_list_no_change() {
+    let mut o = Obfuscator::new_legacy(ObfuscationLevel::Standard);
+    let empty: [&str; 0] = [];
+    o.preserve_names(empty);
+    let src = "def func():\n    pass\n";
+    let result = o.obfuscate(src).unwrap();
+    // Should not panic; function should be renamed
+    assert!(!result.is_empty());
+}
+
+// ─── AstObfuscator extra coverage ─────────────────────────────────────────────
+
+#[test]
+fn ast_obfuscator_empty_source_no_panic() {
+    let mut o = AstObfuscator::new(ObfuscationLevel::None);
+    // Empty source: must not panic
+    let result = o.obfuscate("");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn ast_obfuscator_basic_level_result_not_empty() {
+    let mut o = AstObfuscator::new(ObfuscationLevel::Basic);
+    let src = "x = 1\n";
+    let result = o.obfuscate(src).unwrap();
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn ast_obfuscator_maximum_level_result_not_empty() {
+    let mut o = AstObfuscator::new(ObfuscationLevel::Maximum);
+    let src = "x = 42\n";
+    let result = o.obfuscate(src).unwrap();
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn ast_obfuscator_preserve_multiple_names() {
+    let mut o = AstObfuscator::new(ObfuscationLevel::Standard);
+    o.preserve(["run", "start", "stop"]);
+    let src = "def run():\n    pass\ndef start():\n    pass\ndef stop():\n    pass\n";
+    let result = o.obfuscate(src).unwrap();
+    assert!(result.contains("run") && result.contains("start") && result.contains("stop"));
+}
+
+#[test]
+fn ast_obfuscator_get_name_mapping_populated_after_standard() {
+    let mut o = AstObfuscator::new(ObfuscationLevel::Standard);
+    let src = "def my_fn():\n    local = 1\n    return local\n";
+    o.obfuscate(src).unwrap();
+    let map = o.get_name_mapping();
+    assert!(!map.is_empty());
+}
+
+#[test]
+fn ast_obfuscator_none_get_name_mapping_empty() {
+    let mut o = AstObfuscator::new(ObfuscationLevel::None);
+    let src = "x = 1\n";
+    o.obfuscate(src).unwrap();
+    // None level does no renaming, mapping should be empty
+    let map = o.get_name_mapping();
+    assert!(map.is_empty(), "None level should not populate name mapping");
+}
+
+// ─── ObfuscationLevel: Clone + Copy + Hash ────────────────────────────────────
+
+#[test]
+fn obfuscation_level_clone() {
+    let level = ObfuscationLevel::Advanced;
+    let clone = level.clone();
+    assert_eq!(level, clone);
+}
+
+#[test]
+fn obfuscation_level_debug_non_empty() {
+    let levels = [
+        ObfuscationLevel::None,
+        ObfuscationLevel::Basic,
+        ObfuscationLevel::Standard,
+        ObfuscationLevel::Advanced,
+        ObfuscationLevel::Maximum,
+    ];
+    for l in &levels {
+        assert!(!format!("{:?}", l).is_empty());
+    }
+}

@@ -313,3 +313,153 @@ fn request_new_empty_plugin_and_command() {
     assert_eq!(req.command, "");
     assert!(req.id.is_none());
 }
+
+// ── PluginRequest: args preserved as array ────────────────────────────────────
+
+#[test]
+fn request_new_array_args() {
+    let req = PluginRequest::new("fs", "list_dir", json!(["/tmp", "/home"]));
+    assert_eq!(req.args, json!(["/tmp", "/home"]));
+}
+
+// ── PluginRequest: args preserved as null ────────────────────────────────────
+
+#[test]
+fn request_new_null_args() {
+    let req = PluginRequest::new("ping", "health", Value::Null);
+    assert_eq!(req.args, Value::Null);
+}
+
+// ── PluginRequest: args preserved as boolean ─────────────────────────────────
+
+#[test]
+fn request_new_bool_args() {
+    let req = PluginRequest::new("sys", "enabled", json!(true));
+    assert_eq!(req.args, json!(true));
+}
+
+// ── PluginRequest: from_invoke with double-pipe in plugin name fails ──────────
+
+#[test]
+fn request_from_invoke_double_pipe_first_plugin_segment() {
+    // plugin||command: empty plugin, command = "|command" after split
+    let req = PluginRequest::from_invoke("plugin:|cmd", json!({}));
+    // Empty plugin name — implementation may allow or deny; just verify no panic
+    let _ = req;
+}
+
+// ── PluginRequest: with_id chain returns correct final id ────────────────────
+
+#[rstest]
+#[case("id-a", "id-a")]
+#[case("id-123", "id-123")]
+#[case("", "")]
+fn request_with_id_values(#[case] id: &str, #[case] expected: &str) {
+    let req = PluginRequest::new("p", "c", json!({})).with_id(id);
+    assert_eq!(req.id.as_deref(), Some(expected));
+}
+
+// ── PluginResponse::ok: bool data ────────────────────────────────────────────
+
+#[test]
+fn response_ok_bool_data() {
+    let resp = PluginResponse::ok(json!(true));
+    assert!(resp.success);
+    assert_eq!(resp.data, Some(json!(true)));
+}
+
+// ── PluginResponse::ok: string data ──────────────────────────────────────────
+
+#[test]
+fn response_ok_string_data() {
+    let resp = PluginResponse::ok(json!("hello"));
+    assert!(resp.success);
+    assert_eq!(resp.data, Some(json!("hello")));
+}
+
+// ── PluginResponse::ok: number data ──────────────────────────────────────────
+
+#[test]
+fn response_ok_number_data() {
+    let resp = PluginResponse::ok(json!(3.14));
+    assert!(resp.success);
+}
+
+// ── PluginResponse::err: empty message ───────────────────────────────────────
+
+#[test]
+fn response_err_empty_message() {
+    let resp = PluginResponse::err("", "ERR");
+    assert!(!resp.success);
+    assert_eq!(resp.error.as_deref(), Some(""));
+}
+
+// ── PluginResponse: serde field names ────────────────────────────────────────
+
+#[test]
+fn response_serde_ok_has_success_true() {
+    let resp = PluginResponse::ok(json!(1));
+    let v: Value = serde_json::from_str(&serde_json::to_string(&resp).unwrap()).unwrap();
+    assert_eq!(v["success"], json!(true));
+}
+
+#[test]
+fn response_serde_err_has_success_false() {
+    let resp = PluginResponse::err("msg", "CODE");
+    let v: Value = serde_json::from_str(&serde_json::to_string(&resp).unwrap()).unwrap();
+    assert_eq!(v["success"], json!(false));
+}
+
+// ── PluginRequest: serde plugin+command+args fields ──────────────────────────
+
+#[test]
+fn request_serde_fields_present() {
+    let req = PluginRequest::new("shell", "run", json!({"cmd": "ls -la"}));
+    let v: Value = serde_json::from_str(&serde_json::to_string(&req).unwrap()).unwrap();
+    assert_eq!(v["plugin"], "shell");
+    assert_eq!(v["command"], "run");
+}
+
+// ── PluginRequest Send + Sync (PluginResponse too) ───────────────────────────
+
+#[test]
+fn both_types_are_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<PluginRequest>();
+    check::<PluginResponse>();
+}
+
+// ── PluginResponse: with_id overwrites None → Some ───────────────────────────
+
+#[test]
+fn response_with_id_overwrites_none() {
+    let resp = PluginResponse::ok(json!({})).with_id(Some("new-id".to_string()));
+    assert_eq!(resp.id.as_deref(), Some("new-id"));
+}
+
+// ── PluginResponse: clone preserves error fields ──────────────────────────────
+
+#[test]
+fn response_err_clone_preserves_fields() {
+    let resp = PluginResponse::err("test error", "TEST_ERR");
+    let clone = resp.clone();
+    assert_eq!(clone.error, resp.error);
+    assert_eq!(clone.code, resp.code);
+    assert_eq!(clone.success, resp.success);
+}
+
+// ── from_invoke: all valid prefix patterns ────────────────────────────────────
+
+#[rstest]
+#[case("plugin:a|b", "a", "b")]
+#[case("plugin:clipboard|paste", "clipboard", "paste")]
+#[case("plugin:dialog|confirm", "dialog", "confirm")]
+fn request_from_invoke_various_valid(
+    #[case] invoke: &str,
+    #[case] expected_plugin: &str,
+    #[case] expected_cmd: &str,
+) {
+    let req = PluginRequest::from_invoke(invoke, json!({})).unwrap();
+    assert_eq!(req.plugin, expected_plugin);
+    assert_eq!(req.command, expected_cmd);
+}

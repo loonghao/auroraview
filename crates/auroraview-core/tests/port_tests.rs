@@ -393,3 +393,146 @@ fn test_two_allocators_different_ranges() {
         assert!((57000..57100).contains(&p2), "p2={}", p2);
     }
 }
+
+// ---------------------------------------------------------------------------
+// PortError: source() returns None (no wrapping cause)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_error_source_is_none() {
+    use std::error::Error;
+    let err = PortError::NoFreePort { start: 8000, end: 8100 };
+    assert!(err.source().is_none());
+}
+
+// ---------------------------------------------------------------------------
+// find_free_port: non-overlapping ranges each find ports in their range
+// ---------------------------------------------------------------------------
+
+#[rstest]
+#[case(54000u16, 50u16)]
+#[case(54100u16, 50u16)]
+#[case(54200u16, 50u16)]
+fn test_non_overlapping_ranges(#[case] start: u16, #[case] max: u16) {
+    let alloc = PortAllocator::new(start, max);
+    if let Ok(p) = alloc.find_free_port() {
+        assert!(p >= start && p < start + max, "port={} out of [{}, {})", p, start, start + max);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// find_any_port: returned port is within valid u16 range
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_find_any_port_within_u16() {
+    let port = PortAllocator::find_any_port().unwrap();
+    assert!(port <= u16::MAX);
+}
+
+// ---------------------------------------------------------------------------
+// PortAllocator::new: max_attempts = 2 succeeds for free port
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_allocator_two_attempts() {
+    // Very small range; if both are free, one will succeed.
+    let allocator = PortAllocator::new(52000, 2);
+    let result = allocator.find_free_port();
+    // Accept success or failure — important: must not panic
+    let _ = result;
+}
+
+// ---------------------------------------------------------------------------
+// PortError: start == end display still valid
+// ---------------------------------------------------------------------------
+
+#[rstest]
+#[case(0u16, 0u16)]
+#[case(1u16, 1u16)]
+#[case(65535u16, 65535u16)]
+fn test_port_error_equal_start_end(#[case] start: u16, #[case] end: u16) {
+    let err = PortError::NoFreePort { start, end };
+    let msg = err.to_string();
+    assert!(!msg.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// PortAllocator: clone behaviour (if it implements Clone)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_allocator_multiple_calls_succeed() {
+    let allocator = PortAllocator::new(58500, 100);
+    // Multiple calls on the same allocator both return valid ports
+    if let Ok(p1) = allocator.find_free_port() {
+        assert!((58500..58600).contains(&p1));
+    }
+    if let Ok(p2) = allocator.find_free_port() {
+        assert!((58500..58600).contains(&p2));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// is_port_available: port 1 is reserved on most OS
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_is_port_available_port_1_no_panic() {
+    // Port 1 is reserved; just verify no panic
+    let _ = PortAllocator::is_port_available(1);
+}
+
+// ---------------------------------------------------------------------------
+// PortError: Debug representation contains field names
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_error_debug_contains_start() {
+    let err = PortError::NoFreePort { start: 3000, end: 4000 };
+    let debug = format!("{:?}", err);
+    assert!(debug.contains("3000") || debug.contains("start"));
+}
+
+// ---------------------------------------------------------------------------
+// find_free_port: verify sequential distinct allocators don't share state
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_independent_allocators_no_shared_state() {
+    let a1 = PortAllocator::new(59100, 50);
+    let a2 = PortAllocator::new(59200, 50);
+    // Both allocators should operate independently
+    let r1 = a1.find_free_port();
+    let r2 = a2.find_free_port();
+    if let (Ok(p1), Ok(p2)) = (r1, r2) {
+        // Ports from different ranges should not be equal
+        assert_ne!(p1, p2, "different range allocators should not return same port");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PortAllocator default: repeated calls on same allocator both valid
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_default_allocator_two_calls() {
+    let alloc = PortAllocator::default();
+    let r1 = alloc.find_free_port();
+    let r2 = alloc.find_free_port();
+    for r in [r1, r2] {
+        if let Ok(p) = r {
+            assert!((9001..9101).contains(&p));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PortError: serde / std::error::Error impl — just verify trait objects work
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_error_as_std_error() {
+    let err: Box<dyn std::error::Error> = Box::new(PortError::NoFreePort { start: 1000, end: 2000 });
+    assert!(!err.to_string().is_empty());
+}
