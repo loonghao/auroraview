@@ -5,7 +5,7 @@
  * covering createView, getView, devtools, CDP info, and error paths.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ExtensionViewManager, getExtensionViewManager } from '../src/extensions/view-manager';
 import type { ExtensionViewInfo, CdpConnectionInfo } from '../src/extensions/types';
 
