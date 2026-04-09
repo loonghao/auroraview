@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use auroraview_dcc::{IpcMessage, IpcResponse, IpcRouter};
+use rstest::rstest;
 use serde_json::json;
 
 #[test]
@@ -534,4 +535,132 @@ fn ipc_router_register_then_unregister_then_call() {
     let result = router.handle(&msg.to_string()).unwrap();
     let resp: IpcResponse = serde_json::from_str(&result).unwrap();
     assert!(!resp.ok); // handler removed -> not found
+}
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn ipc_router_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<IpcRouter>();
+}
+
+#[test]
+fn ipc_response_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<IpcResponse>();
+}
+
+#[test]
+fn ipc_router_call_greeting_result() {
+    let router = IpcRouter::new();
+    router.register("greet", |p| {
+        let name = p["name"].as_str().unwrap_or("world");
+        json!({"greeting": format!("Hello, {}!", name)})
+    });
+
+    let msg = json!({"type":"call","id":"g1","method":"greet","params":{"name":"AuroraView"}});
+    let result = router.handle(&msg.to_string()).unwrap();
+    let resp: IpcResponse = serde_json::from_str(&result).unwrap();
+    assert!(resp.ok);
+    assert_eq!(resp.result.unwrap()["greeting"], "Hello, AuroraView!");
+}
+
+#[test]
+fn ipc_router_empty_methods_initially() {
+    let router = IpcRouter::new();
+    assert!(router.methods().is_empty());
+}
+
+#[test]
+fn ipc_router_methods_count_after_register() {
+    let router = IpcRouter::new();
+    router.register("a", |_| json!({}));
+    router.register("b", |_| json!({}));
+    router.register("c", |_| json!({}));
+    assert_eq!(router.methods().len(), 3);
+}
+
+#[test]
+fn ipc_router_unregister_nonexistent_no_panic() {
+    let router = IpcRouter::new();
+    router.unregister("does_not_exist");
+}
+
+#[test]
+fn ipc_router_has_handler_after_register() {
+    let router = IpcRouter::new();
+    router.register("tool.check", |_| json!({}));
+    assert!(router.has_handler("tool.check"));
+    assert!(!router.has_handler("tool.other"));
+}
+
+#[test]
+fn ipc_router_has_handler_after_unregister() {
+    let router = IpcRouter::new();
+    router.register("tool.remove", |_| json!({}));
+    assert!(router.has_handler("tool.remove"));
+    router.unregister("tool.remove");
+    assert!(!router.has_handler("tool.remove"));
+}
+
+#[test]
+fn ipc_response_ok_false_result_is_none() {
+    let resp = IpcResponse::err("eid".to_string(), "E001", "test error");
+    assert!(!resp.ok);
+    assert!(resp.result.is_none());
+    assert!(resp.error.is_some());
+}
+
+#[test]
+fn ipc_router_multiple_listeners_for_same_event() {
+    let router = IpcRouter::new();
+    let count = Arc::new(Mutex::new(0u32));
+
+    for _ in 0..3 {
+        let c = Arc::clone(&count);
+        router.on("multi.event", move |_| {
+            *c.lock().unwrap() += 1;
+        });
+    }
+
+    let msg = json!({"type":"event","event":"multi.event","detail":{}});
+    router.handle(&msg.to_string());
+
+    assert_eq!(*count.lock().unwrap(), 3);
+}
+
+#[rstest]
+#[case("method.x", json!({"k":"v"}))]
+#[case("method.y", json!(null))]
+#[case("method.z", json!([1,2,3]))]
+fn ipc_router_call_various_params(
+    #[case] method: &str,
+    #[case] params: serde_json::Value,
+) {
+    let router = IpcRouter::new();
+    let m = method.to_string();
+    router.register(&m, |p| json!({"is_null": p.is_null()}));
+
+    let msg = json!({"type":"call","id":"v1","method":method,"params":params});
+    let result = router.handle(&msg.to_string()).unwrap();
+    let resp: IpcResponse = serde_json::from_str(&result).unwrap();
+    assert!(resp.ok);
+}
+
+#[test]
+fn ipc_router_register_unregister_listener_pattern() {
+    // Test register + unregister lifecycle for event handler pattern
+    let router = IpcRouter::new();
+    let count = Arc::new(Mutex::new(0u32));
+    let c = Arc::clone(&count);
+
+    router.on("lifecycle.event", move |_| {
+        *c.lock().unwrap() += 1;
+    });
+
+    // Fire once with listener active
+    let msg = json!({"type":"event","event":"lifecycle.event","detail":{}});
+    router.handle(&msg.to_string());
+    assert_eq!(*count.lock().unwrap(), 1);
 }

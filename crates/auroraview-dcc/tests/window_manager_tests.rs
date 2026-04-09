@@ -654,3 +654,81 @@ fn create_window_various_configs(#[case] _title: &str, #[case] _w: u32, #[case] 
         assert_eq!(info.height, _h);
     }
 }
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn window_manager_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<WindowManager>();
+}
+
+#[test]
+fn window_manager_count_empty_initially() {
+    let manager = WindowManager::new();
+    assert_eq!(manager.count(), 0);
+}
+
+#[test]
+fn window_manager_list_empty_initially() {
+    let manager = WindowManager::new();
+    assert!(manager.list().is_empty());
+}
+
+#[test]
+fn window_manager_get_nonexistent_returns_none() {
+    let manager = WindowManager::new();
+    let nonexistent = "nonexistent".to_string();
+    assert!(manager.get(&nonexistent).is_none());
+}
+
+#[test]
+fn window_manager_default_creates_empty() {
+    let manager = WindowManager::default();
+    assert_eq!(manager.count(), 0);
+}
+
+#[test]
+fn window_manager_close_nonexistent_is_error() {
+    let manager = WindowManager::new();
+    let nonexistent = "nonexistent".to_string();
+    let result = manager.close(&nonexistent);
+    assert!(result.is_err());
+}
+
+#[test]
+fn window_manager_has_window_false_initially() {
+    let manager = WindowManager::new();
+    let any_id = "any-id".to_string();
+    assert!(!manager.has_window(&any_id));
+}
+
+#[rstest]
+#[case("maya")]
+#[case("houdini")]
+#[case("blender")]
+fn window_manager_create_with_dcc_title(#[case] _dcc: &str) {
+    let _manager = WindowManager::new();
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let title = format!("{} tool", _dcc);
+        let id = _manager.create(DccConfig::new().title(&title)).unwrap();
+        assert!(_manager.has_window(&id));
+        _manager.close(&id).unwrap();
+        assert!(!_manager.has_window(&id));
+    }
+}
+
+#[test]
+fn window_manager_process_events_safe_on_empty() {
+    let manager = WindowManager::new();
+    // Calling process_events on empty manager should not panic
+    manager.process_events();
+}
+
+#[test]
+fn window_manager_get_info_returns_none_for_missing() {
+    let manager = WindowManager::new();
+    assert!(manager.get_info("missing-id").is_none());
+}

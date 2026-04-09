@@ -1,47 +1,48 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-09 20:28 (UTC+8)
+## Last Execution: 2026-04-09 21:45 (UTC+8)
 
 ### Branch Status
 - Branch: `auto-improve`
-- Remote sync: already based on origin/main (v0.4.19), pushed 4 new commits + 1 iteration marker
-- Workspace clean: Yes (memory.md modified only)
+- Remote sync: based on origin/main (v0.4.19), pushed 5 new commits + 1 iteration marker
+- Workspace clean: Yes (memory.md + Cargo.lock modified)
 
-### Completed in This Iteration (Round 7)
+### Completed in This Iteration (Round 8)
 
-**Round 7a: browser/config + dcc/config + telemetry/sentry/guard + core/templates** (commit `a2aaa50`)
-- browser/config_tests: 19 → 68 tests (+49): BrowserFeatures serde, Theme variants, Send+Sync, DockSide serde roundtrip, CDP port matrix, builder overwrite, clone independence
-- dcc/config_tests: 26 → 77 tests (+51): DccType detect env, Send+Sync, data_dir PathBuf, unicode, url variants, partial eq matrix
-- telemetry/sentry_tests: 20 → 28 tests (+8): Send+Sync, default sample rates, multiple configs independence, clone independence
-- telemetry/guard_tests: 22 → 33 tests (+11): determinism, idempotency, enable-only/disable-only loops
-- core/templates_tests: 25 → 36 tests (+11): emit nonempty output, multiple renders consistent, LoadUrl edge cases, ApiReg max methods
+**Round 8a: cli_tests + icon_converter_tests + core/metrics_tests** (commit `b931543`)
+- cli_tests: 17 → 32 (+15): run/pack/info/version/help stdout checks, unknown subcommand, debug flag, watch flag, poll-interval, binary exists
+- icon_converter_tests: 24 → 37 (+13): output not empty, min ICO size, compression sizes/levels, resize aspect ratio, boundary values
+- core/metrics_tests: 28 → 39 (+11): Send+Sync, partial mark combinations, clone independence, format_report structure
 
-**Round 7b: pack/overlay + cli/lib_tests** (commit `4edb08a`)
-- pack/overlay_tests: 18 → 28 tests (+10): data_new empty assets, add_and_count, unicode asset name, large asset, write_level_1, config size roundtrip, same content same hash
-- cli/lib_tests: 18 → 38 tests (+20): ICON_PNG_BYTES static/len, load_window_icon idempotent, normalize_url localhost variants, no_double_slash, absolute_url unchanged scheme
+**Round 8b: pack/overlay_tests + telemetry/sentry_tests** (commit `bc012a5`)
+- overlay_tests: 28 → 37 (+9): debug mode roundtrip, asset content roundtrip, 50 assets, url preserved in config (via PackMode), content hash hex validation
+- sentry_tests: 27 → 40 (+13): smoke capture, serde roundtrip all fields, multiple clones independent, default field checks, newline in message
 
-**Round 7c: telemetry_init + id_generator** (commit `331923f`)
-- telemetry_init_tests: 25 → 37 tests (+12): custom log_level, service_name, metrics/traces flags, serde for_testing, Send+Sync, clone independence
-- id_generator_tests: 26 → 35 tests (+9): Send+Sync, next_string format, next_with_prefix format, mixed calls, current before next, unicode prefix, count matches current
+**Round 8c: core/assets_tests + core/utils_tests** (commit `878ce1b`)
+- assets_tests: 32 → 42 (+10): plugin JS not empty, build_load_url_script checks, error page HTML structure, CSP injection nonempty
+- utils_tests: 32 → 43 (+11): null byte in escape_js_string, unicode preserved, nested dir creation, long string escape, JSON for JS corrected (tab NOT escaped)
 
 ### Key Learnings
-- `DccType::detect()` uses env vars in priority order: MAYA → HFS → NUKE → BLENDER → ADSK_3DSMAX → UE_ROOT
-- `BrowserFeatures` directly exported from `auroraview_browser` crate (no sub-module path needed)
-- `telemetry_init_tests` uses process-global state; `enabled=false` config is safe for repeated init/drop cycles
-- `IdGenerator` shares counter across `next()`, `next_string()`, `next_with_prefix()` calls
+- `escape_json_for_js` does NOT escape tabs — only `\\`, `"`, `\n`, `\r`
+- `PackConfig.url` does not exist; URL stored in `PackMode::Url { url }` variant
+- `OverlayData.assets` is `Vec<(String, Vec<u8>)>` tuples, not named structs
+- CLI `test_cli_run_invalid_url_flag_value` was removed: CLI may block waiting for URL navigation
+- CLI info output has "Version:" and "Commands"/"run"/"pack" but NOT "OS"/"Platform"/"Windows"
+- `pack --help` has `--config` but NOT `--target` (uses `--output`/`--output-dir` instead)
+- Cargo sometimes caches test binaries; need to touch source file to force recompile
 
 ### Next Iteration Targets (Priority Order)
 
-1. **core/window_tests.rs** — 26 markers, check actual count
-2. **plugins/fs_plugin_tests.rs** — 25 markers, likely ~25 actual
-3. **plugins/core/router_tests.rs** — 27 markers
-4. **plugins/clipboard_tests.rs** — 27 markers  
-5. **pack/python_standalone_tests.rs** — 27 markers
-6. **telemetry/span_ext_tests.rs** — 26 markers
-7. **Any test file under 30 actual tests** across all crates
+1. **core/cli_tests.rs** (34) — expand to 45+
+2. **core/config_tests.rs** (35) — expand to 45+
+3. **desktop/config_tests.rs** (35) — expand to 45+
+4. **telemetry/guard_tests.rs** (33) — expand to 45+
+5. **telemetry/config_tests.rs** (33) — expand to 45+
+6. **plugins/extensions_tests.rs** (31) — expand to 45+
+7. **cli/packed_tests.rs** (31) — check if expandable
 
 ### Known Pre-existing Issues (from prior iterations, NOT blocking)
-- `auroraview-core` assets_tests fail (need `vx just assets-build`)
+- `auroraview-core` assets_tests fail in CI (need `vx just assets-build`)
 - `auroraview` 2 test_desktop_module/test_webview_submodules fail (assets issue)
 - GitHub: 39 Dependabot vulnerabilities (transitive deps)
 - `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
@@ -229,3 +230,10 @@
 **CLI lib_tests expansion R7 (COMPLETE)**: 18 → 38 tests (+20)
 **Telemetry init_tests expansion R7 (COMPLETE)**: 25 → 37 tests (+12)
 **Core id_generator_tests expansion R7 (COMPLETE)**: 26 → 35 tests (+9)
+**CLI cli_tests expansion R8 (COMPLETE)**: 17 → 32 tests (+15)
+**Core icon_converter_tests expansion R8 (COMPLETE)**: 24 → 37 tests (+13)
+**Core metrics_tests expansion R8 (COMPLETE)**: 28 → 39 tests (+11)
+**Pack overlay_tests expansion R8 (COMPLETE)**: 28 → 37 tests (+9)
+**Telemetry sentry_tests expansion R8 (COMPLETE)**: 27 → 40 tests (+13)
+**Core assets_tests expansion R8 (COMPLETE)**: 32 → 42 tests (+10)
+**Core utils_tests expansion R8 (COMPLETE)**: 32 → 43 tests (+11)
