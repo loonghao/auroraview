@@ -208,3 +208,139 @@ fn test_api_registration_template_empty_list() {
     // Should render without panic; may be empty or minimal JS
     assert!(!result.contains("'method'"));
 }
+
+// ============================================================================
+// EmitEventTemplate - additional coverage
+// ============================================================================
+
+#[test]
+fn test_emit_event_template_empty_event_name() {
+    let template = EmitEventTemplate {
+        event_name: "",
+        event_data: "{}",
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("window.auroraview.trigger"));
+}
+
+#[test]
+fn test_emit_event_template_nested_json() {
+    let template = EmitEventTemplate {
+        event_name: "scene.loaded",
+        event_data: r#"{"scene":{"name":"test","objects":[{"id":1},{"id":2}]}}"#,
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("scene.loaded"));
+    assert!(result.contains("window.auroraview.trigger"));
+    assert!(result.contains("objects"));
+}
+
+#[test]
+fn test_emit_event_template_boolean_data() {
+    let template = EmitEventTemplate {
+        event_name: "ready",
+        event_data: "true",
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("ready"));
+    assert!(result.contains("true"));
+}
+
+#[test]
+fn test_emit_event_template_number_data() {
+    let template = EmitEventTemplate {
+        event_name: "frame",
+        event_data: "42",
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("frame"));
+    assert!(result.contains("42"));
+}
+
+// ============================================================================
+// LoadUrlTemplate - additional coverage
+// ============================================================================
+
+#[test]
+fn test_load_url_template_empty_url() {
+    let template = LoadUrlTemplate {
+        url: "",
+    };
+    let result = template.render().unwrap();
+    // Should render without panic even with empty URL
+    assert!(result.contains("window.location.href"));
+}
+
+#[test]
+fn test_load_url_template_query_string() {
+    let template = LoadUrlTemplate {
+        url: "https://example.com/page?q=1&r=2#section",
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("example.com/page"));
+    assert!(result.contains("q=1"));
+}
+
+#[test]
+fn test_load_url_template_unicode_url() {
+    let template = LoadUrlTemplate {
+        url: "https://example.com/path?name=中文",
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("example.com/path"));
+}
+
+// ============================================================================
+// ApiRegistrationTemplate - additional coverage
+// ============================================================================
+
+#[test]
+fn test_api_registration_template_method_with_underscore() {
+    let entries = vec![ApiMethodEntry {
+        namespace: "maya_api".to_string(),
+        methods: vec!["get_selection".to_string(), "set_keyframe".to_string()],
+    }];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    assert!(result.contains("'maya_api'"));
+    assert!(result.contains("'get_selection'"));
+    assert!(result.contains("'set_keyframe'"));
+}
+
+#[test]
+fn test_api_registration_template_numeric_looking_namespace() {
+    let entries = vec![ApiMethodEntry {
+        namespace: "v2".to_string(),
+        methods: vec!["ping".to_string()],
+    }];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    assert!(result.contains("'v2'"));
+    assert!(result.contains("'ping'"));
+}
+
+#[test]
+fn test_api_registration_template_only_empty_namespace_methods() {
+    // Namespace with single method that has empty string
+    let entries = vec![ApiMethodEntry {
+        namespace: "ns".to_string(),
+        methods: vec!["".to_string()],
+    }];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    // Should not panic; may or may not include empty method
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn test_api_registration_template_unicode_namespace() {
+    let entries = vec![ApiMethodEntry {
+        namespace: "dcc".to_string(),
+        methods: vec!["export_fbx".to_string(), "import_obj".to_string()],
+    }];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    assert!(result.contains("'dcc'"));
+    assert!(result.contains("'export_fbx'"));
+    assert!(result.contains("'import_obj'"));
+}

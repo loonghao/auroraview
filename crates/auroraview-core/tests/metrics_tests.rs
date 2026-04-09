@@ -234,3 +234,131 @@ fn test_multiple_new_instances_independent() {
     assert!(t1.as_millis() > 0);
     assert!(t2.as_millis() > 0);
 }
+
+// ============================================================================
+// Initial state: all times are None
+// ============================================================================
+
+#[test]
+fn test_metrics_all_none_initially() {
+    let metrics = Metrics::new();
+    assert!(metrics.window_time().is_none());
+    assert!(metrics.webview_time().is_none());
+    assert!(metrics.html_time().is_none());
+    assert!(metrics.js_time().is_none());
+    assert!(metrics.paint_time().is_none());
+    assert!(metrics.shown_time().is_none());
+}
+
+// ============================================================================
+// Mark once → only that mark is Some
+// ============================================================================
+
+#[test]
+fn test_mark_window_only() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+
+    assert!(metrics.window_time().is_some());
+    assert!(metrics.webview_time().is_none());
+    assert!(metrics.html_time().is_none());
+    assert!(metrics.js_time().is_none());
+    assert!(metrics.paint_time().is_none());
+    assert!(metrics.shown_time().is_none());
+}
+
+#[test]
+fn test_mark_webview_only() {
+    let mut metrics = Metrics::new();
+    metrics.mark_webview();
+
+    assert!(metrics.window_time().is_none());
+    assert!(metrics.webview_time().is_some());
+    assert!(metrics.html_time().is_none());
+}
+
+#[test]
+fn test_mark_html_only() {
+    let mut metrics = Metrics::new();
+    metrics.mark_html();
+
+    assert!(metrics.html_time().is_some());
+    assert!(metrics.window_time().is_none());
+    assert!(metrics.js_time().is_none());
+}
+
+#[test]
+fn test_mark_js_only() {
+    let mut metrics = Metrics::new();
+    metrics.mark_js();
+
+    assert!(metrics.js_time().is_some());
+    assert!(metrics.html_time().is_none());
+    assert!(metrics.paint_time().is_none());
+}
+
+#[test]
+fn test_mark_paint_only() {
+    let mut metrics = Metrics::new();
+    metrics.mark_paint();
+
+    assert!(metrics.paint_time().is_some());
+    assert!(metrics.js_time().is_none());
+    assert!(metrics.shown_time().is_none());
+}
+
+#[test]
+fn test_mark_shown_only() {
+    let mut metrics = Metrics::new();
+    metrics.mark_shown();
+
+    assert!(metrics.shown_time().is_some());
+    assert!(metrics.paint_time().is_none());
+}
+
+// ============================================================================
+// Double-marking same milestone overwrites previous (or idempotent)
+// ============================================================================
+
+#[test]
+fn test_mark_window_twice_still_some() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+    let t1 = metrics.window_time().unwrap();
+    metrics.mark_window();
+    let t2 = metrics.window_time().unwrap();
+    // After second mark, time should still be valid (≥ first)
+    assert!(t2 >= t1);
+}
+
+// ============================================================================
+// format_report structure
+// ============================================================================
+
+#[test]
+fn test_format_report_contains_separator() {
+    let metrics = Metrics::new();
+    let report = metrics.format_report();
+    assert!(report.contains("==========") || report.contains("---"));
+}
+
+#[test]
+fn test_format_report_window_mark_contains_window_line() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+    let report = metrics.format_report();
+    assert!(report.contains("Window created"));
+}
+
+#[test]
+fn test_format_report_does_not_contain_unset_marks() {
+    let mut metrics = Metrics::new();
+    metrics.mark_window();
+    // Did not mark webview/html/js/paint/shown
+    let report = metrics.format_report();
+    assert!(!report.contains("WebView created"));
+    assert!(!report.contains("HTML loaded"));
+    assert!(!report.contains("JavaScript initialized"));
+    assert!(!report.contains("First paint"));
+    assert!(!report.contains("Window shown"));
+}
