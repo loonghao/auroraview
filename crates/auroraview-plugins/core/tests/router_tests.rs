@@ -246,3 +246,125 @@ fn router_event_callback_ref_initially_none() {
     let cb_ref = router.event_callback_ref();
     assert!(cb_ref.read().is_none());
 }
+
+// ── Multiple plugins ──────────────────────────────────────────────────────────
+
+#[test]
+fn router_multiple_plugins_registered() {
+    let mut router = PluginRouter::new();
+    router.register("alpha", Arc::new(EchoPlugin));
+    router.register("beta", Arc::new(CounterPlugin { name: "beta".into() }));
+    router.register("gamma", Arc::new(CounterPlugin { name: "gamma".into() }));
+    assert_eq!(router.plugin_names().len(), 3);
+}
+
+#[test]
+fn router_handle_different_plugins_independently() {
+    let mut router = PluginRouter::new();
+    router.scope_mut().enable_plugin("echo");
+    router.scope_mut().enable_plugin("counter");
+    router.register("echo", Arc::new(EchoPlugin));
+    router.register("counter", Arc::new(CounterPlugin { name: "counter".into() }));
+
+    let req_echo = PluginRequest::new("echo", "echo", json!({"x": 42}));
+    let resp_echo = router.handle(req_echo);
+    assert!(resp_echo.success);
+    assert_eq!(resp_echo.data, Some(json!({"x": 42})));
+
+    let req_counter = PluginRequest::new("counter", "ping", json!({}));
+    let resp_counter = router.handle(req_counter);
+    assert!(resp_counter.success);
+    assert_eq!(resp_counter.data, Some(json!({"pong": true})));
+}
+
+#[test]
+fn router_unregister_one_leaves_others() {
+    let mut router = PluginRouter::new();
+    router.register("alpha", Arc::new(EchoPlugin));
+    router.register("beta", Arc::new(CounterPlugin { name: "beta".into() }));
+    router.unregister("alpha");
+    assert!(!router.has_plugin("alpha"));
+    assert!(router.has_plugin("beta"));
+}
+
+// ── Unknown command handling ───────────────────────────────────────────────────
+
+#[test]
+fn router_handle_unknown_command_returns_error() {
+    let mut router = PluginRouter::new();
+    router.scope_mut().enable_plugin("echo");
+    router.register("echo", Arc::new(EchoPlugin));
+
+    let req = PluginRequest::new("echo", "unknown_cmd", json!({}));
+    let resp = router.handle(req);
+    assert!(!resp.success);
+    assert!(resp.error.is_some());
+}
+
+// ── Re-registering same plugin ────────────────────────────────────────────────
+
+#[test]
+fn router_re_register_same_name_overwrites() {
+    let mut router = PluginRouter::new();
+    router.register("echo", Arc::new(EchoPlugin));
+    // Re-register with a new plugin of same name
+    router.register("echo", Arc::new(EchoPlugin));
+    // Still one plugin named "echo"
+    assert_eq!(
+        router.plugin_names().iter().filter(|&&n| n == "echo").count(),
+        1
+    );
+}
+
+// ── Event callback with multiple events ──────────────────────────────────────
+
+#[test]
+fn router_event_callback_called_multiple_times() {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let counter2 = counter.clone();
+
+    let router = PluginRouter::new();
+    router.set_event_callback(Arc::new(move |_event, _data| {
+        counter2.fetch_add(1, Ordering::SeqCst);
+    }));
+
+    router.emit_event("e1", json!(1));
+    router.emit_event("e2", json!(2));
+    router.emit_event("e3", json!(3));
+    assert_eq!(counter.load(Ordering::SeqCst), 3);
+}
+
+// ── scope accessor ────────────────────────────────────────────────────────────
+
+#[test]
+fn router_scope_ref_returns_current_scope() {
+    let scope = ScopeConfig::permissive();
+    let router = PluginRouter::with_scope(scope);
+    let current = router.scope();
+    assert!(current.is_plugin_enabled("fs"));
+}
+
+// ── with_id propagation ───────────────────────────────────────────────────────
+
+#[test]
+fn router_handle_failure_echoes_request_id() {
+    let mut router = PluginRouter::new();
+    router.scope_mut().enable_plugin("echo");
+    router.register("echo", Arc::new(EchoPlugin));
+
+    let req = PluginRequest::new("echo", "fail", json!({})).with_id("fail-req-1");
+    let resp = router.handle(req);
+    assert!(!resp.success);
+    assert_eq!(resp.id, Some("fail-req-1".to_string()));
+}
+
+#[test]
+fn router_disabled_plugin_echoes_request_id() {
+    let mut router = PluginRouter::new();
+    router.register("echo", Arc::new(EchoPlugin));
+
+    let req = PluginRequest::new("echo", "echo", json!({})).with_id("disabled-req");
+    let resp = router.handle(req);
+    assert!(!resp.success);
+    assert_eq!(resp.id, Some("disabled-req".to_string()));
+}

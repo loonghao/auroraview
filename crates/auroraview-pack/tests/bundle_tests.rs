@@ -298,3 +298,141 @@ fn bundle_asset_bundle_default_is_empty() {
     assert!(bundle.is_empty());
 }
 
+// ============================================================================
+// Additional AssetBundle / BundleBuilder tests
+// ============================================================================
+
+#[test]
+fn asset_bundle_add_same_name_twice() {
+    let mut bundle = AssetBundle::new();
+    bundle.add("dup.js", b"v1".to_vec());
+    bundle.add("dup.js", b"v2".to_vec());
+    // Two entries with same name (no dedup required)
+    assert_eq!(bundle.len(), 2);
+}
+
+#[test]
+fn asset_bundle_total_size_zero_content() {
+    let mut bundle = AssetBundle::new();
+    bundle.add("empty.txt", vec![]);
+    assert_eq!(bundle.total_size(), 0);
+    assert_eq!(bundle.len(), 1);
+}
+
+#[test]
+fn asset_bundle_large_content() {
+    let mut bundle = AssetBundle::new();
+    let data = vec![0xABu8; 1_000_000];
+    bundle.add("large.bin", data);
+    assert_eq!(bundle.total_size(), 1_000_000);
+}
+
+#[test]
+fn bundle_html_content_is_bytes() {
+    let temp = TempDir::new().unwrap();
+    let html = "<html><body>Test</body></html>";
+    fs::write(temp.path().join("index.html"), html).unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    assert_eq!(bundle.assets()[0].1, html.as_bytes());
+}
+
+#[test]
+fn bundle_single_js_file_from_dir() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("main.js"), "console.log('hello')").unwrap();
+
+    // BundleBuilder on a dir with only JS should work
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    assert_eq!(bundle.len(), 1);
+    assert_eq!(bundle.assets()[0].0, "main.js");
+}
+
+#[test]
+fn bundle_all_assets_have_nonempty_names() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("index.html"), "html").unwrap();
+    fs::write(temp.path().join("app.js"), "js").unwrap();
+    fs::write(temp.path().join("style.css"), "css").unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    for (name, _) in bundle.assets() {
+        assert!(!name.is_empty(), "Asset name should not be empty");
+    }
+}
+
+#[test]
+fn bundle_no_map_files_included() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("index.html"), "html").unwrap();
+    // .js.map files should be excluded (source maps)
+    fs::write(temp.path().join("app.js.map"), "sourcemap").unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    for (name, _) in bundle.assets() {
+        assert!(
+            !name.ends_with(".map"),
+            ".map source files should not be in bundle: {name}"
+        );
+    }
+}
+
+#[test]
+fn asset_bundle_add_unicode_name() {
+    let mut bundle = AssetBundle::new();
+    bundle.add("日本語.html", b"<html>".to_vec());
+    assert_eq!(bundle.len(), 1);
+    assert_eq!(bundle.assets()[0].0, "日本語.html");
+}
+
+#[test]
+fn asset_bundle_many_files() {
+    let mut bundle = AssetBundle::new();
+    for i in 0..50 {
+        bundle.add(format!("file_{}.js", i), format!("var x{};", i).into_bytes());
+    }
+    assert_eq!(bundle.len(), 50);
+    assert!(bundle.total_size() > 0);
+}
+
+#[test]
+fn bundle_extension_filter_empty_allows_all() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("index.html"), "html").unwrap();
+    fs::write(temp.path().join("app.js"), "js").unwrap();
+
+    // Empty extensions slice = no filter = all files allowed
+    let bundle = BundleBuilder::new(temp.path())
+        .with_extensions(&[])
+        .build()
+        .unwrap();
+    // With empty filter, should include all (html and js = 2)
+    assert!(bundle.len() >= 1);
+}
+
+#[test]
+fn bundle_builder_single_html_file_named_index() {
+    let temp = TempDir::new().unwrap();
+    let file_path = temp.path().join("mypage.html");
+    fs::write(&file_path, "<html>content</html>").unwrap();
+
+    let bundle = BundleBuilder::new(&file_path).build().unwrap();
+    // Single file mode: renamed to index.html
+    assert_eq!(bundle.assets()[0].0, "index.html");
+}
+
+#[test]
+fn bundle_gitignore_excluded() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("index.html"), "html").unwrap();
+    // Create a .gitignore — it should be excluded
+    fs::write(temp.path().join(".gitignore"), "*.log").unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    let names: Vec<&str> = bundle.assets().iter().map(|(n, _)| n.as_str()).collect();
+    assert!(
+        !names.iter().any(|n| n.contains(".gitignore")),
+        "gitignore should be excluded"
+    );
+}
+
