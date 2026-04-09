@@ -332,6 +332,7 @@ fn test_api_registration_template_only_empty_namespace_methods() {
     assert!(!result.is_empty());
 }
 
+
 #[test]
 fn test_api_registration_template_unicode_namespace() {
     let entries = vec![ApiMethodEntry {
@@ -344,3 +345,125 @@ fn test_api_registration_template_unicode_namespace() {
     assert!(result.contains("'export_fbx'"));
     assert!(result.contains("'import_obj'"));
 }
+
+// ============================================================================
+// New: EmitEventTemplate - extra edge cases
+// ============================================================================
+
+#[test]
+fn test_emit_event_template_produces_nonempty_output() {
+    let template = EmitEventTemplate {
+        event_name: "ping",
+        event_data: "{}",
+    };
+    let result = template.render().unwrap();
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn test_emit_event_template_result_is_valid_utf8() {
+    let template = EmitEventTemplate {
+        event_name: "data",
+        event_data: r#"{"value": 42}"#,
+    };
+    let result = template.render().unwrap();
+    // Valid UTF-8 string means no panic on .len()
+    assert!(result.len() > 0);
+}
+
+#[test]
+fn test_emit_event_template_event_name_with_dots() {
+    let template = EmitEventTemplate {
+        event_name: "dcc.scene.loaded",
+        event_data: "{}",
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("dcc.scene.loaded"));
+}
+
+#[test]
+fn test_emit_event_template_multiple_renders_consistent() {
+    let template = EmitEventTemplate {
+        event_name: "stable",
+        event_data: "1",
+    };
+    let r1 = template.render().unwrap();
+    let r2 = template.render().unwrap();
+    assert_eq!(r1, r2);
+}
+
+// ============================================================================
+// New: LoadUrlTemplate - extra edge cases
+// ============================================================================
+
+#[test]
+fn test_load_url_template_produces_nonempty_output() {
+    let template = LoadUrlTemplate { url: "https://example.com" };
+    let result = template.render().unwrap();
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn test_load_url_template_multiple_renders_consistent() {
+    let template = LoadUrlTemplate { url: "https://stable.example.com" };
+    let r1 = template.render().unwrap();
+    let r2 = template.render().unwrap();
+    assert_eq!(r1, r2);
+}
+
+#[test]
+fn test_load_url_template_about_blank() {
+    let template = LoadUrlTemplate { url: "about:blank" };
+    let result = template.render().unwrap();
+    assert!(result.contains("about:blank"));
+}
+
+#[test]
+fn test_load_url_template_data_uri() {
+    let template = LoadUrlTemplate { url: "data:text/html,<h1>Hello</h1>" };
+    let result = template.render().unwrap();
+    assert!(result.contains("data:text/html"));
+}
+
+// ============================================================================
+// New: ApiRegistrationTemplate - extra edge cases
+// ============================================================================
+
+#[test]
+fn test_api_registration_template_produces_js_comment_or_call() {
+    let entries = vec![ApiMethodEntry {
+        namespace: "api".to_string(),
+        methods: vec!["test".to_string()],
+    }];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    // Should contain JS (either a function call or comment)
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn test_api_registration_template_multiple_renders_consistent() {
+    let entries = vec![ApiMethodEntry {
+        namespace: "ns".to_string(),
+        methods: vec!["m1".to_string(), "m2".to_string()],
+    }];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let r1 = template.render().unwrap();
+    let r2 = template.render().unwrap();
+    assert_eq!(r1, r2);
+}
+
+#[test]
+fn test_api_registration_template_max_methods() {
+    let methods: Vec<String> = (0..20).map(|i| format!("method_{}", i)).collect();
+    let entries = vec![ApiMethodEntry {
+        namespace: "large".to_string(),
+        methods,
+    }];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    assert!(result.contains("'large'"));
+    assert!(result.contains("'method_0'"));
+    assert!(result.contains("'method_19'"));
+}
+

@@ -1,7 +1,7 @@
 //! Tests for BrowserConfig
 
 use auroraview_browser::devtools::DockSide;
-use auroraview_browser::{BrowserConfig, Theme};
+use auroraview_browser::{BrowserConfig, BrowserFeatures, Theme};
 use rstest::rstest;
 
 // -------------------------------------------------------------------------
@@ -304,4 +304,230 @@ fn browser_config_initial_urls_count(#[case] count: usize) {
 fn browser_config_debug_flag(#[case] debug: bool) {
     let config = BrowserConfig::builder().debug(debug).build();
     assert_eq!(config.debug, debug);
+}
+
+// -------------------------------------------------------------------------
+// Send + Sync bounds
+// -------------------------------------------------------------------------
+
+#[test]
+fn browser_config_is_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<BrowserConfig>();
+    assert_sync::<BrowserConfig>();
+}
+
+#[test]
+fn browser_features_is_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<BrowserFeatures>();
+    assert_sync::<BrowserFeatures>();
+}
+
+// -------------------------------------------------------------------------
+// BrowserFeatures serde roundtrip
+// -------------------------------------------------------------------------
+
+#[test]
+fn browser_features_serde_roundtrip_default() {
+    let features = BrowserFeatures::default();
+    let json = serde_json::to_string(&features).unwrap();
+    let restored: BrowserFeatures = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.bookmarks_bar, features.bookmarks_bar);
+    assert_eq!(restored.history, features.history);
+    assert_eq!(restored.extensions, features.extensions);
+    assert_eq!(restored.downloads, features.downloads);
+    assert_eq!(restored.dev_tools, features.dev_tools);
+    assert_eq!(restored.context_menu, features.context_menu);
+    assert_eq!(restored.cdp_enabled, features.cdp_enabled);
+}
+
+#[test]
+fn browser_features_serde_roundtrip_all_enabled() {
+    let features = BrowserFeatures {
+        bookmarks_bar: true,
+        history: true,
+        extensions: true,
+        downloads: true,
+        dev_tools: true,
+        context_menu: true,
+        cdp_enabled: true,
+    };
+    let json = serde_json::to_string(&features).unwrap();
+    let restored: BrowserFeatures = serde_json::from_str(&json).unwrap();
+    assert!(restored.bookmarks_bar);
+    assert!(restored.history);
+    assert!(restored.extensions);
+    assert!(restored.downloads);
+    assert!(restored.dev_tools);
+    assert!(restored.context_menu);
+    assert!(restored.cdp_enabled);
+}
+
+// -------------------------------------------------------------------------
+// Theme variant tests
+// -------------------------------------------------------------------------
+
+#[test]
+fn browser_config_theme_light() {
+    let config = BrowserConfig::builder().theme(Theme::Light).build();
+    assert!(matches!(config.theme, Theme::Light));
+}
+
+#[test]
+fn browser_config_theme_system() {
+    let config = BrowserConfig::builder().theme(Theme::System).build();
+    assert!(matches!(config.theme, Theme::System));
+}
+
+#[test]
+fn browser_config_default_theme_is_system() {
+    let config = BrowserConfig::default();
+    assert!(matches!(config.theme, Theme::System));
+}
+
+#[rstest]
+#[case(Theme::Light)]
+#[case(Theme::Dark)]
+#[case(Theme::System)]
+fn browser_config_theme_variants(#[case] theme: Theme) {
+    let config = BrowserConfig::builder().theme(theme.clone()).build();
+    assert!(std::mem::discriminant(&config.theme) == std::mem::discriminant(&theme));
+}
+
+// -------------------------------------------------------------------------
+// DevToolsConfig defaults
+// -------------------------------------------------------------------------
+
+#[test]
+fn devtools_config_default_enabled() {
+    let config = BrowserConfig::default();
+    assert!(config.devtools.enabled);
+}
+
+#[test]
+fn devtools_config_default_dock_side_right() {
+    let config = BrowserConfig::default();
+    assert!(matches!(config.devtools.dock_side, DockSide::Right));
+}
+
+#[test]
+fn devtools_config_default_auto_open_false() {
+    let config = BrowserConfig::default();
+    assert!(!config.devtools.auto_open);
+}
+
+// -------------------------------------------------------------------------
+// context_menu feature toggle
+// -------------------------------------------------------------------------
+
+#[test]
+fn browser_features_context_menu_default_true() {
+    let config = BrowserConfig::default();
+    assert!(config.features.context_menu);
+}
+
+// -------------------------------------------------------------------------
+// CDP feature — multiple port values
+// -------------------------------------------------------------------------
+
+#[rstest]
+#[case(9222, true)]
+#[case(9229, true)]
+#[case(8080, true)]
+#[case(1, true)]
+#[case(0, false)]
+fn remote_debugging_port_cdp_state(#[case] port: u16, #[case] expected_cdp: bool) {
+    let config = BrowserConfig::builder()
+        .remote_debugging_port(port)
+        .build();
+    assert_eq!(config.features.cdp_enabled, expected_cdp);
+    assert_eq!(config.remote_debugging_port, port);
+}
+
+// -------------------------------------------------------------------------
+// Builder — overwrite fields
+// -------------------------------------------------------------------------
+
+#[test]
+fn builder_overwrite_title() {
+    let config = BrowserConfig::builder()
+        .title("First")
+        .title("Second")
+        .build();
+    assert_eq!(config.title, "Second");
+}
+
+#[test]
+fn builder_overwrite_size() {
+    let config = BrowserConfig::builder()
+        .size(640, 480)
+        .size(1920, 1080)
+        .build();
+    assert_eq!(config.width, 1920);
+    assert_eq!(config.height, 1080);
+}
+
+#[test]
+fn builder_size_zero() {
+    let config = BrowserConfig::builder().size(0, 0).build();
+    assert_eq!(config.width, 0);
+    assert_eq!(config.height, 0);
+}
+
+// -------------------------------------------------------------------------
+// Builder — user_data_dir unicode path
+// -------------------------------------------------------------------------
+
+#[test]
+fn builder_user_data_dir_unicode() {
+    let path = "/tmp/アuroraview/テスト";
+    let config = BrowserConfig::builder().user_data_dir(path).build();
+    assert_eq!(config.user_data_dir, Some(path.to_string()));
+}
+
+// -------------------------------------------------------------------------
+// Clone independence
+// -------------------------------------------------------------------------
+
+#[test]
+fn browser_config_clone_independence() {
+    let config = BrowserConfig::builder()
+        .title("Original")
+        .size(800, 600)
+        .build();
+    let mut cloned = config.clone();
+    cloned.title = "Cloned".to_string();
+    cloned.width = 1920;
+    assert_eq!(config.title, "Original");
+    assert_eq!(config.width, 800);
+    assert_eq!(cloned.title, "Cloned");
+    assert_eq!(cloned.width, 1920);
+}
+
+#[test]
+fn browser_features_clone_independence() {
+    let mut features = BrowserFeatures::default();
+    features.history = false;
+    let cloned = features.clone();
+    features.history = true;
+    assert!(!cloned.history);
+    assert!(features.history);
+}
+
+// -------------------------------------------------------------------------
+// DockSide serde roundtrip
+// -------------------------------------------------------------------------
+
+#[rstest]
+#[case(DockSide::Right)]
+#[case(DockSide::Bottom)]
+#[case(DockSide::Left)]
+#[case(DockSide::Undocked)]
+fn dock_side_serde_roundtrip(#[case] side: DockSide) {
+    let json = serde_json::to_string(&side).unwrap();
+    let restored: DockSide = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored, side);
 }

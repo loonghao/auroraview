@@ -402,3 +402,191 @@ fn dcc_config_new_equals_default() {
     let json_b = serde_json::to_string(&b).unwrap();
     assert_eq!(json_a, json_b);
 }
+
+// ===========================================================================
+// New: DccType::detect() uses env variables
+// ===========================================================================
+
+#[test]
+fn dcc_type_detect_fallback_to_unknown_when_no_env() {
+    // Remove all known DCC env vars to get Unknown
+    let vars = [
+        "MAYA_LOCATION",
+        "HFS",
+        "NUKE_PATH",
+        "BLENDER_SYSTEM_SCRIPTS",
+        "ADSK_3DSMAX_X64_2025",
+        "3DSMAX_LOCATION",
+        "UE_ROOT",
+        "UE4_ROOT",
+    ];
+    for v in &vars {
+        std::env::remove_var(v);
+    }
+    // If none set, should detect Unknown
+    let detected = DccType::detect();
+    assert_eq!(detected, DccType::Unknown);
+}
+
+// ===========================================================================
+// New: DccType env_var parametric (all variants)
+// ===========================================================================
+
+#[rstest]
+#[case(DccType::Maya, Some("MAYA_LOCATION"))]
+#[case(DccType::Houdini, Some("HFS"))]
+#[case(DccType::Nuke, Some("NUKE_PATH"))]
+#[case(DccType::Blender, Some("BLENDER_SYSTEM_SCRIPTS"))]
+#[case(DccType::Max3ds, Some("ADSK_3DSMAX_X64_2025"))]
+#[case(DccType::Unreal, Some("UE_ROOT"))]
+#[case(DccType::Unknown, None)]
+fn dcc_type_env_var_parametric(#[case] dcc: DccType, #[case] expected: Option<&str>) {
+    assert_eq!(dcc.env_var(), expected);
+}
+
+// ===========================================================================
+// New: DccType Copy semantics
+// ===========================================================================
+
+#[test]
+fn dcc_type_copy() {
+    let a = DccType::Maya;
+    let b = a; // Copy
+    assert_eq!(a, b);
+}
+
+// ===========================================================================
+// New: DccType::detect() with Maya env var set
+// ===========================================================================
+
+#[test]
+fn dcc_type_detect_maya_via_env() {
+    std::env::set_var("MAYA_LOCATION", "/usr/autodesk/maya2025");
+    let detected = DccType::detect();
+    std::env::remove_var("MAYA_LOCATION");
+    assert_eq!(detected, DccType::Maya);
+}
+
+// ===========================================================================
+// New: DccType::detect() with UE env var set
+// ===========================================================================
+
+#[test]
+fn dcc_type_detect_unreal_via_env() {
+    // Ensure Maya not set (it takes priority)
+    std::env::remove_var("MAYA_LOCATION");
+    std::env::remove_var("HFS");
+    std::env::remove_var("NUKE_PATH");
+    std::env::remove_var("BLENDER_SYSTEM_SCRIPTS");
+    std::env::remove_var("ADSK_3DSMAX_X64_2025");
+    std::env::remove_var("3DSMAX_LOCATION");
+    std::env::set_var("UE_ROOT", "/opt/ue5");
+    let detected = DccType::detect();
+    std::env::remove_var("UE_ROOT");
+    assert_eq!(detected, DccType::Unreal);
+}
+
+// ===========================================================================
+// New: DccConfig Send+Sync
+// ===========================================================================
+
+#[test]
+fn dcc_config_is_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<DccConfig>();
+    assert_sync::<DccConfig>();
+}
+
+#[test]
+fn dcc_type_is_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<DccType>();
+    assert_sync::<DccType>();
+}
+
+// ===========================================================================
+// New: DccConfig data_dir as PathBuf
+// ===========================================================================
+
+#[test]
+fn dcc_config_data_dir_pathbuf() {
+    let path = std::path::Path::new("/var/data/auroraview");
+    let config = DccConfig::new().data_dir(path);
+    assert_eq!(config.data_dir, Some(path.to_path_buf()));
+}
+
+#[test]
+fn dcc_config_data_dir_unicode_path() {
+    let path = "/tmp/アuroraview/データ";
+    let config = DccConfig::new().data_dir(path);
+    let expected = std::path::PathBuf::from(path);
+    assert_eq!(config.data_dir, Some(expected));
+}
+
+// ===========================================================================
+// New: DccConfig builder unicode title/panel_name
+// ===========================================================================
+
+#[test]
+fn dcc_config_unicode_title() {
+    let title = "AuroraView - Maya ツール";
+    let config = DccConfig::new().title(title);
+    assert_eq!(config.title, title);
+}
+
+#[test]
+fn dcc_config_unicode_panel_name() {
+    let name = "パネル - Houdini";
+    let config = DccConfig::new().panel_name(name);
+    assert_eq!(config.panel_name, Some(name.to_string()));
+}
+
+// ===========================================================================
+// New: DccConfig url with special chars
+// ===========================================================================
+
+#[rstest]
+#[case("https://example.com/path?q=hello+world&lang=ja")]
+#[case("file:///C:/Users/user/tool.html")]
+#[case("http://localhost:8080/panel")]
+#[case("about:blank")]
+fn dcc_config_url_variants(#[case] url: &str) {
+    let config = DccConfig::new().url(url);
+    assert_eq!(config.url, Some(url.to_string()));
+}
+
+// ===========================================================================
+// New: builder default_debug_port is 0
+// ===========================================================================
+
+#[test]
+fn dcc_config_default_debug_port_is_zero() {
+    let config = DccConfig::default();
+    assert_eq!(config.debug_port, 0);
+}
+
+// ===========================================================================
+// New: DccConfig debug_port high value
+// ===========================================================================
+
+#[test]
+fn dcc_config_debug_port_max() {
+    let config = DccConfig::new().debug_port(u16::MAX);
+    assert_eq!(config.debug_port, u16::MAX);
+}
+
+// ===========================================================================
+// New: DccType PartialEq
+// ===========================================================================
+
+#[rstest]
+#[case(DccType::Maya, DccType::Maya, true)]
+#[case(DccType::Maya, DccType::Houdini, false)]
+#[case(DccType::Unknown, DccType::Unknown, true)]
+#[case(DccType::Blender, DccType::Unreal, false)]
+fn dcc_type_partial_eq(#[case] a: DccType, #[case] b: DccType, #[case] equal: bool) {
+    assert_eq!(a == b, equal);
+}
+

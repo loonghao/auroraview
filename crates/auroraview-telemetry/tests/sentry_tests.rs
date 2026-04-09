@@ -201,10 +201,113 @@ fn test_sentry_config_clone() {
     assert!((config.sentry_sample_rate - cloned.sentry_sample_rate).abs() < f32::EPSILON);
 }
 
+
 #[test]
 fn test_sentry_capture_level_case_variations() {
     // Both uppercase and lowercase should not panic
     for level in &["ERROR", "Error", "error", "INFO", "Info", "info"] {
         let _result = Telemetry::capture_sentry_message("test", level);
     }
+}
+
+// ============================================================================
+// New: Send+Sync bounds
+// ============================================================================
+
+#[test]
+fn telemetry_config_is_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<TelemetryConfig>();
+    assert_sync::<TelemetryConfig>();
+}
+
+// ============================================================================
+// New: TelemetryConfig default sample rates
+// ============================================================================
+
+#[test]
+fn test_default_sample_rate_is_one() {
+    let config = TelemetryConfig::default();
+    assert!((config.sentry_sample_rate - 1.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_default_traces_sample_rate_is_zero() {
+    let config = TelemetryConfig::default();
+    assert!((config.sentry_traces_sample_rate - 0.0).abs() < f32::EPSILON);
+}
+
+// ============================================================================
+// New: TelemetryConfig partial struct update
+// ============================================================================
+
+#[test]
+fn test_config_partial_update_preserves_defaults() {
+    let config = TelemetryConfig {
+        sentry_dsn: Some("https://x@sentry.io/1".to_string()),
+        ..TelemetryConfig::default()
+    };
+    // Other fields should remain default
+    assert_eq!(config.sentry_environment, None);
+    assert_eq!(config.sentry_release, None);
+    assert!((config.sentry_sample_rate - 1.0).abs() < f32::EPSILON);
+}
+
+// ============================================================================
+// New: sentry_dsn None vs Some serde
+// ============================================================================
+
+#[test]
+fn test_sentry_dsn_none_serde() {
+    let config = TelemetryConfig::default();
+    let json = serde_json::to_string(&config).unwrap();
+    assert!(json.contains("null") || !json.contains("sentry_dsn") || json.contains("\"sentry_dsn\":null"));
+}
+
+// ============================================================================
+// New: capture with special chars in message
+// ============================================================================
+
+#[test]
+fn test_sentry_capture_with_special_chars() {
+    let _r = Telemetry::capture_sentry_message(r#"Error: file "path/to/file" not found"#, "error");
+    let _r2 = Telemetry::capture_sentry_message("newline\nand\ttab", "info");
+}
+
+// ============================================================================
+// New: multiple configs don't interfere
+// ============================================================================
+
+#[test]
+fn test_multiple_config_instances_are_independent() {
+    let c1 = TelemetryConfig {
+        sentry_dsn: Some("https://a@sentry.io/1".to_string()),
+        sentry_sample_rate: 0.1,
+        ..TelemetryConfig::default()
+    };
+    let c2 = TelemetryConfig {
+        sentry_dsn: Some("https://b@sentry.io/2".to_string()),
+        sentry_sample_rate: 0.9,
+        ..TelemetryConfig::default()
+    };
+    assert_ne!(c1.sentry_dsn, c2.sentry_dsn);
+    assert!(c1.sentry_sample_rate < c2.sentry_sample_rate);
+}
+
+// ============================================================================
+// New: config clone independence
+// ============================================================================
+
+#[test]
+fn test_telemetry_config_clone_independence() {
+    let config = TelemetryConfig {
+        sentry_dsn: Some("https://orig@sentry.io/1".to_string()),
+        sentry_sample_rate: 0.5,
+        ..TelemetryConfig::default()
+    };
+    let mut cloned = config.clone();
+    cloned.sentry_dsn = Some("https://cloned@sentry.io/2".to_string());
+    assert_eq!(config.sentry_dsn.as_deref(), Some("https://orig@sentry.io/1"));
+    assert_eq!(cloned.sentry_dsn.as_deref(), Some("https://cloned@sentry.io/2"));
 }

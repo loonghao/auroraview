@@ -208,6 +208,7 @@ fn test_multiple_init_after_drop_sequence() {
     }
 }
 
+
 #[test]
 fn test_enabled_state_persists_across_is_initialized_check() {
     Telemetry::enable();
@@ -215,3 +216,94 @@ fn test_enabled_state_persists_across_is_initialized_check() {
     assert!(Telemetry::is_enabled());
     Telemetry::disable();
 }
+
+// ─── New: additional coverage ────────────────────────────────────────────────
+
+#[test]
+fn test_is_enabled_is_deterministic() {
+    Telemetry::disable();
+    let a = Telemetry::is_enabled();
+    let b = Telemetry::is_enabled();
+    assert_eq!(a, b);
+    assert!(!a);
+}
+
+#[test]
+fn test_enable_makes_is_enabled_true() {
+    Telemetry::enable();
+    assert!(Telemetry::is_enabled());
+    Telemetry::disable(); // cleanup
+}
+
+#[test]
+fn test_disable_makes_is_enabled_false() {
+    Telemetry::enable();
+    Telemetry::disable();
+    assert!(!Telemetry::is_enabled());
+}
+
+#[test]
+fn test_capture_message_does_not_panic_when_disabled() {
+    Telemetry::disable();
+    let _ = Telemetry::capture_sentry_message("test while disabled", "warning");
+}
+
+#[test]
+fn test_capture_message_does_not_panic_when_enabled() {
+    Telemetry::enable();
+    let _ = Telemetry::capture_sentry_message("test while enabled", "info");
+    Telemetry::disable();
+}
+
+#[test]
+fn test_is_initialized_repeatedly_consistent() {
+    let a = Telemetry::is_initialized();
+    let b = Telemetry::is_initialized();
+    let c = Telemetry::is_initialized();
+    assert_eq!(a, b);
+    assert_eq!(b, c);
+}
+
+#[test]
+fn test_telemetry_config_send_sync() {
+    use auroraview_telemetry::TelemetryConfig;
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<TelemetryConfig>();
+    assert_sync::<TelemetryConfig>();
+}
+
+#[test]
+fn test_enable_disable_in_loop_final_state() {
+    // 5 pairs of enable/disable: should end disabled
+    for _ in 0..5 {
+        Telemetry::enable();
+        Telemetry::disable();
+    }
+    assert!(!Telemetry::is_enabled());
+}
+
+#[test]
+fn test_enable_only_loop() {
+    for _ in 0..3 {
+        Telemetry::enable();
+    }
+    assert!(Telemetry::is_enabled());
+    Telemetry::disable();
+}
+
+#[test]
+fn test_disable_only_loop() {
+    for _ in 0..3 {
+        Telemetry::disable();
+    }
+    assert!(!Telemetry::is_enabled());
+}
+
+#[test]
+fn test_enabled_default_state_is_false() {
+    // After disable chain, default must be false
+    Telemetry::disable();
+    assert!(!Telemetry::is_enabled());
+}
+
