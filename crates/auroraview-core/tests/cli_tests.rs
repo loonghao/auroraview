@@ -378,3 +378,49 @@ fn test_rewrite_large_html() {
     assert!(result.contains("auroraview://script0.js"));
     assert!(result.contains("auroraview://script49.js"));
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[rstest]
+fn test_normalize_url_returns_ok_for_http() {
+    let result = normalize_url("http://example.com");
+    assert!(result.is_ok(), "http URL should be Ok");
+}
+
+#[rstest]
+fn test_normalize_url_returns_ok_for_https() {
+    let result = normalize_url("https://example.com");
+    assert!(result.is_ok(), "https URL should be Ok");
+}
+
+#[rstest]
+fn test_normalize_url_result_is_not_empty_string() {
+    let result = normalize_url("https://example.com");
+    let url = result.unwrap();
+    assert!(!url.is_empty());
+}
+
+#[rstest]
+fn test_rewrite_empty_body() {
+    let html = "<html><body></body></html>";
+    let result = rewrite_html_for_custom_protocol(html);
+    assert!(!result.is_empty());
+}
+
+#[rstest]
+fn test_rewrite_preserves_absolute_https_url() {
+    let html = r#"<html><body><script src="https://cdn.example.com/lib.js"></script></body></html>"#;
+    let result = rewrite_html_for_custom_protocol(html);
+    // Absolute HTTPS URLs should not be rewritten
+    assert!(result.contains("https://cdn.example.com/lib.js"));
+}
+
+#[rstest]
+fn test_normalize_url_localhost_with_port_produces_valid_url() {
+    let result = normalize_url("localhost:3000");
+    assert!(result.is_ok(), "localhost:3000 should be parseable");
+    let url = result.unwrap();
+    assert!(url.contains("localhost"));
+}

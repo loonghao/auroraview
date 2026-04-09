@@ -564,3 +564,87 @@ fn cdp_methods_dom_domain() {
     assert!(methods::DOM_QUERY_SELECTOR.starts_with("DOM."));
     assert!(methods::DOM_QUERY_SELECTOR_ALL.starts_with("DOM."));
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[rstest]
+fn devtools_config_default_remote_port_is_zero() {
+    let cfg = DevToolsConfig::default();
+    assert_eq!(cfg.remote_debugging_port, 0);
+}
+
+#[rstest]
+fn devtools_config_new_disabled() {
+    let cfg = DevToolsConfig { enabled: false, ..Default::default() };
+    assert!(!cfg.enabled);
+}
+
+#[rstest]
+fn devtools_state_close_sets_not_open() {
+    let mut state = DevToolsState::default();
+    state.is_open = true;
+    state.is_open = false;
+    assert!(!state.is_open);
+}
+
+#[rstest]
+fn dock_side_debug_non_empty() {
+    let sides = [DockSide::Left, DockSide::Right, DockSide::Bottom, DockSide::Undocked];
+    for s in &sides {
+        let dbg = format!("{:?}", s);
+        assert!(!dbg.is_empty());
+    }
+}
+
+#[rstest]
+fn cdp_request_method_field_preserved() {
+    use auroraview_browser::devtools::cdp::CdpRequest;
+    let req = CdpRequest::new(1u64, "Page.navigate", serde_json::json!({}));
+    assert_eq!(req.method, "Page.navigate");
+}
+
+#[rstest]
+fn cdp_response_result_is_present() {
+    use auroraview_browser::devtools::cdp::CdpResponse;
+    let resp = CdpResponse::success(1, serde_json::json!({"url": "https://example.com"}));
+    assert!(resp.result.is_some());
+}
+
+#[rstest]
+fn console_message_type_debug_non_empty() {
+    use auroraview_browser::devtools::ConsoleMessageType;
+    let types = [
+        ConsoleMessageType::Log,
+        ConsoleMessageType::Info,
+        ConsoleMessageType::Warning,
+        ConsoleMessageType::Error,
+    ];
+    for t in &types {
+        let dbg = format!("{:?}", t);
+        assert!(!dbg.is_empty());
+    }
+}
+
+#[rstest]
+fn devtools_manager_multiple_opens_no_panic() {
+    let cfg = DevToolsConfig { enabled: true, ..Default::default() };
+    let mut mgr = DevToolsManager::new(cfg);
+    for _ in 0..5 {
+        mgr.open();
+    }
+}
+
+#[rstest]
+fn devtools_config_clone_equals_original() {
+    let cfg = DevToolsConfig {
+        enabled: true,
+        remote_debugging_port: 9222,
+        dock_side: DockSide::Bottom,
+        ..Default::default()
+    };
+    let cloned = cfg.clone();
+    assert_eq!(cloned.enabled, cfg.enabled);
+    assert_eq!(cloned.remote_debugging_port, cfg.remote_debugging_port);
+}

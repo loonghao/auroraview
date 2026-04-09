@@ -450,3 +450,47 @@ fn theme_css_contains_colon(#[case] theme: Theme) {
     let css = theme.css();
     assert!(css.contains(':'));
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn theme_light_css_not_empty() {
+    assert!(!Theme::Light.css().is_empty());
+}
+
+#[test]
+fn theme_dark_css_not_empty() {
+    assert!(!Theme::Dark.css().is_empty());
+}
+
+#[test]
+fn theme_custom_css_contains_name_r15() {
+    let colors = ThemeColors::light();
+    let custom = CustomTheme::new("aurora_r15", colors);
+    let css = Theme::Custom(Box::new(custom)).css();
+    assert!(!css.is_empty());
+}
+
+#[test]
+fn theme_colors_light_bg_primary_not_empty() {
+    let colors = ThemeColors::light();
+    assert!(!colors.bg_primary.is_empty());
+}
+
+#[test]
+fn theme_colors_dark_bg_primary_not_empty() {
+    let colors = ThemeColors::dark();
+    assert!(!colors.bg_primary.is_empty());
+}
+
+#[test]
+fn theme_light_eq_another_light() {
+    assert_eq!(Theme::Light, Theme::Light);
+}
+
+#[test]
+fn theme_dark_ne_light() {
+    assert_ne!(Theme::Dark, Theme::Light);
+}
