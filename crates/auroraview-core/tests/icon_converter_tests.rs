@@ -503,6 +503,7 @@ fn test_png_to_ico_many_sizes(#[case] sizes: &[u32]) {
     assert!(size > 0);
 }
 
+
 #[rstest]
 fn test_compress_and_resize_preserves_aspect_when_downscaling() {
     // 512x512 downscaled to max 128 should fit within 128x128
@@ -515,3 +516,181 @@ fn test_compress_and_resize_preserves_aspect_when_downscaling() {
     assert!(result.width <= 128, "width {} should be <= 128", result.width);
     assert!(result.height <= 128, "height {} should be <= 128", result.height);
 }
+
+// ============================================================================
+// R11 Extensions
+// ============================================================================
+
+#[rstest]
+fn test_compression_result_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<auroraview_core::icon::CompressionResult>();
+}
+
+#[rstest]
+fn test_png_bytes_to_ico_produces_ico_magic_bytes() {
+    // ICO format magic: first 4 bytes are 00 00 01 00 (reserved=0, type=1)
+    let png_bytes = create_png_bytes(32);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("magic.ico");
+
+    png_bytes_to_ico(&png_bytes, &ico_path, &[16]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() >= 4, "ICO file too short");
+    // ICO magic: bytes 0-1 = 0x00 0x00, bytes 2-3 = 0x01 0x00
+    assert_eq!(data[0], 0x00);
+    assert_eq!(data[1], 0x00);
+    assert_eq!(data[2], 0x01);
+    assert_eq!(data[3], 0x00);
+}
+
+#[rstest]
+fn test_png_to_ico_magic_bytes() {
+    let png_file = create_simple_test_png();
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("magic2.ico");
+
+    png_to_ico(png_file.path(), &ico_path, &[32]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() >= 4);
+    assert_eq!(data[0], 0x00);
+    assert_eq!(data[1], 0x00);
+    assert_eq!(data[2], 0x01);
+    assert_eq!(data[3], 0x00);
+}
+
+#[rstest]
+fn test_compress_and_resize_max_size_zero_handled() {
+    // max_size=0 is an edge case - function should either handle gracefully or error
+    let png_file = create_test_png(64);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("zero_max.png");
+    // We don't assert success/failure, just that it doesn't panic
+    let _ = compress_and_resize(png_file.path(), &out_path, 0, 5);
+}
+
+#[rstest]
+#[case(32)]
+#[case(64)]
+#[case(128)]
+fn test_compress_and_resize_various_max_sizes(#[case] max_size: u32) {
+    let png_file = create_test_png(256);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join(format!("max_{}.png", max_size));
+
+    let result = compress_and_resize(png_file.path(), &out_path, max_size, 5).unwrap();
+
+    assert!(result.width <= max_size);
+    assert!(result.height <= max_size);
+    assert!(out_path.exists());
+}
+
+#[rstest]
+fn test_compress_png_level_zero_succeeds() {
+    let png_file = create_test_png(64);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("level0.png");
+
+    let result = compress_png(png_file.path(), &out_path, 0).unwrap();
+    assert!(out_path.exists());
+    assert_eq!(result.width, 64);
+}
+
+#[rstest]
+fn test_ico_directory_entry_count() {
+    // ICO directory entry count is stored at bytes 4-5 (little-endian u16)
+    let png_bytes = create_png_bytes(32);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("entry_count.ico");
+
+    png_bytes_to_ico(&png_bytes, &ico_path, &[16, 32]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() >= 6);
+    let count = u16::from_le_bytes([data[4], data[5]]);
+    // We requested 2 sizes, so there should be 2 directory entries
+    assert_eq!(count, 2, "ICO should have 2 directory entries for 2 sizes");
+}
+
+#[rstest]
+fn test_ico_single_size_entry_count() {
+    let png_bytes = create_png_bytes(32);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("single_entry.ico");
+
+    png_bytes_to_ico(&png_bytes, &ico_path, &[32]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() >= 6);
+    let count = u16::from_le_bytes([data[4], data[5]]);
+    assert_eq!(count, 1, "ICO with 1 size should have 1 directory entry");
+}
+
+#[rstest]
+fn test_png_to_ico_with_default_ico_sizes() {
+    use auroraview_core::icon::DEFAULT_ICO_SIZES;
+    let png_file = create_test_png(512);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("default_sizes.ico");
+
+    png_to_ico(png_file.path(), &ico_path, DEFAULT_ICO_SIZES).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() > 6);
+    let count = u16::from_le_bytes([data[4], data[5]]);
+    assert_eq!(count as usize, DEFAULT_ICO_SIZES.len());
+}
+
+#[rstest]
+fn test_compression_result_reduction_percent_zero_original() {
+    use auroraview_core::icon::CompressionResult;
+    let cr = CompressionResult {
+        original_size: 0,
+        compressed_size: 100,
+        width: 1,
+        height: 1,
+    };
+    // Should handle division by zero gracefully
+    let pct = cr.reduction_percent();
+    assert_eq!(pct, 0.0);
+}
+
+#[rstest]
+fn test_compression_result_reduction_percent_fifty() {
+    use auroraview_core::icon::CompressionResult;
+    let cr = CompressionResult {
+        original_size: 200,
+        compressed_size: 100,
+        width: 4,
+        height: 4,
+    };
+    let pct = cr.reduction_percent();
+    assert!((pct - 50.0).abs() < 1e-6);
+}
+
+#[rstest]
+fn test_png_bytes_to_ico_truncated_bytes() {
+    // Provide only the first 8 bytes of a PNG (partial header)
+    let png_bytes = create_png_bytes(32);
+    let truncated = &png_bytes[..8];
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("truncated.ico");
+
+    let result = png_bytes_to_ico(truncated, &ico_path, &[16]);
+    assert!(result.is_err(), "truncated PNG should fail");
+}
+
+#[rstest]
+fn test_compress_and_resize_output_smaller_than_source_when_downscaling() {
+    let png_file = create_test_png(512);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("smaller_output.png");
+
+    let result = compress_and_resize(png_file.path(), &out_path, 64, 9).unwrap();
+
+    assert!(result.width <= 64);
+    assert!(result.height <= 64);
+}
+
