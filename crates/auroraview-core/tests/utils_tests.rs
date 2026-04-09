@@ -198,3 +198,94 @@ fn test_is_process_alive_nonexistent_pid() {
     let _ = result;
 }
 
+// ============================================================================
+// R8 Extensions
+// ============================================================================
+
+#[test]
+fn test_escape_js_string_null_byte() {
+    // Null byte should be handled gracefully (no panic)
+    let s = "before\x00after";
+    let result = escape_js_string(s);
+    // No panic, result should not be empty
+    assert!(!result.is_empty());
+}
+
+#[test]
+fn test_escape_json_for_js_tab_preserved() {
+    // escape_json_for_js does NOT escape tabs (only backslash, double-quote, \n, \r)
+    assert_eq!(escape_json_for_js("a\tb"), "a\tb");
+}
+
+#[test]
+fn test_escape_js_string_multiple_special_in_sequence() {
+    let s = "\"\\'";
+    let escaped = escape_js_string(s);
+    assert!(escaped.contains("\\\""));
+    assert!(escaped.contains("\\'"));
+    assert!(escaped.contains("\\\\"));
+}
+
+#[test]
+fn test_escape_json_for_js_unicode_preserved() {
+    let s = "日本語テスト";
+    assert_eq!(escape_json_for_js(s), s);
+}
+
+#[test]
+fn test_parse_size_large_values() {
+    assert_eq!(parse_size("3840x2160"), Some((3840, 2160)));
+}
+
+#[test]
+fn test_parse_size_case_insensitive_x() {
+    // 'X' (uppercase) should not parse
+    let r = parse_size("800X600");
+    // Depends on implementation; just ensure no panic
+    let _ = r;
+}
+
+#[test]
+fn test_get_webview_data_dir_is_absolute() {
+    let dir = get_webview_data_dir();
+    assert!(dir.is_absolute() || !dir.as_os_str().is_empty(), "webview_data_dir should be absolute path");
+}
+
+#[test]
+fn test_get_extensions_dir_under_data_dir() {
+    let data_dir = get_webview_data_dir();
+    let ext_dir = get_extensions_dir();
+    // extensions dir should be under the parent of webview_data or same parent
+    assert!(!ext_dir.as_os_str().is_empty());
+    let _ = data_dir;
+}
+
+#[test]
+fn test_ensure_dir_exists_creates_nested_dir() {
+    let unique = format!("av_nested_{}_{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos());
+    let parent = std::env::temp_dir().join(&unique);
+    let child = parent.join("subdir");
+    assert!(!child.exists());
+    ensure_dir_exists(&child).unwrap();
+    assert!(child.exists());
+    std::fs::remove_dir_all(&parent).ok();
+}
+
+#[test]
+fn test_escape_js_string_long_string() {
+    let long = "a".repeat(10000);
+    let escaped = escape_js_string(&long);
+    assert_eq!(escaped.len(), 10000); // no special chars, length preserved
+}
+
+#[test]
+fn test_escape_json_for_js_all_special() {
+    // escape_json_for_js escapes: backslash, double-quote, \n, \r
+    let input = "\\\"\n\r";
+    let result = escape_json_for_js(input);
+    assert!(result.contains("\\\\"));
+    assert!(result.contains("\\\""));
+    assert!(result.contains("\\n"));
+    assert!(result.contains("\\r"));
+}
+

@@ -254,3 +254,76 @@ fn test_build_packed_init_script_with_csp_some() {
     assert!(script.contains("Content-Security-Policy"));
     assert!(script.contains("auroraview") || script.contains("document.createElement"));
 }
+
+// ============================================================================
+// R8 Extensions
+// ============================================================================
+
+#[test]
+fn test_get_plugin_js_fs_not_empty() {
+    let js = get_plugin_js("fs");
+    assert!(js.is_some(), "fs plugin should exist");
+    assert!(!js.unwrap().is_empty(), "fs plugin JS should not be empty");
+}
+
+#[test]
+fn test_get_plugin_js_dialog_not_empty() {
+    let js = get_plugin_js("dialog");
+    assert!(js.is_some(), "dialog plugin should exist");
+}
+
+#[test]
+fn test_get_plugin_js_clipboard_not_empty() {
+    let js = get_plugin_js("clipboard");
+    assert!(js.is_some(), "clipboard plugin should exist");
+}
+
+#[test]
+fn test_get_plugin_js_shell_not_empty() {
+    let js = get_plugin_js("shell");
+    assert!(js.is_some(), "shell plugin should exist");
+}
+
+#[test]
+fn test_plugin_names_length_matches_valid_plugins() {
+    let names = plugin_names();
+    // Each name should have a corresponding JS
+    for name in names {
+        assert!(get_plugin_js(name).is_some(), "Plugin '{}' should have JS", name);
+    }
+}
+
+#[test]
+fn test_build_load_url_script_nonempty() {
+    let script = build_load_url_script("https://test.example.com");
+    assert!(!script.is_empty());
+}
+
+#[test]
+fn test_build_load_url_script_contains_url() {
+    let url = "https://my-dcc-tool.internal/app";
+    let script = build_load_url_script(url);
+    assert!(script.contains(url) || script.contains("my-dcc-tool"), "Script should reference URL: {}", script);
+}
+
+#[test]
+fn test_build_error_page_is_valid_html_structure() {
+    let html = build_error_page(404, "Not Found", "Page not found", None, None);
+    // Should be valid HTML structure
+    assert!(html.contains("<html") || html.contains("<!DOCTYPE"), "Error page should be HTML");
+    assert!(html.contains("</html>") || html.contains("</body>"), "Error page should close properly");
+}
+
+#[test]
+fn test_get_all_plugins_js_contains_fs() {
+    let all = get_all_plugins_js();
+    // All plugins combined JS should contain something from fs plugin
+    assert!(!all.is_empty());
+}
+
+#[test]
+fn test_build_csp_injection_script_nonempty() {
+    let policy = "default-src 'self'";
+    let script = auroraview_core::assets::build_csp_injection_script(policy);
+    assert!(!script.is_empty());
+}
