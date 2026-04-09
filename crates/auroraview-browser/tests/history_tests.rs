@@ -511,3 +511,55 @@ fn manager_count_with_n_entries(#[case] n: usize) {
     }
     assert_eq!(manager.count(), n);
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn manager_add_increases_count_by_one() {
+    let (manager, _temp_dir) = create_test_manager(100, true);
+    let before = manager.count();
+    manager.add("https://r15.com", "R15 Test");
+    assert_eq!(manager.count(), before + 1);
+}
+
+#[test]
+fn manager_add_two_entries_count_is_two() {
+    let (manager, _temp_dir) = create_test_manager(100, true);
+    manager.add("https://r15-a.com", "R15 A");
+    manager.add("https://r15-b.com", "R15 B");
+    assert_eq!(manager.count(), 2);
+}
+
+#[test]
+fn manager_search_finds_added_url() {
+    let (manager, _temp_dir) = create_test_manager(100, true);
+    manager.add("https://findme-r15.com", "Find Me");
+    let results = manager.search("findme-r15", 10);
+    assert!(!results.is_empty(), "Search should find the added URL");
+}
+
+#[test]
+fn manager_clear_after_add_leaves_zero() {
+    let (manager, _temp_dir) = create_test_manager(100, true);
+    manager.add("https://a.com", "A");
+    manager.add("https://b.com", "B");
+    manager.clear();
+    assert_eq!(manager.count(), 0);
+}
+
+#[test]
+fn manager_list_recent_empty_initially() {
+    let (manager, _temp_dir) = create_test_manager(100, true);
+    let recent = manager.get(10);
+    assert!(recent.is_empty());
+}
+
+#[test]
+fn manager_list_recent_after_add_not_empty() {
+    let (manager, _temp_dir) = create_test_manager(100, true);
+    manager.add("https://recent-r15.com", "Recent");
+    let recent = manager.get(10);
+    assert!(!recent.is_empty());
+}

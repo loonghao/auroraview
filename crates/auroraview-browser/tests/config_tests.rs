@@ -533,3 +533,47 @@ fn dock_side_serde_roundtrip(#[case] side: DockSide) {
     let restored: DockSide = serde_json::from_str(&json).unwrap();
     assert_eq!(restored, side);
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn browser_config_default_title_is_not_empty() {
+    let cfg = BrowserConfig::default();
+    assert!(!cfg.title.is_empty());
+}
+
+#[test]
+fn browser_config_default_width_positive() {
+    let cfg = BrowserConfig::default();
+    assert!(cfg.width > 0);
+}
+
+#[test]
+fn browser_config_default_height_positive() {
+    let cfg = BrowserConfig::default();
+    assert!(cfg.height > 0);
+}
+
+#[test]
+fn browser_config_builder_title_custom() {
+    let cfg = BrowserConfig::builder()
+        .title("MyBrowser")
+        .build();
+    assert_eq!(cfg.title, "MyBrowser");
+}
+
+#[test]
+fn browser_features_default_has_history_true() {
+    let features = BrowserFeatures::default();
+    assert!(features.history, "History should be enabled by default");
+}
+
+#[test]
+fn dock_side_all_variants_not_equal_undocked() {
+    let docked = [DockSide::Left, DockSide::Right, DockSide::Bottom];
+    for s in &docked {
+        assert_ne!(*s, DockSide::Undocked);
+    }
+}

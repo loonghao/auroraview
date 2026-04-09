@@ -469,3 +469,40 @@ fn multiple_errors_can_be_collected() {
         assert!(!err.to_string().is_empty());
     }
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn browser_error_tab_not_found_contains_id() {
+    let err = BrowserError::TabNotFound("special-tab-xyz".into());
+    let msg = err.to_string();
+    assert!(msg.contains("special-tab-xyz"));
+}
+
+#[test]
+fn browser_error_invalid_url_contains_url() {
+    let err = BrowserError::InvalidUrl("not-a-url".into());
+    let msg = err.to_string();
+    assert!(msg.contains("not-a-url"));
+}
+
+#[test]
+fn browser_error_navigation_contains_message() {
+    let err = BrowserError::Navigation("Connection refused".into());
+    let msg = err.to_string();
+    assert!(msg.contains("Connection refused"));
+}
+
+#[test]
+fn browser_error_display_is_non_empty_for_all_variants() {
+    let errors = vec![
+        BrowserError::TabNotFound("t".into()),
+        BrowserError::Navigation("n".into()),
+        BrowserError::InvalidUrl("u".into()),
+    ];
+    for e in &errors {
+        assert!(!e.to_string().is_empty());
+    }
+}

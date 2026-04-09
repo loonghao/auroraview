@@ -1,6 +1,6 @@
 //! Tests for bookmarks module
 
-use auroraview_browser::navigation::{Bookmark, BookmarkFolder, BookmarkManager};
+use auroraview_browser::navigation::{Bookmark, BookmarkFolder, BookmarkId, BookmarkManager};
 use rstest::rstest;
 use tempfile::TempDir;
 
@@ -465,4 +465,49 @@ fn manager_in_folder_root_returns_root_bookmarks() {
 fn bookmark_position_various(#[case] pos: u32) {
     let bm = Bookmark::new("P", "https://p.com").with_position(pos);
     assert_eq!(bm.position, pos);
+}
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn bookmark_new_id_not_empty() {
+    let bm = Bookmark::new("Test", "https://test.com");
+    assert!(!bm.id.is_empty());
+}
+
+#[test]
+fn bookmark_two_instances_have_different_ids() {
+    let b1 = Bookmark::new("A", "https://a.com");
+    let b2 = Bookmark::new("B", "https://b.com");
+    assert_ne!(b1.id, b2.id);
+}
+
+#[test]
+fn bookmark_title_preserved() {
+    let bm = Bookmark::new("My Title", "https://example.com");
+    assert_eq!(bm.title, "My Title");
+}
+
+#[test]
+fn bookmark_url_preserved() {
+    let bm = Bookmark::new("T", "https://preserved.com");
+    assert_eq!(bm.url, "https://preserved.com");
+}
+
+#[test]
+fn manager_remove_existing_bookmark_returns_some() {
+    let manager = BookmarkManager::new(None);
+    let id: BookmarkId = manager.add(Bookmark::new("A", "https://a.com"));
+    let removed = manager.remove(&id);
+    assert!(removed.is_some());
+}
+
+#[test]
+fn manager_get_after_add_returns_some() {
+    let manager = BookmarkManager::new(None);
+    let id: BookmarkId = manager.add(Bookmark::new("Test", "https://test.com"));
+    let bm = manager.get(&id);
+    assert!(bm.is_some());
 }
