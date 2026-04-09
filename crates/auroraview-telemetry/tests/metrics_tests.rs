@@ -378,3 +378,117 @@ fn concurrent_memory_recording() {
         h.join().expect("thread should not panic");
     }
 }
+
+// ────────────────────────────────────────────────────────────
+// R15 Extensions
+// ────────────────────────────────────────────────────────────
+
+#[test]
+fn webview_metrics_record_navigation_multiple_times() {
+    let m = WebViewMetrics::new();
+    let urls = [
+        "https://a.com",
+        "https://b.com",
+        "file:///local.html",
+        "auroraview://localhost",
+    ];
+    for url in &urls {
+        m.record_navigation("w1", url);
+    }
+}
+
+#[test]
+fn webview_metrics_record_load_time_many() {
+    let m = WebViewMetrics::new();
+    for i in 0..20u32 {
+        m.record_load_time("load-win", (i * 10) as f64);
+    }
+}
+
+#[test]
+fn webview_metrics_record_ipc_many_messages() {
+    let m = WebViewMetrics::new();
+    for _ in 0..50 {
+        m.record_ipc_message("w1", "js_to_rust");
+        m.record_ipc_message("w1", "rust_to_js");
+    }
+}
+
+#[test]
+fn webview_metrics_record_js_eval_many() {
+    let m = WebViewMetrics::new();
+    for i in 0..20 {
+        m.record_js_eval("js-win", i as f64);
+    }
+}
+
+#[test]
+fn webview_metrics_record_error_empty_type() {
+    let m = WebViewMetrics::new();
+    m.record_error("w1", "");
+}
+
+#[test]
+fn webview_metrics_record_event_emit_empty_event() {
+    let m = WebViewMetrics::new();
+    m.record_event_emit("w1", "");
+}
+
+#[test]
+fn webview_metrics_lifecycle_multiple_windows() {
+    let m = WebViewMetrics::new();
+    for i in 0..10 {
+        let id = format!("w-{i}");
+        m.webview_created(&id);
+        m.record_load_time(&id, (i * 30) as f64);
+        m.webview_destroyed(&id);
+    }
+}
+
+#[test]
+fn webview_metrics_ipc_latency_negative_not_panic() {
+    // Negative latency should not panic (implementation may clamp or accept)
+    let m = WebViewMetrics::new();
+    m.record_ipc_latency("w1", "js_to_rust", -1.0);
+}
+
+#[test]
+fn webview_metrics_memory_max_value() {
+    let m = WebViewMetrics::new();
+    m.record_memory("huge", u64::MAX);
+}
+
+#[test]
+fn api_record_webview_load_time_large() {
+    metrics_api::record_webview_load_time("large-load", 99999.9);
+}
+
+#[test]
+fn api_record_error_empty_type() {
+    metrics_api::record_error("w1", "");
+}
+
+#[test]
+fn api_record_ipc_message_zero_latency() {
+    metrics_api::record_ipc_message("w1", "js_to_rust", 0.0);
+}
+
+#[test]
+fn concurrent_js_eval_recording() {
+    let metrics = Arc::new(WebViewMetrics::new());
+    let mut handles = vec![];
+
+    for i in 0..4 {
+        let m = Arc::clone(&metrics);
+        let window = format!("js-window-{i}");
+        handles.push(thread::spawn(move || {
+            for j in 0..15 {
+                m.record_js_eval(&window, (i * 10 + j) as f64);
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread should not panic");
+    }
+}
