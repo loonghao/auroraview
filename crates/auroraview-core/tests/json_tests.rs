@@ -332,3 +332,175 @@ fn test_serialize_to_js_literal_string() {
     let literal = serialize_to_js_literal(&s).unwrap();
     assert_eq!(literal, r#""hello""#);
 }
+
+// ---------------------------------------------------------------------------
+// Additional from_str edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_from_str_null() {
+    let value = from_str("null").unwrap();
+    assert!(value.is_null());
+}
+
+#[test]
+fn test_from_str_boolean_true() {
+    let value = from_str("true").unwrap();
+    assert_eq!(value, true);
+}
+
+#[test]
+fn test_from_str_boolean_false() {
+    let value = from_str("false").unwrap();
+    assert_eq!(value, false);
+}
+
+#[test]
+fn test_from_str_integer() {
+    let value = from_str("42").unwrap();
+    assert_eq!(value, 42);
+}
+
+#[test]
+fn test_from_str_float() {
+    let value = from_str("3.14").unwrap();
+    assert!((value.as_f64().unwrap() - 3.14).abs() < 1e-10);
+}
+
+#[test]
+fn test_from_str_string_literal() {
+    let value = from_str(r#""hello world""#).unwrap();
+    assert_eq!(value.as_str().unwrap(), "hello world");
+}
+
+#[test]
+fn test_from_str_empty_array() {
+    let value = from_str("[]").unwrap();
+    assert!(value.is_array());
+    assert_eq!(value.as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn test_from_str_deeply_nested() {
+    let json = r#"{"a": {"b": {"c": {"d": 42}}}}"#;
+    let value = from_str(json).unwrap();
+    assert_eq!(value["a"]["b"]["c"]["d"], 42);
+}
+
+#[test]
+fn test_from_str_array_of_objects() {
+    let json = r#"[{"id": 1}, {"id": 2}, {"id": 3}]"#;
+    let value = from_str(json).unwrap();
+    assert_eq!(value.as_array().unwrap().len(), 3);
+    assert_eq!(value[1]["id"], 2);
+}
+
+// ---------------------------------------------------------------------------
+// Additional to_js_literal edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_to_js_literal_array_of_strings() {
+    let value = serde_json::json!(["a", "b", "c"]);
+    let lit = to_js_literal(&value);
+    assert!(lit.contains("\"a\""));
+    assert!(lit.contains("\"b\""));
+    assert!(lit.contains("\"c\""));
+}
+
+#[test]
+fn test_to_js_literal_float_value() {
+    let value = serde_json::json!(3.14);
+    let lit = to_js_literal(&value);
+    assert!(lit.contains("3.14") || lit.contains("3.1"), "float should appear in literal");
+}
+
+#[test]
+fn test_to_js_literal_negative_number() {
+    let value = serde_json::json!(-42);
+    let lit = to_js_literal(&value);
+    assert!(lit.contains("-42"));
+}
+
+// ---------------------------------------------------------------------------
+// Additional from_bytes edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_from_bytes_empty_object() {
+    let value = from_bytes(b"{}".to_vec()).unwrap();
+    assert!(value.is_object());
+}
+
+#[test]
+fn test_from_bytes_empty_array() {
+    let value = from_bytes(b"[]".to_vec()).unwrap();
+    assert!(value.is_array());
+}
+
+#[test]
+fn test_from_bytes_unicode() {
+    let bytes = r#"{"greeting": "こんにちは"}"#.as_bytes().to_vec();
+    let value = from_bytes(bytes).unwrap();
+    assert_eq!(value["greeting"], "こんにちは");
+}
+
+// ---------------------------------------------------------------------------
+// Additional to_string edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_to_string_null_value() {
+    let value = serde_json::Value::Null;
+    let s = to_string(&value).unwrap();
+    assert_eq!(s, "null");
+}
+
+#[test]
+fn test_to_string_boolean() {
+    assert_eq!(to_string(&serde_json::json!(true)).unwrap(), "true");
+    assert_eq!(to_string(&serde_json::json!(false)).unwrap(), "false");
+}
+
+#[test]
+fn test_to_string_array() {
+    let arr = serde_json::json!([1, 2, 3]);
+    let s = to_string(&arr).unwrap();
+    assert!(s.contains("1"));
+    assert!(s.contains("3"));
+}
+
+// ---------------------------------------------------------------------------
+// from_value + to_value roundtrip
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_to_value_and_from_value_roundtrip() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct Config {
+        name: String,
+        enabled: bool,
+        count: u32,
+    }
+    let orig = Config { name: "test".to_string(), enabled: true, count: 42 };
+    let value = to_value(&orig).unwrap();
+    let restored: Config = from_value(value).unwrap();
+    assert_eq!(orig, restored);
+}
+
+#[test]
+fn test_serialize_to_js_literal_bool() {
+    let t: bool = true;
+    let s = serialize_to_js_literal(&t).unwrap();
+    assert_eq!(s, "true");
+    let f: bool = false;
+    let s2 = serialize_to_js_literal(&f).unwrap();
+    assert_eq!(s2, "false");
+}
+
+#[test]
+fn test_serialize_to_js_literal_null() {
+    let n: Option<String> = None;
+    let s = serialize_to_js_literal(&n).unwrap();
+    assert_eq!(s, "null");
+}

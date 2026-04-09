@@ -494,6 +494,129 @@ mod jsonrpc_format_tests {
         // Should not contain pretty-print newlines at the top level
         assert!(!s.starts_with("{\n"));
     }
+
+    // ─── Extended coverage ────────────────────────────────────────────────
+
+    #[test]
+    fn call_method_empty_params() {
+        let msg = make_call("a", "list_all", serde_json::json!({}));
+        assert_eq!(msg["method"], "list_all");
+        assert!(msg["params"].is_object());
+    }
+
+    #[test]
+    fn result_ok_null_result() {
+        let r = make_result_ok("n", serde_json::json!(null));
+        assert!(r["result"].is_null());
+    }
+
+    #[test]
+    fn result_ok_nested_array() {
+        let r = make_result_ok("arr", serde_json::json!([[1, 2], [3, 4]]));
+        assert_eq!(r["result"][0][1], 2);
+        assert_eq!(r["result"][1][0], 3);
+    }
+
+    #[test]
+    fn error_message_is_string() {
+        let r = make_result_err("e", "SomeError", "Something went wrong");
+        assert!(r["error"]["message"].is_string());
+    }
+
+    #[test]
+    fn error_name_is_string() {
+        let r = make_result_err("e", "NetworkError", "timeout");
+        assert!(r["error"]["name"].is_string());
+    }
+
+    #[test]
+    fn call_id_is_string() {
+        let msg = make_call("my_id", "fn", serde_json::json!(null));
+        assert!(msg["id"].is_string());
+    }
+
+    #[test]
+    fn type_field_is_call() {
+        let msg = make_call("1", "fn", serde_json::json!(null));
+        assert_eq!(msg["type"].as_str().unwrap(), "call");
+    }
+
+    #[test]
+    fn ok_field_is_bool_true() {
+        let r = make_result_ok("x", serde_json::json!(0));
+        assert!(r["ok"].is_boolean());
+        assert_eq!(r["ok"].as_bool().unwrap(), true);
+    }
+
+    #[test]
+    fn ok_field_is_bool_false() {
+        let r = make_result_err("x", "Err", "msg");
+        assert!(r["ok"].is_boolean());
+        assert_eq!(r["ok"].as_bool().unwrap(), false);
+    }
+
+    #[test]
+    fn call_with_numeric_param() {
+        let msg = make_call("n1", "set_volume", serde_json::json!({"level": 0.8}));
+        let level = msg["params"]["level"].as_f64().unwrap();
+        assert!((level - 0.8).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn call_with_bool_param() {
+        let msg = make_call("b1", "set_enabled", serde_json::json!({"enabled": true}));
+        assert_eq!(msg["params"]["enabled"], true);
+    }
+
+    #[test]
+    fn ids_are_unique_across_calls() {
+        let ids: Vec<serde_json::Value> = (0..5)
+            .map(|i| make_call(&format!("id_{}", i), "fn", serde_json::json!(null))["id"].clone())
+            .collect();
+        let as_strings: std::collections::HashSet<String> = ids
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+        assert_eq!(as_strings.len(), 5, "IDs should all be unique");
+    }
+
+    #[test]
+    fn error_without_code_field() {
+        let r = make_result_err("z", "BaseError", "no code");
+        // "code" should not be present in a basic error
+        assert!(r["error"]["code"].is_null());
+    }
+
+    #[test]
+    fn result_ok_with_large_number() {
+        let r = make_result_ok("big", serde_json::json!(u64::MAX));
+        // u64::MAX may exceed serde_json's i64, but should be representable
+        assert!(!r["result"].is_null());
+    }
+
+    #[test]
+    fn params_deeply_nested() {
+        let msg = make_call(
+            "deep",
+            "process",
+            serde_json::json!({"a": {"b": {"c": {"d": 99}}}}),
+        );
+        assert_eq!(msg["params"]["a"]["b"]["c"]["d"], 99);
+    }
+
+    #[test]
+    fn ready_signal_handlers_are_strings() {
+        let ready = serde_json::json!({"type": "ready", "handlers": ["fn1", "fn2"]});
+        for h in ready["handlers"].as_array().unwrap() {
+            assert!(h.is_string());
+        }
+    }
+
+    #[test]
+    fn call_method_with_underscore() {
+        let msg = make_call("u", "export_scene_as_fbx", serde_json::json!(null));
+        assert_eq!(msg["method"], "export_scene_as_fbx");
+    }
 }
 
 /// Test the actual packed.py module if available
