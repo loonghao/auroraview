@@ -270,3 +270,155 @@ fn set_error_as_dyn_std_error() {
         Box::new(TelemetryError::TracingInit("boxed".to_string()));
     span.set_error(err.as_ref());
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn span_ext_trait_is_object_safe_like() {
+    // Verify SpanExt methods are callable via &tracing::Span
+    let span = span!(Level::INFO, "trait-check");
+    let span_ref: &tracing::Span = &span;
+    span_ref.set_webview_id("id");
+    span_ref.set_app_name("app");
+    span_ref.set_operation("op");
+}
+
+#[test]
+fn set_webview_id_numeric_string() {
+    let span = span!(Level::INFO, "num-id-span");
+    span.set_webview_id("12345");
+    span.set_webview_id("0");
+    span.set_webview_id("-1");
+}
+
+#[test]
+fn set_app_name_with_version_suffix() {
+    let span = span!(Level::INFO, "ver-span");
+    for name in &[
+        "maya-2023",
+        "maya-2024",
+        "maya-2025",
+        "houdini-20.5",
+        "3dsmax-2026",
+    ] {
+        span.set_app_name(name);
+    }
+}
+
+#[test]
+fn set_operation_hierarchical_namespace() {
+    let span = span!(Level::INFO, "ns-span");
+    span.set_operation("dcc.maya.run_mel");
+    span.set_operation("dcc.houdini.execute");
+    span.set_operation("webview.navigate");
+    span.set_operation("ipc.call");
+}
+
+#[test]
+fn set_error_all_variants_sequential() {
+    let span = span!(Level::ERROR, "all-err-span");
+    let _enter = span.enter();
+    let errors = vec![
+        TelemetryError::TracingInit("t".to_string()),
+        TelemetryError::MetricsInit("m".to_string()),
+        TelemetryError::TraceInit("tr".to_string()),
+        TelemetryError::OtlpConfig("o".to_string()),
+        TelemetryError::SentryConfig("s".to_string()),
+        TelemetryError::AlreadyInitialized,
+    ];
+    for err in &errors {
+        span.set_error(err);
+    }
+}
+
+#[test]
+fn multiple_spans_independent() {
+    let span1 = span!(Level::INFO, "span1");
+    let span2 = span!(Level::INFO, "span2");
+
+    span1.set_webview_id("id-1");
+    span2.set_webview_id("id-2");
+    span1.set_app_name("maya");
+    span2.set_app_name("houdini");
+    span1.set_operation("op1");
+    span2.set_operation("op2");
+}
+
+#[test]
+fn set_webview_id_with_uuid_like_string() {
+    let uuid = "550e8400-e29b-41d4-a716-446655440000";
+    let span = span!(Level::INFO, "uuid-span");
+    span.set_webview_id(uuid);
+}
+
+#[test]
+fn set_operation_with_dots_and_underscores() {
+    let span = span!(Level::INFO, "op-special");
+    span.set_operation("export.scene_data");
+    span.set_operation("import.fbx_file");
+    span.set_operation("render.frame_001");
+}
+
+#[test]
+fn set_error_unicode_in_message() {
+    let span = span!(Level::ERROR, "unicode-err");
+    let _enter = span.enter();
+    let err = TelemetryError::TracingInit("エラーが発生しました".to_string());
+    span.set_error(&err);
+}
+
+#[rstest]
+#[case("maya-panel", "maya-2025", "render_start")]
+#[case("houdini-dock", "houdini-20.x", "ipc_call")]
+#[case("blender-widget", "blender-4.0", "export_gltf")]
+#[case("nuke-panel", "nuke-14", "comp_render")]
+#[case("3dsmax-view", "3dsmax-2025", "modifier_apply")]
+fn set_all_attributes_dcc_variants(
+    #[case] id: &str,
+    #[case] app: &str,
+    #[case] op: &str,
+) {
+    let span = span!(Level::INFO, "dcc-variant");
+    span.set_webview_id(id);
+    span.set_app_name(app);
+    span.set_operation(op);
+}
+
+#[test]
+fn set_error_then_overwrite_with_another() {
+    let span = span!(Level::ERROR, "overwrite-err");
+    let _enter = span.enter();
+    let err1 = TelemetryError::TracingInit("first".to_string());
+    span.set_error(&err1);
+    let err2 = TelemetryError::OtlpConfig("second".to_string());
+    span.set_error(&err2);
+}
+
+#[test]
+fn all_span_operations_without_entering() {
+    // Outside of span context (no _enter guard)
+    let span = span!(Level::WARN, "no-enter-span");
+    span.set_webview_id("no-ctx-id");
+    span.set_app_name("no-ctx-app");
+    span.set_operation("no-ctx-op");
+    let err = TelemetryError::AlreadyInitialized;
+    span.set_error(&err);
+}
+
+#[test]
+fn set_webview_id_whitespace() {
+    let span = span!(Level::INFO, "ws-span");
+    span.set_webview_id("  ");
+    span.set_webview_id("\t");
+    span.set_webview_id("\n");
+}
+
+#[test]
+fn set_app_name_then_set_again() {
+    let span = span!(Level::DEBUG, "rewrite-span");
+    span.set_app_name("initial-app");
+    // Overwrite with a different name — no panic expected
+    span.set_app_name("updated-app");
+}
