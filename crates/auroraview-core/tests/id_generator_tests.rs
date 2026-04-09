@@ -27,6 +27,17 @@ fn test_id_generator_many_sequential() {
     }
 }
 
+#[test]
+fn test_id_generator_monotonically_increasing() {
+    let gen = IdGenerator::new();
+    let mut last = gen.next();
+    for _ in 0..50 {
+        let next = gen.next();
+        assert!(next > last, "IDs must be strictly increasing");
+        last = next;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // String / prefixed IDs
 // ---------------------------------------------------------------------------
@@ -73,6 +84,29 @@ fn test_id_generator_different_prefixes_share_counter() {
     assert_eq!(b, "b_1");
 }
 
+#[test]
+fn test_id_generator_string_unique_across_calls() {
+    let gen = IdGenerator::new();
+    let ids: Vec<String> = (0..20).map(|_| gen.next_string()).collect();
+    let unique: HashSet<&String> = ids.iter().collect();
+    assert_eq!(unique.len(), 20, "All string IDs must be unique");
+}
+
+#[test]
+fn test_id_generator_prefix_empty_string() {
+    let gen = IdGenerator::new();
+    let id = gen.next_with_prefix("");
+    // Empty prefix: should produce "_0"
+    assert!(id.starts_with('_'));
+}
+
+#[test]
+fn test_id_generator_prefix_unicode() {
+    let gen = IdGenerator::new();
+    let id = gen.next_with_prefix("前端");
+    assert!(id.starts_with("前端_"));
+}
+
 // ---------------------------------------------------------------------------
 // with_start
 // ---------------------------------------------------------------------------
@@ -97,6 +131,14 @@ fn test_id_generator_with_start_large() {
     assert_eq!(gen.next(), u64::MAX - 1);
 }
 
+#[test]
+fn test_id_generator_with_start_arbitrary() {
+    let gen = IdGenerator::with_start(42);
+    assert_eq!(gen.next(), 42);
+    assert_eq!(gen.next(), 43);
+    assert_eq!(gen.current(), 44);
+}
+
 // ---------------------------------------------------------------------------
 // current()
 // ---------------------------------------------------------------------------
@@ -119,6 +161,24 @@ fn test_current_does_not_increment() {
     assert_eq!(c1, 1);
 }
 
+#[test]
+fn test_current_after_many_nexts() {
+    let gen = IdGenerator::new();
+    for _ in 0..50 {
+        gen.next();
+    }
+    assert_eq!(gen.current(), 50);
+}
+
+#[test]
+fn test_current_matches_next_string_count() {
+    let gen = IdGenerator::new();
+    let _s0 = gen.next_string();
+    let _s1 = gen.next_string();
+    let _s2 = gen.next_string();
+    assert_eq!(gen.current(), 3);
+}
+
 // ---------------------------------------------------------------------------
 // Default trait
 // ---------------------------------------------------------------------------
@@ -135,6 +195,16 @@ fn test_id_generator_default_independent() {
     let gen2 = IdGenerator::default();
     // Two defaults start independently at 0
     assert_eq!(gen1.next(), 0);
+    assert_eq!(gen2.next(), 0);
+}
+
+#[test]
+fn test_two_generators_independent_counters() {
+    let gen1 = IdGenerator::new();
+    let gen2 = IdGenerator::new();
+    gen1.next();
+    gen1.next();
+    // gen2 should still start at 0
     assert_eq!(gen2.next(), 0);
 }
 
@@ -211,4 +281,31 @@ fn test_id_generator_string_thread_safe() {
         }
     }
     assert_eq!(all.len(), 100);
+}
+
+#[test]
+fn test_id_generator_current_reflects_concurrent_writes() {
+    let gen = Arc::new(IdGenerator::new());
+    let mut handles = vec![];
+    const THREADS: usize = 8;
+    const PER_THREAD: usize = 50;
+
+    for _ in 0..THREADS {
+        let g = gen.clone();
+        handles.push(thread::spawn(move || {
+            for _ in 0..PER_THREAD {
+                g.next();
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    assert_eq!(
+        gen.current(),
+        (THREADS * PER_THREAD) as u64,
+        "current() should reflect all increments"
+    );
 }
