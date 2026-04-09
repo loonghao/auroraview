@@ -419,3 +419,177 @@ fn concurrent_kill_nonexistent_no_panic() {
         h.join().expect("thread panicked");
     }
 }
+
+// ─────────────────────────────────────────────────────────────
+// KillOptions: edge cases
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn kill_options_max_pid() {
+    let opts: KillOptions =
+        serde_json::from_value(serde_json::json!({ "pid": u32::MAX })).unwrap();
+    assert_eq!(opts.pid, u32::MAX);
+}
+
+#[test]
+fn kill_options_pid_zero() {
+    let opts: KillOptions =
+        serde_json::from_value(serde_json::json!({ "pid": 0 })).unwrap();
+    assert_eq!(opts.pid, 0);
+}
+
+#[test]
+fn kill_options_serde_roundtrip() {
+    let original = KillOptions { pid: 42 };
+    let json = serde_json::to_value(&original).unwrap();
+    let restored: KillOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(restored.pid, original.pid);
+}
+
+#[test]
+fn kill_options_debug() {
+    let opts = KillOptions { pid: 100 };
+    let debug = format!("{:?}", opts);
+    assert!(debug.contains("100"));
+}
+
+// ─────────────────────────────────────────────────────────────
+// SendOptions: edge cases
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn send_options_newline_data() {
+    let opts: SendOptions =
+        serde_json::from_value(serde_json::json!({ "pid": 10, "data": "\n" })).unwrap();
+    assert_eq!(opts.data, "\n");
+}
+
+#[test]
+fn send_options_empty_data() {
+    let opts: SendOptions =
+        serde_json::from_value(serde_json::json!({ "pid": 5, "data": "" })).unwrap();
+    assert_eq!(opts.data, "");
+}
+
+#[test]
+fn send_options_unicode_data() {
+    let opts: SendOptions =
+        serde_json::from_value(serde_json::json!({ "pid": 7, "data": "你好\nこんにちは" })).unwrap();
+    assert!(opts.data.contains("你好"));
+}
+
+#[test]
+fn send_options_serde_roundtrip() {
+    let original = SendOptions { pid: 99, data: "hello".to_string() };
+    let json = serde_json::to_value(&original).unwrap();
+    let restored: SendOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(restored.pid, 99);
+    assert_eq!(restored.data, "hello");
+}
+
+// ─────────────────────────────────────────────────────────────
+// SendJsonOptions: edge cases
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn send_json_options_null_data() {
+    let opts: SendJsonOptions =
+        serde_json::from_value(serde_json::json!({ "pid": 1, "data": null })).unwrap();
+    assert_eq!(opts.pid, 1);
+    assert!(opts.data.is_null());
+}
+
+#[test]
+fn send_json_options_array_data() {
+    let opts: SendJsonOptions =
+        serde_json::from_value(serde_json::json!({ "pid": 2, "data": [1, 2, 3] })).unwrap();
+    assert!(opts.data.is_array());
+}
+
+#[test]
+fn send_json_options_nested_object_data() {
+    let opts: SendJsonOptions = serde_json::from_value(serde_json::json!({
+        "pid": 3,
+        "data": { "level1": { "level2": { "value": 42 } } }
+    })).unwrap();
+    assert_eq!(opts.data["level1"]["level2"]["value"], 42);
+}
+
+// ─────────────────────────────────────────────────────────────
+// SpawnIpcOptions: additional coverage
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn spawn_ipc_options_many_env_vars() {
+    let env: serde_json::Value = (0..10)
+        .map(|i| (format!("VAR_{}", i), serde_json::json!(format!("val_{}", i))))
+        .collect::<serde_json::Map<_, _>>()
+        .into();
+    let json = serde_json::json!({ "command": "test", "env": env });
+    let opts: SpawnIpcOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.env.len(), 10);
+}
+
+#[test]
+fn spawn_ipc_options_show_console_true() {
+    let opts: SpawnIpcOptions =
+        serde_json::from_value(serde_json::json!({ "command": "cmd", "showConsole": true })).unwrap();
+    assert!(opts.show_console);
+}
+
+#[test]
+fn spawn_ipc_options_clone() {
+    let opts: SpawnIpcOptions =
+        serde_json::from_value(serde_json::json!({ "command": "test" })).unwrap();
+    let cloned = opts.clone();
+    assert_eq!(cloned.command, opts.command);
+}
+
+#[test]
+fn spawn_ipc_options_debug() {
+    let opts: SpawnIpcOptions =
+        serde_json::from_value(serde_json::json!({ "command": "debug_test" })).unwrap();
+    let debug = format!("{:?}", opts);
+    assert!(debug.contains("debug_test"));
+}
+
+// ─────────────────────────────────────────────────────────────
+// IpcMode: serde + all variants
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn ipc_mode_copy_semantics() {
+    let m = IpcMode::Channel;
+    let n = m; // Copy
+    assert_eq!(m, n);
+}
+
+#[rstest]
+#[case(IpcMode::Pipe)]
+#[case(IpcMode::Channel)]
+fn ipc_mode_debug_non_empty(#[case] mode: IpcMode) {
+    let debug = format!("{:?}", mode);
+    assert!(!debug.is_empty());
+}
+
+// ─────────────────────────────────────────────────────────────
+// Plugin: command consistency
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn process_plugin_commands_no_duplicates() {
+    let plugin = ProcessPlugin::new();
+    let cmds = plugin.commands();
+    let mut unique = cmds.clone();
+    unique.sort_unstable();
+    unique.dedup();
+    assert_eq!(unique.len(), cmds.len());
+}
+
+#[test]
+fn process_plugin_commands_all_non_empty() {
+    let plugin = ProcessPlugin::new();
+    for cmd in plugin.commands() {
+        assert!(!cmd.is_empty());
+    }
+}

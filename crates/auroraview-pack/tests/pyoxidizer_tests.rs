@@ -331,3 +331,265 @@ fn distribution_flavor_default_is_standalone() {
     let config = PyOxidizerBuilderConfig::default();
     assert_eq!(config.distribution_flavor, DistributionFlavor::Standalone);
 }
+
+// ============================================================================
+// ExternalBinary / ResourceFile tests
+// ============================================================================
+
+#[test]
+fn external_binary_source_and_dest() {
+    use auroraview_pack::ExternalBinary;
+    use std::path::PathBuf;
+    let bin = ExternalBinary {
+        source: PathBuf::from("/path/to/ffmpeg"),
+        dest: Some("bin/ffmpeg".to_string()),
+        executable: true,
+    };
+    assert_eq!(bin.source, PathBuf::from("/path/to/ffmpeg"));
+    assert_eq!(bin.dest.as_deref(), Some("bin/ffmpeg"));
+    assert!(bin.executable);
+}
+
+#[test]
+fn external_binary_no_dest() {
+    use auroraview_pack::ExternalBinary;
+    use std::path::PathBuf;
+    let bin = ExternalBinary {
+        source: PathBuf::from("/usr/bin/tool"),
+        dest: None,
+        executable: true,
+    };
+    assert!(bin.dest.is_none());
+}
+
+#[test]
+fn external_binary_not_executable() {
+    use auroraview_pack::ExternalBinary;
+    use std::path::PathBuf;
+    let bin = ExternalBinary {
+        source: PathBuf::from("/data/config.toml"),
+        dest: Some("config.toml".to_string()),
+        executable: false,
+    };
+    assert!(!bin.executable);
+}
+
+#[test]
+fn resource_file_source_and_dest() {
+    use auroraview_pack::ResourceFile;
+    use std::path::PathBuf;
+    let res = ResourceFile {
+        source: PathBuf::from("/assets/logo.png"),
+        dest: Some("images/logo.png".to_string()),
+        pattern: None,
+        exclude: vec![],
+    };
+    assert_eq!(res.source, PathBuf::from("/assets/logo.png"));
+    assert_eq!(res.dest.as_deref(), Some("images/logo.png"));
+}
+
+#[test]
+fn resource_file_with_pattern() {
+    use auroraview_pack::ResourceFile;
+    use std::path::PathBuf;
+    let res = ResourceFile {
+        source: PathBuf::from("/assets"),
+        dest: None,
+        pattern: Some("*.png".to_string()),
+        exclude: vec!["*.tmp".to_string()],
+    };
+    assert_eq!(res.pattern.as_deref(), Some("*.png"));
+    assert_eq!(res.exclude.len(), 1);
+    assert_eq!(res.exclude[0], "*.tmp");
+}
+
+#[test]
+fn resource_file_no_dest_defaults_to_none() {
+    use auroraview_pack::ResourceFile;
+    use std::path::PathBuf;
+    let res = ResourceFile {
+        source: PathBuf::from("/my/file"),
+        dest: None,
+        pattern: None,
+        exclude: vec![],
+    };
+    assert!(res.dest.is_none());
+}
+
+// ============================================================================
+// installation_instructions tests
+// ============================================================================
+
+#[test]
+fn installation_instructions_contains_pyoxidizer() {
+    use auroraview_pack::installation_instructions;
+    let instructions = installation_instructions();
+    assert!(instructions.contains("PyOxidizer"));
+}
+
+#[test]
+fn installation_instructions_contains_github_url() {
+    use auroraview_pack::installation_instructions;
+    let instructions = installation_instructions();
+    assert!(instructions.contains("github.com"));
+}
+
+#[test]
+fn installation_instructions_contains_cargo_install() {
+    use auroraview_pack::installation_instructions;
+    let instructions = installation_instructions();
+    assert!(instructions.contains("cargo install"));
+}
+
+#[test]
+fn installation_instructions_is_non_empty() {
+    use auroraview_pack::installation_instructions;
+    let instructions = installation_instructions();
+    assert!(!instructions.is_empty());
+    assert!(instructions.len() > 50);
+}
+
+// ============================================================================
+// PyOxidizerBuilderConfig: target field
+// ============================================================================
+
+#[test]
+fn config_target_none_by_default() {
+    let config = PyOxidizerBuilderConfig::default();
+    assert!(config.target.is_none());
+}
+
+#[test]
+fn config_target_set_windows() {
+    let config = PyOxidizerBuilderConfig {
+        target: Some("x86_64-pc-windows-msvc".to_string()),
+        ..Default::default()
+    };
+    assert_eq!(config.target.as_deref(), Some("x86_64-pc-windows-msvc"));
+}
+
+#[test]
+fn config_target_set_linux() {
+    let config = PyOxidizerBuilderConfig {
+        target: Some("x86_64-unknown-linux-gnu".to_string()),
+        ..Default::default()
+    };
+    assert_eq!(config.target.as_deref(), Some("x86_64-unknown-linux-gnu"));
+}
+
+// ============================================================================
+// PyOxidizerBuilderConfig: extra_config field
+// ============================================================================
+
+#[test]
+fn config_extra_config_empty_by_default() {
+    let config = PyOxidizerBuilderConfig::default();
+    assert!(config.extra_config.is_empty());
+}
+
+#[test]
+fn config_extra_config_set_values() {
+    use std::collections::HashMap;
+    let mut extra = HashMap::new();
+    extra.insert("key1".to_string(), "value1".to_string());
+    extra.insert("key2".to_string(), "value2".to_string());
+    let config = PyOxidizerBuilderConfig {
+        extra_config: extra,
+        ..Default::default()
+    };
+    assert_eq!(config.extra_config.len(), 2);
+    assert_eq!(config.extra_config.get("key1").map(|s| s.as_str()), Some("value1"));
+}
+
+// ============================================================================
+// Builder: generate_config with external_binaries
+// ============================================================================
+
+#[test]
+fn generate_config_with_external_binary() {
+    use auroraview_pack::ExternalBinary;
+    use std::path::PathBuf;
+    let binary = ExternalBinary {
+        source: PathBuf::from("/tools/ffmpeg"),
+        dest: Some("bin/ffmpeg".to_string()),
+        executable: true,
+    };
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
+        .entry_point("main:run")
+        .external_binaries(vec![binary]);
+    let config = builder.generate_config().unwrap();
+    assert!(config.contains("ffmpeg"));
+}
+
+#[test]
+fn generate_config_with_resource_file() {
+    use auroraview_pack::ResourceFile;
+    use std::path::PathBuf;
+    let resource = ResourceFile {
+        source: PathBuf::from("/assets/data.json"),
+        dest: Some("resources/data.json".to_string()),
+        pattern: None,
+        exclude: vec![],
+    };
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
+        .entry_point("main:run")
+        .resources(vec![resource]);
+    let config = builder.generate_config().unwrap();
+    assert!(config.contains("data.json"));
+}
+
+#[test]
+fn generate_config_register_targets_present() {
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
+        .entry_point("main:run");
+    let config = builder.generate_config().unwrap();
+    assert!(config.contains("register_target"));
+    assert!(config.contains("resolve_targets"));
+}
+
+#[test]
+fn generate_config_make_dist_function_present() {
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
+        .entry_point("main:run");
+    let config = builder.generate_config().unwrap();
+    assert!(config.contains("make_dist"));
+    assert!(config.contains("make_exe"));
+    assert!(config.contains("make_install"));
+}
+
+#[test]
+fn generate_config_with_release_false() {
+    let config_obj = PyOxidizerBuilderConfig {
+        release: false,
+        ..Default::default()
+    };
+    let builder = PyOxidizerBuilder::new(config_obj, "/tmp", "app").entry_point("main:run");
+    // Config generation should still succeed regardless of release flag
+    let config = builder.generate_config().unwrap();
+    assert!(config.contains("app"));
+}
+
+// ============================================================================
+// DistributionFlavor: Copy trait
+// ============================================================================
+
+#[test]
+fn distribution_flavor_is_copy() {
+    let flavor = DistributionFlavor::Standalone;
+    let copy = flavor;
+    assert_eq!(flavor, copy);
+}
+
+#[test]
+fn distribution_flavor_serde_roundtrip() {
+    let flavors = [
+        DistributionFlavor::Standalone,
+        DistributionFlavor::StandaloneDynamic,
+        DistributionFlavor::System,
+    ];
+    for flavor in &flavors {
+        let json = serde_json::to_string(flavor).unwrap();
+        let parsed: DistributionFlavor = serde_json::from_str(&json).unwrap();
+        assert_eq!(*flavor, parsed);
+    }
+}

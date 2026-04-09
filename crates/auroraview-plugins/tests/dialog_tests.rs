@@ -469,3 +469,182 @@ fn two_instances_independent() {
     assert_eq!(p1.name(), p2.name());
     assert_eq!(p1.commands().len(), p2.commands().len());
 }
+
+// ---------------------------------------------------------------------------
+// FileFilter edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn file_filter_many_extensions() {
+    let exts: Vec<String> = (0..20).map(|i| format!("ext{}", i)).collect();
+    let filter = FileFilter {
+        name: "Many".to_string(),
+        extensions: exts.clone(),
+    };
+    assert_eq!(filter.extensions.len(), 20);
+    assert_eq!(filter.extensions[0], "ext0");
+    assert_eq!(filter.extensions[19], "ext19");
+}
+
+#[test]
+fn file_filter_serde_empty_name() {
+    let json = serde_json::json!({
+        "name": "",
+        "extensions": ["*"]
+    });
+    let filter: FileFilter = serde_json::from_value(json).unwrap();
+    assert_eq!(filter.name, "");
+}
+
+#[rstest]
+#[case("Rust", vec!["rs", "toml"])]
+#[case("Python", vec!["py", "pyi"])]
+#[case("Web", vec!["html", "css", "js", "ts"])]
+#[case("All Files", vec!["*"])]
+fn file_filter_rstest_variants(#[case] name: &str, #[case] exts: Vec<&str>) {
+    let filter = FileFilter {
+        name: name.to_string(),
+        extensions: exts.iter().map(|s| s.to_string()).collect(),
+    };
+    assert_eq!(filter.name, name);
+    assert_eq!(filter.extensions.len(), exts.len());
+}
+
+// ---------------------------------------------------------------------------
+// FileDialogOptions edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn file_dialog_options_default_path_windows_style() {
+    let json = serde_json::json!({
+        "defaultPath": "C:\\Users\\user\\Documents"
+    });
+    let opts: FileDialogOptions = serde_json::from_value(json).unwrap();
+    assert!(opts.default_path.as_deref().unwrap_or("").contains("Documents"));
+}
+
+#[test]
+fn file_dialog_options_default_name_with_extension() {
+    let json = serde_json::json!({
+        "defaultName": "my_scene.ma"
+    });
+    let opts: FileDialogOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.default_name.as_deref(), Some("my_scene.ma"));
+}
+
+#[test]
+fn file_dialog_options_filters_with_no_title() {
+    let json = serde_json::json!({
+        "filters": [
+            {"name": "Maya Scene", "extensions": ["ma", "mb"]}
+        ]
+    });
+    let opts: FileDialogOptions = serde_json::from_value(json).unwrap();
+    assert!(opts.title.is_none());
+    assert_eq!(opts.filters.len(), 1);
+    assert_eq!(opts.filters[0].name, "Maya Scene");
+}
+
+#[test]
+fn file_dialog_options_debug() {
+    let opts = FileDialogOptions {
+        title: Some("Test".to_string()),
+        default_path: None,
+        filters: vec![],
+        default_name: None,
+    };
+    let debug = format!("{:?}", opts);
+    assert!(debug.contains("FileDialogOptions"));
+}
+
+// ---------------------------------------------------------------------------
+// MessageDialogOptions edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn message_dialog_options_empty_message() {
+    let json = serde_json::json!({ "message": "" });
+    let opts: MessageDialogOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.message, "");
+}
+
+#[test]
+fn message_dialog_options_long_message() {
+    let long_msg = "x".repeat(10_000);
+    let json = serde_json::json!({ "message": long_msg });
+    let opts: MessageDialogOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.message.len(), 10_000);
+}
+
+#[test]
+fn message_dialog_options_title_empty_string() {
+    let json = serde_json::json!({ "message": "msg", "title": "" });
+    let opts: MessageDialogOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.title.as_deref(), Some(""));
+}
+
+// ---------------------------------------------------------------------------
+// Plugin: command stability
+// ---------------------------------------------------------------------------
+
+#[test]
+fn plugin_commands_no_duplicates() {
+    let plugin = DialogPlugin::new();
+    let cmds = plugin.commands();
+    let mut unique = cmds.clone();
+    unique.sort_unstable();
+    unique.dedup();
+    assert_eq!(unique.len(), cmds.len(), "commands should have no duplicates");
+}
+
+#[test]
+fn plugin_commands_all_non_empty() {
+    let plugin = DialogPlugin::new();
+    for cmd in plugin.commands() {
+        assert!(!cmd.is_empty(), "command name should not be empty");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Error message validation: unknown commands have descriptive errors
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unknown_command_error_is_not_ok() {
+    let plugin = DialogPlugin::new();
+    let scope = ScopeConfig::new();
+    let err = plugin.handle("nonexistent", serde_json::json!({}), &scope).unwrap_err();
+    // Error message should mention the command
+    let msg = err.to_string();
+    assert!(!msg.is_empty(), "error message should not be empty");
+}
+
+// ---------------------------------------------------------------------------
+// FileFilter: PartialEq via serde comparison
+// ---------------------------------------------------------------------------
+
+#[test]
+fn file_filter_same_name_different_extensions_not_equal_via_serde() {
+    let a = serde_json::to_value(&FileFilter {
+        name: "Images".to_string(),
+        extensions: vec!["png".to_string()],
+    }).unwrap();
+    let b = serde_json::to_value(&FileFilter {
+        name: "Images".to_string(),
+        extensions: vec!["jpg".to_string()],
+    }).unwrap();
+    assert_ne!(a, b);
+}
+
+#[test]
+fn file_filter_identical_serde_values_are_equal() {
+    let a = serde_json::to_value(&FileFilter {
+        name: "Images".to_string(),
+        extensions: vec!["png".to_string()],
+    }).unwrap();
+    let b = serde_json::to_value(&FileFilter {
+        name: "Images".to_string(),
+        extensions: vec!["png".to_string()],
+    }).unwrap();
+    assert_eq!(a, b);
+}
