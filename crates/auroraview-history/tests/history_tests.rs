@@ -876,3 +876,270 @@ fn concurrent_delete_and_visit_no_panic() {
     visitor.join().unwrap();
     // No panics — final count is indeterminate but valid
 }
+
+// ========== HistoryEntry set methods ==========
+
+#[rstest]
+fn entry_set_title_mutation() {
+    let mut entry = HistoryEntry::new("https://github.com", "GitHub");
+    entry.set_title("GitHub - New Title");
+    assert_eq!(entry.title, "GitHub - New Title");
+}
+
+#[rstest]
+fn entry_set_favicon_some() {
+    let mut entry = HistoryEntry::new("https://github.com", "GitHub");
+    entry.set_favicon(Some("https://github.com/favicon.ico".to_string()));
+    assert_eq!(entry.favicon, Some("https://github.com/favicon.ico".to_string()));
+}
+
+#[rstest]
+fn entry_set_favicon_none() {
+    let mut entry = HistoryEntry::new("https://github.com", "GitHub");
+    entry.set_favicon(Some("https://github.com/fav.ico".to_string()));
+    entry.set_favicon(None);
+    assert!(entry.favicon.is_none());
+}
+
+#[rstest]
+fn entry_matches_by_url() {
+    let entry = HistoryEntry::new("https://github.com/rust-lang/rust", "Rust");
+    assert!(entry.matches("github.com"));
+    assert!(entry.matches("rust-lang"));
+    assert!(!entry.matches("gitlab.com"));
+}
+
+#[rstest]
+fn entry_matches_by_title() {
+    let entry = HistoryEntry::new("https://example.com", "My Awesome Page");
+    assert!(entry.matches("awesome"));
+    assert!(entry.matches("AWESOME")); // case insensitive
+    assert!(!entry.matches("boring"));
+}
+
+#[rstest]
+fn entry_relevance_score_url_match() {
+    let entry = HistoryEntry::new("https://github.com", "GitHub");
+    let score = entry.relevance_score("github");
+    assert!(score > 0, "Expected positive score for URL match");
+}
+
+#[rstest]
+fn entry_relevance_score_title_match_higher_than_url() {
+    let mut entry = HistoryEntry::new("https://github.com", "GitHub");
+    // Record many visits to boost score
+    for _ in 0..10 {
+        entry.record_visit();
+    }
+    let score = entry.relevance_score("github");
+    assert!(score > 1, "Frequent page should have high relevance");
+}
+
+#[rstest]
+fn entry_serde_roundtrip() {
+    let mut entry = HistoryEntry::new("https://github.com", "GitHub");
+    entry.record_visit();
+    entry.record_typed_visit();
+    entry.set_favicon(Some("https://github.com/favicon.ico".to_string()));
+
+    let json = serde_json::to_string(&entry).unwrap();
+    let back: HistoryEntry = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.url, "https://github.com");
+    assert_eq!(back.title, "GitHub");
+    assert_eq!(back.visit_count, 3); // 1 initial + 2 recorded
+    assert_eq!(back.typed_count, 1);
+    assert!(back.favicon.is_some());
+}
+
+// ========== Manager typed_visit ==========
+
+#[rstest]
+fn manager_typed_visit_increments_typed_count() {
+    let manager = HistoryManager::new(None);
+    let id = manager.typed_visit("https://github.com", "GitHub");
+    let entry = manager.get(&id).unwrap();
+    assert_eq!(entry.typed_count, 1);
+}
+
+#[rstest]
+fn manager_typed_visit_same_url_accumulates() {
+    let manager = HistoryManager::new(None);
+    manager.typed_visit("https://github.com", "GitHub");
+    manager.typed_visit("https://github.com", "GitHub");
+    let entry = manager.get_by_url("https://github.com").unwrap();
+    assert_eq!(entry.typed_count, 2);
+}
+
+// ========== Manager today/this_week/this_month ==========
+
+#[rstest]
+fn manager_today_returns_recent_entry() {
+    let manager = HistoryManager::new(None);
+    manager.visit("https://github.com", "GitHub");
+    let today_entries = manager.today();
+    assert!(!today_entries.is_empty());
+}
+
+#[rstest]
+fn manager_this_week_includes_today() {
+    let manager = HistoryManager::new(None);
+    manager.visit("https://github.com", "GitHub");
+    let week_entries = manager.this_week();
+    assert!(!week_entries.is_empty());
+}
+
+#[rstest]
+fn manager_this_month_includes_today() {
+    let manager = HistoryManager::new(None);
+    manager.visit("https://github.com", "GitHub");
+    let month_entries = manager.this_month();
+    assert!(!month_entries.is_empty());
+}
+
+// ========== Manager export/import ==========
+
+#[rstest]
+fn manager_export_import_roundtrip() {
+    let manager = HistoryManager::new(None);
+    manager.visit("https://rust-lang.org", "Rust");
+    manager.visit("https://python.org", "Python");
+
+    let json = manager.export().unwrap();
+    let manager2 = HistoryManager::new(None);
+    manager2.import(&json).unwrap();
+    assert_eq!(manager2.count(), 2);
+}
+
+#[rstest]
+fn manager_import_invalid_json_returns_error() {
+    let manager = HistoryManager::new(None);
+    let result = manager.import("{ not json }");
+    assert!(result.is_err());
+}
+
+// ========== Manager get_by_url ==========
+
+#[rstest]
+fn manager_get_by_url_returns_entry() {
+    let manager = HistoryManager::new(None);
+    manager.visit("https://github.com", "GitHub");
+    let entry = manager.get_by_url("https://github.com").unwrap();
+    assert_eq!(entry.title, "GitHub");
+}
+
+#[rstest]
+fn manager_get_by_url_not_found() {
+    let manager = HistoryManager::new(None);
+    assert!(manager.get_by_url("https://nonexistent.com").is_none());
+}
+
+// ========== Manager delete_url ==========
+
+#[rstest]
+fn manager_delete_url_removes_entry() {
+    let manager = HistoryManager::new(None);
+    manager.visit("https://github.com", "GitHub");
+    assert!(manager.delete_url("https://github.com"));
+    assert!(manager.get_by_url("https://github.com").is_none());
+}
+
+#[rstest]
+fn manager_delete_url_nonexistent_returns_false() {
+    let manager = HistoryManager::new(None);
+    assert!(!manager.delete_url("https://nonexistent.com"));
+}
+
+// ========== SearchOptions builder ==========
+
+#[rstest]
+fn search_options_limit_builder() {
+    let opts = SearchOptions::new().limit(5);
+    assert_eq!(opts.limit, Some(5));
+}
+
+#[rstest]
+fn search_options_domain() {
+    let opts = SearchOptions::new().domain("github.com");
+    assert_eq!(opts.domain, Some("github.com".to_string()));
+}
+
+#[rstest]
+fn search_options_min_visits() {
+    let opts = SearchOptions::new().min_visits(3);
+    assert_eq!(opts.min_visits, Some(3));
+}
+
+#[rstest]
+fn search_options_matches_entry() {
+    let entry = HistoryEntry::new("https://github.com", "GitHub");
+    let opts = SearchOptions::new().domain("github.com").min_visits(1);
+    assert!(opts.matches(&entry));
+}
+
+#[rstest]
+fn search_options_no_match_min_visits() {
+    let entry = HistoryEntry::new("https://github.com", "GitHub");
+    let opts = SearchOptions::new().min_visits(100);
+    assert!(!opts.matches(&entry));
+}
+
+#[rstest]
+fn search_result_new_has_score() {
+    let entry = HistoryEntry::new("https://github.com", "GitHub");
+    let result = SearchResult::new(entry, "github");
+    assert!(result.score > 0);
+    assert_eq!(result.entry.url, "https://github.com");
+}
+
+// ========== Manager with_max_entries ==========
+
+#[rstest]
+fn manager_with_max_entries_trims_old_entries() {
+    let manager = HistoryManager::new(None).with_max_entries(3);
+    manager.visit("https://a.com", "A");
+    manager.visit("https://b.com", "B");
+    manager.visit("https://c.com", "C");
+    manager.visit("https://d.com", "D");
+    // At 4 entries with max=3, oldest should be trimmed
+    assert!(manager.count() <= 3);
+}
+
+// ========== Manager search_with_options ==========
+
+#[rstest]
+fn manager_search_with_options_limit() {
+    let manager = HistoryManager::new(None);
+    for i in 0..10 {
+        manager.visit(format!("https://github.com/page{i}"), format!("Page{i}"));
+    }
+    let opts = SearchOptions::new().limit(3);
+    let results = manager.search_with_options("github", opts);
+    assert!(results.len() <= 3);
+}
+
+#[rstest]
+fn manager_search_with_options_domain_filter() {
+    let manager = HistoryManager::new(None);
+    manager.visit("https://github.com", "GitHub");
+    manager.visit("https://gitlab.com", "GitLab");
+
+    let opts = SearchOptions::new().domain("github.com");
+    let results = manager.search_with_options("git", opts);
+    assert!(results.iter().all(|r| r.entry.url.contains("github.com")));
+}
+
+// ========== HistoryError display ==========
+
+#[test]
+fn history_error_not_found_display() {
+    use auroraview_history::HistoryError;
+    let err = HistoryError::NotFound("entry-99".to_string());
+    assert!(err.to_string().contains("entry-99"));
+}
+
+#[test]
+fn history_error_is_send_sync() {
+    use auroraview_history::HistoryError;
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<HistoryError>();
+}

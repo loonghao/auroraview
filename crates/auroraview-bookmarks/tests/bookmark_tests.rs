@@ -727,3 +727,298 @@ fn concurrent_remove_no_panic() {
 
     assert_eq!(manager.count(), 0);
 }
+
+// ========== Bookmark set_* mutation tests ==========
+
+#[rstest]
+fn bookmark_set_title_updates_modified_at() {
+    let mut b = Bookmark::new("Old Title", "https://example.com");
+    let original_modified = b.modified_at;
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    b.set_title("New Title");
+    assert_eq!(b.title, "New Title");
+    assert!(b.modified_at >= original_modified);
+}
+
+#[rstest]
+fn bookmark_set_url_mutation() {
+    let mut b = Bookmark::new("Title", "https://old.com");
+    b.set_url("https://new.com");
+    assert_eq!(b.url, "https://new.com");
+}
+
+#[rstest]
+fn bookmark_set_favicon_some_and_none() {
+    let mut b = Bookmark::new("T", "https://example.com");
+    b.set_favicon(Some("https://example.com/favicon.ico".to_string()));
+    assert_eq!(b.favicon, Some("https://example.com/favicon.ico".to_string()));
+    b.set_favicon(None);
+    assert!(b.favicon.is_none());
+}
+
+#[rstest]
+fn bookmark_set_parent_mutation() {
+    let mut b = Bookmark::new("T", "https://example.com");
+    b.set_parent(Some("folder-1".to_string()));
+    assert_eq!(b.parent_id, Some("folder-1".to_string()));
+    b.set_parent(None);
+    assert!(b.parent_id.is_none());
+}
+
+#[rstest]
+fn bookmark_matches_case_insensitive() {
+    let b = Bookmark::new("GitHub", "https://github.com");
+    assert!(b.matches("GITHUB"));
+    assert!(b.matches("Github"));
+    assert!(b.matches("GITHUB.COM"));
+}
+
+#[rstest]
+fn bookmark_matches_by_tag_case_insensitive() {
+    let b = Bookmark::new("T", "https://example.com").with_tag("RUST");
+    assert!(b.matches("rust"));
+    assert!(!b.matches("python"));
+}
+
+#[rstest]
+fn bookmark_serde_roundtrip() {
+    let b = Bookmark::new("GitHub", "https://github.com")
+        .with_tag("code")
+        .with_favicon("https://github.com/favicon.ico")
+        .with_position(2)
+        .with_parent("folder-1");
+    let json = serde_json::to_string(&b).unwrap();
+    let back: Bookmark = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.title, "GitHub");
+    assert_eq!(back.tags, vec!["code"]);
+    assert_eq!(back.position, 2);
+    assert_eq!(back.parent_id, Some("folder-1".to_string()));
+}
+
+// ========== BookmarkFolder set_* and special_folders ==========
+
+#[rstest]
+fn folder_set_name() {
+    let mut f = BookmarkFolder::new("Old");
+    f.set_name("New");
+    assert_eq!(f.name, "New");
+}
+
+#[rstest]
+fn folder_set_parent_some_and_none() {
+    let mut f = BookmarkFolder::new("F");
+    f.set_parent(Some("parent-1".to_string()));
+    assert_eq!(f.parent_id, Some("parent-1".to_string()));
+    f.set_parent(None);
+    assert!(f.parent_id.is_none());
+}
+
+#[rstest]
+fn folder_with_icon() {
+    let f = BookmarkFolder::new("F").with_icon("folder-icon.png");
+    assert_eq!(f.icon, Some("folder-icon.png".to_string()));
+}
+
+#[rstest]
+fn folder_with_id_stable() {
+    let f = BookmarkFolder::with_id("stable-id", "Folder");
+    assert_eq!(f.id, "stable-id");
+}
+
+#[rstest]
+fn folder_serde_roundtrip() {
+    let f = BookmarkFolder::new("Dev")
+        .with_icon("dev.png")
+        .with_position(3)
+        .with_parent("root");
+    let json = serde_json::to_string(&f).unwrap();
+    let back: BookmarkFolder = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.name, "Dev");
+    assert_eq!(back.icon, Some("dev.png".to_string()));
+    assert_eq!(back.position, 3);
+    assert_eq!(back.parent_id, Some("root".to_string()));
+}
+
+#[rstest]
+fn manager_folder_count() {
+    let manager = BookmarkManager::new(None);
+    let initial = manager.folder_count(); // 2 special folders pre-created
+    manager.create_folder("F1");
+    manager.create_folder("F2");
+    assert_eq!(manager.folder_count(), initial + 2);
+}
+
+#[rstest]
+fn manager_root_bookmarks_only_root_items() {
+    let manager = BookmarkManager::new(None);
+    let folder_id = manager.create_folder("WorkFolder");
+    let root_id = manager.add("https://root.com", "Root");
+    manager.add_to_folder("https://in-folder.com", "InFolder", &folder_id).unwrap();
+
+    let root_bms = manager.root_bookmarks();
+    assert!(root_bms.iter().any(|b| b.id == root_id));
+    assert!(!root_bms.iter().any(|b| b.url == "https://in-folder.com"));
+}
+
+#[rstest]
+fn manager_update_title_only() {
+    let manager = BookmarkManager::new(None);
+    let id = manager.add("https://example.com", "Old Title");
+    manager.update(&id, Some("New Title"), None).unwrap();
+    let b = manager.get(&id).unwrap();
+    assert_eq!(b.title, "New Title");
+    assert_eq!(b.url, "https://example.com");
+}
+
+#[rstest]
+fn manager_update_url_only() {
+    let manager = BookmarkManager::new(None);
+    let id = manager.add("https://old.com", "Title");
+    manager.update(&id, None, Some("https://new.com")).unwrap();
+    let b = manager.get(&id).unwrap();
+    assert_eq!(b.url, "https://new.com");
+    assert_eq!(b.title, "Title");
+}
+
+#[rstest]
+fn manager_update_nonexistent_bookmark_error() {
+    let manager = BookmarkManager::new(None);
+    let result = manager.update("ghost", Some("T"), None);
+    assert!(result.is_err());
+}
+
+#[rstest]
+fn manager_find_by_url_returns_correct() {
+    let manager = BookmarkManager::new(None);
+    manager.add("https://rust-lang.org", "Rust");
+    let found = manager.find_by_url("https://rust-lang.org");
+    assert!(found.is_some());
+    assert_eq!(found.unwrap().title, "Rust");
+}
+
+#[rstest]
+fn manager_find_by_url_not_found() {
+    let manager = BookmarkManager::new(None);
+    assert!(manager.find_by_url("https://nonexistent.com").is_none());
+}
+
+#[rstest]
+fn manager_move_to_folder_and_back() {
+    let manager = BookmarkManager::new(None);
+    let folder_id = manager.create_folder("Dev");
+    let id = manager.add("https://github.com", "GitHub");
+
+    manager.move_to_folder(&id, Some(&folder_id)).unwrap();
+    let b = manager.get(&id).unwrap();
+    assert_eq!(b.parent_id, Some(folder_id.clone()));
+
+    manager.move_to_folder(&id, None).unwrap();
+    let b = manager.get(&id).unwrap();
+    assert!(b.parent_id.is_none());
+}
+
+#[rstest]
+fn manager_move_nonexistent_returns_error() {
+    let manager = BookmarkManager::new(None);
+    let result = manager.move_to_folder("ghost", None);
+    assert!(result.is_err());
+}
+
+#[rstest]
+fn manager_rename_folder() {
+    let manager = BookmarkManager::new(None);
+    let id = manager.create_folder("OldName");
+    manager.rename_folder(&id, "NewName").unwrap();
+    let folder = manager.get_folder(&id).unwrap();
+    assert_eq!(folder.name, "NewName");
+}
+
+#[rstest]
+fn manager_rename_nonexistent_folder_error() {
+    let manager = BookmarkManager::new(None);
+    let result = manager.rename_folder("ghost_folder", "Name");
+    assert!(result.is_err());
+}
+
+#[rstest]
+fn manager_delete_folder_with_contents() {
+    let manager = BookmarkManager::new(None);
+    let folder_id = manager.create_folder("ToDelete");
+    let _bm_id = manager.add_to_folder("https://a.com", "A", &folder_id).unwrap();
+    manager.delete_folder(&folder_id, true).unwrap();
+    assert!(manager.get_folder(&folder_id).is_none());
+}
+
+#[rstest]
+fn manager_delete_folder_without_contents_keeps_bookmarks() {
+    let manager = BookmarkManager::new(None);
+    let folder_id = manager.create_folder("ToDelete");
+    let bm_id = manager.add_to_folder("https://a.com", "A", &folder_id).unwrap();
+    manager.delete_folder(&folder_id, false).unwrap();
+    assert!(manager.get(&bm_id).is_some());
+}
+
+#[rstest]
+fn manager_subfolders_returns_children() {
+    let manager = BookmarkManager::new(None);
+    let parent_id = manager.create_folder("Parent");
+    manager.create_subfolder("Child1", &parent_id).unwrap();
+    manager.create_subfolder("Child2", &parent_id).unwrap();
+    let children = manager.subfolders(&parent_id);
+    assert_eq!(children.len(), 2);
+}
+
+#[rstest]
+fn manager_create_subfolder_nonexistent_parent_error() {
+    let manager = BookmarkManager::new(None);
+    let result = manager.create_subfolder("Child", "ghost_parent");
+    assert!(result.is_err());
+}
+
+#[rstest]
+fn manager_clear_removes_all() {
+    let manager = BookmarkManager::new(None);
+    manager.add("https://a.com", "A");
+    manager.add("https://b.com", "B");
+    assert_eq!(manager.count(), 2);
+    manager.clear();
+    assert_eq!(manager.count(), 0);
+}
+
+#[rstest]
+fn manager_export_import_roundtrip() {
+    let manager = BookmarkManager::new(None);
+    manager.add("https://rust.rs", "Rust");
+    manager.add("https://python.org", "Python");
+
+    let json = manager.export().unwrap();
+    let manager2 = BookmarkManager::new(None);
+    manager2.import(&json).unwrap();
+    assert_eq!(manager2.count(), 2);
+}
+
+// ========== BookmarkError display ==========
+
+#[test]
+fn bookmark_error_not_found_display() {
+    let err = BookmarkError::NotFound("bm-99".to_string());
+    assert!(err.to_string().contains("bm-99"));
+}
+
+#[test]
+fn bookmark_error_folder_not_found_display() {
+    let err = BookmarkError::FolderNotFound("folder-99".to_string());
+    assert!(err.to_string().contains("folder-99"));
+}
+
+#[test]
+fn bookmark_error_invalid_url_display() {
+    let err = BookmarkError::InvalidUrl("not-a-url".to_string());
+    assert!(err.to_string().contains("not-a-url"));
+}
+
+#[test]
+fn bookmark_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<BookmarkError>();
+}

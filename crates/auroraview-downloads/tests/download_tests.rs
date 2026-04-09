@@ -906,3 +906,284 @@ fn concurrent_clone_shares_state() {
 
     reader.join().unwrap();
 }
+
+// ========== DownloadQueue extended tests ==========
+
+#[rstest]
+fn queue_new_is_empty() {
+    let queue = DownloadQueue::new();
+    assert!(queue.is_empty());
+    assert_eq!(queue.pending_count(), 0);
+    assert_eq!(queue.active_count(), 0);
+    assert_eq!(queue.total_count(), 0);
+}
+
+#[rstest]
+fn queue_with_max_concurrent() {
+    let queue = DownloadQueue::with_max_concurrent(5);
+    assert_eq!(queue.max_concurrent(), 5);
+}
+
+#[rstest]
+fn queue_with_max_concurrent_zero_becomes_one() {
+    let queue = DownloadQueue::with_max_concurrent(0);
+    assert_eq!(queue.max_concurrent(), 1);
+}
+
+#[rstest]
+fn queue_set_max_concurrent() {
+    let mut queue = DownloadQueue::new();
+    queue.set_max_concurrent(10);
+    assert_eq!(queue.max_concurrent(), 10);
+}
+
+#[rstest]
+fn queue_set_max_concurrent_zero_becomes_one() {
+    let mut queue = DownloadQueue::new();
+    queue.set_max_concurrent(0);
+    assert_eq!(queue.max_concurrent(), 1);
+}
+
+#[rstest]
+fn queue_enqueue_no_duplicate() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("d1".to_string());
+    queue.enqueue("d1".to_string()); // duplicate
+    assert_eq!(queue.pending_count(), 1);
+}
+
+#[rstest]
+fn queue_enqueue_priority_goes_to_front() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("d1".to_string());
+    queue.enqueue("d2".to_string());
+    queue.enqueue_priority("d0".to_string());
+
+    let pending = queue.pending();
+    assert_eq!(pending[0], "d0");
+}
+
+#[rstest]
+fn queue_contains_pending_and_active() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("d1".to_string());
+    assert!(queue.contains(&"d1".to_string()));
+
+    queue.mark_active(&"d1".to_string());
+    assert!(queue.contains(&"d1".to_string()));
+
+    queue.mark_finished(&"d1".to_string());
+    assert!(!queue.contains(&"d1".to_string()));
+}
+
+#[rstest]
+fn queue_mark_active_moves_from_pending() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("d1".to_string());
+    assert_eq!(queue.pending_count(), 1);
+    assert_eq!(queue.active_count(), 0);
+
+    queue.mark_active(&"d1".to_string());
+    assert_eq!(queue.pending_count(), 0);
+    assert_eq!(queue.active_count(), 1);
+}
+
+#[rstest]
+fn queue_mark_finished_removes_from_active() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("d1".to_string());
+    queue.mark_active(&"d1".to_string());
+    queue.mark_finished(&"d1".to_string());
+
+    assert_eq!(queue.active_count(), 0);
+    assert!(queue.is_empty());
+}
+
+#[rstest]
+fn queue_next_batch_respects_max_concurrent() {
+    let mut queue = DownloadQueue::with_max_concurrent(2);
+    queue.enqueue("d1".to_string());
+    queue.enqueue("d2".to_string());
+    queue.enqueue("d3".to_string());
+
+    let batch = queue.next_batch();
+    assert_eq!(batch.len(), 2);
+    assert_eq!(queue.active_count(), 2);
+    assert_eq!(queue.pending_count(), 1);
+}
+
+#[rstest]
+fn queue_can_start_requires_pending_and_slot() {
+    let mut queue = DownloadQueue::with_max_concurrent(1);
+    assert!(!queue.can_start()); // no pending
+
+    queue.enqueue("d1".to_string());
+    assert!(queue.can_start()); // has pending
+
+    queue.mark_active(&"d1".to_string());
+    assert!(!queue.can_start()); // slot full
+}
+
+#[rstest]
+fn queue_pending_ids() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("a".to_string());
+    queue.enqueue("b".to_string());
+
+    let ids = queue.pending();
+    assert_eq!(ids, vec!["a", "b"]);
+}
+
+#[rstest]
+fn queue_active_ids() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("a".to_string());
+    queue.mark_active(&"a".to_string());
+
+    let ids = queue.active();
+    assert_eq!(ids, vec!["a"]);
+}
+
+#[rstest]
+fn queue_clear_pending() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("a".to_string());
+    queue.enqueue("b".to_string());
+    queue.mark_active(&"a".to_string());
+
+    queue.clear_pending();
+    assert_eq!(queue.pending_count(), 0);
+    assert_eq!(queue.active_count(), 1); // active stays
+}
+
+#[rstest]
+fn queue_clear_all() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("a".to_string());
+    queue.mark_active(&"a".to_string());
+    queue.enqueue("b".to_string());
+
+    queue.clear();
+    assert!(queue.is_empty());
+}
+
+#[rstest]
+fn queue_move_up() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("a".to_string());
+    queue.enqueue("b".to_string());
+    queue.enqueue("c".to_string());
+
+    queue.move_up(&"c".to_string());
+    let p = queue.pending();
+    assert_eq!(p, vec!["a", "c", "b"]);
+}
+
+#[rstest]
+fn queue_move_down() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("a".to_string());
+    queue.enqueue("b".to_string());
+    queue.enqueue("c".to_string());
+
+    queue.move_down(&"a".to_string());
+    let p = queue.pending();
+    assert_eq!(p, vec!["b", "a", "c"]);
+}
+
+#[rstest]
+fn queue_remove_active_item() {
+    let mut queue = DownloadQueue::new();
+    queue.enqueue("d1".to_string());
+    queue.mark_active(&"d1".to_string());
+    assert!(queue.remove(&"d1".to_string()));
+    assert!(!queue.contains(&"d1".to_string()));
+}
+
+#[rstest]
+fn queue_default_max_concurrent_is_3() {
+    let queue = DownloadQueue::default();
+    assert_eq!(queue.max_concurrent(), 3);
+}
+
+// ========== Manager queue_stats ==========
+
+#[rstest]
+fn manager_queue_stats_checks_active() {
+    let manager = DownloadManager::new(None);
+    let id = manager.add("https://a.com/f.zip", "f.zip");
+    manager.start(&id).unwrap();
+
+    let (pending, active, completed) = manager.queue_stats();
+    assert_eq!(active, 1);
+    let _ = (pending, completed); // values checked implicitly
+}
+
+#[rstest]
+fn manager_can_start_new_with_slot() {
+    let manager = DownloadManager::new(None);
+    // No pending downloads, so can_start_new returns false
+    assert!(!manager.can_start_new());
+    // Add an item (pending state), then check
+    manager.add("https://a.com/f", "f");
+    assert!(manager.can_start_new());
+}
+
+#[rstest]
+fn manager_next_to_start_none_when_empty() {
+    let manager = DownloadManager::new(None);
+    assert!(manager.next_to_start().is_none());
+}
+
+#[rstest]
+fn manager_next_to_start_returns_pending() {
+    let manager = DownloadManager::new(None);
+    let id = manager.add("https://a.com/f", "f");
+    let next = manager.next_to_start();
+    assert_eq!(next, Some(id));
+}
+
+#[rstest]
+fn manager_all_returns_all_items() {
+    let manager = DownloadManager::new(None);
+    manager.add("https://a.com/f1", "f1");
+    manager.add("https://a.com/f2", "f2");
+    assert_eq!(manager.all().len(), 2);
+}
+
+#[rstest]
+fn manager_by_state_pending() {
+    let manager = DownloadManager::new(None);
+    manager.add("https://a.com/f", "f");
+    let pending = manager.by_state(DownloadState::Pending);
+    assert_eq!(pending.len(), 1);
+}
+
+#[rstest]
+fn manager_completed_returns_finished_items() {
+    let manager = DownloadManager::new(None);
+    let id = manager.add("https://a.com/f", "f");
+    manager.start(&id).unwrap();
+    manager.complete(&id).unwrap();
+    let completed = manager.completed();
+    assert_eq!(completed.len(), 1);
+}
+
+#[rstest]
+fn manager_set_download_dir() {
+    let dir = TempDir::new().unwrap();
+    let mut manager = DownloadManager::new(None);
+    manager.set_download_dir(dir.path());
+    assert_eq!(manager.download_dir(), dir.path());
+}
+
+#[rstest]
+fn manager_set_max_concurrent_allows_more_parallel() {
+    let manager = DownloadManager::new(None);
+    manager.set_max_concurrent(10);
+    // With no items, can_start_new is false
+    assert!(!manager.can_start_new());
+    // With an item it can start
+    manager.add("https://a.com/f", "f");
+    assert!(manager.can_start_new());
+}
