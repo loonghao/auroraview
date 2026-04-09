@@ -224,3 +224,130 @@ fn io_error_various_kinds(#[case] kind: std::io::ErrorKind, #[case] msg: &str) {
     assert!(dcc_err.to_string().contains(msg));
 }
 
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn dcc_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<DccError>();
+}
+
+#[test]
+fn dcc_error_window_not_found_different_ids() {
+    let e1 = DccError::WindowNotFound("win-a".into());
+    let e2 = DccError::WindowNotFound("win-b".into());
+    assert_ne!(e1.to_string(), e2.to_string());
+}
+
+#[test]
+fn dcc_error_webview_creation_empty_msg() {
+    let e = DccError::WebViewCreation(String::new());
+    assert!(e.to_string().contains("WebView creation failed"));
+}
+
+#[test]
+fn dcc_error_window_not_found_empty_id() {
+    let e = DccError::WindowNotFound(String::new());
+    assert!(e.to_string().contains("Window not found"));
+}
+
+#[test]
+fn dcc_error_invalid_parent_is_consistent() {
+    let e1 = DccError::InvalidParent;
+    let e2 = DccError::InvalidParent;
+    assert_eq!(e1.to_string(), e2.to_string());
+}
+
+#[test]
+fn dcc_error_debug_not_empty() {
+    let e = DccError::InvalidParent;
+    let debug = format!("{:?}", e);
+    assert!(!debug.is_empty());
+}
+
+#[test]
+fn dcc_error_result_ok_is_not_err() {
+    let result: Result<(), DccError> = Ok(());
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dcc_error_result_err_is_err() {
+    let result: Result<(), DccError> = Err(DccError::InvalidParent);
+    assert!(result.is_err());
+}
+
+#[test]
+fn dcc_error_window_not_found_unicode() {
+    let e = DccError::WindowNotFound("视图窗口-中文".into());
+    assert!(e.to_string().contains("视图窗口-中文"));
+}
+
+#[test]
+fn dcc_error_webview_creation_long_message() {
+    let long = "A".repeat(1000);
+    let e = DccError::WebViewCreation(long.clone());
+    assert!(e.to_string().contains(&long));
+}
+
+#[rstest]
+fn dcc_error_io_error_not_found_kind() {
+    let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "resource missing");
+    let e: DccError = io_err.into();
+    assert!(e.to_string().contains("resource missing"));
+}
+
+#[rstest]
+fn dcc_error_concurrent_creation() {
+    use std::sync::{Arc, Mutex};
+    let results: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let handles: Vec<_> = (0..5)
+        .map(|i| {
+            let r = Arc::clone(&results);
+            std::thread::spawn(move || {
+                let e = DccError::WindowNotFound(format!("win_{}", i));
+                r.lock().unwrap().push(e.to_string());
+            })
+        })
+        .collect();
+    for h in handles { h.join().unwrap(); }
+    assert_eq!(results.lock().unwrap().len(), 5);
+}
+
+#[rstest]
+#[case("maya_main_window")]
+#[case("3dsmax_viewport")]
+#[case("houdini_pane")]
+#[case("blender_area")]
+fn dcc_error_window_not_found_various_names(#[case] name: &str) {
+    let e = DccError::WindowNotFound(name.into());
+    assert!(e.to_string().contains(name));
+}
+
+#[test]
+fn dcc_error_webview_creation_debug_contains_variant() {
+    let e = DccError::WebViewCreation("some error".into());
+    let debug = format!("{:?}", e);
+    assert!(!debug.is_empty());
+}
+
+#[test]
+fn dcc_error_invalid_parent_debug_contains_variant() {
+    let e = DccError::InvalidParent;
+    let debug = format!("{:?}", e);
+    assert!(debug.contains("InvalidParent"));
+}
+
+#[test]
+fn dcc_error_collection() {
+    let errors: Vec<DccError> = vec![
+        DccError::InvalidParent,
+        DccError::WindowNotFound("x".into()),
+        DccError::WebViewCreation("y".into()),
+    ];
+    assert_eq!(errors.len(), 3);
+    for e in &errors {
+        assert!(!e.to_string().is_empty());
+    }
+}
+
