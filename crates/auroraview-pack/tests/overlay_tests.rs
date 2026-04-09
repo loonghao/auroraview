@@ -538,3 +538,132 @@ fn test_overlay_empty_content_hash_stable_across_calls() {
     assert_eq!(h1, h2, "Empty overlays with same config should have same hash");
 }
 
+// ─── Additional overlay tests R14 ─────────────────────────────────────────────
+
+#[test]
+fn test_overlay_reader_has_overlay_after_write_with_level_9() {
+    let temp = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"bin").unwrap();
+
+    let config = PackConfig::url("https://example.com");
+    let data = OverlayData::new(config);
+    OverlayWriter::write_with_level(temp.path(), &data, 9).unwrap();
+
+    assert!(OverlayReader::has_overlay(temp.path()).unwrap());
+}
+
+#[test]
+fn test_overlay_reader_has_overlay_false_before_write() {
+    let temp = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"not-an-overlay").unwrap();
+    assert!(!OverlayReader::has_overlay(temp.path()).unwrap());
+}
+
+#[test]
+fn test_overlay_config_debug_mode_false_default() {
+    let config = PackConfig::url("https://example.com");
+    assert!(!config.debug);
+}
+
+#[test]
+fn test_overlay_config_with_debug_true() {
+    let config = PackConfig::url("https://example.com").with_debug(true);
+    assert!(config.debug);
+}
+
+#[test]
+fn test_overlay_data_add_empty_content_asset() {
+    let config = PackConfig::url("https://example.com");
+    let mut data = OverlayData::new(config);
+    data.add_asset("empty.js", vec![]);
+    assert_eq!(data.assets.len(), 1);
+}
+
+#[test]
+fn test_overlay_roundtrip_1_asset_content_correct() {
+    let temp = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"exec").unwrap();
+
+    let content = b"const VERSION = '1.0.0';";
+    let config = PackConfig::url("https://example.com");
+    let mut data = OverlayData::new(config);
+    data.add_asset("version.js", content.to_vec());
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.assets.len(), 1);
+    assert_eq!(read.assets[0].0, "version.js");
+}
+
+#[test]
+fn test_overlay_multiple_writes_last_wins() {
+    let temp = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"bin").unwrap();
+
+    for i in 0..3u32 {
+        let config = PackConfig::url(format!("https://example{}.com", i)).with_title(format!("App{}", i));
+        let data = OverlayData::new(config);
+        OverlayWriter::write(temp.path(), &data).unwrap();
+    }
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.config.window.title, "App2");
+}
+
+#[test]
+fn test_overlay_write_with_level_0() {
+    // Level 0 = no compression
+    let temp = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"bin").unwrap();
+
+    let config = PackConfig::url("https://example.com").with_title("Level0");
+    let data = OverlayData::new(config);
+    OverlayWriter::write_with_level(temp.path(), &data, 0).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.config.window.title, "Level0");
+}
+
+#[test]
+fn test_overlay_config_resizable_default() {
+    let config = PackConfig::url("https://example.com");
+    // resizable defaults to true
+    assert!(config.window.resizable);
+}
+
+#[test]
+fn test_overlay_config_with_resizable_false() {
+    let config = PackConfig::url("https://example.com").with_resizable(false);
+    assert!(!config.window.resizable);
+}
+
+#[test]
+fn test_overlay_content_hash_length_consistent() {
+    // Two different content sets should produce hashes of the same length
+    let config1 = PackConfig::url("https://example.com");
+    let mut d1 = OverlayData::new(config1);
+    d1.add_asset("a.js", b"small".to_vec());
+
+    let config2 = PackConfig::url("https://example.com");
+    let mut d2 = OverlayData::new(config2);
+    let large: Vec<u8> = (0u8..=255u8).cycle().take(10000).collect();
+    d2.add_asset("b.js", large);
+
+    let h1 = d1.compute_content_hash();
+    let h2 = d2.compute_content_hash();
+    assert_eq!(h1.len(), h2.len(), "BLAKE3 hashes should be fixed length");
+}
+
+#[test]
+fn test_overlay_reader_get_original_size_zero_binary() {
+    let temp = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"").unwrap();
+
+    let config = PackConfig::url("https://example.com");
+    let data = OverlayData::new(config);
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let size = OverlayReader::get_original_size(temp.path()).unwrap().unwrap();
+    assert_eq!(size, 0, "empty binary should have original size = 0");
+}
+

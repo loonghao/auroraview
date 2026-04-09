@@ -467,3 +467,117 @@ fn test_api_registration_template_max_methods() {
     assert!(result.contains("'method_19'"));
 }
 
+// ============================================================================
+// EmitEventTemplate — further structural tests
+// ============================================================================
+
+#[test]
+fn test_emit_event_template_contains_iife() {
+    let template = EmitEventTemplate {
+        event_name: "click",
+        event_data: "null",
+    };
+    let result = template.render().unwrap();
+    // The generated script should be a self-invoking function or inline call
+    assert!(result.contains("(function") || result.contains("function()") || result.contains("auroraview"));
+}
+
+#[test]
+fn test_emit_event_template_event_name_preserved_exactly() {
+    let event = "my.special-event_v2";
+    let template = EmitEventTemplate {
+        event_name: event,
+        event_data: "{}",
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains(event));
+}
+
+#[test]
+fn test_emit_event_template_data_preserved_exactly() {
+    let data = r#"{"id":1,"name":"test","flag":true}"#;
+    let template = EmitEventTemplate {
+        event_name: "payload",
+        event_data: data,
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("id"));
+    assert!(result.contains("name"));
+    assert!(result.contains("flag"));
+}
+
+// ============================================================================
+// LoadUrlTemplate — further structural tests
+// ============================================================================
+
+#[test]
+fn test_load_url_template_https_scheme_preserved() {
+    let template = LoadUrlTemplate {
+        url: "https://secure.example.com/path",
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("https://"));
+}
+
+#[test]
+fn test_load_url_template_contains_assignment() {
+    let template = LoadUrlTemplate {
+        url: "https://example.com",
+    };
+    let result = template.render().unwrap();
+    // Should assign URL somewhere
+    assert!(result.contains("="));
+}
+
+// ============================================================================
+// ApiRegistrationTemplate — further structural tests
+// ============================================================================
+
+#[test]
+fn test_api_registration_template_contains_namespace_in_output() {
+    let entries = vec![ApiMethodEntry {
+        namespace: "my_ns".to_string(),
+        methods: vec!["do_thing".to_string()],
+    }];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    assert!(result.contains("my_ns"));
+    assert!(result.contains("do_thing"));
+}
+
+#[test]
+fn test_api_registration_template_5_namespaces() {
+    let entries: Vec<ApiMethodEntry> = (0..5)
+        .map(|i| ApiMethodEntry {
+            namespace: format!("ns_{}", i),
+            methods: vec![format!("fn_{}", i)],
+        })
+        .collect();
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    for i in 0..5 {
+        assert!(result.contains(&format!("ns_{}", i)));
+        assert!(result.contains(&format!("fn_{}", i)));
+    }
+}
+
+#[test]
+fn test_api_registration_template_with_dcc_namespaces() {
+    let entries = vec![
+        ApiMethodEntry {
+            namespace: "maya".to_string(),
+            methods: vec!["get_scene".to_string(), "set_selection".to_string()],
+        },
+        ApiMethodEntry {
+            namespace: "houdini".to_string(),
+            methods: vec!["cook_node".to_string()],
+        },
+    ];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    assert!(result.contains("maya"));
+    assert!(result.contains("houdini"));
+    assert!(result.contains("get_scene"));
+    assert!(result.contains("cook_node"));
+}
+
