@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.19](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.18...auroraview-v0.4.19) (2026-04-09)
+
+
+### Bug Fixes
+
+* **ci:** add libwayland-dev to test-plugins job for rfd 0.17 Linux support ([d136dfe](https://github.com/loonghao/auroraview/commit/d136dfe1185d4b3f88492a39a2a68a2c749be8a2))
+
 ## [0.4.18](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.17...auroraview-v0.4.18) (2026-04-06)
 
 
