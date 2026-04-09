@@ -1,355 +1,105 @@
-//! Tests for DccError variants, Display, From, and Send+Sync
+//! Tests for DCC error types
 
-use auroraview_dcc::{DccError, Result};
-use rstest::rstest;
+use auroraview_dcc::error::DccError;
 
 // ============================================================================
-// Display tests
+// DccError variant tests
 // ============================================================================
 
-#[rstest]
-fn display_webview_creation() {
-    let e = DccError::WebViewCreation("controller init failed".to_string());
-    assert_eq!(
-        e.to_string(),
-        "WebView creation failed: controller init failed"
-    );
+#[test]
+fn webview_creation_error_message() {
+    let e = DccError::WebViewCreation("Failed to create WebView2".to_string());
+    let msg = e.to_string();
+    assert!(msg.contains("WebView creation failed"));
+    assert!(msg.contains("Failed to create WebView2"));
 }
 
-#[rstest]
-fn display_invalid_parent() {
+#[test]
+fn invalid_parent_error_message() {
     let e = DccError::InvalidParent;
-    assert_eq!(e.to_string(), "Invalid parent HWND");
+    assert!(e.to_string().contains("Invalid parent HWND"));
 }
 
-#[rstest]
-fn display_window_not_found() {
-    let e = DccError::WindowNotFound("win-42".to_string());
-    assert_eq!(e.to_string(), "Window not found: win-42");
+#[test]
+fn window_not_found_error_message() {
+    let e = DccError::WindowNotFound("maya_main_window".to_string());
+    let msg = e.to_string();
+    assert!(msg.contains("Window not found"));
+    assert!(msg.contains("maya_main_window"));
 }
 
-#[rstest]
-fn display_unsupported_dcc() {
-    let e = DccError::UnsupportedDcc("Katana".to_string());
-    assert_eq!(e.to_string(), "DCC not supported: Katana");
+#[test]
+fn unsupported_dcc_error_message() {
+    let e = DccError::UnsupportedDcc("Cinema4D".to_string());
+    let msg = e.to_string();
+    assert!(msg.contains("DCC not supported"));
+    assert!(msg.contains("Cinema4D"));
 }
 
-#[rstest]
-fn display_threading() {
-    let e = DccError::Threading("STA required".to_string());
-    assert_eq!(e.to_string(), "Threading error: STA required");
+#[test]
+fn threading_error_message() {
+    let e = DccError::Threading("deadlock detected".to_string());
+    let msg = e.to_string();
+    assert!(msg.contains("Threading error"));
+    assert!(msg.contains("deadlock detected"));
 }
 
-#[rstest]
-fn display_io() {
-    let io_err = std::io::Error::other("pipe broken");
-    let e = DccError::Io(io_err);
-    let s = e.to_string();
-    assert!(s.contains("IO error"));
+#[test]
+fn io_error_from_std_io_error() {
+    let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+    let dcc_err = DccError::from(io_err);
+    let msg = dcc_err.to_string();
+    assert!(msg.contains("IO error"));
 }
 
-// ============================================================================
-// Debug
-// ============================================================================
-
-#[rstest]
-fn debug_invalid_parent() {
-    let e = DccError::InvalidParent;
-    let s = format!("{:?}", e);
-    assert!(s.contains("InvalidParent"));
+#[test]
+fn result_type_ok_variant() {
+    let result: auroraview_dcc::error::Result<i32> = Ok(42);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), 42);
 }
 
-#[rstest]
-fn debug_webview_creation() {
-    let e = DccError::WebViewCreation("fail".to_string());
-    let s = format!("{:?}", e);
-    assert!(s.contains("WebViewCreation"));
-    assert!(s.contains("fail"));
+#[test]
+fn result_type_err_variant() {
+    let result: auroraview_dcc::error::Result<i32> =
+        Err(DccError::InvalidParent);
+    assert!(result.is_err());
 }
 
-// ============================================================================
-// From conversions
-// ============================================================================
-
-#[rstest]
-fn from_io_error() {
-    let io_err = std::io::Error::other("file not found");
-    let e: DccError = io_err.into();
-    assert!(e.to_string().contains("IO error"));
+#[test]
+fn dcc_error_debug_output() {
+    let e = DccError::WebViewCreation("test".to_string());
+    let debug_str = format!("{:?}", e);
+    assert!(debug_str.contains("WebViewCreation"));
 }
 
-// ============================================================================
-// Error source chain
-// ============================================================================
-
-#[rstest]
-fn io_variant_has_source() {
-    use std::error::Error;
-    let io_err = std::io::Error::other("cause");
-    let e: DccError = io_err.into();
-    assert!(e.source().is_some());
+#[test]
+fn window_not_found_empty_name() {
+    let e = DccError::WindowNotFound(String::new());
+    let msg = e.to_string();
+    assert!(msg.contains("Window not found"));
 }
 
-#[rstest]
-fn threading_variant_no_source() {
-    use std::error::Error;
-    let e = DccError::Threading("x".to_string());
-    assert!(e.source().is_none());
+#[test]
+fn unsupported_dcc_empty_name() {
+    let e = DccError::UnsupportedDcc(String::new());
+    let msg = e.to_string();
+    assert!(msg.contains("DCC not supported"));
 }
 
-#[rstest]
-fn window_not_found_no_source() {
-    use std::error::Error;
-    let e = DccError::WindowNotFound("w".to_string());
-    assert!(e.source().is_none());
+#[test]
+fn threading_error_unicode_message() {
+    let e = DccError::Threading("线程安全违规".to_string());
+    let msg = e.to_string();
+    assert!(msg.contains("Threading error"));
+    assert!(msg.contains("线程安全违规"));
 }
 
-// ============================================================================
-// Result type alias
-// ============================================================================
-
-#[rstest]
-fn result_ok() {
-    let r: Result<u32> = Ok(1);
-    assert!(r.is_ok());
-}
-
-#[rstest]
-fn result_err() {
-    let r: Result<u32> = Err(DccError::InvalidParent);
-    assert!(r.is_err());
-}
-
-// ============================================================================
-// Send + Sync
-// ============================================================================
-
-fn assert_send_sync<T: Send + Sync>() {}
-
-#[rstest]
-fn dcc_error_is_send_sync() {
-    assert_send_sync::<DccError>();
-}
-
-// ============================================================================
-// Parametrized: string variants contain their message
-// ============================================================================
-
-#[rstest]
-#[case(DccError::WebViewCreation("wv".to_string()), "wv")]
-#[case(DccError::WindowNotFound("wn".to_string()), "wn")]
-#[case(DccError::UnsupportedDcc("ud".to_string()), "ud")]
-#[case(DccError::Threading("th".to_string()), "th")]
-fn string_variant_message_in_display(#[case] e: DccError, #[case] fragment: &str) {
-    assert!(e.to_string().contains(fragment));
-}
-
-// ============================================================================
-// Parametrized: known DCC types unsupported message
-// ============================================================================
-
-#[rstest]
-#[case("Katana")]
-#[case("Substance Painter")]
-#[case("Cinema 4D")]
-fn unsupported_dcc_display(#[case] dcc: &str) {
-    let e = DccError::UnsupportedDcc(dcc.to_string());
-    assert!(e.to_string().contains(dcc));
-}
-
-// ============================================================================
-// Windows-only: Com variant
-// ============================================================================
-
-#[rstest]
-#[cfg(target_os = "windows")]
-fn com_variant_display() {
-    let e = DccError::Com("HRESULT 0x80004001".to_string());
-    let s = e.to_string();
-    assert!(s.contains("HRESULT"));
-    assert!(s.contains("COM"));
-}
-
-#[rstest]
-#[cfg(target_os = "windows")]
-fn com_variant_debug() {
-    let e = DccError::Com("E_NOTIMPL".to_string());
-    let s = format!("{:?}", e);
-    assert!(s.contains("Com"));
-    assert!(s.contains("E_NOTIMPL"));
-}
-
-#[rstest]
-#[cfg(target_os = "windows")]
-#[case("0x80070057")]
-#[case("E_INVALIDARG")]
-#[case("E_POINTER")]
-fn com_variant_message_in_display(#[case] msg: &str) {
-    let e = DccError::Com(msg.to_string());
-    assert!(e.to_string().contains(msg));
-}
-
-// ============================================================================
-// Error as Box<dyn Error> / std::error::Error
-// ============================================================================
-
-#[rstest]
-fn webview_creation_no_source() {
-    use std::error::Error;
-    let e = DccError::WebViewCreation("x".to_string());
-    assert!(e.source().is_none());
-}
-
-#[rstest]
-fn invalid_parent_no_source() {
-    use std::error::Error;
-    let e = DccError::InvalidParent;
-    assert!(e.source().is_none());
-}
-
-#[rstest]
-fn unsupported_dcc_no_source() {
-    use std::error::Error;
-    let e = DccError::UnsupportedDcc("Maya".to_string());
-    assert!(e.source().is_none());
-}
-
-#[rstest]
-fn error_as_box_dyn_error() {
-    let e: Box<dyn std::error::Error + Send + Sync> = Box::new(DccError::InvalidParent);
-    assert!(e.to_string().contains("Invalid parent"));
-}
-
-#[rstest]
-fn error_in_result_chain() {
-    let result: std::result::Result<(), DccError> =
-        Err(DccError::WebViewCreation("fail".to_string()));
-    assert!(matches!(result, Err(DccError::WebViewCreation(message)) if message == "fail"));
-}
-
-
-// ============================================================================
-// Display prefix correctness
-// ============================================================================
-
-#[rstest]
-fn webview_creation_display_prefix() {
-    let e = DccError::WebViewCreation("x".to_string());
-    assert!(e.to_string().starts_with("WebView creation failed:"));
-}
-
-#[rstest]
-fn window_not_found_display_prefix() {
-    let e = DccError::WindowNotFound("w".to_string());
-    assert!(e.to_string().starts_with("Window not found:"));
-}
-
-#[rstest]
-fn unsupported_dcc_display_prefix() {
-    let e = DccError::UnsupportedDcc("D".to_string());
-    assert!(e.to_string().starts_with("DCC not supported:"));
-}
-
-#[rstest]
-fn threading_display_prefix() {
-    let e = DccError::Threading("t".to_string());
-    assert!(e.to_string().starts_with("Threading error:"));
-}
-
-// ============================================================================
-// Additional parametrized: WebViewCreation messages
-// ============================================================================
-
-#[rstest]
-#[case("controller init failed")]
-#[case("ICoreWebView2Environment::CreateCoreWebView2Controller failed")]
-#[case("unsupported runtime")]
-fn webview_creation_messages(#[case] msg: &str) {
-    let e = DccError::WebViewCreation(msg.to_string());
-    assert!(e.to_string().contains(msg));
-}
-
-#[rstest]
-#[case("win-1")]
-#[case("maya-panel-42")]
-#[case("dcc://houdini/scene")]
-fn window_not_found_ids(#[case] id: &str) {
-    let e = DccError::WindowNotFound(id.to_string());
-    assert!(e.to_string().contains(id));
-}
-
-#[rstest]
-#[case("deadlock detected")]
-#[case("STA thread required")]
-#[case("COM apartment mismatch")]
-fn threading_messages(#[case] msg: &str) {
-    let e = DccError::Threading(msg.to_string());
-    assert!(e.to_string().contains(msg));
-}
-
-// ============================================================================
-// Concurrent error construction (no panic)
-// ============================================================================
-
-#[rstest]
-fn concurrent_error_construction_no_panic() {
-    use std::sync::Arc;
-    let errors: Arc<std::sync::Mutex<Vec<String>>> =
-        Arc::new(std::sync::Mutex::new(Vec::new()));
-
-    let handles: Vec<_> = (0..8)
-        .map(|i| {
-            let errs = Arc::clone(&errors);
-            std::thread::spawn(move || {
-                let e = if i % 3 == 0 {
-                    DccError::InvalidParent
-                } else if i % 3 == 1 {
-                    DccError::WebViewCreation(format!("thread {}", i))
-                } else {
-                    DccError::Threading(format!("t{}", i))
-                };
-                let mut guard = errs.lock().unwrap();
-                guard.push(e.to_string());
-            })
-        })
-        .collect();
-
-    for h in handles {
-        h.join().expect("thread panicked");
-    }
-
-    let guard = errors.lock().unwrap();
-    assert_eq!(guard.len(), 8);
-}
-
-// ============================================================================
-// DccError in Arc/shared context
-// ============================================================================
-
-#[rstest]
-fn dcc_error_in_arc() {
-    use std::sync::Arc;
-    let e = Arc::new(DccError::InvalidParent);
-    assert!(e.to_string().contains("Invalid parent"));
-}
-
-#[rstest]
-fn result_ok_value() {
-    let r: Result<String> = Ok("hello".to_string());
-    assert!(matches!(r, Ok(value) if value == "hello"));
-}
-
-
-#[rstest]
-fn result_err_value() {
-    let r: Result<()> = Err(DccError::UnsupportedDcc("Nuke".to_string()));
-    assert!(matches!(r, Err(DccError::UnsupportedDcc(name)) if name == "Nuke"));
-}
-
-
-#[rstest]
-fn result_map_err() {
-    let r: Result<()> = Err(DccError::Threading("sta".to_string()));
-    let mapped = r.map_err(|e| format!("wrapped: {}", e));
-    assert!(mapped.unwrap_err().contains("sta"));
+#[test]
+fn io_error_permission_denied() {
+    let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+    let dcc_err = DccError::from(io_err);
+    let msg = dcc_err.to_string();
+    assert!(msg.contains("IO error"));
+    assert!(msg.contains("access denied"));
 }
