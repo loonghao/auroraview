@@ -254,7 +254,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
@@ -319,7 +319,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
@@ -333,6 +333,11 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-plugins-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-plugins-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config libwayland-dev
 
       - name: Test auroraview-plugin-fs
         if: needs.detect-changes.outputs.needs-plugin-fs == 'true'
@@ -363,7 +368,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
@@ -413,7 +418,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
@@ -459,7 +464,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 

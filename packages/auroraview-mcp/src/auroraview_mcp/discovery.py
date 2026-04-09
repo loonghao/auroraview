@@ -53,6 +53,8 @@ def is_process_alive(pid: int) -> bool:
     Returns:
         True if process is alive, False otherwise.
     """
+    if pid <= 0:
+        return False
     if sys.platform == "win32":
         try:
             import ctypes
