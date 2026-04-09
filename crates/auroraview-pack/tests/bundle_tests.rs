@@ -169,3 +169,132 @@ fn bundle_is_empty_check() {
     let result = BundleBuilder::new(temp.path()).build();
     assert!(result.is_err(), "empty directory should produce error");
 }
+
+// ============================================================================
+// AssetBundle direct manipulation
+// ============================================================================
+
+use auroraview_pack::AssetBundle;
+
+#[test]
+fn asset_bundle_new_is_empty() {
+    let bundle = AssetBundle::new();
+    assert!(bundle.is_empty());
+    assert_eq!(bundle.len(), 0);
+    assert_eq!(bundle.total_size(), 0);
+}
+
+#[test]
+fn asset_bundle_add_increments_len() {
+    let mut bundle = AssetBundle::new();
+    bundle.add("a.html", b"<html>".to_vec());
+    bundle.add("b.css", b"body{}".to_vec());
+    assert_eq!(bundle.len(), 2);
+    assert!(!bundle.is_empty());
+}
+
+#[test]
+fn asset_bundle_total_size_accumulates() {
+    let mut bundle = AssetBundle::new();
+    bundle.add("file.html", vec![0u8; 100]);
+    bundle.add("style.css", vec![0u8; 50]);
+    assert_eq!(bundle.total_size(), 150);
+}
+
+#[test]
+fn asset_bundle_assets_order_preserved() {
+    let mut bundle = AssetBundle::new();
+    bundle.add("first.js", b"first".to_vec());
+    bundle.add("second.js", b"second".to_vec());
+    let assets = bundle.assets();
+    assert_eq!(assets[0].0, "first.js");
+    assert_eq!(assets[1].0, "second.js");
+}
+
+#[test]
+fn asset_bundle_into_assets_consumes() {
+    let mut bundle = AssetBundle::new();
+    bundle.add("x.html", b"x".to_vec());
+    let assets = bundle.into_assets();
+    assert_eq!(assets.len(), 1);
+    assert_eq!(assets[0].0, "x.html");
+    assert_eq!(assets[0].1, b"x");
+}
+
+#[test]
+fn asset_bundle_content_correct() {
+    let mut bundle = AssetBundle::new();
+    let data = b"<html><body>Hello</body></html>";
+    bundle.add("index.html", data.to_vec());
+    assert_eq!(bundle.assets()[0].1, data);
+}
+
+// ============================================================================
+// BundleBuilder — content integrity
+// ============================================================================
+
+#[test]
+fn bundle_content_matches_source() {
+    let temp = TempDir::new().unwrap();
+    let content = "<html>test content</html>";
+    fs::write(temp.path().join("index.html"), content).unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    let stored = std::str::from_utf8(&bundle.assets()[0].1).unwrap();
+    assert_eq!(stored, content);
+}
+
+#[test]
+fn bundle_multiple_extensions_all_included() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("a.html"), "html").unwrap();
+    fs::write(temp.path().join("b.js"), "js").unwrap();
+    fs::write(temp.path().join("c.css"), "css").unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    assert_eq!(bundle.len(), 3);
+}
+
+#[test]
+fn bundle_excludes_git_files() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("index.html"), "html").unwrap();
+    fs::write(temp.path().join(".gitignore"), "*.log").unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    let names: Vec<&str> = bundle.assets().iter().map(|(n, _)| n.as_str()).collect();
+    assert!(!names.contains(&".gitignore"));
+    assert!(names.contains(&"index.html"));
+}
+
+#[test]
+fn bundle_excludes_thumbs_db() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("index.html"), "html").unwrap();
+    fs::write(temp.path().join("Thumbs.db"), "thumb").unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    let names: Vec<&str> = bundle.assets().iter().map(|(n, _)| n.as_str()).collect();
+    assert!(!names.contains(&"Thumbs.db"));
+}
+
+#[test]
+fn bundle_with_extensions_excludes_others() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("a.html"), "html").unwrap();
+    fs::write(temp.path().join("b.js"), "js").unwrap();
+
+    let bundle = BundleBuilder::new(temp.path())
+        .with_extensions(&["html"])
+        .build()
+        .unwrap();
+    assert_eq!(bundle.len(), 1);
+    assert_eq!(bundle.assets()[0].0, "a.html");
+}
+
+#[test]
+fn bundle_asset_bundle_default_is_empty() {
+    let bundle = AssetBundle::default();
+    assert!(bundle.is_empty());
+}
+

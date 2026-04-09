@@ -286,3 +286,124 @@ fn tray_config_menu_all_separators() {
         assert!(matches!(item, TrayMenuItem::Separator));
     }
 }
+
+// ============================================================================
+// TrayMenuItem — unicode labels
+// ============================================================================
+
+#[rstest]
+fn tray_menu_item_unicode_label() {
+    let item = TrayMenuItem::Item {
+        id: "export".to_string(),
+        label: "导出文件 📁".to_string(),
+        enabled: true,
+    };
+    match item {
+        TrayMenuItem::Item { label, .. } => assert!(label.contains("导出文件")),
+        _ => panic!("expected Item"),
+    }
+}
+
+#[rstest]
+fn tray_menu_item_empty_label() {
+    let item = TrayMenuItem::Item {
+        id: "empty".to_string(),
+        label: String::new(),
+        enabled: true,
+    };
+    match &item {
+        TrayMenuItem::Item { label, .. } => assert!(label.is_empty()),
+        _ => panic!("expected Item"),
+    }
+}
+
+// ============================================================================
+// TrayConfig — many items
+// ============================================================================
+
+#[rstest]
+fn tray_config_large_menu() {
+    let mut items = Vec::new();
+    for i in 0..20 {
+        items.push(TrayMenuItem::Item {
+            id: format!("item_{}", i),
+            label: format!("Item {}", i),
+            enabled: i % 2 == 0,
+        });
+        if i % 5 == 4 {
+            items.push(TrayMenuItem::Separator);
+        }
+    }
+    let config = TrayConfig {
+        icon: None,
+        tooltip: None,
+        menu: items,
+    };
+    assert!(config.menu.len() > 20);
+}
+
+// ============================================================================
+// TrayConfig with unicode tooltip
+// ============================================================================
+
+#[rstest]
+fn tray_config_unicode_tooltip() {
+    let config = TrayConfig {
+        icon: None,
+        tooltip: Some("AuroraView 视图工具".to_string()),
+        menu: vec![],
+    };
+    assert_eq!(config.tooltip.as_deref(), Some("AuroraView 视图工具"));
+}
+
+// ============================================================================
+// TrayConfig serde with tooltip
+// ============================================================================
+
+#[rstest]
+fn tray_config_serde_with_tooltip() {
+    let config = TrayConfig {
+        icon: None,
+        tooltip: Some("Test Tooltip".to_string()),
+        menu: vec![TrayMenuItem::Separator],
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let decoded: TrayConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.tooltip.as_deref(), Some("Test Tooltip"));
+    assert_eq!(decoded.menu.len(), 1);
+}
+
+// ============================================================================
+// TrayMenuItem debug output for Item with all fields
+// ============================================================================
+
+#[rstest]
+fn tray_menu_item_debug_item_all_fields() {
+    let item = TrayMenuItem::Item {
+        id: "unique-id-xyz".to_string(),
+        label: "Unique Label".to_string(),
+        enabled: false,
+    };
+    let debug = format!("{:?}", item);
+    assert!(debug.contains("unique-id-xyz"));
+    assert!(debug.contains("Unique Label"));
+}
+
+// ============================================================================
+// TrayConfig menu item access by type
+// ============================================================================
+
+#[rstest]
+fn count_separator_items_in_default() {
+    let config = TrayConfig::default();
+    let separator_count = config.menu.iter().filter(|i| matches!(i, TrayMenuItem::Separator)).count();
+    assert_eq!(separator_count, 1);
+}
+
+#[rstest]
+fn count_action_items_in_default() {
+    let config = TrayConfig::default();
+    let action_count = config.menu.iter().filter(|i| matches!(i, TrayMenuItem::Item { .. })).count();
+    assert_eq!(action_count, 2);  // show + quit
+}
+
