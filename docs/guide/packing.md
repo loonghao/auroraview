@@ -133,7 +133,7 @@ license = "MIT"
 title = "My Application"
 frontend_path = "./dist"         # Built frontend directory
 # url = "https://example.com"    # Alternative: load from URL
-allow_new_window = false
+allow_new_window = false          # Deprecated: use new_window_mode="child_webview" instead
 
 # ============================================================================
 # Window Configuration

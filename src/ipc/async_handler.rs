@@ -159,12 +159,6 @@ impl AsyncIpcHandler {
         tracing::debug!("[AsyncIpcHandler] Registered callback for event: {}", event);
     }
 
-    /// Remove all callbacks for an event
-    #[allow(dead_code)]
-    pub fn off(&self, event: &str) {
-        self.callbacks.remove(event);
-    }
-
     /// Submit a message for async processing (non-blocking)
     pub fn submit(&self, event: String, data: serde_json::Value) -> Result<(), String> {
         let msg = AsyncIpcMessage {

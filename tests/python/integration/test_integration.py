@@ -61,10 +61,13 @@ class TestWebViewIntegration:
             def handler3(data):
                 pass
 
-            assert len(webview._event_handlers) == 3
             assert "event1" in webview._event_handlers
             assert "event2" in webview._event_handlers
             assert "event3" in webview._event_handlers
+            assert len(webview._event_handlers["event1"]) == 1
+            assert len(webview._event_handlers["event2"]) == 1
+            assert len(webview._event_handlers["event3"]) == 1
+
         except ImportError:
             pytest.skip("Package not built yet")
 
@@ -133,10 +136,12 @@ class TestPackageIntegration:
             webview.emit("scene_update", {"objects": 5})
             webview.emit("export_complete", {"path": "/tmp/export"})
 
-            # Verify handlers are registered
+            # Verify the custom handlers are registered.
             assert "scene_update" in webview._event_handlers
             assert "export_complete" in webview._event_handlers
-            assert len(webview._event_handlers) == 2
+            assert len(webview._event_handlers["scene_update"]) == 1
+            assert len(webview._event_handlers["export_complete"]) == 1
+
         except ImportError:
             pytest.skip("Package not built yet")
 

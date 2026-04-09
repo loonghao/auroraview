@@ -10,7 +10,10 @@ import os
 
 import pytest
 
+pytest.importorskip("qtpy", reason="Qt backend requires qtpy and Qt bindings")
+
 # Skip UI tests in CI - these require WebView runtime and display
+
 pytestmark = pytest.mark.skipif(
     os.environ.get("CI") == "true",
     reason="WebView creation requires display environment, skipped in CI",

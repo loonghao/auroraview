@@ -48,7 +48,7 @@ which = "8.0"
 ipckit = "0.1"
 
 # File dialogs
-rfd = "0.16"
+rfd = "0.17"
 
 # Open URLs/files with default app
 open = "5.3"

@@ -9,7 +9,7 @@ use rstest::rstest;
 
 #[rstest]
 #[cfg(target_os = "windows")]
-fn test_get_foreground_window() {
+fn get_foreground_window() {
     let result = get_foreground_window();
     assert!(result.is_ok(), "get_foreground_window should succeed");
     // May or may not have a foreground window depending on test environment
@@ -17,7 +17,7 @@ fn test_get_foreground_window() {
 
 #[rstest]
 #[cfg(target_os = "windows")]
-fn test_get_all_windows() {
+fn get_all_windows() {
     let result = get_all_windows();
     assert!(result.is_ok(), "get_all_windows should succeed");
 
@@ -28,7 +28,7 @@ fn test_get_all_windows() {
 
 #[rstest]
 #[cfg(target_os = "windows")]
-fn test_find_windows_by_title() {
+fn find_windows_by_title() {
     let result = find_windows_by_title("test");
     assert!(result.is_ok(), "find_windows_by_title should succeed");
     // May or may not find windows depending on test environment
@@ -36,7 +36,7 @@ fn test_find_windows_by_title() {
 
 #[rstest]
 #[cfg(target_os = "windows")]
-fn test_find_windows_by_empty_title() {
+fn find_windows_by_empty_title() {
     let result = find_windows_by_title("");
     assert!(
         result.is_ok(),

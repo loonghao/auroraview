@@ -584,3 +584,467 @@ fn test_get_extension_not_found(plugin: ExtensionsPlugin) {
     );
     assert!(result.is_err());
 }
+
+// ============================================================
+// Plugin identity and command enumeration
+// ============================================================
+
+#[test]
+fn plugin_name() {
+    let p = ExtensionsPlugin::new();
+    assert_eq!(p.name(), "extensions");
+}
+
+#[test]
+fn plugin_commands_include_required() {
+    let p = ExtensionsPlugin::new();
+    let cmds = p.commands();
+    assert!(cmds.contains(&"api_call"));
+    assert!(cmds.contains(&"list_extensions"));
+    assert!(cmds.contains(&"get_extension"));
+    assert!(cmds.contains(&"get_polyfill"));
+    assert!(cmds.contains(&"dispatch_event"));
+    assert!(cmds.contains(&"get_side_panel"));
+    assert!(cmds.contains(&"open_side_panel"));
+    assert!(cmds.contains(&"close_side_panel"));
+}
+
+#[test]
+fn plugin_commands_not_empty() {
+    let p = ExtensionsPlugin::new();
+    assert!(!p.commands().is_empty());
+}
+
+// ============================================================
+// ExtensionInfo serde / clone / debug
+// ============================================================
+
+#[test]
+fn extension_info_serde_roundtrip() {
+    let original = ExtensionInfo {
+        id: "rt-ext".to_string(),
+        name: "Roundtrip Extension".to_string(),
+        version: "2.0.0".to_string(),
+        description: "Test roundtrip".to_string(),
+        enabled: true,
+        side_panel_path: Some("panel.html".to_string()),
+        popup_path: Some("popup.html".to_string()),
+        options_page: None,
+        root_dir: "/ext/rt-ext".to_string(),
+        permissions: vec!["storage".to_string()],
+        host_permissions: vec!["*://*.example.com/*".to_string()],
+        manifest: Some(json!({"manifest_version": 3})),
+    };
+    let serialized = serde_json::to_value(&original).unwrap();
+    let deserialized: ExtensionInfo = serde_json::from_value(serialized).unwrap();
+    assert_eq!(deserialized.id, original.id);
+    assert_eq!(deserialized.name, original.name);
+    assert_eq!(deserialized.version, original.version);
+    assert_eq!(deserialized.permissions, original.permissions);
+}
+
+#[test]
+fn extension_info_clone() {
+    let info = ExtensionInfo {
+        id: "clone-ext".to_string(),
+        name: "Clone Test".to_string(),
+        version: "1.0.0".to_string(),
+        description: "desc".to_string(),
+        enabled: false,
+        side_panel_path: None,
+        popup_path: None,
+        options_page: None,
+        root_dir: "/ext/clone-ext".to_string(),
+        permissions: vec![],
+        host_permissions: vec![],
+        manifest: None,
+    };
+    let cloned = info.clone();
+    assert_eq!(cloned.id, info.id);
+    assert_eq!(cloned.enabled, info.enabled);
+}
+
+#[test]
+fn extension_info_debug() {
+    let info = ExtensionInfo {
+        id: "debug-ext".to_string(),
+        name: "Debug Ext".to_string(),
+        version: "1.0.0".to_string(),
+        description: "".to_string(),
+        enabled: true,
+        side_panel_path: None,
+        popup_path: None,
+        options_page: None,
+        root_dir: "/ext/debug-ext".to_string(),
+        permissions: vec![],
+        host_permissions: vec![],
+        manifest: None,
+    };
+    let debug = format!("{:?}", info);
+    assert!(debug.contains("ExtensionInfo") || debug.contains("debug-ext"));
+}
+
+// ============================================================
+// Multiple extensions registration
+// ============================================================
+
+#[test]
+fn multiple_extensions_list() {
+    let p = ExtensionsPlugin::new();
+    for i in 0..5 {
+        p.register_extension(ExtensionInfo {
+            id: format!("ext-{}", i),
+            name: format!("Extension {}", i),
+            version: "1.0.0".to_string(),
+            description: "".to_string(),
+            enabled: true,
+            side_panel_path: None,
+            popup_path: None,
+            options_page: None,
+            root_dir: format!("/ext/ext-{}", i),
+            permissions: vec![],
+            host_permissions: vec![],
+            manifest: None,
+        });
+    }
+    let result = p
+        .handle("list_extensions", json!({}), &Default::default())
+        .unwrap();
+    let list = result.as_array().unwrap();
+    assert_eq!(list.len(), 5);
+}
+
+#[test]
+fn register_extension_then_get() {
+    let p = ExtensionsPlugin::new();
+    p.register_extension(ExtensionInfo {
+        id: "my-ext".to_string(),
+        name: "My Extension".to_string(),
+        version: "3.0.0".to_string(),
+        description: "custom".to_string(),
+        enabled: true,
+        side_panel_path: None,
+        popup_path: None,
+        options_page: None,
+        root_dir: "/ext/my-ext".to_string(),
+        permissions: vec!["tabs".to_string()],
+        host_permissions: vec![],
+        manifest: None,
+    });
+    let result = p
+        .handle(
+            "get_extension",
+            json!({ "extensionId": "my-ext" }),
+            &Default::default(),
+        )
+        .unwrap();
+    assert_eq!(result["id"], "my-ext");
+    assert_eq!(result["version"], "3.0.0");
+}
+
+#[rstest]
+fn register_overwrite_same_id(plugin: ExtensionsPlugin) {
+    // Register a new extension with same ID — should not panic
+    plugin.register_extension(ExtensionInfo {
+        id: "test-ext".to_string(),
+        name: "Updated Extension".to_string(),
+        version: "2.0.0".to_string(),
+        description: "updated".to_string(),
+        enabled: true,
+        side_panel_path: None,
+        popup_path: None,
+        options_page: None,
+        root_dir: "/tmp/test-ext".to_string(),
+        permissions: vec![],
+        host_permissions: vec![],
+        manifest: None,
+    });
+    // Still only one with that ID
+    let state = plugin.state();
+    assert!(state.read().extensions.contains_key("test-ext"));
+}
+
+// ============================================================
+// Storage areas: session / sync
+// ============================================================
+
+#[rstest]
+fn storage_session_area(plugin: ExtensionsPlugin) {
+    let set_args = make_api_call(
+        "storage",
+        "set",
+        json!({ "area": "session", "items": { "sess_key": "sess_val" } }),
+    );
+    plugin
+        .handle("api_call", set_args, &Default::default())
+        .unwrap();
+
+    let get_args = make_api_call(
+        "storage",
+        "get",
+        json!({ "area": "session", "keys": ["sess_key"] }),
+    );
+    let result = plugin
+        .handle("api_call", get_args, &Default::default())
+        .unwrap();
+    assert_eq!(result["sess_key"], "sess_val");
+}
+
+#[rstest]
+fn storage_local_multiple_keys(plugin: ExtensionsPlugin) {
+    let set_args = make_api_call(
+        "storage",
+        "set",
+        json!({ "area": "local", "items": { "a": 1, "b": 2, "c": 3 } }),
+    );
+    plugin
+        .handle("api_call", set_args, &Default::default())
+        .unwrap();
+
+    let get_args = make_api_call(
+        "storage",
+        "get",
+        json!({ "area": "local", "keys": ["a", "b", "c"] }),
+    );
+    let result = plugin
+        .handle("api_call", get_args, &Default::default())
+        .unwrap();
+    assert_eq!(result["a"], 1);
+    assert_eq!(result["b"], 2);
+    assert_eq!(result["c"], 3);
+}
+
+#[rstest]
+fn storage_remove_key(plugin: ExtensionsPlugin) {
+    // Set then remove
+    plugin
+        .handle(
+            "api_call",
+            make_api_call(
+                "storage",
+                "set",
+                json!({ "area": "local", "items": { "del_key": "v" } }),
+            ),
+            &Default::default(),
+        )
+        .unwrap();
+    let remove_result = plugin.handle(
+        "api_call",
+        make_api_call(
+            "storage",
+            "remove",
+            json!({ "area": "local", "keys": ["del_key"] }),
+        ),
+        &Default::default(),
+    );
+    assert!(remove_result.is_ok());
+}
+
+#[rstest]
+fn storage_clear_area(plugin: ExtensionsPlugin) {
+    plugin
+        .handle(
+            "api_call",
+            make_api_call(
+                "storage",
+                "set",
+                json!({ "area": "local", "items": { "x": 1 } }),
+            ),
+            &Default::default(),
+        )
+        .unwrap();
+    let clear_result = plugin.handle(
+        "api_call",
+        make_api_call("storage", "clear", json!({ "area": "local" })),
+        &Default::default(),
+    );
+    assert!(clear_result.is_ok());
+}
+
+// ============================================================
+// Tabs: getCurrent, get, update
+// ============================================================
+
+#[rstest]
+fn tabs_get_current(plugin: ExtensionsPlugin) {
+    let args = make_api_call("tabs", "getCurrent", json!({}));
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
+    // Returns current tab info
+    assert!(result.is_object() || result.is_null() || result["id"].is_number());
+}
+
+#[rstest]
+fn tabs_query(plugin: ExtensionsPlugin) {
+    let args = make_api_call("tabs", "query", json!({ "active": true }));
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
+    // Returns array
+    assert!(result.is_array());
+}
+
+// ============================================================
+// Runtime: getManifest, getURL, id
+// ============================================================
+
+#[rstest]
+fn runtime_get_manifest(plugin: ExtensionsPlugin) {
+    let args = make_api_call("runtime", "getManifest", json!({}));
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
+    // Should return the manifest we provided
+    assert_eq!(result["manifest_version"], 3);
+}
+
+#[rstest]
+fn runtime_get_url(plugin: ExtensionsPlugin) {
+    let args = make_api_call("runtime", "getURL", json!({ "path": "popup.html" }));
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
+    let url = result.as_str().unwrap();
+    assert!(url.contains("test-ext") || url.contains("popup.html"));
+}
+
+// ============================================================
+// get_polyfill command
+// ============================================================
+
+#[rstest]
+fn get_polyfill_returns_object(plugin: ExtensionsPlugin) {
+    let result = plugin
+        .handle(
+            "get_polyfill",
+            json!({ "extensionId": "test-ext" }),
+            &Default::default(),
+        )
+        .unwrap();
+    // Returns {polyfill: string, wxtShim: string}
+    assert!(result.is_object());
+    assert!(result.get("polyfill").is_some());
+    assert!(result.get("wxtShim").is_some());
+}
+
+// ============================================================
+// Side panel commands
+// ============================================================
+
+#[rstest]
+fn get_side_panel_state(plugin: ExtensionsPlugin) {
+    let result = plugin.handle(
+        "get_side_panel_state",
+        json!({ "extensionId": "test-ext" }),
+        &Default::default(),
+    );
+    assert!(result.is_ok());
+}
+
+#[rstest]
+fn open_then_close_side_panel(plugin: ExtensionsPlugin) {
+    let open_result = plugin.handle(
+        "open_side_panel",
+        json!({ "extensionId": "test-ext" }),
+        &Default::default(),
+    );
+    assert!(open_result.is_ok());
+
+    let close_result = plugin.handle(
+        "close_side_panel",
+        json!({ "extensionId": "test-ext" }),
+        &Default::default(),
+    );
+    assert!(close_result.is_ok());
+}
+
+// ============================================================
+// Unknown command returns error
+// ============================================================
+
+#[rstest]
+#[case("nonexistent_cmd")]
+#[case("")]
+#[case("API_CALL")]
+fn unknown_command_returns_error(plugin: ExtensionsPlugin, #[case] cmd: &str) {
+    let result = plugin.handle(cmd, json!({}), &Default::default());
+    assert!(result.is_err());
+}
+
+// ============================================================
+// Concurrent access
+// ============================================================
+
+#[test]
+fn concurrent_list_extensions() {
+    let plugin = Arc::new(ExtensionsPlugin::new());
+    for i in 0..4 {
+        plugin.register_extension(ExtensionInfo {
+            id: format!("concurrent-ext-{}", i),
+            name: format!("Concurrent Ext {}", i),
+            version: "1.0.0".to_string(),
+            description: "".to_string(),
+            enabled: true,
+            side_panel_path: None,
+            popup_path: None,
+            options_page: None,
+            root_dir: format!("/ext/concurrent-{}", i),
+            permissions: vec![],
+            host_permissions: vec![],
+            manifest: None,
+        });
+    }
+
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let p = Arc::clone(&plugin);
+            std::thread::spawn(move || p.handle("list_extensions", json!({}), &Default::default()))
+        })
+        .collect();
+
+    for h in handles {
+        let result = h.join().unwrap();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().as_array().unwrap().len(), 4);
+    }
+}
+
+#[test]
+fn concurrent_storage_set() {
+    let plugin = Arc::new(ExtensionsPlugin::new());
+    plugin.register_extension(ExtensionInfo {
+        id: "concurrent-storage".to_string(),
+        name: "Concurrent Storage".to_string(),
+        version: "1.0.0".to_string(),
+        description: "".to_string(),
+        enabled: true,
+        side_panel_path: None,
+        popup_path: None,
+        options_page: None,
+        root_dir: "/ext/concurrent-storage".to_string(),
+        permissions: vec!["storage".to_string()],
+        host_permissions: vec![],
+        manifest: None,
+    });
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let p = Arc::clone(&plugin);
+            std::thread::spawn(move || {
+                let args = json!({
+                    "extensionId": "concurrent-storage",
+                    "api": "storage",
+                    "method": "set",
+                    "params": { "area": "local", "items": { format!("key_{}", i): i } }
+                });
+                p.handle("api_call", args, &Default::default())
+            })
+        })
+        .collect();
+
+    for h in handles {
+        let result = h.join().unwrap();
+        assert!(result.is_ok());
+    }
+}

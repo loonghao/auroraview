@@ -27,7 +27,7 @@ import sys
 
 def main():
     """Run Inspector demo."""
-    from auroraview.testing import Inspector, _RUST_BACKEND
+    from auroraview.testing import _RUST_BACKEND, Inspector
 
     # Show backend info
     print(f"Inspector backend: {'Rust' if _RUST_BACKEND else 'Python (Playwright)'}")
@@ -132,7 +132,7 @@ def main():
                 first_ref = next(iter(snap.refs.keys()))
                 print(f"\nTo click element {first_ref}:")
                 print(f"  page.click(\"{first_ref}\")")
-                print(f"\nTo fill a textbox:")
+                print("\nTo fill a textbox:")
                 print(f"  page.fill(\"{first_ref}\", \"your text\")")
             print()
 

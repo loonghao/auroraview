@@ -89,9 +89,6 @@ pub mod special_folders {
     pub const BOOKMARKS_BAR: &str = "bookmarks_bar";
     /// Other bookmarks folder ID
     pub const OTHER_BOOKMARKS: &str = "other_bookmarks";
-    /// Mobile bookmarks folder ID (reserved for sync)
-    #[allow(dead_code)]
-    pub const MOBILE_BOOKMARKS: &str = "mobile_bookmarks";
 }
 
 #[cfg(test)]

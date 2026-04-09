@@ -9,7 +9,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "python"))
 
-from auroraview import PluginManager, json_dumps, json_loads
+from auroraview import PluginManager, json_dumps, json_loads  # noqa: E402
 
 
 def main():

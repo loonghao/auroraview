@@ -16,12 +16,11 @@ from typing import TYPE_CHECKING
 from auroraview import json_dumps, json_loads
 
 from .config import EXAMPLES_DIR
-from .samples import get_sample_by_id
 from .dependency_installer import (
-    parse_requirements_from_docstring,
     get_missing_requirements,
+    parse_requirements_from_docstring,
 )
-from .samples import extract_docstring
+from .samples import extract_docstring, get_sample_by_id
 
 if TYPE_CHECKING:
     from auroraview import PluginManager, WebView

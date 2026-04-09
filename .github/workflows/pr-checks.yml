@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Detect file changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -332,7 +332,7 @@ jobs:
           df -h
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt,clippy
 
@@ -392,7 +392,7 @@ jobs:
           df -h
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
@@ -576,7 +576,7 @@ jobs:
           df -h
 
       - name: Setup Rust with llvm-tools
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
 
@@ -637,7 +637,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Rust coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
 
         with:
           files: rust-coverage.lcov
@@ -731,7 +731,7 @@ jobs:
 
       - name: Upload coverage (3.11 on ubuntu only)
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: coverage.xml
           flags: python,py${{ matrix.python-version }}
@@ -834,7 +834,7 @@ jobs:
           pytest tests/python/integration/test_qt_backend.py tests/python/integration/test_qt_lifecycle.py -v --tb=short --timeout=60
 
       - name: Upload Qt coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: coverage.xml
           flags: python,qt,windows
@@ -854,7 +854,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install system dependencies
         run: |

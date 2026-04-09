@@ -160,13 +160,16 @@ pub fn normalize_url(url: &str) -> String {
 /// - `auroraview://localhost/path` -> `path`
 /// - `https://auroraview.localhost/path` -> `path`
 /// - `auroraview://path` -> `path`
-#[allow(clippy::manual_map)]
 pub fn extract_protocol_path(uri: &str, protocol_name: &str) -> Option<String> {
     let prefix_with_localhost = format!("{}://localhost/", protocol_name);
     let prefix_https = format!("https://{}.localhost/", protocol_name);
     let prefix_http = format!("http://{}.localhost/", protocol_name);
     let prefix_simple = format!("{}://", protocol_name);
 
+    // Note: clippy::manual_map is suppressed because this function uses mixed
+    // .strip_prefix() + .starts_with() for different branches — the second
+    // branch checks starts_with to handle trailing-slash-less URIs differently,
+    // which cannot be expressed as a pure .and_then() chain.
     if let Some(path) = uri.strip_prefix(&prefix_with_localhost) {
         Some(path.to_string())
     } else if uri.starts_with(&format!("{}://localhost", protocol_name)) {
@@ -175,10 +178,8 @@ pub fn extract_protocol_path(uri: &str, protocol_name: &str) -> Option<String> {
         Some(path.to_string())
     } else if let Some(path) = uri.strip_prefix(&prefix_http) {
         Some(path.to_string())
-    } else if let Some(path) = uri.strip_prefix(&prefix_simple) {
-        Some(path.to_string())
     } else {
-        None
+        uri.strip_prefix(&prefix_simple).map(|p| p.to_string())
     }
 }
 

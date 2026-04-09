@@ -1,16 +1,16 @@
 """Example: Loading HTML with local assets using file:// protocol.
 
 This example demonstrates how to use file:// URLs in HTML content
-to load local files (images, GIFs, CSS, JS, etc.) in run_standalone().
+to load local files (images, GIFs, CSS, JS, etc.) in run_desktop().
 
 IMPORTANT: You must set allow_file_protocol=True to enable file:// support!
 """
 
-from auroraview import run_standalone
+from auroraview import run_desktop
 
 
 def main():
-    """Run standalone WebView with local assets using file:// URLs."""
+    """Run desktop WebView with local assets using file:// URLs."""
     # Create a simple example HTML with inline content
     # In real usage, you would load actual local files
 
@@ -84,9 +84,9 @@ def main():
             <div class="asset-demo">
                 <h2>📁 How to Use file:// Protocol</h2>
                 <p>To enable <code>file://</code> protocol support:</p>
-                <div class="code">from auroraview import run_standalone
+                <div class="code">from auroraview import run_desktop
 
-run_standalone(
+run_desktop(
     title="My App",
     html=html_content,
     allow_file_protocol=True,  # ← Required!
@@ -135,9 +135,9 @@ html = '''
     </html>
     """
 
-    # Run standalone WebView
+    # Run desktop WebView
     # IMPORTANT: allow_file_protocol=True is required for file:// URLs!
-    run_standalone(
+    run_desktop(
         title="Local Assets Example - file:// Protocol",
         width=1024,
         height=768,

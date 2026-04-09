@@ -19,7 +19,7 @@ fn timer() -> Timer {
 /// Basic throttling test - timing-sensitive, may be flaky in CI
 #[rstest]
 #[ignore = "timing-sensitive: may fail in CI due to scheduler variance"]
-fn test_timer_throttling(timer: Timer) {
+fn timer_throttling(timer: Timer) {
     // First tick should succeed
     assert!(timer.should_tick(), "First tick should succeed");
 
@@ -39,7 +39,7 @@ fn test_timer_throttling(timer: Timer) {
 /// Precise timing test - very sensitive to scheduler variance
 #[rstest]
 #[ignore = "timing-sensitive: requires precise scheduling, unsuitable for CI"]
-fn test_timer_throttling_precise() {
+fn timer_throttling_precise() {
     // Use a longer interval to reduce sensitivity to scheduler variance
     // macOS CI runners have very high scheduler variance (50-100ms+)
     let timer = Timer::new(200);
@@ -72,7 +72,7 @@ fn test_timer_throttling_precise() {
 #[case(16)]
 #[case(50)]
 #[case(100)]
-fn test_timer_throttling_various_intervals(#[case] interval_ms: u32) {
+fn timer_throttling_various_intervals(#[case] interval_ms: u32) {
     let timer = Timer::new(interval_ms);
 
     // First tick should always succeed
@@ -103,7 +103,7 @@ fn test_timer_throttling_various_intervals(#[case] interval_ms: u32) {
 /// Multiple ticks over time - timing-sensitive
 #[rstest]
 #[ignore = "timing-sensitive: may fail in CI due to scheduler variance"]
-fn test_timer_multiple_ticks_over_time() {
+fn timer_multiple_ticks_over_time() {
     let timer = Timer::new(30);
     let mut successful_ticks = 0;
 

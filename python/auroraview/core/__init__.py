@@ -39,8 +39,6 @@ from .event_emitter import (
     EventEmitter,
     LoadEvent,
     NavigationEvent,
-    WindowEvent as WindowEventData2,
-    deprecated,
 )
 from .events import EventHandler, WindowEvent, WindowEventData
 from .settings import DEFAULT_SETTINGS, WebViewSettings
@@ -105,7 +103,6 @@ __all__ = [
     "EventEmitter",
     "NavigationEvent",
     "LoadEvent",
-    "deprecated",
     # State
     "State",
     # Signals (Qt-inspired)

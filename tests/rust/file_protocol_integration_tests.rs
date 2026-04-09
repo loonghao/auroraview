@@ -14,7 +14,7 @@ use wry::http::Request;
 use _core::webview::protocol_handlers::handle_file_protocol;
 
 #[rstest]
-fn test_file_protocol_rejects_non_file_uris() {
+fn file_protocol_rejects_non_file_uris() {
     // Test that handler rejects non-file:// URIs
     let request = Request::builder()
         .method("GET")
@@ -31,7 +31,7 @@ fn test_file_protocol_rejects_non_file_uris() {
 }
 
 #[rstest]
-fn test_file_protocol_rejects_post_method() {
+fn file_protocol_rejects_post_method() {
     // Test that handler rejects POST requests
     let request = Request::builder()
         .method("POST")
@@ -48,7 +48,7 @@ fn test_file_protocol_rejects_post_method() {
 }
 
 #[rstest]
-fn test_file_protocol_creates_temp_files() {
+fn file_protocol_creates_temp_files() {
     // Test that we can create and verify temp files exist
     // This tests the file system operations that the protocol handler will use
     let temp_dir = TempDir::new().unwrap();
@@ -82,7 +82,7 @@ fn test_file_protocol_creates_temp_files() {
 }
 
 #[rstest]
-fn test_file_protocol_handles_special_characters() {
+fn file_protocol_handles_special_characters() {
     // Test files with special characters in names
     let temp_dir = TempDir::new().unwrap();
 

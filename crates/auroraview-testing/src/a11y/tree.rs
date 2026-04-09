@@ -189,44 +189,6 @@ fn build_tree(
     // properly reconstruct the tree hierarchy from the flat node list.
 }
 
-/// Alternative: Process from DOM tree with accessibility info
-#[allow(dead_code)]
-pub fn process_dom_tree_with_a11y(
-    dom_root: Value,
-    a11y_map: &HashMap<i64, A11yNode>,
-) -> Vec<A11yNode> {
-    let mut nodes = Vec::new();
-
-    fn process_node(
-        node: &Value,
-        a11y_map: &HashMap<i64, A11yNode>,
-        nodes: &mut Vec<A11yNode>,
-        depth: usize,
-    ) {
-        let backend_node_id = node["backendNodeId"].as_i64().unwrap_or(0);
-
-        // Check if this node has accessibility info
-        if let Some(a11y_node) = a11y_map.get(&backend_node_id) {
-            let mut cloned = a11y_node.clone();
-            cloned.depth = depth;
-            nodes.push(cloned);
-        }
-
-        // Process children
-        if let Some(children) = node["children"].as_array() {
-            for child in children {
-                process_node(child, a11y_map, nodes, depth + 1);
-            }
-        }
-    }
-
-    if let Some(root) = dom_root.get("root") {
-        process_node(root, a11y_map, &mut nodes, 0);
-    }
-
-    nodes
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -293,31 +293,3 @@ impl PackedMetrics {
         }
     }
 }
-
-/// A scoped timer that records duration when dropped
-#[allow(dead_code)]
-pub struct ScopedTimer<'a> {
-    metrics: &'a mut PackedMetrics,
-    name: String,
-    start: Instant,
-}
-
-#[allow(dead_code)]
-impl<'a> ScopedTimer<'a> {
-    /// Create a new scoped timer
-    pub fn new(metrics: &'a mut PackedMetrics, name: impl Into<String>) -> Self {
-        Self {
-            metrics,
-            name: name.into(),
-            start: Instant::now(),
-        }
-    }
-}
-
-impl<'a> Drop for ScopedTimer<'a> {
-    fn drop(&mut self) {
-        self.metrics
-            .phases
-            .push((self.name.clone(), self.start.elapsed()));
-    }
-}

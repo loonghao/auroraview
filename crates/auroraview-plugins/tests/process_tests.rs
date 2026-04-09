@@ -2,88 +2,146 @@
 //!
 //! Tests for ProcessPlugin commands and IPC functionality.
 
-use auroraview_plugins::process::{ProcessPlugin, SpawnIpcOptions};
+use auroraview_plugins::process::{
+    IpcMode, KillOptions, ProcessPlugin, SendJsonOptions, SendOptions, SpawnIpcOptions,
+};
 use auroraview_plugins::{PluginHandler, ScopeConfig};
+use rstest::*;
+
+// ─────────────────────────────────────────────────────────────
+// Plugin metadata
+// ─────────────────────────────────────────────────────────────
 
 #[test]
-fn test_process_plugin_commands() {
-    let plugin = ProcessPlugin::new();
-    let commands = plugin.commands();
-    assert!(commands.contains(&"spawn_ipc"));
-    assert!(commands.contains(&"kill"));
-    assert!(commands.contains(&"kill_all"));
-    assert!(commands.contains(&"send"));
-    assert!(commands.contains(&"list"));
-}
-
-#[test]
-fn test_process_plugin_name() {
+fn process_plugin_name() {
     let plugin = ProcessPlugin::new();
     assert_eq!(plugin.name(), "process");
 }
 
 #[test]
-fn test_process_plugin_default() {
+fn process_plugin_default_name() {
     let plugin = ProcessPlugin::default();
     assert_eq!(plugin.name(), "process");
 }
 
 #[test]
-fn test_list_empty() {
+fn process_plugin_commands_contains_all() {
     let plugin = ProcessPlugin::new();
-    let scope = ScopeConfig::permissive();
-    let result = plugin.handle("list", serde_json::json!({}), &scope);
-    assert!(result.is_ok());
-    let data = result.unwrap();
-    assert_eq!(data["processes"], serde_json::json!([]));
+    let commands = plugin.commands();
+    for cmd in &[
+        "spawn_ipc",
+        "spawn_ipc_channel",
+        "kill",
+        "kill_all",
+        "send",
+        "send_json",
+        "list",
+    ] {
+        assert!(commands.contains(cmd), "missing command: {cmd}");
+    }
 }
 
 #[test]
-fn test_spawn_blocked_by_scope() {
+fn process_plugin_commands_count() {
     let plugin = ProcessPlugin::new();
-    let scope = ScopeConfig::new(); // Default blocks all
+    assert!(plugin.commands().len() >= 7);
+}
 
-    let result = plugin.handle(
-        "spawn_ipc",
-        serde_json::json!({
-            "command": "echo",
-            "args": ["hello"]
-        }),
-        &scope,
-    );
+// ─────────────────────────────────────────────────────────────
+// list command
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn list_empty_returns_empty_array() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin
+        .handle("list", serde_json::json!({}), &scope)
+        .unwrap();
+    assert_eq!(result["processes"], serde_json::json!([]));
+}
+
+#[test]
+fn list_any_valid_json_succeeds() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin
+        .handle("list", serde_json::json!(null), &scope)
+        .unwrap();
+    assert!(result["processes"].is_array());
+}
+
+// ─────────────────────────────────────────────────────────────
+// kill command
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn kill_nonexistent_pid_succeeds_with_already_exited() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin
+        .handle("kill", serde_json::json!({ "pid": 99999 }), &scope)
+        .unwrap();
+    assert!(result["success"].as_bool().unwrap());
+    assert!(result["already_exited"].as_bool().unwrap_or(false));
+}
+
+#[rstest]
+#[case(0u32)]
+#[case(1u32)]
+#[case(999999u32)]
+fn kill_various_pids_not_found_succeeds(#[case] pid: u32) {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin
+        .handle("kill", serde_json::json!({ "pid": pid }), &scope)
+        .unwrap();
+    assert!(result["success"].as_bool().unwrap());
+}
+
+#[test]
+fn kill_missing_pid_returns_err() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin.handle("kill", serde_json::json!({}), &scope);
     assert!(result.is_err());
 }
 
+// ─────────────────────────────────────────────────────────────
+// kill_all command
+// ─────────────────────────────────────────────────────────────
+
 #[test]
-fn test_kill_nonexistent() {
+fn kill_all_empty_returns_zero_killed() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-
-    // Kill nonexistent process should succeed (already exited)
-    let result = plugin.handle("kill", serde_json::json!({ "pid": 99999 }), &scope);
-    assert!(result.is_ok());
-    let data = result.unwrap();
-    assert!(data["success"].as_bool().unwrap());
-    assert!(data["already_exited"].as_bool().unwrap_or(false));
+    let result = plugin
+        .handle("kill_all", serde_json::json!({}), &scope)
+        .unwrap();
+    assert!(result["success"].as_bool().unwrap());
+    assert_eq!(result["killed"].as_i64().unwrap(), 0);
 }
 
 #[test]
-fn test_kill_all_empty() {
+fn kill_all_second_call_still_succeeds() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-
+    plugin
+        .handle("kill_all", serde_json::json!({}), &scope)
+        .unwrap();
+    // After shutdown, kill_all and kill are still accepted
     let result = plugin.handle("kill_all", serde_json::json!({}), &scope);
     assert!(result.is_ok());
-    let data = result.unwrap();
-    assert!(data["success"].as_bool().unwrap());
-    assert_eq!(data["killed"].as_i64().unwrap(), 0);
 }
 
+// ─────────────────────────────────────────────────────────────
+// send command
+// ─────────────────────────────────────────────────────────────
+
 #[test]
-fn test_send_nonexistent() {
+fn send_nonexistent_pid_returns_err() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-
     let result = plugin.handle(
         "send",
         serde_json::json!({ "pid": 99999, "data": "test" }),
@@ -93,27 +151,138 @@ fn test_send_nonexistent() {
 }
 
 #[test]
-fn test_spawn_ipc_options_deserialization() {
+fn send_missing_args_returns_err() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin.handle("send", serde_json::json!({}), &scope);
+    assert!(result.is_err());
+}
+
+#[test]
+fn send_missing_data_returns_err() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin.handle("send", serde_json::json!({ "pid": 1 }), &scope);
+    assert!(result.is_err());
+}
+
+// ─────────────────────────────────────────────────────────────
+// send_json command
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn send_json_nonexistent_pid_returns_err() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin.handle(
+        "send_json",
+        serde_json::json!({ "pid": 99999, "data": { "action": "ping" } }),
+        &scope,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn send_json_missing_args_returns_err() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin.handle("send_json", serde_json::json!({}), &scope);
+    assert!(result.is_err());
+}
+
+// ─────────────────────────────────────────────────────────────
+// spawn_ipc blocked by scope
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn spawn_ipc_blocked_by_default_scope() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::new();
+    let result = plugin.handle(
+        "spawn_ipc",
+        serde_json::json!({ "command": "echo", "args": ["hello"] }),
+        &scope,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn spawn_ipc_channel_blocked_by_default_scope() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::new();
+    let result = plugin.handle(
+        "spawn_ipc_channel",
+        serde_json::json!({ "command": "echo", "args": ["hello"] }),
+        &scope,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn spawn_ipc_missing_command_returns_err() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin.handle("spawn_ipc", serde_json::json!({}), &scope);
+    assert!(result.is_err());
+}
+
+#[test]
+fn spawn_ipc_channel_missing_command_returns_err() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin.handle("spawn_ipc_channel", serde_json::json!({}), &scope);
+    assert!(result.is_err());
+}
+
+// ─────────────────────────────────────────────────────────────
+// Unknown command
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn unknown_command_returns_err() {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    let result = plugin.handle("unknown_command", serde_json::json!({}), &scope);
+    assert!(result.is_err());
+}
+
+#[rstest]
+#[case("spawn")]
+#[case("exec")]
+#[case("start")]
+#[case("")]
+fn various_unknown_commands_return_err(#[case] cmd: &str) {
+    let plugin = ProcessPlugin::new();
+    let scope = ScopeConfig::permissive();
+    assert!(plugin.handle(cmd, serde_json::json!({}), &scope).is_err());
+}
+
+// ─────────────────────────────────────────────────────────────
+// SpawnIpcOptions serde
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn spawn_ipc_options_full_deserialization() {
     let json = serde_json::json!({
         "command": "python",
         "args": ["-c", "print('hello')"],
         "cwd": "/tmp",
-        "env": {"FOO": "bar"},
+        "env": {"FOO": "bar", "BAZ": "qux"},
         "showConsole": true
     });
     let opts: SpawnIpcOptions = serde_json::from_value(json).unwrap();
     assert_eq!(opts.command, "python");
     assert_eq!(opts.args, vec!["-c", "print('hello')"]);
     assert_eq!(opts.cwd, Some("/tmp".to_string()));
+    assert_eq!(opts.env.get("FOO").map(|s| s.as_str()), Some("bar"));
+    assert_eq!(opts.env.get("BAZ").map(|s| s.as_str()), Some("qux"));
     assert!(opts.show_console);
 }
 
 #[test]
-fn test_spawn_ipc_options_defaults() {
-    let json = serde_json::json!({
-        "command": "echo"
-    });
-    let opts: SpawnIpcOptions = serde_json::from_value(json).unwrap();
+fn spawn_ipc_options_defaults() {
+    let opts: SpawnIpcOptions =
+        serde_json::from_value(serde_json::json!({ "command": "echo" })).unwrap();
     assert_eq!(opts.command, "echo");
     assert!(opts.args.is_empty());
     assert!(opts.cwd.is_none());
@@ -121,38 +290,144 @@ fn test_spawn_ipc_options_defaults() {
     assert!(!opts.show_console);
 }
 
-#[test]
-fn test_invalid_args() {
-    let plugin = ProcessPlugin::new();
-    let scope = ScopeConfig::permissive();
-
-    let result = plugin.handle("spawn_ipc", serde_json::json!({}), &scope);
-    assert!(result.is_err());
+#[rstest]
+#[case("python")]
+#[case("node")]
+#[case("echo")]
+#[case("cargo")]
+fn spawn_ipc_options_command_field(#[case] cmd: &str) {
+    let opts: SpawnIpcOptions =
+        serde_json::from_value(serde_json::json!({ "command": cmd })).unwrap();
+    assert_eq!(opts.command, cmd);
 }
 
 #[test]
-fn test_kill_invalid_args() {
-    let plugin = ProcessPlugin::new();
-    let scope = ScopeConfig::permissive();
+fn spawn_ipc_options_serialization_roundtrip() {
+    let original = serde_json::json!({
+        "command": "python",
+        "args": ["script.py"],
+        "cwd": null,
+        "env": {},
+        "showConsole": false
+    });
+    let opts: SpawnIpcOptions = serde_json::from_value(original).unwrap();
+    let json = serde_json::to_string(&opts).unwrap();
+    let restored: SpawnIpcOptions = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.command, "python");
+}
 
-    let result = plugin.handle("kill", serde_json::json!({}), &scope);
-    assert!(result.is_err());
+// ─────────────────────────────────────────────────────────────
+// KillOptions / SendOptions / SendJsonOptions serde
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn kill_options_deserialization() {
+    let opts: KillOptions = serde_json::from_value(serde_json::json!({ "pid": 1234 })).unwrap();
+    assert_eq!(opts.pid, 1234);
 }
 
 #[test]
-fn test_send_invalid_args() {
-    let plugin = ProcessPlugin::new();
-    let scope = ScopeConfig::permissive();
-
-    let result = plugin.handle("send", serde_json::json!({}), &scope);
-    assert!(result.is_err());
+fn send_options_deserialization() {
+    let opts: SendOptions =
+        serde_json::from_value(serde_json::json!({ "pid": 42, "data": "hello\n" })).unwrap();
+    assert_eq!(opts.pid, 42);
+    assert_eq!(opts.data, "hello\n");
 }
 
 #[test]
-fn test_command_not_found() {
-    let plugin = ProcessPlugin::new();
+fn send_json_options_deserialization() {
+    let opts: SendJsonOptions = serde_json::from_value(serde_json::json!({
+        "pid": 99,
+        "data": { "action": "getData", "key": "value" }
+    }))
+    .unwrap();
+    assert_eq!(opts.pid, 99);
+    assert_eq!(opts.data["action"], "getData");
+}
+
+// ─────────────────────────────────────────────────────────────
+// IpcMode
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn ipc_mode_pipe_eq() {
+    assert_eq!(IpcMode::Pipe, IpcMode::Pipe);
+}
+
+#[test]
+fn ipc_mode_channel_eq() {
+    assert_eq!(IpcMode::Channel, IpcMode::Channel);
+}
+
+#[test]
+fn ipc_mode_pipe_ne_channel() {
+    assert_ne!(IpcMode::Pipe, IpcMode::Channel);
+}
+
+#[test]
+fn ipc_mode_debug_output() {
+    assert!(format!("{:?}", IpcMode::Pipe).contains("Pipe"));
+    assert!(format!("{:?}", IpcMode::Channel).contains("Channel"));
+}
+
+#[test]
+fn ipc_mode_clone() {
+    let m = IpcMode::Pipe;
+    let n = m;
+    assert_eq!(m, n);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Concurrent operations (no panic)
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn concurrent_list_no_panic() {
+    use std::sync::Arc;
+    use std::thread;
+
+    let plugin = Arc::new(ProcessPlugin::new());
     let scope = ScopeConfig::permissive();
 
-    let result = plugin.handle("unknown_command", serde_json::json!({}), &scope);
-    assert!(result.is_err());
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let p = Arc::clone(&plugin);
+            let s = scope.clone();
+            thread::spawn(move || {
+                let result = p.handle("list", serde_json::json!({}), &s).unwrap();
+                assert!(result["processes"].is_array());
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+#[test]
+fn concurrent_kill_nonexistent_no_panic() {
+    use std::sync::Arc;
+    use std::thread;
+
+    let plugin = Arc::new(ProcessPlugin::new());
+    let scope = ScopeConfig::permissive();
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let p = Arc::clone(&plugin);
+            let s = scope.clone();
+            thread::spawn(move || {
+                let pid = 900_000 + i as u32;
+                let result = p
+                    .handle("kill", serde_json::json!({ "pid": pid }), &s)
+                    .unwrap();
+                assert!(result["success"].as_bool().unwrap());
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
 }

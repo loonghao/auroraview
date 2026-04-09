@@ -13,7 +13,10 @@ import sys
 
 import pytest
 
+pytest.importorskip("qtpy", reason="Qt backend requires qtpy and Qt bindings")
+
 # Check if _core module is available (needed for WebView instantiation)
+
 try:
     import auroraview._core  # noqa: F401
 

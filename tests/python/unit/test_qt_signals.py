@@ -13,8 +13,11 @@ import sys
 
 import pytest
 
+pytest.importorskip("qtpy", reason="Qt tests require qtpy and Qt bindings")
+
 # Mark all tests as Qt tests
 pytestmark = [pytest.mark.qt]
+
 
 # Check if we're in CI environment - skip QApplication tests that require display
 _IN_CI = os.environ.get("CI", "").lower() == "true"

@@ -54,14 +54,33 @@
 //! std::fs::write("module.pyc.enc", serde_json::to_string(&package)?)?;
 //! ```
 
+/// Python AST-based precise obfuscation.
+pub mod ast_obfuscator;
 /// Python bytecode compilation, encryption, and protection.
 pub mod bytecode;
 mod config;
 /// Hybrid encryption (ECC + AES-256-GCM) for secure code distribution.
 pub mod crypto;
 mod error;
+/// Python code obfuscation (name, control flow, string encryption).
+pub mod obfuscator;
 mod protector;
 mod runtime_gen;
+
+/// Obfuscation level for Python code
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ObfuscationLevel {
+    /// No obfuscation
+    None,
+    /// Basic: local variable renaming only
+    Basic,
+    /// Standard: variables + functions + classes
+    Standard,
+    /// Advanced: Standard + control flow obfuscation
+    Advanced,
+    /// Maximum: Advanced + string encryption + dead code insertion
+    Maximum,
+}
 
 /// Bytecode compilation and encryption types and utilities.
 pub use bytecode::{
@@ -82,3 +101,6 @@ pub use py2pyd;
 
 /// Crate version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub use ast_obfuscator::AstObfuscator;
+pub use obfuscator::{NameObfuscator, Obfuscator};

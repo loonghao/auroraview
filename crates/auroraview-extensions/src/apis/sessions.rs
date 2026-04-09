@@ -8,7 +8,6 @@
 //! - Get devices with synced sessions
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use parking_lot::RwLock;
@@ -86,9 +85,6 @@ pub struct Filter {
 pub struct SessionsApi {
     /// Recently closed sessions
     sessions: Arc<RwLock<VecDeque<Session>>>,
-    /// Next session ID
-    #[allow(dead_code)]
-    next_id: AtomicU64,
 }
 
 impl Default for SessionsApi {
@@ -102,15 +98,7 @@ impl SessionsApi {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(RwLock::new(VecDeque::new())),
-            next_id: AtomicU64::new(1),
         }
-    }
-
-    /// Generate next session ID
-    #[allow(dead_code)]
-    fn next_id(&self) -> String {
-        let current = self.next_id.fetch_add(1, Ordering::Relaxed);
-        format!("session_{}", current)
     }
 
     /// Get recently closed sessions

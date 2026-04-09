@@ -46,15 +46,6 @@ fn ok_response_with_cors(
         .expect("valid 200 response with content-type and CORS headers")
 }
 
-/// Build a response with a dynamic status code, content-type, and owned body data.
-fn dynamic_response(status: u16, mime_type: &str, data: Vec<u8>) -> Response<Cow<'static, [u8]>> {
-    Response::builder()
-        .status(status)
-        .header("Content-Type", mime_type)
-        .body(Cow::Owned(data))
-        .expect("valid response with dynamic status and content-type")
-}
-
 /// Handle auroraview:// protocol requests
 ///
 /// Maps URLs like `auroraview://css/style.css` to `{asset_root}/css/style.css`
@@ -287,36 +278,6 @@ pub fn handle_file_protocol(request: Request<Vec<u8>>) -> Response<Cow<'static, 
         }
         Err(e) => {
             tracing::warn!("[Protocol] File not found: {:?} ({})", file_path, e);
-            error_response(404, b"Not Found")
-        }
-    }
-}
-
-/// Handle custom protocol requests using user-provided callback
-///
-/// Calls the Python callback and converts the result to HTTP response
-#[allow(dead_code)]
-#[allow(clippy::type_complexity)]
-pub fn handle_custom_protocol(
-    callback: &dyn Fn(&str) -> Option<(Vec<u8>, String, u16)>,
-    request: Request<Vec<u8>>,
-) -> Response<Cow<'static, [u8]>> {
-    let uri = request.uri().to_string();
-
-    tracing::debug!("[Protocol] Custom protocol request: {}", uri);
-
-    match callback(&uri) {
-        Some((data, mime_type, status)) => {
-            tracing::debug!(
-                "[Protocol] Custom handler returned {} bytes (status: {})",
-                data.len(),
-                status
-            );
-
-            dynamic_response(status, &mime_type, data)
-        }
-        None => {
-            tracing::warn!("[Protocol] Custom handler returned None for: {}", uri);
             error_response(404, b"Not Found")
         }
     }

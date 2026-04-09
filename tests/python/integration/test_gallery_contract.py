@@ -197,6 +197,7 @@ class TestAPIParameterFormats:
     def test_frontend_uses_correct_formats(self):
         """Test that frontend API calls use correct parameter formats."""
         try:
+            from playwright.sync_api import Error as PlaywrightError
             from playwright.sync_api import sync_playwright
         except ImportError:
             pytest.skip("Playwright not installed")
@@ -214,7 +215,12 @@ class TestAPIParameterFormats:
         ]
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            try:
+                browser = p.chromium.launch(headless=True)
+            except PlaywrightError as exc:
+                if "Executable doesn't exist" in str(exc):
+                    pytest.skip("Playwright browser not installed")
+                raise
             context = browser.new_context()
 
             # Inject bridge

@@ -88,14 +88,15 @@ run_desktop(
 )
 ```
 
-### run_standalone
+### Legacy Aliases
 
-Alias for `run_desktop`:
+> **Note**: The following legacy aliases are no longer available:
+> - `run_standalone`: Removed. Use `run_desktop` instead.
 
 ```python
-from auroraview import run_standalone
+from auroraview import run_desktop
 
-run_standalone(
+run_desktop(
     title="My App",
     html="<h1>Hello</h1>"
 )

@@ -10,7 +10,7 @@ resolution-markers = [
 
 [[package]]
 name = "auroraview"
-version = "0.4.17"
+version = "0.4.18"
 source = { editable = "." }
 dependencies = [
     { name = "typing-extensions", version = "4.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
@@ -18,9 +18,6 @@ dependencies = [
 
 [package.optional-dependencies]
 qt = [
-    { name = "pytest-qt", version = "4.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
-    { name = "pytest-qt", version = "4.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.8.*'" },
-    { name = "pytest-qt", version = "4.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "qtpy" },
 ]
 
@@ -50,6 +47,9 @@ dev = [
     { name = "pytest-github-actions-annotate-failures", version = "0.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8' and python_full_version < '3.10'" },
     { name = "pytest-github-actions-annotate-failures", version = "0.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-json-report", marker = "python_full_version >= '3.8'" },
+    { name = "pytest-qt", version = "4.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
+    { name = "pytest-qt", version = "4.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.8.*'" },
+    { name = "pytest-qt", version = "4.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "pytest-randomly", version = "3.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.8.*'" },
     { name = "pytest-randomly", version = "4.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "pytest-rerunfailures", version = "14.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.8.*'" },
@@ -87,6 +87,9 @@ test = [
     { name = "pytest-github-actions-annotate-failures", version = "0.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8' and python_full_version < '3.10'" },
     { name = "pytest-github-actions-annotate-failures", version = "0.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-json-report", marker = "python_full_version >= '3.8'" },
+    { name = "pytest-qt", version = "4.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
+    { name = "pytest-qt", version = "4.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.8.*'" },
+    { name = "pytest-qt", version = "4.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "pytest-randomly", version = "3.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.8.*'" },
     { name = "pytest-randomly", version = "4.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "pytest-rerunfailures", version = "14.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.8.*'" },
@@ -102,7 +105,6 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pytest-qt", marker = "extra == 'qt'", specifier = ">=4.2.0" },
     { name = "qtpy", marker = "extra == 'qt'", specifier = ">=2.0.0" },
     { name = "typing-extensions", marker = "python_full_version < '3.8'", specifier = ">=4.0.0" },
 ]
@@ -120,6 +122,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=4.0" },
     { name = "pytest-github-actions-annotate-failures", marker = "python_full_version >= '3.8'", specifier = ">=0.2" },
     { name = "pytest-json-report", marker = "python_full_version >= '3.8'", specifier = ">=1.5" },
+    { name = "pytest-qt", specifier = ">=4.2.0" },
     { name = "pytest-randomly", marker = "python_full_version >= '3.8'", specifier = ">=3.15" },
     { name = "pytest-rerunfailures", marker = "python_full_version >= '3.8'", specifier = ">=14.0" },
     { name = "pytest-timeout", specifier = ">=2.0.0" },
@@ -136,6 +139,7 @@ test = [
     { name = "pytest-cov", specifier = ">=4.0" },
     { name = "pytest-github-actions-annotate-failures", marker = "python_full_version >= '3.8'", specifier = ">=0.2" },
     { name = "pytest-json-report", marker = "python_full_version >= '3.8'", specifier = ">=1.5" },
+    { name = "pytest-qt", specifier = ">=4.2.0" },
     { name = "pytest-randomly", marker = "python_full_version >= '3.8'", specifier = ">=3.15" },
     { name = "pytest-rerunfailures", marker = "python_full_version >= '3.8'", specifier = ">=14.0" },
     { name = "pytest-timeout", specifier = ">=2.0.0" },

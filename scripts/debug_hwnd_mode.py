@@ -121,7 +121,7 @@ def test_hwnd_mode():
 <head><title>HWND Debug</title>
 <style>
 body { font-family: Arial; padding: 20px; background: #1a1a2e; color: #eee; }
-#log { background: #0f0f23; padding: 10px; height: 300px; overflow-y: auto; 
+#log { background: #0f0f23; padding: 10px; height: 300px; overflow-y: auto;
        font-family: monospace; font-size: 12px; border-radius: 5px; }
 .log-entry { margin: 2px 0; padding: 2px 5px; }
 .success { color: #4ade80; }

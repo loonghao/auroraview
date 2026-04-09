@@ -19,10 +19,12 @@ import pytest
 
 # Check if playwright is available
 try:
+    from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import sync_playwright
 
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
+    PlaywrightError = Exception  # type: ignore[assignment,misc]
     PLAYWRIGHT_AVAILABLE = False
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -45,7 +47,12 @@ class TestGalleryFrontend:
     def browser_context(self):
         """Create a browser context with AuroraView bridge mock."""
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            try:
+                browser = p.chromium.launch(headless=True)
+            except PlaywrightError as exc:
+                if "Executable doesn't exist" in str(exc):
+                    pytest.skip("Playwright browser not installed")
+                raise
             context = browser.new_context(viewport={"width": 1200, "height": 800})
 
             # Inject mock AuroraView bridge

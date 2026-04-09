@@ -425,3 +425,574 @@ fn bus_middleware_allows_other_events() {
     bus.emit("public:event", json!(null));
     assert_eq!(hit.load(Ordering::SeqCst), 1);
 }
+
+// ---------------------------------------------------------------------------
+// Concurrent emit stress test
+// ---------------------------------------------------------------------------
+
+#[test]
+fn concurrent_emit_from_many_threads_all_receive() {
+    use std::thread;
+
+    let signal = Arc::new(Signal::<u64>::new());
+    let total = Arc::new(AtomicUsize::new(0));
+
+    // 4 handlers
+    for _ in 0..4 {
+        let t = total.clone();
+        signal.connect(move |v| {
+            t.fetch_add(v as usize, Ordering::SeqCst);
+        });
+    }
+
+    // 8 threads each emitting 1 → total expected = 8 × 4 × 1 = 32
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            let s = signal.clone();
+            thread::spawn(move || s.emit(1_u64))
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    assert_eq!(total.load(Ordering::SeqCst), 32);
+}
+
+#[test]
+fn concurrent_connect_and_emit_no_panic() {
+    use std::thread;
+
+    let signal = Arc::new(Signal::<i32>::new());
+    let connected = Arc::new(AtomicUsize::new(0));
+
+    let connectors: Vec<_> = (0..5)
+        .map(|_| {
+            let s = signal.clone();
+            let c = connected.clone();
+            thread::spawn(move || {
+                s.connect(move |_| {
+                    c.fetch_add(1, Ordering::SeqCst);
+                });
+            })
+        })
+        .collect();
+
+    let emitters: Vec<_> = (0..5)
+        .map(|_| {
+            let s = signal.clone();
+            thread::spawn(move || s.emit(1))
+        })
+        .collect();
+
+    for h in connectors.into_iter().chain(emitters) {
+        h.join().unwrap();
+    }
+    // must not panic — correctness of count is non-deterministic
+}
+
+// ---------------------------------------------------------------------------
+// ChannelBridge — bounded capacity and disconnect
+// ---------------------------------------------------------------------------
+
+#[test]
+fn channel_bridge_bounded_delivers_within_capacity() {
+    use auroraview_signals::bridge::ChannelBridge;
+
+    let (bridge, receiver) = ChannelBridge::bounded("bounded", 4);
+
+    bridge.emit("ev", json!(1)).unwrap();
+    bridge.emit("ev", json!(2)).unwrap();
+
+    let m1 = receiver.recv().unwrap();
+    let m2 = receiver.recv().unwrap();
+    assert_eq!(m1.data, json!(1));
+    assert_eq!(m2.data, json!(2));
+}
+
+#[test]
+fn channel_bridge_send_fails_when_receiver_dropped() {
+    use auroraview_signals::bridge::ChannelBridge;
+
+    let (bridge, receiver) = ChannelBridge::new("ch");
+    // Drop receiver — subsequent sends will fail because channel has no reader
+    drop(receiver);
+
+    let res = bridge.emit("ev", json!(null));
+    assert!(res.is_err(), "send should fail after receiver is dropped");
+}
+
+#[test]
+fn channel_bridge_disconnected_returns_err() {
+    use auroraview_signals::bridge::ChannelBridge;
+
+    let (bridge, _rx) = ChannelBridge::new("ch");
+    bridge.disconnect().unwrap();
+    assert!(!bridge.is_connected());
+
+    let res = bridge.emit("ev", json!(null));
+    assert!(res.is_err());
+}
+
+#[test]
+fn channel_bridge_message_carries_event_and_data() {
+    use auroraview_signals::bridge::{ChannelBridge, ChannelMessage};
+
+    let (bridge, rx) = ChannelBridge::new("ch");
+    bridge.emit("user:login", json!({"user": "alice"})).unwrap();
+
+    let ChannelMessage { event, data } = rx.recv().unwrap();
+    assert_eq!(event, "user:login");
+    assert_eq!(data["user"], "alice");
+}
+
+// ---------------------------------------------------------------------------
+// MultiBridge — all bridges fail → returns Err
+// ---------------------------------------------------------------------------
+
+#[test]
+fn multi_bridge_all_fail_returns_err() {
+    use auroraview_signals::bridge::{BridgeError, CallbackBridge, MultiBridge};
+
+    let multi = MultiBridge::new("multi");
+    multi.add(CallbackBridge::new("b1", |_, _| {
+        Err(BridgeError::SendFailed("b1 down".into()))
+    }));
+    multi.add(CallbackBridge::new("b2", |_, _| {
+        Err(BridgeError::SendFailed("b2 down".into()))
+    }));
+
+    let res = multi.emit("ev", json!(null));
+    assert!(res.is_err());
+}
+
+#[test]
+fn multi_bridge_partial_fail_returns_ok() {
+    use auroraview_signals::bridge::{BridgeError, CallbackBridge, MultiBridge};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let hit = Arc::new(AtomicUsize::new(0));
+    let h = hit.clone();
+
+    let multi = MultiBridge::new("multi");
+    multi.add(CallbackBridge::new("good", move |_, _| {
+        h.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }));
+    multi.add(CallbackBridge::new("bad", |_, _| {
+        Err(BridgeError::SendFailed("bad".into()))
+    }));
+
+    let res = multi.emit("ev", json!(null));
+    assert!(res.is_ok()); // partial success → Ok
+    assert_eq!(hit.load(Ordering::SeqCst), 1);
+}
+
+// ---------------------------------------------------------------------------
+// FilterMiddleware — deny_by_default + runtime patterns
+// ---------------------------------------------------------------------------
+
+/// Directly verify FilterMiddleware::deny_by_default logic at the middleware level.
+///
+/// Note: `Regex::is_match` performs a *substring* search, so "safe:.*" would
+/// match "unsafe:thing" because it contains the substring "safe:thing".
+/// Use "internal:thing" which has no overlap with "safe:" prefix.
+#[test]
+fn filter_deny_by_default_middleware_level() {
+    use auroraview_signals::middleware::FilterMiddleware;
+
+    let filter = FilterMiddleware::deny_by_default();
+    filter.add_allow_pattern("safe:.*").unwrap();
+
+    let mut data = json!(null);
+
+    // "internal:thing" contains no "safe:" substring → denied
+    let res = filter.before_emit("internal:thing", &mut data);
+    assert!(!res.should_continue(), "expected Stop but got {:?}", res);
+
+    // "safe:thing" matches allow pattern → allowed
+    let res2 = filter.before_emit("safe:thing", &mut data);
+    assert!(
+        res2.should_continue(),
+        "expected Continue but got {:?}",
+        res2
+    );
+}
+
+/// Verify deny_by_default blocks events via EventBus middleware pipeline.
+#[test]
+fn filter_deny_by_default_via_event_bus() {
+    use auroraview_signals::middleware::FilterMiddleware;
+
+    let filter = FilterMiddleware::deny_by_default();
+    filter.add_allow_pattern("safe:.*").unwrap();
+
+    let bus = EventBus::new();
+    bus.use_middleware(filter);
+
+    let blocked_count = Arc::new(AtomicUsize::new(0));
+    let bc = blocked_count.clone();
+    bus.on("internal:thing", move |_| {
+        bc.fetch_add(1, Ordering::SeqCst);
+    });
+
+    let allowed_count = Arc::new(AtomicUsize::new(0));
+    let ac = allowed_count.clone();
+    bus.on("safe:thing", move |_| {
+        ac.fetch_add(1, Ordering::SeqCst);
+    });
+
+    let n_blocked = bus.emit("internal:thing", json!(null));
+    let n_allowed = bus.emit("safe:thing", json!(null));
+
+    assert_eq!(n_blocked, 0, "middleware should block internal:thing");
+    assert_eq!(
+        n_allowed, 1,
+        "safe:thing should pass deny_by_default filter"
+    );
+    assert_eq!(blocked_count.load(Ordering::SeqCst), 0);
+    assert_eq!(allowed_count.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn filter_runtime_add_deny_pattern_blocks_new_events() {
+    use auroraview_signals::middleware::FilterMiddleware;
+
+    let filter = FilterMiddleware::new();
+    let bus = EventBus::new();
+
+    // Add deny pattern at runtime (after construction)
+    filter.add_deny_pattern("secret:.*").unwrap();
+    bus.use_middleware(filter);
+
+    let hit = Arc::new(AtomicUsize::new(0));
+    let h = hit.clone();
+    bus.on("secret:data", move |_| {
+        h.fetch_add(1, Ordering::SeqCst);
+    });
+
+    bus.emit("secret:data", json!(null));
+    assert_eq!(hit.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn filter_clear_allows_all_after_clear() {
+    use auroraview_signals::middleware::FilterMiddleware;
+
+    let filter = FilterMiddleware::new().deny_pattern("blocked:.*").unwrap();
+    let hit = Arc::new(AtomicUsize::new(0));
+    let h = hit.clone();
+
+    // Confirm deny pattern works before clear
+    let mut data = json!(null);
+    let res = filter.before_emit("blocked:event", &mut data);
+    assert!(!res.should_continue());
+
+    // After clear, all events pass
+    filter.clear();
+    let res2 = filter.before_emit("blocked:event", &mut data);
+    assert!(res2.should_continue());
+
+    let _ = h.fetch_add(0, Ordering::SeqCst); // suppress unused
+}
+
+// ---------------------------------------------------------------------------
+// TransformMiddleware — global transform + runtime add
+// ---------------------------------------------------------------------------
+
+#[test]
+fn transform_global_transform_applied_to_all_events() {
+    use auroraview_signals::middleware::TransformMiddleware;
+
+    let transform = TransformMiddleware::new().set_global_transform(|data| {
+        if let Some(obj) = data.as_object_mut() {
+            obj.insert("global".to_string(), json!(true));
+        }
+    });
+
+    let mut data = json!({});
+    transform.before_emit("any:event", &mut data);
+    assert_eq!(data["global"], true);
+}
+
+#[test]
+fn transform_runtime_add_applies_to_subsequent_events() {
+    use auroraview_signals::middleware::TransformMiddleware;
+
+    let transform = TransformMiddleware::new();
+    transform
+        .add_runtime_transform("dyn:.*", |data| {
+            if let Some(obj) = data.as_object_mut() {
+                obj.insert("dynamic".to_string(), json!(1));
+            }
+        })
+        .unwrap();
+
+    let mut data = json!({});
+    transform.before_emit("dyn:event", &mut data);
+    assert_eq!(data["dynamic"], 1);
+
+    // Non-matching event is unchanged
+    let mut data2 = json!({});
+    transform.before_emit("other:event", &mut data2);
+    assert!(data2.get("dynamic").is_none());
+}
+
+// ---------------------------------------------------------------------------
+// ConnectionGuard — detach / manual disconnect / is_attached
+// ---------------------------------------------------------------------------
+
+#[test]
+fn connection_guard_detach_keeps_handler_alive() {
+    let signal = Arc::new(Signal::<i32>::new());
+    let count = Arc::new(AtomicUsize::new(0));
+    let c = count.clone();
+
+    let conn_id = {
+        let guard = signal.connect_guard(move |_| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+        assert!(guard.is_attached());
+        guard.detach() // detach before drop
+    };
+
+    signal.emit(1);
+    assert_eq!(count.load(Ordering::SeqCst), 1); // still connected
+
+    signal.disconnect(conn_id);
+    signal.emit(1);
+    assert_eq!(count.load(Ordering::SeqCst), 1); // now gone
+}
+
+#[test]
+fn connection_guard_manual_disconnect_returns_true() {
+    let signal = Arc::new(Signal::<i32>::new());
+    let guard = signal.connect_guard(|_| {});
+    let removed = guard.disconnect(); // explicit disconnect
+    assert!(removed);
+    assert_eq!(signal.handler_count(), 0);
+}
+
+#[test]
+fn connection_guard_id_accessible() {
+    let signal = Arc::new(Signal::<i32>::new());
+    let guard = signal.connect_guard(|_| {});
+    let id = guard.id();
+    assert!(signal.connections().contains(&id));
+}
+
+// ---------------------------------------------------------------------------
+// SignalRegistry — emit_or_create / get_or_create / get / disconnect_all
+// ---------------------------------------------------------------------------
+
+#[test]
+fn registry_emit_or_create_creates_and_delivers() {
+    let reg = SignalRegistry::new();
+    let count = Arc::new(AtomicUsize::new(0));
+    let c = count.clone();
+    reg.connect("auto", move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
+
+    // emit_or_create on existing signal
+    let n = reg.emit_or_create("auto", json!(null));
+    assert_eq!(n, 1);
+    assert_eq!(count.load(Ordering::SeqCst), 1);
+
+    // emit_or_create on nonexistent signal creates it (0 handlers)
+    let n2 = reg.emit_or_create("new_auto", json!(null));
+    assert_eq!(n2, 0);
+    assert!(reg.contains("new_auto"));
+}
+
+#[test]
+fn registry_get_returns_none_for_unknown() {
+    let reg = SignalRegistry::new();
+    assert!(reg.get("ghost").is_none());
+}
+
+#[test]
+fn registry_get_returns_some_after_connect() {
+    let reg = SignalRegistry::new();
+    reg.connect("known", |_| {});
+    assert!(reg.get("known").is_some());
+}
+
+#[test]
+fn registry_disconnect_all_clears_handlers() {
+    let reg = SignalRegistry::new();
+    reg.connect("ev", |_| {});
+    reg.connect("ev", |_| {});
+    assert_eq!(reg.handler_count("ev"), 2);
+
+    reg.disconnect_all("ev");
+    assert_eq!(reg.handler_count("ev"), 0);
+
+    // Signal still exists (just empty)
+    assert!(reg.contains("ev"));
+}
+
+#[test]
+fn registry_is_connected_false_when_no_handlers() {
+    let reg = SignalRegistry::new();
+    assert!(!reg.is_connected("ev"));
+    reg.connect("ev", |_| {});
+    assert!(reg.is_connected("ev"));
+}
+
+// ---------------------------------------------------------------------------
+// EventBus — clear / off_all / bridge_names / middleware_count
+// ---------------------------------------------------------------------------
+
+#[test]
+fn bus_clear_removes_all_handlers() {
+    let bus = EventBus::new();
+    bus.on("a", |_| {});
+    bus.on("b", |_| {});
+    assert_eq!(bus.total_handler_count(), 2);
+
+    bus.clear();
+    assert_eq!(bus.total_handler_count(), 0);
+    assert_eq!(bus.event_count(), 0);
+}
+
+#[test]
+fn bus_off_all_removes_handlers_for_event() {
+    let bus = EventBus::new();
+    bus.on("ev", |_| {});
+    bus.on("ev", |_| {});
+    bus.on("other", |_| {});
+    assert_eq!(bus.handler_count("ev"), 2);
+
+    bus.off_all("ev");
+    assert_eq!(bus.handler_count("ev"), 0);
+    assert_eq!(bus.handler_count("other"), 1); // unchanged
+}
+
+#[test]
+fn bus_bridge_names_lists_all_bridges() {
+    use auroraview_signals::bridge::CallbackBridge;
+
+    let bus = EventBus::new();
+    bus.add_bridge(CallbackBridge::new("alpha", |_, _| Ok(())));
+    bus.add_bridge(CallbackBridge::new("beta", |_, _| Ok(())));
+
+    let mut names = bus.bridge_names();
+    names.sort();
+    assert_eq!(names, vec!["alpha", "beta"]);
+}
+
+#[test]
+fn bus_middleware_count_reflects_added_middleware() {
+    use auroraview_signals::middleware::LoggingMiddleware;
+
+    let bus = EventBus::new();
+    assert_eq!(bus.middleware_count(), 0);
+
+    bus.use_middleware(LoggingMiddleware::new(LogLevel::Debug));
+    assert_eq!(bus.middleware_count(), 1);
+
+    bus.use_middleware(LoggingMiddleware::new(LogLevel::Info));
+    assert_eq!(bus.middleware_count(), 2);
+}
+
+#[test]
+fn bus_remove_bridge_decrements_count() {
+    use auroraview_signals::bridge::CallbackBridge;
+
+    let bus = EventBus::new();
+    bus.add_bridge(CallbackBridge::new("target", |_, _| Ok(())));
+    bus.add_bridge(CallbackBridge::new("keep", |_, _| Ok(())));
+    assert_eq!(bus.bridge_count(), 2);
+
+    let removed = bus.remove_bridge("target");
+    assert!(removed);
+    assert_eq!(bus.bridge_count(), 1);
+}
+
+#[test]
+fn bus_named_has_expected_name() {
+    let bus = EventBus::named("pipeline");
+    assert_eq!(bus.name(), Some("pipeline"));
+}
+
+// ---------------------------------------------------------------------------
+// WebViewBridge — from_arc + prefix filter skips non-matching
+// ---------------------------------------------------------------------------
+
+#[test]
+fn webview_bridge_from_arc_forwards_events() {
+    use auroraview_signals::prelude::{WebViewBridge, WebViewSender};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let count = Arc::new(AtomicUsize::new(0));
+    let c = count.clone();
+    let sender: WebViewSender = Arc::new(move |_msg| {
+        c.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    });
+
+    let bridge = WebViewBridge::from_arc("wv", sender);
+    bridge.emit("app:event", json!(null)).unwrap();
+    assert_eq!(count.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn webview_bridge_prefix_filter_skips_non_matching() {
+    use auroraview_signals::prelude::WebViewBridge;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let count = Arc::new(AtomicUsize::new(0));
+    let c = count.clone();
+
+    let bridge = WebViewBridge::with_prefix_filter("wv", "ui:", move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    });
+
+    bridge.emit("ui:click", json!(null)).unwrap();
+    assert_eq!(count.load(Ordering::SeqCst), 1);
+
+    // Non-matching prefix — silently skipped (returns Ok)
+    let res = bridge.emit("sys:shutdown", json!(null));
+    assert!(res.is_ok());
+    assert_eq!(count.load(Ordering::SeqCst), 1); // unchanged
+}
+
+// ---------------------------------------------------------------------------
+// Signal::named / default / debug format
+// ---------------------------------------------------------------------------
+
+#[test]
+fn signal_named_stores_name() {
+    let sig: Signal<i32> = Signal::named("my:signal");
+    assert_eq!(sig.name(), Some("my:signal"));
+}
+
+#[test]
+fn signal_default_creates_unnamed() {
+    let sig: Signal<i32> = Signal::default();
+    assert_eq!(sig.name(), None);
+    assert_eq!(sig.handler_count(), 0);
+}
+
+#[test]
+fn signal_connections_returns_all_ids() {
+    let sig: Signal<i32> = Signal::new();
+    let c1 = sig.connect(|_| {});
+    let c2 = sig.connect_ref(|_| {});
+    let ids = sig.connections();
+    assert_eq!(ids.len(), 2);
+    assert!(ids.contains(&c1));
+    assert!(ids.contains(&c2));
+}
+
+#[test]
+fn signal_disconnect_nonexistent_returns_false() {
+    use auroraview_signals::connection::ConnectionId;
+
+    let sig: Signal<i32> = Signal::new();
+    let fake = ConnectionId::from_raw(u64::MAX);
+    assert!(!sig.disconnect(fake));
+}

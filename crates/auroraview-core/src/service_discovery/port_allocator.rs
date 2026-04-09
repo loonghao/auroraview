@@ -4,7 +4,6 @@
 
 use super::{Result, ServiceDiscoveryError};
 use std::net::{SocketAddr, TcpListener};
-use std::time::Duration;
 use tracing::{debug, info, warn};
 
 /// Port allocator for finding free ports
@@ -83,16 +82,6 @@ impl PortAllocator {
                 false
             }
         }
-    }
-
-    /// Find a free port with custom timeout
-    ///
-    /// This is useful for quick checks without blocking
-    #[allow(dead_code)]
-    pub fn find_free_port_with_timeout(&self, _timeout: Duration) -> Result<u16> {
-        // For now, just use the standard method
-        // In the future, we could implement async port checking with timeout
-        self.find_free_port()
     }
 
     /// Get the start port

@@ -55,10 +55,10 @@ class TestStandaloneRunner:
             assert run_standalone.__doc__ is not None
             assert len(run_standalone.__doc__) > 0
 
-            # Verify key documentation points
+            # Verify key documentation points for the current compatibility alias.
             doc = run_standalone.__doc__
-            assert "standalone" in doc.lower()
-            assert "window" in doc.lower()
+            assert "run_desktop" in doc
+            assert "deprecated" in doc.lower() or "backward compatibility" in doc.lower()
 
         except ImportError:
             pytest.skip("run_standalone not available")
@@ -268,53 +268,53 @@ class TestStandaloneRunner:
 class TestLoadingScreen:
     """Test loading screen functionality."""
 
-    def test_loading_html_exists(self):
-        """Test that loading.html asset exists."""
+    @staticmethod
+    def _loading_source():
         from pathlib import Path
 
-        # Find the loading.html file (in auroraview-core crate assets)
         project_root = Path(__file__).parent.parent.parent.parent
         loading_html = (
             project_root / "crates" / "auroraview-core" / "src" / "assets" / "html" / "loading.html"
         )
+        if loading_html.exists():
+            return loading_html, loading_html.read_text(encoding="utf-8"), "html"
 
-        assert loading_html.exists(), f"loading.html not found at {loading_html}"
+        assets_rs = project_root / "crates" / "auroraview-core" / "src" / "assets.rs"
+        assert assets_rs.exists(), f"assets.rs not found at {assets_rs}"
+        return assets_rs, assets_rs.read_text(encoding="utf-8"), "rust"
+
+    def test_loading_html_exists(self):
+        """Test that the loading screen source exists in the current architecture."""
+        source_path, content, source_kind = self._loading_source()
+
+        assert source_path.exists(), f"loading screen source not found at {source_path}"
+        if source_kind == "html":
+            assert "Loading" in content or "loading" in content.lower()
+        else:
+            assert "get_loading_html" in content
+            assert "Page::Loading" in content or "fallback_loading_html" in content
 
     def test_loading_html_content(self):
-        """Test loading.html has proper content."""
-        from pathlib import Path
+        """Test loading screen source has the expected loading markers."""
+        _source_path, content, source_kind = self._loading_source()
 
-        project_root = Path(__file__).parent.parent.parent.parent
-        loading_html = (
-            project_root / "crates" / "auroraview-core" / "src" / "assets" / "html" / "loading.html"
-        )
+        if source_kind == "html":
+            assert "<!DOCTYPE html>" in content or "<!doctype html>" in content.lower()
+            assert "<html" in content
+            assert "</html>" in content
+        else:
+            assert "get_loading_html" in content
+            assert "fallback_loading_html" in content or "Page::Loading" in content
 
-        if not loading_html.exists():
-            pytest.skip("loading.html not found")
-
-        content = loading_html.read_text(encoding="utf-8")
-
-        # Verify HTML structure
-        assert "<!DOCTYPE html>" in content or "<!doctype html>" in content.lower()
-        assert "<html" in content
-        assert "</html>" in content
-
-        # Verify loading elements
         assert "Loading" in content or "loading" in content.lower()
 
     def test_loading_html_is_valid_html(self):
-        """Test loading.html is valid HTML."""
-        from pathlib import Path
+        """Test that loading HTML is well-formed or has a valid fallback source."""
+        _source_path, content, source_kind = self._loading_source()
 
-        project_root = Path(__file__).parent.parent.parent.parent
-        loading_html = (
-            project_root / "crates" / "auroraview-core" / "src" / "assets" / "html" / "loading.html"
-        )
-
-        if not loading_html.exists():
-            pytest.skip("loading.html not found")
-
-        content = loading_html.read_text(encoding="utf-8")
+        if source_kind == "rust":
+            assert "fallback_loading_html" in content or "Page::Loading" in content
+            return
 
         # Basic HTML validation
         assert content.count("<html") == content.count("</html>")

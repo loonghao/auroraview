@@ -248,13 +248,10 @@ def diagnose_core_library() -> dict:
         dict: Diagnostic information including Python version, platform,
               import error details, and file locations.
     """
-    import sys
-    from pathlib import Path
-
     result = {
-        "python_version": sys.version,
-        "python_executable": sys.executable,
-        "platform": sys.platform,
+        "python_version": _sys.version,
+        "python_executable": _sys.executable,
+        "platform": _sys.platform,
         "core_import_error": _CORE_IMPORT_ERROR,
         "core_loaded": _CORE_IMPORT_ERROR is None,
     }
@@ -263,7 +260,7 @@ def diagnose_core_library() -> dict:
     try:
         import auroraview
 
-        pkg_dir = Path(auroraview.__file__).parent
+        pkg_dir = _Path(auroraview.__file__).parent
         pyd_path = pkg_dir / "_core.pyd"
         so_path = pkg_dir / "_core.so"
 
@@ -281,7 +278,7 @@ def diagnose_core_library() -> dict:
         result["path_check_error"] = str(e)
 
     # Check sys.path
-    result["sys_path"] = sys.path[:10]  # First 10 entries
+    result["sys_path"] = _sys.path[:10]  # First 10 entries
 
     return result
 
@@ -308,7 +305,6 @@ from .core import (
     WindowEventData,
     WindowManager,
     broadcast_event,
-    deprecated,
     get_active_window,
     get_available_backends,
     get_backend_type,
@@ -416,8 +412,12 @@ except ImportError as e:
     _HAS_QT = False
     _QT_IMPORT_ERROR = str(e)
 
-# Import submodules for backward-compatibility aliases
-from . import core, integration, ui, utils
+# Submodule imports for organized access
+from . import core  # auroraview.core - WebView, Backend, Settings, Cookies
+from . import integration  # auroraview.integration - AuroraView, Bridge, Qt
+from . import ui  # auroraview.ui - DOM, Menu
+from . import utils  # auroraview.utils - EventTimer, FileProtocol, Automation
+from . import browser  # auroraview.browser - Browser, TabContainer
 
 # Backward-compatibility aliases for old import paths
 # These allow: from auroraview.webview import WebView
@@ -449,12 +449,6 @@ def on_event(event_name: str):
     return decorator
 
 
-# Submodule imports for organized access
-from . import core  # auroraview.core - WebView, Backend, Settings, Cookies
-from . import integration  # auroraview.integration - AuroraView, Bridge, Qt
-from . import ui  # auroraview.ui - DOM, Menu
-from . import utils  # auroraview.utils - EventTimer, FileProtocol, Automation
-from . import browser  # auroraview.browser - Browser, TabContainer
 from . import (
     features,
 )  # auroraview.features - Bookmarks, History, Downloads, Settings, Notifications
@@ -561,7 +555,6 @@ __all__ = [
     "EventEmitter",
     "NavigationEvent",
     "LoadEvent",
-    "deprecated",
     # Signals (Qt-inspired)
     "Signal",
     "SignalRegistry",

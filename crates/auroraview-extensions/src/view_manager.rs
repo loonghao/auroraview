@@ -159,10 +159,6 @@ pub struct ExtensionViewInfo {
 struct ExtensionViewHandle {
     /// View info
     info: ExtensionViewInfo,
-    /// Window handle (platform-specific)
-    #[cfg(target_os = "windows")]
-    #[allow(dead_code)]
-    hwnd: Option<u64>,
     /// DevTools window handle
     #[cfg(target_os = "windows")]
     devtools_hwnd: Option<u64>,
@@ -259,23 +255,18 @@ impl ExtensionViewManager {
             devtools_open: false,
         };
 
-        // Create WebView via callback
-        #[allow(unused_variables)]
-        let hwnd = {
+        // Create WebView via callback (handle discarded: hwnd field removed from ExtensionViewHandle)
+        {
             let callback = self.create_webview_callback.read();
             if let Some(ref cb) = *callback {
                 let mut view_config = config.clone();
                 view_config.debug_port = Some(debug_port);
-                match cb(view_config) {
-                    Ok(h) => Some(h),
-                    Err(e) => {
-                        tracing::error!("Failed to create WebView for {}: {}", view_id, e);
-                        return Err(e);
-                    }
+                if let Err(e) = cb(view_config) {
+                    tracing::error!("Failed to create WebView for {}: {}", view_id, e);
+                    return Err(e);
                 }
             } else {
                 tracing::warn!("No create_webview_callback set, view will be virtual");
-                None
             }
         };
 
@@ -289,8 +280,6 @@ impl ExtensionViewManager {
                 },
                 ..info.clone()
             },
-            #[cfg(target_os = "windows")]
-            hwnd,
             #[cfg(target_os = "windows")]
             devtools_hwnd: None,
         };
@@ -352,7 +341,7 @@ impl ExtensionViewManager {
             .ok_or_else(|| format!("View not found: {}", view_id))?;
 
         // Open DevTools via callback
-        #[allow(unused_variables)]
+        #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
         let devtools_hwnd = {
             let callback = self.open_devtools_callback.read();
             if let Some(ref cb) = *callback {

@@ -42,7 +42,6 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -142,7 +141,7 @@ def main():
     print(f"Debug: {args.debug}")
     if args.cdp_port > 0:
         print(f"CDP Port: {args.cdp_port}")
-        print(f"  Connect via: chrome://inspect")
+        print("  Connect via: chrome://inspect")
     if args.urls:
         print(f"Initial URLs: {args.urls}")
     print()

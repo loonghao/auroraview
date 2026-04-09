@@ -7,10 +7,11 @@ use auroraview_core::plugins::{
     create_router, create_router_with_scope, PathScope, PluginEventCallback, PluginRequest,
     PluginResponse, PluginRouter, ScopeConfig,
 };
+use parking_lot::RwLock;
 use pyo3::prelude::*;
 use serde_json::Value;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::ipc::json::json_to_python;
 
@@ -64,10 +65,7 @@ impl PluginManager {
 
         // Store the Python callback to keep it alive
         {
-            let mut py_cb = self.py_callback.write().map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-            })?;
-            *py_cb = Some(callback.clone_ref(py));
+            *self.py_callback.write() = Some(callback.clone_ref(py));
         }
 
         // Create a Rust callback that calls the Python callback
@@ -95,9 +93,7 @@ impl PluginManager {
         });
 
         // Set the callback on the router
-        let router = self.router.read().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-        })?;
+        let router = self.router.read();
         router.set_event_callback(rust_callback);
         tracing::debug!("[PluginManager] Event callback set on router");
 
@@ -107,17 +103,10 @@ impl PluginManager {
     /// Clear the event callback
     pub fn clear_emit_callback(&self) -> PyResult<()> {
         // Clear Python callback
-        {
-            let mut py_cb = self.py_callback.write().map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-            })?;
-            *py_cb = None;
-        }
+        *self.py_callback.write() = None;
 
         // Clear router callback
-        let router = self.router.read().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-        })?;
+        let router = self.router.read();
         router.clear_event_callback();
 
         Ok(())
@@ -126,9 +115,7 @@ impl PluginManager {
     /// Set allowed file system paths
     #[pyo3(signature = (paths, allow_all=false))]
     pub fn set_fs_scope(&self, paths: Vec<String>, allow_all: bool) -> PyResult<()> {
-        let mut router = self.router.write().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-        })?;
+        let mut router = self.router.write();
 
         let mut scope = if allow_all {
             PathScope::allow_all()
@@ -149,9 +136,7 @@ impl PluginManager {
 
     /// Add denied paths to file system scope
     pub fn deny_fs_paths(&self, paths: Vec<String>) -> PyResult<()> {
-        let mut router = self.router.write().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-        })?;
+        let mut router = self.router.write();
 
         let mut config = router.scope().clone();
         for path in paths {
@@ -164,9 +149,7 @@ impl PluginManager {
 
     /// Enable a plugin
     pub fn enable_plugin(&self, name: &str) -> PyResult<()> {
-        let mut router = self.router.write().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-        })?;
+        let mut router = self.router.write();
 
         let mut config = router.scope().clone();
         config.enable_plugin(name);
@@ -177,9 +160,7 @@ impl PluginManager {
 
     /// Disable a plugin
     pub fn disable_plugin(&self, name: &str) -> PyResult<()> {
-        let mut router = self.router.write().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-        })?;
+        let mut router = self.router.write();
 
         let mut config = router.scope().clone();
         config.disable_plugin(name);
@@ -190,27 +171,21 @@ impl PluginManager {
 
     /// Check if a plugin is enabled
     pub fn is_plugin_enabled(&self, name: &str) -> PyResult<bool> {
-        let router = self.router.read().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-        })?;
+        let router = self.router.read();
 
         Ok(router.scope().is_plugin_enabled(name))
     }
 
     /// Get list of enabled plugins
     pub fn enabled_plugins(&self) -> PyResult<Vec<String>> {
-        let router = self.router.read().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-        })?;
+        let router = self.router.read();
 
         Ok(router.scope().enabled_plugins.iter().cloned().collect())
     }
 
     /// Handle a plugin command (internal use)
     pub fn handle_command(&self, invoke_cmd: &str, args_json: &str) -> PyResult<String> {
-        let router = self.router.read().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock poisoned: {}", e))
-        })?;
+        let router = self.router.read();
 
         let args: Value = serde_json::from_str(args_json).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))

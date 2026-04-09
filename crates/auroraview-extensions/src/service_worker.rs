@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
 /// Service Worker state
@@ -143,9 +142,6 @@ pub struct ServiceWorkerManager {
     workers: DashMap<String, ServiceWorkerRegistration>,
     /// Message queue per extension
     message_queues: DashMap<String, Vec<ServiceWorkerMessage>>,
-    /// Pending responses (kept as RwLock — PendingResponse contains FnOnce which is !Sync for DashMap)
-    #[allow(dead_code)]
-    pending_responses: RwLock<HashMap<String, PendingResponse>>,
     /// Event listeners per extension
     event_listeners: DashMap<String, HashMap<String, Vec<String>>>,
 }
@@ -156,7 +152,6 @@ impl ServiceWorkerManager {
         Self {
             workers: DashMap::new(),
             message_queues: DashMap::new(),
-            pending_responses: RwLock::new(HashMap::new()),
             event_listeners: DashMap::new(),
         }
     }

@@ -130,29 +130,6 @@ impl TabGroup {
     }
 }
 
-/// Predefined group colors (Chrome-style)
-#[allow(dead_code)]
-pub mod colors {
-    /// Grey color for default groups
-    pub const GREY: &str = "#5f6368";
-    /// Blue color
-    pub const BLUE: &str = "#1a73e8";
-    /// Red color
-    pub const RED: &str = "#d93025";
-    /// Yellow color
-    pub const YELLOW: &str = "#f9ab00";
-    /// Green color
-    pub const GREEN: &str = "#1e8e3e";
-    /// Pink color
-    pub const PINK: &str = "#d01884";
-    /// Purple color
-    pub const PURPLE: &str = "#9334e6";
-    /// Cyan color
-    pub const CYAN: &str = "#007b83";
-    /// Orange color
-    pub const ORANGE: &str = "#e8710a";
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,13 +141,6 @@ mod tests {
         assert_eq!(group.name, "Work");
         assert!(!group.collapsed);
         assert!(group.is_empty());
-    }
-
-    #[test]
-    fn test_group_with_color() {
-        let group = TabGroup::new("Development").with_color(colors::BLUE);
-
-        assert_eq!(group.color, Some(colors::BLUE.to_string()));
     }
 
     #[test]

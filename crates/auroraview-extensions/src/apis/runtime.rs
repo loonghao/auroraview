@@ -82,9 +82,6 @@ pub type ReloadCallback = Box<dyn Fn(&str) + Send + Sync>;
 pub struct RuntimeManager {
     /// Message handlers per extension
     message_handlers: RwLock<std::collections::HashMap<ExtensionId, Vec<MessageHandler>>>,
-    /// Pending messages (for extensions not yet loaded)
-    #[allow(dead_code)]
-    pending_messages: RwLock<Vec<(ExtensionId, Value, MessageSender)>>,
     /// Uninstall URLs per extension
     uninstall_urls: RwLock<std::collections::HashMap<ExtensionId, String>>,
     /// Options page open callback
@@ -98,7 +95,6 @@ impl RuntimeManager {
     pub fn new() -> Self {
         Self {
             message_handlers: RwLock::new(std::collections::HashMap::new()),
-            pending_messages: RwLock::new(Vec::new()),
             uninstall_urls: RwLock::new(std::collections::HashMap::new()),
             on_open_options_page: RwLock::new(None),
             on_reload: RwLock::new(None),

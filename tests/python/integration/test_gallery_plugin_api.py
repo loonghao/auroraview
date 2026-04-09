@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 import time
+from typing import Any, List, Tuple
 
 import pytest
 
@@ -15,6 +16,19 @@ import pytest
 pytestmark = [
     pytest.mark.integration,
 ]
+
+
+def wait_for_events(
+    events: List[Tuple[str, Any]], event_name: str, timeout: float = 2.0, interval: float = 0.05
+) -> List[Tuple[str, Any]]:
+    """Poll for asynchronously emitted plugin events within a short timeout."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        matches = [event for event in events if event[0] == event_name]
+        if matches:
+            return matches
+        time.sleep(interval)
+    return [event for event in events if event[0] == event_name]
 
 
 class TestPluginManagerBasics:
@@ -236,12 +250,8 @@ class TestProcessPluginEvents:
         assert result.get("success") is True
         pid = result["data"]["pid"]
 
-        # Wait for output
-        time.sleep(1.0)
-
-        # Check events
-        stdout_events = [e for e in events if e[0] == "process:stdout"]
-        assert len(stdout_events) > 0
+        stdout_events = wait_for_events(events, "process:stdout")
+        assert stdout_events
 
         # Verify event data
         event_data = stdout_events[0][1]
@@ -274,12 +284,8 @@ class TestProcessPluginEvents:
         assert result.get("success") is True
         pid = result["data"]["pid"]
 
-        # Wait for process to exit
-        time.sleep(1.0)
-
-        # Check for exit event
-        exit_events = [e for e in events if e[0] == "process:exit"]
-        assert len(exit_events) > 0
+        exit_events = wait_for_events(events, "process:exit")
+        assert exit_events
 
         # Verify event data
         event_data = exit_events[0][1]
@@ -361,12 +367,8 @@ class TestGalleryAPISimulation:
         pid = result["data"]["pid"]
         assert pid > 0
 
-        # Wait for stdout
-        time.sleep(0.5)
-
-        # Verify stdout event
-        stdout_events = [e for e in events if e[0] == "process:stdout"]
-        assert len(stdout_events) > 0
+        stdout_events = wait_for_events(events, "process:stdout")
+        assert stdout_events
 
         # Simulate kill_process API call - THIS IS THE KEY TEST
         # The frontend now sends { pid: number } instead of just number

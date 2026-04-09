@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.75+-orange.svg" alt="Rust"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.90+-orange.svg" alt="Rust"></a>
   <a href="https://github.com/loonghao/auroraview"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg" alt="Platform"></a>
   <a href="https://github.com/loonghao/auroraview/actions/workflows/ci.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml/badge.svg?branch=main" alt="Build Wheels"></a>
@@ -85,7 +85,7 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 - **DCC-First Design**: Built specifically for DCC software integration
 - **Type-Safe**: Full type checking with Rust + Python
 
-[POINTER] **[DCC Integration Guide](./docs/DCC_INTEGRATION.md)** - Learn how to integrate AuroraView into Maya, Houdini, Nuke, and other DCC applications.
+[POINTER] **[DCC Integration Guide](./docs/dcc/index.md)** - Learn how to integrate AuroraView into Maya, Houdini, Nuke, and other DCC applications.
 
 ## Architecture
 
@@ -94,7 +94,7 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 </p>
 ##  Technical Framework
 
-- Core stack: Rust 1.75+, PyO3 0.22 (abi3), Wry 0.47, Tao 0.30
+- Core stack: Rust 1.90+, PyO3 0.27 (abi3), Wry 0.54, Tao 0.34
 - Web engines: Windows (WebView2), macOS (WKWebView), Linux (WebKitGTK)
 - Packaging: maturin with abi3 → one wheel works for CPython 3.7-3.13
 - Event loop: blocking show() by default; nonblocking mode planned for host loops

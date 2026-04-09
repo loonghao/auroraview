@@ -19,26 +19,26 @@ Example Requirements in sample docstring:
 from __future__ import annotations
 
 import os
+import re
+import select
 import shutil
 import subprocess
 import sys
-import re
 import time
-import select
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional, Any
 from threading import Event
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
-    from typing import List, Dict
+    pass
 
 # Try to import importlib.metadata for package version checking
 try:
-    from importlib.metadata import distributions, version as get_version
+    from importlib.metadata import version as get_version
     HAS_IMPORTLIB_METADATA = True
 except ImportError:
     try:
-        from importlib_metadata import distributions, version as get_version
+        from importlib_metadata import version as get_version  # noqa: F401
         HAS_IMPORTLIB_METADATA = True
     except ImportError:
         HAS_IMPORTLIB_METADATA = False
@@ -130,8 +130,8 @@ def check_package_installed(package_spec: str) -> bool:
             return True
 
         # Simple version comparison (supports >=, >, ==, <=, <)
-        from packaging.version import Version
         from packaging.specifiers import SpecifierSet
+        from packaging.version import Version
 
         spec = SpecifierSet(version_constraint)
         return Version(installed_version) in spec
@@ -165,10 +165,10 @@ def _get_vx_command() -> Optional[str]:
             # In packed mode, resolve relative to the executable directory
             exe_dir = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path.cwd()
             vx_path = str(exe_dir / vx_path)
-        
+
         if os.path.exists(vx_path):
             return vx_path
-    
+
     # Fallback to PATH
     return shutil.which("vx")
 
@@ -183,12 +183,12 @@ def _get_cache_dir() -> Optional[Path]:
     cache_dir = os.environ.get("AURORAVIEW_CACHE_DIR")
     if cache_dir:
         return Path(cache_dir)
-    
+
     # In packed mode, use a cache relative to executable
     if getattr(sys, 'frozen', False):
         exe_dir = Path(sys.executable).parent
         return exe_dir / ".cache" / "vx"
-    
+
     return None
 
 
@@ -235,7 +235,7 @@ def install_requirements(
             "PATH": os.environ.get("PATH", "")[:200] + "..." if len(os.environ.get("PATH", "")) > 200 else os.environ.get("PATH", ""),
         }
     }
-    
+
     if on_progress:
         on_progress({
             "type": "output",
@@ -264,7 +264,7 @@ def install_requirements(
             # Run install with vx uv pip when available, otherwise pip
             if vx_cmd:
                 cmd = [vx_cmd, "uv", "pip", "install", req, "--verbose"]
-                
+
                 # Add offline/cache options in packed mode
                 if _is_offline_mode():
                     cmd.extend(["--offline", "--no-index"])
@@ -274,7 +274,7 @@ def install_requirements(
                             "package": package_name,
                             "line": f"[{start_time}] Running in offline mode",
                         })
-                    
+
                 cache_dir = _get_cache_dir()
                 if cache_dir:
                     cmd.extend(["--cache-dir", str(cache_dir)])
@@ -284,10 +284,10 @@ def install_requirements(
                             "package": package_name,
                             "line": f"[{start_time}] Using cache directory: {cache_dir}",
                         })
-                    
+
             else:
                 cmd = [python_exe, "-m", "pip", "install", req, "--verbose"]
-                
+
                 # Add cache options for pip if available
                 cache_dir = _get_cache_dir()
                 if cache_dir:
@@ -301,7 +301,7 @@ def install_requirements(
                     "package": package_name,
                     "line": f"[{start_time}] Executing: {cmd_str}",
                 })
-                
+
             # Log working directory and environment
             if on_progress:
                 on_progress({
@@ -330,7 +330,7 @@ def install_requirements(
                 text=True,
                 bufsize=1,
             )
-            
+
             if on_progress:
                 on_progress({
                     "type": "output",
@@ -342,21 +342,21 @@ def install_requirements(
             # Use non-blocking read on Unix or poll on Windows
             import platform
             is_windows = platform.system() == "Windows"
-            
+
             if on_progress:
                 on_progress({
                     "type": "output",
                     "package": package_name,
                     "line": f"[{start_time}] Platform: {platform.system()}, using {'polling' if is_windows else 'select'} for I/O",
                 })
-            
+
             line_count = 0
             last_activity = time.time()
             timeout_seconds = 300  # 5 minutes timeout
-            
+
             while True:
                 current_time = time.time()
-                
+
                 # Check cancel event frequently
                 if cancel_event and cancel_event.is_set():
                     # Use kill() for immediate termination
@@ -430,7 +430,7 @@ def install_requirements(
                                             "line": f"[{time.strftime('%H:%M:%S')}] {line}",
                                         })
                         break
-                    
+
                     # Try to read with short timeout simulation
                     line = process.stdout.readline()
                     if not line:
@@ -451,7 +451,7 @@ def install_requirements(
                                 })
                             break
                         continue
-                    
+
                     line = process.stdout.readline()
                     if not line:
                         if on_progress:
@@ -478,7 +478,7 @@ def install_requirements(
                         "package": package_name,
                         "line": f"[{time.strftime('%H:%M:%S')}] {line}",
                     })
-                    
+
                 # Log progress every 50 lines to avoid spam
                 if line_count % 50 == 0 and on_progress:
                     on_progress({
@@ -498,7 +498,7 @@ def install_requirements(
                 })
 
             process.wait()
-            
+
             if on_progress:
                 on_progress({
                     "type": "output",

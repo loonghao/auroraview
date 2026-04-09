@@ -53,7 +53,7 @@ num-integer = { version = "0.1", default-features = false, features = ["i128", "
 num-traits = { version = "0.2", features = ["i128"] }
 once_cell = { version = "1", features = ["critical-section"] }
 percent-encoding = { version = "2" }
-phf_shared = { version = "0.11" }
+phf_shared = { version = "0.13" }
 portable-atomic = { version = "1" }
 ppv-lite86 = { version = "0.2", default-features = false, features = ["simd", "std"] }
 pyo3 = { version = "0.27", features = ["auto-initialize", "extension-module", "multiple-pymethods"] }
@@ -106,7 +106,7 @@ generic-array = { version = "0.14", default-features = false, features = ["more_
 hashbrown-986da7b5efc2b80e = { package = "hashbrown", version = "0.16" }
 log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
-phf_shared = { version = "0.11" }
+phf_shared = { version = "0.13" }
 ppv-lite86 = { version = "0.2", default-features = false, features = ["simd", "std"] }
 pyo3-build-config = { version = "0.27", features = ["extension-module", "resolve-config"] }
 rand-c38e5c1d305a1b54 = { package = "rand", version = "0.8", features = ["small_rng"] }

@@ -143,6 +143,16 @@ impl IpcHandler {
         tracing::info!("Registered {} Python callbacks in batch", count);
     }
 
+    /// Get the count of registered events (both Rust and Python callbacks)
+    pub fn registered_event_count(&self) -> usize {
+        let rust_count = self.callbacks.len();
+        #[cfg(feature = "python-bindings")]
+        let python_count = self.python_callbacks.len();
+        #[cfg(not(feature = "python-bindings"))]
+        let python_count = 0;
+        rust_count + python_count
+    }
+
     /// Emit an event to JavaScript
     ///
     /// Sends an event to the WebView via the message queue.
@@ -179,7 +189,6 @@ impl IpcHandler {
         // Note: We still process Python callbacks for this event so users can hook into it
         if message.event == "__auroraview_ready" {
             tracing::debug!("WebView bridge ready: {:?}", message.data);
-            // Don't return early - let it fall through to Python callback handling
         }
 
         // First try Python callbacks (only when python-bindings feature is enabled)
@@ -224,16 +233,6 @@ impl IpcHandler {
             "No handler registered for event: {}",
             message.event
         ))
-    }
-
-    /// Get the count of registered events (both Rust and Python callbacks)
-    pub fn registered_event_count(&self) -> usize {
-        let rust_count = self.callbacks.len();
-        #[cfg(feature = "python-bindings")]
-        let python_count = self.python_callbacks.len();
-        #[cfg(not(feature = "python-bindings"))]
-        let python_count = 0;
-        rust_count + python_count
     }
 
     /// Handle JavaScript callback result from async execution
@@ -410,5 +409,27 @@ mod tests {
 
         // Verify message was pushed to queue
         assert_eq!(queue.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod off_clear_tests {
+    use super::*;
+
+    #[test]
+    fn test_off_and_clear() {
+        let handler = IpcHandler::new();
+        handler.on("evt", |_m| Ok(serde_json::json!({})));
+        assert_eq!(handler.registered_event_count(), 1);
+
+        handler.off("evt");
+        assert_eq!(handler.registered_event_count(), 0);
+
+        handler.on("evt2", |_m| Ok(serde_json::json!({})));
+        handler.on("evt3", |_m| Ok(serde_json::json!({})));
+        assert_eq!(handler.registered_event_count(), 2);
+
+        handler.clear();
+        assert_eq!(handler.registered_event_count(), 0);
     }
 }

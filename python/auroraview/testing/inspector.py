@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -301,8 +302,6 @@ class Inspector:
         Args:
             ref_id: Ref ID (e.g., "@3" or "3")
         """
-        import time
-
         start = time.time()
         normalized = ref_id if str(ref_id).startswith("@") else f"@{ref_id}"
 
@@ -339,8 +338,6 @@ class Inspector:
             ref_id: Ref ID of input element
             text: Text to fill
         """
-        import time
-
         start = time.time()
         normalized = ref_id if str(ref_id).startswith("@") else f"@{ref_id}"
 
@@ -375,8 +372,6 @@ class Inspector:
         Args:
             key: Key to press (e.g., "Enter", "Tab", "Escape")
         """
-        import time
-
         start = time.time()
 
         try:
@@ -400,8 +395,6 @@ class Inspector:
             direction: "up", "down", "left", or "right"
             amount: Scroll amount in pixels
         """
-        import time
-
         start = time.time()
 
         delta_map = {
@@ -435,8 +428,6 @@ class Inspector:
 
     def goto(self, url: str) -> ActionResult:
         """Navigate to URL."""
-        import time
-
         start = time.time()
 
         try:
@@ -456,8 +447,6 @@ class Inspector:
 
     def back(self) -> ActionResult:
         """Go back."""
-        import time
-
         start = time.time()
 
         try:
@@ -477,8 +466,6 @@ class Inspector:
 
     def forward(self) -> ActionResult:
         """Go forward."""
-        import time
-
         start = time.time()
 
         try:
@@ -498,8 +485,6 @@ class Inspector:
 
     def reload(self) -> ActionResult:
         """Reload page."""
-        import time
-
         start = time.time()
 
         try:
@@ -580,8 +565,6 @@ class Inspector:
 
             if condition.startswith("ref:"):
                 # Wait for ref to appear in snapshot
-                import time
-
                 start = time.time()
                 while time.time() - start < (timeout or 30):
                     snap = self.snapshot()

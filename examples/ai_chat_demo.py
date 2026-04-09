@@ -30,6 +30,7 @@ import os
 import sys
 from pathlib import Path
 from threading import Event, Thread
+from typing import Optional
 
 # Add project root to path so demos can reuse Gallery utilities (dependency installer, etc.)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -38,26 +39,26 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Check for Qt framework
 try:
-    from PySide6.QtCore import Qt, Signal, Slot, QThread
+    from PySide6.QtCore import Q_ARG, QMetaObject, Qt, QThread, Signal, Slot
+    from PySide6.QtGui import QColor, QPalette
     from PySide6.QtWidgets import (
         QApplication,
-        QMainWindow,
-        QWidget,
-        QVBoxLayout,
+        QComboBox,
+        QDoubleSpinBox,
+        QFormLayout,
+        QGroupBox,
         QHBoxLayout,
-        QSplitter,
         QLabel,
         QLineEdit,
-        QPushButton,
-        QTextEdit,
-        QGroupBox,
-        QFormLayout,
-        QSpinBox,
-        QDoubleSpinBox,
-        QComboBox,
+        QMainWindow,
         QMessageBox,
+        QPushButton,
+        QSpinBox,
+        QSplitter,
+        QTextEdit,
+        QVBoxLayout,
+        QWidget,
     )
-    from PySide6.QtGui import QFont, QPalette, QColor
 
     HAS_QT = True
 except ImportError:
@@ -80,7 +81,7 @@ CHAT_HTML = """
     <title>AI Chat Assistant</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -89,7 +90,7 @@ CHAT_HTML = """
             display: flex;
             flex-direction: column;
         }
-        
+
         .header {
             padding: 16px 20px;
             background: rgba(0, 0, 0, 0.2);
@@ -98,7 +99,7 @@ CHAT_HTML = """
             align-items: center;
             gap: 12px;
         }
-        
+
         .header .icon {
             width: 32px;
             height: 32px;
@@ -109,22 +110,22 @@ CHAT_HTML = """
             justify-content: center;
             font-size: 18px;
         }
-        
+
         .header .title {
             font-size: 16px;
             font-weight: 600;
             color: #00d4ff;
         }
-        
+
         .header .status {
             margin-left: auto;
             font-size: 12px;
             color: #888;
         }
-        
+
         .header .status.connected { color: #00cc66; }
         .header .status.error { color: #ff6b6b; }
-        
+
         .messages {
             flex: 1;
             overflow-y: auto;
@@ -133,7 +134,7 @@ CHAT_HTML = """
             flex-direction: column;
             gap: 16px;
         }
-        
+
         .message {
             max-width: 85%;
             padding: 12px 16px;
@@ -141,24 +142,24 @@ CHAT_HTML = """
             line-height: 1.5;
             animation: fadeIn 0.3s ease;
         }
-        
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
+
         .message.user {
             align-self: flex-end;
             background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
             color: white;
         }
-        
+
         .message.assistant {
             align-self: flex-start;
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .message.system {
             align-self: center;
             background: rgba(255, 193, 7, 0.15);
@@ -166,7 +167,7 @@ CHAT_HTML = """
             font-size: 13px;
             border: 1px solid rgba(255, 193, 7, 0.3);
         }
-        
+
         .message.error {
             align-self: center;
             background: rgba(255, 107, 107, 0.15);
@@ -174,7 +175,7 @@ CHAT_HTML = """
             font-size: 13px;
             border: 1px solid rgba(255, 107, 107, 0.3);
         }
-        
+
         .message pre {
             background: rgba(0, 0, 0, 0.3);
             padding: 12px;
@@ -184,13 +185,13 @@ CHAT_HTML = """
             font-family: 'Monaco', 'Menlo', monospace;
             font-size: 13px;
         }
-        
+
         .typing {
             display: flex;
             gap: 4px;
             padding: 8px 12px;
         }
-        
+
         .typing span {
             width: 8px;
             height: 8px;
@@ -198,15 +199,15 @@ CHAT_HTML = """
             border-radius: 50%;
             animation: typing 1.4s infinite ease-in-out;
         }
-        
+
         .typing span:nth-child(2) { animation-delay: 0.2s; }
         .typing span:nth-child(3) { animation-delay: 0.4s; }
-        
+
         @keyframes typing {
             0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
             40% { transform: scale(1); opacity: 1; }
         }
-        
+
         .input-area {
             padding: 16px 20px;
             background: rgba(0, 0, 0, 0.2);
@@ -214,7 +215,7 @@ CHAT_HTML = """
             display: flex;
             gap: 12px;
         }
-        
+
         .input-area input {
             flex: 1;
             padding: 12px 16px;
@@ -226,14 +227,14 @@ CHAT_HTML = """
             outline: none;
             transition: all 0.3s;
         }
-        
+
         .input-area input:focus {
             border-color: #00d4ff;
             background: rgba(255, 255, 255, 0.08);
         }
-        
+
         .input-area input::placeholder { color: #666; }
-        
+
         .input-area button {
             width: 44px;
             height: 44px;
@@ -245,7 +246,7 @@ CHAT_HTML = """
             cursor: pointer;
             transition: all 0.3s;
         }
-        
+
         .input-area button:hover { transform: scale(1.05); }
         .input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
@@ -256,42 +257,42 @@ CHAT_HTML = """
         <span class="title">DeepSeek Assistant</span>
         <span class="status" id="status">Connecting...</span>
     </div>
-    
+
     <div class="messages" id="messages">
         <div class="message system">
             Welcome! I'm your AI assistant powered by DeepSeek.
             Configure your API key in the left panel to start chatting.
         </div>
     </div>
-    
+
     <div class="input-area">
-        <input type="text" id="input" placeholder="Type your message..." 
+        <input type="text" id="input" placeholder="Type your message..."
                onkeypress="if(event.key==='Enter')sendMessage()">
         <button onclick="sendMessage()" id="sendBtn">→</button>
     </div>
-    
+
     <script>
         const messagesEl = document.getElementById('messages');
         const inputEl = document.getElementById('input');
         const statusEl = document.getElementById('status');
         const sendBtn = document.getElementById('sendBtn');
-        
+
         let isProcessing = false;
-        
+
         // Initialize AuroraView connection
         if (window.auroraview) {
             window.auroraview.whenReady().then(() => {
                 statusEl.textContent = 'Connected';
                 statusEl.className = 'status connected';
             });
-            
+
             // Listen for responses from Python
             let streamingEl = null;
             let streamingText = '';
 
             function formatMessageHtml(content) {
                 // Handle code blocks
-                content = content.replace(/```(\w*)\n([\s\S]*?)```/g,
+                content = content.replace(/```(\\w*)\n([\\s\\S]*?)```/g,
                     '<pre><code>$2</code></pre>');
                 content = content.replace(/`([^`]+)`/g, '<code>$1</code>');
                 content = content.replace(/\n/g, '<br>');
@@ -333,7 +334,7 @@ CHAT_HTML = """
                 isProcessing = false;
                 updateUI();
             });
-            
+
             window.auroraview.on('chat:error', (data) => {
                 removeTypingIndicator();
                 if (streamingEl) {
@@ -345,29 +346,29 @@ CHAT_HTML = """
                 isProcessing = false;
                 updateUI();
             });
-            
+
             window.auroraview.on('chat:status', (data) => {
                 statusEl.textContent = data.status;
                 statusEl.className = 'status ' + (data.ok ? 'connected' : 'error');
             });
         }
-        
+
         function addMessage(content, type) {
             const div = document.createElement('div');
             div.className = 'message ' + type;
-            
+
             // Handle code blocks
-            content = content.replace(/```(\\w*)\\n([\\s\\S]*?)```/g, 
+            content = content.replace(/```(\\w*)\\n([\\s\\S]*?)```/g,
                 '<pre><code>$2</code></pre>');
             content = content.replace(/`([^`]+)`/g, '<code>$1</code>');
             content = content.replace(/\\n/g, '<br>');
-            
+
             div.innerHTML = content;
             messagesEl.appendChild(div);
             messagesEl.scrollTop = messagesEl.scrollHeight;
             return div;
         }
-        
+
         function addTypingIndicator() {
             const div = document.createElement('div');
             div.className = 'message assistant typing';
@@ -376,27 +377,27 @@ CHAT_HTML = """
             messagesEl.appendChild(div);
             messagesEl.scrollTop = messagesEl.scrollHeight;
         }
-        
+
         function removeTypingIndicator() {
             const typing = document.getElementById('typing');
             if (typing) typing.remove();
         }
-        
+
         function updateUI() {
             inputEl.disabled = isProcessing;
             sendBtn.disabled = isProcessing;
         }
-        
+
         function sendMessage() {
             const message = inputEl.value.trim();
             if (!message || isProcessing) return;
-            
+
             addMessage(message, 'user');
             inputEl.value = '';
             isProcessing = true;
             updateUI();
             addTypingIndicator();
-            
+
             // Send to Python backend - chat.send is fire-and-forget for now
             if (window.auroraview) {
                 // Note: We don't await because chat.send is designed as fire-and-forget
@@ -830,8 +831,9 @@ class AIChatWindow(QMainWindow):
     def _install_missing_dependencies(self):
         """Install missing dependencies defined in the demo docstring asynchronously."""
         try:
-            from gallery.backend.dependency_installer import install_requirements
             from threading import Event
+
+            from gallery.backend.dependency_installer import install_requirements
         except Exception as exc:
             QMessageBox.critical(self, "Error", f"Dependency installer not available: {exc}")
             return
@@ -852,7 +854,7 @@ class AIChatWindow(QMainWindow):
 
         def on_progress(p: dict):
             # Ensure UI updates happen in main thread
-            from PySide6.QtCore import QMetaObject, Qt, Q_ARG
+            from PySide6.QtCore import Q_ARG, QMetaObject, Qt
 
             msg = p.get("message") or p.get("line") or str(p)
             # Use signal-slot mechanism to update UI safely

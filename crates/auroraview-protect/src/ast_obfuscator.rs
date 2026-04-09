@@ -138,9 +138,11 @@ impl AstObfuscator {
             encrypt_strings: false,
             string_key: None,
         };
-        
+
         // Add Python builtins to preserved names
-        obfuscator.preserved.extend(PYTHON_BUILTINS.iter().map(|s| s.to_string()));
+        obfuscator
+            .preserved
+            .extend(PYTHON_BUILTINS.iter().map(|s| s.to_string()));
         obfuscator
     }
 
@@ -169,65 +171,67 @@ impl AstObfuscator {
     fn obfuscate_with_ast(&mut self, source: &str) -> ProtectResult<String> {
         // Phase 1: Analyze the code to build scope information
         self.analyze_source(source)?;
-        
+
         // Phase 2: Generate obfuscated names based on scope analysis
         self.generate_obfuscated_names()?;
-        
+
         // Phase 3: Transform the source code
         let result = self.transform_source(source)?;
-        
+
         // Phase 4: Add control flow obfuscation if level >= Advanced
         let result = if self.level >= ObfuscationLevel::Advanced {
             self.add_control_flow_obfuscation(&result)?
         } else {
             result
         };
-        
+
         // Phase 5: Add string encryption if level == Maximum and enabled
         let result = if self.level == ObfuscationLevel::Maximum && self.encrypt_strings {
             self.add_string_encryption(&result)?
         } else {
             result
         };
-        
+
         // Phase 6: Add dead code if level == Maximum
         let result = if self.level == ObfuscationLevel::Maximum {
             self.add_dead_code(&result)?
         } else {
             result
         };
-        
+
         Ok(result)
     }
 
     /// Analyze source code to extract scope and name information
     fn analyze_source(&mut self, source: &str) -> ProtectResult<()> {
         let lines: Vec<&str> = source.lines().collect();
-        
+
         // Track current indentation level for scope detection
         let mut indent_stack: Vec<usize> = vec![0];
-        
+
         for (line_num, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
             if trimmed.is_empty() || trimmed.starts_with('#') {
                 continue;
             }
-            
+
             // Calculate indentation
             let indent = line.len() - line.trim_start().len();
-            
+
             // Pop scopes when dedenting
-            while indent_stack.len() > 1 && indent < *indent_stack.last().expect("indent stack non-empty") {
+            while indent_stack.len() > 1
+                && indent < *indent_stack.last().expect("indent stack non-empty")
+            {
                 indent_stack.pop();
                 if self.scope_stack.len() > 1 {
                     self.scope_stack.pop();
                 }
             }
-            
+
             // Analyze the line
             self.analyze_line(trimmed, line_num + 1, indent, &mut indent_stack)?;
         }
-        
+
         Ok(())
     }
 
@@ -244,13 +248,13 @@ impl AstObfuscator {
             self.parse_all_definition(line)?;
             return Ok(());
         }
-        
+
         // Check for import statements
         if line.starts_with("import ") || line.starts_with("from ") {
             self.parse_import(line)?;
             return Ok(());
         }
-        
+
         // Check for global/nonlocal declarations
         if line.starts_with("global ") {
             self.parse_global(line)?;
@@ -260,12 +264,12 @@ impl AstObfuscator {
             self.parse_nonlocal(line)?;
             return Ok(());
         }
-        
+
         // Check for function definition
         if line.starts_with("def ") || line.starts_with("async def ") {
             let name = self.parse_function_def(line)?;
             self.add_name_to_scope(&name, NameContext::Definition, line_num);
-            
+
             // Create new scope
             let parent = *self.scope_stack.last().expect("scope stack non-empty");
             let new_scope = Scope::new(ScopeType::Function, Some(parent), Some(name.clone()));
@@ -273,17 +277,17 @@ impl AstObfuscator {
             self.scopes.push(new_scope);
             self.scope_stack.push(scope_idx);
             indent_stack.push(indent + 4); // Assume 4-space indent
-            
+
             // Parse parameters
             self.parse_function_params(line, line_num)?;
             return Ok(());
         }
-        
+
         // Check for class definition
         if line.starts_with("class ") {
             let name = self.parse_class_def(line)?;
             self.add_name_to_scope(&name, NameContext::Definition, line_num);
-            
+
             // Create new scope
             let parent = *self.scope_stack.last().expect("scope stack non-empty");
             let new_scope = Scope::new(ScopeType::Class, Some(parent), Some(name));
@@ -293,23 +297,29 @@ impl AstObfuscator {
             indent_stack.push(indent + 4);
             return Ok(());
         }
-        
+
         // Check for lambda
         if line.contains("lambda ") {
             self.parse_lambda(line, line_num)?;
         }
-        
+
         // Check for comprehensions
-        if line.contains(" for ") && (line.contains('[') || line.contains('{') || line.contains('(')) {
+        if line.contains(" for ")
+            && (line.contains('[') || line.contains('{') || line.contains('('))
+        {
             self.parse_comprehension(line, line_num)?;
         }
-        
+
         // Check for variable assignments
-        if line.contains('=') && !line.contains("==") && !line.contains("!=") 
-           && !line.contains("<=") && !line.contains(">=") {
+        if line.contains('=')
+            && !line.contains("==")
+            && !line.contains("!=")
+            && !line.contains("<=")
+            && !line.contains(">=")
+        {
             self.parse_assignment(line, line_num)?;
         }
-        
+
         Ok(())
     }
 
@@ -332,9 +342,9 @@ impl AstObfuscator {
 
     /// Parse import statement
     fn parse_import(&mut self, line: &str) -> ProtectResult<()> {
-        if line.starts_with("import ") {
+        if let Some(stripped) = line.strip_prefix("import ") {
             // import module1, module2
-            let modules = line[7..].trim();
+            let modules = stripped.trim();
             for module in modules.split(',') {
                 let module = module.trim().split(" as ").next().unwrap_or("").trim();
                 let module = module.split('.').next().unwrap_or("");
@@ -387,12 +397,12 @@ impl AstObfuscator {
 
     /// Parse function definition and return function name
     fn parse_function_def(&self, line: &str) -> ProtectResult<String> {
-        let line = if line.starts_with("async ") {
-            &line[6..]
+        let line = if let Some(stripped) = line.strip_prefix("async ") {
+            stripped
         } else {
             line
         };
-        
+
         // def function_name(params):
         let start = line.find("def ").map(|i| i + 4).unwrap_or(0);
         let end = line.find('(').unwrap_or(line.len());
@@ -425,7 +435,10 @@ impl AstObfuscator {
     fn parse_class_def(&self, line: &str) -> ProtectResult<String> {
         // class ClassName(bases):
         let start = line.find("class ").map(|i| i + 6).unwrap_or(0);
-        let end = line.find('(').or_else(|| line.find(':')).unwrap_or(line.len());
+        let end = line
+            .find('(')
+            .or_else(|| line.find(':'))
+            .unwrap_or(line.len());
         let name = line[start..end].trim().to_string();
         Ok(name)
     }
@@ -476,18 +489,19 @@ impl AstObfuscator {
         // x, y = values
         // x: Type = value
         // self.attr = value (skip - class attribute)
-        
+
         if let Some(eq_pos) = line.find('=') {
             // Skip augmented assignments (+=, -=, etc.)
             if eq_pos > 0 {
                 let prev_char = line.chars().nth(eq_pos - 1).unwrap_or(' ');
-                if ['+', '-', '*', '/', '%', '&', '|', '^', '@', '!', '<', '>'].contains(&prev_char) {
+                if ['+', '-', '*', '/', '%', '&', '|', '^', '@', '!', '<', '>'].contains(&prev_char)
+                {
                     return Ok(());
                 }
             }
-            
+
             let lhs = line[..eq_pos].trim();
-            
+
             // Skip if it's an attribute assignment (self.x = ...)
             if lhs.contains('.') {
                 // Track class attributes
@@ -500,13 +514,14 @@ impl AstObfuscator {
                 }
                 return Ok(());
             }
-            
+
             // Handle type annotations
             let lhs = lhs.split(':').next().unwrap_or(lhs);
-            
+
             // Handle tuple unpacking
             for name in lhs.split(',') {
-                let name = name.trim()
+                let name = name
+                    .trim()
                     .trim_start_matches('(')
                     .trim_end_matches(')')
                     .trim();
@@ -535,7 +550,7 @@ impl AstObfuscator {
         let scope_idx = *self.scope_stack.last().expect("scope stack non-empty");
         let scope_depth = self.scope_stack.len() - 1;
         let is_class_scope = self.scopes[scope_idx].scope_type == ScopeType::Class;
-        
+
         let info = NameInfo {
             original: name.to_string(),
             obfuscated: None,
@@ -545,7 +560,7 @@ impl AstObfuscator {
             is_class_attr: is_class_scope || self.class_attrs.contains(name),
             line,
         };
-        
+
         self.scopes[scope_idx].names.insert(name.to_string(), info);
     }
 
@@ -553,7 +568,7 @@ impl AstObfuscator {
     fn generate_obfuscated_names(&mut self) -> ProtectResult<()> {
         // Collect all names that should be obfuscated
         let mut names_to_obfuscate: Vec<(String, usize)> = Vec::new();
-        
+
         for (scope_idx, scope) in self.scopes.iter().enumerate() {
             for (name, info) in &scope.names {
                 if self.should_obfuscate_name(name, info, scope) {
@@ -561,7 +576,7 @@ impl AstObfuscator {
                 }
             }
         }
-        
+
         // Generate obfuscated names
         for (name, _scope_idx) in names_to_obfuscate {
             if !self.name_map.contains_key(&name) {
@@ -569,7 +584,7 @@ impl AstObfuscator {
                 self.name_map.insert(name, obfuscated);
             }
         }
-        
+
         Ok(())
     }
 
@@ -579,37 +594,37 @@ impl AstObfuscator {
         if self.preserved.contains(name) {
             return false;
         }
-        
+
         // Don't obfuscate dunder names
         if name.starts_with("__") && name.ends_with("__") {
             return false;
         }
-        
+
         // Don't obfuscate exported names
         if info.is_exported {
             return false;
         }
-        
+
         // Don't obfuscate imported names
         if self.imports.contains(name) {
             return false;
         }
-        
+
         // Don't obfuscate global/nonlocal declarations (they reference other scopes)
         if scope.globals.contains(name) || scope.nonlocals.contains(name) {
             return false;
         }
-        
+
         // For basic level, only obfuscate local variables (not definitions)
         if self.level == ObfuscationLevel::Basic {
             return info.context == NameContext::Store || info.context == NameContext::Parameter;
         }
-        
+
         // Don't obfuscate class attributes at standard level
         if self.level == ObfuscationLevel::Standard && info.is_class_attr {
             return false;
         }
-        
+
         true
     }
 
@@ -623,21 +638,21 @@ impl AstObfuscator {
     /// Transform source code by replacing names
     fn transform_source(&self, source: &str) -> ProtectResult<String> {
         let mut result = source.to_string();
-        
+
         // Sort names by length (longest first) to avoid partial replacements
         let mut sorted_names: Vec<_> = self.name_map.iter().collect();
         sorted_names.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
-        
+
         for (original, obfuscated) in sorted_names {
             // Use word boundary matching
             let pattern = format!(r"\b{}\b", regex::escape(original));
             let re = regex::Regex::new(&pattern)
                 .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
-            
+
             // Don't replace in strings and comments
             result = self.replace_preserving_strings(&result, &re, obfuscated)?;
         }
-        
+
         Ok(result)
     }
 
@@ -650,39 +665,34 @@ impl AstObfuscator {
     ) -> ProtectResult<String> {
         let mut result = String::new();
         let mut chars = source.chars().peekable();
-        let mut current_pos = 0;
         let mut in_string = false;
         let mut string_char = '"';
         let mut in_comment = false;
         let mut triple_quote = false;
-        
+
         while let Some(c) = chars.next() {
             if in_comment {
                 result.push(c);
                 if c == '\n' {
                     in_comment = false;
                 }
-                current_pos += c.len_utf8();
                 continue;
             }
-            
+
             if in_string {
                 result.push(c);
                 if c == '\\' {
                     // Escape sequence
                     if let Some(next) = chars.next() {
                         result.push(next);
-                        current_pos += next.len_utf8();
                     }
                 } else if c == string_char {
                     if triple_quote {
                         // Check for closing triple quote
                         if chars.peek() == Some(&string_char) {
                             result.push(chars.next().unwrap());
-                            current_pos += 1;
                             if chars.peek() == Some(&string_char) {
                                 result.push(chars.next().unwrap());
-                                current_pos += 1;
                                 in_string = false;
                                 triple_quote = false;
                             }
@@ -691,44 +701,39 @@ impl AstObfuscator {
                         in_string = false;
                     }
                 }
-                current_pos += c.len_utf8();
                 continue;
             }
-            
+
             // Check for comment start
             if c == '#' {
                 in_comment = true;
                 result.push(c);
-                current_pos += c.len_utf8();
                 continue;
             }
-            
+
             // Check for string start
             if c == '"' || c == '\'' {
                 string_char = c;
                 result.push(c);
-                
+
                 // Check for triple quote
                 if chars.peek() == Some(&c) {
                     result.push(chars.next().expect("peeked Some"));
-                    current_pos += 1;
                     if chars.peek() == Some(&c) {
                         result.push(chars.next().expect("peeked Some"));
-                        current_pos += 1;
                         triple_quote = true;
                     }
                 }
-                
+
                 in_string = true;
-                current_pos += c.len_utf8();
                 continue;
             }
-            
+
             // Check if we're at a potential identifier
             if c.is_alphabetic() || c == '_' {
                 let start_pos = result.len();
                 result.push(c);
-                
+
                 // Collect the full identifier
                 while let Some(&next) = chars.peek() {
                     if next.is_alphanumeric() || next == '_' {
@@ -737,7 +742,7 @@ impl AstObfuscator {
                         break;
                     }
                 }
-                
+
                 // Check if this identifier should be replaced
                 let identifier = &result[start_pos..];
                 if pattern.is_match(identifier) {
@@ -748,10 +753,8 @@ impl AstObfuscator {
             } else {
                 result.push(c);
             }
-            
-            current_pos += c.len_utf8();
         }
-        
+
         Ok(result)
     }
 
@@ -764,18 +767,18 @@ _0xT = (lambda: (lambda x: x(x))(lambda y: True))()
 _0xF = (lambda: (lambda x: x(x))(lambda y: False))()
 _0xN = lambda f: (lambda x: f(lambda v: x(x)(v)))(lambda x: f(lambda v: x(x)(v)))
 "#;
-        
+
         // Wrap conditions with opaque predicates
         let result = format!("{}\n{}", header, source);
-        
+
         // Add opaque predicates to if statements
         let if_pattern = regex::Regex::new(r"(?m)^(\s*)(if\s+)(.+?)(:)")
             .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
-        
+
         let result = if_pattern
             .replace_all(&result, "${1}${2}(_0xT and (${3}))${4}")
             .to_string();
-        
+
         Ok(result)
     }
 
@@ -784,7 +787,7 @@ _0xN = lambda f: (lambda x: f(lambda v: x(x)(v)))(lambda x: f(lambda v: x(x)(v))
         let key = self.string_key.ok_or_else(|| {
             ProtectError::Obfuscation("String encryption key not set".to_string())
         })?;
-        
+
         // Add decryption function
         let decrypt_func = format!(
             r#"
@@ -792,9 +795,12 @@ def _0xS(s):
     k = bytes([{}])
     return bytes([c ^ k[i % len(k)] for i, c in enumerate(s)]).decode('utf-8')
 "#,
-            key.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", ")
+            key.iter()
+                .map(|b| b.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         );
-        
+
         Ok(format!("{}\n{}", decrypt_func, source))
     }
 
@@ -808,7 +814,7 @@ if _0xF:
     _0xD3 = {k: v for k, v in zip(_0xD2, reversed(_0xD2))}
     _0xD4 = type('_0xC', (), {'__init__': lambda s: None})()
 "#;
-        
+
         Ok(format!("{}\n{}", dead_code, source))
     }
 
@@ -821,37 +827,169 @@ if _0xF:
 /// Python built-in names that should not be obfuscated
 const PYTHON_BUILTINS: &[&str] = &[
     // Built-in functions
-    "abs", "all", "any", "ascii", "bin", "bool", "breakpoint", "bytearray",
-    "bytes", "callable", "chr", "classmethod", "compile", "complex", "delattr",
-    "dict", "dir", "divmod", "enumerate", "eval", "exec", "filter", "float",
-    "format", "frozenset", "getattr", "globals", "hasattr", "hash", "help",
-    "hex", "id", "input", "int", "isinstance", "issubclass", "iter", "len",
-    "list", "locals", "map", "max", "memoryview", "min", "next", "object",
-    "oct", "open", "ord", "pow", "print", "property", "range", "repr",
-    "reversed", "round", "set", "setattr", "slice", "sorted", "staticmethod",
-    "str", "sum", "super", "tuple", "type", "vars", "zip",
+    "abs",
+    "all",
+    "any",
+    "ascii",
+    "bin",
+    "bool",
+    "breakpoint",
+    "bytearray",
+    "bytes",
+    "callable",
+    "chr",
+    "classmethod",
+    "compile",
+    "complex",
+    "delattr",
+    "dict",
+    "dir",
+    "divmod",
+    "enumerate",
+    "eval",
+    "exec",
+    "filter",
+    "float",
+    "format",
+    "frozenset",
+    "getattr",
+    "globals",
+    "hasattr",
+    "hash",
+    "help",
+    "hex",
+    "id",
+    "input",
+    "int",
+    "isinstance",
+    "issubclass",
+    "iter",
+    "len",
+    "list",
+    "locals",
+    "map",
+    "max",
+    "memoryview",
+    "min",
+    "next",
+    "object",
+    "oct",
+    "open",
+    "ord",
+    "pow",
+    "print",
+    "property",
+    "range",
+    "repr",
+    "reversed",
+    "round",
+    "set",
+    "setattr",
+    "slice",
+    "sorted",
+    "staticmethod",
+    "str",
+    "sum",
+    "super",
+    "tuple",
+    "type",
+    "vars",
+    "zip",
     // Built-in constants
-    "True", "False", "None", "Ellipsis", "NotImplemented",
+    "True",
+    "False",
+    "None",
+    "Ellipsis",
+    "NotImplemented",
     // Built-in exceptions
-    "Exception", "BaseException", "TypeError", "ValueError", "KeyError",
-    "IndexError", "AttributeError", "ImportError", "RuntimeError",
-    "StopIteration", "OSError", "IOError", "FileNotFoundError",
+    "Exception",
+    "BaseException",
+    "TypeError",
+    "ValueError",
+    "KeyError",
+    "IndexError",
+    "AttributeError",
+    "ImportError",
+    "RuntimeError",
+    "StopIteration",
+    "OSError",
+    "IOError",
+    "FileNotFoundError",
     // Common names
-    "self", "cls", "args", "kwargs",
+    "self",
+    "cls",
+    "args",
+    "kwargs",
     // Dunder names (handled separately, but included for completeness)
-    "__init__", "__new__", "__del__", "__repr__", "__str__", "__bytes__",
-    "__format__", "__lt__", "__le__", "__eq__", "__ne__", "__gt__", "__ge__",
-    "__hash__", "__bool__", "__getattr__", "__setattr__", "__delattr__",
-    "__dir__", "__get__", "__set__", "__delete__", "__call__", "__len__",
-    "__getitem__", "__setitem__", "__delitem__", "__iter__", "__next__",
-    "__contains__", "__add__", "__sub__", "__mul__", "__truediv__",
-    "__floordiv__", "__mod__", "__pow__", "__and__", "__or__", "__xor__",
-    "__neg__", "__pos__", "__abs__", "__invert__", "__enter__", "__exit__",
-    "__await__", "__aiter__", "__anext__", "__aenter__", "__aexit__",
-    "__name__", "__module__", "__qualname__", "__doc__", "__dict__",
-    "__class__", "__bases__", "__mro__", "__subclasses__", "__file__",
-    "__path__", "__package__", "__spec__", "__loader__", "__cached__",
-    "__all__", "__slots__", "__annotations__",
+    "__init__",
+    "__new__",
+    "__del__",
+    "__repr__",
+    "__str__",
+    "__bytes__",
+    "__format__",
+    "__lt__",
+    "__le__",
+    "__eq__",
+    "__ne__",
+    "__gt__",
+    "__ge__",
+    "__hash__",
+    "__bool__",
+    "__getattr__",
+    "__setattr__",
+    "__delattr__",
+    "__dir__",
+    "__get__",
+    "__set__",
+    "__delete__",
+    "__call__",
+    "__len__",
+    "__getitem__",
+    "__setitem__",
+    "__delitem__",
+    "__iter__",
+    "__next__",
+    "__contains__",
+    "__add__",
+    "__sub__",
+    "__mul__",
+    "__truediv__",
+    "__floordiv__",
+    "__mod__",
+    "__pow__",
+    "__and__",
+    "__or__",
+    "__xor__",
+    "__neg__",
+    "__pos__",
+    "__abs__",
+    "__invert__",
+    "__enter__",
+    "__exit__",
+    "__await__",
+    "__aiter__",
+    "__anext__",
+    "__aenter__",
+    "__aexit__",
+    "__name__",
+    "__module__",
+    "__qualname__",
+    "__doc__",
+    "__dict__",
+    "__class__",
+    "__bases__",
+    "__mro__",
+    "__subclasses__",
+    "__file__",
+    "__path__",
+    "__package__",
+    "__spec__",
+    "__loader__",
+    "__cached__",
+    "__all__",
+    "__slots__",
+    "__annotations__",
 ];
 
 #[cfg(test)]
@@ -861,7 +999,7 @@ mod tests {
     #[test]
     fn test_ast_obfuscator_basic() {
         let mut obfuscator = AstObfuscator::new(ObfuscationLevel::Standard);
-        
+
         let source = r#"
 def calculate(x, y):
     result = x + y
@@ -870,9 +1008,9 @@ def calculate(x, y):
 total = calculate(1, 2)
 print(total)
 "#;
-        
+
         let result = obfuscator.obfuscate(source).unwrap();
-        
+
         // Function name should be obfuscated
         assert!(!result.contains("def calculate"));
         // Parameters should be obfuscated
@@ -886,7 +1024,7 @@ print(total)
     #[test]
     fn test_preserve_exports() {
         let mut obfuscator = AstObfuscator::new(ObfuscationLevel::Standard);
-        
+
         let source = r#"
 __all__ = ['public_func']
 
@@ -896,9 +1034,9 @@ def public_func():
 def _private_func():
     pass
 "#;
-        
+
         let result = obfuscator.obfuscate(source).unwrap();
-        
+
         // Exported name should be preserved
         assert!(result.contains("public_func"));
         // Private name should be obfuscated
@@ -908,14 +1046,14 @@ def _private_func():
     #[test]
     fn test_preserve_strings() {
         let mut obfuscator = AstObfuscator::new(ObfuscationLevel::Standard);
-        
+
         let source = r#"
 message = "hello world"
 name = 'test'
 "#;
-        
+
         let result = obfuscator.obfuscate(source).unwrap();
-        
+
         // Strings should be preserved
         assert!(result.contains("\"hello world\""));
         assert!(result.contains("'test'"));
@@ -924,7 +1062,7 @@ name = 'test'
     #[test]
     fn test_imports_preserved() {
         let mut obfuscator = AstObfuscator::new(ObfuscationLevel::Standard);
-        
+
         let source = r#"
 import os
 from pathlib import Path
@@ -932,9 +1070,9 @@ from pathlib import Path
 path = Path(".")
 os.getcwd()
 "#;
-        
+
         let result = obfuscator.obfuscate(source).unwrap();
-        
+
         // Imported names should be preserved
         assert!(result.contains("import os"));
         assert!(result.contains("Path"));

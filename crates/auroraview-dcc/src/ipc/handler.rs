@@ -1,9 +1,11 @@
 //! IPC handler and router
 
-use super::message::{IpcMessage, IpcResponse};
-use dashmap::DashMap;
 use std::sync::Arc;
+
+use dashmap::DashMap;
 use tracing::{debug, warn};
+
+use super::message::{IpcMessage, IpcResponse};
 
 /// Callback type for IPC handlers
 pub type IpcCallback = Box<dyn Fn(serde_json::Value) -> serde_json::Value + Send + Sync>;

@@ -300,15 +300,6 @@ impl BrowserBridgePlugin {
         }
     }
 
-    /// Emit event to frontend
-    #[allow(dead_code)]
-    fn emit_event(&self, event: &str, data: Value) {
-        let cb = self.event_callback.read();
-        if let Some(callback) = cb.as_ref() {
-            callback(event, data);
-        }
-    }
-
     /// Start the bridge servers
     fn start(&self, opts: StartOptions) -> PluginResult<Value> {
         {
