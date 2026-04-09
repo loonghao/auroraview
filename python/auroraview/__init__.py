@@ -278,7 +278,7 @@ def diagnose_core_library() -> dict:
         result["path_check_error"] = str(e)
 
     # Check sys.path
-    result["sys_path"] = sys.path[:10]  # First 10 entries
+    result["sys_path"] = _sys.path[:10]  # First 10 entries
 
     return result
 
@@ -412,6 +412,13 @@ except ImportError as e:
     _HAS_QT = False
     _QT_IMPORT_ERROR = str(e)
 
+# Submodule imports for organized access
+from . import core  # auroraview.core - WebView, Backend, Settings, Cookies
+from . import integration  # auroraview.integration - AuroraView, Bridge, Qt
+from . import ui  # auroraview.ui - DOM, Menu
+from . import utils  # auroraview.utils - EventTimer, FileProtocol, Automation
+from . import browser  # auroraview.browser - Browser, TabContainer
+
 # Backward-compatibility aliases for old import paths
 # These allow: from auroraview.webview import WebView
 # and: from auroraview.event_timer import EventTimer
@@ -441,13 +448,6 @@ def on_event(event_name: str):
 
     return decorator
 
-
-# Submodule imports for organized access
-from . import core  # auroraview.core - WebView, Backend, Settings, Cookies
-from . import integration  # auroraview.integration - AuroraView, Bridge, Qt
-from . import ui  # auroraview.ui - DOM, Menu
-from . import utils  # auroraview.utils - EventTimer, FileProtocol, Automation
-from . import browser  # auroraview.browser - Browser, TabContainer
 from . import (
     features,
 )  # auroraview.features - Bookmarks, History, Downloads, Settings, Notifications
