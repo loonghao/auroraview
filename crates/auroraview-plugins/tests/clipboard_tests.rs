@@ -238,9 +238,153 @@ fn concurrent_write_text_invalid() {
     }
 }
 
+
 // ---------------------------------------------------------------------------
-// Display-required tests (ignored in CI)
+// R11 Extensions
 // ---------------------------------------------------------------------------
+
+#[test]
+fn clipboard_plugin_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<ClipboardPlugin>();
+}
+
+#[test]
+fn write_text_options_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<WriteTextOptions>();
+}
+
+#[rstest]
+#[case("has_text")]
+#[case("clear")]
+#[case("read_text")]
+#[case("write_text")]
+fn each_valid_command_is_in_commands_list(#[case] cmd: &str) {
+    let plugin = ClipboardPlugin::new();
+    assert!(plugin.commands().contains(&cmd), "{} should be in commands", cmd);
+}
+
+#[rstest]
+#[case(" ")]
+#[case("Read_Text")]
+#[case("CLEAR")]
+#[case("HAS_TEXT")]
+#[case("clipboard.read")]
+fn case_sensitive_command_lookup_fails(#[case] cmd: &str) {
+    let plugin = ClipboardPlugin::new();
+    let scope = ScopeConfig::new();
+    let result = plugin.handle(cmd, serde_json::json!({}), &scope);
+    assert!(result.is_err(), "Command '{}' should fail case-sensitive check", cmd);
+}
+
+#[test]
+fn plugin_commands_count_is_four() {
+    let plugin = ClipboardPlugin::new();
+    assert_eq!(plugin.commands().len(), 4);
+}
+
+#[test]
+fn plugin_name_is_stable_across_calls() {
+    let plugin = ClipboardPlugin::new();
+    assert_eq!(plugin.name(), plugin.name());
+}
+
+#[test]
+fn write_text_options_field_is_named_text() {
+    let json = serde_json::json!({ "text": "check field name" });
+    let opts: WriteTextOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.text, "check field name");
+}
+
+#[test]
+fn write_text_options_backslash_path() {
+    let text = r"C:\Users\test\Documents\file.txt";
+    let json = serde_json::json!({ "text": text });
+    let opts: WriteTextOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.text, text);
+}
+
+#[test]
+fn write_text_options_null_bytes() {
+    // Null bytes in text (JSON string)
+    let text = "before\0after";
+    let json = serde_json::json!({ "text": text });
+    let opts: WriteTextOptions = serde_json::from_value(json).unwrap();
+    assert!(opts.text.contains("before"));
+}
+
+#[test]
+fn write_text_options_only_spaces() {
+    let json = serde_json::json!({ "text": "     " });
+    let opts: WriteTextOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.text.len(), 5);
+}
+
+#[test]
+fn unknown_command_error_code_not_empty() {
+    let plugin = ClipboardPlugin::new();
+    let scope = ScopeConfig::new();
+    let err = plugin.handle("nope", serde_json::json!({}), &scope).unwrap_err();
+    assert!(!err.code().is_empty());
+}
+
+#[test]
+fn plugin_default_equals_new() {
+    let p1 = ClipboardPlugin::new();
+    let p2 = ClipboardPlugin::default();
+    assert_eq!(p1.name(), p2.name());
+    assert_eq!(p1.commands(), p2.commands());
+}
+
+#[rstest]
+#[case(0)]
+#[case(1)]
+#[case(100)]
+#[case(1000)]
+#[case(10000)]
+fn write_text_options_various_lengths(#[case] len: usize) {
+    let text = "a".repeat(len);
+    let json = serde_json::json!({ "text": text });
+    let opts: WriteTextOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.text.len(), len);
+}
+
+#[test]
+fn write_text_options_emoji_text() {
+    let text = "🦀🦁🦄🌈💎";
+    let json = serde_json::json!({ "text": text });
+    let opts: WriteTextOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.text, text);
+}
+
+#[test]
+fn write_text_options_arabic_text() {
+    let text = "مرحبا بالعالم";
+    let json = serde_json::json!({ "text": text });
+    let opts: WriteTextOptions = serde_json::from_value(json).unwrap();
+    assert_eq!(opts.text, text);
+}
+
+#[test]
+fn unknown_command_error_is_source_diagnostic() {
+    let plugin = ClipboardPlugin::new();
+    let scope = ScopeConfig::new();
+    // Verify that error from unknown command is deterministic
+    let err1 = plugin.handle("bad_cmd", serde_json::json!({}), &scope).unwrap_err();
+    let err2 = plugin.handle("bad_cmd", serde_json::json!({}), &scope).unwrap_err();
+    assert_eq!(err1.code(), err2.code());
+}
+
+#[test]
+fn plugin_multiple_instances_same_commands() {
+    let plugins: Vec<_> = (0..5).map(|_| ClipboardPlugin::new()).collect();
+    let first_cmds = plugins[0].commands();
+    for p in &plugins[1..] {
+        assert_eq!(p.commands(), first_cmds);
+    }
+}
+
 
 #[test]
 #[ignore = "Requires display server"]
