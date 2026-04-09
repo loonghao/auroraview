@@ -239,6 +239,7 @@ fn test_overlay_nonexistent_file_returns_error() {
     assert!(result.is_err() || !result.unwrap_or(true));
 }
 
+
 #[test]
 fn test_overlay_get_original_size_no_overlay() {
     let temp = NamedTempFile::new().unwrap();
@@ -247,3 +248,138 @@ fn test_overlay_get_original_size_no_overlay() {
     let size = OverlayReader::get_original_size(temp.path()).unwrap();
     assert!(size.is_none());
 }
+
+// ─── New: additional overlay tests ────────────────────────────────────────────
+
+#[test]
+fn test_overlay_data_new_empty_assets() {
+    let config = PackConfig::url("https://example.com");
+    let data = OverlayData::new(config);
+    assert_eq!(data.assets.len(), 0);
+}
+
+#[test]
+fn test_overlay_data_add_and_count_assets() {
+    let config = PackConfig::url("https://example.com");
+    let mut data = OverlayData::new(config);
+    data.add_asset("a.js", b"alert(1)".to_vec());
+    data.add_asset("b.css", b"body{}".to_vec());
+    data.add_asset("c.html", b"<h1/>".to_vec());
+    assert_eq!(data.assets.len(), 3);
+}
+
+#[test]
+fn test_overlay_roundtrip_zero_assets() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"tiny-bin").unwrap();
+
+    let config = PackConfig::url("https://zero.example.com").with_title("ZeroAssets");
+    let data = OverlayData::new(config);
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.config.window.title, "ZeroAssets");
+    assert_eq!(read.assets.len(), 0);
+}
+
+#[test]
+fn test_overlay_roundtrip_unicode_asset_name() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"bin").unwrap();
+
+    let config = PackConfig::url("https://example.com");
+    let mut data = OverlayData::new(config);
+    data.add_asset("资产/index.html", b"<h1>unicode</h1>".to_vec());
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.assets.len(), 1);
+}
+
+#[test]
+fn test_overlay_roundtrip_large_asset() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"bin").unwrap();
+
+    let config = PackConfig::url("https://example.com");
+    let mut data = OverlayData::new(config);
+    let large: Vec<u8> = (0u8..=255u8).cycle().take(65536).collect();
+    data.add_asset("large.bin", large.clone());
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.assets.len(), 1);
+}
+
+#[test]
+fn test_overlay_write_level_1() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"binary").unwrap();
+
+    let config = PackConfig::url("https://example.com").with_title("FastCompress");
+    let mut data = OverlayData::new(config);
+    data.add_asset("index.js", b"var x=1;".to_vec());
+    OverlayWriter::write_with_level(temp.path(), &data, 1).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.config.window.title, "FastCompress");
+    assert_eq!(read.assets.len(), 1);
+}
+
+#[test]
+fn test_overlay_config_size_roundtrip() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"bin").unwrap();
+
+    let config = PackConfig::url("https://example.com")
+        .with_title("SizeTest")
+        .with_size(1920, 1080);
+    let data = OverlayData::new(config);
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.config.window.width, 1920);
+    assert_eq!(read.config.window.height, 1080);
+}
+
+#[test]
+fn test_overlay_same_content_same_hash() {
+    let config1 = PackConfig::url("https://example.com");
+    let mut data1 = OverlayData::new(config1);
+    data1.add_asset("f.js", b"same".to_vec());
+
+    let config2 = PackConfig::url("https://example.com");
+    let mut data2 = OverlayData::new(config2);
+    data2.add_asset("f.js", b"same".to_vec());
+
+    assert_eq!(data1.compute_content_hash(), data2.compute_content_hash());
+}
+
+#[test]
+fn test_overlay_has_overlay_true_after_write() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"exe").unwrap();
+
+    let config = PackConfig::url("https://example.com");
+    let data = OverlayData::new(config);
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    assert!(OverlayReader::has_overlay(temp.path()).unwrap());
+}
+
+#[test]
+fn test_overlay_file_size_increases_after_write() {
+    let original = b"small original binary";
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), original).unwrap();
+    let original_size = std::fs::metadata(temp.path()).unwrap().len();
+
+    let config = PackConfig::url("https://example.com");
+    let mut data = OverlayData::new(config);
+    data.add_asset("data.json", b"{\"key\":\"value\"}".to_vec());
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let new_size = std::fs::metadata(temp.path()).unwrap().len();
+    assert!(new_size > original_size, "File should grow after overlay write");
+}
+
