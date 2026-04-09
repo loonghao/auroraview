@@ -448,6 +448,7 @@ def on_event(event_name: str):
 
     return decorator
 
+
 from . import (
     features,
 )  # auroraview.features - Bookmarks, History, Downloads, Settings, Notifications

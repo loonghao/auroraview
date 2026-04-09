@@ -409,4 +409,3 @@ def deprecated(reason: str) -> Callable[[Callable], Callable]:
         return wrapper
 
     return decorator
-

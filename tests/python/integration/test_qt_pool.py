@@ -14,7 +14,6 @@ pytest.importorskip("qtpy", reason="Qt backend requires qtpy and Qt bindings")
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="WebView2 requires Windows")
 
 
-
 class TestWebViewPoolIntegration:
     """Integration tests for WebViewPool with actual WebView2."""
 

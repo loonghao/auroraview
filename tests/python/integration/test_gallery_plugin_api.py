@@ -32,7 +32,6 @@ def wait_for_events(
 
 
 class TestPluginManagerBasics:
-
     """Test PluginManager basic functionality."""
 
     def test_plugin_manager_import(self):
@@ -254,7 +253,6 @@ class TestProcessPluginEvents:
         stdout_events = wait_for_events(events, "process:stdout")
         assert stdout_events
 
-
         # Verify event data
         event_data = stdout_events[0][1]
         assert event_data.get("pid") == pid
@@ -288,7 +286,6 @@ class TestProcessPluginEvents:
 
         exit_events = wait_for_events(events, "process:exit")
         assert exit_events
-
 
         # Verify event data
         event_data = exit_events[0][1]
@@ -372,7 +369,6 @@ class TestGalleryAPISimulation:
 
         stdout_events = wait_for_events(events, "process:stdout")
         assert stdout_events
-
 
         # Simulate kill_process API call - THIS IS THE KEY TEST
         # The frontend now sends { pid: number } instead of just number
