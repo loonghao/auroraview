@@ -1,6 +1,7 @@
 //! Tests for DCC error types
 
 use auroraview_dcc::error::DccError;
+use rstest::rstest;
 
 // ============================================================================
 // DccError variant tests
@@ -103,3 +104,123 @@ fn io_error_permission_denied() {
     assert!(msg.contains("IO error"));
     assert!(msg.contains("access denied"));
 }
+
+// ============================================================================
+// Send + Sync bounds
+// ============================================================================
+
+#[test]
+fn dcc_error_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<DccError>();
+}
+
+// ============================================================================
+// Debug output contains all variant names
+// ============================================================================
+
+#[rstest]
+#[case(DccError::WebViewCreation("x".into()), "WebViewCreation")]
+#[case(DccError::WindowNotFound("x".into()), "WindowNotFound")]
+#[case(DccError::UnsupportedDcc("x".into()), "UnsupportedDcc")]
+#[case(DccError::Threading("x".into()), "Threading")]
+fn debug_contains_variant(#[case] err: DccError, #[case] variant: &str) {
+    let debug = format!("{:?}", err);
+    assert!(debug.contains(variant), "Debug should contain '{}': {}", variant, debug);
+}
+
+// ============================================================================
+// Display messages contain the inner string
+// ============================================================================
+
+#[rstest]
+#[case(DccError::WebViewCreation("my-detail".into()), "my-detail")]
+#[case(DccError::WindowNotFound("blender_main".into()), "blender_main")]
+#[case(DccError::UnsupportedDcc("Nuke15".into()), "Nuke15")]
+#[case(DccError::Threading("race condition".into()), "race condition")]
+fn display_contains_inner_string(#[case] err: DccError, #[case] expected: &str) {
+    assert!(
+        err.to_string().contains(expected),
+        "Display should contain '{}': {}",
+        expected, err
+    );
+}
+
+// ============================================================================
+// IoError source chain
+// ============================================================================
+
+#[test]
+fn io_error_has_source() {
+    use std::error::Error;
+    let io_err = std::io::Error::new(std::io::ErrorKind::BrokenPipe, "pipe broken");
+    let dcc_err = DccError::from(io_err);
+    assert!(dcc_err.source().is_some());
+}
+
+#[test]
+fn string_variants_have_no_source() {
+    use std::error::Error;
+    let err = DccError::WindowNotFound("w".into());
+    assert!(err.source().is_none());
+}
+
+// ============================================================================
+// InvalidParent has no source
+// ============================================================================
+
+#[test]
+fn invalid_parent_has_no_source() {
+    use std::error::Error;
+    let err = DccError::InvalidParent;
+    assert!(err.source().is_none());
+}
+
+// ============================================================================
+// Concurrent error creation
+// ============================================================================
+
+#[test]
+fn concurrent_dcc_error_creation() {
+    use std::sync::{Arc, Mutex};
+    let results: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let results = Arc::clone(&results);
+            std::thread::spawn(move || {
+                let err = DccError::WindowNotFound(format!("window_{}", i));
+                results.lock().unwrap().push(err.to_string());
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+    let collected = results.lock().unwrap();
+    assert_eq!(collected.len(), 8);
+}
+
+// ============================================================================
+// Long string payloads
+// ============================================================================
+
+#[test]
+fn long_payload_preserved() {
+    let long = "A".repeat(500);
+    let e = DccError::WebViewCreation(long.clone());
+    assert!(e.to_string().contains(&long));
+}
+
+// ============================================================================
+// IoError different kinds
+// ============================================================================
+
+#[rstest]
+#[case(std::io::ErrorKind::TimedOut, "timed out")]
+#[case(std::io::ErrorKind::WouldBlock, "would block")]
+fn io_error_various_kinds(#[case] kind: std::io::ErrorKind, #[case] msg: &str) {
+    let io_err = std::io::Error::new(kind, msg);
+    let dcc_err: DccError = io_err.into();
+    assert!(dcc_err.to_string().contains(msg));
+}
+

@@ -267,3 +267,125 @@ async fn current_session_after_new() {
     let current = agent.current_session().await;
     assert!(current.is_some());
 }
+
+// ============================================================================
+// AIConfig clone and debug
+// ============================================================================
+
+#[test]
+fn config_clone() {
+    let config = AIConfig::openai().with_temperature(0.3).with_max_tokens(512);
+    let cloned = config.clone();
+    assert_eq!(cloned.model, config.model);
+    assert_eq!(cloned.temperature, config.temperature);
+    assert_eq!(cloned.max_tokens, config.max_tokens);
+}
+
+#[test]
+fn config_debug_non_empty() {
+    let config = AIConfig::anthropic();
+    let dbg = format!("{:?}", config);
+    assert!(!dbg.is_empty());
+}
+
+// ============================================================================
+// ProviderType clone and all variants debug
+// ============================================================================
+
+#[test]
+fn provider_type_clone() {
+    let pt = ProviderType::Gemini;
+    let cloned = pt.clone();
+    assert_eq!(pt, cloned);
+}
+
+#[rstest]
+#[case(ProviderType::OpenAI)]
+#[case(ProviderType::Anthropic)]
+#[case(ProviderType::Gemini)]
+#[case(ProviderType::DeepSeek)]
+fn provider_type_debug_non_empty(#[case] pt: ProviderType) {
+    let dbg = format!("{:?}", pt);
+    assert!(!dbg.is_empty());
+}
+
+// ============================================================================
+// AIConfig — all provider constructors produce the expected model
+// ============================================================================
+
+#[test]
+fn openai_config_model_non_empty() {
+    let config = AIConfig::openai();
+    assert!(!config.model.is_empty());
+}
+
+#[rstest]
+#[case(AIConfig::openai(), "gpt-4o")]
+#[case(AIConfig::anthropic(), "claude-3-5-sonnet-20241022")]
+#[case(AIConfig::gemini(), "gemini-2.0-flash-exp")]
+#[case(AIConfig::deepseek(), "deepseek-chat")]
+fn all_provider_configs_have_model(#[case] config: AIConfig, #[case] expected_model: &str) {
+    assert_eq!(config.model, expected_model);
+}
+
+// ============================================================================
+// AIAgent — concurrent creation
+// ============================================================================
+
+#[test]
+fn concurrent_agent_creation() {
+    let handles: Vec<_> = (0..4)
+        .map(|_| {
+            std::thread::spawn(|| {
+                let config = AIConfig::openai();
+                AIAgent::new(config)
+            })
+        })
+        .collect();
+    let agents: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+    assert_eq!(agents.len(), 4);
+    for agent in &agents {
+        assert_eq!(agent.config().model, "gpt-4o");
+    }
+}
+
+// ============================================================================
+// AIAgent — multiple sessions
+// ============================================================================
+
+#[tokio::test]
+async fn multiple_new_sessions_reset_messages() {
+    let config = AIConfig::openai();
+    let agent = AIAgent::new(config);
+    let _s1 = agent.new_session().await;
+    let s2 = agent.new_session().await;
+    // Each new session starts fresh
+    assert!(s2.messages.is_empty());
+}
+
+#[tokio::test]
+async fn clear_session_gives_empty_messages() {
+    let config = AIConfig::openai();
+    let agent = AIAgent::new(config);
+    let _ = agent.new_session().await;
+    agent.clear_session().await;
+    let session = agent.current_session().await.unwrap();
+    assert!(session.messages.is_empty());
+}
+
+// ============================================================================
+// action_names contains expected tools
+// ============================================================================
+
+#[tokio::test]
+async fn action_names_contains_type() {
+    let config = AIConfig::openai();
+    let agent = AIAgent::new(config);
+    let names = agent.action_names().await;
+    // Should contain at least one of the standard tools
+    let has_tool = names.iter().any(|n| {
+        n.contains("navigate") || n.contains("click") || n.contains("search") || n.contains("screenshot")
+    });
+    assert!(has_tool, "Expected at least one tool in: {:?}", names);
+}
+
