@@ -397,3 +397,81 @@ fn pack_args_dimensions(#[case] w: u32, #[case] h: u32) {
     assert_eq!(args.width, Some(w));
     assert_eq!(args.height, Some(h));
 }
+
+// ---------------------------------------------------------------------------
+// R15 Additional args tests
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn run_args_title_short_flag() {
+    let args =
+        RunArgs::try_parse_from(["run", "--url", "https://a.com", "-t", "Short Title"]).unwrap();
+    assert_eq!(args.title, "Short Title");
+}
+
+#[rstest]
+fn run_args_title_empty_string() {
+    let args =
+        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--title", ""]).unwrap();
+    assert_eq!(args.title, "");
+}
+
+#[rstest]
+fn run_args_width_zero() {
+    let args = RunArgs::try_parse_from(["run", "--url", "https://a.com", "--width", "0"]).unwrap();
+    assert_eq!(args.width, 0);
+}
+
+#[rstest]
+fn run_args_height_zero() {
+    let args =
+        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--height", "0"]).unwrap();
+    assert_eq!(args.height, 0);
+}
+
+#[rstest]
+fn pack_args_build_flag() {
+    let args = PackArgs::try_parse_from(["pack", "--build"]).unwrap();
+    assert!(args.build);
+}
+
+#[rstest]
+fn pack_args_debug_flag() {
+    let args = PackArgs::try_parse_from(["pack", "--debug"]).unwrap();
+    assert!(args.debug);
+}
+
+#[rstest]
+fn pack_args_title_long_string() {
+    let title = "A Very Long Application Title That Could Be Used";
+    let args =
+        PackArgs::try_parse_from(["pack", "--title", title]).unwrap();
+    assert_eq!(args.title.as_deref(), Some(title));
+}
+
+#[rstest]
+fn pack_args_user_agent_empty() {
+    let args = PackArgs::try_parse_from(["pack", "--user-agent", ""]).unwrap();
+    assert_eq!(args.user_agent.as_deref(), Some(""));
+}
+
+#[rstest]
+fn run_args_url_file_scheme() {
+    let args =
+        RunArgs::try_parse_from(["run", "--url", "file:///home/user/app/index.html"]).unwrap();
+    assert_eq!(
+        args.url.as_deref(),
+        Some("file:///home/user/app/index.html")
+    );
+}
+
+#[rstest]
+#[case("https://a.com", "ATitle")]
+#[case("http://localhost:5173", "Dev Mode")]
+#[case("file:///dist/index.html", "Local App")]
+fn run_args_url_and_title_pairs(#[case] url: &str, #[case] title: &str) {
+    let args =
+        RunArgs::try_parse_from(["run", "--url", url, "--title", title]).unwrap();
+    assert_eq!(args.url.as_deref(), Some(url));
+    assert_eq!(args.title, title);
+}
