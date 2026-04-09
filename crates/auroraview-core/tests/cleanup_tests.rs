@@ -197,3 +197,145 @@ fn get_cleanup_stats_concurrent_calls() {
         handle.join().expect("Thread should not panic");
     }
 }
+
+// ============================================================================
+// CleanupStats arithmetic and edge values
+// ============================================================================
+
+#[test]
+fn cleanup_stats_large_values() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: usize::MAX,
+        alive_dirs: usize::MAX - 1,
+        stale_dirs: 1,
+        stale_size_bytes: u64::MAX,
+    };
+    assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
+    assert_eq!(stats.stale_size_bytes, u64::MAX);
+}
+
+#[test]
+fn cleanup_stats_single_stale_dir() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 1,
+        alive_dirs: 0,
+        stale_dirs: 1,
+        stale_size_bytes: 512,
+    };
+    assert_eq!(stats.total_dirs, 1);
+    assert_eq!(stats.stale_size_bytes, 512);
+}
+
+#[test]
+fn cleanup_stats_single_alive_dir() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 1,
+        alive_dirs: 1,
+        stale_dirs: 0,
+        stale_size_bytes: 0,
+    };
+    assert_eq!(stats.alive_dirs, 1);
+    assert_eq!(stats.stale_dirs, 0);
+}
+
+// ============================================================================
+// get_webview_base_dir consistency
+// ============================================================================
+
+#[test]
+fn get_webview_base_dir_consistent_across_calls() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let dir1 = get_webview_base_dir();
+        let dir2 = get_webview_base_dir();
+        // Must return the same path consistently
+        assert_eq!(dir1, dir2);
+    }
+}
+
+#[test]
+fn get_webview_base_dir_is_absolute_path() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        if let Some(path) = get_webview_base_dir() {
+            assert!(path.is_absolute(), "Base dir should be absolute: {:?}", path);
+        }
+    }
+}
+
+// ============================================================================
+// get_process_data_dir consistency
+// ============================================================================
+
+#[test]
+fn get_process_data_dir_consistent_across_calls() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let dir1 = get_process_data_dir();
+        let dir2 = get_process_data_dir();
+        assert_eq!(dir1, dir2, "Process data dir should be stable within the same process");
+    }
+}
+
+#[test]
+fn get_process_data_dir_is_absolute_path() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        if let Some(path) = get_process_data_dir() {
+            assert!(path.is_absolute(), "Process data dir should be absolute: {:?}", path);
+        }
+    }
+}
+
+#[test]
+fn get_process_data_dir_contains_base_dir() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let base = get_webview_base_dir();
+        let proc = get_process_data_dir();
+        if let (Some(base_path), Some(proc_path)) = (base, proc) {
+            // The process data dir should be a subdirectory of the base dir
+            assert!(
+                proc_path.starts_with(&base_path),
+                "Process dir {:?} should be under base dir {:?}",
+                proc_path,
+                base_path
+            );
+        }
+    }
+}
+
+// ============================================================================
+// get_cleanup_stats invariant deeper checks
+// ============================================================================
+
+#[test]
+fn get_cleanup_stats_stale_size_is_nonnegative() {
+    let stats = get_cleanup_stats();
+    // stale_size_bytes is u64 so always >= 0; if no stale dirs, should be 0
+    if stats.stale_dirs == 0 {
+        assert_eq!(stats.stale_size_bytes, 0, "no stale dirs → size should be 0");
+    }
+}
+
+#[test]
+fn get_cleanup_stats_alive_le_total() {
+    let stats = get_cleanup_stats();
+    assert!(
+        stats.alive_dirs <= stats.total_dirs,
+        "alive_dirs {} should be <= total_dirs {}",
+        stats.alive_dirs,
+        stats.total_dirs
+    );
+}
+
+#[test]
+fn get_cleanup_stats_stale_le_total() {
+    let stats = get_cleanup_stats();
+    assert!(
+        stats.stale_dirs <= stats.total_dirs,
+        "stale_dirs {} should be <= total_dirs {}",
+        stats.stale_dirs,
+        stats.total_dirs
+    );
+}

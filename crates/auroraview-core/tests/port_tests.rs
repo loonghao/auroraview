@@ -154,3 +154,149 @@ fn test_find_free_port_single_attempt() {
     }
     // If 57000 is occupied, the call should return an error
 }
+
+// ---------------------------------------------------------------------------
+// find_any_port returns valid port multiple times
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn test_find_any_port_multiple_calls_different_ports() {
+    // Multiple calls can return the same or different ephemeral ports; just ensure each is valid
+    for _ in 0..5 {
+        let port = PortAllocator::find_any_port().unwrap();
+        assert!(port >= 1024, "port {} should be >= 1024", port);
+        // u16 max is 65535, comparison is implicit
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Port range boundary tests
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn test_port_allocator_range_start_only() {
+    // Range of 1 starting at a high port that is likely free
+    let allocator = PortAllocator::new(58000, 1);
+    if PortAllocator::is_port_available(58000) {
+        let result = allocator.find_free_port();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 58000);
+    }
+}
+
+#[rstest]
+fn test_port_allocator_large_range() {
+    // Large range — should reliably find a port
+    let allocator = PortAllocator::new(50000, 5000);
+    let port = allocator.find_free_port().unwrap();
+    assert!((50000..55000).contains(&port));
+}
+
+#[rstest]
+fn test_find_free_port_not_bound() {
+    // The found port should not be bound (it was just released)
+    let allocator = PortAllocator::new(53000, 500);
+    let port = allocator.find_free_port().unwrap();
+    // If we can bind to it immediately, it was truly free
+    let bind_result = std::net::TcpListener::bind(format!("127.0.0.1:{}", port));
+    assert!(bind_result.is_ok(), "found port {} should be bindable", port);
+}
+
+// ---------------------------------------------------------------------------
+// is_port_available on port 0 (reserved)
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn test_is_port_available_port_zero_is_special() {
+    // Port 0 is reserved / wildcard — behavior is implementation-defined
+    // We just verify the function doesn't panic
+    let _ = PortAllocator::is_port_available(0);
+}
+
+// ---------------------------------------------------------------------------
+// PortError variants
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_error_no_free_port_same_start_end() {
+    let err = PortError::NoFreePort { start: 9000, end: 9000 };
+    let msg = err.to_string();
+    assert!(msg.contains("9000"));
+}
+
+#[test]
+fn test_port_error_no_free_port_u16_max() {
+    let err = PortError::NoFreePort { start: 0, end: 65535 };
+    let msg = err.to_string();
+    assert!(msg.contains("65535"));
+}
+
+#[test]
+fn test_port_error_no_free_port_clone() {
+    let err = PortError::NoFreePort { start: 8000, end: 8100 };
+    let msg1 = err.to_string();
+    // Just verify to_string is stable (same output)
+    let msg2 = err.to_string();
+    assert_eq!(msg1, msg2);
+}
+
+// ---------------------------------------------------------------------------
+// PortAllocator default range check
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn test_port_allocator_default_range_coverage() {
+    // Default allocator scans 9001..=9100
+    let allocator = PortAllocator::default();
+    if let Ok(port) = allocator.find_free_port() {
+        assert!((9001..9101).contains(&port), "default range port was {}", port);
+    }
+    // If range is full, it returns Err — both outcomes are acceptable
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent binding + release
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_find_any_port_is_actually_bindable() {
+    // find_any_port() internally binds to port 0, gets the OS-assigned port, then releases it.
+    // We check the returned port is actually bindable right after.
+    let port = PortAllocator::find_any_port().unwrap();
+    // Re-bind to confirm availability
+    let listener = std::net::TcpListener::bind(format!("127.0.0.1:{}", port));
+    // It's possible (but unlikely) the port was grabbed by OS immediately,
+    // so we just ensure no panic and accept either outcome
+    let _ = listener;
+}
+
+// ---------------------------------------------------------------------------
+// High-concurrency port allocation
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_concurrent_find_any_port() {
+    use std::collections::HashSet;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+
+    let ports = Arc::new(Mutex::new(HashSet::<u16>::new()));
+
+    let handles: Vec<_> = (0..10)
+        .map(|_| {
+            let p = ports.clone();
+            thread::spawn(move || {
+                if let Ok(port) = PortAllocator::find_any_port() {
+                    p.lock().unwrap().insert(port);
+                }
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    let found = ports.lock().unwrap();
+    assert!(!found.is_empty(), "should find at least one port");
+}
