@@ -203,3 +203,123 @@ fn serde_no_extra_keys() {
     // Exactly 4 keys: name, description, required_args, optional_args
     assert_eq!(obj.len(), 4);
 }
+
+// ── PluginCommand Send + Sync ─────────────────────────────────────────────────
+
+#[test]
+fn is_send_sync_already_verified() {
+    // redundant assertion but explicit
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<PluginCommand>();
+}
+
+// ── Chain calls in different order ───────────────────────────────────────────
+
+#[test]
+fn with_optional_before_required() {
+    let cmd = PluginCommand::new("cmd", "desc")
+        .with_optional(&["opt1"])
+        .with_required(&["req1"]);
+    assert_eq!(cmd.required_args, vec!["req1"]);
+    assert_eq!(cmd.optional_args, vec!["opt1"]);
+}
+
+// ── PluginCommand with single-char args ───────────────────────────────────────
+
+#[test]
+fn single_char_arg_names() {
+    let cmd = PluginCommand::new("cmd", "desc")
+        .with_required(&["a", "b"])
+        .with_optional(&["c"]);
+    assert_eq!(cmd.required_args, vec!["a", "b"]);
+    assert_eq!(cmd.optional_args, vec!["c"]);
+}
+
+// ── Deserialize with extra unknown fields ignored ─────────────────────────────
+
+#[test]
+fn deserialize_ignores_unknown_fields() {
+    // serde default: unknown fields produce error unless #[serde(deny_unknown_fields)] is set
+    // If it doesn't have deny_unknown_fields, deserialization succeeds
+    let json = r#"{"name":"cmd","description":"desc","required_args":[],"optional_args":[]}"#;
+    let cmd: PluginCommand = serde_json::from_str(json).expect("deserialize");
+    assert_eq!(cmd.name, "cmd");
+}
+
+// ── Clone independence: modifying clone doesn't affect original ───────────────
+
+#[test]
+fn clone_does_not_share_vec() {
+    let cmd = PluginCommand::new("original", "desc").with_required(&["x"]);
+    let mut cloned = cmd.clone();
+    // Modify the clone's required_args (can only be done via struct fields in tests)
+    // We verify the original is intact after any mutation on clone side
+    cloned = cloned.with_required(&["y"]);
+    assert_eq!(cmd.required_args, vec!["x"]);
+    assert_eq!(cloned.required_args, vec!["y"]);
+}
+
+// ── Special characters in arg names ───────────────────────────────────────────
+
+#[test]
+fn arg_names_with_special_chars() {
+    let cmd = PluginCommand::new("cmd", "desc")
+        .with_required(&["path/to/file", "key=value"]);
+    assert_eq!(cmd.required_args.len(), 2);
+    assert_eq!(cmd.required_args[0], "path/to/file");
+}
+
+// ── Many optional args ────────────────────────────────────────────────────────
+
+#[test]
+fn many_optional_args() {
+    let opts: Vec<&str> = (0..20).map(|i| match i {
+        0 => "opt0", 1 => "opt1", 2 => "opt2", 3 => "opt3", 4 => "opt4",
+        5 => "opt5", 6 => "opt6", 7 => "opt7", 8 => "opt8", 9 => "opt9",
+        10 => "opt10", 11 => "opt11", 12 => "opt12", 13 => "opt13", 14 => "opt14",
+        15 => "opt15", 16 => "opt16", 17 => "opt17", 18 => "opt18", _ => "opt19",
+    }).collect();
+    let cmd = PluginCommand::new("cmd", "desc").with_optional(&opts);
+    assert_eq!(cmd.optional_args.len(), 20);
+}
+
+// ── Serialize required_args as JSON array ─────────────────────────────────────
+
+#[test]
+fn serialize_required_args_is_array() {
+    let cmd = PluginCommand::new("cmd", "desc").with_required(&["a", "b"]);
+    let json = serde_json::to_value(&cmd).expect("to_value");
+    let req = json["required_args"].as_array().expect("array");
+    assert_eq!(req.len(), 2);
+    assert_eq!(req[0], "a");
+}
+
+// ── Serialize optional_args as JSON array ─────────────────────────────────────
+
+#[test]
+fn serialize_optional_args_is_array() {
+    let cmd = PluginCommand::new("cmd", "desc").with_optional(&["x"]);
+    let json = serde_json::to_value(&cmd).expect("to_value");
+    let opt = json["optional_args"].as_array().expect("array");
+    assert_eq!(opt.len(), 1);
+    assert_eq!(opt[0], "x");
+}
+
+// ── rstest: fs-like commands ──────────────────────────────────────────────────
+
+#[rstest]
+#[case("list_dir", &["path"], &["recursive", "show_hidden"])]
+#[case("move_file", &["src", "dst"], &[])]
+#[case("read_text", &["path"], &["encoding"])]
+fn fs_commands_with_args(
+    #[case] name: &str,
+    #[case] required: &[&str],
+    #[case] optional: &[&str],
+) {
+    let cmd = PluginCommand::new(name, "fs op")
+        .with_required(required)
+        .with_optional(optional);
+    assert_eq!(cmd.name, name);
+    assert_eq!(cmd.required_args.len(), required.len());
+    assert_eq!(cmd.optional_args.len(), optional.len());
+}

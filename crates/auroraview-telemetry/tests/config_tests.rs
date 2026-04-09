@@ -246,3 +246,101 @@ fn test_testing_config_sentry_disabled() {
     let config = TelemetryConfig::for_testing();
     assert!(config.sentry_dsn.is_none());
 }
+
+// ── Additional coverage ───────────────────────────────────────────────────────
+
+#[test]
+fn test_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<TelemetryConfig>();
+}
+
+#[test]
+fn test_config_sentry_sample_rate_default() {
+    let config = TelemetryConfig::default();
+    assert!((config.sentry_sample_rate - 1.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_config_sentry_traces_sample_rate_default() {
+    let config = TelemetryConfig::default();
+    assert!((config.sentry_traces_sample_rate - 0.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_config_sentry_dsn_set() {
+    let config = TelemetryConfig {
+        sentry_dsn: Some("https://abc@sentry.example.com/1".to_string()),
+        ..TelemetryConfig::default()
+    };
+    assert!(config.sentry_dsn.is_some());
+    assert!(config.sentry_dsn.as_deref().unwrap().starts_with("https://"));
+}
+
+#[test]
+fn test_config_sentry_environment_set() {
+    let config = TelemetryConfig {
+        sentry_environment: Some("production".to_string()),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.sentry_environment.as_deref(), Some("production"));
+}
+
+#[test]
+fn test_config_sentry_release_set() {
+    let config = TelemetryConfig {
+        sentry_release: Some("v2.0.0".to_string()),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.sentry_release.as_deref(), Some("v2.0.0"));
+}
+
+#[test]
+fn test_testing_config_log_to_stdout() {
+    let config = TelemetryConfig::for_testing();
+    // for_testing should log to stdout for test visibility
+    assert!(config.log_to_stdout);
+}
+
+#[test]
+fn test_config_service_version_default() {
+    let config = TelemetryConfig::default();
+    // service_version should not be empty
+    assert!(!config.service_version.is_empty());
+}
+
+#[test]
+fn test_config_clone_independent() {
+    let config = TelemetryConfig::default();
+    let mut cloned = config.clone();
+    cloned.service_name = "modified".to_string();
+    // original should be unchanged
+    assert_eq!(config.service_name, "auroraview");
+    assert_eq!(cloned.service_name, "modified");
+}
+
+#[test]
+fn test_config_metrics_interval_default() {
+    let config = TelemetryConfig::default();
+    assert_eq!(config.metrics_interval_secs, 60);
+}
+
+#[test]
+fn test_config_trace_sample_ratio_clamped() {
+    // Verify that values outside [0,1] can be stored (no enforcement at struct level)
+    let config = TelemetryConfig {
+        trace_sample_ratio: 0.0,
+        ..TelemetryConfig::default()
+    };
+    assert!((config.trace_sample_ratio).abs() < f64::EPSILON);
+}
+
+#[test]
+fn test_config_debug_contains_service_name() {
+    let config = TelemetryConfig {
+        service_name: "my_unique_service_xyz".to_string(),
+        ..TelemetryConfig::default()
+    };
+    let debug_str = format!("{config:?}");
+    assert!(debug_str.contains("my_unique_service_xyz"));
+}

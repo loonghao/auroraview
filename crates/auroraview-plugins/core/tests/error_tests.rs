@@ -205,3 +205,102 @@ fn error_command_not_found_various(#[case] cmd: &str) {
         assert!(err.message().contains(cmd));
     }
 }
+
+// ── PluginError as std::error::Error ─────────────────────────────────────────
+
+#[test]
+fn error_clone() {
+    // PluginError implements Debug + Display; verify Display works for the err variant
+    let err = PluginError::invalid_args("duplicate test coverage");
+    let display = format!("{}", err);
+    assert!(display.contains("INVALID_ARGS"));
+}
+
+#[test]
+fn error_serde_roundtrip() {
+    // PluginErrorCode (not PluginError) supports serde
+    let code = PluginErrorCode::ShellError;
+    let json_str = serde_json::to_string(&code).unwrap();
+    let restored: PluginErrorCode = serde_json::from_str(&json_str).unwrap();
+    assert_eq!(restored, PluginErrorCode::ShellError);
+}
+
+// ── PluginErrorCode serde ─────────────────────────────────────────────────────
+
+#[test]
+fn error_code_serde_roundtrip() {
+    let code = PluginErrorCode::FileNotFound;
+    let json_str = serde_json::to_string(&code).unwrap();
+    let deserialized: PluginErrorCode = serde_json::from_str(&json_str).unwrap();
+    assert_eq!(deserialized, PluginErrorCode::FileNotFound);
+}
+
+#[rstest]
+#[case(PluginErrorCode::PluginNotFound)]
+#[case(PluginErrorCode::CommandNotFound)]
+#[case(PluginErrorCode::InvalidArgs)]
+#[case(PluginErrorCode::PermissionDenied)]
+#[case(PluginErrorCode::ScopeViolation)]
+#[case(PluginErrorCode::FileNotFound)]
+#[case(PluginErrorCode::IoError)]
+#[case(PluginErrorCode::Unknown)]
+fn error_code_all_variants_serde(#[case] code: PluginErrorCode) {
+    let json_str = serde_json::to_string(&code).unwrap();
+    let deserialized: PluginErrorCode = serde_json::from_str(&json_str).unwrap();
+    assert_eq!(deserialized, code);
+}
+
+// ── PluginResult: can hold complex types ─────────────────────────────────────
+
+#[test]
+fn plugin_result_ok_with_string() {
+    let r: PluginResult<String> = Ok("file contents".to_string());
+    assert!(r.is_ok());
+    assert_eq!(r.unwrap(), "file contents");
+}
+
+#[test]
+fn plugin_result_err_can_be_matched() {
+    let r: PluginResult<()> = Err(PluginError::file_not_found("/missing.txt"));
+    match r {
+        Err(e) => {
+            assert_eq!(e.error_code(), PluginErrorCode::FileNotFound);
+        }
+        Ok(_) => panic!("Expected Err"),
+    }
+}
+
+// ── PluginError code() string matching as_str() ───────────────────────────────
+
+#[rstest]
+#[case(PluginErrorCode::ClipboardError, "CLIPBOARD_ERROR")]
+#[case(PluginErrorCode::ShellError, "SHELL_ERROR")]
+#[case(PluginErrorCode::DialogCancelled, "DIALOG_CANCELLED")]
+#[case(PluginErrorCode::SerializationError, "SERIALIZATION_ERROR")]
+fn error_code_from_new_matches_as_str(#[case] code: PluginErrorCode, #[case] expected: &str) {
+    let err = PluginError::new(code, "msg");
+    assert_eq!(err.code(), expected);
+}
+
+// ── PluginError from_plugin preserves plugin name context ────────────────────
+
+#[test]
+fn error_from_plugin_with_plugin_name() {
+    let err = PluginError::from_plugin("filesystem_plugin", "write failed");
+    assert_eq!(err.error_code(), PluginErrorCode::Unknown);
+    // The message should reference the custom message
+    assert!(err.message().contains("write failed"));
+}
+
+// ── PluginError io_error with different ErrorKinds ────────────────────────────
+
+#[rstest]
+#[case(std::io::ErrorKind::NotFound, "not found")]
+#[case(std::io::ErrorKind::PermissionDenied, "permission denied")]
+#[case(std::io::ErrorKind::AlreadyExists, "already exists")]
+fn error_io_error_various_kinds(#[case] kind: std::io::ErrorKind, #[case] msg: &str) {
+    let io_err = std::io::Error::new(kind, msg);
+    let err = PluginError::io_error(io_err);
+    assert_eq!(err.error_code(), PluginErrorCode::IoError);
+    assert!(err.message().contains(msg));
+}

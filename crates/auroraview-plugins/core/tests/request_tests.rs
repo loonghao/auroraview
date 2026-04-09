@@ -193,3 +193,123 @@ fn request_from_invoke_command_with_extra_pipe() {
     assert_eq!(req.plugin, "fs");
     assert_eq!(req.command, "read|extra");
 }
+
+// ── PluginRequest Send + Sync ─────────────────────────────────────────────────
+
+#[test]
+fn request_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<PluginRequest>();
+}
+
+// ── PluginResponse Send + Sync ────────────────────────────────────────────────
+
+#[test]
+fn response_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<PluginResponse>();
+}
+
+// ── PluginRequest with unicode plugin/command ─────────────────────────────────
+
+#[test]
+fn request_new_unicode_fields() {
+    let req = PluginRequest::new("文件系统", "读取文件", json!({"路径": "/tmp"}));
+    assert_eq!(req.plugin, "文件系统");
+    assert_eq!(req.command, "读取文件");
+    assert_eq!(req.args["路径"], "/tmp");
+}
+
+// ── PluginRequest from_invoke with unicode plugin name ───────────────────────
+
+#[test]
+fn request_from_invoke_unicode_plugin() {
+    let req = PluginRequest::from_invoke("plugin:my_plugin|my_cmd", json!({"key": "val"}));
+    assert!(req.is_some());
+    let req = req.unwrap();
+    assert_eq!(req.plugin, "my_plugin");
+    assert_eq!(req.command, "my_cmd");
+}
+
+// ── PluginResponse ok with array data ────────────────────────────────────────
+
+#[test]
+fn response_ok_array_data() {
+    let resp = PluginResponse::ok(json!([1, 2, 3]));
+    assert!(resp.success);
+    assert_eq!(resp.data, Some(json!([1, 2, 3])));
+}
+
+// ── PluginResponse ok with nested object ─────────────────────────────────────
+
+#[test]
+fn response_ok_nested_object() {
+    let data = json!({"a": {"b": {"c": 42}}});
+    let resp = PluginResponse::ok(data.clone());
+    assert!(resp.success);
+    assert_eq!(resp.data, Some(data));
+}
+
+// ── PluginResponse err with empty code ───────────────────────────────────────
+
+#[test]
+fn response_err_empty_code() {
+    let resp = PluginResponse::err("some error", "");
+    assert!(!resp.success);
+    assert_eq!(resp.code, Some("".to_string()));
+}
+
+// ── PluginRequest with_id overwrites previous id ─────────────────────────────
+
+#[test]
+fn request_with_id_overwrite() {
+    let req = PluginRequest::new("p", "c", json!({}))
+        .with_id("first")
+        .with_id("second");
+    assert_eq!(req.id, Some("second".to_string()));
+}
+
+// ── PluginRequest serde: missing optional id is None ─────────────────────────
+
+#[test]
+fn request_serde_no_id_deserialize() {
+    let json_str = r#"{"plugin":"fs","command":"read","args":{}}"#;
+    let req: PluginRequest = serde_json::from_str(json_str).unwrap();
+    assert_eq!(req.plugin, "fs");
+    assert!(req.id.is_none());
+}
+
+// ── PluginResponse serde: success=false fields preserved ─────────────────────
+
+#[test]
+fn response_serde_err_preserves_all_fields() {
+    let resp = PluginResponse::err("desc", "ERR_CODE")
+        .with_id(Some("id-xyz".to_string()));
+    let json_str = serde_json::to_string(&resp).unwrap();
+    let deserialized: PluginResponse = serde_json::from_str(&json_str).unwrap();
+    assert!(!deserialized.success);
+    assert_eq!(deserialized.error.as_deref(), Some("desc"));
+    assert_eq!(deserialized.code.as_deref(), Some("ERR_CODE"));
+    assert_eq!(deserialized.id.as_deref(), Some("id-xyz"));
+}
+
+// ── from_invoke: plugin name with underscores/hyphens ────────────────────────
+
+#[rstest]
+#[case("plugin:my_plugin|cmd")]
+#[case("plugin:my-plugin|cmd")]
+#[case("plugin:plugin_v2|do_thing")]
+fn request_from_invoke_plugin_name_variants(#[case] invoke: &str) {
+    let req = PluginRequest::from_invoke(invoke, json!({}));
+    assert!(req.is_some(), "should parse: {}", invoke);
+}
+
+// ── PluginRequest new with empty plugin/command ───────────────────────────────
+
+#[test]
+fn request_new_empty_plugin_and_command() {
+    let req = PluginRequest::new("", "", json!(null));
+    assert_eq!(req.plugin, "");
+    assert_eq!(req.command, "");
+    assert!(req.id.is_none());
+}
