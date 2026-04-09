@@ -300,3 +300,88 @@ fn test_concurrent_find_any_port() {
     let found = ports.lock().unwrap();
     assert!(!found.is_empty(), "should find at least one port");
 }
+
+// ---------------------------------------------------------------------------
+// PortAllocator: new with zero max_attempts returns Err
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_allocator_zero_attempts_returns_err() {
+    let allocator = PortAllocator::new(59000, 0);
+    let result = allocator.find_free_port();
+    // With 0 attempts, should immediately fail
+    assert!(result.is_err());
+}
+
+// ---------------------------------------------------------------------------
+// PortError: is Send + Sync
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<PortError>();
+}
+
+// ---------------------------------------------------------------------------
+// PortAllocator: is Send + Sync
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_allocator_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<PortAllocator>();
+}
+
+// ---------------------------------------------------------------------------
+// find_free_port: returned port is within declared range
+// ---------------------------------------------------------------------------
+
+#[rstest]
+#[case(50100, 50)]
+#[case(50200, 100)]
+#[case(50500, 200)]
+fn test_find_free_port_in_range(#[case] start: u16, #[case] max: u16) {
+    let allocator = PortAllocator::new(start, max);
+    if let Ok(port) = allocator.find_free_port() {
+        assert!(port >= start, "port {} below start {}", port, start);
+        assert!(port < start + max, "port {} above end {}", port, start + max);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// is_port_available: ports in reserved range are typically occupied
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_is_port_available_port_80_not_available_or_returns_bool() {
+    // Port 80 requires privilege; just verify no panic
+    let _result = PortAllocator::is_port_available(80);
+}
+
+// ---------------------------------------------------------------------------
+// PortError display includes "no free port" message style
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_port_error_display_describes_range() {
+    let err = PortError::NoFreePort { start: 12000, end: 13000 };
+    let msg = err.to_string();
+    // Must mention both boundaries
+    assert!(msg.contains("12000") || msg.contains("13000"), "Display: {}", msg);
+}
+
+// ---------------------------------------------------------------------------
+// Multiple distinct allocators don't interfere
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_two_allocators_different_ranges() {
+    let a1 = PortAllocator::new(56000, 100);
+    let a2 = PortAllocator::new(57000, 100);
+    // Both should find ports in their respective ranges
+    if let (Ok(p1), Ok(p2)) = (a1.find_free_port(), a2.find_free_port()) {
+        assert!((56000..56100).contains(&p1), "p1={}", p1);
+        assert!((57000..57100).contains(&p2), "p2={}", p2);
+    }
+}

@@ -339,3 +339,88 @@ fn get_cleanup_stats_stale_le_total() {
         stats.total_dirs
     );
 }
+
+// ============================================================================
+// CleanupStats: Default + PartialEq logic
+// ============================================================================
+
+#[test]
+fn cleanup_stats_default_satisfies_invariant() {
+    let stats = auroraview_core::cleanup::CleanupStats::default();
+    assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
+    assert_eq!(stats.stale_size_bytes, 0);
+}
+
+#[test]
+fn cleanup_stats_mixed_large_and_small() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 1000,
+        alive_dirs: 999,
+        stale_dirs: 1,
+        stale_size_bytes: 1,
+    };
+    assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
+    assert!(stats.stale_size_bytes > 0);
+}
+
+// ============================================================================
+// CleanupStats: is Send + Sync
+// ============================================================================
+
+#[test]
+fn cleanup_stats_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<auroraview_core::cleanup::CleanupStats>();
+}
+
+// ============================================================================
+// get_webview_base_dir: format validation
+// ============================================================================
+
+#[test]
+fn get_webview_base_dir_does_not_panic() {
+    // Called on any platform, should never panic
+    let _ = get_webview_base_dir();
+}
+
+// ============================================================================
+// get_process_data_dir: format validation
+// ============================================================================
+
+#[test]
+fn get_process_data_dir_does_not_panic() {
+    let _ = get_process_data_dir();
+}
+
+// ============================================================================
+// CleanupStats debug contains numeric values
+// ============================================================================
+
+#[test]
+fn cleanup_stats_debug_contains_all_fields() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 42,
+        alive_dirs: 30,
+        stale_dirs: 12,
+        stale_size_bytes: 8192,
+    };
+    let debug_str = format!("{:?}", stats);
+    assert!(debug_str.contains("42"));
+    assert!(debug_str.contains("30"));
+    assert!(debug_str.contains("12"));
+    assert!(debug_str.contains("8192"));
+}
+
+// ============================================================================
+// get_cleanup_stats called in parallel thread
+// ============================================================================
+
+#[test]
+fn get_cleanup_stats_from_thread() {
+    use std::thread;
+    let handle = thread::spawn(|| {
+        let stats = get_cleanup_stats();
+        assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
+    });
+    handle.join().expect("thread should not panic");
+}

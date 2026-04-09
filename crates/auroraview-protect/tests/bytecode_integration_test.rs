@@ -306,3 +306,163 @@ fn test_wrong_p256_key_fails() {
     let decrypt_result = decrypt_hybrid(&result.modules[0].package, &key2.private_key);
     assert!(decrypt_result.is_err(), "Wrong P256 key should fail decryption");
 }
+
+// ─── BytecodeFile fields / debug ──────────────────────────────────────────────
+
+#[test]
+fn test_bytecode_file_debug_non_empty() {
+    let bf = BytecodeFile {
+        source: PathBuf::from("src.py"),
+        relative_path: PathBuf::from("src.py"),
+        module_name: "src".to_string(),
+        bytecode: vec![0xAA, 0xBB],
+        source_size: 10,
+    };
+    let debug_str = format!("{:?}", bf);
+    assert!(!debug_str.is_empty());
+}
+
+#[test]
+fn test_bytecode_file_empty_bytecode() {
+    let bf = BytecodeFile {
+        source: PathBuf::from("empty.py"),
+        relative_path: PathBuf::from("empty.py"),
+        module_name: "empty".to_string(),
+        bytecode: vec![],
+        source_size: 0,
+    };
+    assert!(bf.bytecode.is_empty());
+    assert_eq!(bf.source_size, 0);
+}
+
+#[test]
+fn test_bytecode_file_large_bytecode() {
+    let large = vec![0u8; 100_000];
+    let bf = BytecodeFile {
+        source: PathBuf::from("large.py"),
+        relative_path: PathBuf::from("large.py"),
+        module_name: "large".to_string(),
+        bytecode: large.clone(),
+        source_size: 100_000,
+    };
+    assert_eq!(bf.bytecode.len(), 100_000);
+}
+
+// ─── EccKeyPair Debug / Display ───────────────────────────────────────────────
+
+#[test]
+fn test_key_pair_debug_non_empty() {
+    let kp = EccKeyPair::generate(EccAlgorithm::X25519);
+    let debug_str = format!("{:?}", kp);
+    assert!(!debug_str.is_empty());
+}
+
+// ─── encrypt_bytecode: multiple modules ───────────────────────────────────────
+
+#[test]
+fn test_encrypt_multiple_modules() {
+    let bfiles: Vec<BytecodeFile> = (0..3)
+        .map(|i| BytecodeFile {
+            source: PathBuf::from(format!("mod{}.py", i)),
+            relative_path: PathBuf::from(format!("mod{}.py", i)),
+            module_name: format!("mod{}", i),
+            bytecode: vec![i as u8; 16],
+            source_size: 16,
+        })
+        .collect();
+
+    let kp = EccKeyPair::generate(EccAlgorithm::X25519);
+    let result = encrypt_bytecode(&bfiles, EccAlgorithm::X25519, Some(kp)).unwrap();
+    assert_eq!(result.modules.len(), 3);
+    for (i, m) in result.modules.iter().enumerate() {
+        assert_eq!(m.name, format!("mod{}", i));
+    }
+}
+
+// ─── EccAlgorithm PartialEq / Clone ───────────────────────────────────────────
+
+#[test]
+fn test_ecc_algorithm_eq() {
+    assert_eq!(EccAlgorithm::X25519, EccAlgorithm::X25519);
+    assert_eq!(EccAlgorithm::P256, EccAlgorithm::P256);
+    assert_ne!(EccAlgorithm::X25519, EccAlgorithm::P256);
+}
+
+#[test]
+fn test_ecc_algorithm_clone() {
+    let algo = EccAlgorithm::P256;
+    let cloned = algo.clone();
+    assert_eq!(algo, cloned);
+}
+
+// ─── X25519 encrypt and decrypt same data ─────────────────────────────────────
+
+#[test]
+fn test_encrypt_decrypt_x25519_raw_data() {
+    let data = b"hello world this is test data for encryption".to_vec();
+    let bf = BytecodeFile {
+        source: PathBuf::from("raw.py"),
+        relative_path: PathBuf::from("raw.py"),
+        module_name: "raw".to_string(),
+        bytecode: data.clone(),
+        source_size: data.len() as u64,
+    };
+
+    let kp = EccKeyPair::generate(EccAlgorithm::X25519);
+    let result = encrypt_bytecode(&[bf], EccAlgorithm::X25519, Some(kp.clone())).unwrap();
+    let decrypted = decrypt_hybrid(&result.modules[0].package, &kp.private_key).unwrap();
+    assert_eq!(decrypted, data);
+}
+
+// ─── P256 encrypt and decrypt same data ───────────────────────────────────────
+
+#[test]
+fn test_encrypt_decrypt_p256_raw_data() {
+    let data = b"p256 test payload content".to_vec();
+    let bf = BytecodeFile {
+        source: PathBuf::from("p256raw.py"),
+        relative_path: PathBuf::from("p256raw.py"),
+        module_name: "p256raw".to_string(),
+        bytecode: data.clone(),
+        source_size: data.len() as u64,
+    };
+
+    let kp = EccKeyPair::generate(EccAlgorithm::P256);
+    let result = encrypt_bytecode(&[bf], EccAlgorithm::P256, Some(kp.clone())).unwrap();
+    let decrypted = decrypt_hybrid(&result.modules[0].package, &kp.private_key).unwrap();
+    assert_eq!(decrypted, data);
+}
+
+// ─── Encryption result: module name matches input ─────────────────────────────
+
+#[test]
+fn test_encrypt_result_module_name() {
+    let bf = BytecodeFile {
+        source: PathBuf::from("my_module.py"),
+        relative_path: PathBuf::from("my_module.py"),
+        module_name: "my_module".to_string(),
+        bytecode: vec![1, 2, 3],
+        source_size: 3,
+    };
+    let kp = EccKeyPair::generate(EccAlgorithm::X25519);
+    let result = encrypt_bytecode(&[bf], EccAlgorithm::X25519, Some(kp)).unwrap();
+    assert_eq!(result.modules[0].name, "my_module");
+}
+
+// ─── EccAlgorithm serde ───────────────────────────────────────────────────────
+
+#[test]
+fn test_ecc_algorithm_x25519_serde() {
+    let algo = EccAlgorithm::X25519;
+    let json = serde_json::to_string(&algo).unwrap();
+    let restored: EccAlgorithm = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored, EccAlgorithm::X25519);
+}
+
+#[test]
+fn test_ecc_algorithm_p256_serde() {
+    let algo = EccAlgorithm::P256;
+    let json = serde_json::to_string(&algo).unwrap();
+    let restored: EccAlgorithm = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored, EccAlgorithm::P256);
+}
