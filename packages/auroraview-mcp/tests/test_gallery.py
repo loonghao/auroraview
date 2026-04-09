@@ -823,9 +823,7 @@ class TestListProcesses:
         mock_running.poll.return_value = None
 
         manager = ProcessManager()
-        manager.add(
-            ProcessInfo(pid=1111, name="sample_a", process=mock_running, port=9222)
-        )
+        manager.add(ProcessInfo(pid=1111, name="sample_a", process=mock_running, port=9222))
 
         with patch("auroraview_mcp.tools.gallery._process_manager", manager):
             result = await fn()
@@ -847,9 +845,7 @@ class TestListProcesses:
 
         manager = ProcessManager()
         # Bypass cleanup by adding after its initial scan
-        manager._processes[2222] = ProcessInfo(
-            pid=2222, name="sample_b", process=mock_terminated
-        )
+        manager._processes[2222] = ProcessInfo(pid=2222, name="sample_b", process=mock_terminated)
 
         with patch("auroraview_mcp.tools.gallery._process_manager", manager):
             result = await fn()
@@ -868,9 +864,7 @@ class TestListProcesses:
         mock_proc.poll.return_value = None
 
         manager = ProcessManager()
-        manager.add(
-            ProcessInfo(pid=3333, name="gallery", process=mock_proc, is_gallery=True)
-        )
+        manager.add(ProcessInfo(pid=3333, name="gallery", process=mock_proc, is_gallery=True))
 
         with patch("auroraview_mcp.tools.gallery._process_manager", manager):
             result = await fn()

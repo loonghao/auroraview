@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from auroraview_mcp.discovery import Instance, InstanceDiscovery
+from auroraview_mcp.discovery import InstanceDiscovery
 
 
 def _make_registry_file(
@@ -189,9 +189,7 @@ class TestDiscoverFallbackCDPProbe:
                 mock_client = AsyncMock()
                 mock_client.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_client.__aexit__ = AsyncMock(return_value=None)
-                mock_client.get = AsyncMock(
-                    side_effect=httpx.ConnectError("Connection refused")
-                )
+                mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
                 mock_client_cls.return_value = mock_client
 
                 discovery = InstanceDiscovery(default_ports=[9222, 9223])

@@ -18,7 +18,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ============================================================================
 # gallery: get_sample_info edge cases
 # ============================================================================
@@ -248,7 +247,9 @@ class TestGetGalleryStatusFileNotFound:
         from auroraview_mcp.tools.gallery import ProcessInfo, ProcessManager
 
         pm = ProcessManager()
-        proc_info = ProcessInfo(pid=1234, name="gallery", process=mock_process, port=9222, is_gallery=True)
+        proc_info = ProcessInfo(
+            pid=1234, name="gallery", process=mock_process, port=9222, is_gallery=True
+        )
         pm.add(proc_info)
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -279,7 +280,9 @@ class TestGetGalleryStatusFileNotFound:
         from auroraview_mcp.tools.gallery import ProcessInfo, ProcessManager
 
         pm = ProcessManager()
-        proc_info = ProcessInfo(pid=9999, name="gallery", process=mock_process, port=9222, is_gallery=True)
+        proc_info = ProcessInfo(
+            pid=9999, name="gallery", process=mock_process, port=9222, is_gallery=True
+        )
         pm.add(proc_info)
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -469,7 +472,11 @@ class TestDCCToolsNoneFallback:
         with patch("auroraview_mcp.tools.dcc.get_connection_manager", return_value=manager):
             from auroraview_mcp.tools.dcc import execute_dcc_command
 
-            fn = execute_dcc_command.fn if hasattr(execute_dcc_command, "fn") else execute_dcc_command
+            fn = (
+                execute_dcc_command.fn
+                if hasattr(execute_dcc_command, "fn")
+                else execute_dcc_command
+            )
             result = await fn("maya.cmds.ls")
 
         assert result["success"] is False
@@ -571,7 +578,11 @@ class TestTakeScreenshotSelectorNotFound:
 
         # Should have called send without clip param
         call_args = page_conn.send.call_args
-        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("params", call_args[0][1] if call_args[0] else {})
+        params = (
+            call_args[0][1]
+            if len(call_args[0]) > 1
+            else call_args[1].get("params", call_args[0][1] if call_args[0] else {})
+        )
         assert "clip" not in params
         assert result.startswith("data:image/png;base64,")
 
@@ -751,9 +762,7 @@ class TestEnrichDCCContextBranches:
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = [
-            {"title": "Autodesk Maya 2025", "url": "http://localhost"}
-        ]
+        mock_resp.json.return_value = [{"title": "Autodesk Maya 2025", "url": "http://localhost"}]
 
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -799,7 +808,9 @@ class TestEnrichDCCContextBranches:
         inst = Instance(port=9222, dcc_type=None)
         discovery = InstanceDiscovery()
 
-        with patch("auroraview_mcp.discovery.httpx.AsyncClient", side_effect=Exception("network error")):
+        with patch(
+            "auroraview_mcp.discovery.httpx.AsyncClient", side_effect=Exception("network error")
+        ):
             result = await discovery._enrich_dcc_context(inst)
 
         assert result.dcc_type is None
@@ -814,9 +825,7 @@ class TestEnrichDCCContextBranches:
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = [
-            {"title": "Generic Web App", "url": "http://generic.local"}
-        ]
+        mock_resp.json.return_value = [{"title": "Generic Web App", "url": "http://generic.local"}]
 
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -845,9 +854,11 @@ class TestDiscoverDCCInstancesEnrichment:
         inst = Instance(port=9222, dcc_type="maya")
         discovery = InstanceDiscovery()
 
-        with patch.object(discovery, "discover", return_value=[inst]):
-            with patch.object(discovery, "_enrich_dcc_context") as mock_enrich:
-                result = await discovery.discover_dcc_instances()
+        with (
+            patch.object(discovery, "discover", return_value=[inst]),
+            patch.object(discovery, "_enrich_dcc_context") as mock_enrich,
+        ):
+            result = await discovery.discover_dcc_instances()
 
         mock_enrich.assert_not_called()
         assert result[0].dcc_type == "maya"
@@ -861,11 +872,10 @@ class TestDiscoverDCCInstancesEnrichment:
         enriched_inst = Instance(port=9222, dcc_type="houdini")
         discovery = InstanceDiscovery()
 
-        with patch.object(discovery, "discover", return_value=[inst]):
-            with patch.object(
-                discovery, "_enrich_dcc_context", return_value=enriched_inst
-            ) as mock_enrich:
-                result = await discovery.discover_dcc_instances()
+        with patch.object(discovery, "discover", return_value=[inst]), patch.object(
+            discovery, "_enrich_dcc_context", return_value=enriched_inst
+        ) as mock_enrich:
+            result = await discovery.discover_dcc_instances()
 
         mock_enrich.assert_called_once_with(inst)
         assert result[0].dcc_type == "houdini"

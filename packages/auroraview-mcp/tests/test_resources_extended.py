@@ -20,7 +20,6 @@ import pytest
 
 from auroraview_mcp.discovery import Instance, InstanceDiscovery
 
-
 # ---------------------------------------------------------------------------
 # Instance.to_dict() complete field verification
 # ---------------------------------------------------------------------------
@@ -332,9 +331,7 @@ class TestGetSampleSourceResource:
         """Finds sample with _example suffix."""
         with tempfile.TemporaryDirectory() as tmp:
             examples_dir = Path(tmp)
-            (examples_dir / "tutorial_example.py").write_text(
-                "# example code", encoding="utf-8"
-            )
+            (examples_dir / "tutorial_example.py").write_text("# example code", encoding="utf-8")
 
             with patch(
                 "auroraview_mcp.resources.providers.get_examples_dir",
@@ -372,11 +369,7 @@ class TestGetLogsResourceEdgeCases:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn
-                if hasattr(get_logs_resource, "fn")
-                else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         data = json.loads(result)
@@ -395,11 +388,7 @@ class TestGetLogsResourceEdgeCases:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn
-                if hasattr(get_logs_resource, "fn")
-                else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         data = json.loads(result)
@@ -422,11 +411,7 @@ class TestGetLogsResourceEdgeCases:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn
-                if hasattr(get_logs_resource, "fn")
-                else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         data = json.loads(result)
@@ -453,11 +438,7 @@ class TestGetLogsResourceEdgeCases:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn
-                if hasattr(get_logs_resource, "fn")
-                else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         parsed = json.loads(result)
@@ -481,11 +462,7 @@ class TestGetLogsResourceEdgeCases:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn
-                if hasattr(get_logs_resource, "fn")
-                else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         parsed = json.loads(result)
@@ -512,11 +489,7 @@ class TestGetPageResourceEdgeCases:
         ):
             from auroraview_mcp.resources.providers import get_page_resource
 
-            fn = (
-                get_page_resource.fn
-                if hasattr(get_page_resource, "fn")
-                else get_page_resource
-            )
+            fn = get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
             result = await fn("nonexistent-id")
 
         data = json.loads(result)
@@ -539,11 +512,7 @@ class TestGetPageResourceEdgeCases:
         ):
             from auroraview_mcp.resources.providers import get_page_resource
 
-            fn = (
-                get_page_resource.fn
-                if hasattr(get_page_resource, "fn")
-                else get_page_resource
-            )
+            fn = get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
             result = await fn("missing-page-id")
 
         data = json.loads(result)
@@ -571,11 +540,7 @@ class TestGetPageResourceEdgeCases:
         ):
             from auroraview_mcp.resources.providers import get_page_resource
 
-            fn = (
-                get_page_resource.fn
-                if hasattr(get_page_resource, "fn")
-                else get_page_resource
-            )
+            fn = get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
             result = await fn("page-abc")
 
         data = json.loads(result)

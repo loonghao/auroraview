@@ -243,9 +243,7 @@ class TestInstanceDiscoveryRegistry:
                 "pid": 1234,
                 "app_name": "AuroraView",
             }
-            (instances_dir / "alive.json").write_text(
-                json.dumps(instance_data), encoding="utf-8"
-            )
+            (instances_dir / "alive.json").write_text(json.dumps(instance_data), encoding="utf-8")
 
             with (
                 patch("auroraview_mcp.discovery.get_instances_dir", return_value=instances_dir),
@@ -660,9 +658,7 @@ class TestInstanceDiscoveryEnrich:
 
         with (
             patch.object(discovery, "discover", new_callable=AsyncMock, return_value=instances),
-            patch.object(
-                discovery, "_enrich_dcc_context", new_callable=AsyncMock
-            ) as mock_enrich,
+            patch.object(discovery, "_enrich_dcc_context", new_callable=AsyncMock) as mock_enrich,
         ):
             result = await discovery.discover_dcc_instances()
 
@@ -678,9 +674,7 @@ class TestInstanceDiscoveryEnrich:
         enriched = Instance(port=9222, dcc_type="nuke", title="Nuke Panel")
 
         with (
-            patch.object(
-                discovery, "discover", new_callable=AsyncMock, return_value=[inst]
-            ),
+            patch.object(discovery, "discover", new_callable=AsyncMock, return_value=[inst]),
             patch.object(
                 discovery,
                 "_enrich_dcc_context",

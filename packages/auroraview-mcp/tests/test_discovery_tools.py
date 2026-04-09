@@ -14,10 +14,10 @@ import pytest
 from auroraview_mcp.connection import Page
 from auroraview_mcp.discovery import Instance
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_instance(**kwargs) -> Instance:
     defaults = {
@@ -43,6 +43,7 @@ def _make_page(**kwargs) -> Page:
 # ---------------------------------------------------------------------------
 # discover_instances
 # ---------------------------------------------------------------------------
+
 
 class TestDiscoverInstances:
     """Tests for discover_instances tool function."""
@@ -146,6 +147,7 @@ class TestDiscoverInstances:
 # connect
 # ---------------------------------------------------------------------------
 
+
 class TestConnect:
     """Tests for connect tool function."""
 
@@ -161,7 +163,9 @@ class TestConnect:
         mock_manager.select_page = AsyncMock(return_value=page)
         mock_manager.current_page = page
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             result = await connect(port=9222)
 
         assert result["status"] == "connected"
@@ -179,7 +183,9 @@ class TestConnect:
         mock_manager.select_page = AsyncMock(return_value=page)
         mock_manager.current_page = page
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             await connect(port=9223)
 
         mock_manager.connect.assert_called_once_with(9223)
@@ -196,7 +202,9 @@ class TestConnect:
         mock_manager.select_page = AsyncMock(return_value=page)
         mock_manager.current_page = page
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             await connect(port=9222)
 
         mock_manager.select_page.assert_called_once_with(page_id="first-page")
@@ -211,7 +219,9 @@ class TestConnect:
         mock_manager.get_pages = AsyncMock(return_value=[])
         mock_manager.current_page = None
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             result = await connect(port=9222)
 
         mock_manager.select_page.assert_not_called()
@@ -232,7 +242,9 @@ class TestConnect:
         mock_manager.select_page = AsyncMock(return_value=page1)
         mock_manager.current_page = page1
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             result = await connect(port=9222)
 
         assert len(result["pages"]) == 2
@@ -251,7 +263,9 @@ class TestConnect:
         mock_manager.select_page = AsyncMock(return_value=page)
         mock_manager.current_page = page
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             result = await connect(port=9222)
 
         assert result["current_page"] is not None
@@ -268,7 +282,9 @@ class TestConnect:
         mock_manager.get_pages = AsyncMock(return_value=[])
         mock_manager.current_page = None
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             result = await connect()
 
         mock_manager.connect.assert_called_once_with(9222)
@@ -278,6 +294,7 @@ class TestConnect:
 # ---------------------------------------------------------------------------
 # disconnect
 # ---------------------------------------------------------------------------
+
 
 class TestDisconnect:
     """Tests for disconnect tool function."""
@@ -291,7 +308,9 @@ class TestDisconnect:
         mock_manager.current_port = 9222
         mock_manager.disconnect = AsyncMock()
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             result = await disconnect()
 
         assert result["status"] == "disconnected"
@@ -305,7 +324,9 @@ class TestDisconnect:
         mock_manager.current_port = 9223
         mock_manager.disconnect = AsyncMock()
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             result = await disconnect()
 
         assert result["port"] == 9223
@@ -319,7 +340,9 @@ class TestDisconnect:
         mock_manager.current_port = 9222
         mock_manager.disconnect = AsyncMock()
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             await disconnect()
 
         mock_manager.disconnect.assert_called_once()
@@ -333,7 +356,9 @@ class TestDisconnect:
         mock_manager.current_port = None
         mock_manager.disconnect = AsyncMock()
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             result = await disconnect()
 
         assert result["port"] is None
@@ -356,7 +381,9 @@ class TestDisconnect:
 
         mock_manager.disconnect = fake_disconnect
 
-        with patch("auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager):
+        with patch(
+            "auroraview_mcp.tools.discovery.get_connection_manager", return_value=mock_manager
+        ):
             result = await disconnect()
 
         # The port in the result must be the value BEFORE disconnect cleared it
@@ -367,6 +394,7 @@ class TestDisconnect:
 # ---------------------------------------------------------------------------
 # list_dcc_instances
 # ---------------------------------------------------------------------------
+
 
 class TestListDCCInstances:
     """Tests for list_dcc_instances tool function."""
@@ -474,7 +502,9 @@ class TestListDCCInstances:
         mock_discovery = MagicMock()
         mock_discovery.discover_dcc_instances = AsyncMock(return_value=[])
 
-        with patch("auroraview_mcp.tools.discovery.get_discovery", return_value=mock_discovery) as mock_get:
+        with patch(
+            "auroraview_mcp.tools.discovery.get_discovery", return_value=mock_discovery
+        ) as mock_get:
             await list_dcc_instances()
 
         mock_get.assert_called_once()

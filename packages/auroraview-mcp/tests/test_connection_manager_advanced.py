@@ -6,7 +6,6 @@ select_page() fnmatch edge cases, and get_page_connection() behavior.
 
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -183,8 +182,13 @@ class TestConnectionManagerGetPages:
     async def test_get_pages_with_explicit_port(self) -> None:
         """get_pages() uses explicit port instead of current_port."""
         pages_data = [
-            {"id": "p1", "url": "http://localhost:8080", "title": "App", "type": "page",
-             "webSocketDebuggerUrl": "ws://127.0.0.1:9224/devtools/page/p1"},
+            {
+                "id": "p1",
+                "url": "http://localhost:8080",
+                "title": "App",
+                "type": "page",
+                "webSocketDebuggerUrl": "ws://127.0.0.1:9224/devtools/page/p1",
+            },
         ]
         list_resp = _make_list_response(pages_data)
 
@@ -208,10 +212,20 @@ class TestConnectionManagerGetPages:
     async def test_get_pages_filters_about_blank(self) -> None:
         """about:blank pages are excluded."""
         pages_data = [
-            {"id": "p1", "url": "about:blank", "title": "", "type": "page",
-             "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/p1"},
-            {"id": "p2", "url": "http://localhost:8080", "title": "Real", "type": "page",
-             "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/p2"},
+            {
+                "id": "p1",
+                "url": "about:blank",
+                "title": "",
+                "type": "page",
+                "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/p1",
+            },
+            {
+                "id": "p2",
+                "url": "http://localhost:8080",
+                "title": "Real",
+                "type": "page",
+                "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/p2",
+            },
         ]
         list_resp = _make_list_response(pages_data)
 
@@ -233,12 +247,27 @@ class TestConnectionManagerGetPages:
     async def test_get_pages_filters_non_page_type(self) -> None:
         """Non-'page' type targets (worker, iframe) are excluded."""
         pages_data = [
-            {"id": "p1", "url": "http://localhost:8080", "title": "Page", "type": "page",
-             "webSocketDebuggerUrl": "ws://..."},
-            {"id": "w1", "url": "http://localhost:8080/worker.js", "title": "", "type": "worker",
-             "webSocketDebuggerUrl": "ws://..."},
-            {"id": "i1", "url": "http://localhost:8080/iframe", "title": "", "type": "iframe",
-             "webSocketDebuggerUrl": "ws://..."},
+            {
+                "id": "p1",
+                "url": "http://localhost:8080",
+                "title": "Page",
+                "type": "page",
+                "webSocketDebuggerUrl": "ws://...",
+            },
+            {
+                "id": "w1",
+                "url": "http://localhost:8080/worker.js",
+                "title": "",
+                "type": "worker",
+                "webSocketDebuggerUrl": "ws://...",
+            },
+            {
+                "id": "i1",
+                "url": "http://localhost:8080/iframe",
+                "title": "",
+                "type": "iframe",
+                "webSocketDebuggerUrl": "ws://...",
+            },
         ]
         list_resp = _make_list_response(pages_data)
 
@@ -278,10 +307,20 @@ class TestConnectionManagerGetPages:
     async def test_get_pages_all_blank_returns_empty(self) -> None:
         """All about:blank pages results in empty list."""
         pages_data = [
-            {"id": "p1", "url": "about:blank", "title": "", "type": "page",
-             "webSocketDebuggerUrl": "ws://..."},
-            {"id": "p2", "url": "about:blank", "title": "", "type": "page",
-             "webSocketDebuggerUrl": "ws://..."},
+            {
+                "id": "p1",
+                "url": "about:blank",
+                "title": "",
+                "type": "page",
+                "webSocketDebuggerUrl": "ws://...",
+            },
+            {
+                "id": "p2",
+                "url": "about:blank",
+                "title": "",
+                "type": "page",
+                "webSocketDebuggerUrl": "ws://...",
+            },
         ]
         list_resp = _make_list_response(pages_data)
 
@@ -333,8 +372,7 @@ class TestSelectPageFnmatch:
 
     def _make_pages(self, urls: list[str]) -> list[Page]:
         return [
-            Page(id=str(i), url=url, title=f"Page {i}", ws_url="")
-            for i, url in enumerate(urls)
+            Page(id=str(i), url=url, title=f"Page {i}", ws_url="") for i, url in enumerate(urls)
         ]
 
     @pytest.mark.asyncio
@@ -355,10 +393,12 @@ class TestSelectPageFnmatch:
     @pytest.mark.asyncio
     async def test_fnmatch_pattern_returns_first_match(self) -> None:
         """When multiple pages match, first one is returned."""
-        pages = self._make_pages([
-            "http://localhost:8080/app",
-            "http://localhost:8080/other",
-        ])
+        pages = self._make_pages(
+            [
+                "http://localhost:8080/app",
+                "http://localhost:8080/other",
+            ]
+        )
 
         manager = ConnectionManager()
         manager._current_port = 9222
@@ -403,20 +443,20 @@ class TestSelectPageFnmatch:
     @pytest.mark.asyncio
     async def test_fnmatch_pattern_with_question_mark(self) -> None:
         """? wildcard matches a single character."""
-        pages = self._make_pages([
-            "http://localhost:8080/v1/api",
-            "http://localhost:8080/v2/api",
-            "http://localhost:8080/v10/api",  # won't match v? pattern (2 chars)
-        ])
+        pages = self._make_pages(
+            [
+                "http://localhost:8080/v1/api",
+                "http://localhost:8080/v2/api",
+                "http://localhost:8080/v10/api",  # won't match v? pattern (2 chars)
+            ]
+        )
 
         manager = ConnectionManager()
         manager._current_port = 9222
 
         with patch.object(manager, "get_pages", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = pages
-            result = await manager.select_page(
-                url_pattern="http://localhost:8080/v?/api"
-            )
+            result = await manager.select_page(url_pattern="http://localhost:8080/v?/api")
 
         # Either v1 or v2 (first one wins), but NOT v10
         assert result is not None

@@ -12,7 +12,6 @@ import pytest
 
 from auroraview_mcp.tools.gallery import ProcessInfo, ProcessManager
 
-
 # ============================================================================
 # run_gallery advanced tests
 # ============================================================================
@@ -32,7 +31,9 @@ class TestRunGalleryAlreadyRunning:
         mock_process.poll.return_value = None  # still running
 
         manager = ProcessManager()
-        manager.add(ProcessInfo(pid=1234, name="gallery", process=mock_process, port=9222, is_gallery=True))
+        manager.add(
+            ProcessInfo(pid=1234, name="gallery", process=mock_process, port=9222, is_gallery=True)
+        )
 
         with patch("auroraview_mcp.tools.gallery._process_manager", manager):
             result = await fn()
@@ -53,7 +54,9 @@ class TestRunGalleryAlreadyRunning:
         mock_process.poll.return_value = None
 
         manager = ProcessManager()
-        manager.add(ProcessInfo(pid=5678, name="gallery", process=mock_process, port=9333, is_gallery=True))
+        manager.add(
+            ProcessInfo(pid=5678, name="gallery", process=mock_process, port=9333, is_gallery=True)
+        )
 
         with patch("auroraview_mcp.tools.gallery._process_manager", manager):
             result = await fn(port=9999)  # different port requested

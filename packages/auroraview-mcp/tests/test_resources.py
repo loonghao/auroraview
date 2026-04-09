@@ -114,9 +114,7 @@ class TestGetPageResource:
         ):
             from auroraview_mcp.resources.providers import get_page_resource
 
-            fn = (
-                get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
-            )
+            fn = get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
             result = await fn(page_id="page1")
 
         data = json.loads(result)
@@ -145,9 +143,7 @@ class TestGetPageResource:
         ):
             from auroraview_mcp.resources.providers import get_page_resource
 
-            fn = (
-                get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
-            )
+            fn = get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
             result = await fn(page_id="page1")
 
         data = json.loads(result)
@@ -168,9 +164,7 @@ class TestGetPageResource:
         ):
             from auroraview_mcp.resources.providers import get_page_resource
 
-            fn = (
-                get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
-            )
+            fn = get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
             result = await fn(page_id="nonexistent")
 
         data = json.loads(result)
@@ -198,9 +192,7 @@ class TestGetPageResource:
         ):
             from auroraview_mcp.resources.providers import get_page_resource
 
-            fn = (
-                get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
-            )
+            fn = get_page_resource.fn if hasattr(get_page_resource, "fn") else get_page_resource
             result = await fn(page_id="p2")
 
         data = json.loads(result)
@@ -360,9 +352,7 @@ class TestGetSampleSourceResource:
             sample_dir = examples_dir / "my_sample"
             sample_dir.mkdir()
             main_file = sample_dir / "main.py"
-            main_file.write_text(
-                '"""My Sample"""\nprint("from dir")', encoding="utf-8"
-            )
+            main_file.write_text('"""My Sample"""\nprint("from dir")', encoding="utf-8")
 
             sample_info = {
                 "name": "my_sample",
@@ -429,9 +419,7 @@ class TestGetLogsResource:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         data = json.loads(result)
@@ -451,9 +439,7 @@ class TestGetLogsResource:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         data = json.loads(result)
@@ -482,9 +468,7 @@ class TestGetLogsResource:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         data = json.loads(result)
@@ -509,9 +493,7 @@ class TestGetLogsResource:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         data = json.loads(result)
@@ -534,9 +516,7 @@ class TestGetLogsResource:
         ):
             from auroraview_mcp.resources.providers import get_logs_resource
 
-            fn = (
-                get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
-            )
+            fn = get_logs_resource.fn if hasattr(get_logs_resource, "fn") else get_logs_resource
             result = await fn()
 
         data = json.loads(result)
@@ -578,9 +558,7 @@ class TestGetGalleryResource:
                     "auroraview_mcp.resources.providers.get_gallery_dir",
                     return_value=gallery_dir,
                 ),
-                patch(
-                    "auroraview_mcp.resources.providers._process_manager"
-                ) as mock_pm,
+                patch("auroraview_mcp.resources.providers._process_manager") as mock_pm,
             ):
                 mock_pm.get_gallery.return_value = None
 
@@ -620,9 +598,7 @@ class TestGetGalleryResource:
                     "auroraview_mcp.resources.providers.get_gallery_dir",
                     return_value=gallery_dir,
                 ),
-                patch(
-                    "auroraview_mcp.resources.providers._process_manager"
-                ) as mock_pm,
+                patch("auroraview_mcp.resources.providers._process_manager") as mock_pm,
             ):
                 mock_pm.get_gallery.return_value = mock_proc_info
 
@@ -659,9 +635,7 @@ class TestGetGalleryResource:
                     "auroraview_mcp.resources.providers.get_gallery_dir",
                     return_value=gallery_dir,
                 ),
-                patch(
-                    "auroraview_mcp.resources.providers._process_manager"
-                ) as mock_pm,
+                patch("auroraview_mcp.resources.providers._process_manager") as mock_pm,
             ):
                 mock_pm.get_gallery.return_value = mock_proc_info
 

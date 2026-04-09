@@ -935,7 +935,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             tracing::info!("App URL (after Python ready): {}", _app_url);
             tracing::info!("Available assets: {} total", memory_assets.len());
 
-            #[cfg_attr(target_os = "windows", allow(unused_mut))]
+            #[allow(unused_mut)]
             let mut builder = WryWebViewBuilder::new_with_web_context(&mut web_context);
 
             // On Windows, use HTTPS scheme for secure context support
