@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("qtpy", reason="Qt backend requires qtpy and Qt bindings")
 
-from auroraview import WebView  # noqa: E402
+from auroraview import WebView  # noqa: E402, I001
 
 
 # Mark all tests as Qt tests and skip in CI (requires display)

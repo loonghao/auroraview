@@ -872,9 +872,12 @@ class TestDiscoverDCCInstancesEnrichment:
         enriched_inst = Instance(port=9222, dcc_type="houdini")
         discovery = InstanceDiscovery()
 
-        with patch.object(discovery, "discover", return_value=[inst]), patch.object(
-            discovery, "_enrich_dcc_context", return_value=enriched_inst
-        ) as mock_enrich:
+        with (
+            patch.object(discovery, "discover", return_value=[inst]),
+            patch.object(
+                discovery, "_enrich_dcc_context", return_value=enriched_inst
+            ) as mock_enrich,
+        ):
             result = await discovery.discover_dcc_instances()
 
         mock_enrich.assert_called_once_with(inst)
