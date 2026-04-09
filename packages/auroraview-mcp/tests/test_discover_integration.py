@@ -189,9 +189,7 @@ class TestDiscoverFallbackCDPProbe:
                 mock_client = AsyncMock()
                 mock_client.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_client.__aexit__ = AsyncMock(return_value=None)
-                mock_client.get = AsyncMock(
-                    side_effect=httpx.ConnectError("Connection refused")
-                )
+                mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
                 mock_client_cls.return_value = mock_client
 
                 discovery = InstanceDiscovery(default_ports=[9222, 9223])

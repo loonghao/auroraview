@@ -960,9 +960,7 @@ class TestExecuteBlenderCommand:
                 if hasattr(execute_dcc_command, "fn")
                 else execute_dcc_command
             )
-            result = await fn(
-                command="bpy.ops.object.select_all", kwargs={"action": "SELECT"}
-            )
+            result = await fn(command="bpy.ops.object.select_all", kwargs={"action": "SELECT"})
             assert result["success"] is True
 
     @pytest.mark.asyncio

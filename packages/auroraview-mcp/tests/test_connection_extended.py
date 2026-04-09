@@ -100,18 +100,22 @@ class TestJavaScriptError:
 
     def test_javascript_error_with_description(self) -> None:
         """Test JavaScriptError with exception description."""
-        error = JavaScriptError({
-            "text": "Uncaught ReferenceError",
-            "exception": {"description": "ReferenceError: foo is not defined"},
-        })
+        error = JavaScriptError(
+            {
+                "text": "Uncaught ReferenceError",
+                "exception": {"description": "ReferenceError: foo is not defined"},
+            }
+        )
         assert "foo is not defined" in str(error)
 
     def test_javascript_error_fallback_to_text(self) -> None:
         """Test JavaScriptError falls back to text when no description."""
-        error = JavaScriptError({
-            "text": "Script failed",
-            "exception": {},
-        })
+        error = JavaScriptError(
+            {
+                "text": "Script failed",
+                "exception": {},
+            }
+        )
         assert "Script failed" in str(error)
 
     def test_javascript_error_stores_details(self) -> None:
@@ -148,7 +152,11 @@ class TestCDPConnection:
         mock_ws = MagicMock()
         mock_ws.state.name = "OPEN"
 
-        with patch("auroraview_mcp.connection.websockets.connect", new_callable=AsyncMock, return_value=mock_ws):
+        with patch(
+            "auroraview_mcp.connection.websockets.connect",
+            new_callable=AsyncMock,
+            return_value=mock_ws,
+        ):
             await conn.connect()
 
         assert conn._ws == mock_ws

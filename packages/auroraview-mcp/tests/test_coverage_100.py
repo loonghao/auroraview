@@ -32,6 +32,7 @@ class TestMainEntry:
             import importlib
 
             import auroraview_mcp.__main__ as main_module
+
             importlib.reload(main_module)
             with patch("auroraview_mcp.server.mcp", mock_mcp):
                 result = main_module.main()
@@ -40,6 +41,7 @@ class TestMainEntry:
     def test_main_module_import(self) -> None:
         """__main__.py should be importable without side effects."""
         import auroraview_mcp.__main__ as main_module
+
         assert callable(main_module.main)
 
     def test_main_entry_point_via_sys_exit(self) -> None:
@@ -47,6 +49,7 @@ class TestMainEntry:
         mock_mcp = MagicMock()
         with patch("auroraview_mcp.server.mcp", mock_mcp):
             from auroraview_mcp.__main__ import main
+
             result = main()
             assert result == 0
             mock_mcp.run.assert_called_once()
@@ -66,14 +69,17 @@ class TestIsProcessAliveNonWindows:
         with patch("sys.platform", "linux"), patch("os.kill", return_value=None):
             # Force the non-Windows code path
             import auroraview_mcp.discovery as disc_mod
+
             try:
                 # Temporarily override platform check
-                with patch.object(disc_mod.sys, "platform", "linux"):
-                    # Directly test the logic
-                    import os
-                    with patch.object(os, "kill", return_value=None):
-                        disc_mod.is_process_alive(12345)
-                        # On Windows this uses ctypes path; we test logic directly
+                import os
+
+                with (
+                    patch.object(disc_mod.sys, "platform", "linux"),
+                    patch.object(os, "kill", return_value=None),
+                ):
+                    disc_mod.is_process_alive(12345)
+                    # On Windows this uses ctypes path; we test logic directly
             finally:
                 pass
 
@@ -84,6 +90,7 @@ class TestIsProcessAliveNonWindows:
         # Patch sys.platform inside the module to simulate Linux
         with patch.object(disc_mod.sys, "platform", "linux"):
             import os
+
             with patch.object(os, "kill", return_value=None):
                 result = disc_mod.is_process_alive(9999)
                 assert result is True
@@ -94,6 +101,7 @@ class TestIsProcessAliveNonWindows:
 
         with patch.object(disc_mod.sys, "platform", "linux"):
             import os
+
             with patch.object(os, "kill", side_effect=OSError("no process")):
                 result = disc_mod.is_process_alive(9999)
                 assert result is False
@@ -104,6 +112,7 @@ class TestIsProcessAliveNonWindows:
 
         with patch.object(disc_mod.sys, "platform", "linux"):
             import os
+
             with patch.object(os, "kill", side_effect=ProcessLookupError("no such process")):
                 result = disc_mod.is_process_alive(9999)
                 assert result is False
@@ -151,6 +160,7 @@ class TestGetProjectRootNotFound:
         fake_file.write_text("# fake")
 
         import auroraview_mcp.tools.gallery as gallery_mod
+
         with (
             patch.object(gallery_mod, "__file__", str(fake_file)),
             pytest.raises(FileNotFoundError, match="Could not find project root"),
@@ -176,6 +186,7 @@ class TestGetGalleryDirFallback:
         with patch.dict("os.environ", {}, clear=False):
             # Ensure env var not set
             import os
+
             os.environ.pop("AURORAVIEW_GALLERY_DIR", None)
 
             with patch("auroraview_mcp.tools.gallery.get_project_root", return_value=fake_root):

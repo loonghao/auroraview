@@ -137,7 +137,9 @@ class TestConnectionManagerDisconnect:
         manager._page_connections["p1"] = disconnected
 
         mock_ws = MagicMock()
-        with patch("auroraview_mcp.connection.websockets.connect", new_callable=AsyncMock) as mock_connect:
+        with patch(
+            "auroraview_mcp.connection.websockets.connect", new_callable=AsyncMock
+        ) as mock_connect:
             mock_connect.return_value = mock_ws
             new_conn = await manager.get_page_connection()
 
@@ -188,10 +190,12 @@ class TestCDPConnectionSend:
         mock_ws = MagicMock()
         mock_ws.send = AsyncMock()
         mock_ws.recv = AsyncMock(
-            return_value=_json.dumps({
-                "id": 1,
-                "error": {"code": -32601, "message": "Method not found"},
-            })
+            return_value=_json.dumps(
+                {
+                    "id": 1,
+                    "error": {"code": -32601, "message": "Method not found"},
+                }
+            )
         )
         conn._ws = mock_ws
 
@@ -229,16 +233,18 @@ class TestPageConnectionSend:
         mock_ws = MagicMock()
         mock_ws.send = AsyncMock()
         mock_ws.recv = AsyncMock(
-            return_value=_json.dumps({
-                "id": 1,
-                "result": {
-                    "result": {},
-                    "exceptionDetails": {
-                        "text": "ReferenceError",
-                        "exception": {"description": "x is not defined"},
+            return_value=_json.dumps(
+                {
+                    "id": 1,
+                    "result": {
+                        "result": {},
+                        "exceptionDetails": {
+                            "text": "ReferenceError",
+                            "exception": {"description": "x is not defined"},
+                        },
                     },
-                },
-            })
+                }
+            )
         )
         conn._ws = mock_ws
 
@@ -639,14 +645,14 @@ class TestRunGalleryEdgeCases:
 
         fn = run_gallery.fn if hasattr(run_gallery, "fn") else run_gallery
 
-        with tempfile.TemporaryDirectory() as tmpdir:  # noqa: SIM117
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            patch.dict(os.environ, {"AURORAVIEW_GALLERY_DIR": tmpdir}),
+            patch("auroraview_mcp.tools.gallery._process_manager", ProcessManager()),
+            pytest.raises(RuntimeError, match="Gallery main.py not found"),
+        ):
             # Gallery dir exists but no main.py
-            with (
-                patch.dict(os.environ, {"AURORAVIEW_GALLERY_DIR": tmpdir}),
-                patch("auroraview_mcp.tools.gallery._process_manager", ProcessManager()),
-                pytest.raises(RuntimeError, match="Gallery main.py not found"),
-            ):
-                await fn()
+            await fn()
 
     @pytest.mark.asyncio
     async def test_run_gallery_project_not_found(self) -> None:
@@ -676,13 +682,13 @@ class TestRunSampleEdgeCases:
 
         fn = run_sample.fn if hasattr(run_sample, "fn") else run_sample
 
-        with tempfile.TemporaryDirectory() as tmpdir:  # noqa: SIM117
-            with (
-                patch.dict(os.environ, {"AURORAVIEW_EXAMPLES_DIR": tmpdir}),
-                patch("auroraview_mcp.tools.gallery._process_manager", ProcessManager()),
-                pytest.raises(RuntimeError, match="Sample not found"),
-            ):
-                await fn(name="nonexistent_sample")
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            patch.dict(os.environ, {"AURORAVIEW_EXAMPLES_DIR": tmpdir}),
+            patch("auroraview_mcp.tools.gallery._process_manager", ProcessManager()),
+            pytest.raises(RuntimeError, match="Sample not found"),
+        ):
+            await fn(name="nonexistent_sample")
 
     @pytest.mark.asyncio
     async def test_run_sample_project_dir_not_found(self) -> None:
