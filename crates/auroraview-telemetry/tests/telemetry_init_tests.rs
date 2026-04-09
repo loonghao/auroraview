@@ -202,6 +202,7 @@ fn test_is_initialized_returns_bool() {
     let _ = Telemetry::is_initialized();
 }
 
+
 #[test]
 fn test_init_accept_any_service_name() {
     if !Telemetry::is_initialized() {
@@ -217,3 +218,118 @@ fn test_init_accept_any_service_name() {
         }
     }
 }
+
+// ─── New: TelemetryConfig additional coverage ──────────────────────────────────
+
+#[test]
+fn test_config_custom_log_level() {
+    let config = TelemetryConfig {
+        log_level: "warn".to_string(),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.log_level, "warn");
+}
+
+#[test]
+fn test_config_custom_service_name_preserved() {
+    let config = TelemetryConfig {
+        service_name: "maya-auroraview-tool".to_string(),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.service_name, "maya-auroraview-tool");
+}
+
+#[test]
+fn test_config_metrics_enabled_flag() {
+    let config = TelemetryConfig {
+        metrics_enabled: false,
+        ..TelemetryConfig::default()
+    };
+    assert!(!config.metrics_enabled);
+}
+
+#[test]
+fn test_config_traces_enabled_flag() {
+    let config = TelemetryConfig {
+        traces_enabled: false,
+        ..TelemetryConfig::default()
+    };
+    assert!(!config.traces_enabled);
+}
+
+#[test]
+fn test_config_metrics_interval_custom() {
+    let config = TelemetryConfig {
+        metrics_interval_secs: 120,
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.metrics_interval_secs, 120);
+}
+
+#[test]
+fn test_config_serde_roundtrip_for_testing() {
+    let config = TelemetryConfig::for_testing();
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: TelemetryConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.service_name, config.service_name);
+    assert_eq!(restored.log_level, config.log_level);
+    assert_eq!(restored.metrics_interval_secs, config.metrics_interval_secs);
+}
+
+#[test]
+fn test_config_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<TelemetryConfig>();
+    assert_sync::<TelemetryConfig>();
+}
+
+#[test]
+fn test_config_clone_independence() {
+    let config = TelemetryConfig {
+        service_name: "original".to_string(),
+        ..TelemetryConfig::default()
+    };
+    let mut cloned = config.clone();
+    cloned.service_name = "cloned".to_string();
+    assert_eq!(config.service_name, "original");
+    assert_eq!(cloned.service_name, "cloned");
+}
+
+#[test]
+fn test_init_disabled_then_enable_disable_cycle() {
+    {
+        let _ = Telemetry::init(disabled_config());
+    }
+    // After guard drop, toggle enable/disable should work
+    for _ in 0..3 {
+        Telemetry::enable();
+        assert!(Telemetry::is_enabled());
+        Telemetry::disable();
+        assert!(!Telemetry::is_enabled());
+    }
+}
+
+#[test]
+fn test_config_log_to_stdout_default() {
+    let config = TelemetryConfig::default();
+    assert!(config.log_to_stdout);
+}
+
+#[test]
+fn test_config_trace_sample_ratio_custom() {
+    let config = TelemetryConfig {
+        trace_sample_ratio: 0.5,
+        ..TelemetryConfig::default()
+    };
+    assert!((config.trace_sample_ratio - 0.5).abs() < f64::EPSILON);
+}
+
+#[test]
+fn test_disabled_config_is_still_valid_for_init() {
+    // Disabled config should not panic during init
+    let config = disabled_config();
+    assert!(!config.enabled);
+    assert_eq!(config.service_name, "auroraview");
+}
+

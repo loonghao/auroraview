@@ -283,6 +283,7 @@ fn test_id_generator_string_thread_safe() {
     assert_eq!(all.len(), 100);
 }
 
+
 #[test]
 fn test_id_generator_current_reflects_concurrent_writes() {
     let gen = Arc::new(IdGenerator::new());
@@ -309,3 +310,119 @@ fn test_id_generator_current_reflects_concurrent_writes() {
         "current() should reflect all increments"
     );
 }
+
+// ---------------------------------------------------------------------------
+// New: Send+Sync
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_id_generator_is_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<IdGenerator>();
+    assert_sync::<IdGenerator>();
+}
+
+// ---------------------------------------------------------------------------
+// New: next_string format
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_next_string_format_matches_id_prefix() {
+    let gen = IdGenerator::new();
+    let s = gen.next_string();
+    // Expected format: "id_{n}"
+    assert!(s.starts_with("id_"));
+    let num_part = s.strip_prefix("id_").unwrap();
+    let parsed: u64 = num_part.parse().expect("numeric suffix");
+    assert_eq!(parsed, 0);
+}
+
+#[test]
+fn test_next_with_prefix_format() {
+    let gen = IdGenerator::new();
+    let id = gen.next_with_prefix("tab");
+    assert_eq!(id, "tab_0");
+    let id2 = gen.next_with_prefix("tab");
+    assert_eq!(id2, "tab_1");
+}
+
+// ---------------------------------------------------------------------------
+// New: sequential uniqueness across mixed calls
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_mixed_calls_unique_ids() {
+    let gen = IdGenerator::new();
+    let n1 = gen.next();
+    let s1 = gen.next_string();
+    let p1 = gen.next_with_prefix("msg");
+    let n2 = gen.next();
+
+    // All counters from same generator → incrementing
+    assert_eq!(n1, 0);
+    assert_eq!(s1, "id_1");
+    assert_eq!(p1, "msg_2");
+    assert_eq!(n2, 3);
+}
+
+// ---------------------------------------------------------------------------
+// New: current before any next
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_current_before_any_next() {
+    let gen = IdGenerator::new();
+    assert_eq!(gen.current(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// New: with_start string ID
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_with_start_string_id() {
+    let gen = IdGenerator::with_start(5);
+    let s = gen.next_string();
+    assert_eq!(s, "id_5");
+}
+
+// ---------------------------------------------------------------------------
+// New: next_with_prefix unicode multiple calls
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_next_with_prefix_unicode_multiple() {
+    let gen = IdGenerator::new();
+    let a = gen.next_with_prefix("イベント");
+    let b = gen.next_with_prefix("イベント");
+    assert_eq!(a, "イベント_0");
+    assert_eq!(b, "イベント_1");
+}
+
+// ---------------------------------------------------------------------------
+// New: string generation count matches current
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_string_id_count_matches_current() {
+    let gen = IdGenerator::new();
+    for _ in 0..5 {
+        gen.next_string();
+    }
+    assert_eq!(gen.current(), 5);
+}
+
+// ---------------------------------------------------------------------------
+// New: prefix generation count matches current
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_prefix_id_count_matches_current() {
+    let gen = IdGenerator::new();
+    for _ in 0..7 {
+        gen.next_with_prefix("x");
+    }
+    assert_eq!(gen.current(), 7);
+}
+
