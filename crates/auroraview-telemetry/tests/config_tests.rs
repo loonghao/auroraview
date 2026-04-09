@@ -344,3 +344,121 @@ fn test_config_debug_contains_service_name() {
     let debug_str = format!("{config:?}");
     assert!(debug_str.contains("my_unique_service_xyz"));
 }
+
+// ---------------------------------------------------------------------------
+// Additional coverage R9
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_for_testing_clone_independent() {
+    let config = TelemetryConfig::for_testing();
+    let mut cloned = config.clone();
+    cloned.service_name = "different".to_string();
+    assert_eq!(config.service_name, "auroraview-test");
+    assert_eq!(cloned.service_name, "different");
+}
+
+#[test]
+fn test_sentry_sample_rate_zero() {
+    let config = TelemetryConfig {
+        sentry_sample_rate: 0.0,
+        ..TelemetryConfig::default()
+    };
+    assert!((config.sentry_sample_rate).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_sentry_sample_rate_half() {
+    let config = TelemetryConfig {
+        sentry_sample_rate: 0.5,
+        ..TelemetryConfig::default()
+    };
+    assert!((config.sentry_sample_rate - 0.5).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_sentry_traces_sample_rate_half() {
+    let config = TelemetryConfig {
+        sentry_traces_sample_rate: 0.5,
+        ..TelemetryConfig::default()
+    };
+    assert!((config.sentry_traces_sample_rate - 0.5).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_metrics_interval_zero() {
+    let config = TelemetryConfig {
+        metrics_interval_secs: 0,
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.metrics_interval_secs, 0);
+}
+
+#[test]
+fn test_metrics_interval_large() {
+    let config = TelemetryConfig {
+        metrics_interval_secs: 3600,
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.metrics_interval_secs, 3600);
+}
+
+#[test]
+fn test_config_log_level_empty() {
+    let config = TelemetryConfig {
+        log_level: String::new(),
+        ..TelemetryConfig::default()
+    };
+    assert!(config.log_level.is_empty());
+}
+
+#[test]
+fn test_config_log_level_complex() {
+    let config = TelemetryConfig {
+        log_level: "auroraview=trace,hyper=info,tokio=debug".to_string(),
+        ..TelemetryConfig::default()
+    };
+    assert!(config.log_level.contains("auroraview=trace"));
+    assert!(config.log_level.contains("hyper=info"));
+}
+
+#[test]
+fn test_config_service_name_empty() {
+    let config = TelemetryConfig {
+        service_name: String::new(),
+        ..TelemetryConfig::default()
+    };
+    assert!(config.service_name.is_empty());
+}
+
+#[test]
+fn test_config_sentry_all_none() {
+    let config = TelemetryConfig {
+        sentry_dsn: None,
+        sentry_environment: None,
+        sentry_release: None,
+        ..TelemetryConfig::default()
+    };
+    assert!(config.sentry_dsn.is_none());
+    assert!(config.sentry_environment.is_none());
+    assert!(config.sentry_release.is_none());
+}
+
+#[test]
+fn test_config_sentry_all_set_survives_serde() {
+    let config = TelemetryConfig {
+        sentry_dsn: Some("https://key@example.sentry.io/123".to_string()),
+        sentry_environment: Some("prod".to_string()),
+        sentry_release: Some("1.2.3".to_string()),
+        sentry_sample_rate: 0.8,
+        sentry_traces_sample_rate: 0.2,
+        ..TelemetryConfig::default()
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: TelemetryConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.sentry_dsn, config.sentry_dsn);
+    assert_eq!(restored.sentry_environment, config.sentry_environment);
+    assert_eq!(restored.sentry_release, config.sentry_release);
+    assert!((restored.sentry_sample_rate - 0.8).abs() < f32::EPSILON);
+    assert!((restored.sentry_traces_sample_rate - 0.2).abs() < f32::EPSILON);
+}

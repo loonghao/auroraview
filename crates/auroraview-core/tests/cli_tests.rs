@@ -279,3 +279,102 @@ fn test_rewrite_preserves_html_structure() {
     let result = rewrite_html_for_custom_protocol(html);
     assert!(result.contains("<p>Hello</p>"));
 }
+
+// ============================================================================
+// Additional coverage R9
+// ============================================================================
+
+#[rstest]
+fn test_normalize_url_empty_string() {
+    // empty string should fail or return error
+    let result = normalize_url("");
+    // empty string is not a valid URL — could be error or default-append https
+    // We just verify it doesn't panic
+    let _ = result;
+}
+
+#[rstest]
+fn test_normalize_url_whitespace_only() {
+    // whitespace string should fail
+    let result = normalize_url("   ");
+    let _ = result;
+}
+
+#[rstest]
+fn test_normalize_url_ftp_scheme_passthrough() {
+    // ftp:// is a known scheme, should pass through
+    let result = normalize_url("ftp://files.example.com/pub");
+    // either works or returns an error; just should not panic
+    let _ = result;
+}
+
+#[rstest]
+fn test_rewrite_preserves_auroraview_protocol() {
+    // already-rewritten auroraview:// URLs should not be double-rewritten
+    let html = r#"<script src="auroraview://app.js"></script>"#;
+    let result = rewrite_html_for_custom_protocol(html);
+    assert!(result.contains("auroraview://app.js"));
+    // must not become auroraview://auroraview://app.js
+    assert!(!result.contains("auroraview://auroraview://"));
+}
+
+#[rstest]
+fn test_rewrite_link_with_multiple_attrs() {
+    let html = r#"<link rel="stylesheet" type="text/css" href="theme.css" media="screen">"#;
+    let result = rewrite_html_for_custom_protocol(html);
+    assert!(result.contains("auroraview://theme.css"));
+    assert!(result.contains(r#"rel="stylesheet""#));
+    assert!(result.contains(r#"type="text/css""#));
+}
+
+#[rstest]
+fn test_rewrite_script_with_integrity() {
+    let html = r#"<script src="https://cdn.example.com/lib.js" integrity="sha384-abc"></script>"#;
+    let result = rewrite_html_for_custom_protocol(html);
+    // absolute https:// should NOT be rewritten
+    assert!(result.contains("https://cdn.example.com/lib.js"));
+}
+
+#[rstest]
+fn test_rewrite_img_empty_src() {
+    let html = r#"<img src="" alt="empty">"#;
+    let result = rewrite_html_for_custom_protocol(html);
+    // empty src: behavior is defined by the implementation; just should not panic
+    let _ = result;
+}
+
+#[rstest]
+fn test_normalize_url_with_multiple_query_params() {
+    let result = normalize_url("https://api.example.com/v1/data?key=val&foo=bar&baz=qux").unwrap();
+    assert!(result.contains("key=val"));
+    assert!(result.contains("foo=bar"));
+    assert!(result.contains("baz=qux"));
+}
+
+#[rstest]
+fn test_normalize_url_loopback() {
+    let result = normalize_url("127.0.0.1:3000").unwrap();
+    assert!(result.contains("127.0.0.1"));
+    assert!(result.contains("3000"));
+}
+
+#[rstest]
+fn test_rewrite_large_html() {
+    // Build a large HTML document with many relative assets
+    let mut html = String::from("<html><head>");
+    for i in 0..50 {
+        html.push_str(&format!(r#"<link href="style{}.css">"#, i));
+    }
+    html.push_str("</head><body>");
+    for i in 0..50 {
+        html.push_str(&format!(r#"<script src="script{}.js"></script>"#, i));
+    }
+    html.push_str("</body></html>");
+
+    let result = rewrite_html_for_custom_protocol(&html);
+    // Verify first and last assets are rewritten
+    assert!(result.contains("auroraview://style0.css"));
+    assert!(result.contains("auroraview://style49.css"));
+    assert!(result.contains("auroraview://script0.js"));
+    assert!(result.contains("auroraview://script49.js"));
+}

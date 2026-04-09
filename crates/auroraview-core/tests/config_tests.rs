@@ -323,3 +323,136 @@ fn test_config_custom_title() {
     };
     assert_eq!(config.title, "My DCC Tool");
 }
+
+// ---------------------------------------------------------------------------
+// Additional coverage
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<CoreConfig>();
+}
+
+#[test]
+fn test_embed_mode_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<EmbedMode>();
+}
+
+#[test]
+fn test_config_asset_root_set() {
+    use std::path::PathBuf;
+    let config = CoreConfig {
+        asset_root: Some(PathBuf::from("/tmp/assets")),
+        ..Default::default()
+    };
+    assert_eq!(config.asset_root, Some(PathBuf::from("/tmp/assets")));
+}
+
+#[test]
+fn test_config_clone_is_independent() {
+    let original = CoreConfig {
+        title: "Original".to_string(),
+        width: 1280,
+        height: 720,
+        ..Default::default()
+    };
+    let mut cloned = original.clone();
+    cloned.title = "Modified".to_string();
+    assert_eq!(original.title, "Original");
+    assert_eq!(cloned.title, "Modified");
+}
+
+#[test]
+fn test_config_allow_new_window() {
+    let config = CoreConfig {
+        allow_new_window: true,
+        ..Default::default()
+    };
+    assert!(config.allow_new_window);
+}
+
+#[test]
+fn test_config_allow_file_protocol() {
+    let config = CoreConfig {
+        allow_file_protocol: true,
+        ..Default::default()
+    };
+    assert!(config.allow_file_protocol);
+}
+
+#[test]
+fn test_config_debug_contains_field_names() {
+    let config = CoreConfig::default();
+    let debug_str = format!("{:?}", config);
+    assert!(debug_str.contains("title"));
+    assert!(debug_str.contains("width"));
+    assert!(debug_str.contains("height"));
+}
+
+#[test]
+fn test_config_ipc_serde_roundtrip() {
+    let config = CoreConfig {
+        ipc_batching: false,
+        ipc_batch_size: 25,
+        ipc_batch_interval_ms: 50,
+        ..Default::default()
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: CoreConfig = serde_json::from_str(&json).unwrap();
+    assert!(!restored.ipc_batching);
+    assert_eq!(restored.ipc_batch_size, 25);
+    assert_eq!(restored.ipc_batch_interval_ms, 50);
+}
+
+#[test]
+fn test_config_embed_mode_serde_roundtrip() {
+    let config = CoreConfig {
+        embed_mode: EmbedMode::None,
+        ..Default::default()
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: CoreConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.embed_mode, EmbedMode::None);
+}
+
+#[test]
+fn test_config_full_roundtrip() {
+    use std::path::PathBuf;
+    let config = CoreConfig {
+        title: "Full Roundtrip".to_string(),
+        width: 1920,
+        height: 1080,
+        url: Some("https://example.com".to_string()),
+        html: None,
+        dev_tools: false,
+        context_menu: false,
+        resizable: false,
+        decorations: false,
+        always_on_top: true,
+        transparent: true,
+        background_color: Some("#000000".to_string()),
+        parent_hwnd: Some(99999),
+        embed_mode: EmbedMode::None,
+        ipc_batching: false,
+        ipc_batch_size: 100,
+        ipc_batch_interval_ms: 200,
+        asset_root: Some(PathBuf::from("/assets")),
+        allow_new_window: true,
+        allow_file_protocol: true,
+        content_security_policy: Some("default-src 'self'".to_string()),
+        #[cfg(target_os = "windows")]
+        undecorated_shadow: true,
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: CoreConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.title, "Full Roundtrip");
+    assert_eq!(restored.width, 1920);
+    assert_eq!(restored.height, 1080);
+    assert!(!restored.dev_tools);
+    assert!(restored.always_on_top);
+    assert!(restored.allow_new_window);
+    assert!(restored.allow_file_protocol);
+    assert_eq!(restored.parent_hwnd, Some(99999));
+}
