@@ -500,3 +500,157 @@ fn emit_event_without_callback_does_not_panic() {
     // No callback set — should not panic
     router.emit_event("no_callback", serde_json::json!({"key": "value"}));
 }
+
+// ─── Additional coverage tests ────────────────────────────────────────────────
+
+#[test]
+fn router_has_browser_bridge_plugin() {
+    let router = create_router();
+    assert!(router.has_plugin("browser_bridge"));
+}
+
+#[test]
+fn router_has_extensions_plugin() {
+    let router = create_router();
+    assert!(router.has_plugin("extensions"));
+}
+
+#[test]
+fn router_plugin_names_includes_browser_bridge_and_extensions() {
+    let router = create_router();
+    let names = router.plugin_names();
+    assert!(names.contains(&"browser_bridge"));
+    assert!(names.contains(&"extensions"));
+}
+
+#[test]
+fn scope_permissive_allows_all_plugins() {
+    let scope = ScopeConfig::permissive();
+    // All known plugins should be enabled
+    for plugin in &["fs", "clipboard", "shell", "dialog", "process"] {
+        assert!(
+            scope.is_plugin_enabled(plugin),
+            "Plugin '{}' should be enabled in permissive scope",
+            plugin
+        );
+    }
+}
+
+#[test]
+fn disable_and_reenable_plugin() {
+    let mut router = create_router();
+    router.scope_mut().disable_plugin("clipboard");
+    assert!(!router.scope().is_plugin_enabled("clipboard"));
+    router.scope_mut().enable_plugin("clipboard");
+    assert!(router.scope().is_plugin_enabled("clipboard"));
+}
+
+#[test]
+fn request_parse_various_plugin_names() {
+    for plugin in &["fs", "clipboard", "shell", "process", "dialog"] {
+        let invoke = format!("plugin:{}|do_something", plugin);
+        let req = PluginRequest::from_invoke(&invoke, serde_json::json!({}));
+        assert!(req.is_some(), "Failed to parse invoke for plugin '{}'", plugin);
+        let req = req.unwrap();
+        assert_eq!(req.plugin, *plugin);
+        assert_eq!(req.command, "do_something");
+    }
+}
+
+#[test]
+fn response_ok_has_no_error_code() {
+    let resp = PluginResponse::ok(serde_json::json!(42));
+    assert!(resp.success);
+    assert!(resp.code.is_none());
+    assert!(resp.error.is_none());
+}
+
+#[test]
+fn response_err_data_is_none() {
+    let resp = PluginResponse::err("oops", "OOPS_CODE");
+    assert!(!resp.success);
+    assert!(resp.data.is_none());
+    assert_eq!(resp.error.as_deref(), Some("oops"));
+}
+
+#[test]
+fn router_scope_mut_can_add_fs_path() {
+    let temp = tempdir().unwrap();
+    let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
+    let router = create_router_with_scope(scope);
+
+    // fs operations within temp should succeed
+    let file_path = temp.path().join("scope_mut_test.txt");
+    std::fs::write(&file_path, "scope_mut").unwrap();
+
+    let req = PluginRequest::new(
+        "fs",
+        "read_file",
+        serde_json::json!({ "path": file_path.to_string_lossy() }),
+    );
+    let resp = router.handle(req);
+    assert!(resp.success);
+}
+
+#[test]
+fn unregister_then_reregister() {
+    use auroraview_plugins::fs::FsPlugin;
+    use std::sync::Arc;
+
+    let mut router = create_router();
+    router.unregister("fs");
+    assert!(!router.has_plugin("fs"));
+
+    router.register("fs", Arc::new(FsPlugin::new()));
+    assert!(router.has_plugin("fs"));
+}
+
+#[test]
+fn concurrent_event_callback_calls() {
+    let router = Arc::new(create_router());
+    let counter = Arc::new(Mutex::new(0u32));
+    let counter_clone = Arc::clone(&counter);
+
+    router.set_event_callback(Arc::new(move |_event, _data| {
+        *counter_clone.lock().unwrap() += 1;
+    }));
+
+    let mut handles = Vec::new();
+    for i in 0..10 {
+        let r = Arc::clone(&router);
+        let event = format!("event_{}", i);
+        handles.push(thread::spawn(move || {
+            r.emit_event(&event, serde_json::json!({"i": i}));
+        }));
+    }
+    for h in handles {
+        h.join().unwrap();
+    }
+    assert_eq!(*counter.lock().unwrap(), 10);
+}
+
+#[rstest]
+#[case("fs", "read_file", serde_json::json!({"path": "/nonexistent/path"}))]
+#[case("fs", "write_file", serde_json::json!({"path": "/nonexistent/path", "contents": "x"}))]
+fn scope_violation_code_is_scope_violation(
+    #[case] plugin: &str,
+    #[case] command: &str,
+    #[case] args: serde_json::Value,
+) {
+    let scope = ScopeConfig::new().with_fs_scope(PathScope::new());
+    let router = create_router_with_scope(scope);
+    let req = PluginRequest::new(plugin, command, args);
+    let resp = router.handle(req);
+    assert!(!resp.success);
+    assert_eq!(resp.code, Some("SCOPE_VIOLATION".to_string()));
+}
+
+#[test]
+fn request_from_invoke_preserves_payload() {
+    let payload = serde_json::json!({"path": "/test", "extra": 42});
+    let req = PluginRequest::from_invoke("plugin:fs|read_file", payload.clone());
+    assert!(req.is_some());
+    let req = req.unwrap();
+    assert_eq!(req.args["path"], "/test");
+    assert_eq!(req.args["extra"], 42);
+}

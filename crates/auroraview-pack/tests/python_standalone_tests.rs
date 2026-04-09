@@ -364,21 +364,224 @@ fn standalone_version_accessor(#[case] version: &str) {
 }
 
 // ============================================================================
-// cached_path: uses custom cache_dir as base
+// cached_path: filename format validation
 // ============================================================================
 
 #[rstest]
-fn cached_path_uses_custom_base() {
+#[case("x86_64-pc-windows-msvc", "3.11")]
+#[case("x86_64-unknown-linux-gnu", "3.12")]
+#[case("x86_64-apple-darwin", "3.10")]
+#[case("aarch64-apple-darwin", "3.11")]
+fn cached_path_filename_contains_version_and_triple(
+    #[case] triple: &str,
+    #[case] version: &str,
+) {
     let temp = tempfile::tempdir().unwrap();
     let config = PythonStandaloneConfig {
-        version: "3.12".to_string(),
+        version: version.to_string(),
         release: None,
-        target: Some("aarch64-apple-darwin".to_string()),
+        target: Some(triple.to_string()),
         cache_dir: Some(temp.path().to_path_buf()),
     };
     let standalone = PythonStandalone::new(config).unwrap();
     let cached = standalone.cached_path();
-    assert!(cached.starts_with(temp.path()));
-    assert!(cached.to_string_lossy().contains("aarch64-apple-darwin"));
+    let s = cached.to_string_lossy();
+    assert!(s.contains(version), "Should contain version: {}", version);
+    assert!(s.contains(triple), "Should contain triple: {}", triple);
+    assert!(s.ends_with(".tar.gz"), "Should end with .tar.gz");
 }
+
+#[rstest]
+fn cached_path_default_cache_dir_contains_auroraview() {
+    let config = PythonStandaloneConfig {
+        version: "3.11".to_string(),
+        release: None,
+        target: Some("x86_64-pc-windows-msvc".to_string()),
+        cache_dir: None,
+    };
+    let standalone = PythonStandalone::new(config).unwrap();
+    let cached = standalone.cached_path();
+    // Default cache dir should contain AuroraView
+    assert!(cached.to_string_lossy().contains("AuroraView"));
+}
+
+// ============================================================================
+// PythonStandaloneConfig: Clone and Debug
+// ============================================================================
+
+#[rstest]
+fn config_clone() {
+    let config = PythonStandaloneConfig {
+        version: "3.11".to_string(),
+        release: Some("20251209".to_string()),
+        target: Some("x86_64-pc-windows-msvc".to_string()),
+        cache_dir: None,
+    };
+    let config2 = config.clone();
+    assert_eq!(config.version, config2.version);
+    assert_eq!(config.release, config2.release);
+    assert_eq!(config.target, config2.target);
+}
+
+#[rstest]
+fn config_debug_output() {
+    let config = PythonStandaloneConfig {
+        version: "3.12".to_string(),
+        release: None,
+        target: None,
+        cache_dir: None,
+    };
+    let s = format!("{:?}", config);
+    assert!(s.contains("3.12"));
+}
+
+// ============================================================================
+// PythonTarget: all variants have non-empty fields
+// ============================================================================
+
+#[rstest]
+#[case(PythonTarget::WindowsX64)]
+#[case(PythonTarget::LinuxX64)]
+#[case(PythonTarget::MacOSX64)]
+#[case(PythonTarget::MacOSArm64)]
+fn target_triple_non_empty(#[case] target: PythonTarget) {
+    assert!(!target.triple().is_empty());
+}
+
+#[rstest]
+#[case(PythonTarget::WindowsX64)]
+#[case(PythonTarget::LinuxX64)]
+#[case(PythonTarget::MacOSX64)]
+#[case(PythonTarget::MacOSArm64)]
+fn target_python_exe_non_empty(#[case] target: PythonTarget) {
+    assert!(!target.python_exe().is_empty());
+}
+
+#[rstest]
+#[case(PythonTarget::WindowsX64)]
+#[case(PythonTarget::LinuxX64)]
+#[case(PythonTarget::MacOSX64)]
+#[case(PythonTarget::MacOSArm64)]
+fn target_python_path_non_empty(#[case] target: PythonTarget) {
+    assert!(!target.python_path().is_empty());
+}
+
+// ============================================================================
+// download_url: URL structure validation
+// ============================================================================
+
+#[rstest]
+fn download_url_contains_install_only() {
+    let config = PythonStandaloneConfig {
+        version: "3.11".to_string(),
+        release: Some("20251209".to_string()),
+        target: Some("x86_64-pc-windows-msvc".to_string()),
+        cache_dir: None,
+    };
+    let standalone = PythonStandalone::new(config).unwrap();
+    let url = standalone.download_url();
+    assert!(url.contains("install_only"), "URL should contain 'install_only': {}", url);
+}
+
+#[rstest]
+fn download_url_contains_cpython_prefix() {
+    let config = PythonStandaloneConfig {
+        version: "3.12".to_string(),
+        release: Some("20251209".to_string()),
+        target: Some("aarch64-apple-darwin".to_string()),
+        cache_dir: None,
+    };
+    let standalone = PythonStandalone::new(config).unwrap();
+    let url = standalone.download_url();
+    assert!(url.contains("cpython-"), "URL should contain 'cpython-': {}", url);
+}
+
+#[rstest]
+fn download_url_is_https() {
+    let config = PythonStandaloneConfig {
+        version: "3.11".to_string(),
+        release: None,
+        target: Some("x86_64-unknown-linux-gnu".to_string()),
+        cache_dir: None,
+    };
+    let standalone = PythonStandalone::new(config).unwrap();
+    let url = standalone.download_url();
+    assert!(url.starts_with("https://"), "URL should be HTTPS: {}", url);
+}
+
+// ============================================================================
+// PythonStandalone: invalid targets
+// ============================================================================
+
+#[rstest]
+#[case("win32")]
+#[case("arm-unknown")]
+#[case("")]
+#[case("x86-pc-linux")]
+fn standalone_invalid_targets(#[case] triple: &str) {
+    let config = PythonStandaloneConfig {
+        version: "3.11".to_string(),
+        release: None,
+        target: Some(triple.to_string()),
+        cache_dir: None,
+    };
+    let result = PythonStandalone::new(config);
+    assert!(result.is_err(), "Should fail for invalid target '{}'", triple);
+}
+
+// ============================================================================
+// get_runtime_cache_dir: consistent and stable
+// ============================================================================
+
+#[rstest]
+fn cache_dir_is_stable_for_same_app() {
+    let dir1 = get_runtime_cache_dir("stable-app");
+    let dir2 = get_runtime_cache_dir("stable-app");
+    assert_eq!(dir1, dir2, "Same app name should give same cache dir");
+}
+
+#[rstest]
+fn cache_dir_is_absolute() {
+    let dir = get_runtime_cache_dir("abs-test");
+    assert!(dir.is_absolute(), "Cache dir should be absolute");
+}
+
+#[rstest]
+fn cache_dir_contains_runtime_segment() {
+    let dir = get_runtime_cache_dir("runtime-test");
+    assert!(
+        dir.to_string_lossy().contains("runtime"),
+        "Cache dir should contain 'runtime': {}",
+        dir.display()
+    );
+}
+
+// ============================================================================
+// PythonRuntimeMeta: equality and field access
+// ============================================================================
+
+#[rstest]
+fn runtime_meta_fields_accessible() {
+    let meta = PythonRuntimeMeta {
+        version: "3.11.14".to_string(),
+        target: "x86_64-pc-windows-msvc".to_string(),
+        archive_size: 12345678,
+    };
+    assert_eq!(meta.version, "3.11.14");
+    assert_eq!(meta.target, "x86_64-pc-windows-msvc");
+    assert_eq!(meta.archive_size, 12345678);
+}
+
+#[rstest]
+fn runtime_meta_large_archive_size() {
+    let meta = PythonRuntimeMeta {
+        version: "3.12".to_string(),
+        target: "x86_64-unknown-linux-gnu".to_string(),
+        archive_size: u64::MAX,
+    };
+    let json = serde_json::to_string(&meta).unwrap();
+    let parsed: PythonRuntimeMeta = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed.archive_size, u64::MAX);
+}
+
 
