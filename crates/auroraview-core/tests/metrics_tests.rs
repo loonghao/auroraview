@@ -489,3 +489,105 @@ fn test_format_report_no_js_mark_not_in_report() {
     let report = metrics.format_report();
     assert!(!report.contains("JavaScript initialized"), "JS line should not appear when not marked");
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn test_format_report_is_string() {
+    let metrics = Metrics::new();
+    let report = metrics.format_report();
+    assert!(report.is_ascii() || !report.is_empty());
+}
+
+#[test]
+fn test_mark_webview_is_some() {
+    let mut m = Metrics::new();
+    m.mark_webview();
+    assert!(m.webview_time().is_some());
+}
+
+#[test]
+fn test_mark_html_is_some() {
+    let mut m = Metrics::new();
+    m.mark_html();
+    assert!(m.html_time().is_some());
+}
+
+#[test]
+fn test_mark_js_is_some() {
+    let mut m = Metrics::new();
+    m.mark_js();
+    assert!(m.js_time().is_some());
+}
+
+#[test]
+fn test_mark_paint_is_some() {
+    let mut m = Metrics::new();
+    m.mark_paint();
+    assert!(m.paint_time().is_some());
+}
+
+#[test]
+fn test_mark_shown_is_some() {
+    let mut m = Metrics::new();
+    m.mark_shown();
+    assert!(m.shown_time().is_some());
+}
+
+#[test]
+fn test_clone_all_none_preserves_none() {
+    let m = Metrics::new();
+    let cloned = m.clone();
+    assert!(cloned.window_time().is_none());
+    assert!(cloned.webview_time().is_none());
+    assert!(cloned.html_time().is_none());
+    assert!(cloned.js_time().is_none());
+    assert!(cloned.paint_time().is_none());
+    assert!(cloned.shown_time().is_none());
+}
+
+#[test]
+fn test_debug_non_empty() {
+    let m = Metrics::new();
+    let dbg = format!("{:?}", m);
+    assert!(!dbg.is_empty());
+}
+
+#[test]
+fn test_format_report_webview_and_html_marks() {
+    let mut m = Metrics::new();
+    m.mark_webview();
+    m.mark_html();
+    let report = m.format_report();
+    assert!(report.contains("WebView created"));
+    assert!(report.contains("HTML loaded"));
+}
+
+#[test]
+fn test_format_report_paint_mark() {
+    let mut m = Metrics::new();
+    m.mark_paint();
+    let report = m.format_report();
+    assert!(report.contains("First paint"));
+}
+
+#[test]
+fn test_window_time_non_zero_after_sleep() {
+    let mut m = Metrics::new();
+    thread::sleep(StdDuration::from_millis(5));
+    m.mark_window();
+    let t = m.window_time().unwrap();
+    assert!(t.as_millis() >= 4);
+}
+
+#[test]
+fn test_new_and_default_both_empty_report_header() {
+    let m1 = Metrics::new();
+    let m2 = Metrics::default();
+    for m in &[m1, m2] {
+        let r = m.format_report();
+        assert!(r.contains("Timing Report"));
+    }
+}

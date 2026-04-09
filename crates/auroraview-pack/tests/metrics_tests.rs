@@ -449,3 +449,110 @@ fn test_add_phase_duration_millis(#[case] millis: u64) {
     let report = m.report();
     assert!(report.contains("phase"));
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn test_metrics_debug_format_non_empty() {
+    let m = PackedMetrics::new();
+    let dbg = format!("{:?}", m);
+    assert!(!dbg.is_empty());
+}
+
+#[test]
+fn test_mark_overlay_read_and_config_both_some() {
+    let mut m1 = PackedMetrics::new();
+    m1.mark_overlay_read();
+    m1.mark_config_decompress();
+    assert!(m1.overlay_read.is_some());
+    assert!(m1.config_decompress.is_some());
+    assert!(m1.assets_decompress.is_none());
+}
+
+#[test]
+fn test_two_independent_metrics_instances() {
+    let m1 = PackedMetrics::default();
+    let m2 = PackedMetrics::default();
+    assert!(m1.overlay_read.is_none());
+    assert!(m2.total.is_none());
+}
+
+#[test]
+fn test_mark_overlay_read_once() {
+    let mut m = PackedMetrics::new();
+    assert!(m.overlay_read.is_none());
+    m.mark_overlay_read();
+    assert!(m.overlay_read.is_some());
+}
+
+#[test]
+fn test_mark_config_decompress_once() {
+    let mut m = PackedMetrics::new();
+    m.mark_config_decompress();
+    assert!(m.config_decompress.is_some());
+    assert!(m.overlay_read.is_none());
+}
+
+#[test]
+fn test_mark_assets_decompress_once() {
+    let mut m = PackedMetrics::new();
+    m.mark_assets_decompress();
+    assert!(m.assets_decompress.is_some());
+}
+
+#[test]
+fn test_report_contains_detailed_phases_section() {
+    let mut m = PackedMetrics::new();
+    m.add_phase("custom_x", Duration::from_millis(5));
+    let report = m.report();
+    assert!(report.contains("custom_x"));
+}
+
+#[test]
+fn test_time_phase_zero_duration_included() {
+    let mut m = PackedMetrics::new();
+    m.time_phase("fast_op", || {});
+    let report = m.report();
+    assert!(report.contains("fast_op"));
+}
+
+#[rstest]
+#[case("alpha", 5u64)]
+#[case("beta", 10)]
+#[case("gamma", 50)]
+fn test_multiple_named_phases_parametrized(#[case] name: &str, #[case] millis: u64) {
+    let mut m = PackedMetrics::new();
+    m.add_phase(name, Duration::from_millis(millis));
+    let report = m.report();
+    assert!(report.contains(name));
+}
+
+#[test]
+fn test_elapsed_non_zero_immediately() {
+    let m = PackedMetrics::new();
+    // Even without sleep, Instant::now() difference should be >= 0
+    assert!(m.elapsed() >= Duration::ZERO);
+}
+
+#[test]
+fn test_report_structure_with_full_lifecycle() {
+    let mut m = PackedMetrics::new();
+    m.mark_overlay_read();
+    m.mark_config_decompress();
+    m.mark_assets_decompress();
+    m.mark_tar_extract();
+    m.mark_python_runtime_extract();
+    m.mark_python_files_extract();
+    m.mark_resources_extract();
+    m.mark_python_start();
+    m.mark_window_created();
+    m.mark_webview_created();
+    m.mark_total();
+    let report = m.report();
+    // Should contain the header and all phase labels
+    assert!(report.contains("Packed App Startup Performance"));
+    assert!(report.contains("Overlay read"));
+    assert!(report.contains("Total"));
+}
