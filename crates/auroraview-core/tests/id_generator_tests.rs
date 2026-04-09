@@ -426,3 +426,111 @@ fn test_prefix_id_count_matches_current() {
     assert_eq!(gen.current(), 7);
 }
 
+// ---------------------------------------------------------------------------
+// Extended coverage: edge values and concurrency
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_next_returns_zero_first() {
+    let gen = IdGenerator::new();
+    assert_eq!(gen.next(), 0, "first ID should always be 0");
+}
+
+#[test]
+fn test_with_start_zero_same_as_new() {
+    let gen = IdGenerator::with_start(0);
+    assert_eq!(gen.next(), 0);
+}
+
+#[test]
+fn test_with_start_large_value() {
+    let gen = IdGenerator::with_start(u64::MAX - 1);
+    assert_eq!(gen.next(), u64::MAX - 1);
+    // wraps around
+    let next = gen.next();
+    // just check it doesn't panic
+    let _ = next;
+}
+
+#[test]
+fn test_next_string_sequential_numbers() {
+    let gen = IdGenerator::new();
+    let s0 = gen.next_string();
+    let s1 = gen.next_string();
+    let s2 = gen.next_string();
+    assert_eq!(s0, "id_0");
+    assert_eq!(s1, "id_1");
+    assert_eq!(s2, "id_2");
+}
+
+#[test]
+fn test_prefix_empty_string() {
+    let gen = IdGenerator::new();
+    let id = gen.next_with_prefix("");
+    // Empty prefix should still produce "_0" or similar
+    assert!(id.ends_with('0'), "should end with the counter value 0");
+}
+
+#[test]
+fn test_id_uniqueness_with_reset() {
+    let gen = IdGenerator::new();
+    let ids: HashSet<u64> = (0..20).map(|_| gen.next()).collect();
+    assert_eq!(ids.len(), 20, "all 20 IDs should be unique");
+}
+
+#[test]
+fn test_string_ids_all_unique() {
+    let gen = IdGenerator::new();
+    let ids: HashSet<String> = (0..20).map(|_| gen.next_string()).collect();
+    assert_eq!(ids.len(), 20);
+}
+
+#[test]
+fn test_prefix_ids_all_unique() {
+    let gen = IdGenerator::new();
+    let ids: HashSet<String> = (0..20).map(|_| gen.next_with_prefix("evt")).collect();
+    assert_eq!(ids.len(), 20);
+}
+
+#[test]
+fn test_next_with_prefix_numeric_part_matches_counter() {
+    let gen = IdGenerator::new();
+    for i in 0u64..10 {
+        let id = gen.next_with_prefix("n");
+        let num: u64 = id.strip_prefix("n_").unwrap().parse().unwrap();
+        assert_eq!(num, i);
+    }
+}
+
+#[test]
+fn test_concurrent_string_ids_no_duplicates() {
+    let gen = Arc::new(IdGenerator::new());
+    let handles: Vec<_> = (0..4)
+        .map(|_| {
+            let g = gen.clone();
+            thread::spawn(move || {
+                (0..25).map(|_| g.next_string()).collect::<Vec<_>>()
+            })
+        })
+        .collect();
+
+    let mut all: HashSet<String> = HashSet::new();
+    for h in handles {
+        for s in h.join().unwrap() {
+            assert!(all.insert(s.clone()), "duplicate string ID: {s}");
+        }
+    }
+    assert_eq!(all.len(), 100);
+}
+
+#[test]
+fn test_current_after_mixed_calls_equals_total() {
+    let gen = IdGenerator::new();
+    gen.next();             // +1
+    gen.next_string();      // +1
+    gen.next_with_prefix("p"); // +1
+    gen.next();             // +1
+    assert_eq!(gen.current(), 4);
+}
+
+
