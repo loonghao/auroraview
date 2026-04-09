@@ -573,5 +573,278 @@ mod concurrent_arc_mutex_tests {
 
         assert_eq!(results.lock().unwrap().len(), 4);
     }
+
+    #[test]
+    fn arc_mutex_single_writer_many_readers_final_value() {
+        // Writer increments to 200, readers only observe intermediate states
+        let data = Arc::new(Mutex::new(0u32));
+        let writer = {
+            let d = data.clone();
+            thread::spawn(move || {
+                for _ in 0..200 {
+                    *d.lock().unwrap() += 1;
+                }
+            })
+        };
+        writer.join().unwrap();
+        assert_eq!(*data.lock().unwrap(), 200);
+    }
+
+    #[test]
+    fn rwlock_write_exclusive_no_reader_interference() {
+        let flag = Arc::new(RwLock::new(false));
+
+        // Writer flips to true
+        {
+            let mut w = flag.write().unwrap();
+            *w = true;
+        }
+
+        // All readers see true
+        let handles: Vec<_> = (0..10)
+            .map(|_| {
+                let f = flag.clone();
+                thread::spawn(move || {
+                    assert!(*f.read().unwrap());
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn arc_clone_across_threads_count() {
+        // Verify Arc ref-count management: clone into N threads, collect results
+        let source = Arc::new(42u32);
+        let threads: Vec<_> = (0..12)
+            .map(|_| {
+                let s = source.clone();
+                thread::spawn(move || *s)
+            })
+            .collect();
+        let results: Vec<u32> = threads.into_iter().map(|t| t.join().unwrap()).collect();
+        assert_eq!(results.len(), 12);
+        assert!(results.iter().all(|&v| v == 42));
+    }
+
+    #[test]
+    fn concurrent_vec_push_via_mutex() {
+        let vec = Arc::new(Mutex::new(Vec::<usize>::new()));
+        let handles: Vec<_> = (0..50)
+            .map(|i| {
+                let v = vec.clone();
+                thread::spawn(move || {
+                    v.lock().unwrap().push(i);
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        let final_vec = vec.lock().unwrap();
+        assert_eq!(final_vec.len(), 50);
+    }
+
+    #[test]
+    fn mutex_poison_recovery() {
+        let m = Arc::new(Mutex::new(0u32));
+        let m2 = m.clone();
+
+        // Spawn a thread that panics while holding the lock
+        let _ = thread::spawn(move || {
+            let _guard = m2.lock().unwrap();
+            panic!("intentional panic");
+        })
+        .join();
+
+        // Lock is poisoned; recover with into_inner
+        let result = m.lock();
+        // Should be poisoned
+        assert!(result.is_err());
+        let val = result.unwrap_or_else(|e| e.into_inner());
+        assert_eq!(*val, 0);
+    }
+
+    #[test]
+    fn arc_mutex_drop_order_correctness() {
+        // Guards dropped in reverse order: counts go 3 -> 2 -> 1 -> 0
+        use super::*;
+        clear_held_locks();
+        set_verification_enabled(true);
+
+        let g1 = LockOrderGuard::new(LockLevel::Global, "g");
+        let g2 = LockOrderGuard::new(LockLevel::Registry, "r");
+        let g3 = LockOrderGuard::new(LockLevel::Resource, "res");
+        assert_eq!(held_lock_count(), 3);
+        drop(g3);
+        assert_eq!(held_lock_count(), 2);
+        drop(g2);
+        assert_eq!(held_lock_count(), 1);
+        drop(g1);
+        assert_eq!(held_lock_count(), 0);
+    }
+
+    #[test]
+    fn two_threads_each_acquire_full_chain() {
+        use super::*;
+
+        let handles: Vec<_> = (0..2)
+            .map(|_| {
+                thread::spawn(|| {
+                    clear_held_locks();
+                    set_verification_enabled(true);
+                    {
+                        let _g1 = LockOrderGuard::new(LockLevel::Global, "g");
+                        let _g2 = LockOrderGuard::new(LockLevel::Registry, "r");
+                        let _g3 = LockOrderGuard::new(LockLevel::Resource, "res");
+                        let _g4 = LockOrderGuard::new(LockLevel::State, "s");
+                        let _g5 = LockOrderGuard::new(LockLevel::Callback, "c");
+                        assert_eq!(held_lock_count(), 5);
+                    }
+                    assert_eq!(held_lock_count(), 0);
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn arc_rwlock_concurrent_increment() {
+        let counter = Arc::new(RwLock::new(0u32));
+        // Sequential writes via exclusive write locks
+        for _ in 0..100 {
+            *counter.write().unwrap() += 1;
+        }
+        assert_eq!(*counter.read().unwrap(), 100);
+    }
+
+    #[test]
+    fn verification_state_restored_after_test() {
+        use super::*;
+        // Ensure test helper toggle doesn't leak across tests
+        clear_held_locks();
+        set_verification_enabled(true);
+        assert!(is_verification_enabled());
+        // Temporarily disable
+        set_verification_enabled(false);
+        assert!(!is_verification_enabled());
+        // Restore
+        set_verification_enabled(true);
+        assert!(is_verification_enabled());
+        // Count should still be 0 since verification was disabled during guards
+        assert_eq!(held_lock_count(), 0);
+    }
+
+    #[test]
+    fn large_concurrent_hashmap_operations() {
+        use std::collections::HashMap;
+        let map = Arc::new(Mutex::new(HashMap::<u32, u32>::new()));
+
+        // 100 threads each insert one unique key
+        let threads: Vec<_> = (0..100u32)
+            .map(|i| {
+                let m = map.clone();
+                thread::spawn(move || {
+                    m.lock().unwrap().insert(i, i * 2);
+                })
+            })
+            .collect();
+        for t in threads {
+            t.join().unwrap();
+        }
+
+        let final_map = map.lock().unwrap();
+        assert_eq!(final_map.len(), 100);
+        for i in 0..100u32 {
+            assert_eq!(final_map[&i], i * 2);
+        }
+    }
+
+    #[test]
+    fn arc_mutex_channel_producer_consumer() {
+        use std::sync::mpsc;
+
+        let (tx, rx) = mpsc::channel::<u32>();
+        let sum = Arc::new(Mutex::new(0u32));
+
+        // Producer thread
+        let producer = thread::spawn(move || {
+            for i in 0..20u32 {
+                tx.send(i).unwrap();
+            }
+        });
+
+        // Consumer accumulates into Arc<Mutex>
+        let sum_clone = sum.clone();
+        let consumer = thread::spawn(move || {
+            for val in rx {
+                *sum_clone.lock().unwrap() += val;
+            }
+        });
+
+        producer.join().unwrap();
+        consumer.join().unwrap();
+
+        // Sum of 0..20 = 190
+        assert_eq!(*sum.lock().unwrap(), 190);
+    }
+
+    #[test]
+    fn lock_order_guard_single_global() {
+        use super::*;
+        clear_held_locks();
+        set_verification_enabled(true);
+
+        {
+            let _g = LockOrderGuard::new(LockLevel::Global, "only_global");
+            assert_eq!(held_lock_count(), 1);
+        }
+        assert_eq!(held_lock_count(), 0);
+    }
+
+    #[test]
+    fn lock_order_guard_single_callback() {
+        use super::*;
+        clear_held_locks();
+        set_verification_enabled(true);
+
+        {
+            let _g = LockOrderGuard::new(LockLevel::Callback, "only_callback");
+            assert_eq!(held_lock_count(), 1);
+        }
+        assert_eq!(held_lock_count(), 0);
+    }
+
+    #[test]
+    fn concurrent_lock_guards_all_threads_start_clean() {
+        use super::*;
+
+        let done = Arc::new(Mutex::new(0u32));
+        let handles: Vec<_> = (0..16)
+            .map(|_| {
+                let d = done.clone();
+                thread::spawn(move || {
+                    clear_held_locks();
+                    set_verification_enabled(true);
+                    // Each thread starts with zero held locks
+                    assert_eq!(held_lock_count(), 0);
+                    {
+                        let _g = LockOrderGuard::new(LockLevel::Resource, "r");
+                        assert_eq!(held_lock_count(), 1);
+                    }
+                    assert_eq!(held_lock_count(), 0);
+                    *d.lock().unwrap() += 1;
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        assert_eq!(*done.lock().unwrap(), 16);
+    }
 }
 
