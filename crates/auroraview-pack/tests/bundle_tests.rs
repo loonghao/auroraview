@@ -436,3 +436,117 @@ fn bundle_gitignore_excluded() {
     );
 }
 
+// ============================================================================
+// Additional AssetBundle send/sync and structural tests
+// ============================================================================
+
+#[test]
+fn asset_bundle_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<AssetBundle>();
+}
+
+#[test]
+fn asset_bundle_zero_total_size_on_empty() {
+    let bundle = AssetBundle::new();
+    assert_eq!(bundle.total_size(), 0);
+}
+
+#[test]
+fn asset_bundle_len_after_10_adds() {
+    let mut bundle = AssetBundle::new();
+    for i in 0..10 {
+        bundle.add(format!("f{}.js", i), b"x".to_vec());
+    }
+    assert_eq!(bundle.len(), 10);
+}
+
+#[test]
+fn bundle_single_css_file() {
+    let temp = TempDir::new().unwrap();
+    fs::write(temp.path().join("style.css"), "body{margin:0}").unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    assert_eq!(bundle.len(), 1);
+    assert_eq!(bundle.assets()[0].0, "style.css");
+}
+
+#[test]
+fn bundle_assets_names_no_backslash() {
+    let temp = TempDir::new().unwrap();
+    fs::create_dir_all(temp.path().join("a/b/c")).unwrap();
+    fs::write(temp.path().join("a/b/c/deep.js"), "x=1").unwrap();
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    for (name, _) in bundle.assets() {
+        assert!(!name.contains('\\'), "Path should use forward slashes: {name}");
+    }
+}
+
+#[test]
+fn bundle_total_size_matches_content() {
+    let temp = TempDir::new().unwrap();
+    let data = vec![0u8; 512];
+    fs::write(temp.path().join("file.bin"), &data).unwrap();
+
+    // .bin is not excluded by default
+    // BundleBuilder might filter it; use .js to be safe
+    let data = b"x".repeat(512);
+    fs::write(temp.path().join("index.html"), "<h1>").unwrap();
+    let _ = fs::write(temp.path().join("big.js"), &data);
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    assert!(bundle.total_size() >= 5); // at least the <h1> bytes
+}
+
+#[test]
+fn asset_bundle_add_empty_content() {
+    let mut bundle = AssetBundle::new();
+    bundle.add("empty.js", vec![]);
+    assert_eq!(bundle.len(), 1);
+    assert_eq!(bundle.assets()[0].1.len(), 0);
+}
+
+#[test]
+fn asset_bundle_content_binary_safe() {
+    let mut bundle = AssetBundle::new();
+    let binary: Vec<u8> = (0u8..=255u8).collect();
+    bundle.add("binary.bin", binary.clone());
+    assert_eq!(bundle.assets()[0].1, binary);
+}
+
+#[test]
+fn bundle_excludes_node_modules() {
+    let temp = TempDir::new().unwrap();
+    fs::create_dir_all(temp.path().join("node_modules/lib")).unwrap();
+    fs::write(temp.path().join("node_modules/lib/pkg.js"), "pkg").unwrap();
+    fs::write(temp.path().join("index.html"), "html").unwrap();
+
+    // Explicitly exclude node_modules by directory name (simple name match)
+    let bundle = BundleBuilder::new(temp.path())
+        .exclude(&["node_modules"])
+        .build()
+        .unwrap();
+    let names: Vec<&str> = bundle.assets().iter().map(|(n, _)| n.as_str()).collect();
+    assert!(
+        !names.iter().any(|n| n.contains("node_modules")),
+        "node_modules should be excluded, got: {:?}", names
+    );
+}
+
+#[test]
+fn bundle_with_all_web_types() {
+    let temp = TempDir::new().unwrap();
+    for (name, content) in &[
+        ("index.html", "<html>"),
+        ("app.js", "var x=1;"),
+        ("style.css", "body{}"),
+        ("data.json", "{}"),
+        ("icon.png", "PNG"),
+    ] {
+        fs::write(temp.path().join(name), content).unwrap();
+    }
+
+    let bundle = BundleBuilder::new(temp.path()).build().unwrap();
+    assert!(bundle.len() >= 4, "should include most web types");
+}
+

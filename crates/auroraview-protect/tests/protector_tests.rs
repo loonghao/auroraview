@@ -424,3 +424,145 @@ fn crate_version_is_semver() {
     // Must not be empty
     assert!(!v.is_empty());
 }
+
+// ─────────────────────────────────────────────────────────────
+// Additional ProtectConfig tests
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn protect_config_new_no_python_path() {
+    let config = ProtectConfig::new();
+    assert!(config.python_path.is_none());
+}
+
+#[test]
+fn protect_config_new_no_python_version() {
+    let config = ProtectConfig::new();
+    assert!(config.python_version.is_none());
+}
+
+#[test]
+fn protect_config_optimization_zero_allowed() {
+    let config = ProtectConfig::new().optimization(0);
+    assert_eq!(config.optimization, 0);
+}
+
+#[test]
+fn protect_config_optimization_one_allowed() {
+    let config = ProtectConfig::new().optimization(1);
+    assert_eq!(config.optimization, 1);
+}
+
+#[test]
+fn protect_config_optimization_two_allowed() {
+    let config = ProtectConfig::new().optimization(2);
+    assert_eq!(config.optimization, 2);
+}
+
+#[test]
+fn protect_config_optimization_three_is_max() {
+    let config = ProtectConfig::new().optimization(3);
+    assert_eq!(config.optimization, 3);
+}
+
+#[test]
+fn protect_config_keep_temp_false_default() {
+    let config = ProtectConfig::default();
+    assert!(!config.keep_temp);
+}
+
+#[test]
+fn protect_config_no_target_dcc_default() {
+    let config = ProtectConfig::default();
+    assert!(config.target_dcc.is_none());
+}
+
+#[test]
+fn protect_config_target_dcc_houdini() {
+    let config = ProtectConfig::new().target_dcc("houdini");
+    assert_eq!(config.target_dcc.as_deref(), Some("houdini"));
+}
+
+#[test]
+fn protect_config_target_dcc_blender() {
+    let config = ProtectConfig::new().target_dcc("blender");
+    assert_eq!(config.target_dcc.as_deref(), Some("blender"));
+}
+
+// ─────────────────────────────────────────────────────────────
+// EncryptionConfig additional coverage
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn encryption_config_enabled_has_x25519_algorithm() {
+    let enc = EncryptionConfig::enabled();
+    assert_eq!(enc.algorithm, "x25519");
+    assert!(enc.enabled);
+}
+
+#[test]
+fn encryption_config_no_keys_by_default() {
+    let enc = EncryptionConfig::enabled();
+    assert!(enc.public_key.is_none());
+    assert!(enc.private_key.is_none());
+}
+
+#[test]
+fn encryption_config_with_keys_both_fields() {
+    let enc = EncryptionConfig::enabled().with_keys("pk".to_string(), "sk".to_string());
+    assert!(enc.public_key.is_some());
+    assert!(enc.private_key.is_some());
+}
+
+// ─────────────────────────────────────────────────────────────
+// ProtectError: Send + Sync + is std::error::Error
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn protect_error_is_send_sync() {
+    fn check<T: Send + Sync>() {}
+    check::<ProtectError>();
+}
+
+#[test]
+fn protect_error_is_std_error() {
+    let err: Box<dyn std::error::Error> =
+        Box::new(ProtectError::Config("test".to_string()));
+    assert!(!err.to_string().is_empty());
+}
+
+#[test]
+fn protect_error_source_is_none_for_config() {
+    use std::error::Error;
+    let err = ProtectError::Config("x".to_string());
+    assert!(err.source().is_none());
+}
+
+// ─────────────────────────────────────────────────────────────
+// ProtectConfig: multiple excludes accumulate
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn protect_config_multiple_exclude_calls() {
+    let config = ProtectConfig::new()
+        .exclude("vendor_*.py")
+        .exclude("legacy_*.py");
+    let has_vendor = config.exclude.iter().any(|p| p.contains("vendor_"));
+    let has_legacy = config.exclude.iter().any(|p| p.contains("legacy_"));
+    assert!(has_vendor && has_legacy);
+}
+
+// ─────────────────────────────────────────────────────────────
+// ProtectionMethod equality
+// ─────────────────────────────────────────────────────────────
+
+#[test]
+fn protection_method_bytecode_equality() {
+    assert_eq!(ProtectionMethod::Bytecode, ProtectionMethod::Bytecode);
+}
+
+#[test]
+fn protection_method_debug_non_empty() {
+    let m = ProtectionMethod::Bytecode;
+    assert!(!format!("{:?}", m).is_empty());
+}
