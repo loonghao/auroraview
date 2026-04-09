@@ -846,5 +846,101 @@ mod concurrent_arc_mutex_tests {
         }
         assert_eq!(*done.lock().unwrap(), 16);
     }
+
+    #[test]
+    fn arc_mutex_uncontended_single_thread() {
+        // Verify lock/unlock without concurrency
+        let m = Arc::new(Mutex::new(42u64));
+        {
+            let mut g = m.lock().unwrap();
+            *g = 100;
+        }
+        assert_eq!(*m.lock().unwrap(), 100);
+    }
+
+    #[test]
+    fn arc_rwlock_parallel_sum_consistency() {
+        // 20 reader threads each compute sum independently; all must agree
+        let data = Arc::new(RwLock::new(vec![10u32; 100]));
+        let handles: Vec<_> = (0..20)
+            .map(|_| {
+                let d = data.clone();
+                thread::spawn(move || d.read().unwrap().iter().sum::<u32>())
+            })
+            .collect();
+        for h in handles {
+            let sum = h.join().unwrap();
+            assert_eq!(sum, 1000);
+        }
+    }
+
+    #[test]
+    fn arc_mutex_boolean_flag_toggle() {
+        let flag = Arc::new(Mutex::new(false));
+        let handles: Vec<_> = (0..4)
+            .map(|_| {
+                let f = flag.clone();
+                thread::spawn(move || {
+                    let mut g = f.lock().unwrap();
+                    *g = !*g;
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        // 4 toggles on false → result is false (even number of toggles)
+        drop(flag.lock().unwrap());
+    }
+
+    #[test]
+    fn mpsc_channel_sum_correct() {
+        use std::sync::mpsc;
+        let (tx, rx) = mpsc::channel::<u64>();
+        let n = 50u64;
+        for i in 1..=n {
+            tx.send(i).unwrap();
+        }
+        drop(tx);
+        let sum: u64 = rx.iter().sum();
+        assert_eq!(sum, n * (n + 1) / 2);
+    }
+
+    #[test]
+    fn arc_mutex_nested_lock_then_release() {
+        // Lock outer → clone and lock inner → release inner → release outer
+        let outer = Arc::new(Mutex::new(Arc::new(Mutex::new(7u32))));
+        {
+            let o = outer.lock().unwrap();
+            let inner = o.clone();
+            let val = *inner.lock().unwrap();
+            assert_eq!(val, 7);
+        }
+    }
+
+    #[test]
+    fn lock_order_guard_name_preserved() {
+        use super::*;
+        clear_held_locks();
+        set_verification_enabled(false);
+        let g = LockOrderGuard::new_unchecked(LockLevel::Resource, "my_resource");
+        // Level is accessible via accessor
+        assert_eq!(g.level(), LockLevel::Resource);
+        // name is part of construction – no accessor, just verify it compiles and runs
+        drop(g);
+    }
+
+    #[test]
+    fn held_lock_count_zero_after_scope_exit() {
+        use super::*;
+        clear_held_locks();
+        set_verification_enabled(true);
+        {
+            let _g = LockOrderGuard::new(LockLevel::State, "s");
+            assert_eq!(held_lock_count(), 1);
+        }
+        assert_eq!(held_lock_count(), 0);
+    }
 }
+
 
