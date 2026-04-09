@@ -729,6 +729,7 @@ fn concurrent_notify_and_dismiss_no_deadlock() {
     dismisser.join().unwrap();
 }
 
+
 #[test]
 fn concurrent_permission_reads_no_panic() {
 
@@ -742,6 +743,284 @@ fn concurrent_permission_reads_no_panic() {
                 for _ in 0..20 {
                     let _ = m.permission("https://example.com");
                 }
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+}
+
+// ========== Permission State Methods ==========
+
+#[rstest]
+fn permission_state_is_granted() {
+    assert!(PermissionState::Granted.is_granted());
+    assert!(!PermissionState::Denied.is_granted());
+    assert!(!PermissionState::Default.is_granted());
+}
+
+#[rstest]
+fn permission_state_is_denied() {
+    assert!(PermissionState::Denied.is_denied());
+    assert!(!PermissionState::Granted.is_denied());
+    assert!(!PermissionState::Default.is_denied());
+}
+
+#[rstest]
+fn permission_state_is_default() {
+    assert!(PermissionState::Default.is_default());
+    assert!(!PermissionState::Granted.is_default());
+    assert!(!PermissionState::Denied.is_default());
+}
+
+// ========== Permission struct methods ==========
+
+#[rstest]
+fn permission_new_is_default_state() {
+    let p = Permission::new("https://example.com");
+    assert_eq!(p.state, PermissionState::Default);
+    assert_eq!(p.origin, "https://example.com");
+    assert!(p.updated_at.is_none());
+}
+
+#[rstest]
+fn permission_granted_factory() {
+    let p = Permission::granted("https://trusted.com");
+    assert_eq!(p.state, PermissionState::Granted);
+    assert!(p.updated_at.is_some());
+}
+
+#[rstest]
+fn permission_denied_factory() {
+    let p = Permission::denied("https://evil.com");
+    assert_eq!(p.state, PermissionState::Denied);
+    assert!(p.updated_at.is_some());
+}
+
+#[rstest]
+fn permission_grant_method() {
+    let mut p = Permission::new("https://example.com");
+    p.grant();
+    assert_eq!(p.state, PermissionState::Granted);
+}
+
+#[rstest]
+fn permission_deny_method() {
+    let mut p = Permission::new("https://example.com");
+    p.deny();
+    assert_eq!(p.state, PermissionState::Denied);
+}
+
+#[rstest]
+fn permission_reset_method() {
+    let mut p = Permission::granted("https://example.com");
+    p.reset();
+    assert_eq!(p.state, PermissionState::Default);
+}
+
+#[rstest]
+fn permission_grant_then_deny_then_reset() {
+    let mut p = Permission::new("https://example.com");
+    p.grant();
+    assert!(p.state.is_granted());
+    p.deny();
+    assert!(p.state.is_denied());
+    p.reset();
+    assert!(p.state.is_default());
+}
+
+
+// ========== Notification mark methods ==========
+
+#[rstest]
+fn notification_mark_shown_state_transition() {
+    let mut n = Notification::new("T", "B");
+    assert!(!n.is_shown());
+    n.mark_shown();
+    assert!(n.is_shown());
+    assert!(n.is_active()); // still active until dismissed
+}
+
+#[rstest]
+fn notification_mark_dismissed_state_transition() {
+    let mut n = Notification::new("T", "B");
+    n.mark_shown();
+    n.mark_dismissed();
+    assert!(!n.is_active());
+    assert!(n.is_shown());
+}
+
+#[rstest]
+fn notification_new_is_active_not_shown() {
+    let n = Notification::new("T", "B");
+    assert!(n.is_active());
+    assert!(!n.is_shown());
+}
+
+// ========== Notification builder edge cases ==========
+
+#[rstest]
+fn notification_simple_has_no_body() {
+    let n = Notification::simple("Title only");
+    assert_eq!(n.title, "Title only");
+    assert!(n.body.is_none());
+}
+
+#[rstest]
+fn notification_simple_inherits_type_default() {
+    let n = Notification::simple("T");
+    assert_eq!(n.notification_type, NotificationType::Info);
+}
+
+#[rstest]
+fn notification_with_data() {
+    let n = Notification::new("T", "B")
+        .with_data(serde_json::json!({"user_id": 42, "level": "critical"}));
+    assert!(n.data.is_some());
+    assert_eq!(n.data.as_ref().unwrap()["user_id"], 42);
+}
+
+#[rstest]
+fn notification_persistent_sets_require_interaction() {
+    let n = Notification::new("T", "B").persistent();
+    assert!(n.require_interaction);
+}
+
+#[rstest]
+fn notification_with_tag() {
+    let n = Notification::new("T", "B").with_tag("alert");
+    assert_eq!(n.tag, Some("alert".to_string()));
+}
+
+#[rstest]
+fn notification_with_icon_and_image() {
+    let n = Notification::new("T", "B")
+        .with_icon("icon.png")
+        .with_image("banner.jpg");
+    assert_eq!(n.icon, Some("icon.png".to_string()));
+    assert_eq!(n.image, Some("banner.jpg".to_string()));
+}
+
+// ========== NotificationType default_duration ==========
+
+#[rstest]
+fn notification_type_info_default_duration() {
+    assert_eq!(NotificationType::Info.default_duration(), Some(5000));
+}
+
+#[rstest]
+fn notification_type_success_default_duration() {
+    assert_eq!(NotificationType::Success.default_duration(), Some(3000));
+}
+
+#[rstest]
+fn notification_type_warning_default_duration() {
+    assert_eq!(NotificationType::Warning.default_duration(), Some(8000));
+}
+
+#[rstest]
+fn notification_type_error_default_duration() {
+    assert_eq!(NotificationType::Error.default_duration(), None);
+}
+
+// ========== Manager get() ==========
+
+#[rstest]
+fn manager_get_active_notification(manager: NotificationManager) {
+    let id = manager.notify(Notification::new("T", "B")).unwrap();
+    let n = manager.get(id).unwrap();
+    assert_eq!(n.title, "T");
+}
+
+#[rstest]
+fn manager_get_nonexistent_returns_none(manager: NotificationManager) {
+    let nonexistent = uuid::Uuid::new_v4();
+    assert!(manager.get(nonexistent).is_none());
+}
+
+// ========== Manager active() ==========
+
+#[rstest]
+fn manager_active_empty_initially(manager: NotificationManager) {
+    let active = manager.active();
+    assert!(active.is_empty());
+}
+
+#[rstest]
+fn manager_active_returns_all_active(manager: NotificationManager) {
+    manager.notify(Notification::new("N1", "B")).unwrap();
+    manager.notify(Notification::new("N2", "B")).unwrap();
+    let active = manager.active();
+    assert_eq!(active.len(), 2);
+}
+
+// ========== Manager clear_history ==========
+
+#[rstest]
+fn manager_clear_history_after_dismiss(manager: NotificationManager) {
+    let id = manager.notify(Notification::new("T", "B")).unwrap();
+    manager.dismiss(id).unwrap();
+    assert_eq!(manager.history().len(), 1);
+
+    manager.clear_history();
+    assert!(manager.history().is_empty());
+}
+
+// ========== Manager dismiss errors ==========
+
+#[rstest]
+fn manager_dismiss_nonexistent_returns_err(manager: NotificationManager) {
+    let fake_id = uuid::Uuid::new_v4();
+    let result = manager.dismiss(fake_id);
+    assert!(result.is_err());
+}
+
+#[rstest]
+fn manager_trigger_action_dismissed_returns_err(manager: NotificationManager) {
+    let n = Notification::new("T", "B")
+        .with_action(NotificationAction::new("ok", "OK"));
+    let id = manager.notify(n).unwrap();
+    manager.dismiss(id).unwrap();
+    // After dismiss, triggering action should error (not found)
+    let result = manager.trigger_action(id, "ok");
+    assert!(result.is_err());
+}
+
+// ========== NotificationError: Send + Sync ==========
+
+#[test]
+fn notification_error_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<auroraview_notifications::NotificationError>();
+}
+
+// ========== NotificationType: Clone + PartialEq ==========
+
+#[rstest]
+#[case(NotificationType::Info)]
+#[case(NotificationType::Success)]
+#[case(NotificationType::Warning)]
+#[case(NotificationType::Error)]
+fn notification_type_clone_eq(#[case] kind: NotificationType) {
+    let cloned = kind.clone();
+    assert_eq!(cloned, kind);
+}
+
+// ========== Concurrent multi-origin notifications ==========
+
+#[test]
+fn concurrent_multi_origin_permissions() {
+    let manager = Arc::new(NotificationManager::new());
+
+    let handles: Vec<_> = (0..4)
+        .map(|i| {
+            let m = Arc::clone(&manager);
+            thread::spawn(move || {
+                let origin = format!("https://site{}.com", i);
+                m.set_permission(&origin, i % 2 == 0);
+                let _ = m.permission(&origin);
             })
         })
         .collect();

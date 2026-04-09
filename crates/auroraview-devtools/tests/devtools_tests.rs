@@ -715,3 +715,290 @@ fn network_request_overwrite_same_id() {
     assert_eq!(req.url, "https://b.com");
     assert_eq!(req.method, "POST");
 }
+
+// ── Selected panel ───────────────────────────────────────────────────────────
+
+#[test]
+fn manager_set_and_get_selected_panel() {
+    let mut manager = DevToolsManager::default();
+    assert!(manager.selected_panel().is_none());
+
+    manager.set_selected_panel("console");
+    assert_eq!(manager.selected_panel(), Some("console"));
+
+    manager.set_selected_panel("network");
+    assert_eq!(manager.selected_panel(), Some("network"));
+}
+
+#[test]
+fn manager_selected_panel_elements() {
+    let mut manager = DevToolsManager::default();
+    manager.set_selected_panel("elements");
+    assert_eq!(manager.selected_panel(), Some("elements"));
+}
+
+// ── Clear all ────────────────────────────────────────────────────────────────
+
+#[test]
+fn manager_clear_all_removes_console_and_network() {
+    let mut manager = DevToolsManager::default();
+    manager.add_console_message(ConsoleMessage::info("msg1"));
+    manager.add_console_message(ConsoleMessage::warning("warn1"));
+    manager.add_network_request(NetworkRequestInfo::new("r1", "https://a.com", "GET"));
+    manager.add_network_request(NetworkRequestInfo::new("r2", "https://b.com", "POST"));
+
+    assert_eq!(manager.console_message_count(), 2);
+    assert_eq!(manager.network_request_count(), 2);
+
+    manager.clear_all();
+
+    assert_eq!(manager.console_message_count(), 0);
+    assert_eq!(manager.network_request_count(), 0);
+}
+
+// ── Network requests list ────────────────────────────────────────────────────
+
+#[test]
+fn network_requests_list_contains_all() {
+    let mut manager = DevToolsManager::default();
+    manager.add_network_request(NetworkRequestInfo::new("r1", "https://a.com", "GET"));
+    manager.add_network_request(NetworkRequestInfo::new("r2", "https://b.com", "POST"));
+    manager.add_network_request(NetworkRequestInfo::new("r3", "https://c.com", "DELETE"));
+
+    let list = manager.network_requests_list();
+    assert_eq!(list.len(), 3);
+}
+
+#[test]
+fn network_requests_list_empty() {
+    let manager = DevToolsManager::default();
+    let list = manager.network_requests_list();
+    assert!(list.is_empty());
+}
+
+#[test]
+fn network_requests_map_access() {
+    let mut manager = DevToolsManager::default();
+    manager.add_network_request(NetworkRequestInfo::new("req-x", "https://x.com", "PUT"));
+    let map = manager.network_requests();
+    assert!(map.contains_key("req-x"));
+    assert_eq!(map.get("req-x").unwrap().method, "PUT");
+}
+
+// ── State accessor ───────────────────────────────────────────────────────────
+
+#[test]
+fn manager_state_initially_closed() {
+    let manager = DevToolsManager::default();
+    let state = manager.state();
+    assert!(!state.is_open);
+}
+
+#[test]
+fn manager_state_after_open() {
+    let mut manager = DevToolsManager::default();
+    manager.open();
+    assert!(manager.state().is_open);
+}
+
+#[test]
+fn manager_state_dock_side_from_config() {
+    let cfg = DevToolsConfig::enabled().with_dock_side(DockSide::Left);
+    let manager = DevToolsManager::new(cfg);
+    assert_eq!(manager.state().dock_side, Some(DockSide::Left));
+}
+
+#[test]
+fn manager_state_selected_panel_after_set() {
+    let mut manager = DevToolsManager::default();
+    manager.set_selected_panel("sources");
+    assert_eq!(manager.state().selected_panel.as_deref(), Some("sources"));
+}
+
+// ── Config accessor ──────────────────────────────────────────────────────────
+
+#[test]
+fn manager_config_returns_correct_port() {
+    let cfg = DevToolsConfig::enabled().with_remote_debugging_port(9229);
+    let manager = DevToolsManager::new(cfg);
+    assert_eq!(manager.config().remote_debugging_port, 9229);
+}
+
+#[test]
+fn manager_config_enabled_flag() {
+    let manager = DevToolsManager::default();
+    assert!(manager.config().enabled);
+
+    let disabled = DevToolsManager::new(DevToolsConfig::disabled());
+    assert!(!disabled.config().enabled);
+}
+
+// ── Max console messages builder ─────────────────────────────────────────────
+
+#[test]
+fn manager_max_console_messages_trims_oldest() {
+    let mut manager = DevToolsManager::default().with_max_console_messages(5);
+    for i in 0..8 {
+        manager.add_console_message(ConsoleMessage::log(format!("msg-{}", i)));
+    }
+    assert_eq!(manager.console_message_count(), 5);
+    // First kept message should be msg-3 (oldest msg-0..msg-2 removed)
+    assert!(manager.console_messages()[0].text.contains("3"));
+}
+
+#[test]
+fn manager_max_console_messages_one() {
+    let mut manager = DevToolsManager::default().with_max_console_messages(1);
+    manager.add_console_message(ConsoleMessage::log("first"));
+    manager.add_console_message(ConsoleMessage::log("second"));
+    assert_eq!(manager.console_message_count(), 1);
+    assert!(manager.console_messages()[0].text.contains("second"));
+}
+
+// ── Console message types ────────────────────────────────────────────────────
+
+#[test]
+fn console_message_types_filter() {
+    let mut manager = DevToolsManager::default();
+    manager.add_console_message(ConsoleMessage::log("info1"));
+    manager.add_console_message(ConsoleMessage::log("info2"));
+    manager.add_console_message(ConsoleMessage::error("err1"));
+    manager.add_console_message(ConsoleMessage::warning("warn1"));
+    manager.add_console_message(ConsoleMessage::warning("warn2"));
+
+    assert_eq!(manager.error_messages().len(), 1);
+    assert_eq!(manager.warning_messages().len(), 2);
+    assert_eq!(manager.console_message_count(), 5);
+}
+
+#[test]
+fn console_message_log_is_not_error_or_warning() {
+    let msg = ConsoleMessage::log("hello");
+    assert!(!msg.is_error());
+    assert!(!msg.is_warning());
+}
+
+#[test]
+fn console_message_debug_type() {
+    let msg = ConsoleMessage::debug("debug info");
+    assert!(!msg.is_error());
+    assert!(!msg.is_warning());
+    assert_eq!(msg.text, "debug info");
+}
+
+#[test]
+fn console_message_with_source_fields() {
+    let msg = ConsoleMessage::log("traced")
+        .with_source("https://example.com/app.js", 10, 5);
+    assert_eq!(msg.source, Some("https://example.com/app.js".to_string()));
+    assert_eq!(msg.line, Some(10));
+    assert_eq!(msg.column, Some(5));
+}
+
+#[test]
+fn console_message_with_stack_trace() {
+    let msg = ConsoleMessage::error("oops").with_stack_trace("at main (app.js:1)");
+    assert_eq!(msg.stack_trace, Some("at main (app.js:1)".to_string()));
+}
+
+#[test]
+fn console_message_serde_roundtrip() {
+    let msg = ConsoleMessage::error("crash!").with_source("https://a.com/b.js", 3, 1);
+    let json = serde_json::to_string(&msg).unwrap();
+    let back: ConsoleMessage = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.text, "crash!");
+    assert_eq!(back.source, Some("https://a.com/b.js".to_string()));
+}
+
+// ── DevToolsConfig builder ───────────────────────────────────────────────────
+
+#[rstest]
+#[case(DockSide::Right)]
+#[case(DockSide::Left)]
+#[case(DockSide::Bottom)]
+#[case(DockSide::Undocked)]
+fn config_all_dock_sides(#[case] side: DockSide) {
+    let cfg = DevToolsConfig::enabled().with_dock_side(side);
+    assert_eq!(cfg.dock_side, side);
+}
+
+#[test]
+fn config_builder_fields_preserved() {
+    let cfg = DevToolsConfig::enabled()
+        .with_remote_debugging_port(9222)
+        .with_auto_open(true)
+        .with_dock_side(DockSide::Bottom);
+    assert!(cfg.enabled);
+    assert_eq!(cfg.remote_debugging_port, 9222);
+    assert!(cfg.auto_open);
+    assert_eq!(cfg.dock_side, DockSide::Bottom);
+}
+
+// ── DockSide serde ───────────────────────────────────────────────────────────
+
+#[rstest]
+#[case(DockSide::Right, r#""right""#)]
+#[case(DockSide::Left, r#""left""#)]
+#[case(DockSide::Bottom, r#""bottom""#)]
+#[case(DockSide::Undocked, r#""undocked""#)]
+fn dock_side_serde(#[case] side: DockSide, #[case] expected: &str) {
+    let json = serde_json::to_string(&side).unwrap();
+    assert_eq!(json, expected);
+    let back: DockSide = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, side);
+}
+
+// ── DevToolsError extra ──────────────────────────────────────────────────────
+
+#[test]
+fn devtools_error_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<DevToolsError>();
+}
+
+// ── Network request with_headers batch ──────────────────────────────────────
+
+#[test]
+fn network_request_with_headers_batch() {
+    use std::collections::HashMap;
+    let mut hdrs = HashMap::new();
+    hdrs.insert("Content-Type".to_string(), "application/json".to_string());
+    hdrs.insert("X-API-Key".to_string(), "secret".to_string());
+
+    let req = NetworkRequestInfo::new("batch-r", "https://api.example.com/data", "POST")
+        .with_headers(hdrs);
+    assert_eq!(req.headers.len(), 2);
+}
+
+// ── NetworkRequestInfo domain edge cases ──────────────────────────────────────
+
+#[rstest]
+#[case("https://example.com", Some("example.com"))]
+#[case("http://localhost:3000/api/v1", Some("localhost:3000"))]
+#[case("file:///etc/hosts", None)]
+#[case("data:text/plain;base64,abc", None)]
+fn network_request_domain_edge_cases(#[case] url: &str, #[case] expected: Option<&str>) {
+    let req = NetworkRequestInfo::new("x", url, "GET");
+    assert_eq!(req.domain(), expected);
+}
+
+// ── NetworkResponseInfo extra ────────────────────────────────────────────────
+
+#[test]
+fn network_response_with_headers_batch() {
+    use std::collections::HashMap;
+    let mut hdrs = HashMap::new();
+    hdrs.insert("Cache-Control".to_string(), "no-cache".to_string());
+    let resp = NetworkResponseInfo::new("r", 200, "OK").with_headers(hdrs);
+    assert_eq!(resp.headers.len(), 1);
+}
+
+#[rstest]
+#[case(200, false, false)]
+#[case(404, true, false)]
+#[case(500, false, true)]
+fn network_response_is_error_type(#[case] status: u16, #[case] client: bool, #[case] server: bool) {
+    let resp = NetworkResponseInfo::new("r", status, "");
+    assert_eq!(resp.is_client_error(), client);
+    assert_eq!(resp.is_server_error(), server);
+}

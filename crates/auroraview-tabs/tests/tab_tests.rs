@@ -618,3 +618,517 @@ fn test_result_type_alias() {
     let ok: Result<i32> = Ok(42);
     assert!(ok.is_ok());
 }
+
+// ========== TabEvent Factory Methods ==========
+
+#[test]
+fn test_event_new_tab_with_url() {
+    let ev = TabEvent::new_tab(Some("https://example.com".to_string()));
+    assert!(matches!(ev, TabEvent::NewTab { url: Some(_) }));
+}
+
+#[test]
+fn test_event_new_tab_no_url() {
+    let ev = TabEvent::new_tab(None);
+    assert!(matches!(ev, TabEvent::NewTab { url: None }));
+}
+
+#[test]
+fn test_event_close_tab() {
+    let ev = TabEvent::close_tab("tab_1".to_string());
+    assert!(matches!(ev, TabEvent::CloseTab { .. }));
+}
+
+#[test]
+fn test_event_activate_tab() {
+    let ev = TabEvent::activate_tab("tab_2".to_string());
+    assert!(matches!(ev, TabEvent::ActivateTab { .. }));
+}
+
+#[test]
+fn test_event_navigate() {
+    let ev = TabEvent::navigate("https://github.com");
+    assert!(matches!(ev, TabEvent::Navigate { url } if url == "https://github.com"));
+}
+
+#[test]
+fn test_event_title_changed_factory_method() {
+    let ev = TabEvent::title_changed("t1".to_string(), "My Title");
+    assert!(matches!(ev, TabEvent::TitleChanged { title, .. } if title == "My Title"));
+}
+
+#[test]
+fn test_event_url_changed() {
+    let ev = TabEvent::url_changed("t1".to_string(), "https://new.com");
+    assert!(matches!(ev, TabEvent::UrlChanged { url, .. } if url == "https://new.com"));
+}
+
+#[test]
+fn test_event_loading_changed_true() {
+    let ev = TabEvent::loading_changed("t1".to_string(), true);
+    assert!(matches!(ev, TabEvent::LoadingChanged { is_loading: true, .. }));
+}
+
+#[test]
+fn test_event_loading_changed_false() {
+    let ev = TabEvent::loading_changed("t1".to_string(), false);
+    assert!(matches!(ev, TabEvent::LoadingChanged { is_loading: false, .. }));
+}
+
+#[rstest]
+#[case(TabEvent::Created { tab_id: "1".to_string() }, true)]
+#[case(TabEvent::Closed { tab_id: "1".to_string() }, true)]
+#[case(TabEvent::Activated { tab_id: "1".to_string() }, true)]
+#[case(TabEvent::Deactivated { tab_id: "1".to_string() }, true)]
+#[case(TabEvent::Navigate { url: "https://x.com".to_string() }, false)]
+fn test_event_is_lifecycle(#[case] ev: TabEvent, #[case] expected: bool) {
+    assert_eq!(ev.is_lifecycle_event(), expected);
+}
+
+#[rstest]
+#[case(TabEvent::TitleChanged { tab_id: "t".to_string(), title: "T".to_string() }, true)]
+#[case(TabEvent::UrlChanged { tab_id: "t".to_string(), url: "u".to_string() }, true)]
+#[case(TabEvent::LoadingChanged { tab_id: "t".to_string(), is_loading: false }, true)]
+#[case(TabEvent::HistoryChanged { tab_id: "t".to_string(), can_go_back: false, can_go_forward: false }, true)]
+#[case(TabEvent::FaviconChanged { tab_id: "t".to_string(), favicon_url: "f".to_string() }, true)]
+#[case(TabEvent::Created { tab_id: "t".to_string() }, false)]
+fn test_event_is_state_update(#[case] ev: TabEvent, #[case] expected: bool) {
+    assert_eq!(ev.is_state_update(), expected);
+}
+
+#[rstest]
+#[case(TabEvent::AddedToGroup { tab_id: "t".to_string(), group_id: "g".to_string() }, true)]
+#[case(TabEvent::RemovedFromGroup { tab_id: "t".to_string(), group_id: "g".to_string() }, true)]
+#[case(TabEvent::GroupCreated { group_id: "g".to_string(), name: "n".to_string() }, true)]
+#[case(TabEvent::GroupDeleted { group_id: "g".to_string() }, true)]
+#[case(TabEvent::GroupCollapsed { group_id: "g".to_string(), collapsed: true }, true)]
+#[case(TabEvent::Navigate { url: "u".to_string() }, false)]
+fn test_event_is_group_event(#[case] ev: TabEvent, #[case] expected: bool) {
+    assert_eq!(ev.is_group_event(), expected);
+}
+
+#[test]
+fn test_event_serde_roundtrip() {
+    let ev = TabEvent::TitleChanged {
+        tab_id: "tab_1".to_string(),
+        title: "Hello".to_string(),
+    };
+    let json = serde_json::to_string(&ev).unwrap();
+    let back: TabEvent = serde_json::from_str(&json).unwrap();
+    assert!(matches!(back, TabEvent::TitleChanged { title, .. } if title == "Hello"));
+}
+
+// ========== TabGroup Extended Tests ==========
+
+#[test]
+fn test_group_with_id() {
+    let group = auroraview_tabs::TabGroup::with_id("group-1", "Work");
+    assert_eq!(group.id, "group-1");
+    assert_eq!(group.name, "Work");
+    assert!(group.color.is_none());
+}
+
+#[test]
+fn test_group_with_color() {
+    let group = auroraview_tabs::TabGroup::new("Work").with_color("#ff0000");
+    assert_eq!(group.color, Some("#ff0000".to_string()));
+}
+
+#[test]
+fn test_group_with_tabs() {
+    let group = auroraview_tabs::TabGroup::new("Work")
+        .with_tabs(vec!["t1".to_string(), "t2".to_string()]);
+    assert_eq!(group.len(), 2);
+    assert!(group.contains(&"t1".to_string()));
+}
+
+#[test]
+fn test_group_add_tab_at_position() {
+    let mut group = auroraview_tabs::TabGroup::new("Work")
+        .with_tabs(vec!["t1".to_string(), "t2".to_string()]);
+    group.add_tab_at("t0".to_string(), 0);
+    assert_eq!(group.tab_ids[0], "t0");
+}
+
+#[test]
+fn test_group_add_tab_no_duplicate() {
+    let mut group = auroraview_tabs::TabGroup::new("Work");
+    group.add_tab("t1".to_string());
+    group.add_tab("t1".to_string()); // should not duplicate
+    assert_eq!(group.len(), 1);
+}
+
+#[test]
+fn test_group_remove_nonexistent_tab() {
+    let mut group = auroraview_tabs::TabGroup::new("Work");
+    group.add_tab("t1".to_string());
+    let removed = group.remove_tab(&"t99".to_string());
+    assert!(!removed);
+    assert_eq!(group.len(), 1);
+}
+
+#[test]
+fn test_group_set_name() {
+    let mut group = auroraview_tabs::TabGroup::new("Old");
+    group.set_name("New");
+    assert_eq!(group.name, "New");
+}
+
+#[test]
+fn test_group_set_color() {
+    let mut group = auroraview_tabs::TabGroup::new("G");
+    group.set_color(Some("blue".to_string()));
+    assert_eq!(group.color, Some("blue".to_string()));
+    group.set_color(None);
+    assert!(group.color.is_none());
+}
+
+#[test]
+fn test_group_toggle_collapsed() {
+    let mut group = auroraview_tabs::TabGroup::new("G");
+    assert!(!group.collapsed);
+    group.toggle_collapsed();
+    assert!(group.collapsed);
+    group.toggle_collapsed();
+    assert!(!group.collapsed);
+}
+
+#[test]
+fn test_group_reorder_tab_to_end() {
+    let mut group = auroraview_tabs::TabGroup::new("G")
+        .with_tabs(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    group.reorder_tab(&"a".to_string(), 100); // beyond end
+    assert_eq!(group.tab_ids, vec!["b", "c", "a"]);
+}
+
+#[test]
+fn test_group_serde_roundtrip() {
+    let group = auroraview_tabs::TabGroup::new("Work")
+        .with_color("red")
+        .with_tabs(vec!["t1".to_string()]);
+    let json = serde_json::to_string(&group).unwrap();
+    let back: auroraview_tabs::TabGroup = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.name, "Work");
+    assert_eq!(back.color, Some("red".to_string()));
+    assert_eq!(back.tab_ids, vec!["t1"]);
+}
+
+// ========== TabError Display Tests ==========
+
+#[test]
+fn test_error_not_found_display() {
+    let err = TabError::NotFound("tab_99".to_string());
+    assert!(err.to_string().contains("tab_99"));
+}
+
+#[test]
+fn test_error_group_not_found_display() {
+    let err = TabError::GroupNotFound("group_x".to_string());
+    assert!(err.to_string().contains("group_x"));
+}
+
+#[test]
+fn test_error_invalid_operation_display() {
+    let err = TabError::InvalidOperation("cannot pin active tab".to_string());
+    assert!(err.to_string().contains("cannot pin active tab"));
+}
+
+#[test]
+fn test_error_session_display() {
+    let err = TabError::Session("file not found".to_string());
+    assert!(err.to_string().contains("file not found"));
+}
+
+// ========== TabState Serde Tests ==========
+
+#[test]
+fn test_tab_state_serde_roundtrip() {
+    let state = TabState::with_title("t1".to_string(), "https://example.com", "Example");
+    let json = serde_json::to_string(&state).unwrap();
+    let back: TabState = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.id, "t1");
+    assert_eq!(back.title, "Example");
+    assert_eq!(back.url, "https://example.com");
+}
+
+#[test]
+fn test_tab_state_serde_with_favicon() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com");
+    state.set_favicon(Some("https://example.com/favicon.ico".to_string()));
+    let json = serde_json::to_string(&state).unwrap();
+    let back: TabState = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.favicon, Some("https://example.com/favicon.ico".to_string()));
+}
+
+#[test]
+fn test_tab_state_set_audible() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com");
+    assert!(!state.audible);
+    state.set_audible(true);
+    assert!(state.audible);
+    state.set_audible(false);
+    assert!(!state.audible);
+}
+
+#[test]
+fn test_tab_state_set_position() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com");
+    assert_eq!(state.position, 0);
+    state.set_position(3);
+    assert_eq!(state.position, 3);
+}
+
+#[test]
+fn test_tab_state_generate_id_unique() {
+    let id1 = TabState::generate_id();
+    let id2 = TabState::generate_id();
+    assert_ne!(id1, id2);
+    assert!(!id1.is_empty());
+}
+
+// ========== Manager Extra Scenarios ==========
+
+#[test]
+fn test_manager_count_and_is_empty() {
+    let manager = TabManager::new();
+    assert!(manager.is_empty());
+    assert_eq!(manager.count(), 0);
+
+    manager.create("https://a.com");
+    assert!(!manager.is_empty());
+    assert_eq!(manager.count(), 1);
+}
+
+#[test]
+fn test_manager_active_state_after_multiple_creates() {
+    let manager = TabManager::new();
+    let id1 = manager.create("https://a.com");
+    manager.create("https://b.com");
+    manager.create("https://c.com");
+
+    // Active should still be the first
+    assert_eq!(manager.active_id(), Some(id1));
+}
+
+#[test]
+fn test_manager_active_returns_state() {
+    let manager = TabManager::new();
+    let id = manager.create("https://example.com");
+    let active = manager.active().unwrap();
+    assert_eq!(active.id, id);
+}
+
+#[test]
+fn test_manager_get_nonexistent_returns_none() {
+    let manager = TabManager::new();
+    assert!(manager.get(&"nonexistent".to_string()).is_none());
+}
+
+#[test]
+fn test_manager_update_closure_returns_value() {
+    let manager = TabManager::new();
+    let id = manager.create("https://example.com");
+    let result = manager.update(&id, |tab| {
+        tab.set_title("Updated");
+        tab.title.clone()
+    });
+    assert_eq!(result, Some("Updated".to_string()));
+}
+
+#[test]
+fn test_manager_update_nonexistent_returns_none() {
+    let manager = TabManager::new();
+    let result = manager.update::<_, ()>(&"ghost".to_string(), |_| ());
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_manager_event_url_changed_fires() {
+    let manager = TabManager::new();
+    let url_events = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let ev_clone = url_events.clone();
+
+    manager.on_event(move |ev| {
+        if let TabEvent::UrlChanged { url, .. } = ev {
+            ev_clone.lock().unwrap().push(url.clone());
+        }
+    });
+
+    let id = manager.create("https://old.com");
+    manager.update_url(&id, "https://new.com");
+
+    let events = url_events.lock().unwrap();
+    assert!(events.iter().any(|u| u == "https://new.com"));
+}
+
+#[test]
+fn test_manager_event_history_changed_fires() {
+    let manager = TabManager::new();
+    let back_states = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let bs = back_states.clone();
+
+    manager.on_event(move |ev| {
+        if let TabEvent::HistoryChanged { can_go_back, .. } = ev {
+            bs.lock().unwrap().push(*can_go_back);
+        }
+    });
+
+    let id = manager.create("https://example.com");
+    manager.update_history(&id, true, false);
+
+    let states = back_states.lock().unwrap();
+    assert!(!states.is_empty());
+    assert!(states[0]);
+}
+
+#[test]
+fn test_manager_event_favicon_changed_fires() {
+    let manager = TabManager::new();
+    let favicons = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let fv = favicons.clone();
+
+    manager.on_event(move |ev| {
+        if let TabEvent::FaviconChanged { favicon_url, .. } = ev {
+            fv.lock().unwrap().push(favicon_url.clone());
+        }
+    });
+
+    let id = manager.create("https://example.com");
+    manager.update_favicon(&id, "https://example.com/favicon.ico");
+
+    let fv_list = favicons.lock().unwrap();
+    assert!(!fv_list.is_empty());
+}
+
+#[test]
+fn test_manager_event_deactivated_fires() {
+    let manager = TabManager::new();
+    let deactivated = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let dv = deactivated.clone();
+
+    manager.on_event(move |ev| {
+        if let TabEvent::Deactivated { tab_id } = ev {
+            dv.lock().unwrap().push(tab_id.clone());
+        }
+    });
+
+    let id1 = manager.create("https://a.com");
+    let id2 = manager.create("https://b.com");
+    manager.activate(&id2).unwrap();
+
+    let deact = deactivated.lock().unwrap();
+    assert!(deact.contains(&id1));
+}
+
+#[test]
+fn test_manager_all_returns_order() {
+    let manager = TabManager::new();
+    let id1 = manager.create("https://a.com");
+    let id2 = manager.create("https://b.com");
+    let id3 = manager.create("https://c.com");
+
+    let all = manager.all();
+    assert_eq!(all.len(), 3);
+    assert_eq!(all[0].id, id1);
+    assert_eq!(all[1].id, id2);
+    assert_eq!(all[2].id, id3);
+}
+
+#[test]
+fn test_manager_all_groups() {
+    let manager = TabManager::new();
+    manager.create_group("Group A");
+    manager.create_group("Group B");
+
+    let groups = manager.all_groups();
+    assert_eq!(groups.len(), 2);
+}
+
+#[test]
+fn test_manager_get_group_nonexistent() {
+    let manager = TabManager::new();
+    assert!(manager.get_group(&"nonexistent".to_string()).is_none());
+}
+
+#[test]
+fn test_manager_delete_nonexistent_group_returns_err() {
+    let manager = TabManager::new();
+    let result = manager.delete_group(&"ghost_group".to_string());
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_manager_set_group_collapsed_nonexistent_returns_err() {
+    let manager = TabManager::new();
+    let result = manager.set_group_collapsed(&"ghost_group".to_string(), true);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_manager_add_to_nonexistent_tab_returns_err() {
+    let manager = TabManager::new();
+    let group_id = manager.create_group("G");
+    let result = manager.add_to_group(&"ghost_tab".to_string(), &group_id);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_manager_remove_from_group_tab_not_in_group() {
+    let manager = TabManager::new();
+    let tab_id = manager.create("https://a.com");
+    // Tab not in any group, remove_from_group should succeed (no-op)
+    let result = manager.remove_from_group(&tab_id);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_manager_create_with_state_sets_active_if_first() {
+    let manager = TabManager::new();
+    let state = TabState::with_title("custom-1".to_string(), "https://example.com", "Custom");
+    let id = manager.create_with_state(state);
+    assert_eq!(manager.active_id(), Some(id));
+}
+
+#[test]
+fn test_manager_reorder_to_end() {
+    let manager = TabManager::new();
+    let id1 = manager.create("https://a.com");
+    let id2 = manager.create("https://b.com");
+    let id3 = manager.create("https://c.com");
+
+    manager.reorder(&id1, 100); // beyond end
+    let order = manager.order();
+    assert_eq!(order, vec![id2, id3, id1]);
+}
+
+#[test]
+fn test_manager_set_pinned_muted_via_manager() {
+    let manager = TabManager::new();
+    let id = manager.create("https://example.com");
+
+    manager.set_pinned(&id, true);
+    let tab = manager.get(&id).unwrap();
+    assert!(tab.pinned);
+
+    manager.set_muted(&id, true);
+    let tab = manager.get(&id).unwrap();
+    assert!(tab.muted);
+}
+
+#[test]
+fn test_manager_multiple_event_handlers() {
+    let manager = TabManager::new();
+    let counter1 = Arc::new(AtomicUsize::new(0));
+    let counter2 = Arc::new(AtomicUsize::new(0));
+
+    let c1 = counter1.clone();
+    let c2 = counter2.clone();
+
+    manager.on_event(move |_| { c1.fetch_add(1, Ordering::SeqCst); });
+    manager.on_event(move |_| { c2.fetch_add(1, Ordering::SeqCst); });
+
+    manager.create("https://example.com");
+    // Both handlers should fire on Created event
+    assert!(counter1.load(Ordering::SeqCst) >= 1);
+    assert!(counter2.load(Ordering::SeqCst) >= 1);
+}
