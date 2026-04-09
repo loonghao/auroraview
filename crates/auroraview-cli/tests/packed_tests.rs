@@ -478,6 +478,200 @@ fn test_json_build_response() {
 }
 
 // =============================================================================
+// R11 Extensions - additional packed_tests coverage
+// =============================================================================
+
+// escape_json_for_js – extended edge cases
+
+#[test]
+fn test_escape_json_for_js_only_backslash() {
+    let input = "\\";
+    let escaped = escape_json_for_js(input);
+    assert_eq!(escaped, "\\\\");
+}
+
+#[test]
+fn test_escape_json_for_js_multiple_backslashes() {
+    let input = "\\\\\\";
+    let escaped = escape_json_for_js(input);
+    // Every \ becomes \\
+    assert_eq!(escaped, "\\\\\\\\\\\\");
+}
+
+#[test]
+fn test_escape_json_for_js_only_newlines() {
+    let input = "\n\n\n";
+    let escaped = escape_json_for_js(input);
+    assert_eq!(escaped, "\\n\\n\\n");
+}
+
+#[test]
+fn test_escape_json_for_js_only_carriage_return() {
+    let input = "\r\r";
+    let escaped = escape_json_for_js(input);
+    assert_eq!(escaped, "\\r\\r");
+}
+
+#[test]
+fn test_escape_json_for_js_mixed_special() {
+    let input = "a\\b\nc\rd";
+    let escaped = escape_json_for_js(input);
+    // \\ → \\\\, \n → \\n, \r → \\r
+    assert!(escaped.contains("\\\\"));
+    assert!(escaped.contains("\\n"));
+    assert!(escaped.contains("\\r"));
+}
+
+#[test]
+fn test_escape_json_for_js_double_quote() {
+    let input = r#"say "hello""#;
+    let escaped = escape_json_for_js(input);
+    assert!(escaped.contains("\\\"hello\\\""));
+}
+
+#[test]
+fn test_escape_json_for_js_preserves_single_quote() {
+    let input = "it's a test";
+    let escaped = escape_json_for_js(input);
+    assert!(escaped.contains("it's"));
+}
+
+#[test]
+fn test_escape_json_for_js_large_input() {
+    let input = "A".repeat(100_000);
+    let escaped = escape_json_for_js(&input);
+    assert_eq!(escaped.len(), 100_000);
+}
+
+// get_runtime_cache_dir_with_hash – hierarchy
+
+#[test]
+fn test_get_runtime_cache_dir_hierarchy_depth() {
+    let dir = get_runtime_cache_dir_with_hash("app_name", "deadbeef");
+    // path ends with: .../runtime/app_name/deadbeef
+    let components: Vec<_> = dir.components().collect();
+    assert!(components.len() >= 3, "Expected at least 3 path components");
+}
+
+#[test]
+fn test_get_runtime_cache_dir_hash_is_leaf() {
+    let hash = "a1b2c3d4";
+    let dir = get_runtime_cache_dir_with_hash("myapp", hash);
+    let leaf = dir.file_name().unwrap().to_string_lossy();
+    assert_eq!(leaf, hash);
+}
+
+#[test]
+fn test_get_runtime_cache_dir_app_name_in_path() {
+    let app_name = "special_gallery_app";
+    let dir = get_runtime_cache_dir_with_hash(app_name, "h123");
+    let path_str = dir.to_string_lossy();
+    assert!(path_str.contains(app_name));
+}
+
+#[test]
+fn test_get_runtime_cache_dir_different_hashes_different_paths() {
+    let dir1 = get_runtime_cache_dir_with_hash("app", "hash_aaaa");
+    let dir2 = get_runtime_cache_dir_with_hash("app", "hash_bbbb");
+    assert_ne!(dir1, dir2);
+}
+
+#[test]
+fn test_get_runtime_cache_dir_different_apps_different_paths() {
+    let dir1 = get_runtime_cache_dir_with_hash("app_a", "samehash");
+    let dir2 = get_runtime_cache_dir_with_hash("app_b", "samehash");
+    assert_ne!(dir1, dir2);
+}
+
+// get_python_exe_path – extended
+
+#[test]
+fn test_get_python_exe_path_is_absolute() {
+    let cache_dir = std::path::PathBuf::from("/test/cache");
+    let exe = get_python_exe_path(&cache_dir);
+    // The exe path should start from the cache_dir root
+    assert!(exe.to_string_lossy().starts_with("/test/cache"));
+}
+
+#[test]
+fn test_get_python_exe_path_different_bases() {
+    let base_a = std::path::PathBuf::from("/cache/a");
+    let base_b = std::path::PathBuf::from("/cache/b");
+    let exe_a = get_python_exe_path(&base_a);
+    let exe_b = get_python_exe_path(&base_b);
+    assert_ne!(exe_a, exe_b);
+}
+
+// build_packed_init_script_with_csp – content checks
+
+#[test]
+fn test_build_packed_init_script_contains_ready_event() {
+    let script = build_packed_init_script_with_csp(None);
+    assert!(
+        script.contains("auroraviewready") || script.contains("auroraview"),
+        "Init script should reference the auroraview bridge"
+    );
+}
+
+#[test]
+fn test_build_packed_init_script_csp_none_no_meta() {
+    let script = build_packed_init_script_with_csp(None);
+    assert!(!script.contains("<meta"), "No CSP meta when policy is None");
+}
+
+#[test]
+fn test_build_packed_init_script_csp_strict() {
+    let policy = "default-src 'none'; script-src 'self'";
+    let script = build_packed_init_script_with_csp(Some(policy));
+    assert!(script.contains("Content-Security-Policy"));
+    assert!(script.contains("default-src"));
+    assert!(script.contains("script-src"));
+}
+
+// build_css_injection_script – more variants
+
+#[test]
+fn test_build_css_injection_script_with_variable() {
+    let css = ":root { --bg: #1a1a2e; }";
+    let script = build_css_injection_script(css);
+    assert!(script.contains("--bg"));
+    assert!(script.contains("#1a1a2e"));
+}
+
+#[test]
+fn test_build_css_injection_script_with_media_query() {
+    let css = "@media (prefers-color-scheme: dark) { body { background: #000; } }";
+    let script = build_css_injection_script(css);
+    assert!(script.contains("prefers-color-scheme"));
+    assert!(script.contains("createElement('style')"));
+}
+
+// inject_environment_variables – idempotent overwrite
+
+#[test]
+fn test_inject_environment_variables_overwrites_existing() {
+    let key = "AURORAVIEW_TEST_OVERWRITE_9876";
+    std::env::set_var(key, "original");
+
+    let mut env = std::collections::HashMap::new();
+    env.insert(key.to_string(), "overwritten".to_string());
+    inject_environment_variables(&env);
+
+    assert_eq!(std::env::var(key).ok(), Some("overwritten".to_string()));
+    std::env::remove_var(key);
+}
+
+#[test]
+fn test_inject_environment_variables_empty_value() {
+    let key = "AURORAVIEW_TEST_EMPTY_VALUE_9876";
+    let mut env = std::collections::HashMap::new();
+    env.insert(key.to_string(), "".to_string());
+    inject_environment_variables(&env);
+    assert_eq!(std::env::var(key).ok(), Some("".to_string()));
+    std::env::remove_var(key);
+}
+
+// =============================================================================
 // Python ready signal format tests
 // =============================================================================
 
