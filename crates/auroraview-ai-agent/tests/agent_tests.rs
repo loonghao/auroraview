@@ -295,8 +295,9 @@ fn config_debug_non_empty() {
 #[test]
 fn provider_type_clone() {
     let pt = ProviderType::Gemini;
-    let cloned = pt.clone();
-    assert_eq!(pt, cloned);
+    // Verify Copy semantics (no Clone call needed for Copy types)
+    let _copy = pt;
+    assert_eq!(pt, _copy);
 }
 
 #[rstest]

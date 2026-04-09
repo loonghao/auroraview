@@ -278,6 +278,7 @@ def diagnose_core_library() -> dict:
         result["path_check_error"] = str(e)
 
     # Check sys.path
+    import sys
     result["sys_path"] = sys.path[:10]  # First 10 entries
 
     return result
@@ -415,13 +416,17 @@ except ImportError as e:
 # Backward-compatibility aliases for old import paths
 # These allow: from auroraview.webview import WebView
 # and: from auroraview.event_timer import EventTimer
+from . import core
 webview = core.webview  # auroraview.webview -> auroraview.core.webview
+from . import utils
 event_timer = utils.event_timer  # auroraview.event_timer -> auroraview.utils.event_timer
 file_protocol = utils.file_protocol  # auroraview.file_protocol -> auroraview.utils.file_protocol
 timer_backends = (
     utils.timer_backends
 )  # auroraview.timer_backends -> auroraview.utils.timer_backends
+from . import ui
 dom = ui.dom  # auroraview.dom -> auroraview.ui.dom
+from . import integration
 qt_integration = integration.qt  # auroraview.qt_integration -> auroraview.integration.qt
 
 # Simple top-level event decorator (for tests/backward-compat)

@@ -660,10 +660,11 @@ fn test_ipc_response_ok_with_bool_result() {
 
 #[test]
 fn test_ipc_response_ok_with_number_result() {
-    let resp = IpcResponse::ok("num1".to_string(), json!(3.14));
+    let pi = std::f64::consts::PI;
+    let resp = IpcResponse::ok("num1".to_string(), json!(pi));
     assert!(resp.ok);
     let val = resp.result.unwrap();
-    assert!((val.as_f64().unwrap() - 3.14).abs() < 0.001);
+    assert!((val.as_f64().unwrap() - pi).abs() < 0.001);
 }
 
 #[test]

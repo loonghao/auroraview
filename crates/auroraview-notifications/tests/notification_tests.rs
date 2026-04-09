@@ -1004,8 +1004,9 @@ fn notification_error_is_send_sync() {
 #[case(NotificationType::Warning)]
 #[case(NotificationType::Error)]
 fn notification_type_clone_eq(#[case] kind: NotificationType) {
-    let cloned = kind.clone();
-    assert_eq!(cloned, kind);
+    // Verify Copy semantics (no Clone call needed for Copy types)
+    let _copy = kind;
+    assert_eq!(_copy, kind);
 }
 
 // ========== Concurrent multi-origin notifications ==========
