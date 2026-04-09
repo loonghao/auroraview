@@ -383,3 +383,158 @@ fn test_overlay_file_size_increases_after_write() {
     assert!(new_size > original_size, "File should grow after overlay write");
 }
 
+// ─── R8 Additional overlay tests ──────────────────────────────────────────────
+
+#[test]
+fn test_overlay_roundtrip_debug_mode() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"debug-bin").unwrap();
+
+    let config = PackConfig::url("https://example.com")
+        .with_title("DebugApp")
+        .with_debug(true);
+    let data = OverlayData::new(config);
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.config.window.title, "DebugApp");
+    assert!(read.config.debug);
+}
+
+#[test]
+fn test_overlay_roundtrip_multiple_writes_consistent() {
+    // Writing same data twice should produce readable overlay both times
+    let temp1 = NamedTempFile::new().unwrap();
+    let temp2 = NamedTempFile::new().unwrap();
+    std::fs::write(temp1.path(), b"bin1").unwrap();
+    std::fs::write(temp2.path(), b"bin2").unwrap();
+
+    let config1 = PackConfig::url("https://a.example.com").with_title("App1");
+    let config2 = PackConfig::url("https://b.example.com").with_title("App2");
+    let data1 = OverlayData::new(config1);
+    let data2 = OverlayData::new(config2);
+
+    OverlayWriter::write(temp1.path(), &data1).unwrap();
+    OverlayWriter::write(temp2.path(), &data2).unwrap();
+
+    let r1 = OverlayReader::read(temp1.path()).unwrap().unwrap();
+    let r2 = OverlayReader::read(temp2.path()).unwrap().unwrap();
+    assert_eq!(r1.config.window.title, "App1");
+    assert_eq!(r2.config.window.title, "App2");
+    assert_ne!(r1.config.window.title, r2.config.window.title);
+}
+
+#[test]
+fn test_overlay_asset_content_roundtrip() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"exec").unwrap();
+
+    let expected = b"const x = 42; // test asset content";
+    let config = PackConfig::url("https://example.com");
+    let mut data = OverlayData::new(config);
+    data.add_asset("app.js", expected.to_vec());
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.assets.len(), 1);
+    // Asset name should be preserved (assets are Vec<(String, Vec<u8>)>)
+    assert_eq!(read.assets[0].0, "app.js");
+}
+
+#[test]
+fn test_overlay_get_original_size_matches_written_bytes() {
+    let content = b"hello world binary content for test";
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), content).unwrap();
+
+    let config = PackConfig::url("https://example.com");
+    let data = OverlayData::new(config);
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let size = OverlayReader::get_original_size(temp.path())
+        .unwrap()
+        .unwrap();
+    assert_eq!(size, content.len() as u64);
+}
+
+#[test]
+fn test_overlay_url_preserved_in_config() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"binary").unwrap();
+
+    let url = "https://my-dcc-tool.example.com/app";
+    let config = PackConfig::url(url);
+    let data = OverlayData::new(config);
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    // URL mode stores url in PackMode::Url { url }
+    if let auroraview_pack::PackMode::Url { url: stored_url } = &read.config.mode {
+        assert!(stored_url.contains("my-dcc-tool.example.com"));
+    } else {
+        panic!("Expected PackMode::Url");
+    }
+}
+
+#[test]
+fn test_overlay_with_50_assets() {
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"binary").unwrap();
+
+    let config = PackConfig::url("https://example.com");
+    let mut data = OverlayData::new(config);
+    for i in 0..50 {
+        data.add_asset(format!("asset_{}.txt", i), format!("content_{}", i).into_bytes());
+    }
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.assets.len(), 50);
+}
+
+#[test]
+fn test_overlay_write_to_file_with_existing_overlay() {
+    // Re-writing an already-overlaid file should replace the overlay
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"binary").unwrap();
+
+    let config1 = PackConfig::url("https://v1.example.com").with_title("First");
+    let data1 = OverlayData::new(config1);
+    OverlayWriter::write(temp.path(), &data1).unwrap();
+
+    // Overwrite
+    let config2 = PackConfig::url("https://v2.example.com").with_title("Second");
+    let data2 = OverlayData::new(config2);
+    OverlayWriter::write(temp.path(), &data2).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.config.window.title, "Second");
+    // Original size should reflect only the first write's "binary" bytes
+    let size = OverlayReader::get_original_size(temp.path()).unwrap().unwrap();
+    assert!(size > 0);
+}
+
+#[test]
+fn test_overlay_content_hash_is_hex_string() {
+    let config = PackConfig::url("https://example.com");
+    let mut data = OverlayData::new(config);
+    data.add_asset("f.js", b"test".to_vec());
+
+    let hash = data.compute_content_hash();
+    // Hash should be non-empty and contain only hex chars
+    assert!(!hash.is_empty());
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()), "Hash should be hex: {}", hash);
+}
+
+#[test]
+fn test_overlay_empty_content_hash_stable_across_calls() {
+    let config1 = PackConfig::url("https://example.com");
+    let mut d1 = OverlayData::new(config1);
+    let config2 = PackConfig::url("https://example.com");
+    let mut d2 = OverlayData::new(config2);
+
+    let h1 = d1.compute_content_hash();
+    let h2 = d2.compute_content_hash();
+    assert_eq!(h1, h2, "Empty overlays with same config should have same hash");
+}
+

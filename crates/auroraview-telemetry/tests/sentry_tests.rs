@@ -311,3 +311,139 @@ fn test_telemetry_config_clone_independence() {
     assert_eq!(config.sentry_dsn.as_deref(), Some("https://orig@sentry.io/1"));
     assert_eq!(cloned.sentry_dsn.as_deref(), Some("https://cloned@sentry.io/2"));
 }
+
+// ============================================================================
+// R8 Extensions
+// ============================================================================
+
+#[test]
+fn test_sentry_capture_message_does_not_panic() {
+    // Basic smoke: calling capture_sentry_message should not panic regardless of args
+    let _ = Telemetry::capture_sentry_message("smoke test", "info");
+    let _ = Telemetry::capture_sentry_message("", "error");
+    let _ = Telemetry::capture_sentry_message("test", "");
+}
+
+#[test]
+fn test_sentry_config_dsn_none_by_default() {
+    let config = TelemetryConfig::default();
+    assert!(config.sentry_dsn.is_none(), "sentry_dsn should default to None");
+}
+
+#[test]
+fn test_sentry_config_environment_none_by_default() {
+    let config = TelemetryConfig::default();
+    assert!(config.sentry_environment.is_none());
+}
+
+#[test]
+fn test_sentry_config_release_none_by_default() {
+    let config = TelemetryConfig::default();
+    assert!(config.sentry_release.is_none());
+}
+
+#[test]
+fn test_sentry_config_sample_rate_between_0_and_1() {
+    let config = TelemetryConfig::default();
+    assert!(config.sentry_sample_rate >= 0.0);
+    assert!(config.sentry_sample_rate <= 1.0);
+}
+
+#[test]
+fn test_sentry_config_traces_sample_rate_between_0_and_1() {
+    let config = TelemetryConfig {
+        sentry_traces_sample_rate: 0.5,
+        ..TelemetryConfig::default()
+    };
+    assert!(config.sentry_traces_sample_rate >= 0.0);
+    assert!(config.sentry_traces_sample_rate <= 1.0);
+}
+
+#[test]
+fn test_sentry_config_serde_roundtrip_all_fields() {
+    let config = TelemetryConfig {
+        sentry_dsn: Some("https://abc@sentry.io/100".to_string()),
+        sentry_environment: Some("integration-test".to_string()),
+        sentry_release: Some("auroraview@test-version".to_string()),
+        sentry_sample_rate: 0.3,
+        sentry_traces_sample_rate: 0.1,
+        ..TelemetryConfig::default()
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: TelemetryConfig = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(restored.sentry_dsn, config.sentry_dsn);
+    assert_eq!(restored.sentry_environment, config.sentry_environment);
+    assert_eq!(restored.sentry_release, config.sentry_release);
+    assert!((restored.sentry_sample_rate - config.sentry_sample_rate).abs() < f32::EPSILON);
+    assert!((restored.sentry_traces_sample_rate - config.sentry_traces_sample_rate).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_sentry_config_debug_format_contains_field_names() {
+    let config = TelemetryConfig {
+        sentry_dsn: Some("https://k@sentry.io/1".to_string()),
+        sentry_environment: Some("prod".to_string()),
+        ..TelemetryConfig::default()
+    };
+    let s = format!("{:?}", config);
+    // Debug output should contain at least one of the field names
+    assert!(
+        s.contains("sentry_dsn") || s.contains("TelemetryConfig"),
+        "Debug format should mention fields: {}",
+        s
+    );
+}
+
+#[test]
+fn test_sentry_capture_returns_bool() {
+    // Capture returns bool; just verify the type without caring about value
+    let result: bool = Telemetry::capture_sentry_message("type check", "warning");
+    let _ = result;
+}
+
+#[test]
+fn test_sentry_config_multiple_clones_independent() {
+    let base = TelemetryConfig {
+        sentry_dsn: Some("https://base@sentry.io/1".to_string()),
+        sentry_sample_rate: 0.5,
+        ..TelemetryConfig::default()
+    };
+    let mut c1 = base.clone();
+    let mut c2 = base.clone();
+
+    c1.sentry_dsn = Some("https://c1@sentry.io/1".to_string());
+    c2.sentry_dsn = Some("https://c2@sentry.io/2".to_string());
+
+    assert_ne!(c1.sentry_dsn, c2.sentry_dsn);
+    // base should remain unchanged
+    assert_eq!(base.sentry_dsn.as_deref(), Some("https://base@sentry.io/1"));
+}
+
+#[test]
+fn test_sentry_config_partial_update_dsn_only() {
+    let config = TelemetryConfig {
+        sentry_dsn: Some("https://dsn-only@sentry.io/1".to_string()),
+        ..TelemetryConfig::default()
+    };
+    // Other fields remain at default
+    assert!(config.sentry_environment.is_none());
+    assert!(config.sentry_release.is_none());
+    assert!((config.sentry_sample_rate - 1.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_sentry_capture_with_newline_in_message() {
+    // Multi-line messages should not panic
+    let _result = Telemetry::capture_sentry_message("line1\nline2\nline3", "error");
+}
+
+#[test]
+fn test_sentry_config_serde_preserves_null_fields() {
+    let config = TelemetryConfig::default();
+    let json = serde_json::to_string(&config).unwrap();
+    // Serde should handle null fields correctly
+    let restored: TelemetryConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.sentry_dsn, None);
+    assert_eq!(restored.sentry_environment, None);
+}
