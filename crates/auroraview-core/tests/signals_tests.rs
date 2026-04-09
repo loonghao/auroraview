@@ -733,3 +733,81 @@ fn test_webview_signals_lifecycle() {
     assert_eq!(focused.load(Ordering::SeqCst), 1);
     assert_eq!(minimized.load(Ordering::SeqCst), 1);
 }
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn test_signal_emit_no_handlers_no_panic() {
+    let signal = Signal::<u32>::new();
+    signal.emit(42);
+}
+
+#[test]
+fn test_signal_single_connect_and_emit() {
+    let signal = Signal::<u32>::new();
+    let value = Arc::new(std::sync::Mutex::new(0u32));
+    let v = value.clone();
+    let _conn = signal.connect(move |n| { *v.lock().unwrap() = n; });
+    signal.emit(99);
+    assert_eq!(*value.lock().unwrap(), 99);
+}
+
+#[test]
+fn test_signal_two_connects_both_called() {
+    let signal = Signal::<u32>::new();
+    let count = Arc::new(AtomicUsize::new(0));
+    let c1 = count.clone();
+    let c2 = count.clone();
+    let _conn1 = signal.connect(move |_| { c1.fetch_add(1, Ordering::SeqCst); });
+    let _conn2 = signal.connect(move |_| { c2.fetch_add(1, Ordering::SeqCst); });
+    signal.emit(0);
+    assert_eq!(count.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn test_event_bus_emit_many_events_no_panic() {
+    let bus = EventBus::new();
+    bus.on("click", |_| {});
+    for i in 0..20 {
+        bus.emit("click", serde_json::json!(i));
+    }
+}
+
+#[test]
+fn test_event_bus_multiple_handlers_same_event_r15() {
+    let bus = EventBus::new();
+    let count = Arc::new(AtomicUsize::new(0));
+
+    for _ in 0..5 {
+        let c = count.clone();
+        bus.on("multi_r15", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    }
+
+    bus.emit("multi_r15", serde_json::json!(null));
+    assert_eq!(count.load(Ordering::SeqCst), 5);
+}
+
+#[test]
+fn test_webview_signals_custom_event_fires() {
+    let signals = WebViewSignals::new();
+    let count = Arc::new(AtomicUsize::new(0));
+    let c = count.clone();
+    signals.on("scene_loaded_r15", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    signals.emit_custom("scene_loaded_r15", serde_json::json!({}));
+    assert_eq!(count.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn test_event_bus_clear_removes_all_handlers_r15() {
+    let bus = EventBus::new();
+    bus.on("a_r15", |_| {});
+    bus.on("b_r15", |_| {});
+    bus.on("c_r15", |_| {});
+    assert_eq!(bus.event_count(), 3);
+    bus.clear();
+    assert_eq!(bus.event_count(), 0);
+}
+
+

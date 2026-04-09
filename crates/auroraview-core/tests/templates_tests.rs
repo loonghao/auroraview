@@ -581,3 +581,67 @@ fn api_registration_template_with_dcc_namespaces() {
     assert!(result.contains("cook_node"));
 }
 
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn emit_event_template_data_is_json_object() {
+    let template = EmitEventTemplate {
+        event_name: "test",
+        event_data: r#"{"key":"value"}"#,
+    };
+    let result = template.render().unwrap();
+    assert!(result.contains("key"));
+    assert!(result.contains("value"));
+}
+
+#[test]
+fn load_url_template_ftp_scheme() {
+    let template = LoadUrlTemplate { url: "ftp://ftp.example.com/file" };
+    let result = template.render().unwrap();
+    assert!(result.contains("ftp"));
+}
+
+#[test]
+fn api_registration_template_long_method_name() {
+    let entries = vec![ApiMethodEntry {
+        namespace: "ns".to_string(),
+        methods: vec!["a_very_long_method_name_that_might_be_used_in_production".to_string()],
+    }];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    assert!(result.contains("a_very_long_method_name"));
+}
+
+#[test]
+fn emit_event_template_render_does_not_panic() {
+    let events = ["", "a", "a.b.c", "snake_case_event", "UPPER_CASE"];
+    for ev in &events {
+        let t = EmitEventTemplate { event_name: ev, event_data: "null" };
+        let _ = t.render().unwrap();
+    }
+}
+
+#[test]
+fn load_url_template_render_does_not_panic_for_various_urls() {
+    let urls = ["", "about:blank", "https://x.com", "file:///a.html"];
+    for url in &urls {
+        let t = LoadUrlTemplate { url };
+        let _ = t.render().unwrap();
+    }
+}
+
+#[test]
+fn api_registration_template_no_namespace_overlap_in_output() {
+    let entries = vec![
+        ApiMethodEntry { namespace: "ns_one".to_string(), methods: vec!["fn_a".to_string()] },
+        ApiMethodEntry { namespace: "ns_two".to_string(), methods: vec!["fn_b".to_string()] },
+    ];
+    let template = ApiRegistrationTemplate { api_methods: entries };
+    let result = template.render().unwrap();
+    assert!(result.contains("ns_one"));
+    assert!(result.contains("ns_two"));
+}
+
+
