@@ -442,6 +442,15 @@ pub struct AGUITool {
     pub parameters: JsonValue,
 }
 
+/// AG-UI Context - provides runtime context information to the agent
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AGUIContext {
+    /// Human-readable description of the context
+    pub description: String,
+    /// The context value (can be any JSON-serializable data)
+    pub value: JsonValue,
+}
+
 
 /// AG-UI Event emitter trait
 pub trait AGUIEmitter: Send + Sync {
