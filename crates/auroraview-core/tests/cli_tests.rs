@@ -270,7 +270,10 @@ fn test_rewrite_multiple_same_resources() {
     let result = rewrite_html_for_custom_protocol(html);
     // Both occurrences should be rewritten
     let count = result.matches("auroraview://logo.png").count();
-    assert_eq!(count, 2, "Both identical relative paths should be rewritten");
+    assert_eq!(
+        count, 2,
+        "Both identical relative paths should be rewritten"
+    );
 }
 
 #[rstest]

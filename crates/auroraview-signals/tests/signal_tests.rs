@@ -440,7 +440,9 @@ fn concurrent_emit_from_many_threads_all_receive() {
     // 4 handlers
     for _ in 0..4 {
         let t = total.clone();
-        signal.connect(move |v| { t.fetch_add(v as usize, Ordering::SeqCst); });
+        signal.connect(move |v| {
+            t.fetch_add(v as usize, Ordering::SeqCst);
+        });
     }
 
     // 8 threads each emitting 1 → total expected = 8 × 4 × 1 = 32
@@ -470,7 +472,9 @@ fn concurrent_connect_and_emit_no_panic() {
             let s = signal.clone();
             let c = connected.clone();
             thread::spawn(move || {
-                s.connect(move |_| { c.fetch_add(1, Ordering::SeqCst); });
+                s.connect(move |_| {
+                    c.fetch_add(1, Ordering::SeqCst);
+                });
             })
         })
         .collect();
@@ -609,7 +613,11 @@ fn filter_deny_by_default_middleware_level() {
 
     // "safe:thing" matches allow pattern → allowed
     let res2 = filter.before_emit("safe:thing", &mut data);
-    assert!(res2.should_continue(), "expected Continue but got {:?}", res2);
+    assert!(
+        res2.should_continue(),
+        "expected Continue but got {:?}",
+        res2
+    );
 }
 
 /// Verify deny_by_default blocks events via EventBus middleware pipeline.
@@ -625,17 +633,24 @@ fn filter_deny_by_default_via_event_bus() {
 
     let blocked_count = Arc::new(AtomicUsize::new(0));
     let bc = blocked_count.clone();
-    bus.on("internal:thing", move |_| { bc.fetch_add(1, Ordering::SeqCst); });
+    bus.on("internal:thing", move |_| {
+        bc.fetch_add(1, Ordering::SeqCst);
+    });
 
     let allowed_count = Arc::new(AtomicUsize::new(0));
     let ac = allowed_count.clone();
-    bus.on("safe:thing", move |_| { ac.fetch_add(1, Ordering::SeqCst); });
+    bus.on("safe:thing", move |_| {
+        ac.fetch_add(1, Ordering::SeqCst);
+    });
 
     let n_blocked = bus.emit("internal:thing", json!(null));
     let n_allowed = bus.emit("safe:thing", json!(null));
 
     assert_eq!(n_blocked, 0, "middleware should block internal:thing");
-    assert_eq!(n_allowed, 1, "safe:thing should pass deny_by_default filter");
+    assert_eq!(
+        n_allowed, 1,
+        "safe:thing should pass deny_by_default filter"
+    );
     assert_eq!(blocked_count.load(Ordering::SeqCst), 0);
     assert_eq!(allowed_count.load(Ordering::SeqCst), 1);
 }
@@ -653,7 +668,9 @@ fn filter_runtime_add_deny_pattern_blocks_new_events() {
 
     let hit = Arc::new(AtomicUsize::new(0));
     let h = hit.clone();
-    bus.on("secret:data", move |_| { h.fetch_add(1, Ordering::SeqCst); });
+    bus.on("secret:data", move |_| {
+        h.fetch_add(1, Ordering::SeqCst);
+    });
 
     bus.emit("secret:data", json!(null));
     assert_eq!(hit.load(Ordering::SeqCst), 0);
@@ -733,7 +750,9 @@ fn connection_guard_detach_keeps_handler_alive() {
     let c = count.clone();
 
     let conn_id = {
-        let guard = signal.connect_guard(move |_| { c.fetch_add(1, Ordering::SeqCst); });
+        let guard = signal.connect_guard(move |_| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
         assert!(guard.is_attached());
         guard.detach() // detach before drop
     };
@@ -772,7 +791,9 @@ fn registry_emit_or_create_creates_and_delivers() {
     let reg = SignalRegistry::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
-    reg.connect("auto", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    reg.connect("auto", move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
 
     // emit_or_create on existing signal
     let n = reg.emit_or_create("auto", json!(null));

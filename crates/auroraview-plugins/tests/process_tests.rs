@@ -28,8 +28,15 @@ fn process_plugin_default_name() {
 fn process_plugin_commands_contains_all() {
     let plugin = ProcessPlugin::new();
     let commands = plugin.commands();
-    for cmd in &["spawn_ipc", "spawn_ipc_channel", "kill", "kill_all", "send", "send_json", "list"]
-    {
+    for cmd in &[
+        "spawn_ipc",
+        "spawn_ipc_channel",
+        "kill",
+        "kill_all",
+        "send",
+        "send_json",
+        "list",
+    ] {
         assert!(commands.contains(cmd), "missing command: {cmd}");
     }
 }
@@ -48,7 +55,9 @@ fn process_plugin_commands_count() {
 fn list_empty_returns_empty_array() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let result = plugin.handle("list", serde_json::json!({}), &scope).unwrap();
+    let result = plugin
+        .handle("list", serde_json::json!({}), &scope)
+        .unwrap();
     assert_eq!(result["processes"], serde_json::json!([]));
 }
 
@@ -56,7 +65,9 @@ fn list_empty_returns_empty_array() {
 fn list_any_valid_json_succeeds() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let result = plugin.handle("list", serde_json::json!(null), &scope).unwrap();
+    let result = plugin
+        .handle("list", serde_json::json!(null), &scope)
+        .unwrap();
     assert!(result["processes"].is_array());
 }
 
@@ -311,8 +322,7 @@ fn spawn_ipc_options_serialization_roundtrip() {
 
 #[test]
 fn kill_options_deserialization() {
-    let opts: KillOptions =
-        serde_json::from_value(serde_json::json!({ "pid": 1234 })).unwrap();
+    let opts: KillOptions = serde_json::from_value(serde_json::json!({ "pid": 1234 })).unwrap();
     assert_eq!(opts.pid, 1234);
 }
 
@@ -409,7 +419,9 @@ fn concurrent_kill_nonexistent_no_panic() {
             let s = scope.clone();
             thread::spawn(move || {
                 let pid = 900_000 + i as u32;
-                let result = p.handle("kill", serde_json::json!({ "pid": pid }), &s).unwrap();
+                let result = p
+                    .handle("kill", serde_json::json!({ "pid": pid }), &s)
+                    .unwrap();
                 assert!(result["success"].as_bool().unwrap());
             })
         })

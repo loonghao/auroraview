@@ -222,7 +222,11 @@ fn dcc_type_serde_roundtrip_all_variants() {
     ] {
         let json = serde_json::to_string(&variant).unwrap();
         let restored: DccType = serde_json::from_str(&json).unwrap();
-        assert_eq!(restored, variant, "Serde roundtrip failed for {:?}", variant);
+        assert_eq!(
+            restored, variant,
+            "Serde roundtrip failed for {:?}",
+            variant
+        );
     }
 }
 
@@ -233,10 +237,7 @@ fn dcc_type_serde_roundtrip_all_variants() {
 #[test]
 fn dcc_config_html_field() {
     let config = DccConfig::new().html("<h1>Hello AuroraView</h1>");
-    assert_eq!(
-        config.html,
-        Some("<h1>Hello AuroraView</h1>".to_string())
-    );
+    assert_eq!(config.html, Some("<h1>Hello AuroraView</h1>".to_string()));
     assert!(config.url.is_none());
 }
 
@@ -359,10 +360,15 @@ fn dcc_config_large_hwnd() {
 // ===========================================================================
 
 #[rstest]
-#[case(0, 0, 0, 0)]       // fully transparent black
+#[case(0, 0, 0, 0)] // fully transparent black
 #[case(255, 255, 255, 255)] // fully opaque white
 #[case(128, 128, 128, 128)] // 50% gray
-fn dcc_config_background_color_parametric(#[case] r: u8, #[case] g: u8, #[case] b: u8, #[case] a: u8) {
+fn dcc_config_background_color_parametric(
+    #[case] r: u8,
+    #[case] g: u8,
+    #[case] b: u8,
+    #[case] a: u8,
+) {
     let config = DccConfig::new().background_color(r, g, b, a);
     assert_eq!(config.background_color, Some((r, g, b, a)));
 }

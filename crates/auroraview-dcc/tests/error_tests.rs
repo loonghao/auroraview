@@ -61,8 +61,7 @@ fn result_type_ok_variant() {
 
 #[test]
 fn result_type_err_variant() {
-    let result: auroraview_dcc::error::Result<i32> =
-        Err(DccError::InvalidParent);
+    let result: auroraview_dcc::error::Result<i32> = Err(DccError::InvalidParent);
     assert!(result.is_err());
 }
 

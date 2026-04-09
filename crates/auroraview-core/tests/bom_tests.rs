@@ -351,40 +351,35 @@ impl WindowControlApi for MockWindow {
 #[test]
 fn test_window_command_close() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "close", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "close", &serde_json::Value::Null).unwrap();
     assert_eq!(result["ok"], true);
 }
 
 #[test]
 fn test_window_command_minimize() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "minimize", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "minimize", &serde_json::Value::Null).unwrap();
     assert_eq!(result["ok"], true);
 }
 
 #[test]
 fn test_window_command_maximize() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "maximize", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "maximize", &serde_json::Value::Null).unwrap();
     assert_eq!(result["ok"], true);
 }
 
 #[test]
 fn test_window_command_unmaximize() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "unmaximize", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "unmaximize", &serde_json::Value::Null).unwrap();
     assert_eq!(result["ok"], true);
 }
 
 #[test]
 fn test_window_command_restore_alias() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "restore", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "restore", &serde_json::Value::Null).unwrap();
     assert_eq!(result["ok"], true);
 }
 
@@ -439,16 +434,14 @@ fn test_window_command_show() {
 #[test]
 fn test_window_command_hide() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "hide", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "hide", &serde_json::Value::Null).unwrap();
     assert_eq!(result["ok"], true);
 }
 
 #[test]
 fn test_window_command_is_visible() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "is_visible", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "is_visible", &serde_json::Value::Null).unwrap();
     assert_eq!(result["result"], true);
 }
 
@@ -463,8 +456,7 @@ fn test_window_command_set_title() {
 #[test]
 fn test_window_command_get_size() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "get_size", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "get_size", &serde_json::Value::Null).unwrap();
     assert_eq!(result["width"], 800);
     assert_eq!(result["height"], 600);
 }
@@ -472,8 +464,7 @@ fn test_window_command_get_size() {
 #[test]
 fn test_window_command_inner_size_alias() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "inner_size", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "inner_size", &serde_json::Value::Null).unwrap();
     assert_eq!(result["width"], 800);
 }
 
@@ -489,8 +480,7 @@ fn test_window_command_get_position() {
 #[test]
 fn test_window_command_position_alias() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "position", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "position", &serde_json::Value::Null).unwrap();
     assert_eq!(result["x"], 100);
 }
 
@@ -513,8 +503,7 @@ fn test_window_command_set_size() {
 #[test]
 fn test_window_command_center() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "center", &serde_json::Value::Null).unwrap();
+    let result = handle_window_command_default(&w, "center", &serde_json::Value::Null).unwrap();
     assert_eq!(result["ok"], true);
 }
 
@@ -522,8 +511,7 @@ fn test_window_command_center() {
 fn test_window_command_set_always_on_top() {
     let w = MockWindow::new();
     let params = serde_json::json!({"always_on_top": true});
-    let result =
-        handle_window_command_default(&w, "set_always_on_top", &params).unwrap();
+    let result = handle_window_command_default(&w, "set_always_on_top", &params).unwrap();
     assert_eq!(result["ok"], true);
 }
 
@@ -539,8 +527,7 @@ fn test_window_command_is_always_on_top() {
 fn test_window_command_set_decorations() {
     let w = MockWindow::new();
     let params = serde_json::json!({"decorations": false});
-    let result =
-        handle_window_command_default(&w, "set_decorations", &params).unwrap();
+    let result = handle_window_command_default(&w, "set_decorations", &params).unwrap();
     assert_eq!(result["ok"], true);
 }
 
@@ -548,16 +535,14 @@ fn test_window_command_set_decorations() {
 fn test_window_command_set_resizable() {
     let w = MockWindow::new();
     let params = serde_json::json!({"resizable": true});
-    let result =
-        handle_window_command_default(&w, "set_resizable", &params).unwrap();
+    let result = handle_window_command_default(&w, "set_resizable", &params).unwrap();
     assert_eq!(result["ok"], true);
 }
 
 #[test]
 fn test_window_command_unknown_returns_error() {
     let w = MockWindow::new();
-    let result =
-        handle_window_command_default(&w, "nonexistent_command", &serde_json::Value::Null);
+    let result = handle_window_command_default(&w, "nonexistent_command", &serde_json::Value::Null);
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("Unknown window command"));
 }

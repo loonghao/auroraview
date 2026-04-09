@@ -369,11 +369,7 @@ fn unknown_commands_return_error(#[case] cmd: &str) {
 fn message_invalid_args() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let result = plugin.handle(
-        "message",
-        serde_json::json!({ "invalid": "args" }),
-        &scope,
-    );
+    let result = plugin.handle("message", serde_json::json!({ "invalid": "args" }), &scope);
     assert!(result.is_err());
 }
 
@@ -381,11 +377,7 @@ fn message_invalid_args() {
 fn confirm_invalid_args() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let result = plugin.handle(
-        "confirm",
-        serde_json::json!({ "invalid": "args" }),
-        &scope,
-    );
+    let result = plugin.handle("confirm", serde_json::json!({ "invalid": "args" }), &scope);
     assert!(result.is_err());
 }
 
@@ -409,7 +401,11 @@ fn file_commands_accept_empty_args(#[case] cmd: &str) {
 fn message_commands_require_message_field(#[case] cmd: &str) {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let result = plugin.handle(cmd, serde_json::json!({ "title": "No message field" }), &scope);
+    let result = plugin.handle(
+        cmd,
+        serde_json::json!({ "title": "No message field" }),
+        &scope,
+    );
     assert!(result.is_err());
 }
 

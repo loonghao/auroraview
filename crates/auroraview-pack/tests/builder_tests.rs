@@ -7,12 +7,11 @@ use std::path::PathBuf;
 use auroraview_pack::builder::{
     common::{
         AppConfig, BackendConfig, BuildConfig, BuildContext, DebugConfig, ExtensionsConfig,
-        FrontendBundle, FrontendConfig, PlatformConfig, PythonStrategy, TargetConfig,
-        WindowConfig,
+        FrontendBundle, FrontendConfig, PlatformConfig, PythonStrategy, TargetConfig, WindowConfig,
     },
     traits::OutputFormat,
     AlipayBuilder, AndroidBuilder, Builder, BuilderCapability, BuilderRegistry, ByteDanceBuilder,
-    IOSBuilder, LinuxBuilder, MacBuilder, WebBuilder, WeChatBuilder, WinBuilder,
+    IOSBuilder, LinuxBuilder, MacBuilder, WeChatBuilder, WebBuilder, WinBuilder,
 };
 use auroraview_pack::PackError;
 use tempfile::tempdir;
@@ -48,7 +47,6 @@ fn minimal_build_context(platform: &str, output_dir: PathBuf) -> BuildContext {
     let config = minimal_build_config(platform, output_dir.clone());
     BuildContext::new(config, output_dir)
 }
-
 
 // ─────────────────────────────────────────────────────────────
 // BuilderCapability
@@ -166,7 +164,10 @@ fn win_builder_portable_mode() {
 fn win_builder_is_available_on_windows() {
     let b = WinBuilder::new();
     if cfg!(target_os = "windows") {
-        assert!(b.is_available(), "WinBuilder should be available on Windows");
+        assert!(
+            b.is_available(),
+            "WinBuilder should be available on Windows"
+        );
     }
     // On other platforms it may be unavailable — just don't panic
     let _ = b.is_available();
@@ -528,7 +529,6 @@ fn builder_common_frontend_backend_serde_supports_variants() {
             assert_eq!(config.entry, "main:run");
             assert_eq!(config.version, "3.11");
             assert!(matches!(config.strategy, PythonStrategy::Embedded));
-
         }
         other => panic!("expected python backend, got {:?}", other),
     }
@@ -579,9 +579,7 @@ fn win_builder_validate_rejects_missing_frontend_path() {
 fn win_builder_validate_rejects_empty_frontend_url() {
     let temp = tempdir().unwrap();
     let mut config = minimal_build_config("win", temp.path().join("out"));
-    config.frontend = Some(FrontendConfig::Url {
-        url: String::new(),
-    });
+    config.frontend = Some(FrontendConfig::Url { url: String::new() });
     let ctx = BuildContext::new(config, temp.path().join("out"));
 
     let err = WinBuilder::new().validate(&ctx).unwrap_err();
@@ -628,7 +626,10 @@ fn wechat_builder_build_generates_project_files_and_webview_page() {
     assert_eq!(output.path, project_dir);
     assert_eq!(output.format, "wechat-miniprogram");
     assert_eq!(output.asset_count, 1);
-    assert_eq!(output.info.get("app_id").map(String::as_str), Some("wx1234567890"));
+    assert_eq!(
+        output.info.get("app_id").map(String::as_str),
+        Some("wx1234567890")
+    );
     assert_eq!(
         output.info.get("cli_path").map(String::as_str),
         Some(cli_path.to_string_lossy().as_ref())
@@ -665,7 +666,10 @@ fn wechat_builder_build_prefers_builder_app_id_and_plain_view_without_frontend()
         .build(&mut ctx)
         .unwrap();
 
-    assert_eq!(output.info.get("app_id").map(String::as_str), Some("wx-builder-id"));
+    assert_eq!(
+        output.info.get("app_id").map(String::as_str),
+        Some("wx-builder-id")
+    );
 
     let project_dir = output_dir.join("wechat-miniprogram");
     let project_config = fs::read_to_string(project_dir.join("project.config.json")).unwrap();
@@ -705,4 +709,3 @@ fn miniprogram_stub_builders_report_tools_and_unimplemented_errors() {
         PackError::Build(message) if message.contains("ByteDance MiniProgram builder not yet implemented")
     ));
 }
-

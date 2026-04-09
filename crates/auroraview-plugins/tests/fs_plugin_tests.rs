@@ -328,7 +328,11 @@ fn write_and_read_binary_file() {
         }),
     );
     let write_resp = router.handle(write_req);
-    assert!(write_resp.success, "Binary write failed: {:?}", write_resp.error);
+    assert!(
+        write_resp.success,
+        "Binary write failed: {:?}",
+        write_resp.error
+    );
 
     // read_file_binary returns base64-encoded string
     let read_req = PluginRequest::new(
@@ -337,7 +341,11 @@ fn write_and_read_binary_file() {
         serde_json::json!({ "path": file_path_str }),
     );
     let read_resp = router.handle(read_req);
-    assert!(read_resp.success, "Binary read failed: {:?}", read_resp.error);
+    assert!(
+        read_resp.success,
+        "Binary read failed: {:?}",
+        read_resp.error
+    );
 
     // Verify the returned base64 decodes back to the original bytes
     let returned = read_resp.data.unwrap();
@@ -468,7 +476,11 @@ fn read_dir_multiple_files() {
 
     // Create multiple files
     for i in 0..5 {
-        std::fs::write(temp.path().join(format!("file{i}.txt")), format!("content{i}")).unwrap();
+        std::fs::write(
+            temp.path().join(format!("file{i}.txt")),
+            format!("content{i}"),
+        )
+        .unwrap();
     }
 
     let req = PluginRequest::new(
@@ -520,7 +532,6 @@ fn copy_then_modify_independent() {
     assert_eq!(resp.data.unwrap(), "original");
 }
 
-
 #[test]
 fn concurrent_writes_to_different_files() {
     let temp = Arc::new(tempdir().unwrap());
@@ -529,8 +540,7 @@ fn concurrent_writes_to_different_files() {
         .map(|i| {
             let tmp = temp.clone();
             thread::spawn(move || {
-                let scope =
-                    ScopeConfig::new().with_fs_scope(PathScope::new().allow(tmp.path()));
+                let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(tmp.path()));
                 let router = create_router_with_scope(scope);
 
                 let path = tmp.path().join(format!("concurrent_{i}.txt"));
@@ -601,18 +611,13 @@ fn write_large_file() {
     );
     assert!(router.handle(write_req).success);
 
-    let stat_req = PluginRequest::new(
-        "fs",
-        "stat",
-        serde_json::json!({ "path": file_path_str }),
-    );
+    let stat_req = PluginRequest::new("fs", "stat", serde_json::json!({ "path": file_path_str }));
     let stat_resp = router.handle(stat_req);
     assert!(stat_resp.success);
     assert_eq!(stat_resp.data.unwrap()["size"].as_u64().unwrap(), 64 * 1024);
 }
 
 // Helper: minimal base64 decode for tests (no external dep)
-
 
 fn base64_decode(s: &str) -> Vec<u8> {
     let table: [u8; 128] = {

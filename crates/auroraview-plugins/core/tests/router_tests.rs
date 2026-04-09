@@ -4,8 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use auroraview_plugin_core::{
-    PluginError, PluginHandler, PluginRequest, PluginResult, PluginRouter,
-    ScopeConfig,
+    PluginError, PluginHandler, PluginRequest, PluginResult, PluginRouter, ScopeConfig,
 };
 use serde_json::{json, Value};
 
@@ -102,7 +101,12 @@ fn router_unregister_unknown_returns_none() {
 fn router_plugin_names_contains_registered() {
     let mut router = PluginRouter::new();
     router.register("alpha", Arc::new(EchoPlugin));
-    router.register("beta", Arc::new(CounterPlugin { name: "beta".into() }));
+    router.register(
+        "beta",
+        Arc::new(CounterPlugin {
+            name: "beta".into(),
+        }),
+    );
     let names = router.plugin_names();
     assert!(names.contains(&"alpha"));
     assert!(names.contains(&"beta"));
@@ -120,7 +124,11 @@ fn router_disabled_plugin_returns_error_response() {
     let req = PluginRequest::new("echo", "echo", json!({"x": 1}));
     let resp = router.handle(req);
     assert!(!resp.success);
-    assert!(resp.code.as_deref().map(|c| c == "PLUGIN_DISABLED").unwrap_or(false));
+    assert!(resp
+        .code
+        .as_deref()
+        .map(|c| c == "PLUGIN_DISABLED")
+        .unwrap_or(false));
 }
 
 // ── handle: plugin not found ──────────────────────────────────────────────────

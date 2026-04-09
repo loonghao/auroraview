@@ -25,8 +25,7 @@ fn new_accepts_string_owned() {
 
 #[test]
 fn with_required_sets_args() {
-    let cmd = PluginCommand::new("copy", "Copy a file")
-        .with_required(&["from", "to"]);
+    let cmd = PluginCommand::new("copy", "Copy a file").with_required(&["from", "to"]);
 
     assert_eq!(cmd.required_args, vec!["from", "to"]);
     assert!(cmd.optional_args.is_empty());
@@ -34,8 +33,7 @@ fn with_required_sets_args() {
 
 #[test]
 fn with_optional_sets_args() {
-    let cmd = PluginCommand::new("read_file", "Read a file")
-        .with_optional(&["encoding"]);
+    let cmd = PluginCommand::new("read_file", "Read a file").with_optional(&["encoding"]);
 
     assert!(cmd.required_args.is_empty());
     assert_eq!(cmd.optional_args, vec!["encoding"]);
@@ -122,8 +120,8 @@ fn deserialize_from_json() {
 
 #[test]
 fn with_required_multiple_args() {
-    let cmd = PluginCommand::new("multi", "Multiple args")
-        .with_required(&["a", "b", "c", "d", "e"]);
+    let cmd =
+        PluginCommand::new("multi", "Multiple args").with_required(&["a", "b", "c", "d", "e"]);
 
     assert_eq!(cmd.required_args.len(), 5);
     assert_eq!(cmd.required_args[0], "a");

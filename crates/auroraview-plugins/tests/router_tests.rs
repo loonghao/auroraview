@@ -398,7 +398,11 @@ fn concurrent_mixed_plugin_dispatch() {
     }
 
     let errs = errors.lock().unwrap();
-    assert!(errs.is_empty(), "Concurrent mixed dispatch errors: {:?}", errs);
+    assert!(
+        errs.is_empty(),
+        "Concurrent mixed dispatch errors: {:?}",
+        errs
+    );
 }
 
 // ─── rstest parameterized ─────────────────────────────────────────────────────

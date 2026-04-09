@@ -69,8 +69,8 @@ fn encryption_config_with_p256() {
 
 #[test]
 fn encryption_config_with_keys() {
-    let config = EncryptionConfig::enabled()
-        .with_keys("pub_hex".to_string(), "priv_hex".to_string());
+    let config =
+        EncryptionConfig::enabled().with_keys("pub_hex".to_string(), "priv_hex".to_string());
     assert_eq!(config.public_key, Some("pub_hex".to_string()));
     assert_eq!(config.private_key, Some("priv_hex".to_string()));
 }

@@ -93,7 +93,6 @@ impl ProcessorConfig {
             max_messages_per_tick: 100, // Limit for busy DCC main threads
         }
     }
-
 }
 
 /// Message priority for wake-up decisions

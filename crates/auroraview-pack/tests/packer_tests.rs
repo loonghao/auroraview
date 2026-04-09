@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use auroraview_pack::{
-    PackConfig, PackContext, PackError, PackHook, PackManager, PackOutput, PackPlugin,
-    PackResult, PackTarget, PluginRegistry,
+    PackConfig, PackContext, PackError, PackHook, PackManager, PackOutput, PackPlugin, PackResult,
+    PackTarget, PluginRegistry,
 };
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -24,7 +24,11 @@ struct RecordingPlugin {
 
 impl RecordingPlugin {
     fn new(wanted_hooks: Vec<PackHook>) -> Self {
-        Self { hooks_called: Arc::new(Mutex::new(vec![])), wanted_hooks, fail_on: None }
+        Self {
+            hooks_called: Arc::new(Mutex::new(vec![])),
+            wanted_hooks,
+            fail_on: None,
+        }
     }
 
     fn with_failure(mut self, hook: PackHook) -> Self {
@@ -73,16 +77,24 @@ fn test_pack_target_name_all_variants() {
     assert_eq!(PackTarget::Android.name(), "Android");
     assert_eq!(PackTarget::WeChatMiniProgram.name(), "WeChat MiniProgram");
     assert_eq!(PackTarget::AlipayMiniProgram.name(), "Alipay MiniProgram");
-    assert_eq!(PackTarget::ByteDanceMiniProgram.name(), "ByteDance MiniProgram");
+    assert_eq!(
+        PackTarget::ByteDanceMiniProgram.name(),
+        "ByteDance MiniProgram"
+    );
     assert_eq!(PackTarget::Web.name(), "Web");
 }
 
 #[test]
 fn test_pack_target_display_equals_name() {
     for t in [
-        PackTarget::Windows, PackTarget::MacOS, PackTarget::Linux,
-        PackTarget::IOS, PackTarget::Android, PackTarget::Web,
-        PackTarget::WeChatMiniProgram, PackTarget::AlipayMiniProgram,
+        PackTarget::Windows,
+        PackTarget::MacOS,
+        PackTarget::Linux,
+        PackTarget::IOS,
+        PackTarget::Android,
+        PackTarget::Web,
+        PackTarget::WeChatMiniProgram,
+        PackTarget::AlipayMiniProgram,
         PackTarget::ByteDanceMiniProgram,
     ] {
         assert_eq!(t.to_string(), t.name(), "{} display != name", t.name());
@@ -195,20 +207,15 @@ fn test_pack_output_builder_full_chain() {
 
 #[test]
 fn test_pack_output_with_python_files() {
-    let out = PackOutput::new(PathBuf::from("/a"), "fs", PackTarget::Windows)
-        .with_python_files(99);
+    let out = PackOutput::new(PathBuf::from("/a"), "fs", PackTarget::Windows).with_python_files(99);
     assert_eq!(out.python_file_count, 99);
 }
 
 #[test]
 fn test_pack_output_clone_independence() {
-    let out = PackOutput::new(
-        std::path::PathBuf::from("/tmp/x"),
-        "url",
-        PackTarget::MacOS,
-    )
-    .with_size(100)
-    .with_metadata("k", "v");
+    let out = PackOutput::new(std::path::PathBuf::from("/tmp/x"), "url", PackTarget::MacOS)
+        .with_size(100)
+        .with_metadata("k", "v");
     let out2 = out.clone();
     assert_eq!(out2.size, 100);
     assert_eq!(out2.target, PackTarget::MacOS);
@@ -219,8 +226,7 @@ fn test_pack_output_clone_independence() {
 
 #[test]
 fn test_pack_output_debug_formatting() {
-    let out = PackOutput::new(PathBuf::from("/app"), "static", PackTarget::Windows)
-        .with_size(1024);
+    let out = PackOutput::new(PathBuf::from("/app"), "static", PackTarget::Windows).with_size(1024);
     let s = format!("{:?}", out);
     assert!(s.contains("1024") || s.contains("app"));
 }
@@ -253,9 +259,16 @@ fn test_pack_hook_display_all_variants() {
     use std::fmt::Write;
     let mut s = String::new();
     for h in [
-        PackHook::BeforePack, PackHook::AfterValidate, PackHook::BeforeCollect,
-        PackHook::AfterCollect, PackHook::BeforeOverlay, PackHook::AfterOverlay,
-        PackHook::BeforeTarget, PackHook::AfterTarget, PackHook::AfterPack, PackHook::OnError,
+        PackHook::BeforePack,
+        PackHook::AfterValidate,
+        PackHook::BeforeCollect,
+        PackHook::AfterCollect,
+        PackHook::BeforeOverlay,
+        PackHook::AfterOverlay,
+        PackHook::BeforeTarget,
+        PackHook::AfterTarget,
+        PackHook::AfterPack,
+        PackHook::OnError,
     ] {
         writeln!(s, "{}", h).unwrap();
     }
@@ -388,7 +401,10 @@ fn test_pack_context_overlay_mut_error_when_not_initialized() {
     let result = ctx.overlay_mut();
     assert!(result.is_err());
     let err_msg = format!("{}", result.unwrap_err());
-    assert!(err_msg.to_lowercase().contains("overlay") || err_msg.to_lowercase().contains("not initialized"));
+    assert!(
+        err_msg.to_lowercase().contains("overlay")
+            || err_msg.to_lowercase().contains("not initialized")
+    );
 }
 
 #[test]
@@ -558,8 +574,9 @@ fn test_custom_plugin_name() {
 #[test]
 fn test_plugin_hook_error_propagates() {
     let mut reg = PluginRegistry::new();
-    let plugin = Arc::new(RecordingPlugin::new(vec![PackHook::BeforePack])
-        .with_failure(PackHook::BeforePack));
+    let plugin = Arc::new(
+        RecordingPlugin::new(vec![PackHook::BeforePack]).with_failure(PackHook::BeforePack),
+    );
     reg.register_plugin(plugin.clone());
 
     let mut ctx = PackContext::new(minimal_config(), PackTarget::Windows);
@@ -630,7 +647,12 @@ fn test_pack_manager_format_targets_structure() {
     assert!(!formatted.is_empty());
     assert!(formatted.contains("Available pack targets"));
     // Should contain at least one status indicator (checkmark or cross)
-    assert!(formatted.contains('\u{2713}') || formatted.contains('\u{2717}') || formatted.contains('✓') || formatted.contains('✗'));
+    assert!(
+        formatted.contains('\u{2713}')
+            || formatted.contains('\u{2717}')
+            || formatted.contains('✓')
+            || formatted.contains('✗')
+    );
 }
 
 #[test]
@@ -647,7 +669,10 @@ fn test_pack_manager_pack_unsupported_target_error() {
     let config = minimal_config();
     // IOS/Android typically have no packer in CI
     let result = manager.pack_for_target(&config, PackTarget::IOS);
-    assert!(result.is_err(), "Packing for IOS should fail without IOS tooling");
+    assert!(
+        result.is_err(),
+        "Packing for IOS should fail without IOS tooling"
+    );
 }
 
 #[test]
@@ -663,7 +688,11 @@ fn test_pack_manager_registry_mutable_access() {
 
 fn current_platform_has_desktop_packer(_reg: &PluginRegistry) -> bool {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    { true }
+    {
+        true
+    }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    { false }
+    {
+        false
+    }
 }

@@ -358,9 +358,7 @@ mod tests {
     #[rstest]
     fn multiple_instances_concurrent_send() {
         let instances: Vec<Arc<auroraview_dcc::DccWebView>> = (0..5)
-            .map(|_| {
-                Arc::new(auroraview_dcc::DccWebView::new(test_config()).unwrap())
-            })
+            .map(|_| Arc::new(auroraview_dcc::DccWebView::new(test_config()).unwrap()))
             .collect();
 
         let mut handles = Vec::new();
@@ -370,7 +368,8 @@ mod tests {
             let id = idx;
             handles.push(thread::spawn(move || {
                 for i in 0..100 {
-                    wv.navigate(&format!("https://inst{}.com/{}", id, i)).unwrap();
+                    wv.navigate(&format!("https://inst{}.com/{}", id, i))
+                        .unwrap();
                 }
             }));
         }
@@ -542,7 +541,9 @@ mod tests {
             webview.navigate(&format!("https://x.com/{}", i)).unwrap();
             webview.load_html(&format!("<p>{}</p>", i)).unwrap();
             webview.eval(&format!("x={}", i)).unwrap();
-            webview.resize(100 + (i as u32 % 1000), 100 + (i as u32 % 800)).unwrap();
+            webview
+                .resize(100 + (i as u32 % 1000), 100 + (i as u32 % 800))
+                .unwrap();
             if i % 2 == 0 {
                 webview.show().unwrap();
             } else {

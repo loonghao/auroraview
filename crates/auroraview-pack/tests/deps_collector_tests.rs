@@ -199,12 +199,17 @@ fn file_hash_cache_serde_roundtrip() {
     let cache_path = temp.path().join("serde_cache.json");
 
     let mut cache = FileHashCache::new();
-    cache.hashes.insert("a.py".to_string(), "hash_a".to_string());
+    cache
+        .hashes
+        .insert("a.py".to_string(), "hash_a".to_string());
 
     cache.save(&cache_path).unwrap();
     let loaded = FileHashCache::load(&cache_path).unwrap();
     assert_eq!(loaded.version, 1);
-    assert_eq!(loaded.hashes.get("a.py").map(String::as_str), Some("hash_a"));
+    assert_eq!(
+        loaded.hashes.get("a.py").map(String::as_str),
+        Some("hash_a")
+    );
 }
 
 #[test]

@@ -18,7 +18,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ============================================================================
 # gallery: get_sample_info edge cases
 # ============================================================================
@@ -845,9 +844,11 @@ class TestDiscoverDCCInstancesEnrichment:
         inst = Instance(port=9222, dcc_type="maya")
         discovery = InstanceDiscovery()
 
-        with patch.object(discovery, "discover", return_value=[inst]):
-            with patch.object(discovery, "_enrich_dcc_context") as mock_enrich:
-                result = await discovery.discover_dcc_instances()
+        with (
+            patch.object(discovery, "discover", return_value=[inst]),
+            patch.object(discovery, "_enrich_dcc_context") as mock_enrich,
+        ):
+            result = await discovery.discover_dcc_instances()
 
         mock_enrich.assert_not_called()
         assert result[0].dcc_type == "maya"
@@ -861,11 +862,10 @@ class TestDiscoverDCCInstancesEnrichment:
         enriched_inst = Instance(port=9222, dcc_type="houdini")
         discovery = InstanceDiscovery()
 
-        with patch.object(discovery, "discover", return_value=[inst]):
-            with patch.object(
-                discovery, "_enrich_dcc_context", return_value=enriched_inst
-            ) as mock_enrich:
-                result = await discovery.discover_dcc_instances()
+        with patch.object(discovery, "discover", return_value=[inst]), patch.object(
+            discovery, "_enrich_dcc_context", return_value=enriched_inst
+        ) as mock_enrich:
+            result = await discovery.discover_dcc_instances()
 
         mock_enrich.assert_called_once_with(inst)
         assert result[0].dcc_type == "houdini"

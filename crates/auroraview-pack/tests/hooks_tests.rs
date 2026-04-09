@@ -78,10 +78,7 @@ fn hooks_config_with_collect_patterns() {
     assert_eq!(cfg.collect[0].source, "assets/**/*.png");
     assert!(cfg.collect[0].dest.is_none());
     assert_eq!(cfg.collect[1].source, "data/*.json");
-    assert_eq!(
-        cfg.collect[1].dest.as_deref(),
-        Some("resources/data")
-    );
+    assert_eq!(cfg.collect[1].dest.as_deref(), Some("resources/data"));
 }
 
 // ---------------------------------------------------------------------------
@@ -249,10 +246,7 @@ fn hooks_config_full_integration() {
     assert_eq!(cfg.before_collect.len(), 1);
     assert_eq!(cfg.collect.len(), 2);
     assert_eq!(cfg.collect[0].dest.as_deref(), Some("bundle/dist"));
-    assert_eq!(
-        cfg.collect[1].description.as_deref(),
-        Some("PNG images")
-    );
+    assert_eq!(cfg.collect[1].description.as_deref(), Some("PNG images"));
     assert_eq!(cfg.after_pack.len(), 1);
     assert!(!cfg.use_vx);
 }

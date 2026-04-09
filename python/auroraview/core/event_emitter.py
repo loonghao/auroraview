@@ -20,8 +20,10 @@ Example:
 
 from __future__ import annotations
 
+import functools
 import logging
 import threading
+import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -380,5 +382,31 @@ class EventEmitter:
         return unsubscribe
 
 
+def deprecated(reason: str) -> Callable[[Callable], Callable]:
+    """Mark a function as deprecated.
 
+    Args:
+        reason: Message explaining why the function is deprecated and what to use instead.
+
+    Returns:
+        Decorator that emits a DeprecationWarning when the decorated function is called.
+    """
+
+    def decorator(func: Callable) -> Callable:
+        original_doc = func.__doc__ or ""
+        func.__doc__ = "DEPRECATED: {}\n\n{}".format(reason, original_doc).strip()
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            warnings.warn(
+                "{} is deprecated. {}".format(func.__name__, reason),
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return func(*args, **kwargs)
+
+        wrapper.__doc__ = func.__doc__
+        return wrapper
+
+    return decorator
 

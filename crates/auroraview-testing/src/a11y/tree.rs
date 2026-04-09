@@ -189,7 +189,6 @@ fn build_tree(
     // properly reconstruct the tree hierarchy from the flat node list.
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

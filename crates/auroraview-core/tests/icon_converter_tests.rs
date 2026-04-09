@@ -108,7 +108,6 @@ fn test_png_to_ico_nonexistent_input() {
     assert!(err_msg.contains("nonexistent") || !err_msg.is_empty());
 }
 
-
 // ============================================================================
 // PNG bytes to ICO tests
 // ============================================================================
@@ -256,7 +255,9 @@ fn test_compression_level_debug() {
 fn test_compress_png_various_levels(#[case] level: u8) {
     let png_file = create_test_png(64);
     let temp_dir = TempDir::new().unwrap();
-    let output_path = temp_dir.path().join(format!("compressed_level{}.png", level));
+    let output_path = temp_dir
+        .path()
+        .join(format!("compressed_level{}.png", level));
 
     let result = compress_png(png_file.path(), &output_path, level).unwrap();
 

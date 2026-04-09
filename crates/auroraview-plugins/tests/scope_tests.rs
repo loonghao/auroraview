@@ -334,7 +334,10 @@ fn scope_allow_all_permits_any_subpath(#[case] rel: &str) {
     }
 
     let scope = PathScope::allow_all();
-    assert!(scope.is_allowed(&full).is_ok(), "Expected {rel} to be allowed");
+    assert!(
+        scope.is_allowed(&full).is_ok(),
+        "Expected {rel} to be allowed"
+    );
 }
 
 // rstest: specific paths blocked by empty scope
@@ -350,7 +353,10 @@ fn scope_empty_blocks_specific_paths(#[case] rel: &str) {
     std::fs::write(&full, b"data").ok();
 
     let scope = PathScope::new();
-    assert!(scope.is_allowed(&full).is_err(), "Expected {rel} to be blocked");
+    assert!(
+        scope.is_allowed(&full).is_err(),
+        "Expected {rel} to be blocked"
+    );
 }
 
 // ===========================================================================
@@ -449,18 +455,14 @@ mod shell_scope {
     #[case("rm", false)]
     #[case("sudo", false)]
     fn shell_scope_parametric_allow(#[case] cmd: &str, #[case] expected: bool) {
-        let scope = ShellScope::new()
-            .allow_command("git")
-            .allow_command("npm");
+        let scope = ShellScope::new().allow_command("git").allow_command("npm");
         assert_eq!(scope.is_command_allowed(cmd), expected);
     }
 
     // New: serde roundtrip for ShellScope
     #[test]
     fn shell_scope_serde_roundtrip() {
-        let scope = ShellScope::new()
-            .allow_command("git")
-            .deny_command("rm");
+        let scope = ShellScope::new().allow_command("git").deny_command("rm");
         let json = serde_json::to_string(&scope).unwrap();
         let restored: ShellScope = serde_json::from_str(&json).unwrap();
         assert!(!restored.allow_all);

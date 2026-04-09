@@ -20,7 +20,6 @@ import pytest
 
 from auroraview_mcp.discovery import Instance, InstanceDiscovery
 
-
 # ---------------------------------------------------------------------------
 # Instance.to_dict() complete field verification
 # ---------------------------------------------------------------------------

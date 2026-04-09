@@ -563,7 +563,10 @@ fn serde_history_entry_full_roundtrip() {
 
     assert_eq!(back.visit_count, 3);
     assert_eq!(back.typed_count, 1);
-    assert_eq!(back.favicon, Some("https://github.com/favicon.ico".to_string()));
+    assert_eq!(
+        back.favicon,
+        Some("https://github.com/favicon.ico".to_string())
+    );
 }
 
 #[test]
@@ -754,7 +757,9 @@ fn manager_by_domain_returns_all_pages() {
 
     let github_entries = manager.by_domain("github.com");
     assert_eq!(github_entries.len(), 5);
-    assert!(github_entries.iter().all(|e| e.domain() == Some("github.com")));
+    assert!(github_entries
+        .iter()
+        .all(|e| e.domain() == Some("github.com")));
 }
 
 #[rstest]
@@ -765,14 +770,16 @@ fn manager_in_range_excludes_outside() {
     let future_start = Utc::now() + Duration::hours(1);
     let future_end = Utc::now() + Duration::hours(2);
     let results = manager.in_range(future_start, future_end);
-    assert!(results.is_empty(), "future range should not include current entry");
+    assert!(
+        results.is_empty(),
+        "future range should not include current entry"
+    );
 }
 
 // ========== Concurrent Tests ==========
 
 #[test]
 fn concurrent_visit_same_url_no_deadlock() {
-
     let manager = Arc::new(HistoryManager::new(None));
 
     let handles: Vec<_> = (0..8)
@@ -798,7 +805,6 @@ fn concurrent_visit_same_url_no_deadlock() {
 
 #[test]
 fn concurrent_different_urls_no_panic() {
-
     let manager = Arc::new(HistoryManager::new(None));
 
     let handles: Vec<_> = (0..8)
@@ -806,7 +812,10 @@ fn concurrent_different_urls_no_panic() {
             let m = Arc::clone(&manager);
             thread::spawn(move || {
                 for j in 0..10 {
-                    m.visit(format!("https://thread{i}-site{j}.com"), format!("T{i}S{j}"));
+                    m.visit(
+                        format!("https://thread{i}-site{j}.com"),
+                        format!("T{i}S{j}"),
+                    );
                 }
             })
         })
@@ -821,7 +830,6 @@ fn concurrent_different_urls_no_panic() {
 
 #[test]
 fn concurrent_visit_and_search_no_deadlock() {
-
     let manager = Arc::new(HistoryManager::new(None));
 
     let writer = {
@@ -848,7 +856,6 @@ fn concurrent_visit_and_search_no_deadlock() {
 
 #[test]
 fn concurrent_delete_and_visit_no_panic() {
-
     let manager = Arc::new(HistoryManager::new(None));
 
     // Pre-populate

@@ -114,9 +114,10 @@ fn message_with_name() {
 
 #[test]
 fn message_with_tool_calls() {
-    let calls = vec![
-        ToolCall::new("navigate", r#"{"url":"https://rust-lang.org"}"#),
-    ];
+    let calls = vec![ToolCall::new(
+        "navigate",
+        r#"{"url":"https://rust-lang.org"}"#,
+    )];
     let msg = Message::assistant("I'll navigate there").with_tool_calls(calls.clone());
     let tc = msg.tool_calls.as_ref().unwrap();
     assert_eq!(tc.len(), 1);
@@ -322,7 +323,7 @@ fn session_clear() {
 fn session_estimate_tokens() {
     let mut s = ChatSession::with_system_prompt("short");
     s.add_user_message("four char"); // 9 chars
-    // "short" (5) + "four char" (9) = 14 chars / 4 ≈ 3 tokens
+                                     // "short" (5) + "four char" (9) = 14 chars / 4 ≈ 3 tokens
     let tokens = s.estimate_tokens();
     assert!(tokens >= 1);
 }

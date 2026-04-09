@@ -391,7 +391,9 @@ fn op_to_js_double_click() {
 
 #[test]
 fn op_to_js_blur() {
-    let op = DomOp::Blur { selector: "#input".to_string() };
+    let op = DomOp::Blur {
+        selector: "#input".to_string(),
+    };
     let js = DomBatch::op_to_js(&op);
     assert!(js.contains("blur()"));
 }
@@ -456,7 +458,9 @@ fn op_to_js_type_text_no_clear() {
 
 #[test]
 fn op_to_js_clear() {
-    let op = DomOp::Clear { selector: "#field".to_string() };
+    let op = DomOp::Clear {
+        selector: "#field".to_string(),
+    };
     let js = DomBatch::op_to_js(&op);
     assert!(js.contains("value=''"));
     assert!(js.contains("dispatchEvent"));
@@ -465,14 +469,18 @@ fn op_to_js_clear() {
 
 #[test]
 fn op_to_js_submit_form() {
-    let op = DomOp::Submit { selector: "form#login".to_string() };
+    let op = DomOp::Submit {
+        selector: "form#login".to_string(),
+    };
     let js = DomBatch::op_to_js(&op);
     assert!(js.contains("submit()") || js.contains(".submit()"));
 }
 
 #[test]
 fn op_to_js_submit_from_input() {
-    let op = DomOp::Submit { selector: "#inline-submit".to_string() };
+    let op = DomOp::Submit {
+        selector: "#inline-submit".to_string(),
+    };
     let js = DomBatch::op_to_js(&op);
     assert!(js.contains("#inline-submit"));
 }
@@ -502,14 +510,18 @@ fn op_to_js_prepend_html() {
 
 #[test]
 fn op_to_js_remove() {
-    let op = DomOp::Remove { selector: ".old".to_string() };
+    let op = DomOp::Remove {
+        selector: ".old".to_string(),
+    };
     let js = DomBatch::op_to_js(&op);
     assert!(js.contains(".remove()"));
 }
 
 #[test]
 fn op_to_js_empty() {
-    let op = DomOp::Empty { selector: "#container".to_string() };
+    let op = DomOp::Empty {
+        selector: "#container".to_string(),
+    };
     let js = DomBatch::op_to_js(&op);
     // Empty sets innerHTML to empty string
     assert!(js.contains("innerHTML") || js.contains("#container"));
@@ -783,7 +795,9 @@ fn set_html_with_nested_quotes() {
 
 #[test]
 fn op_to_js_empty_selector() {
-    let op = DomOp::Click { selector: "".to_string() };
+    let op = DomOp::Click {
+        selector: "".to_string(),
+    };
     let _js = DomBatch::op_to_js(&op); // Should not panic
 }
 

@@ -214,7 +214,9 @@ fn test_shown_time_as_total_interactive() {
     let report = metrics.format_report();
     let expected_ms = shown.as_millis();
     // The report should contain the duration value for shown_time
-    assert!(report.contains(&format!("{}ms", expected_ms)) || report.contains(&format!("{:?}", shown)));
+    assert!(
+        report.contains(&format!("{}ms", expected_ms)) || report.contains(&format!("{:?}", shown))
+    );
 }
 
 #[test]

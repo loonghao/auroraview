@@ -1,8 +1,8 @@
 //! Integration tests for ExtensionRuntime and RuntimeManager (src/runtime.rs)
 
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 use serde_json::json;
@@ -27,8 +27,7 @@ fn test_message_new() {
 
 #[test]
 fn test_message_to_sets_target() {
-    let msg = ExtensionMessage::new("ext-a".to_string(), json!(null))
-        .to("ext-b".to_string());
+    let msg = ExtensionMessage::new("ext-a".to_string(), json!(null)).to("ext-b".to_string());
     assert_eq!(msg.target, Some("ext-b".to_string()));
 }
 
@@ -144,9 +143,7 @@ fn test_pending_messages_flushed_on_start() {
 fn test_handler_returns_value() {
     let rt = ExtensionRuntime::new("ext-a".to_string());
     rt.start().unwrap();
-    rt.on_message("echo", |msg, _sender| {
-        Some(msg.payload.clone())
-    });
+    rt.on_message("echo", |msg, _sender| Some(msg.payload.clone()));
 
     let msg = ExtensionMessage::new("caller".to_string(), json!({"echo": "hello"}));
     let resp = rt.send_message(msg).unwrap();

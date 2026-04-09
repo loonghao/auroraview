@@ -9,7 +9,9 @@ fn version_has_parseable_semver_parts() {
     let parts: Vec<&str> = VERSION.split('.').collect();
     assert!(parts.len() >= 2, "Expected at least major.minor in version");
 
-    let major = parts[0].parse::<u64>().expect("major version should be numeric");
+    let major = parts[0]
+        .parse::<u64>()
+        .expect("major version should be numeric");
     let minor = parts[1]
         .split('-')
         .next()
@@ -34,4 +36,3 @@ fn read_overlay_returns_none_in_test_env() {
     let overlay = auroraview_pack::read_overlay().expect("read_overlay should succeed in tests");
     assert!(overlay.is_none());
 }
-

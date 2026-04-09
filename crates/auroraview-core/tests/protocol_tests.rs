@@ -14,7 +14,6 @@ use auroraview_core::protocol::{
 
 #[test]
 fn file_url_to_auroraview_converts_paths() {
-
     assert_eq!(
         file_url_to_auroraview("file:///C:/path/to/file.html"),
         "https://auroraview.localhost/type:file/C:/path/to/file.html"
@@ -31,7 +30,6 @@ fn file_url_to_auroraview_converts_paths() {
 
 #[test]
 fn local_path_to_auroraview_converts_paths() {
-
     assert_eq!(
         local_path_to_auroraview("C:/path/to/file.html"),
         "https://auroraview.localhost/type:local/C:/path/to/file.html"
@@ -69,7 +67,6 @@ fn strip_protocol_type_extracts_expected_prefix() {
 #[test]
 fn is_auroraview_url_detects_supported_urls() {
     assert!(is_auroraview_url(
-
         "https://auroraview.localhost/type:file/C:/path"
     ));
     assert!(is_auroraview_url("https://auroraview.localhost/index.html"));
@@ -91,7 +88,6 @@ fn protocol_constants() {
 
 #[test]
 fn normalize_url_handles_common_inputs() {
-
     assert_eq!(normalize_url("example.com"), "https://example.com");
     assert_eq!(normalize_url("https://example.com"), "https://example.com");
     assert_eq!(normalize_url("http://example.com"), "http://example.com");
@@ -101,7 +97,6 @@ fn normalize_url_handles_common_inputs() {
 
 #[test]
 fn extract_protocol_path_parses_supported_forms() {
-
     assert_eq!(
         extract_protocol_path("auroraview://localhost/index.html", "auroraview"),
         Some("index.html".to_string())
@@ -126,7 +121,6 @@ fn extract_protocol_path_parses_supported_forms() {
 
 #[test]
 fn guess_mime_type_for_common_assets() {
-
     assert_eq!(guess_mime_type(Path::new("style.css")), "text/css");
     assert_eq!(guess_mime_type(Path::new("script.js")), "text/javascript");
     assert_eq!(guess_mime_type(Path::new("index.html")), "text/html");
@@ -156,7 +150,9 @@ fn file_response_internal_error() {
     let resp = FileResponse::internal_error("Something went wrong");
     assert_eq!(resp.status, 500);
     assert_eq!(resp.mime_type, "text/plain");
-    assert!(std::str::from_utf8(&resp.data).unwrap().contains("Something went wrong"));
+    assert!(std::str::from_utf8(&resp.data)
+        .unwrap()
+        .contains("Something went wrong"));
 }
 
 #[test]
@@ -189,7 +185,10 @@ fn guess_mime_type_more_types() {
     assert_eq!(guess_mime_type(Path::new("image.gif")), "image/gif");
     assert_eq!(guess_mime_type(Path::new("image.svg")), "image/svg+xml");
     assert_eq!(guess_mime_type(Path::new("image.webp")), "image/webp");
-    assert_eq!(guess_mime_type(Path::new("font.woff")), "application/font-woff");
+    assert_eq!(
+        guess_mime_type(Path::new("font.woff")),
+        "application/font-woff"
+    );
     // woff2 mime varies by mime_guess version; accept either standard value
     let woff2_mime = guess_mime_type(Path::new("font.woff2"));
     assert!(
@@ -587,10 +586,7 @@ fn extract_protocol_path_nested_segments() {
 #[test]
 fn extract_protocol_path_query_string_included() {
     // Query strings are part of the path string
-    let result = extract_protocol_path(
-        "https://auroraview.localhost/api/data?v=1",
-        "auroraview",
-    );
+    let result = extract_protocol_path("https://auroraview.localhost/api/data?v=1", "auroraview");
     // Should return the path portion (implementation specific, but not None)
     assert!(result.is_some());
 }

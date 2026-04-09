@@ -94,7 +94,13 @@ fn window_info_negative_hwnd() {
 #[case(99999, "Large HWND", 9999)]
 #[case(0, "", 0)]
 fn window_info_various(#[case] hwnd: isize, #[case] title: &str, #[case] pid: u32) {
-    let info = WindowInfo::new(hwnd, title.to_string(), pid, "proc".to_string(), "".to_string());
+    let info = WindowInfo::new(
+        hwnd,
+        title.to_string(),
+        pid,
+        "proc".to_string(),
+        "".to_string(),
+    );
     assert_eq!(info.hwnd, hwnd);
     assert_eq!(info.title, title);
     assert_eq!(info.pid, pid);
@@ -104,7 +110,13 @@ fn window_info_various(#[case] hwnd: isize, #[case] title: &str, #[case] pid: u3
 // From<ActiveWindow>
 // ============================================================================
 
-fn make_active_window(title: &str, window_id: &str, pid: u64, path: &str, app: &str) -> ActiveWindow {
+fn make_active_window(
+    title: &str,
+    window_id: &str,
+    pid: u64,
+    path: &str,
+    app: &str,
+) -> ActiveWindow {
     ActiveWindow {
         title: title.to_string(),
         window_id: window_id.to_string(),

@@ -829,7 +829,6 @@ fn manager_pending_after_add() {
 
 #[test]
 fn concurrent_add_no_panic() {
-
     let manager = Arc::new(DownloadManager::new(Some(Path::new("."))));
 
     let handles: Vec<_> = (0..8)
@@ -855,7 +854,6 @@ fn concurrent_add_no_panic() {
 
 #[test]
 fn concurrent_add_start_complete_no_deadlock() {
-
     let manager = Arc::new(DownloadManager::new(Some(Path::new("."))));
 
     // Add 10 items
@@ -885,7 +883,6 @@ fn concurrent_add_start_complete_no_deadlock() {
 
 #[test]
 fn concurrent_clone_shares_state() {
-
     let manager = DownloadManager::new(Some(Path::new(".")));
     let manager2 = manager.clone();
 

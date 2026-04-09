@@ -287,9 +287,10 @@ fn test_ipc_router_call_missing_method_returns_none() {
 #[test]
 fn test_ipc_router_invoke_type() {
     let router = IpcRouter::new();
-    router.register("fs:read_file", |args| {
-        json!({"content": "file contents", "path": args["path"]})
-    });
+    router.register(
+        "fs:read_file",
+        |args| json!({"content": "file contents", "path": args["path"]}),
+    );
 
     let message = json!({
         "type": "invoke",

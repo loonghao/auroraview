@@ -3,7 +3,7 @@
 //! These tests cover Page enum, AssetError, MIME type detection, and the
 //! non-embed functions that do not require a built frontend/dist directory.
 
-use auroraview_assets::{AssetError, Page, asset_exists, get_asset, get_mime_type, list_assets};
+use auroraview_assets::{asset_exists, get_asset, get_mime_type, list_assets, AssetError, Page};
 use rstest::rstest;
 
 // ---------------------------------------------------------------------------
@@ -86,7 +86,10 @@ fn asset_error_invalid_utf8_display() {
 fn asset_error_debug() {
     let err = AssetError::NotFound("x.html".into());
     let debug = format!("{err:?}");
-    assert!(debug.contains("NotFound") || debug.contains("x.html"), "{debug}");
+    assert!(
+        debug.contains("NotFound") || debug.contains("x.html"),
+        "{debug}"
+    );
 }
 
 #[rstest]

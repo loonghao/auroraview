@@ -223,11 +223,7 @@ fn manager_is_enabled_false() {
 #[test]
 fn manager_set_enabled_false_clears_history() {
     let temp_dir = TempDir::new().unwrap();
-    let mut manager = HistoryManager::new(
-        Some(temp_dir.path().to_str().unwrap()),
-        100,
-        true,
-    );
+    let mut manager = HistoryManager::new(Some(temp_dir.path().to_str().unwrap()), 100, true);
     manager.add("https://example.com", "Example");
     assert_eq!(manager.count(), 1);
 

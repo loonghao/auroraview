@@ -47,8 +47,8 @@ fn bookmark_with_id() {
 
 #[test]
 fn bookmark_with_parent() {
-    let bm = Bookmark::new("Child", "https://child.com")
-        .with_parent("parent-folder-id".to_string());
+    let bm =
+        Bookmark::new("Child", "https://child.com").with_parent("parent-folder-id".to_string());
     assert_eq!(bm.parent_id, Some("parent-folder-id".to_string()));
 }
 
@@ -259,8 +259,7 @@ fn manager_bar_items_returns_root_bookmarks() {
     // Add one in a subfolder
     let folder = BookmarkFolder::new("Sub");
     let folder_id = manager.add_folder(folder);
-    let bm = Bookmark::new("In Folder", "https://infolder.com")
-        .with_parent(folder_id.clone());
+    let bm = Bookmark::new("In Folder", "https://infolder.com").with_parent(folder_id.clone());
     manager.add(bm);
 
     let bar = manager.bar_items();
@@ -274,8 +273,7 @@ fn manager_in_folder_returns_children() {
     let folder = BookmarkFolder::new("TestFolder");
     let folder_id = manager.add_folder(folder);
 
-    let bm = Bookmark::new("Child", "https://child.com")
-        .with_parent(folder_id.clone());
+    let bm = Bookmark::new("Child", "https://child.com").with_parent(folder_id.clone());
     manager.add(bm);
 
     let children = manager.in_folder(Some(&folder_id));

@@ -335,10 +335,7 @@ fn history_concurrent_read_write_no_deadlock() {
 
     // pre-populate
     for i in 0..20u32 {
-        mgr.add(
-            &format!("https://preload{i}.com"),
-            &format!("Preload {i}"),
-        );
+        mgr.add(&format!("https://preload{i}.com"), &format!("Preload {i}"));
     }
 
     let writers: Vec<_> = (0..4)
@@ -346,10 +343,7 @@ fn history_concurrent_read_write_no_deadlock() {
             let mgr = Arc::clone(&mgr);
             std::thread::spawn(move || {
                 for i in 0..25u32 {
-                    mgr.add(
-                        &format!("https://w{t}-{i}.com"),
-                        &format!("Writer{t} {i}"),
-                    );
+                    mgr.add(&format!("https://w{t}-{i}.com"), &format!("Writer{t} {i}"));
                 }
             })
         })
@@ -438,8 +432,7 @@ fn bookmark_bar_items_returns_root_level() {
     let (mgr, _tmp) = bookmarks();
     let root = Bookmark::new("Root", "https://root.com");
     let folder_id = "folder-1".to_string();
-    let child =
-        Bookmark::new("Child", "https://child.com").with_parent(folder_id.clone());
+    let child = Bookmark::new("Child", "https://child.com").with_parent(folder_id.clone());
 
     mgr.add(root);
     mgr.add(child);
@@ -700,10 +693,7 @@ fn bookmark_concurrent_read_write_no_deadlock() {
             let mgr = Arc::clone(&mgr);
             std::thread::spawn(move || {
                 for i in 0..20u32 {
-                    mgr.add_bookmark(
-                        &format!("https://w{t}-{i}.com"),
-                        &format!("W{t} {i}"),
-                    );
+                    mgr.add_bookmark(&format!("https://w{t}-{i}.com"), &format!("W{t} {i}"));
                 }
             })
         })

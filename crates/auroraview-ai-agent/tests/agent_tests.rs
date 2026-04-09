@@ -123,7 +123,10 @@ fn config_system_prompt_empty() {
 #[test]
 fn config_system_prompt_unicode() {
     let config = AIConfig::openai().with_system_prompt("你是一个有用的助手。");
-    assert_eq!(config.system_prompt, Some("你是一个有用的助手。".to_string()));
+    assert_eq!(
+        config.system_prompt,
+        Some("你是一个有用的助手。".to_string())
+    );
 }
 
 #[test]
@@ -195,10 +198,7 @@ fn agent_creation_anthropic() {
 fn agent_creation_with_system_prompt() {
     let config = AIConfig::openai().with_system_prompt("Be helpful");
     let agent = AIAgent::new(config);
-    assert_eq!(
-        agent.config().system_prompt,
-        Some("Be helpful".to_string())
-    );
+    assert_eq!(agent.config().system_prompt, Some("Be helpful".to_string()));
 }
 
 // ============================================================================

@@ -293,7 +293,10 @@ fn test_channel_bridge_basic() {
     let (bridge, receiver) = ChannelBridge::new("test_ch");
 
     bridge
-        .emit("page:load", serde_json::json!({"url": "https://example.com"}))
+        .emit(
+            "page:load",
+            serde_json::json!({"url": "https://example.com"}),
+        )
         .unwrap();
 
     let msg = receiver.recv().unwrap();
@@ -306,9 +309,7 @@ fn test_channel_bridge_multiple_messages() {
     let (bridge, receiver) = ChannelBridge::new("multi_ch");
 
     for i in 0..5u64 {
-        bridge
-            .emit("tick", serde_json::json!({"i": i}))
-            .unwrap();
+        bridge.emit("tick", serde_json::json!({"i": i})).unwrap();
     }
 
     for i in 0..5u64 {
@@ -503,7 +504,9 @@ fn test_event_bus_with_channel_bridge() {
 
     bus.emit("nav:go", serde_json::json!({"url": "https://example.com"}));
 
-    let msg = receiver.recv_timeout(std::time::Duration::from_millis(200)).unwrap();
+    let msg = receiver
+        .recv_timeout(std::time::Duration::from_millis(200))
+        .unwrap();
     assert_eq!(msg.event, "nav:go");
 }
 
@@ -717,13 +720,19 @@ fn test_webview_signals_lifecycle() {
     let minimized = Arc::new(AtomicUsize::new(0));
 
     let c = closed.clone();
-    signals.closed.connect(move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    signals.closed.connect(move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
 
     let f = focused.clone();
-    signals.focused.connect(move |_| { f.fetch_add(1, Ordering::SeqCst); });
+    signals.focused.connect(move |_| {
+        f.fetch_add(1, Ordering::SeqCst);
+    });
 
     let m = minimized.clone();
-    signals.minimized.connect(move |_| { m.fetch_add(1, Ordering::SeqCst); });
+    signals.minimized.connect(move |_| {
+        m.fetch_add(1, Ordering::SeqCst);
+    });
 
     signals.closed.emit(());
     signals.focused.emit(());

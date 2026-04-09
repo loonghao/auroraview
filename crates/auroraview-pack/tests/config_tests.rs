@@ -9,10 +9,10 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use auroraview_pack::{
-    CollectPattern, DebugConfig, ExtensionRemoteManifestEntry, ExtensionsManifestConfig,
-    IsolationConfig, LicenseConfig, PackConfig, PackMode, ProcessConfig, ProtectionConfig,
-    PythonBundleConfig, RuntimeConfig, TargetPlatform, WindowConfig, WindowStartPosition,
-    BundleStrategy,
+    BundleStrategy, CollectPattern, DebugConfig, ExtensionRemoteManifestEntry,
+    ExtensionsManifestConfig, IsolationConfig, LicenseConfig, PackConfig, PackMode, ProcessConfig,
+    ProtectionConfig, PythonBundleConfig, RuntimeConfig, TargetPlatform, WindowConfig,
+    WindowStartPosition,
 };
 
 // ============================================================================
@@ -134,10 +134,16 @@ fn test_pack_mode_frontend_path_accessor() {
 
 #[test]
 fn test_pack_mode_url_accessor() {
-    let url_mode = PackMode::Url { url: "http://a.b".into() };
+    let url_mode = PackMode::Url {
+        url: "http://a.b".into(),
+    };
     let u = url_mode.url().unwrap();
     assert_eq!(u, "http://a.b");
-    assert!(PackMode::Frontend { path: PathBuf::from("/") }.url().is_none());
+    assert!(PackMode::Frontend {
+        path: PathBuf::from("/")
+    }
+    .url()
+    .is_none());
 }
 
 // ============================================================================
@@ -216,7 +222,10 @@ fn test_with_license_object() {
     let lic = LicenseConfig::time_limited("2030-01-01");
     let c = PackConfig::url("x").with_license(lic.clone());
     assert!(c.license.as_ref().unwrap().enabled);
-    assert_eq!(c.license.as_ref().unwrap().expires_at, Some("2030-01-01".into()));
+    assert_eq!(
+        c.license.as_ref().unwrap().expires_at,
+        Some("2030-01-01".into())
+    );
 }
 
 #[test]
@@ -247,7 +256,9 @@ fn test_with_token_required_merges_existing_license() {
 
 #[test]
 fn test_debug_config() {
-    let c = PackConfig::url("x").with_debug(true).with_remote_debugging_port(9229);
+    let c = PackConfig::url("x")
+        .with_debug(true)
+        .with_remote_debugging_port(9229);
     let dc = c.debug_config();
     assert!(dc.enabled);
     assert!(dc.devtools);
@@ -381,7 +392,7 @@ fn test_bundle_strategy_parse() {
     use auroraview_pack::BundleStrategy::*;
 
     assert_eq!(BundleStrategy::parse("standalone"), Standalone);
-    assert_eq!(BundleStrategy::parse("PyOxidizer"), PyOxidizer);   // case-insensitive
+    assert_eq!(BundleStrategy::parse("PyOxidizer"), PyOxidizer); // case-insensitive
     assert_eq!(BundleStrategy::parse("EMBEDDED"), Embedded);
     assert_eq!(BundleStrategy::parse("portable"), Portable);
     assert_eq!(BundleStrategy::parse("system"), System);
@@ -500,7 +511,11 @@ fn test_window_config_with_frameless() {
 
 #[test]
 fn test_window_config_with_always_on_top() {
-    assert!(WindowConfig::default().with_always_on_top(true).always_on_top);
+    assert!(
+        WindowConfig::default()
+            .with_always_on_top(true)
+            .always_on_top
+    );
 }
 
 #[test]
@@ -627,7 +642,10 @@ fn test_license_config_is_active_conditions() {
     assert!(!LicenseConfig::default().is_active());
 
     // only enabled but no expires/token → still inactive per implementation
-    let l = LicenseConfig { enabled: true, ..Default::default() };
+    let l = LicenseConfig {
+        enabled: true,
+        ..Default::default()
+    };
     assert!(!l.is_active()); // requires expires_at OR require_token
 
     // has expires_at → active
@@ -666,14 +684,12 @@ fn test_extensions_manifest_config_serde_roundtrip() {
         enabled: false,
         bundle: true,
         local: vec![PathBuf::from("exts/local")],
-        remote: vec![
-            ExtensionRemoteManifestEntry {
-                id: "ext-1".into(),
-                url: "https://example.com/ext.zip".into(),
-                checksum: Some("sha256:abc...".into()),
-                strip_components: 1,
-            },
-        ],
+        remote: vec![ExtensionRemoteManifestEntry {
+            id: "ext-1".into(),
+            url: "https://example.com/ext.zip".into(),
+            checksum: Some("sha256:abc...".into()),
+            strip_components: 1,
+        }],
     };
     let json = serde_json::to_string(&e).unwrap();
     let restored: ExtensionsManifestConfig = serde_json::from_str(&json).unwrap();
@@ -915,7 +931,12 @@ fn test_target_platform_exe_extension() {
 
 #[test]
 fn test_target_platform_serde_roundtrip() {
-    for p in [TargetPlatform::Current, TargetPlatform::Windows, TargetPlatform::MacOS, TargetPlatform::Linux] {
+    for p in [
+        TargetPlatform::Current,
+        TargetPlatform::Windows,
+        TargetPlatform::MacOS,
+        TargetPlatform::Linux,
+    ] {
         let json = serde_json::to_string(&p).unwrap();
         let back: TargetPlatform = serde_json::from_str(&json).unwrap();
         assert_eq!(back, p);

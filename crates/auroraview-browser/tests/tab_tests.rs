@@ -240,7 +240,11 @@ fn tab_state_serde_roundtrip() {
 
 #[test]
 fn security_state_serde_roundtrip() {
-    for variant in &[SecurityState::Secure, SecurityState::Insecure, SecurityState::Neutral] {
+    for variant in &[
+        SecurityState::Secure,
+        SecurityState::Insecure,
+        SecurityState::Neutral,
+    ] {
         let json = serde_json::to_string(variant).unwrap();
         let deser: SecurityState = serde_json::from_str(&json).unwrap();
         assert_eq!(&deser, variant);

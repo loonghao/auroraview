@@ -15,10 +15,7 @@ use rstest::*;
 #[case(NotificationType::Success, Some(3000))]
 #[case(NotificationType::Warning, Some(8000))]
 #[case(NotificationType::Error, None)]
-fn notification_type_duration(
-    #[case] kind: NotificationType,
-    #[case] expected: Option<u64>,
-) {
+fn notification_type_duration(#[case] kind: NotificationType, #[case] expected: Option<u64>) {
     assert_eq!(kind.default_duration(), expected);
 }
 
@@ -408,10 +405,7 @@ fn serde_notification_type_info() {
 #[case(NotificationType::Success, r#""success""#)]
 #[case(NotificationType::Warning, r#""warning""#)]
 #[case(NotificationType::Error, r#""error""#)]
-fn serde_notification_type_variants(
-    #[case] kind: NotificationType,
-    #[case] expected_json: &str,
-) {
+fn serde_notification_type_variants(#[case] kind: NotificationType, #[case] expected_json: &str) {
     let json = serde_json::to_string(&kind).unwrap();
     assert_eq!(json, expected_json);
     let back: NotificationType = serde_json::from_str(&json).unwrap();
@@ -520,7 +514,10 @@ fn error_not_found_display() {
 fn error_permission_denied_display() {
     let err = NotificationError::PermissionDenied;
     let msg = err.to_string();
-    assert!(msg.to_lowercase().contains("permission") || msg.to_lowercase().contains("denied"), "got: {msg}");
+    assert!(
+        msg.to_lowercase().contains("permission") || msg.to_lowercase().contains("denied"),
+        "got: {msg}"
+    );
 }
 
 #[test]
@@ -594,8 +591,7 @@ fn manager_action_callback_triggered(manager: NotificationManager) {
         ac.fetch_add(1, Ordering::SeqCst);
     });
 
-    let n = Notification::new("Alert", "body")
-        .with_action(NotificationAction::new("ok", "OK"));
+    let n = Notification::new("Alert", "body").with_action(NotificationAction::new("ok", "OK"));
     let id = manager.notify(n).unwrap();
 
     manager.trigger_action(id, "ok").unwrap();
@@ -637,7 +633,9 @@ fn manager_dismiss_all_callbacks_called(manager: NotificationManager) {
     });
 
     for i in 0..4 {
-        manager.notify(Notification::new(format!("N{i}"), "body")).unwrap();
+        manager
+            .notify(Notification::new(format!("N{i}"), "body"))
+            .unwrap();
     }
     manager.dismiss_all();
     assert_eq!(close_count.load(Ordering::SeqCst), 4);
@@ -647,7 +645,9 @@ fn manager_dismiss_all_callbacks_called(manager: NotificationManager) {
 fn manager_set_max_history_trims_existing(manager: NotificationManager) {
     // Add 5 dismissed notifications
     for i in 0..5 {
-        let id = manager.notify(Notification::new(format!("N{i}"), "body")).unwrap();
+        let id = manager
+            .notify(Notification::new(format!("N{i}"), "body"))
+            .unwrap();
         manager.dismiss(id).unwrap();
     }
     assert_eq!(manager.history().len(), 5);
@@ -673,7 +673,6 @@ fn manager_max_active_zero_evicts_immediately(manager: NotificationManager) {
 
 #[test]
 fn concurrent_notify_no_panic() {
-
     let manager = Arc::new(NotificationManager::new());
 
     let handles: Vec<_> = (0..8)
@@ -698,7 +697,6 @@ fn concurrent_notify_no_panic() {
 
 #[test]
 fn concurrent_notify_and_dismiss_no_deadlock() {
-
     let manager = Arc::new(NotificationManager::new());
 
     // Producer threads
@@ -731,7 +729,6 @@ fn concurrent_notify_and_dismiss_no_deadlock() {
 
 #[test]
 fn concurrent_permission_reads_no_panic() {
-
     let manager = Arc::new(NotificationManager::new());
     manager.set_permission("https://example.com", true);
 

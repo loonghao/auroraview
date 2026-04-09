@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -125,7 +125,7 @@ class TestTakeScreenshot:
             from auroraview_mcp.tools.ui import take_screenshot
 
             fn = take_screenshot.fn if hasattr(take_screenshot, "fn") else take_screenshot
-            result = await fn(selector="#nonexistent")
+            await fn(selector="#nonexistent")
 
         send_call = page_conn.send.call_args
         params = send_call[0][1]

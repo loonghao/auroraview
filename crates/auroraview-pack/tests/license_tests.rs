@@ -1,6 +1,8 @@
 //! Tests for auroraview-pack license module
 
-use auroraview_pack::{get_machine_id, LicenseConfig, LicenseReason, LicenseStatus, LicenseValidator};
+use auroraview_pack::{
+    get_machine_id, LicenseConfig, LicenseReason, LicenseStatus, LicenseValidator,
+};
 
 #[test]
 fn no_license_required() {
@@ -156,10 +158,7 @@ fn custom_expiration_message() {
     let validator = LicenseValidator::new(config);
     let status = validator.validate(None);
     assert!(!status.valid);
-    assert_eq!(
-        status.message.as_deref(),
-        Some("Custom expired message")
-    );
+    assert_eq!(status.message.as_deref(), Some("Custom expired message"));
 }
 
 #[test]

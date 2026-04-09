@@ -707,7 +707,9 @@ fn multiple_extensions_list() {
             manifest: None,
         });
     }
-    let result = p.handle("list_extensions", json!({}), &Default::default()).unwrap();
+    let result = p
+        .handle("list_extensions", json!({}), &Default::default())
+        .unwrap();
     let list = result.as_array().unwrap();
     assert_eq!(list.len(), 5);
 }
@@ -729,11 +731,13 @@ fn register_extension_then_get() {
         host_permissions: vec![],
         manifest: None,
     });
-    let result = p.handle(
-        "get_extension",
-        json!({ "extensionId": "my-ext" }),
-        &Default::default(),
-    ).unwrap();
+    let result = p
+        .handle(
+            "get_extension",
+            json!({ "extensionId": "my-ext" }),
+            &Default::default(),
+        )
+        .unwrap();
     assert_eq!(result["id"], "my-ext");
     assert_eq!(result["version"], "3.0.0");
 }
@@ -771,14 +775,18 @@ fn storage_session_area(plugin: ExtensionsPlugin) {
         "set",
         json!({ "area": "session", "items": { "sess_key": "sess_val" } }),
     );
-    plugin.handle("api_call", set_args, &Default::default()).unwrap();
+    plugin
+        .handle("api_call", set_args, &Default::default())
+        .unwrap();
 
     let get_args = make_api_call(
         "storage",
         "get",
         json!({ "area": "session", "keys": ["sess_key"] }),
     );
-    let result = plugin.handle("api_call", get_args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", get_args, &Default::default())
+        .unwrap();
     assert_eq!(result["sess_key"], "sess_val");
 }
 
@@ -789,14 +797,18 @@ fn storage_local_multiple_keys(plugin: ExtensionsPlugin) {
         "set",
         json!({ "area": "local", "items": { "a": 1, "b": 2, "c": 3 } }),
     );
-    plugin.handle("api_call", set_args, &Default::default()).unwrap();
+    plugin
+        .handle("api_call", set_args, &Default::default())
+        .unwrap();
 
     let get_args = make_api_call(
         "storage",
         "get",
         json!({ "area": "local", "keys": ["a", "b", "c"] }),
     );
-    let result = plugin.handle("api_call", get_args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", get_args, &Default::default())
+        .unwrap();
     assert_eq!(result["a"], 1);
     assert_eq!(result["b"], 2);
     assert_eq!(result["c"], 3);
@@ -805,14 +817,24 @@ fn storage_local_multiple_keys(plugin: ExtensionsPlugin) {
 #[rstest]
 fn storage_remove_key(plugin: ExtensionsPlugin) {
     // Set then remove
-    plugin.handle(
-        "api_call",
-        make_api_call("storage", "set", json!({ "area": "local", "items": { "del_key": "v" } })),
-        &Default::default(),
-    ).unwrap();
+    plugin
+        .handle(
+            "api_call",
+            make_api_call(
+                "storage",
+                "set",
+                json!({ "area": "local", "items": { "del_key": "v" } }),
+            ),
+            &Default::default(),
+        )
+        .unwrap();
     let remove_result = plugin.handle(
         "api_call",
-        make_api_call("storage", "remove", json!({ "area": "local", "keys": ["del_key"] })),
+        make_api_call(
+            "storage",
+            "remove",
+            json!({ "area": "local", "keys": ["del_key"] }),
+        ),
         &Default::default(),
     );
     assert!(remove_result.is_ok());
@@ -820,11 +842,17 @@ fn storage_remove_key(plugin: ExtensionsPlugin) {
 
 #[rstest]
 fn storage_clear_area(plugin: ExtensionsPlugin) {
-    plugin.handle(
-        "api_call",
-        make_api_call("storage", "set", json!({ "area": "local", "items": { "x": 1 } })),
-        &Default::default(),
-    ).unwrap();
+    plugin
+        .handle(
+            "api_call",
+            make_api_call(
+                "storage",
+                "set",
+                json!({ "area": "local", "items": { "x": 1 } }),
+            ),
+            &Default::default(),
+        )
+        .unwrap();
     let clear_result = plugin.handle(
         "api_call",
         make_api_call("storage", "clear", json!({ "area": "local" })),
@@ -840,7 +868,9 @@ fn storage_clear_area(plugin: ExtensionsPlugin) {
 #[rstest]
 fn tabs_get_current(plugin: ExtensionsPlugin) {
     let args = make_api_call("tabs", "getCurrent", json!({}));
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     // Returns current tab info
     assert!(result.is_object() || result.is_null() || result["id"].is_number());
 }
@@ -848,7 +878,9 @@ fn tabs_get_current(plugin: ExtensionsPlugin) {
 #[rstest]
 fn tabs_query(plugin: ExtensionsPlugin) {
     let args = make_api_call("tabs", "query", json!({ "active": true }));
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     // Returns array
     assert!(result.is_array());
 }
@@ -860,7 +892,9 @@ fn tabs_query(plugin: ExtensionsPlugin) {
 #[rstest]
 fn runtime_get_manifest(plugin: ExtensionsPlugin) {
     let args = make_api_call("runtime", "getManifest", json!({}));
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     // Should return the manifest we provided
     assert_eq!(result["manifest_version"], 3);
 }
@@ -868,7 +902,9 @@ fn runtime_get_manifest(plugin: ExtensionsPlugin) {
 #[rstest]
 fn runtime_get_url(plugin: ExtensionsPlugin) {
     let args = make_api_call("runtime", "getURL", json!({ "path": "popup.html" }));
-    let result = plugin.handle("api_call", args, &Default::default()).unwrap();
+    let result = plugin
+        .handle("api_call", args, &Default::default())
+        .unwrap();
     let url = result.as_str().unwrap();
     assert!(url.contains("test-ext") || url.contains("popup.html"));
 }
@@ -963,9 +999,7 @@ fn concurrent_list_extensions() {
     let handles: Vec<_> = (0..8)
         .map(|_| {
             let p = Arc::clone(&plugin);
-            std::thread::spawn(move || {
-                p.handle("list_extensions", json!({}), &Default::default())
-            })
+            std::thread::spawn(move || p.handle("list_extensions", json!({}), &Default::default()))
         })
         .collect();
 

@@ -192,7 +192,10 @@ fn test_config_csp_strict_policy() {
         content_security_policy: Some(policy.clone()),
         ..Default::default()
     };
-    assert_eq!(config.content_security_policy.as_deref(), Some(policy.as_str()));
+    assert_eq!(
+        config.content_security_policy.as_deref(),
+        Some(policy.as_str())
+    );
 }
 
 // ---------------------------------------------------------------------------

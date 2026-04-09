@@ -55,7 +55,10 @@ fn test_transition_result_is_success() {
 #[test]
 fn test_transition_result_eq() {
     assert_eq!(TransitionResult::Success, TransitionResult::Success);
-    assert_eq!(TransitionResult::InvalidState, TransitionResult::InvalidState);
+    assert_eq!(
+        TransitionResult::InvalidState,
+        TransitionResult::InvalidState
+    );
     assert_ne!(TransitionResult::Success, TransitionResult::InvalidState);
     assert_ne!(TransitionResult::Success, TransitionResult::AlreadyInState);
 }
@@ -417,10 +420,7 @@ fn test_observable_lifecycle_begin_destroy_notifies() {
     let result = lc.begin_destroy();
     assert!(result.is_success());
     assert_eq!(obs.event_count(), 3);
-    assert_eq!(
-        *obs.last_event.lock(),
-        Some(LifecycleEvent::DestroyStarted)
-    );
+    assert_eq!(*obs.last_event.lock(), Some(LifecycleEvent::DestroyStarted));
 }
 
 #[test]

@@ -259,7 +259,7 @@ const PYTHON_BUILTINS: &[&str] = &[
 ];
 
 /// Main obfuscator for Python code
-/// 
+///
 /// This is a facade that delegates to AstObfuscator for precise AST-based obfuscation.
 /// The legacy regex-based implementation is kept for fallback.
 pub struct Obfuscator {
@@ -298,7 +298,8 @@ impl Obfuscator {
     /// Set names to preserve
     pub fn preserve_names(&mut self, names: impl IntoIterator<Item = impl Into<String>>) {
         let names: Vec<String> = names.into_iter().map(|n| n.into()).collect();
-        self.name_obfuscator.preserve(names.iter().map(|s| s.as_str()));
+        self.name_obfuscator
+            .preserve(names.iter().map(|s| s.as_str()));
         self.preserved_names.extend(names);
     }
 
@@ -319,15 +320,15 @@ impl Obfuscator {
     /// AST-based obfuscation (default)
     fn obfuscate_with_ast(&mut self, source: &str) -> ProtectResult<String> {
         let mut ast_obfuscator = AstObfuscator::new(self.level);
-        
+
         // Transfer preserved names
         ast_obfuscator.preserve(self.preserved_names.iter().map(|s| s.as_str()));
-        
+
         // Transfer string encryption key
         if let Some(key) = self.string_key {
             ast_obfuscator.enable_string_encryption(key);
         }
-        
+
         ast_obfuscator.obfuscate(source)
     }
 
@@ -374,7 +375,11 @@ impl Obfuscator {
     }
 
     /// Rename identifiers in the source code
-    fn rename_identifiers(&mut self, source: &str, include_functions: bool) -> ProtectResult<String> {
+    fn rename_identifiers(
+        &mut self,
+        source: &str,
+        include_functions: bool,
+    ) -> ProtectResult<String> {
         let mut result = source.to_string();
 
         // Pattern for Python identifiers
@@ -403,7 +408,10 @@ impl Obfuscator {
             .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
 
         for cap in assign_pattern.captures_iter(source) {
-            let name = cap.get(1).expect("capture group 1 in assign pattern").as_str();
+            let name = cap
+                .get(1)
+                .expect("capture group 1 in assign pattern")
+                .as_str();
             if self.name_obfuscator.should_obfuscate(name) {
                 identifiers_to_rename.push(name.to_string());
             }
@@ -414,7 +422,10 @@ impl Obfuscator {
             .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
 
         for cap in param_pattern.captures_iter(source) {
-            let params = cap.get(1).expect("capture group 1 in param pattern").as_str();
+            let params = cap
+                .get(1)
+                .expect("capture group 1 in param pattern")
+                .as_str();
             for param in params.split(',') {
                 let param = param.trim().split(':').next().unwrap_or("").trim();
                 let param = param.split('=').next().unwrap_or("").trim();
@@ -456,8 +467,8 @@ impl Obfuscator {
         );
 
         // Wrap some if statements with opaque predicates
-        let if_pattern =
-            Regex::new(r"(?m)^([ \t]*)(if\s+)(.+?)(:)").map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
+        let if_pattern = Regex::new(r"(?m)^([ \t]*)(if\s+)(.+?)(:)")
+            .map_err(|e| ProtectError::Obfuscation(e.to_string()))?;
 
         result = if_pattern
             .replace_all(&result, "${1}${2}(_0xT and (${3}))${4}")
@@ -468,9 +479,9 @@ impl Obfuscator {
 
     /// Encrypt string literals
     fn encrypt_strings(&self, source: &str) -> ProtectResult<String> {
-        let key = self
-            .string_key
-            .ok_or_else(|| ProtectError::Obfuscation("String encryption key not set".to_string()))?;
+        let key = self.string_key.ok_or_else(|| {
+            ProtectError::Obfuscation("String encryption key not set".to_string())
+        })?;
 
         // Pattern for string literals: simplified placeholder for future implementation
         // TODO: replace with a proper Python string parser

@@ -14,7 +14,6 @@ import pytest
 from auroraview_mcp.connection import Page
 from auroraview_mcp.discovery import Instance
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

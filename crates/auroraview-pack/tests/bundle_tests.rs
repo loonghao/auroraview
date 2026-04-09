@@ -110,7 +110,11 @@ fn bundle_nested_directories() {
     fs::create_dir_all(temp.path().join("assets/images")).unwrap();
     fs::create_dir_all(temp.path().join("src/components")).unwrap();
     fs::write(temp.path().join("index.html"), "<html></html>").unwrap();
-    fs::write(temp.path().join("assets/images/logo.png"), b"\x89PNG".as_ref()).unwrap();
+    fs::write(
+        temp.path().join("assets/images/logo.png"),
+        b"\x89PNG".as_ref(),
+    )
+    .unwrap();
     fs::write(temp.path().join("src/components/app.js"), "export {}").unwrap();
 
     let bundle = BundleBuilder::new(temp.path()).build().unwrap();
@@ -157,7 +161,10 @@ fn bundle_path_separators_normalized() {
     let name = &bundle.assets()[0].0;
 
     // Path separators must be forward slashes regardless of platform
-    assert!(!name.contains('\\'), "path should use forward slashes: {name}");
+    assert!(
+        !name.contains('\\'),
+        "path should use forward slashes: {name}"
+    );
     assert!(name.contains('/'));
 }
 

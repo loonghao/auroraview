@@ -4,8 +4,8 @@
 //! after the `IpcRouter` listener pattern used in `auroraview-dcc`.
 
 use std::sync::{
-    Arc,
     atomic::{AtomicU64, Ordering},
+    Arc,
 };
 
 use dashmap::DashMap;
@@ -79,10 +79,10 @@ impl TabListenerMap {
         F: Fn(&TabState) + Send + Sync + 'static,
     {
         let id = next_id();
-        self.inner
-            .entry(kind)
-            .or_default()
-            .push(ListenerEntry { id, handler: Arc::new(handler) });
+        self.inner.entry(kind).or_default().push(ListenerEntry {
+            id,
+            handler: Arc::new(handler),
+        });
         id
     }
 

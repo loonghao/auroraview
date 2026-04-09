@@ -432,7 +432,9 @@ fn get_info_alias() {
 
     #[cfg(not(target_os = "windows"))]
     {
-        let id = _manager.create(DccConfig::new().title("InfoAlias")).unwrap();
+        let id = _manager
+            .create(DccConfig::new().title("InfoAlias"))
+            .unwrap();
         let info_get = _manager.get(&id);
         let info_get_info = _manager.get_info(&id);
         assert!(info_get.is_some());
@@ -539,7 +541,9 @@ fn concurrent_create_and_close() {
         for i in 0..8 {
             let m = Arc::clone(&_manager);
             let handle = thread::spawn(move || {
-                let id = m.create(DccConfig::new().title(&format!("Thread-{}", i))).unwrap();
+                let id = m
+                    .create(DccConfig::new().title(&format!("Thread-{}", i)))
+                    .unwrap();
                 // verify it was created
                 assert!(m.has_window(&id));
                 id
@@ -576,14 +580,17 @@ fn concurrent_navigate() {
     #[cfg(not(target_os = "windows"))]
     {
         use std::thread;
-        let id = _manager.create(DccConfig::new().title("Concurrent Nav")).unwrap();
+        let id = _manager
+            .create(DccConfig::new().title("Concurrent Nav"))
+            .unwrap();
         let mut handles = Vec::new();
 
         for i in 0..10 {
             let m = Arc::clone(&_manager);
             let id_clone = id.clone();
             let handle = thread::spawn(move || {
-                m.navigate(&id_clone, &format!("https://example.com/{}", i)).unwrap();
+                m.navigate(&id_clone, &format!("https://example.com/{}", i))
+                    .unwrap();
             });
             handles.push(handle);
         }
@@ -608,7 +615,9 @@ fn concurrent_show_hide() {
     #[cfg(not(target_os = "windows"))]
     {
         use std::thread;
-        let id = _manager.create(DccConfig::new().title("Show/Hide")).unwrap();
+        let id = _manager
+            .create(DccConfig::new().title("Show/Hide"))
+            .unwrap();
         let mut handles = Vec::new();
 
         for i in 0..10 {

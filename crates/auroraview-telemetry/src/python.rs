@@ -3,9 +3,9 @@
 //! Exposes OpenTelemetry-based telemetry to Python for performance debugging
 //! and signal/thread profiling in DCC environments.
 
+use parking_lot::Mutex;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use parking_lot::Mutex;
 
 use crate::config::TelemetryConfig;
 use crate::guard::TelemetryGuard;

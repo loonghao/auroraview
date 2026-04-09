@@ -3,7 +3,9 @@
 use std::sync::Arc;
 use std::thread;
 
-use auroraview_core::ipc::{IpcMessage, IpcMetrics, IpcMetricsSnapshot, IpcMode, WebViewMessage, WindowEventType};
+use auroraview_core::ipc::{
+    IpcMessage, IpcMetrics, IpcMetricsSnapshot, IpcMode, WebViewMessage, WindowEventType,
+};
 use rstest::rstest;
 
 // ─── IpcMessage ──────────────────────────────────────────────────────────────
@@ -123,7 +125,10 @@ fn webview_message_eval_js_async() {
         callback_id: 42,
     };
     match msg {
-        WebViewMessage::EvalJsAsync { script, callback_id } => {
+        WebViewMessage::EvalJsAsync {
+            script,
+            callback_id,
+        } => {
             assert_eq!(script, "1+1");
             assert_eq!(callback_id, 42);
         }

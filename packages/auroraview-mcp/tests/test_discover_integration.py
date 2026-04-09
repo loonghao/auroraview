@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from auroraview_mcp.discovery import Instance, InstanceDiscovery
+from auroraview_mcp.discovery import InstanceDiscovery
 
 
 def _make_registry_file(

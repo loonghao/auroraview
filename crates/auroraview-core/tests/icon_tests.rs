@@ -8,7 +8,12 @@ use tempfile::NamedTempFile;
 fn create_test_png_size(width: u32, height: u32) -> NamedTempFile {
     let mut file = NamedTempFile::with_suffix(".png").unwrap();
     let img = image::RgbaImage::from_fn(width, height, |x, y| {
-        image::Rgba([(x * 255 / width.max(1)) as u8, (y * 255 / height.max(1)) as u8, 128, 255])
+        image::Rgba([
+            (x * 255 / width.max(1)) as u8,
+            (y * 255 / height.max(1)) as u8,
+            128,
+            255,
+        ])
     });
     let mut cursor = std::io::Cursor::new(Vec::new());
     img.write_to(&mut cursor, image::ImageFormat::Png).unwrap();

@@ -272,7 +272,13 @@ fn concurrent_ipc_recording() {
 fn concurrent_error_recording() {
     let metrics = Arc::new(WebViewMetrics::new());
     let mut handles = vec![];
-    let error_types = ["timeout", "crash", "ipc_error", "js_error", "navigation_error"];
+    let error_types = [
+        "timeout",
+        "crash",
+        "ipc_error",
+        "js_error",
+        "navigation_error",
+    ];
 
     for (i, &err) in error_types.iter().enumerate() {
         let m = Arc::clone(&metrics);

@@ -84,9 +84,9 @@ fn cleanup_stats_debug_output() {
     };
     let debug_str = format!("{:?}", stats);
     assert!(debug_str.contains("CleanupStats"));
-    assert!(debug_str.contains("15"));   // total_dirs
-    assert!(debug_str.contains("10"));   // alive_dirs
-    assert!(debug_str.contains("5"));    // stale_dirs
+    assert!(debug_str.contains("15")); // total_dirs
+    assert!(debug_str.contains("10")); // alive_dirs
+    assert!(debug_str.contains("5")); // stale_dirs
     assert!(debug_str.contains("4096")); // stale_size_bytes
 }
 
@@ -190,7 +190,11 @@ fn get_cleanup_stats_concurrent_calls() {
 
     // Spawn multiple threads to call get_cleanup_stats concurrently
     let handles: Vec<_> = (0..8)
-        .map(|_| thread::spawn(|| { get_cleanup_stats(); }))
+        .map(|_| {
+            thread::spawn(|| {
+                get_cleanup_stats();
+            })
+        })
         .collect();
 
     for handle in handles {

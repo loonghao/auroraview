@@ -220,7 +220,6 @@ fn menu_many_items() {
             format!("tools.t{}", i),
             None,
         ));
-
     }
     assert_eq!(menu.items.len(), 10);
 }

@@ -119,7 +119,13 @@ fn ext_page_ready() {
 }
 
 #[rstest]
-#[case(Some(50), Some("loading"), Some("step1"), Some("in progress"), Some("ok"))]
+#[case(
+    Some(50),
+    Some("loading"),
+    Some("step1"),
+    Some("in progress"),
+    Some("ok")
+)]
 #[case(Some(100), None, None, None, None)]
 #[case(None, None, None, None, None)]
 fn ext_loading_update(
@@ -304,10 +310,7 @@ fn core_user_event_clone() {
         data: "data".to_string(),
     };
     let cloned = original.clone();
-    assert_eq!(
-        format!("{:?}", original),
-        format!("{:?}", cloned)
-    );
+    assert_eq!(format!("{:?}", original), format!("{:?}", cloned));
 }
 
 #[test]
@@ -317,10 +320,7 @@ fn extended_user_event_clone() {
         source: "test".to_string(),
     };
     let cloned = original.clone();
-    assert_eq!(
-        format!("{:?}", original),
-        format!("{:?}", cloned)
-    );
+    assert_eq!(format!("{:?}", original), format!("{:?}", cloned));
 }
 
 #[test]
@@ -329,8 +329,11 @@ fn extended_python_ready_clone() {
         handlers: vec!["h1".to_string(), "h2".to_string()],
     };
     let cloned = original.clone();
-    if let (ExtendedUserEvent::PythonReady { handlers: h1 },
-              ExtendedUserEvent::PythonReady { handlers: h2 }) = (original, cloned) {
+    if let (
+        ExtendedUserEvent::PythonReady { handlers: h1 },
+        ExtendedUserEvent::PythonReady { handlers: h2 },
+    ) = (original, cloned)
+    {
         assert_eq!(h1, h2);
     }
 }

@@ -274,11 +274,7 @@ fn test_service_info_clone() {
 #[case("service-a", "host-a", 9001)]
 #[case("service-b", "host-b", 9002)]
 #[case("service-c", "192.168.1.1", 8080)]
-fn test_service_info_parametrized(
-    #[case] name: &str,
-    #[case] host: &str,
-    #[case] port: u16,
-) {
+fn test_service_info_parametrized(#[case] name: &str, #[case] host: &str, #[case] port: u16) {
     let s = ServiceInfo::new(name.to_string(), host.to_string(), port);
     assert_eq!(s.name, name);
     assert_eq!(s.host, host);
@@ -328,16 +324,15 @@ fn test_instance_info_ws_url_port(#[case] port: u16) {
 
 #[rstest]
 fn test_instance_info_with_dcc() {
-    let info = InstanceInfo::new("w".to_string(), "T".to_string(), 9222)
-        .with_dcc("maya", Some("2025"));
+    let info =
+        InstanceInfo::new("w".to_string(), "T".to_string(), 9222).with_dcc("maya", Some("2025"));
     assert_eq!(info.dcc_type.as_deref(), Some("maya"));
     assert_eq!(info.dcc_version.as_deref(), Some("2025"));
 }
 
 #[rstest]
 fn test_instance_info_with_dcc_no_version() {
-    let info = InstanceInfo::new("w".to_string(), "T".to_string(), 9222)
-        .with_dcc("houdini", None);
+    let info = InstanceInfo::new("w".to_string(), "T".to_string(), 9222).with_dcc("houdini", None);
     assert_eq!(info.dcc_type.as_deref(), Some("houdini"));
     assert!(info.dcc_version.is_none());
 }
@@ -352,8 +347,8 @@ fn test_instance_info_with_panel() {
 
 #[rstest]
 fn test_instance_info_with_panel_no_area() {
-    let info = InstanceInfo::new("w".to_string(), "T".to_string(), 9222)
-        .with_panel("MyPanel", None);
+    let info =
+        InstanceInfo::new("w".to_string(), "T".to_string(), 9222).with_panel("MyPanel", None);
     assert_eq!(info.panel_name.as_deref(), Some("MyPanel"));
     assert!(info.dock_area.is_none());
 }
@@ -363,7 +358,10 @@ fn test_instance_info_with_metadata() {
     let info = InstanceInfo::new("w".to_string(), "T".to_string(), 9222)
         .with_metadata("env", "staging")
         .with_metadata("version", "2.0");
-    assert_eq!(info.metadata.get("env").map(String::as_str), Some("staging"));
+    assert_eq!(
+        info.metadata.get("env").map(String::as_str),
+        Some("staging")
+    );
     assert_eq!(
         info.metadata.get("version").map(String::as_str),
         Some("2.0")
@@ -372,8 +370,8 @@ fn test_instance_info_with_metadata() {
 
 #[rstest]
 fn test_instance_info_clone() {
-    let info = InstanceInfo::new("w".to_string(), "T".to_string(), 9222)
-        .with_dcc("blender", Some("4.0"));
+    let info =
+        InstanceInfo::new("w".to_string(), "T".to_string(), 9222).with_dcc("blender", Some("4.0"));
     let cloned = info.clone();
     assert_eq!(cloned.window_id, "w");
     assert_eq!(cloned.dcc_type.as_deref(), Some("blender"));
@@ -505,9 +503,7 @@ fn test_instance_registry_update() {
 #[rstest]
 fn test_instance_registry_update_nonexistent_returns_false() {
     let registry = InstanceRegistry::new().unwrap();
-    let updated = registry
-        .update("no-such-window", |_| {})
-        .unwrap();
+    let updated = registry.update("no-such-window", |_| {}).unwrap();
     assert!(!updated);
 }
 
@@ -658,7 +654,8 @@ fn test_instance_registry_concurrent_register() {
             let reg = Arc::clone(&registry);
             std::thread::spawn(move || {
                 let window_id = format!("concurrent-reg-{}-{}", std::process::id(), i);
-                let info = InstanceInfo::new(window_id.clone(), "ConcThread".to_string(), 19200 + i);
+                let info =
+                    InstanceInfo::new(window_id.clone(), "ConcThread".to_string(), 19200 + i);
                 let _ = reg.register(&info);
                 let _ = reg.unregister(&window_id);
             })

@@ -603,7 +603,11 @@ fn concurrent_key_generation_unique_keys() {
     let collected = keys.lock().unwrap();
     let mut sorted = collected.clone();
     sorted.dedup();
-    assert_eq!(sorted.len(), collected.len(), "all public keys must be unique");
+    assert_eq!(
+        sorted.len(),
+        collected.len(),
+        "all public keys must be unique"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────

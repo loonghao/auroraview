@@ -230,7 +230,6 @@ mod tests {
         // Keep this as a compile-time smoke test only; built frontend assets are not guaranteed
         // to exist in source checkouts.
         let _ = js_assets::get_loading_html as fn() -> String;
-
     }
 
     /// Test desktop module functions

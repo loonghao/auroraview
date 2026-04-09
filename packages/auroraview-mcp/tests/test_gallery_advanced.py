@@ -12,7 +12,6 @@ import pytest
 
 from auroraview_mcp.tools.gallery import ProcessInfo, ProcessManager
 
-
 # ============================================================================
 # run_gallery advanced tests
 # ============================================================================

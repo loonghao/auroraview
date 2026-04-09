@@ -156,7 +156,6 @@ impl LifecycleManager {
         self.set_state(LifecycleState::Destroyed);
         info!("[LifecycleManager] All cleanup handlers executed");
     }
-
 }
 
 impl Default for LifecycleManager {

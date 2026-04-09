@@ -2,7 +2,9 @@
 //!
 //! Tests for PluginCommand, PluginError, PluginErrorCode, PluginRequest, PluginResponse.
 
-use auroraview_plugins::{PluginCommand, PluginError, PluginErrorCode, PluginRequest, PluginResponse};
+use auroraview_plugins::{
+    PluginCommand, PluginError, PluginErrorCode, PluginRequest, PluginResponse,
+};
 use rstest::rstest;
 use std::sync::Arc;
 
@@ -60,7 +62,9 @@ fn plugin_command_serialize() {
 
 #[test]
 fn plugin_command_empty_args() {
-    let cmd = PluginCommand::new("list", "List items").with_required(&[]).with_optional(&[]);
+    let cmd = PluginCommand::new("list", "List items")
+        .with_required(&[])
+        .with_optional(&[]);
     assert!(cmd.required_args.is_empty());
     assert!(cmd.optional_args.is_empty());
 }
@@ -386,10 +390,7 @@ fn concurrent_plugin_command_creation() {
     let handles: Vec<_> = (0..8)
         .map(|i| {
             std::thread::spawn(move || {
-                let cmd = PluginCommand::new(
-                    format!("cmd_{}", i),
-                    format!("Command {}", i),
-                );
+                let cmd = PluginCommand::new(format!("cmd_{}", i), format!("Command {}", i));
 
                 assert!(!cmd.name.is_empty());
             })
@@ -404,7 +405,10 @@ fn concurrent_plugin_command_creation() {
 // Shared Arc<PluginError> across threads
 #[test]
 fn arc_plugin_error_shared() {
-    let err = Arc::new(PluginError::new(PluginErrorCode::FileNotFound, "shared error"));
+    let err = Arc::new(PluginError::new(
+        PluginErrorCode::FileNotFound,
+        "shared error",
+    ));
     let handles: Vec<_> = (0..4)
         .map(|_| {
             let e = Arc::clone(&err);

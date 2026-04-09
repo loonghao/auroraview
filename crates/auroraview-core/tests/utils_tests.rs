@@ -165,7 +165,13 @@ fn test_get_cache_dir_not_empty() {
 
 #[test]
 fn test_ensure_dir_exists_creates_dir() {
-    let tmp = std::env::temp_dir().join(format!("av_test_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos()));
+    let tmp = std::env::temp_dir().join(format!(
+        "av_test_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos()
+    ));
     assert!(!tmp.exists());
     ensure_dir_exists(&tmp).unwrap();
     assert!(tmp.exists());
@@ -197,4 +203,3 @@ fn test_is_process_alive_nonexistent_pid() {
     // We just ensure it doesn't panic; result may vary by platform
     let _ = result;
 }
-

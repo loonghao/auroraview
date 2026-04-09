@@ -6,10 +6,6 @@ tool-module registration, and FastMCP instance configuration.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 class TestMCPInstance:
     """Tests for the module-level `mcp` FastMCP instance."""
@@ -182,7 +178,16 @@ class TestToolModuleRegistration:
 
     def test_all_tool_modules_importable(self) -> None:
         """All 8 tool modules must be importable without error."""
-        from auroraview_mcp.tools import api, dcc, debug, discovery, gallery, page, telemetry, ui  # noqa: F401
+        from auroraview_mcp.tools import (  # noqa: F401
+            api,
+            dcc,
+            debug,
+            discovery,
+            gallery,
+            page,
+            telemetry,
+            ui,
+        )
 
     def test_discovery_tools_exist(self) -> None:
         """discovery tool module must expose expected tool functions."""
@@ -280,15 +285,15 @@ class TestServerModuleAttributes:
 
     def test_private_discovery_instance_is_instance_discovery(self) -> None:
         """Module-level `_discovery` must be an InstanceDiscovery."""
-        from auroraview_mcp.discovery import InstanceDiscovery
         import auroraview_mcp.server as srv
+        from auroraview_mcp.discovery import InstanceDiscovery
 
         assert isinstance(srv._discovery, InstanceDiscovery)
 
     def test_private_connection_manager_instance(self) -> None:
         """Module-level `_connection_manager` must be a ConnectionManager."""
-        from auroraview_mcp.connection import ConnectionManager
         import auroraview_mcp.server as srv
+        from auroraview_mcp.connection import ConnectionManager
 
         assert isinstance(srv._connection_manager, ConnectionManager)
 

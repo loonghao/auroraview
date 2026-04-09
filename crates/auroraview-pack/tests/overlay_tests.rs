@@ -64,7 +64,10 @@ fn test_overlay_many_assets() {
     let mut data = OverlayData::new(config);
 
     for i in 0..10 {
-        data.add_asset(format!("file_{}.js", i), format!("var f{}=1;", i).into_bytes());
+        data.add_asset(
+            format!("file_{}.js", i),
+            format!("var f{}=1;", i).into_bytes(),
+        );
     }
 
     OverlayWriter::write(temp.path(), &data).unwrap();

@@ -178,7 +178,10 @@ fn distribution_flavor_system() {
 
 #[test]
 fn distribution_flavor_equality() {
-    assert_eq!(DistributionFlavor::Standalone, DistributionFlavor::Standalone);
+    assert_eq!(
+        DistributionFlavor::Standalone,
+        DistributionFlavor::Standalone
+    );
     assert_ne!(DistributionFlavor::Standalone, DistributionFlavor::System);
     assert_ne!(
         DistributionFlavor::StandaloneDynamic,
@@ -284,10 +287,9 @@ fn generate_config_filesystem_importer() {
 #[test]
 fn generate_config_with_python_path() {
     use std::path::PathBuf;
-    let builder =
-        PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
-            .entry_point("main:run")
-            .python_paths(vec![PathBuf::from("/src/mypackage")]);
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
+        .entry_point("main:run")
+        .python_paths(vec![PathBuf::from("/src/mypackage")]);
     let config = builder.generate_config().unwrap();
     assert!(config.contains("read_package_root") || config.contains("mypackage"));
 }
@@ -307,9 +309,8 @@ fn generate_config_with_env_vars() {
 
 #[test]
 fn entry_point_with_nested_module() {
-    let builder =
-        PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
-            .entry_point("my.deep.nested.module:start");
+    let builder = PyOxidizerBuilder::new(PyOxidizerBuilderConfig::default(), "/tmp", "app")
+        .entry_point("my.deep.nested.module:start");
     let config = builder.generate_config().unwrap();
     assert!(config.contains("my.deep.nested.module"));
 }

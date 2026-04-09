@@ -176,7 +176,6 @@ fn concurrent_set_webview_id_no_panic() {
 
     let handles: Vec<_> = (0..8)
         .map(|i| {
-
             thread::spawn(move || {
                 let span = span!(Level::INFO, "concurrent-span");
                 span.set_webview_id(&format!("panel-{i}"));

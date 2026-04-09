@@ -221,8 +221,14 @@ fn test_ecc_algorithm_default() {
 #[test]
 fn test_ecc_algorithm_from_str_x25519() {
     use std::str::FromStr;
-    assert_eq!(EccAlgorithm::from_str("x25519").unwrap(), EccAlgorithm::X25519);
-    assert_eq!(EccAlgorithm::from_str("X25519").unwrap(), EccAlgorithm::X25519);
+    assert_eq!(
+        EccAlgorithm::from_str("x25519").unwrap(),
+        EccAlgorithm::X25519
+    );
+    assert_eq!(
+        EccAlgorithm::from_str("X25519").unwrap(),
+        EccAlgorithm::X25519
+    );
 }
 
 #[test]
@@ -230,7 +236,10 @@ fn test_ecc_algorithm_from_str_p256() {
     use std::str::FromStr;
     assert_eq!(EccAlgorithm::from_str("p256").unwrap(), EccAlgorithm::P256);
     assert_eq!(EccAlgorithm::from_str("P-256").unwrap(), EccAlgorithm::P256);
-    assert_eq!(EccAlgorithm::from_str("secp256r1").unwrap(), EccAlgorithm::P256);
+    assert_eq!(
+        EccAlgorithm::from_str("secp256r1").unwrap(),
+        EccAlgorithm::P256
+    );
 }
 
 #[test]
@@ -304,5 +313,8 @@ fn test_wrong_p256_key_fails() {
 
     let key2 = EccKeyPair::generate(EccAlgorithm::P256);
     let decrypt_result = decrypt_hybrid(&result.modules[0].package, &key2.private_key);
-    assert!(decrypt_result.is_err(), "Wrong P256 key should fail decryption");
+    assert!(
+        decrypt_result.is_err(),
+        "Wrong P256 key should fail decryption"
+    );
 }

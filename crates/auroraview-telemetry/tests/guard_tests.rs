@@ -70,7 +70,9 @@ fn test_sentry_capture_without_sentry_feature() {
 
 #[test]
 fn test_sentry_capture_levels() {
-    for level in &["fatal", "error", "warning", "warn", "info", "debug", "unknown"] {
+    for level in &[
+        "fatal", "error", "warning", "warn", "info", "debug", "unknown",
+    ] {
         Telemetry::capture_sentry_message("test-msg", level);
     }
 }
@@ -84,7 +86,10 @@ fn test_is_initialized_false_before_init() {
 
 #[test]
 fn test_is_initialized_true_after_disabled_config_init() {
-    let config = TelemetryConfig { enabled: false, ..TelemetryConfig::default() };
+    let config = TelemetryConfig {
+        enabled: false,
+        ..TelemetryConfig::default()
+    };
     if !Telemetry::is_initialized() {
         let guard = Telemetry::init(config).expect("init should succeed when disabled");
         assert!(Telemetry::is_initialized());
@@ -98,7 +103,10 @@ fn test_double_init_returns_already_initialized_error() {
     use auroraview_telemetry::TelemetryError;
 
     if !Telemetry::is_initialized() {
-        let config = TelemetryConfig { enabled: false, ..TelemetryConfig::default() };
+        let config = TelemetryConfig {
+            enabled: false,
+            ..TelemetryConfig::default()
+        };
         let _guard = Telemetry::init(config.clone()).expect("first init ok");
 
         let result = Telemetry::init(config);
@@ -109,7 +117,10 @@ fn test_double_init_returns_already_initialized_error() {
 #[test]
 fn test_guard_drop_resets_initialized() {
     if !Telemetry::is_initialized() {
-        let config = TelemetryConfig { enabled: false, ..TelemetryConfig::default() };
+        let config = TelemetryConfig {
+            enabled: false,
+            ..TelemetryConfig::default()
+        };
         let guard = Telemetry::init(config).expect("init ok");
         assert!(Telemetry::is_initialized());
         drop(guard);
@@ -174,7 +185,10 @@ fn test_guard_init_with_disabled_config_does_not_enable() {
     if !Telemetry::is_initialized() {
         // Explicitly disable before init
         Telemetry::disable();
-        let config = TelemetryConfig { enabled: false, ..TelemetryConfig::default() };
+        let config = TelemetryConfig {
+            enabled: false,
+            ..TelemetryConfig::default()
+        };
         let guard = Telemetry::init(config).expect("init ok");
         // init() with enabled=false should NOT enable telemetry
         // (the global ENABLED flag should remain false, as we set it above)
@@ -199,7 +213,10 @@ fn test_multiple_init_after_drop_sequence() {
     // Test that init → drop → init → drop works correctly
     for _ in 0..2 {
         if !Telemetry::is_initialized() {
-            let config = TelemetryConfig { enabled: false, ..TelemetryConfig::default() };
+            let config = TelemetryConfig {
+                enabled: false,
+                ..TelemetryConfig::default()
+            };
             let guard = Telemetry::init(config).expect("init ok");
             assert!(Telemetry::is_initialized());
             drop(guard);

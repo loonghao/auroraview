@@ -119,7 +119,10 @@ fn obfuscator_standard_renames_function() {
     let mut o = Obfuscator::new_legacy(ObfuscationLevel::Standard);
     let src = "def my_func():\n    pass\n";
     let result = o.obfuscate(src).unwrap();
-    assert!(!result.contains("def my_func"), "function name should be obfuscated");
+    assert!(
+        !result.contains("def my_func"),
+        "function name should be obfuscated"
+    );
 }
 
 #[test]
@@ -128,7 +131,10 @@ fn obfuscator_advanced_adds_opaque_predicates() {
     let src = "if True:\n    x = 1\n";
     let result = o.obfuscate(src).unwrap();
     // Advanced wraps if-conditions with opaque predicates
-    assert!(result.contains("_0xT"), "should contain opaque true predicate");
+    assert!(
+        result.contains("_0xT"),
+        "should contain opaque true predicate"
+    );
 }
 
 #[test]
@@ -221,7 +227,10 @@ fn ast_obfuscator_renames_local_function() {
     let mut o = AstObfuscator::new(ObfuscationLevel::Standard);
     let src = "def calculate(a, b):\n    total = a + b\n    return total\n";
     let result = o.obfuscate(src).unwrap();
-    assert!(!result.contains("def calculate"), "function should be renamed");
+    assert!(
+        !result.contains("def calculate"),
+        "function should be renamed"
+    );
     assert!(!result.contains("total ="), "local var should be renamed");
 }
 
@@ -264,7 +273,10 @@ fn ast_obfuscator_string_encryption_key() {
     let src = "x = 1\n";
     // Should not panic with encryption enabled
     let result = o.obfuscate(src);
-    assert!(result.is_ok(), "obfuscation with encryption key should succeed");
+    assert!(
+        result.is_ok(),
+        "obfuscation with encryption key should succeed"
+    );
 }
 
 #[test]
@@ -273,8 +285,14 @@ fn ast_obfuscator_preserves_import_names() {
     let src = "import os\nimport sys\n\npath = os.path.join('a', 'b')\n";
     let result = o.obfuscate(src).unwrap();
     // os and sys are imported names and should be preserved
-    assert!(result.contains("os"), "imported module 'os' should be preserved");
-    assert!(result.contains("sys"), "imported module 'sys' should be preserved");
+    assert!(
+        result.contains("os"),
+        "imported module 'os' should be preserved"
+    );
+    assert!(
+        result.contains("sys"),
+        "imported module 'sys' should be preserved"
+    );
 }
 
 #[test]

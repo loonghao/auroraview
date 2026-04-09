@@ -344,5 +344,3 @@ pub fn is_window_valid(_hwnd: u64) -> bool {
     // Always return true on non-Windows platforms
     true
 }
-
-

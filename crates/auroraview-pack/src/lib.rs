@@ -143,8 +143,8 @@ pub use common::InjectConfig;
 pub use metrics::PackedMetrics;
 pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};
 pub use packer::{
-    PackContext, PackHook, PackOutput, PackPlugin, PackTarget,
-    PackManager, Packer, PluginRegistry, TargetPacker,
+    PackContext, PackHook, PackManager, PackOutput, PackPlugin, PackTarget, Packer, PluginRegistry,
+    TargetPacker,
 };
 pub use progress::{progress_bar, spinner, PackProgress, ProgressExt, ProgressStyles};
 pub use protection::{

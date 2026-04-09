@@ -46,8 +46,6 @@ fn ok_response_with_cors(
         .expect("valid 200 response with content-type and CORS headers")
 }
 
-
-
 /// Handle auroraview:// protocol requests
 ///
 /// Maps URLs like `auroraview://css/style.css` to `{asset_root}/css/style.css`

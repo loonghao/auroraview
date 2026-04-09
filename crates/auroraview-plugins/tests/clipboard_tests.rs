@@ -153,7 +153,11 @@ fn unknown_command_returns_error(#[case] cmd: &str) {
 fn write_text_missing_text_field() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
-    let result = plugin.handle("write_text", serde_json::json!({ "invalid": "args" }), &scope);
+    let result = plugin.handle(
+        "write_text",
+        serde_json::json!({ "invalid": "args" }),
+        &scope,
+    );
     assert!(result.is_err());
 }
 
@@ -293,11 +297,7 @@ fn clipboard_write_empty_text() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
 
-    let result = plugin.handle(
-        "write_text",
-        serde_json::json!({ "text": "" }),
-        &scope,
-    );
+    let result = plugin.handle("write_text", serde_json::json!({ "text": "" }), &scope);
     assert!(result.is_ok());
     let data = result.unwrap();
     assert_eq!(data["success"], true);

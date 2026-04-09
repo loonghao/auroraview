@@ -381,4 +381,3 @@ fn cached_path_uses_custom_base() {
     assert!(cached.starts_with(temp.path()));
     assert!(cached.to_string_lossy().contains("aarch64-apple-darwin"));
 }
-

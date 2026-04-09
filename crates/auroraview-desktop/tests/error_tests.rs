@@ -241,7 +241,6 @@ fn result_error_contains_window_not_found() {
     assert!(matches!(r, Err(DesktopError::WindowNotFound(name)) if name == "panel_x"));
 }
 
-
 #[rstest]
 fn result_ok_unit() {
     let r: Result<()> = Ok(());

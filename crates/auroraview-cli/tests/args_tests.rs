@@ -24,23 +24,20 @@ fn run_args_defaults() {
 
 #[rstest]
 fn run_args_url() {
-    let args =
-        RunArgs::try_parse_from(["run", "--url", "http://localhost:3000"]).unwrap();
+    let args = RunArgs::try_parse_from(["run", "--url", "http://localhost:3000"]).unwrap();
     assert_eq!(args.url.as_deref(), Some("http://localhost:3000"));
     assert!(args.html.is_none());
 }
 
 #[rstest]
 fn run_args_url_short_flag() {
-    let args =
-        RunArgs::try_parse_from(["run", "-u", "http://localhost:5173"]).unwrap();
+    let args = RunArgs::try_parse_from(["run", "-u", "http://localhost:5173"]).unwrap();
     assert_eq!(args.url.as_deref(), Some("http://localhost:5173"));
 }
 
 #[rstest]
 fn run_args_html_flag() {
-    let args =
-        RunArgs::try_parse_from(["run", "--html", "/path/to/index.html"]).unwrap();
+    let args = RunArgs::try_parse_from(["run", "--html", "/path/to/index.html"]).unwrap();
     assert!(args.html.is_some());
     assert!(args.url.is_none());
 }
@@ -54,8 +51,7 @@ fn run_args_html_short_flag() {
 #[rstest]
 fn run_args_custom_title() {
     let args =
-        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--title", "My Tool"])
-            .unwrap();
+        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--title", "My Tool"]).unwrap();
     assert_eq!(args.title, "My Tool");
 }
 
@@ -77,22 +73,19 @@ fn run_args_custom_size() {
 
 #[rstest]
 fn run_args_debug_flag() {
-    let args =
-        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--debug"]).unwrap();
+    let args = RunArgs::try_parse_from(["run", "--url", "https://a.com", "--debug"]).unwrap();
     assert!(args.debug);
 }
 
 #[rstest]
 fn run_args_debug_short_flag() {
-    let args =
-        RunArgs::try_parse_from(["run", "--url", "https://a.com", "-d"]).unwrap();
+    let args = RunArgs::try_parse_from(["run", "--url", "https://a.com", "-d"]).unwrap();
     assert!(args.debug);
 }
 
 #[rstest]
 fn run_args_watch_flag() {
-    let args =
-        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--watch"]).unwrap();
+    let args = RunArgs::try_parse_from(["run", "--url", "https://a.com", "--watch"]).unwrap();
     assert!(args.watch);
 }
 
@@ -113,32 +106,21 @@ fn run_args_poll_interval() {
 #[rstest]
 fn run_args_always_on_top() {
     let args =
-        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--always-on-top"])
-            .unwrap();
+        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--always-on-top"]).unwrap();
     assert!(args.always_on_top);
 }
 
 #[rstest]
 fn run_args_allow_new_window() {
-    let args = RunArgs::try_parse_from([
-        "run",
-        "--url",
-        "https://a.com",
-        "--allow-new-window",
-    ])
-    .unwrap();
+    let args =
+        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--allow-new-window"]).unwrap();
     assert!(args.allow_new_window);
 }
 
 #[rstest]
 fn run_args_allow_file_protocol() {
-    let args = RunArgs::try_parse_from([
-        "run",
-        "--url",
-        "https://a.com",
-        "--allow-file-protocol",
-    ])
-    .unwrap();
+    let args = RunArgs::try_parse_from(["run", "--url", "https://a.com", "--allow-file-protocol"])
+        .unwrap();
     assert!(args.allow_file_protocol);
 }
 
@@ -153,13 +135,8 @@ fn run_args_url_html_conflict() {
 // poll-interval-ms requires watch
 #[rstest]
 fn run_args_poll_interval_requires_watch() {
-    let result = RunArgs::try_parse_from([
-        "run",
-        "--url",
-        "https://a.com",
-        "--poll-interval-ms",
-        "500",
-    ]);
+    let result =
+        RunArgs::try_parse_from(["run", "--url", "https://a.com", "--poll-interval-ms", "500"]);
     assert!(result.is_err(), "poll-interval-ms should require --watch");
 }
 
@@ -191,8 +168,7 @@ fn run_args_no_url_no_html_succeeds_parsing() {
 #[case("--debug", true)]
 #[case("--watch", false)] // --watch doesn't set debug
 fn run_args_individual_bool_flags(#[case] flag: &str, #[case] is_debug: bool) {
-    let args =
-        RunArgs::try_parse_from(["run", "--url", "https://a.com", flag]).unwrap();
+    let args = RunArgs::try_parse_from(["run", "--url", "https://a.com", flag]).unwrap();
     assert_eq!(args.debug, is_debug);
 }
 
@@ -220,8 +196,7 @@ fn pack_args_defaults() {
 
 #[rstest]
 fn pack_args_config_flag() {
-    let args =
-        PackArgs::try_parse_from(["pack", "--config", "auroraview.pack.toml"]).unwrap();
+    let args = PackArgs::try_parse_from(["pack", "--config", "auroraview.pack.toml"]).unwrap();
     assert!(args.config.is_some());
     assert_eq!(
         args.config.unwrap().to_str().unwrap(),
@@ -243,28 +218,15 @@ fn pack_args_frontend_flag() {
 
 #[rstest]
 fn pack_args_output_flags() {
-    let args = PackArgs::try_parse_from([
-        "pack",
-        "--output",
-        "my-app",
-        "--output-dir",
-        "./out",
-    ])
-    .unwrap();
+    let args =
+        PackArgs::try_parse_from(["pack", "--output", "my-app", "--output-dir", "./out"]).unwrap();
     assert_eq!(args.output.as_deref(), Some("my-app"));
     assert!(args.output_dir.is_some());
 }
 
 #[rstest]
 fn pack_args_window_size() {
-    let args = PackArgs::try_parse_from([
-        "pack",
-        "--width",
-        "1920",
-        "--height",
-        "1080",
-    ])
-    .unwrap();
+    let args = PackArgs::try_parse_from(["pack", "--width", "1920", "--height", "1080"]).unwrap();
     assert_eq!(args.width, Some(1920));
     assert_eq!(args.height, Some(1080));
 }
@@ -311,7 +273,10 @@ fn pack_args_no_console_flag() {
 #[rstest]
 fn pack_args_console_no_console_conflict() {
     let result = PackArgs::try_parse_from(["pack", "--console", "--no-console"]);
-    assert!(result.is_err(), "--console and --no-console should conflict");
+    assert!(
+        result.is_err(),
+        "--console and --no-console should conflict"
+    );
 }
 
 // url conflicts with frontend and backend
@@ -325,8 +290,7 @@ fn pack_args_url_frontend_conflict() {
 // backend requires frontend
 #[rstest]
 fn pack_args_backend_requires_frontend() {
-    let result =
-        PackArgs::try_parse_from(["pack", "--backend", "app.main:run"]);
+    let result = PackArgs::try_parse_from(["pack", "--backend", "app.main:run"]);
     assert!(result.is_err(), "--backend requires --frontend");
 }
 

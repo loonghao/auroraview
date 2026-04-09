@@ -32,10 +32,7 @@ fn test_process_result_error_stops() {
 #[test]
 fn test_process_result_eq() {
     assert_eq!(ProcessResult::Continue, ProcessResult::Continue);
-    assert_eq!(
-        ProcessResult::CloseRequested,
-        ProcessResult::CloseRequested
-    );
+    assert_eq!(ProcessResult::CloseRequested, ProcessResult::CloseRequested);
     assert_ne!(ProcessResult::Continue, ProcessResult::Error);
 }
 

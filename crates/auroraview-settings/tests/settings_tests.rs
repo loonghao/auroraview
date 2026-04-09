@@ -569,7 +569,6 @@ use auroraview_settings::SettingsError;
 #[case(SettingValue::Integer(-1))]
 #[case(SettingValue::Float(2.5))]
 #[case(SettingValue::String("hello".into()))]
-
 #[case(SettingValue::Null)]
 fn setting_value_serde_roundtrip(#[case] value: SettingValue) {
     let json = serde_json::to_string(&value).unwrap();
@@ -596,7 +595,8 @@ fn store_serde_via_setting_value() {
     // SettingsStore does not implement Serialize/Deserialize directly;
     // test SettingValue serde via manager export instead
     let mgr = SettingsManager::new();
-    mgr.set("key1", SettingValue::String("value1".into())).unwrap();
+    mgr.set("key1", SettingValue::String("value1".into()))
+        .unwrap();
     mgr.set("key2", SettingValue::Integer(42)).unwrap();
     mgr.set("key3", SettingValue::Bool(true)).unwrap();
 
@@ -738,7 +738,10 @@ fn store_overwrite_existing_key() {
 #[rstest]
 fn store_keys_with_prefix_no_match() {
     let mut store = SettingsStore::new();
-    store.set("browser.homepage", SettingValue::String("about:blank".into()));
+    store.set(
+        "browser.homepage",
+        SettingValue::String("about:blank".into()),
+    );
     let results: Vec<&str> = store.keys_with_prefix("network.").collect();
     assert!(results.is_empty());
 }
@@ -797,7 +800,7 @@ fn manager_reset_key_without_schema_removes_user_value() {
     let mgr = SettingsManager::new();
     mgr.set("misc.key", SettingValue::Integer(5)).unwrap();
     let _ = mgr.reset("misc.key"); // may return error or ok depending on schema presence
-    // No panic is the key requirement
+                                   // No panic is the key requirement
 }
 
 #[rstest]
@@ -826,7 +829,6 @@ fn manager_on_change_not_called_when_value_unchanged() {
 
 #[rstest]
 fn concurrent_set_no_deadlock() {
-
     let mgr = Arc::new(SettingsManager::new());
 
     let handles: Vec<_> = (0..8)
@@ -878,7 +880,6 @@ fn concurrent_get_set_no_panic() {
 
 #[rstest]
 fn concurrent_clone_and_set_shares_state() {
-
     let mgr = SettingsManager::new();
     let mgr_clone = mgr.clone();
 
@@ -893,4 +894,3 @@ fn concurrent_clone_and_set_shares_state() {
     // mgr and mgr_clone share state
     assert!(!mgr.user_settings().is_empty());
 }
-

@@ -409,7 +409,6 @@ impl OverlayReader {
         }))
     }
 
-
     /// Extract assets from a tar archive using streaming zstd decoder
     ///
     /// This avoids loading the entire decompressed tar into memory at once.

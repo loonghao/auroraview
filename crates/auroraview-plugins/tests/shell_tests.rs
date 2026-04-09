@@ -86,11 +86,7 @@ fn which_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
-    let result = plugin.handle(
-        "which",
-        serde_json::json!({ "invalid": "args" }),
-        &scope,
-    );
+    let result = plugin.handle("which", serde_json::json!({ "invalid": "args" }), &scope);
     assert!(result.is_err());
 }
 
@@ -142,11 +138,7 @@ fn get_env_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
-    let result = plugin.handle(
-        "get_env",
-        serde_json::json!({ "invalid": "args" }),
-        &scope,
-    );
+    let result = plugin.handle("get_env", serde_json::json!({ "invalid": "args" }), &scope);
     assert!(result.is_err());
 }
 
@@ -168,7 +160,9 @@ fn get_env_all_nonempty() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new();
 
-    let result = plugin.handle("get_env_all", serde_json::json!({}), &scope).unwrap();
+    let result = plugin
+        .handle("get_env_all", serde_json::json!({}), &scope)
+        .unwrap();
     let env = result["env"].as_object().unwrap();
     assert!(!env.is_empty());
 }
@@ -240,11 +234,7 @@ fn execute_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::permissive();
 
-    let result = plugin.handle(
-        "execute",
-        serde_json::json!({ "invalid": "args" }),
-        &scope,
-    );
+    let result = plugin.handle("execute", serde_json::json!({ "invalid": "args" }), &scope);
     assert!(result.is_err());
 }
 
@@ -315,11 +305,7 @@ fn open_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::permissive();
 
-    let result = plugin.handle(
-        "open",
-        serde_json::json!({ "invalid": "args" }),
-        &scope,
-    );
+    let result = plugin.handle("open", serde_json::json!({ "invalid": "args" }), &scope);
     assert!(result.is_err());
 }
 
@@ -419,11 +405,7 @@ fn spawn_invalid_args() {
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::permissive();
 
-    let result = plugin.handle(
-        "spawn",
-        serde_json::json!({ "invalid": "args" }),
-        &scope,
-    );
+    let result = plugin.handle("spawn", serde_json::json!({ "invalid": "args" }), &scope);
     assert!(result.is_err());
 }
 

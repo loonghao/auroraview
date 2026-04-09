@@ -190,7 +190,9 @@ fn test_to_value_nested_struct() {
     struct Outer {
         inner: Inner,
     }
-    let o = Outer { inner: Inner { x: 99 } };
+    let o = Outer {
+        inner: Inner { x: 99 },
+    };
     let value = to_value(&o).unwrap();
     assert_eq!(value["inner"]["x"], 99);
 }

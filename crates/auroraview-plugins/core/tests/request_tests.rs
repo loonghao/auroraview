@@ -41,10 +41,10 @@ fn request_from_invoke_valid(
 }
 
 #[rstest]
-#[case("fs|read_file")]        // missing "plugin:" prefix
-#[case("plugin:fs")]           // missing "|command"
-#[case("")]                    // empty
-#[case("plugin:")]             // missing plugin and command
+#[case("fs|read_file")] // missing "plugin:" prefix
+#[case("plugin:fs")] // missing "|command"
+#[case("")] // empty
+#[case("plugin:")] // missing plugin and command
 fn request_from_invoke_invalid(#[case] invoke: &str) {
     let req = PluginRequest::from_invoke(invoke, json!({}));
     assert!(req.is_none(), "expected None for input: {}", invoke);

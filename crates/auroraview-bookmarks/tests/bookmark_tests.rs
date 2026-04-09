@@ -7,7 +7,6 @@ use tempfile::TempDir;
 
 // ========== Bookmark Struct Tests ==========
 
-
 #[rstest]
 fn bookmark_new() {
     let b = Bookmark::new("GitHub", "https://github.com");
@@ -645,7 +644,6 @@ fn in_folder_returns_empty_for_nonexistent_folder() {
 
 #[test]
 fn concurrent_add_no_panic() {
-
     let manager = Arc::new(BookmarkManager::new(None));
 
     let handles: Vec<_> = (0..8)
@@ -653,7 +651,10 @@ fn concurrent_add_no_panic() {
             let m = Arc::clone(&manager);
             thread::spawn(move || {
                 for j in 0..10 {
-                    m.add(format!("https://thread{i}-site{j}.com"), format!("Site{i}-{j}"));
+                    m.add(
+                        format!("https://thread{i}-site{j}.com"),
+                        format!("Site{i}-{j}"),
+                    );
                 }
             })
         })
@@ -668,14 +669,16 @@ fn concurrent_add_no_panic() {
 
 #[test]
 fn concurrent_add_and_search_no_deadlock() {
-
     let manager = Arc::new(BookmarkManager::new(None));
 
     let writer = {
         let m = Arc::clone(&manager);
         thread::spawn(move || {
             for i in 0..50 {
-                m.add(format!("https://concurrent{i}.com"), format!("Concurrent{i}"));
+                m.add(
+                    format!("https://concurrent{i}.com"),
+                    format!("Concurrent{i}"),
+                );
             }
         })
     };
@@ -695,7 +698,6 @@ fn concurrent_add_and_search_no_deadlock() {
 
 #[test]
 fn concurrent_remove_no_panic() {
-
     let manager = Arc::new(BookmarkManager::new(None));
     let ids: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 

@@ -1,9 +1,7 @@
 //! Comprehensive tests for auroraview_pack::progress:
 //! ProgressStyles, PackProgress, ProgressExt, standalone helpers, edge cases
 
-use auroraview_pack::progress::{
-    progress_bar, spinner, PackProgress, ProgressExt, ProgressStyles,
-};
+use auroraview_pack::progress::{progress_bar, spinner, PackProgress, ProgressExt, ProgressStyles};
 use indicatif::ProgressBar;
 
 // ══════════════════════════════════════════════════════════════════════════════

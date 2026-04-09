@@ -73,10 +73,7 @@ fn debug_contains_variant_names() {
             "ExtensionNotFound",
             BrowserError::ExtensionNotFound("x".into()),
         ),
-        (
-            "WebViewCreation",
-            BrowserError::WebViewCreation("x".into()),
-        ),
+        ("WebViewCreation", BrowserError::WebViewCreation("x".into())),
         ("WindowCreation", BrowserError::WindowCreation("x".into())),
         ("Navigation", BrowserError::Navigation("x".into())),
         ("InvalidUrl", BrowserError::InvalidUrl("x".into())),
@@ -119,7 +116,10 @@ fn from_serde_json_error() {
     let json_err = serde_json::from_str::<serde_json::Value>("not-json").unwrap_err();
     let browser_err: BrowserError = json_err.into();
     let msg = browser_err.to_string();
-    assert!(msg.contains("Serialization") || msg.contains("expected"), "{msg}");
+    assert!(
+        msg.contains("Serialization") || msg.contains("expected"),
+        "{msg}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +132,6 @@ fn result_alias_ok() {
     let r: Result<u32> = Ok(42);
     assert!(matches!(r, Ok(42)));
 }
-
 
 #[rstest]
 fn result_alias_err() {

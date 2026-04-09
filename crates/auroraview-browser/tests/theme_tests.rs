@@ -258,11 +258,7 @@ fn css_contains_all_variables() {
     ];
 
     for var in expected_vars {
-        assert!(
-            css.contains(var),
-            "CSS should contain variable: {}",
-            var
-        );
+        assert!(css.contains(var), "CSS should contain variable: {}", var);
     }
 }
 

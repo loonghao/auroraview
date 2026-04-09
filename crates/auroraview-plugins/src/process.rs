@@ -653,12 +653,7 @@ impl ProcessPlugin {
 
                     // Store channel handle for sending (stream is used for both read and write)
                     // We'll read in this thread and write via send_json_to_process
-                    channels.insert(
-                        pid,
-                        Arc::new(Mutex::new(IpcChannelHandle {
-                            stream,
-                        })),
-                    );
+                    channels.insert(pid, Arc::new(Mutex::new(IpcChannelHandle { stream })));
 
                     // Get the stream back for reading
                     let read_handle = channels.get(&pid).map(|e| e.value().clone());
@@ -957,7 +952,6 @@ impl ProcessPlugin {
 
         false
     }
-
 
     /// Kill a managed process
     fn kill_process(&self, pid: u32) -> PluginResult<Value> {

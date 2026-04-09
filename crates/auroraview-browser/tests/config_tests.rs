@@ -110,9 +110,7 @@ fn browser_features_default() {
 
 #[test]
 fn remote_debugging_port_enables_cdp() {
-    let config = BrowserConfig::builder()
-        .remote_debugging_port(9222)
-        .build();
+    let config = BrowserConfig::builder().remote_debugging_port(9222).build();
 
     assert_eq!(config.remote_debugging_port, 9222);
     assert!(config.features.cdp_enabled);
@@ -120,9 +118,7 @@ fn remote_debugging_port_enables_cdp() {
 
 #[test]
 fn remote_debugging_port_zero_no_cdp() {
-    let config = BrowserConfig::builder()
-        .remote_debugging_port(0)
-        .build();
+    let config = BrowserConfig::builder().remote_debugging_port(0).build();
 
     assert_eq!(config.remote_debugging_port, 0);
     // Port 0 should not force cdp_enabled
@@ -131,9 +127,7 @@ fn remote_debugging_port_zero_no_cdp() {
 
 #[test]
 fn devtools_auto_open() {
-    let config = BrowserConfig::builder()
-        .devtools_auto_open(true)
-        .build();
+    let config = BrowserConfig::builder().devtools_auto_open(true).build();
 
     assert!(config.devtools.auto_open);
 }
@@ -171,9 +165,7 @@ fn devtools_dock_side_undocked() {
 
 #[test]
 fn frameless_can_be_disabled() {
-    let config = BrowserConfig::builder()
-        .frameless(false)
-        .build();
+    let config = BrowserConfig::builder().frameless(false).build();
 
     assert!(!config.frameless);
 }

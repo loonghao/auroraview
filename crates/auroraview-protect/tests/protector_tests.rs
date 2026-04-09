@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 
 use auroraview_protect::{
-    CompileResult, EncryptionConfig, ProtectConfig, ProtectError, Protector, ProtectionMethod,
+    CompileResult, EncryptionConfig, ProtectConfig, ProtectError, ProtectionMethod, Protector,
 };
 use tempfile::TempDir;
 
@@ -87,9 +87,7 @@ fn protect_directory_creates_output_dir() {
 
     let config = ProtectConfig::default();
     let protector = Protector::new(config);
-    let result = protector
-        .protect_directory(input.path(), &output)
-        .unwrap();
+    let result = protector.protect_directory(input.path(), &output).unwrap();
 
     assert!(output.exists());
     assert!(result.compiled.is_empty());
@@ -264,8 +262,7 @@ fn encryption_config_with_x25519() {
 
 #[test]
 fn encryption_config_with_keys() {
-    let enc = EncryptionConfig::enabled()
-        .with_keys("pub_hex".to_string(), "priv_hex".to_string());
+    let enc = EncryptionConfig::enabled().with_keys("pub_hex".to_string(), "priv_hex".to_string());
     assert_eq!(enc.public_key.as_deref(), Some("pub_hex"));
     assert_eq!(enc.private_key.as_deref(), Some("priv_hex"));
 }

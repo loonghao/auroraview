@@ -67,9 +67,7 @@ fn created_window_not_visible() {
 #[rstest]
 fn created_window_has_correct_title() {
     let mgr = WindowManager::new();
-    let id = mgr
-        .create(DesktopConfig::new().title("My Title"))
-        .unwrap();
+    let id = mgr.create(DesktopConfig::new().title("My Title")).unwrap();
     let info = mgr.get(&id).unwrap();
     assert_eq!(info.title, "My Title");
 }
@@ -291,9 +289,7 @@ fn set_title_nonexistent_errors() {
 #[rstest]
 fn router_shared_across_windows() {
     let router = Arc::new(IpcRouter::new());
-    router.register("ping", |_| {
-        serde_json::json!({"pong": true})
-    });
+    router.register("ping", |_| serde_json::json!({"pong": true}));
     let mgr = WindowManager::with_router(router);
     let r = mgr.router();
     assert!(r.has_handler("ping"));

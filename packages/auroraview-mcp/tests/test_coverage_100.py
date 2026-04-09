@@ -11,12 +11,10 @@ Covers:
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ============================================================================
 # __main__.py: main() and entry point
@@ -32,6 +30,7 @@ class TestMainEntry:
         with patch.dict("sys.modules", {"auroraview_mcp.server": MagicMock(mcp=mock_mcp)}):
             # Re-import to use the patched module
             import importlib
+
             import auroraview_mcp.__main__ as main_module
             importlib.reload(main_module)
             with patch("auroraview_mcp.server.mcp", mock_mcp):
@@ -63,23 +62,20 @@ class TestIsProcessAliveNonWindows:
 
     def test_is_alive_on_non_windows_returns_true(self) -> None:
         """os.kill(pid, 0) succeeds → process is alive."""
-        from auroraview_mcp.discovery import is_process_alive
 
-        with patch("sys.platform", "linux"):
-            with patch("os.kill", return_value=None):
-                # Force the non-Windows code path
-                import auroraview_mcp.discovery as disc_mod
-                original_platform = sys.platform
-                try:
-                    # Temporarily override platform check
-                    with patch.object(disc_mod.sys, "platform", "linux"):
-                        # Directly test the logic
-                        import os
-                        with patch.object(os, "kill", return_value=None):
-                            result = disc_mod.is_process_alive(12345)
-                            # On Windows this uses ctypes path; we test logic directly
-                finally:
-                    pass
+        with patch("sys.platform", "linux"), patch("os.kill", return_value=None):
+            # Force the non-Windows code path
+            import auroraview_mcp.discovery as disc_mod
+            try:
+                # Temporarily override platform check
+                with patch.object(disc_mod.sys, "platform", "linux"):
+                    # Directly test the logic
+                    import os
+                    with patch.object(os, "kill", return_value=None):
+                        disc_mod.is_process_alive(12345)
+                        # On Windows this uses ctypes path; we test logic directly
+            finally:
+                pass
 
     def test_is_process_alive_linux_alive(self) -> None:
         """Simulate non-Windows: os.kill succeeds → True."""
@@ -155,9 +151,11 @@ class TestGetProjectRootNotFound:
         fake_file.write_text("# fake")
 
         import auroraview_mcp.tools.gallery as gallery_mod
-        with patch.object(gallery_mod, "__file__", str(fake_file)):
-            with pytest.raises(FileNotFoundError, match="Could not find project root"):
-                get_project_root()
+        with (
+            patch.object(gallery_mod, "__file__", str(fake_file)),
+            pytest.raises(FileNotFoundError, match="Could not find project root"),
+        ):
+            get_project_root()
 
 
 # ============================================================================
@@ -213,7 +211,6 @@ class TestGetSampleInfoMainFileNotExists:
         main_py.write_text("# placeholder")
 
         # Now patch main_file.exists() to return False to hit line 152
-        original_is_dir = Path.is_dir
         original_exists = Path.exists
 
         call_count = [0]
