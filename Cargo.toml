@@ -120,7 +120,7 @@ ctrlc = "3.4"
 
 # System tray support
 tray-icon = "0.21"
-muda = "0.16"
+muda = "0.17"
 
 # Error handling
 anyhow = "1.0"
@@ -155,7 +155,7 @@ ipc-channel = { version = "0.20", optional = true }
 ipckit = "0.1"
 
 # File dialogs
-rfd = "0.16"
+rfd = "0.17"
 
 # Open URLs/files in system default application
 open = "5.3"
@@ -192,7 +192,7 @@ test-case = "3.3"
 proptest = "1.5"
 mockall = "0.14"
 serial_test = "3.2"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.13", features = ["json"] }
 # Snapshot testing (serialize-based golden file testing)
 insta = { version = "1.42", features = ["json", "redactions"] }
 

@@ -115,7 +115,7 @@ jobs:
           echo "Coverage tests completed successfully"
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: packages/auroraview-mcp/coverage.xml
           flags: mcp,python
