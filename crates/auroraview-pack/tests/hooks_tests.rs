@@ -1,6 +1,7 @@
 //! Tests for HooksConfig, VxHooksConfig, and CollectPattern
 
 use auroraview_pack::{CollectPattern, HooksConfig, VxHooksConfig};
+use rstest::rstest;
 
 // ---------------------------------------------------------------------------
 // HooksConfig default
@@ -398,4 +399,118 @@ fn hooks_config_serde_with_empty_vx() {
     let parsed: HooksConfig = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.before_collect, cfg.before_collect);
     assert!(parsed.vx.before_collect.is_empty());
+}
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn hooks_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<HooksConfig>();
+}
+
+#[test]
+fn collect_pattern_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<CollectPattern>();
+}
+
+#[test]
+fn hooks_config_clone_independent() {
+    let original = HooksConfig {
+        before_collect: vec!["original_cmd".to_string()],
+        ..Default::default()
+    };
+    let mut cloned = original.clone();
+    cloned.before_collect.push("extra".to_string());
+    assert_eq!(original.before_collect.len(), 1);
+    assert_eq!(cloned.before_collect.len(), 2);
+}
+
+#[test]
+fn collect_pattern_clone_independent() {
+    let p1 = CollectPattern::new("src/**");
+    let mut p2 = p1.clone();
+    p2.source = "other/**".to_string();
+    assert_eq!(p1.source, "src/**");
+    assert_eq!(p2.source, "other/**");
+}
+
+#[test]
+fn vx_hooks_config_clone_r9() {
+    let vx1 = VxHooksConfig {
+        before_collect: vec!["cmd".to_string()],
+        after_pack: vec!["pack".to_string()],
+    };
+    let vx2 = vx1.clone();
+    assert_eq!(vx2.before_collect, vx1.before_collect);
+    assert_eq!(vx2.after_pack, vx1.after_pack);
+}
+
+#[test]
+fn hooks_config_before_and_after_both_populated() {
+    let cfg = HooksConfig {
+        before_collect: vec!["pre1".to_string(), "pre2".to_string()],
+        after_pack: vec!["post1".to_string()],
+        ..Default::default()
+    };
+    assert_eq!(cfg.before_collect.len(), 2);
+    assert_eq!(cfg.after_pack.len(), 1);
+}
+
+#[test]
+fn collect_pattern_dest_none_default() {
+    let p = CollectPattern::new("assets/**");
+    assert!(p.dest.is_none());
+}
+
+#[test]
+fn collect_pattern_with_all_fields() {
+    let p = CollectPattern {
+        source: "dist/**".to_string(),
+        dest: Some("out/dist".to_string()),
+        preserve_structure: false,
+        description: Some("Distribution files".to_string()),
+    };
+    assert_eq!(p.source, "dist/**");
+    assert_eq!(p.dest.as_deref(), Some("out/dist"));
+    assert!(!p.preserve_structure);
+    assert!(p.description.is_some());
+}
+
+#[test]
+fn hooks_config_all_defaults_empty_r9() {
+    let cfg = HooksConfig::default();
+    assert!(cfg.before_collect.is_empty());
+    assert!(cfg.collect.is_empty());
+    assert!(cfg.after_pack.is_empty());
+    assert!(!cfg.use_vx);
+}
+
+#[test]
+fn vx_hooks_config_all_defaults_empty_r9() {
+    let vx = VxHooksConfig::default();
+    assert!(vx.before_collect.is_empty());
+    assert!(vx.after_pack.is_empty());
+}
+
+#[rstest]
+#[case("*.js", "dist/js")]
+#[case("*.py", "dist/py")]
+#[case("*.rs", "dist/rs")]
+fn collect_pattern_with_various_sources_and_dests(#[case] src: &str, #[case] dst: &str) {
+    let p = CollectPattern::new(src).with_dest(dst);
+    assert_eq!(p.source, src);
+    assert_eq!(p.dest.as_deref(), Some(dst));
+}
+
+#[test]
+fn hooks_config_serde_preserves_use_vx() {
+    let cfg = HooksConfig {
+        use_vx: true,
+        ..Default::default()
+    };
+    let json = serde_json::to_string(&cfg).unwrap();
+    let parsed: HooksConfig = serde_json::from_str(&json).unwrap();
+    assert!(parsed.use_vx);
 }

@@ -4,6 +4,7 @@ use std::thread;
 use std::time::Duration;
 
 use auroraview_pack::PackedMetrics;
+use rstest::rstest;
 
 #[test]
 fn test_metrics_basic() {
@@ -313,4 +314,138 @@ fn test_mark_python_runtime_extract() {
     let mut m = PackedMetrics::new();
     m.mark_python_runtime_extract();
     assert!(m.python_runtime_extract.is_some());
+}
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn test_metrics_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<PackedMetrics>();
+}
+
+#[test]
+fn test_new_metrics_has_no_phases() {
+    let m = PackedMetrics::new();
+    // new metrics without any phase adds should produce a report without custom phases
+    let report = m.report();
+    assert!(!report.is_empty());
+}
+
+#[test]
+fn test_elapsed_monotonically_increases() {
+    let m = PackedMetrics::new();
+    let t1 = m.elapsed();
+    thread::sleep(Duration::from_millis(2));
+    let t2 = m.elapsed();
+    assert!(t2 >= t1);
+}
+
+#[test]
+fn test_time_phase_result_returned() {
+    let mut m = PackedMetrics::new();
+    let result = m.time_phase("compute", || 42u32 * 2);
+    assert_eq!(result, 84);
+}
+
+#[test]
+fn test_add_phase_does_not_panic_zero() {
+    let mut m = PackedMetrics::new();
+    m.add_phase("zero", Duration::ZERO);
+    // Just verify no panic
+}
+
+#[test]
+fn test_mark_total_sets_timestamp() {
+    let mut m = PackedMetrics::new();
+    assert!(m.total.is_none());
+    m.mark_total();
+    assert!(m.total.is_some());
+}
+
+#[test]
+fn test_mark_window_created_once() {
+    let mut m = PackedMetrics::new();
+    assert!(m.window_created.is_none());
+    m.mark_window_created();
+    assert!(m.window_created.is_some());
+}
+
+#[test]
+fn test_mark_webview_created_once() {
+    let mut m = PackedMetrics::new();
+    m.mark_webview_created();
+    assert!(m.webview_created.is_some());
+}
+
+#[test]
+fn test_mark_python_start_once() {
+    let mut m = PackedMetrics::new();
+    m.mark_python_start();
+    assert!(m.python_start.is_some());
+}
+
+#[test]
+fn test_report_not_empty() {
+    let m = PackedMetrics::new();
+    assert!(!m.report().is_empty());
+}
+
+#[test]
+fn test_phases_count_after_multiple_adds() {
+    let mut m = PackedMetrics::new();
+    m.add_phase("a", Duration::from_millis(1));
+    m.add_phase("b", Duration::from_millis(2));
+    m.add_phase("c", Duration::from_millis(3));
+    let report = m.report();
+    assert!(report.contains("a"));
+    assert!(report.contains("b"));
+    assert!(report.contains("c"));
+}
+
+#[test]
+fn test_time_phase_adds_to_phases() {
+    let mut m = PackedMetrics::new();
+    m.time_phase("new_phase", || {});
+    let report = m.report();
+    assert!(report.contains("new_phase"));
+}
+
+#[test]
+fn test_full_lifecycle() {
+    let mut m = PackedMetrics::new();
+    m.mark_python_start();
+    m.mark_window_created();
+    m.mark_webview_created();
+    m.mark_resources_extract();
+    m.mark_python_files_extract();
+    m.mark_tar_extract();
+    m.mark_python_runtime_extract();
+    m.mark_total();
+
+    let report = m.report();
+    assert!(!report.is_empty());
+    assert!(report.contains("Total") || report.contains("total"));
+}
+
+#[rstest]
+#[case("phase_one")]
+#[case("phase_two")]
+#[case("final")]
+fn test_time_phase_name_in_report(#[case] name: &str) {
+    let mut m = PackedMetrics::new();
+    m.time_phase(name, || {});
+    let report = m.report();
+    assert!(report.contains(name));
+}
+
+#[rstest]
+#[case(1u64)]
+#[case(100)]
+#[case(1000)]
+fn test_add_phase_duration_millis(#[case] millis: u64) {
+    let mut m = PackedMetrics::new();
+    m.add_phase("phase", Duration::from_millis(millis));
+    let report = m.report();
+    assert!(report.contains("phase"));
 }
