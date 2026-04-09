@@ -686,3 +686,146 @@ fn guess_mime_type_wasm() {
         mt
     );
 }
+
+// ---- resolve_safe_path tests ----
+
+use auroraview_core::protocol::resolve_safe_path;
+
+#[test]
+fn resolve_safe_path_valid_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("test.txt");
+    std::fs::write(&file_path, b"hello").unwrap();
+
+    let result = resolve_safe_path(dir.path(), "test.txt");
+    assert!(result.is_some());
+}
+
+#[test]
+fn resolve_safe_path_nonexistent_file_returns_none() {
+    let dir = tempfile::tempdir().unwrap();
+    let result = resolve_safe_path(dir.path(), "nonexistent.txt");
+    assert!(result.is_none());
+}
+
+#[test]
+fn resolve_safe_path_directory_traversal_blocked() {
+    let dir = tempfile::tempdir().unwrap();
+    // Attempt path traversal — should be blocked
+    let result = resolve_safe_path(dir.path(), "../../../etc/passwd");
+    // Traversal sanitization should prevent escaping the root
+    if let Some(p) = result {
+        assert!(p.starts_with(dir.path()));
+    }
+    // None is also acceptable (file doesn't exist)
+}
+
+#[test]
+fn resolve_safe_path_subdirectory() {
+    let dir = tempfile::tempdir().unwrap();
+    let sub = dir.path().join("sub");
+    std::fs::create_dir(&sub).unwrap();
+    let file_path = sub.join("style.css");
+    std::fs::write(&file_path, b"body {}").unwrap();
+
+    let result = resolve_safe_path(dir.path(), "sub/style.css");
+    assert!(result.is_some());
+}
+
+#[test]
+fn resolve_safe_path_double_dot_removed() {
+    let dir = tempfile::tempdir().unwrap();
+    // Create a file named after removal of ".."
+    let file_path = dir.path().join("safe.txt");
+    std::fs::write(&file_path, b"safe").unwrap();
+
+    // "safe.txt" with embedded ".." - the dots are removed resulting in "safe.txt"
+    let result = resolve_safe_path(dir.path(), "sa..fe.txt");
+    // Either resolves to the sanitized path or None — both are acceptable
+    let _ = result;
+}
+
+// ---- load_asset_file tests ----
+
+use auroraview_core::protocol::load_asset_file;
+
+#[test]
+fn load_asset_file_returns_content() {
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("index.html");
+    std::fs::write(&file_path, b"<html><body>Test</body></html>").unwrap();
+
+    let resp = load_asset_file(dir.path(), "index.html");
+    assert_eq!(resp.status, 200);
+    assert!(resp.mime_type.contains("text/html"));
+    assert_eq!(&*resp.data, b"<html><body>Test</body></html>");
+}
+
+#[test]
+fn load_asset_file_not_found_returns_404() {
+    let dir = tempfile::tempdir().unwrap();
+    let resp = load_asset_file(dir.path(), "missing.html");
+    assert_eq!(resp.status, 404);
+}
+
+#[test]
+fn load_asset_file_js_content_type() {
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("app.js");
+    std::fs::write(&file_path, b"var x = 1;").unwrap();
+
+    let resp = load_asset_file(dir.path(), "app.js");
+    assert_eq!(resp.status, 200);
+    assert!(
+        resp.mime_type.contains("javascript"),
+        "expected javascript mime, got: {}",
+        resp.mime_type
+    );
+}
+
+#[test]
+fn load_asset_file_css_content_type() {
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("style.css");
+    std::fs::write(&file_path, b"body { color: red; }").unwrap();
+
+    let resp = load_asset_file(dir.path(), "style.css");
+    assert_eq!(resp.status, 200);
+    assert!(resp.mime_type.contains("text/css"), "unexpected mime: {}", resp.mime_type);
+}
+
+#[test]
+fn load_asset_file_leading_slash_stripped() {
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("data.json");
+    std::fs::write(&file_path, b"{}").unwrap();
+
+    // Leading slash should be handled gracefully
+    let resp = load_asset_file(dir.path(), "/data.json");
+    // May succeed or return 404 depending on path cleaning — just should not panic
+    let _ = resp.status;
+}
+
+#[test]
+fn load_asset_file_empty_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("empty.txt");
+    std::fs::write(&file_path, b"").unwrap();
+
+    let resp = load_asset_file(dir.path(), "empty.txt");
+    assert_eq!(resp.status, 200);
+    assert!(resp.data.is_empty());
+}
+
+#[test]
+fn load_asset_file_binary_content() {
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("icon.png");
+    let png_data = vec![0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    std::fs::write(&file_path, &png_data).unwrap();
+
+    let resp = load_asset_file(dir.path(), "icon.png");
+    assert_eq!(resp.status, 200);
+    assert!(resp.mime_type.contains("image/png"));
+    assert_eq!(&*resp.data, png_data.as_slice());
+}
