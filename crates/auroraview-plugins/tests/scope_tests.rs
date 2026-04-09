@@ -353,9 +353,170 @@ fn scope_empty_blocks_specific_paths(#[case] rel: &str) {
     assert!(scope.is_allowed(&full).is_err(), "Expected {rel} to be blocked");
 }
 
+
 // ===========================================================================
-// Shell scope tests
+// Additional PathScope + ScopeConfig coverage
 // ===========================================================================
+
+// allow_many then deny one: only the denied one is blocked
+#[test]
+fn scope_allow_many_deny_one_partial_block() {
+    let temp1 = tempdir().unwrap();
+    let temp2 = tempdir().unwrap();
+    let temp3 = tempdir().unwrap();
+
+    let scope = PathScope::new()
+        .allow_many(&[temp1.path(), temp2.path(), temp3.path()])
+        .deny(temp2.path());
+
+    assert!(scope.is_allowed(temp1.path()).is_ok());
+    assert!(scope.is_allowed(temp2.path()).is_err());
+    assert!(scope.is_allowed(temp3.path()).is_ok());
+}
+
+// PathScope: is_send_sync
+#[test]
+fn path_scope_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<PathScope>();
+}
+
+// ScopeConfig: is_send_sync
+#[test]
+fn scope_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<ScopeConfig>();
+}
+
+// ScopeConfig: with_fs_scope builds correct config
+#[test]
+fn scope_config_with_fs_scope() {
+    let temp = tempdir().unwrap();
+    let scope = ScopeConfig::new().with_fs_scope(PathScope::new().allow(temp.path()));
+    assert!(scope.fs.is_allowed(temp.path()).is_ok());
+}
+
+// PathScope: serde with deny paths
+#[test]
+fn scope_deny_serde_roundtrip() {
+    let temp = tempdir().unwrap();
+    let scope = PathScope::allow_all().deny(temp.path());
+    let json = serde_json::to_string(&scope).unwrap();
+    let restored: PathScope = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.denied.len(), 1);
+    assert!(restored.allow_all);
+}
+
+// ScopeConfig: permissive shell allows everything
+#[test]
+fn scope_config_permissive_shell_allows_all() {
+    let config = ScopeConfig::permissive();
+    assert!(config.shell.allow_all);
+    assert!(config.shell.is_command_allowed("anything"));
+}
+
+// PathScope: allow_all allows path not explicitly listed
+#[test]
+fn scope_allow_all_allows_unlisted_path() {
+    let temp = tempdir().unwrap();
+    let scope = PathScope::allow_all();
+    let unlisted = temp.path().join("unlisted");
+    std::fs::create_dir_all(&unlisted).unwrap();
+    assert!(scope.is_allowed(&unlisted).is_ok());
+}
+
+// PathScope: allow then deny_many
+#[test]
+fn scope_allow_then_deny_many_blocks_specified() {
+    let t1 = tempdir().unwrap();
+    let t2 = tempdir().unwrap();
+    let scope = PathScope::allow_all().deny_many(&[t1.path(), t2.path()]);
+    assert!(scope.is_allowed(t1.path()).is_err());
+    assert!(scope.is_allowed(t2.path()).is_err());
+}
+
+// ScopeConfig: disable non-default plugin still not enabled
+#[test]
+fn scope_config_disable_non_default_plugin_still_not_enabled() {
+    let mut config = ScopeConfig::new();
+    // "telemetry" is not in the default enabled set
+    config.disable_plugin("telemetry");
+    assert!(!config.is_plugin_enabled("telemetry"));
+}
+
+// ScopeConfig: enable an unknown plugin
+#[test]
+fn scope_config_enable_custom_plugin() {
+    let mut config = ScopeConfig::new();
+    config.enable_plugin("my_custom_plugin");
+    assert!(config.is_plugin_enabled("my_custom_plugin"));
+}
+
+// rstest: scope_allow_specific for multiple temp dirs
+#[rstest]
+#[case(0)]
+#[case(1)]
+#[case(2)]
+fn scope_allow_many_all_are_accessible(#[case] idx: usize) {
+    let dirs: Vec<_> = (0..3).map(|_| tempdir().unwrap()).collect();
+    let paths: Vec<_> = dirs.iter().map(|d| d.path().to_path_buf()).collect();
+    let scope = PathScope::new().allow_many(&paths.iter().map(|p| p.as_path()).collect::<Vec<_>>());
+    assert!(scope.is_allowed(&paths[idx]).is_ok(), "dir {} should be accessible", idx);
+}
+
+// PathScope: allow_all flag defaults to false
+#[test]
+fn path_scope_default_allow_all_is_false() {
+    let scope = PathScope::new();
+    assert!(!scope.allow_all);
+}
+
+// PathScope: denied list initially empty
+#[test]
+fn path_scope_default_denied_empty() {
+    let scope = PathScope::new();
+    assert!(scope.denied.is_empty());
+}
+
+// PathScope: allowed list initially empty
+#[test]
+fn path_scope_default_allowed_empty() {
+    let scope = PathScope::new();
+    assert!(scope.allowed.is_empty());
+}
+
+// ScopeConfig: default has fs scope with no allow_all
+#[test]
+fn scope_config_default_fs_no_allow_all() {
+    let config = ScopeConfig::new();
+    assert!(!config.fs.allow_all);
+}
+
+// Verify allowed paths can be file paths (not just directories)
+#[test]
+fn scope_allow_specific_file_path() {
+    let temp = tempdir().unwrap();
+    let file = temp.path().join("allowed_file.txt");
+    std::fs::write(&file, b"content").unwrap();
+
+    let scope = PathScope::new().allow(temp.path());
+    assert!(scope.is_allowed(&file).is_ok());
+}
+
+// Sibling directory is not allowed when only one is allowed
+#[test]
+fn scope_sibling_dir_not_allowed() {
+    let parent = tempdir().unwrap();
+    let allowed_dir = parent.path().join("allowed");
+    let sibling_dir = parent.path().join("sibling");
+    std::fs::create_dir_all(&allowed_dir).unwrap();
+    std::fs::create_dir_all(&sibling_dir).unwrap();
+
+    let scope = PathScope::new().allow(&allowed_dir);
+    assert!(scope.is_allowed(&allowed_dir).is_ok());
+    assert!(scope.is_allowed(&sibling_dir).is_err());
+}
+
 
 mod shell_scope {
     use auroraview_plugins::ShellScope;

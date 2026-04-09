@@ -390,3 +390,184 @@ async fn action_names_contains_type() {
     assert!(has_tool, "Expected at least one tool in: {:?}", names);
 }
 
+// ============================================================================
+// Additional AIConfig coverage
+// ============================================================================
+
+#[test]
+fn config_for_model_preserves_model_name() {
+    let models = ["gpt-4", "claude-3-opus", "custom-model-v2", "ollama-local"];
+    for model in &models {
+        let config = AIConfig::for_model(*model);
+        assert_eq!(config.model, *model);
+    }
+}
+
+#[test]
+fn config_ollama_preserves_model_name() {
+    let names = ["llama3", "mistral", "phi3", "codellama"];
+    for name in &names {
+        let config = AIConfig::ollama(*name);
+        assert_eq!(config.model, *name);
+    }
+}
+
+#[test]
+fn config_temperature_boundary_values() {
+    // 0.0 and 2.0 should be accepted as-is
+    let c1 = AIConfig::openai().with_temperature(0.0);
+    assert_eq!(c1.temperature, 0.0);
+    let c2 = AIConfig::openai().with_temperature(2.0);
+    assert_eq!(c2.temperature, 2.0);
+}
+
+#[test]
+fn config_max_tokens_extremes() {
+    let c1 = AIConfig::openai().with_max_tokens(1);
+    assert_eq!(c1.max_tokens, 1);
+    let c2 = AIConfig::openai().with_max_tokens(u32::MAX);
+    assert_eq!(c2.max_tokens, u32::MAX);
+}
+
+#[test]
+fn config_system_prompt_overwrite() {
+    let config = AIConfig::openai()
+        .with_system_prompt("first prompt")
+        .with_system_prompt("second prompt");
+    assert_eq!(config.system_prompt, Some("second prompt".to_string()));
+}
+
+#[test]
+fn config_streaming_toggle() {
+    let c1 = AIConfig::openai().with_streaming(true).with_streaming(false);
+    assert!(!c1.stream);
+    let c2 = AIConfig::openai().with_streaming(false).with_streaming(true);
+    assert!(c2.stream);
+}
+
+#[rstest]
+#[case(AIConfig::openai())]
+#[case(AIConfig::anthropic())]
+#[case(AIConfig::gemini())]
+#[case(AIConfig::deepseek())]
+fn all_provider_configs_have_non_empty_model(#[case] config: AIConfig) {
+    assert!(!config.model.is_empty());
+}
+
+#[rstest]
+#[case(AIConfig::openai())]
+#[case(AIConfig::anthropic())]
+#[case(AIConfig::gemini())]
+#[case(AIConfig::deepseek())]
+fn all_provider_configs_default_temperature(#[case] config: AIConfig) {
+    // All configs should have a reasonable default temperature (0.0 - 2.0)
+    assert!(config.temperature >= 0.0);
+    assert!(config.temperature <= 2.0);
+}
+
+// ============================================================================
+// AIAgent — config accessor
+// ============================================================================
+
+#[test]
+fn agent_config_accessor_returns_same_config() {
+    let config = AIConfig::anthropic()
+        .with_temperature(0.8)
+        .with_max_tokens(1024);
+    let agent = AIAgent::new(config.clone());
+    assert_eq!(agent.config().model, config.model);
+    assert_eq!(agent.config().temperature, config.temperature);
+    assert_eq!(agent.config().max_tokens, config.max_tokens);
+}
+
+// ============================================================================
+// ProviderType — all variants are distinct
+// ============================================================================
+
+#[test]
+fn provider_types_all_distinct() {
+    let variants = [
+        ProviderType::OpenAI,
+        ProviderType::Anthropic,
+        ProviderType::Gemini,
+        ProviderType::DeepSeek,
+    ];
+    for i in 0..variants.len() {
+        for j in 0..variants.len() {
+            if i == j {
+                assert_eq!(variants[i], variants[j]);
+            } else {
+                assert_ne!(variants[i], variants[j]);
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Session — id is unique per session
+// ============================================================================
+
+#[tokio::test]
+async fn sessions_have_unique_ids() {
+    let config = AIConfig::openai();
+    let agent = AIAgent::new(config);
+    let s1 = agent.new_session().await;
+    let s2 = agent.new_session().await;
+    // Two sessions should have different IDs
+    assert_ne!(s1.id, s2.id);
+}
+
+#[tokio::test]
+async fn new_session_title_is_new_chat() {
+    let config = AIConfig::openai();
+    let agent = AIAgent::new(config);
+    let session = agent.new_session().await;
+    assert_eq!(session.title, "New Chat");
+}
+
+#[tokio::test]
+async fn new_session_without_system_prompt_is_none() {
+    let config = AIConfig::openai(); // no system prompt
+    let agent = AIAgent::new(config);
+    let session = agent.new_session().await;
+    assert!(session.system_prompt.is_none());
+}
+
+#[tokio::test]
+async fn new_session_with_system_prompt_is_set() {
+    let config = AIConfig::openai().with_system_prompt("You are helpful");
+    let agent = AIAgent::new(config);
+    let session = agent.new_session().await;
+    assert_eq!(session.system_prompt, Some("You are helpful".to_string()));
+}
+
+// ============================================================================
+// concurrent agent usage
+// ============================================================================
+
+#[tokio::test]
+async fn concurrent_sessions() {
+    use std::sync::Arc;
+    let agent = Arc::new(AIAgent::new(AIConfig::openai()));
+
+    let mut handles = Vec::new();
+    for _ in 0..4 {
+        let a = Arc::clone(&agent);
+        handles.push(tokio::spawn(async move {
+            a.new_session().await
+        }));
+    }
+
+    let sessions: Vec<_> = futures::future::join_all(handles)
+        .await
+        .into_iter()
+        .map(|r| r.unwrap())
+        .collect();
+
+    // Each session should have empty messages
+    for s in &sessions {
+        assert!(s.messages.is_empty());
+    }
+}
+
+

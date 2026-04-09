@@ -418,3 +418,172 @@ fn arc_plugin_error_shared() {
         h.join().unwrap();
     }
 }
+
+// =============================================================================
+// Additional PluginCommand coverage
+// =============================================================================
+
+#[test]
+fn plugin_command_name_is_stable_across_clones() {
+    let cmd = PluginCommand::new("stable", "Stable command");
+    for _ in 0..5 {
+        let c = cmd.clone();
+        assert_eq!(c.name, "stable");
+    }
+}
+
+#[test]
+fn plugin_command_with_required_single() {
+    let cmd = PluginCommand::new("single", "Single arg").with_required(&["only_arg"]);
+    assert_eq!(cmd.required_args.len(), 1);
+    assert_eq!(cmd.required_args[0], "only_arg");
+}
+
+#[test]
+fn plugin_command_with_optional_single() {
+    let cmd = PluginCommand::new("optional", "Optional arg").with_optional(&["opt"]);
+    assert_eq!(cmd.optional_args.len(), 1);
+    assert_eq!(cmd.optional_args[0], "opt");
+}
+
+#[test]
+fn plugin_command_description_preserved() {
+    let desc = "A very detailed description of the command functionality.";
+    let cmd = PluginCommand::new("cmd", desc);
+    assert_eq!(cmd.description, desc);
+}
+
+#[rstest]
+#[case("read_file")]
+#[case("write_file")]
+#[case("create_dir")]
+#[case("remove")]
+#[case("stat")]
+fn plugin_command_name_roundtrip(#[case] name: &str) {
+    let cmd = PluginCommand::new(name, "desc");
+    assert_eq!(cmd.name, name);
+    let json = serde_json::to_string(&cmd).unwrap();
+    let restored: PluginCommand = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.name, name);
+}
+
+// =============================================================================
+// Additional PluginErrorCode coverage
+// =============================================================================
+
+#[test]
+fn error_code_all_as_str_non_empty() {
+    let codes = [
+        PluginErrorCode::PluginNotFound,
+        PluginErrorCode::CommandNotFound,
+        PluginErrorCode::InvalidArgs,
+        PluginErrorCode::PermissionDenied,
+        PluginErrorCode::ScopeViolation,
+        PluginErrorCode::FileNotFound,
+        PluginErrorCode::IoError,
+        PluginErrorCode::EncodingError,
+        PluginErrorCode::ClipboardError,
+        PluginErrorCode::ShellError,
+        PluginErrorCode::DialogCancelled,
+        PluginErrorCode::Unknown,
+    ];
+    for code in &codes {
+        assert!(!code.as_str().is_empty(), "as_str should not be empty for {:?}", code);
+    }
+}
+
+#[test]
+fn error_code_copy_semantics() {
+    let code = PluginErrorCode::InvalidArgs;
+    let copy1 = code;
+    let copy2 = code;
+    assert_eq!(copy1, copy2);
+    assert_eq!(code, copy1);
+}
+
+// =============================================================================
+// Additional PluginError coverage
+// =============================================================================
+
+#[test]
+fn plugin_error_code_method_returns_str_form() {
+    let err = PluginError::new(PluginErrorCode::ScopeViolation, "Access denied");
+    assert_eq!(err.code(), "SCOPE_VIOLATION");
+}
+
+#[test]
+fn plugin_error_message_method_returns_message() {
+    let err = PluginError::new(PluginErrorCode::Unknown, "mysterious failure");
+    assert_eq!(err.message(), "mysterious failure");
+}
+
+#[rstest]
+#[case("path1")]
+#[case("/etc/passwd")]
+#[case("C:\\Windows\\System32")]
+#[case("../relative/path")]
+fn scope_violation_contains_path(#[case] path: &str) {
+    let err = PluginError::scope_violation(path);
+    assert!(err.message().contains(path));
+    assert_eq!(err.error_code(), PluginErrorCode::ScopeViolation);
+}
+
+#[rstest]
+#[case("/missing/file.txt")]
+#[case("no_such_file")]
+#[case("../parent/file.dat")]
+fn file_not_found_contains_path(#[case] path: &str) {
+    let err = PluginError::file_not_found(path);
+    assert!(err.message().contains(path));
+    assert_eq!(err.error_code(), PluginErrorCode::FileNotFound);
+}
+
+// =============================================================================
+// Additional PluginRequest coverage
+// =============================================================================
+
+#[test]
+fn plugin_request_args_null() {
+    let req = PluginRequest {
+        plugin: "fs".to_string(),
+        command: "exists".to_string(),
+        args: serde_json::Value::Null,
+        id: None,
+    };
+    assert_eq!(req.args, serde_json::Value::Null);
+}
+
+#[test]
+fn plugin_request_args_array() {
+    let req = PluginRequest {
+        plugin: "shell".to_string(),
+        command: "open".to_string(),
+        args: serde_json::json!(["https://example.com"]),
+        id: None,
+    };
+    assert!(req.args.is_array());
+}
+
+#[test]
+fn plugin_response_ok_data_value() {
+    let resp = PluginResponse::ok(serde_json::json!({"key": "value", "num": 42}));
+    let data = resp.data.unwrap();
+    assert_eq!(data["key"], "value");
+    assert_eq!(data["num"], 42);
+}
+
+#[test]
+fn plugin_response_err_no_data() {
+    let resp = PluginResponse::err("error message", "ERROR_CODE");
+    assert!(resp.data.is_none());
+    assert!(!resp.success);
+}
+
+#[test]
+fn plugin_response_id_roundtrip() {
+    let resp = PluginResponse::ok(serde_json::json!(null)).with_id(Some("test-id".to_string()));
+    let json = serde_json::to_string(&resp).unwrap();
+    let restored: PluginResponse = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.id, Some("test-id".to_string()));
+}
+
