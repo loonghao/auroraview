@@ -426,3 +426,409 @@ fn test_ipc_router_overwrite_handler() {
     let resp2: IpcResponse = serde_json::from_str(&r2).unwrap();
     assert_eq!(resp2.result.unwrap(), json!("v2"));
 }
+
+// ============================================================================
+// Invoke extended scenarios
+// ============================================================================
+
+#[test]
+fn test_ipc_router_invoke_empty_args() {
+    let router = IpcRouter::new();
+    router.register("plugin:noop", |_| json!({"done": true}));
+
+    let message = json!({
+        "type": "invoke",
+        "id": "inv_empty",
+        "cmd": "plugin:noop",
+        "args": {}
+    });
+
+    let raw = router.handle(&message.to_string()).unwrap();
+    let resp: IpcResponse = serde_json::from_str(&raw).unwrap();
+    assert!(resp.ok);
+    assert_eq!(resp.result.unwrap()["done"], true);
+}
+
+#[test]
+fn test_ipc_router_invoke_missing_id_returns_none() {
+    let router = IpcRouter::new();
+    router.register("plugin:cmd", |_| json!(null));
+
+    let message = json!({
+        "type": "invoke",
+        "cmd": "plugin:cmd",
+        "args": {}
+        // no "id"
+    });
+
+    let result = router.handle(&message.to_string());
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_ipc_router_invoke_missing_cmd_returns_none() {
+    let router = IpcRouter::new();
+
+    let message = json!({
+        "type": "invoke",
+        "id": "inv_x"
+        // no "cmd"
+    });
+
+    let result = router.handle(&message.to_string());
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_ipc_router_invoke_complex_return() {
+    let router = IpcRouter::new();
+    router.register("scene:info", |_| {
+        json!({
+            "scene": "production",
+            "objects": [{"name": "mesh1"}, {"name": "camera1"}],
+            "frame_range": [1, 240]
+        })
+    });
+
+    let msg = json!({"type":"invoke","id":"sc1","cmd":"scene:info","args":{}});
+    let raw = router.handle(&msg.to_string()).unwrap();
+    let resp: IpcResponse = serde_json::from_str(&raw).unwrap();
+    assert!(resp.ok);
+    let result = resp.result.unwrap();
+    assert_eq!(result["scene"], "production");
+    assert_eq!(result["objects"].as_array().unwrap().len(), 2);
+}
+
+// ============================================================================
+// DCC-specific workflow scenarios (Desktop context)
+// ============================================================================
+
+#[test]
+fn test_ipc_desktop_export_workflow() {
+    use std::sync::{Arc, Mutex};
+
+    let router = IpcRouter::new();
+    let log: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![]));
+
+    let log_start = log.clone();
+    router.register("export.start", move |params| {
+        let path = params["path"].as_str().unwrap_or("").to_string();
+        log_start.lock().unwrap().push(format!("start:{}", path));
+        json!({"status": "started"})
+    });
+
+    let log_finish = log.clone();
+    router.register("export.finish", move |_| {
+        log_finish.lock().unwrap().push("finish".to_string());
+        json!({"status": "done"})
+    });
+
+    // 1. Start export
+    let start_msg = json!({"type":"call","id":"e1","method":"export.start","params":{"path":"/tmp/out.fbx"}});
+    let r1 = router.handle(&start_msg.to_string()).unwrap();
+    let resp1: IpcResponse = serde_json::from_str(&r1).unwrap();
+    assert_eq!(resp1.result.unwrap()["status"], "started");
+
+    // 2. Finish export
+    let finish_msg = json!({"type":"call","id":"e2","method":"export.finish","params":{}});
+    let r2 = router.handle(&finish_msg.to_string()).unwrap();
+    let resp2: IpcResponse = serde_json::from_str(&r2).unwrap();
+    assert_eq!(resp2.result.unwrap()["status"], "done");
+
+    let entries = log.lock().unwrap();
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0], "start:/tmp/out.fbx");
+    assert_eq!(entries[1], "finish");
+}
+
+#[test]
+fn test_ipc_desktop_scene_state_machine() {
+    use std::sync::{Arc, Mutex};
+
+    let router = IpcRouter::new();
+    let state: Arc<Mutex<String>> = Arc::new(Mutex::new("idle".to_string()));
+
+    let s = state.clone();
+    router.register("scene.load", move |params| {
+        let name = params["name"].as_str().unwrap_or("unknown").to_string();
+        *s.lock().unwrap() = format!("loaded:{}", name);
+        json!({"loaded": name})
+    });
+
+    let s = state.clone();
+    router.register("scene.close", move |_| {
+        *s.lock().unwrap() = "idle".to_string();
+        json!({"closed": true})
+    });
+
+    let s = state.clone();
+    router.register("scene.status", move |_| {
+        let current = s.lock().unwrap().clone();
+        json!({"state": current})
+    });
+
+    // Load
+    let load_msg = json!({"type":"call","id":"s1","method":"scene.load","params":{"name":"hero_rig"}});
+    router.handle(&load_msg.to_string()).unwrap();
+
+    // Check status
+    let status_msg = json!({"type":"call","id":"s2","method":"scene.status","params":{}});
+    let raw = router.handle(&status_msg.to_string()).unwrap();
+    let resp: IpcResponse = serde_json::from_str(&raw).unwrap();
+    assert_eq!(resp.result.unwrap()["state"], "loaded:hero_rig");
+
+    // Close
+    let close_msg = json!({"type":"call","id":"s3","method":"scene.close","params":{}});
+    router.handle(&close_msg.to_string()).unwrap();
+    let raw = router.handle(&status_msg.to_string()).unwrap();
+    let resp: IpcResponse = serde_json::from_str(&raw).unwrap();
+    assert_eq!(resp.result.unwrap()["state"], "idle");
+}
+
+// ============================================================================
+// IpcMessage edge cases
+// ============================================================================
+
+#[test]
+fn test_ipc_message_all_fields() {
+    let json_str = r#"{"type":"invoke","id":"x1","method":"api.test","cmd":"fs:read","params":{"a":1},"args":{"b":2},"event":"ready","detail":{"c":3}}"#;
+    let msg: IpcMessage = serde_json::from_str(json_str).unwrap();
+
+    assert_eq!(msg.msg_type, "invoke");
+    assert_eq!(msg.id.as_deref(), Some("x1"));
+    assert_eq!(msg.method.as_deref(), Some("api.test"));
+    assert_eq!(msg.cmd.as_deref(), Some("fs:read"));
+    assert!(msg.params.is_some());
+    assert!(msg.args.is_some());
+    assert_eq!(msg.event.as_deref(), Some("ready"));
+    assert!(msg.detail.is_some());
+}
+
+#[test]
+fn test_ipc_message_event_type() {
+    let json_str = r#"{"type":"event","event":"ui.ready","detail":{"version":"1.0"}}"#;
+    let msg: IpcMessage = serde_json::from_str(json_str).unwrap();
+
+    assert_eq!(msg.msg_type, "event");
+    assert_eq!(msg.event.as_deref(), Some("ui.ready"));
+    assert!(msg.detail.is_some());
+    assert_eq!(msg.detail.unwrap()["version"], "1.0");
+}
+
+#[test]
+fn test_ipc_message_serde_roundtrip() {
+    let original = IpcMessage {
+        msg_type: "call".to_string(),
+        event: None,
+        method: Some("api.echo".to_string()),
+        cmd: None,
+        params: Some(json!({"x": 42})),
+        args: None,
+        id: Some("roundtrip_id".to_string()),
+        detail: None,
+    };
+
+    let json_str = serde_json::to_string(&original).unwrap();
+    let restored: IpcMessage = serde_json::from_str(&json_str).unwrap();
+
+    assert_eq!(restored.msg_type, "call");
+    assert_eq!(restored.method.as_deref(), Some("api.echo"));
+    assert_eq!(restored.id.as_deref(), Some("roundtrip_id"));
+    assert_eq!(restored.params.unwrap()["x"], 42);
+}
+
+// ============================================================================
+// IpcResponse edge cases
+// ============================================================================
+
+#[test]
+fn test_ipc_response_ok_with_array_result() {
+    let resp = IpcResponse::ok("arr1".to_string(), json!([1, 2, 3]));
+    assert!(resp.ok);
+    let result = resp.result.unwrap();
+    let arr = result.as_array().unwrap();
+    assert_eq!(arr.len(), 3);
+    assert_eq!(arr[0], 1);
+}
+
+#[test]
+fn test_ipc_response_ok_with_bool_result() {
+    let resp = IpcResponse::ok("bool1".to_string(), json!(true));
+    assert!(resp.ok);
+    assert_eq!(resp.result.unwrap(), json!(true));
+}
+
+#[test]
+fn test_ipc_response_ok_with_number_result() {
+    let resp = IpcResponse::ok("num1".to_string(), json!(3.14));
+    assert!(resp.ok);
+    let val = resp.result.unwrap();
+    assert!((val.as_f64().unwrap() - 3.14).abs() < 0.001);
+}
+
+#[test]
+fn test_ipc_response_err_empty_message() {
+    let resp = IpcResponse::err("e1".to_string(), "Empty", "");
+    assert!(!resp.ok);
+    let err = resp.error.unwrap();
+    assert_eq!(err.name, "Empty");
+    assert!(err.message.is_empty());
+}
+
+#[test]
+fn test_ipc_response_err_serde_roundtrip() {
+    let original = IpcResponse::err("e2".to_string(), "TypeError", "bad type");
+    let json_str = serde_json::to_string(&original).unwrap();
+    let restored: IpcResponse = serde_json::from_str(&json_str).unwrap();
+
+    assert!(!restored.ok);
+    assert_eq!(restored.id, "e2");
+    let err = restored.error.unwrap();
+    assert_eq!(err.name, "TypeError");
+    assert_eq!(err.message, "bad type");
+}
+
+// ============================================================================
+// Concurrent stress test
+// ============================================================================
+
+#[test]
+fn test_ipc_router_high_concurrency_calls() {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
+    use std::thread;
+
+    let router = Arc::new(IpcRouter::new());
+    let call_count = Arc::new(AtomicU64::new(0));
+
+    // Register a single handler
+    let cnt = call_count.clone();
+    router.register("stress.add", move |params| {
+        let n = params["n"].as_u64().unwrap_or(0);
+        cnt.fetch_add(n, Ordering::Relaxed);
+        json!({"ok": true})
+    });
+
+    let handles: Vec<_> = (0..20)
+        .map(|i| {
+            let r = router.clone();
+            thread::spawn(move || {
+                for _ in 0..5 {
+                    let msg = json!({
+                        "type": "call",
+                        "id": format!("s{}_{}", i, 0),
+                        "method": "stress.add",
+                        "params": {"n": 1}
+                    });
+                    r.handle(&msg.to_string()).unwrap();
+                }
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    // 20 threads x 5 calls x n=1 = 100
+    assert_eq!(call_count.load(Ordering::Relaxed), 100);
+}
+
+#[test]
+fn test_ipc_router_concurrent_event_fire() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::thread;
+
+    let router = Arc::new(IpcRouter::new());
+    let fired = Arc::new(AtomicUsize::new(0));
+
+    for _ in 0..4 {
+        let f = fired.clone();
+        router.on("desktop.tick", move |_| {
+            f.fetch_add(1, Ordering::SeqCst);
+        });
+    }
+
+    let handles: Vec<_> = (0..5)
+        .map(|_| {
+            let r = router.clone();
+            thread::spawn(move || {
+                let msg = json!({"type":"event","event":"desktop.tick","detail":null});
+                r.handle(&msg.to_string());
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    // 4 listeners x 5 invocations = 20
+    assert_eq!(fired.load(Ordering::SeqCst), 20);
+}
+
+// ============================================================================
+// Handler returning error payload
+// ============================================================================
+
+#[test]
+fn test_ipc_handler_returns_error_json() {
+    let router = IpcRouter::new();
+    router.register("api.failing", |_| {
+        // Handler returns a result with error field (app-level, not protocol-level)
+        json!({"error": "resource not found", "code": 404})
+    });
+
+    let msg = json!({"type":"call","id":"f1","method":"api.failing","params":{}});
+    let raw = router.handle(&msg.to_string()).unwrap();
+    let resp: IpcResponse = serde_json::from_str(&raw).unwrap();
+
+    // Protocol-level: ok = true (handler ran successfully)
+    assert!(resp.ok);
+    let result = resp.result.unwrap();
+    assert_eq!(result["code"], 404);
+    assert_eq!(result["error"], "resource not found");
+}
+
+// ============================================================================
+// Call ID uniqueness and echo
+// ============================================================================
+
+#[test]
+fn test_ipc_router_response_id_echoes_request() {
+    let router = IpcRouter::new();
+    router.register("id.echo", |p| p);
+
+    for id_val in &["id-001", "uuid-xxxxxxxx-yyyyyy", "1234567890", "🎯"] {
+        let msg = json!({"type":"call","id": id_val,"method":"id.echo","params":{}});
+        let raw = router.handle(&msg.to_string()).unwrap();
+        let resp: IpcResponse = serde_json::from_str(&raw).unwrap();
+        assert_eq!(&resp.id, id_val, "response id should match request id");
+    }
+}
+
+// ============================================================================
+// Unregister then re-register
+// ============================================================================
+
+#[test]
+fn test_ipc_router_unregister_then_reregister() {
+    let router = IpcRouter::new();
+    router.register("temp.method", |_| json!({"version": 1}));
+    router.unregister("temp.method");
+
+    // After unregister, call returns error
+    let msg1 = json!({"type":"call","id":"u1","method":"temp.method","params":{}});
+    let r1 = router.handle(&msg1.to_string()).unwrap();
+    let resp1: IpcResponse = serde_json::from_str(&r1).unwrap();
+    assert!(!resp1.ok);
+
+    // Re-register
+    router.register("temp.method", |_| json!({"version": 2}));
+    let msg2 = json!({"type":"call","id":"u2","method":"temp.method","params":{}});
+    let r2 = router.handle(&msg2.to_string()).unwrap();
+    let resp2: IpcResponse = serde_json::from_str(&r2).unwrap();
+    assert!(resp2.ok);
+    assert_eq!(resp2.result.unwrap()["version"], 2);
+}
