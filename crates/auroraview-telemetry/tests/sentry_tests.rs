@@ -447,3 +447,117 @@ fn test_sentry_config_serde_preserves_null_fields() {
     assert_eq!(restored.sentry_dsn, None);
     assert_eq!(restored.sentry_environment, None);
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn test_sentry_capture_with_null_byte_like_chars() {
+    // Strings with unusual chars should not panic
+    let _r = Telemetry::capture_sentry_message("msg\x00with null-ish", "error");
+}
+
+#[test]
+fn test_sentry_config_sample_rate_near_boundary() {
+    // Near-zero and near-one sample rates
+    for rate in &[0.001_f32, 0.999_f32, 0.5_f32] {
+        let config = TelemetryConfig {
+            sentry_sample_rate: *rate,
+            ..TelemetryConfig::default()
+        };
+        assert!(config.sentry_sample_rate >= 0.0);
+        assert!(config.sentry_sample_rate <= 1.0);
+    }
+}
+
+#[test]
+fn test_sentry_capture_multiple_levels_sequential() {
+    // Sequential calls with different levels should all be safe
+    let levels = ["trace", "debug", "info", "warning", "warn", "error", "fatal", "critical", ""];
+    for level in &levels {
+        let _r = Telemetry::capture_sentry_message("sequential-test", level);
+    }
+}
+
+#[test]
+fn test_sentry_config_all_fields_set() {
+    let config = TelemetryConfig {
+        sentry_dsn: Some("https://k@sentry.io/1".to_string()),
+        sentry_environment: Some("dev".to_string()),
+        sentry_release: Some("0.0.1".to_string()),
+        sentry_sample_rate: 0.8,
+        sentry_traces_sample_rate: 0.4,
+        ..TelemetryConfig::default()
+    };
+    assert!(config.sentry_dsn.is_some());
+    assert!(config.sentry_environment.is_some());
+    assert!(config.sentry_release.is_some());
+    assert!((config.sentry_sample_rate - 0.8).abs() < f32::EPSILON);
+    assert!((config.sentry_traces_sample_rate - 0.4).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_sentry_config_serde_roundtrip_partial_fields() {
+    // Only dsn set; other optional fields remain None after roundtrip
+    let config = TelemetryConfig {
+        sentry_dsn: Some("https://partial@sentry.io/5".to_string()),
+        ..TelemetryConfig::default()
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: TelemetryConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.sentry_dsn.as_deref(), Some("https://partial@sentry.io/5"));
+    assert!(restored.sentry_environment.is_none());
+    assert!(restored.sentry_release.is_none());
+}
+
+#[test]
+fn test_sentry_config_dsn_empty_string() {
+    // An empty string DSN is technically set but empty
+    let config = TelemetryConfig {
+        sentry_dsn: Some(String::new()),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.sentry_dsn.as_deref(), Some(""));
+}
+
+#[test]
+fn test_sentry_capture_returns_same_type_as_bool() {
+    let r: bool = Telemetry::capture_sentry_message("typed", "info");
+    // Both true and false are valid; just ensure it compiles as bool
+    let _ = r;
+}
+
+#[test]
+fn test_sentry_config_traces_rate_full() {
+    let config = TelemetryConfig {
+        sentry_traces_sample_rate: 1.0,
+        ..TelemetryConfig::default()
+    };
+    assert!((config.sentry_traces_sample_rate - 1.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_sentry_config_environment_long_string() {
+    let long_env = "a".repeat(256);
+    let config = TelemetryConfig {
+        sentry_environment: Some(long_env.clone()),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.sentry_environment.as_deref(), Some(long_env.as_str()));
+}
+
+#[test]
+fn test_sentry_config_release_with_build_metadata() {
+    for release in &[
+        "auroraview@1.0.0+build.123",
+        "1.2.3-alpha.1+exp.sha.5114f85",
+        "v0.1.0-rc.1",
+    ] {
+        let config = TelemetryConfig {
+            sentry_release: Some(release.to_string()),
+            ..TelemetryConfig::default()
+        };
+        assert_eq!(config.sentry_release.as_deref(), Some(*release));
+    }
+}

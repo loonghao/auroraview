@@ -233,3 +233,87 @@ fn test_normalize_url_unicode_path() {
     let _ = result;
 }
 
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn test_icon_png_bytes_second_byte_is_png_magic() {
+    // Second byte sequence 'P','N','G' confirms PNG type
+    assert_eq!(ICON_PNG_BYTES[1], b'P');
+    assert_eq!(ICON_PNG_BYTES[2], b'N');
+    assert_eq!(ICON_PNG_BYTES[3], b'G');
+}
+
+#[test]
+fn test_icon_png_bytes_contains_iend_chunk() {
+    // All valid PNGs end with IEND marker
+    let marker = b"IEND";
+    let found = ICON_PNG_BYTES.windows(4).any(|w| w == marker);
+    assert!(found, "PNG should contain IEND chunk");
+}
+
+#[test]
+fn test_load_window_icon_from_bytes_partial_png_header() {
+    // Only the first 4 bytes should return None (incomplete)
+    let partial = &ICON_PNG_BYTES[..4];
+    let icon = load_window_icon_from_bytes(partial);
+    assert!(icon.is_none());
+}
+
+#[test]
+fn test_normalize_url_with_auth() {
+    // URLs with user info may or may not be supported; should not panic
+    let result = normalize_url("https://user:pass@example.com/path");
+    let _ = result;
+}
+
+#[test]
+fn test_normalize_url_ipv4() {
+    let result = normalize_url("192.168.1.100:8080");
+    // Should not panic
+    let _ = result;
+}
+
+#[rstest]
+#[case("https://maya-tool.example.com/ui")]
+#[case("https://houdini.example.com:8080/panel")]
+#[case("http://localhost:7890/mcp")]
+fn test_normalize_url_dcc_tool_urls(#[case] url: &str) {
+    let result = normalize_url(url);
+    assert!(result.is_ok(), "Expected Ok for dcc url={}, got {:?}", url, result);
+    let normalized = result.unwrap();
+    assert!(!normalized.is_empty());
+}
+
+#[test]
+fn test_normalize_url_with_multiple_query_params() {
+    let result = normalize_url("example.com/search?a=1&b=2&c=3").unwrap();
+    assert!(result.contains("a=1"));
+    assert!(result.contains("b=2"));
+    assert!(result.contains("c=3"));
+}
+
+#[test]
+fn test_normalize_url_path_with_encoded_chars() {
+    // Percent-encoded paths should not panic
+    let result = normalize_url("example.com/path%20with%20spaces");
+    let _ = result;
+}
+
+#[test]
+fn test_load_window_icon_consistent_calls() {
+    // Multiple calls should produce consistent results
+    for _ in 0..5 {
+        let icon = load_window_icon();
+        assert!(icon.is_some());
+    }
+}
+
+#[test]
+fn test_normalize_url_file_scheme() {
+    // File scheme should pass through or fail gracefully
+    let result = normalize_url("file:///path/to/index.html");
+    let _ = result;
+}
+

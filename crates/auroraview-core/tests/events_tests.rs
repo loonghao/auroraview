@@ -465,3 +465,198 @@ fn create_child_window_url_with_query_params() {
         assert_eq!(u, url);
     }
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn core_event_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<CoreUserEvent>();
+    assert_sync::<CoreUserEvent>();
+}
+
+#[test]
+fn extended_event_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<ExtendedUserEvent>();
+    assert_sync::<ExtendedUserEvent>();
+}
+
+#[test]
+fn core_plugin_event_large_data() {
+    let large_data = "{\"key\":\"".to_string() + &"v".repeat(8192) + "\"}";
+    let ev = CoreUserEvent::PluginEvent {
+        event: "large.event".to_string(),
+        data: large_data.clone(),
+    };
+    if let CoreUserEvent::PluginEvent { data, .. } = ev {
+        assert_eq!(data.len(), large_data.len());
+    }
+}
+
+#[test]
+fn ext_loading_update_all_none() {
+    let ev = ExtendedUserEvent::LoadingUpdate {
+        progress: None,
+        text: None,
+        step_id: None,
+        step_text: None,
+        step_status: None,
+    };
+    if let ExtendedUserEvent::LoadingUpdate { progress, text, step_id, step_text, step_status } = ev {
+        assert!(progress.is_none());
+        assert!(text.is_none());
+        assert!(step_id.is_none());
+        assert!(step_text.is_none());
+        assert!(step_status.is_none());
+    }
+}
+
+#[test]
+fn ext_loading_update_all_some() {
+    let ev = ExtendedUserEvent::LoadingUpdate {
+        progress: Some(75),
+        text: Some("Loading...".to_string()),
+        step_id: Some("step-3".to_string()),
+        step_text: Some("Initializing plugins".to_string()),
+        step_status: Some("running".to_string()),
+    };
+    if let ExtendedUserEvent::LoadingUpdate { progress, text, step_id, .. } = ev {
+        assert_eq!(progress, Some(75));
+        assert_eq!(text.as_deref(), Some("Loading..."));
+        assert_eq!(step_id.as_deref(), Some("step-3"));
+    }
+}
+
+#[test]
+fn ext_show_error_code_variants() {
+    for code in &[400_u16, 401, 403, 404, 500, 503] {
+        let ev = ExtendedUserEvent::ShowError {
+            code: *code,
+            title: format!("Error {}", code),
+            message: "Error message".to_string(),
+            details: None,
+            source: "test".to_string(),
+        };
+        if let ExtendedUserEvent::ShowError { code: c, .. } = ev {
+            assert_eq!(c, *code);
+        }
+    }
+}
+
+#[test]
+fn ext_tray_menu_click_unicode_label() {
+    let ev = ExtendedUserEvent::TrayMenuClick("終了".to_string());
+    if let ExtendedUserEvent::TrayMenuClick(label) = ev {
+        assert_eq!(label, "終了");
+    }
+}
+
+#[test]
+fn ext_python_ready_many_handlers() {
+    let handlers: Vec<String> = (0..100).map(|i| format!("api.method_{i}")).collect();
+    let ev = ExtendedUserEvent::PythonReady { handlers: handlers.clone() };
+    if let ExtendedUserEvent::PythonReady { handlers: h } = ev {
+        assert_eq!(h.len(), 100);
+        assert_eq!(h[0], "api.method_0");
+        assert_eq!(h[99], "api.method_99");
+    }
+}
+
+#[test]
+fn ext_python_response_json_content() {
+    let json = r#"{"ok":true,"result":{"key":"value"}}"#;
+    let ev = ExtendedUserEvent::PythonResponse(json.to_string());
+    if let ExtendedUserEvent::PythonResponse(data) = ev {
+        assert!(data.contains("\"ok\":true"));
+    }
+}
+
+#[test]
+fn ext_set_html_unicode_content() {
+    let html = "<title>日本語ページ</title><body>テスト</body>";
+    let ev = ExtendedUserEvent::SetHtml {
+        html: html.to_string(),
+        title: Some("日本語ページ".to_string()),
+    };
+    if let ExtendedUserEvent::SetHtml { html: h, title } = ev {
+        assert!(h.contains("テスト"));
+        assert_eq!(title.as_deref(), Some("日本語ページ"));
+    }
+}
+
+#[test]
+fn core_all_variants_constructable() {
+    let events = vec![
+        CoreUserEvent::ProcessMessages,
+        CoreUserEvent::CloseWindow,
+        CoreUserEvent::DragWindow,
+        CoreUserEvent::PluginEvent {
+            event: "x".to_string(),
+            data: "y".to_string(),
+        },
+    ];
+    assert_eq!(events.len(), 4);
+    for ev in &events {
+        let _ = format!("{:?}", ev);
+    }
+}
+
+#[test]
+fn ext_backend_error_crash_source() {
+    let ev = ExtendedUserEvent::BackendError {
+        message: "Segfault in backend".to_string(),
+        source: "crash".to_string(),
+    };
+    if let ExtendedUserEvent::BackendError { source, .. } = ev {
+        assert_eq!(source, "crash");
+    }
+}
+
+#[test]
+fn ext_create_child_window_large_dimensions() {
+    let ev = ExtendedUserEvent::CreateChildWindow {
+        url: "https://large.example.com".to_string(),
+        width: 3840,
+        height: 2160,
+    };
+    if let ExtendedUserEvent::CreateChildWindow { width, height, .. } = ev {
+        assert_eq!(width, 3840);
+        assert_eq!(height, 2160);
+    }
+}
+
+#[test]
+fn ext_show_error_with_details() {
+    let ev = ExtendedUserEvent::ShowError {
+        code: 500,
+        title: "Server Error".to_string(),
+        message: "Internal failure".to_string(),
+        details: Some("Traceback:\n  line 42".to_string()),
+        source: "python".to_string(),
+    };
+    if let ExtendedUserEvent::ShowError { details, source, .. } = ev {
+        assert!(details.unwrap().contains("line 42"));
+        assert_eq!(source, "python");
+    }
+}
+
+#[rstest]
+#[case("api.echo")]
+#[case("api.export_scene")]
+#[case("tool.apply")]
+#[case("dcc.maya.run_mel")]
+#[case("dcc.houdini.execute")]
+fn core_plugin_event_common_names(#[case] event_name: &str) {
+    let ev = CoreUserEvent::PluginEvent {
+        event: event_name.to_string(),
+        data: "{}".to_string(),
+    };
+    if let CoreUserEvent::PluginEvent { event, .. } = ev {
+        assert_eq!(event, event_name);
+    }
+}

@@ -490,3 +490,181 @@ fn test_observable_lifecycle_full_sequence_event_count() {
 
     assert_eq!(obs.event_count(), 4);
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn test_atomic_lifecycle_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<AtomicLifecycle>();
+    assert_sync::<AtomicLifecycle>();
+}
+
+#[test]
+fn test_observable_lifecycle_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<ObservableLifecycle>();
+    assert_sync::<ObservableLifecycle>();
+}
+
+#[test]
+fn test_transition_result_already_in_state_not_success() {
+    assert!(!TransitionResult::AlreadyInState.is_success());
+}
+
+#[test]
+fn test_transition_result_debug_format() {
+    let variants = [
+        TransitionResult::Success,
+        TransitionResult::InvalidState,
+        TransitionResult::AlreadyInState,
+    ];
+    for v in &variants {
+        let s = format!("{:?}", v);
+        assert!(!s.is_empty());
+    }
+}
+
+#[test]
+fn test_lifecycle_state_eq() {
+    assert_eq!(LifecycleState::Active, LifecycleState::Active);
+    assert_ne!(LifecycleState::Active, LifecycleState::Destroyed);
+    assert_eq!(LifecycleState::Creating, LifecycleState::Creating);
+}
+
+#[test]
+fn test_lifecycle_state_clone() {
+    let state = LifecycleState::CloseRequested;
+    let cloned = state;
+    assert_eq!(state, cloned);
+}
+
+#[test]
+fn test_atomic_lifecycle_is_closing_states() {
+    // Creating/Active -> is_closing = false
+    let lc = AtomicLifecycle::new();
+    assert!(!lc.is_closing());
+    lc.activate();
+    assert!(!lc.is_closing());
+
+    // CloseRequested -> is_closing = true
+    lc.request_close();
+    assert!(lc.is_closing());
+
+    // Destroying -> is_closing = true
+    lc.begin_destroy();
+    assert!(lc.is_closing());
+
+    // Destroyed -> is_closing = true
+    lc.finish_destroy();
+    assert!(lc.is_closing());
+}
+
+#[test]
+fn test_atomic_lifecycle_is_active_states() {
+    let lc = AtomicLifecycle::new();
+    assert!(!lc.is_active());
+
+    lc.activate();
+    assert!(lc.is_active());
+
+    lc.request_close();
+    assert!(!lc.is_active());
+}
+
+#[test]
+fn test_atomic_lifecycle_if_active_closure_called_once() {
+    let lc = AtomicLifecycle::new_active();
+    let mut count = 0;
+    let result = lc.if_active(|| { count += 1; count });
+    assert_eq!(result, Some(1));
+    assert_eq!(count, 1);
+}
+
+#[test]
+fn test_atomic_lifecycle_if_not_closing_closure_called_once() {
+    let lc = AtomicLifecycle::new();
+    let mut called = 0;
+    let result = lc.if_not_closing(|| { called += 1; called });
+    assert_eq!(result, Some(1));
+    assert_eq!(called, 1);
+}
+
+#[test]
+fn test_lifecycle_event_all_variants_eq() {
+    assert_eq!(LifecycleEvent::Activated, LifecycleEvent::Activated);
+    assert_ne!(LifecycleEvent::Activated, LifecycleEvent::Destroyed);
+    assert_eq!(LifecycleEvent::CloseRequested, LifecycleEvent::CloseRequested);
+    assert_eq!(LifecycleEvent::DestroyStarted, LifecycleEvent::DestroyStarted);
+    assert_eq!(LifecycleEvent::Destroyed, LifecycleEvent::Destroyed);
+}
+
+#[test]
+fn test_observable_lifecycle_no_observers_no_panic() {
+    // No observer registered; all transitions should still work
+    let lc = ObservableLifecycle::new();
+    assert!(lc.activate().is_success());
+    assert!(lc.request_close().is_success());
+    assert!(lc.begin_destroy().is_success());
+    assert!(lc.finish_destroy().is_success());
+    assert_eq!(lc.state(), LifecycleState::Destroyed);
+}
+
+#[test]
+fn test_observable_lifecycle_full_destroy_sequence_notifies_destroyed() {
+    let lc = ObservableLifecycle::new();
+    let obs = CountObserver::new();
+    lc.add_observer(obs.clone());
+
+    lc.activate();
+    lc.request_close();
+    lc.begin_destroy();
+    lc.finish_destroy();
+    // Last event should be Destroyed
+    assert_eq!(*obs.last_event.lock(), Some(LifecycleEvent::Destroyed));
+    assert_eq!(lc.state(), LifecycleState::Destroyed);
+}
+
+#[test]
+fn test_concurrent_lifecycle_no_data_race() {
+    use std::thread;
+
+    let lc = Arc::new(ObservableLifecycle::new());
+    // Concurrently activate and query state
+    let handles: Vec<_> = (0..16)
+        .map(|_| {
+            let lc = Arc::clone(&lc);
+            thread::spawn(move || {
+                let _ = lc.is_active();
+                let _ = lc.is_closing();
+                let _ = lc.state();
+            })
+        })
+        .collect();
+
+    // Activate on main thread
+    let _ = lc.activate();
+
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}
+
+#[test]
+fn test_lifecycle_state_from_u8_sequential() {
+    // Verify each valid u8 maps to expected state
+    let expected = [
+        LifecycleState::Creating,
+        LifecycleState::Active,
+        LifecycleState::CloseRequested,
+        LifecycleState::Destroying,
+        LifecycleState::Destroyed,
+    ];
+    for (i, exp) in expected.iter().enumerate() {
+        assert_eq!(LifecycleState::from(i as u8), *exp);
+    }
+}

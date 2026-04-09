@@ -439,3 +439,171 @@ fn test_wry_backend_user_agent() {
     let ua = backend.http_user_agent();
     assert!(ua.starts_with("AuroraView/"));
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn test_backend_config_with_html_field() {
+    let config = BackendConfig {
+        html: Some("<h1>Hello</h1>".to_string()),
+        ..BackendConfig::default()
+    };
+    assert_eq!(config.html.as_deref(), Some("<h1>Hello</h1>"));
+    assert!(config.url.is_none());
+}
+
+#[test]
+fn test_backend_config_url_and_html_independent() {
+    let config_url = BackendConfig {
+        url: Some("https://example.com".to_string()),
+        ..BackendConfig::default()
+    };
+    let config_html = BackendConfig {
+        html: Some("<p>inline</p>".to_string()),
+        ..BackendConfig::default()
+    };
+    assert!(config_url.url.is_some());
+    assert!(config_url.html.is_none());
+    assert!(config_html.html.is_some());
+    assert!(config_html.url.is_none());
+}
+
+#[test]
+fn test_backend_config_dimensions() {
+    let config = BackendConfig {
+        width: 1920,
+        height: 1080,
+        ..BackendConfig::default()
+    };
+    assert_eq!(config.width, 1920);
+    assert_eq!(config.height, 1080);
+}
+
+#[test]
+fn test_backend_config_title_custom() {
+    let config = BackendConfig {
+        title: "Maya WebView".to_string(),
+        ..BackendConfig::default()
+    };
+    assert_eq!(config.title, "Maya WebView");
+}
+
+#[test]
+fn test_navigation_state_all_variants_debug() {
+    let states = [
+        NavigationState::Started,
+        NavigationState::InProgress,
+        NavigationState::Completed,
+        NavigationState::Failed,
+    ];
+    let names = ["Started", "InProgress", "Completed", "Failed"];
+    for (state, expected) in states.iter().zip(names.iter()) {
+        let debug_str = format!("{:?}", state);
+        assert!(debug_str.contains(expected), "Expected {expected} in {debug_str}");
+    }
+}
+
+#[test]
+fn test_navigation_event_completed_no_error() {
+    let event = NavigationEvent {
+        url: "https://example.com/done".to_string(),
+        state: NavigationState::Completed,
+        error: None,
+    };
+    assert_eq!(event.state, NavigationState::Completed);
+    assert!(event.error.is_none());
+    assert!(event.url.contains("done"));
+}
+
+#[test]
+fn test_navigation_event_in_progress() {
+    let event = NavigationEvent {
+        url: "https://example.com/loading".to_string(),
+        state: NavigationState::InProgress,
+        error: None,
+    };
+    assert_eq!(event.state, NavigationState::InProgress);
+}
+
+#[test]
+fn test_load_progress_zero() {
+    let progress = LoadProgress { percent: 0, is_complete: false };
+    assert_eq!(progress.percent, 0);
+    assert!(!progress.is_complete);
+}
+
+#[test]
+fn test_load_progress_partial() {
+    for pct in [25u8, 50, 75, 99] {
+        let progress = LoadProgress { percent: pct, is_complete: false };
+        assert_eq!(progress.percent, pct);
+        assert!(!progress.is_complete);
+    }
+}
+
+#[test]
+fn test_cookie_info_http_only_flag() {
+    let cookie = CookieInfo {
+        domain: "secure.example.com".to_string(),
+        name: "auth".to_string(),
+        value: "token123".to_string(),
+        path: Some("/".to_string()),
+        expires: None,
+        http_only: true,
+        secure: false,
+    };
+    assert!(cookie.http_only);
+    assert!(!cookie.secure);
+}
+
+#[test]
+fn test_cookie_info_secure_flag() {
+    let cookie = CookieInfo {
+        domain: "example.com".to_string(),
+        name: "id".to_string(),
+        value: "val".to_string(),
+        path: None,
+        expires: None,
+        http_only: false,
+        secure: true,
+    };
+    assert!(!cookie.http_only);
+    assert!(cookie.secure);
+}
+
+#[test]
+fn test_webview_error_unsupported_backend_message() {
+    let err = WebViewError::UnsupportedBackend("fake-engine".to_string());
+    let msg = err.to_string();
+    assert!(msg.contains("fake-engine"));
+}
+
+#[test]
+fn test_webview_error_navigation_message() {
+    let err = WebViewError::Navigation("timeout".to_string());
+    let msg = err.to_string();
+    assert!(msg.contains("timeout"));
+}
+
+#[test]
+fn test_webview_error_js_helper() {
+    let err = WebViewError::javascript("eval failed");
+    assert!(matches!(err, WebViewError::JavaScript(_)));
+    assert!(err.to_string().contains("eval failed"));
+}
+
+#[test]
+fn test_backend_config_clone_independence() {
+    let config = BackendConfig {
+        title: "Original".to_string(),
+        width: 800,
+        height: 600,
+        ..BackendConfig::default()
+    };
+    let mut cloned = config.clone();
+    cloned.title = "Cloned".to_string();
+    assert_eq!(config.title, "Original");
+    assert_eq!(cloned.title, "Cloned");
+}
