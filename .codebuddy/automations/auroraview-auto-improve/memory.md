@@ -1,69 +1,56 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-09 23:28 (UTC+8)
+## Last Execution: 2026-04-10 01:20 (UTC+8)
 
 ### Branch Status
 - Branch: `auto-improve`
-- Remote sync: pushed 9 commits in this session (R9 complete)
-- Workspace clean: Yes (memory.md updated)
+- Remote sync: pushed 6 commits in this session (R10 complete)
+- Workspace clean: Yes
 
-### Completed in This Iteration (Round 9)
+### Completed in This Iteration (Round 10)
 
-**Round 9a: core/config, desktop/config, telemetry/guard, telemetry/config, core/cli** (commit `f2bf667`)
-- core/config_tests: 35 → 45 (+10): Send+Sync, asset_root, clone independence, allow_new_window/file_protocol, full roundtrip, embed_mode serde
-- desktop/config_tests: 35 → 47 (+12): fullscreen, maximized, minimized, context_menu, hotkeys, debug, serde, data_dir/icon none
-- telemetry/guard_tests: 33 → 44 (+11): empty/unicode/long messages, various levels, deterministic state
-- telemetry/config_tests: 33 → 44 (+11): for_testing clone, sentry rates, interval bounds, log_level, service name
-- core/cli_tests: 34 → 44 (+10): auroraview:// preserved, multi-attr tags, integrity, large HTML
+**Round 10a: telemetry/sentry, telemetry/init, core/backend, core/events, core/lifecycle, cli/lib** (commit `c485b76`)
+- sentry_tests: 41 → 51 (+10): capture edge cases, config boundary, serde partial, DSN/env/release formats
+- telemetry_init_tests: 37 → 53 (+16): enable/disable idempotent, otlp endpoint, unicode service name, interval bounds
+- backend_tests: 37 → 58 (+21): html/url fields, dimensions, nav states, cookie flags, error messages, clone independence
+- events_tests: 37 → 52 (+15): Send+Sync, large data, all variants, unicode, common DCC method names
+- lifecycle_tests: 41 → 67 (+26): Send+Sync, is_closing states, if_active/if_not_closing, observable no-panic, concurrent safety
+- cli/lib_tests: 28 → 50 (+22): PNG magic/IEND, localhost/IPv4/DCC URLs, encoded chars, consistent calls
 
-**Round 9b: browser bookmarks, tab, theme** (commit `11b5b93`)
-- bookmarks_tests: 31 → 52 (+21): id unique, position u32, favicon, parent_id, remove target, 100 bookmarks, in_folder root
-- tab_tests: 30 → 50 (+20): Send+Sync, audible, url_update_changes_security, default states, parametrized
-- theme_tests: 29 → 48 (+19): Send+Sync, debug, clone independence, css not empty, light/dark inequality
+**Round 10b: telemetry/span_ext, pack/lib** (commit `0a3d584`)
+- span_ext_tests: 26 → 57 (+31): DCC variants, sequential error overwrite, without-entering, UUID, whitespace, hierarchical ns
+- pack/lib_tests: 18 → 42 (+24): overlay magic bytes, version validation, config chain, scheme variants, compression level range
 
-**Round 9c: browser history, error** (commit `fea16d6`)
-- history_tests: 33 → 53 (+20): Send+Sync, max_entries_enforced, clear_empty, search empty/limit zero, count_with_n
-- error_tests: 32 → 62 (+30): Send+Sync, new instances, debug, contains, io kinds, json error, result semantics, collection
+**Round 10c: telemetry/error, core/window, core/window_style** (commit `1cd718a`)
+- telemetry/error_tests: 30 → 44 (+14): all variants, boxed error, long message, source none, payload checks
+- core/window_tests: 26 → 46 (+20): DCC app variants, clone independence, large HWND, concurrent clone, HWND edge cases
+- core/window_style_tests: 25 → 47 (+22): all bits simultaneous, compose frameless+popup, parametric
 
-**Round 9d: desktop event_loop, tray; dcc error** (commit `a374725`)
-- event_loop_tests: 30 → 55 (+25): DragWindow, all variants constructed, plugin event, unicode, thread send
-- tray_tests: 29 → 47 (+18): Send+Sync, clone independent, large menu, serde disabled, debug
-- dcc/error_tests: 22 → 48 (+26): Send+Sync, unicode, concurrent, various names, collection
+**Round 10d: core/menu, desktop/window_manager** (commit `c7d78fa`)
+- core/menu_tests: 33 → 53 (+20): DCC menu IDs, Send+Sync, accelerator variants, toggle, clone independence
+- desktop/window_manager_tests: 30 → 42 (+12): close-all, show/hide cycle, multi-nav, concurrent mixed ops
 
-**Round 9e: dcc ipc, window_manager** (commit `5cfd58b`)
-- ipc_tests: 31 → 45 (+14): rstest import, Send+Sync, greeting result, methods count, off/listener patterns
-- window_manager_tests: 37 → 55 (+18): Send+Sync, count/list/get/close defaults, create with dcc titles
+**Round 10e: desktop/error** (commit `90929cb`)
+- desktop/error_tests: 29 → 42 (+13): all variants unique display, empty message, source-is-none, prefix correctness
 
-**Round 9f: pack hooks, metrics** (commit `7ad93aa`)
-- hooks_tests: 33 → 47 (+14): rstest import, Send+Sync, clone independent, all fields, various patterns
-- metrics_tests: 28 → 47 (+19): rstest import, phases via report(), time_phase name, full lifecycle
-
-**Round 9g: pack license, deps_collector** (commit `0384094`)
-- license_tests: 30 → 45 (+15): rstest import, Send+Sync, config methods, reason variants, validity by date
-- deps_collector_tests: 28 → 42 (+14): rstest import, Send+Sync, hash content same/different, has_changed, save creates file
-
-### Key Learnings R9
-- Many pack test files missing `rstest` import — must check each file individually
-- `PackedMetrics.phases` is private — use `report()` for verification
-- `UserEvent` only has 7 variants (no Navigate/LoadHtml/EmitEvent/Maximize/Minimize/SetTitle/SetBounds)
-- `BookmarkManager.get()` takes `&BookmarkId` (=`&String`), not `&str`
-- `Bookmark.position` is `u32`, not `usize`
-- `TabState::new()` does NOT auto-set security_state; only `set_url()` triggers it
-- `BrowserError` does NOT derive `Clone`
-- `HistoryManager` has no `recent()` method; use `all()` slice
+### Key Learnings R10
+- `Accelerator::parse("   ")` returns `Some` (whitespace accepted) — don't assert None for whitespace
+- `ObservableLifecycle` does NOT have `is_destroyed()` or `force_destroy()` — only `AtomicLifecycle` does
+- `for item in &[...]` iterates as `&&str` — use `for item in [...]` (array, not reference) to avoid Into<String> issue
+- `anyhow` is not a dep of `auroraview-desktop` tests — check Cargo.toml before using
 
 ### Next Iteration Targets (Priority Order)
 
-1. **telemetry/sentry_tests.rs** (41) — expand to 50+
-2. **telemetry/span_ext_tests.rs** (26) — expand to 45+
-3. **telemetry/telemetry_init_tests.rs** (37) — expand to 50+
-4. **core/backend_tests.rs** (37) — expand to 50+
-5. **core/events_tests.rs** (37) — expand to 50+
-6. **core/lifecycle_tests.rs** (41) — expand to 50+
-7. **pack/bundle_tests.rs** (36) — expand to 50+
-8. **pack/lib_tests.rs** (18) — expand to 45+
-9. **auroraview-cli/cli_tests.rs** (32) — expand to 45+
-10. **auroraview-cli/lib_tests.rs** (28) — expand to 45+
+1. **core/vibrancy_tests.rs** — has 0 #[test] tags (may use fn test_ prefix), needs expansion
+2. **core/click_through_tests.rs** — has 0 #[test] tags, needs expansion
+3. **core/icon_tests.rs** (10.74 KB) — verify count, likely needs expansion
+4. **core/error_pages_tests.rs** (15.56 KB) — verify count, may need expansion
+5. **core/builder_tests.rs** (25.84 KB) — larger coverage of builder API
+6. **core/dom_tests.rs** (20.83 KB) — DOM manipulation coverage
+7. **core/icon_converter_tests.rs** (17.17 KB) — icon conversion
+8. **core/service_discovery_tests.rs** (27.94 KB) — likely already large
+9. **auroraview-cli/packed_tests.rs** (19.45 KB) — packed app tests
+10. **auroraview-cli/ipc_integration_tests.rs** (10.84 KB) — IPC integration
 
 ### Known Pre-existing Issues (from prior iterations, NOT blocking)
 - `auroraview-core` assets_tests fail in CI (need `vx just assets-build`)
@@ -122,7 +109,7 @@
 **Desktop ipc_tests comprehensive (COMPLETE)**
 **Pack metrics_tests comprehensive (COMPLETE):** 47 tests R9
 **Pack overlay_tests comprehensive (COMPLETE)**
-**Pack lib_tests (COMPLETE)**
+**Pack lib_tests (COMPLETE):** 42 tests R10
 **Pack bundle_tests comprehensive (COMPLETE)**
 **Pack license_tests comprehensive (COMPLETE):** 45 tests R9
 **Pack deps_collector/FileHashCache (COMPLETE):** 42 tests R9
@@ -130,7 +117,7 @@
 **Signals signal_tests comprehensive (COMPLETE):** 61 tests
 **Pack manifest_tests comprehensive (COMPLETE):** 45 tests
 **Core error_tests (COMPLETE):** 52 tests
-**Desktop error_tests + window_manager_tests (COMPLETE):** 13 + 30 = 43 tests
+**Desktop error_tests + window_manager_tests (COMPLETE):** 42 + 42 = 84 tests R10
 **Pack python_standalone_tests expansion (COMPLETE):** 13 → 39 tests
 **Desktop tray_tests + event_loop_tests (COMPLETE):** 47 + 55 = 102 tests R9
 **Pack error_tests (COMPLETE):** 50 tests
@@ -138,6 +125,7 @@
 **Testing unit_tests (COMPLETE):** 78 tests
 **Browser error_tests (COMPLETE):** 62 tests R9
 **CLI args_tests (COMPLETE):** 45 tests
+**CLI lib_tests (COMPLETE):** 50 tests R10
 **Assets assets_tests (COMPLETE):** 28 tests
 **PluginCore error_tests + scope_tests (COMPLETE):** 41 + 32 = 73 tests
 **PluginCore request_tests + router_tests (COMPLETE):** 28 + 18 = 46 tests
@@ -161,3 +149,15 @@
 **Telemetry config_tests expansion (COMPLETE):** 33 → 44 tests R9
 **Browser tab_tests expansion (COMPLETE):** 17 → 50 tests R9
 **DCC error_tests expansion R9 (COMPLETE):** 22 → 48 tests
+**Telemetry sentry_tests expansion (COMPLETE):** 41 → 51 tests R10
+**Telemetry telemetry_init_tests expansion (COMPLETE):** 37 → 53 tests R10
+**Telemetry span_ext_tests expansion (COMPLETE):** 26 → 57 tests R10
+**Telemetry error_tests expansion (COMPLETE):** 30 → 44 tests R10
+**Core backend_tests expansion (COMPLETE):** 37 → 58 tests R10
+**Core events_tests expansion (COMPLETE):** 37 → 52 tests R10
+**Core lifecycle_tests expansion (COMPLETE):** 41 → 67 tests R10
+**Core window_tests expansion (COMPLETE):** 26 → 46 tests R10
+**Core window_style_tests expansion (COMPLETE):** 25 → 47 tests R10
+**Core menu_tests expansion (COMPLETE):** 33 → 53 tests R10
+**Desktop window_manager_tests expansion (COMPLETE):** 30 → 42 tests R10
+**Desktop error_tests expansion (COMPLETE):** 29 → 42 tests R10
