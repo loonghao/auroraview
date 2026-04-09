@@ -1,10 +1,10 @@
-//! Tests for auroraview-pack overlay module
+﻿//! Tests for auroraview-pack overlay module
 
 use auroraview_pack::{OverlayData, OverlayReader, OverlayWriter, PackConfig};
 use tempfile::NamedTempFile;
 
 #[test]
-fn test_overlay_roundtrip() {
+fn overlay_roundtrip() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"fake executable content").unwrap();
 
@@ -28,7 +28,7 @@ fn test_overlay_roundtrip() {
 }
 
 #[test]
-fn test_no_overlay() {
+fn no_overlay() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"just a regular file").unwrap();
 
@@ -37,7 +37,7 @@ fn test_no_overlay() {
 }
 
 #[test]
-fn test_overlay_url_mode_roundtrip() {
+fn overlay_url_mode_roundtrip() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"exe").unwrap();
 
@@ -56,7 +56,7 @@ fn test_overlay_url_mode_roundtrip() {
 }
 
 #[test]
-fn test_overlay_many_assets() {
+fn overlay_many_assets() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"base binary").unwrap();
 
@@ -74,7 +74,7 @@ fn test_overlay_many_assets() {
 }
 
 #[test]
-fn test_overlay_empty_file_no_overlay() {
+fn overlay_empty_file_no_overlay() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"").unwrap();
 
@@ -83,7 +83,7 @@ fn test_overlay_empty_file_no_overlay() {
 }
 
 #[test]
-fn test_overlay_preserves_original_binary() {
+fn overlay_preserves_original_binary() {
     let original = b"this is the original binary content for the exe file";
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), original).unwrap();
@@ -99,7 +99,7 @@ fn test_overlay_preserves_original_binary() {
 }
 
 #[test]
-fn test_overlay_write_twice_replaces() {
+fn overlay_write_twice_replaces() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"binary_v1").unwrap();
 
@@ -116,7 +116,7 @@ fn test_overlay_write_twice_replaces() {
 }
 
 #[test]
-fn test_overlay_with_binary_asset_content() {
+fn overlay_with_binary_asset_content() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"exec").unwrap();
 
@@ -134,7 +134,7 @@ fn test_overlay_with_binary_asset_content() {
 // ─── Additional overlay tests ─────────────────────────────────────────────────
 
 #[test]
-fn test_overlay_asset_names_preserved() {
+fn overlay_asset_names_preserved() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"bin").unwrap();
 
@@ -150,7 +150,7 @@ fn test_overlay_asset_names_preserved() {
 }
 
 #[test]
-fn test_overlay_content_hash_stable() {
+fn overlay_content_hash_stable() {
     let config = PackConfig::url("https://example.com");
     let mut data = OverlayData::new(config);
     data.add_asset("index.html", b"hello".to_vec());
@@ -161,7 +161,7 @@ fn test_overlay_content_hash_stable() {
 }
 
 #[test]
-fn test_overlay_content_hash_non_empty() {
+fn overlay_content_hash_non_empty() {
     let config = PackConfig::url("https://example.com");
     let mut data = OverlayData::new(config);
     data.add_asset("main.js", b"content".to_vec());
@@ -171,7 +171,7 @@ fn test_overlay_content_hash_non_empty() {
 }
 
 #[test]
-fn test_overlay_different_content_different_hash() {
+fn overlay_different_content_different_hash() {
     let config1 = PackConfig::url("https://example.com");
     let mut data1 = OverlayData::new(config1);
     data1.add_asset("file.js", b"version_1".to_vec());
@@ -186,7 +186,7 @@ fn test_overlay_different_content_different_hash() {
 }
 
 #[test]
-fn test_overlay_no_assets_has_hash() {
+fn overlay_no_assets_has_hash() {
     let config = PackConfig::url("https://example.com");
     let mut data = OverlayData::new(config);
     let hash = data.compute_content_hash();
@@ -194,7 +194,7 @@ fn test_overlay_no_assets_has_hash() {
 }
 
 #[test]
-fn test_overlay_write_with_level() {
+fn overlay_write_with_level() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"binary").unwrap();
 
@@ -211,7 +211,7 @@ fn test_overlay_write_with_level() {
 }
 
 #[test]
-fn test_overlay_large_original_binary() {
+fn overlay_large_original_binary() {
     let large = vec![0xABu8; 8192];
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), &large).unwrap();
@@ -227,21 +227,21 @@ fn test_overlay_large_original_binary() {
 }
 
 #[test]
-fn test_overlay_has_overlay_on_file_without_overlay() {
+fn overlay_has_overlay_on_file_without_overlay() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"random bytes AVPK not here").unwrap();
     assert!(!OverlayReader::has_overlay(temp.path()).unwrap());
 }
 
 #[test]
-fn test_overlay_nonexistent_file_returns_error() {
+fn overlay_nonexistent_file_returns_error() {
     let result = OverlayReader::has_overlay(std::path::Path::new("/nonexistent/path/file.exe"));
     assert!(result.is_err() || !result.unwrap_or(true));
 }
 
 
 #[test]
-fn test_overlay_get_original_size_no_overlay() {
+fn overlay_get_original_size_no_overlay() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"no overlay here").unwrap();
 
@@ -252,14 +252,14 @@ fn test_overlay_get_original_size_no_overlay() {
 // ─── New: additional overlay tests ────────────────────────────────────────────
 
 #[test]
-fn test_overlay_data_new_empty_assets() {
+fn overlay_data_new_empty_assets() {
     let config = PackConfig::url("https://example.com");
     let data = OverlayData::new(config);
     assert_eq!(data.assets.len(), 0);
 }
 
 #[test]
-fn test_overlay_data_add_and_count_assets() {
+fn overlay_data_add_and_count_assets() {
     let config = PackConfig::url("https://example.com");
     let mut data = OverlayData::new(config);
     data.add_asset("a.js", b"alert(1)".to_vec());
@@ -269,7 +269,7 @@ fn test_overlay_data_add_and_count_assets() {
 }
 
 #[test]
-fn test_overlay_roundtrip_zero_assets() {
+fn overlay_roundtrip_zero_assets() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"tiny-bin").unwrap();
 
@@ -283,7 +283,7 @@ fn test_overlay_roundtrip_zero_assets() {
 }
 
 #[test]
-fn test_overlay_roundtrip_unicode_asset_name() {
+fn overlay_roundtrip_unicode_asset_name() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"bin").unwrap();
 
@@ -297,7 +297,7 @@ fn test_overlay_roundtrip_unicode_asset_name() {
 }
 
 #[test]
-fn test_overlay_roundtrip_large_asset() {
+fn overlay_roundtrip_large_asset() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"bin").unwrap();
 
@@ -312,7 +312,7 @@ fn test_overlay_roundtrip_large_asset() {
 }
 
 #[test]
-fn test_overlay_write_level_1() {
+fn overlay_write_level_1() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"binary").unwrap();
 
@@ -327,7 +327,7 @@ fn test_overlay_write_level_1() {
 }
 
 #[test]
-fn test_overlay_config_size_roundtrip() {
+fn overlay_config_size_roundtrip() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"bin").unwrap();
 
@@ -343,7 +343,7 @@ fn test_overlay_config_size_roundtrip() {
 }
 
 #[test]
-fn test_overlay_same_content_same_hash() {
+fn overlay_same_content_same_hash() {
     let config1 = PackConfig::url("https://example.com");
     let mut data1 = OverlayData::new(config1);
     data1.add_asset("f.js", b"same".to_vec());
@@ -356,7 +356,7 @@ fn test_overlay_same_content_same_hash() {
 }
 
 #[test]
-fn test_overlay_has_overlay_true_after_write() {
+fn overlay_has_overlay_true_after_write() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"exe").unwrap();
 
@@ -368,7 +368,7 @@ fn test_overlay_has_overlay_true_after_write() {
 }
 
 #[test]
-fn test_overlay_file_size_increases_after_write() {
+fn overlay_file_size_increases_after_write() {
     let original = b"small original binary";
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), original).unwrap();
@@ -386,7 +386,7 @@ fn test_overlay_file_size_increases_after_write() {
 // ─── R8 Additional overlay tests ──────────────────────────────────────────────
 
 #[test]
-fn test_overlay_roundtrip_debug_mode() {
+fn overlay_roundtrip_debug_mode() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"debug-bin").unwrap();
 
@@ -402,7 +402,7 @@ fn test_overlay_roundtrip_debug_mode() {
 }
 
 #[test]
-fn test_overlay_roundtrip_multiple_writes_consistent() {
+fn overlay_roundtrip_multiple_writes_consistent() {
     // Writing same data twice should produce readable overlay both times
     let temp1 = NamedTempFile::new().unwrap();
     let temp2 = NamedTempFile::new().unwrap();
@@ -425,7 +425,7 @@ fn test_overlay_roundtrip_multiple_writes_consistent() {
 }
 
 #[test]
-fn test_overlay_asset_content_roundtrip() {
+fn overlay_asset_content_roundtrip() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"exec").unwrap();
 
@@ -442,7 +442,7 @@ fn test_overlay_asset_content_roundtrip() {
 }
 
 #[test]
-fn test_overlay_get_original_size_matches_written_bytes() {
+fn overlay_get_original_size_matches_written_bytes() {
     let content = b"hello world binary content for test";
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), content).unwrap();
@@ -458,7 +458,7 @@ fn test_overlay_get_original_size_matches_written_bytes() {
 }
 
 #[test]
-fn test_overlay_url_preserved_in_config() {
+fn overlay_url_preserved_in_config() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"binary").unwrap();
 
@@ -477,7 +477,7 @@ fn test_overlay_url_preserved_in_config() {
 }
 
 #[test]
-fn test_overlay_with_50_assets() {
+fn overlay_with_50_assets() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"binary").unwrap();
 
@@ -493,7 +493,7 @@ fn test_overlay_with_50_assets() {
 }
 
 #[test]
-fn test_overlay_write_to_file_with_existing_overlay() {
+fn overlay_write_to_file_with_existing_overlay() {
     // Re-writing an already-overlaid file should replace the overlay
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"binary").unwrap();
@@ -515,7 +515,7 @@ fn test_overlay_write_to_file_with_existing_overlay() {
 }
 
 #[test]
-fn test_overlay_content_hash_is_hex_string() {
+fn overlay_content_hash_is_hex_string() {
     let config = PackConfig::url("https://example.com");
     let mut data = OverlayData::new(config);
     data.add_asset("f.js", b"test".to_vec());
@@ -527,7 +527,7 @@ fn test_overlay_content_hash_is_hex_string() {
 }
 
 #[test]
-fn test_overlay_empty_content_hash_stable_across_calls() {
+fn overlay_empty_content_hash_stable_across_calls() {
     let config1 = PackConfig::url("https://example.com");
     let mut d1 = OverlayData::new(config1);
     let config2 = PackConfig::url("https://example.com");
@@ -541,7 +541,7 @@ fn test_overlay_empty_content_hash_stable_across_calls() {
 // ─── Additional overlay tests R14 ─────────────────────────────────────────────
 
 #[test]
-fn test_overlay_reader_has_overlay_after_write_with_level_9() {
+fn overlay_reader_has_overlay_after_write_with_level_9() {
     let temp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"bin").unwrap();
 
@@ -553,26 +553,26 @@ fn test_overlay_reader_has_overlay_after_write_with_level_9() {
 }
 
 #[test]
-fn test_overlay_reader_has_overlay_false_before_write() {
+fn overlay_reader_has_overlay_false_before_write() {
     let temp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"not-an-overlay").unwrap();
     assert!(!OverlayReader::has_overlay(temp.path()).unwrap());
 }
 
 #[test]
-fn test_overlay_config_debug_mode_false_default() {
+fn overlay_config_debug_mode_false_default() {
     let config = PackConfig::url("https://example.com");
     assert!(!config.debug);
 }
 
 #[test]
-fn test_overlay_config_with_debug_true() {
+fn overlay_config_with_debug_true() {
     let config = PackConfig::url("https://example.com").with_debug(true);
     assert!(config.debug);
 }
 
 #[test]
-fn test_overlay_data_add_empty_content_asset() {
+fn overlay_data_add_empty_content_asset() {
     let config = PackConfig::url("https://example.com");
     let mut data = OverlayData::new(config);
     data.add_asset("empty.js", vec![]);
@@ -580,7 +580,7 @@ fn test_overlay_data_add_empty_content_asset() {
 }
 
 #[test]
-fn test_overlay_roundtrip_1_asset_content_correct() {
+fn overlay_roundtrip_1_asset_content_correct() {
     let temp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"exec").unwrap();
 
@@ -596,7 +596,7 @@ fn test_overlay_roundtrip_1_asset_content_correct() {
 }
 
 #[test]
-fn test_overlay_multiple_writes_last_wins() {
+fn overlay_multiple_writes_last_wins() {
     let temp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"bin").unwrap();
 
@@ -611,7 +611,7 @@ fn test_overlay_multiple_writes_last_wins() {
 }
 
 #[test]
-fn test_overlay_write_with_level_0() {
+fn overlay_write_with_level_0() {
     // Level 0 = no compression
     let temp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"bin").unwrap();
@@ -625,20 +625,20 @@ fn test_overlay_write_with_level_0() {
 }
 
 #[test]
-fn test_overlay_config_resizable_default() {
+fn overlay_config_resizable_default() {
     let config = PackConfig::url("https://example.com");
     // resizable defaults to true
     assert!(config.window.resizable);
 }
 
 #[test]
-fn test_overlay_config_with_resizable_false() {
+fn overlay_config_with_resizable_false() {
     let config = PackConfig::url("https://example.com").with_resizable(false);
     assert!(!config.window.resizable);
 }
 
 #[test]
-fn test_overlay_content_hash_length_consistent() {
+fn overlay_content_hash_length_consistent() {
     // Two different content sets should produce hashes of the same length
     let config1 = PackConfig::url("https://example.com");
     let mut d1 = OverlayData::new(config1);
@@ -655,7 +655,7 @@ fn test_overlay_content_hash_length_consistent() {
 }
 
 #[test]
-fn test_overlay_reader_get_original_size_zero_binary() {
+fn overlay_reader_get_original_size_zero_binary() {
     let temp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"").unwrap();
 

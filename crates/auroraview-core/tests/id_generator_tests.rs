@@ -1,4 +1,4 @@
-//! ID generator tests
+﻿//! ID generator tests
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -11,7 +11,7 @@ use auroraview_core::id_generator::IdGenerator;
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_id_generator_sequential() {
+fn id_generator_sequential() {
     let gen = IdGenerator::new();
     let id1 = gen.next();
     let id2 = gen.next();
@@ -20,7 +20,7 @@ fn test_id_generator_sequential() {
 }
 
 #[test]
-fn test_id_generator_many_sequential() {
+fn id_generator_many_sequential() {
     let gen = IdGenerator::new();
     for i in 0u64..100 {
         assert_eq!(gen.next(), i);
@@ -28,7 +28,7 @@ fn test_id_generator_many_sequential() {
 }
 
 #[test]
-fn test_id_generator_monotonically_increasing() {
+fn id_generator_monotonically_increasing() {
     let gen = IdGenerator::new();
     let mut last = gen.next();
     for _ in 0..50 {
@@ -43,7 +43,7 @@ fn test_id_generator_monotonically_increasing() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_id_generator_string() {
+fn id_generator_string() {
     let gen = IdGenerator::new();
     let id = gen.next_string();
     assert!(id.starts_with("id_"));
@@ -51,7 +51,7 @@ fn test_id_generator_string() {
 }
 
 #[test]
-fn test_id_generator_string_sequential() {
+fn id_generator_string_sequential() {
     let gen = IdGenerator::new();
     let id0 = gen.next_string();
     let id1 = gen.next_string();
@@ -60,14 +60,14 @@ fn test_id_generator_string_sequential() {
 }
 
 #[test]
-fn test_id_generator_with_prefix() {
+fn id_generator_with_prefix() {
     let gen = IdGenerator::new();
     let id = gen.next_with_prefix("msg");
     assert!(id.starts_with("msg_"));
 }
 
 #[test]
-fn test_id_generator_with_prefix_sequential() {
+fn id_generator_with_prefix_sequential() {
     let gen = IdGenerator::new();
     let id0 = gen.next_with_prefix("req");
     let id1 = gen.next_with_prefix("req");
@@ -76,7 +76,7 @@ fn test_id_generator_with_prefix_sequential() {
 }
 
 #[test]
-fn test_id_generator_different_prefixes_share_counter() {
+fn id_generator_different_prefixes_share_counter() {
     let gen = IdGenerator::new();
     let a = gen.next_with_prefix("a");
     let b = gen.next_with_prefix("b");
@@ -85,7 +85,7 @@ fn test_id_generator_different_prefixes_share_counter() {
 }
 
 #[test]
-fn test_id_generator_string_unique_across_calls() {
+fn id_generator_string_unique_across_calls() {
     let gen = IdGenerator::new();
     let ids: Vec<String> = (0..20).map(|_| gen.next_string()).collect();
     let unique: HashSet<&String> = ids.iter().collect();
@@ -93,7 +93,7 @@ fn test_id_generator_string_unique_across_calls() {
 }
 
 #[test]
-fn test_id_generator_prefix_empty_string() {
+fn id_generator_prefix_empty_string() {
     let gen = IdGenerator::new();
     let id = gen.next_with_prefix("");
     // Empty prefix: should produce "_0"
@@ -101,7 +101,7 @@ fn test_id_generator_prefix_empty_string() {
 }
 
 #[test]
-fn test_id_generator_prefix_unicode() {
+fn id_generator_prefix_unicode() {
     let gen = IdGenerator::new();
     let id = gen.next_with_prefix("前端");
     assert!(id.starts_with("前端_"));
@@ -112,27 +112,27 @@ fn test_id_generator_prefix_unicode() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_id_generator_with_start() {
+fn id_generator_with_start() {
     let gen = IdGenerator::with_start(100);
     assert_eq!(gen.next(), 100);
     assert_eq!(gen.next(), 101);
 }
 
 #[test]
-fn test_id_generator_with_start_zero() {
+fn id_generator_with_start_zero() {
     let gen = IdGenerator::with_start(0);
     assert_eq!(gen.next(), 0);
 }
 
 #[test]
-fn test_id_generator_with_start_large() {
+fn id_generator_with_start_large() {
     let gen = IdGenerator::with_start(u64::MAX - 2);
     assert_eq!(gen.next(), u64::MAX - 2);
     assert_eq!(gen.next(), u64::MAX - 1);
 }
 
 #[test]
-fn test_id_generator_with_start_arbitrary() {
+fn id_generator_with_start_arbitrary() {
     let gen = IdGenerator::with_start(42);
     assert_eq!(gen.next(), 42);
     assert_eq!(gen.next(), 43);
@@ -144,7 +144,7 @@ fn test_id_generator_with_start_arbitrary() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_current_value() {
+fn current_value() {
     let gen = IdGenerator::new();
     assert_eq!(gen.current(), 0);
     gen.next();
@@ -152,7 +152,7 @@ fn test_current_value() {
 }
 
 #[test]
-fn test_current_does_not_increment() {
+fn current_does_not_increment() {
     let gen = IdGenerator::new();
     gen.next();
     let c1 = gen.current();
@@ -162,7 +162,7 @@ fn test_current_does_not_increment() {
 }
 
 #[test]
-fn test_current_after_many_nexts() {
+fn current_after_many_nexts() {
     let gen = IdGenerator::new();
     for _ in 0..50 {
         gen.next();
@@ -171,7 +171,7 @@ fn test_current_after_many_nexts() {
 }
 
 #[test]
-fn test_current_matches_next_string_count() {
+fn current_matches_next_string_count() {
     let gen = IdGenerator::new();
     let _s0 = gen.next_string();
     let _s1 = gen.next_string();
@@ -184,13 +184,13 @@ fn test_current_matches_next_string_count() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_id_generator_default() {
+fn id_generator_default() {
     let gen = IdGenerator::default();
     assert_eq!(gen.next(), 0);
 }
 
 #[test]
-fn test_id_generator_default_independent() {
+fn id_generator_default_independent() {
     let gen1 = IdGenerator::default();
     let gen2 = IdGenerator::default();
     // Two defaults start independently at 0
@@ -199,7 +199,7 @@ fn test_id_generator_default_independent() {
 }
 
 #[test]
-fn test_two_generators_independent_counters() {
+fn two_generators_independent_counters() {
     let gen1 = IdGenerator::new();
     let gen2 = IdGenerator::new();
     gen1.next();
@@ -213,7 +213,7 @@ fn test_two_generators_independent_counters() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_id_generator_thread_safe() {
+fn id_generator_thread_safe() {
     let gen = Arc::new(IdGenerator::new());
     let mut handles = vec![];
 
@@ -240,7 +240,7 @@ fn test_id_generator_thread_safe() {
 }
 
 #[test]
-fn test_id_generator_high_concurrency_unique() {
+fn id_generator_high_concurrency_unique() {
     let gen = Arc::new(IdGenerator::new());
     let mut handles = vec![];
     const THREADS: usize = 20;
@@ -263,7 +263,7 @@ fn test_id_generator_high_concurrency_unique() {
 }
 
 #[test]
-fn test_id_generator_string_thread_safe() {
+fn id_generator_string_thread_safe() {
     let gen = Arc::new(IdGenerator::new());
     let mut handles = vec![];
 
@@ -285,7 +285,7 @@ fn test_id_generator_string_thread_safe() {
 
 
 #[test]
-fn test_id_generator_current_reflects_concurrent_writes() {
+fn id_generator_current_reflects_concurrent_writes() {
     let gen = Arc::new(IdGenerator::new());
     let mut handles = vec![];
     const THREADS: usize = 8;
@@ -316,7 +316,7 @@ fn test_id_generator_current_reflects_concurrent_writes() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_id_generator_is_send_sync() {
+fn id_generator_is_send_sync() {
     fn assert_send<T: Send>() {}
     fn assert_sync<T: Sync>() {}
     assert_send::<IdGenerator>();
@@ -328,7 +328,7 @@ fn test_id_generator_is_send_sync() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_next_string_format_matches_id_prefix() {
+fn next_string_format_matches_id_prefix() {
     let gen = IdGenerator::new();
     let s = gen.next_string();
     // Expected format: "id_{n}"
@@ -339,7 +339,7 @@ fn test_next_string_format_matches_id_prefix() {
 }
 
 #[test]
-fn test_next_with_prefix_format() {
+fn next_with_prefix_format() {
     let gen = IdGenerator::new();
     let id = gen.next_with_prefix("tab");
     assert_eq!(id, "tab_0");
@@ -352,7 +352,7 @@ fn test_next_with_prefix_format() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_mixed_calls_unique_ids() {
+fn mixed_calls_unique_ids() {
     let gen = IdGenerator::new();
     let n1 = gen.next();
     let s1 = gen.next_string();
@@ -371,7 +371,7 @@ fn test_mixed_calls_unique_ids() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_current_before_any_next() {
+fn current_before_any_next() {
     let gen = IdGenerator::new();
     assert_eq!(gen.current(), 0);
 }
@@ -381,7 +381,7 @@ fn test_current_before_any_next() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_with_start_string_id() {
+fn with_start_string_id() {
     let gen = IdGenerator::with_start(5);
     let s = gen.next_string();
     assert_eq!(s, "id_5");
@@ -392,7 +392,7 @@ fn test_with_start_string_id() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_next_with_prefix_unicode_multiple() {
+fn next_with_prefix_unicode_multiple() {
     let gen = IdGenerator::new();
     let a = gen.next_with_prefix("イベント");
     let b = gen.next_with_prefix("イベント");
@@ -405,7 +405,7 @@ fn test_next_with_prefix_unicode_multiple() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_string_id_count_matches_current() {
+fn string_id_count_matches_current() {
     let gen = IdGenerator::new();
     for _ in 0..5 {
         gen.next_string();
@@ -418,7 +418,7 @@ fn test_string_id_count_matches_current() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_prefix_id_count_matches_current() {
+fn prefix_id_count_matches_current() {
     let gen = IdGenerator::new();
     for _ in 0..7 {
         gen.next_with_prefix("x");
@@ -431,19 +431,19 @@ fn test_prefix_id_count_matches_current() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_next_returns_zero_first() {
+fn next_returns_zero_first() {
     let gen = IdGenerator::new();
     assert_eq!(gen.next(), 0, "first ID should always be 0");
 }
 
 #[test]
-fn test_with_start_zero_same_as_new() {
+fn with_start_zero_same_as_new() {
     let gen = IdGenerator::with_start(0);
     assert_eq!(gen.next(), 0);
 }
 
 #[test]
-fn test_with_start_large_value() {
+fn with_start_large_value() {
     let gen = IdGenerator::with_start(u64::MAX - 1);
     assert_eq!(gen.next(), u64::MAX - 1);
     // wraps around
@@ -453,7 +453,7 @@ fn test_with_start_large_value() {
 }
 
 #[test]
-fn test_next_string_sequential_numbers() {
+fn next_string_sequential_numbers() {
     let gen = IdGenerator::new();
     let s0 = gen.next_string();
     let s1 = gen.next_string();
@@ -464,7 +464,7 @@ fn test_next_string_sequential_numbers() {
 }
 
 #[test]
-fn test_prefix_empty_string() {
+fn prefix_empty_string() {
     let gen = IdGenerator::new();
     let id = gen.next_with_prefix("");
     // Empty prefix should still produce "_0" or similar
@@ -472,28 +472,28 @@ fn test_prefix_empty_string() {
 }
 
 #[test]
-fn test_id_uniqueness_with_reset() {
+fn id_uniqueness_with_reset() {
     let gen = IdGenerator::new();
     let ids: HashSet<u64> = (0..20).map(|_| gen.next()).collect();
     assert_eq!(ids.len(), 20, "all 20 IDs should be unique");
 }
 
 #[test]
-fn test_string_ids_all_unique() {
+fn string_ids_all_unique() {
     let gen = IdGenerator::new();
     let ids: HashSet<String> = (0..20).map(|_| gen.next_string()).collect();
     assert_eq!(ids.len(), 20);
 }
 
 #[test]
-fn test_prefix_ids_all_unique() {
+fn prefix_ids_all_unique() {
     let gen = IdGenerator::new();
     let ids: HashSet<String> = (0..20).map(|_| gen.next_with_prefix("evt")).collect();
     assert_eq!(ids.len(), 20);
 }
 
 #[test]
-fn test_next_with_prefix_numeric_part_matches_counter() {
+fn next_with_prefix_numeric_part_matches_counter() {
     let gen = IdGenerator::new();
     for i in 0u64..10 {
         let id = gen.next_with_prefix("n");
@@ -503,7 +503,7 @@ fn test_next_with_prefix_numeric_part_matches_counter() {
 }
 
 #[test]
-fn test_concurrent_string_ids_no_duplicates() {
+fn concurrent_string_ids_no_duplicates() {
     let gen = Arc::new(IdGenerator::new());
     let handles: Vec<_> = (0..4)
         .map(|_| {
@@ -524,7 +524,7 @@ fn test_concurrent_string_ids_no_duplicates() {
 }
 
 #[test]
-fn test_current_after_mixed_calls_equals_total() {
+fn current_after_mixed_calls_equals_total() {
     let gen = IdGenerator::new();
     gen.next();             // +1
     gen.next_string();      // +1

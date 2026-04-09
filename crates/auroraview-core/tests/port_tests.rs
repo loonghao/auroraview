@@ -1,4 +1,4 @@
-//! Port allocation tests
+﻿//! Port allocation tests
 
 use std::net::TcpListener;
 
@@ -10,13 +10,13 @@ use rstest::rstest;
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_find_any_port() {
+fn find_any_port() {
     let port = PortAllocator::find_any_port().unwrap();
     assert!(port > 0);
 }
 
 #[rstest]
-fn test_find_any_port_valid_range() {
+fn find_any_port_valid_range() {
     let port = PortAllocator::find_any_port().unwrap();
     // OS-assigned ephemeral ports are typically in 1024..65535
     assert!(port >= 1024);
@@ -27,7 +27,7 @@ fn test_find_any_port_valid_range() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_is_port_available() {
+fn is_port_available() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
 
@@ -39,7 +39,7 @@ fn test_is_port_available() {
 }
 
 #[rstest]
-fn test_is_port_available_free_port() {
+fn is_port_available_free_port() {
     // OS-assigned port is immediately released; next call should see it available
     let port = PortAllocator::find_any_port().unwrap();
     assert!(PortAllocator::is_port_available(port));
@@ -50,7 +50,7 @@ fn test_is_port_available_free_port() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_port_allocator_default() {
+fn port_allocator_default() {
     let allocator = PortAllocator::default();
     let port = allocator.find_free_port().unwrap();
     assert!((9001..9101).contains(&port));
@@ -61,7 +61,7 @@ fn test_port_allocator_default() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_find_free_port() {
+fn find_free_port() {
     let allocator = PortAllocator::new(50000, 100);
     let port = allocator.find_free_port().unwrap();
     assert!(port >= 50000);
@@ -69,14 +69,14 @@ fn test_find_free_port() {
 }
 
 #[rstest]
-fn test_find_free_port_high_range() {
+fn find_free_port_high_range() {
     let allocator = PortAllocator::new(60000, 50);
     let port = allocator.find_free_port().unwrap();
     assert!((60000..60050).contains(&port));
 }
 
 #[rstest]
-fn test_find_free_port_is_available() {
+fn find_free_port_is_available() {
     let allocator = PortAllocator::new(55000, 100);
     let port = allocator.find_free_port().unwrap();
     // The port returned must actually be available at the time it is found.
@@ -89,7 +89,7 @@ fn test_find_free_port_is_available() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_error_display() {
+fn port_error_display() {
     let err = PortError::NoFreePort {
         start: 8000,
         end: 8100,
@@ -100,7 +100,7 @@ fn test_port_error_display() {
 }
 
 #[test]
-fn test_port_error_debug() {
+fn port_error_debug() {
     let err = PortError::NoFreePort { start: 1, end: 2 };
     let debug = format!("{:?}", err);
     assert!(debug.contains("NoFreePort"));
@@ -111,7 +111,7 @@ fn test_port_error_debug() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_concurrent_port_allocation() {
+fn concurrent_port_allocation() {
     use std::collections::HashSet;
     use std::sync::{Arc, Mutex};
     use std::thread;
@@ -145,7 +145,7 @@ fn test_concurrent_port_allocation() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_find_free_port_single_attempt() {
+fn find_free_port_single_attempt() {
     // Find a free port first, then test with max_attempts=1 starting at that port
     let free_port = PortAllocator::find_any_port().unwrap();
     if PortAllocator::is_port_available(free_port) {
@@ -168,7 +168,7 @@ fn test_find_free_port_single_attempt() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_find_any_port_multiple_calls_different_ports() {
+fn find_any_port_multiple_calls_different_ports() {
     // Multiple calls can return the same or different ephemeral ports; just ensure each is valid
     for _ in 0..5 {
         let port = PortAllocator::find_any_port().unwrap();
@@ -182,7 +182,7 @@ fn test_find_any_port_multiple_calls_different_ports() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_port_allocator_range_start_only() {
+fn port_allocator_range_start_only() {
     // Range of 1 starting at a high port that is likely free
     let allocator = PortAllocator::new(58000, 1);
     if PortAllocator::is_port_available(58000) {
@@ -193,7 +193,7 @@ fn test_port_allocator_range_start_only() {
 }
 
 #[rstest]
-fn test_port_allocator_large_range() {
+fn port_allocator_large_range() {
     // Large range — should reliably find a port
     let allocator = PortAllocator::new(50000, 5000);
     let port = allocator.find_free_port().unwrap();
@@ -201,7 +201,7 @@ fn test_port_allocator_large_range() {
 }
 
 #[rstest]
-fn test_find_free_port_not_bound() {
+fn find_free_port_not_bound() {
     // The found port should not be bound (it was just released)
     let allocator = PortAllocator::new(53000, 500);
     let port = allocator.find_free_port().unwrap();
@@ -215,7 +215,7 @@ fn test_find_free_port_not_bound() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_is_port_available_port_zero_is_special() {
+fn is_port_available_port_zero_is_special() {
     // Port 0 is reserved / wildcard — behavior is implementation-defined
     // We just verify the function doesn't panic
     let _ = PortAllocator::is_port_available(0);
@@ -226,21 +226,21 @@ fn test_is_port_available_port_zero_is_special() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_error_no_free_port_same_start_end() {
+fn port_error_no_free_port_same_start_end() {
     let err = PortError::NoFreePort { start: 9000, end: 9000 };
     let msg = err.to_string();
     assert!(msg.contains("9000"));
 }
 
 #[test]
-fn test_port_error_no_free_port_u16_max() {
+fn port_error_no_free_port_u16_max() {
     let err = PortError::NoFreePort { start: 0, end: 65535 };
     let msg = err.to_string();
     assert!(msg.contains("65535"));
 }
 
 #[test]
-fn test_port_error_no_free_port_clone() {
+fn port_error_no_free_port_clone() {
     let err = PortError::NoFreePort { start: 8000, end: 8100 };
     let msg1 = err.to_string();
     // Just verify to_string is stable (same output)
@@ -253,7 +253,7 @@ fn test_port_error_no_free_port_clone() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_port_allocator_default_range_coverage() {
+fn port_allocator_default_range_coverage() {
     // Default allocator scans 9001..=9100
     let allocator = PortAllocator::default();
     if let Ok(port) = allocator.find_free_port() {
@@ -267,7 +267,7 @@ fn test_port_allocator_default_range_coverage() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_find_any_port_is_actually_bindable() {
+fn find_any_port_is_actually_bindable() {
     // find_any_port() internally binds to port 0, gets the OS-assigned port, then releases it.
     // We check the returned port is actually bindable right after.
     let port = PortAllocator::find_any_port().unwrap();
@@ -283,7 +283,7 @@ fn test_find_any_port_is_actually_bindable() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_concurrent_find_any_port() {
+fn concurrent_find_any_port() {
     use std::collections::HashSet;
     use std::sync::{Arc, Mutex};
     use std::thread;
@@ -314,7 +314,7 @@ fn test_concurrent_find_any_port() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_allocator_zero_attempts_returns_err() {
+fn port_allocator_zero_attempts_returns_err() {
     let allocator = PortAllocator::new(59000, 0);
     let result = allocator.find_free_port();
     // With 0 attempts, should immediately fail
@@ -326,7 +326,7 @@ fn test_port_allocator_zero_attempts_returns_err() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_error_is_send_sync() {
+fn port_error_is_send_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<PortError>();
 }
@@ -336,7 +336,7 @@ fn test_port_error_is_send_sync() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_allocator_is_send_sync() {
+fn port_allocator_is_send_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<PortAllocator>();
 }
@@ -349,7 +349,7 @@ fn test_port_allocator_is_send_sync() {
 #[case(50100, 50)]
 #[case(50200, 100)]
 #[case(50500, 200)]
-fn test_find_free_port_in_range(#[case] start: u16, #[case] max: u16) {
+fn find_free_port_in_range(#[case] start: u16, #[case] max: u16) {
     let allocator = PortAllocator::new(start, max);
     if let Ok(port) = allocator.find_free_port() {
         assert!(port >= start, "port {} below start {}", port, start);
@@ -362,7 +362,7 @@ fn test_find_free_port_in_range(#[case] start: u16, #[case] max: u16) {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_is_port_available_port_80_not_available_or_returns_bool() {
+fn is_port_available_port_80_not_available_or_returns_bool() {
     // Port 80 requires privilege; just verify no panic
     let _result = PortAllocator::is_port_available(80);
 }
@@ -372,7 +372,7 @@ fn test_is_port_available_port_80_not_available_or_returns_bool() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_error_display_describes_range() {
+fn port_error_display_describes_range() {
     let err = PortError::NoFreePort { start: 12000, end: 13000 };
     let msg = err.to_string();
     // Must mention both boundaries
@@ -384,7 +384,7 @@ fn test_port_error_display_describes_range() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_two_allocators_different_ranges() {
+fn two_allocators_different_ranges() {
     let a1 = PortAllocator::new(56000, 100);
     let a2 = PortAllocator::new(57000, 100);
     // Both should find ports in their respective ranges
@@ -399,7 +399,7 @@ fn test_two_allocators_different_ranges() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_error_source_is_none() {
+fn port_error_source_is_none() {
     use std::error::Error;
     let err = PortError::NoFreePort { start: 8000, end: 8100 };
     assert!(err.source().is_none());
@@ -413,7 +413,7 @@ fn test_port_error_source_is_none() {
 #[case(54000u16, 50u16)]
 #[case(54100u16, 50u16)]
 #[case(54200u16, 50u16)]
-fn test_non_overlapping_ranges(#[case] start: u16, #[case] max: u16) {
+fn non_overlapping_ranges(#[case] start: u16, #[case] max: u16) {
     let alloc = PortAllocator::new(start, max);
     if let Ok(p) = alloc.find_free_port() {
         assert!(p >= start && p < start + max, "port={} out of [{}, {})", p, start, start + max);
@@ -425,7 +425,7 @@ fn test_non_overlapping_ranges(#[case] start: u16, #[case] max: u16) {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_find_any_port_within_u16() {
+fn find_any_port_within_u16() {
     let port = PortAllocator::find_any_port().unwrap();
     assert!(port <= u16::MAX);
 }
@@ -435,7 +435,7 @@ fn test_find_any_port_within_u16() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_allocator_two_attempts() {
+fn port_allocator_two_attempts() {
     // Very small range; if both are free, one will succeed.
     let allocator = PortAllocator::new(52000, 2);
     let result = allocator.find_free_port();
@@ -451,7 +451,7 @@ fn test_port_allocator_two_attempts() {
 #[case(0u16, 0u16)]
 #[case(1u16, 1u16)]
 #[case(65535u16, 65535u16)]
-fn test_port_error_equal_start_end(#[case] start: u16, #[case] end: u16) {
+fn port_error_equal_start_end(#[case] start: u16, #[case] end: u16) {
     let err = PortError::NoFreePort { start, end };
     let msg = err.to_string();
     assert!(!msg.is_empty());
@@ -462,7 +462,7 @@ fn test_port_error_equal_start_end(#[case] start: u16, #[case] end: u16) {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_allocator_multiple_calls_succeed() {
+fn port_allocator_multiple_calls_succeed() {
     let allocator = PortAllocator::new(58500, 100);
     // Multiple calls on the same allocator both return valid ports
     if let Ok(p1) = allocator.find_free_port() {
@@ -478,7 +478,7 @@ fn test_port_allocator_multiple_calls_succeed() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_is_port_available_port_1_no_panic() {
+fn is_port_available_port_1_no_panic() {
     // Port 1 is reserved; just verify no panic
     let _ = PortAllocator::is_port_available(1);
 }
@@ -488,7 +488,7 @@ fn test_is_port_available_port_1_no_panic() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_error_debug_contains_start() {
+fn port_error_debug_contains_start() {
     let err = PortError::NoFreePort { start: 3000, end: 4000 };
     let debug = format!("{:?}", err);
     assert!(debug.contains("3000") || debug.contains("start"));
@@ -499,7 +499,7 @@ fn test_port_error_debug_contains_start() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_independent_allocators_no_shared_state() {
+fn independent_allocators_no_shared_state() {
     let a1 = PortAllocator::new(59100, 50);
     let a2 = PortAllocator::new(59200, 50);
     // Both allocators should operate independently
@@ -516,7 +516,7 @@ fn test_independent_allocators_no_shared_state() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_default_allocator_two_calls() {
+fn default_allocator_two_calls() {
     let alloc = PortAllocator::default();
     let r1 = alloc.find_free_port();
     let r2 = alloc.find_free_port();
@@ -532,7 +532,7 @@ fn test_default_allocator_two_calls() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_port_error_as_std_error() {
+fn port_error_as_std_error() {
     let err: Box<dyn std::error::Error> = Box::new(PortError::NoFreePort { start: 1000, end: 2000 });
     assert!(!err.to_string().is_empty());
 }

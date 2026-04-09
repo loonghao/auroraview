@@ -1,4 +1,4 @@
-//! JSON utility tests
+﻿//! JSON utility tests
 
 use auroraview_core::json::{
     from_bytes, from_slice, from_str, from_value, serialize_to_js_literal, to_js_literal,
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_from_str() {
+fn from_str() {
     let json = r#"{"name": "test", "value": 42}"#;
     let value = from_str(json).unwrap();
     assert_eq!(value["name"], "test");
@@ -19,14 +19,14 @@ fn test_from_str() {
 }
 
 #[test]
-fn test_from_str_empty_object() {
+fn from_str_empty_object() {
     let value = from_str("{}").unwrap();
     assert!(value.is_object());
     assert_eq!(value.as_object().unwrap().len(), 0);
 }
 
 #[test]
-fn test_from_str_array() {
+fn from_str_array() {
     let value = from_str(r#"[1, 2, 3]"#).unwrap();
     assert!(value.is_array());
     assert_eq!(value[0], 1);
@@ -34,14 +34,14 @@ fn test_from_str_array() {
 }
 
 #[test]
-fn test_from_str_nested() {
+fn from_str_nested() {
     let json = r#"{"outer": {"inner": "value"}}"#;
     let value = from_str(json).unwrap();
     assert_eq!(value["outer"]["inner"], "value");
 }
 
 #[test]
-fn test_from_str_error() {
+fn from_str_error() {
     let result = from_str("not valid json");
     assert!(result.is_err());
     let msg = result.unwrap_err();
@@ -49,7 +49,7 @@ fn test_from_str_error() {
 }
 
 #[test]
-fn test_from_str_unicode() {
+fn from_str_unicode() {
     let json = r#"{"greeting": "你好世界"}"#;
     let value = from_str(json).unwrap();
     assert_eq!(value["greeting"], "你好世界");
@@ -60,21 +60,21 @@ fn test_from_str_unicode() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_from_slice_basic() {
+fn from_slice_basic() {
     let mut bytes = br#"{"key": "value"}"#.to_vec();
     let value = from_slice(&mut bytes).unwrap();
     assert_eq!(value["key"], "value");
 }
 
 #[test]
-fn test_from_slice_number() {
+fn from_slice_number() {
     let mut bytes = b"42".to_vec();
     let value = from_slice(&mut bytes).unwrap();
     assert_eq!(value, 42);
 }
 
 #[test]
-fn test_from_slice_error() {
+fn from_slice_error() {
     let mut bytes = b"invalid".to_vec();
     let result = from_slice(&mut bytes);
     assert!(result.is_err());
@@ -85,20 +85,20 @@ fn test_from_slice_error() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_from_bytes() {
+fn from_bytes() {
     let bytes = br#"{"key": "value"}"#.to_vec();
     let value = from_bytes(bytes).unwrap();
     assert_eq!(value["key"], "value");
 }
 
 #[test]
-fn test_from_bytes_boolean() {
+fn from_bytes_boolean() {
     let value = from_bytes(b"true".to_vec()).unwrap();
     assert_eq!(value, true);
 }
 
 #[test]
-fn test_from_bytes_null() {
+fn from_bytes_null() {
     let value = from_bytes(b"null".to_vec()).unwrap();
     assert!(value.is_null());
 }
@@ -108,7 +108,7 @@ fn test_from_bytes_null() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_to_string() {
+fn to_string() {
     let value = serde_json::json!({"name": "test", "value": 42});
     let json = to_string(&value).unwrap();
     assert!(json.contains("name"));
@@ -116,7 +116,7 @@ fn test_to_string() {
 }
 
 #[test]
-fn test_to_string_roundtrip() {
+fn to_string_roundtrip() {
     let original = serde_json::json!({"a": 1, "b": [2, 3], "c": null});
     let s = to_string(&original).unwrap();
     let parsed = from_str(&s).unwrap();
@@ -125,7 +125,7 @@ fn test_to_string_roundtrip() {
 }
 
 #[test]
-fn test_to_string_unicode_preserved() {
+fn to_string_unicode_preserved() {
     let value = serde_json::json!({"msg": "日本語テスト"});
     let s = to_string(&value).unwrap();
     // serde_json preserves Unicode in to_string
@@ -137,7 +137,7 @@ fn test_to_string_unicode_preserved() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_to_string_pretty() {
+fn to_string_pretty() {
     let value = serde_json::json!({"x": 1, "y": 2});
     let pretty = to_string_pretty(&value).unwrap();
     // Pretty-printed JSON has newlines and indentation
@@ -147,7 +147,7 @@ fn test_to_string_pretty() {
 }
 
 #[test]
-fn test_to_string_pretty_roundtrip() {
+fn to_string_pretty_roundtrip() {
     let original = serde_json::json!({"list": [1, 2, 3]});
     let pretty = to_string_pretty(&original).unwrap();
     let parsed = from_str(&pretty).unwrap();
@@ -160,7 +160,7 @@ fn test_to_string_pretty_roundtrip() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_to_value() {
+fn to_value() {
     #[derive(Serialize)]
     struct Test {
         name: String,
@@ -173,7 +173,7 @@ fn test_to_value() {
 }
 
 #[test]
-fn test_to_value_vec() {
+fn to_value_vec() {
     let v = vec![1u32, 2, 3];
     let value = to_value(&v).unwrap();
     assert!(value.is_array());
@@ -181,7 +181,7 @@ fn test_to_value_vec() {
 }
 
 #[test]
-fn test_to_value_nested_struct() {
+fn to_value_nested_struct() {
     #[derive(Serialize)]
     struct Inner {
         x: i32,
@@ -200,14 +200,14 @@ fn test_to_value_nested_struct() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_from_value_string() {
+fn from_value_string() {
     let value = serde_json::json!("hello");
     let s: String = from_value(value).unwrap();
     assert_eq!(s, "hello");
 }
 
 #[test]
-fn test_from_value_struct() {
+fn from_value_struct() {
     #[derive(Deserialize, Debug, PartialEq)]
     struct Point {
         x: f64,
@@ -219,7 +219,7 @@ fn test_from_value_struct() {
 }
 
 #[test]
-fn test_from_value_error() {
+fn from_value_error() {
     #[allow(dead_code)]
     #[derive(Debug, Deserialize)]
     struct Strict {
@@ -236,7 +236,7 @@ fn test_from_value_error() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_to_js_literal_simple() {
+fn to_js_literal_simple() {
     let value = serde_json::json!({"key": "value"});
     let literal = to_js_literal(&value);
     assert!(literal.contains("key"));
@@ -244,7 +244,7 @@ fn test_to_js_literal_simple() {
 }
 
 #[test]
-fn test_to_js_literal_unicode() {
+fn to_js_literal_unicode() {
     let data = serde_json::json!({"message": "你好世界", "emoji": "🎉"});
     let js_literal = to_js_literal(&data);
     assert!(js_literal.contains("你好世界"));
@@ -252,7 +252,7 @@ fn test_to_js_literal_unicode() {
 }
 
 #[test]
-fn test_to_js_literal_special_chars() {
+fn to_js_literal_special_chars() {
     let data = serde_json::json!({"path": "C:\\Users\\test", "quote": "He said \"hello\""});
     let js_literal = to_js_literal(&data);
     assert!(js_literal.contains("C:\\\\Users\\\\test"));
@@ -260,7 +260,7 @@ fn test_to_js_literal_special_chars() {
 }
 
 #[test]
-fn test_to_js_literal_nested() {
+fn to_js_literal_nested() {
     let data = serde_json::json!({
         "user": {"name": "张三", "age": 25},
         "tags": ["中文", "test"]
@@ -271,30 +271,30 @@ fn test_to_js_literal_nested() {
 }
 
 #[test]
-fn test_to_js_literal_number() {
+fn to_js_literal_number() {
     let value = serde_json::json!(42);
     assert_eq!(to_js_literal(&value), "42");
 }
 
 #[test]
-fn test_to_js_literal_boolean() {
+fn to_js_literal_boolean() {
     assert_eq!(to_js_literal(&serde_json::json!(true)), "true");
     assert_eq!(to_js_literal(&serde_json::json!(false)), "false");
 }
 
 #[test]
-fn test_to_js_literal_null() {
+fn to_js_literal_null() {
     assert_eq!(to_js_literal(&serde_json::Value::Null), "null");
 }
 
 #[test]
-fn test_to_js_literal_empty_object() {
+fn to_js_literal_empty_object() {
     let value = serde_json::json!({});
     assert_eq!(to_js_literal(&value), "{}");
 }
 
 #[test]
-fn test_to_js_literal_empty_array() {
+fn to_js_literal_empty_array() {
     let value = serde_json::json!([]);
     assert_eq!(to_js_literal(&value), "[]");
 }
@@ -304,7 +304,7 @@ fn test_to_js_literal_empty_array() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_serialize_to_js_literal() {
+fn serialize_to_js_literal() {
     #[derive(serde::Serialize)]
     struct TestStruct {
         name: String,
@@ -320,14 +320,14 @@ fn test_serialize_to_js_literal() {
 }
 
 #[test]
-fn test_serialize_to_js_literal_vec() {
+fn serialize_to_js_literal_vec() {
     let v = vec![1u32, 2, 3];
     let s = serialize_to_js_literal(&v).unwrap();
     assert_eq!(s, "[1,2,3]");
 }
 
 #[test]
-fn test_serialize_to_js_literal_string() {
+fn serialize_to_js_literal_string() {
     let s = "hello".to_string();
     let literal = serialize_to_js_literal(&s).unwrap();
     assert_eq!(literal, r#""hello""#);
@@ -338,57 +338,57 @@ fn test_serialize_to_js_literal_string() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_from_str_null() {
+fn from_str_null() {
     let value = from_str("null").unwrap();
     assert!(value.is_null());
 }
 
 #[test]
-fn test_from_str_boolean_true() {
+fn from_str_boolean_true() {
     let value = from_str("true").unwrap();
     assert_eq!(value, true);
 }
 
 #[test]
-fn test_from_str_boolean_false() {
+fn from_str_boolean_false() {
     let value = from_str("false").unwrap();
     assert_eq!(value, false);
 }
 
 #[test]
-fn test_from_str_integer() {
+fn from_str_integer() {
     let value = from_str("42").unwrap();
     assert_eq!(value, 42);
 }
 
 #[test]
-fn test_from_str_float() {
+fn from_str_float() {
     let value = from_str("3.14").unwrap();
     assert!((value.as_f64().unwrap() - 3.14).abs() < 1e-10);
 }
 
 #[test]
-fn test_from_str_string_literal() {
+fn from_str_string_literal() {
     let value = from_str(r#""hello world""#).unwrap();
     assert_eq!(value.as_str().unwrap(), "hello world");
 }
 
 #[test]
-fn test_from_str_empty_array() {
+fn from_str_empty_array() {
     let value = from_str("[]").unwrap();
     assert!(value.is_array());
     assert_eq!(value.as_array().unwrap().len(), 0);
 }
 
 #[test]
-fn test_from_str_deeply_nested() {
+fn from_str_deeply_nested() {
     let json = r#"{"a": {"b": {"c": {"d": 42}}}}"#;
     let value = from_str(json).unwrap();
     assert_eq!(value["a"]["b"]["c"]["d"], 42);
 }
 
 #[test]
-fn test_from_str_array_of_objects() {
+fn from_str_array_of_objects() {
     let json = r#"[{"id": 1}, {"id": 2}, {"id": 3}]"#;
     let value = from_str(json).unwrap();
     assert_eq!(value.as_array().unwrap().len(), 3);
@@ -400,7 +400,7 @@ fn test_from_str_array_of_objects() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_to_js_literal_array_of_strings() {
+fn to_js_literal_array_of_strings() {
     let value = serde_json::json!(["a", "b", "c"]);
     let lit = to_js_literal(&value);
     assert!(lit.contains("\"a\""));
@@ -409,14 +409,14 @@ fn test_to_js_literal_array_of_strings() {
 }
 
 #[test]
-fn test_to_js_literal_float_value() {
+fn to_js_literal_float_value() {
     let value = serde_json::json!(3.14);
     let lit = to_js_literal(&value);
     assert!(lit.contains("3.14") || lit.contains("3.1"), "float should appear in literal");
 }
 
 #[test]
-fn test_to_js_literal_negative_number() {
+fn to_js_literal_negative_number() {
     let value = serde_json::json!(-42);
     let lit = to_js_literal(&value);
     assert!(lit.contains("-42"));
@@ -427,19 +427,19 @@ fn test_to_js_literal_negative_number() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_from_bytes_empty_object() {
+fn from_bytes_empty_object() {
     let value = from_bytes(b"{}".to_vec()).unwrap();
     assert!(value.is_object());
 }
 
 #[test]
-fn test_from_bytes_empty_array() {
+fn from_bytes_empty_array() {
     let value = from_bytes(b"[]".to_vec()).unwrap();
     assert!(value.is_array());
 }
 
 #[test]
-fn test_from_bytes_unicode() {
+fn from_bytes_unicode() {
     let bytes = r#"{"greeting": "こんにちは"}"#.as_bytes().to_vec();
     let value = from_bytes(bytes).unwrap();
     assert_eq!(value["greeting"], "こんにちは");
@@ -450,20 +450,20 @@ fn test_from_bytes_unicode() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_to_string_null_value() {
+fn to_string_null_value() {
     let value = serde_json::Value::Null;
     let s = to_string(&value).unwrap();
     assert_eq!(s, "null");
 }
 
 #[test]
-fn test_to_string_boolean() {
+fn to_string_boolean() {
     assert_eq!(to_string(&serde_json::json!(true)).unwrap(), "true");
     assert_eq!(to_string(&serde_json::json!(false)).unwrap(), "false");
 }
 
 #[test]
-fn test_to_string_array() {
+fn to_string_array() {
     let arr = serde_json::json!([1, 2, 3]);
     let s = to_string(&arr).unwrap();
     assert!(s.contains("1"));
@@ -475,7 +475,7 @@ fn test_to_string_array() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_to_value_and_from_value_roundtrip() {
+fn to_value_and_from_value_roundtrip() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct Config {
         name: String,
@@ -489,7 +489,7 @@ fn test_to_value_and_from_value_roundtrip() {
 }
 
 #[test]
-fn test_serialize_to_js_literal_bool() {
+fn serialize_to_js_literal_bool() {
     let t: bool = true;
     let s = serialize_to_js_literal(&t).unwrap();
     assert_eq!(s, "true");
@@ -499,7 +499,7 @@ fn test_serialize_to_js_literal_bool() {
 }
 
 #[test]
-fn test_serialize_to_js_literal_null() {
+fn serialize_to_js_literal_null() {
     let n: Option<String> = None;
     let s = serialize_to_js_literal(&n).unwrap();
     assert_eq!(s, "null");
