@@ -225,3 +225,144 @@ fn long_string_payload() {
     let err = BrowserError::Navigation(long.clone());
     assert!(err.to_string().contains(&long));
 }
+
+// ---------------------------------------------------------------------------
+// Unicode and special-character payloads
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn unicode_payload_chinese() {
+    let err = BrowserError::TabNotFound("标签页-中文".to_string());
+    assert!(err.to_string().contains("标签页-中文"));
+}
+
+#[rstest]
+fn unicode_payload_emoji() {
+    let err = BrowserError::Navigation("🚀 rocket navigation".to_string());
+    assert!(err.to_string().contains("🚀"));
+}
+
+#[rstest]
+fn special_chars_payload() {
+    let payload = r#"<script>alert("xss")</script>"#;
+    let err = BrowserError::InvalidUrl(payload.to_string());
+    assert!(err.to_string().contains(payload));
+}
+
+#[rstest]
+fn newline_in_payload() {
+    let err = BrowserError::Extension("line1\nline2".to_string());
+    let s = err.to_string();
+    assert!(s.contains("line1"));
+    assert!(s.contains("line2"));
+}
+
+// ---------------------------------------------------------------------------
+// IoError — various ErrorKind values
+// ---------------------------------------------------------------------------
+
+#[rstest]
+#[case(std::io::ErrorKind::TimedOut, "timed out")]
+#[case(std::io::ErrorKind::ConnectionRefused, "connection refused")]
+#[case(std::io::ErrorKind::WouldBlock, "would block")]
+fn from_io_various_kinds(#[case] kind: std::io::ErrorKind, #[case] msg: &str) {
+    let io_err = io::Error::new(kind, msg);
+    let browser_err: BrowserError = io_err.into();
+    assert!(
+        browser_err.to_string().contains(msg),
+        "Expected '{}' in: {}",
+        msg,
+        browser_err
+    );
+}
+
+// ---------------------------------------------------------------------------
+// All string variants produce non-empty Display output
+// ---------------------------------------------------------------------------
+
+#[rstest]
+#[case(BrowserError::TabNotFound("t".into()))]
+#[case(BrowserError::BookmarkNotFound("b".into()))]
+#[case(BrowserError::ExtensionNotFound("e".into()))]
+#[case(BrowserError::WebViewCreation("w".into()))]
+#[case(BrowserError::WindowCreation("win".into()))]
+#[case(BrowserError::Navigation("nav".into()))]
+#[case(BrowserError::InvalidUrl("url".into()))]
+#[case(BrowserError::Extension("ext".into()))]
+fn all_variants_non_empty_display(#[case] err: BrowserError) {
+    let s = err.to_string();
+    assert!(!s.is_empty(), "Display output should not be empty: {:?}", err);
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent error construction
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn concurrent_error_creation() {
+    use std::sync::{Arc, Mutex};
+    let errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let handles: Vec<_> = (0..10)
+        .map(|i| {
+            let errors = Arc::clone(&errors);
+            std::thread::spawn(move || {
+                let err = BrowserError::TabNotFound(format!("tab-{}", i));
+                errors.lock().unwrap().push(err.to_string());
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+    let collected = errors.lock().unwrap();
+    assert_eq!(collected.len(), 10);
+}
+
+// ---------------------------------------------------------------------------
+// serde_json error contains "expected" or similar diagnostic
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn serde_json_error_display_not_empty() {
+    let json_err = serde_json::from_str::<serde_json::Value>("{bad json}").unwrap_err();
+    let browser_err: BrowserError = json_err.into();
+    assert!(!browser_err.to_string().is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// IoError source is preserved through From conversion
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn io_error_source_preserved() {
+    use std::error::Error;
+    let inner = io::Error::new(io::ErrorKind::InvalidData, "bad data");
+    let browser_err: BrowserError = inner.into();
+    assert!(browser_err.source().is_some());
+}
+
+// ---------------------------------------------------------------------------
+// Different variant messages have different prefixes
+// ---------------------------------------------------------------------------
+
+#[rstest]
+fn variant_messages_distinct_prefixes() {
+    let pairs: &[(&str, BrowserError)] = &[
+        ("Tab not found", BrowserError::TabNotFound("x".into())),
+        ("Bookmark not found", BrowserError::BookmarkNotFound("x".into())),
+        ("Extension not found", BrowserError::ExtensionNotFound("x".into())),
+        ("WebView creation failed", BrowserError::WebViewCreation("x".into())),
+        ("Window creation failed", BrowserError::WindowCreation("x".into())),
+        ("Navigation failed", BrowserError::Navigation("x".into())),
+        ("Invalid URL", BrowserError::InvalidUrl("x".into())),
+        ("Extension error", BrowserError::Extension("x".into())),
+    ];
+    for (prefix, err) in pairs {
+        assert!(
+            err.to_string().starts_with(prefix),
+            "Expected prefix '{}', got: {}",
+            prefix,
+            err
+        );
+    }
+}

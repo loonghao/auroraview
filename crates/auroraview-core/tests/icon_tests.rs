@@ -1,9 +1,12 @@
 //! Icon loading tests
 
-use auroraview_core::icon::{load_icon_rgba, IconData};
+use auroraview_core::icon::{
+    compress_and_resize, compress_png, load_icon_rgba, png_bytes_to_ico, png_to_ico,
+    CompressionLevel, CompressionResult, IcoConfig, IconData, DEFAULT_ICO_SIZES,
+};
 use rstest::rstest;
 use std::io::Write;
-use tempfile::NamedTempFile;
+use tempfile::{NamedTempFile, TempDir};
 
 fn create_test_png_size(width: u32, height: u32) -> NamedTempFile {
     let mut file = NamedTempFile::with_suffix(".png").unwrap();
@@ -182,4 +185,174 @@ fn resize_from_bytes() {
     let resized = icon.resize(16).unwrap();
     assert_eq!(resized.width, 16);
     assert_eq!(resized.height, 16);
+}
+
+// ============================================================================
+// DEFAULT_ICO_SIZES constant
+// ============================================================================
+
+#[test]
+fn default_ico_sizes_not_empty() {
+    assert!(!DEFAULT_ICO_SIZES.is_empty());
+}
+
+#[test]
+fn default_ico_sizes_contains_standard() {
+    assert!(DEFAULT_ICO_SIZES.contains(&16));
+    assert!(DEFAULT_ICO_SIZES.contains(&32));
+    assert!(DEFAULT_ICO_SIZES.contains(&256));
+}
+
+// ============================================================================
+// IcoConfig
+// ============================================================================
+
+#[test]
+fn ico_config_default_sizes() {
+    let cfg = IcoConfig::default();
+    assert!(!cfg.sizes.is_empty());
+    assert!(cfg.sizes.contains(&16));
+    assert!(cfg.sizes.contains(&256));
+}
+
+#[test]
+fn ico_config_with_sizes() {
+    let cfg = IcoConfig::with_sizes(&[16, 32]);
+    assert_eq!(cfg.sizes, vec![16, 32]);
+}
+
+#[test]
+fn ico_config_clone() {
+    let cfg = IcoConfig::with_sizes(&[48, 64]);
+    let cloned = cfg.clone();
+    assert_eq!(cloned.sizes, cfg.sizes);
+}
+
+// ============================================================================
+// CompressionLevel From<u8>
+// ============================================================================
+
+#[rstest]
+#[case(0, CompressionLevel::Fast)]
+#[case(1, CompressionLevel::Fast)]
+#[case(3, CompressionLevel::Fast)]
+#[case(4, CompressionLevel::Default)]
+#[case(6, CompressionLevel::Default)]
+#[case(7, CompressionLevel::Best)]
+#[case(9, CompressionLevel::Best)]
+fn compression_level_from_u8(#[case] level: u8, #[case] expected: CompressionLevel) {
+    let got: CompressionLevel = level.into();
+    assert_eq!(got, expected);
+}
+
+#[test]
+fn compression_level_clone() {
+    let lvl = CompressionLevel::Best;
+    let cloned = lvl;
+    assert_eq!(lvl, cloned);
+}
+
+// ============================================================================
+// png_to_ico
+// ============================================================================
+
+#[test]
+fn png_to_ico_basic() {
+    let png_file = create_test_png_size(16, 16);
+    let dir = TempDir::new().unwrap();
+    let ico_path = dir.path().join("out.ico");
+    let result = png_to_ico(png_file.path(), &ico_path, &[16, 32]);
+    assert!(result.is_ok(), "png_to_ico failed: {:?}", result);
+    assert!(ico_path.exists());
+}
+
+#[test]
+fn png_to_ico_nonexistent_input() {
+    let dir = TempDir::new().unwrap();
+    let out = dir.path().join("out.ico");
+    let result = png_to_ico("/nonexistent/icon.png", &out, &[16]);
+    assert!(result.is_err());
+}
+
+// ============================================================================
+// png_bytes_to_ico
+// ============================================================================
+
+#[test]
+fn png_bytes_to_ico_basic() {
+    let bytes = create_png_bytes(32, 32);
+    let dir = TempDir::new().unwrap();
+    let ico_path = dir.path().join("from_bytes.ico");
+    let result = png_bytes_to_ico(&bytes, &ico_path, &[16, 32]);
+    assert!(result.is_ok(), "png_bytes_to_ico failed: {:?}", result);
+}
+
+#[test]
+fn png_bytes_to_ico_invalid_bytes() {
+    let dir = TempDir::new().unwrap();
+    let out = dir.path().join("bad.ico");
+    let result = png_bytes_to_ico(&[0xDE, 0xAD, 0xBE, 0xEF], &out, &[16]);
+    assert!(result.is_err());
+}
+
+// ============================================================================
+// compress_png
+// ============================================================================
+
+#[test]
+fn compress_png_basic() {
+    let png_file = create_test_png_size(8, 8);
+    let dir = TempDir::new().unwrap();
+    let out = dir.path().join("compressed.png");
+    let result = compress_png(png_file.path(), &out, 6);
+    assert!(result.is_ok(), "compress_png failed: {:?}", result);
+    let cr = result.unwrap();
+    assert_eq!(cr.width, 8);
+    assert_eq!(cr.height, 8);
+}
+
+#[test]
+fn compress_png_nonexistent_input() {
+    let dir = TempDir::new().unwrap();
+    let out = dir.path().join("out.png");
+    let result = compress_png("/nonexistent.png", &out, 3);
+    assert!(result.is_err());
+}
+
+// ============================================================================
+// CompressionResult::reduction_percent
+// ============================================================================
+
+#[test]
+fn compression_result_reduction_zero_original() {
+    let cr = CompressionResult {
+        original_size: 0,
+        compressed_size: 100,
+        width: 4,
+        height: 4,
+    };
+    assert_eq!(cr.reduction_percent(), 0.0);
+}
+
+#[test]
+fn compression_result_reduction_half() {
+    let cr = CompressionResult {
+        original_size: 1000,
+        compressed_size: 500,
+        width: 4,
+        height: 4,
+    };
+    assert!((cr.reduction_percent() - 50.0).abs() < 1e-6);
+}
+
+#[test]
+fn compression_result_clone() {
+    let cr = CompressionResult {
+        original_size: 200,
+        compressed_size: 100,
+        width: 2,
+        height: 2,
+    };
+    let c = cr.clone();
+    assert_eq!(c.original_size, 200);
 }

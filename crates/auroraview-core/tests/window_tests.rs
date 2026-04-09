@@ -214,3 +214,104 @@ fn concurrent_window_info_creation() {
         assert_eq!(info.hwnd, i as isize);
     }
 }
+
+// ============================================================================
+// repr format details
+// ============================================================================
+
+#[test]
+fn repr_contains_process_name() {
+    let info = WindowInfo::new(
+        42,
+        "Maya".to_string(),
+        1001,
+        "maya.exe".to_string(),
+        "C:/Maya/bin/maya.exe".to_string(),
+    );
+    let repr = info.repr();
+    assert!(repr.contains("maya.exe"), "repr should contain process_name: {repr}");
+}
+
+#[test]
+fn repr_format_single_quotes_around_title() {
+    let info = WindowInfo::new(1, "Blender".to_string(), 2, "blender".to_string(), "/usr/bin/blender".to_string());
+    let repr = info.repr();
+    // The format is: title='...'
+    assert!(repr.contains("title='Blender'"), "repr format mismatch: {repr}");
+}
+
+// ============================================================================
+// Field equality checks — partial field changes break eq
+// ============================================================================
+
+#[test]
+fn ne_when_only_title_differs() {
+    let base = WindowInfo::new(1, "A".to_string(), 10, "proc".to_string(), "/p".to_string());
+    let other = WindowInfo::new(1, "B".to_string(), 10, "proc".to_string(), "/p".to_string());
+    assert_ne!(base, other);
+}
+
+#[test]
+fn ne_when_only_pid_differs() {
+    let a = WindowInfo::new(1, "T".to_string(), 10, "p".to_string(), "/".to_string());
+    let b = WindowInfo::new(1, "T".to_string(), 99, "p".to_string(), "/".to_string());
+    assert_ne!(a, b);
+}
+
+#[test]
+fn ne_when_only_process_path_differs() {
+    let a = WindowInfo::new(1, "T".to_string(), 1, "p".to_string(), "/a".to_string());
+    let b = WindowInfo::new(1, "T".to_string(), 1, "p".to_string(), "/b".to_string());
+    assert_ne!(a, b);
+}
+
+// ============================================================================
+// Unicode in paths and process names
+// ============================================================================
+
+#[test]
+fn unicode_process_path() {
+    let info = WindowInfo::new(
+        5,
+        "Houdini".to_string(),
+        300,
+        "houdini".to_string(),
+        "/opt/应用/houdini".to_string(),
+    );
+    assert_eq!(info.process_path, "/opt/应用/houdini");
+    let repr = info.repr();
+    assert!(repr.contains("Houdini"));
+}
+
+// ============================================================================
+// From<ActiveWindow> — HWND parsing edge cases
+// ============================================================================
+
+#[test]
+fn from_active_window_negative_hwnd_string() {
+    // Negative HWND values in the string should parse correctly
+    let window = make_active_window("Test", "HWND(-1)", 0, "/app", "app");
+    let info: WindowInfo = window.into();
+    assert_eq!(info.hwnd, -1);
+}
+
+#[rstest]
+#[case("HWND(100)", 100)]
+#[case("HWND(0)", 0)]
+#[case("BadFormat", 0)]
+#[case("HWND()", 0)]
+fn hwnd_parse_cases(#[case] window_id: &str, #[case] expected: isize) {
+    let window = make_active_window("Test", window_id, 1, "/app", "app");
+    let info: WindowInfo = window.into();
+    assert_eq!(info.hwnd, expected);
+}
+
+// ============================================================================
+// Send + Sync bounds
+// ============================================================================
+
+#[test]
+fn window_info_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<WindowInfo>();
+}
