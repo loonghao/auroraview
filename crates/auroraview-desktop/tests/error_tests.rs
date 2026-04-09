@@ -247,3 +247,129 @@ fn result_ok_unit() {
     let r: Result<()> = Ok(());
     assert!(r.is_ok());
 }
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[rstest]
+fn all_variants_have_unique_display() {
+    let io_err1 = io::Error::other("io1");
+    let messages: Vec<String> = vec![
+        DesktopError::WindowCreation("x".into()).to_string(),
+        DesktopError::WebViewCreation("x".into()).to_string(),
+        DesktopError::WindowNotFound("x".into()).to_string(),
+        DesktopError::EventLoop("x".into()).to_string(),
+        DesktopError::Tray("x".into()).to_string(),
+        DesktopError::Io(io_err1).to_string(),
+    ];
+    // All display strings should be non-empty and different from each other
+    for (i, m) in messages.iter().enumerate() {
+        assert!(!m.is_empty(), "Message {i} should not be empty");
+        for (j, n) in messages.iter().enumerate() {
+            if i != j {
+                assert_ne!(m, n, "Messages {i} and {j} should differ");
+            }
+        }
+    }
+}
+
+#[rstest]
+fn window_creation_empty_msg() {
+    let e = DesktopError::WindowCreation("".into());
+    assert!(e.to_string().contains("Window creation failed"));
+}
+
+#[rstest]
+fn webview_creation_empty_msg() {
+    let e = DesktopError::WebViewCreation("".into());
+    assert!(e.to_string().contains("WebView creation failed"));
+}
+
+#[rstest]
+fn window_not_found_empty_id() {
+    let e = DesktopError::WindowNotFound("".into());
+    assert!(e.to_string().contains("Window not found"));
+}
+
+#[rstest]
+fn event_loop_empty_msg() {
+    let e = DesktopError::EventLoop("".into());
+    assert!(e.to_string().contains("Event loop error"));
+}
+
+#[rstest]
+fn tray_empty_msg() {
+    let e = DesktopError::Tray("".into());
+    assert!(e.to_string().contains("Tray error"));
+}
+
+#[rstest]
+fn io_error_not_found_kind() {
+    let io_err = io::Error::new(io::ErrorKind::NotFound, "file missing");
+    let e: DesktopError = io_err.into();
+    assert!(e.to_string().contains("file missing"));
+}
+
+#[rstest]
+fn io_error_source_is_some() {
+    let io_err = io::Error::new(io::ErrorKind::Other, "chain");
+    let e = DesktopError::Io(io_err);
+    let e_ref: &dyn std::error::Error = &e;
+    assert!(e_ref.source().is_some());
+}
+
+#[rstest]
+fn all_non_io_variants_source_is_none() {
+    let variants: Vec<DesktopError> = vec![
+        DesktopError::WindowCreation("x".into()),
+        DesktopError::WebViewCreation("x".into()),
+        DesktopError::WindowNotFound("x".into()),
+        DesktopError::EventLoop("x".into()),
+        DesktopError::Tray("x".into()),
+    ];
+    for e in &variants {
+        let e_ref: &dyn std::error::Error = e;
+        assert!(e_ref.source().is_none(), "{:?} should have no source", e);
+    }
+}
+
+#[rstest]
+fn result_err_window_creation() {
+    let r: Result<i32> = Err(DesktopError::WindowCreation("hwnd null".into()));
+    assert!(r.is_err());
+    assert!(r.unwrap_err().to_string().contains("hwnd null"));
+}
+
+#[rstest]
+fn result_err_webview_creation() {
+    let r: Result<i32> = Err(DesktopError::WebViewCreation("env failed".into()));
+    assert!(r.is_err());
+    assert!(r.unwrap_err().to_string().contains("env failed"));
+}
+
+#[rstest]
+fn all_variants_debug_not_empty() {
+    let io_err = io::Error::other("io-debug");
+    let variants: Vec<DesktopError> = vec![
+        DesktopError::WindowCreation("x".into()),
+        DesktopError::WebViewCreation("x".into()),
+        DesktopError::WindowNotFound("x".into()),
+        DesktopError::EventLoop("x".into()),
+        DesktopError::Tray("x".into()),
+        DesktopError::Io(io_err),
+    ];
+    for e in &variants {
+        assert!(!format!("{e:?}").is_empty());
+    }
+}
+
+#[rstest]
+fn desktop_error_display_prefix_correctness() {
+    // Verify each variant has its expected prefix
+    assert!(DesktopError::WindowCreation("x".into()).to_string().starts_with("Window creation failed"));
+    assert!(DesktopError::WebViewCreation("x".into()).to_string().starts_with("WebView creation failed"));
+    assert!(DesktopError::WindowNotFound("x".into()).to_string().starts_with("Window not found"));
+    assert!(DesktopError::EventLoop("x".into()).to_string().starts_with("Event loop error"));
+    assert!(DesktopError::Tray("x".into()).to_string().starts_with("Tray error"));
+}
