@@ -12,20 +12,20 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from auroraview.features import (
-    BookmarkManager,
     Bookmark,
     BookmarkFolder,
-    HistoryManager,
-    HistoryEntry,
-    DownloadManager,
+    BookmarkManager,
     DownloadItem,
+    DownloadManager,
     DownloadState,
-    SettingsManager,
+    HistoryEntry,
+    HistoryManager,
     NotificationManager,
     NotificationType,
+    SettingsManager,
 )
 
 if TYPE_CHECKING:
@@ -129,21 +129,21 @@ def remove_bookmark(bookmark_id: str) -> dict[str, Any]:
     return {"ok": success}
 
 
-def update_bookmark(bookmark_id: str, title: Optional[str] = None, 
+def update_bookmark(bookmark_id: str, title: Optional[str] = None,
                    url: Optional[str] = None, folder_id: Optional[str] = None) -> dict[str, Any]:
     """Update a bookmark."""
     manager = get_bookmark_manager()
     bookmark = manager.get(bookmark_id)  # Use correct method name
     if bookmark is None:
         return {"ok": False, "error": "Bookmark not found"}
-    
+
     # Use the update method
     manager.update(bookmark_id, title=title, url=url)
-    
+
     # Handle folder change if needed
     if folder_id is not None:
         manager.move_to_folder(bookmark_id, folder_id)
-    
+
     updated = manager.get(bookmark_id)
     return {"ok": True, "bookmark": _bookmark_to_dict(updated) if updated else None}
 
@@ -296,7 +296,7 @@ def retry_download(download_id: str) -> dict[str, Any]:
     download = manager.get(download_id)
     if download is None:
         return {"ok": False, "error": "Download not found"}
-    
+
     # Reset failed download to pending state
     if download.state == DownloadState.FAILED:
         download.state = DownloadState.PENDING
@@ -391,7 +391,7 @@ def show_notification(
         "error": NotificationType.ERROR,
     }
     notification_type = type_map.get(type, NotificationType.INFO)
-    
+
     notification = manager.notify(
         title=title,
         body=message,  # Use 'body' parameter
@@ -440,14 +440,14 @@ def register_features_api(webview: "WebView") -> None:
     webview.bind_call("features.create_folder", create_folder)
     webview.bind_call("features.remove_folder", remove_folder)
     webview.bind_call("features.is_bookmarked", is_bookmarked)
-    
+
     # History
     webview.bind_call("features.get_history", get_history)
     webview.bind_call("features.add_history", add_history)
     webview.bind_call("features.remove_history", remove_history)
     webview.bind_call("features.clear_history", clear_history)
     webview.bind_call("features.search_history", search_history)
-    
+
     # Downloads
     webview.bind_call("features.get_downloads", get_downloads)
     webview.bind_call("features.pause_download", pause_download)
@@ -456,13 +456,13 @@ def register_features_api(webview: "WebView") -> None:
     webview.bind_call("features.retry_download", retry_download)
     webview.bind_call("features.remove_download", remove_download)
     webview.bind_call("features.clear_completed_downloads", clear_completed_downloads)
-    
+
     # Settings
     webview.bind_call("features.get_settings", get_settings)
     webview.bind_call("features.get_setting", get_setting)
     webview.bind_call("features.set_setting", set_setting)
     webview.bind_call("features.reset_settings", reset_settings)
-    
+
     # Notifications
     webview.bind_call("features.show_notification", show_notification)
     webview.bind_call("features.dismiss_notification", dismiss_notification)

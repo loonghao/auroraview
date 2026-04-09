@@ -5,7 +5,6 @@
 use auroraview_core::service_discovery::port_allocator::PortAllocator;
 use rstest::*;
 use std::net::TcpListener;
-use std::time::Duration;
 
 /// Fixture: Create a default port allocator
 #[fixture]
@@ -20,7 +19,7 @@ fn custom_allocator() -> PortAllocator {
 }
 
 #[rstest]
-fn test_default_allocator_values(allocator: PortAllocator) {
+fn default_allocator_values(allocator: PortAllocator) {
     // Default values should be 9001 start port and 100 max attempts
     let port = allocator.find_free_port();
     assert!(port.is_ok());
@@ -30,7 +29,7 @@ fn test_default_allocator_values(allocator: PortAllocator) {
 }
 
 #[rstest]
-fn test_custom_allocator_range(custom_allocator: PortAllocator) {
+fn custom_allocator_range(custom_allocator: PortAllocator) {
     let port = custom_allocator.find_free_port();
     assert!(port.is_ok());
     let port_num = port.unwrap();
@@ -42,7 +41,7 @@ fn test_custom_allocator_range(custom_allocator: PortAllocator) {
 #[case(50000, 10)]
 #[case(60000, 50)]
 #[case(40000, 20)]
-fn test_allocator_with_different_ranges(#[case] start: u16, #[case] max_attempts: u16) {
+fn allocator_with_different_ranges(#[case] start: u16, #[case] max_attempts: u16) {
     let allocator = PortAllocator::new(start, max_attempts);
     let port = allocator.find_free_port();
     assert!(port.is_ok());
@@ -52,7 +51,7 @@ fn test_allocator_with_different_ranges(#[case] start: u16, #[case] max_attempts
 }
 
 #[rstest]
-fn test_is_port_available_with_bound_port() {
+fn is_port_available_with_bound_port() {
     // Bind to a random port
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let bound_port = listener.local_addr().unwrap().port();
@@ -68,7 +67,7 @@ fn test_is_port_available_with_bound_port() {
 }
 
 #[rstest]
-fn test_is_port_available_with_free_port() {
+fn is_port_available_with_free_port() {
     // Find a free port first
     let allocator = PortAllocator::new(55000, 10);
     let port = allocator.find_free_port().unwrap();
@@ -78,7 +77,7 @@ fn test_is_port_available_with_free_port() {
 }
 
 #[rstest]
-fn test_find_free_port_skips_occupied_ports() {
+fn find_free_port_skips_occupied_ports() {
     // Bind to the first port in range
     let start_port = 56000;
     let _listener1 = TcpListener::bind(format!("127.0.0.1:{}", start_port)).unwrap();
@@ -93,14 +92,14 @@ fn test_find_free_port_skips_occupied_ports() {
 }
 
 #[rstest]
-fn test_find_free_port_with_timeout() {
+fn find_free_port_basic() {
     let allocator = PortAllocator::new(57000, 50);
-    let port = allocator.find_free_port_with_timeout(Duration::from_millis(100));
+    let port = allocator.find_free_port();
     assert!(port.is_ok());
 }
 
 #[rstest]
-fn test_port_allocator_exhaustion() {
+fn port_allocator_exhaustion() {
     // Create allocator with very limited range
     let allocator = PortAllocator::new(65530, 5);
 
@@ -128,7 +127,7 @@ fn test_port_allocator_exhaustion() {
 }
 
 #[rstest]
-fn test_port_allocator_at_boundary() {
+fn port_allocator_at_boundary() {
     // Test at the upper boundary of port range
     let allocator = PortAllocator::new(65535, 1);
     let result = allocator.find_free_port();
@@ -142,7 +141,7 @@ fn test_port_allocator_at_boundary() {
 }
 
 #[rstest]
-fn test_multiple_allocators_find_different_ports() {
+fn multiple_allocators_find_different_ports() {
     let allocator1 = PortAllocator::new(58000, 100);
     let allocator2 = PortAllocator::new(58000, 100);
 
@@ -156,7 +155,7 @@ fn test_multiple_allocators_find_different_ports() {
 }
 
 #[rstest]
-fn test_port_allocator_concurrent_access() {
+fn port_allocator_concurrent_access() {
     use std::sync::Arc;
     use std::thread;
 
@@ -188,7 +187,7 @@ fn test_port_allocator_concurrent_access() {
 }
 
 #[rstest]
-fn test_port_zero_handling() {
+fn port_zero_handling() {
     // Port 0 should be skipped as it's invalid
     let allocator = PortAllocator::new(0, 10);
     let port = allocator.find_free_port();

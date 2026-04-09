@@ -34,10 +34,75 @@ pub struct Assets;
 ///
 /// Returns a modern React-based loading screen with Aurora animation
 /// and progress indication, built via Vite from auroraview-assets.
+///
+/// When built frontend assets are not available in a source checkout,
+/// fall back to a lightweight embedded loading page instead of panicking.
 pub fn get_loading_html() -> String {
     auroraview_assets::get_page_html(auroraview_assets::Page::Loading)
-        .expect("Loading page should be available from auroraview-assets")
+        .unwrap_or_else(|_| fallback_loading_html())
 }
+
+fn fallback_loading_html() -> String {
+    r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading... | AuroraView</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #root {
+            width: min(520px, calc(100% - 48px));
+        }
+        .panel {
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+        }
+        .spinner {
+            width: 44px;
+            height: 44px;
+            margin: 0 auto 20px;
+            border-radius: 999px;
+            border: 4px solid rgba(148, 163, 184, 0.25);
+            border-top-color: #38bdf8;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .status {
+            margin: 0;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <main class="panel">
+            <div class="spinner"></div>
+            <h1>Loading AuroraView</h1>
+            <p class="status">Built frontend loading assets were not found; using embedded fallback page.</p>
+        </main>
+    </div>
+</body>
+</html>"#
+        .to_string()
+}
+
 
 /// Get the error HTML page content
 ///
@@ -50,10 +115,125 @@ pub fn get_loading_html() -> String {
 /// - `message`: User-friendly error message
 /// - `details`: Technical details (shown in a code block)
 /// - `url`: The URL that caused the error (for retry functionality)
+///
+/// When built frontend assets are not available in a source checkout,
+/// fall back to an embedded shell that keeps `build_error_page()` compatible.
 pub fn get_error_html() -> String {
     auroraview_assets::get_page_html(auroraview_assets::Page::Error)
-        .expect("Error page should be available from auroraview-assets")
+        .unwrap_or_else(|_| fallback_error_html())
 }
+
+fn fallback_error_html() -> String {
+    r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error | AuroraView</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .panel {
+            width: min(720px, 100%);
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(248, 113, 113, 0.12);
+            color: #fca5a5;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        h1 {
+            margin: 18px 0 10px;
+            font-size: 32px;
+            line-height: 1.2;
+        }
+        #error-code {
+            color: #f97316;
+        }
+        #error-message {
+            margin: 0;
+            color: #cbd5e1;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        #details-wrapper {
+            display: none;
+            margin-top: 20px;
+        }
+        #error-details {
+            margin: 0;
+            padding: 16px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 12px;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+        button {
+            border: 0;
+            border-radius: 10px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .primary {
+            background: #38bdf8;
+            color: #082f49;
+        }
+        .secondary {
+            background: rgba(148, 163, 184, 0.14);
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <main class="panel">
+        <div class="badge">AuroraView fallback</div>
+        <h1><span id="error-code">500</span> <span id="error-title">Internal Error</span></h1>
+        <p id="error-message">AuroraView could not load the built error page and is using an embedded fallback.</p>
+        <section id="details-wrapper">
+            <pre id="error-details"></pre>
+        </section>
+        <div class="actions">
+            <button class="primary" onclick="location.reload()">Retry</button>
+            <button class="secondary" onclick="window.history.back()">Go Back</button>
+        </div>
+    </main>
+</body>
+</html>"#
+        .to_string()
+}
+
 
 /// Get the browser controller HTML page content
 ///

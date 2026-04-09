@@ -33,18 +33,18 @@ import sys
 # Check for Qt framework
 try:
     from PySide6.QtCore import Qt
+    from PySide6.QtGui import QColor, QPalette
     from PySide6.QtWidgets import (
         QApplication,
-        QMainWindow,
-        QWidget,
-        QVBoxLayout,
-        QHBoxLayout,
-        QSplitter,
-        QLabel,
-        QTextEdit,
         QGroupBox,
+        QHBoxLayout,
+        QLabel,
+        QMainWindow,
+        QSplitter,
+        QTextEdit,
+        QVBoxLayout,
+        QWidget,
     )
-    from PySide6.QtGui import QPalette, QColor
 
     HAS_QT = True
 except ImportError:

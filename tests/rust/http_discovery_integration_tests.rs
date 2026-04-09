@@ -8,7 +8,7 @@ use rstest::*;
 
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_http_discovery_start_stop_and_request() {
+async fn http_discovery_start_stop_and_request() {
     let mut server = HttpDiscovery::new(0, 9101); // Use port 0 for OS-assigned port
     assert!(
         !server.is_running(),
@@ -50,7 +50,7 @@ async fn test_http_discovery_start_stop_and_request() {
 
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_http_discovery_double_start_and_double_stop_are_safe() {
+async fn http_discovery_double_start_and_double_stop_are_safe() {
     let mut server = HttpDiscovery::new(0, 9102); // 0 → OS-assign port
 
     // First start
@@ -84,7 +84,7 @@ async fn test_http_discovery_double_start_and_double_stop_are_safe() {
 
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_http_discovery_unknown_path_returns_404() {
+async fn http_discovery_unknown_path_returns_404() {
     // Use port 0 for OS-assigned port to avoid flakiness
     let mut server = HttpDiscovery::new(0, 9101);
     server.start().await.expect("server start");
@@ -110,7 +110,7 @@ async fn test_http_discovery_unknown_path_returns_404() {
 
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_http_discovery_stop_without_start_is_ok() {
+async fn http_discovery_stop_without_start_is_ok() {
     let mut server = HttpDiscovery::new(0, 9101);
 
     // Calling stop on a non-started server should be a no-op and Ok
@@ -123,7 +123,7 @@ async fn test_http_discovery_stop_without_start_is_ok() {
 
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_http_discovery_drop_stops_server() {
+async fn http_discovery_drop_stops_server() {
     let mut server = HttpDiscovery::new(0, 9101);
     server.start().await.expect("start ok");
     assert!(server.is_running(), "Server should be running after start");
@@ -136,7 +136,7 @@ async fn test_http_discovery_drop_stops_server() {
 
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_http_discovery_concurrent_requests() {
+async fn http_discovery_concurrent_requests() {
     let mut server = HttpDiscovery::new(0, 9103);
     server.start().await.expect("server start");
 

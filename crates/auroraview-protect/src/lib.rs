@@ -62,6 +62,25 @@ pub mod crypto;
 mod error;
 mod protector;
 mod runtime_gen;
+/// Python AST-based precise obfuscation.
+pub mod ast_obfuscator;
+/// Python code obfuscation (name, control flow, string encryption).
+pub mod obfuscator;
+
+/// Obfuscation level for Python code
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ObfuscationLevel {
+    /// No obfuscation
+    None,
+    /// Basic: local variable renaming only
+    Basic,
+    /// Standard: variables + functions + classes
+    Standard,
+    /// Advanced: Standard + control flow obfuscation
+    Advanced,
+    /// Maximum: Advanced + string encryption + dead code insertion
+    Maximum,
+}
 
 /// Bytecode compilation and encryption types and utilities.
 pub use bytecode::{
@@ -82,3 +101,6 @@ pub use py2pyd;
 
 /// Crate version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub use ast_obfuscator::AstObfuscator;
+pub use obfuscator::{NameObfuscator, Obfuscator};

@@ -8,8 +8,11 @@ import sys
 
 import pytest
 
+pytest.importorskip("qtpy", reason="Qt backend requires qtpy and Qt bindings")
+
 # Skip all tests if not on Windows (WebView2 is Windows-only)
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="WebView2 requires Windows")
+
 
 
 class TestWebViewPoolIntegration:

@@ -37,7 +37,6 @@ dependencies = [
 [project.optional-dependencies]
 qt = [
     "qtpy>=2.0.0",
-    "pytest-qt>=4.2.0",
 ]
 
 [dependency-groups]
@@ -56,6 +55,7 @@ test = [
     "coverage[toml]>=7.0",
     "websockets>=10.0",
     "playwright>=1.40.0; python_version>='3.8'",
+    "pytest-qt>=4.2.0",
 ]
 playwright = [
     "playwright>=1.40.0; python_version>='3.8'",
@@ -157,8 +157,7 @@ omit = [
     "*/tests/*",
     "*/__pycache__/*",
     # Omit environment-dependent GUI backends from coverage stats
-    "*/auroraview/qt_integration.py",
-    "*/auroraview/webview.py",
+    # Note: paths use module notation (forward slashes, no .py extension)
 ]
 
 [tool.coverage.report]

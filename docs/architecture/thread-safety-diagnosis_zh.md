@@ -554,7 +554,6 @@ lifecycle.finish_destroy();
 // 配置预设
 let standalone = ProcessorConfig::standalone();
 let qt_embedded = ProcessorConfig::qt_embedded();
-let legacy = ProcessorConfig::legacy_embedded();
 ```
 
 #### 9.3 增强的 WebViewBackend Trait

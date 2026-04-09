@@ -134,7 +134,8 @@ pub fn is_verification_enabled() -> bool {
 /// ```
 pub struct LockOrderGuard {
     level: LockLevel,
-    #[allow(dead_code)]
+    /// Lock name for debugging (exposed via Debug impl).
+    /// Used in diagnostic output during lock violations and for debugging.
     name: String,
     /// Whether this guard was tracked (pushed to the lock stack)
     tracked: bool,
@@ -190,6 +191,16 @@ impl Drop for LockOrderGuard {
         if self.tracked {
             pop_lock(self.level);
         }
+    }
+}
+
+impl std::fmt::Debug for LockOrderGuard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LockOrderGuard")
+            .field("level", &self.level)
+            .field("name", &self.name)
+            .field("tracked", &self.tracked)
+            .finish()
     }
 }
 

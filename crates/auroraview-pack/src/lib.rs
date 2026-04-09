@@ -142,7 +142,10 @@ pub use common::InjectConfig;
 
 pub use metrics::PackedMetrics;
 pub use overlay::{OverlayData, OverlayReader, OverlayWriter, OVERLAY_MAGIC, OVERLAY_VERSION};
-pub use packer::{PackManager, Packer};
+pub use packer::{
+    PackContext, PackHook, PackOutput, PackPlugin, PackTarget,
+    PackManager, Packer, PluginRegistry, TargetPacker,
+};
 pub use progress::{progress_bar, spinner, PackProgress, ProgressExt, ProgressStyles};
 pub use protection::{
     check_build_tools_available, is_protection_available, protect_python_code,

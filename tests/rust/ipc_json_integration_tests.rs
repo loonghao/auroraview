@@ -11,7 +11,7 @@ use serde_json::json;
 #[case(r#"{"number": 42}"#)]
 #[case(r#"{"bool": true}"#)]
 #[case(r#"{"array": [1, 2, 3]}"#)]
-fn test_json_from_str_valid(#[case] json_str: &str) {
+fn json_from_str_valid(#[case] json_str: &str) {
     let result = json::from_str(json_str);
     assert!(result.is_ok());
 }
@@ -20,14 +20,14 @@ fn test_json_from_str_valid(#[case] json_str: &str) {
 #[case(r#"{"key": "value""#, "parse error")]
 #[case(r#"{key: value}"#, "parse error")]
 #[case(r#"invalid json"#, "parse error")]
-fn test_json_from_str_invalid(#[case] json_str: &str, #[case] expected_error: &str) {
+fn json_from_str_invalid(#[case] json_str: &str, #[case] expected_error: &str) {
     let result = json::from_str(json_str);
     assert!(result.is_err());
     assert!(result.unwrap_err().contains(expected_error));
 }
 
 #[rstest]
-fn test_json_from_str_object() {
+fn json_from_str_object() {
     let json_str = r#"{"name": "test", "value": 123}"#;
     let result = json::from_str(json_str).unwrap();
 
@@ -37,7 +37,7 @@ fn test_json_from_str_object() {
 }
 
 #[rstest]
-fn test_json_from_str_array() {
+fn json_from_str_array() {
     let json_str = r#"[1, 2, 3, 4, 5]"#;
     let result = json::from_str(json_str).unwrap();
 
@@ -49,7 +49,7 @@ fn test_json_from_str_array() {
 }
 
 #[rstest]
-fn test_json_from_str_nested() {
+fn json_from_str_nested() {
     let json_str = r#"{"outer": {"inner": {"deep": "value"}}}"#;
     let result = json::from_str(json_str).unwrap();
 
@@ -57,7 +57,7 @@ fn test_json_from_str_nested() {
 }
 
 #[rstest]
-fn test_json_to_string_object() {
+fn json_to_string_object() {
     let value = json!({
         "name": "test",
         "value": 42
@@ -74,7 +74,7 @@ fn test_json_to_string_object() {
 }
 
 #[rstest]
-fn test_json_to_string_array() {
+fn json_to_string_array() {
     let value = json!([1, 2, 3, 4, 5]);
 
     let result = json::to_string(&value);
@@ -90,7 +90,7 @@ fn test_json_to_string_array() {
 #[case(json!([1, 2, 3]))]
 #[case(json!({"nested": {"deep": "value"}}))]
 #[case(json!({"array": [1, 2, 3], "object": {"key": "value"}}))]
-fn test_json_roundtrip(#[case] original: serde_json::Value) {
+fn json_roundtrip(#[case] original: serde_json::Value) {
     // Serialize to string
     let json_str = json::to_string(&original).unwrap();
 
@@ -102,7 +102,7 @@ fn test_json_roundtrip(#[case] original: serde_json::Value) {
 }
 
 #[rstest]
-fn test_json_empty_object() {
+fn json_empty_object() {
     let json_str = r#"{}"#;
     let result = json::from_str(json_str).unwrap();
     assert!(result.is_object());
@@ -110,7 +110,7 @@ fn test_json_empty_object() {
 }
 
 #[rstest]
-fn test_json_empty_array() {
+fn json_empty_array() {
     let json_str = r#"[]"#;
     let result = json::from_str(json_str).unwrap();
     assert!(result.is_array());
@@ -124,13 +124,13 @@ fn test_json_empty_array() {
 #[case(r#"123"#)]
 #[case(r#"123.456"#)]
 #[case(r#""string""#)]
-fn test_json_primitive_types(#[case] json_str: &str) {
+fn json_primitive_types(#[case] json_str: &str) {
     let result = json::from_str(json_str);
     assert!(result.is_ok());
 }
 
 #[rstest]
-fn test_json_unicode_strings() {
+fn json_unicode_strings() {
     let json_str = r#"{"emoji": "🚀", "chinese": "你好", "japanese": "こんにちは"}"#;
     let result = json::from_str(json_str).unwrap();
 
@@ -140,7 +140,7 @@ fn test_json_unicode_strings() {
 }
 
 #[rstest]
-fn test_json_escaped_characters() {
+fn json_escaped_characters() {
     let json_str = r#"{"escaped": "line1\nline2\ttab"}"#;
     let result = json::from_str(json_str).unwrap();
 
@@ -150,7 +150,7 @@ fn test_json_escaped_characters() {
 }
 
 #[rstest]
-fn test_json_large_numbers() {
+fn json_large_numbers() {
     let json_str = r#"{"small": 1, "large": 9007199254740991}"#;
     let result = json::from_str(json_str).unwrap();
 
@@ -159,7 +159,7 @@ fn test_json_large_numbers() {
 }
 
 #[rstest]
-fn test_json_floating_point() {
+fn json_floating_point() {
     let json_str = r#"{"pi": 3.14159, "e": 2.71828}"#;
     let result = json::from_str(json_str).unwrap();
 
@@ -171,7 +171,7 @@ fn test_json_floating_point() {
 }
 
 #[rstest]
-fn test_json_deeply_nested() {
+fn json_deeply_nested() {
     let mut nested = json!("value");
     for _ in 0..10 {
         nested = json!({"level": nested});
@@ -184,7 +184,7 @@ fn test_json_deeply_nested() {
 }
 
 #[rstest]
-fn test_json_mixed_array() {
+fn json_mixed_array() {
     let json_str = r#"[1, "string", true, null, {"key": "value"}, [1, 2, 3]]"#;
     let result = json::from_str(json_str).unwrap();
 

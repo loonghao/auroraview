@@ -5,7 +5,7 @@
 
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 use crate::config::TelemetryConfig;
 use crate::guard::TelemetryGuard;
@@ -344,9 +344,7 @@ fn init_telemetry(config: Option<&PyTelemetryConfig>) -> PyResult<()> {
 
     let guard = Telemetry::init(rust_config).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
-    let mut slot = GUARD
-        .lock()
-        .map_err(|e| PyRuntimeError::new_err(format!("lock error: {e}")))?;
+    let mut slot = GUARD.lock();
     *slot = Some(guard);
 
     Ok(())
@@ -355,9 +353,7 @@ fn init_telemetry(config: Option<&PyTelemetryConfig>) -> PyResult<()> {
 /// Shutdown the telemetry system, flushing all pending data.
 #[pyfunction]
 fn shutdown_telemetry() -> PyResult<()> {
-    let mut slot = GUARD
-        .lock()
-        .map_err(|e| PyRuntimeError::new_err(format!("lock error: {e}")))?;
+    let mut slot = GUARD.lock();
     *slot = None; // Drop triggers TelemetryGuard::drop -> flush + shutdown
     Ok(())
 }

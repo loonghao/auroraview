@@ -88,14 +88,15 @@ run_desktop(
 )
 ```
 
-### run_standalone
+### 遗留别名
 
-`run_desktop` 的别名：
+> **注意**: 以下遗留别名已不再可用：
+> - `run_standalone`: 已移除。请使用 `run_desktop`。
 
 ```python
-from auroraview import run_standalone
+from auroraview import run_desktop
 
-run_standalone(
+run_desktop(
     title="我的应用",
     html="<h1>Hello</h1>"
 )

@@ -11,7 +11,7 @@ use rstest::*;
 
 /// Test standalone WebView configuration defaults
 #[rstest]
-fn test_standalone_config_defaults() {
+fn standalone_config_defaults() {
     let config = WebViewConfig::default();
 
     assert_eq!(config.title, "AuroraView");
@@ -28,7 +28,7 @@ fn test_standalone_config_defaults() {
 #[case("Custom Title", 1024, 768)]
 #[case("Test Window", 640, 480)]
 #[case("My App", 1920, 1080)]
-fn test_standalone_config_custom(#[case] title: &str, #[case] width: u32, #[case] height: u32) {
+fn standalone_config_custom(#[case] title: &str, #[case] width: u32, #[case] height: u32) {
     let config = WebViewConfig {
         title: title.to_string(),
         width,
@@ -43,7 +43,7 @@ fn test_standalone_config_custom(#[case] title: &str, #[case] width: u32, #[case
 
 /// Test loading screen HTML generation
 #[rstest]
-fn test_loading_html_generation() {
+fn loading_html_generation() {
     let html = js_assets::get_loading_html();
 
     // Verify HTML structure
@@ -69,7 +69,7 @@ fn test_loading_html_generation() {
 #[case("https://example.com")]
 #[case("https://google.com")]
 #[case("http://localhost:8080")]
-fn test_url_loading_script(#[case] url: &str) {
+fn url_loading_script(#[case] url: &str) {
     let script = js_assets::build_load_url_script(url);
 
     // Verify script contains URL
@@ -81,7 +81,7 @@ fn test_url_loading_script(#[case] url: &str) {
 
 /// Test HTML registry contains loading screen
 #[rstest]
-fn test_html_registry_has_loading() {
+fn html_registry_has_loading() {
     let html = js_assets::get_loading_html();
 
     // Should not be empty
@@ -93,7 +93,7 @@ fn test_html_registry_has_loading() {
 
 /// Test standalone config with URL
 #[rstest]
-fn test_standalone_config_with_url() {
+fn standalone_config_with_url() {
     let url = "https://example.com";
     let config = WebViewConfig {
         url: Some(url.to_string()),
@@ -106,7 +106,7 @@ fn test_standalone_config_with_url() {
 
 /// Test standalone config with HTML
 #[rstest]
-fn test_standalone_config_with_html() {
+fn standalone_config_with_html() {
     let html = "<html><body>Test</body></html>";
     let config = WebViewConfig {
         html: Some(html.to_string()),
@@ -119,7 +119,7 @@ fn test_standalone_config_with_html() {
 
 /// Test standalone config with both URL and HTML (URL takes precedence)
 #[rstest]
-fn test_standalone_config_url_precedence() {
+fn standalone_config_url_precedence() {
     let url = "https://example.com";
     let html = "<html><body>Test</body></html>";
     let config = WebViewConfig {
@@ -135,7 +135,7 @@ fn test_standalone_config_url_precedence() {
 
 /// Test window transparency configuration
 #[rstest]
-fn test_standalone_window_transparency() {
+fn standalone_window_transparency() {
     let config = WebViewConfig {
         transparent: true,
         ..Default::default()
@@ -148,7 +148,7 @@ fn test_standalone_window_transparency() {
 #[rstest]
 #[case(true)]
 #[case(false)]
-fn test_standalone_dev_tools(#[case] dev_tools: bool) {
+fn standalone_dev_tools(#[case] dev_tools: bool) {
     let config = WebViewConfig {
         dev_tools,
         ..Default::default()
@@ -159,7 +159,7 @@ fn test_standalone_dev_tools(#[case] dev_tools: bool) {
 
 /// Test standalone config with all options
 #[rstest]
-fn test_standalone_config_complete() {
+fn standalone_config_complete() {
     let config = WebViewConfig {
         title: "Test App".to_string(),
         width: 1024,
@@ -198,7 +198,7 @@ fn test_standalone_config_complete() {
 
 /// Test embed mode configuration
 #[rstest]
-fn test_standalone_embed_mode() {
+fn standalone_embed_mode() {
     use _core::webview::config::EmbedMode;
 
     let config = WebViewConfig {
@@ -212,7 +212,7 @@ fn test_standalone_embed_mode() {
 
 /// Test IPC configuration
 #[rstest]
-fn test_standalone_ipc_config() {
+fn standalone_ipc_config() {
     let config = WebViewConfig {
         ipc_batching: true,
         ipc_batch_size: 200,
@@ -229,7 +229,7 @@ fn test_standalone_ipc_config() {
 #[rstest]
 #[case(true)]
 #[case(false)]
-fn test_standalone_context_menu(#[case] context_menu: bool) {
+fn standalone_context_menu(#[case] context_menu: bool) {
     let config = WebViewConfig {
         context_menu,
         ..Default::default()
@@ -240,7 +240,7 @@ fn test_standalone_context_menu(#[case] context_menu: bool) {
 
 /// Test always on top configuration
 #[rstest]
-fn test_standalone_always_on_top() {
+fn standalone_always_on_top() {
     let config = WebViewConfig {
         always_on_top: true,
         ..Default::default()
@@ -251,7 +251,7 @@ fn test_standalone_always_on_top() {
 
 /// Test background color configuration
 #[rstest]
-fn test_standalone_background_color() {
+fn standalone_background_color() {
     let config = WebViewConfig {
         background_color: Some("#ffffff".to_string()),
         ..Default::default()
@@ -262,7 +262,7 @@ fn test_standalone_background_color() {
 
 /// Test asset_root configuration
 #[rstest]
-fn test_standalone_asset_root() {
+fn standalone_asset_root() {
     use std::path::PathBuf;
 
     // Test with None (default)
@@ -282,7 +282,7 @@ fn test_standalone_asset_root() {
 #[case(0, 600)]
 #[case(800, 0)]
 #[case(0, 0)]
-fn test_standalone_zero_dimensions_for_maximize(#[case] width: u32, #[case] height: u32) {
+fn standalone_zero_dimensions_for_maximize(#[case] width: u32, #[case] height: u32) {
     let config = WebViewConfig {
         width,
         height,
@@ -305,7 +305,7 @@ fn test_standalone_zero_dimensions_for_maximize(#[case] width: u32, #[case] heig
 
 /// Test allow_file_protocol configuration
 #[rstest]
-fn test_standalone_allow_file_protocol() {
+fn standalone_allow_file_protocol() {
     // Test default (false)
     let config = WebViewConfig::default();
     assert!(!config.allow_file_protocol);
@@ -320,7 +320,7 @@ fn test_standalone_allow_file_protocol() {
 
 /// Test combined asset_root and allow_file_protocol
 #[rstest]
-fn test_standalone_local_file_options() {
+fn standalone_local_file_options() {
     use std::path::PathBuf;
 
     // Test with asset_root only (recommended)
@@ -357,7 +357,7 @@ fn test_standalone_local_file_options() {
 
 /// Test event_bridge function returns non-empty script
 #[rstest]
-fn test_js_assets_event_bridge() {
+fn js_assets_event_bridge() {
     let script = js_assets::event_bridge();
     assert!(!script.is_empty());
     assert!(script.contains("auroraview"));
@@ -365,7 +365,7 @@ fn test_js_assets_event_bridge() {
 
 /// Test context_menu_disable function returns non-empty script
 #[rstest]
-fn test_js_assets_context_menu_disable() {
+fn js_assets_context_menu_disable() {
     let script = js_assets::context_menu_disable();
     // Script may be empty if context menu is not disabled
     let _ = script;
@@ -373,7 +373,7 @@ fn test_js_assets_context_menu_disable() {
 
 /// Test context_menu function (alias for context_menu_disable)
 #[rstest]
-fn test_js_assets_context_menu() {
+fn js_assets_context_menu() {
     let script = js_assets::context_menu();
     // Script may be empty if context menu is not disabled
     let _ = script;
@@ -381,7 +381,7 @@ fn test_js_assets_context_menu() {
 
 /// Test midscene_bridge function returns non-empty script
 #[rstest]
-fn test_js_assets_midscene_bridge() {
+fn js_assets_midscene_bridge() {
     let script = js_assets::midscene_bridge();
     assert!(!script.is_empty());
     assert!(script.contains("midscene") || script.contains("__midscene"));
@@ -389,7 +389,7 @@ fn test_js_assets_midscene_bridge() {
 
 /// Test test_callback function returns non-empty script
 #[rstest]
-fn test_js_assets_test_callback() {
+fn js_assets_test_callback() {
     let script = js_assets::test_callback();
     assert!(!script.is_empty());
     assert!(script.contains("auroratest") || script.contains("callback"));
@@ -397,7 +397,7 @@ fn test_js_assets_test_callback() {
 
 /// Test get_js_code function with valid path
 #[rstest]
-fn test_js_assets_get_js_code_valid() {
+fn js_assets_get_js_code_valid() {
     // Try to get event bridge script by path
     let script = js_assets::get_js_code("core/event_bridge.js");
     assert!(script.is_some());
@@ -406,14 +406,14 @@ fn test_js_assets_get_js_code_valid() {
 
 /// Test get_js_code function with invalid path
 #[rstest]
-fn test_js_assets_get_js_code_invalid() {
+fn js_assets_get_js_code_invalid() {
     let script = js_assets::get_js_code("nonexistent/script.js");
     assert!(script.is_none());
 }
 
 /// Test build_init_script with default config
 #[rstest]
-fn test_js_assets_build_init_script_default() {
+fn js_assets_build_init_script_default() {
     let config = WebViewConfig::default();
     let script = js_assets::build_init_script(&config);
 
@@ -426,7 +426,7 @@ fn test_js_assets_build_init_script_default() {
 
 /// Test build_init_script with context menu disabled
 #[rstest]
-fn test_js_assets_build_init_script_no_context_menu() {
+fn js_assets_build_init_script_no_context_menu() {
     let config = WebViewConfig {
         context_menu: false,
         ..Default::default()
@@ -439,7 +439,7 @@ fn test_js_assets_build_init_script_no_context_menu() {
 
 /// Test build_init_script with plugins enabled
 #[rstest]
-fn test_js_assets_build_init_script_with_plugins() {
+fn js_assets_build_init_script_with_plugins() {
     let config = WebViewConfig {
         enable_plugins: true,
         ..Default::default()
@@ -452,7 +452,7 @@ fn test_js_assets_build_init_script_with_plugins() {
 
 /// Test build_init_script with specific plugins
 #[rstest]
-fn test_js_assets_build_init_script_with_specific_plugins() {
+fn js_assets_build_init_script_with_specific_plugins() {
     let config = WebViewConfig {
         enable_plugins: true,
         enabled_plugin_names: vec!["fs".to_string(), "dialog".to_string()],
@@ -466,7 +466,7 @@ fn test_js_assets_build_init_script_with_specific_plugins() {
 
 /// Test build_init_script with API methods
 #[rstest]
-fn test_js_assets_build_init_script_with_api_methods() {
+fn js_assets_build_init_script_with_api_methods() {
     use std::collections::HashMap;
 
     let mut api_methods = HashMap::new();
@@ -489,7 +489,7 @@ fn test_js_assets_build_init_script_with_api_methods() {
 #[rstest]
 #[case("test_event", r#"{"message": "hello"}"#)]
 #[case("user_action", r#"{"action": "click", "target": "button"}"#)]
-fn test_js_assets_build_emit_event_script(#[case] event_name: &str, #[case] event_data: &str) {
+fn js_assets_build_emit_event_script(#[case] event_name: &str, #[case] event_data: &str) {
     let script = js_assets::build_emit_event_script(event_name, event_data);
 
     // Should contain event name
@@ -501,7 +501,7 @@ fn test_js_assets_build_emit_event_script(#[case] event_name: &str, #[case] even
 #[case("1 + 1", 1)]
 #[case("document.title", 2)]
 #[case("window.location.href", 3)]
-fn test_js_assets_build_eval_js_async_script(#[case] user_script: &str, #[case] callback_id: u64) {
+fn js_assets_build_eval_js_async_script(#[case] user_script: &str, #[case] callback_id: u64) {
     let script = js_assets::build_eval_js_async_script(user_script, callback_id);
 
     // Should contain callback ID

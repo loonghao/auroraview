@@ -16,7 +16,7 @@ fn mdns_service() -> MdnsService {
 
 /// Fixture: Create metadata for testing
 #[fixture]
-fn test_metadata() -> HashMap<String, String> {
+fn metadata() -> HashMap<String, String> {
     let mut metadata = HashMap::new();
     metadata.insert("version".to_string(), "1.0.0".to_string());
     metadata.insert("app".to_string(), "test".to_string());
@@ -24,20 +24,20 @@ fn test_metadata() -> HashMap<String, String> {
 }
 
 #[rstest]
-fn test_register_service(mdns_service: MdnsService, test_metadata: HashMap<String, String>) {
-    let result = mdns_service.register("TestInstance", 9001, test_metadata);
+fn register_service(mdns_service: MdnsService, metadata: HashMap<String, String>) {
+    let result = mdns_service.register("TestInstance", 9001, metadata);
     assert!(result.is_ok(), "Service registration should succeed");
 }
 
 #[rstest]
-fn test_register_with_empty_metadata(mdns_service: MdnsService) {
+fn register_with_empty_metadata(mdns_service: MdnsService) {
     let metadata = HashMap::new();
     let result = mdns_service.register("EmptyMetadata", 9002, metadata);
     assert!(result.is_ok());
 }
 
 #[rstest]
-fn test_unregister_after_registration(mdns_service: MdnsService) {
+fn unregister_after_registration(mdns_service: MdnsService) {
     let metadata = HashMap::new();
     mdns_service
         .register("TestUnregister", 9003, metadata)
@@ -52,7 +52,7 @@ fn test_unregister_after_registration(mdns_service: MdnsService) {
 }
 
 #[rstest]
-fn test_multiple_registrations(mdns_service: MdnsService) {
+fn multiple_registrations(mdns_service: MdnsService) {
     let metadata = HashMap::new();
 
     // First registration
@@ -65,7 +65,7 @@ fn test_multiple_registrations(mdns_service: MdnsService) {
 }
 
 #[rstest]
-fn test_discover_with_short_timeout(mdns_service: MdnsService) {
+fn discover_with_short_timeout(mdns_service: MdnsService) {
     // Discover with 1 second timeout
     let result = mdns_service.discover(1);
     assert!(result.is_ok());
@@ -75,7 +75,7 @@ fn test_discover_with_short_timeout(mdns_service: MdnsService) {
 }
 
 #[rstest]
-fn test_discover_returns_service_info(mdns_service: MdnsService) {
+fn discover_returns_service_info(mdns_service: MdnsService) {
     // Register a service first
     let mut metadata = HashMap::new();
     metadata.insert("test".to_string(), "value".to_string());
@@ -89,7 +89,7 @@ fn test_discover_returns_service_info(mdns_service: MdnsService) {
 }
 
 #[rstest]
-fn test_register_with_special_characters_in_metadata(mdns_service: MdnsService) {
+fn register_with_special_characters_in_metadata(mdns_service: MdnsService) {
     let mut metadata = HashMap::new();
     // mDNS TXT records support spaces in values and UTF-8
     metadata.insert("description".to_string(), "value with spaces".to_string());
@@ -102,14 +102,14 @@ fn test_register_with_special_characters_in_metadata(mdns_service: MdnsService) 
 #[rstest]
 #[case(65535)] // High port
 #[case(1024)] // Low port
-fn test_register_with_port_numbers(mdns_service: MdnsService, #[case] port: u16) {
+fn register_with_port_numbers(mdns_service: MdnsService, #[case] port: u16) {
     let metadata = HashMap::new();
     let result = mdns_service.register("PortTest", port, metadata);
     assert!(result.is_ok());
 }
 
 #[rstest]
-fn test_concurrent_operations() {
+fn concurrent_operations() {
     let service: Arc<MdnsService> = Arc::new(MdnsService::new().unwrap());
     let service_clone = Arc::clone(&service);
 

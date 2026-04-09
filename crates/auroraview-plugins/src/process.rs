@@ -100,7 +100,10 @@ use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Callback type for process events (deprecated, use PluginEventCallback)
+/// Type alias for the process event callback.
+///
+/// Use [`PluginEventCallback`] directly for new code.
+/// This alias is kept for backward compatibility with existing callers.
 pub type ProcessEventCallback = PluginEventCallback;
 
 /// Type alias for the process registry (lock-free concurrent map)
@@ -132,9 +135,6 @@ struct ManagedProcess {
 struct IpcChannelHandle {
     /// Socket stream for sending messages
     stream: LocalSocketStream,
-    /// Channel name (for cleanup)
-    #[allow(dead_code)]
-    channel_name: String,
 }
 
 /// Process plugin with IPC support
@@ -396,8 +396,15 @@ impl ProcessPlugin {
             ipc_mode: IpcMode::Pipe,
         }));
         self.processes.insert(pid, managed.clone());
+        Self::spawn_exit_watcher(
+            self.processes.clone(),
+            self.event_callback.clone(),
+            Arc::clone(&self.shutdown_state),
+            pid,
+        );
 
         // Spawn stdout reader thread with graceful shutdown support
+
         if let Some(stdout) = stdout {
             let event_cb = self.event_callback.clone();
             let processes = self.processes.clone();
@@ -615,12 +622,18 @@ impl ProcessPlugin {
             ipc_mode: IpcMode::Channel,
         }));
         self.processes.insert(pid, managed.clone());
+        Self::spawn_exit_watcher(
+            self.processes.clone(),
+            self.event_callback.clone(),
+            Arc::clone(&self.shutdown_state),
+            pid,
+        );
 
         // Spawn thread to accept connection from child process
+
         let event_cb = self.event_callback.clone();
         let channels = self.channels.clone();
         let shutdown_state = Arc::clone(&self.shutdown_state);
-        let channel_name_clone = channel_name.clone();
 
         thread::spawn(move || {
             tracing::info!(
@@ -644,7 +657,6 @@ impl ProcessPlugin {
                         pid,
                         Arc::new(Mutex::new(IpcChannelHandle {
                             stream,
-                            channel_name: channel_name_clone.clone(),
                         })),
                     );
 
@@ -896,11 +908,28 @@ impl ProcessPlugin {
             }
         }
     }
+    fn spawn_exit_watcher(
+        processes: ProcessRegistry,
+        event_cb: Arc<RwLock<Option<ProcessEventCallback>>>,
+        shutdown_state: Arc<ShutdownState>,
+        pid: u32,
+    ) {
+        thread::spawn(move || loop {
+            if shutdown_state.is_shutdown() {
+                break;
+            }
+            if Self::check_exit(&processes, &event_cb, pid) || !processes.contains_key(&pid) {
+                break;
+            }
+            thread::sleep(std::time::Duration::from_millis(50));
+        });
+    }
+
     fn check_exit(
         processes: &ProcessRegistry,
         event_cb: &Arc<RwLock<Option<ProcessEventCallback>>>,
         pid: u32,
-    ) {
+    ) -> bool {
         let exit_code = {
             if let Some(proc) = processes.get(&pid) {
                 let mut p = proc.lock();
@@ -911,21 +940,24 @@ impl ProcessPlugin {
         };
 
         if let Some(code) = exit_code {
-            // Remove from managed processes
-            processes.remove(&pid);
-
-            // Emit exit event
-            if let Some(cb) = event_cb.read().as_ref() {
-                cb(
-                    "process:exit",
-                    serde_json::json!({
-                        "pid": pid,
-                        "code": code
-                    }),
-                );
+            // Remove from managed processes and emit only once.
+            if processes.remove(&pid).is_some() {
+                if let Some(cb) = event_cb.read().as_ref() {
+                    cb(
+                        "process:exit",
+                        serde_json::json!({
+                            "pid": pid,
+                            "code": code
+                        }),
+                    );
+                }
+                return true;
             }
         }
+
+        false
     }
+
 
     /// Kill a managed process
     fn kill_process(&self, pid: u32) -> PluginResult<Value> {
@@ -1019,6 +1051,7 @@ impl ProcessPlugin {
             Some(p) => {
                 let mut managed = p.lock();
                 if let Some(ref mut stdin) = managed.stdin {
+                    use std::io::Write;
                     stdin
                         .write_all(data.as_bytes())
                         .map_err(|e| PluginError::shell_error(format!("Failed to write: {}", e)))?;

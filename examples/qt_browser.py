@@ -26,23 +26,21 @@ from typing import Optional
 from urllib.parse import urlparse
 
 try:
-    from PySide6.QtCore import QUrl, Qt, Signal, QSize
-    from PySide6.QtGui import QAction, QIcon, QKeySequence, QShortcut
+    from PySide6.QtCore import QSize, Qt, QUrl, Signal
+    from PySide6.QtGui import QIcon, QKeySequence, QShortcut
+    from PySide6.QtWebEngineCore import QWebEnginePage
     from PySide6.QtWebEngineWidgets import QWebEngineView
-    from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
     from PySide6.QtWidgets import (
         QApplication,
-        QHBoxLayout,
         QLineEdit,
         QMainWindow,
         QProgressBar,
         QPushButton,
+        QStyle,
         QTabWidget,
         QToolBar,
         QVBoxLayout,
         QWidget,
-        QStyle,
-        QTabBar,
     )
 except ImportError:
     print("Error: PySide6 and PySide6-WebEngine are required.")

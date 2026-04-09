@@ -87,11 +87,8 @@ impl BookmarkFolder {
 pub mod special_folders {
     /// Bookmarks bar folder ID
     pub const BOOKMARKS_BAR: &str = "bookmarks_bar";
-    /// Other bookmarks folder ID
-    pub const OTHER_BOOKMARKS: &str = "other_bookmarks";
-    /// Mobile bookmarks folder ID (reserved for sync)
-    #[allow(dead_code)]
-    pub const MOBILE_BOOKMARKS: &str = "mobile_bookmarks";
+/// Other bookmarks folder ID
+pub const OTHER_BOOKMARKS: &str = "other_bookmarks";
 }
 
 #[cfg(test)]

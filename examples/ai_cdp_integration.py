@@ -67,13 +67,13 @@ DEMO_HTML = """
             --text: #eaeaea;
             --highlight: #e94560;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-primary);
@@ -81,12 +81,12 @@ DEMO_HTML = """
             min-height: 100vh;
             padding: 40px;
         }
-        
+
         .container {
             max-width: 800px;
             margin: 0 auto;
         }
-        
+
         h1 {
             font-size: 2.5rem;
             margin-bottom: 1rem;
@@ -94,7 +94,7 @@ DEMO_HTML = """
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        
+
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -104,7 +104,7 @@ DEMO_HTML = """
             border-radius: 20px;
             margin-bottom: 2rem;
         }
-        
+
         .status-dot {
             width: 10px;
             height: 10px;
@@ -112,35 +112,35 @@ DEMO_HTML = """
             background: #4caf50;
             animation: pulse 2s infinite;
         }
-        
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        
+
         .card {
             background: var(--bg-secondary);
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 20px;
         }
-        
+
         .card h2 {
             font-size: 1.25rem;
             margin-bottom: 1rem;
             color: var(--highlight);
         }
-        
+
         .form-group {
             margin-bottom: 1rem;
         }
-        
+
         label {
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 500;
         }
-        
+
         input, textarea {
             width: 100%;
             padding: 12px;
@@ -150,12 +150,12 @@ DEMO_HTML = """
             color: var(--text);
             font-size: 1rem;
         }
-        
+
         input:focus, textarea:focus {
             outline: none;
             border-color: var(--highlight);
         }
-        
+
         button {
             padding: 12px 24px;
             background: var(--highlight);
@@ -166,12 +166,12 @@ DEMO_HTML = """
             cursor: pointer;
             transition: all 0.2s;
         }
-        
+
         button:hover {
             background: #ff6b6b;
             transform: translateY(-2px);
         }
-        
+
         .output {
             background: var(--bg-primary);
             border-radius: 8px;
@@ -180,11 +180,11 @@ DEMO_HTML = """
             min-height: 100px;
             white-space: pre-wrap;
         }
-        
+
         .api-list {
             list-style: none;
         }
-        
+
         .api-list li {
             padding: 8px 12px;
             background: var(--bg-primary);
@@ -192,7 +192,7 @@ DEMO_HTML = """
             margin-bottom: 8px;
             font-family: monospace;
         }
-        
+
         .actions {
             display: flex;
             gap: 12px;
@@ -203,12 +203,12 @@ DEMO_HTML = """
 <body>
     <div class="container">
         <h1>AI Agent CDP Demo</h1>
-        
+
         <div class="status-badge">
             <span class="status-dot"></span>
             <span id="status">CDP Ready - Port <span id="cdp-port">9222</span></span>
         </div>
-        
+
         <div class="card">
             <h2>API Test</h2>
             <div class="form-group">
@@ -221,12 +221,12 @@ DEMO_HTML = """
                 <button onclick="getSystemInfo()">Get System Info</button>
             </div>
         </div>
-        
+
         <div class="card">
             <h2>Output</h2>
             <div class="output" id="output">Ready for AI agent interaction...</div>
         </div>
-        
+
         <div class="card">
             <h2>Available APIs</h2>
             <ul class="api-list" id="api-list">
@@ -236,7 +236,7 @@ DEMO_HTML = """
                 <li>api.multiply(x: float, y: float) -> float</li>
             </ul>
         </div>
-        
+
         <div class="card">
             <h2>CDP Commands</h2>
             <p>Connect to this WebView using CDP:</p>
@@ -246,7 +246,7 @@ DEMO_HTML = """
             </ul>
         </div>
     </div>
-    
+
     <script>
         // Wait for AuroraView bridge
         function waitForBridge() {
@@ -258,13 +258,13 @@ DEMO_HTML = """
                 }
             });
         }
-        
+
         function log(message) {
             const output = document.getElementById('output');
             const timestamp = new Date().toLocaleTimeString();
             output.textContent = `[${timestamp}] ${message}\\n` + output.textContent;
         }
-        
+
         async function testEcho() {
             await waitForBridge();
             const message = document.getElementById('message').value || 'Hello from AI!';
@@ -275,7 +275,7 @@ DEMO_HTML = """
                 log(`Error: ${e.message}`);
             }
         }
-        
+
         async function testAdd() {
             await waitForBridge();
             try {
@@ -285,7 +285,7 @@ DEMO_HTML = """
                 log(`Error: ${e.message}`);
             }
         }
-        
+
         async function getSystemInfo() {
             await waitForBridge();
             try {
@@ -295,7 +295,7 @@ DEMO_HTML = """
                 log(`Error: ${e.message}`);
             }
         }
-        
+
         // Initialize
         waitForBridge().then(() => {
             log('AuroraView bridge connected!');
@@ -354,6 +354,7 @@ class CDPClient:
     async def screenshot(self, ws_url: str) -> bytes:
         """Take screenshot of page."""
         import base64
+
         import websockets
 
         async with websockets.connect(ws_url) as ws:
@@ -457,8 +458,9 @@ async def test_browser_use(port: int):
 
 def run_webview(port: int, ready_event: threading.Event):
     """Run the WebView in a separate thread."""
-    from auroraview import AuroraView
     import platform
+
+    from auroraview import AuroraView
 
     class DemoApp(AuroraView):
         def __init__(self):

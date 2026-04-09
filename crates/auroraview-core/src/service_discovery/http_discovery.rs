@@ -2,7 +2,6 @@
 //!
 //! Provides HTTP REST API for service discovery (for UXP plugins).
 
-use super::Result;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -11,6 +10,8 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info};
 use warp::Filter;
+
+use super::Result;
 
 /// Discovery response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,7 +140,6 @@ impl HttpDiscovery {
     }
 
     /// Check if server is running
-    #[allow(dead_code)]
     pub fn is_running(&self) -> bool {
         self.server_handle.is_some()
     }

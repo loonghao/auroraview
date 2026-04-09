@@ -80,7 +80,7 @@ fn handler_with_queue() -> (IpcHandler, Arc<MessageQueue>) {
 ///
 /// JS sends event → Python handler receives data → data matches original
 #[rstest]
-fn test_echo_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
+fn echo_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
     let (handler, _queue) = handler_with_queue;
     let (cb, seen_obj) = py_echo_handler();
 
@@ -126,7 +126,7 @@ fn test_echo_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
 ///
 /// JS sends ping → Python handler processes → Python emits pong via queue
 #[rstest]
-fn test_ping_pong_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
+fn ping_pong_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
     let (handler, queue) = handler_with_queue;
     let (cb, results_obj) = py_ping_handler();
 
@@ -179,7 +179,7 @@ fn test_ping_pong_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>))
 ///
 /// Register multiple handlers, send messages to each, verify isolation
 #[rstest]
-fn test_multiple_events_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
+fn multiple_events_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
     let (handler, queue) = handler_with_queue;
     let (echo_cb, echo_seen) = py_echo_handler();
     let (ping_cb, ping_results) = py_ping_handler();
@@ -237,7 +237,7 @@ fn test_multiple_events_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQu
 
 /// Test 4: Complex data roundtrip (Unicode, nested structures, arrays)
 #[rstest]
-fn test_complex_data_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
+fn complex_data_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
     let (handler, _queue) = handler_with_queue;
     let (cb, seen_obj) = py_echo_handler();
 
@@ -313,7 +313,7 @@ fn test_complex_data_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue
 
 /// Test 5: Error handling - unregistered event
 #[rstest]
-fn test_unregistered_event_error(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
+fn unregistered_event_error(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
     let (handler, _queue) = handler_with_queue;
 
     let result = handler.handle_message(IpcMessage {
@@ -328,7 +328,7 @@ fn test_unregistered_event_error(handler_with_queue: (IpcHandler, Arc<MessageQue
 
 /// Test 6: Event deregistration roundtrip
 #[rstest]
-fn test_off_and_clear_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
+fn off_and_clear_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
     let (handler, _queue) = handler_with_queue;
     let (cb1, _) = py_echo_handler();
     let (cb2, _) = py_echo_handler();
@@ -364,7 +364,7 @@ fn test_off_and_clear_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueu
 
 /// Test 7: Full emit → queue → pop roundtrip with multiple messages
 #[rstest]
-fn test_emit_queue_pop_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
+fn emit_queue_pop_roundtrip(handler_with_queue: (IpcHandler, Arc<MessageQueue>)) {
     let (handler, queue) = handler_with_queue;
 
     // Emit a sequence of events

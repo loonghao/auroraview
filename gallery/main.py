@@ -162,7 +162,7 @@ def run_gallery():
         print(f"[Python] Loading: {url}", file=sys.stderr)
 
     print(
-        "[Python] Creating WebView with allow_new_window=True, new_window_mode='child_webview'",
+        "[Python] Creating WebView with new_window_mode='child_webview'",
         file=sys.stderr,
     )
 

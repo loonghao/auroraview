@@ -29,3 +29,4 @@ default = []
 
 [dev-dependencies]
 tempfile = "3.20"
+rstest = "0.26"

@@ -150,18 +150,12 @@ pub struct OnClickData {
     pub checked: Option<bool>,
 }
 
-/// Click handler type alias
-type ClickHandler = Box<dyn Fn(OnClickData) + Send + Sync>;
-
 /// Context menus manager
 pub struct ContextMenusManager {
     /// Menu items by extension
     items: DashMap<ExtensionId, Vec<MenuItem>>,
     /// Item ID counter
     next_id: AtomicU64,
-    /// Click handlers (extension_id -> callback)
-    #[allow(dead_code)]
-    click_handlers: DashMap<ExtensionId, Vec<ClickHandler>>,
 }
 
 impl ContextMenusManager {
@@ -170,7 +164,6 @@ impl ContextMenusManager {
         Self {
             items: DashMap::new(),
             next_id: AtomicU64::new(1),
-            click_handlers: DashMap::new(),
         }
     }
 

@@ -94,9 +94,6 @@ pub type SendMessageCallback = Box<dyn Fn(i32, Value) -> Option<Value> + Send + 
 pub struct TabState {
     /// Current tab info
     current_tab: RwLock<Tab>,
-    /// Tab ID counter
-    #[allow(dead_code)]
-    next_id: RwLock<i32>,
     /// Navigation callback
     on_navigate: RwLock<Option<NavigateCallback>>,
     /// Send message callback
@@ -122,7 +119,6 @@ impl TabState {
                 width: None,
                 height: None,
             }),
-            next_id: RwLock::new(2),
             on_navigate: RwLock::new(None),
             on_send_message: RwLock::new(None),
         }
