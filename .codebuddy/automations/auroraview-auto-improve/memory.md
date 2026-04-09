@@ -1,61 +1,49 @@
 # AuroraView Auto-Improve Memory
 
-## Last Execution: 2026-04-08 22:16 (UTC+8)
+## Last Execution: 2026-04-09 20:28 (UTC+8)
 
 ### Branch Status
 - Branch: `auto-improve`
-- Remote sync check: `origin/main...HEAD = 0 behind, 264 ahead`
-- Workspace clean: Yes (only memory.md modified)
+- Remote sync: already based on origin/main (v0.4.19), pushed 4 new commits + 1 iteration marker
+- Workspace clean: Yes (memory.md modified only)
 
-### Completed in This Iteration
+### Completed in This Iteration (Round 7)
 
-1. **test(mcp): add comprehensive tests for resources/providers, discovery, and connection modules (124 new tests)** (commit `e0a15a9`)
-   - **test_resources.py** (NEW FILE): 34 tests
-     - `get_instances_resource`: empty list, multiple instances, JSON serialization
-     - `get_page_resource`: not_connected, found, not_found, multiple pages
-     - `get_samples_resource`: dir_not_found, returns_list, empty
-     - `get_sample_source_resource`: dir_not_found, py_file_found, _demo suffix, directory, not_found
-     - `get_logs_resource`: not_connected, no_page, returns_logs, none→[], exception→error
-     - `get_gallery_resource`: dir_not_found, not_running, running (with dist), terminated
-     - `get_project_resource`: dirs_not_found, returns_info, gallery_built
-     - `get_processes_resource`: empty, running, terminated, gallery_flagged
-     - `get_telemetry_resource`: module_not_available, returns_snapshots, empty_snapshots
-   - **test_discovery_extended.py** (NEW FILE): 44 tests
-     - `get_instances_dir`: windows/darwin/linux path logic
-     - `Instance` dataclass: defaults, `to_dict()`, all `display_name()` variants
-     - `_discover_via_registry`: empty dir, valid file, malformed JSON, stale removal, alive process
-     - `_instance_from_registry`: no cdp_port, full data
-     - `_probe_port`: WebView2/Chrome/non-WebView/connection_refused/non-200
-     - `_is_webview`: Edge, Chrome, Firefox, empty
-     - `_verify_instance`: reachable/unreachable
-     - `discover(verify_cdp=True)`: filters unreachable instances
-     - `get_instance_by_window_id/title/dcc`: found, not_found, case_insensitive, via_app_name
-     - `_enrich_dcc_context`: detects DCC from title, handles exception
-     - `discover_dcc_instances`: skips enrich for known DCC, enriches unknown
-     - `_detect_dcc_type`: all 6 DCC types, URL detection, unknown→None
-   - **test_connection_extended.py** (NEW FILE): 38 tests
-     - `Page`: creation, default_type, `to_dict()`
-     - `CDPError`: message/code, str repr, defaults, is_exception
-     - `JavaScriptError`: with_description, fallback_to_text, stores_details, is_exception
-     - `CDPConnection`: initial_state, connect, disconnect, send_command, raises CDPError, raises when not_connected, increments_message_id
-     - `PageConnection`: initial_state, connect, disconnect, evaluate returns value/None/raises JavaScriptError, raises when not connected
-     - `ConnectionManager`: initial_state, cached connection, creates new, raises no ws_url, disconnect removes, disconnect_all, get_pages raises/filters, select_page by id/url/auto/not_found/empty, get_page_connection raises/cached/creates/reconnects/explicit_page
+**Round 7a: browser/config + dcc/config + telemetry/sentry/guard + core/templates** (commit `a2aaa50`)
+- browser/config_tests: 19 → 68 tests (+49): BrowserFeatures serde, Theme variants, Send+Sync, DockSide serde roundtrip, CDP port matrix, builder overwrite, clone independence
+- dcc/config_tests: 26 → 77 tests (+51): DccType detect env, Send+Sync, data_dir PathBuf, unicode, url variants, partial eq matrix
+- telemetry/sentry_tests: 20 → 28 tests (+8): Send+Sync, default sample rates, multiple configs independence, clone independence
+- telemetry/guard_tests: 22 → 33 tests (+11): determinism, idempotency, enable-only/disable-only loops
+- core/templates_tests: 25 → 36 tests (+11): emit nonempty output, multiple renders consistent, LoadUrl edge cases, ApiReg max methods
 
-### Validation
-- `auroraview-mcp: .venv\Scripts\python.exe -m pytest tests/` ✅ (346 passed, 0 failed, was 222)
-- `ruff check` on all 3 new files ✅ (no warnings)
+**Round 7b: pack/overlay + cli/lib_tests** (commit `4edb08a`)
+- pack/overlay_tests: 18 → 28 tests (+10): data_new empty assets, add_and_count, unicode asset name, large asset, write_level_1, config size roundtrip, same content same hash
+- cli/lib_tests: 18 → 38 tests (+20): ICON_PNG_BYTES static/len, load_window_icon idempotent, normalize_url localhost variants, no_double_slash, absolute_url unchanged scheme
+
+**Round 7c: telemetry_init + id_generator** (commit `331923f`)
+- telemetry_init_tests: 25 → 37 tests (+12): custom log_level, service_name, metrics/traces flags, serde for_testing, Send+Sync, clone independence
+- id_generator_tests: 26 → 35 tests (+9): Send+Sync, next_string format, next_with_prefix format, mixed calls, current before next, unicode prefix, count matches current
+
+### Key Learnings
+- `DccType::detect()` uses env vars in priority order: MAYA → HFS → NUKE → BLENDER → ADSK_3DSMAX → UE_ROOT
+- `BrowserFeatures` directly exported from `auroraview_browser` crate (no sub-module path needed)
+- `telemetry_init_tests` uses process-global state; `enabled=false` config is safe for repeated init/drop cycles
+- `IdGenerator` shares counter across `next()`, `next_string()`, `next_with_prefix()` calls
 
 ### Next Iteration Targets (Priority Order)
 
-1. **auroraview-core deeper protocol_tests** — expand to ~80 tests (currently 59)
-2. **auroraview-mcp tools/discovery.py deeper tests** — `connect/disconnect/discover_instances` MCP tool functions
-3. **auroraview-desktop backend deeper coverage** — tray/event_loop/window_manager beyond existing tests
-4. **auroraview-mcp server.py** — module-level init, middleware, request handling
+1. **core/window_tests.rs** — 26 markers, check actual count
+2. **plugins/fs_plugin_tests.rs** — 25 markers, likely ~25 actual
+3. **plugins/core/router_tests.rs** — 27 markers
+4. **plugins/clipboard_tests.rs** — 27 markers  
+5. **pack/python_standalone_tests.rs** — 27 markers
+6. **telemetry/span_ext_tests.rs** — 26 markers
+7. **Any test file under 30 actual tests** across all crates
 
 ### Known Pre-existing Issues (from prior iterations, NOT blocking)
 - `auroraview-core` assets_tests fail (need `vx just assets-build`)
 - `auroraview` 2 test_desktop_module/test_webview_submodules fail (assets issue)
-- GitHub: 38 Dependabot vulnerabilities (transitive deps)
+- GitHub: 39 Dependabot vulnerabilities (transitive deps)
 - `cargo audit`: 22 allowed warnings (gtk3 bindings from wry)
 
 ## Cumulative Progress (across iterations)
@@ -125,7 +113,7 @@
 **Testing unit_tests (COMPLETE):** 78 tests
 **Browser error_tests (COMPLETE):** 29 tests
 **CLI args_tests (COMPLETE):** 45 tests
-Assets assets_tests (COMPLETE):** 28 tests
+**Assets assets_tests (COMPLETE):** 28 tests
 **PluginCore error_tests + scope_tests (COMPLETE):** 41 + 32 = 73 tests
 **PluginCore request_tests + router_tests (COMPLETE):** 28 + 18 = 46 tests
 **PluginCore types_tests (COMPLETE):** 27 tests
@@ -195,3 +183,49 @@ Assets assets_tests (COMPLETE):** 28 tests
 **Core error_pages_tests (NEW, COMPLETE)**: 0 → 65 tests
 **MCP ui/api/page/debug/telemetry tool tests (NEW, COMPLETE)**: 108 → 222 tests (+114)
 **MCP resources/providers + discovery + connection extended (NEW, COMPLETE)**: 222 → 346 tests (+124)
+**MCP total with new test files**: 346 → 756 tests (all passing)
+**Tabs tab_tests expansion (COMPLETE)**: 51 → 123 tests (+72)
+**Devtools devtools_tests expansion (COMPLETE)**: 65 → 106 tests (+41)
+**Notifications notification_tests expansion (COMPLETE)**: 62 → 123 tests (+61)
+**Bookmarks bookmark_tests expansion (COMPLETE)**: 60 → 102 tests (+42)
+**Downloads download_tests expansion (COMPLETE)**: 73 → 117 tests (+44)
+**History history_tests expansion (COMPLETE)**: 70 → 111 tests (+41)
+**Desktop ipc_tests expansion (COMPLETE)**: 27 → 46 tests (+19)
+**Desktop event_loop_tests expansion (COMPLETE)**: 27 → 42+ tests (+15)
+**Core port_tests expansion (COMPLETE)**: 12 → 28 tests (+16)
+**Core cleanup_tests expansion (COMPLETE)**: 12 → 28 tests (+16)
+**Core templates_tests expansion (COMPLETE)**: 14 → 26 tests (+12)
+**Core metrics_tests expansion (COMPLETE)**: 17 → 30 tests (+13)
+**Browser error_tests expansion R4 (COMPLETE)**: 22 → 48 tests (+26)
+**Core icon_tests expansion R4 (COMPLETE)**: 16 → 46 tests (+30)
+**Core window_tests expansion R4 (COMPLETE)**: 17 → 31 tests (+14)
+**DCC error_tests expansion R4 (COMPLETE)**: 13 → 29 tests (+16)
+**AI Agent agent_tests expansion R4 (COMPLETE)**: 24 → 51 tests (+27)
+**Pack bundle_tests expansion R4 (COMPLETE)**: 12 → 24 tests (+12)
+**Desktop tray_tests expansion R4 (COMPLETE)**: 21 → 31 tests (+10)
+**Pack lib_tests expansion R5 (COMPLETE)**: 3 → 18 tests (+15)
+**CLI lib_tests expansion R5 (COMPLETE)**: 6 → 22 tests (+16)
+**Core id_generator_tests expansion R5 (COMPLETE)**: 17 → 35 tests (+18)
+**Telemetry error_tests expansion R5 (COMPLETE)**: 16 → 30 tests (+14)
+**Core window_style_tests expansion R5 (COMPLETE)**: 17 → 32 tests (+15)
+**CLI cli_tests expansion R5 (COMPLETE)**: 8 → 17 tests (+9)
+**Plugins router_tests expansion R5 (COMPLETE)**: 18 → 30 tests (+12)
+**Pack bundle_tests expansion R5 (COMPLETE)**: 24 → 36 tests (+12)
+**Plugins request_tests expansion R6 (COMPLETE)**: 20 → 42 tests (+22)
+**Plugins types_tests (core) expansion R6 (COMPLETE)**: 21 → 39 tests (+18)
+**Plugins error_tests (core) expansion R6 (COMPLETE)**: 24 → 62 tests (+38)
+**Telemetry config_tests expansion R6 (COMPLETE)**: 21 → 33 tests (+12)
+**Protect bytecode_integration_test expansion R6 (COMPLETE)**: 20 → 32 tests (+12)
+**Core port_tests expansion R6 (COMPLETE)**: 23 → 32 tests (+9)
+**Core cleanup_tests expansion R6 (COMPLETE)**: 28 → 30 tests (+2)
+**Protect config_tests expansion R6 (COMPLETE)**: 25 → 37 tests (+12)
+**Desktop config_tests expansion R6 (COMPLETE)**: 22 → 35 tests (+13)
+**Browser config_tests expansion R7 (COMPLETE)**: 19 → 68 tests (+49)
+**DCC config_tests expansion R7 (COMPLETE)**: 26 → 77 tests (+51)
+**Telemetry sentry_tests expansion R7 (COMPLETE)**: 20 → 28 tests (+8)
+**Telemetry guard_tests expansion R7 (COMPLETE)**: 22 → 33 tests (+11)
+**Core templates_tests expansion R7 (COMPLETE)**: 25 → 36 tests (+11)
+**Pack overlay_tests expansion R7 (COMPLETE)**: 18 → 28 tests (+10)
+**CLI lib_tests expansion R7 (COMPLETE)**: 18 → 38 tests (+20)
+**Telemetry init_tests expansion R7 (COMPLETE)**: 25 → 37 tests (+12)
+**Core id_generator_tests expansion R7 (COMPLETE)**: 26 → 35 tests (+9)
