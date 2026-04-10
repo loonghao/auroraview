@@ -545,14 +545,14 @@ mod jsonrpc_format_tests {
     fn ok_field_is_bool_true() {
         let r = make_result_ok("x", serde_json::json!(0));
         assert!(r["ok"].is_boolean());
-        assert_eq!(r["ok"].as_bool().unwrap(), true);
+        assert!(r["ok"].as_bool().unwrap());
     }
 
     #[test]
     fn ok_field_is_bool_false() {
         let r = make_result_err("x", "Err", "msg");
         assert!(r["ok"].is_boolean());
-        assert_eq!(r["ok"].as_bool().unwrap(), false);
+        assert!(!r["ok"].as_bool().unwrap());
     }
 
     #[test]

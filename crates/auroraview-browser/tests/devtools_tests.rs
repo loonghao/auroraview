@@ -583,9 +583,7 @@ fn devtools_config_new_disabled() {
 
 #[rstest]
 fn devtools_state_close_sets_not_open() {
-    let mut state = DevToolsState::default();
-    state.is_open = true;
-    state.is_open = false;
+    let state = DevToolsState { is_open: false, ..Default::default() };
     assert!(!state.is_open);
 }
 

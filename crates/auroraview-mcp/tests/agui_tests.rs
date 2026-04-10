@@ -1,4 +1,4 @@
-use auroraview_mcp::{AguiBus, AguiEvent};
+﻿use auroraview_mcp::{AguiBus, AguiEvent};
 use rstest::rstest;
 
 // ---------------------------------------------------------------------------
@@ -6,7 +6,7 @@ use rstest::rstest;
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_run_started_run_id() {
+fn run_started_run_id() {
     let ev = AguiEvent::RunStarted {
         run_id: "r1".to_string(),
         thread_id: "t1".to_string(),
@@ -15,7 +15,7 @@ fn test_run_started_run_id() {
 }
 
 #[rstest]
-fn test_run_finished_run_id() {
+fn run_finished_run_id() {
     let ev = AguiEvent::RunFinished {
         run_id: "r2".to_string(),
         thread_id: "t2".to_string(),
@@ -24,7 +24,7 @@ fn test_run_finished_run_id() {
 }
 
 #[rstest]
-fn test_run_error_run_id() {
+fn run_error_run_id() {
     let ev = AguiEvent::RunError {
         run_id: "r3".to_string(),
         message: "something failed".to_string(),
@@ -34,7 +34,7 @@ fn test_run_error_run_id() {
 }
 
 #[rstest]
-fn test_step_started_run_id() {
+fn step_started_run_id() {
     let ev = AguiEvent::StepStarted {
         run_id: "r4".to_string(),
         step_name: "load_url".to_string(),
@@ -44,7 +44,7 @@ fn test_step_started_run_id() {
 }
 
 #[rstest]
-fn test_step_finished_run_id() {
+fn step_finished_run_id() {
     let ev = AguiEvent::StepFinished {
         run_id: "r5".to_string(),
         step_id: "s2".to_string(),
@@ -53,7 +53,7 @@ fn test_step_finished_run_id() {
 }
 
 #[rstest]
-fn test_text_message_start_run_id() {
+fn text_message_start_run_id() {
     let ev = AguiEvent::TextMessageStart {
         run_id: "r6".to_string(),
         message_id: "m1".to_string(),
@@ -63,7 +63,7 @@ fn test_text_message_start_run_id() {
 }
 
 #[rstest]
-fn test_text_message_content_run_id() {
+fn text_message_content_run_id() {
     let ev = AguiEvent::TextMessageContent {
         run_id: "r7".to_string(),
         message_id: "m1".to_string(),
@@ -73,7 +73,7 @@ fn test_text_message_content_run_id() {
 }
 
 #[rstest]
-fn test_text_message_end_run_id() {
+fn text_message_end_run_id() {
     let ev = AguiEvent::TextMessageEnd {
         run_id: "r8".to_string(),
         message_id: "m1".to_string(),
@@ -82,7 +82,7 @@ fn test_text_message_end_run_id() {
 }
 
 #[rstest]
-fn test_tool_call_start_run_id() {
+fn tool_call_start_run_id() {
     let ev = AguiEvent::ToolCallStart {
         run_id: "r9".to_string(),
         tool_call_id: "tc1".to_string(),
@@ -92,7 +92,7 @@ fn test_tool_call_start_run_id() {
 }
 
 #[rstest]
-fn test_tool_call_args_run_id() {
+fn tool_call_args_run_id() {
     let ev = AguiEvent::ToolCallArgs {
         run_id: "r10".to_string(),
         tool_call_id: "tc1".to_string(),
@@ -102,7 +102,7 @@ fn test_tool_call_args_run_id() {
 }
 
 #[rstest]
-fn test_tool_call_end_run_id() {
+fn tool_call_end_run_id() {
     let ev = AguiEvent::ToolCallEnd {
         run_id: "r11".to_string(),
         tool_call_id: "tc1".to_string(),
@@ -111,7 +111,7 @@ fn test_tool_call_end_run_id() {
 }
 
 #[rstest]
-fn test_state_snapshot_run_id() {
+fn state_snapshot_run_id() {
     let ev = AguiEvent::StateSnapshot {
         run_id: "r12".to_string(),
         snapshot: serde_json::json!({"key": "value"}),
@@ -120,7 +120,7 @@ fn test_state_snapshot_run_id() {
 }
 
 #[rstest]
-fn test_state_delta_run_id() {
+fn state_delta_run_id() {
     let ev = AguiEvent::StateDelta {
         run_id: "r13".to_string(),
         delta: vec![serde_json::json!({"op": "add", "path": "/key", "value": 1})],
@@ -129,7 +129,7 @@ fn test_state_delta_run_id() {
 }
 
 #[rstest]
-fn test_custom_event_run_id() {
+fn custom_event_run_id() {
     let ev = AguiEvent::Custom {
         run_id: "r14".to_string(),
         name: "webview_ready".to_string(),
@@ -143,7 +143,7 @@ fn test_custom_event_run_id() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_to_sse_line_starts_with_data() {
+fn to_sse_line_starts_with_data() {
     let ev = AguiEvent::RunStarted {
         run_id: "x".to_string(),
         thread_id: "y".to_string(),
@@ -154,7 +154,7 @@ fn test_to_sse_line_starts_with_data() {
 }
 
 #[rstest]
-fn test_to_sse_line_contains_json() {
+fn to_sse_line_contains_json() {
     let ev = AguiEvent::ToolCallStart {
         run_id: "run1".to_string(),
         tool_call_id: "tc1".to_string(),
@@ -166,7 +166,7 @@ fn test_to_sse_line_contains_json() {
 }
 
 #[rstest]
-fn test_event_round_trip_json() {
+fn event_round_trip_json() {
     let ev = AguiEvent::TextMessageContent {
         run_id: "run-abc".to_string(),
         message_id: "msg-1".to_string(),
@@ -182,13 +182,13 @@ fn test_event_round_trip_json() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_agui_bus_default() {
+fn agui_bus_default() {
     let bus = AguiBus::default();
     assert_eq!(bus.receiver_count(), 0);
 }
 
 #[rstest]
-fn test_agui_bus_subscribe_increments_count() {
+fn agui_bus_subscribe_increments_count() {
     let bus = AguiBus::new();
     let _rx1 = bus.subscribe();
     assert_eq!(bus.receiver_count(), 1);
@@ -197,7 +197,7 @@ fn test_agui_bus_subscribe_increments_count() {
 }
 
 #[rstest]
-fn test_agui_bus_emit_no_subscribers_no_panic() {
+fn agui_bus_emit_no_subscribers_no_panic() {
     let bus = AguiBus::new();
     // Should not panic even with no subscribers
     bus.emit(AguiEvent::RunStarted {

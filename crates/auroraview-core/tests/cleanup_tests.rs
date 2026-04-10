@@ -539,11 +539,13 @@ fn get_webview_base_dir_linux_format() {
 
 #[test]
 fn cleanup_stats_mutate_fields() {
-    let mut stats = auroraview_core::cleanup::CleanupStats::default();
-    stats.total_dirs = 20;
-    stats.alive_dirs = 15;
-    stats.stale_dirs = 5;
-    stats.stale_size_bytes = 2048;
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 20,
+        alive_dirs: 15,
+        stale_dirs: 5,
+        stale_size_bytes: 2048,
+        ..Default::default()
+    };
     assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
     assert_eq!(stats.stale_size_bytes, 2048);
 }

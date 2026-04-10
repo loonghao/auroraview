@@ -394,7 +394,7 @@ fn test_icon_png_bytes_png_magic_complete() {
 }
 
 #[test]
-fn test_normalize_url_https_preserves_path() {
+fn normalize_url_https_preserves_path() {
     let result = normalize_url("https://example.com/some/path/to/resource");
     match result {
         Ok(url) => assert!(url.contains("some/path")),

@@ -1,4 +1,4 @@
-//! Signal-slot system tests
+﻿//! Signal-slot system tests
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -13,7 +13,7 @@ use auroraview_core::signals::{
 // ============================================================================
 
 #[test]
-fn test_signal_connect_emit() {
+fn signal_connect_emit() {
     let signal: Signal<i32> = Signal::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = counter.clone();
@@ -29,7 +29,7 @@ fn test_signal_connect_emit() {
 }
 
 #[test]
-fn test_signal_disconnect() {
+fn signal_disconnect() {
     let signal: Signal<i32> = Signal::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = counter.clone();
@@ -47,7 +47,7 @@ fn test_signal_disconnect() {
 }
 
 #[test]
-fn test_signal_multiple_handlers() {
+fn signal_multiple_handlers() {
     let signal: Signal<i32> = Signal::new();
     let counter1 = Arc::new(AtomicUsize::new(0));
     let counter2 = Arc::new(AtomicUsize::new(0));
@@ -68,7 +68,7 @@ fn test_signal_multiple_handlers() {
 }
 
 #[test]
-fn test_connect_once() {
+fn connect_once() {
     let signal: Signal<i32> = Signal::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = counter.clone();
@@ -84,7 +84,7 @@ fn test_connect_once() {
 }
 
 #[test]
-fn test_signal_registry() {
+fn signal_registry() {
     let registry = SignalRegistry::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = counter.clone();
@@ -100,7 +100,7 @@ fn test_signal_registry() {
 }
 
 #[test]
-fn test_webview_signals() {
+fn webview_signals() {
     let signals = WebViewSignals::new();
     let loaded = Arc::new(AtomicUsize::new(0));
     let loaded_clone = loaded.clone();
@@ -115,7 +115,7 @@ fn test_webview_signals() {
 }
 
 #[test]
-fn test_webview_custom_signals() {
+fn webview_custom_signals() {
     let signals = WebViewSignals::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = counter.clone();
@@ -132,7 +132,7 @@ fn test_webview_custom_signals() {
 }
 
 #[test]
-fn test_registry_connect_creates_signal() {
+fn registry_connect_creates_signal() {
     let registry = SignalRegistry::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = counter.clone();
@@ -148,7 +148,7 @@ fn test_registry_connect_creates_signal() {
 }
 
 #[test]
-fn test_registry_connect_once() {
+fn registry_connect_once() {
     let registry = SignalRegistry::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = counter.clone();
@@ -164,7 +164,7 @@ fn test_registry_connect_once() {
 }
 
 #[test]
-fn test_registry_disconnect() {
+fn registry_disconnect() {
     let registry = SignalRegistry::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = counter.clone();
@@ -183,7 +183,7 @@ fn test_registry_disconnect() {
 }
 
 #[test]
-fn test_registry_remove_signal() {
+fn registry_remove_signal() {
     let registry = SignalRegistry::new();
 
     registry.connect("temp_signal", |_| {});
@@ -196,7 +196,7 @@ fn test_registry_remove_signal() {
 }
 
 #[test]
-fn test_registry_names() {
+fn registry_names() {
     let registry = SignalRegistry::new();
 
     registry.connect("event_a", |_| {});
@@ -212,7 +212,7 @@ fn test_registry_names() {
 // ============================================================================
 
 #[test]
-fn test_connection_guard_auto_disconnect_on_drop() {
+fn connection_guard_auto_disconnect_on_drop() {
     let signal = Arc::new(Signal::<i32>::new());
     let counter = Arc::new(AtomicUsize::new(0));
 
@@ -236,7 +236,7 @@ fn test_connection_guard_auto_disconnect_on_drop() {
 }
 
 #[test]
-fn test_connection_guard_detach() {
+fn connection_guard_detach() {
     let signal = Arc::new(Signal::<i32>::new());
     let counter = Arc::new(AtomicUsize::new(0));
 
@@ -264,7 +264,7 @@ fn test_connection_guard_detach() {
 }
 
 #[test]
-fn test_connection_guard_manual_disconnect() {
+fn connection_guard_manual_disconnect() {
     let signal = Arc::new(Signal::<i32>::new());
     let counter = Arc::new(AtomicUsize::new(0));
 
@@ -289,7 +289,7 @@ fn test_connection_guard_manual_disconnect() {
 // ============================================================================
 
 #[test]
-fn test_channel_bridge_basic() {
+fn channel_bridge_basic() {
     let (bridge, receiver) = ChannelBridge::new("test_ch");
 
     bridge
@@ -302,7 +302,7 @@ fn test_channel_bridge_basic() {
 }
 
 #[test]
-fn test_channel_bridge_multiple_messages() {
+fn channel_bridge_multiple_messages() {
     let (bridge, receiver) = ChannelBridge::new("multi_ch");
 
     for i in 0..5u64 {
@@ -319,7 +319,7 @@ fn test_channel_bridge_multiple_messages() {
 }
 
 #[test]
-fn test_channel_bridge_is_connected() {
+fn channel_bridge_is_connected() {
     let (bridge, _receiver) = ChannelBridge::new("connected_ch");
     assert!(bridge.is_connected());
     bridge.disconnect().unwrap();
@@ -327,7 +327,7 @@ fn test_channel_bridge_is_connected() {
 }
 
 #[test]
-fn test_channel_bridge_emit_after_disconnect_fails() {
+fn channel_bridge_emit_after_disconnect_fails() {
     let (bridge, _receiver) = ChannelBridge::new("disc_ch");
     bridge.disconnect().unwrap();
 
@@ -336,7 +336,7 @@ fn test_channel_bridge_emit_after_disconnect_fails() {
 }
 
 #[test]
-fn test_channel_bridge_bounded() {
+fn channel_bridge_bounded() {
     let (bridge, receiver) = ChannelBridge::bounded("bounded_ch", 2);
 
     bridge.emit("e1", serde_json::json!(1)).unwrap();
@@ -353,7 +353,7 @@ fn test_channel_bridge_bounded() {
 // ============================================================================
 
 #[test]
-fn test_event_bus_basic_on_emit() {
+fn event_bus_basic_on_emit() {
     let bus = EventBus::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let c = counter.clone();
@@ -368,7 +368,7 @@ fn test_event_bus_basic_on_emit() {
 }
 
 #[test]
-fn test_event_bus_once() {
+fn event_bus_once() {
     let bus = EventBus::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let c = counter.clone();
@@ -383,7 +383,7 @@ fn test_event_bus_once() {
 }
 
 #[test]
-fn test_event_bus_off() {
+fn event_bus_off() {
     let bus = EventBus::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let c = counter.clone();
@@ -401,7 +401,7 @@ fn test_event_bus_off() {
 }
 
 #[test]
-fn test_event_bus_off_all() {
+fn event_bus_off_all() {
     let bus = EventBus::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let c1 = counter.clone();
@@ -423,7 +423,7 @@ fn test_event_bus_off_all() {
 }
 
 #[test]
-fn test_event_bus_clear() {
+fn event_bus_clear() {
     let bus = EventBus::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let c = counter.clone();
@@ -443,19 +443,19 @@ fn test_event_bus_clear() {
 }
 
 #[test]
-fn test_event_bus_named() {
+fn event_bus_named() {
     let bus = EventBus::named("dcc_bus");
     assert_eq!(bus.name(), Some("dcc_bus"));
 }
 
 #[test]
-fn test_event_bus_default_name() {
+fn event_bus_default_name() {
     let bus = EventBus::new();
     assert!(bus.name().is_none());
 }
 
 #[test]
-fn test_event_bus_has_handlers() {
+fn event_bus_has_handlers() {
     let bus = EventBus::new();
     assert!(!bus.has_handlers("key"));
 
@@ -464,7 +464,7 @@ fn test_event_bus_has_handlers() {
 }
 
 #[test]
-fn test_event_bus_handler_count() {
+fn event_bus_handler_count() {
     let bus = EventBus::new();
     bus.on("ev", |_| {});
     bus.on("ev", |_| {});
@@ -475,7 +475,7 @@ fn test_event_bus_handler_count() {
 }
 
 #[test]
-fn test_event_bus_event_names() {
+fn event_bus_event_names() {
     let bus = EventBus::new();
     bus.on("alpha", |_| {});
     bus.on("beta", |_| {});
@@ -487,7 +487,7 @@ fn test_event_bus_event_names() {
 }
 
 #[test]
-fn test_event_bus_debug() {
+fn event_bus_debug() {
     let bus = EventBus::named("debug_bus");
     bus.on("ev", |_| {});
     let s = format!("{:?}", bus);
@@ -496,7 +496,7 @@ fn test_event_bus_debug() {
 }
 
 #[test]
-fn test_event_bus_with_channel_bridge() {
+fn event_bus_with_channel_bridge() {
     let bus = EventBus::new();
     let (bridge, receiver) = ChannelBridge::new("ch_bridge");
     bus.add_bridge(bridge);
@@ -508,7 +508,7 @@ fn test_event_bus_with_channel_bridge() {
 }
 
 #[test]
-fn test_event_bus_emit_local_skips_bridge() {
+fn event_bus_emit_local_skips_bridge() {
     let bus = EventBus::new();
     let (bridge, receiver) = ChannelBridge::new("ch_bridge");
     bus.add_bridge(bridge);
@@ -527,7 +527,7 @@ fn test_event_bus_emit_local_skips_bridge() {
 }
 
 #[test]
-fn test_event_bus_with_filter_middleware() {
+fn event_bus_with_filter_middleware() {
     let bus = EventBus::new();
     bus.use_middleware(FilterMiddleware::new().deny_pattern("internal:.*").unwrap());
 
@@ -551,7 +551,7 @@ fn test_event_bus_with_filter_middleware() {
 }
 
 #[test]
-fn test_event_bus_with_logging_middleware() {
+fn event_bus_with_logging_middleware() {
     let bus = EventBus::new();
     bus.use_middleware(LoggingMiddleware::new(LogLevel::Debug));
     assert_eq!(bus.middleware_count(), 1);
@@ -567,7 +567,7 @@ fn test_event_bus_with_logging_middleware() {
 }
 
 #[test]
-fn test_event_bus_bridge_count() {
+fn event_bus_bridge_count() {
     let bus = EventBus::new();
     assert_eq!(bus.bridge_count(), 0);
 
@@ -582,7 +582,7 @@ fn test_event_bus_bridge_count() {
 }
 
 #[test]
-fn test_event_bus_callback_bridge() {
+fn event_bus_callback_bridge() {
     let bus = EventBus::new();
     let counter = Arc::new(AtomicUsize::new(0));
     let c = counter.clone();
@@ -601,7 +601,7 @@ fn test_event_bus_callback_bridge() {
 // ============================================================================
 
 #[test]
-fn test_signal_concurrent_emit() {
+fn signal_concurrent_emit() {
     use std::thread;
 
     let signal = Arc::new(Signal::<u64>::new());
@@ -636,7 +636,7 @@ fn test_signal_concurrent_emit() {
 }
 
 #[test]
-fn test_event_bus_concurrent_emit() {
+fn event_bus_concurrent_emit() {
     use std::thread;
 
     let bus = Arc::new(EventBus::new());
@@ -671,14 +671,14 @@ fn test_event_bus_concurrent_emit() {
 }
 
 #[test]
-fn test_registry_emit_to_nonexistent_signal() {
+fn registry_emit_to_nonexistent_signal() {
     let registry = SignalRegistry::new();
     // Emitting to a non-existent signal should not panic
     registry.emit("does_not_exist", serde_json::json!(null));
 }
 
 #[test]
-fn test_webview_signals_resized() {
+fn webview_signals_resized() {
     let signals = WebViewSignals::new();
     let result = Arc::new(std::sync::Mutex::new(None));
     let r = result.clone();
@@ -694,7 +694,7 @@ fn test_webview_signals_resized() {
 }
 
 #[test]
-fn test_webview_signals_moved() {
+fn webview_signals_moved() {
     let signals = WebViewSignals::new();
     let result = Arc::new(std::sync::Mutex::new(None));
     let r = result.clone();
@@ -710,7 +710,7 @@ fn test_webview_signals_moved() {
 }
 
 #[test]
-fn test_webview_signals_lifecycle() {
+fn webview_signals_lifecycle() {
     let signals = WebViewSignals::new();
     let closed = Arc::new(AtomicUsize::new(0));
     let focused = Arc::new(AtomicUsize::new(0));
@@ -739,13 +739,13 @@ fn test_webview_signals_lifecycle() {
 // ============================================================================
 
 #[test]
-fn test_signal_emit_no_handlers_no_panic() {
+fn signal_emit_no_handlers_no_panic() {
     let signal = Signal::<u32>::new();
     signal.emit(42);
 }
 
 #[test]
-fn test_signal_single_connect_and_emit() {
+fn signal_single_connect_and_emit() {
     let signal = Signal::<u32>::new();
     let value = Arc::new(std::sync::Mutex::new(0u32));
     let v = value.clone();
@@ -755,7 +755,7 @@ fn test_signal_single_connect_and_emit() {
 }
 
 #[test]
-fn test_signal_two_connects_both_called() {
+fn signal_two_connects_both_called() {
     let signal = Signal::<u32>::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c1 = count.clone();
@@ -767,7 +767,7 @@ fn test_signal_two_connects_both_called() {
 }
 
 #[test]
-fn test_event_bus_emit_many_events_no_panic() {
+fn event_bus_emit_many_events_no_panic() {
     let bus = EventBus::new();
     bus.on("click", |_| {});
     for i in 0..20 {
@@ -776,7 +776,7 @@ fn test_event_bus_emit_many_events_no_panic() {
 }
 
 #[test]
-fn test_event_bus_multiple_handlers_same_event_r15() {
+fn event_bus_multiple_handlers_same_event_r15() {
     let bus = EventBus::new();
     let count = Arc::new(AtomicUsize::new(0));
 
@@ -790,7 +790,7 @@ fn test_event_bus_multiple_handlers_same_event_r15() {
 }
 
 #[test]
-fn test_webview_signals_custom_event_fires() {
+fn webview_signals_custom_event_fires() {
     let signals = WebViewSignals::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
@@ -800,7 +800,7 @@ fn test_webview_signals_custom_event_fires() {
 }
 
 #[test]
-fn test_event_bus_clear_removes_all_handlers_r15() {
+fn event_bus_clear_removes_all_handlers_r15() {
     let bus = EventBus::new();
     bus.on("a_r15", |_| {});
     bus.on("b_r15", |_| {});

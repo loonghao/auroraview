@@ -1,4 +1,4 @@
-/// Integration tests for the real HTTP transport layer.
+﻿/// Integration tests for the real HTTP transport layer.
 ///
 /// These tests bind to an ephemeral port, make actual HTTP requests
 /// to the MCP server, and verify the SSE/JSON responses.
@@ -17,7 +17,7 @@ async fn free_port() -> u16 {
 }
 
 /// Build a test config on the given port.
-fn test_config(port: u16) -> McpServerConfig {
+fn config(port: u16) -> McpServerConfig {
     McpServerConfig {
         host: "127.0.0.1".to_string(),
         port,
@@ -33,7 +33,7 @@ fn test_config(port: u16) -> McpServerConfig {
 #[tokio::test]
 async fn test_runner_starts_and_stops() {
     let port = free_port().await;
-    let runner = McpRunner::new(test_config(port));
+    let runner = McpRunner::new(config(port));
 
     assert!(!runner.is_running().await);
     runner.start().await.expect("start failed");
@@ -46,7 +46,7 @@ async fn test_runner_starts_and_stops() {
 #[tokio::test]
 async fn test_runner_start_twice_returns_error() {
     let port = free_port().await;
-    let runner = McpRunner::new(test_config(port));
+    let runner = McpRunner::new(config(port));
     runner.start().await.expect("first start failed");
 
     let result = runner.start().await;
@@ -58,7 +58,7 @@ async fn test_runner_start_twice_returns_error() {
 #[tokio::test]
 async fn test_runner_stop_when_not_running_is_noop() {
     let port = free_port().await;
-    let runner = McpRunner::new(test_config(port));
+    let runner = McpRunner::new(config(port));
     // Should not panic
     runner.stop().await;
 }
@@ -70,7 +70,7 @@ async fn test_runner_stop_when_not_running_is_noop() {
 #[tokio::test]
 async fn test_mcp_endpoint_reachable() {
     let port = free_port().await;
-    let runner = McpRunner::new(test_config(port));
+    let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
 
     // Give tokio a moment to bind
@@ -103,7 +103,7 @@ async fn test_mcp_endpoint_reachable() {
 #[tokio::test]
 async fn test_mcp_list_tools_response() {
     let port = free_port().await;
-    let runner = McpRunner::new(test_config(port));
+    let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
     tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -157,7 +157,7 @@ async fn test_mcp_list_tools_response() {
 #[tokio::test]
 async fn test_agui_events_endpoint_reachable() {
     let port = free_port().await;
-    let runner = McpRunner::new(test_config(port));
+    let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
     tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -195,7 +195,7 @@ async fn test_agui_events_endpoint_reachable() {
 #[tokio::test]
 async fn test_agui_events_with_run_id_filter() {
     let port = free_port().await;
-    let runner = McpRunner::new(test_config(port));
+    let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
     tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -221,7 +221,7 @@ async fn test_agui_events_with_run_id_filter() {
 // ---------------------------------------------------------------------------
 
 #[rstest]
-fn test_runner_emit_agui_no_panic() {
+fn runner_emit_agui_no_panic() {
     // No tokio runtime required — emit to a bus with no subscribers
     let runner = McpRunner::new(McpServerConfig::default());
     runner.emit_agui(AguiEvent::RunStarted {

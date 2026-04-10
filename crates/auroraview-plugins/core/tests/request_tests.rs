@@ -381,7 +381,7 @@ fn response_ok_string_data() {
 
 #[test]
 fn response_ok_number_data() {
-    let resp = PluginResponse::ok(json!(3.14));
+    let resp = PluginResponse::ok(json!(2.71));
     assert!(resp.success);
 }
 

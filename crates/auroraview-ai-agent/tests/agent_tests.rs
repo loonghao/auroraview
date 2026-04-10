@@ -407,7 +407,7 @@ fn config_for_model_preserves_model_name() {
 fn config_ollama_preserves_model_name() {
     let names = ["llama3", "mistral", "phi3", "codellama"];
     for name in &names {
-        let config = AIConfig::ollama(*name);
+        let config = AIConfig::ollama(name);
         assert_eq!(config.model, *name);
     }
 }

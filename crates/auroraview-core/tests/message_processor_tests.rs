@@ -1,4 +1,4 @@
-//! Message processor tests
+﻿//! Message processor tests
 
 use auroraview_core::backend::{
     AtomicProcessorStats, MessagePriority, ProcessResult, ProcessingMode, ProcessorConfig,
@@ -12,25 +12,25 @@ use std::{sync::Arc, time::Duration};
 // ============================================================================
 
 #[test]
-fn test_process_result_continue_does_not_stop() {
+fn process_result_continue_does_not_stop() {
     assert!(!ProcessResult::Continue.should_stop());
     assert!(!ProcessResult::Continue.as_bool());
 }
 
 #[test]
-fn test_process_result_close_requested_stops() {
+fn process_result_close_requested_stops() {
     assert!(ProcessResult::CloseRequested.should_stop());
     assert!(ProcessResult::CloseRequested.as_bool());
 }
 
 #[test]
-fn test_process_result_error_stops() {
+fn process_result_error_stops() {
     assert!(ProcessResult::Error.should_stop());
     assert!(ProcessResult::Error.as_bool());
 }
 
 #[test]
-fn test_process_result_eq() {
+fn process_result_eq() {
     assert_eq!(ProcessResult::Continue, ProcessResult::Continue);
     assert_eq!(
         ProcessResult::CloseRequested,
@@ -40,7 +40,7 @@ fn test_process_result_eq() {
 }
 
 #[test]
-fn test_process_result_clone_copy() {
+fn process_result_clone_copy() {
     let r = ProcessResult::CloseRequested;
     let r2 = r;
     assert_eq!(r, r2);
@@ -51,19 +51,19 @@ fn test_process_result_clone_copy() {
 // ============================================================================
 
 #[test]
-fn test_processing_mode_default_is_full() {
+fn processing_mode_default_is_full() {
     assert_eq!(ProcessingMode::default(), ProcessingMode::Full);
 }
 
 #[test]
-fn test_processing_mode_eq() {
+fn processing_mode_eq() {
     assert_eq!(ProcessingMode::Full, ProcessingMode::Full);
     assert_eq!(ProcessingMode::IpcOnly, ProcessingMode::IpcOnly);
     assert_ne!(ProcessingMode::Full, ProcessingMode::IpcOnly);
 }
 
 #[test]
-fn test_processing_mode_batch_eq() {
+fn processing_mode_batch_eq() {
     assert_eq!(
         ProcessingMode::Batch { max_messages: 10 },
         ProcessingMode::Batch { max_messages: 10 }
@@ -75,7 +75,7 @@ fn test_processing_mode_batch_eq() {
 }
 
 #[test]
-fn test_processing_mode_batch_not_eq_ipc_only() {
+fn processing_mode_batch_not_eq_ipc_only() {
     assert_ne!(
         ProcessingMode::Batch { max_messages: 5 },
         ProcessingMode::IpcOnly
@@ -83,7 +83,7 @@ fn test_processing_mode_batch_not_eq_ipc_only() {
 }
 
 #[test]
-fn test_processing_mode_debug() {
+fn processing_mode_debug() {
     let s = format!("{:?}", ProcessingMode::Batch { max_messages: 50 });
     assert!(s.contains("50"));
 }
@@ -93,7 +93,7 @@ fn test_processing_mode_debug() {
 // ============================================================================
 
 #[test]
-fn test_processor_config_default() {
+fn processor_config_default() {
     let cfg = ProcessorConfig::default();
     assert_eq!(cfg.mode, ProcessingMode::Full);
     assert!(cfg.immediate_wake);
@@ -102,7 +102,7 @@ fn test_processor_config_default() {
 }
 
 #[test]
-fn test_processor_config_standalone() {
+fn processor_config_standalone() {
     let cfg = ProcessorConfig::standalone();
     assert_eq!(cfg.mode, ProcessingMode::Full);
     assert!(cfg.immediate_wake);
@@ -111,7 +111,7 @@ fn test_processor_config_standalone() {
 }
 
 #[test]
-fn test_processor_config_qt_embedded() {
+fn processor_config_qt_embedded() {
     let cfg = ProcessorConfig::qt_embedded();
     assert_eq!(cfg.mode, ProcessingMode::IpcOnly);
     assert!(cfg.immediate_wake);
@@ -119,7 +119,7 @@ fn test_processor_config_qt_embedded() {
 }
 
 #[test]
-fn test_processor_config_debug() {
+fn processor_config_debug() {
     let cfg = ProcessorConfig::default();
     let s = format!("{:?}", cfg);
     assert!(s.contains("Full"));
@@ -130,12 +130,12 @@ fn test_processor_config_debug() {
 // ============================================================================
 
 #[test]
-fn test_message_priority_default_is_normal() {
+fn message_priority_default_is_normal() {
     assert_eq!(MessagePriority::default(), MessagePriority::Normal);
 }
 
 #[test]
-fn test_message_priority_ord() {
+fn message_priority_ord() {
     assert!(MessagePriority::Low < MessagePriority::Normal);
     assert!(MessagePriority::Normal < MessagePriority::High);
     assert!(MessagePriority::High < MessagePriority::Critical);
@@ -143,7 +143,7 @@ fn test_message_priority_ord() {
 }
 
 #[test]
-fn test_message_priority_sorting() {
+fn message_priority_sorting() {
     let mut priorities = vec![
         MessagePriority::High,
         MessagePriority::Low,
@@ -168,7 +168,7 @@ fn test_message_priority_sorting() {
 #[case(MessagePriority::High, MessagePriority::Critical, true)]
 #[case(MessagePriority::Critical, MessagePriority::Critical, false)]
 #[case(MessagePriority::High, MessagePriority::Normal, false)]
-fn test_message_priority_lt(
+fn message_priority_lt(
     #[case] a: MessagePriority,
     #[case] b: MessagePriority,
     #[case] expected: bool,
@@ -177,7 +177,7 @@ fn test_message_priority_lt(
 }
 
 #[test]
-fn test_message_priority_ge_for_high_priority_threshold() {
+fn message_priority_ge_for_high_priority_threshold() {
     // threshold for immediate wake is >= High
     assert!(MessagePriority::High >= MessagePriority::High);
     assert!(MessagePriority::Critical >= MessagePriority::High);
@@ -186,7 +186,7 @@ fn test_message_priority_ge_for_high_priority_threshold() {
 }
 
 #[test]
-fn test_message_priority_clone_copy() {
+fn message_priority_clone_copy() {
     let p = MessagePriority::High;
     let p2 = p;
     assert_eq!(p, p2);
@@ -197,7 +197,7 @@ fn test_message_priority_clone_copy() {
 // ============================================================================
 
 #[test]
-fn test_processor_stats_default() {
+fn processor_stats_default() {
     let s = ProcessorStats::default();
     assert_eq!(s.messages_processed, 0);
     assert_eq!(s.total_processing_time_us, 0);
@@ -207,13 +207,13 @@ fn test_processor_stats_default() {
 }
 
 #[test]
-fn test_processor_stats_avg_tick_time_zero_ticks() {
+fn processor_stats_avg_tick_time_zero_ticks() {
     let s = ProcessorStats::default();
     assert_eq!(s.avg_tick_time_us(), 0);
 }
 
 #[test]
-fn test_processor_stats_avg_tick_time() {
+fn processor_stats_avg_tick_time() {
     let s = ProcessorStats {
         total_processing_time_us: 300,
         ticks_processed: 3,
@@ -223,13 +223,13 @@ fn test_processor_stats_avg_tick_time() {
 }
 
 #[test]
-fn test_processor_stats_avg_messages_per_tick_zero_ticks() {
+fn processor_stats_avg_messages_per_tick_zero_ticks() {
     let s = ProcessorStats::default();
     assert_eq!(s.avg_messages_per_tick(), 0.0);
 }
 
 #[test]
-fn test_processor_stats_avg_messages_per_tick() {
+fn processor_stats_avg_messages_per_tick() {
     let s = ProcessorStats {
         messages_processed: 30,
         ticks_processed: 5,
@@ -243,7 +243,7 @@ fn test_processor_stats_avg_messages_per_tick() {
 // ============================================================================
 
 #[test]
-fn test_atomic_stats_initial_snapshot_is_zero() {
+fn atomic_stats_initial_snapshot_is_zero() {
     let s = AtomicProcessorStats::new();
     let snap = s.snapshot();
     assert_eq!(snap.messages_processed, 0);
@@ -254,14 +254,14 @@ fn test_atomic_stats_initial_snapshot_is_zero() {
 }
 
 #[test]
-fn test_atomic_stats_default_eq_new() {
+fn atomic_stats_default_eq_new() {
     let s = AtomicProcessorStats::default();
     let snap = s.snapshot();
     assert_eq!(snap.messages_processed, 0);
 }
 
 #[test]
-fn test_atomic_stats_record_tick_accumulates() {
+fn atomic_stats_record_tick_accumulates() {
     let s = AtomicProcessorStats::new();
     s.record_tick(5, Duration::from_micros(50));
     s.record_tick(10, Duration::from_micros(100));
@@ -274,7 +274,7 @@ fn test_atomic_stats_record_tick_accumulates() {
 }
 
 #[test]
-fn test_atomic_stats_peak_tracks_max() {
+fn atomic_stats_peak_tracks_max() {
     let s = AtomicProcessorStats::new();
     s.record_tick(1, Duration::from_micros(500));
     s.record_tick(1, Duration::from_micros(200));
@@ -285,7 +285,7 @@ fn test_atomic_stats_peak_tracks_max() {
 }
 
 #[test]
-fn test_atomic_stats_record_batch_skip() {
+fn atomic_stats_record_batch_skip() {
     let s = AtomicProcessorStats::new();
     s.record_batch_skip();
     s.record_batch_skip();
@@ -293,7 +293,7 @@ fn test_atomic_stats_record_batch_skip() {
 }
 
 #[test]
-fn test_atomic_stats_reset_clears_all() {
+fn atomic_stats_reset_clears_all() {
     let s = AtomicProcessorStats::new();
     s.record_tick(100, Duration::from_micros(1000));
     s.record_batch_skip();
@@ -308,7 +308,7 @@ fn test_atomic_stats_reset_clears_all() {
 }
 
 #[test]
-fn test_atomic_stats_reset_idempotent() {
+fn atomic_stats_reset_idempotent() {
     let s = AtomicProcessorStats::new();
     s.reset();
     s.reset();
@@ -316,7 +316,7 @@ fn test_atomic_stats_reset_idempotent() {
 }
 
 #[test]
-fn test_atomic_stats_concurrent_record_tick() {
+fn atomic_stats_concurrent_record_tick() {
     use std::thread;
 
     let s = Arc::new(AtomicProcessorStats::new());
@@ -341,7 +341,7 @@ fn test_atomic_stats_concurrent_record_tick() {
 }
 
 #[test]
-fn test_atomic_stats_concurrent_batch_skip() {
+fn atomic_stats_concurrent_batch_skip() {
     use std::thread;
 
     let s = Arc::new(AtomicProcessorStats::new());
@@ -368,7 +368,7 @@ fn test_atomic_stats_concurrent_batch_skip() {
 // ============================================================================
 
 #[test]
-fn test_wake_controller_no_batching_always_wakes() {
+fn wake_controller_no_batching_always_wakes() {
     let cfg = ProcessorConfig {
         batch_interval_ms: 0,
         immediate_wake: true,
@@ -390,7 +390,7 @@ fn test_wake_controller_no_batching_always_wakes() {
 // ============================================================================
 
 #[test]
-fn test_wake_controller_batching_first_wake_succeeds() {
+fn wake_controller_batching_first_wake_succeeds() {
     let cfg = ProcessorConfig {
         batch_interval_ms: 5000,
         immediate_wake: false,
@@ -402,7 +402,7 @@ fn test_wake_controller_batching_first_wake_succeeds() {
 }
 
 #[test]
-fn test_wake_controller_batching_immediate_second_wake_blocked() {
+fn wake_controller_batching_immediate_second_wake_blocked() {
     let cfg = ProcessorConfig {
         batch_interval_ms: 5000,
         immediate_wake: false,
@@ -415,7 +415,7 @@ fn test_wake_controller_batching_immediate_second_wake_blocked() {
 }
 
 #[test]
-fn test_wake_controller_high_priority_bypasses_batching() {
+fn wake_controller_high_priority_bypasses_batching() {
     let cfg = ProcessorConfig {
         batch_interval_ms: 5000,
         immediate_wake: true,
@@ -435,7 +435,7 @@ fn test_wake_controller_high_priority_bypasses_batching() {
 }
 
 #[test]
-fn test_wake_controller_high_priority_no_bypass_when_disabled() {
+fn wake_controller_high_priority_no_bypass_when_disabled() {
     let cfg = ProcessorConfig {
         batch_interval_ms: 5000,
         immediate_wake: false,
@@ -452,7 +452,7 @@ fn test_wake_controller_high_priority_no_bypass_when_disabled() {
 }
 
 #[test]
-fn test_wake_controller_set_immediate_wake_enable() {
+fn wake_controller_set_immediate_wake_enable() {
     let cfg = ProcessorConfig {
         batch_interval_ms: 5000,
         immediate_wake: false,
@@ -471,7 +471,7 @@ fn test_wake_controller_set_immediate_wake_enable() {
 }
 
 #[test]
-fn test_wake_controller_set_immediate_wake_disable() {
+fn wake_controller_set_immediate_wake_disable() {
     let cfg = ProcessorConfig {
         batch_interval_ms: 5000,
         immediate_wake: true,
@@ -489,7 +489,7 @@ fn test_wake_controller_set_immediate_wake_disable() {
 }
 
 #[test]
-fn test_wake_controller_force_wake_resets_timer() {
+fn wake_controller_force_wake_resets_timer() {
     let cfg = ProcessorConfig {
         batch_interval_ms: 5000,
         immediate_wake: false,
@@ -510,7 +510,7 @@ fn test_wake_controller_force_wake_resets_timer() {
 }
 
 #[test]
-fn test_wake_controller_low_priority_no_bypass() {
+fn wake_controller_low_priority_no_bypass() {
     let cfg = ProcessorConfig {
         batch_interval_ms: 5000,
         immediate_wake: true,
@@ -530,19 +530,19 @@ fn test_wake_controller_low_priority_no_bypass() {
 // ============================================================================
 
 #[test]
-fn test_process_result_continue_is_continue() {
+fn process_result_continue_is_continue() {
     let r = ProcessResult::Continue;
     assert!(matches!(r, ProcessResult::Continue));
 }
 
 #[test]
-fn test_process_result_close_requested_is_close() {
+fn process_result_close_requested_is_close() {
     let r = ProcessResult::CloseRequested;
     assert!(matches!(r, ProcessResult::CloseRequested));
 }
 
 #[test]
-fn test_message_priority_debug_non_empty() {
+fn message_priority_debug_non_empty() {
     for p in &[MessagePriority::Low, MessagePriority::Normal, MessagePriority::High] {
         let dbg = format!("{:?}", p);
         assert!(!dbg.is_empty());
@@ -550,7 +550,7 @@ fn test_message_priority_debug_non_empty() {
 }
 
 #[test]
-fn test_processing_mode_debug_non_empty() {
+fn processing_mode_debug_non_empty() {
     let modes = [ProcessingMode::Full, ProcessingMode::IpcOnly];
     for m in &modes {
         let dbg = format!("{:?}", m);
@@ -559,13 +559,13 @@ fn test_processing_mode_debug_non_empty() {
 }
 
 #[test]
-fn test_processor_stats_total_ticks_zero_initially() {
+fn processor_stats_total_ticks_zero_initially() {
     let stats = ProcessorStats::default();
     assert_eq!(stats.ticks_processed, 0);
 }
 
 #[test]
-fn test_atomic_stats_snapshot_total_ticks_increments() {
+fn atomic_stats_snapshot_total_ticks_increments() {
     let stats = Arc::new(AtomicProcessorStats::new());
     let snap_before = stats.snapshot().ticks_processed;
     stats.record_tick(0, std::time::Duration::from_millis(1));
@@ -574,7 +574,7 @@ fn test_atomic_stats_snapshot_total_ticks_increments() {
 }
 
 #[test]
-fn test_processor_config_clone() {
+fn processor_config_clone() {
     let cfg = ProcessorConfig::standalone();
     let cloned = cfg.clone();
     assert_eq!(cloned.mode, cfg.mode);

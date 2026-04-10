@@ -1,4 +1,4 @@
-//! Metrics tests
+﻿//! Metrics tests
 
 use std::thread;
 use std::time::Duration as StdDuration;
@@ -6,14 +6,14 @@ use std::time::Duration as StdDuration;
 use auroraview_core::metrics::Metrics;
 
 #[test]
-fn test_metrics_creation() {
+fn metrics_creation() {
     let metrics = Metrics::new();
     assert!(metrics.window_time().is_none());
     assert!(metrics.webview_time().is_none());
 }
 
 #[test]
-fn test_mark_window() {
+fn mark_window() {
     let mut metrics = Metrics::new();
     thread::sleep(StdDuration::from_millis(10));
     metrics.mark_window();
@@ -24,7 +24,7 @@ fn test_mark_window() {
 }
 
 #[test]
-fn test_mark_webview() {
+fn mark_webview() {
     let mut metrics = Metrics::new();
     thread::sleep(StdDuration::from_millis(10));
     metrics.mark_webview();
@@ -35,7 +35,7 @@ fn test_mark_webview() {
 }
 
 #[test]
-fn test_mark_html() {
+fn mark_html() {
     let mut metrics = Metrics::new();
     thread::sleep(StdDuration::from_millis(10));
     metrics.mark_html();
@@ -46,7 +46,7 @@ fn test_mark_html() {
 }
 
 #[test]
-fn test_mark_js() {
+fn mark_js() {
     let mut metrics = Metrics::new();
     thread::sleep(StdDuration::from_millis(10));
     metrics.mark_js();
@@ -57,7 +57,7 @@ fn test_mark_js() {
 }
 
 #[test]
-fn test_mark_paint() {
+fn mark_paint() {
     let mut metrics = Metrics::new();
     thread::sleep(StdDuration::from_millis(10));
     metrics.mark_paint();
@@ -68,7 +68,7 @@ fn test_mark_paint() {
 }
 
 #[test]
-fn test_mark_shown() {
+fn mark_shown() {
     let mut metrics = Metrics::new();
     thread::sleep(StdDuration::from_millis(10));
     metrics.mark_shown();
@@ -79,13 +79,13 @@ fn test_mark_shown() {
 }
 
 #[test]
-fn test_default() {
+fn default() {
     let metrics = Metrics::default();
     assert!(metrics.window_time().is_none());
 }
 
 #[test]
-fn test_format_report() {
+fn format_report() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     metrics.mark_shown();
@@ -100,7 +100,7 @@ fn test_format_report() {
 // ============================================================================
 
 #[test]
-fn test_metrics_clone() {
+fn metrics_clone() {
     let mut original = Metrics::new();
     thread::sleep(StdDuration::from_millis(5));
     original.mark_window();
@@ -116,14 +116,14 @@ fn test_metrics_clone() {
 }
 
 #[test]
-fn test_metrics_debug() {
+fn metrics_debug() {
     let metrics = Metrics::new();
     let debug_str = format!("{:?}", metrics);
     assert!(debug_str.contains("Metrics"));
 }
 
 #[test]
-fn test_format_report_empty() {
+fn format_report_empty() {
     let metrics = Metrics::new();
     let report = metrics.format_report();
     // No marks set — should still have header and footer
@@ -135,7 +135,7 @@ fn test_format_report_empty() {
 }
 
 #[test]
-fn test_format_report_all_marks() {
+fn format_report_all_marks() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     metrics.mark_webview();
@@ -155,7 +155,7 @@ fn test_format_report_all_marks() {
 }
 
 #[test]
-fn test_format_report_partial_marks() {
+fn format_report_partial_marks() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     metrics.mark_js();
@@ -173,7 +173,7 @@ fn test_format_report_partial_marks() {
 }
 
 #[test]
-fn test_mark_order_non_decreasing() {
+fn mark_order_non_decreasing() {
     // Marks applied in sequence should produce non-decreasing durations
     let mut metrics = Metrics::new();
     thread::sleep(StdDuration::from_millis(2));
@@ -204,7 +204,7 @@ fn test_mark_order_non_decreasing() {
 }
 
 #[test]
-fn test_shown_time_as_total_interactive() {
+fn shown_time_as_total_interactive() {
     // shown_time is referenced as "Total time to interactive" in report
     let mut metrics = Metrics::new();
     thread::sleep(StdDuration::from_millis(5));
@@ -218,7 +218,7 @@ fn test_shown_time_as_total_interactive() {
 }
 
 #[test]
-fn test_multiple_new_instances_independent() {
+fn multiple_new_instances_independent() {
     let mut m1 = Metrics::new();
     let mut m2 = Metrics::new();
 
@@ -240,7 +240,7 @@ fn test_multiple_new_instances_independent() {
 // ============================================================================
 
 #[test]
-fn test_metrics_all_none_initially() {
+fn metrics_all_none_initially() {
     let metrics = Metrics::new();
     assert!(metrics.window_time().is_none());
     assert!(metrics.webview_time().is_none());
@@ -255,7 +255,7 @@ fn test_metrics_all_none_initially() {
 // ============================================================================
 
 #[test]
-fn test_mark_window_only() {
+fn mark_window_only() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
 
@@ -268,7 +268,7 @@ fn test_mark_window_only() {
 }
 
 #[test]
-fn test_mark_webview_only() {
+fn mark_webview_only() {
     let mut metrics = Metrics::new();
     metrics.mark_webview();
 
@@ -278,7 +278,7 @@ fn test_mark_webview_only() {
 }
 
 #[test]
-fn test_mark_html_only() {
+fn mark_html_only() {
     let mut metrics = Metrics::new();
     metrics.mark_html();
 
@@ -288,7 +288,7 @@ fn test_mark_html_only() {
 }
 
 #[test]
-fn test_mark_js_only() {
+fn mark_js_only() {
     let mut metrics = Metrics::new();
     metrics.mark_js();
 
@@ -298,7 +298,7 @@ fn test_mark_js_only() {
 }
 
 #[test]
-fn test_mark_paint_only() {
+fn mark_paint_only() {
     let mut metrics = Metrics::new();
     metrics.mark_paint();
 
@@ -308,7 +308,7 @@ fn test_mark_paint_only() {
 }
 
 #[test]
-fn test_mark_shown_only() {
+fn mark_shown_only() {
     let mut metrics = Metrics::new();
     metrics.mark_shown();
 
@@ -321,7 +321,7 @@ fn test_mark_shown_only() {
 // ============================================================================
 
 #[test]
-fn test_mark_window_twice_still_some() {
+fn mark_window_twice_still_some() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     let t1 = metrics.window_time().unwrap();
@@ -336,14 +336,14 @@ fn test_mark_window_twice_still_some() {
 // ============================================================================
 
 #[test]
-fn test_format_report_contains_separator() {
+fn format_report_contains_separator() {
     let metrics = Metrics::new();
     let report = metrics.format_report();
     assert!(report.contains("==========") || report.contains("---"));
 }
 
 #[test]
-fn test_format_report_window_mark_contains_window_line() {
+fn format_report_window_mark_contains_window_line() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     let report = metrics.format_report();
@@ -351,7 +351,7 @@ fn test_format_report_window_mark_contains_window_line() {
 }
 
 #[test]
-fn test_format_report_does_not_contain_unset_marks() {
+fn format_report_does_not_contain_unset_marks() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     // Did not mark webview/html/js/paint/shown
@@ -368,13 +368,13 @@ fn test_format_report_does_not_contain_unset_marks() {
 // ============================================================================
 
 #[test]
-fn test_metrics_is_send_sync() {
+fn metrics_is_send_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<Metrics>();
 }
 
 #[test]
-fn test_mark_window_then_webview_both_some() {
+fn mark_window_then_webview_both_some() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     metrics.mark_webview();
@@ -384,7 +384,7 @@ fn test_mark_window_then_webview_both_some() {
 }
 
 #[test]
-fn test_mark_js_then_paint_both_some() {
+fn mark_js_then_paint_both_some() {
     let mut metrics = Metrics::new();
     metrics.mark_js();
     metrics.mark_paint();
@@ -394,7 +394,7 @@ fn test_mark_js_then_paint_both_some() {
 }
 
 #[test]
-fn test_format_report_all_marks_contains_timing_report_header() {
+fn format_report_all_marks_contains_timing_report_header() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     metrics.mark_webview();
@@ -404,7 +404,7 @@ fn test_format_report_all_marks_contains_timing_report_header() {
 }
 
 #[test]
-fn test_format_report_shown_contains_total_time() {
+fn format_report_shown_contains_total_time() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     metrics.mark_shown();
@@ -415,7 +415,7 @@ fn test_format_report_shown_contains_total_time() {
 }
 
 #[test]
-fn test_metrics_clone_only_marked_fields_copied() {
+fn metrics_clone_only_marked_fields_copied() {
     let mut original = Metrics::new();
     original.mark_html();
     original.mark_js();
@@ -431,7 +431,7 @@ fn test_metrics_clone_only_marked_fields_copied() {
 }
 
 #[test]
-fn test_mark_shown_twice_both_some() {
+fn mark_shown_twice_both_some() {
     let mut metrics = Metrics::new();
     metrics.mark_shown();
     let t1 = metrics.shown_time().unwrap();
@@ -443,7 +443,7 @@ fn test_mark_shown_twice_both_some() {
 }
 
 #[test]
-fn test_mark_all_then_clone_preserves_all() {
+fn mark_all_then_clone_preserves_all() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     metrics.mark_webview();
@@ -462,7 +462,7 @@ fn test_mark_all_then_clone_preserves_all() {
 }
 
 #[test]
-fn test_default_and_new_equivalent_initial_state() {
+fn default_and_new_equivalent_initial_state() {
     let m_default = Metrics::default();
     let m_new = Metrics::new();
     // Both should have all times as None
@@ -473,7 +473,7 @@ fn test_default_and_new_equivalent_initial_state() {
 }
 
 #[test]
-fn test_format_report_no_html_mark_not_in_report() {
+fn format_report_no_html_mark_not_in_report() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     // html not marked
@@ -482,7 +482,7 @@ fn test_format_report_no_html_mark_not_in_report() {
 }
 
 #[test]
-fn test_format_report_no_js_mark_not_in_report() {
+fn format_report_no_js_mark_not_in_report() {
     let mut metrics = Metrics::new();
     metrics.mark_window();
     // js not marked
@@ -495,49 +495,49 @@ fn test_format_report_no_js_mark_not_in_report() {
 // ============================================================================
 
 #[test]
-fn test_format_report_is_string() {
+fn format_report_is_string() {
     let metrics = Metrics::new();
     let report = metrics.format_report();
     assert!(report.is_ascii() || !report.is_empty());
 }
 
 #[test]
-fn test_mark_webview_is_some() {
+fn mark_webview_is_some() {
     let mut m = Metrics::new();
     m.mark_webview();
     assert!(m.webview_time().is_some());
 }
 
 #[test]
-fn test_mark_html_is_some() {
+fn mark_html_is_some() {
     let mut m = Metrics::new();
     m.mark_html();
     assert!(m.html_time().is_some());
 }
 
 #[test]
-fn test_mark_js_is_some() {
+fn mark_js_is_some() {
     let mut m = Metrics::new();
     m.mark_js();
     assert!(m.js_time().is_some());
 }
 
 #[test]
-fn test_mark_paint_is_some() {
+fn mark_paint_is_some() {
     let mut m = Metrics::new();
     m.mark_paint();
     assert!(m.paint_time().is_some());
 }
 
 #[test]
-fn test_mark_shown_is_some() {
+fn mark_shown_is_some() {
     let mut m = Metrics::new();
     m.mark_shown();
     assert!(m.shown_time().is_some());
 }
 
 #[test]
-fn test_clone_all_none_preserves_none() {
+fn clone_all_none_preserves_none() {
     let m = Metrics::new();
     let cloned = m.clone();
     assert!(cloned.window_time().is_none());
@@ -549,14 +549,14 @@ fn test_clone_all_none_preserves_none() {
 }
 
 #[test]
-fn test_debug_non_empty() {
+fn debug_non_empty() {
     let m = Metrics::new();
     let dbg = format!("{:?}", m);
     assert!(!dbg.is_empty());
 }
 
 #[test]
-fn test_format_report_webview_and_html_marks() {
+fn format_report_webview_and_html_marks() {
     let mut m = Metrics::new();
     m.mark_webview();
     m.mark_html();
@@ -566,7 +566,7 @@ fn test_format_report_webview_and_html_marks() {
 }
 
 #[test]
-fn test_format_report_paint_mark() {
+fn format_report_paint_mark() {
     let mut m = Metrics::new();
     m.mark_paint();
     let report = m.format_report();
@@ -574,7 +574,7 @@ fn test_format_report_paint_mark() {
 }
 
 #[test]
-fn test_window_time_non_zero_after_sleep() {
+fn window_time_non_zero_after_sleep() {
     let mut m = Metrics::new();
     thread::sleep(StdDuration::from_millis(5));
     m.mark_window();
@@ -583,7 +583,7 @@ fn test_window_time_non_zero_after_sleep() {
 }
 
 #[test]
-fn test_new_and_default_both_empty_report_header() {
+fn new_and_default_both_empty_report_header() {
     let m1 = Metrics::new();
     let m2 = Metrics::default();
     for m in &[m1, m2] {

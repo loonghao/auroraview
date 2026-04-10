@@ -1,4 +1,4 @@
-//! Tests for auroraview-pack metrics module
+﻿//! Tests for auroraview-pack metrics module
 
 use std::thread;
 use std::time::Duration;
@@ -7,7 +7,7 @@ use auroraview_pack::PackedMetrics;
 use rstest::rstest;
 
 #[test]
-fn test_metrics_basic() {
+fn metrics_basic() {
     let mut metrics = PackedMetrics::new();
 
     thread::sleep(Duration::from_millis(10));
@@ -22,7 +22,7 @@ fn test_metrics_basic() {
 }
 
 #[test]
-fn test_time_phase() {
+fn time_phase() {
     let mut metrics = PackedMetrics::new();
 
     let result = metrics.time_phase("test_phase", || {
@@ -35,7 +35,7 @@ fn test_time_phase() {
 }
 
 #[test]
-fn test_report_format() {
+fn report_format() {
     let mut metrics = PackedMetrics::new();
     metrics.mark_overlay_read();
     metrics.mark_config_decompress();
@@ -50,7 +50,7 @@ fn test_report_format() {
 // ============================================================================
 
 #[test]
-fn test_metrics_default() {
+fn metrics_default() {
     let metrics = PackedMetrics::default();
     assert!(metrics.overlay_read.is_none());
     assert!(metrics.config_decompress.is_none());
@@ -58,7 +58,7 @@ fn test_metrics_default() {
 }
 
 #[test]
-fn test_mark_all_phases() {
+fn mark_all_phases() {
     let mut m = PackedMetrics::new();
     m.mark_overlay_read();
     m.mark_config_decompress();
@@ -86,7 +86,7 @@ fn test_mark_all_phases() {
 }
 
 #[test]
-fn test_report_contains_all_phases() {
+fn report_contains_all_phases() {
     let mut m = PackedMetrics::new();
     m.mark_overlay_read();
     m.mark_config_decompress();
@@ -113,7 +113,7 @@ fn test_report_contains_all_phases() {
 }
 
 #[test]
-fn test_report_empty_metrics() {
+fn report_empty_metrics() {
     let m = PackedMetrics::new();
     let report = m.report();
     assert!(report.contains("Packed App Startup Performance"));
@@ -122,7 +122,7 @@ fn test_report_empty_metrics() {
 }
 
 #[test]
-fn test_add_custom_phase() {
+fn add_custom_phase() {
     let mut m = PackedMetrics::new();
     m.add_phase("my_custom_phase", Duration::from_millis(50));
 
@@ -132,7 +132,7 @@ fn test_add_custom_phase() {
 }
 
 #[test]
-fn test_time_phase_records_in_report() {
+fn time_phase_records_in_report() {
     let mut m = PackedMetrics::new();
     m.time_phase("process_assets", || {
         thread::sleep(Duration::from_millis(2));
@@ -143,7 +143,7 @@ fn test_time_phase_records_in_report() {
 }
 
 #[test]
-fn test_elapsed_increases() {
+fn elapsed_increases() {
     let m = PackedMetrics::new();
     let t1 = m.elapsed();
     thread::sleep(Duration::from_millis(5));
@@ -152,7 +152,7 @@ fn test_elapsed_increases() {
 }
 
 #[test]
-fn test_report_has_separator_lines() {
+fn report_has_separator_lines() {
     let m = PackedMetrics::new();
     let report = m.report();
     // Should have separator "==..." at the end
@@ -160,7 +160,7 @@ fn test_report_has_separator_lines() {
 }
 
 #[test]
-fn test_multiple_custom_phases() {
+fn multiple_custom_phases() {
     let mut m = PackedMetrics::new();
     m.add_phase("phase_a", Duration::from_millis(10));
     m.add_phase("phase_b", Duration::from_millis(20));
@@ -173,7 +173,7 @@ fn test_multiple_custom_phases() {
 }
 
 #[test]
-fn test_phases_ordering_non_decreasing() {
+fn phases_ordering_non_decreasing() {
     let mut m = PackedMetrics::new();
     thread::sleep(Duration::from_millis(2));
     m.mark_overlay_read();
@@ -191,14 +191,14 @@ fn test_phases_ordering_non_decreasing() {
 // ============================================================================
 
 #[test]
-fn test_debug_format() {
+fn debug_format() {
     let m = PackedMetrics::new();
     let s = format!("{m:?}");
     assert!(s.contains("PackedMetrics") || s.contains("overlay_read"));
 }
 
 #[test]
-fn test_report_contains_header_line() {
+fn report_contains_header_line() {
     let m = PackedMetrics::new();
     let report = m.report();
     // Header should be first non-empty line
@@ -207,7 +207,7 @@ fn test_report_contains_header_line() {
 }
 
 #[test]
-fn test_mark_total_records_duration() {
+fn mark_total_records_duration() {
     let mut m = PackedMetrics::new();
     thread::sleep(Duration::from_millis(5));
     m.mark_total();
@@ -216,21 +216,21 @@ fn test_mark_total_records_duration() {
 }
 
 #[test]
-fn test_time_phase_returns_value_correctly() {
+fn time_phase_returns_value_correctly() {
     let mut m = PackedMetrics::new();
     let result = m.time_phase("check_val", || 99u32);
     assert_eq!(result, 99u32);
 }
 
 #[test]
-fn test_time_phase_string_return() {
+fn time_phase_string_return() {
     let mut m = PackedMetrics::new();
     let s = m.time_phase("gen_string", || "hello".to_string());
     assert_eq!(s, "hello");
 }
 
 #[test]
-fn test_multiple_time_phases_all_in_report() {
+fn multiple_time_phases_all_in_report() {
     let mut m = PackedMetrics::new();
     m.time_phase("alpha", || thread::sleep(Duration::from_millis(1)));
     m.time_phase("beta", || thread::sleep(Duration::from_millis(1)));
@@ -243,7 +243,7 @@ fn test_multiple_time_phases_all_in_report() {
 }
 
 #[test]
-fn test_window_and_webview_ordering() {
+fn window_and_webview_ordering() {
     let mut m = PackedMetrics::new();
     thread::sleep(Duration::from_millis(2));
     m.mark_window_created();
@@ -253,7 +253,7 @@ fn test_window_and_webview_ordering() {
 }
 
 #[test]
-fn test_python_start_before_window() {
+fn python_start_before_window() {
     let mut m = PackedMetrics::new();
     thread::sleep(Duration::from_millis(2));
     m.mark_python_start();
@@ -263,7 +263,7 @@ fn test_python_start_before_window() {
 }
 
 #[test]
-fn test_add_custom_phase_with_zero_duration() {
+fn add_custom_phase_with_zero_duration() {
     let mut m = PackedMetrics::new();
     m.add_phase("instant_phase", Duration::ZERO);
     let report = m.report();
@@ -271,7 +271,7 @@ fn test_add_custom_phase_with_zero_duration() {
 }
 
 #[test]
-fn test_add_large_custom_phase_duration() {
+fn add_large_custom_phase_duration() {
     let mut m = PackedMetrics::new();
     m.add_phase("long_phase", Duration::from_secs(3600));
     let report = m.report();
@@ -279,14 +279,14 @@ fn test_add_large_custom_phase_duration() {
 }
 
 #[test]
-fn test_elapsed_is_non_zero_after_sleep() {
+fn elapsed_is_non_zero_after_sleep() {
     let m = PackedMetrics::new();
     thread::sleep(Duration::from_millis(5));
     assert!(m.elapsed() >= Duration::from_millis(4));
 }
 
 #[test]
-fn test_mark_resources_and_python_files() {
+fn mark_resources_and_python_files() {
     let mut m = PackedMetrics::new();
     m.mark_resources_extract();
     m.mark_python_files_extract();
@@ -295,7 +295,7 @@ fn test_mark_resources_and_python_files() {
 }
 
 #[test]
-fn test_report_total_line() {
+fn report_total_line() {
     let mut m = PackedMetrics::new();
     m.mark_total();
     let report = m.report();
@@ -303,14 +303,14 @@ fn test_report_total_line() {
 }
 
 #[test]
-fn test_mark_tar_extract() {
+fn mark_tar_extract() {
     let mut m = PackedMetrics::new();
     m.mark_tar_extract();
     assert!(m.tar_extract.is_some());
 }
 
 #[test]
-fn test_mark_python_runtime_extract() {
+fn mark_python_runtime_extract() {
     let mut m = PackedMetrics::new();
     m.mark_python_runtime_extract();
     assert!(m.python_runtime_extract.is_some());
@@ -319,13 +319,13 @@ fn test_mark_python_runtime_extract() {
 // ─── Additional coverage R9 ──────────────────────────────────────────────────
 
 #[test]
-fn test_metrics_is_send_sync() {
+fn metrics_is_send_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<PackedMetrics>();
 }
 
 #[test]
-fn test_new_metrics_has_no_phases() {
+fn new_metrics_has_no_phases() {
     let m = PackedMetrics::new();
     // new metrics without any phase adds should produce a report without custom phases
     let report = m.report();
@@ -333,7 +333,7 @@ fn test_new_metrics_has_no_phases() {
 }
 
 #[test]
-fn test_elapsed_monotonically_increases() {
+fn elapsed_monotonically_increases() {
     let m = PackedMetrics::new();
     let t1 = m.elapsed();
     thread::sleep(Duration::from_millis(2));
@@ -342,21 +342,21 @@ fn test_elapsed_monotonically_increases() {
 }
 
 #[test]
-fn test_time_phase_result_returned() {
+fn time_phase_result_returned() {
     let mut m = PackedMetrics::new();
     let result = m.time_phase("compute", || 42u32 * 2);
     assert_eq!(result, 84);
 }
 
 #[test]
-fn test_add_phase_does_not_panic_zero() {
+fn add_phase_does_not_panic_zero() {
     let mut m = PackedMetrics::new();
     m.add_phase("zero", Duration::ZERO);
     // Just verify no panic
 }
 
 #[test]
-fn test_mark_total_sets_timestamp() {
+fn mark_total_sets_timestamp() {
     let mut m = PackedMetrics::new();
     assert!(m.total.is_none());
     m.mark_total();
@@ -364,7 +364,7 @@ fn test_mark_total_sets_timestamp() {
 }
 
 #[test]
-fn test_mark_window_created_once() {
+fn mark_window_created_once() {
     let mut m = PackedMetrics::new();
     assert!(m.window_created.is_none());
     m.mark_window_created();
@@ -372,27 +372,27 @@ fn test_mark_window_created_once() {
 }
 
 #[test]
-fn test_mark_webview_created_once() {
+fn mark_webview_created_once() {
     let mut m = PackedMetrics::new();
     m.mark_webview_created();
     assert!(m.webview_created.is_some());
 }
 
 #[test]
-fn test_mark_python_start_once() {
+fn mark_python_start_once() {
     let mut m = PackedMetrics::new();
     m.mark_python_start();
     assert!(m.python_start.is_some());
 }
 
 #[test]
-fn test_report_not_empty() {
+fn report_not_empty() {
     let m = PackedMetrics::new();
     assert!(!m.report().is_empty());
 }
 
 #[test]
-fn test_phases_count_after_multiple_adds() {
+fn phases_count_after_multiple_adds() {
     let mut m = PackedMetrics::new();
     m.add_phase("a", Duration::from_millis(1));
     m.add_phase("b", Duration::from_millis(2));
@@ -404,7 +404,7 @@ fn test_phases_count_after_multiple_adds() {
 }
 
 #[test]
-fn test_time_phase_adds_to_phases() {
+fn time_phase_adds_to_phases() {
     let mut m = PackedMetrics::new();
     m.time_phase("new_phase", || {});
     let report = m.report();
@@ -412,7 +412,7 @@ fn test_time_phase_adds_to_phases() {
 }
 
 #[test]
-fn test_full_lifecycle() {
+fn full_lifecycle() {
     let mut m = PackedMetrics::new();
     m.mark_python_start();
     m.mark_window_created();
@@ -432,7 +432,7 @@ fn test_full_lifecycle() {
 #[case("phase_one")]
 #[case("phase_two")]
 #[case("final")]
-fn test_time_phase_name_in_report(#[case] name: &str) {
+fn time_phase_name_in_report(#[case] name: &str) {
     let mut m = PackedMetrics::new();
     m.time_phase(name, || {});
     let report = m.report();
@@ -443,7 +443,7 @@ fn test_time_phase_name_in_report(#[case] name: &str) {
 #[case(1u64)]
 #[case(100)]
 #[case(1000)]
-fn test_add_phase_duration_millis(#[case] millis: u64) {
+fn add_phase_duration_millis(#[case] millis: u64) {
     let mut m = PackedMetrics::new();
     m.add_phase("phase", Duration::from_millis(millis));
     let report = m.report();
@@ -455,14 +455,14 @@ fn test_add_phase_duration_millis(#[case] millis: u64) {
 // ============================================================================
 
 #[test]
-fn test_metrics_debug_format_non_empty() {
+fn metrics_debug_format_non_empty() {
     let m = PackedMetrics::new();
     let dbg = format!("{:?}", m);
     assert!(!dbg.is_empty());
 }
 
 #[test]
-fn test_mark_overlay_read_and_config_both_some() {
+fn mark_overlay_read_and_config_both_some() {
     let mut m1 = PackedMetrics::new();
     m1.mark_overlay_read();
     m1.mark_config_decompress();
@@ -472,7 +472,7 @@ fn test_mark_overlay_read_and_config_both_some() {
 }
 
 #[test]
-fn test_two_independent_metrics_instances() {
+fn two_independent_metrics_instances() {
     let m1 = PackedMetrics::default();
     let m2 = PackedMetrics::default();
     assert!(m1.overlay_read.is_none());
@@ -480,7 +480,7 @@ fn test_two_independent_metrics_instances() {
 }
 
 #[test]
-fn test_mark_overlay_read_once() {
+fn mark_overlay_read_once() {
     let mut m = PackedMetrics::new();
     assert!(m.overlay_read.is_none());
     m.mark_overlay_read();
@@ -488,7 +488,7 @@ fn test_mark_overlay_read_once() {
 }
 
 #[test]
-fn test_mark_config_decompress_once() {
+fn mark_config_decompress_once() {
     let mut m = PackedMetrics::new();
     m.mark_config_decompress();
     assert!(m.config_decompress.is_some());
@@ -496,14 +496,14 @@ fn test_mark_config_decompress_once() {
 }
 
 #[test]
-fn test_mark_assets_decompress_once() {
+fn mark_assets_decompress_once() {
     let mut m = PackedMetrics::new();
     m.mark_assets_decompress();
     assert!(m.assets_decompress.is_some());
 }
 
 #[test]
-fn test_report_contains_detailed_phases_section() {
+fn report_contains_detailed_phases_section() {
     let mut m = PackedMetrics::new();
     m.add_phase("custom_x", Duration::from_millis(5));
     let report = m.report();
@@ -511,7 +511,7 @@ fn test_report_contains_detailed_phases_section() {
 }
 
 #[test]
-fn test_time_phase_zero_duration_included() {
+fn time_phase_zero_duration_included() {
     let mut m = PackedMetrics::new();
     m.time_phase("fast_op", || {});
     let report = m.report();
@@ -522,7 +522,7 @@ fn test_time_phase_zero_duration_included() {
 #[case("alpha", 5u64)]
 #[case("beta", 10)]
 #[case("gamma", 50)]
-fn test_multiple_named_phases_parametrized(#[case] name: &str, #[case] millis: u64) {
+fn multiple_named_phases_parametrized(#[case] name: &str, #[case] millis: u64) {
     let mut m = PackedMetrics::new();
     m.add_phase(name, Duration::from_millis(millis));
     let report = m.report();
@@ -530,14 +530,14 @@ fn test_multiple_named_phases_parametrized(#[case] name: &str, #[case] millis: u
 }
 
 #[test]
-fn test_elapsed_non_zero_immediately() {
+fn elapsed_non_zero_immediately() {
     let m = PackedMetrics::new();
     // Even without sleep, Instant::now() difference should be >= 0
     assert!(m.elapsed() >= Duration::ZERO);
 }
 
 #[test]
-fn test_report_structure_with_full_lifecycle() {
+fn report_structure_with_full_lifecycle() {
     let mut m = PackedMetrics::new();
     m.mark_overlay_read();
     m.mark_config_decompress();

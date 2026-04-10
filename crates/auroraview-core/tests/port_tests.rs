@@ -427,7 +427,8 @@ fn non_overlapping_ranges(#[case] start: u16, #[case] max: u16) {
 #[test]
 fn find_any_port_within_u16() {
     let port = PortAllocator::find_any_port().unwrap();
-    assert!(port <= u16::MAX);
+    // port is u16, so always <= u16::MAX; verify it's a non-zero ephemeral port
+    assert!(port >= 1024, "expected ephemeral port, got {port}");
 }
 
 // ---------------------------------------------------------------------------
@@ -520,10 +521,8 @@ fn default_allocator_two_calls() {
     let alloc = PortAllocator::default();
     let r1 = alloc.find_free_port();
     let r2 = alloc.find_free_port();
-    for r in [r1, r2] {
-        if let Ok(p) = r {
-            assert!((9001..9101).contains(&p));
-        }
+    for p in [r1, r2].into_iter().flatten() {
+        assert!((9001..9101).contains(&p));
     }
 }
 

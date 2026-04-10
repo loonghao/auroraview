@@ -1,4 +1,4 @@
-use auroraview_mcp::{
+﻿use auroraview_mcp::{
     McpRunner, McpServerConfig, WebViewConfig, WebViewRegistry,
 };
 use rstest::rstest;
@@ -6,7 +6,7 @@ use rstest::rstest;
 // --- Registry tests ---
 
 #[rstest]
-fn test_registry_register_and_list() {
+fn registry_register_and_list() {
     let reg = WebViewRegistry::new();
     assert!(reg.is_empty());
 
@@ -23,7 +23,7 @@ fn test_registry_register_and_list() {
 }
 
 #[rstest]
-fn test_registry_register_custom_config() {
+fn registry_register_custom_config() {
     let reg = WebViewRegistry::new();
     let config = WebViewConfig {
         title: Some("My Tool".to_string()),
@@ -43,7 +43,7 @@ fn test_registry_register_custom_config() {
 }
 
 #[rstest]
-fn test_registry_remove() {
+fn registry_remove() {
     let reg = WebViewRegistry::new();
     let id = reg.register(&WebViewConfig::default());
     assert_eq!(reg.len(), 1);
@@ -54,14 +54,14 @@ fn test_registry_remove() {
 }
 
 #[rstest]
-fn test_registry_remove_nonexistent() {
+fn registry_remove_nonexistent() {
     let reg = WebViewRegistry::new();
     let fake = "nonexistent".parse::<auroraview_mcp::WebViewId>().unwrap();
     assert!(reg.remove(&fake).is_none());
 }
 
 #[rstest]
-fn test_registry_update_url() {
+fn registry_update_url() {
     let reg = WebViewRegistry::new();
     let id = reg.register(&WebViewConfig::default());
 
@@ -73,7 +73,7 @@ fn test_registry_update_url() {
 }
 
 #[rstest]
-fn test_registry_update_url_nonexistent() {
+fn registry_update_url_nonexistent() {
     use auroraview_mcp::WebViewId;
     use std::str::FromStr;
     let reg = WebViewRegistry::new();
@@ -83,7 +83,7 @@ fn test_registry_update_url_nonexistent() {
 }
 
 #[rstest]
-fn test_registry_multiple_webviews() {
+fn registry_multiple_webviews() {
     let reg = WebViewRegistry::new();
     let id1 = reg.register(&WebViewConfig::default());
     let id2 = reg.register(&WebViewConfig::default());
@@ -97,7 +97,7 @@ fn test_registry_multiple_webviews() {
 // --- Config tests ---
 
 #[rstest]
-fn test_server_config_default() {
+fn server_config_default() {
     let cfg = McpServerConfig::default();
     assert_eq!(cfg.host, "127.0.0.1");
     assert_eq!(cfg.port, 7890);
@@ -106,7 +106,7 @@ fn test_server_config_default() {
 }
 
 #[rstest]
-fn test_server_config_custom() {
+fn server_config_custom() {
     let cfg = McpServerConfig {
         host: "0.0.0.0".to_string(),
         port: 8080,
@@ -120,7 +120,7 @@ fn test_server_config_custom() {
 // --- Runner tests ---
 
 #[rstest]
-fn test_runner_new() {
+fn runner_new() {
     let config = McpServerConfig {
         enable_mdns: false, // disable mDNS in tests
         ..Default::default()
@@ -166,7 +166,7 @@ async fn test_runner_double_start_returns_error() {
 // --- WebViewId tests ---
 
 #[rstest]
-fn test_webview_id_new_unique() {
+fn webview_id_new_unique() {
     use auroraview_mcp::WebViewId;
     let a = WebViewId::new();
     let b = WebViewId::new();
@@ -174,14 +174,14 @@ fn test_webview_id_new_unique() {
 }
 
 #[rstest]
-fn test_webview_id_from_str() {
+fn webview_id_from_str() {
     use auroraview_mcp::WebViewId;
     let id: WebViewId = "my-id".parse().unwrap();
     assert_eq!(id.to_string(), "my-id");
 }
 
 #[rstest]
-fn test_webview_id_display() {
+fn webview_id_display() {
     use auroraview_mcp::WebViewId;
     let id: WebViewId = "test-123".parse().unwrap();
     assert_eq!(format!("{id}"), "test-123");
@@ -190,7 +190,7 @@ fn test_webview_id_display() {
 // --- WebViewConfig tests ---
 
 #[rstest]
-fn test_webview_config_default() {
+fn webview_config_default() {
     let cfg = WebViewConfig::default();
     assert_eq!(cfg.title, Some("AuroraView".to_string()));
     assert_eq!(cfg.width, Some(800));
@@ -202,7 +202,7 @@ fn test_webview_config_default() {
 // --- Server tool smoke tests ---
 
 #[rstest]
-fn test_server_has_registry() {
+fn server_has_registry() {
     use auroraview_mcp::AuroraViewMcpServer;
     let server = AuroraViewMcpServer::new(McpServerConfig {
         enable_mdns: false,
@@ -212,7 +212,7 @@ fn test_server_has_registry() {
 }
 
 #[rstest]
-fn test_server_registry_operations() {
+fn server_registry_operations() {
     use auroraview_mcp::AuroraViewMcpServer;
     let server = AuroraViewMcpServer::new(McpServerConfig {
         enable_mdns: false,

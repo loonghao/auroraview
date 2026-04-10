@@ -1,4 +1,4 @@
-//! Integration tests for CLI
+﻿//! Integration tests for CLI
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -29,7 +29,7 @@ fn cli_binary() -> PathBuf {
 }
 
 #[test]
-fn test_cli_help() {
+fn cli_help() {
     let output = Command::new(cli_binary())
         .arg("--help")
         .output()
@@ -44,7 +44,7 @@ fn test_cli_help() {
 }
 
 #[test]
-fn test_cli_version() {
+fn cli_version() {
     let output = Command::new(cli_binary())
         .arg("--version")
         .output()
@@ -57,7 +57,7 @@ fn test_cli_version() {
 }
 
 #[test]
-fn test_cli_run_help() {
+fn cli_run_help() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -84,7 +84,7 @@ fn test_cli_run_help() {
 /// Verify that --watch is not rejected when used with --url (URL-mode hot reload).
 /// Previously --watch required --html; now it should be accepted for --url too.
 #[test]
-fn test_cli_watch_accepts_url_mode() {
+fn cli_watch_accepts_url_mode() {
     let output = Command::new(cli_binary())
         .args(["run", "--url", "http://localhost:9999", "--watch", "--help"])
         .output()
@@ -99,7 +99,7 @@ fn test_cli_watch_accepts_url_mode() {
 }
 
 #[test]
-fn test_cli_pack_help() {
+fn cli_pack_help() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -114,7 +114,7 @@ fn test_cli_pack_help() {
 }
 
 #[test]
-fn test_cli_run_missing_args() {
+fn cli_run_missing_args() {
     let output = Command::new(cli_binary())
         .args(["run"])
         .output()
@@ -137,7 +137,7 @@ fn test_cli_run_missing_args() {
 }
 
 #[test]
-fn test_cli_info() {
+fn cli_info() {
     let output = Command::new(cli_binary())
         .args(["info"])
         .output()
@@ -153,7 +153,7 @@ fn test_cli_info() {
 }
 
 #[test]
-fn test_cli_pack_new_options() {
+fn cli_pack_new_options() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -174,7 +174,7 @@ fn test_cli_pack_new_options() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_cli_run_help_contains_fullscreen() {
+fn cli_run_help_contains_fullscreen() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -190,7 +190,7 @@ fn test_cli_run_help_contains_fullscreen() {
 }
 
 #[test]
-fn test_cli_run_help_contains_width_height() {
+fn cli_run_help_contains_width_height() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -202,7 +202,7 @@ fn test_cli_run_help_contains_width_height() {
 }
 
 #[test]
-fn test_cli_version_output_contains_semver() {
+fn cli_version_output_contains_semver() {
     let output = Command::new(cli_binary())
         .arg("--version")
         .output()
@@ -218,7 +218,7 @@ fn test_cli_version_output_contains_semver() {
 }
 
 #[test]
-fn test_cli_help_exit_code_zero() {
+fn cli_help_exit_code_zero() {
     let status = Command::new(cli_binary())
         .arg("--help")
         .status()
@@ -227,7 +227,7 @@ fn test_cli_help_exit_code_zero() {
 }
 
 #[test]
-fn test_cli_version_exit_code_zero() {
+fn cli_version_exit_code_zero() {
     let status = Command::new(cli_binary())
         .arg("--version")
         .status()
@@ -236,7 +236,7 @@ fn test_cli_version_exit_code_zero() {
 }
 
 #[test]
-fn test_cli_pack_help_exit_code_zero() {
+fn cli_pack_help_exit_code_zero() {
     let status = Command::new(cli_binary())
         .args(["pack", "--help"])
         .status()
@@ -245,7 +245,7 @@ fn test_cli_pack_help_exit_code_zero() {
 }
 
 #[test]
-fn test_cli_info_exit_code_zero() {
+fn cli_info_exit_code_zero() {
     let status = Command::new(cli_binary())
         .args(["info"])
         .status()
@@ -254,7 +254,7 @@ fn test_cli_info_exit_code_zero() {
 }
 
 #[test]
-fn test_cli_unknown_subcommand_fails() {
+fn cli_unknown_subcommand_fails() {
     let status = Command::new(cli_binary())
         .args(["nonexistent-subcommand-xyz"])
         .status()
@@ -263,7 +263,7 @@ fn test_cli_unknown_subcommand_fails() {
 }
 
 #[test]
-fn test_cli_run_help_contains_debug() {
+fn cli_run_help_contains_debug() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -281,7 +281,7 @@ fn test_cli_run_help_contains_debug() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_cli_run_help_stdout_not_empty() {
+fn cli_run_help_stdout_not_empty() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -291,7 +291,7 @@ fn test_cli_run_help_stdout_not_empty() {
 }
 
 #[test]
-fn test_cli_pack_help_stdout_not_empty() {
+fn cli_pack_help_stdout_not_empty() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -301,7 +301,7 @@ fn test_cli_pack_help_stdout_not_empty() {
 }
 
 #[test]
-fn test_cli_info_output_contains_version_and_commands() {
+fn cli_info_output_contains_version_and_commands() {
     let output = Command::new(cli_binary())
         .args(["info"])
         .output()
@@ -323,7 +323,7 @@ fn test_cli_info_output_contains_version_and_commands() {
 
 
 #[test]
-fn test_cli_run_help_contains_watch_flag() {
+fn cli_run_help_contains_watch_flag() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -334,7 +334,7 @@ fn test_cli_run_help_contains_watch_flag() {
 }
 
 #[test]
-fn test_cli_run_help_contains_poll_interval() {
+fn cli_run_help_contains_poll_interval() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -345,7 +345,7 @@ fn test_cli_run_help_contains_poll_interval() {
 }
 
 #[test]
-fn test_cli_help_does_not_fail() {
+fn cli_help_does_not_fail() {
     // --help should exit 0 and produce output on stdout or combined output
     let output = Command::new(cli_binary())
         .arg("--help")
@@ -358,7 +358,7 @@ fn test_cli_help_does_not_fail() {
 }
 
 #[test]
-fn test_cli_version_output_not_empty() {
+fn cli_version_output_not_empty() {
     let output = Command::new(cli_binary())
         .arg("--version")
         .output()
@@ -370,7 +370,7 @@ fn test_cli_version_output_not_empty() {
 }
 
 #[test]
-fn test_cli_run_no_args_or_error_code() {
+fn cli_run_no_args_or_error_code() {
     // Running 'run' without required --url or --html must fail
     let output = Command::new(cli_binary())
         .args(["run"])
@@ -380,7 +380,7 @@ fn test_cli_run_no_args_or_error_code() {
 }
 
 #[test]
-fn test_cli_help_contains_options_or_commands() {
+fn cli_help_contains_options_or_commands() {
     let output = Command::new(cli_binary())
         .arg("--help")
         .output()
@@ -395,7 +395,7 @@ fn test_cli_help_contains_options_or_commands() {
 }
 
 #[test]
-fn test_cli_pack_help_mentions_config() {
+fn cli_pack_help_mentions_config() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -410,7 +410,7 @@ fn test_cli_pack_help_mentions_config() {
 }
 
 #[test]
-fn test_cli_pack_help_mentions_output() {
+fn cli_pack_help_mentions_output() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -425,7 +425,7 @@ fn test_cli_pack_help_mentions_output() {
 }
 
 #[test]
-fn test_cli_multiple_unknown_subcommands_fail() {
+fn cli_multiple_unknown_subcommands_fail() {
     for cmd in &["foo", "bar", "xyz-unknown"] {
         let status = Command::new(cli_binary())
             .args([*cmd])
@@ -436,13 +436,13 @@ fn test_cli_multiple_unknown_subcommands_fail() {
 }
 
 #[test]
-fn test_cli_binary_exists() {
+fn cli_binary_exists() {
     let bin = cli_binary();
     assert!(bin.exists(), "CLI binary should exist at: {:?}", bin);
 }
 
 #[test]
-fn test_cli_info_stderr_empty() {
+fn cli_info_stderr_empty() {
     let output = Command::new(cli_binary())
         .args(["info"])
         .output()
@@ -454,7 +454,7 @@ fn test_cli_info_stderr_empty() {
 }
 
 #[test]
-fn test_cli_run_help_mentions_html_option() {
+fn cli_run_help_mentions_html_option() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -469,7 +469,7 @@ fn test_cli_run_help_mentions_html_option() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_cli_run_help_mentions_always_on_top() {
+fn cli_run_help_mentions_always_on_top() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -484,7 +484,7 @@ fn test_cli_run_help_mentions_always_on_top() {
 }
 
 #[test]
-fn test_cli_pack_help_mentions_frameless() {
+fn cli_pack_help_mentions_frameless() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -499,7 +499,7 @@ fn test_cli_pack_help_mentions_frameless() {
 }
 
 #[test]
-fn test_cli_pack_help_mentions_no_resize() {
+fn cli_pack_help_mentions_no_resize() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -513,7 +513,7 @@ fn test_cli_pack_help_mentions_no_resize() {
 }
 
 #[test]
-fn test_cli_version_contains_auroraview() {
+fn cli_version_contains_auroraview() {
     let output = Command::new(cli_binary())
         .arg("--version")
         .output()
@@ -528,7 +528,7 @@ fn test_cli_version_contains_auroraview() {
 }
 
 #[test]
-fn test_cli_help_contains_pack() {
+fn cli_help_contains_pack() {
     let output = Command::new(cli_binary())
         .arg("--help")
         .output()
@@ -539,7 +539,7 @@ fn test_cli_help_contains_pack() {
 }
 
 #[test]
-fn test_cli_run_help_mentions_title() {
+fn cli_run_help_mentions_title() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -550,7 +550,7 @@ fn test_cli_run_help_mentions_title() {
 }
 
 #[test]
-fn test_cli_pack_help_mentions_user_agent() {
+fn cli_pack_help_mentions_user_agent() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -564,7 +564,7 @@ fn test_cli_pack_help_mentions_user_agent() {
 }
 
 #[test]
-fn test_cli_run_help_mentions_width() {
+fn cli_run_help_mentions_width() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -575,7 +575,7 @@ fn test_cli_run_help_mentions_width() {
 }
 
 #[test]
-fn test_cli_run_help_mentions_height() {
+fn cli_run_help_mentions_height() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -586,7 +586,7 @@ fn test_cli_run_help_mentions_height() {
 }
 
 #[test]
-fn test_cli_info_stdout_not_empty() {
+fn cli_info_stdout_not_empty() {
     let output = Command::new(cli_binary())
         .args(["info"])
         .output()
@@ -596,7 +596,7 @@ fn test_cli_info_stdout_not_empty() {
 }
 
 #[test]
-fn test_cli_help_and_version_both_succeed() {
+fn cli_help_and_version_both_succeed() {
     for flag in &["--help", "--version"] {
         let status = Command::new(cli_binary())
             .arg(flag)
@@ -607,7 +607,7 @@ fn test_cli_help_and_version_both_succeed() {
 }
 
 #[test]
-fn test_cli_pack_help_mentions_debug() {
+fn cli_pack_help_mentions_debug() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -622,7 +622,7 @@ fn test_cli_pack_help_mentions_debug() {
 }
 
 #[test]
-fn test_cli_run_help_mention_allow_file_protocol() {
+fn cli_run_help_mention_allow_file_protocol() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -637,7 +637,7 @@ fn test_cli_run_help_mention_allow_file_protocol() {
 }
 
 #[test]
-fn test_cli_run_url_required_without_html() {
+fn cli_run_url_required_without_html() {
     // Without --url or --html, run subcommand should fail
     let output = Command::new(cli_binary())
         .args(["run"])
@@ -648,7 +648,7 @@ fn test_cli_run_url_required_without_html() {
 }
 
 #[test]
-fn test_cli_pack_help_stderr_empty_or_short() {
+fn cli_pack_help_stderr_empty_or_short() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -660,7 +660,7 @@ fn test_cli_pack_help_stderr_empty_or_short() {
 }
 
 #[test]
-fn test_cli_info_output_contains_dependencies() {
+fn cli_info_output_contains_dependencies() {
     let output = Command::new(cli_binary())
         .args(["info"])
         .output()
@@ -675,7 +675,7 @@ fn test_cli_info_output_contains_dependencies() {
 }
 
 #[test]
-fn test_cli_run_help_info_subcommand() {
+fn cli_run_help_info_subcommand() {
     // Ensure info subcommand itself appears in top-level help
     let output = Command::new(cli_binary())
         .arg("--help")
@@ -691,7 +691,7 @@ fn test_cli_run_help_info_subcommand() {
 }
 
 #[test]
-fn test_cli_binary_is_executable() {
+fn cli_binary_is_executable() {
     let bin = cli_binary();
     assert!(bin.exists(), "CLI binary should exist at {:?}", bin);
     // Check metadata — on Windows exe files are executable by extension

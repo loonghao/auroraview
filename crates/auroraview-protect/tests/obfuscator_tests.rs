@@ -450,7 +450,7 @@ fn ast_obfuscator_none_get_name_mapping_empty() {
 #[test]
 fn obfuscation_level_clone() {
     let level = ObfuscationLevel::Advanced;
-    let clone = level.clone();
+    let clone = level;
     assert_eq!(level, clone);
 }
 

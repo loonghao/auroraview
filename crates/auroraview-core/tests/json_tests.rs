@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 #[test]
-fn from_str() {
+fn from_str_basic() {
     let json = r#"{"name": "test", "value": 42}"#;
     let value = from_str(json).unwrap();
     assert_eq!(value["name"], "test");
@@ -85,7 +85,7 @@ fn from_slice_error() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn from_bytes() {
+fn from_bytes_basic() {
     let bytes = br#"{"key": "value"}"#.to_vec();
     let value = from_bytes(bytes).unwrap();
     assert_eq!(value["key"], "value");
@@ -108,7 +108,7 @@ fn from_bytes_null() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn to_string() {
+fn to_string_basic() {
     let value = serde_json::json!({"name": "test", "value": 42});
     let json = to_string(&value).unwrap();
     assert!(json.contains("name"));
@@ -137,7 +137,7 @@ fn to_string_unicode_preserved() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn to_string_pretty() {
+fn to_string_pretty_basic() {
     let value = serde_json::json!({"x": 1, "y": 2});
     let pretty = to_string_pretty(&value).unwrap();
     // Pretty-printed JSON has newlines and indentation
@@ -160,7 +160,7 @@ fn to_string_pretty_roundtrip() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn to_value() {
+fn to_value_basic() {
     #[derive(Serialize)]
     struct Test {
         name: String,
@@ -304,7 +304,7 @@ fn to_js_literal_empty_array() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn serialize_to_js_literal() {
+fn serialize_to_js_literal_struct() {
     #[derive(serde::Serialize)]
     struct TestStruct {
         name: String,
@@ -363,8 +363,8 @@ fn from_str_integer() {
 
 #[test]
 fn from_str_float() {
-    let value = from_str("3.14").unwrap();
-    assert!((value.as_f64().unwrap() - 3.14).abs() < 1e-10);
+    let value = from_str("2.71").unwrap();
+    assert!((value.as_f64().unwrap() - 2.71).abs() < 1e-10);
 }
 
 #[test]
@@ -410,9 +410,9 @@ fn to_js_literal_array_of_strings() {
 
 #[test]
 fn to_js_literal_float_value() {
-    let value = serde_json::json!(3.14);
+    let value = serde_json::json!(2.71);
     let lit = to_js_literal(&value);
-    assert!(lit.contains("3.14") || lit.contains("3.1"), "float should appear in literal");
+    assert!(lit.contains("2.71") || lit.contains("2.7"), "float should appear in literal");
 }
 
 #[test]
