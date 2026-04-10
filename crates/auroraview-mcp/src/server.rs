@@ -1,4 +1,5 @@
 use crate::{
+    agui::{AguiBus, AguiEvent},
     registry::WebViewRegistry,
     types::{JsResult, McpServerConfig, ScreenshotData, WebViewConfig, WebViewId},
 };
@@ -21,13 +22,20 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{debug, info};
+use uuid::Uuid;
 
 /// AuroraView MCP Server — exposes WebView management tools via MCP.
+///
+/// When an `AguiBus` is attached (via `with_agui_bus`), every tool invocation
+/// automatically emits `ToolCallStart` and `ToolCallEnd` events so that
+/// AG-UI subscribers can track real-time progress.
 #[derive(Clone)]
 pub struct AuroraViewMcpServer {
     registry: WebViewRegistry,
     config: Arc<McpServerConfig>,
     tool_router: ToolRouter<Self>,
+    /// Optional AG-UI broadcast bus — `None` means events are not emitted.
+    agui_bus: Option<AguiBus>,
 }
 
 // --- Parameter types ---
@@ -147,15 +155,19 @@ impl AuroraViewMcpServer {
     )]
     fn screenshot(&self, Parameters(params): Parameters<ScreenshotParams>) -> Json<ScreenshotOutput> {
         let id = self.resolve_id(params.id.as_deref());
+        let call_id = Uuid::new_v4().to_string();
+        self.emit_tool_start("screenshot", &call_id, &id);
         debug!("screenshot requested for WebView: {id}");
         let data = ScreenshotData::new_placeholder(800, 600);
-        Json(ScreenshotOutput {
-            id,
+        let result = Json(ScreenshotOutput {
+            id: id.clone(),
             data: data.data,
             width: data.width,
             height: data.height,
             format: data.format,
-        })
+        });
+        self.emit_tool_end(&call_id, &id);
+        result
     }
 
     /// Load a URL in the specified WebView.
@@ -165,16 +177,20 @@ impl AuroraViewMcpServer {
     )]
     fn load_url(&self, Parameters(params): Parameters<LoadUrlParams>) -> Json<SuccessOutput> {
         let id = self.resolve_id(params.id.as_deref());
+        let call_id = Uuid::new_v4().to_string();
+        self.emit_tool_start("load_url", &call_id, &id);
         info!("load_url: id={id} url={}", params.url);
         let updated = self.registry.update_url(&id.parse::<WebViewId>().unwrap(), &params.url);
-        Json(SuccessOutput {
+        let result = Json(SuccessOutput {
             ok: updated,
             message: if updated {
                 format!("Loaded URL in WebView {id}")
             } else {
                 format!("WebView {id} not found")
             },
-        })
+        });
+        self.emit_tool_end(&call_id, &id);
+        result
     }
 
     /// Load raw HTML content in the specified WebView.
@@ -184,11 +200,15 @@ impl AuroraViewMcpServer {
     )]
     fn load_html(&self, Parameters(params): Parameters<LoadHtmlParams>) -> Json<SuccessOutput> {
         let id = self.resolve_id(params.id.as_deref());
+        let call_id = Uuid::new_v4().to_string();
+        self.emit_tool_start("load_html", &call_id, &id);
         info!("load_html: id={id} html_len={}", params.html.len());
-        Json(SuccessOutput {
+        let result = Json(SuccessOutput {
             ok: true,
             message: format!("HTML loaded in WebView {id} ({} bytes)", params.html.len()),
-        })
+        });
+        self.emit_tool_end(&call_id, &id);
+        result
     }
 
     /// Execute JavaScript in the specified WebView and return the result.
@@ -198,13 +218,17 @@ impl AuroraViewMcpServer {
     )]
     fn eval_js(&self, Parameters(params): Parameters<EvalJsParams>) -> Json<JsResultOutput> {
         let id = self.resolve_id(params.id.as_deref());
+        let call_id = Uuid::new_v4().to_string();
+        self.emit_tool_start("eval_js", &call_id, &id);
         debug!("eval_js: id={id}");
-        let result = JsResult::ok(serde_json::Value::Null);
-        Json(JsResultOutput {
-            id,
-            value: result.value,
-            error: result.error,
-        })
+        let result_data = JsResult::ok(serde_json::Value::Null);
+        let result = Json(JsResultOutput {
+            id: id.clone(),
+            value: result_data.value,
+            error: result_data.error,
+        });
+        self.emit_tool_end(&call_id, &id);
+        result
     }
 
     /// Send a custom event to the WebView's JavaScript context.
@@ -214,11 +238,15 @@ impl AuroraViewMcpServer {
     )]
     fn send_event(&self, Parameters(params): Parameters<SendEventParams>) -> Json<SuccessOutput> {
         let id = self.resolve_id(params.id.as_deref());
+        let call_id = Uuid::new_v4().to_string();
+        self.emit_tool_start("send_event", &call_id, &id);
         info!("send_event: id={id} event={}", params.event);
-        Json(SuccessOutput {
+        let result = Json(SuccessOutput {
             ok: true,
             message: format!("Event '{}' sent to WebView {id}", params.event),
-        })
+        });
+        self.emit_tool_end(&call_id, &id);
+        result
     }
 
     /// Get the native window handle (HWND on Windows) for a WebView.
@@ -228,12 +256,16 @@ impl AuroraViewMcpServer {
     )]
     fn get_hwnd(&self, Parameters(params): Parameters<GetHwndParams>) -> Json<HwndOutput> {
         let id = self.resolve_id(params.id.as_deref());
+        let call_id = Uuid::new_v4().to_string();
+        self.emit_tool_start("get_hwnd", &call_id, &id);
         let hwnd = self
             .registry
             .get(&id.parse::<WebViewId>().unwrap())
             .map(|v| v.hwnd)
             .unwrap_or(0);
-        Json(HwndOutput { id, hwnd })
+        let result = Json(HwndOutput { id: id.clone(), hwnd });
+        self.emit_tool_end(&call_id, &id);
+        result
     }
 
     /// List all active WebView instances.
@@ -314,7 +346,14 @@ impl AuroraViewMcpServer {
             registry: WebViewRegistry::new(),
             config: Arc::new(config),
             tool_router,
+            agui_bus: None,
         }
+    }
+
+    /// Attach an `AguiBus` so tool invocations automatically emit AG-UI events.
+    pub fn with_agui_bus(mut self, bus: AguiBus) -> Self {
+        self.agui_bus = Some(bus);
+        self
     }
 
     pub fn registry(&self) -> &WebViewRegistry {
@@ -323,6 +362,11 @@ impl AuroraViewMcpServer {
 
     pub fn config(&self) -> &McpServerConfig {
         &self.config
+    }
+
+    /// Return a reference to the attached AG-UI bus, if any.
+    pub fn agui_bus(&self) -> Option<&AguiBus> {
+        self.agui_bus.as_ref()
     }
 
     /// Resolve a WebView ID: use provided string or fall back to first registered.
@@ -336,6 +380,27 @@ impl AuroraViewMcpServer {
             .next()
             .map(|v| v.id.0)
             .unwrap_or_else(|| "default".to_string())
+    }
+
+    /// Emit `ToolCallStart` when a tool begins execution.
+    fn emit_tool_start(&self, tool_name: &str, call_id: &str, run_id: &str) {
+        if let Some(bus) = &self.agui_bus {
+            bus.emit(AguiEvent::ToolCallStart {
+                run_id: run_id.to_string(),
+                tool_call_id: call_id.to_string(),
+                tool_name: tool_name.to_string(),
+            });
+        }
+    }
+
+    /// Emit `ToolCallEnd` when a tool finishes execution.
+    fn emit_tool_end(&self, call_id: &str, run_id: &str) {
+        if let Some(bus) = &self.agui_bus {
+            bus.emit(AguiEvent::ToolCallEnd {
+                run_id: run_id.to_string(),
+                tool_call_id: call_id.to_string(),
+            });
+        }
     }
 }
 

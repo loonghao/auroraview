@@ -30,7 +30,8 @@ pub struct McpRunner {
 impl McpRunner {
     pub fn new(config: McpServerConfig) -> Self {
         let agui_bus = AguiBus::new();
-        let server = AuroraViewMcpServer::new(config.clone());
+        let server = AuroraViewMcpServer::new(config.clone())
+            .with_agui_bus(agui_bus.clone());
         let broadcaster = if config.enable_mdns {
             MdnsBroadcaster::new()
                 .map_err(|e| warn!("mDNS init failed: {e}"))
