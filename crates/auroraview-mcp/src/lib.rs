@@ -38,6 +38,7 @@
 pub mod agui;
 pub mod error;
 pub mod mdns;
+pub mod python_bindings;
 pub mod registry;
 pub mod runner;
 pub mod server;
@@ -45,6 +46,7 @@ pub mod types;
 
 pub use agui::{AguiBus, AguiEvent};
 pub use error::{McpError, Result};
+pub use python_bindings::PyMcpServer;
 pub use registry::WebViewRegistry;
 pub use runner::McpRunner;
 pub use server::AuroraViewMcpServer;
