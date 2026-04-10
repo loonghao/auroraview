@@ -1,5 +1,6 @@
 ﻿use auroraview_mcp::{
-    McpRunner, McpServerConfig, WebViewConfig, WebViewRegistry,
+    AguiBus, AguiEvent, AuroraViewMcpServer, McpRunner, McpServerConfig, WebViewConfig,
+    WebViewRegistry,
 };
 use rstest::rstest;
 
@@ -203,7 +204,6 @@ fn webview_config_default() {
 
 #[rstest]
 fn server_has_registry() {
-    use auroraview_mcp::AuroraViewMcpServer;
     let server = AuroraViewMcpServer::new(McpServerConfig {
         enable_mdns: false,
         ..Default::default()
@@ -213,7 +213,6 @@ fn server_has_registry() {
 
 #[rstest]
 fn server_registry_operations() {
-    use auroraview_mcp::AuroraViewMcpServer;
     let server = AuroraViewMcpServer::new(McpServerConfig {
         enable_mdns: false,
         ..Default::default()
@@ -229,3 +228,143 @@ fn server_registry_operations() {
     assert_eq!(list[0].id, id);
     assert_eq!(list[0].title, "DCC Tool");
 }
+
+// --- AguiBus integration with server ---
+
+#[rstest]
+fn server_without_agui_bus() {
+    let server = AuroraViewMcpServer::new(McpServerConfig {
+        enable_mdns: false,
+        ..Default::default()
+    });
+    assert!(server.agui_bus().is_none());
+}
+
+#[rstest]
+fn server_with_agui_bus_some() {
+    let bus = AguiBus::new();
+    let server = AuroraViewMcpServer::new(McpServerConfig {
+        enable_mdns: false,
+        ..Default::default()
+    })
+    .with_agui_bus(bus);
+    assert!(server.agui_bus().is_some());
+}
+
+#[rstest]
+fn server_agui_bus_emit_received() {
+    let bus = AguiBus::new();
+    let server = AuroraViewMcpServer::new(McpServerConfig {
+        enable_mdns: false,
+        ..Default::default()
+    })
+    .with_agui_bus(bus.clone());
+
+    let mut rx = bus.subscribe();
+    server.agui_bus().unwrap().emit(AguiEvent::RunStarted {
+        run_id: "r1".to_string(),
+        thread_id: "t1".to_string(),
+    });
+    let ev = rx.try_recv().expect("should receive event");
+    assert_eq!(ev.run_id(), "r1");
+}
+
+#[rstest]
+fn server_agui_bus_clone_shares_channel() {
+    let bus1 = AguiBus::new();
+    let bus2 = bus1.clone();
+
+    let server = AuroraViewMcpServer::new(McpServerConfig {
+        enable_mdns: false,
+        ..Default::default()
+    })
+    .with_agui_bus(bus1);
+
+    let mut rx = bus2.subscribe();
+    server.agui_bus().unwrap().emit(AguiEvent::RunFinished {
+        run_id: "done".to_string(),
+        thread_id: "t".to_string(),
+    });
+    let ev = rx.try_recv().expect("event not received");
+    assert_eq!(ev.run_id(), "done");
+}
+
+// --- WebViewInfo fields ---
+
+#[rstest]
+fn webview_info_default_visible() {
+    let reg = WebViewRegistry::new();
+    let id = reg.register(&WebViewConfig {
+        visible: Some(true),
+        ..Default::default()
+    });
+    let info = reg.get(&id).unwrap();
+    assert!(info.visible);
+}
+
+#[rstest]
+fn webview_info_invisible() {
+    let reg = WebViewRegistry::new();
+    let id = reg.register(&WebViewConfig {
+        visible: Some(false),
+        ..Default::default()
+    });
+    let info = reg.get(&id).unwrap();
+    assert!(!info.visible);
+}
+
+#[rstest]
+fn webview_info_hwnd_default_zero() {
+    let reg = WebViewRegistry::new();
+    let id = reg.register(&WebViewConfig::default());
+    let info = reg.get(&id).unwrap();
+    assert_eq!(info.hwnd, 0);
+}
+
+#[rstest]
+fn webview_info_url_empty_by_default() {
+    let reg = WebViewRegistry::new();
+    let id = reg.register(&WebViewConfig {
+        url: None,
+        ..Default::default()
+    });
+    let info = reg.get(&id).unwrap();
+    assert_eq!(info.url, "");
+}
+
+#[rstest]
+fn webview_info_custom_dimensions() {
+    let reg = WebViewRegistry::new();
+    let id = reg.register(&WebViewConfig {
+        width: Some(1920),
+        height: Some(1080),
+        ..Default::default()
+    });
+    let info = reg.get(&id).unwrap();
+    assert_eq!(info.width, 1920);
+    assert_eq!(info.height, 1080);
+}
+
+// --- McpRunner server() accessor ---
+
+#[tokio::test]
+async fn runner_server_registry_accessible() {
+    let runner = McpRunner::new(McpServerConfig {
+        enable_mdns: false,
+        ..Default::default()
+    });
+    let server = runner.server();
+    assert!(server.registry().is_empty());
+    assert_eq!(server.config().port, 7890);
+}
+
+#[tokio::test]
+async fn runner_server_has_agui_bus() {
+    let runner = McpRunner::new(McpServerConfig {
+        enable_mdns: false,
+        ..Default::default()
+    });
+    // McpRunner wires AguiBus into server
+    assert!(runner.server().agui_bus().is_some());
+}
+
