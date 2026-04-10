@@ -55,7 +55,6 @@ fn test_registry_remove() {
 
 #[rstest]
 fn test_registry_remove_nonexistent() {
-    use auroraview_mcp::WebViewId;
     let reg = WebViewRegistry::new();
     let fake = "nonexistent".parse::<auroraview_mcp::WebViewId>().unwrap();
     assert!(reg.remove(&fake).is_none());
@@ -76,8 +75,9 @@ fn test_registry_update_url() {
 #[rstest]
 fn test_registry_update_url_nonexistent() {
     use auroraview_mcp::WebViewId;
+    use std::str::FromStr;
     let reg = WebViewRegistry::new();
-    let fake = WebViewId::from_str("no-such-id");
+    let fake = WebViewId::from_str("no-such-id").unwrap();
     let updated = reg.update_url(&fake, "https://example.com");
     assert!(!updated);
 }

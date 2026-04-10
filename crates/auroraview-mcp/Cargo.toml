@@ -37,8 +37,11 @@ tracing = "0.1"
 # Service discovery (mDNS broadcast)
 mdns-sd = "0.17"
 
-# HTTP server for MCP transport
-warp = { version = "0.4", features = ["server"] }
+# HTTP server for MCP transport (axum + tower integration with rmcp)
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query"] }
+tower = { version = "0.5", default-features = false }
+tokio-util = { version = "0.7", default-features = false, features = ["rt"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 
 # Thread safety
 parking_lot = "0.12"
@@ -51,8 +54,9 @@ auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-h
 
 [dev-dependencies]
 rstest = "0.26"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 tempfile = "3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [features]
 default = []

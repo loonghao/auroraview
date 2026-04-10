@@ -35,6 +35,7 @@
 //! | `create_webview` | Create a new WebView |
 //! | `close_webview` | Close a WebView |
 
+pub mod agui;
 pub mod error;
 pub mod mdns;
 pub mod registry;
@@ -42,6 +43,7 @@ pub mod runner;
 pub mod server;
 pub mod types;
 
+pub use agui::{AguiBus, AguiEvent};
 pub use error::{McpError, Result};
 pub use registry::WebViewRegistry;
 pub use runner::McpRunner;
