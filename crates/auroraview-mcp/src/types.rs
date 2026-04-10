@@ -119,6 +119,7 @@ pub struct McpServerConfig {
     pub enable_mdns: bool,
     /// Maximum number of concurrent WebView instances.
     /// `None` means no limit.
+    #[serde(default)]
     pub max_webviews: Option<usize>,
 }
 

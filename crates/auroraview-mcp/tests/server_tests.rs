@@ -523,3 +523,143 @@ async fn runner_server_has_agui_bus() {
     assert!(runner.server().agui_bus().is_some());
 }
 
+// --- R22: capacity wiring ---
+
+#[rstest]
+fn server_registry_unlimited_by_default() {
+    let server = AuroraViewMcpServer::new(McpServerConfig {
+        enable_mdns: false,
+        max_webviews: None,
+        ..Default::default()
+    });
+    // Unlimited registry — capacity() returns None
+    assert!(server.registry().capacity().is_none());
+}
+
+#[rstest]
+fn server_registry_limited_by_config() {
+    let server = AuroraViewMcpServer::new(McpServerConfig {
+        enable_mdns: false,
+        max_webviews: Some(5),
+        ..Default::default()
+    });
+    assert_eq!(server.registry().capacity(), Some(5));
+}
+
+#[rstest]
+fn server_registry_capacity_zero_rejects_all() {
+    let server = AuroraViewMcpServer::new(McpServerConfig {
+        enable_mdns: false,
+        max_webviews: Some(0),
+        ..Default::default()
+    });
+    let result = server.registry().try_register(&WebViewConfig::default());
+    assert!(result.is_err(), "capacity=0 should reject registration");
+}
+
+#[rstest]
+fn server_registry_capacity_enforced() {
+    let server = AuroraViewMcpServer::new(McpServerConfig {
+        enable_mdns: false,
+        max_webviews: Some(2),
+        ..Default::default()
+    });
+    server.registry().register(&WebViewConfig::default());
+    server.registry().register(&WebViewConfig::default());
+    // Third registration must fail
+    let result = server.registry().try_register(&WebViewConfig::default());
+    assert!(result.is_err(), "should fail after reaching capacity 2");
+}
+
+#[rstest]
+fn server_registry_capacity_after_remove() {
+    let server = AuroraViewMcpServer::new(McpServerConfig {
+        enable_mdns: false,
+        max_webviews: Some(1),
+        ..Default::default()
+    });
+    let id = server.registry().register(&WebViewConfig::default());
+    // Full — second should fail
+    assert!(server.registry().try_register(&WebViewConfig::default()).is_err());
+    // Remove one slot, then it should succeed
+    server.registry().remove(&id);
+    assert!(server.registry().try_register(&WebViewConfig::default()).is_ok());
+}
+
+// --- R22: McpServerConfig serde backward-compat ---
+
+#[rstest]
+fn config_serde_without_max_webviews_defaults_to_none() {
+    // Old JSON without max_webviews field — must deserialize to None
+    let json = r#"{"host":"127.0.0.1","port":7890,"service_name":"auroraview-mcp","enable_mdns":true}"#;
+    let cfg: McpServerConfig = serde_json::from_str(json).expect("deserialize without max_webviews");
+    assert!(cfg.max_webviews.is_none(), "max_webviews should default to None");
+    assert_eq!(cfg.port, 7890);
+}
+
+#[rstest]
+fn config_serde_with_max_webviews_some() {
+    let json = r#"{"host":"127.0.0.1","port":7890,"service_name":"auroraview-mcp","enable_mdns":false,"max_webviews":10}"#;
+    let cfg: McpServerConfig = serde_json::from_str(json).expect("deserialize with max_webviews");
+    assert_eq!(cfg.max_webviews, Some(10));
+}
+
+#[rstest]
+fn config_serde_with_max_webviews_null() {
+    let json = r#"{"host":"127.0.0.1","port":7890,"service_name":"auroraview-mcp","enable_mdns":false,"max_webviews":null}"#;
+    let cfg: McpServerConfig = serde_json::from_str(json).expect("deserialize with max_webviews null");
+    assert!(cfg.max_webviews.is_none());
+}
+
+#[rstest]
+fn config_serde_round_trip_with_limit() {
+    let original = McpServerConfig {
+        enable_mdns: false,
+        max_webviews: Some(20),
+        ..Default::default()
+    };
+    let json = serde_json::to_string(&original).unwrap();
+    let restored: McpServerConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.max_webviews, Some(20));
+    assert_eq!(restored.port, original.port);
+}
+
+#[rstest]
+fn config_serde_round_trip_no_limit() {
+    let original = McpServerConfig {
+        enable_mdns: false,
+        max_webviews: None,
+        ..Default::default()
+    };
+    let json = serde_json::to_string(&original).unwrap();
+    let restored: McpServerConfig = serde_json::from_str(&json).unwrap();
+    assert!(restored.max_webviews.is_none());
+}
+
+// --- R22: list_webviews capacity field ---
+
+#[rstest]
+fn list_webviews_output_capacity_field_is_public() {
+    // Compile-time check: ListWebViewsOutput has a capacity field
+    use auroraview_mcp::server::ListWebViewsOutput;
+    let out = ListWebViewsOutput {
+        count: 0,
+        capacity: None,
+        views: vec![],
+    };
+    assert!(out.capacity.is_none());
+}
+
+#[rstest]
+fn list_webviews_output_capacity_some() {
+    use auroraview_mcp::server::ListWebViewsOutput;
+    let out = ListWebViewsOutput {
+        count: 3,
+        capacity: Some(5),
+        views: vec![],
+    };
+    assert_eq!(out.capacity, Some(5));
+    assert_eq!(out.count, 3);
+}
+
+

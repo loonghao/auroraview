@@ -130,6 +130,8 @@ pub struct HwndOutput {
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct ListWebViewsOutput {
     pub count: usize,
+    /// Capacity limit, if set. `null` means unlimited.
+    pub capacity: Option<usize>,
     pub views: Vec<serde_json::Value>,
 }
 
@@ -317,7 +319,11 @@ impl AuroraViewMcpServer {
             })
             .collect();
         let count = views.len();
-        Json(ListWebViewsOutput { count, views })
+        Json(ListWebViewsOutput {
+            count,
+            capacity: self.registry.capacity(),
+            views,
+        })
     }
 
     /// Create a new WebView instance.
@@ -378,8 +384,12 @@ impl AuroraViewMcpServer {
 impl AuroraViewMcpServer {
     pub fn new(config: McpServerConfig) -> Self {
         let tool_router = Self::tool_router();
+        let registry = match config.max_webviews {
+            Some(max) => WebViewRegistry::with_capacity(max),
+            None => WebViewRegistry::new(),
+        };
         Self {
-            registry: WebViewRegistry::new(),
+            registry,
             config: Arc::new(config),
             tool_router,
             agui_bus: None,
