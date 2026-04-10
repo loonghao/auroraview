@@ -1,0 +1,60 @@
+[package]
+name = "auroraview-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "MCP Server for AuroraView - exposes WebView capabilities via Model Context Protocol"
+keywords = ["webview", "mcp", "model-context-protocol", "ai", "dcc"]
+categories = ["gui", "web-programming", "development-tools"]
+
+[lib]
+name = "auroraview_mcp"
+path = "src/lib.rs"
+
+[dependencies]
+# Official MCP Rust SDK
+rmcp = { version = "1.3", features = ["server", "server-side-http", "transport-streamable-http-server"] }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+
+# Service discovery (mDNS broadcast)
+mdns-sd = "0.17"
+
+# HTTP server for MCP transport
+warp = { version = "0.4", features = ["server"] }
+
+# Thread safety
+parking_lot = "0.12"
+dashmap = "6.1"
+
+# UUID for WebView IDs
+uuid = { version = "1", features = ["v4"] }
+
+auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
+
+[dev-dependencies]
+rstest = "0.26"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tempfile = "3"
+
+[features]
+default = []
+# Enable mDNS service broadcast
+mdns = []

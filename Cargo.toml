@@ -24,6 +24,8 @@ members = [
     "crates/auroraview-notifications",
     # AI Agent integration
     "crates/auroraview-ai-agent",
+    # MCP Server (Model Context Protocol)
+    "crates/auroraview-mcp",
     # Frontend assets (Vite build)
     "crates/auroraview-assets",
     # Migrated from submodules to crates

@@ -1,0 +1,131 @@
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+/// Unique identifier for a WebView instance.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WebViewId(pub String);
+
+impl WebViewId {
+    pub fn new() -> Self {
+        Self(Uuid::new_v4().to_string())
+    }
+}
+
+impl std::str::FromStr for WebViewId {
+    type Err = std::convert::Infallible;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(Self(s.to_string()))
+    }
+}
+
+impl Default for WebViewId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Display for WebViewId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Information about a WebView instance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebViewInfo {
+    pub id: WebViewId,
+    pub title: String,
+    pub url: String,
+    pub visible: bool,
+    pub width: u32,
+    pub height: u32,
+    /// Raw HWND on Windows (0 if not available).
+    pub hwnd: u64,
+}
+
+/// Configuration for creating a new WebView.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebViewConfig {
+    pub title: Option<String>,
+    pub url: Option<String>,
+    pub html: Option<String>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub visible: Option<bool>,
+    pub debug: Option<bool>,
+}
+
+impl Default for WebViewConfig {
+    fn default() -> Self {
+        Self {
+            title: Some("AuroraView".to_string()),
+            url: None,
+            html: None,
+            width: Some(800),
+            height: Some(600),
+            visible: Some(true),
+            debug: Some(false),
+        }
+    }
+}
+
+/// Screenshot result containing image data.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScreenshotData {
+    /// Base64-encoded PNG image data.
+    pub data: String,
+    pub width: u32,
+    pub height: u32,
+    pub format: String,
+}
+
+impl ScreenshotData {
+    pub fn new_placeholder(width: u32, height: u32) -> Self {
+        Self {
+            data: String::new(),
+            width,
+            height,
+            format: "png".to_string(),
+        }
+    }
+}
+
+/// Result of JavaScript evaluation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JsResult {
+    pub value: serde_json::Value,
+    pub error: Option<String>,
+}
+
+impl JsResult {
+    pub fn ok(value: serde_json::Value) -> Self {
+        Self { value, error: None }
+    }
+
+    pub fn err(msg: impl Into<String>) -> Self {
+        Self {
+            value: serde_json::Value::Null,
+            error: Some(msg.into()),
+        }
+    }
+}
+
+/// MCP server configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServerConfig {
+    pub host: String,
+    pub port: u16,
+    pub service_name: String,
+    pub enable_mdns: bool,
+}
+
+impl Default for McpServerConfig {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 7890,
+            service_name: "auroraview-mcp".to_string(),
+            enable_mdns: true,
+        }
+    }
+}
