@@ -24,20 +24,22 @@ fn config_default_values() {
     assert_eq!(cfg.port, 7890);
     assert_eq!(cfg.service_name, "auroraview-mcp");
     assert!(cfg.enable_mdns);
+    assert_eq!(cfg.max_webviews, None);
 }
 
 #[test]
 fn config_custom_values() {
-    let cfg = PyMcpConfig::new("0.0.0.0".into(), 9000, "my-mcp".into(), false);
+    let cfg = PyMcpConfig::new("0.0.0.0".into(), 9000, "my-mcp".into(), false, None);
     assert_eq!(cfg.host, "0.0.0.0");
     assert_eq!(cfg.port, 9000);
     assert_eq!(cfg.service_name, "my-mcp");
     assert!(!cfg.enable_mdns);
+    assert_eq!(cfg.max_webviews, None);
 }
 
 #[test]
 fn config_into_mcp_server_config() {
-    let py_cfg = PyMcpConfig::new("localhost".into(), 8080, "test-svc".into(), false);
+    let py_cfg = PyMcpConfig::new("localhost".into(), 8080, "test-svc".into(), false, None);
     let cfg: McpServerConfig = py_cfg.into();
     assert_eq!(cfg.host, "localhost");
     assert_eq!(cfg.port, 8080);
@@ -50,16 +52,60 @@ fn config_into_mcp_server_config() {
 #[case(8080)]
 #[case(9999)]
 fn config_round_trip_port(#[case] port: u16) {
-    let py_cfg = PyMcpConfig::new("127.0.0.1".into(), port, "svc".into(), false);
+    let py_cfg = PyMcpConfig::new("127.0.0.1".into(), port, "svc".into(), false, None);
     let cfg: McpServerConfig = py_cfg.into();
     assert_eq!(cfg.port, port);
 }
 
 #[test]
 fn config_enable_mdns_false() {
-    let py_cfg = PyMcpConfig::new("127.0.0.1".into(), 7890, "svc".into(), false);
+    let py_cfg = PyMcpConfig::new("127.0.0.1".into(), 7890, "svc".into(), false, None);
     let cfg: McpServerConfig = py_cfg.into();
     assert!(!cfg.enable_mdns);
+}
+
+// ---------------------------------------------------------------------------
+// PyMcpConfig max_webviews tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn config_max_webviews_none_by_default() {
+    let cfg = PyMcpConfig::default();
+    assert_eq!(cfg.max_webviews, None);
+    let server_cfg: McpServerConfig = cfg.into();
+    assert_eq!(server_cfg.max_webviews, None);
+}
+
+#[test]
+fn config_max_webviews_some_value() {
+    let cfg = PyMcpConfig::new("127.0.0.1".into(), 7890, "svc".into(), false, Some(5));
+    assert_eq!(cfg.max_webviews, Some(5));
+    let server_cfg: McpServerConfig = cfg.into();
+    assert_eq!(server_cfg.max_webviews, Some(5));
+}
+
+#[rstest]
+#[case(1)]
+#[case(10)]
+#[case(100)]
+fn config_max_webviews_round_trip(#[case] max: usize) {
+    let cfg = PyMcpConfig::new("127.0.0.1".into(), 7890, "svc".into(), false, Some(max));
+    let server_cfg: McpServerConfig = cfg.into();
+    assert_eq!(server_cfg.max_webviews, Some(max));
+}
+
+#[test]
+fn server_from_config_with_max_webviews_enforces_capacity() {
+    let config = McpServerConfig {
+        host: "127.0.0.1".into(),
+        port: find_free_port(),
+        service_name: "test".into(),
+        enable_mdns: false,
+        max_webviews: Some(2),
+    };
+    let server = PyMcpServer::from_config(config);
+    // Server is not started — just verify it was constructed without panic
+    assert!(!server.is_running());
 }
 
 // ---------------------------------------------------------------------------

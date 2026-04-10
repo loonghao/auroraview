@@ -39,15 +39,24 @@ pub struct PyMcpConfig {
     pub port: u16,
     pub service_name: String,
     pub enable_mdns: bool,
+    /// Maximum concurrent WebViews (`None` = unlimited).
+    pub max_webviews: Option<usize>,
 }
 
 impl PyMcpConfig {
-    pub fn new(host: String, port: u16, service_name: String, enable_mdns: bool) -> Self {
+    pub fn new(
+        host: String,
+        port: u16,
+        service_name: String,
+        enable_mdns: bool,
+        max_webviews: Option<usize>,
+    ) -> Self {
         Self {
             host,
             port,
             service_name,
             enable_mdns,
+            max_webviews,
         }
     }
 }
@@ -60,6 +69,7 @@ impl Default for PyMcpConfig {
             port: cfg.port,
             service_name: cfg.service_name,
             enable_mdns: cfg.enable_mdns,
+            max_webviews: cfg.max_webviews,
         }
     }
 }
@@ -71,7 +81,7 @@ impl From<PyMcpConfig> for McpServerConfig {
             port: py.port,
             service_name: py.service_name,
             enable_mdns: py.enable_mdns,
-            max_webviews: None,
+            max_webviews: py.max_webviews,
         }
     }
 }
@@ -265,6 +275,7 @@ mod pyo3_impl {
     /// ```python
     /// from auroraview import McpConfig
     /// cfg = McpConfig(port=7891, host="0.0.0.0", enable_mdns=False)
+    /// cfg_limited = McpConfig(port=7892, max_webviews=5)
     /// ```
     #[pyclass(name = "McpConfig")]
     pub struct PyMcpConfigWrapper {
@@ -274,12 +285,13 @@ mod pyo3_impl {
     #[pymethods]
     impl PyMcpConfigWrapper {
         #[new]
-        #[pyo3(signature = (port=7890, host="127.0.0.1", service_name="auroraview-mcp", enable_mdns=true))]
+        #[pyo3(signature = (port=7890, host="127.0.0.1", service_name="auroraview-mcp", enable_mdns=true, max_webviews=None))]
         fn new(
             port: u16,
             host: &str,
             service_name: &str,
             enable_mdns: bool,
+            max_webviews: Option<usize>,
         ) -> Self {
             Self {
                 inner: McpServerConfig {
@@ -287,6 +299,7 @@ mod pyo3_impl {
                     port,
                     service_name: service_name.to_string(),
                     enable_mdns,
+                    max_webviews,
                 },
             }
         }
@@ -311,13 +324,19 @@ mod pyo3_impl {
             self.inner.enable_mdns
         }
 
+        #[getter]
+        fn max_webviews(&self) -> Option<usize> {
+            self.inner.max_webviews
+        }
+
         fn __repr__(&self) -> String {
             format!(
-                "McpConfig(host={}, port={}, service_name={}, enable_mdns={})",
+                "McpConfig(host={}, port={}, service_name={}, enable_mdns={}, max_webviews={:?})",
                 self.inner.host,
                 self.inner.port,
                 self.inner.service_name,
                 self.inner.enable_mdns,
+                self.inner.max_webviews,
             )
         }
     }

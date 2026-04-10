@@ -48,6 +48,20 @@ impl McpRunner {
         }
     }
 
+    /// Create a runner on the given port with a WebView capacity limit.
+    ///
+    /// Convenience constructor: equivalent to
+    /// `McpRunner::new(McpServerConfig::default().with_port(port).with_max_webviews(max))`.
+    ///
+    /// mDNS is disabled (useful for tests and isolated DCC sessions).
+    pub fn with_capacity(port: u16, max: usize) -> Self {
+        let config = McpServerConfig::default()
+            .with_port(port)
+            .with_mdns(false)
+            .with_max_webviews(max);
+        Self::new(config)
+    }
+
     pub fn server(&self) -> &AuroraViewMcpServer {
         &self.server
     }
