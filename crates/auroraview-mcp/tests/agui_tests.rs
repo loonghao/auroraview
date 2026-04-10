@@ -207,7 +207,7 @@ fn agui_bus_emit_no_subscribers_no_panic() {
 }
 
 #[tokio::test]
-async fn test_agui_bus_emit_received_by_subscriber() {
+async fn agui_bus_emit_received_by_subscriber() {
     let bus = AguiBus::new();
     let mut rx = bus.subscribe();
 
@@ -229,7 +229,7 @@ async fn test_agui_bus_emit_received_by_subscriber() {
 }
 
 #[tokio::test]
-async fn test_agui_bus_multiple_subscribers() {
+async fn agui_bus_multiple_subscribers() {
     let bus = AguiBus::new();
     let mut rx1 = bus.subscribe();
     let mut rx2 = bus.subscribe();
@@ -260,7 +260,7 @@ async fn test_agui_bus_multiple_subscribers() {
 }
 
 #[tokio::test]
-async fn test_agui_bus_clone_shares_channel() {
+async fn agui_bus_clone_shares_channel() {
     let bus = AguiBus::new();
     let bus_clone = bus.clone();
 
@@ -281,7 +281,7 @@ async fn test_agui_bus_clone_shares_channel() {
 }
 
 #[tokio::test]
-async fn test_agui_bus_drop_subscriber_reduces_count() {
+async fn agui_bus_drop_subscriber_reduces_count() {
     let bus = AguiBus::new();
     {
         let _rx = bus.subscribe();

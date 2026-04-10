@@ -149,7 +149,7 @@ fn server_agui_bus_emit_sequence() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn test_runner_bus_shared_with_server() {
+async fn runner_bus_shared_with_server() {
     use auroraview_mcp::McpRunner;
 
     let runner = McpRunner::new(McpServerConfig {
@@ -176,7 +176,7 @@ async fn test_runner_bus_shared_with_server() {
 }
 
 #[tokio::test]
-async fn test_runner_emit_multiple_event_types() {
+async fn runner_emit_multiple_event_types() {
     use auroraview_mcp::McpRunner;
 
     let runner = McpRunner::new(McpServerConfig {
@@ -332,7 +332,7 @@ fn custom_event_json_round_trip() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn test_agui_bus_overflow_does_not_panic() {
+async fn agui_bus_overflow_does_not_panic() {
     let bus = AguiBus::new();
     let _rx = bus.subscribe();
 
@@ -347,7 +347,7 @@ async fn test_agui_bus_overflow_does_not_panic() {
 }
 
 #[tokio::test]
-async fn test_agui_bus_receiver_count_after_clone() {
+async fn agui_bus_receiver_count_after_clone() {
     let bus = AguiBus::new();
     let bus2 = bus.clone();
 

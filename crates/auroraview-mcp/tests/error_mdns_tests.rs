@@ -137,7 +137,7 @@ fn config_serialize_deserialize() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn test_runner_mdns_disabled_starts_cleanly() {
+async fn runner_mdns_disabled_starts_cleanly() {
     let port = {
         let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         l.local_addr().unwrap().port()
@@ -154,7 +154,7 @@ async fn test_runner_mdns_disabled_starts_cleanly() {
 }
 
 #[tokio::test]
-async fn test_runner_stop_twice_no_panic() {
+async fn runner_stop_twice_no_panic() {
     let port = {
         let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         l.local_addr().unwrap().port()
@@ -171,7 +171,7 @@ async fn test_runner_stop_twice_no_panic() {
 }
 
 #[tokio::test]
-async fn test_runner_restart_after_stop() {
+async fn runner_restart_after_stop() {
     let port = {
         let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         l.local_addr().unwrap().port()
@@ -198,7 +198,7 @@ async fn test_runner_restart_after_stop() {
 }
 
 #[tokio::test]
-async fn test_runner_config_accessed_after_start() {
+async fn runner_config_accessed_after_start() {
     let port = {
         let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         l.local_addr().unwrap().port()
@@ -216,7 +216,7 @@ async fn test_runner_config_accessed_after_start() {
 }
 
 #[tokio::test]
-async fn test_runner_server_accessor() {
+async fn runner_server_accessor() {
     let runner = McpRunner::new(McpServerConfig {
         enable_mdns: false,
         ..Default::default()

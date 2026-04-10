@@ -132,7 +132,7 @@ fn runner_new() {
 }
 
 #[tokio::test]
-async fn test_runner_start_stop() {
+async fn runner_start_stop() {
     let config = McpServerConfig {
         port: 17890,
         enable_mdns: false,
@@ -149,7 +149,7 @@ async fn test_runner_start_stop() {
 }
 
 #[tokio::test]
-async fn test_runner_double_start_returns_error() {
+async fn runner_double_start_returns_error() {
     use auroraview_mcp::McpError;
     let config = McpServerConfig {
         port: 17891,

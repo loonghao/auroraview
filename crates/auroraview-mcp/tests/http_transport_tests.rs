@@ -31,7 +31,7 @@ fn config(port: u16) -> McpServerConfig {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn test_runner_starts_and_stops() {
+async fn runner_starts_and_stops() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
 
@@ -44,7 +44,7 @@ async fn test_runner_starts_and_stops() {
 }
 
 #[tokio::test]
-async fn test_runner_start_twice_returns_error() {
+async fn runner_start_twice_returns_error() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("first start failed");
@@ -56,7 +56,7 @@ async fn test_runner_start_twice_returns_error() {
 }
 
 #[tokio::test]
-async fn test_runner_stop_when_not_running_is_noop() {
+async fn runner_stop_when_not_running_is_noop() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     // Should not panic
@@ -68,7 +68,7 @@ async fn test_runner_stop_when_not_running_is_noop() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn test_mcp_endpoint_reachable() {
+async fn mcp_endpoint_reachable() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -101,7 +101,7 @@ async fn test_mcp_endpoint_reachable() {
 }
 
 #[tokio::test]
-async fn test_mcp_list_tools_response() {
+async fn mcp_list_tools_response() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -155,7 +155,7 @@ async fn test_mcp_list_tools_response() {
 }
 
 #[tokio::test]
-async fn test_agui_events_endpoint_reachable() {
+async fn agui_events_endpoint_reachable() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -193,7 +193,7 @@ async fn test_agui_events_endpoint_reachable() {
 }
 
 #[tokio::test]
-async fn test_agui_events_with_run_id_filter() {
+async fn agui_events_with_run_id_filter() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -273,7 +273,7 @@ async fn mcp_init(client: &reqwest::Client, port: u16) -> Option<String> {
 }
 
 #[tokio::test]
-async fn test_tools_call_list_webviews() {
+async fn tools_call_list_webviews() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -303,7 +303,7 @@ async fn test_tools_call_list_webviews() {
 }
 
 #[tokio::test]
-async fn test_tools_call_load_url() {
+async fn tools_call_load_url() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -329,7 +329,7 @@ async fn test_tools_call_load_url() {
 }
 
 #[tokio::test]
-async fn test_tools_call_eval_js() {
+async fn tools_call_eval_js() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -355,7 +355,7 @@ async fn test_tools_call_eval_js() {
 }
 
 #[tokio::test]
-async fn test_tools_call_screenshot() {
+async fn tools_call_screenshot() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -381,7 +381,7 @@ async fn test_tools_call_screenshot() {
 }
 
 #[tokio::test]
-async fn test_tools_call_unknown_tool_returns_error() {
+async fn tools_call_unknown_tool_returns_error() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -420,7 +420,7 @@ async fn test_tools_call_unknown_tool_returns_error() {
 }
 
 #[tokio::test]
-async fn test_tools_call_create_webview() {
+async fn tools_call_create_webview() {
     let port = free_port().await;
     let runner = McpRunner::new(config(port));
     runner.start().await.expect("start failed");
@@ -457,7 +457,7 @@ fn runner_emit_agui_no_panic() {
 }
 
 #[tokio::test]
-async fn test_runner_emit_agui_received_by_subscriber() {
+async fn runner_emit_agui_received_by_subscriber() {
     let runner = McpRunner::new(McpServerConfig::default());
     let mut rx = runner.agui_bus().subscribe();
 
