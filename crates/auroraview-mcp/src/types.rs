@@ -191,4 +191,42 @@ impl McpServerConfig {
     pub fn is_valid(&self) -> bool {
         self.validate().is_ok()
     }
+
+    /// Build a fully-configured instance in a single call.
+    ///
+    /// Equivalent to chaining `with_port`, `with_host`, `with_service_name`,
+    /// `with_mdns`, and `with_max_webviews` on a default config.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use auroraview_mcp::McpServerConfig;
+    ///
+    /// let cfg = McpServerConfig::with_all(
+    ///     7891,
+    ///     "0.0.0.0",
+    ///     "my-mcp",
+    ///     true,
+    ///     Some(10),
+    /// );
+    /// assert_eq!(cfg.port, 7891);
+    /// assert_eq!(cfg.max_webviews, Some(10));
+    /// ```
+    pub fn with_all(
+        port: u16,
+        host: impl Into<String>,
+        service_name: impl Into<String>,
+        enable_mdns: bool,
+        max_webviews: Option<usize>,
+    ) -> Self {
+        let mut cfg = Self::default()
+            .with_port(port)
+            .with_host(host)
+            .with_service_name(service_name)
+            .with_mdns(enable_mdns);
+        if let Some(max) = max_webviews {
+            cfg = cfg.with_max_webviews(max);
+        }
+        cfg
+    }
 }

@@ -62,6 +62,20 @@ impl McpRunner {
         Self::new(config)
     }
 
+    /// Create a runner on the given port with mDNS broadcast enabled.
+    ///
+    /// Convenience constructor: equivalent to
+    /// `McpRunner::new(McpServerConfig::default().with_port(port).with_mdns(true))`.
+    ///
+    /// Use this when you want `dcc-mcp-client` to auto-discover the server
+    /// via mDNS without building a full [`McpServerConfig`] manually.
+    pub fn with_mdns_port(port: u16) -> Self {
+        let config = McpServerConfig::default()
+            .with_port(port)
+            .with_mdns(true);
+        Self::new(config)
+    }
+
     pub fn server(&self) -> &AuroraViewMcpServer {
         &self.server
     }

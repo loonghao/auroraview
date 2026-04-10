@@ -237,6 +237,36 @@ impl PyMcpServer {
         })
     }
 
+    /// Emit a `StepStarted` + `StepFinished` pair for a single synchronous step.
+    ///
+    /// This is a Python-friendly wrapper around [`McpRunner::emit_agui_step`].
+    /// It emits both events atomically via the AG-UI bus, making it easy for
+    /// DCC Python plugins to report simple step completion.
+    ///
+    /// # Arguments
+    ///
+    /// * `run_id`    — identifies the active AG-UI run
+    /// * `step_name` — human-readable step label (e.g. `"export_scene"`)
+    /// * `step_id`   — unique ID for this step (e.g. `"step-001"`)
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the server is not currently running.
+    pub fn emit_step(
+        &self,
+        run_id: &str,
+        step_name: &str,
+        step_id: &str,
+    ) -> Result<(), String> {
+        let lock = self.state.lock().map_err(|e| e.to_string())?;
+        if let Some(state) = lock.as_ref() {
+            state.runner.emit_agui_step(run_id, step_name, step_id);
+            Ok(())
+        } else {
+            Err("MCP server is not running".to_string())
+        }
+    }
+
     /// Low-level: emit any `AguiEvent` through the bus.
     pub fn emit_event(&self, event: AguiEvent) -> Result<(), String> {
         let lock = self.state.lock().map_err(|e| e.to_string())?;
@@ -462,6 +492,25 @@ mod pyo3_impl {
         fn emit_tool_call_end(&self, run_id: &str, tool_call_id: &str) -> PyResult<()> {
             self.inner
                 .emit_tool_call_end(run_id, tool_call_id)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Emit a `StepStarted` + `StepFinished` pair for a synchronous step.
+        ///
+        /// Useful for DCC plugins that want to report a single atomic step
+        /// without managing `StepStarted`/`StepFinished` separately.
+        ///
+        /// ```python
+        /// server.emit_step("run-1", "export_scene", "step-001")
+        /// ```
+        fn emit_step(
+            &self,
+            run_id: &str,
+            step_name: &str,
+            step_id: &str,
+        ) -> PyResult<()> {
+            self.inner
+                .emit_step(run_id, step_name, step_id)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
         }
 
