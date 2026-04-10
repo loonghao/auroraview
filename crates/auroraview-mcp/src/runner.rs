@@ -85,7 +85,14 @@ impl McpRunner {
     /// - `GET  /agui/events?run_id=<id>` — AG-UI SSE event stream
     ///
     /// Returns immediately; the server runs until `stop()` is called.
+    ///
+    /// Returns [`McpError::InvalidConfig`] if the configuration is invalid
+    /// (e.g. `port == 0`, empty `host`, or empty `service_name`).
     pub async fn start(&self) -> Result<()> {
+        self.config
+            .validate()
+            .map_err(McpError::InvalidConfig)?;
+
         let mut lock = self.shutdown_tx.lock().await;
         if lock.is_some() {
             return Err(McpError::AlreadyRunning(self.config.port));
@@ -154,6 +161,24 @@ impl McpRunner {
     /// Emit an AG-UI event to all active SSE subscribers.
     pub fn emit_agui(&self, event: AguiEvent) {
         self.agui_bus.emit(event);
+    }
+
+    /// Emit a `StepStarted` followed immediately by a `StepFinished` event.
+    ///
+    /// Useful for synchronous actions where the step has no meaningful
+    /// intermediate state (e.g. a simple tool invocation).
+    ///
+    /// Both events share the same `run_id` and `step_id`.
+    pub fn emit_agui_step(&self, run_id: &str, step_name: &str, step_id: &str) {
+        self.agui_bus.emit(AguiEvent::StepStarted {
+            run_id: run_id.to_string(),
+            step_name: step_name.to_string(),
+            step_id: step_id.to_string(),
+        });
+        self.agui_bus.emit(AguiEvent::StepFinished {
+            run_id: run_id.to_string(),
+            step_id: step_id.to_string(),
+        });
     }
 }
 

@@ -15,6 +15,9 @@ pub enum McpError {
     #[error("Server already running on port {0}")]
     AlreadyRunning(u16),
 
+    #[error("Invalid configuration: {0}")]
+    InvalidConfig(String),
+
     #[error("mDNS broadcast error: {0}")]
     MdnsBroadcast(String),
 

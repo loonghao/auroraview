@@ -460,6 +460,69 @@ fn config_debug_format_contains_port() {
 }
 
 // ---------------------------------------------------------------------------
+// PyMcpServer::from_config_py() tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn from_config_py_preserves_port() {
+    let port = find_free_port();
+    let cfg = PyMcpConfig::new("127.0.0.1".into(), port, "svc".into(), false, None);
+    let server = PyMcpServer::from_config_py(cfg);
+    assert_eq!(server.port(), port);
+}
+
+#[test]
+fn from_config_py_preserves_host() {
+    let cfg = PyMcpConfig::new("0.0.0.0".into(), find_free_port(), "svc".into(), false, None);
+    let server = PyMcpServer::from_config_py(cfg);
+    assert_eq!(server.host(), "0.0.0.0");
+}
+
+#[test]
+fn from_config_py_not_running_initially() {
+    let cfg = PyMcpConfig::default();
+    let server = PyMcpServer::from_config_py(cfg);
+    assert!(!server.is_running());
+}
+
+#[test]
+fn from_config_py_start_stop_lifecycle() {
+    let port = find_free_port();
+    let cfg = PyMcpConfig::new("127.0.0.1".into(), port, "av-test".into(), false, None);
+    let server = PyMcpServer::from_config_py(cfg);
+    server.start().expect("start ok");
+    assert!(server.is_running());
+    server.stop().expect("stop ok");
+    assert!(!server.is_running());
+}
+
+#[test]
+fn from_config_py_mcp_url_correct() {
+    let port = find_free_port();
+    let cfg = PyMcpConfig::new("127.0.0.1".into(), port, "av".into(), false, None);
+    let server = PyMcpServer::from_config_py(cfg);
+    assert_eq!(server.mcp_url(), format!("http://127.0.0.1:{port}/mcp"));
+}
+
+#[test]
+fn from_config_py_agui_url_correct() {
+    let port = find_free_port();
+    let cfg = PyMcpConfig::new("127.0.0.1".into(), port, "av".into(), false, None);
+    let server = PyMcpServer::from_config_py(cfg);
+    assert_eq!(server.agui_url(), format!("http://127.0.0.1:{port}/agui/events"));
+}
+
+#[test]
+fn from_config_py_with_max_webviews() {
+    let cfg = PyMcpConfig::new("127.0.0.1".into(), find_free_port(), "av".into(), false, Some(3));
+    let server = PyMcpServer::from_config_py(cfg);
+    assert!(!server.is_running());
+    // Just verify construction with capacity doesn't panic
+    server.start().expect("start");
+    server.stop().ok();
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

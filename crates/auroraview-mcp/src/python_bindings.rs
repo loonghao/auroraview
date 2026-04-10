@@ -126,6 +126,13 @@ impl PyMcpServer {
         }
     }
 
+    /// Create a server from a [`PyMcpConfig`] (Python-friendly configuration).
+    ///
+    /// Equivalent to `PyMcpServer::from_config(py_config.into())`.
+    pub fn from_config_py(py_config: PyMcpConfig) -> Self {
+        Self::from_config(py_config.into())
+    }
+
     /// Port this server listens on.
     pub fn port(&self) -> u16 {
         self.config.port
@@ -383,6 +390,21 @@ mod pyo3_impl {
             self.inner
                 .stop()
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Create a server from a `McpConfig` object.
+        ///
+        /// ```python
+        /// from auroraview import McpConfig, McpServer
+        /// cfg = McpConfig(port=7891, enable_mdns=False)
+        /// server = McpServer.from_config(cfg)
+        /// server.start()
+        /// ```
+        #[staticmethod]
+        fn from_config(config: &PyMcpConfigWrapper) -> Self {
+            Self {
+                inner: Arc::new(PyMcpServer::from_config(config.inner.clone())),
+            }
         }
 
         /// Return `True` if the server is running.
