@@ -773,6 +773,7 @@ dependencies = [
  "futures",
  "mdns-sd",
  "parking_lot",
+ "pyo3",
  "reqwest 0.12.28",
  "rmcp",
  "rstest 0.26.1",

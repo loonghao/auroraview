@@ -129,3 +129,31 @@ impl Default for McpServerConfig {
         }
     }
 }
+
+impl McpServerConfig {
+    /// Validate the configuration.
+    ///
+    /// Returns an error message if any field is invalid.
+    ///
+    /// Checks:
+    /// - `port` must be in the valid range 1–65535 (0 is reserved)
+    /// - `host` must not be empty
+    /// - `service_name` must not be empty
+    pub fn validate(&self) -> Result<(), String> {
+        if self.port == 0 {
+            return Err("port must be in range 1–65535 (got 0)".to_string());
+        }
+        if self.host.trim().is_empty() {
+            return Err("host must not be empty".to_string());
+        }
+        if self.service_name.trim().is_empty() {
+            return Err("service_name must not be empty".to_string());
+        }
+        Ok(())
+    }
+
+    /// Return `true` if the configuration is valid.
+    pub fn is_valid(&self) -> bool {
+        self.validate().is_ok()
+    }
+}

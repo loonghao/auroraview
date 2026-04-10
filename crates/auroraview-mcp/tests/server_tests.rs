@@ -2,6 +2,7 @@
     AguiBus, AguiEvent, AuroraViewMcpServer, McpRunner, McpServerConfig, WebViewConfig,
     WebViewRegistry,
 };
+// WebViewInfo is used in serde round-trip tests via auroraview_mcp::WebViewInfo (inline import)
 use rstest::rstest;
 
 // --- Registry tests ---
@@ -343,6 +344,159 @@ fn webview_info_custom_dimensions() {
     let info = reg.get(&id).unwrap();
     assert_eq!(info.width, 1920);
     assert_eq!(info.height, 1080);
+}
+
+// --- WebViewInfo serde round-trip ---
+
+#[rstest]
+fn webview_info_serde_round_trip() {
+    use auroraview_mcp::{WebViewId, WebViewInfo};
+    let info = WebViewInfo {
+        id: WebViewId("abc-123".to_string()),
+        title: "DCC Panel".to_string(),
+        url: "https://maya.tool/panel".to_string(),
+        visible: true,
+        width: 1920,
+        height: 1080,
+        hwnd: 99999,
+    };
+    let json = serde_json::to_string(&info).expect("serialize");
+    let back: WebViewInfo = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(back.id.0, "abc-123");
+    assert_eq!(back.title, "DCC Panel");
+    assert_eq!(back.url, "https://maya.tool/panel");
+    assert!(back.visible);
+    assert_eq!(back.width, 1920);
+    assert_eq!(back.height, 1080);
+    assert_eq!(back.hwnd, 99999);
+}
+
+#[rstest]
+fn webview_info_json_field_names() {
+    use auroraview_mcp::{WebViewId, WebViewInfo};
+    let info = WebViewInfo {
+        id: WebViewId("field-test".to_string()),
+        title: "T".to_string(),
+        url: "http://x".to_string(),
+        visible: false,
+        width: 100,
+        height: 200,
+        hwnd: 0,
+    };
+    let v: serde_json::Value = serde_json::to_value(&info).unwrap();
+    assert!(v.get("id").is_some(), "field 'id' missing");
+    assert!(v.get("title").is_some(), "field 'title' missing");
+    assert!(v.get("url").is_some(), "field 'url' missing");
+    assert!(v.get("visible").is_some(), "field 'visible' missing");
+    assert!(v.get("width").is_some(), "field 'width' missing");
+    assert!(v.get("height").is_some(), "field 'height' missing");
+    assert!(v.get("hwnd").is_some(), "field 'hwnd' missing");
+}
+
+#[rstest]
+fn webview_info_deserialize_from_literal() {
+    use auroraview_mcp::WebViewInfo;
+    let json = r#"{"id":"lit-id","title":"Lit","url":"file:///x.html","visible":true,"width":800,"height":600,"hwnd":0}"#;
+    let info: WebViewInfo = serde_json::from_str(json).expect("deserialize");
+    assert_eq!(info.id.0, "lit-id");
+    assert_eq!(info.url, "file:///x.html");
+}
+
+#[rstest]
+fn webview_config_serde_round_trip() {
+    use auroraview_mcp::WebViewConfig;
+    let cfg = WebViewConfig {
+        title: Some("Round Trip".to_string()),
+        url: Some("https://rt.test".to_string()),
+        html: None,
+        width: Some(1280),
+        height: Some(720),
+        visible: Some(false),
+        debug: Some(true),
+    };
+    let json = serde_json::to_string(&cfg).unwrap();
+    let back: WebViewConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.title, Some("Round Trip".to_string()));
+    assert_eq!(back.width, Some(1280));
+    assert_eq!(back.debug, Some(true));
+    assert!(back.html.is_none());
+}
+
+// --- McpServerConfig validation ---
+
+#[rstest]
+fn config_validate_default_is_ok() {
+    let cfg = McpServerConfig::default();
+    assert!(cfg.validate().is_ok());
+    assert!(cfg.is_valid());
+}
+
+#[rstest]
+fn config_validate_port_zero_is_err() {
+    let cfg = McpServerConfig {
+        port: 0,
+        ..McpServerConfig::default()
+    };
+    let err = cfg.validate().unwrap_err();
+    assert!(err.contains("port"), "error should mention port: {err}");
+}
+
+#[rstest]
+fn config_validate_empty_host_is_err() {
+    let cfg = McpServerConfig {
+        host: "".to_string(),
+        ..McpServerConfig::default()
+    };
+    let err = cfg.validate().unwrap_err();
+    assert!(err.contains("host"), "error should mention host: {err}");
+}
+
+#[rstest]
+fn config_validate_whitespace_host_is_err() {
+    let cfg = McpServerConfig {
+        host: "   ".to_string(),
+        ..McpServerConfig::default()
+    };
+    assert!(cfg.validate().is_err());
+}
+
+#[rstest]
+fn config_validate_empty_service_name_is_err() {
+    let cfg = McpServerConfig {
+        service_name: "".to_string(),
+        ..McpServerConfig::default()
+    };
+    let err = cfg.validate().unwrap_err();
+    assert!(err.contains("service_name"), "error should mention service_name: {err}");
+}
+
+#[rstest]
+fn config_validate_port_65535_is_ok() {
+    let cfg = McpServerConfig {
+        port: 65535,
+        enable_mdns: false,
+        ..McpServerConfig::default()
+    };
+    assert!(cfg.validate().is_ok());
+}
+
+#[rstest]
+fn config_validate_port_1_is_ok() {
+    let cfg = McpServerConfig {
+        port: 1,
+        enable_mdns: false,
+        ..McpServerConfig::default()
+    };
+    assert!(cfg.validate().is_ok());
+}
+
+#[rstest]
+fn config_is_valid_returns_false_for_bad_config() {
+    let cfg = McpServerConfig {
+        port: 0,
+        ..McpServerConfig::default()
+    };
+    assert!(!cfg.is_valid());
 }
 
 // --- McpRunner server() accessor ---
