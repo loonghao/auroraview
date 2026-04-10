@@ -114,6 +114,7 @@ fn server_config_custom() {
         port: 8080,
         service_name: "my-mcp".to_string(),
         enable_mdns: false,
+        max_webviews: None,
     };
     assert_eq!(cfg.port, 8080);
     assert!(!cfg.enable_mdns);

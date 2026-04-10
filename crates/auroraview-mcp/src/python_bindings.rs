@@ -71,6 +71,7 @@ impl From<PyMcpConfig> for McpServerConfig {
             port: py.port,
             service_name: py.service_name,
             enable_mdns: py.enable_mdns,
+            max_webviews: None,
         }
     }
 }

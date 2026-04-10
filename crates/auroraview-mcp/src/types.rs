@@ -117,6 +117,9 @@ pub struct McpServerConfig {
     pub port: u16,
     pub service_name: String,
     pub enable_mdns: bool,
+    /// Maximum number of concurrent WebView instances.
+    /// `None` means no limit.
+    pub max_webviews: Option<usize>,
 }
 
 impl Default for McpServerConfig {
@@ -126,11 +129,42 @@ impl Default for McpServerConfig {
             port: 7890,
             service_name: "auroraview-mcp".to_string(),
             enable_mdns: true,
+            max_webviews: None,
         }
     }
 }
 
 impl McpServerConfig {
+    /// Set the port number.
+    pub fn with_port(mut self, port: u16) -> Self {
+        self.port = port;
+        self
+    }
+
+    /// Set the bind host.
+    pub fn with_host(mut self, host: impl Into<String>) -> Self {
+        self.host = host.into();
+        self
+    }
+
+    /// Enable or disable mDNS broadcast.
+    pub fn with_mdns(mut self, enabled: bool) -> Self {
+        self.enable_mdns = enabled;
+        self
+    }
+
+    /// Set the mDNS service name.
+    pub fn with_service_name(mut self, name: impl Into<String>) -> Self {
+        self.service_name = name.into();
+        self
+    }
+
+    /// Set the maximum number of concurrent WebView instances.
+    pub fn with_max_webviews(mut self, max: usize) -> Self {
+        self.max_webviews = Some(max);
+        self
+    }
+
     /// Validate the configuration.
     ///
     /// Returns an error message if any field is invalid.

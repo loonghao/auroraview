@@ -109,6 +109,7 @@ fn config_custom_host_port() {
         port: 8080,
         service_name: "test-svc".to_string(),
         enable_mdns: false,
+        max_webviews: None,
     };
     assert_eq!(c.host, "0.0.0.0");
     assert_eq!(c.port, 8080);
@@ -123,6 +124,7 @@ fn config_serialize_deserialize() {
         port: 1234,
         service_name: "my-mcp".to_string(),
         enable_mdns: true,
+        max_webviews: None,
     };
     let json = serde_json::to_string(&c).unwrap();
     let restored: McpServerConfig = serde_json::from_str(&json).unwrap();

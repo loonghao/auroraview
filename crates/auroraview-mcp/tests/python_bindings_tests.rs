@@ -92,6 +92,7 @@ fn server_from_config_host() {
         port: find_free_port(),
         service_name: "av-mcp-test".into(),
         enable_mdns: false,
+        max_webviews: None,
     };
     let server = PyMcpServer::from_config(config);
     assert_eq!(server.host(), "0.0.0.0");
@@ -382,6 +383,7 @@ fn custom_host_mcp_url() {
         port: 7890,
         service_name: "av".into(),
         enable_mdns: false,
+        max_webviews: None,
     };
     let server = PyMcpServer::from_config(config);
     assert_eq!(server.mcp_url(), "http://192.168.1.100:7890/mcp");
@@ -394,6 +396,7 @@ fn custom_host_agui_url() {
         port: 8080,
         service_name: "av".into(),
         enable_mdns: false,
+        max_webviews: None,
     };
     let server = PyMcpServer::from_config(config);
     assert_eq!(server.agui_url(), "http://10.0.0.1:8080/agui/events");

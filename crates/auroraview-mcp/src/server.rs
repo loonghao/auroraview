@@ -179,6 +179,22 @@ impl AuroraViewMcpServer {
         let id = self.resolve_id(params.id.as_deref());
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("load_url", &call_id, &id);
+
+        // Validate URL scheme.
+        let scheme_ok = params.url.starts_with("http://")
+            || params.url.starts_with("https://")
+            || params.url.starts_with("file://");
+        if !scheme_ok {
+            self.emit_tool_end(&call_id, &id);
+            return Json(SuccessOutput {
+                ok: false,
+                message: format!(
+                    "Invalid URL scheme: '{}' — must be http, https, or file",
+                    params.url
+                ),
+            });
+        }
+
         info!("load_url: id={id} url={}", params.url);
         let updated = self.registry.update_url(&id.parse::<WebViewId>().unwrap(), &params.url);
         let result = Json(SuccessOutput {
@@ -220,6 +236,16 @@ impl AuroraViewMcpServer {
         let id = self.resolve_id(params.id.as_deref());
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("eval_js", &call_id, &id);
+
+        if params.script.trim().is_empty() {
+            self.emit_tool_end(&call_id, &id);
+            return Json(JsResultOutput {
+                id,
+                value: serde_json::Value::Null,
+                error: Some("eval_js script must not be empty".to_string()),
+            });
+        }
+
         debug!("eval_js: id={id}");
         let result_data = JsResult::ok(serde_json::Value::Null);
         let result = Json(JsResultOutput {
@@ -302,7 +328,7 @@ impl AuroraViewMcpServer {
     fn create_webview(
         &self,
         Parameters(params): Parameters<CreateWebViewParams>,
-    ) -> Json<WebViewIdOutput> {
+    ) -> Json<SuccessOutput> {
         let config = WebViewConfig {
             title: params.title,
             url: params.url,
@@ -312,9 +338,19 @@ impl AuroraViewMcpServer {
             visible: Some(true),
             debug: params.debug,
         };
-        let id = self.registry.register(&config);
-        info!("create_webview: new id={}", id.0);
-        Json(WebViewIdOutput { id: id.0 })
+        match self.registry.try_register(&config) {
+            Ok(id) => {
+                info!("create_webview: new id={}", id.0);
+                Json(SuccessOutput {
+                    ok: true,
+                    message: id.0,
+                })
+            }
+            Err(e) => Json(SuccessOutput {
+                ok: false,
+                message: e.to_string(),
+            }),
+        }
     }
 
     /// Close and remove a WebView instance.

@@ -18,6 +18,15 @@ pub enum McpError {
     #[error("mDNS broadcast error: {0}")]
     MdnsBroadcast(String),
 
+    #[error("WebView registry capacity exceeded: max {0} instances")]
+    CapacityExceeded(usize),
+
+    #[error("Invalid URL scheme '{0}': must be http, https, or file")]
+    InvalidUrl(String),
+
+    #[error("eval_js script must not be empty")]
+    EmptyScript,
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
