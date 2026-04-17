@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete head branch for closed PR
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Sweep stale branches whose PRs closed >30 days ago
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         with:
