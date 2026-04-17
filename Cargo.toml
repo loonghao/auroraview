@@ -33,6 +33,8 @@ members = [
     "crates/auroraview-pack",
     # Telemetry (OpenTelemetry-based observability)
     "crates/auroraview-telemetry",
+    # MCP / dcc-mcp-core adapter crate (Epic #364)
+    "crates/auroraview-mcp",
     # Workspace dependency unification
     "crates/auroraview-workspace-hack",
 ]
