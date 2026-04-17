@@ -12,8 +12,10 @@ into an **AuroraView** project with:
 - A native Rust-powered WebView (~5 MB vs ~120 MB Qt WebEngine)
 - Unified `create_webview()` entry point (standalone / Qt parent / HWND)
 - Bidirectional Python ↔ JavaScript bridge (`webview.emit` / `@webview.on`)
-- **Full MCP control out of the box** via `auroraview-mcp` so agents can click,
-  fill, screenshot, and call Python APIs over the standard MCP protocol
+- **Full MCP control out of the box** via `dcc-mcp-core`'s gateway — every
+  AuroraView window registers itself into the gateway and exposes a CDP bridge,
+  so agents can click, fill, screenshot, and call Python APIs over standard MCP
+  without the user writing any Python glue
 
 ## When to use this skill
 
@@ -54,11 +56,15 @@ integration).
 # pyproject.toml — remove
 # "PySide6-WebEngine"
 # "PyQtWebEngine"
+# "auroraview-mcp"              # the standalone Python MCP pkg was retired; see #364
 
 # pyproject.toml — add
-"auroraview>=0.4.19"          # core
-"auroraview[qt]>=0.4.19"      # if embedding inside a Qt host
-"auroraview-mcp>=0.4.19"      # OPTIONAL: enable MCP control
+"auroraview>=0.4.19"            # core
+"auroraview[qt]>=0.4.19"        # if embedding inside a Qt host
+# MCP control now comes from dcc-mcp-core's gateway + auroraview-cli; no extra
+# Python dep is needed on the project itself. Install the tooling separately:
+#   pip install dcc-mcp-core    # gateway + skill runtime (PyPI)
+#   auroraview-cli skills install --target cursor    # wire agent tools
 ```
 
 ### Step 2 — Replace `QWebEngineView`
@@ -175,28 +181,32 @@ hwnd = webview.get_hwnd()  # needed by the host engine
 
 ### Step 6 — Enable MCP control (the "for free" part)
 
-Once the app is on AuroraView, agents can drive it over MCP with **zero extra
-code**. Ensure AuroraView is started with debug enabled (default `True`) so the
-CDP port is exposed, then run the MCP server side-by-side:
+Once the app is on AuroraView, agents drive it over MCP with **zero extra
+code on the project side**. AuroraView windows register themselves into the
+shared `dcc-mcp-core` gateway and expose their CDP endpoint automatically;
+agents discover them and call tools through the gateway.
 
 ```bash
-# Start the project as usual, then in another shell:
-uvx auroraview-mcp --stdio           # for local agent clients (Claude Desktop)
-# or
-uvx auroraview-mcp --port 7331       # HTTP/SSE
+# One-time setup on the developer machine:
+pip install dcc-mcp-core                         # gateway + MCP runtime
+auroraview-cli skills install --target cursor    # or --target claude / all
+
+# Then simply run the migrated app:
+python my_tool.py     # AuroraView registers itself with the gateway on start
 ```
 
-Available MCP tools (see `packages/auroraview-mcp/src/auroraview_mcp/tools/`):
+Agents see tools exposed through `dcc-mcp-core`'s progressive discovery —
+`tools/list` stays small because the gateway hides detail-level tools behind
+`load_skill`. For AuroraView the shipped skills are:
 
-| Category   | Tools                                                                  |
-|------------|------------------------------------------------------------------------|
-| Discovery  | `discover_instances`, `connect`, `list_dcc_instances`, `disconnect`    |
-| Page       | `list_pages`, `select_page`, `get_page_info`, `reload_page`            |
-| UI         | `take_screenshot`, `get_snapshot`, `click`, `fill`, `hover`, `evaluate`|
-| Debug      | `get_console_logs`, `get_network_requests`, `get_memory_info`          |
-| Python API | `call_api`, `list_api_methods`                                         |
-| DCC        | `get_dcc_context`, `execute_dcc_command`, `sync_selection`, …          |
-| Telemetry  | `get_telemetry`, `get_performance_summary`                             |
+| Skill                     | Tools (visible by default / after load_skill)                             |
+|---------------------------|---------------------------------------------------------------------------|
+| `auroraview-diagnostics`  | `list_windows`, `cdp_health`, `dump_console` (implicit-invocation on)     |
+| `auroraview-devtools`     | `evaluate_js`, `reload`, `capture_screenshot` (explicit `load_skill`)     |
+
+See [Epic #364](https://github.com/loonghao/auroraview/issues/364) for the
+rollout status — the Rust adapter crate (`crates/auroraview-mcp`) and the
+skills listed above are tracked under issues #365–#368.
 
 To expose custom Python methods to agents, decorate them and bind via
 `auroraview.api`:
@@ -224,10 +234,12 @@ Use this checklist when applying the skill to a repo. Tick every item.
 - [ ] `from auroraview import create_webview` replaces WebEngine imports
 - [ ] `@webview.on(...)` / `webview.emit(...)` replaces `QWebChannel` slots
 - [ ] JS side uses `@auroraview/sdk` instead of `qwebchannel.js`
-- [ ] Added `auroraview-mcp` to dev/optional deps
-- [ ] Verified with `uvx auroraview-mcp --stdio` + `discover_instances`
+- [ ] Installed `dcc-mcp-core` + ran `auroraview-cli skills install`
+- [ ] Verified with the agent: calling `list_windows` from
+      `auroraview-diagnostics` returns at least the migrated app's window
 - [ ] All DCC entry points use `create_webview(parent=...)` (never `QWebEngineView`)
-- [ ] Sample/smoke test: `mcp.take_screenshot()` returns a PNG
+- [ ] Sample/smoke test: agent `load_skill("auroraview-devtools")` then
+      `capture_screenshot` returns a PNG
 - [ ] README migration note added
 
 ## References (read these on demand)
@@ -238,7 +250,11 @@ Use this checklist when applying the skill to a repo. Tick every item.
 - `examples/qt_browser.py` — canonical BEFORE example (pure Qt WebEngine)
 - `examples/maya_qt_echo_demo.py` — canonical AFTER example (Qt host + AuroraView + API bridge)
 - `packages/auroraview-sdk/` — JS-side bridge (`@auroraview/sdk`)
-- `packages/auroraview-mcp/src/auroraview_mcp/tools/` — every MCP tool that an agent can invoke against the migrated app
+- `crates/auroraview-mcp/` — Rust adapter crate that plugs AuroraView into
+  `dcc-mcp-core`'s gateway (tracks Epic #364; part of the new MCP story)
+- [`dcc-mcp-core` upstream](https://github.com/loonghao/dcc-mcp-core) — gateway,
+  skill runtime, and progressive tool discovery; MCP tools ship as `SKILL.md`
+  packages delivered via `auroraview-cli skills install`
 
 ## Troubleshooting
 

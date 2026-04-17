@@ -29,8 +29,7 @@ AuroraView
 │   ├── @auroraview/sdk (TypeScript)
 │   └── auroraview-gallery → SDK
 ├── Python 包
-│   ├── auroraview (Python 绑定)
-│   └── auroraview-mcp (MCP 服务器)
+│   └── auroraview (Python 绑定)
 └── 文档
     └── docs (VitePress)
 ```
@@ -111,7 +110,6 @@ CI 使用路径过滤器来确定运行哪些工作流：
 | `rust` | `src/**`, `crates/**`, `Cargo.*` | Rust 构建, wheel 构建 |
 | `python` | `python/**`, `tests/python/**` | Python 测试 |
 | `sdk` | `packages/auroraview-sdk/**` | SDK 构建 |
-| `mcp` | `packages/auroraview-mcp/**` | MCP 构建 |
 | `gallery` | `gallery/**` | Gallery E2E |
 | `docs` | `docs/**`, `*.md` | 文档构建 |
 | `ci` | `.github/**`, `justfile` | 所有检查 |
