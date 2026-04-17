@@ -231,7 +231,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download MCP package
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
 
         with:
           name: ${{ inputs.artifact-prefix }}mcp-package
