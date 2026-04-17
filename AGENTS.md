@@ -89,7 +89,35 @@ Agent 在开发过程中应遵循如下 E2E 自我迭代循环：
 - 事件系统 (`auroraview.on/emit`) 工作正常
 - 视觉回归检查通过 (`proofshot diff`)
 
-## 6. 提交与 PR 约定
+## 6. Skills 分发（AuroraView 自有技能）
+
+AuroraView 的官方技能（如 `qt-to-auroraview-migration`）内嵌在 `auroraview-cli` 二进制里，单一源为
+`crates/auroraview-cli/skills/<skill-name>/SKILL.md`。Agent 不要从仓库里直接复制 `.cursor/skills/`、
+`.claude/skills/` 等位置的副本 —— 那些是各工具自举生成的本地镜像，不是真相之源。
+
+```bash
+# 列出当前二进制内置的技能
+auroraview-cli skills list
+
+# 安装到某个 agent 工具的约定目录（项目内）
+auroraview-cli skills install --target claude
+auroraview-cli skills install --target cursor
+auroraview-cli skills install --target all          # 覆盖所有已知工具
+
+# 安装到任意路径
+auroraview-cli skills install --path ./some/dir
+
+# 安装到用户全局（~/.claude/skills/ 等）
+auroraview-cli skills install --target cursor --global
+
+# 打印某工具的解析路径而不实际写入
+auroraview-cli skills path --target cursor
+```
+
+新增技能只需往 `crates/auroraview-cli/skills/` 丢一个 `<name>/SKILL.md`，`include_dir!` 在构建时自动打包，
+不需要改任何 Rust 代码。镜像目录（`.claude/skills/` 等）已加入 `.gitignore`，避免各工具的 bootstrap 重新污染仓库。
+
+## 7. 提交与 PR 约定
 
 - 提交前确保关键检查通过（lint/test/build）。
 - PR 描述需包含：改动目标、影响范围、验证方式、风险点。

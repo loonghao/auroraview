@@ -131,3 +131,19 @@ e2e-report.json
 
 # Self-improvement learnings (local per-developer)
 .learnings/
+
+# Agent-tool-local skill mirrors — the canonical source is
+# crates/auroraview-cli/skills/, redistributed via `auroraview-cli skills install`.
+# Each agent tool tends to bootstrap its own mirror; don't track them.
+.claude/skills/
+.cursor/skills/
+.codex/skills/
+.windsurf/skills/
+.cline/skills/
+.roo/skills/
+.opencode/skills/
+.augment/skills/
+.kiro/skills/
+.trae/skills/
+.codebuddy/skills/
+.agents/skills/
