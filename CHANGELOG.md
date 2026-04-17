@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.19...auroraview-v0.5.0) (2026-04-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove packages/auroraview-mcp Python package (#365, part of #364)
+
+### Features
+
+* **mcp:** add crates/auroraview-mcp adapter skeleton over CDP (Phase 2 of [#364](https://github.com/loonghao/auroraview/issues/364)) ([113839d](https://github.com/loonghao/auroraview/commit/113839d02c34026dcf72a1f3d4c72768a0470502))
+* remove packages/auroraview-mcp Python package ([#365](https://github.com/loonghao/auroraview/issues/365), part of [#364](https://github.com/loonghao/auroraview/issues/364)) ([6cf179a](https://github.com/loonghao/auroraview/commit/6cf179acfee746038ad621a81a32a24dd81dfbd9))
+
 ## [0.4.19](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.18...auroraview-v0.4.19) (2026-04-09)
 
 
