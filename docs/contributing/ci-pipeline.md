@@ -29,8 +29,7 @@ AuroraView
 │   ├── @auroraview/sdk (TypeScript)
 │   └── auroraview-gallery → SDK
 ├── Python Packages
-│   ├── auroraview (Python bindings)
-│   └── auroraview-mcp (MCP server)
+│   └── auroraview (Python bindings)
 └── Documentation
     └── docs (VitePress)
 ```
@@ -111,7 +110,6 @@ The CI uses path filters to determine which workflows to run:
 | `rust` | `src/**`, `crates/**`, `Cargo.*` | Rust builds, wheel builds |
 | `python` | `python/**`, `tests/python/**` | Python tests |
 | `sdk` | `packages/auroraview-sdk/**` | SDK build |
-| `mcp` | `packages/auroraview-mcp/**` | MCP build |
 | `gallery` | `gallery/**` | Gallery E2E |
 | `docs` | `docs/**`, `*.md` | Docs build |
 | `ci` | `.github/**`, `justfile` | All checks |

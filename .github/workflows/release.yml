@@ -299,20 +299,9 @@ jobs:
       artifact-prefix: 'release-'
     secrets: inherit
 
-  # Build MCP Server for PyPI publishing (uses reusable workflow)
-  build-mcp:
-    name: MCP CI
-    needs: [release-please, check-tag]
-    # Re-enabled (#354): only runs on release-please PRs or tag pushes.
-    # Publish is gated separately by `mcp-pypi-publish` -> `check-tag.outputs.is_tag`.
-    if: |
-      needs.release-please.outputs.releases_created == 'true' ||
-      needs.check-tag.outputs.is_tag == 'true'
-    uses: ./.github/workflows/mcp-ci.yml
-    with:
-      artifact-prefix: 'release-'
-    secrets: inherit
-
+  # (Removed) `build-mcp` / MCP CI reusable workflow.
+  # The Python `auroraview-mcp` package was retired in favour of the Rust
+  # `crates/auroraview-mcp` adapter + `dcc-mcp-core`'s gateway — see #364.
 
   # Publish SDK to npm
   npm-publish:
@@ -500,71 +489,8 @@ jobs:
             echo "- If token publishing is still required, use an Automation token instead of a token that triggers OTP" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # Publish MCP Server to PyPI
-  mcp-pypi-publish:
-    name: Publish MCP to PyPI
-    runs-on: ubuntu-latest
-    needs: [release-please, check-tag, build-mcp]
-    # Re-enabled (#354). Only publish on an actual tag push AND after
-    # `build-mcp` succeeded — we don't want to publish if CI failed.
-    if: |
-      needs.check-tag.outputs.is_tag == 'true' &&
-      needs.build-mcp.result == 'success'
-    environment:
-      name: pypi
-      url: https://pypi.org/p/auroraview-mcp
-
-    permissions:
-      id-token: write
-      contents: read
-      attestations: write
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install vx
-        uses: loonghao/vx@vx-v0.8.15
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Sync version and build package
-        run: |
-          TAG_NAME="${{ needs.release-please.outputs.tag_name || needs.check-tag.outputs.tag_name }}"
-          # Extract version from tag (auroraview-v0.3.8 -> 0.3.8)
-          VERSION=$(echo "$TAG_NAME" | sed 's/auroraview-v//')
-          echo "Building MCP package with version: $VERSION"
-
-          cd packages/auroraview-mcp
-
-          # Update version in pyproject.toml
-          sed -i 's/^version = ".*"/version = "'"$VERSION"'"/' pyproject.toml
-          echo "Updated pyproject.toml:"
-          grep version pyproject.toml
-
-          # Build package with correct version using just
-          cd ../..
-          vx just mcp-build
-
-          echo "Built packages:"
-          ls -la packages/auroraview-mcp/dist/
-
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: 'packages/auroraview-mcp/dist/*'
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: packages/auroraview-mcp/dist
-          verbose: true
-          print-hash: true
-          skip-existing: true
+  # (Removed) `mcp-pypi-publish` — the standalone `auroraview-mcp` PyPI package
+  # is superseded by the Rust adapter crate shipped inside this repo (see #364).
 
   # Publish to PyPI - waits for either reused or built wheels
   pypi-publish:

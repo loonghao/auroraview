@@ -57,7 +57,6 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       python: ${{ steps.filter.outputs.python }}
       sdk: ${{ steps.filter.outputs.sdk }}
-      mcp: ${{ steps.filter.outputs.mcp }}
       gallery: ${{ steps.filter.outputs.gallery }}
       docs: ${{ steps.filter.outputs.docs }}
       ci: ${{ steps.filter.outputs.ci }}
@@ -78,7 +77,6 @@ jobs:
       needs_rust_checks: ${{ steps.composite.outputs.needs_rust_checks }}
       needs_python_tests: ${{ steps.composite.outputs.needs_python_tests }}
       needs_sdk_build: ${{ steps.composite.outputs.needs_sdk_build }}
-      needs_mcp_build: ${{ steps.composite.outputs.needs_mcp_build }}
       needs_gallery_tests: ${{ steps.composite.outputs.needs_gallery_tests }}
       needs_docs_build: ${{ steps.composite.outputs.needs_docs_build }}
       # Rust crate dependency flags (includes transitive deps)
@@ -130,8 +128,6 @@ jobs:
               - 'noxfile.py'
             sdk:
               - 'packages/auroraview-sdk/**'
-            mcp:
-              - 'packages/auroraview-mcp/**'
             gallery:
               - 'gallery/**'
             docs:
@@ -202,7 +198,6 @@ jobs:
           rust="${{ steps.filter.outputs.rust }}"
           python="${{ steps.filter.outputs.python }}"
           sdk="${{ steps.filter.outputs.sdk }}"
-          mcp="${{ steps.filter.outputs.mcp }}"
           gallery="${{ steps.filter.outputs.gallery }}"
           docs="${{ steps.filter.outputs.docs }}"
           ci="${{ steps.filter.outputs.ci }}"
@@ -235,13 +230,6 @@ jobs:
             echo "needs_sdk_build=false" >> $GITHUB_OUTPUT
           fi
 
-          # needs_mcp_build: when MCP changes
-          if [[ "$mcp" == "true" || "$ci" == "true" ]]; then
-            echo "needs_mcp_build=true" >> $GITHUB_OUTPUT
-          else
-            echo "needs_mcp_build=false" >> $GITHUB_OUTPUT
-          fi
-
           # needs_gallery_tests: when Gallery or SDK changes (Gallery depends on SDK)
           if [[ "$gallery" == "true" || "$sdk" == "true" || "$ci" == "true" ]]; then
             echo "needs_gallery_tests=true" >> $GITHUB_OUTPUT
@@ -266,7 +254,6 @@ jobs:
           echo "| Rust | ${{ steps.filter.outputs.rust }} | Rust checks, CLI build |" >> $GITHUB_STEP_SUMMARY
           echo "| Python | ${{ steps.filter.outputs.python }} | Python tests |" >> $GITHUB_STEP_SUMMARY
           echo "| SDK | ${{ steps.filter.outputs.sdk }} | SDK build |" >> $GITHUB_STEP_SUMMARY
-          echo "| MCP | ${{ steps.filter.outputs.mcp }} | MCP build |" >> $GITHUB_STEP_SUMMARY
           echo "| Gallery | ${{ steps.filter.outputs.gallery }} | Gallery E2E |" >> $GITHUB_STEP_SUMMARY
           echo "| Docs | ${{ steps.filter.outputs.docs }} | Docs build |" >> $GITHUB_STEP_SUMMARY
           echo "| CI | ${{ steps.filter.outputs.ci }} | All checks |" >> $GITHUB_STEP_SUMMARY
@@ -285,7 +272,6 @@ jobs:
           echo "- needs_rust_checks: ${{ steps.composite.outputs.needs_rust_checks }}" >> $GITHUB_STEP_SUMMARY
           echo "- needs_python_tests: ${{ steps.composite.outputs.needs_python_tests }}" >> $GITHUB_STEP_SUMMARY
           echo "- needs_sdk_build: ${{ steps.composite.outputs.needs_sdk_build }}" >> $GITHUB_STEP_SUMMARY
-          echo "- needs_mcp_build: ${{ steps.composite.outputs.needs_mcp_build }}" >> $GITHUB_STEP_SUMMARY
           echo "- needs_gallery_tests: ${{ steps.composite.outputs.needs_gallery_tests }}" >> $GITHUB_STEP_SUMMARY
           echo "- needs_docs_build: ${{ steps.composite.outputs.needs_docs_build }}" >> $GITHUB_STEP_SUMMARY
 
@@ -436,20 +422,6 @@ jobs:
     with:
       artifact-prefix: 'pr-'
     secrets: inherit
-
-  # =============================================================================
-  # MCP Build - MCP Server package (parallel, no dependencies)
-  # =============================================================================
-  mcp-build:
-    name: MCP CI
-    needs: [path-filter]
-    if: needs.path-filter.outputs.needs_mcp_build == 'true'
-    uses: ./.github/workflows/mcp-ci.yml
-    with:
-      artifact-prefix: 'pr-'
-    secrets: inherit
-
-
 
   # =============================================================================
   # Pre-build Wheels - Build ABI3 wheels for all platforms
@@ -1405,7 +1377,7 @@ jobs:
   pr-ready:
     name: PR Ready
     runs-on: ubuntu-latest
-    needs: [path-filter, pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build, gallery-frontend, gallery-e2e, gallery-pack, sdk-build, mcp-build, benchmark, docs-build]
+    needs: [path-filter, pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build, gallery-frontend, gallery-e2e, gallery-pack, sdk-build, benchmark, docs-build]
     if: always()
     steps:
       - name: Check results
@@ -1418,7 +1390,6 @@ jobs:
           echo "- Rust: ${{ needs.path-filter.outputs.rust }}" >> $GITHUB_STEP_SUMMARY
           echo "- Python: ${{ needs.path-filter.outputs.python }}" >> $GITHUB_STEP_SUMMARY
           echo "- SDK: ${{ needs.path-filter.outputs.sdk }}" >> $GITHUB_STEP_SUMMARY
-          echo "- MCP: ${{ needs.path-filter.outputs.mcp }}" >> $GITHUB_STEP_SUMMARY
           echo "- Gallery: ${{ needs.path-filter.outputs.gallery }}" >> $GITHUB_STEP_SUMMARY
           echo "- Docs: ${{ needs.path-filter.outputs.docs }}" >> $GITHUB_STEP_SUMMARY
           echo "- CI: ${{ needs.path-filter.outputs.ci }}" >> $GITHUB_STEP_SUMMARY
@@ -1456,7 +1427,6 @@ jobs:
           gallery-e2e|${{ needs.gallery-e2e.result }}
           gallery-pack|${{ needs.gallery-pack.result }}
           sdk-build|${{ needs.sdk-build.result }}
-          mcp-build|${{ needs.mcp-build.result }}
           benchmark|${{ needs.benchmark.result }}
           docs-build|${{ needs.docs-build.result }}
           EOF
