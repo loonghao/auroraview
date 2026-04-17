@@ -375,7 +375,7 @@ mod vibrancy_api_tests {
         assert!(result
             .error
             .as_deref()
-            .map_or(false, |e| e.contains("Windows")));
+            .is_some_and(|e| e.contains("Windows")));
     }
 
     #[cfg(not(target_os = "windows"))]

@@ -35,8 +35,8 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 use auroraview_cli::cli::{
-    run_icon, run_info, run_inspect, run_pack, run_self_update, run_webview, IconArgs, InspectArgs,
-    PackArgs, RunArgs, SelfUpdateArgs,
+    run_icon, run_info, run_inspect, run_pack, run_self_update, run_skills, run_webview, IconArgs,
+    InspectArgs, PackArgs, RunArgs, SelfUpdateArgs, SkillsArgs,
 };
 use auroraview_cli::packed;
 
@@ -116,6 +116,9 @@ enum Commands {
     /// Self-update to the latest version
     #[command(name = "self-update")]
     SelfUpdate(SelfUpdateArgs),
+
+    /// Manage AuroraView skills bundled with the CLI (list, install into agent tools)
+    Skills(SkillsArgs),
 }
 
 fn main() -> Result<()> {
@@ -137,6 +140,7 @@ fn main() -> Result<()> {
         Some(Commands::Info) => run_info(),
         Some(Commands::Inspect(args)) => run_inspect(args),
         Some(Commands::SelfUpdate(args)) => run_self_update(args),
+        Some(Commands::Skills(args)) => run_skills(args),
         None => {
             // Legacy mode: use top-level args
             let args = RunArgs {
