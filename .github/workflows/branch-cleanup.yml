@@ -1,0 +1,187 @@
+name: Branch Cleanup
+
+# Keeps `origin` tidy without manual pruning:
+#
+#   1. `pull_request.closed` path: delete the head branch the moment a PR
+#      lands on main (covers both merged and closed-without-merge). This
+#      is the common case and runs in seconds.
+#
+#   2. Scheduled sweep (weekly): find remote branches whose PRs were
+#      closed more than 30 days ago and delete them. Catches branches
+#      that were squash-merged before this workflow existed, plus any
+#      branch whose delete-on-close was skipped (e.g. fork PRs).
+#
+# Protected namespaces are NEVER touched:
+#   - main
+#   - release-please/*
+#   - dependabot/*         (let Dependabot manage these itself)
+#   - automation/*, auto-improve, squash/auto-improve
+#   - any branch still referenced by an OPEN PR
+
+on:
+  pull_request:
+    types: [closed]
+  schedule:
+    - cron: "0 4 * * 1"  # every Monday 04:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report what would be deleted, don't actually delete"
+        required: false
+        default: "true"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: branch-cleanup-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  delete-merged-pr-branch:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete head branch for closed PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const branch = pr.head.ref;
+            const protectedPatterns = [
+              /^main$/,
+              /^release-please\//,
+              /^dependabot\//,
+              /^automation\//,
+              /^auto-improve$/,
+              /^squash\/auto-improve$/,
+            ];
+            if (protectedPatterns.some((re) => re.test(branch))) {
+              core.info(`Skipping protected branch: ${branch}`);
+              return;
+            }
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${branch}`,
+              });
+              core.info(`Deleted branch ${branch} (PR #${pr.number} was ${pr.merged ? 'merged' : 'closed'})`);
+            } catch (err) {
+              if (err.status === 422 || err.status === 404) {
+                core.info(`Branch ${branch} already gone (${err.status})`);
+              } else {
+                throw err;
+              }
+            }
+
+  weekly-sweep:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sweep stale branches whose PRs closed >30 days ago
+        uses: actions/github-script@v8
+        env:
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        with:
+          script: |
+            const dryRun = process.env.DRY_RUN === 'true';
+            const now = Date.now();
+            const threshold = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+            const protectedPatterns = [
+              /^main$/,
+              /^release-please\//,
+              /^dependabot\//,
+              /^automation\//,
+              /^auto-improve$/,
+              /^squash\/auto-improve$/,
+            ];
+
+            // All remote branches
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            core.info(`Found ${branches.length} remote branches`);
+
+            // Build set of branches that are still tied to an OPEN PR
+            const openPRs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const openHeadRefs = new Set(openPRs.map((p) => p.head.ref));
+
+            let deleted = 0;
+            let skipped = 0;
+            let stale = 0;
+
+            for (const b of branches) {
+              const name = b.name;
+
+              if (protectedPatterns.some((re) => re.test(name))) {
+                skipped++;
+                continue;
+              }
+              if (openHeadRefs.has(name)) {
+                skipped++;
+                continue;
+              }
+
+              // Find the most-recent PR (any state) that used this branch as head
+              const prs = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: `${context.repo.owner}:${name}`,
+                state: 'closed',
+                per_page: 5,
+                sort: 'updated',
+                direction: 'desc',
+              });
+
+              // No closed PR ever referenced this branch — leave it alone
+              // (could be a feature branch in active development with no PR yet)
+              if (prs.data.length === 0) {
+                skipped++;
+                continue;
+              }
+
+              const mostRecent = prs.data[0];
+              const closedAt = mostRecent.closed_at ? new Date(mostRecent.closed_at).getTime() : null;
+              if (closedAt === null || now - closedAt < threshold) {
+                skipped++;
+                continue;
+              }
+
+              stale++;
+              if (dryRun) {
+                core.info(`[dry-run] would delete ${name} (PR #${mostRecent.number} closed ${mostRecent.closed_at})`);
+                continue;
+              }
+
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${name}`,
+                });
+                deleted++;
+                core.info(`Deleted ${name} (PR #${mostRecent.number} closed ${mostRecent.closed_at})`);
+              } catch (err) {
+                core.warning(`Failed to delete ${name}: ${err.message}`);
+              }
+            }
+
+            await core.summary
+              .addHeading('Branch cleanup report')
+              .addList([
+                `Total branches: ${branches.length}`,
+                `Skipped (protected / open PR / no closed PR / fresh): ${skipped}`,
+                `Stale (PR closed >30d ago): ${stale}`,
+                dryRun ? `Deleted: 0 (dry-run)` : `Deleted: ${deleted}`,
+              ])
+              .write();
