@@ -174,7 +174,10 @@ pub fn run_skills(args: SkillsArgs) -> Result<()> {
 fn list_skills() -> Result<()> {
     let skills = BUNDLED_SKILLS
         .dirs()
-        .filter(|d| d.get_file(format!("{}/SKILL.md", d.path().display())).is_some())
+        .filter(|d| {
+            d.get_file(format!("{}/SKILL.md", d.path().display()))
+                .is_some()
+        })
         .collect::<Vec<_>>();
 
     if skills.is_empty() {
@@ -328,8 +331,7 @@ fn write_if_needed(target: &Path, contents: &[u8], force: bool) -> Result<usize>
             target.display()
         ));
     }
-    fs::write(target, contents)
-        .with_context(|| format!("failed to write {}", target.display()))?;
+    fs::write(target, contents).with_context(|| format!("failed to write {}", target.display()))?;
     Ok(1)
 }
 
@@ -340,7 +342,10 @@ mod tests {
 
     #[test]
     fn bundled_skills_are_non_empty() {
-        assert!(BUNDLED_SKILLS.dirs().next().is_some(), "expected at least one skill dir");
+        assert!(
+            BUNDLED_SKILLS.dirs().next().is_some(),
+            "expected at least one skill dir"
+        );
     }
 
     #[test]
@@ -360,7 +365,10 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         copy_skills_into(tmp.path(), false).unwrap();
         let second = copy_skills_into(tmp.path(), false).unwrap();
-        assert_eq!(second, 0, "re-running install should write zero files when contents match");
+        assert_eq!(
+            second, 0,
+            "re-running install should write zero files when contents match"
+        );
     }
 
     #[test]

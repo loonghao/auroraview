@@ -443,7 +443,7 @@ impl Obfuscator {
         // Second pass: replace identifiers
         // Sort by length (longest first) to avoid partial replacements
         let mut sorted_names: Vec<_> = self.name_obfuscator.get_mapping().iter().collect();
-        sorted_names.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+        sorted_names.sort_by_key(|b| std::cmp::Reverse(b.0.len()));
 
         for (original, obfuscated) in sorted_names {
             let pattern = format!(r"\b{}\b", regex::escape(original));
