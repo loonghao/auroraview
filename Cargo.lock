@@ -430,7 +430,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "askama",
@@ -498,7 +498,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-ai-agent"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "auroraview-workspace-hack",
@@ -518,7 +518,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-assets"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "mime_guess",
@@ -530,7 +530,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-bookmarks"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -545,7 +545,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-browser"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-bookmarks",
  "auroraview-core",
@@ -577,7 +577,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "auroraview-assets",
@@ -622,7 +622,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -659,7 +659,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-dcc"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-core",
  "auroraview-workspace-hack",
@@ -676,7 +676,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-desktop"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-core",
  "auroraview-plugins",
@@ -698,7 +698,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-devtools"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "rstest 0.18.2",
@@ -709,7 +709,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-downloads"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -724,7 +724,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -750,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-history"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -765,7 +765,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-mcp"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "base64",
@@ -782,7 +782,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-notifications"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -796,7 +796,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-extensions",
  "auroraview-protect",
@@ -832,7 +832,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "dunce",
@@ -847,7 +847,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-plugin-core",
  "auroraview-workspace-hack",
@@ -861,7 +861,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -885,7 +885,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-protect"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -909,7 +909,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-settings"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "parking_lot",
@@ -922,7 +922,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-signals"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "crossbeam-channel",
@@ -940,7 +940,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-tabs"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "dashmap",
@@ -955,7 +955,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-telemetry"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "auroraview-workspace-hack",
  "opentelemetry",
@@ -977,7 +977,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-testing"
-version = "0.4.19"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6882,9 +6882,9 @@ checksum = "f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.10"
+version = "0.103.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df33b2b81ac578cabaf06b89b0631153a3f416b0a886e8a7a1707fb51abbd1ef"
+checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
 dependencies = [
  "aws-lc-rs",
  "ring",
