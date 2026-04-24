@@ -1,0 +1,295 @@
+name: DCC Integration Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'python/**'
+      - 'tests/**'
+      - 'examples/**'
+      - '.github/workflows/dcc-integration.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'python/**'
+      - 'tests/**'
+      - 'examples/**'
+  workflow_dispatch:
+    inputs:
+      dcc:
+        description: 'DCC to test (blender/openscad/godot/all)'
+        required: false
+        default: 'all'
+        type: string
+  workflow_call:
+
+concurrency:
+  group: dcc-integration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-wheel:
+    name: Build Wheel (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup AuroraView Environment
+        uses: ./.github/actions/setup-auroraview
+        with:
+          python-version: '3.11'
+          cache-key-suffix: 'dcc-build'
+
+      - name: Build wheel
+        uses: ./.github/actions/build-wheel
+        with:
+          target: x86_64
+          python-version: '3.11'
+          maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
+          test-wheel: 'false'
+          upload-wheel: 'true'
+          artifact-name: 'dcc-test-wheel'
+
+  test-blender:
+    name: Blender ${{ matrix.blender-version }}
+    runs-on: ${{ contains(matrix.blender-version, '2.83') && 'ubuntu-22.04' || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    needs: build-wheel
+    if: |
+      inputs.dcc == 'all' || inputs.dcc == 'blender' || 
+      (inputs.dcc == '' && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'))
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - blender-version: '3.6.21'
+            python-version: '3.10'
+            runs-on: 'ubuntu-latest'
+            blender-url: 'https://download.blender.org/release/Blender3.6/blender-3.6.21-linux-x64.tar.xz'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download pre-built wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: dcc-test-wheel
+          path: dist/
+
+      - name: Install wheel
+        run: |
+          python -m pip install --upgrade pip
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
+
+      - name: Download Blender
+        run: |
+          echo "Downloading Blender ${{ matrix.blender-version }}..."
+          wget -q "${{ matrix.blender-url }}" -O blender.tar.xz
+          tar -xf blender.tar.xz
+          BLENDER_DIR=$(ls -d blender-* | head -1)
+          echo "BLENDER_DIR=$BLENDER_DIR" >> $GITHUB_ENV
+          echo "Blender extracted to: $BLENDER_DIR"
+
+      - name: Verify Blender
+        run: |
+          ${{ env.BLENDER_DIR }}/blender --background --python-expr "import bpy; import sys; print('Blender version:', bpy.app.version_string); print('Python version:', sys.version)"
+
+      - name: Install test dependencies
+        run: |
+          pip install pytest pytest-timeout
+
+      - name: Run Blender integration tests
+        run: |
+          ${{ env.BLENDER_DIR }}/blender --background --python-expr "
+          import subprocess, sys, os
+
+          # Ensure pytest is installed in Blender's bundled Python
+          subprocess.run([sys.executable, '-m', 'ensurepip', '--upgrade'], check=False)
+          subprocess.run([sys.executable, '-m', 'pip', 'install', '--quiet', 'pytest', 'pytest-timeout'], check=False)
+
+          # Run tests
+          result = subprocess.run(
+              [sys.executable, '-m', 'pytest',
+               'tests/python/integration/test_blender_integration.py',
+               '-v', '--tb=short', '--timeout=60'],
+              env=dict(os.environ),
+              cwd=os.getcwd()
+          )
+          sys.exit(result.returncode)
+          "
+
+  test-openscad:
+    name: OpenSCAD
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build-wheel
+    if: |
+      inputs.dcc == 'all' || inputs.dcc == 'openscad' || 
+      (inputs.dcc == '' && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'))
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad xvfb
+
+      - name: Download pre-built wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: dcc-test-wheel
+          path: dist/
+
+      - name: Install wheel and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
+          pip install pytest pytest-timeout
+
+      - name: Run OpenSCAD integration tests
+        run: |
+          xvfb-run --auto-servernum pytest tests/python/integration/test_openscad_integration.py -v --tb=short --timeout=60
+
+  test-godot:
+    name: Godot ${{ matrix.godot-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build-wheel
+    if: |
+      inputs.dcc == 'all' || inputs.dcc == 'godot' || 
+      (inputs.dcc == '' && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'))
+    strategy:
+      fail-fast: false
+      matrix:
+        godot-version: ['4.4.1']
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Download Godot
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${{ matrix.godot-version }}-stable/Godot_v${{ matrix.godot-version }}-stable_linux.x86_64.zip" -O godot.zip
+          unzip -q godot.zip
+          GODOT_BIN=$(ls Godot_v* | head -1)
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> $GITHUB_ENV
+          echo "Godot binary: $GODOT_BIN"
+
+      - name: Download pre-built wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: dcc-test-wheel
+          path: dist/
+
+      - name: Install wheel and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
+          pip install pytest pytest-timeout
+
+      - name: Run Godot integration tests
+        run: |
+          # Godot tests are Python tests that test Godot integration
+          # They don't run Godot directly, but test the integration points
+          pytest tests/python/integration/test_godot_integration.py -v --tb=short --timeout=60
+
+  test-cross-dcc:
+    name: Cross-DCC Pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build-wheel
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Download pre-built wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: dcc-test-wheel
+          path: dist/
+
+      - name: Install wheel and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          wheel_file=$(ls -t dist/*.whl | head -1)
+          echo "Installing wheel: $wheel_file"
+          pip install "$wheel_file"
+          pip install pytest pytest-timeout
+
+      - name: Run cross-DCC pipeline tests
+        run: |
+          pytest tests/python/integration/test_cross_dcc.py -v --tb=short --timeout=60
+
+  dcc-test-results:
+    name: DCC Test Results
+    runs-on: ubuntu-latest
+    needs: [test-blender, test-openscad, test-godot, test-cross-dcc]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "## DCC Integration Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          declare -A jobs=(
+            ["Blender"]="${{ needs.test-blender.result }}"
+            ["OpenSCAD"]="${{ needs.test-openscad.result }}"
+            ["Godot"]="${{ needs.test-godot.result }}"
+            ["Cross-DCC"]="${{ needs.test-cross-dcc.result }}"
+          )
+
+          failed=0
+          for job in "${!jobs[@]}"; do
+            result="${jobs[$job]}"
+            if [[ "$result" == "success" ]]; then
+              echo "- ✅ $job" >> $GITHUB_STEP_SUMMARY
+            elif [[ "$result" == "skipped" ]]; then
+              echo "- ⏭️ $job (skipped)" >> $GITHUB_STEP_SUMMARY
+            elif [[ "$result" == "cancelled" ]]; then
+              echo "- ⚠️ $job (cancelled)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ❌ $job ($result)" >> $GITHUB_STEP_SUMMARY
+              failed=1
+            fi
+          done
+
+          if [[ $failed -eq 1 ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Some DCC integration tests failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All DCC integration tests passed!**" >> $GITHUB_STEP_SUMMARY
