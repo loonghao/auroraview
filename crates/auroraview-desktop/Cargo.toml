@@ -17,7 +17,7 @@ wry = "0.54.4"
 tao = "0.34.6"
 
 # System tray
-tray-icon = "0.21"
+tray-icon = "0.22"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
