@@ -285,8 +285,13 @@ class WebViewEventMixin:
         conn_id = self.signals.custom.connect(event_str, callback)
         logger.debug(f"Registered callback for event: {event_str} (conn_id: {conn_id})")
 
-        # Register with core
-        self._core.on(event_str, callback)
+        # Register with core (if available - packed mode may not have core)
+        if self._core is not None:
+            self._core.on(event_str, callback)
+        else:
+            logger.debug(
+                f"Skipped core registration for event {event_str} (packed mode or core not available)"
+            )
 
         return conn_id
 
