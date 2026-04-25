@@ -15,7 +15,7 @@ AuroraView is built with a modular, backend-agnostic architecture that supports 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Python API Layer                        │
-│  (WebView, QtWebView)                                      │
+│  (create_webview, WebView, QtWebView, AuroraView)          │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -33,15 +33,16 @@ AuroraView is built with a modular, backend-agnostic architecture that supports 
                 ┌───────────┴───────────┐
                 ▼                       ▼
 ┌───────────────────────┐   ┌───────────────────────┐
-│   Native Backend      │   │    Qt Backend         │
-│  (Platform-specific)  │   │  (Qt integration)     │
+│   Native Backend      │   │    Qt Host Layer      │
+│  (Standalone / HWND)  │   │  (Qt widget container)│
 └───────────────────────┘   └───────────────────────┘
                 │                       │
-                ▼                       ▼
-┌───────────────────────┐   ┌───────────────────────┐
-│   Wry WebView         │   │  Qt WebEngine         │
-│  (WebView2/WebKit)    │   │  (QWebEngineView)     │
-└───────────────────────┘   └───────────────────────┘
+                └───────────┬───────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│              System WebView Engines                         │
+│   Windows: WebView2  │  macOS: WKWebView  │  Linux: WebKitGTK │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Components
@@ -141,9 +142,9 @@ The `NativeBackend` uses platform-specific APIs for window embedding:
 - `Child`: WS_CHILD style (same-thread parenting required)
 - `Owner`: GWLP_HWNDPARENT (safe for cross-thread usage)
 
-### Qt Backend
+### Qt Host Layer
 
-The `QtBackend` integrates with Qt's widget system for seamless DCC integration.
+The Qt integration layer embeds the system WebView as a child window inside a Qt QWidget container. Qt handles the event loop and window chrome, while the actual rendering is delegated to the platform's native WebView engine (WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux).
 
 ## Integration Modes
 

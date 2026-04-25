@@ -1,125 +1,72 @@
-# AGENTES
+# AuroraView — AI Agent 导航图
 
-面向本仓库 AI/自动化代理与贡献者的执行约定。
+> 渐进式披露入口。先读此图，再按任务类型跳转到对应深度文档。
 
-## 1. 命令与环境约束
+## 项目一句话
 
-- 所有工具命令统一通过 `vx` 执行，不直接调用裸命令。
-- 任务编排统一使用 `justfile`，入口为 `vx just <task>`。
-- 常用命令示例：
-  - `vx just build`
-  - `vx just test`
-  - `vx just lint`
-  - `vx python`
-  - `vx uv`
-  - `vx cargo`
-  - `vx git`
-  - `vx npm` / `vx npx`
+AuroraView 是一个面向 DCC（Maya/Houdini/Blender 等）的轻量 WebView 框架，Rust 核心 + PyO3 Python 绑定，Windows 优先使用 WebView2 嵌入 Qt 宿主。
 
-## 2. 开发与校验流程（建议）
+---
 
-在提交前，优先按以下顺序执行：
+## 按任务快速导航
 
-1. `vx just format`
-2. `vx just lint`
-3. `vx just test`
-4. `vx just build`
+| 你的任务 | 先去这里 | 说明 |
+|---|---|---|
+| **了解整体架构与约定** | `llms.txt` | AI 友好的核心用法索引（5 分钟速读） |
+| **写代码 / 改逻辑 / Review** | `.codebuddy/rules/` | 8 个按主题划分的执行约定，是 CI 与本地开发的真实约束 |
+| **查完整 API 与架构细节** | `llms-full.txt` | 完整用法索引，包含所有 API 签名与模块说明 |
+| **给人看的详细文档** | `docs/` | VitePress 站点，含 DCC 集成指南、API 文档、RFC |
+| **了解打包/发布/CI** | `.codebuddy/rules/08-architecture.mdc` | 项目结构、auroraview-pack 打包系统、CI 流程 |
+| **前端 JS ↔ Python 通信** | `.codebuddy/rules/05-frontend-api.mdc` + `.codebuddy/rules/07-event-system.mdc` | `window.auroraview` 协议与事件分发 |
+| **Python 层接口** | `.codebuddy/rules/06-python-api.mdc` | `AuroraView` 基类、`bind_call`、`emit` |
+| **测试策略** | `.codebuddy/rules/03-testing.mdc` | rstest / pytest、CI 矩阵、性能基线 |
 
-要求本地与 CI 使用同一套 `just` 入口，避免“本地通过、CI 失败”的流程分叉。
+---
 
-## 3. 兼容性与实现约束
+## 30 秒项目速览
 
-- Python 代码需兼容 **Python 3.7+**（DCC 环境优先）。
-- 优先使用成熟依赖与业内标准方案，避免重复造轮子。
-- Rust 测试尽量放在各 crate 的 `tests/` 目录，优先采用 `rstest`。
+- **命令入口**：所有工具命令通过 `vx` 执行，任务编排通过 `vx just <task>`。
+- **兼容底线**：Python 3.7+，不引入第三方 Python 依赖（仅一个 `.pyd`）。
+- **测试入口**：`vx just test`（统一本地与 CI）。
+- **构建入口**：`vx just build`。
+- **技术栈**：Rust（windows-rs / webview2-com / PyO3）+ Python ABI3 wheel + TypeScript SDK。
+- **事件循环**：Qt 宿主负责事件循环，Rust 不接管消息泵。
 
-## 4. WebView / DCC 项目约定（摘要）
+---
 
-- Windows 优先 WebView2 后端（Rust + `webview2-com`）。
-- DCC 嵌入场景由 Qt 宿主负责事件循环，Rust 不接管 Qt 消息泵。
-- 前端统一使用 `window.auroraview` 命名空间与桥接协议。
+## 目录结构地图
 
-## 5. E2E 测试与可视化验证
-
-本项目使用 **ProofShot** + **agent-browser** 进行 E2E 测试和自我迭代。
-
-### 工具链
-
-| 工具 | 职责 | 安装 |
-|------|------|------|
-| [ProofShot](https://github.com/AmElmo/proofshot) | 会话录制、截图、错误收集、PR 证据上传 | `npm install -g proofshot` |
-| [agent-browser](https://github.com/vercel-labs/agent-browser) | 无头浏览器控制（CDP） | 随 ProofShot 一同安装 |
-
-### 常用命令
-
-```bash
-# 安装工具链
-vx just e2e-install
-
-# 快速 E2E 验证（打包 Gallery + CDP 测试 + 截图证据）
-vx just e2e-proofshot
-
-# 自我迭代循环（检测 → 分析 → 修复 → 重新验证）
-vx just e2e-iterate
-
-# 上传验证证据到 PR
-vx just e2e-pr
-
-# 手动探索（交互式快照）
-vx just e2e-snapshot
+```
+├── crates/                 Rust crates
+│   ├── auroraview-core/    核心协议与 WebView 后端抽象
+│   ├── auroraview-cli/     CLI 工具与 Skills 分发
+│   └── ...
+├── python/auroraview/      Python 包（AuroraView 基类、DCC 宿主层）
+├── packages/               TS/JS 包（前端 SDK）
+│   └── auroraview-sdk/
+├── gallery/                Gallery 演示应用（E2E 验证基准）
+├── examples/               示例代码
+├── docs/                   面向开发者的详细文档（VitePress）
+├── submodules/             Git submodules（pack / protect / signals / extensions）
+└── .codebuddy/rules/       AI 代理执行约定（真相之源）
 ```
 
-### 自我迭代流程
+---
 
-Agent 在开发过程中应遵循如下 E2E 自我迭代循环：
+## 关键约定速查（不可违背）
 
-1. **构建** → `vx just gallery-pack-debug`
-2. **启动** → `vx just e2e-start`（启动 Gallery + 等待 CDP）
-3. **验证** → `vx just e2e-snapshot` / `vx just e2e-screenshot`
-4. **分析** → 审查截图、控制台错误、SUMMARY.md
-5. **修复** → 根据发现修改代码
-6. **重复** → 回到步骤 1，直到所有检查通过
-7. **记录** → 将非显而易见的发现记录到 `.learnings/`
+1. **禁止裸命令**：永远 `vx just build`，不要直接 `cargo build` 或 `pytest`。
+2. **禁止代码内 emoji**：保持专业风格。
+3. **函数命名**：简短精炼，使用行业标准术语，避免 `optimized`、`fixed` 等词。
+4. **测试位置**：Rust 集成测试放在各 crate 的 `tests/` 目录，使用 `rstest`；不要内联单元测试。
+5. **Skills 真相源**：官方 Skills 在 `crates/auroraview-cli/skills/<name>/SKILL.md`；`.cursor/skills/`、`.claude/skills/` 只是本地镜像，禁止复制。
+6. **JS 事件统一**：Rust 层事件分发统一使用 `window.auroraview.trigger()`，不混用原生 `CustomEvent`。
 
-### E2E 验证清单
+---
 
-- Gallery 无控制台错误启动
-- 页面导航正常
-- `auroraview.api.*` 调用无 rejection
-- 事件系统 (`auroraview.on/emit`) 工作正常
-- 视觉回归检查通过 (`proofshot diff`)
+## 外部参考
 
-## 6. Skills 分发（AuroraView 自有技能）
-
-AuroraView 的官方技能（如 `qt-to-auroraview-migration`）内嵌在 `auroraview-cli` 二进制里，单一源为
-`crates/auroraview-cli/skills/<skill-name>/SKILL.md`。Agent 不要从仓库里直接复制 `.cursor/skills/`、
-`.claude/skills/` 等位置的副本 —— 那些是各工具自举生成的本地镜像，不是真相之源。
-
-```bash
-# 列出当前二进制内置的技能
-auroraview-cli skills list
-
-# 安装到某个 agent 工具的约定目录（项目内）
-auroraview-cli skills install --target claude
-auroraview-cli skills install --target cursor
-auroraview-cli skills install --target all          # 覆盖所有已知工具
-
-# 安装到任意路径
-auroraview-cli skills install --path ./some/dir
-
-# 安装到用户全局（~/.claude/skills/ 等）
-auroraview-cli skills install --target cursor --global
-
-# 打印某工具的解析路径而不实际写入
-auroraview-cli skills path --target cursor
-```
-
-新增技能只需往 `crates/auroraview-cli/skills/` 丢一个 `<name>/SKILL.md`，`include_dir!` 在构建时自动打包，
-不需要改任何 Rust 代码。镜像目录（`.claude/skills/` 等）已加入 `.gitignore`，避免各工具的 bootstrap 重新污染仓库。
-
-## 7. 提交与 PR 约定
-
-- 提交前确保关键检查通过（lint/test/build）。
-- PR 描述需包含：改动目标、影响范围、验证方式、风险点。
-- 若改动涉及文档或流程，请同步更新相关说明文件。
-- UI 变更的 PR 建议附带 ProofShot 证据（`vx just e2e-pr`）。
+- **仓库**: https://github.com/loonghao/auroraview
+- **PyPI**: https://pypi.org/project/auroraview
+- **CHANGELOG**: `./CHANGELOG.md`
+- **CONTRIBUTING**: `./CONTRIBUTING.md`
