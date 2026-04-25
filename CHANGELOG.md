@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.1...auroraview-v0.5.2) (2026-04-25)
+
+
+### Bug Fixes
+
+* **python:** skip core event registration when _core is None in packed mode ([0867005](https://github.com/loonghao/auroraview/commit/086700547d1e9ab0edf0448c5ebb26406605ef08))
+
+
+### Documentation
+
+* refactor AGENTS.md as progressive map and add AI-facing docs ([#380](https://github.com/loonghao/auroraview/issues/380)) ([e60290a](https://github.com/loonghao/auroraview/commit/e60290a0740f13600b084e81dd713124c5b0c2b1))
+
 ## [0.5.1](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.0...auroraview-v0.5.1) (2026-04-24)
 
 
