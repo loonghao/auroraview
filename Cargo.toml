@@ -191,7 +191,7 @@ criterion = "0.8"
 tempfile = "3.14"
 rstest = "0.26"
 test-case = "3.3"
-proptest = "1.5"
+proptest = "1.11"
 mockall = "0.14"
 serial_test = "3.2"
 reqwest = { version = "0.13", features = ["json"] }
