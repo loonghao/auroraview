@@ -121,7 +121,7 @@ tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "time", "macr
 ctrlc = "3.4"
 
 # System tray support
-tray-icon = "0.21"
+tray-icon = "0.22"
 muda = "0.17"
 
 # Error handling
