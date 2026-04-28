@@ -1031,7 +1031,7 @@ dependencies = [
  "futures-task",
  "futures-util",
  "generic-array",
- "getrandom 0.2.17",
+ "getrandom 0.4.2",
  "half",
  "hashbrown 0.14.5",
  "hashbrown 0.16.1",
