@@ -378,7 +378,7 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.8.31
+        uses: loonghao/vx@vx-v0.8.32
         with:
           github-token: ${{ github.token }}
           tools: 'just bun'
@@ -474,7 +474,7 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.8.31
+        uses: loonghao/vx@vx-v0.8.32
         with:
           github-token: ${{ github.token }}
           tools: 'just bun'
