@@ -1,3 +1,5 @@
+#![allow(rustdoc::bare_urls)]
+
 //! AI Agent integration for AuroraView
 //!
 //! This crate provides AI agent capabilities for AuroraView, enabling natural language
