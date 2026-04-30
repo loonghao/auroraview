@@ -3,7 +3,7 @@
 //! This module provides functionality to download and manage the vx tool,
 //! which is used for managing Python packages via `vx uv pip install`.
 //!
-//! vx is downloaded from: https://github.com/loonghao/vx/releases
+//! vx is downloaded from: [vx releases](https://github.com/loonghao/vx/releases)
 //! Latest version is automatically detected from GitHub API.
 
 #![allow(dead_code)]

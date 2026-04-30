@@ -152,7 +152,7 @@ impl WindowStartPosition {
 /// `[window]` controls how the window behaves at runtime.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowConfig {
-    /// Window title (usually from [app].title)
+    /// Window title (usually from `[app].title`)
     #[serde(default = "default_title")]
     pub title: String,
 
