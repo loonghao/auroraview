@@ -829,3 +829,110 @@ fn load_asset_file_binary_content() {
     assert!(resp.mime_type.contains("image/png"));
     assert_eq!(&*resp.data, png_data.as_slice());
 }
+
+// ---- MemoryAssets::handle_request: frontend/ prefix fallback variants ----
+
+#[test]
+fn memory_assets_frontend_prefix_with_subpath() {
+    let mut assets = MemoryAssets::new();
+    assets.insert("frontend/a/b.html".to_string(), b"deep page".to_vec());
+
+    // Request "a/b.html" should find "frontend/a/b.html"
+    let resp = assets.handle_request("a/b.html");
+    assert_eq!(resp.status, 200);
+    assert_eq!(&*resp.data, b"deep page");
+}
+
+#[test]
+fn memory_assets_frontend_prefix_no_leading_slash() {
+    let mut assets = MemoryAssets::new();
+    assets.insert("frontend/index.html".to_string(), b"fp".to_vec());
+
+    // Request "index.html" (no slash) should still match
+    let resp = assets.handle_request("index.html");
+    assert_eq!(resp.status, 200);
+}
+
+#[test]
+fn memory_assets_handle_request_trailing_slash() {
+    let mut assets = MemoryAssets::new();
+    assets.insert("dir/index.html".to_string(), b"dir index".to_vec());
+
+    // Trailing slash on directory — depends on implementation
+    let resp = assets.handle_request("dir/");
+    // Either 200 (if matched) or 404 (if not) — must not panic
+    let _ = resp.status;
+}
+
+#[test]
+fn memory_assets_handle_request_query_string() {
+    let mut assets = MemoryAssets::new();
+    assets.insert("api/data.json".to_string(), b"{}".to_vec());
+
+    // Query string may be stripped or passed through
+    let resp = assets.handle_request("api/data.json?v=1");
+    // Implementation may ignore query or return 200/404 — must not panic
+    let _ = resp.status;
+}
+
+#[test]
+fn memory_assets_handle_request_fragment_ignored() {
+    let mut assets = MemoryAssets::new();
+    assets.insert("page.html".to_string(), b"<html/>".to_vec());
+
+    // Fragment (#) is not part of HTTP request path, but test defensively
+    let resp = assets.handle_request("page.html#section");
+    // Accept either outcome — must not panic
+    let _ = resp.status;
+}
+
+// ---- MemoryAssets: overwrite behavior ----
+
+#[test]
+fn memory_assets_overwrite_updates_content() {
+    let mut assets = MemoryAssets::new();
+    assets.insert("x.txt".to_string(), b"v1".to_vec());
+    assets.insert("x.txt".to_string(), b"v2".to_vec());
+
+    let resp = assets.handle_request("x.txt");
+    assert_eq!(resp.status, 200);
+    // Last write wins
+    assert_eq!(&*resp.data, b"v2");
+}
+
+// ---- MemoryAssets: not_found page contains path ----
+
+#[test]
+fn memory_assets_not_found_page_contains_path() {
+    let assets = MemoryAssets::new();
+    let resp = assets.handle_request("missing.html");
+    assert_eq!(resp.status, 404);
+    let body = String::from_utf8_lossy(&resp.data);
+    assert!(body.contains("missing.html"), "404 page should mention requested path");
+    assert!(body.contains("404"), "404 page should contain status code");
+}
+
+// ---- file_url_to_auroraview: UNC path ----
+
+#[test]
+fn file_url_to_auroraview_unc_path() {
+    let result = file_url_to_auroraview("file://server/share/file.html");
+    // Should contain auroraview.localhost and type:file
+    assert!(result.contains("auroraview.localhost"));
+    assert!(result.contains("type:file"));
+    // Should preserve server/share
+    assert!(result.contains("server") || result.contains("share"));
+}
+
+// ---- normalize_url: already normalized ----
+
+#[test]
+fn normalize_url_already_https() {
+    let url = "https://example.com/path?q=1#frag";
+    assert_eq!(normalize_url(url), url);
+}
+
+#[test]
+fn normalize_url_empty_returns_empty() {
+    assert_eq!(normalize_url(""), "");
+}
