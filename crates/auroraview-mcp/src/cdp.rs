@@ -144,7 +144,7 @@ impl CdpClient {
                         .cloned()
                         .ok_or(CdpError::MalformedResponse("result"));
                 }
-                _ => continue,
+                _ => {}
             }
         }
     }

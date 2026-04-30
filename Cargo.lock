@@ -427,7 +427,7 @@ dependencies = [
  "criterion",
  "crossbeam-channel",
  "ctrlc",
- "dashmap",
+ "dashmap 6.1.0",
  "dirs",
  "image",
  "insta",
@@ -536,7 +536,7 @@ dependencies = [
  "auroraview-tabs",
  "auroraview-workspace-hack",
  "chrono",
- "dashmap",
+ "dashmap 6.1.0",
  "dirs",
  "parking_lot",
  "rstest 0.26.1",
@@ -606,7 +606,7 @@ dependencies = [
  "auroraview-plugins",
  "auroraview-signals",
  "auroraview-workspace-hack",
- "dashmap",
+ "dashmap 6.1.0",
  "dirs",
  "dunce",
  "http",
@@ -640,7 +640,7 @@ dependencies = [
  "auroraview-core",
  "auroraview-workspace-hack",
  "crossbeam-channel",
- "dashmap",
+ "dashmap 6.1.0",
  "rstest 0.26.1",
  "serde",
  "serde_json",
@@ -658,7 +658,7 @@ dependencies = [
  "auroraview-plugins",
  "auroraview-workspace-hack",
  "ctrlc",
- "dashmap",
+ "dashmap 6.1.0",
  "image",
  "raw-window-handle",
  "rstest 0.26.1",
@@ -704,7 +704,7 @@ version = "0.5.2"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
- "dashmap",
+ "dashmap 6.1.0",
  "dunce",
  "parking_lot",
  "regex",
@@ -745,6 +745,7 @@ version = "0.5.2"
 dependencies = [
  "auroraview-workspace-hack",
  "base64",
+ "dashmap 5.5.3",
  "dcc-mcp-protocols",
  "futures-util",
  "reqwest 0.12.28",
@@ -844,7 +845,7 @@ dependencies = [
  "auroraview-plugin-core",
  "auroraview-plugin-fs",
  "auroraview-workspace-hack",
- "dashmap",
+ "dashmap 6.1.0",
  "dirs",
  "dunce",
  "ipckit",
@@ -919,7 +920,7 @@ name = "auroraview-tabs"
 version = "0.5.2"
 dependencies = [
  "auroraview-workspace-hack",
- "dashmap",
+ "dashmap 6.1.0",
  "parking_lot",
  "rstest 0.26.1",
  "serde",
@@ -961,7 +962,7 @@ dependencies = [
  "auroraview-workspace-hack",
  "base64",
  "chromiumoxide",
- "dashmap",
+ "dashmap 6.1.0",
  "futures-util",
  "parking_lot",
  "pyo3",
@@ -2125,6 +2126,19 @@ dependencies = [
  "darling_core",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "dashmap"
+version = "5.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "978747c1d849a7d2ee5e8adc0159961c48fb7e5db2f06af6723b80123bb53856"
+dependencies = [
+ "cfg-if",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -8493,7 +8507,7 @@ dependencies = [
  "brotli",
  "chrono",
  "clap",
- "dashmap",
+ "dashmap 6.1.0",
  "figment",
  "flate2",
  "futures",
