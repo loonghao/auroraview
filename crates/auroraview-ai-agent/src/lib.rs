@@ -64,7 +64,9 @@ pub mod error;
 pub mod message;
 /// AG-UI and A2UI protocol definitions.
 pub mod protocol;
-/// Multi-provider AI client (OpenAI, Anthropic, Gemini, etc.).
+/// Multi-provider AI client (`OpenAI`, `Anthropic`, `Gemini`, etc.).
+///
+/// # None
 pub mod providers;
 /// Chat session persistence and management.
 pub mod session;
