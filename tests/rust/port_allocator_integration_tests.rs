@@ -78,8 +78,12 @@ fn is_port_available_with_free_port() {
 
 #[rstest]
 fn find_free_port_skips_occupied_ports() {
-    // Bind to the first port in range
-    let start_port = 56000;
+    // Dynamically find a free port first
+    let listener0 = TcpListener::bind("127.0.0.1:0").unwrap();
+    let start_port = listener0.local_addr().unwrap().port();
+    drop(listener0); // Release the port
+
+    // Bind to the first two ports in range
     let _listener1 = TcpListener::bind(format!("127.0.0.1:{}", start_port)).unwrap();
     let _listener2 = TcpListener::bind(format!("127.0.0.1:{}", start_port + 1)).unwrap();
 
