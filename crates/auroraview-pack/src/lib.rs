@@ -61,7 +61,7 @@
 //! width = 1280
 //! height = 720
 //!
-//! [bundle]
+//! `[bundle]`
 //! icon = "./assets/icon.png"
 //! ```
 //!

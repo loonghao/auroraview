@@ -45,7 +45,7 @@
 //! width = 1280
 //! height = 720
 //!
-//! [bundle]                     # General bundling settings
+//! `[bundle]`                     # General bundling settings
 //! icon = "./assets/icon.png"
 //! copyright = "Copyright 2025"
 //!

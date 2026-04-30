@@ -16,7 +16,7 @@
 //! [backend.node]      - Node.js backend settings
 //! [backend.process]   - Common process settings
 //! [window]            - WindowConfig: Runtime window behavior
-//! [bundle]            - BundleConfig: General bundling settings
+//! `[bundle]`            - BundleConfig: General bundling settings
 //! [bundle.windows]    - Windows-specific bundling
 //! [bundle.macos]      - macOS-specific bundling
 //! [bundle.linux]      - Linux-specific bundling
@@ -281,7 +281,7 @@ impl WindowConfig {
 /// Controls Windows-specific executable resources and behavior.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WindowsPlatformConfig {
-    /// Path to the .ico icon file (overrides [bundle].icon)
+    /// Path to the .ico icon file (overrides `[bundle].icon`)
     #[serde(default)]
     pub icon: Option<PathBuf>,
 
