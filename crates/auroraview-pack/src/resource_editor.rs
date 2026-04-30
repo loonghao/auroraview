@@ -3,8 +3,8 @@
 //! This module provides functionality to modify Windows PE executable resources,
 //! including icons, version information, and subsystem settings.
 //!
-//! It uses rcedit (https://github.com/electron/rcedit) as the underlying tool,
-//! managed through vx (https://github.com/loonghao/vx).
+//! It uses rcedit (<https://github.com/electron/rcedit>) as the underlying tool,
+//! managed through vx (<https://github.com/loonghao/vx>).
 
 use crate::vx_tool::VxTool;
 use crate::{PackError, PackResult};

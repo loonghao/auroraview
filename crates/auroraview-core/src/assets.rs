@@ -667,7 +667,7 @@ pub fn build_packed_init_script() -> String {
 /// # Safety
 /// The caller is responsible for ensuring `policy` does not contain
 /// unescaped single-quote characters that could break out of the JS string literal.
-/// Use [`escape_csp_policy`] if the value originates from untrusted input.
+/// The function automatically escapes backslashes and single quotes in the policy string.
 pub fn build_csp_injection_script(policy: &str) -> String {
     let escaped = policy.replace('\\', "\\\\").replace('\'', "\\'");
     format!(

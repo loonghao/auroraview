@@ -152,7 +152,7 @@ impl WindowStartPosition {
 /// `[window]` controls how the window behaves at runtime.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowConfig {
-    /// Window title (usually from [app].title)
+    /// Window title (usually from $$app$$.title)
     #[serde(default = "default_title")]
     pub title: String,
 
@@ -281,7 +281,7 @@ impl WindowConfig {
 /// Controls Windows-specific executable resources and behavior.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WindowsPlatformConfig {
-    /// Path to the .ico icon file (overrides [bundle].icon)
+    /// Path to the .ico icon file (overrides $$bundle$$.icon)
     #[serde(default)]
     pub icon: Option<PathBuf>,
 

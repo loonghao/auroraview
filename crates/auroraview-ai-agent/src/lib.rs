@@ -9,7 +9,7 @@
 //! - **Multi-provider support** via genai crate:
 //!   - OpenAI (GPT-4o, GPT-4, O1, etc.)
 //!   - Anthropic (Claude 3.5, 3.7, etc.)
-//!   - Google Gemini
+//!   - `Google Gemini`
 //!   - DeepSeek (including R1 reasoning model)
 //!   - Ollama (local models)
 //!   - Groq, xAI (Grok), Cohere, and more

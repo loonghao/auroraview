@@ -4,9 +4,9 @@
 //! standard events for text streaming, tool calls, state updates, etc.
 //!
 //! This implementation is based on the official AG-UI Rust SDK:
-//! https://github.com/ag-ui-protocol/ag-ui/tree/main/sdks/community/rust
+//! <https://github.com/ag-ui-protocol/ag-ui/tree/main/sdks/community/rust>
 //!
-//! Reference: https://docs.ag-ui.com
+//! Reference: <https://docs.ag-ui.com>
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
