@@ -1,5 +1,14 @@
 # AI Agent & CDP Integration
 
+> ⚠️ **The standalone `auroraview-mcp` Python package has been retired.**
+> AuroraView now exposes itself to agents as a first-class DCC adapter through
+> [`dcc-mcp-core`](https://github.com/loonghao/dcc-mcp-core)'s gateway + skills
+> pipeline — see the realignment epic [#364](https://github.com/loonghao/auroraview/issues/364)
+> for status. The `pip install auroraview-mcp` / `uvx auroraview-mcp` instructions
+> below refer to the old architecture and are kept only as reference while the
+> adapter crate (`crates/auroraview-mcp`) is still landing. For the new wiring,
+> track issues #365–#368.
+
 AuroraView provides comprehensive AI Agent capabilities and Chrome DevTools Protocol (CDP) support, enabling automated testing, debugging, and AI-powered interactions with WebView applications.
 
 ## Overview

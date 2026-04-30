@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.1...auroraview-v0.5.2) (2026-04-25)
+
+
+### Bug Fixes
+
+* **python:** skip core event registration when _core is None in packed mode ([0867005](https://github.com/loonghao/auroraview/commit/086700547d1e9ab0edf0448c5ebb26406605ef08))
+
+
+### Documentation
+
+* refactor AGENTS.md as progressive map and add AI-facing docs ([#380](https://github.com/loonghao/auroraview/issues/380)) ([e60290a](https://github.com/loonghao/auroraview/commit/e60290a0740f13600b084e81dd713124c5b0c2b1))
+
+## [0.5.1](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.0...auroraview-v0.5.1) (2026-04-24)
+
+
+### Bug Fixes
+
+* **ci:** fix npm publishing and add DCC integration tests ([a03ead1](https://github.com/loonghao/auroraview/commit/a03ead16ea6af485f0d2bc48331c743a10a43224))
+
+## [0.5.0](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.19...auroraview-v0.5.0) (2026-04-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove packages/auroraview-mcp Python package (#365, part of #364)
+
+### Features
+
+* **mcp:** add crates/auroraview-mcp adapter skeleton over CDP (Phase 2 of [#364](https://github.com/loonghao/auroraview/issues/364)) ([113839d](https://github.com/loonghao/auroraview/commit/113839d02c34026dcf72a1f3d4c72768a0470502))
+* remove packages/auroraview-mcp Python package ([#365](https://github.com/loonghao/auroraview/issues/365), part of [#364](https://github.com/loonghao/auroraview/issues/364)) ([6cf179a](https://github.com/loonghao/auroraview/commit/6cf179acfee746038ad621a81a32a24dd81dfbd9))
+
 ## [0.4.19](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.18...auroraview-v0.4.19) (2026-04-09)
 
 

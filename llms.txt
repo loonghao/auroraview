@@ -1,0 +1,160 @@
+# AuroraView
+
+> A lightweight WebView framework for DCC (Digital Content Creation) software, built with Rust and Python bindings. Perfect for Maya, 3ds Max, Houdini, Blender, and more.
+
+AuroraView provides a modern web-based UI solution for professional DCC applications. On Windows it prioritizes a WebView2 backend (Rust + webview2-com) embedded into Qt hosts, with PyO3 bindings and maturin packaging.
+
+- **Package**: `pip install auroraview`
+- **Python**: 3.7+
+- **Platforms**: Windows, macOS, Linux
+- **License**: MIT
+- **Repository**: https://github.com/loonghao/auroraview
+
+## Agent Quick Start
+
+All commands go through `vx`. The task runner is `just`.
+
+```bash
+vx just build          # Build the project
+vx just test           # Run tests (Rust + Python)
+vx just lint           # Run linting (clippy + ruff)
+vx just format         # Format code
+```
+
+Local development and CI use the same `just` tasks to avoid drift.
+
+## Key Constraints
+
+- Python code must be compatible with **Python 3.7+** (DCC environments).
+- The Python package ships as a **single `.pyd`** (PyO3 + maturin, abi3) with **zero third-party Python dependencies**.
+- Rust integration tests live in each crate's `tests/` directory and use **`rstest`**.
+- Do not use bare commands; always use `vx just <task>`.
+- Avoid words like `optimized` or `fixed` in code and function names.
+- Do not invent custom wheels; prefer mature, standard crates.
+
+## Tech Stack
+
+- **Windows**: WebView2 (Chromium Edge) + Rust (windows-rs, webview2-com), embedded as child HWND into Qt containers; UI operations run on STA/UI thread.
+- **Cross-DCC**: Maya/3ds Max/Houdini/Nuke use Qt hosts; Blender uses floating tool windows.
+- **Python**: PyO3 + maturin, ABI3 wheel (CPython 3.7–3.13).
+- **Concurrency**: Qt owns the event loop; Rust marshals UI work to the creation thread via task queues.
+- **Standalone**: Retains wry/tao mode for development; may migrate to Win32 + WebView2 top-level window later.
+- **Tools**: `uv` for Python deps, `just` for task running, `vx` as the unified tool wrapper.
+
+## Project Structure
+
+```
+crates/
+  auroraview-core/      Core protocols, RPC, event bus, session management
+  auroraview-cli/       CLI tools and embedded Skills
+  auroraview-plugins/   Plugin system
+python/auroraview/      Python package (AuroraView base class, DCC host layer)
+packages/auroraview-sdk/  TypeScript frontend SDK
+gallery/                Gallery demo app (E2E validation baseline)
+examples/               Code examples
+docs/                   VitePress documentation
+submodules/             Git submodules (pack, protect, signals, extensions)
+.codebuddy/rules/       AI agent execution conventions (source of truth)
+```
+
+## Core API
+
+### Python: AuroraView Base Class
+
+```python
+from auroraview import AuroraView
+
+class MyTool(AuroraView):
+    def __init__(self, **kwargs):
+        super().__init__(api=self, **kwargs)
+
+    # JS calls: auroraview.api.echo({ message: "..." })
+    def echo(self, message: str) -> None:
+        self.emit("echo_result", {"message": message})
+```
+
+Constructor params:
+- `parent`: `None` for Standalone; Qt object for DCC mode.
+- `url` / `html`: Content to load.
+- `title`, `width`, `height`, `fullscreen`, `debug`.
+- `api`: Object exposed to `auroraview.api.*`.
+
+Lifecycle hooks: `on_show`, `on_hide`, `on_close`, `on_ready`.
+
+Event push: `self.emit(event_name, payload)` → triggers `auroraview.on(event_name, handler)` in JS.
+
+### JS → Python Mapping
+
+1. **`auroraview.api.*` style**
+   - Python passes `api=self` to constructor.
+   - JS: `auroraview.api.export_scene(...)` → Python `api.export_scene(...)`.
+   - `params` as list → `func(*params)`; dict → `func(**params)`.
+
+2. **Generic `auroraview.call(method, params)`**
+   - Python registers: `bind_call("tool.apply", self.apply_tool)`.
+   - JS: `auroraview.call("tool.apply", {"strength": 0.8})`.
+
+### JavaScript: window.auroraview
+
+```javascript
+// Call Python method (Promise)
+const result = await auroraview.call('api.method_name', { param: value });
+
+// Proxy shorthand
+const result = await auroraview.api.method_name({ param: value });
+
+// Subscribe to Python events
+const unsubscribe = auroraview.on('event_name', (data) => { ... });
+
+// Unsubscribe
+auroraview.off('event_name', handler);
+```
+
+Ready event: `window.addEventListener('auroraviewready', () => { ... })`.
+
+### Event Distribution (Python → JS)
+
+Rust/Python events are delivered via `window.auroraview.trigger(event, data)`.
+Do **not** use `window.dispatchEvent(new CustomEvent(...))`.
+
+```javascript
+// Standard pattern injected from Rust
+window.auroraview.trigger('event_name', data);
+```
+
+## DCC Integration Matrix
+
+| Software | Mode | Docking |
+|---|---|---|
+| Maya 2025+ (Qt6/PySide6) | Qt Native (QtWebView) | QDockWidget |
+| 3ds Max (Qt) | Qt Native (QtWebView) | QDockWidget |
+| Houdini (PySide2/Qt5) | Qt Native (QtWebView) | QDockWidget |
+| Nuke (PySide2/Qt) | Qt Native (QtWebView) | Custom Panel |
+| Blender | Standalone / Floating tool window | N/A |
+| Unreal Engine | HWND (AuroraView) | via HWND API |
+
+## HTML / Static Resource Loading
+
+- Inline HTML: `WebView.load_html(html)`.
+- Local site: `WebView.load_url("file:///.../index.html")`.
+- For custom relative paths, use `<base href="file:///.../">` in HTML; do not add `base_url` params to Python APIs.
+
+## Testing
+
+```bash
+# Rust integration tests
+cargo test --test '*' --features "test-helpers"
+
+# Python tests
+pytest tests/
+```
+
+Performance targets: first visible < 300ms, FPS ≥ 60, idle CPU ≤ 5%, memory increment ≤ 200MB.
+
+## Documentation
+
+- [AGENTS.md](https://github.com/loonghao/auroraview/blob/main/AGENTS.md): Progressive-disclosure navigation map for AI agents.
+- [.codebuddy/rules/](https://github.com/loonghao/auroraview/tree/main/.codebuddy/rules): Execution conventions (tech stack, testing, coding guidelines, frontend API, Python API, event system, architecture).
+- [docs/guide/getting-started.md](https://github.com/loonghao/auroraview/blob/main/docs/guide/getting-started.md): Human-facing quick start.
+- [docs/guide/architecture.md](https://github.com/loonghao/auroraview/blob/main/docs/guide/architecture.md): System architecture.
+- [docs/dcc/](https://github.com/loonghao/auroraview/tree/main/docs/dcc): DCC integration guides.

@@ -1,0 +1,646 @@
+# AuroraView
+
+> A lightweight WebView framework for DCC (Digital Content Creation) software, built with Rust and Python bindings. Perfect for Maya, 3ds Max, Houdini, Blender, and more.
+
+AuroraView provides a modern web-based UI solution for professional DCC applications like Maya, 3ds Max, Houdini, Blender, Photoshop, and Unreal Engine. On Windows it prioritizes a WebView2 backend (Rust + webview2-com) embedded into Qt hosts, with PyO3 bindings and maturin packaging.
+
+- **Package**: `pip install auroraview`
+- **Python**: 3.7+
+- **Platforms**: Windows, macOS, Linux
+- **License**: MIT
+- **Repository**: https://github.com/loonghao/auroraview
+- **PyPI**: https://pypi.org/project/auroraview/
+
+## Agent Quick Start
+
+All commands go through `vx`. The task runner is `just`.
+
+```bash
+vx just build          # Build the project
+vx just test           # Run tests (Rust + Python)
+vx just lint           # Run linting (clippy + ruff)
+vx just format         # Format code
+```
+
+Local development and CI use the same `just` tasks to avoid drift.
+
+## Key Constraints
+
+- Python code must be compatible with **Python 3.7+** (DCC environments).
+- The Python package ships as a **single `.pyd`** (PyO3 + maturin, abi3) with **zero third-party Python dependencies**.
+- Rust integration tests live in each crate's `tests/` directory and use **`rstest`**.
+- Do not use bare commands; always use `vx just <task>`.
+- Avoid words like `optimized` or `fixed` in code and function names.
+- Do not invent custom wheels; prefer mature, standard crates.
+
+## Tech Stack
+
+- **Windows**: WebView2 (Chromium Edge) + Rust (windows-rs, webview2-com), embedded as child HWND into Qt containers; UI operations run on STA/UI thread.
+- **Cross-DCC**: Maya/3ds Max/Houdini/Nuke use Qt hosts; Blender uses floating tool windows.
+- **Python**: PyO3 + maturin, ABI3 wheel (CPython 3.7–3.13). Zero third-party Python deps.
+- **Concurrency**: Qt owns the event loop; Rust marshals UI work to the creation thread via task queues. Rust does not take over the message pump.
+- **Standalone**: Retains wry/tao mode for development; may migrate to Win32 + WebView2 top-level window later.
+- **Tools**: `uv` for Python deps, `just` for task running, `vx` as the unified tool wrapper.
+- **Core versions**: Rust 1.90+, PyO3 0.27 (abi3), Wry 0.54, Tao 0.34.
+
+## Project Structure
+
+```
+crates/
+  auroraview-core/      Core protocols, RPC, event bus, session management
+  auroraview-cli/       CLI tools and embedded Skills
+  auroraview-plugins/   Plugin system
+python/auroraview/      Python package (AuroraView base class, DCC host layer)
+packages/auroraview-sdk/  TypeScript frontend SDK
+gallery/                Gallery demo app (E2E validation baseline)
+examples/               Code examples
+docs/                   VitePress documentation
+submodules/             Git submodules (pack, protect, signals, extensions)
+.codebuddy/rules/       AI agent execution conventions (source of truth)
+```
+
+## Quick Start
+
+### Installation
+
+```bash
+pip install auroraview
+```
+
+With Qt support (for Maya, Houdini, Nuke):
+
+```bash
+pip install auroraview[qt]
+```
+
+### Recommended API: create_webview
+
+```python
+from auroraview import create_webview
+
+# 1. Standalone window
+webview = create_webview(url="http://localhost:3000")
+webview.show()
+
+# 2. Qt integration (Maya, Houdini, Nuke)
+webview = create_webview(parent=maya_main_window(), url="http://localhost:3000")
+webview.show()
+
+# 3. HWND integration (Unreal Engine)
+webview = create_webview(parent=unreal_hwnd, url="http://localhost:3000")
+webview.show()
+```
+
+### Legacy APIs (still supported)
+
+```python
+from auroraview import AuroraView
+
+webview = AuroraView(url="http://localhost:3000")
+webview.show()
+```
+
+```python
+from auroraview import QtWebView
+
+webview = QtWebView(parent=maya_main_window(), url="http://localhost:3000")
+webview.show()
+```
+
+## Core API Reference
+
+### create_webview Parameters
+
+All WebView types share these common parameters:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| parent | QWidget/int/None | None | Parent widget or HWND |
+| title | str | "AuroraView" | Window title |
+| width | int | 800 | Window width |
+| height | int | 600 | Window height |
+| url | str | None | URL to load |
+| html | str | None | HTML content to load |
+| debug | bool | True | Enable DevTools (F12) |
+| context_menu | bool | True | Enable right-click menu |
+| frame | bool | True | Show window frame |
+| transparent | bool | False | Transparent background |
+| background_color | str | None | Background color |
+| asset_root | str | None | Custom protocol root |
+| allow_file_protocol | bool | False | Enable file:// |
+| mode | str | "auto" | Embedding mode ("auto", "child", "owner") |
+
+### WebView Class Methods
+
+#### Content Loading
+
+```python
+webview.load_url("http://localhost:3000")
+webview.load_html("<h1>Hello World</h1>")
+webview.load_file("path/to/index.html")
+```
+
+#### JavaScript Execution
+
+```python
+webview.eval_js("console.log('Hello from Python')")
+webview.eval_js_async(
+    "document.title",
+    callback=lambda result: print(f"Title: {result}"),
+    timeout_ms=5000
+)
+```
+
+#### Window Control
+
+```python
+webview.show()
+webview.hide()
+webview.close()
+webview.move(100, 100)
+webview.resize(1024, 768)
+webview.minimize()
+webview.maximize()
+webview.restore()
+webview.toggle_fullscreen()
+webview.focus()
+webview.set_always_on_top(True)
+```
+
+## Bidirectional Communication
+
+### Python → JavaScript (Events)
+
+```python
+webview.emit("update_data", {"frame": 120, "objects": ["cube", "sphere"]})
+```
+
+JavaScript side:
+
+```javascript
+window.auroraview.on('update_data', (data) => {
+    console.log('Frame:', data.frame);
+});
+```
+
+Rust/Python events are delivered via `window.auroraview.trigger(event, data)`.
+Do not use `window.dispatchEvent(new CustomEvent(...))`.
+
+### JavaScript → Python (Events)
+
+JavaScript:
+
+```javascript
+window.auroraview.send_event('export_scene', {
+    path: '/path/to/export.fbx',
+    format: 'fbx'
+});
+```
+
+Python:
+
+```python
+@webview.on("export_scene")
+def handle_export(data):
+    print(f"Exporting to: {data['path']}")
+```
+
+### JavaScript → Python (RPC with Return Value)
+
+JavaScript:
+
+```javascript
+const result = await auroraview.api.get_hierarchy({ root: 'scene' });
+console.log(result);
+```
+
+Python:
+
+```python
+@webview.bind_call("api.get_hierarchy")
+def get_hierarchy(root=None):
+    return {"children": ["group1", "mesh_cube"], "count": 2}
+```
+
+### API Binding
+
+```python
+# Bind single method
+@webview.bind_call("api.echo")
+def echo(message: str = "") -> dict:
+    return {"message": message}
+
+# Bind all methods of an object
+class API:
+    def get_data(self) -> dict:
+        return {"items": [1, 2, 3]}
+
+    def save_item(self, name: str = "", value: int = 0) -> dict:
+        return {"ok": True, "name": name}
+
+webview.bind_api(API(), namespace="api")
+```
+
+### auroraview.call Request/Response Protocol
+
+JS → Backend message:
+- `type: "call"`
+- `id: string` — unique ID for Promise correlation
+- `method: string` — e.g., `"api.export_scene"`, `"tool.apply"`
+- `params: any` — object (kwargs), array (positional args), or single value
+
+Backend → JS response:
+- `type: "call_result"`
+- `id: string` — must match request
+- `ok: bool`
+- `result: any` on success
+- `error: { name, message, code?, data? }` on failure
+
+JS Promise semantics:
+- `ok == true` → `resolve(result)`
+- `ok == false` → `reject(error)`
+
+## JavaScript API Reference
+
+### window.auroraview
+
+```javascript
+// Call Python method (returns Promise)
+const result = await auroraview.call('api.method_name', { param: value });
+
+// Proxy shorthand
+const result = await auroraview.api.method_name({ param: value });
+
+// Invoke plugin command (returns Promise)
+const content = await auroraview.invoke('plugin:fs|read_file', { path: '/path/to/file.txt' });
+
+// Send event to Python (fire-and-forget)
+auroraview.send_event('event_name', { data: value });
+
+// Listen for Python events
+const unsubscribe = auroraview.on('event_name', (data) => {
+    console.log('Received:', data);
+});
+
+// Unsubscribe
+auroraview.off('event_name', handler);
+
+// Local JS event (does NOT reach Python)
+auroraview.trigger('local_event', data);
+```
+
+### Ready Event
+
+```javascript
+window.addEventListener('auroraviewready', () => {
+    auroraview.api.init();
+});
+```
+
+### Event Utilities
+
+```javascript
+const debouncedResize = auroraview.utils.debounce(function() {
+    console.log('Resized!');
+}, 250);
+window.addEventListener('resize', debouncedResize);
+
+const throttledScroll = auroraview.utils.throttle(function() {
+    console.log('Scrolled!');
+}, 100);
+window.addEventListener('scroll', throttledScroll);
+
+auroraview.onDebounced('resize', handler, 250);
+auroraview.onThrottled('scroll', handler, 100);
+```
+
+## DCC Integration Matrix
+
+| Software | Python | Mode | Docking |
+|---|---|---|---|
+| Maya 2025+ (Qt6/PySide6) | 3.7+ | Qt Native (QtWebView) | QDockWidget |
+| 3ds Max (Qt) | 3.7+ | Qt Native (QtWebView) | QDockWidget |
+| Houdini (PySide2/Qt5) | 3.7+ | Qt Native (QtWebView) | QDockWidget |
+| Nuke (PySide2/Qt) | 3.7+ | Qt Native (QtWebView) | Custom Panel |
+| Blender | 3.7+ | Standalone / Floating | N/A |
+| Unreal Engine | 3.7+ | HWND (AuroraView) | via HWND API |
+| Photoshop | 3.7+ | Planned | - |
+
+## Qt Integration (QtWebView)
+
+```python
+from auroraview import QtWebView
+from qtpy.QtWidgets import QDialog, QVBoxLayout
+
+dialog = QDialog(maya_main_window())
+layout = QVBoxLayout(dialog)
+
+webview = QtWebView(parent=dialog, width=800, height=600)
+layout.addWidget(webview)
+
+webview.load_url("http://localhost:3000")
+
+dialog.show()
+webview.show()
+```
+
+### WebView2 Pre-warming
+
+```python
+from auroraview.integration.qt import WebViewPool
+
+WebViewPool.prewarm()
+
+if WebViewPool.has_prewarmed():
+    print(f"Pre-warm took {WebViewPool.get_prewarm_time():.2f}s")
+```
+
+## HTML / Static Resource Loading
+
+- Inline HTML: `WebView.load_html(html)` — for simple prototypes without local assets.
+- Local site: `WebView.load_url("file:///.../index.html")` — relative paths resolved by browser from the file location.
+- DCC + Qt: `QtWebView.load_html(html)` and `QtWebView.load_url(url)` delegate to core `WebView`.
+- Custom relative paths: use `<base href="file:///.../">` in HTML; do not add `base_url` params to Python APIs.
+
+## Signals (Qt-like Pattern)
+
+```python
+from auroraview import WebView, Signal
+
+class MyTool(WebView):
+    selection_changed = Signal(list)
+    progress_updated = Signal(int, str)
+
+    def __init__(self):
+        super().__init__(title="My Tool")
+        self.selection_changed.connect(self._on_selection)
+
+    def _on_selection(self, items):
+        print(f"Selection: {items}")
+
+    def update_selection(self, items):
+        self.selection_changed.emit(items)
+```
+
+## Window Events
+
+```python
+@webview.on_shown
+def on_shown(data):
+    print("Window is now visible")
+
+@webview.on_focused
+def on_focused(data):
+    print("Window gained focus")
+
+@webview.on_resized
+def on_resized(data):
+    print(f"Window resized to {data.width}x{data.height}")
+
+@webview.on_closing
+def on_closing(data):
+    return True  # Return True to allow close, False to cancel
+```
+
+## File Drop Events
+
+```python
+from auroraview.core.events import WindowEvent
+
+@webview.on(WindowEvent.FILE_DROP)
+def on_file_drop(data):
+    for path in data['paths']:
+        print(f"Dropped: {path}")
+
+@webview.on(WindowEvent.FILE_DROP_HOVER)
+def on_file_hover(data):
+    if data['hovering']:
+        print(f"Dragging {len(data['paths'])} files over window")
+```
+
+## Custom Protocol Handler
+
+```python
+webview = WebView(title="My App", asset_root="./assets")
+
+def handle_maya_protocol(uri: str) -> dict:
+    path = uri.replace("maya://", "")
+    try:
+        with open(f"C:/maya_projects/{path}", "rb") as f:
+            return {
+                "data": f.read(),
+                "mime_type": "image/png",
+                "status": 200
+            }
+    except FileNotFoundError:
+        return {"data": b"Not Found", "mime_type": "text/plain", "status": 404}
+
+webview.register_protocol("maya", handle_maya_protocol)
+```
+
+## System Tray Support
+
+```python
+from auroraview import run_app
+
+run_app(
+    title="Background App",
+    html=my_html,
+    width=400,
+    height=300,
+    system_tray=True,
+    hide_on_close=True,
+)
+```
+
+## Floating Tool Windows
+
+```python
+from auroraview import create_webview
+
+webview = create_webview(
+    title="AI Assistant",
+    html=panel_html,
+    width=320,
+    height=400,
+    frame=False,
+    transparent=True,
+    always_on_top=True,
+    tool_window=True,
+    parent=parent_hwnd,
+    mode="owner",
+)
+webview.show()
+```
+
+## Application Packaging
+
+```bash
+# Pack a URL-based application
+auroraview-cli pack --url https://example.com --output myapp
+
+# Pack a frontend project
+auroraview-cli pack --frontend ./dist --output myapp
+
+# Pack with configuration
+auroraview-cli pack --config auroraview.pack.toml
+```
+
+Configuration example (`auroraview.pack.toml`):
+
+```toml
+[package]
+name = "my-app"
+version = "1.0.0"
+
+[app]
+title = "My Application"
+frontend_path = "./dist"
+
+[window]
+width = 1200
+height = 800
+resizable = true
+
+[bundle]
+icon = "./assets/my-app-icon.png"
+
+[bundle.platform.windows]
+console = false
+
+[python]
+entry_point = "main:main"
+include_paths = ["./backend"]
+strategy = "standalone"
+```
+
+## Command Line Interface
+
+```bash
+auroraview --url https://example.com
+auroraview --html /path/to/file.html
+auroraview --url https://example.com --title "My App" --width 1024 --height 768
+uvx auroraview --url https://example.com
+```
+
+## Testing Framework
+
+### HeadlessWebView
+
+```python
+from auroraview.testing import HeadlessWebView
+
+with HeadlessWebView.auto() as webview:
+    webview.goto("https://example.com")
+    webview.click("#button")
+    assert webview.text("#result") == "Success"
+
+with HeadlessWebView.playwright() as webview:
+    webview.load_html("<h1>Test</h1>")
+    assert webview.text("h1") == "Test"
+    webview.screenshot("test.png")
+```
+
+### Available Backends
+
+| Backend | Method | Platform | Use Case |
+|---------|--------|----------|----------|
+| Playwright | `HeadlessWebView.playwright()` | All | CI/CD |
+| Xvfb | `HeadlessWebView.virtual_display()` | Linux | Real WebView |
+| WebView2 CDP | `HeadlessWebView.webview2_cdp(url)` | Windows | Real WebView2 |
+
+### Rust Integration Tests
+
+```bash
+cargo test --test '*' --features "test-helpers"
+```
+
+Performance targets: first visible < 300ms, FPS >= 60, idle CPU <= 5%, memory increment <= 200MB.
+
+## Plugin System
+
+- **Process Plugin**: Run external processes with stdout/stderr streaming
+- **File System Plugin**: Native file operations (read, write, copy, move)
+- **Dialog Plugin**: Native file/folder dialogs and message boxes
+- **Shell Plugin**: Execute commands, open URLs, reveal in file manager
+- **Clipboard Plugin**: System clipboard read/write access
+
+## Chrome Extension API Compatibility
+
+- Storage API: `chrome.storage.local/sync/session`
+- Bookmarks API: Create, search, update, delete bookmarks
+- History API: Search and manage browsing history
+- Downloads API: Download files with progress tracking
+- Cookies API: Get, set, remove cookies
+- Notifications API: System notifications with actions
+- TTS API: Text-to-speech synthesis
+- Idle/Power API: User activity detection and power management
+
+## E2E Testing with ProofShot
+
+```bash
+vx just e2e-install        # Install toolchain
+vx just e2e-proofshot      # Quick validation
+vx just e2e-iterate        # Self-improvement loop
+vx just e2e-pr             # Upload evidence to PR
+vx just e2e-snapshot       # Manual exploration
+```
+
+Self-improvement loop:
+1. Build: `vx just gallery-pack-debug`
+2. Start: `vx just e2e-start`
+3. Verify: `vx just e2e-snapshot` / `vx just e2e-screenshot`
+4. Analyze: Review screenshots, console errors, SUMMARY.md
+5. Fix: Modify code based on findings
+6. Repeat until all checks pass
+
+## Skills Distribution
+
+Official skills are embedded in `auroraview-cli` binary:
+
+```bash
+auroraview-cli skills list
+auroraview-cli skills install --target claude
+auroraview-cli skills install --target cursor
+```
+
+Source of truth: `crates/auroraview-cli/skills/<skill-name>/SKILL.md`
+Mirror directories (`.cursor/skills/`, `.claude/skills/`) are generated locally and gitignored.
+
+## Submodules
+
+```bash
+git clone --recurse-submodules https://github.com/loonghao/auroraview.git
+git submodule update --init --recursive
+```
+
+| Submodule | Purpose |
+|-----------|---------|
+| auroraview-pack | Application packaging (overlay, compression, icons) |
+| auroraview-protect | Python bytecode encryption (X25519/AES-256-GCM) |
+| auroraview-signals | Signal/slot system for async event distribution |
+| auroraview-extensions | Chrome-style extension architecture |
+
+## Key Imports
+
+```python
+from auroraview import (
+    create_webview,
+    AuroraView,
+    QtWebView,
+    WebView,
+    Signal,
+    run_app,
+    EventTimer,
+    path_to_file_url,
+)
+```
+
+## Documentation
+
+- [AGENTS.md](https://github.com/loonghao/auroraview/blob/main/AGENTS.md): Progressive-disclosure navigation map for AI agents.
+- [llms.txt](https://github.com/loonghao/auroraview/blob/main/llms.txt): Core AI-friendly usage index.
+- [.codebuddy/rules/](https://github.com/loonghao/auroraview/tree/main/.codebuddy/rules): Execution conventions (tech stack, testing, coding guidelines, frontend API, Python API, event system, architecture).
+- [docs/guide/getting-started.md](https://github.com/loonghao/auroraview/blob/main/docs/guide/getting-started.md): Human-facing quick start.
+- [docs/guide/architecture.md](https://github.com/loonghao/auroraview/blob/main/docs/guide/architecture.md): System architecture.
+- [docs/dcc/](https://github.com/loonghao/auroraview/tree/main/docs/dcc): DCC integration guides.

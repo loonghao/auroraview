@@ -1789,70 +1789,11 @@ docs-clean:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# MCP Server Commands
+# (Removed) MCP Server Commands
+#
+# The standalone Python `auroraview-mcp` package was retired in favour of the
+# Rust `crates/auroraview-mcp` adapter + `dcc-mcp-core`'s gateway. See #364.
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# Install MCP server dependencies
-mcp-install:
-    @echo "Installing MCP server dependencies..."
-    cd packages/auroraview-mcp; vx uv pip install -e ".[dev]"
-    @echo "[OK] MCP server dependencies installed!"
-
-# Run MCP server in development mode
-mcp-dev:
-    @echo "Starting MCP server in development mode..."
-    cd packages/auroraview-mcp; vx uv run auroraview-mcp
-
-# Debug MCP server with built-in client
-mcp-debug:
-    @echo "Running MCP debug client..."
-    cd packages/auroraview-mcp; vx uv run python scripts/debug_client.py
-
-# Debug MCP server interactively
-mcp-debug-interactive:
-    @echo "Starting MCP interactive debug mode..."
-    cd packages/auroraview-mcp; vx uv run python scripts/debug_client.py --test interactive
-
-# Debug MCP server with MCP Inspector (requires Node.js)
-mcp-inspector:
-    @echo "Starting MCP Inspector..."
-    @echo "Open http://localhost:5173 in your browser"
-    vx npx @modelcontextprotocol/inspector vx uv --directory packages/auroraview-mcp run auroraview-mcp
-
-# Run MCP server tests
-mcp-test:
-    @echo "Running MCP server tests..."
-    cd packages/auroraview-mcp; vx uv sync --extra dev; vx uv run pytest -v
-
-# Run MCP server tests with coverage
-mcp-test-cov:
-    @echo "Running MCP server tests with coverage..."
-    cd packages/auroraview-mcp; vx uv sync --extra dev; vx uv run pytest --cov=auroraview_mcp --cov-report=html --cov-report=term-missing
-
-# Lint MCP server code
-mcp-lint:
-    @echo "Linting MCP server code..."
-    cd packages/auroraview-mcp; vx uvx ruff check src/ tests/
-    cd packages/auroraview-mcp; vx uvx ruff format --check src/ tests/
-
-# Format MCP server code
-mcp-format:
-    @echo "Formatting MCP server code..."
-    cd packages/auroraview-mcp; vx uvx ruff format src/ tests/
-
-# Build MCP server package
-mcp-build:
-    @echo "Building MCP server package..."
-    cd packages/auroraview-mcp; vx uv build
-    @echo "[OK] MCP server package built!"
-
-# Full MCP CI check
-mcp-ci: mcp-install mcp-lint mcp-test
-    @echo "[OK] MCP CI check passed!"
-
-# Full MCP verification path aligned with CI package validation
-mcp-verify: mcp-ci mcp-build
-    @echo "[OK] MCP verify check passed!"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Assets Commands (Frontend Assets for Rust Crates)

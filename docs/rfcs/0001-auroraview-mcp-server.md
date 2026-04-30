@@ -1,10 +1,21 @@
 # RFC 0001: AuroraView MCP Server
 
-> **状态**: Implementing (Phase 3 Complete)
+> **状态**: ⚠️ **Superseded** — 参见 [Epic #364](https://github.com/loonghao/auroraview/issues/364)
 > **作者**: AuroraView Team
 > **创建日期**: 2024-12-30
-> **更新日期**: 2024-12-31
-> **目标版本**: v0.4.0
+> **更新日期**: 2026-04-17（标记为 superseded）
+> **目标版本**: v0.4.0（未达成，方向已变）
+>
+> **为何被 supersede**：本 RFC 设计时 `dcc-mcp-core` 尚未提供 `DccAdapter`、
+> `BridgeKind::WebSocket`、`FileRegistry.extras`、`Capturer`、`dcc-mcp-server`
+> binary、progressive skill discovery 等能力，所以规划了独立的 Python
+> `auroraview-mcp` 包去实现这些。`dcc-mcp-core` v0.13.2 已经把这些全部做成了
+> 可复用的基础设施，因此 auroraview 改为一个 Rust adapter crate +
+> CDP bridge + SKILL.md 驱动的 tool 清单 —— 见
+> [`crates/auroraview-mcp`](https://github.com/loonghao/auroraview/tree/main/crates/auroraview-mcp)（落地中）
+> 以及 issues #365–#368。
+>
+> 本文档保留作为历史设计存档；下文中的包名、命令、架构图不再代表当前实现。
 
 ## 摘要
 

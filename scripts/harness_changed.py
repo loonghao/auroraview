@@ -54,7 +54,6 @@ def classify_changes(paths: Iterable[str]) -> Dict[str, bool]:
         "python_unit": False,
         "python_integration": False,
         "sdk": False,
-        "mcp": False,
         "assets": False,
         "gallery": False,
         "docs": False,
@@ -78,8 +77,6 @@ def classify_changes(paths: Iterable[str]) -> Dict[str, bool]:
             flags["python_integration"] = True
         if path.startswith("packages/auroraview-sdk/"):
             flags["sdk"] = True
-        if path.startswith("packages/auroraview-mcp/") or path == ".github/workflows/mcp-ci.yml":
-            flags["mcp"] = True
         if path.startswith("crates/auroraview-assets/frontend/"):
             flags["assets"] = True
         if path.startswith("gallery/"):
@@ -113,8 +110,6 @@ def build_command_plan(paths: Iterable[str]) -> List[str]:
         commands.append("vx just assets-ci")
     if flags["sdk"]:
         commands.append("vx just sdk-ci")
-    if flags["mcp"]:
-        commands.append("vx just mcp-verify")
     if flags["gallery"]:
         commands.append("vx just gallery-verify")
     if flags["docs"] and not commands:

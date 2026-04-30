@@ -641,7 +641,7 @@ impl AstObfuscator {
 
         // Sort names by length (longest first) to avoid partial replacements
         let mut sorted_names: Vec<_> = self.name_map.iter().collect();
-        sorted_names.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+        sorted_names.sort_by_key(|b| std::cmp::Reverse(b.0.len()));
 
         for (original, obfuscated) in sorted_names {
             // Use word boundary matching

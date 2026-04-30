@@ -1,5 +1,12 @@
 # AI Agent 与 CDP 集成
 
+> ⚠️ **独立的 `auroraview-mcp` Python 包已停用。**
+> AuroraView 现在通过 [`dcc-mcp-core`](https://github.com/loonghao/dcc-mcp-core)
+> 的 gateway + skills 作为一类 DCC adapter 对 agent 暴露自己 —— 详见统一重构 epic
+> [#364](https://github.com/loonghao/auroraview/issues/364)。下文的
+> `pip install auroraview-mcp` / `uvx auroraview-mcp` 指令仅作历史参考；
+> 新架构（`crates/auroraview-mcp` adapter crate）落地中，进度见 #365–#368。
+
 AuroraView 提供全面的 AI Agent 能力和 Chrome DevTools Protocol (CDP) 支持，实现 WebView 应用的自动化测试、调试和 AI 驱动交互。
 
 ## 概述

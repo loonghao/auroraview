@@ -524,7 +524,7 @@ Examples:
     python ai_cdp_integration.py --test-browser-use
 
 Connect with AI Tools:
-    - MCP Server: uvx auroraview-mcp
+    - MCP: via dcc-mcp-core gateway (see loonghao/auroraview#364)
     - browser-use: pip install browser-use
     - chrome-devtools MCP: npx @anthropic/mcp-chrome-devtools
 """,
@@ -568,8 +568,9 @@ def main():
     print(f"  curl http://127.0.0.1:{args.cdp_port}/json/version")
     print(f"  curl http://127.0.0.1:{args.cdp_port}/json/list")
     print()
-    print("MCP Server:")
-    print(f"  AURORAVIEW_DEFAULT_PORT={args.cdp_port} uvx auroraview-mcp")
+    print("MCP:")
+    print("  auroraview now plugs into dcc-mcp-core's gateway; see")
+    print("  https://github.com/loonghao/auroraview/issues/364 for wiring.")
     print()
 
     ready_event = threading.Event()

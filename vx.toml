@@ -1,10 +1,14 @@
 [tools]
 just = "latest"
 python = "3.11"
-rcedit = "latest"
 rust = "1.90.0"
 uv = "latest"
-msvc = "14.42"
+
+# Windows-only toolchain pieces. Gated via the `os` field so that
+# `vx sync` on Linux / macOS CI runners does not try to install
+# MSVC build tools or rcedit (which have no non-Windows binaries).
+rcedit = { version = "latest", os = ["windows"] }
+msvc = { version = "14.42", os = ["windows"] }
 
 
 [settings]

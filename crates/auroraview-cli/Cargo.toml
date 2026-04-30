@@ -92,6 +92,10 @@ self-replace = "1.5"
 
 # File system watching for hot reload
 notify = "8.0"
+
+# Embed bundled skills directly into the binary (zero-runtime-dep delivery)
+include_dir = "0.7"
+
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
 [target.'cfg(windows)'.dependencies]
@@ -107,3 +111,4 @@ winresource = "0.1"
 
 [dev-dependencies]
 rstest = "0.26"
+tempfile = "3.13"

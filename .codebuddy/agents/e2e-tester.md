@@ -141,4 +141,4 @@ vx just e2e-pr
 - Capture screenshots at each significant step for proof trail
 - Log console errors even if tests pass (detect regressions early)
 - Clean up processes after testing (stop Gallery, close browsers)
-- Follow AGENTES.md conventions: all commands through `vx`, task orchestration through `justfile`
+- Follow AGENTS.md conventions: all commands through `vx`, task orchestration through `justfile`

@@ -15,7 +15,7 @@ AuroraView 采用模块化、后端无关的架构设计，支持多种窗口集
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Python API 层                           │
-│  (WebView, QtWebView)                                      │
+│  (create_webview, WebView, QtWebView, AuroraView)          │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -33,15 +33,16 @@ AuroraView 采用模块化、后端无关的架构设计，支持多种窗口集
                 ┌───────────┴───────────┐
                 ▼                       ▼
 ┌───────────────────────┐   ┌───────────────────────┐
-│   原生后端            │   │    Qt 后端            │
-│  (平台特定)           │   │  (Qt 集成)            │
+│   原生后端            │   │    Qt 宿主层          │
+│  (Standalone / HWND)  │   │  (Qt widget 容器)     │
 └───────────────────────┘   └───────────────────────┘
                 │                       │
-                ▼                       ▼
-┌───────────────────────┐   ┌───────────────────────┐
-│   Wry WebView         │   │  Qt WebEngine         │
-│  (WebView2/WebKit)    │   │  (QWebEngineView)     │
-└───────────────────────┘   └───────────────────────┘
+                └───────────┬───────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│              系统 WebView 引擎                               │
+│   Windows: WebView2  │  macOS: WKWebView  │  Linux: WebKitGTK │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## 核心组件
@@ -110,7 +111,7 @@ pub trait WebViewBackend {
     fn window(&self) -> Option<&tao::window::Window>;
     fn process_events(&self) -> bool;
     fn run_event_loop_blocking(&mut self);
-    
+
     // 通用操作的默认实现
     fn load_url(&mut self, url: &str) -> Result<(), Box<dyn std::error::Error>>;
     fn load_html(&mut self, html: &str) -> Result<(), Box<dyn std::error::Error>>;
@@ -132,6 +133,10 @@ pub trait WebViewBackend {
 **Windows 模式**:
 - `Child`: WS_CHILD 样式（需要同线程父窗口）
 - `Owner`: GWLP_HWNDPARENT（跨线程安全）
+
+### Qt 宿主层
+
+Qt 集成层将系统 WebView 作为子窗口嵌入到 Qt QWidget 容器中。Qt 负责事件循环和窗口外壳，实际渲染委托给平台原生 WebView 引擎（Windows 上为 WebView2，macOS 上为 WKWebView，Linux 上为 WebKitGTK）。
 
 ## 集成模式
 

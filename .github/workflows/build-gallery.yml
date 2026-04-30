@@ -328,7 +328,12 @@ jobs:
       - name: Start Gallery with CDP
         shell: pwsh
         run: |
-          Start-Process -FilePath "gallery\pack-output\auroraview-gallery.exe" -WorkingDirectory "gallery\pack-output"
+          $exe = "gallery\pack-output\auroraview-gallery.exe"
+          # Start with CDP enabled, wait for process to initialize
+          $process = Start-Process -FilePath $exe -WorkingDirectory "gallery\pack-output" -PassThru -WindowStyle Normal
+          Write-Host "Gallery started with PID: $($process.Id)"
+          # Give the process time to initialize and open CDP port
+          Start-Sleep -Seconds 8
 
       - name: Wait for CDP port
         shell: pwsh

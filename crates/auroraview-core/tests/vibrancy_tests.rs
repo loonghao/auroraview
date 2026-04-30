@@ -372,7 +372,11 @@ mod vibrancy_api_tests {
     fn test_apply_blur_with_color_non_windows() {
         let result = apply_blur(0, Some((30, 30, 30, 200)));
         assert!(!result.success);
-        assert!(result.error.as_deref().map_or(false, |e| e.contains("Windows")));
+<<<<<<< HEAD
+        assert!(result
+            .error
+            .as_deref()
+            .is_some_and(|e| e.contains("Windows")));
     }
 
     #[cfg(not(target_os = "windows"))]
