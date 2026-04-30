@@ -598,4 +598,101 @@ mod tests {
         assert_eq!(html_escape("<script>"), "&lt;script&gt;");
         assert_eq!(html_escape("a & b"), "a &amp; b");
     }
+
+    #[test]
+    fn test_internal_error_page_basic() {
+        let page = internal_error_page("Something went wrong", None);
+        assert!(page.contains("500"));
+        assert!(page.contains("Internal Error"));
+        assert!(page.contains("Something went wrong"));
+    }
+
+    #[test]
+    fn test_internal_error_page_with_details() {
+        let page = internal_error_page("DB error", Some("Connection refused"));
+        assert!(page.contains("500"));
+        assert!(page.contains("DB error"));
+        assert!(page.contains("Connection refused"));
+    }
+
+    #[test]
+    fn test_connection_error_page_basic() {
+        let page = connection_error_page("http://localhost:8080", "Connection refused");
+        assert!(page.contains("Connection Error"));
+        assert!(page.contains("localhost:8080"));
+        assert!(page.contains("Connection refused"));
+    }
+
+    #[test]
+    fn test_startup_error_page_basic() {
+        let page = startup_error_page("Failed to start Python", None, None);
+        assert!(page.contains("Startup Failed"));
+        assert!(page.contains("Failed to start Python"));
+    }
+
+    #[test]
+    fn test_startup_error_page_with_output() {
+        let output = "Traceback (most recent call last):\n  File \"main.py\", line 1";
+        let page = startup_error_page("Python error", Some(output), Some("main:run"));
+        assert!(page.contains("Startup Failed"));
+        assert!(page.contains("Python error"));
+        assert!(page.contains("main:run"));
+        assert!(page.contains("Traceback"));
+    }
+
+    #[test]
+    fn test_loading_with_error_none() {
+        let page = loading_with_error("Initializing...", None);
+        assert!(page.contains("Loading"));
+        assert!(page.contains("Initializing..."));
+        // No error section should be present - check that the error-message div is not rendered
+        // The CSS may contain "error-message" as a class name, so we check the actual HTML structure
+        assert!(!page.contains("<div class=\"error-message\""));
+    }
+
+    #[test]
+    fn test_loading_with_error_some() {
+        let page = loading_with_error("Connecting...", Some("Timeout"));
+        assert!(page.contains("Loading"));
+        assert!(page.contains("Connecting..."));
+        assert!(page.contains("Timeout"));
+        assert!(page.contains("error-message"));
+    }
+
+    #[test]
+    fn test_not_found_page_html_escape() {
+        let page = not_found_page("<script>alert(1)</script>", None);
+        // The requested path should be HTML-escaped
+        assert!(!page.contains("<script>alert(1)</script>"));
+        assert!(page.contains("&lt;script&gt;"));
+    }
+
+    #[test]
+    fn test_python_error_page_html_escape() {
+        let page = python_error_page("<b>Error</b>", "<b>msg</b>", None);
+        assert!(!page.contains("<b>Error</b>"));
+        assert!(page.contains("&lt;b&gt;"));
+    }
+
+    #[test]
+    fn test_internal_error_page_html_escape() {
+        let page = internal_error_page("<img src=x onerror=alert(1)>", None);
+        assert!(!page.contains("<img src=x"));
+        assert!(page.contains("&lt;img"));
+    }
+
+    #[test]
+    fn test_not_found_page_many_assets() {
+        let assets: Vec<String> = (0..50).map(|i| format!("file{}.js", i)).collect();
+        let asset_refs: Vec<&str> = assets.iter().map(|s| &s[..]).collect();
+        let page = not_found_page("/app", Some(asset_refs));
+        assert!(page.contains("50 files"));
+        assert!(page.contains("and 30 more files"));
+    }
+
+    #[test]
+    fn test_not_found_page_no_assets() {
+        let page = not_found_page("/x", None);
+        assert!(!page.contains("Available assets"));
+    }
 }
