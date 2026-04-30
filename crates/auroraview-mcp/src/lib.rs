@@ -33,7 +33,15 @@
 //! a CDP debug port and constructing a [`CdpAuroraViewAdapter`] pointing at
 //! it, then handing that adapter to `dcc-mcp-server`'s registry.
 
+pub mod agui;
 pub mod cdp;
+pub mod error;
+pub mod mdns;
+pub mod python_bindings;
+pub mod registry;
+pub mod runner;
+pub mod server;
+pub mod types;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

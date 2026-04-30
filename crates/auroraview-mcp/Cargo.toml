@@ -18,12 +18,36 @@ name = "auroraview_mcp"
 # yet published to crates.io, so depend via git.
 dcc-mcp-protocols = { git = "https://github.com/loonghao/dcc-mcp-core.git", tag = "v0.13.2" }
 
+# MCP SDK — exposes WebView management tools via Model Context Protocol.
+rmcp = { version = "0.3.2", features = [
+    "transport-streamable-http-server",
+    "transport-streamable-http-server-session",
+    "transport-sse-server",
+    "transport-worker",
+] }
+
+# HTTP framework for MCP Streamable HTTP transport and AG-UI SSE endpoints.
+axum = "0.7"
+
+# mDNS broadcast for auto-discovery by dcc-mcp-client.
+mdns-sd = "0.10"
+
+# Unique identifiers for WebView instances.
+uuid = { version = "1.7", features = ["v4", "serde"] }
+
+# JSON Schema derivation (required by rmcp for tool parameter schemas).
+schemars = "0.8"
+
 # Async runtime + WebSocket for CDP transport.
 tokio = { version = "1.48", features = ["rt-multi-thread", "net", "sync", "time", "macros"] }
 tokio-tungstenite = "0.24"
+tokio-util = "0.7"
+tokio-stream = { version = "0.1", features = ["sync"] }
 futures-util = "0.3"
+futures = "0.3"
+dashmap = "6.1"
 
-# JSON for CDP messages.
+# JSON for CDP messages and MCP tool params.
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
@@ -36,9 +60,13 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # Error handling + logging.
 thiserror = "2.0"
 tracing = "0.1"
+anyhow = "1.0"
 
 # Workspace dep unification (same as every other crate in this workspace).
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
+
+[features]
+python-bindings = []  # Python bindings via pyo3 (enabled by consumer if needed)
 
 [dev-dependencies]
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }

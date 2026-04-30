@@ -202,10 +202,9 @@ impl McpRunner {
 
 fn build_mcp_service(
     server: AuroraViewMcpServer,
-    cancel: CancellationToken,
+    _cancel: CancellationToken,
 ) -> StreamableHttpService<AuroraViewMcpServer, LocalSessionManager> {
-    let config = StreamableHttpServerConfig::default()
-        .with_cancellation_token(cancel);
+    let config = StreamableHttpServerConfig::default();
     StreamableHttpService::new(
         move || Ok(server.clone()),
         Default::default(),

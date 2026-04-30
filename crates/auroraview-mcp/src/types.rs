@@ -200,7 +200,7 @@ impl McpServerConfig {
     /// # Example
     ///
     /// ```rust
-    /// use auroraview_mcp::McpServerConfig;
+    /// use auroraview_mcp::types::McpServerConfig;
     ///
     /// let cfg = McpServerConfig::with_all(
     ///     7891,

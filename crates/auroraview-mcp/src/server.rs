@@ -8,11 +8,12 @@ use rmcp::{
     handler::server::{
         router::tool::ToolRouter,
         tool::ToolCallContext,
-        wrapper::{Json, Parameters},
+        wrapper::Json,
     },
+    handler::server::tool::Parameters,
     model::{
-        CallToolResult, CallToolRequestParams, InitializeResult, ListToolsResult,
-        PaginatedRequestParams, ServerCapabilities,
+        CallToolResult, CallToolRequestParam, InitializeResult, ListToolsResult,
+        PaginatedRequestParam, ServerCapabilities,
     },
     schemars,
     service::RequestContext,
@@ -452,17 +453,18 @@ impl AuroraViewMcpServer {
 
 impl ServerHandler for AuroraViewMcpServer {
     fn get_info(&self) -> InitializeResult {
-        InitializeResult::new(
-            ServerCapabilities::builder().enable_tools().build(),
-        )
-        .with_instructions(
-            "AuroraView MCP Server: manage WebView windows in DCC applications (Maya, Houdini, Blender, UE, etc.)"
-        )
+        InitializeResult {
+            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            instructions: Some(
+                "AuroraView MCP Server: manage WebView windows in DCC applications (Maya, Houdini, Blender, UE, etc.)".to_string()
+            ),
+            ..Default::default()
+        }
     }
 
     fn call_tool(
         &self,
-        req: CallToolRequestParams,
+        req: CallToolRequestParam,
         context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<CallToolResult, ErrorData>> + Send + '_ {
         let ctx = ToolCallContext::new(self, req, context);
@@ -471,7 +473,7 @@ impl ServerHandler for AuroraViewMcpServer {
 
     fn list_tools(
         &self,
-        _req: Option<PaginatedRequestParams>,
+        _req: Option<PaginatedRequestParam>,
         _context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_
     {
