@@ -211,6 +211,13 @@ pub struct WindowConfig {
     /// Visible on start
     #[serde(default = "default_true")]
     pub visible: bool,
+
+    /// Enable strict default CSP policy for enhanced security.
+    ///
+    /// When set to `true` and `content_security_policy` is `None`,
+    /// a strict default policy is used.
+    #[serde(default)]
+    pub strict_csp: bool,
 }
 
 impl Default for WindowConfig {
@@ -231,6 +238,7 @@ impl Default for WindowConfig {
             fullscreen: false,
             maximized: false,
             visible: true,
+            strict_csp: false,
         }
     }
 }

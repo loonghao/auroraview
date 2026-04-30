@@ -761,6 +761,7 @@ impl From<ManifestWindowConfig> for WindowConfig {
             fullscreen: manifest.fullscreen,
             maximized: manifest.maximized,
             visible: manifest.visible,
+            strict_csp: false,
         }
     }
 }

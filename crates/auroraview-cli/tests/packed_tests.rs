@@ -129,7 +129,7 @@ fn test_escape_json_for_js_unicode() {
 
 #[test]
 fn test_build_packed_init_script_no_csp() {
-    let script = build_packed_init_script_with_csp(None);
+    let script = build_packed_init_script_with_csp(None, false);
     // Should contain event bridge
     assert!(script.contains("auroraview"));
     // API methods are registered dynamically by Python backend,
@@ -142,7 +142,7 @@ fn test_build_packed_init_script_no_csp() {
 #[test]
 fn test_build_packed_init_script_with_csp_policy() {
     let policy = "default-src 'self'; script-src 'self' 'unsafe-inline'";
-    let script = build_packed_init_script_with_csp(Some(policy));
+    let script = build_packed_init_script_with_csp(Some(policy), false);
     // Should contain event bridge
     assert!(script.contains("auroraview"));
     // Should contain CSP injection
@@ -154,7 +154,7 @@ fn test_build_packed_init_script_with_csp_policy() {
 fn test_build_packed_init_script_csp_escapes_quotes() {
     // Verify that single quotes in the policy are escaped
     let policy = "default-src 'self'";
-    let script = build_packed_init_script_with_csp(Some(policy));
+    let script = build_packed_init_script_with_csp(Some(policy), false);
     // The resulting JS must not have unescaped single quotes that break out of the string
     assert!(script.contains("Content-Security-Policy"));
     // Should not contain a raw unescaped ' inside the JS string assignment
@@ -606,7 +606,7 @@ fn test_get_python_exe_path_different_bases() {
 
 #[test]
 fn test_build_packed_init_script_contains_ready_event() {
-    let script = build_packed_init_script_with_csp(None);
+    let script = build_packed_init_script_with_csp(None, false);
     assert!(
         script.contains("auroraviewready") || script.contains("auroraview"),
         "Init script should reference the auroraview bridge"
@@ -615,14 +615,14 @@ fn test_build_packed_init_script_contains_ready_event() {
 
 #[test]
 fn test_build_packed_init_script_csp_none_no_meta() {
-    let script = build_packed_init_script_with_csp(None);
-    assert!(!script.contains("<meta"), "No CSP meta when policy is None");
+    let script = build_packed_init_script_with_csp(None, false);
+    assert!(!script.contains("<meta"), "No CSP meta when policy is None and strict_csp is false");
 }
 
 #[test]
 fn test_build_packed_init_script_csp_strict() {
     let policy = "default-src 'none'; script-src 'self'";
-    let script = build_packed_init_script_with_csp(Some(policy));
+    let script = build_packed_init_script_with_csp(Some(policy), false);
     assert!(script.contains("Content-Security-Policy"));
     assert!(script.contains("default-src"));
     assert!(script.contains("script-src"));

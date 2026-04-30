@@ -242,14 +242,14 @@ fn test_build_csp_injection_script_escapes_backslash() {
 #[test]
 fn test_build_packed_init_script_with_csp_none() {
     let without_csp = auroraview_core::assets::build_packed_init_script();
-    let with_none = auroraview_core::assets::build_packed_init_script_with_csp(None);
+    let with_none = auroraview_core::assets::build_packed_init_script_with_csp(None, false);
     assert_eq!(without_csp, with_none);
 }
 
 #[test]
 fn test_build_packed_init_script_with_csp_some() {
     let policy = "default-src 'self'; img-src *";
-    let script = auroraview_core::assets::build_packed_init_script_with_csp(Some(policy));
+    let script = auroraview_core::assets::build_packed_init_script_with_csp(Some(policy), false);
     // Should start with CSP injection, then event bridge
     assert!(script.contains("Content-Security-Policy"));
     assert!(script.contains("auroraview") || script.contains("document.createElement"));

@@ -372,7 +372,6 @@ mod vibrancy_api_tests {
     fn test_apply_blur_with_color_non_windows() {
         let result = apply_blur(0, Some((30, 30, 30, 200)));
         assert!(!result.success);
-<<<<<<< HEAD
         assert!(result
             .error
             .as_deref()

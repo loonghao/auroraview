@@ -686,11 +686,24 @@ pub fn build_csp_injection_script(policy: &str) -> String {
 ///
 /// If `csp` is `Some(policy)`, a CSP `<meta>` injection is prepended to the
 /// event-bridge script so it runs before any page content is evaluated.
-pub fn build_packed_init_script_with_csp(csp: Option<&str>) -> String {
+///
+/// When `csp` is `None` and `strict_csp` is `true`, a strict default policy
+/// is used: `"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-src 'none'; object-src 'none'; base-uri 'self'"`
+pub fn build_packed_init_script_with_csp(csp: Option<&str>, strict_csp: bool) -> String {
     let bridge = get_event_bridge_js();
-    match csp {
-        Some(policy) => {
-            let csp_script = build_csp_injection_script(policy);
+    let policy = match csp {
+        Some(p) => Some(p),
+        None => {
+            if strict_csp {
+                Some("default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-src 'none'; object-src 'none'; base-uri 'self'")
+            } else {
+                None
+            }
+        }
+    };
+    match policy {
+        Some(p) => {
+            let csp_script = build_csp_injection_script(p);
             format!("{}\n{}", csp_script, bridge)
         }
         None => bridge,

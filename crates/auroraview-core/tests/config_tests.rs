@@ -442,8 +442,9 @@ fn test_config_full_roundtrip() {
         allow_new_window: true,
         allow_file_protocol: true,
         content_security_policy: Some("default-src 'self'".to_string()),
-        #[cfg(target_os = "windows")]
-        undecorated_shadow: true,
+    #[cfg(target_os = "windows")]
+            undecorated_shadow: true,
+        ..Default::default()
     };
     let json = serde_json::to_string(&config).unwrap();
     let restored: CoreConfig = serde_json::from_str(&json).unwrap();
