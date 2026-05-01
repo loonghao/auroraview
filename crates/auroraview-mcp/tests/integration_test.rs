@@ -24,11 +24,13 @@ fn mcp_server_config_with_all() {
         "127.0.0.1",
         "auroraview-mcp",
         true,
+        false,
         Some(5),
     );
 
     assert_eq!(cfg.port, 7890);
     assert_eq!(cfg.max_webviews, Some(5));
+    assert!(!cfg.enable_oauth);
     let json = serde_json::to_string(&cfg).unwrap();
     assert!(json.contains("port"));
 }
@@ -55,14 +57,14 @@ fn server_creation_default() {
 
 #[test]
 fn server_creation_with_all() {
-    let cfg = McpServerConfig::with_all(0, "127.0.0.1", "test", false, None);
+    let cfg = McpServerConfig::with_all(0, "127.0.0.1", "test", false, false, None);
     let _server = AuroraViewMcpServer::new(cfg);
 }
 
 #[test]
 fn server_with_agui_bus() {
     let bus = AguiBus::new();
-    let cfg = McpServerConfig::with_all(0, "127.0.0.1", "test", false, None);
+    let cfg = McpServerConfig::with_all(0, "127.0.0.1", "test", false, false, None);
     let _server = AuroraViewMcpServer::new(cfg).with_agui_bus(bus.clone());
 }
 
@@ -164,7 +166,7 @@ async fn agui_bus_drop_receiver_stops_events() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn runner_builder_and_start_stop() {
-    let config = McpServerConfig::with_all(0, "127.0.0.1", "test", false, None);
+    let config = McpServerConfig::with_all(0, "127.0.0.1", "test", false, false, None);
     let _runner = McpRunner::new(config);
 }
 
@@ -174,7 +176,7 @@ async fn runner_builder_and_start_stop() {
 
 #[test]
 fn mcp_server_config_validate_valid() {
-    let cfg = McpServerConfig::with_all(7890, "127.0.0.1", "auroraview-mcp", true, None);
+    let cfg = McpServerConfig::with_all(7890, "127.0.0.1", "auroraview-mcp", true, false, None);
     assert!(cfg.validate().is_ok());
     assert!(cfg.is_valid());
 }
@@ -188,7 +190,7 @@ fn mcp_server_config_validate_invalid_port() {
 
 #[test]
 fn mcp_server_config_validate_empty_host() {
-    let cfg = McpServerConfig::with_all(7890, "", "auroraview-mcp", true, None);
+    let cfg = McpServerConfig::with_all(7890, "", "auroraview-mcp", true, false, None);
     assert!(cfg.validate().is_err());
 }
 

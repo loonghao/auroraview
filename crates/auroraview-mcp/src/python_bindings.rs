@@ -39,6 +39,8 @@ pub struct PyMcpConfig {
     pub port: u16,
     pub service_name: String,
     pub enable_mdns: bool,
+    /// Enable OAuth 2.0 authentication.
+    pub enable_oauth: bool,
     /// Maximum concurrent `WebViews` (`None` = unlimited).
     pub max_webviews: Option<usize>,
 }
@@ -50,6 +52,7 @@ impl PyMcpConfig {
         port: u16,
         service_name: String,
         enable_mdns: bool,
+        enable_oauth: bool,
         max_webviews: Option<usize>,
     ) -> Self {
         Self {
@@ -57,6 +60,7 @@ impl PyMcpConfig {
             port,
             service_name,
             enable_mdns,
+            enable_oauth,
             max_webviews,
         }
     }
@@ -70,6 +74,7 @@ impl Default for PyMcpConfig {
             port: cfg.port,
             service_name: cfg.service_name,
             enable_mdns: cfg.enable_mdns,
+            enable_oauth: cfg.enable_oauth,
             max_webviews: cfg.max_webviews,
         }
     }
@@ -82,6 +87,7 @@ impl From<PyMcpConfig> for McpServerConfig {
             port: py.port,
             service_name: py.service_name,
             enable_mdns: py.enable_mdns,
+            enable_oauth: py.enable_oauth,
             max_webviews: py.max_webviews,
         }
     }

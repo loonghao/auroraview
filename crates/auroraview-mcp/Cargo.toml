@@ -64,6 +64,13 @@ thiserror = "2.0"
 tracing = "0.1"
 anyhow = "1.0"
 
+# OAuth 2.0 dependencies (for `auth` feature usage).
+jsonwebtoken = "10"
+bcrypt = "0.15"
+sha2 = "0.10"
+chrono = "0.4"
+base64-url = "2.0"
+
 # Workspace dep unification (same as every other crate in this workspace).
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 

@@ -137,6 +137,11 @@ pub struct McpServerConfig {
     pub port: u16,
     pub service_name: String,
     pub enable_mdns: bool,
+    /// Enable OAuth 2.0 authentication for MCP endpoints.
+    /// When enabled, clients must authenticate via OAuth 2.0
+    /// to access MCP tools.
+    #[serde(default)]
+    pub enable_oauth: bool,
     /// Maximum number of concurrent `WebView` instances.
     /// `None` means no limit.
     #[serde(default)]
@@ -150,6 +155,7 @@ impl Default for McpServerConfig {
             port: 7890,
             service_name: "auroraview-mcp".to_string(),
             enable_mdns: true,
+            enable_oauth: false,
             max_webviews: None,
         }
     }
@@ -173,6 +179,16 @@ impl McpServerConfig {
     #[must_use] 
     pub fn with_mdns(mut self, enabled: bool) -> Self {
         self.enable_mdns = enabled;
+        self
+    }
+
+    /// Enable or disable OAuth 2.0 authentication.
+    ///
+    /// When enabled, clients must authenticate via OAuth 2.0
+    /// to access MCP endpoints.
+    #[must_use] 
+    pub fn with_oauth(mut self, enabled: bool) -> Self {
+        self.enable_oauth = enabled;
         self
     }
 
@@ -219,7 +235,7 @@ impl McpServerConfig {
     /// Build a fully-configured instance in a single call.
     ///
     /// Equivalent to chaining `with_port`, `with_host`, `with_service_name`,
-    /// `with_mdns`, and `with_max_webviews` on a default config.
+    /// `with_mdns`, `with_oauth`, and `with_max_webviews` on a default config.
     ///
     /// # Example
     ///
@@ -231,23 +247,27 @@ impl McpServerConfig {
     ///     "0.0.0.0",
     ///     "my-mcp",
     ///     true,
+    ///     false,
     ///     Some(10),
     /// );
     /// assert_eq!(cfg.port, 7891);
     /// assert_eq!(cfg.max_webviews, Some(10));
+    /// assert!(!cfg.enable_oauth);
     /// ```
     pub fn with_all(
         port: u16,
         host: impl Into<String>,
         service_name: impl Into<String>,
         enable_mdns: bool,
+        enable_oauth: bool,
         max_webviews: Option<usize>,
     ) -> Self {
         let mut cfg = Self::default()
             .with_port(port)
             .with_host(host)
             .with_service_name(service_name)
-            .with_mdns(enable_mdns);
+            .with_mdns(enable_mdns)
+            .with_oauth(enable_oauth);
         if let Some(max) = max_webviews {
             cfg = cfg.with_max_webviews(max);
         }
