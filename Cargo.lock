@@ -465,7 +465,6 @@ dependencies = [
  "tray-icon",
  "url",
  "urlencoding",
- "warp",
  "webview2",
  "webview2-com 0.39.1",
  "winapi",

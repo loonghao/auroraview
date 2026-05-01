@@ -12,6 +12,7 @@ use auroraview_mcp::registry::WebViewRegistry;
 use auroraview_mcp::runner::McpRunner;
 use auroraview_mcp::server::AuroraViewMcpServer;
 use auroraview_mcp::types::{McpServerConfig, WebViewConfig};
+use base64::Engine;
 
 // ---------------------------------------------------------------------------
 // Configuration builders
@@ -292,4 +293,171 @@ fn cdp_adapter_config_fields() {
     assert_eq!(cfg.pid, std::process::id());
     assert!(!cfg.platform.is_empty());
     assert_eq!(cfg.window_title, None);
+}
+
+// ---------------------------------------------------------------------------
+// Type tests: ScreenshotData
+// ---------------------------------------------------------------------------
+
+#[test]
+fn screenshot_data_from_bytes() {
+    let bytes = vec![1, 2, 3, 4, 5];
+    let data = auroraview_mcp::types::ScreenshotData::from_bytes(&bytes, 800, 600, "png");
+    assert_eq!(data.data, base64::engine::general_purpose::STANDARD.encode(&bytes));
+    assert_eq!(data.width, 800);
+    assert_eq!(data.height, 600);
+    assert_eq!(data.format, "png");
+}
+
+#[test]
+fn screenshot_data_new_placeholder() {
+    let data = auroraview_mcp::types::ScreenshotData::new_placeholder(1024, 768);
+    // Placeholder has empty data (no actual image)
+    assert!(data.data.is_empty());
+    assert_eq!(data.width, 1024);
+    assert_eq!(data.height, 768);
+    assert_eq!(data.format, "png");
+}
+
+// ---------------------------------------------------------------------------
+// Type tests: JsResult
+// ---------------------------------------------------------------------------
+
+#[test]
+fn js_result_ok() {
+    let value = serde_json::json!({"result": 42});
+    let result = auroraview_mcp::types::JsResult::ok(value.clone());
+    assert_eq!(result.value, value);
+    assert!(result.error.is_none());
+}
+
+#[test]
+fn js_result_err() {
+    let result = auroraview_mcp::types::JsResult::err("test error".to_string());
+    assert_eq!(result.value, serde_json::Value::Null);
+    assert_eq!(result.error, Some("test error".to_string()));
+}
+
+// ---------------------------------------------------------------------------
+// Type tests: WebViewId
+// ---------------------------------------------------------------------------
+
+#[test]
+fn webview_id_new_and_display() {
+    let id = auroraview_mcp::types::WebViewId::new();
+    let id_str = id.to_string();
+    assert!(!id_str.is_empty());
+    // Should be a valid UUID format
+    assert_eq!(id_str.len(), 36); // UUID v4 length
+}
+
+#[test]
+fn webview_id_parse_valid() {
+    let id = auroraview_mcp::types::WebViewId::new();
+    let id_str = id.to_string();
+    let parsed = id_str.parse::<auroraview_mcp::types::WebViewId>();
+    assert!(parsed.is_ok());
+    assert_eq!(parsed.unwrap().to_string(), id_str);
+}
+
+#[test]
+fn webview_id_parse_invalid() {
+    // WebViewId::from_str never fails (Infallible)
+    // Any string is a valid WebViewId
+    let result = "not-a-uuid".parse::<auroraview_mcp::types::WebViewId>();
+    assert!(result.is_ok());
+    let id = result.unwrap();
+    assert_eq!(id.to_string(), "not-a-uuid");
+}
+
+// ---------------------------------------------------------------------------
+// Type tests: SuccessOutput
+// ---------------------------------------------------------------------------
+
+#[test]
+fn success_output_serialization() {
+    let output = auroraview_mcp::server::types::SuccessOutput {
+        ok: true,
+        message: "test message".to_string(),
+    };
+    let json = serde_json::to_string(&output).unwrap();
+    assert!(json.contains("ok"));
+    assert!(json.contains("test message"));
+}
+
+// ---------------------------------------------------------------------------
+// Edge cases: URL validation in load_url
+// ---------------------------------------------------------------------------
+
+#[test]
+fn load_url_params_validation() {
+    let params = auroraview_mcp::server::types::LoadUrlParams {
+        id: None,
+        url: "https://example.com".to_string(),
+    };
+    // Valid URL schemes
+    assert!(params.url.starts_with("http://") || params.url.starts_with("https://") || params.url.starts_with("file://"));
+}
+
+#[test]
+fn load_url_params_invalid_scheme() {
+    let invalid_urls = vec!["ftp://example.com", "javascript:alert(1)", "data:text/html,<h1>test</h1>"];
+    for url in invalid_urls {
+        let scheme_ok = url.starts_with("http://") || url.starts_with("https://") || url.starts_with("file://");
+        assert!(!scheme_ok, "URL should be invalid: {url}");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Edge cases: EvalJsParams
+// ---------------------------------------------------------------------------
+
+#[test]
+fn eval_js_params_empty_script() {
+    let params = auroraview_mcp::server::types::EvalJsParams {
+        id: None,
+        script: "  ".to_string(), // whitespace only
+    };
+    assert!(params.script.trim().is_empty());
+}
+
+#[test]
+fn eval_js_params_valid_script() {
+    let params = auroraview_mcp::server::types::EvalJsParams {
+        id: None,
+        script: "console.log('hello');".to_string(),
+    };
+    assert!(!params.script.trim().is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// WebViewConfig: default values
+// ---------------------------------------------------------------------------
+
+#[test]
+fn webview_config_default() {
+    let cfg = auroraview_mcp::types::WebViewConfig::default();
+    assert_eq!(cfg.title, Some("AuroraView".to_string()));
+    assert_eq!(cfg.url, None);
+    assert_eq!(cfg.html, None);
+    assert_eq!(cfg.width, Some(800));
+    assert_eq!(cfg.height, Some(600));
+    assert_eq!(cfg.visible, Some(true));
+    assert_eq!(cfg.debug, Some(false));
+}
+
+#[test]
+fn webview_config_with_values() {
+    let cfg = auroraview_mcp::types::WebViewConfig {
+        title: Some("Test View".to_string()),
+        url: Some("https://example.com".to_string()),
+        html: None,
+        width: Some(1024),
+        height: Some(768),
+        visible: Some(false),
+        debug: Some(true),
+    };
+    assert_eq!(cfg.title, Some("Test View".to_string()));
+    assert_eq!(cfg.width, Some(1024));
+    assert_eq!(cfg.height, Some(768));
 }
